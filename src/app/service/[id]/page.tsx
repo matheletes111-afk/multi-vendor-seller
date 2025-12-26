@@ -4,9 +4,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { formatCurrency } from "@/lib/utils"
 
-export default async function ServicePage({ params }: { params: { id: string } }) {
+export default async function ServicePage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
   const service = await prisma.service.findUnique({
-    where: { id: params.id, isActive: true },
+    where: { id, isActive: true },
     include: {
       category: true,
       seller: {

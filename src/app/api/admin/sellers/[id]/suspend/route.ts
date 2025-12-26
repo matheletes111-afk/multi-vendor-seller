@@ -5,7 +5,7 @@ import { isAdmin } from "@/lib/rbac"
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth()
   
@@ -14,8 +14,9 @@ export async function POST(
   }
 
   try {
+    const { id } = await params
     await prisma.seller.update({
-      where: { id: params.id },
+      where: { id },
       data: { isSuspended: true },
     })
 
