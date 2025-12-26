@@ -4,12 +4,13 @@ import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { isProductSeller } from "@/lib/rbac"
 import { revalidatePath } from "next/cache"
+import { redirect } from "next/navigation"
 
 export async function deleteProduct(productId: string) {
   const session = await auth()
   
   if (!session?.user || !isProductSeller(session.user)) {
-    return { error: "Unauthorized" }
+    redirect("/dashboard/seller/products?error=unauthorized")
   }
 
   const seller = await prisma.seller.findUnique({
@@ -17,7 +18,7 @@ export async function deleteProduct(productId: string) {
   })
 
   if (!seller) {
-    return { error: "Seller not found" }
+    redirect("/dashboard/seller/products?error=seller_not_found")
   }
 
   // Verify product belongs to seller
@@ -29,7 +30,7 @@ export async function deleteProduct(productId: string) {
   })
 
   if (!product) {
-    return { error: "Product not found" }
+    redirect("/dashboard/seller/products?error=product_not_found")
   }
 
   try {
@@ -40,9 +41,9 @@ export async function deleteProduct(productId: string) {
     })
 
     revalidatePath("/dashboard/seller/products")
-    return { success: true }
+    redirect("/dashboard/seller/products?success=deleted")
   } catch (error) {
-    return { error: "Failed to delete product" }
+    redirect("/dashboard/seller/products?error=delete_failed")
   }
 }
 

@@ -5,12 +5,13 @@ import { prisma } from "@/lib/prisma"
 import { createSubscriptionSession } from "@/lib/stripe"
 import { isSeller } from "@/lib/rbac"
 import { SubscriptionPlan } from "@prisma/client"
+import { redirect } from "next/navigation"
 
 export async function createSubscriptionCheckout(planName: SubscriptionPlan) {
   const session = await auth()
   
   if (!session?.user || !isSeller(session.user)) {
-    return { error: "Unauthorized" }
+    redirect("/dashboard/seller/subscription?error=unauthorized")
   }
 
   const seller = await prisma.seller.findUnique({
@@ -23,7 +24,7 @@ export async function createSubscriptionCheckout(planName: SubscriptionPlan) {
   })
 
   if (!seller) {
-    return { error: "Seller not found" }
+    redirect("/dashboard/seller/subscription?error=seller_not_found")
   }
 
   const plan = await prisma.plan.findUnique({
@@ -31,7 +32,7 @@ export async function createSubscriptionCheckout(planName: SubscriptionPlan) {
   })
 
   if (!plan) {
-    return { error: "Plan not found" }
+    redirect("/dashboard/seller/subscription?error=plan_not_found")
   }
 
   // Create or get Stripe customer
@@ -55,10 +56,14 @@ export async function createSubscriptionCheckout(planName: SubscriptionPlan) {
       },
     })
 
-    return { url: checkoutSession.url }
+    if (checkoutSession.url) {
+      redirect(checkoutSession.url)
+    } else {
+      redirect("/dashboard/seller/subscription?error=checkout_failed")
+    }
   } catch (error) {
     console.error("Stripe checkout error:", error)
-    return { error: "Failed to create checkout session" }
+    redirect("/dashboard/seller/subscription?error=checkout_failed")
   }
 }
 
