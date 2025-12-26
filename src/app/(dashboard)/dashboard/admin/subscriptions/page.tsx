@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { isAdmin } from "@/lib/rbac"
 import { redirect } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
 import { formatCurrency, formatDate } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
@@ -42,11 +43,16 @@ export default async function AdminSubscriptionsPage() {
     .reduce((sum, s) => sum + s.plan.price, 0)
 
   return (
-    <div className="container mx-auto py-8">
-      <h1 className="text-3xl font-bold mb-8">Subscription Management</h1>
+    <div className="container mx-auto p-6 space-y-8">
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight">Subscription Management</h1>
+        <p className="text-muted-foreground mt-2">
+          Manage subscription plans and seller subscriptions
+        </p>
+      </div>
 
       {/* Statistics */}
-      <div className="grid gap-4 md:grid-cols-4 mb-8">
+      <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardHeader>
             <CardTitle>Total Subscriptions</CardTitle>
@@ -63,7 +69,7 @@ export default async function AdminSubscriptionsPage() {
             <CardDescription>Currently active</CardDescription>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold text-green-600">{activeSubscriptions}</p>
+            <p className="text-3xl font-bold text-green-600 dark:text-green-400">{activeSubscriptions}</p>
           </CardContent>
         </Card>
 
@@ -89,9 +95,9 @@ export default async function AdminSubscriptionsPage() {
       </div>
 
       {/* Subscription Plans */}
-      <div className="mb-8">
+      <div>
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-2xl font-semibold">Subscription Plans</h2>
+          <h2 className="text-2xl font-semibold tracking-tight">Subscription Plans</h2>
         </div>
         <div className="grid gap-4 md:grid-cols-3">
           {plans.map((plan) => {
@@ -161,19 +167,19 @@ export default async function AdminSubscriptionsPage() {
                       </CardDescription>
                     </div>
                     <div className="text-right">
-                      <span
-                        className={`px-2 py-1 rounded text-xs font-medium ${
+                      <Badge
+                        variant={
                           subscription.status === "ACTIVE"
-                            ? "bg-green-100 text-green-800"
+                            ? "default"
                             : subscription.status === "CANCELED"
-                            ? "bg-gray-100 text-gray-800"
+                            ? "secondary"
                             : subscription.status === "PAST_DUE"
-                            ? "bg-red-100 text-red-800"
-                            : "bg-yellow-100 text-yellow-800"
-                        }`}
+                            ? "destructive"
+                            : "outline"
+                        }
                       >
                         {subscription.status}
-                      </span>
+                      </Badge>
                     </div>
                   </div>
                 </CardHeader>

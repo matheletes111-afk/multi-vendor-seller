@@ -3,7 +3,10 @@ import { prisma } from "@/lib/prisma"
 import { isAdmin } from "@/lib/rbac"
 import { redirect } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
 import { formatCurrency } from "@/lib/utils"
+import Link from "next/link"
+import { Users, ShoppingBag, Package, Briefcase, ShoppingCart, DollarSign, AlertCircle, ArrowRight } from "lucide-react"
 
 export default async function AdminDashboard() {
   const session = await auth()
@@ -33,107 +36,161 @@ export default async function AdminDashboard() {
   ])
 
   return (
-    <div className="container mx-auto py-8">
-      <h1 className="text-3xl font-bold mb-8">Admin Dashboard</h1>
-
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-8">
-        <Card>
-          <CardHeader>
-            <CardTitle>Sellers</CardTitle>
-            <CardDescription>Total sellers</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold">{totalSellers}</p>
-            {pendingSellers > 0 && (
-              <p className="text-sm text-destructive mt-2">
-                {pendingSellers} pending approval
-              </p>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Customers</CardTitle>
-            <CardDescription>Total customers</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold">{totalCustomers}</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Products</CardTitle>
-            <CardDescription>Active products</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold">{totalProducts}</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Services</CardTitle>
-            <CardDescription>Active services</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold">{totalServices}</p>
-          </CardContent>
-        </Card>
+    <div className="container mx-auto p-6 space-y-8">
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+        <p className="text-muted-foreground mt-2">
+          Overview of your marketplace platform
+        </p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 mb-8">
-        <Card>
+      {pendingSellers > 0 && (
+        <Card className="border-destructive/50 bg-destructive/5">
           <CardHeader>
-            <CardTitle>Total Orders</CardTitle>
-            <CardDescription>All time orders</CardDescription>
+            <div className="flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-destructive" />
+              <CardTitle className="text-destructive">Pending Approvals</CardTitle>
+            </div>
+            <CardDescription>
+              {pendingSellers} seller{pendingSellers !== 1 ? "s" : ""} waiting for approval
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold">{totalOrders}</p>
+            <Link href="/dashboard/admin/sellers">
+              <Badge variant="destructive" className="cursor-pointer hover:bg-destructive/90">
+                Review Now
+              </Badge>
+            </Link>
+          </CardContent>
+        </Card>
+      )}
+
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Sellers</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{totalSellers}</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Total registered sellers
+            </p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader>
-            <CardTitle>Platform Revenue</CardTitle>
-            <CardDescription>Total commissions</CardDescription>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Customers</CardTitle>
+            <ShoppingBag className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold">
-              {formatCurrency(totalRevenue._sum.amount || 0)}
+            <div className="text-2xl font-bold">{totalCustomers}</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Total customers
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Products</CardTitle>
+            <Package className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{totalProducts}</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Active products
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Services</CardTitle>
+            <Briefcase className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{totalServices}</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Active services
             </p>
           </CardContent>
         </Card>
       </div>
 
-      <div className="mt-8">
-        <h2 className="text-2xl font-semibold mb-4">Quick Actions</h2>
+      <div className="grid gap-4 md:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <ShoppingCart className="h-5 w-5" />
+              Total Orders
+            </CardTitle>
+            <CardDescription>All time orders</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold">{totalOrders}</div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <DollarSign className="h-5 w-5" />
+              Platform Revenue
+            </CardTitle>
+            <CardDescription>Total commissions earned</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold">
+              {formatCurrency(totalRevenue._sum.amount || 0)}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div>
+        <h2 className="text-2xl font-semibold tracking-tight mb-4">Quick Actions</h2>
         <div className="grid gap-4 md:grid-cols-3">
-          <a href="/dashboard/admin/sellers">
-            <Card className="hover:shadow-lg transition-shadow cursor-pointer">
+          <Link href="/dashboard/admin/sellers">
+            <Card className="hover:shadow-md transition-shadow cursor-pointer h-full">
               <CardHeader>
-                <CardTitle>Manage Sellers</CardTitle>
-                <CardDescription>Approve, suspend, or manage sellers</CardDescription>
+                <CardTitle className="flex items-center justify-between">
+                  Manage Sellers
+                  <ArrowRight className="h-4 w-4" />
+                </CardTitle>
+                <CardDescription>
+                  Approve, suspend, or manage sellers
+                </CardDescription>
               </CardHeader>
             </Card>
-          </a>
-          <a href="/dashboard/admin/subscriptions">
-            <Card className="hover:shadow-lg transition-shadow cursor-pointer">
+          </Link>
+          <Link href="/dashboard/admin/subscriptions">
+            <Card className="hover:shadow-md transition-shadow cursor-pointer h-full">
               <CardHeader>
-                <CardTitle>Manage Subscriptions</CardTitle>
-                <CardDescription>View and manage seller subscriptions</CardDescription>
+                <CardTitle className="flex items-center justify-between">
+                  Manage Subscriptions
+                  <ArrowRight className="h-4 w-4" />
+                </CardTitle>
+                <CardDescription>
+                  View and manage seller subscriptions
+                </CardDescription>
               </CardHeader>
             </Card>
-          </a>
-          <a href="/dashboard/admin/categories">
-            <Card className="hover:shadow-lg transition-shadow cursor-pointer">
+          </Link>
+          <Link href="/dashboard/admin/categories">
+            <Card className="hover:shadow-md transition-shadow cursor-pointer h-full">
               <CardHeader>
-                <CardTitle>Manage Categories</CardTitle>
-                <CardDescription>Create and manage categories</CardDescription>
+                <CardTitle className="flex items-center justify-between">
+                  Manage Categories
+                  <ArrowRight className="h-4 w-4" />
+                </CardTitle>
+                <CardDescription>
+                  Create and manage categories
+                </CardDescription>
               </CardHeader>
             </Card>
-          </a>
+          </Link>
         </div>
       </div>
     </div>

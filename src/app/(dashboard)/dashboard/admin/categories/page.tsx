@@ -3,7 +3,10 @@ import { prisma } from "@/lib/prisma"
 import { isAdmin } from "@/lib/rbac"
 import { redirect } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { formatCurrency } from "@/lib/utils"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { Separator } from "@/components/ui/separator"
+import { Plus, Package, Briefcase } from "lucide-react"
 
 export default async function CategoriesPage() {
   const session = await auth()
@@ -25,39 +28,66 @@ export default async function CategoriesPage() {
   })
 
   return (
-    <div className="container mx-auto py-8">
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold">Categories</h1>
-        <button className="px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90">
+    <div className="container mx-auto p-6 space-y-6">
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Categories</h1>
+          <p className="text-muted-foreground mt-2">
+            Manage product and service categories
+          </p>
+        </div>
+        <Button>
+          <Plus className="mr-2 h-4 w-4" />
           Add Category
-        </button>
+        </Button>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {categories.map((category) => (
-          <Card key={category.id}>
-            <CardHeader>
-              <CardTitle>{category.name}</CardTitle>
-              <CardDescription>{category.description || "No description"}</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                <p className="text-sm">
-                  Commission Rate: <span className="font-semibold">{category.commissionRate}%</span>
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  {category._count.products} products, {category._count.services} services
-                </p>
-                <p className="text-sm">
-                  Status: <span className={category.isActive ? "text-green-600" : "text-red-600"}>
+      {categories.length === 0 ? (
+        <Card>
+          <CardContent className="py-16 text-center">
+            <p className="text-muted-foreground">No categories found</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {categories.map((category) => (
+            <Card key={category.id} className="hover:shadow-md transition-shadow">
+              <CardHeader>
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <CardTitle>{category.name}</CardTitle>
+                    <CardDescription className="mt-1">
+                      {category.description || "No description"}
+                    </CardDescription>
+                  </div>
+                  <Badge variant={category.isActive ? "default" : "secondary"}>
                     {category.isActive ? "Active" : "Inactive"}
-                  </span>
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Commission Rate</p>
+                    <p className="text-lg font-semibold">{category.commissionRate}%</p>
+                  </div>
+                  <Separator />
+                  <div className="flex items-center gap-4 text-sm">
+                    <div className="flex items-center gap-1">
+                      <Package className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-muted-foreground">{category._count.products} products</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Briefcase className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-muted-foreground">{category._count.services} services</span>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

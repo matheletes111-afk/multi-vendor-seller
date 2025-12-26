@@ -3,7 +3,10 @@ import { prisma } from "@/lib/prisma"
 import { isSeller } from "@/lib/rbac"
 import { redirect } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Separator } from "@/components/ui/separator"
 import { formatCurrency, formatDate } from "@/lib/utils"
+import { ShoppingCart, Package, User } from "lucide-react"
 
 export default async function SellerOrdersPage() {
   const session = await auth()
@@ -35,48 +38,67 @@ export default async function SellerOrdersPage() {
   })
 
   return (
-    <div className="container mx-auto py-8">
-      <h1 className="text-3xl font-bold mb-8">Orders</h1>
+    <div className="container mx-auto p-6 space-y-6">
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight">Orders</h1>
+        <p className="text-muted-foreground mt-2">
+          View and manage your orders
+        </p>
+      </div>
 
       {orders.length === 0 ? (
         <Card>
-          <CardContent className="py-12 text-center">
-            <p className="text-muted-foreground">No orders yet</p>
+          <CardContent className="py-16 text-center">
+            <ShoppingCart className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+            <h3 className="text-lg font-semibold mb-2">No orders yet</h3>
+            <p className="text-muted-foreground">
+              Orders from customers will appear here
+            </p>
           </CardContent>
         </Card>
       ) : (
         <div className="space-y-4">
           {orders.map((order) => (
-            <Card key={order.id}>
+            <Card key={order.id} className="hover:shadow-md transition-shadow">
               <CardHeader>
                 <div className="flex justify-between items-start">
                   <div>
                     <CardTitle>Order #{order.id.slice(0, 8)}</CardTitle>
-                    <CardDescription>
+                    <CardDescription className="mt-1 flex items-center gap-1">
+                      <User className="h-3 w-3" />
                       {order.customer.name || order.customer.email} • {formatDate(order.createdAt)}
                     </CardDescription>
                   </div>
                   <div className="text-right">
                     <p className="text-lg font-semibold">{formatCurrency(order.totalAmount)}</p>
-                    <p className="text-sm text-muted-foreground capitalize">{order.status.toLowerCase()}</p>
+                    <Badge variant="outline" className="mt-1 capitalize">
+                      {order.status.toLowerCase()}
+                    </Badge>
                   </div>
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="space-y-2">
+                <Separator className="mb-4" />
+                <div className="space-y-3">
                   {order.items.map((item) => (
-                    <div key={item.id} className="flex justify-between text-sm">
-                      <span>
-                        {item.product?.name || item.service?.name} x {item.quantity}
-                      </span>
-                      <span>{formatCurrency(item.subtotal)}</span>
+                    <div key={item.id} className="flex justify-between items-center">
+                      <div className="flex items-center gap-2">
+                        <Package className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm">
+                          {item.product?.name || item.service?.name} × {item.quantity}
+                        </span>
+                      </div>
+                      <span className="text-sm font-medium">{formatCurrency(item.subtotal)}</span>
                     </div>
                   ))}
-                  <div className="pt-2 border-t mt-2">
-                    <div className="flex justify-between text-sm">
-                      <span>Commission ({order.commissionRate}%)</span>
-                      <span className="text-destructive">-{formatCurrency(order.commission)}</span>
-                    </div>
+                  <Separator />
+                  <div className="flex justify-between items-center pt-2">
+                    <span className="text-sm text-muted-foreground">
+                      Commission ({order.commissionRate}%)
+                    </span>
+                    <span className="text-sm font-medium text-destructive">
+                      -{formatCurrency(order.commission)}
+                    </span>
                   </div>
                 </div>
               </CardContent>

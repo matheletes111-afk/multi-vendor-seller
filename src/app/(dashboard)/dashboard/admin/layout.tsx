@@ -1,9 +1,13 @@
 import { auth } from "@/lib/auth"
 import { redirect } from "next/navigation"
 import { isAdmin } from "@/lib/rbac"
-import Link from "next/link"
 import { logout } from "@/server/actions/auth/logout"
+import { Header } from "@/components/navigation/header"
+import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader } from "@/components/navigation/sidebar"
+import { NavItem } from "@/components/navigation/nav-item"
+import { MobileNav } from "@/components/navigation/mobile-nav"
 import { Button } from "@/components/ui/button"
+import { LayoutDashboard, Users, CreditCard, FolderTree, ShoppingBag } from "lucide-react"
 
 export default async function AdminLayout({
   children,
@@ -16,34 +20,54 @@ export default async function AdminLayout({
     redirect("/dashboard")
   }
 
+  async function handleLogout() {
+    "use server"
+    return await logout()
+  }
+
   return (
     <div className="flex min-h-screen">
-      <aside className="w-64 border-r p-4 flex flex-col">
-        <div className="mb-4">
-          <h2 className="text-lg font-semibold mb-2">Admin Dashboard</h2>
-          <p className="text-sm text-muted-foreground">{session.user.email}</p>
-        </div>
-        <nav className="space-y-2 flex-1">
-          <Link href="/dashboard/admin" className="block px-4 py-2 rounded hover:bg-accent">
-            Overview
-          </Link>
-          <Link href="/dashboard/admin/sellers" className="block px-4 py-2 rounded hover:bg-accent">
-            Sellers
-          </Link>
-          <Link href="/dashboard/admin/subscriptions" className="block px-4 py-2 rounded hover:bg-accent">
-            Subscriptions
-          </Link>
-          <Link href="/dashboard/admin/categories" className="block px-4 py-2 rounded hover:bg-accent">
-            Categories
-          </Link>
-        </nav>
-        <form action={logout} className="mt-4">
-          <Button type="submit" variant="outline" className="w-full">
-            Logout
-          </Button>
-        </form>
-      </aside>
-      <main className="flex-1">{children}</main>
+      <Sidebar className="hidden md:block">
+        <SidebarHeader>
+          <div className="flex items-center gap-2">
+            <ShoppingBag className="h-5 w-5" />
+            <span className="text-lg font-semibold">Admin</span>
+          </div>
+        </SidebarHeader>
+        <SidebarContent>
+          <NavItem href="/dashboard/admin" label="Overview" icon={LayoutDashboard} />
+          <NavItem href="/dashboard/admin/sellers" label="Sellers" icon={Users} />
+          <NavItem href="/dashboard/admin/subscriptions" label="Subscriptions" icon={CreditCard} />
+          <NavItem href="/dashboard/admin/categories" label="Categories" icon={FolderTree} />
+        </SidebarContent>
+        <SidebarFooter>
+          <form action={handleLogout}>
+            <Button type="submit" variant="outline" className="w-full">
+              Logout
+            </Button>
+          </form>
+        </SidebarFooter>
+      </Sidebar>
+      <div className="flex flex-1 flex-col md:pl-64">
+        <Header
+          user={{
+            name: session.user.name || undefined,
+            email: session.user.email || undefined,
+            image: session.user.image || undefined,
+          }}
+          onLogout={handleLogout}
+        >
+          <MobileNav>
+            <SidebarContent>
+              <NavItem href="/dashboard/admin" label="Overview" icon={LayoutDashboard} />
+              <NavItem href="/dashboard/admin/sellers" label="Sellers" icon={Users} />
+              <NavItem href="/dashboard/admin/subscriptions" label="Subscriptions" icon={CreditCard} />
+              <NavItem href="/dashboard/admin/categories" label="Categories" icon={FolderTree} />
+            </SidebarContent>
+          </MobileNav>
+        </Header>
+        <main className="flex-1">{children}</main>
+      </div>
     </div>
   )
 }

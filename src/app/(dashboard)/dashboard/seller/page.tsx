@@ -3,8 +3,13 @@ import { prisma } from "@/lib/prisma"
 import { isSeller } from "@/lib/rbac"
 import { redirect } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { formatCurrency } from "@/lib/utils"
 import { getCurrentSubscription } from "@/server/actions/subscriptions/get-subscription"
+import Link from "next/link"
+import { Package, Briefcase, ShoppingCart, DollarSign, AlertCircle, ArrowRight } from "lucide-react"
 
 export default async function SellerDashboard() {
   const session = await auth()
@@ -34,66 +39,83 @@ export default async function SellerDashboard() {
   ])
 
   return (
-    <div className="container mx-auto py-8">
-      <h1 className="text-3xl font-bold mb-8">Seller Dashboard</h1>
+    <div className="container mx-auto p-6 space-y-8">
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+        <p className="text-muted-foreground mt-2">
+          Overview of your seller account
+        </p>
+      </div>
 
       {!subscription && (
-        <Card className="mb-8 border-destructive">
-          <CardHeader>
-            <CardTitle>Subscription Required</CardTitle>
-            <CardDescription>
-              You need an active subscription to use the seller dashboard
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <a href="/dashboard/seller/subscription">
-              <button className="px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90">
+        <Alert className="border-destructive/50 bg-destructive/5">
+          <AlertCircle className="h-4 w-4 text-destructive" />
+          <AlertTitle>Subscription Required</AlertTitle>
+          <AlertDescription className="mt-2">
+            You need an active subscription to use the seller dashboard.
+          </AlertDescription>
+          <div className="mt-4">
+            <Button asChild>
+              <Link href="/dashboard/seller/subscription">
                 Subscribe Now
-              </button>
-            </a>
-          </CardContent>
-        </Card>
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Link>
+            </Button>
+          </div>
+        </Alert>
       )}
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
-          <CardHeader>
-            <CardTitle>Products</CardTitle>
-            <CardDescription>Active products</CardDescription>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Products</CardTitle>
+            <Package className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold">{totalProducts}</p>
+            <div className="text-2xl font-bold">{totalProducts}</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Active products
+            </p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader>
-            <CardTitle>Services</CardTitle>
-            <CardDescription>Active services</CardDescription>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Services</CardTitle>
+            <Briefcase className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold">{totalServices}</p>
+            <div className="text-2xl font-bold">{totalServices}</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Active services
+            </p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader>
-            <CardTitle>Orders</CardTitle>
-            <CardDescription>Total orders</CardDescription>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Orders</CardTitle>
+            <ShoppingCart className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold">{totalOrders}</p>
+            <div className="text-2xl font-bold">{totalOrders}</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Total orders
+            </p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader>
-            <CardTitle>Revenue</CardTitle>
-            <CardDescription>Total revenue</CardDescription>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Revenue</CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold">
+            <div className="text-2xl font-bold">
               {formatCurrency(totalRevenue._sum.subtotal || 0)}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Total revenue
             </p>
           </CardContent>
         </Card>
