@@ -64,14 +64,16 @@ export async function createServiceForm(formData: FormData) {
   if (result.error) {
     const errorMsg = typeof result.error === "string" 
       ? result.error 
-      : result.details 
+      : "details" in result && result.details
         ? JSON.stringify(result.details)
         : "Failed to create service"
-    console.error("Service creation error:", result.error, result.details)
+    console.error("Service creation error:", result.error, "details" in result ? result.details : undefined)
     redirect(`/dashboard/seller/services/new?error=${encodeURIComponent(errorMsg)}`)
   }
 
-  console.log("Service created successfully:", result.service?.id)
+  if ("service" in result && result.service) {
+    console.log("Service created successfully:", result.service.id)
+  }
   redirect("/dashboard/seller/services?success=created")
 }
 
