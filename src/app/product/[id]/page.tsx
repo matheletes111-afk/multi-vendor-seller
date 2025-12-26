@@ -32,7 +32,7 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
     <div className="container mx-auto py-8">
       <div className="grid gap-8 md:grid-cols-2">
         <div>
-          {product.images.length > 0 ? (
+          {product.images && product.images.length > 0 ? (
             <img
               src={product.images[0]}
               alt={product.name}

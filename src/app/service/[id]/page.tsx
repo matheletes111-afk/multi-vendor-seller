@@ -37,7 +37,7 @@ export default async function ServicePage({ params }: { params: Promise<{ id: st
     <div className="container mx-auto py-8">
       <div className="grid gap-8 md:grid-cols-2">
         <div>
-          {service.images.length > 0 ? (
+          {service.images && service.images.length > 0 ? (
             <img
               src={service.images[0]}
               alt={service.name}
