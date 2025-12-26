@@ -35,9 +35,9 @@ export default async function CustomerLayout({
           </div>
         </SidebarHeader>
         <SidebarContent>
-          <NavItem href="/dashboard/customer" label="Overview" icon={LayoutDashboard} />
-          <NavItem href="/dashboard/customer/orders" label="My Orders" icon={ShoppingCart} />
-          <NavItem href="/browse" label="Browse Marketplace" icon={Store} />
+          <NavItem href="/dashboard/customer" label="Overview" icon={<LayoutDashboard className="h-4 w-4" />} />
+          <NavItem href="/dashboard/customer/orders" label="My Orders" icon={<ShoppingCart className="h-4 w-4" />} />
+          <NavItem href="/browse" label="Browse Marketplace" icon={<Store className="h-4 w-4" />} />
         </SidebarContent>
         <SidebarFooter>
           <form action={handleLogout}>
@@ -58,9 +58,9 @@ export default async function CustomerLayout({
         >
           <MobileNav>
             <SidebarContent>
-              <NavItem href="/dashboard/customer" label="Overview" icon={LayoutDashboard} />
-              <NavItem href="/dashboard/customer/orders" label="My Orders" icon={ShoppingCart} />
-              <NavItem href="/browse" label="Browse Marketplace" icon={Store} />
+              <NavItem href="/dashboard/customer" label="Overview" icon={<LayoutDashboard className="h-4 w-4" />} />
+              <NavItem href="/dashboard/customer/orders" label="My Orders" icon={<ShoppingCart className="h-4 w-4" />} />
+              <NavItem href="/browse" label="Browse Marketplace" icon={<Store className="h-4 w-4" />} />
             </SidebarContent>
           </MobileNav>
         </Header>

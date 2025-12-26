@@ -50,16 +50,16 @@ export default async function SellerLayout({
           )}
         </SidebarHeader>
         <SidebarContent>
-          <NavItem href="/dashboard/seller" label="Overview" icon={LayoutDashboard} />
+          <NavItem href="/dashboard/seller" label="Overview" icon={<LayoutDashboard className="h-4 w-4" />} />
           {isProduct && (
-            <NavItem href="/dashboard/seller/products" label="Products" icon={Package} />
+            <NavItem href="/dashboard/seller/products" label="Products" icon={<Package className="h-4 w-4" />} />
           )}
           {isService && (
-            <NavItem href="/dashboard/seller/services" label="Services" icon={Briefcase} />
+            <NavItem href="/dashboard/seller/services" label="Services" icon={<Briefcase className="h-4 w-4" />} />
           )}
-          <NavItem href="/dashboard/seller/orders" label="Orders" icon={ShoppingCart} />
-          <NavItem href="/dashboard/seller/subscription" label="Subscription" icon={CreditCard} />
-          <NavItem href="/dashboard/seller/settings" label="Settings" icon={Settings} />
+          <NavItem href="/dashboard/seller/orders" label="Orders" icon={<ShoppingCart className="h-4 w-4" />} />
+          <NavItem href="/dashboard/seller/subscription" label="Subscription" icon={<CreditCard className="h-4 w-4" />} />
+          <NavItem href="/dashboard/seller/settings" label="Settings" icon={<Settings className="h-4 w-4" />} />
         </SidebarContent>
         <SidebarFooter>
           <form action={handleLogout}>
@@ -80,16 +80,16 @@ export default async function SellerLayout({
         >
           <MobileNav>
             <SidebarContent>
-              <NavItem href="/dashboard/seller" label="Overview" icon={LayoutDashboard} />
+              <NavItem href="/dashboard/seller" label="Overview" icon={<LayoutDashboard className="h-4 w-4" />} />
               {isProduct && (
-                <NavItem href="/dashboard/seller/products" label="Products" icon={Package} />
+                <NavItem href="/dashboard/seller/products" label="Products" icon={<Package className="h-4 w-4" />} />
               )}
               {isService && (
-                <NavItem href="/dashboard/seller/services" label="Services" icon={Briefcase} />
+                <NavItem href="/dashboard/seller/services" label="Services" icon={<Briefcase className="h-4 w-4" />} />
               )}
-              <NavItem href="/dashboard/seller/orders" label="Orders" icon={ShoppingCart} />
-              <NavItem href="/dashboard/seller/subscription" label="Subscription" icon={CreditCard} />
-              <NavItem href="/dashboard/seller/settings" label="Settings" icon={Settings} />
+              <NavItem href="/dashboard/seller/orders" label="Orders" icon={<ShoppingCart className="h-4 w-4" />} />
+              <NavItem href="/dashboard/seller/subscription" label="Subscription" icon={<CreditCard className="h-4 w-4" />} />
+              <NavItem href="/dashboard/seller/settings" label="Settings" icon={<Settings className="h-4 w-4" />} />
             </SidebarContent>
           </MobileNav>
         </Header>

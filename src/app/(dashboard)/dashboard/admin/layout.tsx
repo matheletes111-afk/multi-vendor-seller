@@ -35,10 +35,10 @@ export default async function AdminLayout({
           </div>
         </SidebarHeader>
         <SidebarContent>
-          <NavItem href="/dashboard/admin" label="Overview" icon={LayoutDashboard} />
-          <NavItem href="/dashboard/admin/sellers" label="Sellers" icon={Users} />
-          <NavItem href="/dashboard/admin/subscriptions" label="Subscriptions" icon={CreditCard} />
-          <NavItem href="/dashboard/admin/categories" label="Categories" icon={FolderTree} />
+          <NavItem href="/dashboard/admin" label="Overview" icon={<LayoutDashboard className="h-4 w-4" />} />
+          <NavItem href="/dashboard/admin/sellers" label="Sellers" icon={<Users className="h-4 w-4" />} />
+          <NavItem href="/dashboard/admin/subscriptions" label="Subscriptions" icon={<CreditCard className="h-4 w-4" />} />
+          <NavItem href="/dashboard/admin/categories" label="Categories" icon={<FolderTree className="h-4 w-4" />} />
         </SidebarContent>
         <SidebarFooter>
           <form action={handleLogout}>
@@ -59,10 +59,10 @@ export default async function AdminLayout({
         >
           <MobileNav>
             <SidebarContent>
-              <NavItem href="/dashboard/admin" label="Overview" icon={LayoutDashboard} />
-              <NavItem href="/dashboard/admin/sellers" label="Sellers" icon={Users} />
-              <NavItem href="/dashboard/admin/subscriptions" label="Subscriptions" icon={CreditCard} />
-              <NavItem href="/dashboard/admin/categories" label="Categories" icon={FolderTree} />
+              <NavItem href="/dashboard/admin" label="Overview" icon={<LayoutDashboard className="h-4 w-4" />} />
+              <NavItem href="/dashboard/admin/sellers" label="Sellers" icon={<Users className="h-4 w-4" />} />
+              <NavItem href="/dashboard/admin/subscriptions" label="Subscriptions" icon={<CreditCard className="h-4 w-4" />} />
+              <NavItem href="/dashboard/admin/categories" label="Categories" icon={<FolderTree className="h-4 w-4" />} />
             </SidebarContent>
           </MobileNav>
         </Header>
