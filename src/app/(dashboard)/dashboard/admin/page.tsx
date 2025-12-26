@@ -109,12 +109,20 @@ export default async function AdminDashboard() {
 
       <div className="mt-8">
         <h2 className="text-2xl font-semibold mb-4">Quick Actions</h2>
-        <div className="flex gap-4">
+        <div className="grid gap-4 md:grid-cols-3">
           <a href="/dashboard/admin/sellers">
             <Card className="hover:shadow-lg transition-shadow cursor-pointer">
               <CardHeader>
                 <CardTitle>Manage Sellers</CardTitle>
                 <CardDescription>Approve, suspend, or manage sellers</CardDescription>
+              </CardHeader>
+            </Card>
+          </a>
+          <a href="/dashboard/admin/subscriptions">
+            <Card className="hover:shadow-lg transition-shadow cursor-pointer">
+              <CardHeader>
+                <CardTitle>Manage Subscriptions</CardTitle>
+                <CardDescription>View and manage seller subscriptions</CardDescription>
               </CardHeader>
             </Card>
           </a>

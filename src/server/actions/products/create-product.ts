@@ -16,7 +16,9 @@ export async function createProduct(data: unknown) {
 
   const validated = createProductSchema.safeParse(data)
   if (!validated.success) {
-    return { error: "Invalid data", details: validated.error.errors }
+    const errorMessages = validated.error.errors.map(err => `${err.path.join('.')}: ${err.message}`).join(', ')
+    console.error("Validation errors:", validated.error.errors)
+    return { error: `Validation failed: ${errorMessages}`, details: validated.error.errors }
   }
 
   const seller = await prisma.seller.findUnique({
@@ -24,14 +26,25 @@ export async function createProduct(data: unknown) {
   })
 
   if (!seller) {
-    return { error: "Seller not found" }
+    return { error: "Seller not found. Please complete your seller registration." }
+  }
+
+  if (!seller.isApproved) {
+    return { error: "Your seller account is pending approval. Please wait for admin approval." }
+  }
+
+  if (seller.isSuspended) {
+    return { error: "Your seller account has been suspended. Please contact support." }
   }
 
   // Check subscription limits
   const limitCheck = await checkProductLimit(seller.id)
   if (!limitCheck.allowed) {
+    const limitMsg = limitCheck.limit === null 
+      ? "unlimited" 
+      : limitCheck.limit.toString()
     return { 
-      error: "Product limit reached", 
+      error: `Product limit reached. You have ${limitCheck.current} products and your plan allows ${limitMsg}. Please upgrade your subscription to add more products.`, 
       current: limitCheck.current,
       limit: limitCheck.limit,
     }
@@ -44,6 +57,11 @@ export async function createProduct(data: unknown) {
     .replace(/(^-|-$)/g, "")
 
   try {
+    // Ensure images is an array for JSON storage
+    const imagesData = validated.data.images && Array.isArray(validated.data.images) 
+      ? validated.data.images 
+      : []
+
     const product = await prisma.product.create({
       data: {
         sellerId: seller.id,
@@ -54,17 +72,18 @@ export async function createProduct(data: unknown) {
         basePrice: validated.data.basePrice,
         stock: validated.data.stock,
         sku: validated.data.sku,
-        images: validated.data.images || [],
+        images: imagesData as any, // Prisma will convert array to JSON for MySQL
       },
     })
 
     revalidatePath("/dashboard/seller/products")
     return { success: true, product }
   } catch (error: any) {
+    console.error("Prisma error creating product:", error)
     if (error.code === "P2002") {
       return { error: "Product with this name already exists" }
     }
-    return { error: "Failed to create product" }
+    return { error: `Failed to create product: ${error.message || "Unknown error"}` }
   }
 }
 

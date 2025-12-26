@@ -26,7 +26,7 @@ export async function createSubscriptionCheckout(planName: SubscriptionPlan) {
     return { error: "Seller not found" }
   }
 
-  const plan = await prisma.subscriptionPlan.findUnique({
+  const plan = await prisma.plan.findUnique({
     where: { name: planName },
   })
 

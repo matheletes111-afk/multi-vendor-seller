@@ -5,6 +5,9 @@ import { redirect } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { formatDate } from "@/lib/utils"
+import { approveSeller } from "@/server/actions/admin/approve-seller"
+import { suspendSeller } from "@/server/actions/admin/suspend-seller"
+import { unsuspendSeller } from "@/server/actions/admin/unsuspend-seller"
 
 export default async function AdminSellersPage() {
   const session = await auth()
@@ -50,16 +53,16 @@ export default async function AdminSellersPage() {
                 </div>
                 <div className="flex gap-2">
                   {!seller.isApproved && (
-                    <form action={`/api/admin/sellers/${seller.id}/approve`}>
+                    <form action={approveSeller.bind(null, seller.id)}>
                       <Button type="submit" size="sm">Approve</Button>
                     </form>
                   )}
                   {seller.isSuspended ? (
-                    <form action={`/api/admin/sellers/${seller.id}/unsuspend`}>
+                    <form action={unsuspendSeller.bind(null, seller.id)}>
                       <Button type="submit" size="sm" variant="outline">Unsuspend</Button>
                     </form>
                   ) : (
-                    <form action={`/api/admin/sellers/${seller.id}/suspend`}>
+                    <form action={suspendSeller.bind(null, seller.id)}>
                       <Button type="submit" size="sm" variant="destructive">Suspend</Button>
                     </form>
                   )}

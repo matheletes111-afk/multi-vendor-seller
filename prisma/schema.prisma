@@ -6,7 +6,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "mysql"
   url      = env("DATABASE_URL")
 }
 
@@ -157,7 +157,7 @@ model Store {
   @@map("stores")
 }
 
-model SubscriptionPlan {
+model Plan {
   id          String            @id @default(cuid())
   name        SubscriptionPlan  @unique
   displayName String
@@ -189,7 +189,7 @@ model Subscription {
   updatedAt         DateTime           @updatedAt
 
   seller Seller           @relation(fields: [sellerId], references: [id], onDelete: Cascade)
-  plan   SubscriptionPlan @relation(fields: [planId], references: [id])
+  plan   Plan             @relation(fields: [planId], references: [id])
 
   @@map("subscriptions")
 }
@@ -219,7 +219,7 @@ model Product {
   slug        String
   description String?  @db.Text
   basePrice   Float
-  images      String[] // Array of image URLs
+  images      Json     // Array of image URLs stored as JSON
   isActive    Boolean  @default(true)
   isFeatured  Boolean  @default(false)
   stock       Int      @default(0)
@@ -252,8 +252,9 @@ model ProductVariant {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  product    Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
-  orderItems OrderItem[]
+  product     Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  orderItems  OrderItem[]
+  cartItems   CartItem[]
 
   @@index([productId])
   @@map("product_variants")
@@ -268,7 +269,7 @@ model Service {
   description String?     @db.Text
   serviceType ServiceType
   basePrice   Float?      // For fixed-price services
-  images      String[]    // Array of image URLs
+  images      Json        // Array of image URLs stored as JSON
   isActive    Boolean     @default(true)
   isFeatured  Boolean     @default(false)
   duration    Int?        // Duration in minutes (for appointments)
@@ -299,7 +300,9 @@ model ServiceSlot {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  service Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  service     Service      @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  orderItems  OrderItem[]
+  cartItems   CartItem[]
 
   @@index([serviceId])
   @@index([startTime])
@@ -312,11 +315,13 @@ model ServicePackage {
   name        String
   description String?  @db.Text
   price       Float
-  features    String[] // Array of features
+  features    Json     // Array of features stored as JSON
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  service Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  service      Service      @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  orderItems    OrderItem[]
+  cartItems     CartItem[]
 
   @@index([serviceId])
   @@map("service_packages")

@@ -8,7 +8,7 @@ import { SubscriptionPlan } from "@prisma/client"
 
 export default async function SubscriptionPage() {
   const subscription = await getCurrentSubscription()
-  const plans = await prisma.subscriptionPlan.findMany({
+  const plans = await prisma.plan.findMany({
     orderBy: { price: "asc" },
   })
 

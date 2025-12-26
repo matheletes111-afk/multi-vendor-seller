@@ -2,12 +2,12 @@ import { z } from "zod"
 
 export const createServiceSchema = z.object({
   name: z.string().min(1, "Name is required"),
-  description: z.string().optional(),
+  description: z.string().optional().nullable(),
   categoryId: z.string().min(1, "Category is required"),
   serviceType: z.enum(["APPOINTMENT", "FIXED_PRICE"]),
-  basePrice: z.number().positive().optional(),
-  duration: z.number().int().positive().optional(),
-  images: z.array(z.string().url()).optional(),
+  basePrice: z.number().positive().optional().nullable(),
+  duration: z.number().int().positive().optional().nullable(),
+  images: z.array(z.string()).optional().nullable(),
 })
 
 export const updateServiceSchema = createServiceSchema.partial()

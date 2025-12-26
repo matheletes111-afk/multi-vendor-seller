@@ -16,7 +16,9 @@ export async function createService(data: unknown) {
 
   const validated = createServiceSchema.safeParse(data)
   if (!validated.success) {
-    return { error: "Invalid data", details: validated.error.errors }
+    const errorMessages = validated.error.errors.map(err => `${err.path.join('.')}: ${err.message}`).join(', ')
+    console.error("Validation errors:", validated.error.errors)
+    return { error: `Validation failed: ${errorMessages}`, details: validated.error.errors }
   }
 
   const seller = await prisma.seller.findUnique({
@@ -24,14 +26,25 @@ export async function createService(data: unknown) {
   })
 
   if (!seller) {
-    return { error: "Seller not found" }
+    return { error: "Seller not found. Please complete your seller registration." }
+  }
+
+  if (!seller.isApproved) {
+    return { error: "Your seller account is pending approval. Please wait for admin approval." }
+  }
+
+  if (seller.isSuspended) {
+    return { error: "Your seller account has been suspended. Please contact support." }
   }
 
   // Check subscription limits
   const limitCheck = await checkServiceLimit(seller.id)
   if (!limitCheck.allowed) {
+    const limitMsg = limitCheck.limit === null 
+      ? "unlimited" 
+      : limitCheck.limit.toString()
     return { 
-      error: "Service limit reached", 
+      error: `Service limit reached. You have ${limitCheck.current} services and your plan allows ${limitMsg}. Please upgrade your subscription to add more services.`, 
       current: limitCheck.current,
       limit: limitCheck.limit,
     }
@@ -44,6 +57,11 @@ export async function createService(data: unknown) {
     .replace(/(^-|-$)/g, "")
 
   try {
+    // Ensure images is an array for JSON storage
+    const imagesData = validated.data.images && Array.isArray(validated.data.images) 
+      ? validated.data.images 
+      : []
+
     const service = await prisma.service.create({
       data: {
         sellerId: seller.id,
@@ -54,17 +72,18 @@ export async function createService(data: unknown) {
         serviceType: validated.data.serviceType,
         basePrice: validated.data.basePrice,
         duration: validated.data.duration,
-        images: validated.data.images || [],
+        images: imagesData as any, // Prisma will convert array to JSON for MySQL
       },
     })
 
     revalidatePath("/dashboard/seller/services")
     return { success: true, service }
   } catch (error: any) {
+    console.error("Prisma error creating service:", error)
     if (error.code === "P2002") {
       return { error: "Service with this name already exists" }
     }
-    return { error: "Failed to create service" }
+    return { error: `Failed to create service: ${error.message || "Unknown error"}` }
   }
 }
 
