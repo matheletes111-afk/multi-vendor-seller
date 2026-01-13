@@ -9,6 +9,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Package, Briefcase } from "lucide-react"
 import { AddCategoryForm } from "@/components/admin/add-category-form"
 import { EditCategoryForm } from "@/components/admin/edit-category-form"
+import { DeleteCategoryButton } from "@/components/admin/delete-category-button"
 
 export default async function CategoriesPage({
   searchParams,
@@ -103,8 +104,14 @@ export default async function CategoriesPage({
                     </div>
                   </div>
                   <Separator />
-                  <div className="flex justify-end pt-2">
+                  <div className="flex justify-end gap-2 pt-2">
                     <EditCategoryForm category={category} />
+                    <DeleteCategoryButton
+                      categoryId={category.id}
+                      categoryName={category.name}
+                      productCount={category._count.products}
+                      serviceCount={category._count.services}
+                    />
                   </div>
                 </div>
               </CardContent>
