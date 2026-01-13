@@ -8,6 +8,7 @@ export const createServiceSchema = z.object({
   basePrice: z.number().positive().optional().nullable(),
   duration: z.number().int().positive().optional().nullable(),
   images: z.array(z.string()).optional().nullable(),
+  isActive: z.boolean().optional(),
 })
 
 export const updateServiceSchema = createServiceSchema.partial()
