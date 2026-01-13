@@ -1,7 +1,8 @@
 "use client"
 
 import { ReactNode } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, usePathname } from "next/navigation"
+import Link from "next/link"
 import { cn } from "@/lib/utils"
 import { ThemeToggle } from "@/components/ui/theme-toggle"
 import {
@@ -29,6 +30,7 @@ interface HeaderProps {
 
 export function Header({ children, user, onLogout, className }: HeaderProps) {
   const router = useRouter()
+  const pathname = usePathname()
   const userInitials = user?.name
     ?.split(" ")
     .map((n) => n[0])
@@ -41,6 +43,18 @@ export function Header({ children, user, onLogout, className }: HeaderProps) {
       await onLogout()
       router.refresh()
     }
+  }
+
+  // Determine profile link based on current path
+  const getProfileLink = () => {
+    if (pathname?.startsWith("/dashboard/admin")) {
+      return "/dashboard/admin"
+    } else if (pathname?.startsWith("/dashboard/seller")) {
+      return "/dashboard/seller/settings"
+    } else if (pathname?.startsWith("/dashboard/customer")) {
+      return "/dashboard/customer"
+    }
+    return "/dashboard"
   }
 
   return (
@@ -79,9 +93,11 @@ export function Header({ children, user, onLogout, className }: HeaderProps) {
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem>
-                <User className="mr-2 h-4 w-4" />
-                <span>Profile</span>
+              <DropdownMenuItem asChild>
+                <Link href={getProfileLink()}>
+                  <User className="mr-2 h-4 w-4" />
+                  <span>Profile</span>
+                </Link>
               </DropdownMenuItem>
               {onLogout && (
                 <>
