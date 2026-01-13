@@ -8,6 +8,7 @@ import { Separator } from "@/components/ui/separator"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Package, Briefcase } from "lucide-react"
 import { AddCategoryForm } from "@/components/admin/add-category-form"
+import { EditCategoryForm } from "@/components/admin/edit-category-form"
 
 export default async function CategoriesPage({
   searchParams,
@@ -100,6 +101,10 @@ export default async function CategoriesPage({
                       <Briefcase className="h-4 w-4 text-muted-foreground" />
                       <span className="text-muted-foreground">{category._count.services} services</span>
                     </div>
+                  </div>
+                  <Separator />
+                  <div className="flex justify-end pt-2">
+                    <EditCategoryForm category={category} />
                   </div>
                 </div>
               </CardContent>

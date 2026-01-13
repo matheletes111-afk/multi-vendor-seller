@@ -8,3 +8,7 @@ export const createCategorySchema = z.object({
   isActive: z.boolean().default(true),
 })
 
+export const updateCategorySchema = createCategorySchema.partial().extend({
+  name: z.string().min(1, "Name is required"),
+})
+
