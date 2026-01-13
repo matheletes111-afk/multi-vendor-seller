@@ -1,14 +1,20 @@
 import { getSellerProducts } from "@/server/actions/products/get-products"
-import { deleteProduct } from "@/server/actions/products/delete-product"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { DeleteProductButton } from "@/components/seller/delete-product-button"
 import Link from "next/link"
 import { formatCurrency } from "@/lib/utils"
-import { Plus, Package, Edit, Trash2 } from "lucide-react"
+import { Plus, Package, Edit } from "lucide-react"
 
-export default async function ProductsPage() {
+export default async function ProductsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string; success?: string }>
+}) {
   const products = await getSellerProducts()
+  const params = await searchParams
 
   return (
     <div className="container mx-auto p-6 space-y-6">
@@ -26,6 +32,22 @@ export default async function ProductsPage() {
           </Link>
         </Button>
       </div>
+
+      {params.error && (
+        <Alert variant="destructive" className="mb-6">
+          <AlertDescription>
+            {decodeURIComponent(params.error)}
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {params.success && (
+        <Alert className="mb-6">
+          <AlertDescription>
+            {decodeURIComponent(params.success)}
+          </AlertDescription>
+        </Alert>
+      )}
 
       {products.length === 0 ? (
         <Card>
@@ -77,12 +99,14 @@ export default async function ProductsPage() {
                         Edit
                       </Link>
                     </Button>
-                    <form action={deleteProduct.bind(null, product.id)} className="flex-1">
-                      <Button type="submit" variant="destructive" size="sm" className="w-full">
-                        <Trash2 className="mr-2 h-4 w-4" />
-                        Delete
-                      </Button>
-                    </form>
+                    <div className="flex-1">
+                      <DeleteProductButton
+                        productId={product.id}
+                        productName={product.name}
+                        orderItemsCount={product._count.orderItems}
+                        variantsCount={product.variants.length}
+                      />
+                    </div>
                   </div>
                 </div>
               </CardContent>

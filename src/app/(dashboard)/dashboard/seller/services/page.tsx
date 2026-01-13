@@ -1,11 +1,19 @@
 import { getSellerServices } from "@/server/actions/services/get-services"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { DeleteServiceButton } from "@/components/seller/delete-service-button"
 import Link from "next/link"
 import { formatCurrency } from "@/lib/utils"
+import { Edit } from "lucide-react"
 
-export default async function ServicesPage() {
+export default async function ServicesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string; success?: string }>
+}) {
   const services = await getSellerServices()
+  const params = await searchParams
 
   return (
     <div className="container mx-auto py-8">
@@ -18,6 +26,22 @@ export default async function ServicesPage() {
           <Button>Add Service</Button>
         </Link>
       </div>
+
+      {params.error && (
+        <Alert variant="destructive" className="mb-6">
+          <AlertDescription>
+            {decodeURIComponent(params.error)}
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {params.success && (
+        <Alert className="mb-6">
+          <AlertDescription>
+            {decodeURIComponent(params.success)}
+          </AlertDescription>
+        </Alert>
+      )}
 
       {services.length === 0 ? (
         <Card>
@@ -53,9 +77,21 @@ export default async function ServicesPage() {
                     Bookings: {service._count.orderItems} | Reviews: {service._count.reviews}
                   </p>
                   <div className="flex gap-2 mt-4">
-                    <Link href={`/dashboard/seller/services/${service.id}`} className="flex-1">
-                      <Button variant="outline" className="w-full">Edit</Button>
-                    </Link>
+                    <Button variant="outline" size="sm" className="flex-1" asChild>
+                      <Link href={`/dashboard/seller/services/${service.id}`}>
+                        <Edit className="mr-2 h-4 w-4" />
+                        Edit
+                      </Link>
+                    </Button>
+                    <div className="flex-1">
+                    <div className="flex-1">
+                      <DeleteServiceButton
+                        serviceId={service.id}
+                        serviceName={service.name}
+                        orderItemsCount={service._count.orderItems}
+                      />
+                    </div>
+                    </div>
                   </div>
                 </div>
               </CardContent>

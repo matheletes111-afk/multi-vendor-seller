@@ -2,13 +2,13 @@
 
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
-import { isProductSeller } from "@/lib/rbac"
+import { isServiceSeller } from "@/lib/rbac"
 import { revalidatePath } from "next/cache"
 
-export async function deleteProduct(productId: string) {
+export async function deleteService(serviceId: string) {
   const session = await auth()
   
-  if (!session?.user || !isProductSeller(session.user)) {
+  if (!session?.user || !isServiceSeller(session.user)) {
     return { error: "Unauthorized" }
   }
 
@@ -20,39 +20,40 @@ export async function deleteProduct(productId: string) {
     return { error: "Seller not found" }
   }
 
-  // Verify product belongs to seller
-  const product = await prisma.product.findUnique({
-    where: { id: productId },
+  // Verify service belongs to seller
+  const service = await prisma.service.findUnique({
+    where: { id: serviceId },
     include: {
       _count: {
         select: {
           orderItems: true,
-          variants: true,
+          slots: true,
+          packages: true,
         },
       },
     },
   })
 
-  if (!product) {
-    return { error: "Product not found" }
+  if (!service) {
+    return { error: "Service not found" }
   }
 
   // Verify service belongs to seller
-  if (product.sellerId !== seller.id) {
+  if (service.sellerId !== seller.id) {
     return { error: "Unauthorized" }
   }
 
   try {
-    // Hard delete - Prisma will cascade delete variants automatically
-    // OrderItems, Reviews, and CartItems have optional productId, so they won't block deletion
-    await prisma.product.delete({
-      where: { id: productId },
+    // Hard delete - Prisma will cascade delete slots and packages automatically
+    // OrderItems, Reviews, and CartItems have optional serviceId, so they won't block deletion
+    await prisma.service.delete({
+      where: { id: serviceId },
     })
 
-    revalidatePath("/dashboard/seller/products")
+    revalidatePath("/dashboard/seller/services")
     return { success: true }
   } catch (error: any) {
-    console.error("Error deleting product:", error)
+    console.error("Error deleting service:", error)
     const errorMessage = error?.message || "Unknown error"
     const errorCode = error?.code || "UNKNOWN"
     return { error: `Delete failed: ${errorMessage} (${errorCode})` }
