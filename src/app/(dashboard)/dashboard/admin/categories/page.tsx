@@ -3,18 +3,24 @@ import { prisma } from "@/lib/prisma"
 import { isAdmin } from "@/lib/rbac"
 import { redirect } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
-import { Plus, Package, Briefcase } from "lucide-react"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Package, Briefcase } from "lucide-react"
+import { AddCategoryForm } from "@/components/admin/add-category-form"
 
-export default async function CategoriesPage() {
+export default async function CategoriesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string; success?: string }>
+}) {
   const session = await auth()
   
   if (!session?.user || !isAdmin(session.user)) {
     redirect("/dashboard")
   }
 
+  const params = await searchParams
   const categories = await prisma.category.findMany({
     include: {
       _count: {
@@ -36,11 +42,24 @@ export default async function CategoriesPage() {
             Manage product and service categories
           </p>
         </div>
-        <Button>
-          <Plus className="mr-2 h-4 w-4" />
-          Add Category
-        </Button>
+        <AddCategoryForm />
       </div>
+
+      {params.error && (
+        <Alert variant="destructive">
+          <AlertDescription>
+            {decodeURIComponent(params.error)}
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {params.success && (
+        <Alert>
+          <AlertDescription>
+            {decodeURIComponent(params.success)}
+          </AlertDescription>
+        </Alert>
+      )}
 
       {categories.length === 0 ? (
         <Card>
