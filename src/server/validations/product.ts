@@ -8,6 +8,7 @@ export const createProductSchema = z.object({
   stock: z.number().int().min(0, "Stock cannot be negative"),
   sku: z.string().optional(),
   images: z.array(z.string().url()).optional(),
+  isActive: z.boolean().optional(),
 })
 
 export const updateProductSchema = createProductSchema.partial()

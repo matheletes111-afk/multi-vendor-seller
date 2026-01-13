@@ -39,15 +39,36 @@ export async function updateProduct(productId: string, data: unknown) {
   }
 
   try {
+    // Generate slug from name if name is being updated
+    let updateData: any = { ...validated.data }
+    if (validated.data.name && validated.data.name !== product.name) {
+      const slug = validated.data.name
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/(^-|-$)/g, "")
+      updateData.slug = slug
+    }
+
+    // Clean up undefined values
+    Object.keys(updateData).forEach(key => {
+      if (updateData[key] === undefined) {
+        delete updateData[key]
+      }
+    })
+
     const updated = await prisma.product.update({
       where: { id: productId },
-      data: validated.data,
+      data: updateData,
     })
 
     revalidatePath("/dashboard/seller/products")
     return { success: true, product: updated }
-  } catch (error) {
-    return { error: "Failed to update product" }
+  } catch (error: any) {
+    console.error("Prisma error updating product:", error)
+    if (error.code === "P2002") {
+      return { error: "Product with this name already exists" }
+    }
+    return { error: `Failed to update product: ${error.message || "Unknown error"}` }
   }
 }
 
