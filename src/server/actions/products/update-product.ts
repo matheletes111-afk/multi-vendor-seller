@@ -39,7 +39,6 @@ export async function updateProduct(productId: string, data: unknown) {
   }
 
   try {
-    // Generate slug from name if name is being updated
     let updateData: any = { ...validated.data }
     if (validated.data.name && validated.data.name !== product.name) {
       const slug = validated.data.name
@@ -49,7 +48,13 @@ export async function updateProduct(productId: string, data: unknown) {
       updateData.slug = slug
     }
 
-    // Clean up undefined values
+    const discount = validated.data.discount !== undefined
+      ? Math.round(validated.data.discount * 100) / 100
+      : product.discount
+    updateData.discount = discount
+    updateData.hasGst = validated.data.hasGst ?? product.hasGst
+    if (validated.data.basePrice !== undefined) updateData.basePrice = validated.data.basePrice
+
     Object.keys(updateData).forEach(key => {
       if (updateData[key] === undefined) {
         delete updateData[key]

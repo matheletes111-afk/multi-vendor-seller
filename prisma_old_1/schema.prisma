@@ -219,8 +219,6 @@ model Product {
   slug        String
   description String?  @db.Text
   basePrice   Float
-  discount    Float    @default(0)      // Discount amount per item
-  hasGst      Boolean  @default(true)   // Y = 15% GST at checkout, N = no GST
   images      Json     // Array of image URLs stored as JSON
   isActive    Boolean  @default(true)
   isFeatured  Boolean  @default(false)
@@ -271,8 +269,6 @@ model Service {
   description String?     @db.Text
   serviceType ServiceType
   basePrice   Float?      // For fixed-price services
-  discount    Float       @default(0)      // Discount amount per item
-  hasGst      Boolean     @default(true)   // Y = 15% GST at checkout, N = no GST
   images      Json        // Array of image URLs stored as JSON
   isActive    Boolean     @default(true)
   isFeatured  Boolean     @default(false)
@@ -461,14 +457,3 @@ model CartItem {
   @@map("cart_items")
 }
 
-model AdManagement {
-  id            String   @id @default(cuid())
-  image         String?  // URL or path to the advertisement image
-  title         String   // Title of the advertisement
-  description   String?  @db.Text // Optional description
-  isActive      Boolean  @default(true) // Status of the ad
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  @@map("ad_managements")
-}

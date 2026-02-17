@@ -62,6 +62,8 @@ export async function createProduct(data: unknown) {
       ? validated.data.images 
       : []
 
+    const discount = Math.round((validated.data.discount ?? 0) * 100) / 100
+
     const product = await prisma.product.create({
       data: {
         sellerId: seller.id,
@@ -70,9 +72,11 @@ export async function createProduct(data: unknown) {
         slug,
         description: validated.data.description,
         basePrice: validated.data.basePrice,
+        discount,
+        hasGst: validated.data.hasGst ?? true,
         stock: validated.data.stock,
         sku: validated.data.sku,
-        images: imagesData as any, // Prisma will convert array to JSON for MySQL
+        images: imagesData as any,
       },
     })
 

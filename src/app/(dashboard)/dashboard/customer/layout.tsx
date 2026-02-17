@@ -1,3 +1,5 @@
+import Link from "next/link"
+import Image from "next/image"
 import { auth } from "@/lib/auth"
 import { redirect } from "next/navigation"
 import { isCustomer } from "@/lib/rbac"
@@ -29,10 +31,10 @@ export default async function CustomerLayout({
     <div className="flex min-h-screen">
       <Sidebar className="hidden md:block">
         <SidebarHeader>
-          <div className="flex items-center gap-2">
-            <ShoppingBag className="h-5 w-5" />
-            <span className="text-lg font-semibold">Customer</span>
-          </div>
+          <Link href="/" className="flex w-full flex-col items-center gap-1.5 text-center">
+            <Image src="/images/logo-three.jpeg" alt="Logo" width={200} height={56} className="h-14 w-auto object-contain shrink-0" />
+            <span className="text-xs font-medium text-muted-foreground tracking-wide">Customer</span>
+          </Link>
         </SidebarHeader>
         <SidebarContent>
           <NavItem href="/dashboard/customer" label="Overview" icon={<LayoutDashboard className="h-4 w-4" />} />

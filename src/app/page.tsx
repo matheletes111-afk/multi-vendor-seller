@@ -1,4 +1,5 @@
 import Link from "next/link"
+import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { ArrowRight, ShoppingBag, Store, Users, Zap } from "lucide-react"
 
@@ -8,10 +9,16 @@ export default function Home() {
       {/* Header */}
       <header className="border-b">
         <div className="container mx-auto flex h-16 items-center justify-between px-4">
-          <div className="flex items-center gap-2">
-            <ShoppingBag className="h-6 w-6" />
-            <span className="text-xl font-semibold">Marketplace</span>
-          </div>
+          <Link href="/" className="flex shrink-0 items-center">
+            <Image
+              src="/images/logo-three.jpeg"
+              alt="Logo"
+              width={160}
+              height={42}
+              className="h-10 w-auto object-contain sm:h-11"
+              priority
+            />
+          </Link>
           <nav className="flex items-center gap-4">
             <Link
               href="/login"
@@ -93,10 +100,15 @@ export default function Home() {
       <footer className="border-t">
         <div className="container mx-auto px-4 py-8">
           <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
-            <div className="flex items-center gap-2">
-              <ShoppingBag className="h-5 w-5" />
-              <span className="text-sm font-medium">Marketplace</span>
-            </div>
+            <Link href="/" className="flex items-center">
+              <Image
+                src="/images/logo.jpeg"
+                alt="Logo"
+                width={100}
+                height={28}
+                className="h-7 w-auto object-contain"
+              />
+            </Link>
             <p className="text-sm text-muted-foreground">
               © {new Date().getFullYear()} Marketplace. All rights reserved.
             </p>

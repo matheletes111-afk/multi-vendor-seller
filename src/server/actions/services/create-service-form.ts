@@ -20,6 +20,8 @@ export async function createServiceForm(formData: FormData) {
 
   const basePriceInput = formData.get("basePrice") as string
   const durationInput = formData.get("duration") as string
+  const discountStr = (formData.get("discount") as string) || "0"
+  const hasGstInput = formData.get("hasGst") as string
 
   // Validate required fields
   const name = formData.get("name") as string
@@ -30,7 +32,6 @@ export async function createServiceForm(formData: FormData) {
     redirect("/dashboard/seller/services/new?error=missing_required_fields")
   }
 
-  // Parse basePrice and duration, handling empty strings
   let basePrice: number | undefined = undefined
   if (basePriceInput && basePriceInput.trim()) {
     const parsed = parseFloat(basePriceInput)
@@ -47,12 +48,17 @@ export async function createServiceForm(formData: FormData) {
     }
   }
 
+  const discount = Math.max(0, isNaN(parseFloat(discountStr)) ? 0 : parseFloat(discountStr))
+  const hasGst = hasGstInput === "true"
+
   const data = {
     name,
     description: (formData.get("description") as string) || undefined,
     categoryId,
     serviceType,
     basePrice,
+    hasGst,
+    discount,
     duration,
     images: images.length > 0 ? images : undefined,
   }

@@ -20,6 +20,8 @@ export async function updateServiceForm(serviceId: string, formData: FormData) {
 
   const basePriceInput = formData.get("basePrice") as string
   const durationInput = formData.get("duration") as string
+  const discountStr = (formData.get("discount") as string) || "0"
+  const hasGstInput = formData.get("hasGst") as string
 
   // Validate required fields
   const name = formData.get("name") as string
@@ -30,7 +32,6 @@ export async function updateServiceForm(serviceId: string, formData: FormData) {
     redirect(`/dashboard/seller/services/${serviceId}?error=missing_required_fields`)
   }
 
-  // Parse basePrice and duration, handling empty strings
   let basePrice: number | undefined = undefined
   if (basePriceInput && basePriceInput.trim()) {
     const parsed = parseFloat(basePriceInput)
@@ -47,7 +48,8 @@ export async function updateServiceForm(serviceId: string, formData: FormData) {
     }
   }
 
-  // Parse isActive - checkbox sends "true" when checked, nothing when unchecked
+  const discount = Math.max(0, isNaN(parseFloat(discountStr)) ? 0 : parseFloat(discountStr))
+  const hasGst = hasGstInput === "true"
   const isActiveInput = formData.get("isActive") as string
   const isActive = isActiveInput === "true"
 
@@ -57,6 +59,8 @@ export async function updateServiceForm(serviceId: string, formData: FormData) {
     categoryId,
     serviceType,
     isActive,
+    hasGst,
+    discount,
   }
 
   if (basePrice !== undefined) {

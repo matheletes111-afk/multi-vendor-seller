@@ -8,6 +8,9 @@ const inter = Inter({ subsets: ["latin"] })
 export const metadata: Metadata = {
   title: "Multivendor Marketplace",
   description: "A full-featured multivendor e-commerce and services platform",
+  icons: {
+    icon: "/images/logo-two.jpeg",
+  },
 }
 
 export default function RootLayout({

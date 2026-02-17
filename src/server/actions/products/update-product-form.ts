@@ -20,6 +20,8 @@ export async function updateProductForm(productId: string, formData: FormData) {
 
   const basePriceStr = formData.get("basePrice") as string
   const stockStr = formData.get("stock") as string
+  const discountStr = (formData.get("discount") as string) || "0"
+  const hasGstInput = formData.get("hasGst") as string
 
   // Validate required fields
   const name = formData.get("name") as string
@@ -29,7 +31,6 @@ export async function updateProductForm(productId: string, formData: FormData) {
     redirect(`/dashboard/seller/products/${productId}?error=missing_required_fields`)
   }
 
-  // Parse basePrice and stock, handling empty strings
   let basePrice: number | undefined = undefined
   if (basePriceStr && basePriceStr.trim()) {
     const parsed = parseFloat(basePriceStr)
@@ -46,7 +47,8 @@ export async function updateProductForm(productId: string, formData: FormData) {
     }
   }
 
-  // Parse isActive - checkbox sends "true" when checked, nothing when unchecked
+  const discount = Math.max(0, isNaN(parseFloat(discountStr)) ? 0 : parseFloat(discountStr))
+  const hasGst = hasGstInput === "true"
   const isActiveInput = formData.get("isActive") as string
   const isActive = isActiveInput === "true"
 
@@ -56,6 +58,8 @@ export async function updateProductForm(productId: string, formData: FormData) {
     categoryId,
     sku: (formData.get("sku") as string) || undefined,
     isActive,
+    hasGst,
+    discount,
   }
 
   if (basePrice !== undefined) {

@@ -77,15 +77,26 @@ export default async function ProductsPage({
                       {product.category.name}
                     </CardDescription>
                   </div>
-                  {!product.isActive && (
-                    <Badge variant="outline">Inactive</Badge>
-                  )}
+                  <Badge variant={product.isActive ? "default" : "secondary"}>
+                    {product.isActive ? "Active" : "Inactive"}
+                  </Badge>
                 </div>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  <div>
-                    <p className="text-2xl font-bold">{formatCurrency(product.basePrice)}</p>
+                  <div className="space-y-1">
+                    <p className="text-sm text-muted-foreground">
+                      Base {formatCurrency(product.basePrice)}
+                      {product.discount > 0 && (
+                        <> · {formatCurrency(product.discount)} off</>
+                      )}
+                    </p>
+                    <p className="text-xl font-bold">
+                      {formatCurrency(Math.max(0, product.basePrice - product.discount))} per item
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {product.hasGst ? "15% GST at checkout" : "No GST"}
+                    </p>
                   </div>
                   <div className="space-y-1 text-sm text-muted-foreground">
                     <p>Stock: {product.stock} units</p>

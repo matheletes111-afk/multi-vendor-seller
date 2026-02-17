@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { createServiceForm } from "@/server/actions/services/create-service-form"
+import { PricingFields } from "@/components/seller/pricing-fields"
 import Link from "next/link"
 
 export default async function NewServicePage({
@@ -114,29 +115,27 @@ export default async function NewServicePage({
               </div>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="basePrice">Base Price (for fixed-price services)</Label>
-                <Input
-                  id="basePrice"
-                  name="basePrice"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  placeholder="0.00"
-                />
-              </div>
+            <div className="space-y-2">
+              <Label className="text-base font-medium">Pricing</Label>
+              <PricingFields
+                basePriceLabel="Base price (for fixed-price services)"
+                defaultBasePrice={0}
+                defaultDiscount={0}
+                defaultHasGst={true}
+                showBasePrice={true}
+                requireBasePrice={false}
+              />
+            </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="duration">Duration in minutes (for appointments)</Label>
-                <Input
-                  id="duration"
-                  name="duration"
-                  type="number"
-                  min="1"
-                  placeholder="60"
-                />
-              </div>
+            <div className="space-y-2">
+              <Label htmlFor="duration">Duration in minutes (for appointments)</Label>
+              <Input
+                id="duration"
+                name="duration"
+                type="number"
+                min="1"
+                placeholder="60"
+              />
             </div>
 
             <div className="space-y-2">

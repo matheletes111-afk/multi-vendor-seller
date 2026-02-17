@@ -40,7 +40,6 @@ export async function updateService(serviceId: string, data: unknown) {
     return { error: `Validation failed: ${errorMessages}`, details: validated.error.errors }
   }
 
-  // Generate slug from name if name is being updated
   let updateData: any = { ...validated.data }
   if (validated.data.name && validated.data.name !== service.name) {
     const slug = validated.data.name
@@ -50,7 +49,13 @@ export async function updateService(serviceId: string, data: unknown) {
     updateData.slug = slug
   }
 
-  // Clean up undefined values
+  const discount = validated.data.discount !== undefined
+    ? Math.round(validated.data.discount * 100) / 100
+    : service.discount
+  updateData.discount = discount
+  updateData.hasGst = validated.data.hasGst ?? service.hasGst
+  if (validated.data.basePrice !== undefined) updateData.basePrice = validated.data.basePrice
+
   Object.keys(updateData).forEach(key => {
     if (updateData[key] === undefined) {
       delete updateData[key]
@@ -58,11 +63,8 @@ export async function updateService(serviceId: string, data: unknown) {
   })
 
   try {
-    // Ensure images is an array for JSON storage
     if (updateData.images !== undefined) {
-      updateData.images = Array.isArray(updateData.images) 
-        ? updateData.images 
-        : []
+      updateData.images = Array.isArray(updateData.images) ? updateData.images : []
     }
 
     const updated = await prisma.service.update({

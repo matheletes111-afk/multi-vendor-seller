@@ -2,6 +2,7 @@ import { getSellerServices } from "@/server/actions/services/get-services"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Badge } from "@/components/ui/badge"
 import { DeleteServiceButton } from "@/components/seller/delete-service-button"
 import Link from "next/link"
 import { formatCurrency } from "@/lib/utils"
@@ -57,15 +58,37 @@ export default async function ServicesPage({
           {services.map((service) => (
             <Card key={service.id}>
               <CardHeader>
-                <CardTitle>{service.name}</CardTitle>
-                <CardDescription>
-                  {service.category.name} • {service.serviceType}
-                </CardDescription>
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1 min-w-0">
+                    <CardTitle className="line-clamp-2">{service.name}</CardTitle>
+                    <CardDescription>
+                      {service.category.name} • {service.serviceType}
+                    </CardDescription>
+                  </div>
+                  <Badge variant={service.isActive ? "default" : "secondary"}>
+                    {service.isActive ? "Active" : "Inactive"}
+                  </Badge>
+                </div>
               </CardHeader>
               <CardContent>
                 <div className="space-y-2">
-                  {service.basePrice && (
-                    <p className="text-2xl font-bold">{formatCurrency(service.basePrice)}</p>
+                  {service.basePrice != null ? (
+                    <div className="space-y-1">
+                      <p className="text-sm text-muted-foreground">
+                        Base {formatCurrency(service.basePrice)}
+                        {service.discount > 0 && (
+                          <> · {formatCurrency(service.discount)} off</>
+                        )}
+                      </p>
+                      <p className="text-xl font-bold">
+                        {formatCurrency(Math.max(0, service.basePrice - service.discount))} per item
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {service.hasGst ? "15% GST at checkout" : "No GST"}
+                      </p>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">Price on request</p>
                   )}
                   {service.duration && (
                     <p className="text-sm text-muted-foreground">Duration: {service.duration} min</p>
@@ -84,13 +107,11 @@ export default async function ServicesPage({
                       </Link>
                     </Button>
                     <div className="flex-1">
-                    <div className="flex-1">
                       <DeleteServiceButton
                         serviceId={service.id}
                         serviceName={service.name}
                         orderItemsCount={service._count.orderItems}
                       />
-                    </div>
                     </div>
                   </div>
                 </div>

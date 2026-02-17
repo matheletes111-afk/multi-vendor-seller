@@ -6,6 +6,8 @@ export const createServiceSchema = z.object({
   categoryId: z.string().min(1, "Category is required"),
   serviceType: z.enum(["APPOINTMENT", "FIXED_PRICE"]),
   basePrice: z.number().positive().optional().nullable(),
+  discount: z.number().min(0).optional(),
+  hasGst: z.boolean().optional(),
   duration: z.number().int().positive().optional().nullable(),
   images: z.array(z.string()).optional().nullable(),
   isActive: z.boolean().optional(),

@@ -20,6 +20,8 @@ export async function createProductForm(formData: FormData) {
 
   const basePriceStr = formData.get("basePrice") as string
   const stockStr = formData.get("stock") as string
+  const discountStr = (formData.get("discount") as string) || "0"
+  const hasGstInput = formData.get("hasGst") as string
 
   // Validate required fields
   const name = formData.get("name") as string
@@ -37,11 +39,16 @@ export async function createProductForm(formData: FormData) {
     redirect("/dashboard/seller/products/new?error=invalid_stock")
   }
 
+  const discount = Math.max(0, isNaN(parseFloat(discountStr)) ? 0 : parseFloat(discountStr))
+  const hasGst = hasGstInput === "true"
+
   const data = {
     name,
     description: formData.get("description") as string || undefined,
     categoryId,
     basePrice: parseFloat(basePriceStr),
+    hasGst,
+    discount,
     stock: parseInt(stockStr),
     sku: formData.get("sku") as string || undefined,
     images: images.length > 0 ? images : undefined,

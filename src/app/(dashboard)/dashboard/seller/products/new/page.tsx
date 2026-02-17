@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { createProductForm } from "@/server/actions/products/create-product-form"
+import { PricingFields } from "@/components/seller/pricing-fields"
 import Link from "next/link"
 
 export default async function NewProductPage({
@@ -81,36 +82,26 @@ export default async function NewProductPage({
               />
             </div>
 
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="categoryId">Category *</Label>
-                <select
-                  id="categoryId"
-                  name="categoryId"
-                  required
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                >
-                  <option value="">Select a category</option>
-                  {categories.map((category) => (
-                    <option key={category.id} value={category.id}>
-                      {category.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+            <div className="space-y-2">
+              <Label htmlFor="categoryId">Category *</Label>
+              <select
+                id="categoryId"
+                name="categoryId"
+                required
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              >
+                <option value="">Select a category</option>
+                {categories.map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {category.name}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="basePrice">Price *</Label>
-                <Input
-                  id="basePrice"
-                  name="basePrice"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  required
-                  placeholder="0.00"
-                />
-              </div>
+            <div className="space-y-2">
+              <Label className="text-base font-medium">Pricing</Label>
+              <PricingFields defaultBasePrice={0} defaultDiscount={0} defaultHasGst={true} requireBasePrice={true} />
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">

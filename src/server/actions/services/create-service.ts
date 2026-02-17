@@ -62,6 +62,9 @@ export async function createService(data: unknown) {
       ? validated.data.images 
       : []
 
+    const basePrice = validated.data.basePrice ?? null
+    const discount = Math.round((validated.data.discount ?? 0) * 100) / 100
+
     const service = await prisma.service.create({
       data: {
         sellerId: seller.id,
@@ -70,9 +73,11 @@ export async function createService(data: unknown) {
         slug,
         description: validated.data.description,
         serviceType: validated.data.serviceType,
-        basePrice: validated.data.basePrice,
+        basePrice,
+        discount,
+        hasGst: validated.data.hasGst ?? true,
         duration: validated.data.duration,
-        images: imagesData as any, // Prisma will convert array to JSON for MySQL
+        images: imagesData as any,
       },
     })
 

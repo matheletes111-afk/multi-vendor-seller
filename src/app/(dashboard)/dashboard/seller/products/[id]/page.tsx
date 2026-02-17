@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { updateProductForm } from "@/server/actions/products/update-product-form"
+import { PricingFields } from "@/components/seller/pricing-fields"
 import Link from "next/link"
 
 export default async function EditProductPage({
@@ -119,38 +120,32 @@ export default async function EditProductPage({
               />
             </div>
 
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="categoryId">Category *</Label>
-                <select
-                  id="categoryId"
-                  name="categoryId"
-                  required
-                  defaultValue={product.categoryId}
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                >
-                  <option value="">Select a category</option>
-                  {categories.map((category) => (
-                    <option key={category.id} value={category.id}>
-                      {category.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+            <div className="space-y-2">
+              <Label htmlFor="categoryId">Category *</Label>
+              <select
+                id="categoryId"
+                name="categoryId"
+                required
+                defaultValue={product.categoryId}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              >
+                <option value="">Select a category</option>
+                {categories.map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {category.name}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="basePrice">Price *</Label>
-                <Input
-                  id="basePrice"
-                  name="basePrice"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  required
-                  defaultValue={product.basePrice}
-                  placeholder="0.00"
-                />
-              </div>
+            <div className="space-y-2">
+              <Label className="text-base font-medium">Pricing</Label>
+              <PricingFields
+                defaultBasePrice={product.basePrice}
+                defaultDiscount={product.discount ?? 0}
+                defaultHasGst={product.hasGst ?? true}
+                requireBasePrice={true}
+              />
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">

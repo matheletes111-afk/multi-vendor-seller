@@ -29,7 +29,7 @@ interface SidebarHeaderProps {
 
 export function SidebarHeader({ children, className }: SidebarHeaderProps) {
   return (
-    <div className={cn("flex items-center border-b px-6 py-4", className)}>
+    <div className={cn("flex items-center justify-center border-b px-6 py-4", className)}>
       {children}
     </div>
   )

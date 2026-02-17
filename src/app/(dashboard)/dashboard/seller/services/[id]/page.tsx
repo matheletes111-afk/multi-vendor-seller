@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { updateServiceForm } from "@/server/actions/services/update-service-form"
+import { PricingFields } from "@/components/seller/pricing-fields"
 import Link from "next/link"
 
 export default async function EditServicePage({
@@ -154,31 +155,28 @@ export default async function EditServicePage({
               </div>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="basePrice">Base Price (for fixed-price services)</Label>
-                <Input
-                  id="basePrice"
-                  name="basePrice"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  defaultValue={service.basePrice || ""}
-                  placeholder="0.00"
-                />
-              </div>
+            <div className="space-y-2">
+              <Label className="text-base font-medium">Pricing</Label>
+              <PricingFields
+                basePriceLabel="Base price (for fixed-price services)"
+                defaultBasePrice={service.basePrice ?? 0}
+                defaultDiscount={service.discount ?? 0}
+                defaultHasGst={service.hasGst ?? true}
+                showBasePrice={true}
+                requireBasePrice={false}
+              />
+            </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="duration">Duration in minutes (for appointments)</Label>
-                <Input
-                  id="duration"
-                  name="duration"
-                  type="number"
-                  min="1"
-                  defaultValue={service.duration || ""}
-                  placeholder="60"
-                />
-              </div>
+            <div className="space-y-2">
+              <Label htmlFor="duration">Duration in minutes (for appointments)</Label>
+              <Input
+                id="duration"
+                name="duration"
+                type="number"
+                min="1"
+                defaultValue={service.duration || ""}
+                placeholder="60"
+              />
             </div>
 
             <div className="space-y-2">

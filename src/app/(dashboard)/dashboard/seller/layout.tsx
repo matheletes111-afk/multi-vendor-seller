@@ -1,3 +1,5 @@
+import Link from "next/link"
+import Image from "next/image"
 import { auth } from "@/lib/auth"
 import { redirect } from "next/navigation"
 import { isSeller } from "@/lib/rbac"
@@ -7,7 +9,6 @@ import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader } from "@/compone
 import { NavItem } from "@/components/navigation/nav-item"
 import { MobileNav } from "@/components/navigation/mobile-nav"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
 import { prisma } from "@/lib/prisma"
 import { LayoutDashboard, Package, Briefcase, ShoppingCart, CreditCard, Settings, ShoppingBag } from "lucide-react"
 
@@ -39,15 +40,12 @@ export default async function SellerLayout({
     <div className="flex min-h-screen">
       <Sidebar className="hidden md:block">
         <SidebarHeader>
-          <div className="flex items-center gap-2">
-            <ShoppingBag className="h-5 w-5" />
-            <span className="text-lg font-semibold">Seller</span>
-          </div>
-          {seller && (
-            <Badge variant="secondary" className="mt-2 w-fit text-xs">
-              {seller.type.toLowerCase()} seller
-            </Badge>
-          )}
+          <Link href="/" className="flex w-full flex-col items-center gap-1.5 text-center">
+            <Image src="/images/logo-three.jpeg" alt="Logo" width={200} height={56} className="h-14 w-auto object-contain shrink-0" />
+            <span className="text-xs font-medium text-muted-foreground tracking-wide">
+              {seller?.type === "PRODUCT" ? "Product Seller" : seller?.type === "SERVICE" ? "Service Seller" : "Seller"}
+            </span>
+          </Link>
         </SidebarHeader>
         <SidebarContent>
           <NavItem href="/dashboard/seller" label="Overview" icon={<LayoutDashboard className="h-4 w-4" />} />
