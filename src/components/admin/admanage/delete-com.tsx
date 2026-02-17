@@ -14,7 +14,12 @@ import {
 import { Trash2 } from "lucide-react"
 import { useRouter } from "next/navigation"
 
-export function DeleteAdButton({ adId, adTitle }) {
+interface DeleteAdButtonProps {
+  adId: string
+  adTitle: string
+}
+
+export function DeleteAdButton({ adId, adTitle }: DeleteAdButtonProps) {
   const [open, setOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const router = useRouter()

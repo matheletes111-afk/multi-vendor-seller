@@ -10,23 +10,25 @@ import { Pencil, Upload, X } from "lucide-react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
 
-export function EditAdForm({ ad }) {
+interface EditAdFormProps {
+  ad: { id: string; title: string; description?: string | null; image?: string | null; isActive: boolean }
+}
+
+export function EditAdForm({ ad }: EditAdFormProps) {
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [imagePreview, setImagePreview] = useState(null)
-  const [imageFile, setImageFile] = useState(null)
+  const [imagePreview, setImagePreview] = useState<string | null>(null)
+  const [imageFile, setImageFile] = useState<File | null>(null)
   const router = useRouter()
 
-  console.log("Edit form received ad:", ad)
-
-  const handleImageChange = (e) => {
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
       if (file.type.startsWith("image/")) {
         setImageFile(file)
         const reader = new FileReader()
         reader.onloadend = () => {
-          setImagePreview(reader.result)
+          setImagePreview(reader.result as string)
         }
         reader.readAsDataURL(file)
       } else {
@@ -39,12 +41,12 @@ export function EditAdForm({ ad }) {
     setImageFile(null)
     setImagePreview(null)
     if (typeof window !== 'undefined') {
-      const fileInput = document.getElementById("edit-image-upload")
+      const fileInput = document.getElementById("edit-image-upload") as HTMLInputElement | null
       if (fileInput) fileInput.value = ""
     }
   }
 
-  async function handleSubmit(e) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setLoading(true)
     
@@ -53,8 +55,8 @@ export function EditAdForm({ ad }) {
       
       // Create new FormData for the API
       const submitData = new FormData()
-      submitData.append("title", formData.get("title"))
-      submitData.append("description", formData.get("description") || "")
+      submitData.append("title", (formData.get("title") as string) ?? "")
+      submitData.append("description", (formData.get("description") as string) ?? "")
       submitData.append("isActive", formData.get("isActive") === "on" ? "true" : "false")
       
       if (imageFile) {

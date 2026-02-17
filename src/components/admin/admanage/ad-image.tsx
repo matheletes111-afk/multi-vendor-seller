@@ -4,7 +4,12 @@ import Image from "next/image"
 import { ImageIcon } from "lucide-react"
 import { useState } from "react"
 
-export function AdImage({ image, title }) {
+interface AdImageProps {
+  image: string
+  title: string
+}
+
+export function AdImage({ image, title }: AdImageProps) {
   const [imageError, setImageError] = useState(false)
 
   if (!image || imageError) {

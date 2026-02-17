@@ -13,18 +13,18 @@ import Image from "next/image"
 export function AddAdForm() {
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [imagePreview, setImagePreview] = useState(null)
-  const [imageFile, setImageFile] = useState(null)
+  const [imagePreview, setImagePreview] = useState<string | null>(null)
+  const [imageFile, setImageFile] = useState<File | null>(null)
   const router = useRouter()
 
-  const handleImageChange = (e) => {
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
       if (file.type.startsWith("image/")) {
         setImageFile(file)
         const reader = new FileReader()
         reader.onloadend = () => {
-          setImagePreview(reader.result)
+          setImagePreview(reader.result as string)
         }
         reader.readAsDataURL(file)
       } else {
@@ -45,21 +45,20 @@ export function AddAdForm() {
     }
   }
 
-  async function handleSubmit(e) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setLoading(true)
     
     try {
       const formData = new FormData(e.currentTarget)
-      const title = formData.get("title")
-      const description = formData.get("description")
+      const title = formData.get("title") as string | null
+      const description = formData.get("description") as string | null
       const isActive = formData.get("isActive") === "on"
 
-      // Create FormData for file upload
       const submitFormData = new FormData()
-      submitFormData.append("title", title)
-      submitFormData.append("description", description || "")
-      submitFormData.append("isActive", isActive)
+      submitFormData.append("title", title ?? "")
+      submitFormData.append("description", description ?? "")
+      submitFormData.append("isActive", String(isActive))
       
       if (imageFile) {
         submitFormData.append("image", imageFile)
