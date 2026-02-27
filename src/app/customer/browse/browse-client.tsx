@@ -50,7 +50,7 @@ export function BrowseClient() {
     const qs = params.toString()
     fetch(`/api/customer/browse${qs ? `?${qs}` : ""}`)
       .then((r) => (r.ok ? r.json() : {}))
-      .then((data) => {
+      .then((data: { sponsoredAds?: Ad[]; products?: Product[]; services?: Service[] }) => {
         setSponsoredAds(data.sponsoredAds || [])
         setProducts(data.products || [])
         setServices(data.services || [])

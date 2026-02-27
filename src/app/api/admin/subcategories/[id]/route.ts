@@ -143,8 +143,7 @@ export async function DELETE(
       include: {
         _count: {
           select: {
-            products: true,
-            services: true,
+            banners: true,
           },
         },
       },
@@ -157,12 +156,9 @@ export async function DELETE(
       );
     }
 
-    if (subcategory._count.products > 0 || subcategory._count.services > 0) {
-      const parts = [];
-      if (subcategory._count.products > 0) parts.push(`${subcategory._count.products} product(s)`);
-      if (subcategory._count.services > 0) parts.push(`${subcategory._count.services} service(s)`);
+    if (subcategory._count.banners > 0) {
       return NextResponse.json(
-        { error: `Cannot delete subcategory. In use by ${parts.join(" and ")}.` },
+        { error: `Cannot delete subcategory. In use by ${subcategory._count.banners} banner(s).` },
         { status: 400 }
       );
     }

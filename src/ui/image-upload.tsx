@@ -6,9 +6,10 @@ import { Image as ImageIcon } from "lucide-react"
 import { useState } from "react";
 interface ImageUploadProps {
   onImageSelect: (file: File | null) => void
+  currentImage?: string | null
 }
 
-export function ImageUpload({ onImageSelect }: ImageUploadProps) {
+export function ImageUpload({ onImageSelect, currentImage }: ImageUploadProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [fileName, setFileName] = useState<string>("")
 

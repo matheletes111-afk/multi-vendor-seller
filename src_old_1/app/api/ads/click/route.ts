@@ -5,8 +5,8 @@ import { cookies } from "next/headers"
 
 const DEDUP_HOURS = 24
 
-function getOrCreateSessionId(): { sessionId: string; hadCookie: boolean } {
-  const cookieStore = cookies()
+async function getOrCreateSessionId(): Promise<{ sessionId: string; hadCookie: boolean }> {
+  const cookieStore = await cookies()
   const existing = cookieStore.get("ad_session_id")?.value
   if (existing) return { sessionId: existing, hadCookie: true }
   return { sessionId: `sess_${Date.now()}_${Math.random().toString(36).slice(2, 12)}`, hadCookie: false }
@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
 
   const session = await auth()
   const userId = session?.user?.id ?? null
-  const { sessionId, hadCookie } = getOrCreateSessionId()
+  const { sessionId, hadCookie } = await getOrCreateSessionId()
 
   const ad = await prisma.sellerAd.findUnique({
     where: { id: adId },

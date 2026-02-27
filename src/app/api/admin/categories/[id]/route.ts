@@ -190,6 +190,9 @@ export async function PUT(
       updatedCategory = await prisma.category.update({
         where: { id },
         data: updateData,
+        include: {
+          subcategories: true,
+        },
       });
       console.log("Updated category:", updatedCategory);
     }

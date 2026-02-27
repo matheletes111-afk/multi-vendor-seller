@@ -17,6 +17,7 @@ interface Subcategory {
   id?: string;
   name: string;
   description: string;
+  image?: string | null;
   existingImage?: string | null;
   imageFile?: File | null;
   imagePreview?: string;
