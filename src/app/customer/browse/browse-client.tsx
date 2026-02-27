@@ -64,26 +64,26 @@ export function BrowseClient() {
   if (loading) return <PageLoader variant="listing" message="Loading products…" />
 
   return (
-    <div className="container mx-auto p-6 space-y-12">
+    <div className="container mx-auto px-3 py-6 space-y-8 sm:p-6 sm:space-y-12">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Browse Marketplace</h1>
-        <p className="text-muted-foreground mt-2">Discover products and services from our sellers</p>
+        <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Browse Marketplace</h1>
+        <p className="text-muted-foreground mt-1 text-sm sm:mt-2 sm:text-base">Discover products and services from our sellers</p>
       </div>
 
       {sponsoredAds.length > 0 && (
         <section>
-          <div className="flex items-center gap-2 mb-6">
-            <Megaphone className="h-5 w-5" />
-            <h2 className="text-2xl font-semibold tracking-tight">Sponsored</h2>
-            <Badge variant="secondary">{sponsoredAds.length}</Badge>
+          <div className="flex items-center gap-2 mb-4 sm:mb-6">
+            <Megaphone className="h-4 w-4 sm:h-5 sm:w-5" />
+            <h2 className="text-xl font-semibold tracking-tight sm:text-2xl">Sponsored</h2>
+            <Badge variant="secondary" className="text-xs">{sponsoredAds.length}</Badge>
           </div>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-1 gap-3 sm:gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {sponsoredAds.map((ad) => {
               const youtubeEmbed = ad.creativeType === "VIDEO" ? getYoutubeEmbedUrl(ad.creativeUrl) : null
               return (
-                <Link key={ad.id} href={`/api/ads/click?adId=${ad.id}`} className="block">
+                <Link key={ad.id} href={`/api/ads/click?adId=${ad.id}`} className="block min-w-0">
                   <Card className="hover:shadow-md transition-shadow h-full overflow-hidden">
-                    <div className="aspect-video relative bg-muted">
+                    <div className="aspect-video relative w-full bg-muted">
                       {ad.creativeType === "VIDEO" ? (
                         youtubeEmbed ? (
                           <iframe src={youtubeEmbed} title={ad.title} className="w-full h-full object-cover pointer-events-none" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
@@ -97,9 +97,9 @@ export function BrowseClient() {
                         <Badge className="bg-primary/90">Sponsored</Badge>
                       </div>
                     </div>
-                    <CardHeader>
-                      <CardTitle className="line-clamp-2 text-lg">{ad.title}</CardTitle>
-                      <CardDescription>{ad.product ? ad.product.name : ad.service ? ad.service.name : "Ad"}</CardDescription>
+                    <CardHeader className="p-3 sm:p-6">
+                      <CardTitle className="line-clamp-2 text-base sm:text-lg">{ad.title}</CardTitle>
+                      <CardDescription className="text-xs sm:text-sm">{ad.product ? ad.product.name : ad.service ? ad.service.name : "Ad"}</CardDescription>
                     </CardHeader>
                   </Card>
                 </Link>
@@ -110,19 +110,19 @@ export function BrowseClient() {
       )}
 
       <section>
-        <div className="flex items-center gap-2 mb-6">
-          <Package className="h-5 w-5" />
-          <h2 className="text-2xl font-semibold tracking-tight">Products</h2>
-          <Badge variant="secondary">{products.length}</Badge>
+        <div className="flex items-center gap-2 mb-4 sm:mb-6">
+          <Package className="h-4 w-4 sm:h-5 sm:w-5" />
+          <h2 className="text-xl font-semibold tracking-tight sm:text-2xl">Products</h2>
+          <Badge variant="secondary" className="text-xs">{products.length}</Badge>
         </div>
         {products.length === 0 ? (
           <Card>
-            <CardContent className="py-12 text-center">
-              <p className="text-muted-foreground">No products available</p>
+            <CardContent className="py-8 text-center sm:py-12">
+              <p className="text-muted-foreground text-sm sm:text-base">No products available</p>
             </CardContent>
           </Card>
         ) : (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-2 lg:grid-cols-4">
             {products.map((product) => {
               const imageUrls = Array.isArray(product.images) ? product.images : (typeof product.images === "string" ? (() => { try { return JSON.parse(product.images as string) as string[] } catch { return [] } })() : [])
               const firstImage = imageUrls.length > 0 ? imageUrls[0] : null
@@ -134,11 +134,11 @@ export function BrowseClient() {
                       {firstImage ? (
                         <img src={firstImage} alt={product.name} className="h-full w-full object-cover" />
                       ) : (
-                        <ShoppingBag className="h-14 w-14 text-muted-foreground" />
+                        <ShoppingBag className="h-10 w-10 text-muted-foreground sm:h-14 sm:w-14" />
                       )}
                     </div>
-                    <CardContent className="p-3">
-                      <p className="line-clamp-2 text-sm font-medium">{product.name}</p>
+                    <CardContent className="p-2 sm:p-3">
+                      <p className="line-clamp-2 text-xs font-medium sm:text-sm">{product.name}</p>
                       <p className="text-xs text-muted-foreground">{product.seller?.store?.name ?? "Store"}</p>
                       <p className="mt-1 font-bold text-primary">{formatCurrency(finalPrice)}</p>
                       {product._count.reviews > 0 && (
@@ -154,31 +154,31 @@ export function BrowseClient() {
       </section>
 
       <section>
-        <div className="flex items-center gap-2 mb-6">
-          <Briefcase className="h-5 w-5" />
-          <h2 className="text-2xl font-semibold tracking-tight">Services</h2>
-          <Badge variant="secondary">{services.length}</Badge>
+        <div className="flex items-center gap-2 mb-4 sm:mb-6">
+          <Briefcase className="h-4 w-4 sm:h-5 sm:w-5" />
+          <h2 className="text-xl font-semibold tracking-tight sm:text-2xl">Services</h2>
+          <Badge variant="secondary" className="text-xs">{services.length}</Badge>
         </div>
         {services.length === 0 ? (
           <Card>
-            <CardContent className="py-12 text-center">
-              <p className="text-muted-foreground">No services available</p>
+            <CardContent className="py-8 text-center sm:py-12">
+              <p className="text-muted-foreground text-sm sm:text-base">No services available</p>
             </CardContent>
           </Card>
         ) : (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-1 gap-3 sm:gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {services.map((service) => (
               <Link key={service.id} href={`/service/${service.id}`}>
                 <Card className="hover:shadow-md transition-shadow h-full">
-                  <CardHeader>
-                    <CardTitle className="line-clamp-2 text-lg">{service.name}</CardTitle>
+                  <CardHeader className="p-3 sm:p-6">
+                    <CardTitle className="line-clamp-2 text-base sm:text-lg">{service.name}</CardTitle>
                     <CardDescription>
                       <Badge variant="outline" className="text-xs">{service.category.name}</Badge>
                     </CardDescription>
                   </CardHeader>
-                  <CardContent>
+                  <CardContent className="p-3 sm:p-6 pt-0">
                     {service.basePrice ? (
-                      <p className="text-2xl font-bold mb-2">{formatCurrency(service.basePrice)}</p>
+                      <p className="text-xl font-bold mb-2 sm:text-2xl">{formatCurrency(service.basePrice)}</p>
                     ) : (
                       <p className="text-sm text-muted-foreground mb-2">Price on request</p>
                     )}

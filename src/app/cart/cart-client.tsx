@@ -16,39 +16,39 @@ export function CartClient() {
 
   return (
     <PublicLayout>
-      <div className="container mx-auto max-w-6xl px-4 py-8">
-        <h1 className="text-2xl font-bold text-slate-900 md:text-3xl">
+      <div className="container mx-auto max-w-6xl px-3 py-6 sm:px-4 sm:py-8">
+        <h1 className="text-xl font-bold text-slate-900 sm:text-2xl md:text-3xl">
           Shopping Cart
           {items.length > 0 && (
-            <span className="ml-2 text-lg font-normal text-slate-600">
+            <span className="ml-1 sm:ml-2 text-base font-normal text-slate-600 sm:text-lg">
               ({totalItems} {totalItems === 1 ? "item" : "items"})
             </span>
           )}
         </h1>
 
         {items.length === 0 ? (
-          <div className="mt-8 rounded-xl bg-white p-12 text-center shadow-sm">
-            <ShoppingCart className="mx-auto h-16 w-16 text-slate-300" />
-            <p className="mt-4 text-slate-600">Your cart is empty.</p>
-            <Button asChild className="mt-4 bg-amber-400 text-black hover:bg-amber-500">
+          <div className="mt-6 rounded-xl bg-white p-8 text-center shadow-sm sm:mt-8 sm:p-12">
+            <ShoppingCart className="mx-auto h-12 w-12 text-slate-300 sm:h-16 sm:w-16" />
+            <p className="mt-3 text-slate-600 sm:mt-4">Your cart is empty.</p>
+            <Button asChild className="mt-4 w-full bg-amber-400 text-black hover:bg-amber-500 sm:w-auto">
               <Link href="/">Continue shopping</Link>
             </Button>
           </div>
         ) : (
-          <div className="mt-6 flex flex-col gap-6 lg:flex-row lg:items-start">
+          <div className="mt-4 flex flex-col gap-6 lg:mt-6 lg:flex-row lg:items-start">
             {/* Cart items list - Amazon style */}
-            <div className="flex-1 space-y-4">
+            <div className="min-w-0 flex-1 space-y-3 sm:space-y-4">
               {items.map((item) => {
                 const itemId = getCartItemId(item)
                 const itemHref = item.productId ? `/product/${item.productId}` : `/service/${item.serviceId}`
                 return (
                   <div
                     key={itemId}
-                    className="flex gap-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
+                    className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:flex-row sm:gap-4 sm:p-4"
                   >
                     <Link
                       href={itemHref}
-                      className="relative h-24 w-24 shrink-0 overflow-hidden rounded-lg bg-slate-100"
+                      className="relative mx-auto h-24 w-24 shrink-0 overflow-hidden rounded-lg bg-slate-100 sm:mx-0"
                     >
                       {item.image ? (
                         <Image
@@ -64,18 +64,18 @@ export function CartClient() {
                         </div>
                       )}
                     </Link>
-                    <div className="min-w-0 flex-1">
+                    <div className="min-w-0 flex-1 text-center sm:text-left">
                       <Link
                         href={itemHref}
-                        className="font-medium text-slate-900 hover:text-blue-600 hover:underline line-clamp-2"
+                        className="font-medium text-slate-900 hover:text-blue-600 hover:underline line-clamp-2 text-sm sm:text-base"
                       >
                         {item.name}
                       </Link>
                       <p className="mt-1 text-sm font-bold text-slate-900">
                         {formatCurrency(item.price)}
                       </p>
-                      <div className="mt-2 flex flex-wrap items-center gap-3">
-                        <label className="text-sm text-slate-600">
+                      <div className="mt-2 flex flex-wrap items-center justify-center gap-2 sm:justify-start sm:gap-3">
+                        <label className="text-xs text-slate-600 sm:text-sm">
                           Qty:{" "}
                           <select
                             value={item.quantity}
@@ -102,7 +102,7 @@ export function CartClient() {
                         </button>
                       </div>
                     </div>
-                    <div className="shrink-0 text-right">
+                    <div className="shrink-0 text-center sm:text-right">
                       <p className="text-sm font-bold text-slate-900">
                         {formatCurrency(item.price * item.quantity)}
                       </p>
@@ -113,13 +113,13 @@ export function CartClient() {
             </div>
 
             {/* Subtotal box - Amazon style */}
-            <div className="shrink-0 lg:w-80">
-              <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-                <p className="text-lg font-semibold text-slate-900">
+            <div className="w-full shrink-0 lg:w-80">
+              <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
+                <p className="text-base font-semibold text-slate-900 sm:text-lg">
                   Subtotal ({totalItems} {totalItems === 1 ? "item" : "items"}):{" "}
                   <span className="font-bold">{formatCurrency(subtotal)}</span>
                 </p>
-                <p className="mt-2 text-sm text-slate-600">
+                <p className="mt-2 text-xs text-slate-600 sm:text-sm">
                   Taxes and shipping calculated at checkout.
                 </p>
                 <Button asChild className="mt-4 w-full bg-amber-400 text-black hover:bg-amber-500" size="lg">

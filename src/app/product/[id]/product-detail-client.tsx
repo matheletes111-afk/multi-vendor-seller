@@ -77,23 +77,23 @@ export function ProductDetailClient({ productId }: { productId: string }) {
 
   return (
     <PublicLayout>
-      <div className="mx-auto max-w-6xl px-4 py-6">
-        {/* Breadcrumb */}
-        <nav className="mb-4 flex items-center gap-1 text-sm text-slate-600">
-          <Link href="/" className="hover:text-amber-600 hover:underline">Home</Link>
-          <ChevronRight className="h-4 w-4 shrink-0" />
-          <Link href="/browse" className="hover:text-amber-600 hover:underline">Browse</Link>
-          <ChevronRight className="h-4 w-4 shrink-0" />
-          <Link href={`/browse?categoryId=${product.category.id}`} className="hover:text-amber-600 hover:underline">{product.category.name}</Link>
-          <ChevronRight className="h-4 w-4 shrink-0" />
-          <span className="truncate text-slate-900 font-medium">{product.name}</span>
+      <div className="mx-auto max-w-6xl px-3 py-4 sm:px-4 sm:py-6">
+        {/* Breadcrumb - scroll on small screens */}
+        <nav className="mb-3 sm:mb-4 flex items-center gap-1 overflow-x-auto text-xs text-slate-600 sm:text-sm pb-1 scrollbar-none [scrollbar-width:none] [-ms-overflow-style:none]">
+          <Link href="/" className="shrink-0 hover:text-amber-600 hover:underline">Home</Link>
+          <ChevronRight className="h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4" />
+          <Link href="/browse" className="shrink-0 hover:text-amber-600 hover:underline">Browse</Link>
+          <ChevronRight className="h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4" />
+          <Link href={`/browse?categoryId=${product.category.id}`} className="shrink-0 hover:text-amber-600 hover:underline">{product.category.name}</Link>
+          <ChevronRight className="h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4" />
+          <span className="min-w-0 truncate text-slate-900 font-medium">{product.name}</span>
         </nav>
 
         {/* Main content: image + details */}
-        <div className="rounded-xl bg-white p-6 shadow-lg md:p-8">
-          <div className="flex flex-col gap-8 lg:flex-row">
+        <div className="rounded-xl bg-white p-4 shadow-lg sm:p-6 md:p-8">
+          <div className="flex flex-col gap-6 sm:gap-8 lg:flex-row">
             {/* Left: Image gallery */}
-            <div className="flex shrink-0 flex-col gap-3 lg:w-[380px]">
+            <div className="flex w-full shrink-0 flex-col gap-3 lg:w-[380px]">
               <div className="relative aspect-square w-full overflow-hidden rounded-lg bg-slate-100">
                 {mainImage ? (
                   <img
@@ -124,15 +124,15 @@ export function ProductDetailClient({ productId }: { productId: string }) {
             </div>
 
             {/* Right: Title, price, actions */}
-            <div className="flex-1">
-              <p className="text-sm text-slate-500">{product.category.name}</p>
-              <h1 className="mt-1 text-2xl font-bold text-slate-900 md:text-3xl">{product.name}</h1>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs text-slate-500 sm:text-sm">{product.category.name}</p>
+              <h1 className="mt-1 text-xl font-bold text-slate-900 sm:text-2xl md:text-3xl">{product.name}</h1>
               {product._count.reviews > 0 && (
                 <p className="mt-2 text-sm text-slate-600">{product._count.reviews} rating(s)</p>
               )}
 
-              <div className="mt-4 flex items-baseline gap-2">
-                <span className="text-2xl font-bold text-slate-900 md:text-3xl">{formatCurrency(displayPrice)}</span>
+              <div className="mt-4 flex flex-wrap items-baseline gap-2">
+                <span className="text-xl font-bold text-slate-900 sm:text-2xl md:text-3xl">{formatCurrency(displayPrice)}</span>
                 {product.discount > 0 && (
                   <span className="text-sm text-slate-500 line-through">{formatCurrency(product.basePrice)}</span>
                 )}
@@ -150,10 +150,10 @@ export function ProductDetailClient({ productId }: { productId: string }) {
                     Added to cart
                   </p>
                 )}
-                <div className="flex flex-wrap gap-3">
+                <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
                   <Button
                     size="lg"
-                    className="bg-amber-400 text-black hover:bg-amber-500"
+                    className="w-full bg-amber-400 text-black hover:bg-amber-500 sm:w-auto"
                     onClick={() => {
                       addItem({
                         productId: product.id,
@@ -171,7 +171,7 @@ export function ProductDetailClient({ productId }: { productId: string }) {
                 <Button
                   size="lg"
                   variant="outline"
-                  className="border-amber-500 text-amber-700 hover:bg-amber-50"
+                  className="w-full border-amber-500 text-amber-700 hover:bg-amber-50 sm:w-auto"
                   onClick={() => {
                     if (status === "authenticated") {
                       router.push("/cart")
@@ -201,8 +201,8 @@ export function ProductDetailClient({ productId }: { productId: string }) {
           </div>
 
           {/* Product description / details */}
-          <div className="mt-10 border-t border-slate-200 pt-8">
-            <h2 className="text-lg font-bold text-slate-900">About this item</h2>
+          <div className="mt-8 border-t border-slate-200 pt-6 sm:mt-10 sm:pt-8">
+            <h2 className="text-base font-bold text-slate-900 sm:text-lg">About this item</h2>
             {product.description ? (
               <div className="mt-3 whitespace-pre-wrap text-slate-700">{product.description}</div>
             ) : (
@@ -212,10 +212,10 @@ export function ProductDetailClient({ productId }: { productId: string }) {
 
           {/* Sponsored banner for this product */}
           {productAd && (
-            <div className="mt-10 border-t border-slate-200 pt-8">
-              <h2 className="text-lg font-bold text-slate-900">Sponsored for this product</h2>
-              <div className="mt-4 overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
-                <div className="relative aspect-[16/5] w-full bg-slate-100">
+            <div className="mt-8 border-t border-slate-200 pt-6 sm:mt-10 sm:pt-8">
+              <h2 className="text-base font-bold text-slate-900 sm:text-lg">Sponsored for this product</h2>
+              <div className="mt-4 overflow-hidden rounded-lg border border-slate-200 bg-slate-50 sm:rounded-xl">
+                <div className="relative aspect-video w-full bg-slate-100 sm:aspect-[16/5]">
                   {adIsVideo ? (
                     adEmbedUrl ? (
                       <iframe
@@ -258,8 +258,8 @@ export function ProductDetailClient({ productId }: { productId: string }) {
           )}
         </div>
 
-        <div className="mt-6 text-center">
-          <Button asChild variant="outline">
+        <div className="mt-4 text-center sm:mt-6">
+          <Button asChild variant="outline" className="w-full sm:w-auto">
             <Link href="/browse">Continue shopping</Link>
           </Button>
         </div>
