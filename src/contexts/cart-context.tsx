@@ -8,15 +8,15 @@ import {
   useState,
   type ReactNode,
 } from "react"
-import { getCartFromStorage, setCartInStorage, type CartItem } from "@/lib/cart"
+import { getCartFromStorage, setCartInStorage, getCartItemId, type CartItem } from "@/lib/cart"
 
 type CartContextValue = {
   items: CartItem[]
   totalItems: number
   subtotal: number
   addItem: (item: Omit<CartItem, "quantity"> | CartItem) => void
-  removeItem: (productId: string) => void
-  updateQuantity: (productId: string, quantity: number) => void
+  removeItem: (itemId: string) => void
+  updateQuantity: (itemId: string, quantity: number) => void
   refresh: () => void
 }
 
@@ -40,12 +40,17 @@ export function CartProvider({ children }: { children: ReactNode }) {
     (input: Omit<CartItem, "quantity"> | CartItem) => {
       const quantity = "quantity" in input ? input.quantity : 1
       const next = getCartFromStorage()
-      const existing = next.find((i) => i.productId === input.productId)
+      const existing = next.find(
+        (i) =>
+          (input.productId && i.productId === input.productId) ||
+          (input.serviceId && i.serviceId === input.serviceId)
+      )
       if (existing) {
         existing.quantity += quantity
       } else {
         next.push({
           productId: input.productId,
+          serviceId: input.serviceId,
           name: input.name,
           price: input.price,
           image: input.image ?? null,
@@ -58,19 +63,19 @@ export function CartProvider({ children }: { children: ReactNode }) {
     []
   )
 
-  const removeItem = useCallback((productId: string) => {
-    const next = getCartFromStorage().filter((i) => i.productId !== productId)
+  const removeItem = useCallback((itemId: string) => {
+    const next = getCartFromStorage().filter((i) => getCartItemId(i) !== itemId)
     setCartInStorage(next)
     setItems([...next])
   }, [])
 
-  const updateQuantity = useCallback((productId: string, quantity: number) => {
+  const updateQuantity = useCallback((itemId: string, quantity: number) => {
     if (quantity < 1) {
-      removeItem(productId)
+      removeItem(itemId)
       return
     }
     const next = getCartFromStorage().map((i) =>
-      i.productId === productId ? { ...i, quantity } : i
+      getCartItemId(i) === itemId ? { ...i, quantity } : i
     )
     setCartInStorage(next)
     setItems([...next])

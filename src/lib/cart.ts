@@ -1,11 +1,17 @@
 const CART_STORAGE_KEY = "meeem-cart"
 
 export type CartItem = {
-  productId: string
+  productId?: string
+  serviceId?: string
   name: string
   price: number
   image: string | null
   quantity: number
+}
+
+/** Unique id for an item (product or service). */
+export function getCartItemId(item: CartItem): string {
+  return (item.productId ?? item.serviceId) ?? ""
 }
 
 export function getCartFromStorage(): CartItem[] {
@@ -19,10 +25,10 @@ export function getCartFromStorage(): CartItem[] {
       (x): x is CartItem =>
         x &&
         typeof x === "object" &&
-        typeof x.productId === "string" &&
         typeof x.name === "string" &&
         typeof x.price === "number" &&
-        typeof x.quantity === "number"
+        typeof x.quantity === "number" &&
+        (typeof (x as CartItem).productId === "string" || typeof (x as CartItem).serviceId === "string")
     )
   } catch {
     return []

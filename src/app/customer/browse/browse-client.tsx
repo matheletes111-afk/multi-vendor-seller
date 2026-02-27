@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/ui/
 import { Badge } from "@/ui/badge"
 import { formatCurrency } from "@/lib/utils"
 import { getYoutubeEmbedUrl } from "@/lib/youtube"
-import { Package, Briefcase, Megaphone } from "lucide-react"
+import { Package, Briefcase, Megaphone, ShoppingBag } from "lucide-react"
 
 type Ad = {
   id: string
@@ -21,6 +21,8 @@ type Product = {
   id: string
   name: string
   basePrice: number
+  discount?: number
+  images: string[] | unknown
   category: { name: string }
   seller: { store: { name: string } | null }
   _count: { reviews: number }
@@ -120,25 +122,32 @@ export function BrowseClient() {
           </Card>
         ) : (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            {products.map((product) => (
-              <Link key={product.id} href={`/product/${product.id}`}>
-                <Card className="hover:shadow-md transition-shadow h-full">
-                  <CardHeader>
-                    <CardTitle className="line-clamp-2 text-lg">{product.name}</CardTitle>
-                    <CardDescription>
-                      <Badge variant="outline" className="text-xs">{product.category.name}</Badge>
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-2xl font-bold mb-2">{formatCurrency(product.basePrice)}</p>
-                    <p className="text-sm text-muted-foreground">{product.seller.store?.name || "Store"}</p>
-                    {product._count.reviews > 0 && (
-                      <p className="text-xs text-muted-foreground mt-1">{product._count.reviews} review{product._count.reviews !== 1 ? "s" : ""}</p>
-                    )}
-                  </CardContent>
-                </Card>
-              </Link>
-            ))}
+            {products.map((product) => {
+              const imageUrls = Array.isArray(product.images) ? product.images : (typeof product.images === "string" ? (() => { try { return JSON.parse(product.images as string) as string[] } catch { return [] } })() : [])
+              const firstImage = imageUrls.length > 0 ? imageUrls[0] : null
+              const finalPrice = Math.max(0, (product.basePrice ?? 0) - (product.discount ?? 0))
+              return (
+                <Link key={product.id} href={`/product/${product.id}`} className="group">
+                  <Card className="hover:shadow-md transition-shadow h-full overflow-hidden border-0 bg-white shadow-md group-hover:shadow-lg">
+                    <div className="relative aspect-square w-full overflow-hidden bg-muted flex items-center justify-center">
+                      {firstImage ? (
+                        <img src={firstImage} alt={product.name} className="h-full w-full object-cover" />
+                      ) : (
+                        <ShoppingBag className="h-14 w-14 text-muted-foreground" />
+                      )}
+                    </div>
+                    <CardContent className="p-3">
+                      <p className="line-clamp-2 text-sm font-medium">{product.name}</p>
+                      <p className="text-xs text-muted-foreground">{product.seller?.store?.name ?? "Store"}</p>
+                      <p className="mt-1 font-bold text-primary">{formatCurrency(finalPrice)}</p>
+                      {product._count.reviews > 0 && (
+                        <p className="text-xs text-muted-foreground mt-0.5">{product._count.reviews} review{product._count.reviews !== 1 ? "s" : ""}</p>
+                      )}
+                    </CardContent>
+                  </Card>
+                </Link>
+              )
+            })}
           </div>
         )}
       </section>

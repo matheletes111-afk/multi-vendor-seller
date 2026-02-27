@@ -3,6 +3,7 @@
 import Link from "next/link"
 import Image from "next/image"
 import { useCart } from "@/contexts/cart-context"
+import { getCartItemId } from "@/lib/cart"
 import { PublicLayout } from "@/components/site-layout"
 import { Button } from "@/ui/button"
 import { formatCurrency } from "@/lib/utils"
@@ -37,74 +38,78 @@ export function CartClient() {
           <div className="mt-6 flex flex-col gap-6 lg:flex-row lg:items-start">
             {/* Cart items list - Amazon style */}
             <div className="flex-1 space-y-4">
-              {items.map((item) => (
-                <div
-                  key={item.productId}
-                  className="flex gap-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
-                >
-                  <Link
-                    href={`/product/${item.productId}`}
-                    className="relative h-24 w-24 shrink-0 overflow-hidden rounded-lg bg-slate-100"
+              {items.map((item) => {
+                const itemId = getCartItemId(item)
+                const itemHref = item.productId ? `/product/${item.productId}` : `/service/${item.serviceId}`
+                return (
+                  <div
+                    key={itemId}
+                    className="flex gap-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
                   >
-                    {item.image ? (
-                      <Image
-                        src={item.image}
-                        alt={item.name}
-                        fill
-                        className="object-contain"
-                        unoptimized
-                      />
-                    ) : (
-                      <div className="flex h-full w-full items-center justify-center text-xs text-slate-400">
-                        No image
-                      </div>
-                    )}
-                  </Link>
-                  <div className="min-w-0 flex-1">
                     <Link
-                      href={`/product/${item.productId}`}
-                      className="font-medium text-slate-900 hover:text-blue-600 hover:underline line-clamp-2"
+                      href={itemHref}
+                      className="relative h-24 w-24 shrink-0 overflow-hidden rounded-lg bg-slate-100"
                     >
-                      {item.name}
+                      {item.image ? (
+                        <Image
+                          src={item.image}
+                          alt={item.name}
+                          fill
+                          className="object-contain"
+                          unoptimized
+                        />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center text-xs text-slate-400">
+                          No image
+                        </div>
+                      )}
                     </Link>
-                    <p className="mt-1 text-sm font-bold text-slate-900">
-                      {formatCurrency(item.price)}
-                    </p>
-                    <div className="mt-2 flex flex-wrap items-center gap-3">
-                      <label className="text-sm text-slate-600">
-                        Qty:{" "}
-                        <select
-                          value={item.quantity}
-                          onChange={(e) =>
-                            updateQuantity(item.productId, parseInt(e.target.value, 10))
-                          }
-                          className="ml-1 rounded border border-slate-300 bg-white py-0.5 pl-2 pr-6 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
-                        >
-                          {QUANTITY_OPTIONS.map((n) => (
-                            <option key={n} value={n}>
-                              {n}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                      <span className="text-slate-400">|</span>
-                      <button
-                        type="button"
-                        onClick={() => removeItem(item.productId)}
-                        className="flex items-center gap-1 text-sm text-blue-600 hover:underline"
+                    <div className="min-w-0 flex-1">
+                      <Link
+                        href={itemHref}
+                        className="font-medium text-slate-900 hover:text-blue-600 hover:underline line-clamp-2"
                       >
-                        <Trash2 className="h-4 w-4" />
-                        Remove
-                      </button>
+                        {item.name}
+                      </Link>
+                      <p className="mt-1 text-sm font-bold text-slate-900">
+                        {formatCurrency(item.price)}
+                      </p>
+                      <div className="mt-2 flex flex-wrap items-center gap-3">
+                        <label className="text-sm text-slate-600">
+                          Qty:{" "}
+                          <select
+                            value={item.quantity}
+                            onChange={(e) =>
+                              updateQuantity(itemId, parseInt(e.target.value, 10))
+                            }
+                            className="ml-1 rounded border border-slate-300 bg-white py-0.5 pl-2 pr-6 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                          >
+                            {QUANTITY_OPTIONS.map((n) => (
+                              <option key={n} value={n}>
+                                {n}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <span className="text-slate-400">|</span>
+                        <button
+                          type="button"
+                          onClick={() => removeItem(itemId)}
+                          className="flex items-center gap-1 text-sm text-blue-600 hover:underline"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                    <div className="shrink-0 text-right">
+                      <p className="text-sm font-bold text-slate-900">
+                        {formatCurrency(item.price * item.quantity)}
+                      </p>
                     </div>
                   </div>
-                  <div className="shrink-0 text-right">
-                    <p className="text-sm font-bold text-slate-900">
-                      {formatCurrency(item.price * item.quantity)}
-                    </p>
-                  </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
 
             {/* Subtotal box - Amazon style */}
