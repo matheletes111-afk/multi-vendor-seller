@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/ui/card"
 import { Button } from "@/ui/button"
 import { formatCurrency } from "@/lib/utils"
+import { PageLoader } from "@/components/ui/page-loader"
 
 type Plan = { id: string; name: string; displayName: string; description: string | null; price: number; maxProducts: number | null; maxOrders: number | null }
 type Subscription = { id: string; planId: string; status: string; currentPeriodEnd: string | null; plan: { displayName: string } } | null
