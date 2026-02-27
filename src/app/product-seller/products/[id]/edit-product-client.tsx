@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/ui/card"
@@ -9,14 +9,18 @@ import { Input } from "@/ui/input"
 import { Label } from "@/ui/label"
 import { Alert, AlertDescription } from "@/ui/alert"
 import { PricingFields } from "../pricing-fields"
+import { Upload, Link as LinkIcon } from "lucide-react"
 
-type Category = { id: string; name: string; slug: string }
+type Subcategory = { id: string; name: string; slug: string }
+type CategoryWithSub = { id: string; name: string; slug: string; subcategories: Subcategory[] }
 type Product = {
   id: string
   name: string
   description: string | null
   categoryId: string
+  subcategoryId: string | null
   category: { name: string }
+  subcategory?: { id: string; name: string } | null
   basePrice: number
   discount: number
   hasGst: boolean
@@ -30,23 +34,48 @@ export function EditProductClient({ productId }: { productId: string }) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [product, setProduct] = useState<Product | null>(null)
-  const [categories, setCategories] = useState<Category[]>([])
+  const [categories, setCategories] = useState<CategoryWithSub[]>([])
+  const [selectedCategoryId, setSelectedCategoryId] = useState("")
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [imageMode, setImageMode] = useState<"link" | "upload">("link")
+  const [imageUrlsText, setImageUrlsText] = useState("")
+  const [uploadedImageUrls, setUploadedImageUrls] = useState<string[]>([])
+  const [uploading, setUploading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     Promise.all([
       fetch(`/api/product-seller/products/${productId}`).then((r) => (r.ok ? r.json() : null)),
-      fetch("/api/categories/list").then((r) => (r.ok ? r.json() : [])),
+      fetch("/api/categories/list-with-subcategories").then((r) => (r.ok ? r.json() : [])),
     ]).then(([p, cats]) => {
       setProduct(p)
       setCategories(cats)
+      if (p?.categoryId) setSelectedCategoryId(p.categoryId)
+      const imgs = normalizeImages(p?.images)
+      setImageUrlsText(Array.isArray(imgs) ? imgs.join("\n") : "")
+      setUploadedImageUrls(Array.isArray(imgs) ? imgs : [])
     }).catch(() => setProduct(null)).finally(() => setLoading(false))
   }, [productId])
 
   const paramsError = searchParams.get("error")
   const paramsSuccess = searchParams.get("success")
+  const subcategories = selectedCategoryId
+    ? (categories.find((c) => c.id === selectedCategoryId)?.subcategories ?? [])
+    : []
+
+  function normalizeImages(images: unknown): string[] {
+    if (Array.isArray(images)) return images
+    if (typeof images === "string") {
+      try {
+        return JSON.parse(images) as string[]
+      } catch {
+        return []
+      }
+    }
+    return []
+  }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -56,6 +85,7 @@ export function EditProductClient({ productId }: { productId: string }) {
     const formData = new FormData(form)
     const name = (formData.get("name") as string)?.trim()
     const categoryId = formData.get("categoryId") as string
+    const subcategoryId = (formData.get("subcategoryId") as string) || null
     const description = (formData.get("description") as string) || undefined
     const basePriceStr = formData.get("basePrice") as string
     const discountStr = (formData.get("discount") as string) || "0"
@@ -63,8 +93,10 @@ export function EditProductClient({ productId }: { productId: string }) {
     const stockStr = (formData.get("stock") as string) || "0"
     const sku = (formData.get("sku") as string) || undefined
     const isActive = (formData.get("isActive") as string) === "true"
-    const imagesInput = (formData.get("images") as string) || ""
-    const images = imagesInput ? imagesInput.split("\n").map((u) => u.trim()).filter(Boolean) : []
+    const images =
+      imageMode === "link"
+        ? (imageUrlsText || "").split("\n").map((u) => u.trim()).filter(Boolean)
+        : uploadedImageUrls
 
     if (!name || !categoryId) {
       setError("Name and category are required")
@@ -90,6 +122,7 @@ export function EditProductClient({ productId }: { productId: string }) {
         name,
         description,
         categoryId,
+        subcategoryId: subcategoryId || undefined,
         basePrice,
         discount,
         hasGst,
@@ -108,6 +141,33 @@ export function EditProductClient({ productId }: { productId: string }) {
     }
   }
 
+  async function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = e.target.files
+    if (!files?.length) return
+    setUploading(true)
+    const urls: string[] = []
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i]
+      if (!file.type.startsWith("image/")) continue
+      const fd = new FormData()
+      fd.append("file", file)
+      try {
+        const r = await fetch("/api/product-seller/upload", { method: "POST", body: fd })
+        const j = await r.json().catch(() => ({}))
+        if (j.url) urls.push(j.url)
+      } catch {
+        // skip
+      }
+    }
+    setUploadedImageUrls((prev) => [...prev, ...urls])
+    setUploading(false)
+    e.target.value = ""
+  }
+
+  function removeUploadedUrl(url: string) {
+    setUploadedImageUrls((prev) => prev.filter((u) => u !== url))
+  }
+
   if (loading || !product) {
     return (
       <div className="container mx-auto py-8">
@@ -115,8 +175,6 @@ export function EditProductClient({ productId }: { productId: string }) {
       </div>
     )
   }
-
-  const images = Array.isArray(product.images) ? product.images : typeof product.images === "string" ? (() => { try { return JSON.parse(product.images); } catch { return []; } })() : []
 
   return (
     <div className="container mx-auto py-8">
@@ -168,7 +226,8 @@ export function EditProductClient({ productId }: { productId: string }) {
                 id="categoryId"
                 name="categoryId"
                 required
-                defaultValue={product.categoryId}
+                value={selectedCategoryId}
+                onChange={(e) => setSelectedCategoryId(e.target.value)}
                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               >
                 <option value="">Select a category</option>
@@ -177,6 +236,22 @@ export function EditProductClient({ productId }: { productId: string }) {
                 ))}
               </select>
             </div>
+            {subcategories.length > 0 && (
+              <div className="space-y-2">
+                <Label htmlFor="subcategoryId">Subcategory (optional)</Label>
+                <select
+                  id="subcategoryId"
+                  name="subcategoryId"
+                  defaultValue={product.subcategoryId ?? ""}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                >
+                  <option value="">None</option>
+                  {subcategories.map((sub) => (
+                    <option key={sub.id} value={sub.id}>{sub.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
             <div className="space-y-2">
               <Label className="text-base font-medium">Pricing</Label>
               <PricingFields
@@ -196,17 +271,75 @@ export function EditProductClient({ productId }: { productId: string }) {
                 <Input id="sku" name="sku" defaultValue={product.sku || ""} placeholder="Product SKU" />
               </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="images">Image URLs (one per line)</Label>
-              <textarea
-                id="images"
-                name="images"
-                className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                placeholder="https://example.com/image1.jpg"
-                defaultValue={Array.isArray(images) ? images.join("\n") : ""}
-              />
-              <p className="text-sm text-muted-foreground">Enter image URLs, one per line</p>
+
+            <div className="space-y-3">
+              <Label>Images</Label>
+              <div className="flex gap-2 p-2 rounded-lg border bg-muted/30">
+                <button
+                  type="button"
+                  onClick={() => setImageMode("link")}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${imageMode === "link" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
+                >
+                  <LinkIcon className="h-4 w-4" />
+                  Via link
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setImageMode("upload")}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${imageMode === "upload" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
+                >
+                  <Upload className="h-4 w-4" />
+                  File upload
+                </button>
+              </div>
+              {imageMode === "link" ? (
+                <>
+                  <textarea
+                    value={imageUrlsText}
+                    onChange={(e) => setImageUrlsText(e.target.value)}
+                    className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                    placeholder="https://example.com/image1.jpg"
+                  />
+                  <p className="text-sm text-muted-foreground">Enter image URLs, one per line</p>
+                </>
+              ) : (
+                <div className="space-y-2">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/gif,image/webp"
+                    multiple
+                    className="hidden"
+                    onChange={handleFileSelect}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploading}
+                  >
+                    {uploading ? "Uploading..." : "Choose images (max 5 MB each)"}
+                  </Button>
+                  {uploadedImageUrls.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {uploadedImageUrls.map((url) => (
+                        <div key={url} className="relative w-20 h-20 rounded overflow-hidden border bg-muted">
+                          <img src={url} alt="" className="w-full h-full object-cover" />
+                          <button
+                            type="button"
+                            onClick={() => removeUploadedUrl(url)}
+                            className="absolute top-0 right-0 bg-destructive/90 text-destructive-foreground text-xs px-1 rounded-bl"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
+
             <div className="flex items-center space-x-2">
               <input
                 id="isActive"

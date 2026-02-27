@@ -288,9 +288,7 @@ model Subcategory {
   categoryId    String
   category      Category @relation(fields: [categoryId], references: [id])
   banners       Banner[]
-  // Temporarily comment out these lines until Product and Service models are updated
-  // products      Product[]
-  // services      Service[]
+  products      Product[]
 
   @@unique([name, categoryId])
   @@map("subcategories")
@@ -317,26 +315,28 @@ model Banner {
 
 
 model Product {
-  id          String   @id @default(cuid())
-  sellerId    String
-  categoryId  String
-  name        String
-  slug        String
-  description String?  @db.Text
-  basePrice   Float
-  discount    Float    @default(0)      // Discount amount per item
-  hasGst      Boolean  @default(true)   // Y = 15% GST at checkout, N = no GST
-  images      Json     // Array of image URLs stored as JSON
-  isActive    Boolean  @default(true)
-  isFeatured  Boolean  @default(false)
-  stock       Int      @default(0)
-  sku         String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id             String   @id @default(cuid())
+  sellerId       String
+  categoryId     String
+  subcategoryId  String?
+  name           String
+  slug           String
+  description    String?  @db.Text
+  basePrice      Float
+  discount       Float    @default(0)      // Discount amount per item
+  hasGst         Boolean  @default(true)   // Y = 15% GST at checkout, N = no GST
+  images         Json     // Array of image URLs stored as JSON
+  isActive       Boolean  @default(true)
+  isFeatured     Boolean  @default(false)
+  stock          Int      @default(0)
+  sku            String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
-  seller     Seller         @relation(fields: [sellerId], references: [id], onDelete: Cascade)
-  category   Category       @relation(fields: [categoryId], references: [id])
-  variants   ProductVariant[]
+  seller       Seller         @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  category     Category       @relation(fields: [categoryId], references: [id])
+  subcategory  Subcategory?   @relation(fields: [subcategoryId], references: [id])
+  variants     ProductVariant[]
   orderItems OrderItem[]
   reviews    Review[]
   cartItems  CartItem[]
@@ -344,6 +344,7 @@ model Product {
 
   @@unique([sellerId, slug])
   @@index([categoryId])
+  @@index([subcategoryId])
   @@index([sellerId])
   @@index([isActive])
   @@map("products")

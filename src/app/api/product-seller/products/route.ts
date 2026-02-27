@@ -23,6 +23,7 @@ export async function GET() {
     where: { sellerId: seller.id },
     include: {
       category: true,
+      subcategory: true,
       variants: true,
       _count: {
         select: {
@@ -56,6 +57,13 @@ export async function POST(request: NextRequest) {
   const name = typeof body.name === "string" ? body.name.trim() : ""
   const categoryId = typeof body.categoryId === "string" ? body.categoryId : ""
   if (!name || !categoryId) return NextResponse.json({ error: "Name and category are required" }, { status: 400 })
+  const subcategoryId = typeof body.subcategoryId === "string" ? body.subcategoryId || null : null
+  if (subcategoryId) {
+    const sub = await prisma.subcategory.findFirst({
+      where: { id: subcategoryId, categoryId },
+    })
+    if (!sub) return NextResponse.json({ error: "Subcategory does not belong to selected category" }, { status: 400 })
+  }
   const basePrice = Number(body.basePrice ?? 0)
   const stock = Number(body.stock ?? 0)
   if (isNaN(basePrice) || basePrice <= 0) return NextResponse.json({ error: "Valid base price required" }, { status: 400 })
@@ -68,6 +76,7 @@ export async function POST(request: NextRequest) {
       data: {
         sellerId: seller.id,
         categoryId,
+        subcategoryId,
         name,
         slug,
         description: (body.description as string) ?? null,

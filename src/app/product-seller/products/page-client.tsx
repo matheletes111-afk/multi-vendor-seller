@@ -4,9 +4,17 @@ import { useState, useEffect } from "react"
 import Link from "next/link"
 import { useSearchParams, useRouter } from "next/navigation"
 import { Button } from "@/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/ui/card"
+import { Card, CardContent } from "@/ui/card"
 import { Badge } from "@/ui/badge"
 import { Alert, AlertDescription } from "@/ui/alert"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/ui/table"
 import {
   Dialog,
   DialogContent,
@@ -17,7 +25,7 @@ import {
   DialogTrigger,
 } from "@/ui/dialog"
 import { formatCurrency } from "@/lib/utils"
-import { Plus, Package, Edit, Trash2 } from "lucide-react"
+import { Plus, Package, Pencil, Trash2 } from "lucide-react"
 
 type Product = {
   id: string
@@ -27,7 +35,10 @@ type Product = {
   hasGst: boolean
   stock: number
   isActive: boolean
+  images: unknown
+  createdAt: string
   category: { name: string }
+  subcategory: { name: string } | null
   variants: unknown[]
   _count: { orderItems: number; reviews: number }
 }
@@ -37,6 +48,8 @@ export function ProductsPageClient() {
   const searchParams = useSearchParams()
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [imageErrors, setImageErrors] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     fetch("/api/product-seller/products")
@@ -50,14 +63,36 @@ export function ProductsPageClient() {
   const paramsSuccess = searchParams.get("success")
 
   const handleDelete = async (productId: string) => {
-    const res = await fetch(`/api/product-seller/products/${productId}`, { method: "DELETE" })
-    if (res.ok) {
-      setProducts((prev) => prev.filter((p) => p.id !== productId))
-      router.replace("/product-seller/products?success=Product+deleted+permanently")
-    } else {
-      const data = await res.json().catch(() => ({}))
-      router.replace(`/product-seller/products?error=${encodeURIComponent(data.error || "Delete failed")}`)
+    setDeletingId(productId)
+    try {
+      const res = await fetch(`/api/product-seller/products/${productId}`, { method: "DELETE" })
+      if (res.ok) {
+        setProducts((prev) => prev.filter((p) => p.id !== productId))
+        router.replace("/product-seller/products?success=Product+deleted+permanently")
+      } else {
+        const data = await res.json().catch(() => ({}))
+        router.replace(`/product-seller/products?error=${encodeURIComponent(data.error || "Delete failed")}`)
+      }
+    } finally {
+      setDeletingId(null)
     }
+  }
+
+  const handleImageError = (id: string) => {
+    setImageErrors((prev) => new Set(prev).add(id))
+  }
+
+  function firstImageUrl(p: Product): string | null {
+    const imgs = Array.isArray(p.images) ? p.images : typeof p.images === "string" ? (() => { try { return JSON.parse(p.images as string) as string[] } catch { return [] } })() : []
+    return imgs.length > 0 ? (imgs[0] as string) : null
+  }
+
+  function formatDate(dateString: string) {
+    return new Date(dateString).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    })
   }
 
   if (loading) {
@@ -109,88 +144,124 @@ export function ProductsPageClient() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {products.map((product) => (
-            <Card key={product.id} className="hover:shadow-md transition-shadow">
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <CardTitle className="line-clamp-2">{product.name}</CardTitle>
-                    <CardDescription className="mt-1">{product.category.name}</CardDescription>
-                  </div>
-                  <Badge variant={product.isActive ? "default" : "secondary"}>{product.isActive ? "Active" : "Inactive"}</Badge>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="space-y-1">
-                    <p className="text-sm text-muted-foreground">
-                      Base {formatCurrency(product.basePrice)}
-                      {product.discount > 0 && <> · {formatCurrency(product.discount)} off</>}
-                    </p>
-                    <p className="text-xl font-bold">{formatCurrency(Math.max(0, product.basePrice - product.discount))} per item</p>
-                    <p className="text-xs text-muted-foreground">{product.hasGst ? "15% GST at checkout" : "No GST"}</p>
-                  </div>
-                  <div className="space-y-1 text-sm text-muted-foreground">
-                    <p>Stock: {product.stock} units</p>
-                    <p>Variants: {product.variants.length}</p>
-                    <p>Orders: {product._count.orderItems} • Reviews: {product._count.reviews}</p>
-                  </div>
-                  <div className="flex gap-2 pt-2">
-                    <Button variant="outline" size="sm" className="flex-1" asChild>
-                      <Link href={`/product-seller/products/${product.id}`}>
-                        <Edit className="mr-2 h-4 w-4" />
-                        Edit
-                      </Link>
-                    </Button>
-                    <div className="flex-1">
-                      <DeleteProductButton
-                        productId={product.id}
-                        productName={product.name}
-                        orderItemsCount={product._count.orderItems}
-                        variantsCount={product.variants.length}
-                        onDelete={handleDelete}
-                      />
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+        <Card>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Preview</TableHead>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Category</TableHead>
+                  <TableHead>Price</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Created</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {products.map((product) => {
+                  const imgUrl = firstImageUrl(product)
+                  return (
+                    <TableRow key={product.id}>
+                      <TableCell>
+                        {imgUrl && !imageErrors.has(product.id) ? (
+                          <div className="relative w-20 h-12 rounded overflow-hidden bg-muted shrink-0">
+                            <img
+                              src={imgUrl}
+                              alt={product.name}
+                              className="w-full h-full object-cover"
+                              onError={() => handleImageError(product.id)}
+                            />
+                          </div>
+                        ) : (
+                          <div className="w-20 h-12 rounded bg-muted flex items-center justify-center text-muted-foreground text-xs">
+                            No image
+                          </div>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Link href={`/product-seller/products/${product.id}`} className="font-medium hover:underline">
+                          {product.name}
+                        </Link>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          Stock: {product.stock} · {product.variants.length} variant(s)
+                        </p>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {product.category.name}
+                        {product.subcategory && (
+                          <span className="block text-xs">→ {product.subcategory.name}</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <span className="font-medium">{formatCurrency(Math.max(0, product.basePrice - product.discount))}</span>
+                        {product.discount > 0 && (
+                          <span className="text-xs text-muted-foreground block">was {formatCurrency(product.basePrice)}</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={product.isActive ? "default" : "secondary"}>
+                          {product.isActive ? "Active" : "Inactive"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{formatDate(product.createdAt)}</TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-2">
+                          <Link href={`/product-seller/products/${product.id}`}>
+                            <Button variant="outline" size="sm">
+                              <Pencil className="mr-2 h-4 w-4" />
+                              Edit
+                            </Button>
+                          </Link>
+                          <DeleteProductDialog
+                            productId={product.id}
+                            productName={product.name}
+                            orderItemsCount={product._count.orderItems}
+                            variantsCount={product.variants.length}
+                            onDelete={() => handleDelete(product.id)}
+                            isDeleting={deletingId === product.id}
+                          />
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
       )}
     </div>
   )
 }
 
-function DeleteProductButton({
+function DeleteProductDialog({
   productId,
   productName,
   orderItemsCount,
   variantsCount,
   onDelete,
+  isDeleting,
 }: {
   productId: string
   productName: string
   orderItemsCount: number
   variantsCount: number
-  onDelete: (productId: string) => Promise<void>
+  onDelete: () => Promise<void>
+  isDeleting: boolean
 }) {
   const [open, setOpen] = useState(false)
-  const [isDeleting, setIsDeleting] = useState(false)
   const hasOrders = orderItemsCount > 0
 
   async function handleDelete() {
-    setIsDeleting(true)
-    await onDelete(productId)
+    await onDelete()
     setOpen(false)
-    setIsDeleting(false)
   }
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="destructive" size="sm" className="w-full">
+        <Button variant="destructive" size="sm">
           <Trash2 className="mr-2 h-4 w-4" />
           Delete
         </Button>

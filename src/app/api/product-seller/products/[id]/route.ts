@@ -24,7 +24,7 @@ export async function GET(
 
   const product = await prisma.product.findFirst({
     where: { id, sellerId: seller.id },
-    include: { category: true, variants: true },
+    include: { category: true, subcategory: true, variants: true },
   })
 
   if (!product) {
@@ -62,6 +62,7 @@ export async function PUT(
     name?: string
     description?: string
     categoryId?: string
+    subcategoryId?: string | null
     basePrice?: number
     discount?: number
     hasGst?: boolean
@@ -75,6 +76,21 @@ export async function PUT(
   if (body.name !== undefined) updateData.name = body.name.trim()
   if (body.description !== undefined) updateData.description = body.description
   if (body.categoryId !== undefined) updateData.categoryId = body.categoryId
+  if (body.subcategoryId !== undefined) {
+    if (body.subcategoryId) {
+      const catId = (body.categoryId ?? existing.categoryId) as string
+      const sub = await prisma.subcategory.findFirst({
+        where: { id: body.subcategoryId, categoryId: catId },
+      })
+      if (!sub) {
+        return NextResponse.json(
+          { error: "Subcategory does not belong to selected category" },
+          { status: 400 }
+        )
+      }
+    }
+    updateData.subcategoryId = body.subcategoryId || null
+  }
   if (typeof body.basePrice === "number") updateData.basePrice = body.basePrice
   if (typeof body.discount === "number") updateData.discount = Math.round(body.discount * 100) / 100
   if (typeof body.hasGst === "boolean") updateData.hasGst = body.hasGst
