@@ -7,6 +7,13 @@ export async function middleware(request: NextRequest) {
   const session = await auth()
   const path = request.nextUrl.pathname
 
+  // Redirect old public browse URL to new public /browse (no login required)
+  if (path === "/customer/browse" || path.startsWith("/customer/browse?")) {
+    const url = new URL("/browse", request.url)
+    url.search = request.nextUrl.search
+    return NextResponse.redirect(url)
+  }
+
   // Protect dashboard entry (role redirect only)
   if (path === "/dashboard" || path.startsWith("/dashboard/")) {
     if (!session?.user) {

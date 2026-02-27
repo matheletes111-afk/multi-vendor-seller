@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
   const adId = searchParams.get("adId")
   if (!adId) {
-    return NextResponse.redirect(new URL("/customer/browse", request.url))
+    return NextResponse.redirect(new URL("/browse", request.url))
   }
 
   const session = await auth()
@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
   })
 
   if (!ad) {
-    return NextResponse.redirect(new URL("/customer/browse", request.url))
+    return NextResponse.redirect(new URL("/browse", request.url))
   }
 
   const now = new Date()
@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
   const inRange = now >= startAt && now <= endAt
   const hasBudget = spentAmount + maxCpc <= totalBudget
 
-  let redirectUrl = "/customer/browse"
+  let redirectUrl = "/browse"
   if (ad.productId && ad.product?.slug) {
     redirectUrl = `/product/${ad.productId}`
   } else if (ad.serviceId && ad.service?.slug) {

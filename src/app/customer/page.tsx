@@ -42,7 +42,7 @@ export default async function CustomerDashboard() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
-        <Link href="/customer/browse">
+        <Link href="/browse">
           <Card className="hover:shadow-md transition-shadow cursor-pointer h-full">
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
@@ -83,7 +83,7 @@ export default async function CustomerDashboard() {
                 Start shopping to see your orders here
               </p>
               <Button asChild>
-                <Link href="/customer/browse">
+                <Link href="/browse">
                   Start Shopping
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Link>

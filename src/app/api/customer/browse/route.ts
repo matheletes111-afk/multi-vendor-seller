@@ -1,15 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
-import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
-import { isCustomer } from "@/lib/rbac"
 
-/** GET browse data: sponsored ads, products, services. Optional categoryId/subcategoryId to filter. Customer auth required. */
+/** GET browse data: sponsored ads, products, services. Optional categoryId/subcategoryId to filter. Public (no auth required). */
 export async function GET(request: NextRequest) {
-  const session = await auth()
-  if (!session?.user || !isCustomer(session.user)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
-
   const { searchParams } = new URL(request.url)
   const categoryId = searchParams.get("categoryId") ?? undefined
   const subcategoryId = searchParams.get("subcategoryId") ?? undefined

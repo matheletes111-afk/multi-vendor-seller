@@ -81,9 +81,9 @@ export function ProductDetailClient({ productId }: { productId: string }) {
         <nav className="mb-4 flex items-center gap-1 text-sm text-slate-600">
           <Link href="/" className="hover:text-amber-600 hover:underline">Home</Link>
           <ChevronRight className="h-4 w-4 shrink-0" />
-          <Link href="/customer/browse" className="hover:text-amber-600 hover:underline">Browse</Link>
+          <Link href="/browse" className="hover:text-amber-600 hover:underline">Browse</Link>
           <ChevronRight className="h-4 w-4 shrink-0" />
-          <Link href={`/customer/browse?categoryId=${product.category.id}`} className="hover:text-amber-600 hover:underline">{product.category.name}</Link>
+          <Link href={`/browse?categoryId=${product.category.id}`} className="hover:text-amber-600 hover:underline">{product.category.name}</Link>
           <ChevronRight className="h-4 w-4 shrink-0" />
           <span className="truncate text-slate-900 font-medium">{product.name}</span>
         </nav>
@@ -190,7 +190,7 @@ export function ProductDetailClient({ productId }: { productId: string }) {
                   <span className="font-medium text-slate-900">{product.seller?.store?.name ?? "Store"}</span>
                 </p>
                 <Link
-                  href={`/customer/browse?categoryId=${product.category.id}`}
+                  href={`/browse?categoryId=${product.category.id}`}
                   className="mt-1 inline-block text-sm text-blue-600 hover:underline"
                 >
                   More from {product.category.name}
@@ -259,7 +259,7 @@ export function ProductDetailClient({ productId }: { productId: string }) {
 
         <div className="mt-6 text-center">
           <Button asChild variant="outline">
-            <Link href="/customer/browse">Continue shopping</Link>
+            <Link href="/browse">Continue shopping</Link>
           </Button>
         </div>
       </div>

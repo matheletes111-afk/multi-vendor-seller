@@ -29,9 +29,9 @@ export function SiteHeader() {
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
     if (searchQuery.trim()) {
-      router.push(`/customer/browse?q=${encodeURIComponent(searchQuery.trim())}`)
+      router.push(`/browse?q=${encodeURIComponent(searchQuery.trim())}`)
     } else {
-      router.push("/customer/browse")
+      router.push("/browse")
     }
   }
 
@@ -104,7 +104,7 @@ export function SiteHeader() {
           )}
 
           <Link
-            href="/customer/browse"
+            href="/browse"
             className="flex flex-col items-start rounded px-2 py-1.5 text-white hover:opacity-90"
           >
             <span className="text-xs text-blue-100">Returns</span>

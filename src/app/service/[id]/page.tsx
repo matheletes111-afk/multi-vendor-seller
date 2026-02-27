@@ -24,7 +24,7 @@ export default async function ServicePage({ params }: { params: Promise<{ id: st
   return (
     <div className="container mx-auto p-6 max-w-4xl">
       <div className="mb-6">
-        <Link href="/customer/browse" className="text-sm text-muted-foreground hover:underline">
+        <Link href="/browse" className="text-sm text-muted-foreground hover:underline">
           ← Back to browse
         </Link>
       </div>
@@ -63,7 +63,7 @@ export default async function ServicePage({ params }: { params: Promise<{ id: st
           )}
           <div className="mt-6">
             <Button asChild>
-              <Link href="/customer/browse">Browse more</Link>
+              <Link href="/browse">Browse more</Link>
             </Button>
           </div>
         </CardContent>

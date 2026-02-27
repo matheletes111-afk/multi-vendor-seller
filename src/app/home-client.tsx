@@ -145,8 +145,8 @@ export function HomeClient() {
                   <Link
                     href={
                       banner.categoryId
-                        ? `/customer/browse?categoryId=${banner.categoryId}${banner.subcategoryId ? `&subcategoryId=${banner.subcategoryId}` : ""}`
-                        : "/customer/browse"
+                        ? `/browse?categoryId=${banner.categoryId}${banner.subcategoryId ? `&subcategoryId=${banner.subcategoryId}` : ""}`
+                        : "/browse"
                     }
                     className="block h-full w-full"
                   >
@@ -201,7 +201,7 @@ export function HomeClient() {
                         return (
                         <Link
                           key={sub.id}
-                          href={`/customer/browse?sub=${sub.slug}`}
+                          href={`/browse?subcategoryId=${sub.id}`}
                           className="flex flex-col items-center rounded-lg border border-slate-200 bg-slate-50 p-2 transition-colors hover:bg-slate-100"
                         >
                           <div className="relative h-16 w-16 overflow-hidden rounded-md bg-muted flex items-center justify-center">
@@ -216,7 +216,7 @@ export function HomeClient() {
                       );})}
                     </div>
                     <Link
-                      href={`/customer/browse?cat=${cat.slug}`}
+                      href={`/browse?categoryId=${cat.id}`}
                       className="mt-3 block text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline"
                     >
                       View all
@@ -281,7 +281,7 @@ export function HomeClient() {
             </div>
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {ads.map((ad) => {
-                const adHref = ad.productId ? `/product/${ad.productId}` : ad.serviceId ? `/service/${ad.serviceId}` : "/customer/browse";
+                const adHref = ad.productId ? `/product/${ad.productId}` : ad.serviceId ? `/service/${ad.serviceId}` : "/browse";
                 const isVideo = ad.creativeType === "VIDEO";
                 const youtubeEmbed = isVideo ? getYoutubeEmbedUrl(ad.creativeUrl) : null;
                 return (
@@ -375,7 +375,7 @@ export function HomeClient() {
             </div>
             <div className="mt-6 text-center">
               <Button asChild className="bg-blue-600 text-white hover:bg-blue-700">
-                <Link href="/customer/browse">View all products</Link>
+                <Link href="/browse">View all products</Link>
               </Button>
             </div>
           </section>

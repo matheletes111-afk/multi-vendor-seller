@@ -53,7 +53,7 @@ export default async function OrdersPage() {
               Start shopping to see your orders here
             </p>
             <Button asChild>
-              <Link href="/customer/browse">
+              <Link href="/browse">
                 Start Shopping
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Link>

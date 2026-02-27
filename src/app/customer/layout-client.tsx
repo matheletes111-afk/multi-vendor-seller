@@ -44,7 +44,7 @@ const navContent = (
   <>
     <NavItem href="/customer" label="Overview" icon={<LayoutDashboard className="h-4 w-4" />} />
     <NavItem href="/customer/orders" label="My Orders" icon={<ShoppingCart className="h-4 w-4" />} />
-    <NavItem href="/customer/browse" label="Browse Marketplace" icon={<Store className="h-4 w-4" />} />
+    <NavItem href="/browse" label="Browse Marketplace" icon={<Store className="h-4 w-4" />} />
   </>
 )
 

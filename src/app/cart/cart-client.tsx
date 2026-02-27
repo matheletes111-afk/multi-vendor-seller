@@ -118,7 +118,7 @@ export function CartClient() {
                   Taxes and shipping calculated at checkout.
                 </p>
                 <Button asChild className="mt-4 w-full bg-amber-400 text-black hover:bg-amber-500" size="lg">
-                  <Link href="/customer/browse">Proceed to checkout</Link>
+                  <Link href="/browse">Proceed to checkout</Link>
                 </Button>
                 <Button asChild variant="outline" className="mt-2 w-full" size="sm">
                   <Link href="/">Continue shopping</Link>
