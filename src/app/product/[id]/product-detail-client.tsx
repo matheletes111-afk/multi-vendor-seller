@@ -142,24 +142,31 @@ export function ProductDetailClient({ productId }: { productId: string }) {
                 <span>Delivery &amp; availability shown at checkout</span>
               </div>
 
-              <div className="mt-6 flex flex-wrap gap-3">
-                <Button
-                  size="lg"
-                  className="bg-amber-400 text-black hover:bg-amber-500"
-                  onClick={() => {
-                    addItem({
-                      productId: product.id,
-                      name: product.name,
-                      price: displayPrice,
-                      image: mainImage || null,
-                    })
-                    setAddedToCart(true)
-                    setTimeout(() => setAddedToCart(false), 2000)
-                  }}
-                >
-                  <ShoppingCart className="mr-2 h-5 w-5" />
-                  {addedToCart ? "Added to Cart" : "Add to Cart"}
-                </Button>
+              <div className="mt-6 flex flex-col gap-3">
+                {addedToCart && (
+                  <p className="flex items-center gap-2 rounded-lg bg-green-100 px-4 py-2.5 text-sm font-medium text-green-800 ring-1 ring-green-200">
+                    <span className="inline-flex h-2 w-2 rounded-full bg-green-500" aria-hidden />
+                    Added to cart
+                  </p>
+                )}
+                <div className="flex flex-wrap gap-3">
+                  <Button
+                    size="lg"
+                    className="bg-amber-400 text-black hover:bg-amber-500"
+                    onClick={() => {
+                      addItem({
+                        productId: product.id,
+                        name: product.name,
+                        price: displayPrice,
+                        image: mainImage || null,
+                      })
+                      setAddedToCart(true)
+                      setTimeout(() => setAddedToCart(false), 3000)
+                    }}
+                  >
+                    <ShoppingCart className="mr-2 h-5 w-5" />
+                    {addedToCart ? "Added to Cart" : "Add to Cart"}
+                  </Button>
                 <Button
                   size="lg"
                   variant="outline"
@@ -174,6 +181,7 @@ export function ProductDetailClient({ productId }: { productId: string }) {
                 >
                   Buy Now
                 </Button>
+                </div>
               </div>
 
               <div className="mt-6 border-t border-slate-200 pt-4">

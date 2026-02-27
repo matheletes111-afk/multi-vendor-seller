@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import { ThemeProvider } from "@/app/theme-provider"
 import { CartProvider } from "@/contexts/cart-context"
+import { SessionProvider } from "@/components/session-provider"
 import "./globals.css"
 
 const inter = Inter({ subsets: ["latin"] })
@@ -28,9 +29,11 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <CartProvider>
-            {children}
-          </CartProvider>
+          <SessionProvider>
+            <CartProvider>
+              {children}
+            </CartProvider>
+          </SessionProvider>
         </ThemeProvider>
       </body>
     </html>

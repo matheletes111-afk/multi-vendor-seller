@@ -129,6 +129,13 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    if (!bannerImagePath) {
+      return NextResponse.json(
+        { error: "Banner image is required" },
+        { status: 400 }
+      );
+    }
+
     // Create banner
     const banner = await prisma.banner.create({
       data: {
