@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/ui/
 import { Badge } from "@/ui/badge"
 import { formatCurrency } from "@/lib/utils"
 import { getYoutubeEmbedUrl } from "@/lib/youtube"
+import { PageLoader } from "@/components/ui/page-loader"
 import { Package, Briefcase, Megaphone, ShoppingBag } from "lucide-react"
 
 type Ad = {
@@ -60,7 +61,7 @@ export function BrowseClient() {
       .finally(() => setLoading(false))
   }, [categoryId, subcategoryId])
 
-  if (loading) return <div className="container mx-auto p-6"><p className="text-muted-foreground">Loading...</p></div>
+  if (loading) return <PageLoader variant="listing" message="Loading products…" />
 
   return (
     <div className="container mx-auto p-6 space-y-12">

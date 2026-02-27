@@ -9,6 +9,7 @@ import { formatCurrency } from "@/lib/utils"
 import { getYoutubeEmbedUrl } from "@/lib/youtube"
 import { PublicLayout } from "@/components/site-layout"
 import { useCart } from "@/contexts/cart-context"
+import { PageLoader } from "@/components/ui/page-loader"
 import { ChevronRight, ShoppingCart, Truck } from "lucide-react"
 
 type Product = {
@@ -61,9 +62,9 @@ export function ProductDetailClient({ productId }: { productId: string }) {
 
   if (loading) {
     return (
-      <div className="min-h-[40vh] flex items-center justify-center">
-        <div className="h-10 w-10 animate-spin rounded-full border-4 border-amber-500 border-t-transparent" aria-label="Loading" />
-      </div>
+      <PublicLayout>
+        <PageLoader variant="detail" message="Loading product…" />
+      </PublicLayout>
     )
   }
   if (!product) notFound()

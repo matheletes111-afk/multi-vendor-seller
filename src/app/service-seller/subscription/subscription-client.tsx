@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/ui/card"
 import { Button } from "@/ui/button"
 import { formatCurrency } from "@/lib/utils"
+import { PageLoader } from "@/components/ui/page-loader"
 
 type Plan = { id: string; name: string; displayName: string; description: string | null; price: number; maxProducts: number | null; maxOrders: number | null }
 type Subscription = { id: string; planId: string; status: string; currentPeriodEnd: string | null; plan: { displayName: string } } | null
@@ -29,7 +30,7 @@ export function ServiceSubscriptionClient() {
     if (data.url) window.location.href = data.url
   }
 
-  if (loading) return <div className="container mx-auto py-8"><p className="text-muted-foreground">Loading...</p></div>
+  if (loading) return <PageLoader message="Loading subscription…" />
 
   return (
     <div className="container mx-auto py-8">

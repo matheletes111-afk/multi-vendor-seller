@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/ui/card";
@@ -27,6 +26,7 @@ import {
 } from "@/ui/dialog";
 import { Plus, Pencil, Trash2, Eye, EyeOff } from "lucide-react";
 import { AdminPagination } from "@/components/admin/admin-pagination";
+import { PageLoader } from "@/components/ui/page-loader";
 
 interface Banner {
   id: string;
@@ -178,7 +178,7 @@ export function BannersClient() {
         </CardHeader>
         <CardContent>
           {loading && !data ? (
-            <div className="py-12 text-center text-muted-foreground">Loading...</div>
+            <PageLoader message="Loading banners…" />
           ) : fetchError ? (
             <div className="py-12 text-center text-destructive">{fetchError}</div>
           ) : !data ? null : (
@@ -207,11 +207,11 @@ export function BannersClient() {
                     <TableCell>
                       {banner.bannerImage && !imageErrors.has(banner.id) ? (
                         <div className="relative w-20 h-12 rounded overflow-hidden bg-muted shrink-0">
-                          <Image
-                            src={banner.bannerImage}
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={banner.bannerImage.startsWith("http") ? banner.bannerImage : banner.bannerImage}
                             alt={banner.bannerHeading}
-                            fill
-                            className="object-cover"
+                            className="w-full h-full object-cover"
                             onError={() => handleImageError(banner.id)}
                           />
                         </div>

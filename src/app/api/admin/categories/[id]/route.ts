@@ -73,8 +73,9 @@ export async function PUT(
     const commissionRate = parseFloat(formData.get("commissionRate") as string) || 10.0;
     const isActive = formData.get("isActive") === "true";
     
-    // Handle category image
     const categoryImageFile = formData.get("categoryImage") as File | null;
+    const categoryImageUrl = (formData.get("categoryImageUrl") as string)?.trim() || null;
+    const removeCategoryImage = formData.get("removeCategoryImage") === "true";
     const existingCategoryImage = formData.get("existingCategoryImage") as string || null;
     
     // Handle subcategories
@@ -134,9 +135,8 @@ export async function PUT(
     if (commissionRate !== undefined) updateData.commissionRate = commissionRate;
     if (isActive !== undefined) updateData.isActive = isActive;
 
-    // Handle category image
-    let categoryImagePath = existingCategoryImage;
-    
+    let categoryImagePath: string | null = removeCategoryImage ? null : (categoryImageUrl ?? existingCategoryImage ?? null);
+
     if (categoryImageFile && categoryImageFile.size > 0) {
       try {
         // Delete old image if exists
@@ -173,15 +173,15 @@ export async function PUT(
         console.error("Error uploading category image:", uploadError);
       }
     } else if (categoryImagePath === null) {
-      // Image was removed
       if (existingCategory.image && existingCategory.image.startsWith('/uploads/')) {
         const oldImagePath = path.join(process.cwd(), 'public', existingCategory.image);
         if (existsSync(oldImagePath)) {
           await unlink(oldImagePath);
-          console.log("Deleted removed category image:", oldImagePath);
         }
       }
       updateData.image = null;
+    } else {
+      updateData.image = categoryImagePath;
     }
 
     // Update category if there are changes
@@ -229,10 +229,9 @@ export async function PUT(
         const categoryName = updatedCategory.name;
         const subSlug = generateSlug(`${categoryName}-${sub.name}`);
         
-        // Handle subcategory image
-        let subImagePath = sub.existingImage || null;
+        let subImagePath = (formData.get(`subcategoryImageUrl_${i}`) as string)?.trim() || sub.existingImage || null;
         const imageFile = subcategoryImages.get(i.toString());
-        
+
         if (imageFile && imageFile.size > 0) {
           try {
             // Delete old image if exists and different

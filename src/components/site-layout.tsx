@@ -14,6 +14,7 @@ import {
 } from "@/ui/dropdown-menu"
 import { ThemeToggle } from "@/ui/theme-toggle"
 import { useCart } from "@/contexts/cart-context"
+import { CategoriesNav } from "@/components/categories-nav"
 import { ChevronDown, Search, ShoppingCart } from "lucide-react"
 import { ReactNode } from "react"
 
@@ -126,6 +127,7 @@ export function SiteHeader() {
           </Link>
         </nav>
       </div>
+      <CategoriesNav />
     </header>
   )
 }

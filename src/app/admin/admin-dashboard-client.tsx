@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/ui/card"
 import { Badge } from "@/ui/badge"
 import { formatCurrency } from "@/lib/utils"
+import { PageLoader } from "@/components/ui/page-loader"
 import Link from "next/link"
 import {
   Users,
@@ -52,13 +53,7 @@ export function AdminDashboardClient() {
     }
   }, [])
 
-  if (loading && !data) {
-    return (
-      <div className="container mx-auto p-6">
-        <div className="py-12 text-center text-muted-foreground">Loading...</div>
-      </div>
-    )
-  }
+  if (loading && !data) return <PageLoader message="Loading dashboard…" />
   if (error) {
     return (
       <div className="container mx-auto p-6">

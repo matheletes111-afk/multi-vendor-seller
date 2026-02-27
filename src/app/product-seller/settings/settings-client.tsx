@@ -8,6 +8,7 @@ import { Input } from "@/ui/input"
 import { Label } from "@/ui/label"
 import { Textarea } from "@/ui/textarea"
 import { Alert, AlertDescription } from "@/ui/alert"
+import { PageLoader } from "@/components/ui/page-loader"
 
 type Seller = {
   id: string
@@ -77,7 +78,7 @@ export function SettingsClient() {
     setSavingUser(false)
   }
 
-  if (loading || !seller) return <div className="container mx-auto py-8"><p className="text-muted-foreground">Loading...</p></div>
+  if (loading || !seller) return <PageLoader message="Loading settings…" />
 
   return (
     <div className="container mx-auto py-8">

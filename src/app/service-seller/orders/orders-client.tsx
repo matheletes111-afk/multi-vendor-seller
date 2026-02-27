@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/ui/
 import { Badge } from "@/ui/badge"
 import { Separator } from "@/ui/separator"
 import { formatCurrency, formatDate } from "@/lib/utils"
+import { PageLoader } from "@/components/ui/page-loader"
 import { ShoppingCart, Package, User } from "lucide-react"
 
 type Order = {
@@ -24,7 +25,7 @@ export function ServiceOrdersClient() {
   useEffect(() => {
     fetch("/api/service-seller/orders").then((r) => (r.ok ? r.json() : [])).then(setOrders).finally(() => setLoading(false))
   }, [])
-  if (loading) return <div className="container mx-auto p-6"><p className="text-muted-foreground">Loading...</p></div>
+  if (loading) return <PageLoader variant="listing" message="Loading orders…" />
   return (
     <div className="container mx-auto p-6 space-y-6">
       <div>

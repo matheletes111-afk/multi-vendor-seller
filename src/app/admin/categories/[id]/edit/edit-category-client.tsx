@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { notFound } from "next/navigation"
 import { EditCategoryForm } from "@/components/admin/edit-category-form"
+import { PageLoader } from "@/components/ui/page-loader"
 
 export function EditCategoryClient({ categoryId }: { categoryId: string }) {
   const [category, setCategory] = useState<any>(null)
@@ -32,7 +33,7 @@ export function EditCategoryClient({ categoryId }: { categoryId: string }) {
   }, [categoryId])
 
   if (loading && !category) {
-    return <div className="py-8 text-center text-muted-foreground">Loading...</div>
+    return <PageLoader message="Loading category…" />
   }
   if (error || !category) {
     notFound()

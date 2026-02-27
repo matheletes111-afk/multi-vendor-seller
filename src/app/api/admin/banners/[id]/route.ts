@@ -97,8 +97,8 @@ export async function PUT(
     const categoryId = formData.get("categoryId") as string || null;
     const subcategoryId = formData.get("subcategoryId") as string || null;
     const removeImage = formData.get("removeImage") === "true";
-    
     const bannerImageFile = formData.get("bannerImage") as File | null;
+    const bannerImageUrl = (formData.get("bannerImageUrl") as string)?.trim() || null;
 
     // Check if banner exists
     const existingBanner = await prisma.banner.findUnique({
@@ -156,7 +156,6 @@ export async function PUT(
         return NextResponse.json({ error: "Failed to upload banner image" }, { status: 500 });
       }
     } else if (removeImage) {
-      // Remove image
       if (existingBanner.bannerImage && existingBanner.bannerImage.startsWith('/uploads/')) {
         const oldImagePath = path.join(process.cwd(), 'public', existingBanner.bannerImage);
         if (existsSync(oldImagePath)) {
@@ -164,6 +163,8 @@ export async function PUT(
         }
       }
       updateData.bannerImage = null;
+    } else if (bannerImageUrl) {
+      updateData.bannerImage = bannerImageUrl;
     }
 
     const banner = await prisma.banner.update({

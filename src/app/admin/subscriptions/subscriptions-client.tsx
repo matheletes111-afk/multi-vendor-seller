@@ -15,6 +15,7 @@ import {
   TableRow,
 } from "@/ui/table"
 import { AdminPagination } from "@/components/admin/admin-pagination"
+import { PageLoader } from "@/components/ui/page-loader"
 import { formatCurrency, formatDate } from "@/lib/utils"
 
 export function SubscriptionsClient() {
@@ -60,7 +61,7 @@ export function SubscriptionsClient() {
   if (loading && !data) {
     return (
       <div className="container mx-auto p-6">
-        <div className="py-12 text-center text-muted-foreground">Loading...</div>
+        <PageLoader message="Loading plans…" />
       </div>
     )
   }

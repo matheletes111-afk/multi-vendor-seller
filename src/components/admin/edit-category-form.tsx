@@ -9,7 +9,7 @@ import { Textarea } from "@/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/ui/card";
 import { Alert, AlertDescription } from "@/ui/alert";
 import { Separator } from "@/ui/separator";
-import { ImageUpload } from "@/ui/image-upload";
+import { ImageLinkOrUpload, type ImageLinkOrUploadValue } from "@/components/admin/image-link-or-upload";
 import { Plus, Trash2, Pencil } from "lucide-react";
 import Image from "next/image";
 
@@ -19,7 +19,7 @@ interface Subcategory {
   description: string;
   image?: string | null;
   existingImage?: string | null;
-  imageFile?: File | null;
+  imageValue?: ImageLinkOrUploadValue | null;
   imagePreview?: string;
   isActive: boolean;
   removeImage?: boolean;
@@ -50,16 +50,15 @@ export function EditCategoryForm({ category }: { category: Category }) {
     isActive: category.isActive,
   });
 
-  // Category image
-  const [categoryImage, setCategoryImage] = useState<File | null>(null);
-  const [categoryImagePreview, setCategoryImagePreview] = useState<string | null>(category.image);
+  // Category image (link or file)
+  const [categoryImageValue, setCategoryImageValue] = useState<ImageLinkOrUploadValue>(null);
   const [removeCategoryImage, setRemoveCategoryImage] = useState(false);
 
   // Subcategory form state
   const [subcategoryForm, setSubcategoryForm] = useState<Subcategory>({
     name: "",
     description: "",
-    imageFile: null,
+    imageValue: null,
     imagePreview: undefined,
     isActive: true,
   });
@@ -73,6 +72,7 @@ export function EditCategoryForm({ category }: { category: Category }) {
         description: sub.description || "",
         existingImage: sub.image,
         imagePreview: sub.image || undefined,
+        imageValue: null,
         isActive: sub.isActive,
       }))
     );
@@ -86,17 +86,10 @@ export function EditCategoryForm({ category }: { category: Category }) {
     }));
   };
 
-  const handleCategoryImage = (file: File | null) => {
-    if (file) {
-      setCategoryImage(file);
-      const preview = URL.createObjectURL(file);
-      setCategoryImagePreview(preview);
-      setRemoveCategoryImage(false);
-    } else {
-      setCategoryImage(null);
-      setCategoryImagePreview(null);
-      setRemoveCategoryImage(true);
-    }
+  const handleCategoryImageChange = (value: ImageLinkOrUploadValue) => {
+    setCategoryImageValue(value);
+    if (value) setRemoveCategoryImage(false);
+    else setRemoveCategoryImage(true);
   };
 
   const handleSubcategoryChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -105,25 +98,6 @@ export function EditCategoryForm({ category }: { category: Category }) {
       ...prev,
       [name]: type === "checkbox" ? (e.target as HTMLInputElement).checked : value
     }));
-  };
-
-  const handleSubcategoryImage = (file: File | null) => {
-    if (file) {
-      const preview = URL.createObjectURL(file);
-      setSubcategoryForm(prev => ({
-        ...prev,
-        imageFile: file,
-        imagePreview: preview,
-        removeImage: false
-      }));
-    } else {
-      setSubcategoryForm(prev => ({
-        ...prev,
-        imageFile: null,
-        imagePreview: undefined,
-        removeImage: true
-      }));
-    }
   };
 
   const addOrUpdateSubcategory = () => {
@@ -154,7 +128,7 @@ export function EditCategoryForm({ category }: { category: Category }) {
     setSubcategoryForm({
       name: "",
       description: "",
-      imageFile: null,
+      imageValue: null,
       imagePreview: undefined,
       isActive: true,
       removeImage: false
@@ -181,7 +155,7 @@ export function EditCategoryForm({ category }: { category: Category }) {
       setSubcategoryForm({
         name: "",
         description: "",
-        imageFile: null,
+        imageValue: null,
         imagePreview: undefined,
         isActive: true,
         removeImage: false
@@ -209,20 +183,16 @@ export function EditCategoryForm({ category }: { category: Category }) {
       formData.append("commissionRate", categoryData.commissionRate.toString());
       formData.append("isActive", categoryData.isActive.toString());
       
-      // Append category image if changed
-      if (categoryImage) {
-        formData.append("categoryImage", categoryImage);
+      if (categoryImageValue?.type === "file") {
+        formData.append("categoryImage", categoryImageValue.file);
+      } else if (categoryImageValue?.type === "url" && categoryImageValue.url) {
+        formData.append("categoryImageUrl", categoryImageValue.url);
       }
-      
-      // Track if category image was removed
       formData.append("removeCategoryImage", removeCategoryImage.toString());
-      
-      // Keep track of existing category image for reference
       if (category.image) {
         formData.append("existingCategoryImage", category.image);
       }
 
-      // Prepare subcategories data
       const subcategoriesPayload = subcategories.map(sub => ({
         id: sub.id,
         name: sub.name,
@@ -231,16 +201,13 @@ export function EditCategoryForm({ category }: { category: Category }) {
         isActive: sub.isActive,
         removeImage: sub.removeImage || false
       }));
-
       formData.append("subcategories", JSON.stringify(subcategoriesPayload));
 
-      // Collect images to delete (for subcategories that were removed)
-      const deletedImages: string[] = [];
-      
-      // Append subcategory images with index
       subcategories.forEach((sub, index) => {
-        if (sub.imageFile) {
-          formData.append(`subcategoryImage_${index}`, sub.imageFile);
+        if (sub.imageValue?.type === "file") {
+          formData.append(`subcategoryImage_${index}`, sub.imageValue.file);
+        } else if (sub.imageValue?.type === "url" && sub.imageValue.url) {
+          formData.append(`subcategoryImageUrl_${index}`, sub.imageValue.url);
         }
       });
 
@@ -323,16 +290,13 @@ export function EditCategoryForm({ category }: { category: Category }) {
           </div>
 
           <div className="space-y-2">
-            <Label>Category Image</Label>
-            <ImageUpload
-              onImageSelect={handleCategoryImage}
-              currentImage={categoryImagePreview}
+            <ImageLinkOrUpload
+              label="Category Image"
+              value={categoryImageValue}
+              onChange={handleCategoryImageChange}
+              currentImage={!categoryImageValue && !removeCategoryImage ? category.image ?? undefined : undefined}
+              showPreview={true}
             />
-            {category.image && !categoryImagePreview && !removeCategoryImage && (
-              <p className="text-sm text-muted-foreground mt-1">
-                Current image: {category.image.split('/').pop()}
-              </p>
-            )}
           </div>
 
           <div className="space-y-2">
@@ -400,16 +364,13 @@ export function EditCategoryForm({ category }: { category: Category }) {
             </div>
 
             <div className="space-y-2">
-              <Label>Subcategory Image</Label>
-              <ImageUpload
-                onImageSelect={handleSubcategoryImage}
-                currentImage={subcategoryForm.imagePreview || subcategoryForm.existingImage}
+              <ImageLinkOrUpload
+                label="Subcategory Image"
+                value={subcategoryForm.imageValue ?? null}
+                onChange={(v) => setSubcategoryForm(prev => ({ ...prev, imageValue: v ?? undefined }))}
+                currentImage={subcategoryForm.removeImage ? undefined : (subcategoryForm.imagePreview || subcategoryForm.existingImage)}
+                showPreview={true}
               />
-              {subcategoryForm.existingImage && !subcategoryForm.imagePreview && !subcategoryForm.removeImage && (
-                <p className="text-sm text-muted-foreground mt-1">
-                  Current image: {subcategoryForm.existingImage.split('/').pop()}
-                </p>
-              )}
             </div>
 
             <div className="flex items-center space-x-2">
@@ -442,7 +403,7 @@ export function EditCategoryForm({ category }: { category: Category }) {
                     setSubcategoryForm({
                       name: "",
                       description: "",
-                      imageFile: null,
+                      imageValue: null,
                       imagePreview: undefined,
                       isActive: true,
                       removeImage: false
@@ -476,13 +437,13 @@ export function EditCategoryForm({ category }: { category: Category }) {
                       {sub.description && (
                         <p className="text-sm text-muted-foreground mt-1">{sub.description}</p>
                       )}
-                      {(sub.imagePreview || sub.existingImage) && (
-                        <div className="mt-2 relative w-16 h-16">
-                          <Image
-                            src={sub.imagePreview || sub.existingImage || ""}
+                      {(sub.imagePreview || sub.existingImage || (sub.imageValue?.type === "url" && sub.imageValue.url)) && (
+                        <div className="mt-2 relative w-16 h-16 rounded overflow-hidden bg-muted">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={sub.imageValue?.type === "url" ? sub.imageValue.url : (sub.imagePreview || sub.existingImage || "")}
                             alt={sub.name}
-                            fill
-                            className="object-cover rounded"
+                            className="w-full h-full object-cover rounded"
                           />
                         </div>
                       )}

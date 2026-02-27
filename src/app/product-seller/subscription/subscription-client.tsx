@@ -33,7 +33,7 @@ export function SubscriptionClient() {
     if (data.url) window.location.href = data.url
   }
 
-  if (loading) return <div className="container mx-auto py-8"><p className="text-muted-foreground">Loading...</p></div>
+  if (loading) return <PageLoader message="Loading subscription…" />
 
   return (
     <div className="container mx-auto py-8">

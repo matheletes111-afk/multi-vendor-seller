@@ -19,6 +19,7 @@ import { formatCurrency } from "@/lib/utils"
 import { getYoutubeThumbnailUrl } from "@/lib/youtube"
 import { Megaphone, Check, X, ImageIcon, Video } from "lucide-react"
 import { AdminPagination, AdminPaginationProps } from "@/components/admin/admin-pagination"
+import { PageLoader } from "@/components/ui/page-loader"
 
 type Ad = {
   id: string
@@ -139,7 +140,7 @@ export function AdminSellerAdsPageClient() {
         </CardHeader>
         <CardContent>
           {loading && !data ? (
-            <div className="py-12 text-center text-muted-foreground">Loading...</div>
+            <PageLoader message="Loading ads…" />
           ) : fetchError ? (
             <div className="py-12 text-center text-destructive">{fetchError}</div>
           ) : !data ? null : (

@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { notFound } from "next/navigation"
 import { BannerForm } from "@/components/admin/banner-form"
+import { PageLoader } from "@/components/ui/page-loader"
 
 export function EditBannerClient({ bannerId }: { bannerId: string }) {
   const [banner, setBanner] = useState<any>(null)
@@ -40,7 +41,7 @@ export function EditBannerClient({ bannerId }: { bannerId: string }) {
   }, [bannerId])
 
   if (loading && !banner) {
-    return <div className="py-8 text-center text-muted-foreground">Loading...</div>
+    return <PageLoader message="Loading banner…" />
   }
   if (error || !banner) {
     notFound()

@@ -19,6 +19,7 @@ import {
 } from "@/ui/dialog"
 import { formatCurrency } from "@/lib/utils"
 import { getYoutubeThumbnailUrl } from "@/lib/youtube"
+import { PageLoader } from "@/components/ui/page-loader"
 import { Plus, Megaphone, Pause, Play, Trash2, ImageIcon, Video } from "lucide-react"
 
 type Ad = {
@@ -115,7 +116,7 @@ export function ServiceSellerAdmanagementPageClient() {
       )}
 
       {loading ? (
-        <p className="text-muted-foreground">Loading...</p>
+        <PageLoader message="Loading ads…" />
       ) : ads.length === 0 ? (
         <Card>
           <CardContent className="py-16 text-center">

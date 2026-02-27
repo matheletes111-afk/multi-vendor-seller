@@ -1,8 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import Image from "next/image";
 import { Button } from "@/ui/button";
 import { Input } from "@/ui/input";
 import { Label } from "@/ui/label";
@@ -16,8 +15,22 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/ui/select";
-import { ImageUpload } from "@/ui/image-upload";
+import { ImageLinkOrUpload, type ImageLinkOrUploadValue } from "@/components/admin/image-link-or-upload";
 import { ChevronLeft } from "lucide-react";
+
+function BannerPreviewFromFile({ file }: { file: File }) {
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => {
+    const u = URL.createObjectURL(file);
+    setUrl(u);
+    return () => URL.revokeObjectURL(u);
+  }, [file]);
+  if (!url) return null;
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={url} alt="Banner preview" className="w-full h-full object-cover" />
+  );
+}
 
 interface Category {
   id: string;
@@ -62,8 +75,7 @@ export function BannerForm({
     subcategoryId: banner?.subcategoryId || NONE_SUBCATEGORY,
   });
 
-  const [bannerImage, setBannerImage] = useState<File | null>(null);
-  const [bannerImagePreview, setBannerImagePreview] = useState<string | null>(banner?.bannerImage || null);
+  const [bannerImageValue, setBannerImageValue] = useState<ImageLinkOrUploadValue>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>(banner?.categoryId || NONE_CATEGORY);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -87,25 +99,6 @@ export function BannerForm({
     setFormData(prev => ({ ...prev, subcategoryId: value }));
   };
 
-  const handleImageSelect = (file: File | null) => {
-    if (file) {
-      // Clean up previous preview
-      if (bannerImagePreview && !banner?.bannerImage) {
-        URL.revokeObjectURL(bannerImagePreview);
-      }
-      
-      setBannerImage(file);
-      const preview = URL.createObjectURL(file);
-      setBannerImagePreview(preview);
-    } else {
-      if (bannerImagePreview && !banner?.bannerImage) {
-        URL.revokeObjectURL(bannerImagePreview);
-      }
-      setBannerImage(null);
-      setBannerImagePreview(banner?.bannerImage || null);
-    }
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -114,8 +107,9 @@ export function BannerForm({
       return;
     }
 
-    if (!bannerImage && !banner?.bannerImage) {
-      setError("Banner image is required");
+    const hasImage = bannerImageValue?.type === "file" || bannerImageValue?.type === "url" || banner?.bannerImage;
+    if (!hasImage) {
+      setError("Banner image is required (link or upload)");
       return;
     }
 
@@ -131,14 +125,13 @@ export function BannerForm({
       formDataObj.append("isActive", formData.isActive.toString());
       formDataObj.append("categoryId", formData.categoryId === NONE_CATEGORY ? "" : formData.categoryId);
       formDataObj.append("subcategoryId", formData.subcategoryId === NONE_SUBCATEGORY ? "" : formData.subcategoryId);
-      
-      // Append image if new one selected
-      if (bannerImage) {
-        formDataObj.append("bannerImage", bannerImage);
-      }
 
-      // Track if image was removed
-      if (!bannerImage && !bannerImagePreview && banner?.bannerImage) {
+      if (bannerImageValue?.type === "file") {
+        formDataObj.append("bannerImage", bannerImageValue.file);
+      } else if (bannerImageValue?.type === "url" && bannerImageValue.url) {
+        formDataObj.append("bannerImageUrl", bannerImageValue.url);
+      }
+      if (!bannerImageValue && banner?.bannerImage) {
         formDataObj.append("removeImage", "true");
       }
 
@@ -157,11 +150,6 @@ export function BannerForm({
 
       if (!response.ok) {
         throw new Error(data.error || `Failed to ${banner ? 'update' : 'create'} banner`);
-      }
-
-      // Clean up preview
-      if (bannerImagePreview && !banner?.bannerImage) {
-        URL.revokeObjectURL(bannerImagePreview);
       }
 
       router.push(`/admin/banners?success=Banner ${banner ? 'updated' : 'created'} successfully`);
@@ -248,15 +236,14 @@ export function BannerForm({
             </div>
 
             <div className="space-y-2">
-              <Label>Banner Image *</Label>
-              <ImageUpload
-                onImageSelect={handleImageSelect}
+              <ImageLinkOrUpload
+                label="Banner Image"
+                value={bannerImageValue}
+                onChange={setBannerImageValue}
+                currentImage={banner?.bannerImage}
+                showPreview={true}
+                required
               />
-              {banner?.bannerImage && !bannerImage && (
-                <p className="text-xs text-muted-foreground mt-1">
-                  Current image: {banner.bannerImage.split('/').pop()}
-                </p>
-              )}
             </div>
 
             <div className="flex items-center space-x-2">
@@ -346,19 +333,30 @@ export function BannerForm({
       </div>
 
       {/* Image Preview */}
-      {bannerImagePreview && (
+      {((bannerImageValue?.type === "url" && bannerImageValue.url) || bannerImageValue?.type === "file" || banner?.bannerImage) && (
         <Card>
           <CardHeader>
             <CardTitle>Image Preview</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="relative w-full max-w-2xl h-64 border rounded-lg overflow-hidden">
-              <Image
-                src={bannerImagePreview}
-                alt="Banner preview"
-                fill
-                className="object-cover"
-              />
+            <div className="relative w-full max-w-2xl h-64 border rounded-lg overflow-hidden bg-muted">
+              {bannerImageValue?.type === "url" ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={bannerImageValue.url}
+                  alt="Banner preview"
+                  className="w-full h-full object-cover"
+                />
+              ) : bannerImageValue?.type === "file" ? (
+                <BannerPreviewFromFile file={bannerImageValue.file} />
+              ) : banner?.bannerImage ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={banner.bannerImage}
+                  alt="Banner preview"
+                  className="w-full h-full object-cover"
+                />
+              ) : null}
             </div>
           </CardContent>
         </Card>

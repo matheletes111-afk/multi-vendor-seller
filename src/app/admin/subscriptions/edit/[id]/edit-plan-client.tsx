@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/ui/
 import { Button } from "@/ui/button"
 import { Input } from "@/ui/input"
 import { Label } from "@/ui/label"
+import { PageLoader } from "@/components/ui/page-loader"
 
 export function EditPlanClient({ planId }: { planId: string }) {
   const router = useRouter()
@@ -91,7 +92,7 @@ export function EditPlanClient({ planId }: { planId: string }) {
   const paramSuccess = searchParams.get("success")
 
   if (loading && !plan) {
-    return <div className="py-8 text-center text-muted-foreground">Loading...</div>
+    return <PageLoader message="Loading plan…" />
   }
   if (error || !plan) {
     return (

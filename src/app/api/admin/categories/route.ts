@@ -124,9 +124,9 @@ export async function POST(request: NextRequest) {
     const commissionRate = parseFloat(formData.get("commissionRate") as string) || 10.0;
     const isActive = formData.get("isActive") === "true";
     
-    // Handle category image
     const categoryImageFile = formData.get("categoryImage") as File | null;
-    let categoryImagePath = null;
+    const categoryImageUrl = (formData.get("categoryImageUrl") as string)?.trim() || null;
+    let categoryImagePath = categoryImageUrl;
 
     // Handle subcategories
     const subcategoriesData = JSON.parse(formData.get("subcategories") as string || "[]");
@@ -165,27 +165,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Save category image if provided
     if (categoryImageFile && categoryImageFile.size > 0) {
       try {
         const bytes = await categoryImageFile.arrayBuffer();
         const buffer = Buffer.from(bytes);
-
         const fileExtension = path.extname(categoryImageFile.name);
         const timestamp = Date.now();
         const randomNum = Math.floor(Math.random() * 10000);
         const fileName = `category-${timestamp}-${randomNum}${fileExtension}`;
-        
         const uploadDir = path.join(process.cwd(), "public/uploads/categories");
-        
         if (!existsSync(uploadDir)) {
           await mkdir(uploadDir, { recursive: true });
         }
-        
         const filePath = path.join(uploadDir, fileName);
         await writeFile(filePath, buffer);
-        console.log("Category image saved to:", filePath);
-        
         categoryImagePath = `/uploads/categories/${fileName}`;
       } catch (uploadError) {
         console.error("Error uploading category image:", uploadError);
@@ -213,10 +206,9 @@ export async function POST(request: NextRequest) {
         const sub = subcategoriesData[i];
         const subSlug = generateSlug(`${name}-${sub.name}`);
         
-        // Save subcategory image if provided
-        let subImagePath = null;
+        let subImagePath = (formData.get(`subcategoryImageUrl_${i}`) as string)?.trim() || null;
         const imageFile = subcategoryImages.get(i.toString());
-        
+
         if (imageFile && imageFile.size > 0) {
           try {
             const bytes = await imageFile.arrayBuffer();

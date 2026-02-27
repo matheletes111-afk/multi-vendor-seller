@@ -8,6 +8,7 @@ import { Input } from "@/ui/input"
 import { Label } from "@/ui/label"
 import { Textarea } from "@/ui/textarea"
 import { Alert, AlertDescription } from "@/ui/alert"
+import { PageLoader } from "@/components/ui/page-loader"
 
 type Seller = {
   id: string
@@ -45,7 +46,7 @@ export function ServiceSettingsClient() {
     await fetch("/api/service-seller/settings", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ user: { name: fd.get("name") || undefined, image: fd.get("image") || undefined } }) })
     setSavingUser(false)
   }
-  if (loading || !seller) return <div className="container mx-auto py-8"><p className="text-muted-foreground">Loading...</p></div>
+  if (loading || !seller) return <PageLoader message="Loading settings…" />
   return (
     <div className="container mx-auto py-8">
       <h1 className="text-3xl font-bold mb-8">Store Settings</h1>

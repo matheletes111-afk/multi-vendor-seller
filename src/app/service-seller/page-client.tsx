@@ -5,6 +5,7 @@ import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle } from "@/ui/card"
 import { Button } from "@/ui/button"
 import { Alert, AlertDescription, AlertTitle } from "@/ui/alert"
+import { PageLoader } from "@/components/ui/page-loader"
 import { Briefcase, ShoppingCart, DollarSign, AlertCircle, ArrowRight } from "lucide-react"
 
 type Overview = {
@@ -26,7 +27,7 @@ export function ServiceSellerPageClient() {
   }, [])
 
   if (error) return <div className="container mx-auto p-6"><p className="text-destructive">{error}</p></div>
-  if (!data) return <div className="container mx-auto p-6"><p className="text-muted-foreground">Loading...</p></div>
+  if (!data) return <PageLoader message="Loading dashboard…" />
 
   const { subscription, totalServices, totalOrders, totalRevenueFormatted } = data
 

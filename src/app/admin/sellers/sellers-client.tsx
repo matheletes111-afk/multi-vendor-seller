@@ -14,6 +14,7 @@ import {
 } from "@/ui/table"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/ui/card"
 import { AdminPagination } from "@/components/admin/admin-pagination"
+import { PageLoader } from "@/components/ui/page-loader"
 import { Alert, AlertDescription } from "@/ui/alert"
 
 export function SellersClient() {
@@ -131,7 +132,7 @@ export function SellersClient() {
         </CardHeader>
         <CardContent>
           {loading ? (
-            <div className="py-12 text-center text-muted-foreground">Loading...</div>
+            <PageLoader message="Loading sellers…" />
           ) : error ? (
             <div className="py-12 text-center text-destructive">{error}</div>
           ) : !data ? null : (

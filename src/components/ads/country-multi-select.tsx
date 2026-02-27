@@ -82,7 +82,10 @@ export function CountryMultiSelect() {
             />
             <div className="overflow-y-auto flex-1 min-h-0">
               {loading ? (
-                <p className="py-4 text-center text-sm text-muted-foreground">Loading...</p>
+                <div className="py-6 flex flex-col items-center gap-2">
+                  <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary/30 border-t-primary" aria-hidden />
+                  <p className="text-xs text-muted-foreground">Loading…</p>
+                </div>
               ) : (
                 filtered.slice(0, 200).map((c) => (
                   <label

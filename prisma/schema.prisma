@@ -327,7 +327,7 @@ model Product {
   hasGst         Boolean  @default(true)   // Y = 15% GST at checkout, N = no GST
   images         Json     // Array of image URLs stored as JSON
   isActive       Boolean  @default(true)
-  isFeatured     Boolean  @default(false)
+  isFeatured    Boolean  @default(false)
   stock          Int      @default(0)
   sku            String?
   createdAt      DateTime @default(now())
@@ -337,10 +337,10 @@ model Product {
   category     Category       @relation(fields: [categoryId], references: [id])
   subcategory  Subcategory?   @relation(fields: [subcategoryId], references: [id])
   variants     ProductVariant[]
-  orderItems OrderItem[]
-  reviews    Review[]
-  cartItems  CartItem[]
-  sellerAds  SellerAd[]
+  orderItems   OrderItem[]
+  reviews      Review[]
+  cartItems    CartItem[]
+  sellerAds    SellerAd[]
 
   @@unique([sellerId, slug])
   @@index([categoryId])

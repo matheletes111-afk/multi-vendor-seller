@@ -26,6 +26,7 @@ import {
 } from "@/ui/dialog";
 import { Plus, Pencil, Trash2, Package, Briefcase, FolderTree } from "lucide-react";
 import { AdminPagination } from "@/components/admin/admin-pagination";
+import { PageLoader } from "@/components/ui/page-loader";
 
 interface Subcategory {
   id: string;
@@ -158,7 +159,7 @@ export function CategoriesClient() {
         </CardHeader>
         <CardContent>
           {loading && !data ? (
-            <div className="py-12 text-center text-muted-foreground">Loading...</div>
+            <PageLoader message="Loading categories…" />
           ) : fetchError ? (
             <div className="py-12 text-center text-destructive">{fetchError}</div>
           ) : !data ? null : (
@@ -166,6 +167,7 @@ export function CategoriesClient() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-16">Image</TableHead>
                 <TableHead>Name</TableHead>
                 <TableHead>Description</TableHead>
                 <TableHead>Commission</TableHead>
@@ -179,13 +181,29 @@ export function CategoriesClient() {
             <TableBody>
               {data.categories.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center py-12 text-muted-foreground">
+                  <TableCell colSpan={9} className="text-center py-12 text-muted-foreground">
                     No categories found
                   </TableCell>
                 </TableRow>
               ) : (
                 data.categories.map((category) => (
                   <TableRow key={category.id}>
+                    <TableCell>
+                      {category.image ? (
+                        <div className="relative w-12 h-12 rounded overflow-hidden bg-muted shrink-0">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={category.image}
+                            alt={category.name}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                      ) : (
+                        <div className="w-12 h-12 rounded bg-muted flex items-center justify-center text-muted-foreground text-xs shrink-0">
+                          —
+                        </div>
+                      )}
+                    </TableCell>
                     <TableCell className="font-medium">{category.name}</TableCell>
                     <TableCell className="max-w-[200px] truncate text-muted-foreground">
                       {category.description || "—"}
@@ -224,7 +242,20 @@ export function CategoriesClient() {
                         </Link>
                         <Dialog>
                           <DialogTrigger asChild>
-                            <Button variant="destructive" size="sm" disabled={category._count.products > 0 || category._count.services > 0}>
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              title={
+                                category._count.products > 0 || category._count.services > 0
+                                  ? "Cannot delete: this category has products or services. Remove or reassign them first."
+                                  : undefined
+                              }
+                              className={
+                                category._count.products > 0 || category._count.services > 0
+                                  ? "opacity-60"
+                                  : undefined
+                              }
+                            >
                               <Trash2 className="mr-2 h-4 w-4" />
                               Delete
                             </Button>

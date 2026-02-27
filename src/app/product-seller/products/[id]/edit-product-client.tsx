@@ -8,6 +8,7 @@ import { Button } from "@/ui/button"
 import { Input } from "@/ui/input"
 import { Label } from "@/ui/label"
 import { Alert, AlertDescription } from "@/ui/alert"
+import { PageLoader } from "@/components/ui/page-loader"
 import { PricingFields } from "../pricing-fields"
 import { Upload, Link as LinkIcon } from "lucide-react"
 
@@ -168,10 +169,11 @@ export function EditProductClient({ productId }: { productId: string }) {
     setUploadedImageUrls((prev) => prev.filter((u) => u !== url))
   }
 
-  if (loading || !product) {
+  if (loading) return <PageLoader variant="detail" message="Loading product…" />
+  if (!product) {
     return (
       <div className="container mx-auto py-8">
-        <p className="text-muted-foreground">{loading ? "Loading..." : "Product not found."}</p>
+        <p className="text-muted-foreground">Product not found.</p>
       </div>
     )
   }

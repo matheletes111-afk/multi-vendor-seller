@@ -17,6 +17,7 @@ import {
   DialogTrigger,
 } from "@/ui/dialog"
 import { formatCurrency } from "@/lib/utils"
+import { PageLoader } from "@/components/ui/page-loader"
 import { Edit, Trash2 } from "lucide-react"
 
 type Service = {
@@ -61,7 +62,7 @@ export function ServicesPageClient() {
     }
   }
 
-  if (loading) return <div className="container mx-auto py-8"><p className="text-muted-foreground">Loading...</p></div>
+  if (loading) return <PageLoader variant="listing" message="Loading services…" />
 
   return (
     <div className="container mx-auto py-8">

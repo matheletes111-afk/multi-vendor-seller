@@ -9,14 +9,14 @@ import { Textarea } from "@/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/ui/card";
 import { Alert, AlertDescription } from "@/ui/alert";
 import { Separator } from "@/ui/separator";
-import { ImageUpload } from "@/ui/image-upload";
+import { ImageLinkOrUpload, type ImageLinkOrUploadValue } from "@/components/admin/image-link-or-upload";
 import { Plus, Trash2, Pencil } from "lucide-react";
 import Image from "next/image";
 
 interface Subcategory {
   name: string;
   description: string;
-  imageFile?: File | null;
+  imageValue?: ImageLinkOrUploadValue | null;
   imagePreview?: string;
   isActive: boolean;
 }
@@ -36,15 +36,14 @@ export function CategoryForm() {
     isActive: true,
   });
 
-  // Category image
-  const [categoryImage, setCategoryImage] = useState<File | null>(null);
-  const [categoryImagePreview, setCategoryImagePreview] = useState<string | null>(null);
+  // Category image (link or file)
+  const [categoryImageValue, setCategoryImageValue] = useState<ImageLinkOrUploadValue>(null);
 
   // Subcategory form state
   const [subcategoryForm, setSubcategoryForm] = useState<Subcategory>({
     name: "",
     description: "",
-    imageFile: null,
+    imageValue: null,
     imagePreview: undefined,
     isActive: true,
   });
@@ -57,56 +56,12 @@ export function CategoryForm() {
     }));
   };
 
-  const handleCategoryImage = (file: File | null) => {
-    if (file) {
-      // Clean up previous preview
-      if (categoryImagePreview) {
-        URL.revokeObjectURL(categoryImagePreview);
-      }
-      
-      setCategoryImage(file);
-      const preview = URL.createObjectURL(file);
-      setCategoryImagePreview(preview);
-    } else {
-      if (categoryImagePreview) {
-        URL.revokeObjectURL(categoryImagePreview);
-      }
-      setCategoryImage(null);
-      setCategoryImagePreview(null);
-    }
-  };
-
   const handleSubcategoryChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target;
     setSubcategoryForm(prev => ({
       ...prev,
       [name]: type === "checkbox" ? (e.target as HTMLInputElement).checked : value
     }));
-  };
-
-  const handleSubcategoryImage = (file: File | null) => {
-    if (file) {
-      // Clean up previous preview
-      if (subcategoryForm.imagePreview) {
-        URL.revokeObjectURL(subcategoryForm.imagePreview);
-      }
-      
-      const preview = URL.createObjectURL(file);
-      setSubcategoryForm(prev => ({
-        ...prev,
-        imageFile: file,
-        imagePreview: preview
-      }));
-    } else {
-      if (subcategoryForm.imagePreview) {
-        URL.revokeObjectURL(subcategoryForm.imagePreview);
-      }
-      setSubcategoryForm(prev => ({
-        ...prev,
-        imageFile: null,
-        imagePreview: undefined
-      }));
-    }
   };
 
   const addOrUpdateSubcategory = () => {
@@ -125,27 +80,25 @@ export function CategoryForm() {
       return;
     }
 
+    const item = { ...subcategoryForm };
+    if (item.imageValue?.type === "file") {
+      item.imagePreview = URL.createObjectURL(item.imageValue.file);
+    } else if (item.imageValue?.type === "url") {
+      item.imagePreview = item.imageValue.url;
+    }
     if (editingIndex !== null) {
-      // Clean up old preview when updating
-      const oldSub = subcategories[editingIndex];
-      if (oldSub.imagePreview && oldSub.imagePreview !== subcategoryForm.imagePreview) {
-        URL.revokeObjectURL(oldSub.imagePreview);
-      }
-      
       const updated = [...subcategories];
-      updated[editingIndex] = { ...subcategoryForm };
+      updated[editingIndex] = item;
       setSubcategories(updated);
       setEditingIndex(null);
     } else {
-      // Add new subcategory with preview
-      setSubcategories([...subcategories, { ...subcategoryForm }]);
+      setSubcategories([...subcategories, item]);
     }
 
-    // Reset form but keep the preview in the list
     setSubcategoryForm({
       name: "",
       description: "",
-      imageFile: null,
+      imageValue: null,
       imagePreview: undefined,
       isActive: true,
     });
@@ -153,35 +106,18 @@ export function CategoryForm() {
   };
 
   const editSubcategory = (index: number) => {
-    // Clean up current form preview
-    if (subcategoryForm.imagePreview) {
-      URL.revokeObjectURL(subcategoryForm.imagePreview);
-    }
-    
-    // Set form with the subcategory to edit
     setSubcategoryForm(subcategories[index]);
     setEditingIndex(index);
   };
 
   const removeSubcategory = (index: number) => {
-    // Clean up preview of removed subcategory
-    const subToRemove = subcategories[index];
-    if (subToRemove.imagePreview) {
-      URL.revokeObjectURL(subToRemove.imagePreview);
-    }
-    
     setSubcategories(subcategories.filter((_, i) => i !== index));
-    
     if (editingIndex === index) {
-      // Clean up current form preview if editing the removed item
-      if (subcategoryForm.imagePreview) {
-        URL.revokeObjectURL(subcategoryForm.imagePreview);
-      }
       setEditingIndex(null);
       setSubcategoryForm({
         name: "",
         description: "",
-        imageFile: null,
+        imageValue: null,
         imagePreview: undefined,
         isActive: true,
       });
@@ -207,25 +143,25 @@ export function CategoryForm() {
       formData.append("description", categoryData.description);
       formData.append("commissionRate", categoryData.commissionRate.toString());
       formData.append("isActive", categoryData.isActive.toString());
-      
-      // Append category image if exists
-      if (categoryImage) {
-        formData.append("categoryImage", categoryImage);
+
+      if (categoryImageValue?.type === "file") {
+        formData.append("categoryImage", categoryImageValue.file);
+      } else if (categoryImageValue?.type === "url" && categoryImageValue.url) {
+        formData.append("categoryImageUrl", categoryImageValue.url);
       }
 
-      // Prepare subcategories data (without images)
       const subcategoriesPayload = subcategories.map(sub => ({
         name: sub.name,
         description: sub.description,
         isActive: sub.isActive,
       }));
-
       formData.append("subcategories", JSON.stringify(subcategoriesPayload));
 
-      // Append subcategory images with index
       subcategories.forEach((sub, index) => {
-        if (sub.imageFile) {
-          formData.append(`subcategoryImage_${index}`, sub.imageFile);
+        if (sub.imageValue?.type === "file") {
+          formData.append(`subcategoryImage_${index}`, sub.imageValue.file);
+        } else if (sub.imageValue?.type === "url" && sub.imageValue.url) {
+          formData.append(`subcategoryImageUrl_${index}`, sub.imageValue.url);
         }
       });
 
@@ -240,16 +176,6 @@ export function CategoryForm() {
         throw new Error(data.error || "Failed to create category");
       }
 
-      // Clean up all previews after successful submission
-      subcategories.forEach(sub => {
-        if (sub.imagePreview) {
-          URL.revokeObjectURL(sub.imagePreview);
-        }
-      });
-      if (categoryImagePreview) {
-        URL.revokeObjectURL(categoryImagePreview);
-      }
-      
       router.push("/admin/categories?success=Category created successfully");
       router.refresh();
     } catch (err: any) {
@@ -260,20 +186,7 @@ export function CategoryForm() {
     }
   };
 
-  // Clean up on unmount
   const handleCancel = () => {
-    // Clean up all previews
-    subcategories.forEach(sub => {
-      if (sub.imagePreview) {
-        URL.revokeObjectURL(sub.imagePreview);
-      }
-    });
-    if (categoryImagePreview) {
-      URL.revokeObjectURL(categoryImagePreview);
-    }
-    if (subcategoryForm.imagePreview) {
-      URL.revokeObjectURL(subcategoryForm.imagePreview);
-    }
     router.push("/admin/categories");
   };
 
@@ -321,31 +234,12 @@ export function CategoryForm() {
           </div>
 
           <div className="space-y-2">
-            <Label>Category Image</Label>
-            {categoryImagePreview ? (
-              <div className="space-y-2">
-                <div className="relative w-32 h-32 border border-border rounded-lg overflow-hidden bg-muted">
-                  <Image
-                    src={categoryImagePreview}
-                    alt="Category preview"
-                    fill
-                    className="object-cover"
-                  />
-                </div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleCategoryImage(null)}
-                >
-                  Remove Image
-                </Button>
-              </div>
-            ) : (
-              <ImageUpload
-                onImageSelect={handleCategoryImage}
-              />
-            )}
+            <ImageLinkOrUpload
+              label="Category Image"
+              value={categoryImageValue}
+              onChange={setCategoryImageValue}
+              showPreview={true}
+            />
           </div>
 
           <div className="space-y-2">
@@ -413,31 +307,12 @@ export function CategoryForm() {
             </div>
 
             <div className="space-y-2">
-              <Label>Subcategory Image</Label>
-              {subcategoryForm.imagePreview ? (
-                <div className="space-y-2">
-                  <div className="relative w-32 h-32 border border-border rounded-lg overflow-hidden bg-muted">
-                    <Image
-                      src={subcategoryForm.imagePreview}
-                      alt="Subcategory preview"
-                      fill
-                      className="object-cover"
-                    />
-                  </div>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleSubcategoryImage(null)}
-                  >
-                    Remove Image
-                  </Button>
-                </div>
-              ) : (
-                <ImageUpload
-                  onImageSelect={handleSubcategoryImage}
-                />
-              )}
+              <ImageLinkOrUpload
+                label="Subcategory Image"
+                value={subcategoryForm.imageValue ?? null}
+                onChange={(v) => setSubcategoryForm(prev => ({ ...prev, imageValue: v ?? undefined }))}
+                showPreview={true}
+              />
             </div>
 
             <div className="flex items-center space-x-2">
@@ -466,14 +341,11 @@ export function CategoryForm() {
                   type="button" 
                   variant="ghost" 
                   onClick={() => {
-                    if (subcategoryForm.imagePreview) {
-                      URL.revokeObjectURL(subcategoryForm.imagePreview);
-                    }
                     setEditingIndex(null);
                     setSubcategoryForm({
                       name: "",
                       description: "",
-                      imageFile: null,
+                      imageValue: null,
                       imagePreview: undefined,
                       isActive: true,
                     });
@@ -496,14 +368,13 @@ export function CategoryForm() {
                     key={index}
                     className="flex items-start gap-3 p-3 border border-border rounded-lg bg-card"
                   >
-                    {/* Subcategory Image Preview */}
-                    {sub.imagePreview && (
+                    {(sub.imagePreview || (sub.imageValue?.type === "url" && sub.imageValue.url)) && (
                       <div className="relative w-16 h-16 flex-shrink-0 border border-border rounded overflow-hidden bg-muted">
-                        <Image
-                          src={sub.imagePreview}
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={sub.imageValue?.type === "url" ? sub.imageValue.url : sub.imagePreview!}
                           alt={sub.name}
-                          fill
-                          className="object-cover"
+                          className="w-full h-full object-cover"
                         />
                       </div>
                     )}

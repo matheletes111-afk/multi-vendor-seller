@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { BannerForm } from "@/components/admin/banner-form"
+import { PageLoader } from "@/components/ui/page-loader"
 
 export function NewBannerClient() {
   const [categories, setCategories] = useState<any[]>([])
@@ -30,7 +31,7 @@ export function NewBannerClient() {
   }, [])
 
   if (loading) {
-    return <div className="py-8 text-center text-muted-foreground">Loading...</div>
+    return <PageLoader message="Loading…" />
   }
   if (error) {
     return <div className="py-8 text-center text-destructive">{error}</div>

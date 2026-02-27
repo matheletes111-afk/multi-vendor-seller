@@ -25,6 +25,7 @@ import {
   DialogTrigger,
 } from "@/ui/dialog"
 import { formatCurrency } from "@/lib/utils"
+import { PageLoader } from "@/components/ui/page-loader"
 import { Plus, Package, Pencil, Trash2 } from "lucide-react"
 
 type Product = {
@@ -95,13 +96,7 @@ export function ProductsPageClient() {
     })
   }
 
-  if (loading) {
-    return (
-      <div className="container mx-auto p-6">
-        <p className="text-muted-foreground">Loading...</p>
-      </div>
-    )
-  }
+  if (loading) return <PageLoader variant="listing" message="Loading products…" />
 
   return (
     <div className="container mx-auto p-6 space-y-6">

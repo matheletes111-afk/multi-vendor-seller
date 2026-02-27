@@ -19,6 +19,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/ui/table"
+import { PageLoader } from "@/components/ui/page-loader"
 import {
   Dialog,
   DialogContent,
@@ -108,7 +109,7 @@ export function AdManagementPageClient() {
         </CardHeader>
         <CardContent>
           {loading && !data ? (
-            <div className="py-12 text-center text-muted-foreground">Loading...</div>
+            <PageLoader message="Loading ads…" />
           ) : fetchError ? (
             <div className="py-12 text-center text-destructive">{fetchError}</div>
           ) : !data ? null : (

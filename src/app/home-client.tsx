@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { getYoutubeEmbedUrl } from "@/lib/youtube";
+import { PageLoader } from "@/components/ui/page-loader";
 
 const SUB_PLACEHOLDER_ICONS = [Package, Folder, LayoutGrid, Tag, BookOpen, Briefcase, Dumbbell, Music];
 const PRODUCT_PLACEHOLDER_ICONS = [ShoppingBag, Box, Package, Gift, Sparkles, Tag];
@@ -131,10 +132,10 @@ export function HomeClient() {
 
   return (
     <PublicLayout>
-        {/* Dynamic banner carousel */}
+        {/* Dynamic banner carousel - full width, tall enough to show banner fully */}
         {banners.length > 0 && (
-          <section className="relative w-full bg-muted">
-            <div className="relative aspect-[3/1] min-h-[200px] w-full overflow-hidden md:min-h-[240px]">
+          <section className="relative w-full max-w-[100vw] bg-muted">
+            <div className="relative w-full min-h-[280px] sm:min-h-[320px] md:min-h-[380px] overflow-hidden">
               {banners.map((banner, i) => (
                 <div
                   key={banner.id}
@@ -148,12 +149,12 @@ export function HomeClient() {
                         ? `/browse?categoryId=${banner.categoryId}${banner.subcategoryId ? `&subcategoryId=${banner.subcategoryId}` : ""}`
                         : "/browse"
                     }
-                    className="block h-full w-full"
+                    className="block size-full"
                   >
                     <img
                       src={banner.bannerImage}
                       alt={banner.bannerHeading}
-                      className="h-full w-full object-cover"
+                      className="size-full object-cover object-center"
                     />
                     <div className="absolute bottom-4 left-4 right-4 drop-shadow-md">
                       <h2 className="text-2xl font-bold text-blue-100 md:text-3xl [text-shadow:0_1px_2px_rgba(0,0,0,0.5)]">{banner.bannerHeading}</h2>
@@ -383,12 +384,7 @@ export function HomeClient() {
 
         {/* Loader when no data yet */}
         {banners.length === 0 && categories.length === 0 && randomProducts.length === 0 && (
-          <section className="container mx-auto flex flex-col items-center justify-center px-4 py-24">
-            <div
-              className="h-10 w-10 animate-spin rounded-full border-4 border-blue-500 border-t-transparent"
-              aria-label="Loading"
-            />
-          </section>
+          <PageLoader message="Loading your store…" />
         )}
     </PublicLayout>
   );

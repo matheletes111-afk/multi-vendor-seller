@@ -176,9 +176,7 @@ export function NewProductClient() {
                 name="categoryId"
                 required
                 value={selectedCategoryId}
-                onChange={(e) => {
-                  setSelectedCategoryId(e.target.value)
-                }}
+                onChange={(e) => setSelectedCategoryId(e.target.value)}
                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               >
                 <option value="">Select a category</option>
@@ -187,21 +185,20 @@ export function NewProductClient() {
                 ))}
               </select>
             </div>
-            {subcategories.length > 0 && (
-              <div className="space-y-2">
-                <Label htmlFor="subcategoryId">Subcategory (optional)</Label>
-                <select
-                  id="subcategoryId"
-                  name="subcategoryId"
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                >
-                  <option value="">None</option>
-                  {subcategories.map((sub) => (
-                    <option key={sub.id} value={sub.id}>{sub.name}</option>
-                  ))}
-                </select>
-              </div>
-            )}
+            <div className="space-y-2">
+              <Label htmlFor="subcategoryId">Subcategory (optional)</Label>
+              <select
+                id="subcategoryId"
+                name="subcategoryId"
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              >
+                <option value="">None</option>
+                {subcategories.map((sub) => (
+                  <option key={sub.id} value={sub.id}>{sub.name}</option>
+                ))}
+              </select>
+              <p className="text-xs text-muted-foreground">Select a category first to see subcategories</p>
+            </div>
             <div className="space-y-2">
               <Label className="text-base font-medium">Pricing</Label>
               <PricingFields defaultBasePrice={0} defaultDiscount={0} defaultHasGst={true} requireBasePrice={true} />
