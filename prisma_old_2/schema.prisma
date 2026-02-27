@@ -1,0 +1,538 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  CUSTOMER
+  SELLER_PRODUCT
+  SELLER_SERVICE
+  ADMIN
+}
+
+enum SellerType {
+  PRODUCT
+  SERVICE
+}
+
+enum SubscriptionPlan {
+  FREE
+  STANDARD
+  PREMIUM
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELED
+  PAST_DUE
+  TRIALING
+}
+
+enum ServiceType {
+  APPOINTMENT
+  FIXED_PRICE
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+  REFUNDED
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+enum ServiceStatus {
+  PENDING
+  CONFIRMED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  emailVerified DateTime?
+  name          String?
+  password      String?
+  image         String?
+  role          UserRole  @default(CUSTOMER)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts      Account[]
+  sessions      Session[]
+  seller        Seller?
+  orders        Order[]
+  reviews       Review[]
+  cartItems     CartItem[]
+
+  @@map("users")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+enum SellerAdStatus {
+  PENDING_APPROVAL
+  ACTIVE
+  PAUSED
+  ENDED
+}
+
+enum CreativeType {
+  IMAGE
+  VIDEO
+}
+
+model Seller {
+  id          String     @id @default(cuid())
+  userId      String     @unique
+  type        SellerType
+  isApproved  Boolean    @default(false)
+  isSuspended Boolean    @default(false)
+  adBalance   Decimal    @default(0) // Phase 2: top-up; Phase 1: track only
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  store        Store?
+  subscription Subscription?
+  products     Product[]
+  services     Service[]
+  orders       Order[]
+  sellerAds    SellerAd[]
+
+  @@map("sellers")
+}
+
+model SellerAd {
+  id              String         @id @default(cuid())
+  sellerId        String
+  productId       String?
+  serviceId       String?
+  title           String
+  description     String?        @db.Text
+  creativeType    CreativeType
+  creativeUrl     String
+  status          SellerAdStatus @default(PENDING_APPROVAL)
+  totalBudget     Decimal
+  spentAmount     Decimal        @default(0)
+  maxCpc          Decimal
+  targetAudience  Int?           // desired number of clicks (stored for reference)
+  targetCountries Json?          // e.g. ["IN", "US"]
+  targetAgeMin    Int?
+  targetAgeMax    Int?
+  expandAudience  Boolean        @default(false)
+  startAt         DateTime
+  endAt           DateTime
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  seller    Seller     @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  product   Product?   @relation(fields: [productId], references: [id], onDelete: SetNull)
+  service   Service?   @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+  adClicks  AdClick[]
+
+  @@index([sellerId])
+  @@index([status])
+  @@index([startAt, endAt])
+  @@map("seller_ads")
+}
+
+model AdClick {
+  id        String   @id @default(cuid())
+  adId      String
+  userId    String?
+  sessionId String?
+  createdAt DateTime @default(now())
+
+  ad SellerAd @relation(fields: [adId], references: [id], onDelete: Cascade)
+
+  @@index([adId])
+  @@index([adId, sessionId, createdAt])
+  @@map("ad_clicks")
+}
+
+model Store {
+  id          String   @id @default(cuid())
+  sellerId    String   @unique
+  name        String
+  description String?  @db.Text
+  logo        String?
+  banner      String?
+  address     String?
+  city        String?
+  state       String?
+  zipCode     String?
+  country     String?
+  phone       String?
+  website     String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  seller Seller @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+
+  @@map("stores")
+}
+
+model Plan {
+  id          String            @id @default(cuid())
+  name        SubscriptionPlan  @unique
+  displayName String
+  description String?           @db.Text
+  price       Float
+  maxProducts Int?              // null = unlimited
+  maxOrders   Int?              // null = unlimited
+  features    Json              // Store plan features as JSON
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  subscriptions Subscription[]
+
+  @@map("subscription_plans")
+}
+
+model Subscription {
+  id                String             @id @default(cuid())
+  sellerId          String             @unique
+  planId            String
+  status            SubscriptionStatus @default(TRIALING)
+  stripeCustomerId String?            @unique
+  stripeSubscriptionId String?         @unique
+  stripePriceId     String?
+  currentPeriodStart DateTime?
+  currentPeriodEnd   DateTime?
+  cancelAtPeriodEnd  Boolean           @default(false)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  seller Seller           @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  plan   Plan             @relation(fields: [planId], references: [id])
+
+  @@map("subscriptions")
+}
+
+model Category {
+  id            String   @id @default(cuid())
+  name          String   @unique
+  slug          String   @unique
+  description   String?  @db.Text
+  image         String?
+  commissionRate Float   @default(10.0) // Percentage commission
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  products Product[]
+  services Service[]
+
+  @@map("categories")
+}
+
+model Product {
+  id          String   @id @default(cuid())
+  sellerId    String
+  categoryId  String
+  name        String
+  slug        String
+  description String?  @db.Text
+  basePrice   Float
+  discount    Float    @default(0)      // Discount amount per item
+  hasGst      Boolean  @default(true)   // Y = 15% GST at checkout, N = no GST
+  images      Json     // Array of image URLs stored as JSON
+  isActive    Boolean  @default(true)
+  isFeatured  Boolean  @default(false)
+  stock       Int      @default(0)
+  sku         String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  seller     Seller         @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  category   Category       @relation(fields: [categoryId], references: [id])
+  variants   ProductVariant[]
+  orderItems OrderItem[]
+  reviews    Review[]
+  cartItems  CartItem[]
+  sellerAds  SellerAd[]
+
+  @@unique([sellerId, slug])
+  @@index([categoryId])
+  @@index([sellerId])
+  @@index([isActive])
+  @@map("products")
+}
+
+model ProductVariant {
+  id        String   @id @default(cuid())
+  productId String
+  name      String   // e.g., "Small - Red"
+  sku       String?
+  price     Float
+  stock     Int      @default(0)
+  attributes Json    // e.g., {"size": "S", "color": "Red"}
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  product     Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  orderItems  OrderItem[]
+  cartItems   CartItem[]
+
+  @@index([productId])
+  @@map("product_variants")
+}
+
+model Service {
+  id          String      @id @default(cuid())
+  sellerId    String
+  categoryId  String
+  name        String
+  slug        String
+  description String?     @db.Text
+  serviceType ServiceType
+  basePrice   Float?      // For fixed-price services
+  discount    Float       @default(0)      // Discount amount per item
+  hasGst      Boolean     @default(true)   // Y = 15% GST at checkout, N = no GST
+  images      Json        // Array of image URLs stored as JSON
+  isActive    Boolean     @default(true)
+  isFeatured  Boolean     @default(false)
+  duration    Int?        // Duration in minutes (for appointments)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  seller     Seller         @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  category   Category       @relation(fields: [categoryId], references: [id])
+  slots      ServiceSlot[]
+  packages   ServicePackage[]
+  orderItems OrderItem[]
+  reviews    Review[]
+  cartItems  CartItem[]
+  sellerAds  SellerAd[]
+
+  @@unique([sellerId, slug])
+  @@index([categoryId])
+  @@index([sellerId])
+  @@index([isActive])
+  @@map("services")
+}
+
+model ServiceSlot {
+  id        String   @id @default(cuid())
+  serviceId String
+  startTime DateTime
+  endTime   DateTime
+  isBooked  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  service     Service      @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  orderItems  OrderItem[]
+  cartItems   CartItem[]
+
+  @@index([serviceId])
+  @@index([startTime])
+  @@map("service_slots")
+}
+
+model ServicePackage {
+  id          String   @id @default(cuid())
+  serviceId   String
+  name        String
+  description String?  @db.Text
+  price       Float
+  features    Json     // Array of features stored as JSON
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  service      Service      @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  orderItems    OrderItem[]
+  cartItems     CartItem[]
+
+  @@index([serviceId])
+  @@map("service_packages")
+}
+
+model Order {
+  id              String      @id @default(cuid())
+  customerId      String
+  sellerId        String
+  status          OrderStatus @default(PENDING)
+  totalAmount     Float
+  subtotal        Float
+  tax             Float       @default(0)
+  shipping        Float       @default(0)
+  commission      Float       @default(0)
+  commissionRate  Float       // Store the commission rate at time of order
+  shippingAddress Json        // Store shipping address as JSON
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  customer   User        @relation(fields: [customerId], references: [id])
+  seller     Seller      @relation(fields: [sellerId], references: [id])
+  items      OrderItem[]
+  payments   Payment[]
+  commissions Commission[]
+
+  @@index([customerId])
+  @@index([sellerId])
+  @@index([status])
+  @@map("orders")
+}
+
+model OrderItem {
+  id              String   @id @default(cuid())
+  orderId         String
+  productId       String?
+  serviceId       String?
+  productVariantId String?
+  servicePackageId String?
+  serviceSlotId   String?
+  quantity        Int
+  price           Float
+  subtotal        Float
+  createdAt       DateTime @default(now())
+
+  order          Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product        Product?        @relation(fields: [productId], references: [id])
+  service        Service?        @relation(fields: [serviceId], references: [id])
+  productVariant ProductVariant? @relation(fields: [productVariantId], references: [id])
+  servicePackage ServicePackage? @relation(fields: [servicePackageId], references: [id])
+  serviceSlot    ServiceSlot?    @relation(fields: [serviceSlotId], references: [id])
+
+  @@index([orderId])
+  @@map("order_items")
+}
+
+model Payment {
+  id            String        @id @default(cuid())
+  orderId      String
+  amount       Float
+  status       PaymentStatus @default(PENDING)
+  stripePaymentIntentId String? @unique
+  stripeChargeId String?
+  method       String?       // e.g., "card", "bank_transfer"
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@index([stripePaymentIntentId])
+  @@map("payments")
+}
+
+model Commission {
+  id          String   @id @default(cuid())
+  orderId     String
+  sellerId    String
+  amount      Float
+  rate        Float
+  status      String   @default("pending") // pending, paid, refunded
+  paidAt      DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@index([sellerId])
+  @@map("commissions")
+}
+
+model Review {
+  id        String   @id @default(cuid())
+  userId    String
+  productId String?
+  serviceId String?
+  rating    Int      // 1-5
+  comment   String?  @db.Text
+  isVerified Boolean @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product Product? @relation(fields: [productId], references: [id], onDelete: Cascade)
+  service Service? @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+  @@index([serviceId])
+  @@map("reviews")
+}
+
+model CartItem {
+  id              String   @id @default(cuid())
+  userId          String
+  productId       String?
+  serviceId       String?
+  productVariantId String?
+  servicePackageId String?
+  serviceSlotId   String?
+  quantity        Int      @default(1)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user          User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product       Product?        @relation(fields: [productId], references: [id], onDelete: Cascade)
+  service       Service?        @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  productVariant ProductVariant? @relation(fields: [productVariantId], references: [id], onDelete: Cascade)
+  servicePackage ServicePackage? @relation(fields: [servicePackageId], references: [id], onDelete: Cascade)
+  serviceSlot    ServiceSlot?    @relation(fields: [serviceSlotId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("cart_items")
+}
+
+model AdManagement {
+  id            String   @id @default(cuid())
+  image         String?  // URL or path to the advertisement image
+  title         String   // Title of the advertisement
+  description   String?  @db.Text // Optional description
+  isActive      Boolean  @default(true) // Status of the ad
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("ad_managements")
+}

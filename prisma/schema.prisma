@@ -116,12 +116,25 @@ model Session {
   @@map("sessions")
 }
 
+enum SellerAdStatus {
+  PENDING_APPROVAL
+  ACTIVE
+  PAUSED
+  ENDED
+}
+
+enum CreativeType {
+  IMAGE
+  VIDEO
+}
+
 model Seller {
   id          String     @id @default(cuid())
   userId      String     @unique
   type        SellerType
   isApproved  Boolean    @default(false)
   isSuspended Boolean    @default(false)
+  adBalance   Decimal    @default(0) // Phase 2: top-up; Phase 1: track only
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
 
@@ -131,8 +144,57 @@ model Seller {
   products     Product[]
   services     Service[]
   orders       Order[]
+  sellerAds    SellerAd[]
 
   @@map("sellers")
+}
+
+model SellerAd {
+  id              String         @id @default(cuid())
+  sellerId        String
+  productId       String?
+  serviceId       String?
+  title           String
+  description     String?        @db.Text
+  creativeType    CreativeType
+  creativeUrl     String
+  status          SellerAdStatus @default(PENDING_APPROVAL)
+  totalBudget     Decimal
+  spentAmount     Decimal        @default(0)
+  maxCpc          Decimal
+  targetAudience  Int?           // desired number of clicks (stored for reference)
+  targetCountries Json?          // e.g. ["IN", "US"]
+  targetAgeMin    Int?
+  targetAgeMax    Int?
+  expandAudience  Boolean        @default(false)
+  startAt         DateTime
+  endAt           DateTime
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  seller    Seller     @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  product   Product?   @relation(fields: [productId], references: [id], onDelete: SetNull)
+  service   Service?   @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+  adClicks  AdClick[]
+
+  @@index([sellerId])
+  @@index([status])
+  @@index([startAt, endAt])
+  @@map("seller_ads")
+}
+
+model AdClick {
+  id        String   @id @default(cuid())
+  adId      String
+  userId    String?
+  sessionId String?
+  createdAt DateTime @default(now())
+
+  ad SellerAd @relation(fields: [adId], references: [id], onDelete: Cascade)
+
+  @@index([adId])
+  @@index([adId, sessionId, createdAt])
+  @@map("ad_clicks")
 }
 
 model Store {
@@ -200,16 +262,59 @@ model Category {
   slug          String   @unique
   description   String?  @db.Text
   image         String?
-  commissionRate Float   @default(10.0) // Percentage commission
+  commissionRate Float   @default(10.0)
   isActive      Boolean  @default(true)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  products Product[]
-  services Service[]
+  products      Product[]
+  services      Service[]
+  subcategories Subcategory[]
+  banners       Banner[]
 
   @@map("categories")
 }
+
+model Subcategory {
+  id            String   @id @default(cuid())
+  name          String
+  slug          String   @unique
+  description   String?  @db.Text
+  image         String?
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  categoryId    String
+  category      Category @relation(fields: [categoryId], references: [id])
+  banners       Banner[]
+  // Temporarily comment out these lines until Product and Service models are updated
+  // products      Product[]
+  // services      Service[]
+
+  @@unique([name, categoryId])
+  @@map("subcategories")
+}
+
+
+model Banner {
+  id                String   @id @default(cuid())
+  bannerHeading     String
+  bannerDescription String?  @db.Text
+  bannerImage       String   // URL to the banner image
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  // Optional relations to category and subcategory
+  categoryId        String?
+  category          Category? @relation(fields: [categoryId], references: [id])
+  subcategoryId     String?
+  subcategory       Subcategory? @relation(fields: [subcategoryId], references: [id])
+
+  @@map("banners")
+}
+
 
 model Product {
   id          String   @id @default(cuid())
@@ -235,6 +340,7 @@ model Product {
   orderItems OrderItem[]
   reviews    Review[]
   cartItems  CartItem[]
+  sellerAds  SellerAd[]
 
   @@unique([sellerId, slug])
   @@index([categoryId])
@@ -287,6 +393,7 @@ model Service {
   orderItems OrderItem[]
   reviews    Review[]
   cartItems  CartItem[]
+  sellerAds  SellerAd[]
 
   @@unique([sellerId, slug])
   @@index([categoryId])
