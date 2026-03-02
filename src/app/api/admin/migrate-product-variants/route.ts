@@ -17,8 +17,7 @@ export async function POST() {
   }
 
   const products = await prisma.product.findMany({
-    select: { id: true },
-    include: { variants: { select: { id: true } } },
+    select: { id: true, variants: { select: { id: true } } },
   })
 
   let created = 0
