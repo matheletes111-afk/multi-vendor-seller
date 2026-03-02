@@ -504,7 +504,7 @@ export function EditProductClient({ productId }: { productId: string }) {
                     <Button type="button" variant="secondary" size="sm" onClick={addGeneratorOption}>
                       <Plus className="h-4 w-4 mr-1" /> Add option
                     </Button>
-                    <Button type="button" size="sm" onClick={generateVariantsFromOptions}>
+                    <Button type="button" size="sm" onClick={() => generateVariantsFromOptions()}>
                       <Zap className="h-4 w-4 mr-1" /> Generate variants
                     </Button>
                   </div>

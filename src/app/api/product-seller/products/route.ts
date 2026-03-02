@@ -114,7 +114,7 @@ export async function POST(request: NextRequest) {
             attributes: v.attributes,
             specification: v.specification,
             details: v.details,
-            additionalInfo: v.additionalInfo,
+            additionalInfo: v.additionalInfo ?? undefined,
           })),
         },
       },
