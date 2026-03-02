@@ -135,7 +135,7 @@ export async function PUT(
             attributes: (v?.attributes && typeof v.attributes === "object" && !Array.isArray(v.attributes)) ? v.attributes as object : {},
             specification: typeof v?.specification === "string" ? v.specification : null,
             details: typeof v?.details === "string" ? v.details : null,
-            additionalInfo: (v?.additionalInfo && typeof v.additionalInfo === "object" && !Array.isArray(v.additionalInfo)) ? v.additionalInfo as object : null,
+            additionalInfo: (v?.additionalInfo && typeof v.additionalInfo === "object" && !Array.isArray(v.additionalInfo)) ? (v.additionalInfo as object) : undefined,
           },
         })
       }
