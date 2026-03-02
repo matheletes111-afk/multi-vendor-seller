@@ -37,6 +37,7 @@ export async function GET(request: NextRequest) {
       include: {
         category: true,
         seller: { include: { store: true } },
+        variants: { take: 1, orderBy: { createdAt: "asc" }, select: { price: true, discount: true } },
         _count: { select: { reviews: true } },
       },
       take: 50,
@@ -56,6 +57,15 @@ export async function GET(request: NextRequest) {
 
   const sponsoredAds = sponsoredAdsRaw.filter((ad) => Number(ad.spentAmount) < Number(ad.totalBudget))
 
+  const productsWithListingPrice = products.map((p) => {
+    const first = (p as { variants?: { price: number; discount: number }[] }).variants?.[0]
+    return {
+      ...p,
+      basePrice: first?.price ?? 0,
+      discount: first?.discount ?? 0,
+    }
+  })
+
   return NextResponse.json({
     categoryId: categoryId ?? null,
     subcategoryId: subcategoryId ?? null,
@@ -65,7 +75,7 @@ export async function GET(request: NextRequest) {
       spentAmount: Number(ad.spentAmount),
       maxCpc: Number(ad.maxCpc),
     })),
-    products,
+    products: productsWithListingPrice,
     services,
   })
 }

@@ -63,13 +63,21 @@ export async function PUT(
     description?: string
     categoryId?: string
     subcategoryId?: string | null
-    basePrice?: number
-    discount?: number
-    hasGst?: boolean
-    stock?: number
-    sku?: string
     images?: string[]
     isActive?: boolean
+    variants?: Array<{
+      name?: string
+      sku?: string
+      price?: number
+      discount?: number
+      hasGst?: boolean
+      stock?: number
+      images?: string[] | unknown
+      attributes?: Record<string, string> | unknown
+      specification?: string
+      details?: string
+      additionalInfo?: Record<string, string> | unknown
+    }>
   }
 
   const updateData: Record<string, unknown> = {}
@@ -91,22 +99,51 @@ export async function PUT(
     }
     updateData.subcategoryId = body.subcategoryId || null
   }
-  if (typeof body.basePrice === "number") updateData.basePrice = body.basePrice
-  if (typeof body.discount === "number") updateData.discount = Math.round(body.discount * 100) / 100
-  if (typeof body.hasGst === "boolean") updateData.hasGst = body.hasGst
-  if (typeof body.stock === "number") updateData.stock = body.stock
-  if (body.sku !== undefined) updateData.sku = body.sku
-  if (body.images !== undefined) updateData.images = Array.isArray(body.images) ? body.images : existing.images
+  if (body.images !== undefined) updateData.images = Array.isArray(body.images) ? body.images : (existing as { images: unknown }).images
   if (typeof body.isActive === "boolean") updateData.isActive = body.isActive
 
   if (body.name) {
     (updateData as { slug?: string }).slug = body.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "")
   }
 
+  if (Array.isArray(body.variants) && body.variants.length === 0) {
+    return NextResponse.json({ error: "At least one variant is required" }, { status: 400 })
+  }
+
   try {
+    if (Array.isArray(body.variants) && body.variants.length > 0) {
+      await prisma.productVariant.deleteMany({ where: { productId: id } })
+      type V = (typeof body.variants)[number]
+      for (const v of body.variants as V[]) {
+        const vName = typeof v?.name === "string" ? v.name.trim() : "Variant"
+        const vPrice = Number(v?.price ?? 0)
+        const vStock = Number(v?.stock ?? 0)
+        const vDiscount = Math.round(Number(v?.discount ?? 0) * 100) / 100
+        if (isNaN(vPrice) || vPrice <= 0 || isNaN(vStock) || vStock < 0) {
+          return NextResponse.json({ error: "Each variant must have valid price and stock" }, { status: 400 })
+        }
+        await prisma.productVariant.create({
+          data: {
+            productId: id,
+            name: vName,
+            sku: typeof v?.sku === "string" ? v.sku || null : null,
+            price: vPrice,
+            discount: vDiscount,
+            hasGst: v?.hasGst !== false,
+            stock: Math.floor(vStock),
+            images: Array.isArray(v?.images) ? (v.images as object) : [],
+            attributes: (v?.attributes && typeof v.attributes === "object" && !Array.isArray(v.attributes)) ? v.attributes as object : {},
+            specification: typeof v?.specification === "string" ? v.specification : null,
+            details: typeof v?.details === "string" ? v.details : null,
+            additionalInfo: (v?.additionalInfo && typeof v.additionalInfo === "object" && !Array.isArray(v.additionalInfo)) ? v.additionalInfo as object : null,
+          },
+        })
+      }
+    }
     const product = await prisma.product.update({
       where: { id },
       data: updateData as never,
+      include: { category: true, subcategory: true, variants: true },
     })
     return NextResponse.json(product)
   } catch (error: unknown) {

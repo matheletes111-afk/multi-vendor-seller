@@ -322,14 +322,9 @@ model Product {
   name           String
   slug           String
   description    String?  @db.Text
-  basePrice      Float
-  discount       Float    @default(0)      // Discount amount per item
-  hasGst         Boolean  @default(true)   // Y = 15% GST at checkout, N = no GST
-  images         Json     // Array of image URLs stored as JSON
+  images         Json     // Array of image URLs (parent/listing image)
   isActive       Boolean  @default(true)
   isFeatured    Boolean  @default(false)
-  stock          Int      @default(0)
-  sku            String?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
@@ -351,15 +346,21 @@ model Product {
 }
 
 model ProductVariant {
-  id        String   @id @default(cuid())
-  productId String
-  name      String   // e.g., "Small - Red"
-  sku       String?
-  price     Float
-  stock     Int      @default(0)
-  attributes Json    // e.g., {"size": "S", "color": "Red"}
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id            String   @id @default(cuid())
+  productId     String
+  name          String   // e.g., "Small - Red"
+  sku           String?
+  price         Float
+  discount      Float    @default(0)   // Discount amount per item
+  hasGst        Boolean  @default(true)
+  stock         Int      @default(0)
+  attributes    Json     // e.g., {"size": "S", "color": "Red"}
+  images        Json?    // Array of image URLs per variant
+  specification String? @db.Text
+  details       String?  @db.Text
+  additionalInfo Json?   // e.g. {"Material":"Cotton","Care":"Machine wash"}
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   product     Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
   orderItems  OrderItem[]

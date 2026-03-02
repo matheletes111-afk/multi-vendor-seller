@@ -48,11 +48,11 @@ export function SiteHeader() {
   }
 
   return (
-    <header className="sticky top-0 z-50 border-b border-blue-900/20 bg-gradient-to-r from-blue-800 via-blue-700 to-cyan-600 shadow-md">
+    <header className="sticky top-0 z-50 border-b border-blue-900/20 bg-gradient-to-r from-blue-50 via-blue-200 to-cyan-600 shadow-md">
       <div className="container mx-auto flex h-12 min-h-12 items-center gap-2 px-2 sm:h-14 sm:gap-4 sm:px-4">
         <Link href="/" className="flex shrink-0 items-center">
           <Image
-            src="/images/logo-three.jpeg"
+            src="/images/logo.png"
             alt="Logo"
             width={120}
             height={36}
@@ -199,10 +199,10 @@ export function SiteHeader() {
 
 export function SiteFooter() {
   return (
-    <footer className="border-t border-blue-900/20 bg-gradient-to-r from-blue-800 via-blue-700 to-cyan-600">
+    <footer className="border-t border-blue-900/20 bg-gradient-to-r from-blue-50 via-blue-200 to-cyan-600">
       <div className="container mx-auto flex flex-col items-center justify-between gap-4 px-4 py-6 sm:flex-row">
         <Link href="/" className="flex items-center">
-          <Image src="/images/logo-three.jpeg" alt="Logo" width={100} height={28} className="h-7 w-auto object-contain" />
+          <Image src="/images/logo.png" alt="Logo" width={100} height={28} className="h-7 w-auto object-contain" />
         </Link>
         <p className="text-sm text-blue-100">© {new Date().getFullYear()} MEEEM Marketplace. All rights reserved.</p>
       </div>

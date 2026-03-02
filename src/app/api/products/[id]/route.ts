@@ -12,6 +12,7 @@ export async function GET(
     include: {
       category: true,
       seller: { include: { store: true } },
+      variants: true,
       _count: { select: { reviews: true } },
     },
   })

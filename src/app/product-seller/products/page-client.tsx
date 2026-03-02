@@ -31,16 +31,12 @@ import { Plus, Package, Pencil, Trash2 } from "lucide-react"
 type Product = {
   id: string
   name: string
-  basePrice: number
-  discount: number
-  hasGst: boolean
-  stock: number
   isActive: boolean
   images: unknown
   createdAt: string
   category: { name: string }
   subcategory: { name: string } | null
-  variants: unknown[]
+  variants: { price: number; discount: number; stock: number }[]
   _count: { orderItems: number; reviews: number }
 }
 
@@ -147,6 +143,7 @@ export function ProductsPageClient() {
                   <TableHead>Preview</TableHead>
                   <TableHead>Name</TableHead>
                   <TableHead>Category</TableHead>
+                  <TableHead>Variants</TableHead>
                   <TableHead>Price</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Created</TableHead>
@@ -179,7 +176,8 @@ export function ProductsPageClient() {
                           {product.name}
                         </Link>
                         <p className="text-xs text-muted-foreground mt-0.5">
-                          Stock: {product.stock} · {product.variants.length} variant(s)
+                          {product.variants.length} variant(s)
+                          {product.variants[0] != null && ` · Stock: ${product.variants[0].stock}`}
                         </p>
                       </TableCell>
                       <TableCell className="text-muted-foreground">
@@ -189,9 +187,20 @@ export function ProductsPageClient() {
                         )}
                       </TableCell>
                       <TableCell>
-                        <span className="font-medium">{formatCurrency(Math.max(0, product.basePrice - product.discount))}</span>
-                        {product.discount > 0 && (
-                          <span className="text-xs text-muted-foreground block">was {formatCurrency(product.basePrice)}</span>
+                        <Badge variant="outline" className="font-mono">
+                          {product.variants.length} variant{product.variants.length !== 1 ? "s" : ""}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {product.variants[0] != null ? (
+                          <>
+                            <span className="font-medium">{formatCurrency(Math.max(0, product.variants[0].price - (product.variants[0].discount ?? 0)))}</span>
+                            {(product.variants[0].discount ?? 0) > 0 && (
+                              <span className="text-xs text-muted-foreground block">was {formatCurrency(product.variants[0].price)}</span>
+                            )}
+                          </>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
                         )}
                       </TableCell>
                       <TableCell>

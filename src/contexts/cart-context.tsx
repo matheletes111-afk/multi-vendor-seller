@@ -40,16 +40,19 @@ export function CartProvider({ children }: { children: ReactNode }) {
     (input: Omit<CartItem, "quantity"> | CartItem) => {
       const quantity = "quantity" in input ? input.quantity : 1
       const next = getCartFromStorage()
-      const existing = next.find(
-        (i) =>
-          (input.productId && i.productId === input.productId) ||
-          (input.serviceId && i.serviceId === input.serviceId)
-      )
+      const sameLine = (i: CartItem) =>
+        input.productId && i.productId === input.productId
+          ? (input as CartItem).productVariantId != null
+            ? i.productVariantId === (input as CartItem).productVariantId
+            : i.productVariantId == null
+          : input.serviceId && i.serviceId === input.serviceId
+      const existing = next.find(sameLine)
       if (existing) {
         existing.quantity += quantity
       } else {
         next.push({
           productId: input.productId,
+          productVariantId: (input as CartItem).productVariantId,
           serviceId: input.serviceId,
           name: input.name,
           price: input.price,

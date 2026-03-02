@@ -12,16 +12,24 @@ import { useCart } from "@/contexts/cart-context"
 import { PageLoader } from "@/components/ui/page-loader"
 import { ChevronRight, ShoppingCart, Truck } from "lucide-react"
 
+type Variant = {
+  id: string
+  name: string
+  price: number
+  discount: number
+  stock: number
+  images?: unknown
+  attributes?: Record<string, string> | null
+}
 type Product = {
   id: string
   name: string
   description: string | null
-  basePrice: number
-  discount: number
   images: unknown
   category: { id: string; name: string; slug: string }
   seller: { store: { name: string } | null }
   _count: { reviews: number }
+  variants: Variant[]
 }
 
 type ProductAd = {
@@ -40,6 +48,8 @@ export function ProductDetailClient({ productId }: { productId: string }) {
   const [loading, setLoading] = useState(true)
   const [selectedImageIndex, setSelectedImageIndex] = useState(0)
   const [addedToCart, setAddedToCart] = useState(false)
+  const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null)
+  const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>({})
 
   useEffect(() => {
     fetch(`/api/products/${productId}`)
@@ -69,11 +79,63 @@ export function ProductDetailClient({ productId }: { productId: string }) {
   }
   if (!product) notFound()
 
-  const images = (product.images as string[]) || []
-  const displayPrice = Math.max(0, product.basePrice - product.discount)
+  const variants = product.variants ?? []
+
+  // Build attribute options (Amazon/Flipkart style): e.g. Size: [S, M, L], Color: [Red, Blue]
+  const attributeKeys = (() => {
+    const keys = new Set<string>()
+    variants.forEach((v) => {
+      const attrs = v.attributes && typeof v.attributes === "object" && !Array.isArray(v.attributes) ? (v.attributes as Record<string, string>) : {}
+      Object.keys(attrs).forEach((k) => keys.add(k))
+    })
+    return Array.from(keys)
+  })()
+  const attributeOptions = attributeKeys.map((key) => {
+    const values = new Set<string>()
+    variants.forEach((v) => {
+      const attrs = v.attributes && typeof v.attributes === "object" && !Array.isArray(v.attributes) ? (v.attributes as Record<string, string>) : {}
+      const val = attrs[key]
+      if (val != null && String(val).trim()) values.add(String(val).trim())
+    })
+    return { key, label: key.charAt(0).toUpperCase() + key.slice(1), values: Array.from(values) }
+  })
+
+  // Resolve selected variant: by explicit ID, or by matching selected options (attributes)
+  const selectedVariant = (() => {
+    if (selectedVariantId) {
+      const byId = variants.find((v) => v.id === selectedVariantId)
+      if (byId) return byId
+    }
+    if (attributeKeys.length > 0 && attributeKeys.every((k) => selectedOptions[k])) {
+      return variants.find((v) => {
+        const attrs = (v.attributes && typeof v.attributes === "object" && !Array.isArray(v.attributes) ? v.attributes : {}) as Record<string, string>
+        return attributeKeys.every((k) => attrs[k] === selectedOptions[k])
+      }) ?? null
+    }
+    return variants.length === 1 ? variants[0] : null
+  })()
+
+  const displayPrice = selectedVariant ? Math.max(0, selectedVariant.price - (selectedVariant.discount ?? 0)) : 0
+  const variantImages = selectedVariant && Array.isArray(selectedVariant.images) ? (selectedVariant.images as string[]) : []
+  const productImages = (product.images as string[]) || []
+  const images = variantImages.length > 0 ? variantImages : productImages
   const mainImage = images[selectedImageIndex] || images[0]
   const adIsVideo = productAd?.creativeType === "VIDEO"
   const adEmbedUrl = adIsVideo && productAd ? getYoutubeEmbedUrl(productAd.creativeUrl) : null
+
+  const canAddToCart = selectedVariant != null && selectedVariant.stock >= 1
+  const missingAttribute = attributeKeys.length > 0 && attributeKeys.some((k) => !selectedOptions[k])
+  const mustSelectVariant = variants.length > 1 && !selectedVariant
+  const firstMissingKey = attributeKeys.find((k) => !selectedOptions[k])
+  const firstMissingLabel = firstMissingKey ? (firstMissingKey.charAt(0).toUpperCase() + firstMissingKey.slice(1)) : ""
+  const validationMessage =
+    variants.length === 0
+      ? "This product has no variants and cannot be added to cart."
+      : mustSelectVariant
+        ? missingAttribute && attributeKeys.length > 0
+          ? `Please select ${firstMissingLabel} to add to cart.`
+          : "Please select a variant to add to cart."
+        : null
 
   return (
     <PublicLayout>
@@ -131,12 +193,77 @@ export function ProductDetailClient({ productId }: { productId: string }) {
                 <p className="mt-2 text-sm text-slate-600">{product._count.reviews} rating(s)</p>
               )}
 
+              {/* Amazon/Flipkart style: choose options (Size, Color, etc.) then Add to Cart */}
+              {attributeOptions.length > 0 && (
+                <div className="mt-4 space-y-4">
+                  {attributeOptions.map(({ key, label, values }) => (
+                    <div key={key}>
+                      <p className="text-sm font-medium text-slate-700 mb-1.5">
+                        {label}: {selectedOptions[key] ? <span className="font-semibold text-slate-900">{selectedOptions[key]}</span> : <span className="text-slate-500">Select {label}</span>}
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {values.map((val) => (
+                          <button
+                            key={val}
+                            type="button"
+                            onClick={() => {
+                              setSelectedOptions((prev) => ({ ...prev, [key]: val }))
+                              setSelectedVariantId(null)
+                              setSelectedImageIndex(0)
+                            }}
+                            className={`min-w-[3rem] rounded-md border px-3 py-2 text-sm font-medium transition-colors ${
+                              selectedOptions[key] === val
+                                ? "border-amber-500 bg-amber-50 text-amber-800 ring-1 ring-amber-500"
+                                : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50"
+                            }`}
+                          >
+                            {val}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {attributeOptions.length === 0 && variants.length > 1 && (
+                <div className="mt-3">
+                  <p className="text-sm font-medium text-slate-700 mb-2">Variant</p>
+                  <div className="flex flex-wrap gap-2">
+                    {variants.map((v) => (
+                      <button
+                        key={v.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedVariantId(v.id)
+                          setSelectedOptions({})
+                          setSelectedImageIndex(0)
+                        }}
+                        className={`rounded-md border px-3 py-1.5 text-sm font-medium transition-colors ${
+                          (selectedVariantId ?? variants[0]?.id) === v.id
+                            ? "border-amber-500 bg-amber-50 text-amber-800"
+                            : "border-slate-200 bg-white hover:bg-slate-50"
+                        }`}
+                      >
+                        {v.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
               <div className="mt-4 flex flex-wrap items-baseline gap-2">
                 <span className="text-xl font-bold text-slate-900 sm:text-2xl md:text-3xl">{formatCurrency(displayPrice)}</span>
-                {product.discount > 0 && (
-                  <span className="text-sm text-slate-500 line-through">{formatCurrency(product.basePrice)}</span>
+                {selectedVariant && (selectedVariant.discount ?? 0) > 0 && (
+                  <span className="text-sm text-slate-500 line-through">{formatCurrency(selectedVariant.price)}</span>
                 )}
               </div>
+              {selectedVariant && (
+                <p className="mt-1 text-sm text-slate-600">In stock: {selectedVariant.stock}</p>
+              )}
+              {validationMessage && (
+                <p className="mt-1 text-sm font-medium text-amber-700" role="alert">
+                  {validationMessage}
+                </p>
+              )}
 
               <div className="mt-3 flex items-center gap-2 text-sm text-slate-600">
                 <Truck className="h-4 w-4 text-green-600" />
@@ -154,10 +281,13 @@ export function ProductDetailClient({ productId }: { productId: string }) {
                   <Button
                     size="lg"
                     className="w-full bg-amber-400 text-black hover:bg-amber-500 sm:w-auto"
+                    disabled={!canAddToCart}
                     onClick={() => {
+                      if (!selectedVariant) return
                       addItem({
                         productId: product.id,
-                        name: product.name,
+                        productVariantId: selectedVariant.id,
+                        name: product.name + (variants.length > 1 ? ` (${selectedVariant.name})` : ""),
                         price: displayPrice,
                         image: mainImage || null,
                       })
@@ -166,7 +296,7 @@ export function ProductDetailClient({ productId }: { productId: string }) {
                     }}
                   >
                     <ShoppingCart className="mr-2 h-5 w-5" />
-                    {addedToCart ? "Added to Cart" : "Add to Cart"}
+                    {addedToCart ? "Added to Cart" : mustSelectVariant ? (firstMissingLabel ? `Select ${firstMissingLabel}` : "Select variant") : "Add to Cart"}
                   </Button>
                 <Button
                   size="lg"

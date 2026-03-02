@@ -76,7 +76,7 @@ export function AdminLayoutClient({
       <Sidebar className="hidden md:block">
         <div className="flex items-center justify-center border-b px-6 py-4">
           <Link href="/" className="flex w-full flex-col items-center gap-1.5 text-center">
-            <Image src="/images/logo-three.jpeg" alt="Logo" width={200} height={56} className="h-14 w-auto object-contain shrink-0" />
+            <Image src="/images/logo.png" alt="Logo" width={200} height={56} className="h-14 w-auto object-contain shrink-0" />
             <span className="text-xs font-medium text-muted-foreground tracking-wide">Admin</span>
           </Link>
         </div>

@@ -64,13 +64,34 @@ export async function POST(request: NextRequest) {
     })
     if (!sub) return NextResponse.json({ error: "Subcategory does not belong to selected category" }, { status: 400 })
   }
-  const basePrice = Number(body.basePrice ?? 0)
-  const stock = Number(body.stock ?? 0)
-  if (isNaN(basePrice) || basePrice <= 0) return NextResponse.json({ error: "Valid base price required" }, { status: 400 })
-  if (isNaN(stock) || stock < 0) return NextResponse.json({ error: "Valid stock required" }, { status: 400 })
+  const variantsRaw = Array.isArray(body.variants) ? body.variants : []
+  if (variantsRaw.length === 0) return NextResponse.json({ error: "At least one variant is required" }, { status: 400 })
   const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "")
-  const discount = Math.round(Number(body.discount ?? 0) * 100) / 100
   const imagesData = Array.isArray(body.images) ? body.images : []
+  type VariantInput = { name?: string; sku?: string; price?: number; discount?: number; hasGst?: boolean; stock?: number; images?: string[] | unknown; attributes?: Record<string, string> | unknown; specification?: string; details?: string; additionalInfo?: Record<string, string> | unknown }
+  const variants: { name: string; sku: string | null; price: number; discount: number; hasGst: boolean; stock: number; images: object; attributes: object; specification: string | null; details: string | null; additionalInfo: object | null }[] = []
+  for (let i = 0; i < variantsRaw.length; i++) {
+    const v = variantsRaw[i] as VariantInput
+    const vName = typeof v?.name === "string" ? v.name.trim() : `Variant ${i + 1}`
+    const vPrice = Number(v?.price ?? 0)
+    const vStock = Number(v?.stock ?? 0)
+    const vDiscount = Math.round(Number(v?.discount ?? 0) * 100) / 100
+    if (isNaN(vPrice) || vPrice <= 0) return NextResponse.json({ error: `Variant ${i + 1}: valid price required` }, { status: 400 })
+    if (isNaN(vStock) || vStock < 0) return NextResponse.json({ error: `Variant ${i + 1}: valid stock required` }, { status: 400 })
+    variants.push({
+      name: vName,
+      sku: typeof v?.sku === "string" ? v.sku || null : null,
+      price: vPrice,
+      discount: vDiscount,
+      hasGst: v?.hasGst !== false,
+      stock: Math.floor(vStock),
+      images: Array.isArray(v?.images) ? (v.images as object) : [],
+      attributes: (v?.attributes && typeof v.attributes === "object" && !Array.isArray(v.attributes)) ? v.attributes as object : {},
+      specification: typeof v?.specification === "string" ? v.specification : null,
+      details: typeof v?.details === "string" ? v.details : null,
+      additionalInfo: (v?.additionalInfo && typeof v.additionalInfo === "object" && !Array.isArray(v.additionalInfo)) ? v.additionalInfo as object : null,
+    })
+  }
   try {
     const product = await prisma.product.create({
       data: {
@@ -80,13 +101,24 @@ export async function POST(request: NextRequest) {
         name,
         slug,
         description: (body.description as string) ?? null,
-        basePrice,
-        discount,
-        hasGst: body.hasGst !== false,
-        stock,
-        sku: (body.sku as string) ?? null,
         images: imagesData as object,
+        variants: {
+          create: variants.map((v) => ({
+            name: v.name,
+            sku: v.sku,
+            price: v.price,
+            discount: v.discount,
+            hasGst: v.hasGst,
+            stock: v.stock,
+            images: v.images,
+            attributes: v.attributes,
+            specification: v.specification,
+            details: v.details,
+            additionalInfo: v.additionalInfo,
+          })),
+        },
       },
+      include: { category: true, subcategory: true, variants: true },
     })
     return NextResponse.json(product)
   } catch (error: unknown) {

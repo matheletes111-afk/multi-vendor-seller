@@ -21,18 +21,30 @@ export async function GET(request: NextRequest) {
         id: true,
         name: true,
         slug: true,
-        basePrice: true,
-        discount: true,
         images: true,
         category: { select: { id: true, name: true, slug: true } },
         seller: { select: { store: { select: { name: true } } } },
+        variants: {
+          take: 1,
+          orderBy: { createdAt: "asc" },
+          select: { price: true, discount: true },
+        },
       },
     });
 
-    const serialized = products.map((p) => ({
-      ...p,
-      images: (p.images as string[]) || [],
-    }));
+    const serialized = products.map((p) => {
+      const first = p.variants[0];
+      return {
+        id: p.id,
+        name: p.name,
+        slug: p.slug,
+        images: (p.images as string[]) || [],
+        category: p.category,
+        seller: p.seller,
+        basePrice: first?.price ?? 0,
+        discount: first?.discount ?? 0,
+      };
+    });
 
     return NextResponse.json(serialized);
   } catch (error) {

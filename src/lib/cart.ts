@@ -2,6 +2,7 @@ const CART_STORAGE_KEY = "meeem-cart"
 
 export type CartItem = {
   productId?: string
+  productVariantId?: string
   serviceId?: string
   name: string
   price: number
@@ -9,9 +10,10 @@ export type CartItem = {
   quantity: number
 }
 
-/** Unique id for an item (product or service). */
+/** Unique id for an item (product or service). Same product + same variant = same line. */
 export function getCartItemId(item: CartItem): string {
-  return (item.productId ?? item.serviceId) ?? ""
+  if (item.productId) return item.productVariantId ? `${item.productId}:${item.productVariantId}` : item.productId
+  return item.serviceId ?? ""
 }
 
 export function getCartFromStorage(): CartItem[] {
