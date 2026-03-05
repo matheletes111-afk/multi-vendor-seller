@@ -51,6 +51,33 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           return null
         }
 
+        // Sellers must be approved and not suspended to log in
+        if (
+          user.role === UserRole.SELLER_PRODUCT ||
+          user.role === UserRole.SELLER_SERVICE
+        ) {
+          const seller = await prisma.seller.findUnique({
+            where: { userId: user.id },
+            select: { isApproved: true, isSuspended: true },
+          })
+          if (
+            !seller ||
+            !seller.isApproved ||
+            (seller.isSuspended ?? false)
+          ) {
+            return null
+          }
+          return {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            role: user.role,
+            image: user.image,
+            isApproved: true,
+            isSuspended: false,
+          }
+        }
+
         return {
           id: user.id,
           email: user.email,
@@ -66,6 +93,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       if (user) {
         token.id = user.id
         token.role = (user as any).role
+        if ((user as any).isApproved !== undefined)
+          token.isApproved = (user as any).isApproved
+        if ((user as any).isSuspended !== undefined)
+          token.isSuspended = (user as any).isSuspended
       }
       return token
     },
@@ -73,6 +104,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       if (session.user && token) {
         session.user.id = token.id as string
         session.user.role = token.role as UserRole
+        if (token.isApproved !== undefined)
+          session.user.isApproved = token.isApproved as boolean
+        if (token.isSuspended !== undefined)
+          session.user.isSuspended = token.isSuspended as boolean
       }
       return session
     },

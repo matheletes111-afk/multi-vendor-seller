@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server"
 import { UserRole } from "@prisma/client"
+import { prisma } from "@/lib/prisma"
+import bcrypt from "bcryptjs"
+
+/** Result type when selecting id, password, role, isEmailVerified. Schema has isEmailVerified; Prisma client types may be out of sync. */
+type UserLoginRow = { id: string; password: string | null; role: UserRole; isEmailVerified: boolean }
 
 /** POST /api/service-seller/auth/login — Service seller panel login. Proxies to NextAuth with role SELLER_SERVICE. */
 export async function POST(request: Request) {
@@ -12,6 +17,44 @@ export async function POST(request: Request) {
         { status: 400 }
       )
     }
+
+    // 1) Email verified first → redirect to OTP; 2) Then admin approval / suspended (sellers only)
+    const user = (await prisma.user.findUnique({
+      where: { email },
+      select: { id: true, password: true, role: true, isEmailVerified: true } as { id: true; password: true; role: true; isEmailVerified: true },
+    })) as UserLoginRow | null
+    if (
+      user?.role === UserRole.SELLER_SERVICE &&
+      user.password &&
+      (await bcrypt.compare(password, user.password))
+    ) {
+      // First: email not verified → send to OTP page
+      if (user.isEmailVerified === false) {
+        const verifyUrl = `/service-seller/verify-otp?email=${encodeURIComponent(email)}`
+        return NextResponse.json(
+          { error: "Please verify your email first.", needsVerification: true, verifyUrl },
+          { status: 403 }
+        )
+      }
+      // Then: check admin approval and suspended
+      const seller = await prisma.seller.findUnique({
+        where: { userId: user.id },
+        select: { isApproved: true, isSuspended: true },
+      })
+      if (!seller?.isApproved) {
+        return NextResponse.json(
+          { error: "Your account is pending admin approval. You cannot log in until approved." },
+          { status: 403 }
+        )
+      }
+      if (seller.isSuspended) {
+        return NextResponse.json(
+          { error: "Your account has been suspended. Please contact support." },
+          { status: 403 }
+        )
+      }
+    }
+
     const origin = new URL(request.url).origin
     const form = new URLSearchParams({
       email,
@@ -42,8 +85,22 @@ export async function POST(request: Request) {
       try {
         const err = new URL(location, origin).searchParams.get("error")
         if (err === "MissingCSRF") msg = "Session expired. Please refresh and try again."
-        else if (err === "CredentialsSignin") msg = "Invalid email or password."
-        else if (err) msg = err
+        else if (err === "CredentialsSignin") {
+          const u = (await prisma.user.findUnique({
+            where: { email },
+            select: { id: true, role: true, isEmailVerified: true } as { id: true; role: true; isEmailVerified: true },
+          })) as UserLoginRow | null
+          if (u?.role === UserRole.SELLER_SERVICE) {
+            if (u.isEmailVerified === false) {
+              const verifyUrl = `/service-seller/verify-otp?email=${encodeURIComponent(email)}`
+              return NextResponse.json({ error: "Please verify your email first.", needsVerification: true, verifyUrl }, { status: 403 })
+            }
+            const s = await prisma.seller.findUnique({ where: { userId: u.id }, select: { isApproved: true, isSuspended: true } })
+            if (s && !s.isApproved) return NextResponse.json({ error: "Your account is pending admin approval. You cannot log in until approved." }, { status: 403 })
+            if (s?.isSuspended) return NextResponse.json({ error: "Your account has been suspended. Please contact support." }, { status: 403 })
+          }
+          msg = "Invalid email or password."
+        } else if (err) msg = err
       } catch {
         /* use default msg */
       }
@@ -65,11 +122,25 @@ export async function POST(request: Request) {
     if (data?.url && (data.url.includes("error=") || data.url.includes("customer/login") || data.url.includes("customer/registration"))) {
       let msg = "Invalid email or password."
       try {
-        const u = new URL(data.url, origin)
-        const err = u.searchParams.get("error")
+        const url = new URL(data.url, origin)
+        const err = url.searchParams.get("error")
         if (err === "MissingCSRF") msg = "Session expired. Please refresh and try again."
-        else if (err === "CredentialsSignin") msg = "Invalid email or password."
-        else if (err) msg = err
+        else if (err === "CredentialsSignin") {
+          const u = (await prisma.user.findUnique({
+            where: { email },
+            select: { id: true, role: true, isEmailVerified: true } as { id: true; role: true; isEmailVerified: true },
+          })) as UserLoginRow | null
+          if (u?.role === UserRole.SELLER_SERVICE) {
+            if (u.isEmailVerified === false) {
+              const verifyUrl = `/service-seller/verify-otp?email=${encodeURIComponent(email)}`
+              return NextResponse.json({ error: "Please verify your email first.", needsVerification: true, verifyUrl }, { status: 403 })
+            }
+            const s = await prisma.seller.findUnique({ where: { userId: u.id }, select: { isApproved: true, isSuspended: true } })
+            if (s && !s.isApproved) return NextResponse.json({ error: "Your account is pending admin approval. You cannot log in until approved." }, { status: 403 })
+            if (s?.isSuspended) return NextResponse.json({ error: "Your account has been suspended. Please contact support." }, { status: 403 })
+          }
+          msg = "Invalid email or password."
+        } else if (err) msg = err
       } catch {
         /* use default msg */
       }

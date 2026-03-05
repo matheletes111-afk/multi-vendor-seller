@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { Button } from "@/ui/button"
 import { Badge } from "@/ui/badge"
@@ -32,6 +32,34 @@ export function SellersClient() {
   const [error, setError] = useState<string | null>(null)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
 
+  const successParam = searchParams.get("success")
+  const errorParam = searchParams.get("error")
+
+  const loadSellers = useCallback(
+    (opts?: { showLoading?: boolean }) => {
+      const showLoading = opts?.showLoading !== false
+      if (showLoading) {
+        setLoading(true)
+        setError(null)
+      }
+      return fetch(`/api/admin/sellers?page=${page}&perPage=${perPage}`)
+        .then((res) => {
+          if (!res.ok) throw new Error("Failed to fetch sellers")
+          return res.json()
+        })
+        .then((json) => {
+          setData(json)
+        })
+        .catch((e) => {
+          setError(e.message)
+        })
+        .finally(() => {
+          if (showLoading) setLoading(false)
+        })
+    },
+    [page, perPage]
+  )
+
   useEffect(() => {
     let cancelled = false
     setLoading(true)
@@ -42,9 +70,7 @@ export function SellersClient() {
         return res.json()
       })
       .then((json) => {
-        if (!cancelled) {
-          setData(json)
-        }
+        if (!cancelled) setData(json)
       })
       .catch((e) => {
         if (!cancelled) setError(e.message)
@@ -63,6 +89,7 @@ export function SellersClient() {
       const res = await fetch(`/api/admin/sellers/${sellerId}/approve`, { method: "POST" })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || "Failed")
+      await loadSellers({ showLoading: false })
       router.push("/admin/sellers?success=approved")
       router.refresh()
     } catch (e: any) {
@@ -78,6 +105,7 @@ export function SellersClient() {
       const res = await fetch(`/api/admin/sellers/${sellerId}/suspend`, { method: "POST" })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || "Failed")
+      await loadSellers({ showLoading: false })
       router.push("/admin/sellers?success=suspended")
       router.refresh()
     } catch (e: any) {
@@ -93,6 +121,7 @@ export function SellersClient() {
       const res = await fetch(`/api/admin/sellers/${sellerId}/unsuspend`, { method: "POST" })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || "Failed")
+      await loadSellers({ showLoading: false })
       router.push("/admin/sellers?success=unsuspended")
       router.refresh()
     } catch (e: any) {
@@ -103,8 +132,8 @@ export function SellersClient() {
   }
 
   const params = {
-    error: searchParams.get("error") ?? undefined,
-    success: searchParams.get("success") ?? undefined,
+    error: errorParam ?? undefined,
+    success: successParam ?? undefined,
   }
 
   return (

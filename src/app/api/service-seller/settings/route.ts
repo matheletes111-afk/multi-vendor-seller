@@ -8,7 +8,7 @@ export async function GET() {
   if (!session?.user || !isServiceSeller(session.user)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   const seller = await prisma.seller.findUnique({
     where: { userId: session.user.id },
-    include: { store: true, user: { select: { id: true, name: true, email: true, image: true } } },
+    include: { store: true, user: { select: { id: true, name: true, email: true, image: true, phone: true, phoneCountryCode: true } } },
   })
   if (!seller) return NextResponse.json({ error: "Seller not found" }, { status: 404 })
   return NextResponse.json(seller)
@@ -19,7 +19,7 @@ export async function PUT(request: NextRequest) {
   if (!session?.user || !isServiceSeller(session.user)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   const seller = await prisma.seller.findUnique({ where: { userId: session.user.id }, include: { store: true } })
   if (!seller) return NextResponse.json({ error: "Seller not found" }, { status: 404 })
-  const body = await request.json().catch(() => ({})) as { store?: Record<string, unknown>; user?: { name?: string; image?: string } }
+  const body = await request.json().catch(() => ({})) as { store?: Record<string, unknown>; user?: { name?: string; image?: string; phone?: string; phoneCountryCode?: string } }
   if (body.store && Object.keys(body.store).length > 0) {
     const allowed = ["name", "description", "phone", "website", "address", "city", "state", "zipCode", "country", "logo", "banner"]
     const data = Object.fromEntries(Object.entries(body.store as Record<string, string>).filter(([k]) => allowed.includes(k)))
@@ -29,9 +29,11 @@ export async function PUT(request: NextRequest) {
     }
   }
   if (body.user && Object.keys(body.user).length > 0) {
-    const userData: { name?: string; image?: string } = {}
+    const userData: { name?: string; image?: string; phone?: string | null; phoneCountryCode?: string | null } = {}
     if (body.user.name !== undefined) userData.name = body.user.name
     if (body.user.image !== undefined) userData.image = body.user.image
+    if (body.user.phone !== undefined) userData.phone = body.user.phone || null
+    if (body.user.phoneCountryCode !== undefined) userData.phoneCountryCode = body.user.phoneCountryCode || null
     if (Object.keys(userData).length > 0) await prisma.user.update({ where: { id: session.user.id }, data: userData })
   }
   return NextResponse.json({ success: true })

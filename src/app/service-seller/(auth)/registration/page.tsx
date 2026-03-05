@@ -14,6 +14,8 @@ export default function ServiceSellerRegistrationPage() {
   const router = useRouter()
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
+  const [phoneCountryCode, setPhoneCountryCode] = useState("")
+  const [phone, setPhone] = useState("")
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
   const [error, setError] = useState("")
@@ -37,14 +39,14 @@ export default function ServiceSellerRegistrationPage() {
       const res = await fetch("/api/service-seller/auth/registration", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, password }),
+        body: JSON.stringify({ name, email, phone: phone || undefined, phoneCountryCode: phoneCountryCode || undefined, password }),
       })
       const data = await res.json()
       if (!res.ok) {
         setError(data.error || "Registration failed")
         return
       }
-      router.push("/service-seller/login?registered=true")
+      router.push(`/service-seller/verify-otp?email=${encodeURIComponent(email)}&from=registration`)
     } catch {
       setError("An error occurred. Please try again.")
     } finally {
@@ -97,6 +99,32 @@ export default function ServiceSellerRegistrationPage() {
                 disabled={loading}
                 className="rounded-xl border-gray-200"
               />
+            </div>
+            <div className="grid grid-cols-[1fr_2fr] gap-2">
+              <div>
+                <Label htmlFor="phoneCountryCode" className="mb-1.5 block text-sm font-medium text-gray-700">Country code</Label>
+                <Input
+                  id="phoneCountryCode"
+                  type="text"
+                  placeholder="+1"
+                  value={phoneCountryCode}
+                  onChange={(e) => setPhoneCountryCode(e.target.value)}
+                  disabled={loading}
+                  className="rounded-xl border-gray-200"
+                />
+              </div>
+              <div>
+                <Label htmlFor="phone" className="mb-1.5 block text-sm font-medium text-gray-700">Phone</Label>
+                <Input
+                  id="phone"
+                  type="tel"
+                  placeholder="Optional"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  disabled={loading}
+                  className="rounded-xl border-gray-200"
+                />
+              </div>
             </div>
             <div>
               <Label htmlFor="password" className="mb-1.5 block text-sm font-medium text-gray-700">Password</Label>

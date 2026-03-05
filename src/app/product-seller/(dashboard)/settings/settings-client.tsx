@@ -14,7 +14,7 @@ type Seller = {
   id: string
   type: string
   store: { name: string; description: string | null; phone: string | null; website: string | null; address: string | null; city: string | null; state: string | null; zipCode: string | null; country: string | null; logo: string | null; banner: string | null } | null
-  user: { email: string; name: string | null; image: string | null }
+  user: { email: string; name: string | null; image: string | null; phone: string | null; phoneCountryCode: string | null }
 }
 
 export function SettingsClient() {
@@ -72,7 +72,12 @@ export function SettingsClient() {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        user: { name: fd.get("name") || undefined, image: fd.get("image") || undefined },
+        user: {
+          name: fd.get("name") || undefined,
+          image: fd.get("image") || undefined,
+          phone: (fd.get("phone") as string) ?? "",
+          phoneCountryCode: (fd.get("phoneCountryCode") as string) ?? "",
+        },
       }),
     })
     setSavingUser(false)
@@ -127,6 +132,10 @@ export function SettingsClient() {
                 <p className="text-xs text-muted-foreground">Email cannot be changed</p>
               </div>
               <div className="space-y-2"><Label htmlFor="userName">Name</Label><Input id="userName" name="name" defaultValue={user?.name || ""} placeholder="Your name" /></div>
+              <div className="grid gap-4 md:grid-cols-[1fr_2fr]">
+                <div className="space-y-2"><Label htmlFor="userPhoneCountryCode">Country code</Label><Input id="userPhoneCountryCode" name="phoneCountryCode" type="text" defaultValue={user?.phoneCountryCode || ""} placeholder="+1" /></div>
+                <div className="space-y-2"><Label htmlFor="userPhone">Phone</Label><Input id="userPhone" name="phone" type="tel" defaultValue={user?.phone || ""} placeholder="Phone number" /></div>
+              </div>
               <div className="space-y-2"><Label htmlFor="userImage">Profile Image URL</Label><Input id="userImage" name="image" type="url" defaultValue={user?.image || ""} placeholder="https://example.com/profile.jpg" /></div>
               <div><Label>Seller Type</Label><p className="text-sm text-muted-foreground capitalize">{seller.type.toLowerCase()}</p></div>
               <Button type="submit" disabled={savingUser}>{savingUser ? "Saving..." : "Save Profile Changes"}</Button>

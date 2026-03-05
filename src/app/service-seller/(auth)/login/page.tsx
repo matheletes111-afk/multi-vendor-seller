@@ -26,6 +26,13 @@ function ServiceSellerLoginForm() {
     getCsrfToken().then(setCsrfToken)
   }, [])
 
+  useEffect(() => {
+    const err = searchParams.get("error")
+    if (err === "AccountPendingOrSuspended") {
+      setError("Your account is pending approval or has been suspended. You cannot access the dashboard.")
+    }
+  }, [searchParams])
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
@@ -72,6 +79,10 @@ function ServiceSellerLoginForm() {
         return
       }
       const data = await res.json().catch(() => ({}))
+      if (res.status === 403 && data.needsVerification && data.verifyUrl) {
+        router.push(data.verifyUrl)
+        return
+      }
       setError(data.error || "Invalid email or password.")
     } catch {
       setError("An error occurred. Please try again.")
@@ -93,6 +104,16 @@ function ServiceSellerLoginForm() {
           <p className="mt-1 text-left text-sm text-gray-500">Sign in to manage your services</p>
         </div>
         <form onSubmit={handleSubmit}>
+          {searchParams.get("verified") === "1" && (
+            <Alert className="mb-5 border-green-200 bg-green-50 text-green-800">
+              <AlertDescription>Email verified. You can sign in now.</AlertDescription>
+            </Alert>
+          )}
+          {searchParams.get("registered") === "true" && !searchParams.get("verified") && (
+            <Alert className="mb-5 border-blue-200 bg-blue-50 text-blue-800">
+              <AlertDescription>Please check your email to verify your account before signing in.</AlertDescription>
+            </Alert>
+          )}
           {error && (
             <Alert variant="destructive" className="mb-5">
               <AlertCircle className="h-4 w-4" />

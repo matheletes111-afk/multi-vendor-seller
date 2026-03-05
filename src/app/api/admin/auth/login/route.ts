@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { UserRole } from "@prisma/client"
+import { prisma } from "@/lib/prisma"
 
 /** POST /api/admin/auth/login — Admin panel login. Proxies to NextAuth with role ADMIN. */
 export async function POST(request: Request) {
@@ -48,6 +49,14 @@ export async function POST(request: Request) {
         /* use default */
       }
       return NextResponse.json({ error: msg }, { status: 401 })
+    }
+    const user = await prisma.user.findUnique({ where: { email }, select: { isEmailVerified: true } })
+    if (user && user.isEmailVerified === false) {
+      const verifyUrl = `/admin/verify-otp?email=${encodeURIComponent(email)}`
+      return NextResponse.json(
+        { error: "Please verify your email first.", needsVerification: true, verifyUrl },
+        { status: 403 }
+      )
     }
     if (res.status === 302) {
       const headers = new Headers()
