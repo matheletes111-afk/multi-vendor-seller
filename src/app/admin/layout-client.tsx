@@ -75,14 +75,14 @@ export function AdminLayoutClient({
     <div className="flex min-h-screen">
       <Sidebar className="hidden md:block">
         <div className="flex items-center justify-center border-b px-6 py-4">
-          <Link href="/" className="flex w-full flex-col items-center gap-1.5 text-center">
+          <a href="/" className="flex w-full flex-col items-center gap-1.5 text-center">
             <Image src="/images/logo.png" alt="Logo" width={200} height={56} className="h-14 w-auto object-contain shrink-0" />
             <span className="text-xs font-medium text-muted-foreground tracking-wide">Admin</span>
-          </Link>
+          </a>
         </div>
         <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">{navContent}</nav>
         <div className="border-t p-4">
-          <Button type="button" variant="outline" className="w-full" onClick={() => signOut({ callbackUrl: "/" })}>
+          <Button type="button" variant="outline" className="w-full" onClick={() => signOut({ redirect: false }).then(() => { window.location.href = "/" })}>
             Logout
           </Button>
         </div>
@@ -133,7 +133,7 @@ export function AdminLayoutClient({
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => signOut({ callbackUrl: "/" })}>
+                  <DropdownMenuItem onClick={() => signOut({ redirect: false }).then(() => { window.location.href = "/" })}>
                     <LogOut className="mr-2 h-4 w-4" />
                     <span>Log out</span>
                   </DropdownMenuItem>

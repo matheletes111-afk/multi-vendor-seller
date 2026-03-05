@@ -1,5 +1,5 @@
 import { PublicLayout } from "@/components/site-layout"
-import { BrowseClient } from "@/app/customer/browse/browse-client"
+import { BrowseClient } from "@/app/customer/(dashboard)/browse/browse-client"
 import { PageLoader } from "@/components/ui/page-loader"
 import { Suspense } from "react"
 

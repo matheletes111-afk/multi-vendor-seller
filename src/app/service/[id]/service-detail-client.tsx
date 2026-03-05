@@ -141,7 +141,7 @@ export function ServiceDetailClient({ service }: { service: Service }) {
                         if (status === "authenticated") {
                           router.push("/cart")
                         } else {
-                          router.push("/login?callbackUrl=" + encodeURIComponent("/cart"))
+                          router.push("/customer/login?callbackUrl=" + encodeURIComponent("/cart"))
                         }
                       }}
                     >

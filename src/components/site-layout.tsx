@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
+import { useSession } from "next-auth/react"
 import { Button } from "@/ui/button"
 import { Input } from "@/ui/input"
 import {
@@ -25,10 +26,13 @@ type Category = { id: string; name: string; slug: string; subcategories: Subcate
 
 export function SiteHeader() {
   const router = useRouter()
+  const { data: session, status } = useSession()
   const { totalItems } = useCart()
   const [searchQuery, setSearchQuery] = useState("")
   const [mounted, setMounted] = useState(false)
   const [categories, setCategories] = useState<Category[]>([])
+  const isLoggedIn = status === "authenticated" && !!session?.user
+  const showBecomePartner = !isLoggedIn
 
   useEffect(() => setMounted(true), [])
   useEffect(() => {
@@ -50,7 +54,7 @@ export function SiteHeader() {
   return (
     <header className="sticky top-0 z-50 border-b border-blue-900/20 bg-gradient-to-r from-blue-50 via-blue-200 to-cyan-600 shadow-md">
       <div className="container mx-auto flex h-12 min-h-12 items-center gap-2 px-2 sm:h-14 sm:gap-4 sm:px-4">
-        <Link href="/" className="flex shrink-0 items-center">
+        <a href="/" className="flex shrink-0 items-center">
           <Image
             src="/images/logo.png"
             alt="Logo"
@@ -59,7 +63,7 @@ export function SiteHeader() {
             className="h-7 w-auto object-contain sm:h-9"
             priority
           />
-        </Link>
+        </a>
 
         <form onSubmit={handleSearch} className="flex min-w-0 flex-1 max-w-xl">
           <div className="relative flex w-full min-w-0">
@@ -135,38 +139,83 @@ export function SiteHeader() {
           </span>
 
           {mounted ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button type="button" className="flex flex-col items-start rounded px-1.5 py-1 text-left text-white hover:outline-none focus:outline-none sm:px-2 sm:py-1.5">
+            <>
+              {showBecomePartner && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button type="button" className="flex items-center rounded px-2 py-1.5 text-left text-sm font-medium text-white hover:bg-slate-600/50 hover:outline-none focus:outline-none sm:px-3">
+                      Become a partner
+                      <ChevronDown className="ml-1 h-4 w-4 shrink-0" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-52">
+                    <DropdownMenuItem asChild>
+                      <Link href="/product-seller/login">Product Seller Login</Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/service-seller/login">Service Seller Login</Link>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+              {isLoggedIn ? (
+                <Link
+                  href="/dashboard"
+                  className="flex flex-col items-start rounded px-1.5 py-1 text-left text-white hover:bg-slate-600/50 hover:outline-none focus:outline-none sm:px-2 sm:py-1.5"
+                >
+                  <span className="text-xs font-semibold leading-tight sm:text-sm">Dashboard</span>
+                </Link>
+              ) : (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button type="button" className="flex flex-col items-start rounded px-1.5 py-1 text-left text-white hover:outline-none focus:outline-none sm:px-2 sm:py-1.5">
+                      <span className="text-[10px] text-blue-100 sm:text-xs">Hello, sign in</span>
+                      <span className="flex items-center text-xs font-semibold leading-tight sm:text-sm">
+                        <span className="hidden sm:inline">Customer</span>
+                        <span className="sm:hidden">Account</span>
+                        <ChevronDown className="ml-0.5 h-3 w-3 shrink-0 sm:h-4 sm:w-4" />
+                      </span>
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-48">
+                    <DropdownMenuItem asChild>
+                      <Link href="/customer/login">Customer Login</Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/customer/registration">Customer Registration</Link>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+            </>
+          ) : (
+            <>
+              {showBecomePartner && (
+                <Link href="/product-seller/login" className="rounded px-2 py-1.5 text-sm font-medium text-white hover:bg-slate-600/50 sm:px-3">
+                  Become a partner
+                </Link>
+              )}
+              {isLoggedIn ? (
+                <Link
+                  href="/dashboard"
+                  className="flex flex-col items-start rounded px-1.5 py-1 text-left text-white hover:opacity-90 sm:px-2 sm:py-1.5"
+                >
+                  <span className="text-xs font-semibold leading-tight sm:text-sm">Dashboard</span>
+                </Link>
+              ) : (
+                <Link
+                  href="/customer/login"
+                  className="flex flex-col items-start rounded px-1.5 py-1 text-left text-white hover:opacity-90 sm:px-2 sm:py-1.5"
+                >
                   <span className="text-[10px] text-blue-100 sm:text-xs">Hello, sign in</span>
                   <span className="flex items-center text-xs font-semibold leading-tight sm:text-sm">
-                    <span className="hidden sm:inline">Account & Lists</span>
+                    <span className="hidden sm:inline">Customer</span>
                     <span className="sm:hidden">Account</span>
                     <ChevronDown className="ml-0.5 h-3 w-3 shrink-0 sm:h-4 sm:w-4" />
                   </span>
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuItem asChild>
-                  <Link href="/login">Login</Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link href="/register">Sign up</Link>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          ) : (
-            <Link
-              href="/login"
-              className="flex flex-col items-start rounded px-1.5 py-1 text-left text-white hover:opacity-90 sm:px-2 sm:py-1.5"
-            >
-              <span className="text-[10px] text-blue-100 sm:text-xs">Hello, sign in</span>
-              <span className="flex items-center text-xs font-semibold leading-tight sm:text-sm">
-                <span className="hidden sm:inline">Account & Lists</span>
-                <span className="sm:hidden">Account</span>
-                <ChevronDown className="ml-0.5 h-3 w-3 shrink-0 sm:h-4 sm:w-4" />
-              </span>
-            </Link>
+                </Link>
+              )}
+            </>
           )}
 
           <Link
@@ -198,13 +247,44 @@ export function SiteHeader() {
 }
 
 export function SiteFooter() {
+  const { data: session, status } = useSession()
+  const isLoggedIn = status === "authenticated" && !!session?.user
+
   return (
-    <footer className="border-t border-blue-900/20 bg-gradient-to-r from-blue-50 via-blue-200 to-cyan-600">
-      <div className="container mx-auto flex flex-col items-center justify-between gap-4 px-4 py-6 sm:flex-row">
-        <Link href="/" className="flex items-center">
-          <Image src="/images/logo.png" alt="Logo" width={100} height={28} className="h-7 w-auto object-contain" />
-        </Link>
-        <p className="text-sm text-blue-100">© {new Date().getFullYear()} MEEEM Marketplace. All rights reserved.</p>
+    <footer className="border-t border-blue-200/80 bg-gradient-to-br from-blue-50 via-sky-100 to-blue-200">
+      <div className="container mx-auto px-4 py-5">
+        <div className="flex flex-row items-start justify-between gap-6">
+          <nav className="py-1" aria-label="Quick links">
+            <p className="mb-2.5 text-[11px] font-semibold uppercase tracking-widest text-blue-900/70 sm:text-xs">
+              Quick Links
+            </p>
+            {isLoggedIn ? (
+              <ul className="flex flex-col gap-1.5">
+                <li>
+                  <Link href="/dashboard" className="text-sm font-medium text-blue-900 transition-colors hover:text-blue-700 sm:text-base">
+                    Dashboard
+                  </Link>
+                </li>
+              </ul>
+            ) : (
+              <ul className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm text-blue-900/90 sm:gap-x-8">
+                <li><Link href="/admin/login" className="transition-colors hover:text-blue-700 hover:underline">Admin Login</Link></li>
+                <li><Link href="/service-seller/registration" className="transition-colors hover:text-blue-700 hover:underline">Service Seller Registration</Link></li>
+                <li><Link href="/service-seller/login" className="transition-colors hover:text-blue-700 hover:underline">Service Seller Login</Link></li>
+                <li><Link href="/product-seller/registration" className="transition-colors hover:text-blue-700 hover:underline">Product Seller Registration</Link></li>
+                <li><Link href="/product-seller/login" className="transition-colors hover:text-blue-700 hover:underline">Product Seller Login</Link></li>
+                <li><Link href="/customer/registration" className="transition-colors hover:text-blue-700 hover:underline">Customer Registration</Link></li>
+                <li><Link href="/customer/login" className="transition-colors hover:text-blue-700 hover:underline">Customer Login</Link></li>
+              </ul>
+            )}
+          </nav>
+          <a href="/" className="flex shrink-0 items-center">
+            <Image src="/images/logo.png" alt="MEEEM" width={140} height={40} className="h-10 w-auto object-contain sm:h-12" />
+          </a>
+        </div>
+        <p className="mt-4 border-t border-blue-200/60 pt-4 text-center text-xs text-blue-900/50 sm:text-left sm:text-sm">
+          © {new Date().getFullYear()} MEEEM Marketplace. All rights reserved.
+        </p>
       </div>
     </footer>
   )

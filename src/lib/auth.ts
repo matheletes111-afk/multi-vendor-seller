@@ -7,20 +7,22 @@ import { UserRole } from "@prisma/client"
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   trustHost: true,
+  basePath: "/api/nextauth",
   adapter: PrismaAdapter(prisma) as any,
   session: {
     strategy: "jwt",
   },
   pages: {
-    signIn: "/login",
+    signIn: "/customer/login",
     signOut: "/",
-    error: "/login",
+    error: "/customer/login",
   },
   providers: [
     Credentials({
       credentials: {
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
+        role: { label: "Role", type: "text" },
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
@@ -41,6 +43,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         )
 
         if (!isPasswordValid) {
+          return null
+        }
+
+        const requestedRole = credentials.role as string | undefined
+        if (requestedRole && user.role !== requestedRole) {
           return null
         }
 
