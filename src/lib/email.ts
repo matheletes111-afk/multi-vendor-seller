@@ -1,10 +1,5 @@
 import sgMail from "@sendgrid/mail"
 
-const apiKey = process.env.SENDGRID_API_KEY
-if (apiKey) {
-  sgMail.setApiKey(apiKey)
-}
-
 export async function sendEmail({
   to,
   subject,
@@ -16,17 +11,19 @@ export async function sendEmail({
   html?: string
   text?: string
 }) {
-  const from = process.env.SENDGRID_FROM_EMAIL
+  const apiKey = process.env.SENDGRID_API_KEY?.trim()
+  const from = process.env.SENDGRID_FROM_EMAIL?.trim()
   if (!apiKey || !from) {
-    console.warn("SendGrid not configured: SENDGRID_API_KEY or SENDGRID_FROM_EMAIL missing")
+    console.warn("SendGrid not configured: SENDGRID_API_KEY or SENDGRID_FROM_EMAIL missing or empty")
     return { success: false, error: new Error("Email not configured") }
   }
+  sgMail.setApiKey(apiKey)
   try {
     const content = html
       ? [{ type: "text/html" as const, value: html }]
-      : text
+      : text && text.length > 0
         ? [{ type: "text/plain" as const, value: text }]
-        : [{ type: "text/plain" as const, value: "" }]
+        : [{ type: "text/plain" as const, value: " " }]
     const msg = {
       to,
       from,
@@ -36,9 +33,15 @@ export async function sendEmail({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const result = await sgMail.send(msg as any)
     return { success: true, data: result[0] }
-  } catch (error) {
-    console.error("Email send failed:", error)
-    return { success: false, error }
+  } catch (err: unknown) {
+    const error = err as { response?: { body?: unknown; statusCode?: number } }
+    const body = error.response?.body
+    const status = error.response?.statusCode
+    console.error("Email send failed:", status ?? err, body ?? err)
+    if (status === 403 && body && typeof body === "object" && "errors" in body) {
+      console.error("SendGrid 403: Check that SENDGRID_FROM_EMAIL is a verified sender in your SendGrid account.")
+    }
+    return { success: false, error: err instanceof Error ? err : new Error(String(err)) }
   }
 }
 
