@@ -24,7 +24,9 @@ export default async function ServicePage({ params }: { params: Promise<{ id: st
         discount: service.discount,
         images: service.images,
         category: service.category,
-        seller: service.seller,
+        seller: service.seller
+          ? { store: service.seller.store ? { name: service.seller.store.name } : null }
+          : null,
         _count: service._count,
       }}
     />

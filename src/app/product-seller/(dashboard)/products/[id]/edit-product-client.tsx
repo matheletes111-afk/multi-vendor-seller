@@ -51,11 +51,10 @@ export function EditProductClient({ productId }: { productId: string }) {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [imageMode, setImageMode] = useState<"link" | "upload">("link")
-  const [imageUrlsText, setImageUrlsText] = useState("")
-  const [uploadedImageUrls, setUploadedImageUrls] = useState<string[]>([])
+  const [masterImageMode, setMasterImageMode] = useState<"link" | "upload">("link")
+  const [masterImageUrl, setMasterImageUrl] = useState("")
   const [uploading, setUploading] = useState(false)
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  const masterFileInputRef = useRef<HTMLInputElement>(null)
   const [variants, setVariants] = useState<VariantRow[]>([])
   const [variantUploadingFor, setVariantUploadingFor] = useState<number | null>(null)
   const variantFileInputRefs = useRef<(HTMLInputElement | null)[]>([])
@@ -70,8 +69,7 @@ export function EditProductClient({ productId }: { productId: string }) {
       setCategories(cats)
       if (p?.categoryId) setSelectedCategoryId(p.categoryId)
       const imgs = normalizeImages(p?.images)
-      setImageUrlsText(Array.isArray(imgs) ? imgs.join("\n") : "")
-      setUploadedImageUrls(Array.isArray(imgs) ? imgs : [])
+      setMasterImageUrl(Array.isArray(imgs) && imgs.length > 0 ? imgs[0] : "")
       const v = (p as Product)?.variants ?? []
       setVariants(
         v.length > 0
@@ -284,10 +282,7 @@ export function EditProductClient({ productId }: { productId: string }) {
     const subcategoryId = (formData.get("subcategoryId") as string) || null
     const description = (formData.get("description") as string) || undefined
     const isActive = (formData.get("isActive") as string) === "true"
-    const images =
-      imageMode === "link"
-        ? (imageUrlsText || "").split("\n").map((u) => u.trim()).filter(Boolean)
-        : uploadedImageUrls
+    const images = masterImageUrl.trim() ? [masterImageUrl.trim()] : []
 
     if (!name || !categoryId) {
       setError("Name and category are required")
@@ -338,7 +333,7 @@ export function EditProductClient({ productId }: { productId: string }) {
         categoryId,
         subcategoryId: subcategoryId || undefined,
         isActive,
-        images: images.length ? images : undefined,
+        images,
         variants: variantsPayload,
       }),
     })
@@ -351,31 +346,24 @@ export function EditProductClient({ productId }: { productId: string }) {
     }
   }
 
-  async function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
-    const files = e.target.files
-    if (!files?.length) return
-    setUploading(true)
-    const urls: string[] = []
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i]
-      if (!file.type.startsWith("image/")) continue
-      const fd = new FormData()
-      fd.append("file", file)
-      try {
-        const r = await fetch("/api/product-seller/upload", { method: "POST", body: fd })
-        const j = await r.json().catch(() => ({}))
-        if (j.url) urls.push(j.url)
-      } catch {
-        // skip
-      }
+  async function handleMasterFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file || !file.type.startsWith("image/")) {
+      e.target.value = ""
+      return
     }
-    setUploadedImageUrls((prev) => [...prev, ...urls])
+    setUploading(true)
+    const fd = new FormData()
+    fd.append("file", file)
+    try {
+      const r = await fetch("/api/product-seller/upload", { method: "POST", body: fd })
+      const j = await r.json().catch(() => ({}))
+      if (j.url) setMasterImageUrl(j.url)
+    } catch {
+      // keep current
+    }
     setUploading(false)
     e.target.value = ""
-  }
-
-  function removeUploadedUrl(url: string) {
-    setUploadedImageUrls((prev) => prev.filter((u) => u !== url))
   }
 
   if (loading) return <PageLoader variant="detail" message="Loading product…" />
@@ -463,6 +451,74 @@ export function EditProductClient({ productId }: { productId: string }) {
                 </select>
               </div>
             )}
+
+            <div className="space-y-3">
+              <Label>Master image (1 image)</Label>
+              <p className="text-xs text-muted-foreground">Main product image. Changing it replaces the current image.</p>
+              <div className="flex gap-2 p-2 rounded-lg border bg-muted/30">
+                <button
+                  type="button"
+                  onClick={() => setMasterImageMode("link")}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${masterImageMode === "link" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
+                >
+                  <LinkIcon className="h-4 w-4" />
+                  Via link
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMasterImageMode("upload")}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${masterImageMode === "upload" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
+                >
+                  <Upload className="h-4 w-4" />
+                  File upload
+                </button>
+              </div>
+              {masterImageMode === "link" ? (
+                <div className="space-y-1">
+                  <Input
+                    type="url"
+                    placeholder="https://example.com/image.jpg"
+                    value={masterImageUrl}
+                    onChange={(e) => setMasterImageUrl(e.target.value)}
+                    className="w-full"
+                  />
+                  <p className="text-xs text-muted-foreground">Enter one image URL. Changing it replaces the current master image.</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <input
+                    ref={masterFileInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/gif,image/webp"
+                    className="hidden"
+                    onChange={handleMasterFileSelect}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => masterFileInputRef.current?.click()}
+                    disabled={uploading}
+                  >
+                    {uploading ? "Uploading..." : "Choose image (replaces current)"}
+                  </Button>
+                  {masterImageUrl && (
+                    <div className="flex flex-wrap items-center gap-2 mt-2">
+                      <div className="relative w-20 h-20 rounded overflow-hidden border bg-muted">
+                        <img src={masterImageUrl} alt="Master" className="w-full h-full object-cover" />
+                        <button
+                          type="button"
+                          onClick={() => setMasterImageUrl("")}
+                          className="absolute top-0 right-0 bg-destructive/90 text-destructive-foreground text-xs px-1 rounded-bl"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <Label className="text-base font-medium">Variations *</Label>
@@ -653,74 +709,6 @@ export function EditProductClient({ productId }: { productId: string }) {
                   </div>
                 </Card>
               ))}
-            </div>
-
-            <div className="space-y-3">
-              <Label>Product images (listing)</Label>
-              <div className="flex gap-2 p-2 rounded-lg border bg-muted/30">
-                <button
-                  type="button"
-                  onClick={() => setImageMode("link")}
-                  className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${imageMode === "link" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
-                >
-                  <LinkIcon className="h-4 w-4" />
-                  Via link
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setImageMode("upload")}
-                  className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${imageMode === "upload" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
-                >
-                  <Upload className="h-4 w-4" />
-                  File upload
-                </button>
-              </div>
-              {imageMode === "link" ? (
-                <>
-                  <textarea
-                    value={imageUrlsText}
-                    onChange={(e) => setImageUrlsText(e.target.value)}
-                    className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                    placeholder="https://example.com/image1.jpg"
-                  />
-                  <p className="text-sm text-muted-foreground">Enter image URLs, one per line</p>
-                </>
-              ) : (
-                <div className="space-y-2">
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/jpeg,image/png,image/gif,image/webp"
-                    multiple
-                    className="hidden"
-                    onChange={handleFileSelect}
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={uploading}
-                  >
-                    {uploading ? "Uploading..." : "Choose images (max 5 MB each)"}
-                  </Button>
-                  {uploadedImageUrls.length > 0 && (
-                    <div className="flex flex-wrap gap-2 mt-2">
-                      {uploadedImageUrls.map((url) => (
-                        <div key={url} className="relative w-20 h-20 rounded overflow-hidden border bg-muted">
-                          <img src={url} alt="" className="w-full h-full object-cover" />
-                          <button
-                            type="button"
-                            onClick={() => removeUploadedUrl(url)}
-                            className="absolute top-0 right-0 bg-destructive/90 text-destructive-foreground text-xs px-1 rounded-bl"
-                          >
-                            ×
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
             </div>
 
             <div className="flex items-center space-x-2">

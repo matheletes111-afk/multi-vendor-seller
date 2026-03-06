@@ -8,7 +8,8 @@ import { Button } from "@/ui/button"
 import { formatCurrency } from "@/lib/utils"
 import { getYoutubeEmbedUrl } from "@/lib/youtube"
 import { PublicLayout } from "@/components/site-layout"
-import { useCart } from "@/contexts/cart-context"
+import { useCart } from "@/app/cart/cart-context"
+import { UserRole } from "@prisma/client"
 import { PageLoader } from "@/components/ui/page-loader"
 import { ChevronRight, ShoppingCart, Truck } from "lucide-react"
 
@@ -41,8 +42,9 @@ type ProductAd = {
 
 export function ProductDetailClient({ productId }: { productId: string }) {
   const router = useRouter()
-  const { status } = useSession()
+  const { data: session, status } = useSession()
   const { addItem } = useCart()
+  const canUseCart = status !== "authenticated" || session?.user?.role === UserRole.CUSTOMER
   const [product, setProduct] = useState<Product | null>(null)
   const [productAd, setProductAd] = useState<ProductAd | null>(null)
   const [loading, setLoading] = useState(true)
@@ -100,7 +102,7 @@ export function ProductDetailClient({ productId }: { productId: string }) {
     return { key, label: key.charAt(0).toUpperCase() + key.slice(1), values: Array.from(values) }
   })
 
-  // Resolve selected variant: by explicit ID, or by matching selected options (attributes)
+  // Resolve selected variant only when user has explicitly selected (no auto-select)
   const selectedVariant = (() => {
     if (selectedVariantId) {
       const byId = variants.find((v) => v.id === selectedVariantId)
@@ -112,7 +114,7 @@ export function ProductDetailClient({ productId }: { productId: string }) {
         return attributeKeys.every((k) => attrs[k] === selectedOptions[k])
       }) ?? null
     }
-    return variants.length === 1 ? variants[0] : null
+    return null
   })()
 
   const displayPrice = selectedVariant ? Math.max(0, selectedVariant.price - (selectedVariant.discount ?? 0)) : 0
@@ -125,7 +127,7 @@ export function ProductDetailClient({ productId }: { productId: string }) {
 
   const canAddToCart = selectedVariant != null && selectedVariant.stock >= 1
   const missingAttribute = attributeKeys.length > 0 && attributeKeys.some((k) => !selectedOptions[k])
-  const mustSelectVariant = variants.length > 1 && !selectedVariant
+  const mustSelectVariant = variants.length >= 1 && !selectedVariant
   const firstMissingKey = attributeKeys.find((k) => !selectedOptions[k])
   const firstMissingLabel = firstMissingKey ? (firstMissingKey.charAt(0).toUpperCase() + firstMissingKey.slice(1)) : ""
   const validationMessage =
@@ -225,7 +227,7 @@ export function ProductDetailClient({ productId }: { productId: string }) {
                   ))}
                 </div>
               )}
-              {attributeOptions.length === 0 && variants.length > 1 && (
+              {attributeOptions.length === 0 && variants.length >= 1 && (
                 <div className="mt-3">
                   <p className="text-sm font-medium text-slate-700 mb-2">Variant</p>
                   <div className="flex flex-wrap gap-2">
@@ -239,7 +241,7 @@ export function ProductDetailClient({ productId }: { productId: string }) {
                           setSelectedImageIndex(0)
                         }}
                         className={`rounded-md border px-3 py-1.5 text-sm font-medium transition-colors ${
-                          (selectedVariantId ?? variants[0]?.id) === v.id
+                          selectedVariantId === v.id
                             ? "border-amber-500 bg-amber-50 text-amber-800"
                             : "border-slate-200 bg-white hover:bg-slate-50"
                         }`}
@@ -271,48 +273,55 @@ export function ProductDetailClient({ productId }: { productId: string }) {
               </div>
 
               <div className="mt-6 flex flex-col gap-3">
-                {addedToCart && (
+                {!canUseCart && (
+                  <p className="rounded-lg bg-slate-100 px-4 py-2.5 text-sm text-slate-700 ring-1 ring-slate-200">
+                    Only guests and customers can add to cart. Sign in as a customer or sign out to shop.
+                  </p>
+                )}
+                {canUseCart && addedToCart && (
                   <p className="flex items-center gap-2 rounded-lg bg-green-100 px-4 py-2.5 text-sm font-medium text-green-800 ring-1 ring-green-200">
                     <span className="inline-flex h-2 w-2 rounded-full bg-green-500" aria-hidden />
                     Added to cart
                   </p>
                 )}
-                <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-                  <Button
-                    size="lg"
-                    className="w-full bg-amber-400 text-black hover:bg-amber-500 sm:w-auto"
-                    disabled={!canAddToCart}
-                    onClick={() => {
-                      if (!selectedVariant) return
-                      addItem({
-                        productId: product.id,
-                        productVariantId: selectedVariant.id,
-                        name: product.name + (variants.length > 1 ? ` (${selectedVariant.name})` : ""),
-                        price: displayPrice,
-                        image: mainImage || null,
-                      })
-                      setAddedToCart(true)
-                      setTimeout(() => setAddedToCart(false), 3000)
-                    }}
-                  >
-                    <ShoppingCart className="mr-2 h-5 w-5" />
-                    {addedToCart ? "Added to Cart" : mustSelectVariant ? (firstMissingLabel ? `Select ${firstMissingLabel}` : "Select variant") : "Add to Cart"}
-                  </Button>
-                <Button
-                  size="lg"
-                  variant="outline"
-                  className="w-full border-amber-500 text-amber-700 hover:bg-amber-50 sm:w-auto"
-                  onClick={() => {
-                    if (status === "authenticated") {
-                      router.push("/cart")
-                    } else {
-                      router.push("/customer/login?callbackUrl=" + encodeURIComponent("/cart"))
-                    }
-                  }}
-                >
-                  Buy Now
-                </Button>
-                </div>
+                {canUseCart && (
+                  <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+                    <Button
+                      size="lg"
+                      className="w-full bg-amber-400 text-black hover:bg-amber-500 sm:w-auto"
+                      disabled={!canAddToCart}
+                      onClick={() => {
+                        if (!selectedVariant) return
+                        addItem({
+                          productId: product.id,
+                          productVariantId: selectedVariant.id,
+                          name: product.name + (variants.length > 1 ? ` (${selectedVariant.name})` : ""),
+                          price: displayPrice,
+                          image: mainImage || null,
+                        })
+                        setAddedToCart(true)
+                        setTimeout(() => setAddedToCart(false), 3000)
+                      }}
+                    >
+                      <ShoppingCart className="mr-2 h-5 w-5" />
+                      {addedToCart ? "Added to Cart" : mustSelectVariant ? (firstMissingLabel ? `Select ${firstMissingLabel}` : "Select variant") : "Add to Cart"}
+                    </Button>
+                    <Button
+                      size="lg"
+                      variant="outline"
+                      className="w-full border-amber-500 text-amber-700 hover:bg-amber-50 sm:w-auto"
+                      onClick={() => {
+                        if (status === "authenticated") {
+                          router.push("/cart")
+                        } else {
+                          router.push("/customer/login?callbackUrl=" + encodeURIComponent("/cart"))
+                        }
+                      }}
+                    >
+                      Buy Now
+                    </Button>
+                  </div>
+                )}
               </div>
 
               <div className="mt-6 border-t border-slate-200 pt-4">

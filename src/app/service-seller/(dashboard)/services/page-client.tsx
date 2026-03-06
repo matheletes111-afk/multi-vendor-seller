@@ -18,7 +18,7 @@ import {
 } from "@/ui/dialog"
 import { formatCurrency } from "@/lib/utils"
 import { PageLoader } from "@/components/ui/page-loader"
-import { Edit, Trash2 } from "lucide-react"
+import { Edit, Trash2, Briefcase } from "lucide-react"
 
 type Service = {
   id: string
@@ -28,11 +28,18 @@ type Service = {
   hasGst: boolean
   duration: number | null
   isActive: boolean
+  images: unknown
   category: { name: string }
   serviceType: string
   slots: unknown[]
   packages: unknown[]
   _count: { orderItems: number; reviews: number }
+}
+
+function getServiceImageUrls(images: unknown): string[] {
+  if (Array.isArray(images)) return images as string[]
+  if (typeof images === "string") try { return JSON.parse(images) as string[] } catch { return [] }
+  return []
 }
 
 export function ServicesPageClient() {
@@ -97,19 +104,33 @@ export function ServicesPageClient() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {services.map((service) => (
-            <Card key={service.id}>
-              <CardHeader>
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+          {services.map((service) => {
+            const imageUrls = getServiceImageUrls(service.images)
+            const firstImage = imageUrls[0]
+            return (
+            <Card key={service.id} className="overflow-hidden">
+              <Link href={`/service-seller/services/${service.id}`} className="block">
+                <div className="relative aspect-video w-full overflow-hidden bg-muted">
+                  {firstImage ? (
+                    <img src={firstImage} alt={service.name} className="h-full w-full object-cover" />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center text-muted-foreground">
+                      <Briefcase className="h-12 w-12 sm:h-14 sm:w-14" />
+                    </div>
+                  )}
+                </div>
+              </Link>
+              <CardHeader className="p-3 sm:p-4">
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex-1 min-w-0">
-                    <CardTitle className="line-clamp-2">{service.name}</CardTitle>
+                    <CardTitle className="line-clamp-2 text-base">{service.name}</CardTitle>
                     <CardDescription>{service.category.name} • {service.serviceType}</CardDescription>
                   </div>
                   <Badge variant={service.isActive ? "default" : "secondary"}>{service.isActive ? "Active" : "Inactive"}</Badge>
                 </div>
               </CardHeader>
-              <CardContent>
+              <CardContent className="p-3 sm:p-4 pt-0">
                 <div className="space-y-2">
                   {service.basePrice != null ? (
                     <div className="space-y-1">
@@ -123,14 +144,14 @@ export function ServicesPageClient() {
                   {service.duration && <p className="text-sm text-muted-foreground">Duration: {service.duration} min</p>}
                   <p className="text-sm text-muted-foreground">Slots: {service.slots.length} | Packages: {service.packages.length}</p>
                   <p className="text-sm text-muted-foreground">Bookings: {service._count.orderItems} | Reviews: {service._count.reviews}</p>
-                  <div className="flex gap-2 mt-4">
-                    <Button variant="outline" size="sm" className="flex-1" asChild>
+                  <div className="flex flex-wrap gap-2 mt-4">
+                    <Button variant="outline" size="sm" className="flex-1 min-w-0" asChild>
                       <Link href={`/service-seller/services/${service.id}`}>
-                        <Edit className="mr-2 h-4 w-4" />
+                        <Edit className="mr-2 h-4 w-4 shrink-0" />
                         Edit
                       </Link>
                     </Button>
-                    <div className="flex-1">
+                    <div className="flex-1 min-w-0">
                       <DeleteServiceButton
                         serviceId={service.id}
                         serviceName={service.name}
@@ -142,7 +163,7 @@ export function ServicesPageClient() {
                 </div>
               </CardContent>
             </Card>
-          ))}
+          )})}
         </div>
       )}
     </div>

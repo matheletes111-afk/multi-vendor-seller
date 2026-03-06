@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 
-/** GET browse data: sponsored ads, products, services. Optional categoryId/subcategoryId to filter. Public (no auth required). */
+/** GET browse data: products, services. Sponsored ads only when not filtering by category/subcategory. Optional categoryId/subcategoryId to filter. Public (no auth required). */
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
   const categoryId = searchParams.get("categoryId") ?? undefined
@@ -13,25 +13,29 @@ export async function GET(request: NextRequest) {
     ...(categoryId && { categoryId }),
     ...(subcategoryId && { subcategoryId }),
   }
-  const serviceWhere = {
-    isActive: true,
-    ...(categoryId && { categoryId }),
-  }
+  const isFiltered = true
 
-  const [sponsoredAdsRaw, products, services] = await Promise.all([
-    prisma.sellerAd.findMany({
-      where: {
-        status: "ACTIVE",
-        startAt: { lte: now },
-        endAt: { gte: now },
-      },
-      include: {
-        product: { select: { id: true, name: true } },
-        service: { select: { id: true, name: true } },
-      },
-      take: 12,
-      orderBy: { createdAt: "desc" },
-    }),
+  const [
+    sponsoredAdsRaw,
+    products,
+    categoryWithSubs,
+    subcategoryWithCategory,
+  ] = await Promise.all([
+    isFiltered
+      ? Promise.resolve([])
+      : prisma.sellerAd.findMany({
+          where: {
+            status: "ACTIVE",
+            startAt: { lte: now },
+            endAt: { gte: now },
+          },
+          include: {
+            product: { select: { id: true, name: true } },
+            service: { select: { id: true, name: true } },
+          },
+          take: 12,
+          orderBy: { createdAt: "desc" },
+        }),
     prisma.product.findMany({
       where: productWhere,
       include: {
@@ -43,19 +47,36 @@ export async function GET(request: NextRequest) {
       take: 50,
       orderBy: { createdAt: "desc" },
     }),
-    prisma.service.findMany({
-      where: serviceWhere,
-      include: {
-        category: true,
-        seller: { include: { store: true } },
-        _count: { select: { reviews: true } },
-      },
-      take: 50,
-      orderBy: { createdAt: "desc" },
-    }),
+    categoryId && !subcategoryId
+      ? prisma.category.findUnique({
+          where: { id: categoryId, isActive: true },
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            subcategories: {
+              where: { isActive: true },
+              orderBy: { name: "asc" },
+              select: { id: true, name: true, slug: true },
+            },
+          },
+        })
+      : Promise.resolve(null),
+    subcategoryId
+      ? prisma.subcategory.findUnique({
+          where: { id: subcategoryId, isActive: true },
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            category: { select: { id: true, name: true, slug: true } },
+          },
+        })
+      : Promise.resolve(null),
   ])
 
-  const sponsoredAds = sponsoredAdsRaw.filter((ad) => Number(ad.spentAmount) < Number(ad.totalBudget))
+  type AdRow = { spentAmount?: unknown; totalBudget?: unknown; [k: string]: unknown }
+  const sponsoredAds = isFiltered ? [] : (sponsoredAdsRaw as AdRow[]).filter((ad) => Number(ad.spentAmount) < Number(ad.totalBudget))
 
   const productsWithListingPrice = products.map((p) => {
     const first = (p as { variants?: { price: number; discount: number }[] }).variants?.[0]
@@ -66,10 +87,34 @@ export async function GET(request: NextRequest) {
     }
   })
 
+  const categoryName = categoryWithSubs?.name ?? subcategoryWithCategory?.category?.name ?? null
+  const subcategoryName = subcategoryWithCategory?.name ?? null
+  const subcategories = categoryWithSubs?.subcategories ?? []
+  const resolvedCategoryId = categoryId ?? subcategoryWithCategory?.category?.id ?? null
+
+  const serviceCategoryId = categoryId ?? subcategoryWithCategory?.category?.id ?? undefined
+  const services = await prisma.service.findMany({
+    where: {
+      isActive: true,
+      ...(serviceCategoryId && { categoryId: serviceCategoryId }),
+    },
+    include: {
+      category: true,
+      seller: { include: { store: true } },
+      _count: { select: { reviews: true } },
+    },
+    take: 50,
+    orderBy: { createdAt: "desc" },
+  })
+
   return NextResponse.json({
     categoryId: categoryId ?? null,
     subcategoryId: subcategoryId ?? null,
-    sponsoredAds: sponsoredAds.map((ad) => ({
+    resolvedCategoryId,
+    categoryName,
+    subcategoryName,
+    subcategories,
+    sponsoredAds: sponsoredAds.map((ad: AdRow) => ({
       ...ad,
       totalBudget: Number(ad.totalBudget),
       spentAmount: Number(ad.spentAmount),

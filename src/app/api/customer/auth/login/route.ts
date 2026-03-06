@@ -1,12 +1,20 @@
 import { NextResponse } from "next/server"
 import { UserRole } from "@prisma/client"
 import { prisma } from "@/lib/prisma"
+import { mergeGuestCartForUser } from "@/app/api/customer/cart/merge-logic"
+import type { GuestCartItemForMerge } from "@/app/api/customer/cart/types"
 
 /** POST /api/customer/auth/login — Customer panel login. Proxies to NextAuth with role CUSTOMER. */
 export async function POST(request: Request) {
   try {
     const body = await request.json()
-    const { email, password, callbackUrl, csrfToken } = body
+    const { email, password, callbackUrl, csrfToken, guestCart } = body as {
+      email?: string
+      password?: string
+      callbackUrl?: string
+      csrfToken?: string
+      guestCart?: unknown
+    }
     if (!email || !password) {
       return NextResponse.json(
         { error: "Email and password are required" },
@@ -46,13 +54,28 @@ export async function POST(request: Request) {
       }
       return NextResponse.json({ error: msg }, { status: 401 })
     }
-    const user = await prisma.user.findUnique({ where: { email }, select: { isEmailVerified: true } })
+    const user = await prisma.user.findFirst({
+      where: { email, role: UserRole.CUSTOMER },
+      select: { id: true, isEmailVerified: true },
+    })
     if (user && user.isEmailVerified === false) {
       const verifyUrl = `/customer/verify-otp?email=${encodeURIComponent(email)}`
       return NextResponse.json(
         { error: "Please verify your email first.", needsVerification: true, verifyUrl },
         { status: 403 }
       )
+    }
+    // On login success: merge guest cart into DB (customer only), then return
+    if (user?.id && Array.isArray(guestCart) && guestCart.length > 0) {
+      const items = guestCart.filter(
+        (x: unknown): x is GuestCartItemForMerge =>
+          x != null &&
+          typeof x === "object" &&
+          typeof (x as GuestCartItemForMerge).quantity === "number" &&
+          (typeof (x as GuestCartItemForMerge).productId === "string" ||
+            typeof (x as GuestCartItemForMerge).serviceId === "string")
+      ) as GuestCartItemForMerge[]
+      if (items.length > 0) await mergeGuestCartForUser(user.id, items)
     }
     if (res.status === 302) {
       const headers = new Headers()

@@ -88,8 +88,30 @@ model User {
   orders        Order[]
   reviews       Review[]
   cartItems     CartItem[]
+  addresses     UserAddress[]
 
   @@map("users")
+}
+
+model UserAddress {
+  id            String   @id @default(cuid())
+  userId        String
+  fullName      String
+  phone         String
+  addressLine1  String
+  addressLine2  String?
+  city          String
+  state         String
+  postalCode    String
+  country       String
+  isDefault     Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("user_addresses")
 }
 
 model Account {
@@ -447,17 +469,28 @@ model ServicePackage {
 }
 
 model Order {
-  id              String      @id @default(cuid())
+  id              String        @id @default(cuid())
+  orderNumber     String        @default(cuid()) @unique
   customerId      String
   sellerId        String
-  status          OrderStatus @default(PENDING)
+  status          OrderStatus   @default(PENDING)
   totalAmount     Float
   subtotal        Float
-  tax             Float       @default(0)
-  shipping        Float       @default(0)
-  commission      Float       @default(0)
-  commissionRate  Float       // Store the commission rate at time of order
-  shippingAddress Json        // Store shipping address as JSON
+  tax             Float         @default(0)
+  shipping        Float         @default(0)
+  commission      Float         @default(0)
+  commissionRate  Float         // Store the commission rate at time of order
+  paymentStatus   PaymentStatus @default(PENDING)
+  paymentMethod   String?       // e.g. "COD", "STRIPE"
+  shippingAddress Json?         // Legacy; prefer snapshot columns below
+  shippingFullName    String?
+  shippingPhone       String?
+  shippingAddressLine1 String?
+  shippingAddressLine2 String?
+  shippingCity   String?
+  shippingState  String?
+  shippingPostalCode String?
+  shippingCountry String?
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
 
@@ -474,17 +507,22 @@ model Order {
 }
 
 model OrderItem {
-  id              String   @id @default(cuid())
-  orderId         String
-  productId       String?
-  serviceId       String?
-  productVariantId String?
-  servicePackageId String?
-  serviceSlotId   String?
-  quantity        Int
-  price           Float
-  subtotal        Float
-  createdAt       DateTime @default(now())
+  id                  String   @id @default(cuid())
+  orderId             String
+  productId           String?
+  serviceId           String?
+  productVariantId    String?
+  servicePackageId    String?
+  serviceSlotId       String?
+  productNameSnapshot String?
+  serviceNameSnapshot String?
+  quantity            Int
+  price               Float    // unit price before GST
+  subtotal            Float    // line total before GST
+  hasGst              Boolean  @default(true)
+  gstAmount           Float    @default(0)
+  subtotalInclGst     Float?   // subtotal + gstAmount
+  createdAt           DateTime @default(now())
 
   order          Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
   product        Product?        @relation(fields: [productId], references: [id])
@@ -498,15 +536,17 @@ model OrderItem {
 }
 
 model Payment {
-  id            String        @id @default(cuid())
-  orderId      String
-  amount       Float
-  status       PaymentStatus @default(PENDING)
-  stripePaymentIntentId String? @unique
-  stripeChargeId String?
-  method       String?       // e.g., "card", "bank_transfer"
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+  id                   String        @id @default(cuid())
+  orderId              String
+  amount               Float
+  status               PaymentStatus @default(PENDING)
+  method               String?       // e.g. "COD", "STRIPE", "RAZORPAY"
+  stripePaymentIntentId String?      @unique
+  stripeChargeId       String?
+  gatewayReferenceId   String?       // generic: Stripe PI id, Razorpay order id, etc.
+  metadata             Json?         // gateway-specific extra data
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
 
   order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
@@ -554,16 +594,21 @@ model Review {
 }
 
 model CartItem {
-  id              String   @id @default(cuid())
-  userId          String
-  productId       String?
-  serviceId       String?
-  productVariantId String?
-  servicePackageId String?
-  serviceSlotId   String?
-  quantity        Int      @default(1)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id                String   @id @default(cuid())
+  userId            String
+  productId         String?
+  serviceId         String?
+  productVariantId  String?
+  servicePackageId  String?
+  serviceSlotId     String?
+  quantity          Int      @default(1)
+  unitPrice         Float    @default(0)  // per unit before GST
+  totalPrice        Float    @default(0)  // quantity * unitPrice (before GST)
+  hasGst            Boolean  @default(true)
+  totalGst          Float    @default(0)   // 15% of totalPrice when hasGst
+  totalPriceInclGst Float?   // totalPrice + totalGst
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
   user          User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   product       Product?        @relation(fields: [productId], references: [id], onDelete: Cascade)

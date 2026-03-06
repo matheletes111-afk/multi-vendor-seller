@@ -1,7 +1,7 @@
 import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import { ThemeProvider } from "@/app/theme-provider"
-import { CartProvider } from "@/contexts/cart-context"
+import { CartProvider } from "@/app/cart/cart-context"
 import { SessionProvider } from "@/components/session-provider"
 import "./globals.css"
 
@@ -26,7 +26,8 @@ export default function RootLayout({
         <ThemeProvider
           attribute="class"
           defaultTheme="light"
-          enableSystem
+          forcedTheme="light"
+          enableSystem={false}
           disableTransitionOnChange
         >
           <SessionProvider>

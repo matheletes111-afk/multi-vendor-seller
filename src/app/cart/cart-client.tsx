@@ -2,17 +2,49 @@
 
 import Link from "next/link"
 import Image from "next/image"
-import { useCart } from "@/contexts/cart-context"
-import { getCartItemId } from "@/lib/cart"
+import { signOut, useSession } from "next-auth/react"
+import { useCart } from "@/app/cart/cart-context"
+import { getCartItemId } from "@/app/cart/cart-types"
 import { PublicLayout } from "@/components/site-layout"
 import { Button } from "@/ui/button"
 import { formatCurrency } from "@/lib/utils"
 import { ShoppingCart, Trash2 } from "lucide-react"
+import { UserRole } from "@prisma/client"
 
 const QUANTITY_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 
 export function CartClient() {
-  const { items, totalItems, subtotal, updateQuantity, removeItem } = useCart()
+  const { data: session, status } = useSession()
+  const { items, totalItems, subtotal, updateQuantity, removeItem, isCartFromApi, isLoading } = useCart()
+
+  const isCustomer = session?.user?.role === UserRole.CUSTOMER
+  const checkoutHref = isCustomer ? "/checkout" : "/customer/login?callbackUrl=" + encodeURIComponent("/checkout")
+  const isSellerOrAdmin = status === "authenticated" && !isCustomer
+
+  if (isSellerOrAdmin) {
+    return (
+      <PublicLayout>
+        <div className="container mx-auto max-w-6xl px-3 py-6 sm:px-4 sm:py-8">
+          <h1 className="text-xl font-bold text-slate-900 sm:text-2xl md:text-3xl">Shopping Cart</h1>
+          <div className="mt-6 rounded-xl bg-white p-8 text-center shadow-sm sm:mt-8 sm:p-12">
+            <ShoppingCart className="mx-auto h-12 w-12 text-slate-300 sm:h-16 sm:w-16" />
+            <p className="mt-3 text-slate-700 sm:mt-4 font-medium">Cart is for customers only.</p>
+            <p className="mt-1 text-sm text-slate-600">
+              You are signed in as a seller or admin. Sign out to use a guest cart, or sign in with a customer account to add to cart and checkout.
+            </p>
+            <div className="mt-6 flex flex-wrap justify-center gap-3">
+              <Button variant="outline" onClick={() => signOut({ callbackUrl: "/" })}>
+                Sign out
+              </Button>
+              <Button asChild className="bg-amber-400 text-black hover:bg-amber-500">
+                <Link href="/customer/login?callbackUrl=/cart">Customer login</Link>
+              </Button>
+            </div>
+          </div>
+        </div>
+      </PublicLayout>
+    )
+  }
 
   return (
     <PublicLayout>
@@ -26,7 +58,7 @@ export function CartClient() {
           )}
         </h1>
 
-        {items.length === 0 ? (
+        {items.length === 0 && !isLoading ? (
           <div className="mt-6 rounded-xl bg-white p-8 text-center shadow-sm sm:mt-8 sm:p-12">
             <ShoppingCart className="mx-auto h-12 w-12 text-slate-300 sm:h-16 sm:w-16" />
             <p className="mt-3 text-slate-600 sm:mt-4">Your cart is empty.</p>
@@ -34,13 +66,17 @@ export function CartClient() {
               <Link href="/">Continue shopping</Link>
             </Button>
           </div>
+        ) : items.length === 0 && isLoading ? (
+          <div className="mt-6 rounded-xl bg-white p-8 text-center shadow-sm sm:mt-8 sm:p-12">
+            <p className="text-slate-600">Loading cart…</p>
+          </div>
         ) : (
           <div className="mt-4 flex flex-col gap-6 lg:mt-6 lg:flex-row lg:items-start">
             {/* Cart items list - Amazon style */}
             <div className="min-w-0 flex-1 space-y-3 sm:space-y-4">
               {items.map((item) => {
                 const itemId = getCartItemId(item)
-                const itemHref = item.productId ? `/product/${item.productId}` : `/service/${item.serviceId}`
+                const itemHref = item.productId ? `/product/${item.productId}` : (item.serviceId ? `/service/${item.serviceId}` : "#")
                 return (
                   <div
                     key={itemId}
@@ -94,7 +130,11 @@ export function CartClient() {
                         <span className="text-slate-400">|</span>
                         <button
                           type="button"
-                          onClick={() => removeItem(itemId)}
+                          onClick={() => {
+                            if (window.confirm(`Do you want to remove "${item.name}" from the cart?`)) {
+                              removeItem(itemId)
+                            }
+                          }}
                           className="flex items-center gap-1 text-sm text-blue-600 hover:underline"
                         >
                           <Trash2 className="h-4 w-4" />
@@ -123,7 +163,7 @@ export function CartClient() {
                   Taxes and shipping calculated at checkout.
                 </p>
                 <Button asChild className="mt-4 w-full bg-amber-400 text-black hover:bg-amber-500" size="lg">
-                  <Link href="/browse">Proceed to checkout</Link>
+                  <Link href={checkoutHref}>Proceed to checkout</Link>
                 </Button>
                 <Button asChild variant="outline" className="mt-2 w-full" size="sm">
                   <Link href="/">Continue shopping</Link>

@@ -6,7 +6,6 @@ import { usePathname, useRouter } from "next/navigation"
 import { ReactNode, useState, useEffect } from "react"
 import { cn } from "@/lib/utils"
 import { signOut } from "next-auth/react"
-import { ThemeToggle } from "@/ui/theme-toggle"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -105,7 +104,6 @@ export function ServiceSellerLayoutClient({
             )}
           </div>
           <div className="flex items-center gap-2">
-            <ThemeToggle />
             {mounted && user ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>

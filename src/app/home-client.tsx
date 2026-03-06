@@ -140,12 +140,12 @@ export function HomeClient() {
       .catch(() => setAds([]));
   }, []);
 
-  // Sponsored carousel: auto-advance to next slide; pause when user clicks an ad/video
+  // Sponsored carousel: auto-advance right-to-left every 3s; loops from last ad back to first
   useEffect(() => {
     if (ads.length <= 1 || sponsoredCarouselPaused) return;
     const t = setInterval(() => {
       setSponsoredIndex((i) => (i + 1) % ads.length);
-    }, 5000);
+    }, 3000);
     return () => clearInterval(t);
   }, [ads.length, sponsoredCarouselPaused]);
 
@@ -198,11 +198,7 @@ export function HomeClient() {
                   }`}
                 >
                   <Link
-                    href={
-                      banner.categoryId
-                        ? `/browse?categoryId=${banner.categoryId}${banner.subcategoryId ? `&subcategoryId=${banner.subcategoryId}` : ""}`
-                        : "/browse"
-                    }
+                    href={`/banner/${banner.id}`}
                     className="block size-full"
                   >
                     <img
@@ -429,12 +425,13 @@ export function HomeClient() {
                 style={{ scrollBehavior: sponsoredCarouselPaused ? "auto" : "smooth" }}
               >
               {ads.map((ad) => {
-                const adHref = ad.productId ? `/product/${ad.productId}` : ad.serviceId ? `/service/${ad.serviceId}` : "/browse";
+                const adPageHref = `/ad/${ad.id}`;
                 const isVideo = ad.creativeType === "VIDEO";
                 const youtubeEmbed = isVideo ? getYoutubeEmbedUrl(ad.creativeUrl) : null;
                 return (
-                  <div
+                  <Link
                     key={ad.id}
+                    href={adPageHref}
                     data-sponsored-card
                     onClick={() => setSponsoredCarouselPaused(true)}
                     className="group flex w-[85vw] min-w-[260px] max-w-[320px] shrink-0 snap-start flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition-shadow hover:shadow-lg sm:min-w-[280px] md:min-w-[300px]"
@@ -462,13 +459,11 @@ export function HomeClient() {
                           </video>
                         )
                       ) : (
-                        <Link href={adHref} className="block h-full w-full">
-                          <img
-                            src={ad.creativeUrl}
-                            alt={ad.title}
-                            className="h-full w-full object-cover transition-transform group-hover:scale-[1.02]"
-                          />
-                        </Link>
+                        <img
+                          src={ad.creativeUrl}
+                          alt={ad.title}
+                          className="h-full w-full object-cover transition-transform group-hover:scale-[1.02]"
+                        />
                       )}
                       <div className="absolute bottom-2 left-2 pointer-events-none">
                         <span className="rounded bg-slate-900/80 px-2 py-0.5 text-xs font-medium text-white">
@@ -477,42 +472,17 @@ export function HomeClient() {
                       </div>
                     </div>
                     <div className="flex flex-1 flex-col p-3 sm:p-4">
-                      <Link
-                        href={adHref}
-                        className="font-semibold text-slate-900 line-clamp-2 hover:text-blue-600 hover:underline text-sm sm:text-base"
-                      >
+                      <span className="font-semibold text-slate-900 line-clamp-2 group-hover:text-blue-600 text-sm sm:text-base">
                         {ad.title}
-                      </Link>
-                      <Link
-                        href={adHref}
-                        className="mt-2 inline-flex text-sm font-medium text-blue-600 hover:underline"
-                      >
+                      </span>
+                      <span className="mt-2 inline-flex text-sm font-medium text-blue-600 group-hover:underline">
                         View details →
-                      </Link>
+                      </span>
                     </div>
-                  </div>
+                  </Link>
                 );
               })}
               </div>
-              {/* Pagination dots */}
-              {ads.length > 1 && (
-                <div className="mt-4 flex justify-center gap-1.5">
-                  {ads.map((_, i) => (
-                    <button
-                      key={i}
-                      type="button"
-                      aria-label={`Go to ad ${i + 1}`}
-                      onClick={() => {
-                        setSponsoredCarouselPaused(true);
-                        setSponsoredIndex(i);
-                      }}
-                      className={`h-1.5 w-6 rounded-full transition-colors hover:bg-slate-400 ${
-                        i === sponsoredIndex ? "bg-slate-700" : "bg-slate-300"
-                      }`}
-                    />
-                  ))}
-                </div>
-              )}
             </div>
           </section>
         )}

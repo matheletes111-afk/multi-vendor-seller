@@ -6,7 +6,6 @@ import { usePathname } from "next/navigation"
 import { signOut } from "next-auth/react"
 import { ReactNode, useState, useEffect } from "react"
 import { cn } from "@/lib/utils"
-import { ThemeToggle } from "@/ui/theme-toggle"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,7 +18,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/ui/avatar"
 import { Button } from "@/ui/button"
 import { Separator } from "@/ui/separator"
 import { Sheet, SheetContent, SheetTrigger } from "@/ui/sheet"
-import { LogOut, User, LayoutDashboard, Users, CreditCard, FolderTree, Megaphone, Menu, BadgeDollarSign, ImageIcon } from "lucide-react"
+import { LogOut, User, LayoutDashboard, Users, CreditCard, FolderTree, Megaphone, Menu, BadgeDollarSign, ImageIcon, ShoppingCart } from "lucide-react"
 
 function NavItem({ href, label, icon }: { href: string; label: string; icon?: ReactNode }) {
   const pathname = usePathname()
@@ -62,6 +61,7 @@ export function AdminLayoutClient({
   const navContent = (
     <>
       <NavItem href="/admin" label="Overview" icon={<LayoutDashboard className="h-4 w-4" />} />
+      <NavItem href="/admin/orders" label="Orders" icon={<ShoppingCart className="h-4 w-4" />} />
       <NavItem href="/admin/sellers" label="Sellers" icon={<Users className="h-4 w-4" />} />
       <NavItem href="/admin/subscriptions" label="Subscriptions" icon={<CreditCard className="h-4 w-4" />} />
       <NavItem href="/admin/categories" label="Categories" icon={<FolderTree className="h-4 w-4" />} />
@@ -107,7 +107,6 @@ export function AdminLayoutClient({
             )}
           </div>
           <div className="flex items-center gap-2">
-            <ThemeToggle />
             {mounted && user ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>

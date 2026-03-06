@@ -62,7 +62,14 @@ export default async function OrdersPage() {
               <CardHeader>
                 <div className="flex justify-between items-start">
                   <div>
-                    <CardTitle>Order #{order.id.slice(0, 8)}</CardTitle>
+                    <CardTitle className="text-lg">
+                      <Link
+                        href={`/customer/orders/${order.id}`}
+                        className="hover:underline focus:underline"
+                      >
+                        Order #{order.orderNumber}
+                      </Link>
+                    </CardTitle>
                     <CardDescription className="mt-1">
                       {order.seller.store?.name || "Store"} • {formatDate(order.createdAt)}
                     </CardDescription>
@@ -83,13 +90,16 @@ export default async function OrdersPage() {
                       <div className="flex items-center gap-2">
                         <Package className="h-4 w-4 text-muted-foreground" />
                         <span className="text-sm">
-                          {item.product?.name || item.service?.name} × {item.quantity}
+                          {(item.productNameSnapshot || item.serviceNameSnapshot) ?? item.product?.name ?? item.service?.name ?? "Item"} × {item.quantity}
                         </span>
                       </div>
                       <span className="text-sm font-medium">{formatCurrency(item.subtotal)}</span>
                     </div>
                   ))}
                 </div>
+                <Button variant="outline" size="sm" className="mt-4" asChild>
+                  <Link href={`/customer/orders/${order.id}`}>View details</Link>
+                </Button>
               </CardContent>
             </Card>
           ))}

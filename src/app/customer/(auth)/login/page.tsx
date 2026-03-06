@@ -10,6 +10,7 @@ import { Input } from "@/ui/input"
 import { Label } from "@/ui/label"
 import { Alert, AlertDescription } from "@/ui/alert"
 import { AlertCircle, Eye, EyeOff } from "lucide-react"
+import { getCartFromStorage, setCartInStorage } from "@/app/cart/cart-types"
 
 function CustomerLoginForm() {
   const router = useRouter()
@@ -31,18 +32,32 @@ function CustomerLoginForm() {
     setError("")
     setLoading(true)
     try {
+      const guestCart = getCartFromStorage().map((item) => ({
+        productId: item.productId,
+        productVariantId: item.productVariantId,
+        serviceId: item.serviceId,
+        servicePackageId: item.servicePackageId,
+        serviceSlotId: item.serviceSlotId,
+        quantity: item.quantity,
+      }))
       const res = await fetch("/api/customer/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password, callbackUrl, csrfToken: csrfToken ?? undefined }),
+        body: JSON.stringify({
+          email,
+          password,
+          callbackUrl,
+          csrfToken: csrfToken ?? undefined,
+          guestCart: guestCart.length > 0 ? guestCart : undefined,
+        }),
         credentials: "include",
         redirect: "manual",
       })
       if (res.status === 302) {
         const loc = res.headers.get("Location")
         if (loc && !loc.includes("error=")) {
-          router.push(loc)
-          router.refresh()
+          setCartInStorage([])
+          window.location.href = loc
           return
         }
       }
@@ -62,8 +77,8 @@ function CustomerLoginForm() {
           setError(msg)
           return
         }
-        router.push(data?.url ?? callbackUrl)
-        router.refresh()
+        setCartInStorage([])
+        window.location.href = data?.url ?? callbackUrl
         return
       }
       const data = await res.json().catch(() => ({}))
@@ -80,15 +95,15 @@ function CustomerLoginForm() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50/90 p-4">
-      <div className="w-full max-w-[440px] rounded-3xl bg-white p-8 shadow-xl">
-        <div className="mb-6 flex justify-center">
+    <div className="flex min-h-screen min-w-0 items-center justify-center overflow-x-hidden bg-gray-50/90 px-4 py-5 sm:p-4">
+      <div className="w-full max-w-[440px] min-w-0 rounded-2xl bg-white p-5 shadow-xl sm:rounded-3xl sm:p-6 md:p-8">
+        <div className="mb-5 flex justify-center sm:mb-6">
           <a href="/">
-            <Image src="/images/logo.png" alt="Logo" width={180} height={48} className="h-[70px] w-auto object-contain" />
+            <Image src="/images/logo.png" alt="Logo" width={180} height={48} className="h-12 w-auto object-contain sm:h-14 sm:max-h-[70px]" />
           </a>
         </div>
-        <div className="mb-8">
-          <h1 className="text-left text-2xl font-semibold text-gray-900">Sign In</h1>
+        <div className="mb-6 sm:mb-8">
+          <h1 className="text-left text-xl font-semibold text-gray-900 sm:text-2xl">Sign In</h1>
           <p className="mt-1 text-left text-sm text-gray-500">Hi! Welcome back, you&apos;ve been missed</p>
         </div>
         <form onSubmit={handleSubmit}>
@@ -121,7 +136,7 @@ function CustomerLoginForm() {
               </div>
             </div>
             <div className="text-center">
-              <Button type="submit" disabled={loading} className="mx-auto w-full max-w-[200px] rounded-full">{loading ? "Signing in..." : "Sign In"}</Button>
+              <Button type="submit" disabled={loading} className="mx-auto w-full rounded-full sm:max-w-[200px]">{loading ? "Signing in..." : "Sign In"}</Button>
             </div>
           </div>
           <p className="mt-6 text-center text-sm text-gray-600">
@@ -136,7 +151,7 @@ function CustomerLoginForm() {
 
 export default function CustomerLoginPage() {
   return (
-    <Suspense fallback={<div className="flex min-h-screen items-center justify-center bg-gray-50/90 p-4"><div className="w-full max-w-[440px] rounded-3xl bg-white p-8 shadow-xl text-center">Loading...</div></div>}>
+    <Suspense fallback={<div className="flex min-h-screen items-center justify-center bg-gray-50/90 p-4"><div className="w-full max-w-[440px] rounded-2xl bg-white p-6 shadow-xl text-center sm:rounded-3xl sm:p-8">Loading...</div></div>}>
       <CustomerLoginForm />
     </Suspense>
   )

@@ -80,15 +80,15 @@ function AdminLoginForm() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50/90 p-4">
-      <div className="w-full max-w-[440px] rounded-3xl bg-white p-8 shadow-xl">
-        <div className="mb-6 flex justify-center">
+    <div className="flex min-h-screen min-w-0 items-center justify-center overflow-x-hidden bg-gray-50/90 px-4 py-5 sm:p-4">
+      <div className="w-full max-w-[440px] min-w-0 rounded-2xl bg-white p-5 shadow-xl sm:rounded-3xl sm:p-6 md:p-8">
+        <div className="mb-5 flex justify-center sm:mb-6">
           <a href="/">
-            <Image src="/images/logo.png" alt="Logo" width={180} height={48} className="h-[70px] w-auto object-contain" />
+            <Image src="/images/logo.png" alt="Logo" width={180} height={48} className="h-12 w-auto object-contain sm:h-14 sm:max-h-[70px]" />
           </a>
         </div>
-        <div className="mb-8">
-          <h1 className="text-left text-2xl font-semibold text-gray-900">Admin Sign In</h1>
+        <div className="mb-6 sm:mb-8">
+          <h1 className="text-left text-xl font-semibold text-gray-900 sm:text-2xl">Admin Sign In</h1>
           <p className="mt-1 text-left text-sm text-gray-500">Sign in to the admin dashboard</p>
         </div>
         <form onSubmit={handleSubmit}>
@@ -121,7 +121,7 @@ function AdminLoginForm() {
               </div>
             </div>
             <div className="text-center">
-              <Button type="submit" disabled={loading} className="mx-auto w-full max-w-[200px] rounded-full">{loading ? "Signing in..." : "Sign In"}</Button>
+              <Button type="submit" disabled={loading} className="mx-auto w-full rounded-full sm:max-w-[200px]">{loading ? "Signing in..." : "Sign In"}</Button>
             </div>
           </div>
           <p className="mt-6 text-center text-sm text-gray-600">
@@ -135,7 +135,7 @@ function AdminLoginForm() {
 
 export default function AdminLoginPage() {
   return (
-    <Suspense fallback={<div className="flex min-h-screen items-center justify-center bg-gray-50/90 p-4"><div className="w-full max-w-[440px] rounded-3xl bg-white p-8 shadow-xl text-center">Loading...</div></div>}>
+    <Suspense fallback={<div className="flex min-h-screen items-center justify-center bg-gray-50/90 p-4"><div className="w-full max-w-[440px] rounded-2xl bg-white p-6 shadow-xl text-center sm:rounded-3xl sm:p-8">Loading...</div></div>}>
       <AdminLoginForm />
     </Suspense>
   )

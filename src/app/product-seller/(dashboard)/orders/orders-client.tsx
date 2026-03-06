@@ -1,8 +1,10 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import Link from "next/link"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/ui/card"
 import { Badge } from "@/ui/badge"
+import { Button } from "@/ui/button"
 import { Separator } from "@/ui/separator"
 import { formatCurrency, formatDate } from "@/lib/utils"
 import { PageLoader } from "@/components/ui/page-loader"
@@ -10,6 +12,7 @@ import { ShoppingCart, Package, User } from "lucide-react"
 
 type Order = {
   id: string
+  orderNumber: string
   status: string
   totalAmount: number
   commissionRate: number
@@ -20,6 +23,8 @@ type Order = {
     id: string
     quantity: number
     subtotal: number
+    productNameSnapshot: string | null
+    serviceNameSnapshot: string | null
     product: { name: string } | null
     service: { name: string } | null
   }>
@@ -60,7 +65,14 @@ export function OrdersClient() {
               <CardHeader>
                 <div className="flex justify-between items-start">
                   <div>
-                    <CardTitle>Order #{order.id.slice(0, 8)}</CardTitle>
+                    <CardTitle className="text-lg">
+                      <Link
+                        href={`/product-seller/orders/${order.id}`}
+                        className="hover:underline focus:underline"
+                      >
+                        Order #{order.orderNumber}
+                      </Link>
+                    </CardTitle>
                     <CardDescription className="mt-1 flex items-center gap-1">
                       <User className="h-3 w-3" />
                       {order.customer.name || order.customer.email} • {formatDate(order.createdAt)}
@@ -82,7 +94,7 @@ export function OrdersClient() {
                       <div className="flex items-center gap-2">
                         <Package className="h-4 w-4 text-muted-foreground" />
                         <span className="text-sm">
-                          {item.product?.name || item.service?.name} × {item.quantity}
+                          {(item.productNameSnapshot ?? item.serviceNameSnapshot) ?? item.product?.name ?? item.service?.name ?? "Item"} × {item.quantity}
                         </span>
                       </div>
                       <span className="text-sm font-medium">{formatCurrency(item.subtotal)}</span>
@@ -98,6 +110,9 @@ export function OrdersClient() {
                     </span>
                   </div>
                 </div>
+                <Button variant="outline" size="sm" className="mt-4" asChild>
+                  <Link href={`/product-seller/orders/${order.id}`}>View details</Link>
+                </Button>
               </CardContent>
             </Card>
           ))}

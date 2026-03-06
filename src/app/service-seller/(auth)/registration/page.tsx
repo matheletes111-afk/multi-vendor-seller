@@ -55,15 +55,15 @@ export default function ServiceSellerRegistrationPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50/90 p-4">
-      <div className="w-full max-w-[440px] rounded-3xl bg-white p-8 shadow-xl">
-        <div className="mb-6 flex justify-center">
+    <div className="flex min-h-screen min-w-0 items-start justify-center overflow-x-hidden bg-gray-50/90 px-4 py-6 sm:items-center sm:py-4">
+      <div className="w-full max-w-[440px] min-w-0 max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-2xl bg-white p-5 shadow-xl sm:rounded-3xl sm:p-6 md:p-8">
+        <div className="mb-5 flex justify-center sm:mb-6">
 <a href="/">
-          <Image src="/images/logo.png" alt="Logo" width={180} height={48} className="h-12 w-auto object-contain" />
+          <Image src="/images/logo.png" alt="Logo" width={180} height={48} className="h-10 w-auto object-contain sm:h-12" />
         </a>
         </div>
-        <div className="mb-8">
-          <h1 className="text-center text-2xl font-semibold text-gray-900">Service Seller Registration</h1>
+        <div className="mb-6 sm:mb-8">
+          <h1 className="text-center text-xl font-semibold text-gray-900 sm:text-2xl">Service Seller Registration</h1>
           <p className="mt-1 text-center text-sm text-gray-500">Register to offer services</p>
         </div>
         <form onSubmit={handleSubmit}>
@@ -100,7 +100,7 @@ export default function ServiceSellerRegistrationPage() {
                 className="rounded-xl border-gray-200"
               />
             </div>
-            <div className="grid grid-cols-[1fr_2fr] gap-2">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_2fr]">
               <div>
                 <Label htmlFor="phoneCountryCode" className="mb-1.5 block text-sm font-medium text-gray-700">Country code</Label>
                 <Input
@@ -175,7 +175,7 @@ export default function ServiceSellerRegistrationPage() {
               </div>
             </div>
             <div className="text-center">
-              <Button type="submit" disabled={loading} className="mx-auto w-full max-w-[200px] rounded-full">
+              <Button type="submit" disabled={loading} className="mx-auto w-full rounded-full sm:max-w-[200px]">
                 {loading ? "Creating account..." : "Create Account"}
               </Button>
             </div>

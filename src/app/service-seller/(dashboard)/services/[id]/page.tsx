@@ -10,6 +10,7 @@ import { Input } from "@/ui/input"
 import { Label } from "@/ui/label"
 import { Alert, AlertDescription } from "@/ui/alert"
 import { PricingFields } from "../pricing-fields"
+import { ServiceImageInput } from "../service-image-input"
 import Link from "next/link"
 
 const updateServiceSchema = z.object({
@@ -61,7 +62,7 @@ async function updateServiceForm(serviceId: string, formData: FormData) {
   const serviceType = formData.get("serviceType") as "APPOINTMENT" | "FIXED_PRICE"
   if (!name || !categoryId || !serviceType) redirect(`/service-seller/services/${serviceId}?error=missing_required_fields`)
   const imagesInput = (formData.get("images") as string) || ""
-  const images = imagesInput ? imagesInput.split("\n").map((u) => u.trim()).filter(Boolean) : []
+  const images = imagesInput ? imagesInput.split(/[\n,]+/).map((u) => u.trim()).filter(Boolean) : []
   const basePriceInput = formData.get("basePrice") as string
   const durationInput = formData.get("duration") as string
   const discountStr = (formData.get("discount") as string) || "0"
@@ -246,19 +247,11 @@ export default async function EditServicePage({
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="images">Image URLs (one per line)</Label>
-              <textarea
-                id="images"
-                name="images"
-                className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                placeholder="https://example.com/image1.jpg&#10;https://example.com/image2.jpg"
-                defaultValue={images.join("\n")}
-              />
-              <p className="text-sm text-muted-foreground">
-                Enter image URLs, one per line
-              </p>
-            </div>
+            <ServiceImageInput
+              defaultUrls={images}
+              label="Images"
+              hint="Add via image URLs (comma or newline separated) or upload files. Multiple images supported."
+            />
 
             <div className="flex items-center space-x-2">
               <input

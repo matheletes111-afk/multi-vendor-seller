@@ -7,8 +7,9 @@ import { useSession } from "next-auth/react"
 import { Button } from "@/ui/button"
 import { formatCurrency } from "@/lib/utils"
 import { PublicLayout } from "@/components/site-layout"
-import { useCart } from "@/contexts/cart-context"
-import { ChevronRight, ShoppingCart, Truck } from "lucide-react"
+import { useCart } from "@/app/cart/cart-context"
+import { UserRole } from "@prisma/client"
+import { Briefcase, ChevronRight, ShoppingCart, Truck } from "lucide-react"
 
 type Service = {
   id: string
@@ -18,18 +19,23 @@ type Service = {
   discount: number
   images: unknown
   category: { id: string; name: string; slug: string }
-  seller: { store: { name: string } | null }
+  seller: { store: { name: string } | null } | null
   _count: { reviews: number }
 }
 
 export function ServiceDetailClient({ service }: { service: Service }) {
   const router = useRouter()
-  const { status } = useSession()
+  const { data: session, status } = useSession()
   const { addItem } = useCart()
+  const canUseCart = status !== "authenticated" || session?.user?.role === UserRole.CUSTOMER
   const [selectedImageIndex, setSelectedImageIndex] = useState(0)
   const [addedToCart, setAddedToCart] = useState(false)
 
-  const images = (service.images as string[]) || []
+  const images: string[] = Array.isArray(service.images)
+    ? (service.images as string[])
+    : typeof service.images === "string"
+      ? (() => { try { return JSON.parse(service.images) as string[] } catch { return [] } })()
+      : []
   const displayPrice = service.basePrice != null ? Math.max(0, service.basePrice - service.discount) : null
   const mainImage = images[selectedImageIndex] || images[0]
 
@@ -60,7 +66,9 @@ export function ServiceDetailClient({ service }: { service: Service }) {
                     className="h-full w-full object-contain"
                   />
                 ) : (
-                  <div className="flex h-full w-full items-center justify-center text-slate-400">No image</div>
+                  <div className="flex h-full w-full items-center justify-center text-slate-400">
+                    <Briefcase className="h-16 w-16 sm:h-20 sm:w-20" />
+                  </div>
                 )}
               </div>
               {images.length > 1 && (
@@ -109,45 +117,52 @@ export function ServiceDetailClient({ service }: { service: Service }) {
 
               {displayPrice != null && (
                 <div className="mt-6 flex flex-col gap-3">
-                  {addedToCart && (
+                  {!canUseCart && (
+                    <p className="rounded-lg bg-slate-100 px-4 py-2.5 text-sm text-slate-700 ring-1 ring-slate-200">
+                      Only guests and customers can add to cart. Sign in as a customer or sign out to shop.
+                    </p>
+                  )}
+                  {canUseCart && addedToCart && (
                     <p className="flex items-center gap-2 rounded-lg bg-green-100 px-4 py-2.5 text-sm font-medium text-green-800 ring-1 ring-green-200">
                       <span className="inline-flex h-2 w-2 rounded-full bg-green-500" aria-hidden />
                       Added to cart
                     </p>
                   )}
-                  <div className="flex flex-wrap gap-3">
-                    <Button
-                      size="lg"
-                      className="bg-amber-400 text-black hover:bg-amber-500"
-                      onClick={() => {
-                        addItem({
-                          serviceId: service.id,
-                          name: service.name,
-                          price: displayPrice,
-                          image: mainImage || null,
-                        })
-                        setAddedToCart(true)
-                        setTimeout(() => setAddedToCart(false), 3000)
-                      }}
-                    >
-                      <ShoppingCart className="mr-2 h-5 w-5" />
-                      {addedToCart ? "Added to Cart" : "Add to Cart"}
-                    </Button>
-                    <Button
-                      size="lg"
-                      variant="outline"
-                      className="border-amber-500 text-amber-700 hover:bg-amber-50"
-                      onClick={() => {
-                        if (status === "authenticated") {
-                          router.push("/cart")
-                        } else {
-                          router.push("/customer/login?callbackUrl=" + encodeURIComponent("/cart"))
-                        }
-                      }}
-                    >
-                      Book / Buy Now
-                    </Button>
-                  </div>
+                  {canUseCart && (
+                    <div className="flex flex-wrap gap-3">
+                      <Button
+                        size="lg"
+                        className="bg-amber-400 text-black hover:bg-amber-500"
+                        onClick={() => {
+                          addItem({
+                            serviceId: service.id,
+                            name: service.name,
+                            price: displayPrice,
+                            image: mainImage || null,
+                          })
+                          setAddedToCart(true)
+                          setTimeout(() => setAddedToCart(false), 3000)
+                        }}
+                      >
+                        <ShoppingCart className="mr-2 h-5 w-5" />
+                        {addedToCart ? "Added to Cart" : "Add to Cart"}
+                      </Button>
+                      <Button
+                        size="lg"
+                        variant="outline"
+                        className="border-amber-500 text-amber-700 hover:bg-amber-50"
+                        onClick={() => {
+                          if (status === "authenticated") {
+                            router.push("/cart")
+                          } else {
+                            router.push("/customer/login?callbackUrl=" + encodeURIComponent("/cart"))
+                          }
+                        }}
+                      >
+                        Book / Buy Now
+                      </Button>
+                    </div>
+                  )}
                 </div>
               )}
 

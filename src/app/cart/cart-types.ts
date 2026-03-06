@@ -1,17 +1,41 @@
+/**
+ * Cart types and guest storage helpers for the cart UI (app/cart and header sync).
+ */
+
 const CART_STORAGE_KEY = "meeem-cart"
 
 export type CartItem = {
+  id?: string
   productId?: string
   productVariantId?: string
   serviceId?: string
+  servicePackageId?: string
+  serviceSlotId?: string
   name: string
   price: number
   image: string | null
   quantity: number
 }
 
-/** Unique id for an item (product or service). Same product + same variant = same line. */
+export type CartItemApi = {
+  id: string
+  productId: string | null
+  productVariantId: string | null
+  serviceId: string | null
+  servicePackageId: string | null
+  serviceSlotId: string | null
+  quantity: number
+  unitPrice: number
+  totalPrice: number
+  hasGst: boolean
+  totalGst: number
+  totalPriceInclGst: number
+  name: string
+  image: string | null
+}
+
 export function getCartItemId(item: CartItem): string {
+  if (item.id) return item.id
   if (item.productId) return item.productVariantId ? `${item.productId}:${item.productVariantId}` : item.productId
   return item.serviceId ?? ""
 }
