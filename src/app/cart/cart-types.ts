@@ -15,6 +15,12 @@ export type CartItem = {
   price: number
   image: string | null
   quantity: number
+  /** From API: GST amount for this line. */
+  gstAmount?: number
+  /** From API: whether this line has GST. */
+  hasGst?: boolean
+  /** From API: subtotal + GST for this line. */
+  lineTotal?: number
 }
 
 export type CartItemApi = {

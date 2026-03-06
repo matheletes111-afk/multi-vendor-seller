@@ -30,6 +30,9 @@ function mapApiItemToCartItem(api: CartItemApi): CartItem {
     price: api.unitPrice,
     image: api.image,
     quantity: api.quantity,
+    hasGst: api.hasGst,
+    gstAmount: api.totalGst,
+    lineTotal: api.totalPriceInclGst ?? api.totalPrice + api.totalGst,
   }
 }
 

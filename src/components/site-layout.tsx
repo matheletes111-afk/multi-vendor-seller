@@ -74,8 +74,8 @@ export function SiteHeader() {
           />
         </a>
 
-        <form onSubmit={handleSearch} className="flex min-w-0 flex-1 max-w-xl">
-          <div className="relative flex w-full min-w-0">
+        <form onSubmit={handleSearch} className="flex min-w-0 flex-1 max-w-xl items-center">
+          <div className="relative flex w-full min-w-0 items-center">
             {/* All dropdown - hidden on very small screens to save space */}
             {mounted ? (
               <DropdownMenu>
@@ -94,7 +94,7 @@ export function SiteHeader() {
                   <DropdownMenuItem asChild>
                     <Link href="/browse" className="flex items-center gap-2 font-medium">
                       <LayoutGrid className="h-4 w-4" />
-                      All Departments
+                      All Category
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
@@ -133,10 +133,10 @@ export function SiteHeader() {
               placeholder="Search products..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="min-w-0 rounded-l-md border-l border-amber-400 border-r-0 bg-white text-sm focus-visible:ring-amber-500 sm:rounded-l-none sm:border-l-0 sm:text-base"
+              className="h-9 min-w-0 rounded-l-md border-l border-amber-400 border-r-0 bg-white py-2 text-sm focus-visible:ring-amber-500 sm:h-10 sm:rounded-l-none sm:border-l-0 sm:text-base"
             />
             <Button type="submit" size="icon" className="h-9 w-9 shrink-0 rounded-l-none border border-l-0 border-amber-400 bg-amber-400 text-black hover:bg-amber-500 sm:h-10 sm:w-10">
-              <Search className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              <Search className="h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4" />
               <span className="sr-only">Search</span>
             </Button>
           </div>
@@ -165,7 +165,7 @@ export function SiteHeader() {
                 <div className="flex flex-col py-2">
                   <Link href="/browse" className="flex items-center gap-3 px-4 py-3 text-sm font-medium text-slate-800 hover:bg-slate-100">
                     <LayoutGrid className="h-4 w-4" />
-                    All Departments
+                    All Category
                   </Link>
                   {categories.map((cat) => (
                     <div key={cat.id}>
