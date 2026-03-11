@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 
+// API uses request.url for searchParams — must be dynamic
+export const dynamic = "force-dynamic"
+
 // Define types for the response data
 interface Subcategory {
   id: string
