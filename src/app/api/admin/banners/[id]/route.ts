@@ -24,6 +24,7 @@ export async function GET(
       include: {
         category: true,
         subcategory: true,
+        serviceCategory: true,
       },
     });
 
@@ -94,8 +95,10 @@ export async function PUT(
     const bannerHeading = formData.get("bannerHeading") as string;
     const bannerDescription = formData.get("bannerDescription") as string || null;
     const isActive = formData.get("isActive") === "true";
-    const categoryId = formData.get("categoryId") as string || null;
-    const subcategoryId = formData.get("subcategoryId") as string || null;
+    const targetType = (formData.get("targetType") as string) || "product";
+    const categoryId = (formData.get("categoryId") as string)?.trim() || null;
+    const subcategoryId = (formData.get("subcategoryId") as string)?.trim() || null;
+    const serviceCategoryId = (formData.get("serviceCategoryId") as string)?.trim() || null;
     const removeImage = formData.get("removeImage") === "true";
     const bannerImageFile = formData.get("bannerImage") as File | null;
     const bannerImageUrl = (formData.get("bannerImageUrl") as string)?.trim() || null;
@@ -112,13 +115,13 @@ export async function PUT(
       );
     }
 
-    // Prepare update data
     const updateData: any = {
       bannerHeading,
       bannerDescription,
       isActive,
-      categoryId: categoryId || null,
-      subcategoryId: subcategoryId || null,
+      categoryId: targetType === "product" ? categoryId : null,
+      subcategoryId: targetType === "product" ? subcategoryId : null,
+      serviceCategoryId: targetType === "service" ? serviceCategoryId : null,
     };
 
     // Handle image
@@ -173,6 +176,7 @@ export async function PUT(
       include: {
         category: true,
         subcategory: true,
+        serviceCategory: true,
       },
     });
 

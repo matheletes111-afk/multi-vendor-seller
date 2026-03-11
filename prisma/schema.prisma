@@ -290,17 +290,35 @@ model Category {
   slug          String   @unique
   description   String?  @db.Text
   image         String?
+  mobileIcon    String?  // PNG URL for mobile (e.g. /uploads/categories/mobile-*.png)
   commissionRate Float   @default(10.0)
   isActive      Boolean  @default(true)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
   products      Product[]
-  services      Service[]
   subcategories Subcategory[]
   banners       Banner[]
 
   @@map("categories")
+}
+
+model ServiceCategory {
+  id            String   @id @default(cuid())
+  name          String   @unique
+  slug          String   @unique
+  description   String?  @db.Text
+  image         String?
+  mobileIcon    String?  // PNG URL for mobile
+  commissionRate Float   @default(10.0)
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  services      Service[]
+  banners       Banner[]
+
+  @@map("service_categories")
 }
 
 model Subcategory {
@@ -309,6 +327,7 @@ model Subcategory {
   slug          String   @unique
   description   String?  @db.Text
   image         String?
+  mobileIcon    String?  // PNG URL for mobile
   isActive      Boolean  @default(true)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
@@ -332,11 +351,13 @@ model Banner {
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
   
-  // Optional relations to category and subcategory
+  // Optional: target by product category/subcategory OR service category
   categoryId        String?
   category          Category? @relation(fields: [categoryId], references: [id])
   subcategoryId     String?
   subcategory       Subcategory? @relation(fields: [subcategoryId], references: [id])
+  serviceCategoryId String?
+  serviceCategory   ServiceCategory? @relation(fields: [serviceCategoryId], references: [id])
 
   @@map("banners")
 }
@@ -399,34 +420,34 @@ model ProductVariant {
 }
 
 model Service {
-  id          String      @id @default(cuid())
-  sellerId    String
-  categoryId  String
-  name        String
-  slug        String
-  description String?     @db.Text
-  serviceType ServiceType
-  basePrice   Float?      // For fixed-price services
-  discount    Float       @default(0)      // Discount amount per item
-  hasGst      Boolean     @default(true)   // Y = 15% GST at checkout, N = no GST
-  images      Json        // Array of image URLs stored as JSON
-  isActive    Boolean     @default(true)
-  isFeatured  Boolean     @default(false)
-  duration    Int?        // Duration in minutes (for appointments)
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  id                String      @id @default(cuid())
+  sellerId          String
+  serviceCategoryId String
+  name              String
+  slug              String
+  description       String?     @db.Text
+  serviceType       ServiceType
+  basePrice         Float?      // For fixed-price services
+  discount          Float       @default(0)      // Discount amount per item
+  hasGst            Boolean     @default(true)   // Y = 15% GST at checkout, N = no GST
+  images            Json        // Array of image URLs stored as JSON
+  isActive          Boolean     @default(true)
+  isFeatured        Boolean     @default(false)
+  duration          Int?        // Duration in minutes (for appointments)
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
 
-  seller     Seller         @relation(fields: [sellerId], references: [id], onDelete: Cascade)
-  category   Category       @relation(fields: [categoryId], references: [id])
-  slots      ServiceSlot[]
-  packages   ServicePackage[]
-  orderItems OrderItem[]
-  reviews    Review[]
-  cartItems  CartItem[]
-  sellerAds  SellerAd[]
+  seller           Seller           @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  serviceCategory  ServiceCategory  @relation(fields: [serviceCategoryId], references: [id])
+  slots            ServiceSlot[]
+  packages         ServicePackage[]
+  orderItems       OrderItem[]
+  reviews          Review[]
+  cartItems        CartItem[]
+  sellerAds        SellerAd[]
 
   @@unique([sellerId, slug])
-  @@index([categoryId])
+  @@index([serviceCategoryId])
   @@index([sellerId])
   @@index([isActive])
   @@map("services")

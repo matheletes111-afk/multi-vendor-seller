@@ -24,7 +24,7 @@ export async function GET(
 
   const service = await prisma.service.findFirst({
     where: { id, sellerId: seller.id },
-    include: { category: true, slots: true, packages: true },
+    include: { serviceCategory: true, slots: true, packages: true },
   })
 
   if (!service) {

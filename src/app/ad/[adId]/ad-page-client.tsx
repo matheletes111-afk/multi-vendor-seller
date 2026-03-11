@@ -33,7 +33,7 @@ type Ad = {
     slug: string;
     basePrice: number | null;
     images?: unknown;
-    category: { name: string };
+    serviceCategory: { name: string };
     seller: { store: { name: string } | null };
     _count: { reviews: number };
   } | null;
@@ -219,7 +219,7 @@ export function AdPageClient() {
                     {ad.service.name}
                   </p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    <span className="rounded border border-slate-200 px-1.5 py-0.5">{ad.service.category.name}</span>
+                    <span className="rounded border border-slate-200 px-1.5 py-0.5">{ad.service.serviceCategory?.name ?? "Service"}</span>
                   </p>
                   <p className="text-xs text-muted-foreground mt-0.5">
                     {ad.service.seller?.store?.name ?? "Store"}

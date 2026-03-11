@@ -24,7 +24,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/ui/dialog";
-import { Plus, Pencil, Trash2, Package, Briefcase, FolderTree } from "lucide-react";
+import { Plus, Pencil, Trash2, Package, FolderTree } from "lucide-react";
 import { AdminPagination } from "@/components/admin/admin-pagination";
 import { PageLoader } from "@/components/ui/page-loader";
 
@@ -34,9 +34,8 @@ interface Subcategory {
   description: string | null;
   image: string | null;
   isActive: boolean;
-  _count: {
+  _count?: {
     products: number;
-    services: number;
   };
 }
 
@@ -49,7 +48,6 @@ interface Category {
   isActive: boolean;
   _count: {
     products: number;
-    services: number;
     subcategories: number;
   };
   subcategories: Subcategory[];
@@ -123,11 +121,11 @@ export function CategoriesClient() {
   };
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <div className="flex justify-between items-center">
+    <div className="container mx-auto p-4 sm:p-6 space-y-4 sm:space-y-6 max-w-7xl">
+      <div className="flex flex-col gap-4 sm:flex-row sm:justify-between sm:items-center">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Categories</h1>
-          <p className="text-muted-foreground mt-2">Manage product and service categories</p>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Product categories</h1>
+          <p className="text-sm text-muted-foreground mt-1">Manage categories and subcategories for products</p>
         </div>
         {mounted ? (
           <Link href="/admin/categories/new">
@@ -152,27 +150,27 @@ export function CategoriesClient() {
         </Alert>
       )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Category list</CardTitle>
-          <CardDescription>All categories with product, service and subcategory counts</CardDescription>
+      <Card className="overflow-hidden border shadow-sm">
+        <CardHeader className="pb-4">
+          <CardTitle className="text-lg">Category list</CardTitle>
+          <CardDescription>All product categories with product and subcategory counts</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-0 sm:p-6">
           {loading && !data ? (
             <PageLoader message="Loading categories…" />
           ) : fetchError ? (
-            <div className="py-12 text-center text-destructive">{fetchError}</div>
+            <div className="py-12 text-center text-destructive px-4">{fetchError}</div>
           ) : !data ? null : (
             <>
+          <div className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead className="w-16">Image</TableHead>
                 <TableHead>Name</TableHead>
-                <TableHead>Description</TableHead>
+                <TableHead className="hidden md:table-cell">Description</TableHead>
                 <TableHead>Commission</TableHead>
                 <TableHead>Products</TableHead>
-                <TableHead>Services</TableHead>
                 <TableHead>Subcategories</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
@@ -181,7 +179,7 @@ export function CategoriesClient() {
             <TableBody>
               {data.categories.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="text-center py-12 text-muted-foreground">
+                  <TableCell colSpan={7} className="text-center py-12 text-muted-foreground">
                     No categories found
                   </TableCell>
                 </TableRow>
@@ -205,7 +203,7 @@ export function CategoriesClient() {
                       )}
                     </TableCell>
                     <TableCell className="font-medium">{category.name}</TableCell>
-                    <TableCell className="max-w-[200px] truncate text-muted-foreground">
+                    <TableCell className="max-w-[200px] truncate text-muted-foreground hidden md:table-cell">
                       {category.description || "—"}
                     </TableCell>
                     <TableCell>{category.commissionRate}%</TableCell>
@@ -213,12 +211,6 @@ export function CategoriesClient() {
                       <span className="inline-flex items-center gap-1 text-muted-foreground">
                         <Package className="h-4 w-4" />
                         {category._count.products}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <span className="inline-flex items-center gap-1 text-muted-foreground">
-                        <Briefcase className="h-4 w-4" />
-                        {category._count.services}
                       </span>
                     </TableCell>
                     <TableCell>
@@ -235,7 +227,7 @@ export function CategoriesClient() {
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
                         <Link href={`/admin/categories/${category.id}/edit`}>
-                          <Button variant="outline" size="sm">
+                          <Button variant="outline" size="sm" className="shrink-0">
                             <Pencil className="mr-2 h-4 w-4" />
                             Edit
                           </Button>
@@ -246,12 +238,12 @@ export function CategoriesClient() {
                               variant="destructive"
                               size="sm"
                               title={
-                                category._count.products > 0 || category._count.services > 0
-                                  ? "Cannot delete: this category has products or services. Remove or reassign them first."
+                                category._count.products > 0
+                                  ? "Cannot delete: this category has products. Remove or reassign them first."
                                   : undefined
                               }
                               className={
-                                category._count.products > 0 || category._count.services > 0
+                                category._count.products > 0
                                   ? "opacity-60"
                                   : undefined
                               }
@@ -264,13 +256,10 @@ export function CategoriesClient() {
                             <DialogHeader>
                               <DialogTitle>Delete Category</DialogTitle>
                               <DialogDescription>
-                                {category._count.products > 0 || category._count.services > 0 ? (
+                                {category._count.products > 0 ? (
                                   <>
                                     Cannot delete &quot;{category.name}&quot; because it has{" "}
-                                    {category._count.products > 0 && <strong>{category._count.products} product(s)</strong>}
-                                    {category._count.products > 0 && category._count.services > 0 && " and "}
-                                    {category._count.services > 0 && <strong>{category._count.services} service(s)</strong>}.
-                                    Remove or reassign them first.
+                                    <strong>{category._count.products} product(s)</strong>. Remove or reassign them first.
                                   </>
                                 ) : (
                                   <>
@@ -289,7 +278,7 @@ export function CategoriesClient() {
                               <DialogTrigger asChild>
                                 <Button variant="outline">Cancel</Button>
                               </DialogTrigger>
-                              {category._count.products === 0 && category._count.services === 0 && (
+                              {category._count.products === 0 && (
                                 <Button
                                   variant="destructive"
                                   onClick={() => handleDelete(category.id)}
@@ -308,14 +297,17 @@ export function CategoriesClient() {
               )}
             </TableBody>
           </Table>
-          <AdminPagination
-            basePath="/admin/categories"
-            currentPage={page}
-            totalPages={data.totalPages}
-            totalCount={data.totalCount}
-            pageSize={perPage}
-            params={params}
-          />
+          </div>
+          <div className="px-4 py-3 sm:px-6 sm:py-4 border-t">
+            <AdminPagination
+              basePath="/admin/categories"
+              currentPage={page}
+              totalPages={data.totalPages}
+              totalCount={data.totalCount}
+              pageSize={perPage}
+              params={params}
+            />
+          </div>
             </>
           )}
         </CardContent>

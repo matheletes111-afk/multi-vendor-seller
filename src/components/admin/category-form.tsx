@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/ui/
 import { Alert, AlertDescription } from "@/ui/alert";
 import { Separator } from "@/ui/separator";
 import { ImageLinkOrUpload, type ImageLinkOrUploadValue } from "@/components/admin/image-link-or-upload";
+import { MobileIconPngUpload, type MobileIconPngValue } from "@/components/admin/mobile-icon-png-upload";
 import { Plus, Trash2, Pencil } from "lucide-react";
 import Image from "next/image";
 
@@ -18,6 +19,7 @@ interface Subcategory {
   description: string;
   imageValue?: ImageLinkOrUploadValue | null;
   imagePreview?: string;
+  mobileIconValue?: MobileIconPngValue | null;
   isActive: boolean;
 }
 
@@ -38,6 +40,7 @@ export function CategoryForm() {
 
   // Category image (link or file)
   const [categoryImageValue, setCategoryImageValue] = useState<ImageLinkOrUploadValue>(null);
+  const [categoryMobileIconValue, setCategoryMobileIconValue] = useState<MobileIconPngValue>(null);
 
   // Subcategory form state
   const [subcategoryForm, setSubcategoryForm] = useState<Subcategory>({
@@ -45,6 +48,7 @@ export function CategoryForm() {
     description: "",
     imageValue: null,
     imagePreview: undefined,
+    mobileIconValue: null,
     isActive: true,
   });
 
@@ -100,6 +104,7 @@ export function CategoryForm() {
       description: "",
       imageValue: null,
       imagePreview: undefined,
+      mobileIconValue: null,
       isActive: true,
     });
     setError("");
@@ -119,6 +124,7 @@ export function CategoryForm() {
         description: "",
         imageValue: null,
         imagePreview: undefined,
+        mobileIconValue: null,
         isActive: true,
       });
     }
@@ -149,6 +155,11 @@ export function CategoryForm() {
       } else if (categoryImageValue?.type === "url" && categoryImageValue.url) {
         formData.append("categoryImageUrl", categoryImageValue.url);
       }
+      if (categoryMobileIconValue?.type === "file") {
+        formData.append("categoryMobileIcon", categoryMobileIconValue.file);
+      } else if (categoryMobileIconValue?.type === "url" && categoryMobileIconValue.url) {
+        formData.append("categoryMobileIconUrl", categoryMobileIconValue.url);
+      }
 
       const subcategoriesPayload = subcategories.map(sub => ({
         name: sub.name,
@@ -162,6 +173,11 @@ export function CategoryForm() {
           formData.append(`subcategoryImage_${index}`, sub.imageValue.file);
         } else if (sub.imageValue?.type === "url" && sub.imageValue.url) {
           formData.append(`subcategoryImageUrl_${index}`, sub.imageValue.url);
+        }
+        if (sub.mobileIconValue?.type === "file") {
+          formData.append(`subcategoryMobileIcon_${index}`, sub.mobileIconValue.file);
+        } else if (sub.mobileIconValue?.type === "url" && sub.mobileIconValue.url) {
+          formData.append(`subcategoryMobileIconUrl_${index}`, sub.mobileIconValue.url);
         }
       });
 
@@ -191,225 +207,207 @@ export function CategoryForm() {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6 text-foreground">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight text-foreground">Create New Category</h1>
+    <form onSubmit={handleSubmit} className="space-y-6 text-foreground px-2 sm:px-0 max-w-4xl">
+      <div className="space-y-1">
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">Create Product Category</h1>
+        <p className="text-sm text-muted-foreground">Product categories can have subcategories. Used for organizing products.</p>
       </div>
 
       {error && (
-        <Alert variant="destructive">
+        <Alert variant="destructive" className="rounded-lg">
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
 
-      {/* Category Details */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Category Details</CardTitle>
-          <CardDescription>Enter the main category information</CardDescription>
+      {/* Category details */}
+      <Card className="overflow-hidden border shadow-sm">
+        <CardHeader className="space-y-1 pb-4">
+          <CardTitle className="text-lg">Category details</CardTitle>
+          <CardDescription>Name, description, images, and settings.</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="name">Category Name *</Label>
-            <Input
-              id="name"
-              name="name"
-              value={categoryData.name}
-              onChange={handleCategoryChange}
-              placeholder="e.g., Electronics"
-              required
-            />
+        <CardContent className="space-y-6">
+          <div className="grid gap-4 sm:grid-cols-1">
+            <div className="space-y-2">
+              <Label htmlFor="name" className="text-sm font-medium">Name <span className="text-destructive">*</span></Label>
+              <Input
+                id="name"
+                name="name"
+                value={categoryData.name}
+                onChange={handleCategoryChange}
+                placeholder="e.g., Electronics"
+                required
+                className="max-w-md"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="description" className="text-sm font-medium">Description</Label>
+              <Textarea
+                id="description"
+                name="description"
+                value={categoryData.description}
+                onChange={handleCategoryChange}
+                placeholder="Category description"
+                rows={3}
+                className="resize-none"
+              />
+            </div>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="description">Description</Label>
-            <Textarea
-              id="description"
-              name="description"
-              value={categoryData.description}
-              onChange={handleCategoryChange}
-              placeholder="Category description"
-              rows={3}
-            />
+          <div className="rounded-lg border bg-muted/30 p-4 space-y-6">
+            <p className="text-sm font-medium text-foreground">Media</p>
+            <div className="grid gap-6 sm:grid-cols-1 lg:grid-cols-2">
+              <div className="space-y-2">
+                <ImageLinkOrUpload
+                  label="Category image"
+                  value={categoryImageValue}
+                  onChange={setCategoryImageValue}
+                  showPreview={true}
+                />
+              </div>
+              <div className="space-y-2">
+                <MobileIconPngUpload
+                  label="Mobile icon"
+                  value={categoryMobileIconValue}
+                  onChange={setCategoryMobileIconValue}
+                  showPreview={true}
+                />
+                <p className="text-xs text-muted-foreground">PNG only. Optional.</p>
+              </div>
+            </div>
           </div>
 
-          <div className="space-y-2">
-            <ImageLinkOrUpload
-              label="Category Image"
-              value={categoryImageValue}
-              onChange={setCategoryImageValue}
-              showPreview={true}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="commissionRate">Commission Rate (%)</Label>
-            <Input
-              id="commissionRate"
-              name="commissionRate"
-              type="number"
-              step="0.1"
-              min="0"
-              max="100"
-              value={categoryData.commissionRate}
-              onChange={handleCategoryChange}
-            />
-          </div>
-
-          <div className="flex items-center space-x-2">
-            <input
-              id="isActive"
-              name="isActive"
-              type="checkbox"
-              checked={categoryData.isActive}
-              onChange={(e) => setCategoryData(prev => ({ ...prev, isActive: e.target.checked }))}
-              className="h-4 w-4 rounded border-input bg-background accent-primary"
-            />
-            <Label htmlFor="isActive" className="text-sm font-normal text-foreground">Active</Label>
+          <div className="flex flex-wrap items-center gap-6 rounded-lg border bg-muted/20 p-4">
+            <div className="space-y-2 min-w-[140px]">
+              <Label htmlFor="commissionRate" className="text-sm font-medium">Commission (%)</Label>
+              <Input
+                id="commissionRate"
+                name="commissionRate"
+                type="number"
+                step="0.1"
+                min="0"
+                max="100"
+                value={categoryData.commissionRate}
+                onChange={handleCategoryChange}
+                className="w-24"
+              />
+            </div>
+            <div className="flex items-center gap-2 pt-6 sm:pt-0">
+              <input
+                id="isActive"
+                name="isActive"
+                type="checkbox"
+                checked={categoryData.isActive}
+                onChange={(e) => setCategoryData(prev => ({ ...prev, isActive: e.target.checked }))}
+                className="h-4 w-4 rounded border-input bg-background accent-primary"
+              />
+              <Label htmlFor="isActive" className="text-sm font-medium cursor-pointer">Active</Label>
+            </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Subcategories Section */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Subcategories</CardTitle>
-          <CardDescription>Add subcategories under this category</CardDescription>
+      {/* Subcategories */}
+      <Card className="overflow-hidden border shadow-sm">
+        <CardHeader className="space-y-1 pb-4">
+          <CardTitle className="text-lg">Subcategories</CardTitle>
+          <CardDescription>Add subcategories under this category. Each can have an image and mobile icon.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          {/* Subcategory Form */}
-          <div className="space-y-4 p-4 border border-border rounded-lg bg-muted/50">
-            <h3 className="font-medium text-foreground">
-              {editingIndex !== null ? "Edit Subcategory" : "Add New Subcategory"}
+          <div className="space-y-4 rounded-lg border border-border bg-muted/30 p-4 sm:p-5">
+            <h3 className="text-sm font-semibold text-foreground">
+              {editingIndex !== null ? "Edit subcategory" : "Add subcategory"}
             </h3>
-            
-            <div className="space-y-2">
-              <Label htmlFor="subName">Subcategory Name *</Label>
-              <Input
-                id="subName"
-                name="name"
-                value={subcategoryForm.name}
-                onChange={handleSubcategoryChange}
-                placeholder="e.g., Smartphones"
-              />
+            <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="subName" className="text-sm font-medium">Name <span className="text-destructive">*</span></Label>
+                <Input
+                  id="subName"
+                  name="name"
+                  value={subcategoryForm.name}
+                  onChange={handleSubcategoryChange}
+                  placeholder="e.g., Smartphones"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="subDescription" className="text-sm font-medium">Description</Label>
+                <Textarea
+                  id="subDescription"
+                  name="description"
+                  value={subcategoryForm.description}
+                  onChange={handleSubcategoryChange}
+                  placeholder="Optional"
+                  rows={2}
+                  className="resize-none"
+                />
+              </div>
             </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="subDescription">Description</Label>
-              <Textarea
-                id="subDescription"
-                name="description"
-                value={subcategoryForm.description}
-                onChange={handleSubcategoryChange}
-                placeholder="Subcategory description"
-                rows={2}
-              />
+            <div className="grid gap-4 sm:grid-cols-1 lg:grid-cols-2 pt-2">
+              <div className="space-y-2">
+                <ImageLinkOrUpload
+                  label="Subcategory image"
+                  value={subcategoryForm.imageValue ?? null}
+                  onChange={(v) => setSubcategoryForm(prev => ({ ...prev, imageValue: v ?? undefined }))}
+                  showPreview={true}
+                />
+              </div>
+              <div className="space-y-2">
+                <MobileIconPngUpload
+                  label="Subcategory mobile icon (PNG)"
+                  value={subcategoryForm.mobileIconValue ?? null}
+                  onChange={(v) => setSubcategoryForm(prev => ({ ...prev, mobileIconValue: v ?? undefined }))}
+                  showPreview={true}
+                />
+              </div>
             </div>
-
-            <div className="space-y-2">
-              <ImageLinkOrUpload
-                label="Subcategory Image"
-                value={subcategoryForm.imageValue ?? null}
-                onChange={(v) => setSubcategoryForm(prev => ({ ...prev, imageValue: v ?? undefined }))}
-                showPreview={true}
-              />
-            </div>
-
-            <div className="flex items-center space-x-2">
-              <input
-                id="subIsActive"
-                name="isActive"
-                type="checkbox"
-                checked={subcategoryForm.isActive}
-                onChange={(e) => setSubcategoryForm(prev => ({ ...prev, isActive: e.target.checked }))}
-                className="h-4 w-4 rounded border-input bg-background accent-primary"
-              />
-              <Label htmlFor="subIsActive" className="text-sm font-normal text-foreground">Active</Label>
-            </div>
-
-            <div className="flex gap-2">
-              <Button 
-                type="button" 
-                onClick={addOrUpdateSubcategory}
-                variant={editingIndex !== null ? "default" : "outline"}
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                {editingIndex !== null ? "Update Subcategory" : "Add Subcategory"}
-              </Button>
-              {editingIndex !== null && (
-                <Button 
-                  type="button" 
-                  variant="ghost" 
-                  onClick={() => {
-                    setEditingIndex(null);
-                    setSubcategoryForm({
-                      name: "",
-                      description: "",
-                      imageValue: null,
-                      imagePreview: undefined,
-                      isActive: true,
-                    });
-                  }}
-                >
-                  Cancel
+            <div className="flex flex-wrap items-center gap-4 pt-2">
+              <div className="flex items-center gap-2">
+                <input
+                  id="subIsActive"
+                  name="isActive"
+                  type="checkbox"
+                  checked={subcategoryForm.isActive}
+                  onChange={(e) => setSubcategoryForm(prev => ({ ...prev, isActive: e.target.checked }))}
+                  className="h-4 w-4 rounded border-input bg-background accent-primary"
+                />
+                <Label htmlFor="subIsActive" className="text-sm font-medium cursor-pointer">Active</Label>
+              </div>
+              <div className="flex gap-2">
+                <Button type="button" onClick={addOrUpdateSubcategory} variant={editingIndex !== null ? "default" : "outline"} size="sm" className="shrink-0">
+                  <Plus className="mr-2 h-4 w-4" />
+                  {editingIndex !== null ? "Update" : "Add"}
                 </Button>
-              )}
+                {editingIndex !== null && (
+                  <Button type="button" variant="ghost" size="sm" onClick={() => { setEditingIndex(null); setSubcategoryForm({ name: "", description: "", imageValue: null, imagePreview: undefined, mobileIconValue: null, isActive: true }); }}>
+                    Cancel
+                  </Button>
+                )}
+              </div>
             </div>
           </div>
 
-          {/* Subcategories List with Images */}
           {subcategories.length > 0 && (
-            <div className="space-y-4">
+            <div className="space-y-3">
               <Separator />
-              <h3 className="font-medium text-foreground">Added Subcategories ({subcategories.length})</h3>
-              <div className="space-y-3">
+              <p className="text-sm font-medium text-foreground">Added ({subcategories.length})</p>
+              <div className="space-y-2">
                 {subcategories.map((sub, index) => (
-                  <div
-                    key={index}
-                    className="flex items-start gap-3 p-3 border border-border rounded-lg bg-card"
-                  >
-                    {(sub.imagePreview || (sub.imageValue?.type === "url" && sub.imageValue.url)) && (
-                      <div className="relative w-16 h-16 flex-shrink-0 border border-border rounded overflow-hidden bg-muted">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={sub.imageValue?.type === "url" ? sub.imageValue.url : sub.imagePreview!}
-                          alt={sub.name}
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                    )}
-                    
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium text-foreground">{sub.name}</span>
-                        {!sub.isActive && (
-                          <span className="text-xs bg-muted text-muted-foreground px-2 py-1 rounded">Inactive</span>
-                        )}
-                      </div>
-                      {sub.description && (
-                        <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
-                          {sub.description}
-                        </p>
+                  <div key={index} className="flex flex-col sm:flex-row sm:items-center gap-3 p-3 rounded-lg border bg-card">
+                    <div className="flex flex-1 items-center gap-3 min-w-0">
+                      {(sub.imagePreview || (sub.imageValue?.type === "url" && sub.imageValue?.url)) && (
+                        <div className="relative w-12 h-12 sm:w-14 sm:h-14 flex-shrink-0 rounded overflow-hidden bg-muted border">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={sub.imageValue?.type === "url" ? sub.imageValue.url : sub.imagePreview!} alt={sub.name} className="w-full h-full object-cover" />
+                        </div>
                       )}
+                      <div className="min-w-0">
+                        <span className="font-medium text-foreground block truncate">{sub.name}</span>
+                        {sub.description && <p className="text-xs text-muted-foreground line-clamp-1">{sub.description}</p>}
+                        {!sub.isActive && <span className="text-xs text-muted-foreground">Inactive</span>}
+                      </div>
                     </div>
-                    
-                    <div className="flex gap-1">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => editSubcategory(index)}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => removeSubcategory(index)}
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
+                    <div className="flex gap-1 shrink-0">
+                      <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => editSubcategory(index)}><Pencil className="h-4 w-4" /></Button>
+                      <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => removeSubcategory(index)}><Trash2 className="h-4 w-4" /></Button>
                     </div>
                   </div>
                 ))}
@@ -419,13 +417,9 @@ export function CategoryForm() {
         </CardContent>
       </Card>
 
-      <div className="flex justify-end gap-2 pt-4">
-        <Button type="button" variant="outline" onClick={handleCancel}>
-          Cancel
-        </Button>
-        <Button type="submit" disabled={loading}>
-          {loading ? "Creating..." : "Create Category"}
-        </Button>
+      <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 pt-2 pb-4">
+        <Button type="button" variant="outline" onClick={handleCancel} className="w-full sm:w-auto">Cancel</Button>
+        <Button type="submit" disabled={loading} className="w-full sm:w-auto">{loading ? "Creating…" : "Create category"}</Button>
       </div>
     </form>
   );

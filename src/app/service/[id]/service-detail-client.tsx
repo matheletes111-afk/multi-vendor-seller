@@ -18,7 +18,7 @@ type Service = {
   basePrice: number | null
   discount: number
   images: unknown
-  category: { id: string; name: string; slug: string }
+  serviceCategory: { id: string; name: string; slug: string }
   seller: { store: { name: string } | null } | null
   _count: { reviews: number }
 }
@@ -48,7 +48,7 @@ export function ServiceDetailClient({ service }: { service: Service }) {
           <ChevronRight className="h-4 w-4 shrink-0" />
           <Link href="/browse" className="hover:text-amber-600 hover:underline">Browse</Link>
           <ChevronRight className="h-4 w-4 shrink-0" />
-          <Link href={`/browse?categoryId=${service.category.id}`} className="hover:text-amber-600 hover:underline">{service.category.name}</Link>
+          <Link href={`/browse?serviceCategoryId=${service.serviceCategory.id}`} className="hover:text-amber-600 hover:underline">{service.serviceCategory.name}</Link>
           <ChevronRight className="h-4 w-4 shrink-0" />
           <span className="truncate text-slate-900 font-medium">{service.name}</span>
         </nav>
@@ -91,7 +91,7 @@ export function ServiceDetailClient({ service }: { service: Service }) {
 
             {/* Right: Title, price, actions */}
             <div className="flex-1">
-              <p className="text-sm text-slate-500">{service.category.name}</p>
+              <p className="text-sm text-slate-500">{service.serviceCategory.name}</p>
               <h1 className="mt-1 text-2xl font-bold text-slate-900 md:text-3xl">{service.name}</h1>
               {service._count.reviews > 0 && (
                 <p className="mt-2 text-sm text-slate-600">{service._count.reviews} rating(s)</p>
@@ -172,10 +172,10 @@ export function ServiceDetailClient({ service }: { service: Service }) {
                   <span className="font-medium text-slate-900">{service.seller?.store?.name ?? "Store"}</span>
                 </p>
                 <Link
-                  href={`/browse?categoryId=${service.category.id}`}
+                  href={`/browse?serviceCategoryId=${service.serviceCategory.id}`}
                   className="mt-1 inline-block text-sm text-blue-600 hover:underline"
                 >
-                  More from {service.category.name}
+                  More from {service.serviceCategory.name}
                 </Link>
               </div>
             </div>

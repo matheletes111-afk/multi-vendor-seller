@@ -23,6 +23,7 @@ export function ServiceImageInput({
   label?: string
   hint?: string
 }) {
+  const [mode, setMode] = useState<"upload" | "link">("upload")
   const [linkText, setLinkText] = useState(() => (defaultUrls?.length ? defaultUrls.join("\n") : ""))
   const [uploadedUrls, setUploadedUrls] = useState<string[]>(defaultUrls)
   const [uploading, setUploading] = useState(false)
@@ -68,41 +69,57 @@ export function ServiceImageInput({
       <Label>{label}</Label>
       <p className="text-sm text-muted-foreground">{hint}</p>
 
-      {/* Via link: comma or newline separated */}
-      <div className="space-y-1">
-        <div className="flex items-center gap-2">
-          <LinkIcon className="h-4 w-4 text-muted-foreground" />
-          <span className="text-sm font-medium">Image URLs</span>
-        </div>
-        <textarea
-          className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-          placeholder="https://example.com/image1.jpg, https://example.com/image2.jpg"
-          value={linkText}
-          onChange={(e) => setLinkText(e.target.value)}
-        />
+      {/* Toggle: Upload file | Image link (same as other panels) */}
+      <div className="flex gap-2 p-2 rounded-lg border bg-muted/30">
+        <button
+          type="button"
+          onClick={() => setMode("upload")}
+          className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${mode === "upload" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
+        >
+          <Upload className="h-4 w-4" />
+          Upload file
+        </button>
+        <button
+          type="button"
+          onClick={() => setMode("link")}
+          className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${mode === "link" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
+        >
+          <LinkIcon className="h-4 w-4" />
+          Image link
+        </button>
       </div>
 
-      {/* Via upload */}
-      <div className="flex flex-wrap items-center gap-2">
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/jpeg,image/png,image/gif,image/webp"
-          multiple
-          className="hidden"
-          onChange={handleFileSelect}
-        />
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() => fileInputRef.current?.click()}
-          disabled={uploading}
-        >
-          <Upload className="mr-2 h-4 w-4" />
-          {uploading ? "Uploading…" : "Upload files"}
-        </Button>
-      </div>
+      {mode === "link" ? (
+        <div className="space-y-1">
+          <textarea
+            className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            placeholder="https://example.com/image1.jpg, https://example.com/image2.jpg"
+            value={linkText}
+            onChange={(e) => setLinkText(e.target.value)}
+          />
+        </div>
+      ) : (
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/gif,image/webp"
+            multiple
+            className="hidden"
+            onChange={handleFileSelect}
+          />
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploading}
+          >
+            <Upload className="mr-2 h-4 w-4" />
+            {uploading ? "Uploading…" : "Choose images"}
+          </Button>
+        </div>
+      )}
 
       {/* Thumbnails */}
       {allUrls.length > 0 && (

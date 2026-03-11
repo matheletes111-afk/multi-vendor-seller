@@ -1,11 +1,14 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
-/** GET active categories with subcategories for home page category boxes. Public, no auth. */
+/** GET active categories with subcategories for home page category boxes. Only returns categories that have at least one active product. Public, no auth. */
 export async function GET() {
   try {
     const categories = await prisma.category.findMany({
-      where: { isActive: true },
+      where: {
+        isActive: true,
+        products: { some: { isActive: true } },
+      },
       include: {
         subcategories: {
           where: { isActive: true },
@@ -15,6 +18,7 @@ export async function GET() {
             name: true,
             slug: true,
             image: true,
+            mobileIcon: true,
           },
         },
       },

@@ -13,6 +13,7 @@ export async function GET() {
         bannerImage: true,
         categoryId: true,
         subcategoryId: true,
+        serviceCategoryId: true,
       },
       orderBy: { createdAt: "desc" },
     });

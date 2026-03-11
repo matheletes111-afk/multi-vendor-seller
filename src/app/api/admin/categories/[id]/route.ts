@@ -29,7 +29,6 @@ export async function GET(
         _count: {
           select: {
             products: true,
-            services: true,
           },
         },
       },
@@ -77,17 +76,23 @@ export async function PUT(
     const categoryImageUrl = (formData.get("categoryImageUrl") as string)?.trim() || null;
     const removeCategoryImage = formData.get("removeCategoryImage") === "true";
     const existingCategoryImage = formData.get("existingCategoryImage") as string || null;
+    const categoryMobileIconFile = formData.get("categoryMobileIcon") as File | null;
+    const categoryMobileIconUrl = (formData.get("categoryMobileIconUrl") as string)?.trim() || null;
     
     // Handle subcategories
     const subcategoriesData = JSON.parse(formData.get("subcategories") as string || "[]");
     const subcategoryImages = new Map();
+    const subcategoryMobileIcons = new Map();
     const deletedSubcategoryImages = JSON.parse(formData.get("deletedSubcategoryImages") as string || "[]");
 
-    // Process all image files from formData
     for (const [key, value] of formData.entries()) {
       if (key.startsWith("subcategoryImage_") && value instanceof File) {
         const index = key.replace("subcategoryImage_", "");
         subcategoryImages.set(index, value);
+      }
+      if (key.startsWith("subcategoryMobileIcon_") && value instanceof File) {
+        const index = key.replace("subcategoryMobileIcon_", "");
+        subcategoryMobileIcons.set(index, value);
       }
     }
 
@@ -184,6 +189,33 @@ export async function PUT(
       updateData.image = categoryImagePath;
     }
 
+    let categoryMobileIconPath: string | null = categoryMobileIconUrl || existingCategory.mobileIcon || null;
+    if (categoryMobileIconFile && categoryMobileIconFile.size > 0 && categoryMobileIconFile.type === "image/png") {
+      try {
+        if (existingCategory.mobileIcon && existingCategory.mobileIcon.startsWith("/uploads/")) {
+          const oldPath = path.join(process.cwd(), "public", existingCategory.mobileIcon);
+          if (existsSync(oldPath)) {
+            await unlink(oldPath).catch(console.error);
+          }
+        }
+        const bytes = await categoryMobileIconFile.arrayBuffer();
+        const buffer = Buffer.from(bytes);
+        const timestamp = Date.now();
+        const randomNum = Math.floor(Math.random() * 10000);
+        const fileName = `mobile-${timestamp}-${randomNum}.png`;
+        const uploadDir = path.join(process.cwd(), "public/uploads/categories");
+        if (!existsSync(uploadDir)) {
+          await mkdir(uploadDir, { recursive: true });
+        }
+        const filePath = path.join(uploadDir, fileName);
+        await writeFile(filePath, buffer);
+        categoryMobileIconPath = `/uploads/categories/${fileName}`;
+      } catch (uploadError) {
+        console.error("Error uploading category mobile icon:", uploadError);
+      }
+    }
+    updateData.mobileIcon = categoryMobileIconPath;
+
     // Update category if there are changes
     let updatedCategory = existingCategory;
     if (Object.keys(updateData).length > 0) {
@@ -230,56 +262,70 @@ export async function PUT(
         const subSlug = generateSlug(`${categoryName}-${sub.name}`);
         
         let subImagePath = (formData.get(`subcategoryImageUrl_${i}`) as string)?.trim() || sub.existingImage || null;
+        let subMobileIconPath = (formData.get(`subcategoryMobileIconUrl_${i}`) as string)?.trim() || sub.existingMobileIcon || null;
         const imageFile = subcategoryImages.get(i.toString());
+        const mobileIconFile = subcategoryMobileIcons.get(i.toString());
 
         if (imageFile && imageFile.size > 0) {
           try {
-            // Delete old image if exists and different
             if (sub.existingImage && sub.existingImage.startsWith('/uploads/')) {
               const oldImagePath = path.join(process.cwd(), 'public', sub.existingImage);
               if (existsSync(oldImagePath)) {
                 await unlink(oldImagePath);
-                console.log("Deleted old subcategory image:", oldImagePath);
               }
             }
-
-            // Save new image
             const bytes = await imageFile.arrayBuffer();
             const buffer = Buffer.from(bytes);
-
             const fileExtension = path.extname(imageFile.name);
             const timestamp = Date.now();
             const randomNum = Math.floor(Math.random() * 10000);
             const fileName = `subcategory-${timestamp}-${randomNum}${fileExtension}`;
-            
             const uploadDir = path.join(process.cwd(), "public/uploads/subcategories");
-            
             if (!existsSync(uploadDir)) {
               await mkdir(uploadDir, { recursive: true });
             }
-            
             const filePath = path.join(uploadDir, fileName);
             await writeFile(filePath, buffer);
-            console.log("New subcategory image saved to:", filePath);
-            
             subImagePath = `/uploads/subcategories/${fileName}`;
           } catch (uploadError) {
             console.error("Error uploading subcategory image:", uploadError);
           }
         } else if (sub.removeImage) {
-          // Image was removed
           if (sub.existingImage && sub.existingImage.startsWith('/uploads/')) {
             const oldImagePath = path.join(process.cwd(), 'public', sub.existingImage);
             if (existsSync(oldImagePath)) {
               await unlink(oldImagePath);
-              console.log("Deleted removed subcategory image:", oldImagePath);
             }
           }
           subImagePath = null;
         }
+
+        if (mobileIconFile && mobileIconFile.size > 0 && mobileIconFile.type === "image/png") {
+          try {
+            if (sub.existingMobileIcon && sub.existingMobileIcon.startsWith('/uploads/')) {
+              const oldPath = path.join(process.cwd(), 'public', sub.existingMobileIcon);
+              if (existsSync(oldPath)) {
+                await unlink(oldPath);
+              }
+            }
+            const bytes = await mobileIconFile.arrayBuffer();
+            const buffer = Buffer.from(bytes);
+            const timestamp = Date.now();
+            const randomNum = Math.floor(Math.random() * 10000);
+            const fileName = `mobile-${timestamp}-${randomNum}.png`;
+            const uploadDir = path.join(process.cwd(), "public/uploads/subcategories");
+            if (!existsSync(uploadDir)) {
+              await mkdir(uploadDir, { recursive: true });
+            }
+            const filePath = path.join(uploadDir, fileName);
+            await writeFile(filePath, buffer);
+            subMobileIconPath = `/uploads/subcategories/${fileName}`;
+          } catch (uploadError) {
+            console.error("Error uploading subcategory mobile icon:", uploadError);
+          }
+        }
         
         if (sub.id) {
-          // Update existing subcategory
           await prisma.subcategory.update({
             where: { id: sub.id },
             data: {
@@ -287,18 +333,19 @@ export async function PUT(
               slug: subSlug,
               description: sub.description || null,
               image: subImagePath,
+              mobileIcon: subMobileIconPath ?? undefined,
               isActive: sub.isActive !== undefined ? sub.isActive : true,
             },
           });
           console.log(`Updated subcategory: ${sub.name}`);
         } else {
-          // Create new subcategory
           await prisma.subcategory.create({
             data: {
               name: sub.name,
               slug: subSlug,
               description: sub.description || null,
               image: subImagePath,
+              mobileIcon: subMobileIconPath || null,
               isActive: sub.isActive !== undefined ? sub.isActive : true,
               categoryId: id,
             },
@@ -360,7 +407,6 @@ export async function DELETE(
         _count: {
           select: {
             products: true,
-            services: true,
           },
         },
       },
@@ -373,10 +419,9 @@ export async function DELETE(
       );
     }
 
-    if (category._count.products > 0 || category._count.services > 0) {
+    if (category._count.products > 0) {
       const parts = [];
       if (category._count.products > 0) parts.push(`${category._count.products} product(s)`);
-      if (category._count.services > 0) parts.push(`${category._count.services} service(s)`);
       return NextResponse.json(
         { error: `Cannot delete category. In use by ${parts.join(" and ")}.` },
         { status: 400 }

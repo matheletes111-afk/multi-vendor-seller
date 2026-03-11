@@ -1,0 +1,237 @@
+import { NextRequest, NextResponse } from "next/server"
+import { prisma } from "@/lib/prisma"
+
+// Define types
+interface ProductVariant {
+  price: number
+  discount: number | null
+}
+
+interface Product {
+  id: string
+  name: string
+  slug: string
+  images: any
+  isFeatured: boolean
+  createdAt: Date
+  category: {
+    id: string
+    name: string
+    slug: string
+  } | null
+  seller: {
+    store: {
+      name: string
+    } | null
+  } | null
+  variants: ProductVariant[]
+  minPrice?: number
+  maxPrice?: number
+  discount?: number | null
+}
+
+interface Subcategory {
+  id: string
+  name: string
+  slug: string
+  image: string | null
+  description: string | null
+  isActive: boolean
+  createdAt: Date
+  updatedAt: Date
+  productsCount?: number
+}
+
+interface CategoryDetail {
+  id: string
+  name: string
+  slug: string
+  image: string | null
+  description: string | null
+  isActive: boolean
+  createdAt: Date
+  updatedAt: Date
+  subcategories: Subcategory[]
+  products: Product[]
+  productsCount: number
+  subcategoriesCount: number
+}
+
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    // Await the params Promise (Next.js 15 pattern)
+    const { id } = await params
+    
+    // Get query parameters for filtering
+    const { searchParams } = new URL(request.url)
+    const limit = searchParams.get('limit') ? parseInt(searchParams.get('limit')!) : 20
+
+    console.log("Fetching category with ID:", id) // Debug log
+
+    // Get single category with ID
+    const category = await prisma.category.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        image: true,
+        description: true,
+        isActive: true,
+        createdAt: true,
+        updatedAt: true,
+      }
+    })
+
+    if (!category) {
+      return NextResponse.json({
+        success: false,
+        error: `Category not found with ID: ${id}`
+      }, { status: 404 })
+    }
+
+    // Get subcategories
+    const subcategories = await prisma.subcategory.findMany({
+      where: { 
+        categoryId: id,
+        isActive: true 
+      },
+      orderBy: { name: "asc" },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        image: true,
+        description: true,
+        isActive: true,
+        createdAt: true,
+        updatedAt: true,
+        _count: {
+          select: {
+            products: true,
+          }
+        }
+      }
+    })
+
+    // Get products
+    const products = await prisma.product.findMany({
+      where: { 
+        categoryId: id,
+        isActive: true 
+      },
+      take: limit,
+      orderBy: [{ isFeatured: "desc" }, { createdAt: "desc" }],
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        images: true,
+        isFeatured: true,
+        createdAt: true,
+        category: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+          }
+        },
+        seller: {
+          select: {
+            store: {
+              select: {
+                name: true,
+              }
+            }
+          }
+        },
+        variants: {
+          orderBy: { price: "asc" },
+          select: {
+            price: true,
+            discount: true,
+          }
+        },
+      },
+    })
+
+    // Get total products count
+    const productsCount = await prisma.product.count({
+      where: { 
+        categoryId: id,
+        isActive: true 
+      }
+    })
+
+    // Transform products to include min/max price and discount
+    const transformedProducts: Product[] = products.map(product => {
+      const prices = product.variants.map(v => v.price)
+      const minPrice = prices.length > 0 ? Math.min(...prices) : 0
+      const maxPrice = prices.length > 0 ? Math.max(...prices) : 0
+      
+      const discounts = product.variants
+        .filter(v => v.discount)
+        .map(v => v.discount)
+      const bestDiscount = discounts.length > 0 ? Math.max(...discounts as number[]) : null
+
+      return {
+        id: product.id,
+        name: product.name,
+        slug: product.slug,
+        images: product.images,
+        isFeatured: product.isFeatured,
+        createdAt: product.createdAt,
+        category: product.category,
+        seller: product.seller,
+        variants: product.variants.slice(0, 1),
+        minPrice,
+        maxPrice,
+        discount: bestDiscount,
+      }
+    })
+
+    // Transform subcategories
+    const transformedSubcategories: Subcategory[] = subcategories.map(sub => ({
+      id: sub.id,
+      name: sub.name,
+      slug: sub.slug,
+      image: sub.image,
+      description: sub.description,
+      isActive: sub.isActive,
+      createdAt: sub.createdAt,
+      updatedAt: sub.updatedAt,
+      productsCount: sub._count.products,
+    }))
+
+    // Return category details
+    return NextResponse.json({
+      success: true,
+      message: "Category details fetched successfully",
+      data: {
+        id: category.id,
+        name: category.name,
+        slug: category.slug,
+        image: category.image,
+        description: category.description,
+        isActive: category.isActive,
+        createdAt: category.createdAt,
+        updatedAt: category.updatedAt,
+        subcategories: transformedSubcategories,
+        products: transformedProducts,
+        productsCount,
+        subcategoriesCount: subcategories.length,
+      }
+    })
+
+  } catch (error) {
+    console.error("Single category API error:", error)
+    
+    return NextResponse.json({
+      success: false,
+      error: error instanceof Error ? error.message : "Internal server error"
+    }, { status: 500 })
+  }
+}

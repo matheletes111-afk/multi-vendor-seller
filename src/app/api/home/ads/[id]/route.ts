@@ -48,7 +48,7 @@ export async function GET(
             slug: true,
             basePrice: true,
             images: true,
-            category: { select: { name: true } },
+            serviceCategory: { select: { name: true } },
             seller: { select: { store: { select: { name: true } } } },
             _count: { select: { reviews: true } },
           },

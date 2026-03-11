@@ -18,7 +18,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/ui/avatar"
 import { Button } from "@/ui/button"
 import { Separator } from "@/ui/separator"
 import { Sheet, SheetContent, SheetTrigger } from "@/ui/sheet"
-import { LogOut, User, LayoutDashboard, Users, CreditCard, FolderTree, Megaphone, Menu, BadgeDollarSign, ImageIcon, ShoppingCart } from "lucide-react"
+import { LogOut, User, LayoutDashboard, Users, CreditCard, FolderTree, Briefcase, Megaphone, Menu, BadgeDollarSign, ImageIcon, ShoppingCart } from "lucide-react"
 
 function NavItem({ href, label, icon }: { href: string; label: string; icon?: ReactNode }) {
   const pathname = usePathname()
@@ -64,7 +64,8 @@ export function AdminLayoutClient({
       <NavItem href="/admin/orders" label="Orders" icon={<ShoppingCart className="h-4 w-4" />} />
       <NavItem href="/admin/sellers" label="Sellers" icon={<Users className="h-4 w-4" />} />
       <NavItem href="/admin/subscriptions" label="Subscriptions" icon={<CreditCard className="h-4 w-4" />} />
-      <NavItem href="/admin/categories" label="Categories" icon={<FolderTree className="h-4 w-4" />} />
+      <NavItem href="/admin/categories" label="Product Category" icon={<FolderTree className="h-4 w-4" />} />
+      <NavItem href="/admin/service-categories" label="Service Category" icon={<Briefcase className="h-4 w-4" />} />
       <NavItem href="/admin/banners" label="Banners" icon={<ImageIcon className="h-4 w-4" />} />
       <NavItem href="/admin/admanagement" label="Ad Management" icon={<Megaphone className="h-4 w-4" />} />
       <NavItem href="/admin/seller-ads" label="Seller Ads" icon={<BadgeDollarSign className="h-4 w-4" />} />

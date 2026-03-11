@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/ui/
 import { Alert, AlertDescription } from "@/ui/alert";
 import { Separator } from "@/ui/separator";
 import { ImageLinkOrUpload, type ImageLinkOrUploadValue } from "@/components/admin/image-link-or-upload";
+import { MobileIconPngUpload, type MobileIconPngValue } from "@/components/admin/mobile-icon-png-upload";
 import { Plus, Trash2, Pencil } from "lucide-react";
 import Image from "next/image";
 
@@ -18,9 +19,12 @@ interface Subcategory {
   name: string;
   description: string;
   image?: string | null;
+  mobileIcon?: string | null;
   existingImage?: string | null;
+  existingMobileIcon?: string | null;
   imageValue?: ImageLinkOrUploadValue | null;
   imagePreview?: string;
+  mobileIconValue?: MobileIconPngValue | null;
   isActive: boolean;
   removeImage?: boolean;
 }
@@ -30,6 +34,7 @@ interface Category {
   name: string;
   description: string | null;
   image: string | null;
+  mobileIcon?: string | null;
   commissionRate: number;
   isActive: boolean;
   subcategories: Subcategory[];
@@ -53,6 +58,7 @@ export function EditCategoryForm({ category }: { category: Category }) {
   // Category image (link or file)
   const [categoryImageValue, setCategoryImageValue] = useState<ImageLinkOrUploadValue>(null);
   const [removeCategoryImage, setRemoveCategoryImage] = useState(false);
+  const [categoryMobileIconValue, setCategoryMobileIconValue] = useState<MobileIconPngValue>(null);
 
   // Subcategory form state
   const [subcategoryForm, setSubcategoryForm] = useState<Subcategory>({
@@ -60,6 +66,7 @@ export function EditCategoryForm({ category }: { category: Category }) {
     description: "",
     imageValue: null,
     imagePreview: undefined,
+    mobileIconValue: null,
     isActive: true,
   });
 
@@ -71,8 +78,10 @@ export function EditCategoryForm({ category }: { category: Category }) {
         name: sub.name,
         description: sub.description || "",
         existingImage: sub.image,
+        existingMobileIcon: sub.mobileIcon,
         imagePreview: sub.image || undefined,
         imageValue: null,
+        mobileIconValue: null,
         isActive: sub.isActive,
       }))
     );
@@ -130,6 +139,7 @@ export function EditCategoryForm({ category }: { category: Category }) {
       description: "",
       imageValue: null,
       imagePreview: undefined,
+      mobileIconValue: null,
       isActive: true,
       removeImage: false
     });
@@ -157,6 +167,7 @@ export function EditCategoryForm({ category }: { category: Category }) {
         description: "",
         imageValue: null,
         imagePreview: undefined,
+        mobileIconValue: null,
         isActive: true,
         removeImage: false
       });
@@ -192,12 +203,18 @@ export function EditCategoryForm({ category }: { category: Category }) {
       if (category.image) {
         formData.append("existingCategoryImage", category.image);
       }
+      if (categoryMobileIconValue?.type === "file") {
+        formData.append("categoryMobileIcon", categoryMobileIconValue.file);
+      } else if (categoryMobileIconValue?.type === "url" && categoryMobileIconValue.url) {
+        formData.append("categoryMobileIconUrl", categoryMobileIconValue.url);
+      }
 
       const subcategoriesPayload = subcategories.map(sub => ({
         id: sub.id,
         name: sub.name,
         description: sub.description,
         existingImage: sub.existingImage,
+        existingMobileIcon: sub.existingMobileIcon,
         isActive: sub.isActive,
         removeImage: sub.removeImage || false
       }));
@@ -208,6 +225,11 @@ export function EditCategoryForm({ category }: { category: Category }) {
           formData.append(`subcategoryImage_${index}`, sub.imageValue.file);
         } else if (sub.imageValue?.type === "url" && sub.imageValue.url) {
           formData.append(`subcategoryImageUrl_${index}`, sub.imageValue.url);
+        }
+        if (sub.mobileIconValue?.type === "file") {
+          formData.append(`subcategoryMobileIcon_${index}`, sub.mobileIconValue.file);
+        } else if (sub.mobileIconValue?.type === "url" && sub.mobileIconValue.url) {
+          formData.append(`subcategoryMobileIconUrl_${index}`, sub.mobileIconValue.url);
         }
       });
 
@@ -247,97 +269,116 @@ export function EditCategoryForm({ category }: { category: Category }) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6 text-foreground">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight text-foreground">Edit Category</h1>
+    <form onSubmit={handleSubmit} className="space-y-6 text-foreground px-2 sm:px-0 max-w-4xl">
+      <div className="space-y-1">
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">Edit Product Category</h1>
+        <p className="text-sm text-muted-foreground">Update category and subcategories.</p>
       </div>
 
       {error && (
-        <Alert variant="destructive">
+        <Alert variant="destructive" className="rounded-lg">
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
 
-      {/* Category Details */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Category Details</CardTitle>
-          <CardDescription>Update category information</CardDescription>
+      <Card className="overflow-hidden border shadow-sm">
+        <CardHeader className="space-y-1 pb-4">
+          <CardTitle className="text-lg">Category details</CardTitle>
+          <CardDescription>Name, description, images, and settings.</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="name">Category Name *</Label>
-            <Input
-              id="name"
-              name="name"
-              value={categoryData.name}
-              onChange={handleCategoryChange}
-              placeholder="e.g., Electronics"
-              required
-            />
+        <CardContent className="space-y-6">
+          <div className="grid gap-4 sm:grid-cols-1">
+            <div className="space-y-2">
+              <Label htmlFor="name" className="text-sm font-medium">Name <span className="text-destructive">*</span></Label>
+              <Input
+                id="name"
+                name="name"
+                value={categoryData.name}
+                onChange={handleCategoryChange}
+                placeholder="e.g., Electronics"
+                required
+                className="max-w-md"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="description" className="text-sm font-medium">Description</Label>
+              <Textarea
+                id="description"
+                name="description"
+                value={categoryData.description}
+                onChange={handleCategoryChange}
+                placeholder="Category description"
+                rows={3}
+                className="resize-none"
+              />
+            </div>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="description">Description</Label>
-            <Textarea
-              id="description"
-              name="description"
-              value={categoryData.description}
-              onChange={handleCategoryChange}
-              placeholder="Category description"
-              rows={3}
-            />
+          <div className="rounded-lg border bg-muted/30 p-4 space-y-6">
+            <p className="text-sm font-medium text-foreground">Media</p>
+            <div className="grid gap-6 sm:grid-cols-1 lg:grid-cols-2">
+              <div className="space-y-2">
+                <ImageLinkOrUpload
+                  label="Category image"
+                  value={categoryImageValue}
+                  onChange={handleCategoryImageChange}
+                  currentImage={!categoryImageValue && !removeCategoryImage ? category.image ?? undefined : undefined}
+                  showPreview={true}
+                />
+              </div>
+              <div className="space-y-2">
+                <MobileIconPngUpload
+                  label="Mobile icon (PNG)"
+                  value={categoryMobileIconValue}
+                  onChange={setCategoryMobileIconValue}
+                  currentImage={category.mobileIcon ?? undefined}
+                  showPreview={true}
+                />
+                <p className="text-xs text-muted-foreground">Optional.</p>
+              </div>
+            </div>
           </div>
 
-          <div className="space-y-2">
-            <ImageLinkOrUpload
-              label="Category Image"
-              value={categoryImageValue}
-              onChange={handleCategoryImageChange}
-              currentImage={!categoryImageValue && !removeCategoryImage ? category.image ?? undefined : undefined}
-              showPreview={true}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="commissionRate">Commission Rate (%)</Label>
-            <Input
-              id="commissionRate"
-              name="commissionRate"
-              type="number"
-              step="0.1"
-              min="0"
-              max="100"
-              value={categoryData.commissionRate}
-              onChange={handleCategoryChange}
-            />
-          </div>
-
-          <div className="flex items-center space-x-2">
-            <input
-              id="isActive"
-              name="isActive"
-              type="checkbox"
-              checked={categoryData.isActive}
-              onChange={(e) => setCategoryData(prev => ({ ...prev, isActive: e.target.checked }))}
-              className="h-4 w-4 rounded border-input"
-            />
-            <Label htmlFor="isActive" className="text-sm font-normal">Active</Label>
+          <div className="flex flex-wrap items-center gap-6 rounded-lg border bg-muted/20 p-4">
+            <div className="space-y-2 min-w-[140px]">
+              <Label htmlFor="commissionRate" className="text-sm font-medium">Commission (%)</Label>
+              <Input
+                id="commissionRate"
+                name="commissionRate"
+                type="number"
+                step="0.1"
+                min={0}
+                max={100}
+                value={categoryData.commissionRate}
+                onChange={handleCategoryChange}
+                className="w-24"
+              />
+            </div>
+            <div className="flex items-center gap-2 pt-6 sm:pt-0">
+              <input
+                id="isActive"
+                name="isActive"
+                type="checkbox"
+                checked={categoryData.isActive}
+                onChange={(e) => setCategoryData(prev => ({ ...prev, isActive: e.target.checked }))}
+                className="h-4 w-4 rounded border-input bg-background accent-primary"
+              />
+              <Label htmlFor="isActive" className="text-sm font-medium cursor-pointer">Active</Label>
+            </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Subcategories Section */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Subcategories</CardTitle>
-          <CardDescription>Manage subcategories under this category</CardDescription>
+      <Card className="overflow-hidden border shadow-sm">
+        <CardHeader className="space-y-1 pb-4">
+          <CardTitle className="text-lg">Subcategories</CardTitle>
+          <CardDescription>Add or edit subcategories. Each can have an image and mobile icon.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           {/* Subcategory Form */}
-          <div className="space-y-4 p-4 border border-border rounded-lg bg-muted">
-            <h3 className="font-medium text-foreground">
-              {editingIndex !== null ? "Edit Subcategory" : "Add New Subcategory"}
+          <div className="space-y-4 rounded-lg border border-border bg-muted/30 p-4 sm:p-5">
+            <h3 className="text-sm font-semibold text-foreground">
+              {editingIndex !== null ? "Edit subcategory" : "Add subcategory"}
             </h3>
             
             <div className="space-y-2">
@@ -369,6 +410,15 @@ export function EditCategoryForm({ category }: { category: Category }) {
                 value={subcategoryForm.imageValue ?? null}
                 onChange={(v) => setSubcategoryForm(prev => ({ ...prev, imageValue: v ?? undefined }))}
                 currentImage={subcategoryForm.removeImage ? undefined : (subcategoryForm.imagePreview || subcategoryForm.existingImage)}
+                showPreview={true}
+              />
+            </div>
+            <div className="space-y-2">
+              <MobileIconPngUpload
+                label="Subcategory mobile icon"
+                value={subcategoryForm.mobileIconValue ?? null}
+                onChange={(v) => setSubcategoryForm(prev => ({ ...prev, mobileIconValue: v ?? undefined }))}
+                currentImage={subcategoryForm.existingMobileIcon ?? undefined}
                 showPreview={true}
               />
             </div>
@@ -405,6 +455,7 @@ export function EditCategoryForm({ category }: { category: Category }) {
                       description: "",
                       imageValue: null,
                       imagePreview: undefined,
+                      mobileIconValue: null,
                       isActive: true,
                       removeImage: false
                     });
@@ -418,53 +469,28 @@ export function EditCategoryForm({ category }: { category: Category }) {
 
           {/* Subcategories List */}
           {subcategories.length > 0 && (
-            <div className="space-y-4">
+            <div className="space-y-3">
               <Separator />
-              <h3 className="font-medium text-foreground">Subcategories ({subcategories.length})</h3>
+              <p className="text-sm font-medium text-foreground">Subcategories ({subcategories.length})</p>
               <div className="space-y-2">
                 {subcategories.map((sub, index) => (
-                  <div
-                    key={index}
-                    className="flex items-start justify-between p-3 border border-border rounded-lg bg-card"
-                  >
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium text-foreground">{sub.name}</span>
-                        {!sub.isActive && (
-                          <span className="text-xs bg-muted text-muted-foreground px-2 py-1 rounded">Inactive</span>
-                        )}
-                      </div>
-                      {sub.description && (
-                        <p className="text-sm text-muted-foreground mt-1">{sub.description}</p>
-                      )}
-                      {(sub.imagePreview || sub.existingImage || (sub.imageValue?.type === "url" && sub.imageValue.url)) && (
-                        <div className="mt-2 relative w-16 h-16 rounded overflow-hidden bg-muted">
+                  <div key={index} className="flex flex-col sm:flex-row sm:items-center gap-3 p-3 rounded-lg border bg-card">
+                    <div className="flex flex-1 items-center gap-3 min-w-0">
+                      {(sub.imagePreview || sub.existingImage || (sub.imageValue?.type === "url" && sub.imageValue?.url)) && (
+                        <div className="relative w-12 h-12 sm:w-14 sm:h-14 flex-shrink-0 rounded overflow-hidden bg-muted border">
                           {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={sub.imageValue?.type === "url" ? sub.imageValue.url : (sub.imagePreview || sub.existingImage || "")}
-                            alt={sub.name}
-                            className="w-full h-full object-cover rounded"
-                          />
+                          <img src={sub.imageValue?.type === "url" ? sub.imageValue.url : (sub.imagePreview || sub.existingImage || "")} alt={sub.name} className="w-full h-full object-cover" />
                         </div>
                       )}
+                      <div className="min-w-0">
+                        <span className="font-medium text-foreground block truncate">{sub.name}</span>
+                        {sub.description && <p className="text-xs text-muted-foreground line-clamp-1">{sub.description}</p>}
+                        {!sub.isActive && <span className="text-xs text-muted-foreground">Inactive</span>}
+                      </div>
                     </div>
-                    <div className="flex gap-1">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => editSubcategory(index)}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => removeSubcategory(index)}
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
+                    <div className="flex gap-1 shrink-0">
+                      <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => editSubcategory(index)}><Pencil className="h-4 w-4" /></Button>
+                      <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => removeSubcategory(index)}><Trash2 className="h-4 w-4" /></Button>
                     </div>
                   </div>
                 ))}
@@ -474,17 +500,9 @@ export function EditCategoryForm({ category }: { category: Category }) {
         </CardContent>
       </Card>
 
-      <div className="flex justify-end gap-2 pt-4">
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => router.push("/admin/categories")}
-        >
-          Cancel
-        </Button>
-        <Button type="submit" disabled={loading}>
-          {loading ? "Updating..." : "Update Category"}
-        </Button>
+      <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 pt-2 pb-4">
+        <Button type="button" variant="outline" onClick={() => router.push("/admin/categories")} className="w-full sm:w-auto">Cancel</Button>
+        <Button type="submit" disabled={loading} className="w-full sm:w-auto">{loading ? "Updating…" : "Update category"}</Button>
       </div>
     </form>
   );

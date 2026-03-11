@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
           _count: {
             select: {
               products: true,
-              services: true,
+              subcategories: true,
             },
           },
         },
@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    const subcategories = await (prisma as any).subcategory.findMany({
+    const subcategories = await prisma.subcategory.findMany({
       where: { categoryId: { in: categoryIds } },
       select: {
         id: true,
@@ -63,6 +63,7 @@ export async function GET(request: NextRequest) {
         slug: true,
         description: true,
         image: true,
+        mobileIcon: true,
         isActive: true,
         createdAt: true,
         updatedAt: true,
@@ -71,15 +72,12 @@ export async function GET(request: NextRequest) {
     });
 
     const subByCategoryId = subcategories.reduce(
-      (acc: Record<string, any[]>, sub: any) => {
+      (acc: Record<string, typeof subcategories>, sub) => {
         if (!acc[sub.categoryId]) acc[sub.categoryId] = [];
-        acc[sub.categoryId].push({
-          ...sub,
-          _count: { products: 0, services: 0 },
-        });
+        acc[sub.categoryId].push(sub);
         return acc;
       },
-      {} as Record<string, any[]>
+      {} as Record<string, typeof subcategories>
     );
 
     const categoriesWithCount = categories.map((c) => ({
@@ -127,16 +125,24 @@ export async function POST(request: NextRequest) {
     const categoryImageFile = formData.get("categoryImage") as File | null;
     const categoryImageUrl = (formData.get("categoryImageUrl") as string)?.trim() || null;
     let categoryImagePath = categoryImageUrl;
+    const categoryMobileIconFile = formData.get("categoryMobileIcon") as File | null;
+    const categoryMobileIconUrl = (formData.get("categoryMobileIconUrl") as string)?.trim() || null;
+    let categoryMobileIconPath = categoryMobileIconUrl;
 
     // Handle subcategories
     const subcategoriesData = JSON.parse(formData.get("subcategories") as string || "[]");
     const subcategoryImages = new Map();
+    const subcategoryMobileIcons = new Map();
 
     // Process all image files from formData
     for (const [key, value] of formData.entries()) {
       if (key.startsWith("subcategoryImage_") && value instanceof File) {
         const index = key.replace("subcategoryImage_", "");
         subcategoryImages.set(index, value);
+      }
+      if (key.startsWith("subcategoryMobileIcon_") && value instanceof File) {
+        const index = key.replace("subcategoryMobileIcon_", "");
+        subcategoryMobileIcons.set(index, value);
       }
     }
 
@@ -186,6 +192,25 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    if (categoryMobileIconFile && categoryMobileIconFile.size > 0 && categoryMobileIconFile.type === "image/png") {
+      try {
+        const bytes = await categoryMobileIconFile.arrayBuffer();
+        const buffer = Buffer.from(bytes);
+        const timestamp = Date.now();
+        const randomNum = Math.floor(Math.random() * 10000);
+        const fileName = `mobile-${timestamp}-${randomNum}.png`;
+        const uploadDir = path.join(process.cwd(), "public/uploads/categories");
+        if (!existsSync(uploadDir)) {
+          await mkdir(uploadDir, { recursive: true });
+        }
+        const filePath = path.join(uploadDir, fileName);
+        await writeFile(filePath, buffer);
+        categoryMobileIconPath = `/uploads/categories/${fileName}`;
+      } catch (uploadError) {
+        console.error("Error uploading category mobile icon:", uploadError);
+      }
+    }
+
     // Create category
     const newCategory = await prisma.category.create({
       data: {
@@ -193,6 +218,7 @@ export async function POST(request: NextRequest) {
         slug,
         description,
         image: categoryImagePath,
+        mobileIcon: categoryMobileIconPath || null,
         commissionRate,
         isActive,
       },
@@ -207,7 +233,9 @@ export async function POST(request: NextRequest) {
         const subSlug = generateSlug(`${name}-${sub.name}`);
         
         let subImagePath = (formData.get(`subcategoryImageUrl_${i}`) as string)?.trim() || null;
+        let subMobileIconPath = (formData.get(`subcategoryMobileIconUrl_${i}`) as string)?.trim() || null;
         const imageFile = subcategoryImages.get(i.toString());
+        const mobileIconFile = subcategoryMobileIcons.get(i.toString());
 
         if (imageFile && imageFile.size > 0) {
           try {
@@ -232,7 +260,25 @@ export async function POST(request: NextRequest) {
             subImagePath = `/uploads/subcategories/${fileName}`;
           } catch (uploadError) {
             console.error("Error uploading subcategory image:", uploadError);
-            // Continue without image if upload fails
+          }
+        }
+
+        if (mobileIconFile && mobileIconFile.size > 0 && mobileIconFile.type === "image/png") {
+          try {
+            const bytes = await mobileIconFile.arrayBuffer();
+            const buffer = Buffer.from(bytes);
+            const timestamp = Date.now();
+            const randomNum = Math.floor(Math.random() * 10000);
+            const fileName = `mobile-${timestamp}-${randomNum}.png`;
+            const uploadDir = path.join(process.cwd(), "public/uploads/subcategories");
+            if (!existsSync(uploadDir)) {
+              await mkdir(uploadDir, { recursive: true });
+            }
+            const filePath = path.join(uploadDir, fileName);
+            await writeFile(filePath, buffer);
+            subMobileIconPath = `/uploads/subcategories/${fileName}`;
+          } catch (uploadError) {
+            console.error("Error uploading subcategory mobile icon:", uploadError);
           }
         }
         
@@ -242,6 +288,7 @@ export async function POST(request: NextRequest) {
             slug: subSlug,
             description: sub.description || null,
             image: subImagePath,
+            mobileIcon: subMobileIconPath || null,
             isActive: sub.isActive !== undefined ? sub.isActive : true,
             categoryId: newCategory.id,
           },

@@ -4,9 +4,17 @@ import { useState, useEffect } from "react"
 import Link from "next/link"
 import { useSearchParams, useRouter } from "next/navigation"
 import { Button } from "@/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/ui/card"
+import { Card, CardContent } from "@/ui/card"
 import { Badge } from "@/ui/badge"
 import { Alert, AlertDescription } from "@/ui/alert"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/ui/table"
 import {
   Dialog,
   DialogContent,
@@ -29,7 +37,7 @@ type Service = {
   duration: number | null
   isActive: boolean
   images: unknown
-  category: { name: string }
+  serviceCategory: { name: string }
   serviceType: string
   slots: unknown[]
   packages: unknown[]
@@ -104,67 +112,79 @@ export function ServicesPageClient() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-          {services.map((service) => {
-            const imageUrls = getServiceImageUrls(service.images)
-            const firstImage = imageUrls[0]
-            return (
-            <Card key={service.id} className="overflow-hidden">
-              <Link href={`/service-seller/services/${service.id}`} className="block">
-                <div className="relative aspect-video w-full overflow-hidden bg-muted">
-                  {firstImage ? (
-                    <img src={firstImage} alt={service.name} className="h-full w-full object-cover" />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center text-muted-foreground">
-                      <Briefcase className="h-12 w-12 sm:h-14 sm:w-14" />
-                    </div>
-                  )}
-                </div>
-              </Link>
-              <CardHeader className="p-3 sm:p-4">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex-1 min-w-0">
-                    <CardTitle className="line-clamp-2 text-base">{service.name}</CardTitle>
-                    <CardDescription>{service.category.name} • {service.serviceType}</CardDescription>
-                  </div>
-                  <Badge variant={service.isActive ? "default" : "secondary"}>{service.isActive ? "Active" : "Inactive"}</Badge>
-                </div>
-              </CardHeader>
-              <CardContent className="p-3 sm:p-4 pt-0">
-                <div className="space-y-2">
-                  {service.basePrice != null ? (
-                    <div className="space-y-1">
-                      <p className="text-sm text-muted-foreground">Base {formatCurrency(service.basePrice)}{service.discount > 0 && <> · {formatCurrency(service.discount)} off</>}</p>
-                      <p className="text-xl font-bold">{formatCurrency(Math.max(0, service.basePrice - service.discount))} per item</p>
-                      <p className="text-xs text-muted-foreground">{service.hasGst ? "15% GST at checkout" : "No GST"}</p>
-                    </div>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">Price on request</p>
-                  )}
-                  {service.duration && <p className="text-sm text-muted-foreground">Duration: {service.duration} min</p>}
-                  <p className="text-sm text-muted-foreground">Slots: {service.slots.length} | Packages: {service.packages.length}</p>
-                  <p className="text-sm text-muted-foreground">Bookings: {service._count.orderItems} | Reviews: {service._count.reviews}</p>
-                  <div className="flex flex-wrap gap-2 mt-4">
-                    <Button variant="outline" size="sm" className="flex-1 min-w-0" asChild>
-                      <Link href={`/service-seller/services/${service.id}`}>
-                        <Edit className="mr-2 h-4 w-4 shrink-0" />
-                        Edit
-                      </Link>
-                    </Button>
-                    <div className="flex-1 min-w-0">
-                      <DeleteServiceButton
-                        serviceId={service.id}
-                        serviceName={service.name}
-                        orderItemsCount={service._count.orderItems}
-                        onDelete={handleDelete}
-                      />
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          )})}
-        </div>
+        <Card className="overflow-hidden">
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-16 shrink-0">Image</TableHead>
+                  <TableHead>Name</TableHead>
+                  <TableHead className="hidden sm:table-cell">Category</TableHead>
+                  <TableHead className="hidden md:table-cell">Type</TableHead>
+                  <TableHead>Price</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="hidden lg:table-cell text-right">Bookings / Reviews</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {services.map((service) => {
+                  const imageUrls = getServiceImageUrls(service.images)
+                  const firstImage = imageUrls[0]
+                  const priceText = service.basePrice != null
+                    ? formatCurrency(Math.max(0, service.basePrice - service.discount))
+                    : "On request"
+                  return (
+                    <TableRow key={service.id}>
+                      <TableCell>
+                        <Link href={`/service-seller/services/${service.id}`} className="block w-12 h-12 rounded overflow-hidden bg-muted shrink-0">
+                          {firstImage ? (
+                            <img src={firstImage} alt={service.name} className="h-12 w-12 object-cover" referrerPolicy="no-referrer" />
+                          ) : (
+                            <div className="h-12 w-12 flex items-center justify-center text-muted-foreground">
+                              <Briefcase className="h-6 w-6" />
+                            </div>
+                          )}
+                        </Link>
+                      </TableCell>
+                      <TableCell>
+                        <Link href={`/service-seller/services/${service.id}`} className="font-medium hover:underline line-clamp-2">
+                          {service.name}
+                        </Link>
+                        <p className="text-xs text-muted-foreground sm:hidden mt-0.5">{service.serviceCategory.name}</p>
+                      </TableCell>
+                      <TableCell className="hidden sm:table-cell text-muted-foreground">{service.serviceCategory.name}</TableCell>
+                      <TableCell className="hidden md:table-cell text-muted-foreground text-sm">{service.serviceType.replace("_", " ")}</TableCell>
+                      <TableCell className="font-medium whitespace-nowrap">{priceText}</TableCell>
+                      <TableCell>
+                        <Badge variant={service.isActive ? "default" : "secondary"}>{service.isActive ? "Active" : "Inactive"}</Badge>
+                      </TableCell>
+                      <TableCell className="hidden lg:table-cell text-right text-sm text-muted-foreground">
+                        {service._count.orderItems} / {service._count.reviews}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-2 flex-wrap">
+                          <Button variant="outline" size="sm" asChild>
+                            <Link href={`/service-seller/services/${service.id}`}>
+                              <Edit className="mr-2 h-4 w-4 shrink-0" />
+                              Edit
+                            </Link>
+                          </Button>
+                          <DeleteServiceButton
+                            serviceId={service.id}
+                            serviceName={service.name}
+                            orderItemsCount={service._count.orderItems}
+                            onDelete={handleDelete}
+                          />
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
+              </TableBody>
+            </Table>
+          </div>
+        </Card>
       )}
     </div>
   )
@@ -192,7 +212,7 @@ function DeleteServiceButton({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="destructive" size="sm" className="w-full">
+        <Button variant="destructive" size="sm">
           <Trash2 className="mr-2 h-4 w-4" />
           Delete
         </Button>

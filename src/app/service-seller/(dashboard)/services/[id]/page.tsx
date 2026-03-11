@@ -16,7 +16,7 @@ import Link from "next/link"
 const updateServiceSchema = z.object({
   name: z.string().min(1).optional(),
   description: z.string().optional().nullable(),
-  categoryId: z.string().min(1).optional(),
+  serviceCategoryId: z.string().min(1).optional(),
   serviceType: z.enum(["APPOINTMENT", "FIXED_PRICE"]).optional(),
   basePrice: z.number().positive().optional().nullable(),
   discount: z.number().min(0).optional(),
@@ -58,9 +58,9 @@ async function updateServiceForm(serviceId: string, formData: FormData) {
   const session = await auth()
   if (!session?.user || !isServiceSeller(session.user)) redirect("/service-seller/login?error=session_expired")
   const name = formData.get("name") as string
-  const categoryId = formData.get("categoryId") as string
+  const serviceCategoryId = formData.get("serviceCategoryId") as string
   const serviceType = formData.get("serviceType") as "APPOINTMENT" | "FIXED_PRICE"
-  if (!name || !categoryId || !serviceType) redirect(`/service-seller/services/${serviceId}?error=missing_required_fields`)
+  if (!name || !serviceCategoryId || !serviceType) redirect(`/service-seller/services/${serviceId}?error=missing_required_fields`)
   const imagesInput = (formData.get("images") as string) || ""
   const images = imagesInput ? imagesInput.split(/[\n,]+/).map((u) => u.trim()).filter(Boolean) : []
   const basePriceInput = formData.get("basePrice") as string
@@ -73,7 +73,7 @@ async function updateServiceForm(serviceId: string, formData: FormData) {
   let duration: number | undefined
   if (durationInput?.trim()) { const p = parseInt(durationInput); if (!isNaN(p) && p > 0) duration = p }
   const discount = Math.max(0, isNaN(parseFloat(discountStr)) ? 0 : parseFloat(discountStr))
-  const data: any = { name, description: (formData.get("description") as string) || undefined, categoryId, serviceType, isActive, hasGst, discount }
+  const data: any = { name, description: (formData.get("description") as string) || undefined, serviceCategoryId, serviceType, isActive, hasGst, discount }
   if (basePrice !== undefined) data.basePrice = basePrice
   if (duration !== undefined) data.duration = duration
   if (images.length > 0) data.images = images
@@ -112,7 +112,7 @@ export default async function EditServicePage({
       sellerId: seller.id,
     },
     include: {
-      category: true,
+      serviceCategory: true,
     },
   })
 
@@ -120,7 +120,7 @@ export default async function EditServicePage({
     redirect("/service-seller/services?error=service_not_found")
   }
 
-  const categories = await prisma.category.findMany({
+  const categories = await prisma.serviceCategory.findMany({
     where: { isActive: true },
     orderBy: { name: "asc" },
   })
@@ -190,12 +190,12 @@ export default async function EditServicePage({
 
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="categoryId">Category *</Label>
+                <Label htmlFor="serviceCategoryId">Service category *</Label>
                 <select
-                  id="categoryId"
-                  name="categoryId"
+                  id="serviceCategoryId"
+                  name="serviceCategoryId"
                   required
-                  defaultValue={service.categoryId}
+                  defaultValue={service.serviceCategoryId}
                   className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                 >
                   <option value="">Select a category</option>

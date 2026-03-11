@@ -7,7 +7,7 @@ export default async function ServicePage({ params }: { params: Promise<{ id: st
   const service = await prisma.service.findUnique({
     where: { id, isActive: true },
     include: {
-      category: true,
+      serviceCategory: true,
       seller: { include: { store: true } },
       _count: { select: { reviews: true } },
     },
@@ -23,7 +23,7 @@ export default async function ServicePage({ params }: { params: Promise<{ id: st
         basePrice: service.basePrice,
         discount: service.discount,
         images: service.images,
-        category: service.category,
+        serviceCategory: service.serviceCategory,
         seller: service.seller
           ? { store: service.seller.store ? { name: service.seller.store.name } : null }
           : null,

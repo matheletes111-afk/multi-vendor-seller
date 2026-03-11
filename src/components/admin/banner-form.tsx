@@ -41,6 +41,11 @@ interface Category {
   }[];
 }
 
+interface ServiceCategory {
+  id: string;
+  name: string;
+}
+
 interface Banner {
   id: string;
   bannerHeading: string;
@@ -49,30 +54,41 @@ interface Banner {
   isActive: boolean;
   categoryId?: string | null;
   subcategoryId?: string | null;
+  serviceCategoryId?: string | null;
 }
 
 // Special values for "none" selection
 const NONE_CATEGORY = "none";
 const NONE_SUBCATEGORY = "none";
+const NONE_SERVICE_CATEGORY = "none";
+const TARGET_PRODUCT = "product";
+const TARGET_SERVICE = "service";
 
-export function BannerForm({ 
-  banner, 
-  categories 
-}: { 
+export function BannerForm({
+  banner,
+  categories,
+  serviceCategories = [],
+}: {
   banner?: Banner;
   categories: Category[];
+  serviceCategories?: ServiceCategory[];
 }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  
-  // Form state - convert null/undefined to "none" for selects
+
+  // Toggle: "product" (product category + subcategory) or "service" (service category)
+  const [targetType, setTargetType] = useState<"product" | "service">(
+    banner?.serviceCategoryId ? "service" : "product"
+  );
+
   const [formData, setFormData] = useState({
     bannerHeading: banner?.bannerHeading || "",
     bannerDescription: banner?.bannerDescription || "",
     isActive: banner?.isActive ?? true,
     categoryId: banner?.categoryId || NONE_CATEGORY,
     subcategoryId: banner?.subcategoryId || NONE_SUBCATEGORY,
+    serviceCategoryId: banner?.serviceCategoryId || NONE_SERVICE_CATEGORY,
   });
 
   const [bannerImageValue, setBannerImageValue] = useState<ImageLinkOrUploadValue>(null);
@@ -123,8 +139,10 @@ export function BannerForm({
       formDataObj.append("bannerHeading", formData.bannerHeading);
       formDataObj.append("bannerDescription", formData.bannerDescription);
       formDataObj.append("isActive", formData.isActive.toString());
-      formDataObj.append("categoryId", formData.categoryId === NONE_CATEGORY ? "" : formData.categoryId);
-      formDataObj.append("subcategoryId", formData.subcategoryId === NONE_SUBCATEGORY ? "" : formData.subcategoryId);
+      formDataObj.append("targetType", targetType);
+      formDataObj.append("categoryId", targetType === TARGET_PRODUCT && formData.categoryId !== NONE_CATEGORY ? formData.categoryId : "");
+      formDataObj.append("subcategoryId", targetType === TARGET_PRODUCT && formData.subcategoryId !== NONE_SUBCATEGORY ? formData.subcategoryId : "");
+      formDataObj.append("serviceCategoryId", targetType === TARGET_SERVICE && formData.serviceCategoryId !== NONE_SERVICE_CATEGORY ? formData.serviceCategoryId : "");
 
       if (bannerImageValue?.type === "file") {
         formDataObj.append("bannerImage", bannerImageValue.file);
@@ -265,66 +283,126 @@ export function BannerForm({
           <CardHeader>
             <CardTitle>Banner Targeting</CardTitle>
             <CardDescription>
-              Select where this banner should appear (optional)
+              Choose product category/subcategory or service category (optional)
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="category">Category (Optional)</Label>
-              <Select
-                value={formData.categoryId}
-                onValueChange={handleCategoryChange}
-              >
-                <SelectTrigger id="category">
-                  <SelectValue placeholder="Select a category" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={NONE_CATEGORY}>All Categories</SelectItem>
-                  {categories.map((category) => (
-                    <SelectItem key={category.id} value={category.id}>
-                      {category.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label>Target type</Label>
+              <div className="flex gap-4 p-3 rounded-lg border bg-muted/30">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="targetType"
+                    value={TARGET_PRODUCT}
+                    checked={targetType === "product"}
+                    onChange={() => setTargetType("product")}
+                    className="h-4 w-4 rounded border-input"
+                  />
+                  <span className="text-sm font-medium">Product category</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="targetType"
+                    value={TARGET_SERVICE}
+                    checked={targetType === "service"}
+                    onChange={() => setTargetType("service")}
+                    className="h-4 w-4 rounded border-input"
+                  />
+                  <span className="text-sm font-medium">Service category</span>
+                </label>
+              </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="subcategory">Subcategory (Optional)</Label>
-              <Select
-                value={formData.subcategoryId}
-                onValueChange={handleSubcategoryChange}
-                disabled={!selectedCategory || selectedCategory === NONE_CATEGORY}
-              >
-                <SelectTrigger id="subcategory">
-                  <SelectValue placeholder={
-                    !selectedCategory || selectedCategory === NONE_CATEGORY
-                      ? "Select a category first" 
-                      : "Select a subcategory"
-                  } />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={NONE_SUBCATEGORY}>All Subcategories</SelectItem>
-                  {subcategories.map((sub) => (
-                    <SelectItem key={sub.id} value={sub.id}>
-                      {sub.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {targetType === "product" && (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="category">Product category (Optional)</Label>
+                  <Select
+                    value={formData.categoryId}
+                    onValueChange={handleCategoryChange}
+                  >
+                    <SelectTrigger id="category">
+                      <SelectValue placeholder="Select a category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={NONE_CATEGORY}>All categories</SelectItem>
+                      {categories.map((category) => (
+                        <SelectItem key={category.id} value={category.id}>
+                          {category.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-            <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-              <p className="text-sm font-medium mb-2">Preview Targeting:</p>
+                <div className="space-y-2">
+                  <Label htmlFor="subcategory">Subcategory (Optional)</Label>
+                  <Select
+                    value={formData.subcategoryId}
+                    onValueChange={handleSubcategoryChange}
+                    disabled={!selectedCategory || selectedCategory === NONE_CATEGORY}
+                  >
+                    <SelectTrigger id="subcategory">
+                      <SelectValue placeholder={
+                        !selectedCategory || selectedCategory === NONE_CATEGORY
+                          ? "Select a category first"
+                          : "Select a subcategory"
+                      } />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={NONE_SUBCATEGORY}>All subcategories</SelectItem>
+                      {subcategories.map((sub) => (
+                        <SelectItem key={sub.id} value={sub.id}>
+                          {sub.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </>
+            )}
+
+            {targetType === "service" && (
+              <div className="space-y-2">
+                <Label htmlFor="serviceCategoryId">Service category (Optional)</Label>
+                <Select
+                  value={formData.serviceCategoryId}
+                  onValueChange={(value) => setFormData((prev) => ({ ...prev, serviceCategoryId: value }))}
+                >
+                  <SelectTrigger id="serviceCategoryId">
+                    <SelectValue placeholder="Select a service category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={NONE_SERVICE_CATEGORY}>All service categories</SelectItem>
+                    {serviceCategories.map((sc) => (
+                      <SelectItem key={sc.id} value={sc.id}>
+                        {sc.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            <div className="mt-4 p-4 bg-muted/50 rounded-lg">
+              <p className="text-sm font-medium mb-2">Preview targeting</p>
               <p className="text-sm text-muted-foreground">
-                {formData.categoryId === NONE_CATEGORY && formData.subcategoryId === NONE_SUBCATEGORY && (
-                  "This banner will show on all pages"
+                {targetType === "product" && formData.categoryId === NONE_CATEGORY && formData.subcategoryId === NONE_SUBCATEGORY && (
+                  "This banner will show on all product pages"
                 )}
-                {formData.categoryId !== NONE_CATEGORY && formData.subcategoryId === NONE_SUBCATEGORY && (
-                  `This banner will show on ${categories.find(c => c.id === formData.categoryId)?.name} category pages`
+                {targetType === "product" && formData.categoryId !== NONE_CATEGORY && formData.subcategoryId === NONE_SUBCATEGORY && (
+                  `Product category: ${categories.find(c => c.id === formData.categoryId)?.name}`
                 )}
-                {formData.subcategoryId !== NONE_SUBCATEGORY && (
-                  `This banner will show on ${subcategories.find(s => s.id === formData.subcategoryId)?.name} subcategory pages`
+                {targetType === "product" && formData.subcategoryId !== NONE_SUBCATEGORY && (
+                  `Subcategory: ${subcategories.find(s => s.id === formData.subcategoryId)?.name}`
+                )}
+                {targetType === "service" && (formData.serviceCategoryId === NONE_SERVICE_CATEGORY || !formData.serviceCategoryId) && (
+                  "This banner will show on all service pages"
+                )}
+                {targetType === "service" && formData.serviceCategoryId !== NONE_SERVICE_CATEGORY && formData.serviceCategoryId && (
+                  `Service category: ${serviceCategories.find(sc => sc.id === formData.serviceCategoryId)?.name}`
                 )}
               </p>
             </div>

@@ -19,6 +19,7 @@ export async function GET(
         bannerImage: true,
         categoryId: true,
         subcategoryId: true,
+        serviceCategoryId: true,
       },
     });
     if (!banner) return NextResponse.json({ error: "Banner not found" }, { status: 404 });

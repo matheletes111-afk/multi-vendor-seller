@@ -21,7 +21,7 @@ export async function GET() {
   const services = await prisma.service.findMany({
     where: { sellerId: seller.id },
     include: {
-      category: true,
+      serviceCategory: true,
       slots: true,
       packages: true,
       _count: {

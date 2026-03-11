@@ -19,7 +19,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/ui/dialog"
-import { Package, Briefcase, Plus, Pencil, Trash2 } from "lucide-react"
+import { Package, Plus, Pencil, Trash2 } from "lucide-react"
 
 type Category = {
   id: string
@@ -28,7 +28,7 @@ type Category = {
   image: string | null
   commissionRate: number
   isActive: boolean
-  _count: { products: number; services: number }
+  _count: { products: number }
 }
 
 export function CategoriesPageClient({
@@ -105,10 +105,6 @@ export function CategoriesPageClient({
                       <Package className="h-4 w-4 text-muted-foreground" />
                       <span className="text-muted-foreground">{category._count.products} products</span>
                     </div>
-                    <div className="flex items-center gap-1">
-                      <Briefcase className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-muted-foreground">{category._count.services} services</span>
-                    </div>
                   </div>
                   <Separator />
                   <div className="flex justify-end gap-2 pt-2">
@@ -119,7 +115,6 @@ export function CategoriesPageClient({
                           categoryId={category.id}
                           categoryName={category.name}
                           productCount={category._count.products}
-                          serviceCount={category._count.services}
                           deleteCategoryForm={deleteCategoryForm}
                         />
                       </>
@@ -250,13 +245,11 @@ function DeleteCategoryButton({
   categoryId,
   categoryName,
   productCount,
-  serviceCount,
   deleteCategoryForm,
 }: {
   categoryId: string
   categoryName: string
   productCount: number
-  serviceCount: number
   deleteCategoryForm: (categoryId: string) => Promise<void>
 }) {
   const [open, setOpen] = useState(false)
@@ -267,7 +260,7 @@ function DeleteCategoryButton({
     setOpen(false)
     setIsDeleting(false)
   }
-  const hasUsage = productCount > 0 || serviceCount > 0
+  const hasUsage = productCount > 0
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
@@ -281,9 +274,7 @@ function DeleteCategoryButton({
           <DialogTitle>Delete Category</DialogTitle>
           <DialogDescription>
             {hasUsage ? (
-              <>Cannot delete category &quot;{categoryName}&quot; because it is used by {productCount > 0 && <strong>{productCount} product(s)</strong>}
-                {productCount > 0 && serviceCount > 0 && " and "}
-                {serviceCount > 0 && <strong>{serviceCount} service(s)</strong>}. Remove or reassign first.</>
+              <>Cannot delete category &quot;{categoryName}&quot; because it is used by <strong>{productCount} product(s)</strong>. Remove or reassign first.</>
             ) : (
               <>Are you sure you want to delete &quot;{categoryName}&quot;? This cannot be undone.</>
             )}

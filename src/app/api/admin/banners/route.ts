@@ -44,6 +44,12 @@ export async function GET(request: NextRequest) {
               },
             },
           },
+          serviceCategory: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
         },
         orderBy: { createdAt: "desc" },
       }),
@@ -80,8 +86,10 @@ export async function POST(request: NextRequest) {
     const bannerHeading = formData.get("bannerHeading") as string;
     const bannerDescription = formData.get("bannerDescription") as string || null;
     const isActive = formData.get("isActive") === "true";
-    const categoryId = formData.get("categoryId") as string || null;
-    const subcategoryId = formData.get("subcategoryId") as string || null;
+    const targetType = (formData.get("targetType") as string) || "product";
+    const categoryId = (formData.get("categoryId") as string)?.trim() || null;
+    const subcategoryId = (formData.get("subcategoryId") as string)?.trim() || null;
+    const serviceCategoryId = (formData.get("serviceCategoryId") as string)?.trim() || null;
     
     const bannerImageFile = formData.get("bannerImage") as File | null;
     const bannerImageUrl = (formData.get("bannerImageUrl") as string)?.trim() || null;
@@ -123,19 +131,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create banner
     const banner = await prisma.banner.create({
       data: {
         bannerHeading,
         bannerDescription,
         bannerImage: bannerImagePath,
         isActive,
-        categoryId: categoryId || null,
-        subcategoryId: subcategoryId || null,
+        categoryId: targetType === "product" ? categoryId : null,
+        subcategoryId: targetType === "product" ? subcategoryId : null,
+        serviceCategoryId: targetType === "service" ? serviceCategoryId : null,
       },
       include: {
         category: true,
         subcategory: true,
+        serviceCategory: true,
       },
     });
 

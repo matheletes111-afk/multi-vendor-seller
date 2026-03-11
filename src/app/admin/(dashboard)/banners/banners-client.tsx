@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { Button } from "@/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/ui/card";
 import { Badge } from "@/ui/badge";
@@ -38,10 +38,10 @@ interface Banner {
   updatedAt: string;
   category: { id: string; name: string } | null;
   subcategory: { id: string; name: string; category: { name: string } } | null;
+  serviceCategory: { id: string; name: string } | null;
 }
 
 export function BannersClient() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10) || 1);
   const perPage = Math.min(50, Math.max(1, parseInt(searchParams.get("perPage") ?? "10", 10) || 10));
@@ -60,8 +60,19 @@ export function BannersClient() {
   const [mounted, setMounted] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [imageErrors, setImageErrors] = useState<Set<string>>(new Set());
+  const [togglingId, setTogglingId] = useState<string | null>(null);
 
   useEffect(() => setMounted(true), []);
+
+  /** Refetch list without showing full-page loading (e.g. after status toggle). */
+  const refetchBanners = () => {
+    return fetch(`/api/admin/banners?page=${page}&perPage=${perPage}`)
+      .then((res) => {
+        if (!res.ok) throw new Error("Failed to fetch banners");
+        return res.json();
+      })
+      .then((json) => setData(json));
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -112,6 +123,7 @@ export function BannersClient() {
   };
 
   const handleToggleStatus = async (bannerId: string, currentStatus: boolean) => {
+    setTogglingId(bannerId);
     try {
       const response = await fetch(`/api/admin/banners/${bannerId}`, {
         method: "PATCH",
@@ -121,15 +133,18 @@ export function BannersClient() {
         body: JSON.stringify({ isActive: !currentStatus }),
       });
 
-      const data = await response.json();
+      const resData = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "Failed to update banner status");
+        throw new Error(resData.error || "Failed to update banner status");
       }
 
-      router.refresh();
+      // Refresh list so Status column updates without full page reload
+      await refetchBanners();
     } catch (error: any) {
       alert(error.message);
+    } finally {
+      setTogglingId(null);
     }
   };
 
@@ -230,11 +245,13 @@ export function BannersClient() {
                       )}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {banner.category
-                        ? `Category: ${banner.category.name}`
+                      {banner.serviceCategory
+                        ? `Service: ${banner.serviceCategory.name}`
+                        : banner.category
+                        ? `Product: ${banner.category.name}`
                         : banner.subcategory
                         ? `Sub: ${banner.subcategory.name} (${banner.subcategory.category.name})`
-                        : "All Categories"}
+                        : "All"}
                     </TableCell>
                     <TableCell>
                       <Badge variant={banner.isActive ? "default" : "secondary"}>
@@ -248,8 +265,16 @@ export function BannersClient() {
                           variant="outline"
                           size="sm"
                           onClick={() => handleToggleStatus(banner.id, banner.isActive)}
+                          disabled={togglingId === banner.id}
+                          title={banner.isActive ? "Deactivate" : "Activate"}
                         >
-                          {banner.isActive ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                          {togglingId === banner.id ? (
+                            <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                          ) : banner.isActive ? (
+                            <EyeOff className="h-4 w-4" />
+                          ) : (
+                            <Eye className="h-4 w-4" />
+                          )}
                         </Button>
                         <Link href={`/admin/banners/${banner.id}/edit`}>
                           <Button variant="outline" size="sm">

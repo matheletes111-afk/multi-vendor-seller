@@ -42,6 +42,7 @@ type Subcategory = {
   name: string;
   slug: string;
   image: string | null;
+  mobileIcon?: string | null;
 };
 
 type Category = {
@@ -83,6 +84,15 @@ export function HomeClient() {
   const [sponsoredIndex, setSponsoredIndex] = useState(0);
   const sponsoredScrollRef = useRef<HTMLDivElement>(null);
   const bestSellersRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  // Mobile icon only on mobile; on web use main image only
+  const [isMobileViewport, setIsMobileViewport] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 767px)");
+    const update = () => setIsMobileViewport(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
 
   useEffect(() => {
     fetch("/api/home/banners")
@@ -185,7 +195,7 @@ export function HomeClient() {
           </div>
         ) : (
         <>
-        {/* Full-width hero: banner or placeholder so cards sit "above" it */}
+        {/* Full-width hero: banner with category cards overlapping from above */}
         <section className="relative w-full max-w-[100vw] bg-muted overflow-hidden min-h-[50vh] sm:min-h-[60vh] md:min-h-[70vh]">
           {banners.length > 0 ? (
             <>
@@ -239,8 +249,8 @@ export function HomeClient() {
           ) : null}
         </section>
 
-        {/* Category cards above banner - inherit page gradient (no extra background strip) */}
-        <section className="container mx-auto px-3 sm:px-4 -mt-[18vh] sm:-mt-[22vh] md:-mt-[24vh] relative z-10 pb-6 sm:pb-8 min-h-[180px] sm:min-h-[200px] flex items-center justify-center">
+        {/* Category cards above banner (overlap); slightly less overlap so banner top stays visible */}
+        <section className="container mx-auto px-3 sm:px-4 -mt-[15vh] sm:-mt-[19vh] md:-mt-[21vh] relative z-10 pb-6 sm:pb-8 min-h-[180px] sm:min-h-[200px] flex items-center justify-center">
           {latestCategories.length > 0 ? (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4 w-full max-w-6xl mx-auto">
               {latestCategories.map((cat) => (
@@ -257,11 +267,14 @@ export function HomeClient() {
                             className="flex flex-col items-center rounded-lg border border-slate-200 bg-slate-50 p-2 transition-colors hover:bg-slate-100"
                           >
                             <div className="relative aspect-square w-full overflow-hidden rounded-md bg-muted flex items-center justify-center">
-                              {sub.image ? (
-                                <img src={sub.image} alt={sub.name} className="h-full w-full object-cover" />
-                              ) : (
-                                <SubIcon className="h-8 w-8 text-slate-400" />
-                              )}
+                              {(() => {
+                                const src = isMobileViewport && sub.mobileIcon ? sub.mobileIcon : sub.image;
+                                return src ? (
+                                  <img src={src} alt={sub.name} className="h-full w-full object-cover" />
+                                ) : (
+                                  <SubIcon className="h-8 w-8 text-slate-400" />
+                                );
+                              })()}
                             </div>
                             <span className="mt-1 text-center text-xs font-medium text-slate-700 line-clamp-2">{sub.name}</span>
                           </Link>

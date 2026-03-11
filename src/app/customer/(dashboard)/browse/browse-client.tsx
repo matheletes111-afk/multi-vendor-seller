@@ -24,7 +24,7 @@ type Service = {
   name: string
   basePrice: number | null
   images?: unknown
-  category: { name: string }
+  serviceCategory: { name: string }
   seller: { store: { name: string } | null }
   _count: { reviews: number }
 }
@@ -207,7 +207,7 @@ export function BrowseClient() {
                     <CardHeader className="p-3 sm:p-4 md:p-6">
                       <CardTitle className="line-clamp-2 text-base sm:text-lg">{service.name}</CardTitle>
                       <CardDescription>
-                        <Badge variant="outline" className="text-xs">{service.category.name}</Badge>
+                        <Badge variant="outline" className="text-xs">{service.serviceCategory?.name ?? "Service"}</Badge>
                       </CardDescription>
                     </CardHeader>
                     <CardContent className="p-3 sm:p-4 md:p-6 pt-0">
