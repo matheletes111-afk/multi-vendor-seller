@@ -52,6 +52,7 @@ interface Banner {
   bannerDescription: string | null;
   bannerImage: string;
   isActive: boolean;
+  targetType?: string | null;
   categoryId?: string | null;
   subcategoryId?: string | null;
   serviceCategoryId?: string | null;
@@ -79,7 +80,7 @@ export function BannerForm({
 
   // Toggle: "product" (product category + subcategory) or "service" (service category)
   const [targetType, setTargetType] = useState<"product" | "service">(
-    banner?.serviceCategoryId ? "service" : "product"
+    banner?.targetType === "service" ? "service" : banner?.serviceCategoryId ? "service" : "product"
   );
 
   const [formData, setFormData] = useState({

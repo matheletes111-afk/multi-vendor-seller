@@ -137,6 +137,7 @@ export async function POST(request: NextRequest) {
         bannerDescription,
         bannerImage: bannerImagePath,
         isActive,
+        targetType: targetType === "product" || targetType === "service" ? targetType : null,
         categoryId: targetType === "product" ? categoryId : null,
         subcategoryId: targetType === "product" ? subcategoryId : null,
         serviceCategoryId: targetType === "service" ? serviceCategoryId : null,

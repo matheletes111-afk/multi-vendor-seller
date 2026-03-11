@@ -36,6 +36,7 @@ interface Banner {
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
+  targetType: string | null;
   category: { id: string; name: string } | null;
   subcategory: { id: string; name: string; category: { name: string } } | null;
   serviceCategory: { id: string; name: string } | null;
@@ -251,7 +252,11 @@ export function BannersClient() {
                         ? `Product: ${banner.category.name}`
                         : banner.subcategory
                         ? `Sub: ${banner.subcategory.name} (${banner.subcategory.category.name})`
-                        : "All"}
+                        : banner.targetType === "service"
+                        ? "All services"
+                        : banner.targetType === "product"
+                        ? "All products"
+                        : "All products & services"}
                     </TableCell>
                     <TableCell>
                       <Badge variant={banner.isActive ? "default" : "secondary"}>

@@ -350,6 +350,9 @@ model Banner {
   isActive          Boolean  @default(true)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
+
+  // When no category/serviceCategory set: "product" = All products, "service" = All services
+  targetType        String?  // "product" | "service"
   
   // Optional: target by product category/subcategory OR service category
   categoryId        String?
