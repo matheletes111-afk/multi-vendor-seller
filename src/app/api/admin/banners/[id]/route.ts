@@ -115,14 +115,23 @@ export async function PUT(
       );
     }
 
-    const updateData: any = {
+    const updateData: {
+      bannerHeading: string;
+      bannerDescription: string | null;
+      isActive: boolean;
+      targetType: string | null;
+      category: { connect: { id: string } } | { disconnect: true };
+      subcategory: { connect: { id: string } } | { disconnect: true };
+      serviceCategory: { connect: { id: string } } | { disconnect: true };
+      bannerImage?: string;
+    } = {
       bannerHeading,
       bannerDescription,
       isActive,
       targetType: targetType === "product" || targetType === "service" ? targetType : null,
-      categoryId: targetType === "product" ? categoryId : null,
-      subcategoryId: targetType === "product" ? subcategoryId : null,
-      serviceCategoryId: targetType === "service" ? serviceCategoryId : null,
+      category: targetType === "product" && categoryId ? { connect: { id: categoryId } } : { disconnect: true },
+      subcategory: targetType === "product" && subcategoryId ? { connect: { id: subcategoryId } } : { disconnect: true },
+      serviceCategory: targetType === "service" && serviceCategoryId ? { connect: { id: serviceCategoryId } } : { disconnect: true },
     };
 
     // Handle image
@@ -166,7 +175,7 @@ export async function PUT(
           await unlink(oldImagePath).catch(console.error);
         }
       }
-      updateData.bannerImage = null;
+      // bannerImage is required; keep existing if no new image provided
     } else if (bannerImageUrl) {
       updateData.bannerImage = bannerImageUrl;
     }
