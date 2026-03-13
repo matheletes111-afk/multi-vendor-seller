@@ -28,7 +28,7 @@ export async function PUT(request: NextRequest) {
   }
 
   const contentType = request.headers.get("content-type") ?? ""
-  let userData: { name?: string; image?: string; phone?: string | null; phoneCountryCode?: string | null } = {}
+  let userData: { name?: string; image?: string | null; phone?: string | null; phoneCountryCode?: string | null } = {}
 
   if (contentType.includes("multipart/form-data")) {
     const formData = await request.formData()
