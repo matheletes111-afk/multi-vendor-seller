@@ -56,7 +56,7 @@ export async function PUT(request: NextRequest) {
     const phone = (fd.get("phone") as string) ?? ""
     const phoneCountryCode = (fd.get("phoneCountryCode") as string) ?? ""
 
-    const userData: { name?: string; image?: string; phone?: string | null; phoneCountryCode?: string | null } = {}
+    const userData: { name?: string; image?: string | null; phone?: string | null; phoneCountryCode?: string | null } = {}
     if (name !== undefined) userData.name = name
     if (phone !== undefined) userData.phone = phone || null
     if (phoneCountryCode !== undefined) userData.phoneCountryCode = phoneCountryCode || null
