@@ -9,6 +9,7 @@ import { Label } from "@/ui/label"
 import { Textarea } from "@/ui/textarea"
 import { Alert, AlertDescription } from "@/ui/alert"
 import { PageLoader } from "@/components/ui/page-loader"
+import { ProfilePictureInput } from "@/components/profile-picture-input"
 
 type Seller = {
   id: string
@@ -67,20 +68,30 @@ export function SettingsClient() {
     e.preventDefault()
     const form = e.currentTarget
     const fd = new FormData(form)
+    const hasFile = fd.get("profileImage") instanceof File && (fd.get("profileImage") as File).size > 0
     setSavingUser(true)
-    await fetch("/api/product-seller/settings", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        user: {
-          name: fd.get("name") || undefined,
-          image: fd.get("image") || undefined,
-          phone: (fd.get("phone") as string) ?? "",
-          phoneCountryCode: (fd.get("phoneCountryCode") as string) ?? "",
-        },
-      }),
-    })
-    setSavingUser(false)
+    try {
+      if (hasFile) {
+        await fetch("/api/product-seller/settings", { method: "PUT", body: fd })
+      } else {
+        await fetch("/api/product-seller/settings", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            user: {
+              name: fd.get("name") || undefined,
+              image: fd.get("image") || undefined,
+              phone: (fd.get("phone") as string) ?? "",
+              phoneCountryCode: (fd.get("phoneCountryCode") as string) ?? "",
+            },
+          }),
+        })
+      }
+      const res = await fetch("/api/product-seller/settings")
+      if (res.ok) setSeller(await res.json())
+    } finally {
+      setSavingUser(false)
+    }
   }
 
   if (loading || !seller) return <PageLoader message="Loading settings…" />
@@ -136,7 +147,7 @@ export function SettingsClient() {
                 <div className="space-y-2"><Label htmlFor="userPhoneCountryCode">Country code</Label><Input id="userPhoneCountryCode" name="phoneCountryCode" type="text" defaultValue={user?.phoneCountryCode || ""} placeholder="+1" /></div>
                 <div className="space-y-2"><Label htmlFor="userPhone">Phone</Label><Input id="userPhone" name="phone" type="tel" defaultValue={user?.phone || ""} placeholder="Phone number" /></div>
               </div>
-              <div className="space-y-2"><Label htmlFor="userImage">Profile Image URL</Label><Input id="userImage" name="image" type="url" defaultValue={user?.image || ""} placeholder="https://example.com/profile.jpg" /></div>
+              <div className="space-y-2"><Label>Profile picture</Label><ProfilePictureInput currentImage={user?.image} fileInputName="profileImage" urlInputName="image" /></div>
               <div><Label>Seller Type</Label><p className="text-sm text-muted-foreground capitalize">{seller.type.toLowerCase()}</p></div>
               <Button type="submit" disabled={savingUser}>{savingUser ? "Saving..." : "Save Profile Changes"}</Button>
             </form>

@@ -474,7 +474,7 @@ export function EditProductClient({ productId }: { productId: string }) {
                 </button>
               </div>
               {masterImageMode === "link" ? (
-                <div className="space-y-1">
+                <div className="space-y-2">
                   <Input
                     type="url"
                     placeholder="https://example.com/image.jpg"
@@ -483,6 +483,21 @@ export function EditProductClient({ productId }: { productId: string }) {
                     className="w-full"
                   />
                   <p className="text-xs text-muted-foreground">Enter one image URL. Changing it replaces the current master image.</p>
+                  {masterImageUrl && (
+                    <div className="mt-2">
+                      <p className="text-xs font-medium text-muted-foreground mb-1">Preview</p>
+                      <div className="relative w-32 h-32 rounded overflow-hidden border bg-muted inline-block">
+                        <img src={masterImageUrl} alt="Master preview" className="w-full h-full object-cover" />
+                        <button
+                          type="button"
+                          onClick={() => setMasterImageUrl("")}
+                          className="absolute top-0 right-0 bg-destructive/90 text-destructive-foreground text-xs px-1.5 py-0.5 rounded-bl"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -502,16 +517,19 @@ export function EditProductClient({ productId }: { productId: string }) {
                     {uploading ? "Uploading..." : "Choose image (replaces current)"}
                   </Button>
                   {masterImageUrl && (
-                    <div className="flex flex-wrap items-center gap-2 mt-2">
-                      <div className="relative w-20 h-20 rounded overflow-hidden border bg-muted">
-                        <img src={masterImageUrl} alt="Master" className="w-full h-full object-cover" />
-                        <button
-                          type="button"
-                          onClick={() => setMasterImageUrl("")}
-                          className="absolute top-0 right-0 bg-destructive/90 text-destructive-foreground text-xs px-1 rounded-bl"
-                        >
-                          ×
-                        </button>
+                    <div className="mt-2">
+                      <p className="text-xs font-medium text-muted-foreground mb-1">Preview</p>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <div className="relative w-32 h-32 rounded overflow-hidden border bg-muted">
+                          <img src={masterImageUrl} alt="Master preview" className="w-full h-full object-cover" />
+                          <button
+                            type="button"
+                            onClick={() => setMasterImageUrl("")}
+                            className="absolute top-0 right-0 bg-destructive/90 text-destructive-foreground text-xs px-1.5 py-0.5 rounded-bl"
+                          >
+                            ×
+                          </button>
+                        </div>
                       </div>
                     </div>
                   )}

@@ -403,7 +403,7 @@ export function NewProductClient() {
                 </button>
               </div>
               {imageMode === "link" ? (
-                <>
+                <div className="space-y-2">
                   <textarea
                     value={imageUrlsText}
                     onChange={(e) => setImageUrlsText(e.target.value)}
@@ -411,7 +411,19 @@ export function NewProductClient() {
                     placeholder="https://example.com/image1.jpg&#10;https://example.com/image2.jpg"
                   />
                   <p className="text-sm text-muted-foreground">Enter image URLs, one per line</p>
-                </>
+                  {(imageUrlsText || "").trim().split(/\n/).map((u) => u.trim()).filter(Boolean).length > 0 && (
+                    <div className="mt-2">
+                      <p className="text-xs font-medium text-muted-foreground mb-1">Preview</p>
+                      <div className="flex flex-wrap gap-2">
+                        {(imageUrlsText || "").trim().split(/\n/).map((u) => u.trim()).filter(Boolean).map((url) => (
+                          <div key={url} className="relative w-20 h-20 rounded overflow-hidden border bg-muted shrink-0">
+                            <img src={url} alt="" className="w-full h-full object-cover" />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
               ) : (
                 <div className="space-y-2">
                   <input
@@ -431,19 +443,22 @@ export function NewProductClient() {
                     {uploading ? "Uploading..." : "Choose images (max 5 MB each)"}
                   </Button>
                   {uploadedImageUrls.length > 0 && (
-                    <div className="flex flex-wrap gap-2 mt-2">
-                      {uploadedImageUrls.map((url) => (
-                        <div key={url} className="relative w-20 h-20 rounded overflow-hidden border bg-muted">
-                          <img src={url} alt="" className="w-full h-full object-cover" />
-                          <button
-                            type="button"
-                            onClick={() => removeUploadedUrl(url)}
-                            className="absolute top-0 right-0 bg-destructive/90 text-destructive-foreground text-xs px-1 rounded-bl"
-                          >
-                            ×
-                          </button>
-                        </div>
-                      ))}
+                    <div className="mt-2">
+                      <p className="text-xs font-medium text-muted-foreground mb-1">Preview</p>
+                      <div className="flex flex-wrap gap-2">
+                        {uploadedImageUrls.map((url) => (
+                          <div key={url} className="relative w-20 h-20 rounded overflow-hidden border bg-muted">
+                            <img src={url} alt="" className="w-full h-full object-cover" />
+                            <button
+                              type="button"
+                              onClick={() => removeUploadedUrl(url)}
+                              className="absolute top-0 right-0 bg-destructive/90 text-destructive-foreground text-xs px-1 rounded-bl"
+                            >
+                              ×
+                            </button>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   )}
                 </div>

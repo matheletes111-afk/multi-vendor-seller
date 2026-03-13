@@ -46,11 +46,22 @@ interface Category {
   image: string | null;
   commissionRate: number;
   isActive: boolean;
+  createdAt?: string;
   _count: {
     products: number;
     subcategories: number;
   };
   subcategories: Subcategory[];
+}
+
+/** Sort by createdAt desc (latest first), then by id for stability. */
+function sortByCreatedAtDesc<T extends { id: string; createdAt?: string }>(items: T[]): T[] {
+  return [...items].sort((a, b) => {
+    const ta = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+    const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+    if (tb !== ta) return tb - ta;
+    return a.id.localeCompare(b.id);
+  });
 }
 
 export function CategoriesClient() {
@@ -184,7 +195,7 @@ export function CategoriesClient() {
                   </TableCell>
                 </TableRow>
               ) : (
-                data.categories.map((category) => (
+                sortByCreatedAtDesc(data.categories).map((category) => (
                   <TableRow key={category.id}>
                     <TableCell>
                       {category.image ? (
@@ -226,7 +237,7 @@ export function CategoriesClient() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
-                        <Link href={`/admin/categories/${category.id}/edit`}>
+                        <Link href={`/admin/categories/${category.id}/edit?page=${page}&perPage=${perPage}`}>
                           <Button variant="outline" size="sm" className="shrink-0">
                             <Pencil className="mr-2 h-4 w-4" />
                             Edit

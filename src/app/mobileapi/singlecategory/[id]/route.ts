@@ -19,6 +19,11 @@ interface Product {
     name: string
     slug: string
   } | null
+  subcategory: {  // Added subcategory type
+    id: string
+    name: string
+    slug: string
+  } | null
   seller: {
     store: {
       name: string
@@ -117,7 +122,7 @@ export async function GET(
       }
     })
 
-    // Get products
+    // Get products - FIXED: Added subcategory to select
     const products = await prisma.product.findMany({
       where: { 
         categoryId: id,
@@ -133,6 +138,13 @@ export async function GET(
         isFeatured: true,
         createdAt: true,
         category: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+          }
+        },
+        subcategory: {  // ✅ ADD THIS - was missing
           select: {
             id: true,
             name: true,
@@ -185,6 +197,7 @@ export async function GET(
         isFeatured: product.isFeatured,
         createdAt: product.createdAt,
         category: product.category,
+        subcategory: product.subcategory, // Now this will have data
         seller: product.seller,
         variants: product.variants.slice(0, 1),
         minPrice,

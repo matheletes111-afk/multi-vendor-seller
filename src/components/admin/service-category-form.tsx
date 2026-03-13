@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/ui/button";
 import { Input } from "@/ui/input";
 import { Label } from "@/ui/label";
@@ -25,6 +25,9 @@ interface ServiceCategoryFormProps {
 
 export function ServiceCategoryForm({ category }: ServiceCategoryFormProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const listPage = searchParams.get("page") ?? "1";
+  const listPerPage = searchParams.get("perPage") ?? "10";
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [formData, setFormData] = useState({
@@ -83,7 +86,10 @@ export function ServiceCategoryForm({ category }: ServiceCategoryFormProps) {
       if (!response.ok) {
         throw new Error(json.error || "Failed to save service category");
       }
-      router.push("/admin/service-categories?success=" + (category ? "Service category updated successfully" : "Service category created successfully"));
+      const q = new URLSearchParams({ success: category ? "Service category updated successfully" : "Service category created successfully" });
+      if (listPage !== "1") q.set("page", listPage);
+      if (listPerPage !== "10") q.set("perPage", listPerPage);
+      router.push(`/admin/service-categories?${q.toString()}`);
       router.refresh();
     } catch (err: any) {
       setError(err.message);
@@ -201,7 +207,7 @@ export function ServiceCategoryForm({ category }: ServiceCategoryFormProps) {
       </Card>
 
       <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 pt-2 pb-4">
-        <Button type="button" variant="outline" onClick={() => router.push("/admin/service-categories")} className="w-full sm:w-auto">
+        <Button type="button" variant="outline" onClick={() => { const q = new URLSearchParams(); if (listPage !== "1") q.set("page", listPage); if (listPerPage !== "10") q.set("perPage", listPerPage); router.push(q.toString() ? `/admin/service-categories?${q.toString()}` : "/admin/service-categories"); }} className="w-full sm:w-auto">
           Cancel
         </Button>
         <Button type="submit" disabled={loading} className="w-full sm:w-auto">

@@ -88,12 +88,18 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(new URL("/product-seller/login", request.url))
     }
     if (session.user.role !== UserRole.SELLER_PRODUCT) {
-      return NextResponse.redirect(new URL("/dashboard", request.url))
+      return NextResponse.redirect(new URL("/product-seller/login?error=NoSellerAccount", request.url))
     }
-    // Unapproved or suspended sellers cannot access dashboard
     const u = session.user as { isApproved?: boolean; isSuspended?: boolean }
-    if (u.isApproved === false || u.isSuspended === true) {
-      return NextResponse.redirect(new URL("/product-seller/login?error=AccountPendingOrSuspended", request.url))
+    // Suspended sellers cannot access dashboard at all
+    if (u.isSuspended === true) {
+      return NextResponse.redirect(new URL("/product-seller/login?error=AccountSuspended", request.url))
+    }
+    // Pending approval: allow only settings/profile page; redirect all other routes to settings
+    const isSettingsRoute =
+      path === "/product-seller/settings" || path.startsWith("/product-seller/settings/")
+    if (u.isApproved === false && !isSettingsRoute) {
+      return NextResponse.redirect(new URL("/product-seller/settings?error=AccountPendingApproval", request.url))
     }
   }
 
@@ -106,12 +112,18 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(new URL("/service-seller/login", request.url))
     }
     if (session.user.role !== UserRole.SELLER_SERVICE) {
-      return NextResponse.redirect(new URL("/dashboard", request.url))
+      return NextResponse.redirect(new URL("/service-seller/login?error=NoSellerAccount", request.url))
     }
-    // Unapproved or suspended sellers cannot access dashboard
     const u = session.user as { isApproved?: boolean; isSuspended?: boolean }
-    if (u.isApproved === false || u.isSuspended === true) {
-      return NextResponse.redirect(new URL("/service-seller/login?error=AccountPendingOrSuspended", request.url))
+    // Suspended sellers cannot access dashboard at all
+    if (u.isSuspended === true) {
+      return NextResponse.redirect(new URL("/service-seller/login?error=AccountSuspended", request.url))
+    }
+    // Pending approval: allow only settings/profile page; redirect all other routes to settings
+    const isSettingsRoute =
+      path === "/service-seller/settings" || path.startsWith("/service-seller/settings/")
+    if (u.isApproved === false && !isSettingsRoute) {
+      return NextResponse.redirect(new URL("/service-seller/settings?error=AccountPendingApproval", request.url))
     }
   }
 

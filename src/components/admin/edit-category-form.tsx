@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/ui/button";
 import { Input } from "@/ui/input";
 import { Label } from "@/ui/label";
@@ -42,6 +42,9 @@ interface Category {
 
 export function EditCategoryForm({ category }: { category: Category }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const listPage = searchParams.get("page") ?? "1";
+  const listPerPage = searchParams.get("perPage") ?? "10";
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [subcategories, setSubcategories] = useState<Subcategory[]>([]);
@@ -258,7 +261,10 @@ export function EditCategoryForm({ category }: { category: Category }) {
         throw new Error(data.error || "Failed to update category");
       }
 
-      router.push("/admin/categories?success=Category updated successfully");
+      const q = new URLSearchParams({ success: "Category updated successfully" });
+      if (listPage !== "1") q.set("page", listPage);
+      if (listPerPage !== "10") q.set("perPage", listPerPage);
+      router.push(`/admin/categories?${q.toString()}`);
       router.refresh();
     } catch (err: any) {
       console.error("Error submitting form:", err);
@@ -501,7 +507,7 @@ export function EditCategoryForm({ category }: { category: Category }) {
       </Card>
 
       <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 pt-2 pb-4">
-        <Button type="button" variant="outline" onClick={() => router.push("/admin/categories")} className="w-full sm:w-auto">Cancel</Button>
+        <Button type="button" variant="outline" onClick={() => { const q = new URLSearchParams(); if (listPage !== "1") q.set("page", listPage); if (listPerPage !== "10") q.set("perPage", listPerPage); router.push(q.toString() ? `/admin/categories?${q.toString()}` : "/admin/categories"); }} className="w-full sm:w-auto">Cancel</Button>
         <Button type="submit" disabled={loading} className="w-full sm:w-auto">{loading ? "Updating…" : "Update category"}</Button>
       </div>
     </form>

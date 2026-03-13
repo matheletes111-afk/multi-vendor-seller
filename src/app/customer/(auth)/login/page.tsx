@@ -1,7 +1,7 @@
 "use client"
 
 import { Suspense, useState, useEffect } from "react"
-import { getCsrfToken } from "next-auth/react"
+import { getCsrfToken, signIn } from "next-auth/react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import Image from "next/image"
@@ -137,6 +137,41 @@ function CustomerLoginForm() {
             </div>
             <div className="text-center">
               <Button type="submit" disabled={loading} className="mx-auto w-full rounded-full sm:max-w-[200px]">{loading ? "Signing in..." : "Sign In"}</Button>
+            </div>
+            <div className="relative my-6">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t border-gray-200" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-white px-2 text-gray-500">Or continue with</span>
+              </div>
+            </div>
+            <div className="flex flex-col gap-2 sm:flex-row sm:justify-center">
+              <Button
+                type="button"
+                variant="outline"
+                className="rounded-full"
+                disabled={loading}
+                onClick={() => {
+                  // Mark this OAuth login as a customer login so auth.ts can set role = CUSTOMER
+                  document.cookie = "auth_intended_role=CUSTOMER; path=/; max-age=300; SameSite=Lax"
+                  signIn("google", { callbackUrl: "/customer" })
+                }}
+              >
+                Google
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="rounded-full"
+                disabled={loading}
+                onClick={() => {
+                  document.cookie = "auth_intended_role=CUSTOMER; path=/; max-age=300; SameSite=Lax"
+                  signIn("facebook", { callbackUrl: "/customer" })
+                }}
+              >
+                Facebook
+              </Button>
             </div>
           </div>
           <p className="mt-6 text-center text-sm text-gray-600">

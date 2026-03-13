@@ -15,7 +15,7 @@ export async function POST(request: Request) {
       )
     }
 
-    // 1) Email verified first → redirect to OTP; 2) Then admin approval / suspended (sellers only)
+    // 1) Email verified first → redirect to OTP (sellers only). Admin approval is enforced at panel level via middleware.
     const user = await prisma.user.findUnique({
       where: { email },
       select: { id: true, password: true, role: true, isEmailVerified: true },
@@ -25,28 +25,11 @@ export async function POST(request: Request) {
       user.password &&
       (await bcrypt.compare(password, user.password))
     ) {
-      // First: email not verified → send to OTP page
+      // Email not verified → send to OTP page
       if (user.isEmailVerified === false) {
         const verifyUrl = `/product-seller/verify-otp?email=${encodeURIComponent(email)}`
         return NextResponse.json(
           { error: "Please verify your email first.", needsVerification: true, verifyUrl },
-          { status: 403 }
-        )
-      }
-      // Then: check admin approval and suspended
-      const seller = await prisma.seller.findUnique({
-        where: { userId: user.id },
-        select: { isApproved: true, isSuspended: true },
-      })
-      if (!seller?.isApproved) {
-        return NextResponse.json(
-          { error: "Your account is pending admin approval. You cannot log in until approved." },
-          { status: 403 }
-        )
-      }
-      if (seller.isSuspended) {
-        return NextResponse.json(
-          { error: "Your account has been suspended. Please contact support." },
           { status: 403 }
         )
       }
@@ -83,15 +66,14 @@ export async function POST(request: Request) {
         const err = new URL(location, origin).searchParams.get("error")
         if (err === "MissingCSRF") msg = "Session expired. Please refresh and try again."
         else if (err === "CredentialsSignin") {
-          // Show proper message: 1) email not verified → OTP, 2) not approved / suspended
+          // Show proper message: 1) email not verified → OTP, 2) suspended
           const u = await prisma.user.findUnique({ where: { email }, select: { id: true, role: true, isEmailVerified: true } })
           if (u?.role === UserRole.SELLER_PRODUCT) {
             if (u.isEmailVerified === false) {
               const verifyUrl = `/product-seller/verify-otp?email=${encodeURIComponent(email)}`
               return NextResponse.json({ error: "Please verify your email first.", needsVerification: true, verifyUrl }, { status: 403 })
             }
-            const s = await prisma.seller.findUnique({ where: { userId: u.id }, select: { isApproved: true, isSuspended: true } })
-            if (s && !s.isApproved) return NextResponse.json({ error: "Your account is pending admin approval. You cannot log in until approved." }, { status: 403 })
+            const s = await prisma.seller.findUnique({ where: { userId: u.id }, select: { isSuspended: true } })
             if (s?.isSuspended) return NextResponse.json({ error: "Your account has been suspended. Please contact support." }, { status: 403 })
           }
           msg = "Invalid email or password."
@@ -127,8 +109,7 @@ export async function POST(request: Request) {
               const verifyUrl = `/product-seller/verify-otp?email=${encodeURIComponent(email)}`
               return NextResponse.json({ error: "Please verify your email first.", needsVerification: true, verifyUrl }, { status: 403 })
             }
-            const s = await prisma.seller.findUnique({ where: { userId: u.id }, select: { isApproved: true, isSuspended: true } })
-            if (s && !s.isApproved) return NextResponse.json({ error: "Your account is pending admin approval. You cannot log in until approved." }, { status: 403 })
+            const s = await prisma.seller.findUnique({ where: { userId: u.id }, select: { isSuspended: true } })
             if (s?.isSuspended) return NextResponse.json({ error: "Your account has been suspended. Please contact support." }, { status: 403 })
           }
           msg = "Invalid email or password."

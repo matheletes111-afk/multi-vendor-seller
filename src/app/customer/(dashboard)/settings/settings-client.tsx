@@ -6,6 +6,7 @@ import { Button } from "@/ui/button"
 import { Input } from "@/ui/input"
 import { Label } from "@/ui/label"
 import { PageLoader } from "@/components/ui/page-loader"
+import { ProfilePictureInput } from "@/components/profile-picture-input"
 
 type UserProfile = {
   id: string
@@ -32,18 +33,28 @@ export function CustomerSettingsClient() {
     e.preventDefault()
     const form = e.currentTarget
     const fd = new FormData(form)
+    const hasFile = fd.get("profileImage") instanceof File && (fd.get("profileImage") as File).size > 0
     setSaving(true)
-    await fetch("/api/customer/settings", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name: fd.get("name") || undefined,
-        image: fd.get("image") || undefined,
-        phone: (fd.get("phone") as string) ?? "",
-        phoneCountryCode: (fd.get("phoneCountryCode") as string) ?? "",
-      }),
-    })
-    setSaving(false)
+    try {
+      if (hasFile) {
+        await fetch("/api/customer/settings", { method: "PUT", body: fd })
+      } else {
+        await fetch("/api/customer/settings", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: fd.get("name") || undefined,
+            image: (fd.get("image") as string) || undefined,
+            phone: (fd.get("phone") as string) ?? "",
+            phoneCountryCode: (fd.get("phoneCountryCode") as string) ?? "",
+          }),
+        })
+      }
+      const res = await fetch("/api/customer/settings")
+      if (res.ok) setUser(await res.json())
+    } finally {
+      setSaving(false)
+    }
   }
 
   if (loading || !user) return <PageLoader message="Loading profile…" />
@@ -58,6 +69,10 @@ export function CustomerSettingsClient() {
         </CardHeader>
         <CardContent>
           <form onSubmit={saveProfile} className="space-y-4">
+            <div className="space-y-2">
+              <Label>Profile picture</Label>
+              <ProfilePictureInput currentImage={user.image} fileInputName="profileImage" urlInputName="image" />
+            </div>
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input id="email" type="email" defaultValue={user.email} disabled className="bg-muted" />
@@ -76,10 +91,6 @@ export function CustomerSettingsClient() {
                 <Label htmlFor="phone">Phone</Label>
                 <Input id="phone" name="phone" type="tel" defaultValue={user.phone || ""} placeholder="Phone number" />
               </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="image">Profile Image URL</Label>
-              <Input id="image" name="image" type="url" defaultValue={user.image || ""} placeholder="https://example.com/profile.jpg" />
             </div>
             <Button type="submit" disabled={saving}>{saving ? "Saving..." : "Save changes"}</Button>
           </form>

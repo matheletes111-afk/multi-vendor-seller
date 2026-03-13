@@ -122,7 +122,7 @@ export async function GET(): Promise<NextResponse<SuccessResponse | ErrorRespons
         }
       },
       orderBy: { createdAt: "desc" },
-      take: 10,
+      take: 4,
     })
 
     // Fetch featured categories (first 5 categories ordered by desc)
@@ -141,7 +141,7 @@ export async function GET(): Promise<NextResponse<SuccessResponse | ErrorRespons
         }
       },
       orderBy: { createdAt: "desc" },
-      take: 5,
+      take: 4,
     })
 
     // Fetch active ads
@@ -213,6 +213,7 @@ export async function GET(): Promise<NextResponse<SuccessResponse | ErrorRespons
       name: cat.name,
       slug: cat.slug,
       image: cat.image,
+      mobileIcon: cat.mobileIcon,
       description: cat.description,
       isActive: cat.isActive,
       createdAt: cat.createdAt,

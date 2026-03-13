@@ -25,7 +25,7 @@ export function ServiceImageInput({
 }) {
   const [mode, setMode] = useState<"upload" | "link">("upload")
   const [linkText, setLinkText] = useState(() => (defaultUrls?.length ? defaultUrls.join("\n") : ""))
-  const [uploadedUrls, setUploadedUrls] = useState<string[]>(defaultUrls)
+  const [uploadedUrls, setUploadedUrls] = useState<string[]>([])
   const [uploading, setUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -121,10 +121,12 @@ export function ServiceImageInput({
         </div>
       )}
 
-      {/* Thumbnails */}
+      {/* Preview: existing + new images */}
       {allUrls.length > 0 && (
-        <div className="flex flex-wrap gap-2">
-          {allUrls.map((url) => (
+        <div className="space-y-1">
+          <p className="text-xs font-medium text-muted-foreground">Preview</p>
+          <div className="flex flex-wrap gap-2">
+            {allUrls.map((url) => (
             <div
               key={url}
               className="relative h-20 w-20 shrink-0 overflow-hidden rounded-md border border-input bg-muted"
@@ -140,6 +142,7 @@ export function ServiceImageInput({
               </button>
             </div>
           ))}
+          </div>
         </div>
       )}
 

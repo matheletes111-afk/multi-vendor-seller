@@ -36,7 +36,18 @@ interface ServiceCategory {
   mobileIcon: string | null;
   commissionRate: number;
   isActive: boolean;
+  createdAt?: string;
   _count: { services: number };
+}
+
+/** Sort by createdAt desc (latest first), then by id for stability. */
+function sortByCreatedAtDesc<T extends { id: string; createdAt?: string }>(items: T[]): T[] {
+  return [...items].sort((a, b) => {
+    const ta = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+    const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+    if (tb !== ta) return tb - ta;
+    return a.id.localeCompare(b.id);
+  });
 }
 
 /** Renders category image with fallback so list page shows thumb even when external URL fails (referrer, CORS, etc.) */
@@ -189,7 +200,7 @@ export function ServiceCategoriesClient() {
                       </TableCell>
                     </TableRow>
                   ) : (
-                    data.categories.map((category) => (
+                    sortByCreatedAtDesc(data.categories).map((category) => (
                       <TableRow key={category.id}>
                         <TableCell>
                           <CategoryImageCell image={category.image} name={category.name} />
@@ -212,7 +223,7 @@ export function ServiceCategoriesClient() {
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2 flex-wrap">
-                            <Link href={`/admin/service-categories/${category.id}/edit`}>
+                            <Link href={`/admin/service-categories/${category.id}/edit?page=${page}&perPage=${perPage}`}>
                               <Button variant="outline" size="sm" className="shrink-0">
                                 <Pencil className="mr-2 h-4 w-4" />
                                 Edit

@@ -21,6 +21,7 @@ interface Category {
   id: string
   name: string
   slug: string
+  mobileIcon: string | null  // Add this line
   image: string | null
   description: string | null
   isActive: boolean
@@ -103,6 +104,7 @@ export async function GET(request: Request): Promise<NextResponse<SuccessRespons
         id: cat.id,
         name: cat.name,
         slug: cat.slug,
+        mobileIcon: cat.mobileIcon,
         image: cat.image,
         description: cat.description,
         isActive: cat.isActive,

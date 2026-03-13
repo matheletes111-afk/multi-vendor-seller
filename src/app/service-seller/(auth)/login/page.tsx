@@ -1,7 +1,7 @@
 "use client"
 
 import { Suspense, useState, useEffect } from "react"
-import { getCsrfToken } from "next-auth/react"
+import { getCsrfToken, signIn } from "next-auth/react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import Image from "next/image"
@@ -30,6 +30,8 @@ function ServiceSellerLoginForm() {
     const err = searchParams.get("error")
     if (err === "AccountPendingOrSuspended") {
       setError("Your account is pending approval or has been suspended. You cannot access the dashboard.")
+    } else if (err === "NoSellerAccount") {
+      setError("You do not have a seller account for this email. If this email is already used as a customer or another role, please use a different email for your seller account or contact support.")
     }
   }, [searchParams])
 
@@ -161,6 +163,56 @@ function ServiceSellerLoginForm() {
             <div className="text-center">
               <Button type="submit" disabled={loading} className="mx-auto w-full rounded-full sm:max-w-[200px]">
                 {loading ? "Signing in..." : "Sign In"}
+              </Button>
+            </div>
+            <div className="relative my-6">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t border-gray-200" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-white px-2 text-gray-500">Or continue with</span>
+              </div>
+            </div>
+            <div className="flex flex-col gap-2 sm:flex-row sm:justify-center">
+              <Button
+                type="button"
+                variant="outline"
+                className="rounded-full"
+                disabled={loading}
+                onClick={async () => {
+                  try {
+                    await fetch(
+                      `/api/auth/set-seller-intent?role=SELLER_SERVICE&callbackUrl=${encodeURIComponent(
+                        callbackUrl
+                      )}&provider=google`
+                    )
+                    await signIn("google", { callbackUrl })
+                  } catch {
+                    // NextAuth will surface any configuration errors on the login page
+                  }
+                }}
+              >
+                Google
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="rounded-full"
+                disabled={loading}
+                onClick={async () => {
+                  try {
+                    await fetch(
+                      `/api/auth/set-seller-intent?role=SELLER_SERVICE&callbackUrl=${encodeURIComponent(
+                        callbackUrl
+                      )}&provider=facebook`
+                    )
+                    await signIn("facebook", { callbackUrl })
+                  } catch {
+                    // ignore
+                  }
+                }}
+              >
+                Facebook
               </Button>
             </div>
           </div>

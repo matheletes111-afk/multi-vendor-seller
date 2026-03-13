@@ -18,7 +18,7 @@ export async function POST(request: Request) {
       )
     }
 
-    // 1) Email verified first → redirect to OTP; 2) Then admin approval / suspended (sellers only)
+    // 1) Email verified first → redirect to OTP (sellers only). Admin approval is enforced at panel level via middleware.
     const user = (await prisma.user.findUnique({
       where: { email },
       select: { id: true, password: true, role: true, isEmailVerified: true } as { id: true; password: true; role: true; isEmailVerified: true },
@@ -28,28 +28,11 @@ export async function POST(request: Request) {
       user.password &&
       (await bcrypt.compare(password, user.password))
     ) {
-      // First: email not verified → send to OTP page
+      // Email not verified → send to OTP page
       if (user.isEmailVerified === false) {
         const verifyUrl = `/service-seller/verify-otp?email=${encodeURIComponent(email)}`
         return NextResponse.json(
           { error: "Please verify your email first.", needsVerification: true, verifyUrl },
-          { status: 403 }
-        )
-      }
-      // Then: check admin approval and suspended
-      const seller = await prisma.seller.findUnique({
-        where: { userId: user.id },
-        select: { isApproved: true, isSuspended: true },
-      })
-      if (!seller?.isApproved) {
-        return NextResponse.json(
-          { error: "Your account is pending admin approval. You cannot log in until approved." },
-          { status: 403 }
-        )
-      }
-      if (seller.isSuspended) {
-        return NextResponse.json(
-          { error: "Your account has been suspended. Please contact support." },
           { status: 403 }
         )
       }
@@ -95,8 +78,7 @@ export async function POST(request: Request) {
               const verifyUrl = `/service-seller/verify-otp?email=${encodeURIComponent(email)}`
               return NextResponse.json({ error: "Please verify your email first.", needsVerification: true, verifyUrl }, { status: 403 })
             }
-            const s = await prisma.seller.findUnique({ where: { userId: u.id }, select: { isApproved: true, isSuspended: true } })
-            if (s && !s.isApproved) return NextResponse.json({ error: "Your account is pending admin approval. You cannot log in until approved." }, { status: 403 })
+            const s = await prisma.seller.findUnique({ where: { userId: u.id }, select: { isSuspended: true } })
             if (s?.isSuspended) return NextResponse.json({ error: "Your account has been suspended. Please contact support." }, { status: 403 })
           }
           msg = "Invalid email or password."
@@ -135,8 +117,7 @@ export async function POST(request: Request) {
               const verifyUrl = `/service-seller/verify-otp?email=${encodeURIComponent(email)}`
               return NextResponse.json({ error: "Please verify your email first.", needsVerification: true, verifyUrl }, { status: 403 })
             }
-            const s = await prisma.seller.findUnique({ where: { userId: u.id }, select: { isApproved: true, isSuspended: true } })
-            if (s && !s.isApproved) return NextResponse.json({ error: "Your account is pending admin approval. You cannot log in until approved." }, { status: 403 })
+            const s = await prisma.seller.findUnique({ where: { userId: u.id }, select: { isSuspended: true } })
             if (s?.isSuspended) return NextResponse.json({ error: "Your account has been suspended. Please contact support." }, { status: 403 })
           }
           msg = "Invalid email or password."

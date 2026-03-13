@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
         include: {
           _count: { select: { services: true } },
         },
-        orderBy: { createdAt: "desc" },
+        orderBy: [{ createdAt: "desc" }, { id: "asc" }],
       }),
       prisma.serviceCategory.count(),
     ]);
