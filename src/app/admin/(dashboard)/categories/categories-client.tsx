@@ -70,9 +70,12 @@ export function CategoriesClient() {
   const searchParams = useSearchParams();
   const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10) || 1);
   const perPage = Math.min(50, Math.max(1, parseInt(searchParams.get("perPage") ?? "10", 10) || 10));
+  // Keep these as stable strings to avoid dynamic deps array issues
+  const errorParam = searchParams.get("error") ?? "";
+  const successParam = searchParams.get("success") ?? "";
   const params = {
-    error: searchParams.get("error") ?? undefined,
-    success: searchParams.get("success") ?? undefined,
+    error: errorParam || undefined,
+    success: successParam || undefined,
   };
 
   const [data, setData] = useState<{
@@ -110,7 +113,7 @@ export function CategoriesClient() {
     return () => {
       cancelled = true;
     };
-  }, [page, perPage, params.error, params.success]);
+  }, [page, perPage, errorParam, successParam]);
 
   const handleToggleFeatured = async (category: Category) => {
     const next = !category.isFeatured;
