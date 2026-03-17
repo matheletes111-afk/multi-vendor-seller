@@ -76,6 +76,16 @@ export function ProductDetailClient({ productId }: { productId: string }) {
       .catch(() => setProductAd(null))
   }, [productId])
 
+  // Record recent view for logged-in customers (max 10 per user, oldest dropped)
+  useEffect(() => {
+    if (status !== "authenticated" || session?.user?.role !== UserRole.CUSTOMER || !productId) return
+    fetch("/api/customer/recent-views", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ productId }),
+    }).catch(() => {})
+  }, [productId, status, session?.user?.role])
+
   if (loading) {
     return (
       <PublicLayout>

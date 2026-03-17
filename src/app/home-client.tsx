@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
+import { UserRole } from "@prisma/client";
 import { Button } from "@/ui/button";
 import { Card, CardContent } from "@/ui/card";
 import {
@@ -19,6 +21,7 @@ import {
   Box,
   Gift,
   Sparkles,
+  Eye,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { getYoutubeEmbedUrl } from "@/lib/youtube";
@@ -79,7 +82,9 @@ export function HomeClient() {
   const [categoriesLoading, setCategoriesLoading] = useState(true);
   const [productsByCategory, setProductsByCategory] = useState<Record<string, Product[]>>({});
   const [randomProducts, setRandomProducts] = useState<Product[]>([]);
+  const [recentViewProducts, setRecentViewProducts] = useState<Product[]>([]);
   const [bannerIndex, setBannerIndex] = useState(0);
+  const { data: session, status } = useSession();
   const [ads, setAds] = useState<Ad[]>([]);
   const [sponsoredCarouselPaused, setSponsoredCarouselPaused] = useState(false);
   const [sponsoredIndex, setSponsoredIndex] = useState(0);
@@ -126,6 +131,17 @@ export function HomeClient() {
       .then(setRandomProducts)
       .catch(() => setRandomProducts([]));
   }, []);
+
+  useEffect(() => {
+    if (status !== "authenticated" || session?.user?.role !== UserRole.CUSTOMER) {
+      setRecentViewProducts([]);
+      return;
+    }
+    fetch("/api/customer/recent-views")
+      .then((r) => (r.ok ? r.json() : { products: [] }))
+      .then((data: { products?: Product[] }) => setRecentViewProducts(Array.isArray(data?.products) ? data.products : []))
+      .catch(() => setRecentViewProducts([]));
+  }, [status, session?.user?.role]);
 
   useEffect(() => {
     const forProducts = featuredCategories.length > 0 ? featuredCategories : categories.slice(0, 4);
@@ -300,6 +316,44 @@ export function HomeClient() {
             </div>
           ) : null}
         </section>
+
+        {/* Recent views: only for logged-in customers, max 10 */}
+        {recentViewProducts.length > 0 && (
+          <section className="border-t border-blue-100 bg-white/70 py-6 sm:py-8">
+            <div className="container mx-auto px-3 sm:px-4">
+              <h2 className="mb-3 sm:mb-4 text-lg font-bold text-slate-800 sm:text-xl flex items-center gap-2">
+                <Eye className="h-5 w-5 sm:h-6 sm:w-6 text-slate-600" />
+                Recently viewed
+              </h2>
+              <div className="grid grid-cols-2 gap-2 sm:gap-3 md:grid-cols-3 lg:grid-cols-5">
+                {recentViewProducts.map((p, pIdx) => {
+                  const ProductIcon = PRODUCT_PLACEHOLDER_ICONS[pIdx % PRODUCT_PLACEHOLDER_ICONS.length];
+                  return (
+                    <Link
+                      key={p.id}
+                      href={`/product/${p.id}`}
+                      className="flex flex-col overflow-hidden rounded-lg bg-white shadow transition-shadow hover:shadow-lg"
+                    >
+                      <div className="relative aspect-square w-full overflow-hidden rounded-t-lg bg-muted flex items-center justify-center">
+                        {p.images?.[0] ? (
+                          <img src={p.images[0]} alt={p.name} className="h-full w-full object-cover" loading="lazy" />
+                        ) : (
+                          <ProductIcon className="h-12 w-12 text-slate-400" />
+                        )}
+                      </div>
+                      <div className="p-2">
+                        <p className="line-clamp-2 text-xs font-medium text-slate-800">{p.name}</p>
+                        <p className="mt-1 text-sm font-bold text-blue-600">
+                          {formatCurrency(Math.max(0, (p.basePrice ?? 0) - (p.discount ?? 0)))}
+                        </p>
+                      </div>
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          </section>
+        )}
 
         {/* Best Sellers: horizontal carousels with arrows (no scrollbar) */}
         {latestCategories.filter((c) => (productsByCategory[c.id]?.length ?? 0) > 0).length > 0 && (

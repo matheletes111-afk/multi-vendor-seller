@@ -89,8 +89,23 @@ model User {
   reviews       Review[]
   cartItems     CartItem[]
   addresses     UserAddress[]
+  recentViews   RecentView[]
 
   @@map("users")
+}
+
+model RecentView {
+  id        String   @id @default(cuid())
+  userId    String
+  productId String
+  viewedAt  DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, productId])
+  @@index([userId])
+  @@map("recent_views")
 }
 
 model UserAddress {
@@ -389,6 +404,7 @@ model Product {
   reviews      Review[]
   cartItems    CartItem[]
   sellerAds    SellerAd[]
+  recentViews  RecentView[]
 
   @@unique([sellerId, slug])
   @@index([categoryId])
