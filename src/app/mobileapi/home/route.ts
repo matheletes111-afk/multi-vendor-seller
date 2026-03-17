@@ -32,15 +32,6 @@ interface Category {
   subcategories: Subcategory[]
 }
 
-interface FeaturedCategory {
-  id: string
-  name: string
-  slug: string
-  image: string | null
-  description: string | null
-  subcategoriesCount?: number
-}
-
 interface Ad {
   id: string
   title: string
@@ -75,7 +66,7 @@ interface Service {
 interface HomepageData {
   banners: Banner[]
   categories: Category[]
-  featuredCategories: FeaturedCategory[]
+  featuredCategories: Category[]
   ads: Ad[]
   services: Service[]
 }
@@ -126,24 +117,22 @@ export async function GET(): Promise<NextResponse<SuccessResponse | ErrorRespons
       take: 4,
     })
 
-    // Fetch featured categories (isFeatured=true, max 4)
-    // NOTE: Prisma client types may be out of date on Windows if `prisma generate` was skipped due to file locking.
-    // We still query the correct fields at runtime, but keep TS happy with a narrow assertion.
+    // Fetch featured categories (isFeatured=true, max 4) with full fields and subcategories
     const featuredCategoriesPromise = prisma.category.findMany({
       where: {
         isActive: true,
         ...({ isFeatured: true } as unknown as Record<string, unknown>),
       },
-      select: {
-        id: true,
-        name: true,
-        slug: true,
-        image: true,
-        description: true,
-        _count: {
+      include: {
+        subcategories: {
+          where: { isActive: true },
           select: {
-            subcategories: true,
+            id: true,
+            name: true,
+            slug: true,
+            image: true,
           },
+          take: 5,
         },
       },
       orderBy: { createdAt: "desc" },
@@ -203,14 +192,23 @@ export async function GET(): Promise<NextResponse<SuccessResponse | ErrorRespons
       servicesPromise,
     ])
 
-    // Transform featured categories to include count
-    const featuredCategories: FeaturedCategory[] = (featuredCategoriesRaw as any[]).map((cat) => ({
+    // Transform featured categories to full Category shape (same as categories)
+    const featuredCategories: Category[] = (featuredCategoriesRaw as any[]).map((cat) => ({
       id: cat.id,
       name: cat.name,
       slug: cat.slug,
+      mobileIcon: cat.mobileIcon ?? null,
       image: cat.image,
       description: cat.description,
-      subcategoriesCount: cat._count?.subcategories ?? 0
+      isActive: cat.isActive ?? true,
+      createdAt: cat.createdAt,
+      updatedAt: cat.updatedAt,
+      subcategories: (cat.subcategories ?? []).map((sub: { id: string; name: string; slug: string; image: string | null }) => ({
+        id: sub.id,
+        name: sub.name,
+        slug: sub.slug,
+        image: sub.image,
+      })),
     }))
 
     // Transform categories to match the Category interface
