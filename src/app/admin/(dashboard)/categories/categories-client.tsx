@@ -110,7 +110,7 @@ export function CategoriesClient() {
     return () => {
       cancelled = true;
     };
-  }, [page, perPage]);
+  }, [page, perPage, params.error, params.success]);
 
   const handleToggleFeatured = async (category: Category) => {
     const next = !category.isFeatured;
@@ -157,6 +157,17 @@ export function CategoriesClient() {
       if (!response.ok) {
         throw new Error(data.error || "Failed to delete category");
       }
+
+      // Optimistic UI update so list refreshes immediately
+      setData((prev) => {
+        if (!prev) return prev;
+        const nextCategories = prev.categories.filter((c) => c.id !== categoryId);
+        return {
+          ...prev,
+          categories: nextCategories,
+          totalCount: Math.max(0, prev.totalCount - 1),
+        };
+      });
 
       router.refresh();
       router.push("/admin/categories?success=Category deleted successfully");

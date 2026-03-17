@@ -3,9 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { isAdmin } from "@/lib/rbac";
 import { generateSlug } from "@/lib/utils";
-import { writeFile, mkdir } from "fs/promises";
 import path from "path";
-import { existsSync } from "fs";
+import { uploadPublicFile } from "@/lib/upload-public-file";
 import { getPaginationFromSearchParams } from "@/lib/admin-pagination";
 
 // GET categories with pagination and subcategory counts
@@ -186,17 +185,14 @@ export async function POST(request: NextRequest) {
       try {
         const bytes = await categoryImageFile.arrayBuffer();
         const buffer = Buffer.from(bytes);
-        const fileExtension = path.extname(categoryImageFile.name);
-        const timestamp = Date.now();
-        const randomNum = Math.floor(Math.random() * 10000);
-        const fileName = `category-${timestamp}-${randomNum}${fileExtension}`;
-        const uploadDir = path.join(process.cwd(), "public/uploads/categories");
-        if (!existsSync(uploadDir)) {
-          await mkdir(uploadDir, { recursive: true });
-        }
-        const filePath = path.join(uploadDir, fileName);
-        await writeFile(filePath, buffer);
-        categoryImagePath = `/uploads/categories/${fileName}`;
+        const fileExtension = path.extname(categoryImageFile.name) || ".jpg";
+        categoryImagePath = await uploadPublicFile({
+          folder: "categories",
+          ext: fileExtension,
+          contentType: categoryImageFile.type || "image/jpeg",
+          buffer,
+          prefix: "category",
+        });
       } catch (uploadError) {
         console.error("Error uploading category image:", uploadError);
         return NextResponse.json({ error: "Failed to upload category image" }, { status: 500 });
@@ -207,16 +203,13 @@ export async function POST(request: NextRequest) {
       try {
         const bytes = await categoryMobileIconFile.arrayBuffer();
         const buffer = Buffer.from(bytes);
-        const timestamp = Date.now();
-        const randomNum = Math.floor(Math.random() * 10000);
-        const fileName = `mobile-${timestamp}-${randomNum}.png`;
-        const uploadDir = path.join(process.cwd(), "public/uploads/categories");
-        if (!existsSync(uploadDir)) {
-          await mkdir(uploadDir, { recursive: true });
-        }
-        const filePath = path.join(uploadDir, fileName);
-        await writeFile(filePath, buffer);
-        categoryMobileIconPath = `/uploads/categories/${fileName}`;
+        categoryMobileIconPath = await uploadPublicFile({
+          folder: "categories",
+          ext: ".png",
+          contentType: "image/png",
+          buffer,
+          prefix: "mobile",
+        });
       } catch (uploadError) {
         console.error("Error uploading category mobile icon:", uploadError);
       }
@@ -254,22 +247,14 @@ export async function POST(request: NextRequest) {
             const bytes = await imageFile.arrayBuffer();
             const buffer = Buffer.from(bytes);
 
-            const fileExtension = path.extname(imageFile.name);
-            const timestamp = Date.now();
-            const randomNum = Math.floor(Math.random() * 10000);
-            const fileName = `subcategory-${timestamp}-${randomNum}${fileExtension}`;
-            
-            const uploadDir = path.join(process.cwd(), "public/uploads/subcategories");
-            
-            if (!existsSync(uploadDir)) {
-              await mkdir(uploadDir, { recursive: true });
-            }
-            
-            const filePath = path.join(uploadDir, fileName);
-            await writeFile(filePath, buffer);
-            console.log("Subcategory image saved to:", filePath);
-            
-            subImagePath = `/uploads/subcategories/${fileName}`;
+            const fileExtension = path.extname(imageFile.name) || ".jpg";
+            subImagePath = await uploadPublicFile({
+              folder: "subcategories",
+              ext: fileExtension,
+              contentType: imageFile.type || "image/jpeg",
+              buffer,
+              prefix: "subcategory",
+            });
           } catch (uploadError) {
             console.error("Error uploading subcategory image:", uploadError);
           }
@@ -279,16 +264,13 @@ export async function POST(request: NextRequest) {
           try {
             const bytes = await mobileIconFile.arrayBuffer();
             const buffer = Buffer.from(bytes);
-            const timestamp = Date.now();
-            const randomNum = Math.floor(Math.random() * 10000);
-            const fileName = `mobile-${timestamp}-${randomNum}.png`;
-            const uploadDir = path.join(process.cwd(), "public/uploads/subcategories");
-            if (!existsSync(uploadDir)) {
-              await mkdir(uploadDir, { recursive: true });
-            }
-            const filePath = path.join(uploadDir, fileName);
-            await writeFile(filePath, buffer);
-            subMobileIconPath = `/uploads/subcategories/${fileName}`;
+            subMobileIconPath = await uploadPublicFile({
+              folder: "subcategories",
+              ext: ".png",
+              contentType: "image/png",
+              buffer,
+              prefix: "mobile",
+            });
           } catch (uploadError) {
             console.error("Error uploading subcategory mobile icon:", uploadError);
           }
