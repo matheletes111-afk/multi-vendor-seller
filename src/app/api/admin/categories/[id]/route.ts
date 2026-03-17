@@ -230,7 +230,9 @@ export async function PUT(
         });
         updateData.image = categoryImagePath;
       } catch (uploadError) {
+        const message = uploadError instanceof Error ? uploadError.message : "Failed to upload category image";
         console.error("Error uploading category image:", uploadError);
+        return NextResponse.json({ error: message }, { status: 500 });
       }
     } else if (categoryImagePath === null) {
       if (existingCategory.image && existingCategory.image.startsWith('/uploads/')) {
@@ -263,7 +265,9 @@ export async function PUT(
           prefix: "mobile",
         });
       } catch (uploadError) {
+        const message = uploadError instanceof Error ? uploadError.message : "Failed to upload category mobile icon";
         console.error("Error uploading category mobile icon:", uploadError);
+        return NextResponse.json({ error: message }, { status: 500 });
       }
     }
     updateData.mobileIcon = categoryMobileIconPath;
@@ -337,7 +341,9 @@ export async function PUT(
               prefix: "subcategory",
             });
           } catch (uploadError) {
+            const message = uploadError instanceof Error ? uploadError.message : "Failed to upload subcategory image";
             console.error("Error uploading subcategory image:", uploadError);
+            return NextResponse.json({ error: message }, { status: 500 });
           }
         } else if (sub.removeImage) {
           if (sub.existingImage && sub.existingImage.startsWith('/uploads/')) {
@@ -367,7 +373,9 @@ export async function PUT(
               prefix: "mobile",
             });
           } catch (uploadError) {
+            const message = uploadError instanceof Error ? uploadError.message : "Failed to upload subcategory mobile icon";
             console.error("Error uploading subcategory mobile icon:", uploadError);
+            return NextResponse.json({ error: message }, { status: 500 });
           }
         }
         

@@ -194,8 +194,9 @@ export async function POST(request: NextRequest) {
           prefix: "category",
         });
       } catch (uploadError) {
+        const message = uploadError instanceof Error ? uploadError.message : "Failed to upload category image";
         console.error("Error uploading category image:", uploadError);
-        return NextResponse.json({ error: "Failed to upload category image" }, { status: 500 });
+        return NextResponse.json({ error: message }, { status: 500 });
       }
     }
 

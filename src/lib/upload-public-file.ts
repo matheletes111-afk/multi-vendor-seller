@@ -1,7 +1,5 @@
-import path from "path"
-import { mkdir, writeFile } from "fs/promises"
-import { existsSync } from "fs"
-import { put } from "@vercel/blob"
+import { randomUUID } from "crypto"
+import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3"
 
 type UploadArgs = {
   /** Folder prefix in storage, e.g. "categories" or "subcategories" */
@@ -19,30 +17,54 @@ type UploadArgs = {
 /**
  * Upload a file to a public URL.
  *
- * - If `BLOB_READ_WRITE_TOKEN` is present, uploads to Vercel Blob.
- * - Otherwise, writes to `public/uploads/<folder>/...` (works locally, not on serverless hosts).
+ * Uploads to AWS S3.
+ *
+ * Required env vars:
+ * - AWS_REGION
+ * - AWS_ACCESS_KEY_ID
+ * - AWS_SECRET_ACCESS_KEY
+ * - S3_BUCKET
+ *
+ * Optional:
+ * - S3_PUBLIC_BASE_URL (e.g. https://cdn.example.com or https://my-bucket.s3.ap-south-1.amazonaws.com)
  */
 export async function uploadPublicFile(args: UploadArgs): Promise<string> {
   const { folder, ext, contentType, buffer, prefix } = args
   const safeExt = ext && ext.startsWith(".") ? ext : `.${String(ext || "").replace(/^\.+/, "") || "bin"}`
-  const fileName = `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}${safeExt}`
+  const fileName = `${prefix}-${Date.now()}-${randomUUID()}${safeExt}`
 
-  if (process.env.BLOB_READ_WRITE_TOKEN) {
-    const blobPath = `uploads/${folder}/${fileName}`
-    const res = await put(blobPath, buffer, {
-      access: "public",
-      contentType,
-      addRandomSuffix: false,
-    })
-    return res.url
+  const region = process.env.AWS_REGION
+  const bucket = process.env.S3_BUCKET
+  if (!region || !bucket) {
+    throw new Error(
+      `Missing S3 env vars. Set AWS_REGION and S3_BUCKET (and AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY) on the server.`
+    )
   }
 
-  const uploadDir = path.join(process.cwd(), "public", "uploads", folder)
-  if (!existsSync(uploadDir)) {
-    await mkdir(uploadDir, { recursive: true })
+  const key = `uploads/${folder}/${fileName}`
+  const client = new S3Client({ region })
+
+  try {
+    await client.send(
+      new PutObjectCommand({
+        Bucket: bucket,
+        Key: key,
+        Body: buffer,
+        ContentType: contentType,
+      })
+    )
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    throw new Error(`S3 upload failed: ${msg}`)
   }
-  const filePath = path.join(uploadDir, fileName)
-  await writeFile(filePath, buffer)
-  return `/uploads/${folder}/${fileName}`
+
+  const publicBaseUrl = (process.env.S3_PUBLIC_BASE_URL || "").trim()
+  if (publicBaseUrl) {
+    return `${publicBaseUrl.replace(/\/+$/, "")}/${key}`
+  }
+
+  // Default public URL format (requires bucket/object to be publicly readable OR served via CDN later).
+  // Note: For us-east-1, the regional endpoint still works.
+  return `https://${bucket}.s3.${region}.amazonaws.com/${key}`
 }
 
