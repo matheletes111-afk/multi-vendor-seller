@@ -76,7 +76,8 @@ export async function PUT(
       attributes?: Record<string, string> | unknown
       specification?: string
       details?: string
-      additionalInfo?: Record<string, string> | unknown
+      returnType?: "NON_RETURNABLE" | "RETURNABLE"
+      returnDays?: number
     }>
   }
 
@@ -122,6 +123,12 @@ export async function PUT(
         if (isNaN(vPrice) || vPrice <= 0 || isNaN(vStock) || vStock < 0) {
           return NextResponse.json({ error: "Each variant must have valid price and stock" }, { status: 400 })
         }
+        const vReturnType = v?.returnType === "RETURNABLE" ? "RETURNABLE" : "NON_RETURNABLE"
+        const vReturnDaysRaw = typeof v?.returnDays === "number" ? v.returnDays : undefined
+        const vReturnDays =
+          vReturnType === "RETURNABLE" && typeof vReturnDaysRaw === "number" && vReturnDaysRaw > 0
+            ? Math.floor(vReturnDaysRaw)
+            : null
         await prisma.productVariant.create({
           data: {
             productId: id,
@@ -135,7 +142,8 @@ export async function PUT(
             attributes: (v?.attributes && typeof v.attributes === "object" && !Array.isArray(v.attributes)) ? v.attributes as object : {},
             specification: typeof v?.specification === "string" ? v.specification : null,
             details: typeof v?.details === "string" ? v.details : null,
-            additionalInfo: (v?.additionalInfo && typeof v.additionalInfo === "object" && !Array.isArray(v.additionalInfo)) ? (v.additionalInfo as object) : undefined,
+            returnType: vReturnType,
+            returnDays: vReturnDays ?? undefined,
           },
         })
       }

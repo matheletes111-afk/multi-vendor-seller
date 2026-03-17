@@ -293,6 +293,7 @@ model Category {
   mobileIcon    String?  // PNG URL for mobile (e.g. /uploads/categories/mobile-*.png)
   commissionRate Float   @default(10.0)
   isActive      Boolean  @default(true)
+  isFeatured    Boolean  @default(false) // Max 4 can be featured (for mobile home)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
@@ -397,6 +398,11 @@ model Product {
   @@map("products")
 }
 
+enum ReturnPolicyType {
+  NON_RETURNABLE
+  RETURNABLE
+}
+
 model ProductVariant {
   id            String   @id @default(cuid())
   productId     String
@@ -410,6 +416,10 @@ model ProductVariant {
   images        Json?    // Array of image URLs per variant
   specification String? @db.Text
   details       String?  @db.Text
+  // Structured return policy per variant
+  returnType    ReturnPolicyType @default(NON_RETURNABLE)
+  returnDays    Int?
+  // Additional JSON details if needed
   additionalInfo Json?   // e.g. {"Material":"Cotton","Care":"Machine wash"}
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt

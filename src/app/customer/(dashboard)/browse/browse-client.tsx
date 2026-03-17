@@ -175,7 +175,8 @@ export function BrowseClient() {
           )}
         </section>
 
-        {/* Services: show on all pages (category, subcategory, and plain browse) when any exist */}
+        {/* Services: hide when filtering by product category (categoryId/subcategoryId) — those categories are for products only */}
+        {!isCategoryView && !isSubcategoryView && (
         <section>
           <div className="flex flex-wrap items-center gap-2 mb-4 sm:mb-6">
             <Briefcase className="h-4 w-4 sm:h-5 sm:w-5 text-slate-600 shrink-0" />
@@ -227,6 +228,7 @@ export function BrowseClient() {
             </div>
           )}
         </section>
+        )}
       </div>
     </div>
   )

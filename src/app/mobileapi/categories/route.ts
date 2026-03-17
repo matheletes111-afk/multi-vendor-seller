@@ -21,10 +21,11 @@ interface Category {
   id: string
   name: string
   slug: string
-  mobileIcon: string | null  // Add this line
+  mobileIcon: string | null
   image: string | null
   description: string | null
   isActive: boolean
+  isFeatured?: boolean
   createdAt: Date
   updatedAt: Date
   subcategories: Subcategory[]
@@ -34,6 +35,7 @@ interface Category {
 
 interface CategoriesData {
   categories: Category[]
+  featured: Category[]  // categories with isFeatured true (max 4 for mobile)
   totalCategories: number
   totalSubcategories: number
 }
@@ -60,7 +62,7 @@ export async function GET(request: Request): Promise<NextResponse<SuccessRespons
     // Build where clause
     const whereClause = activeOnly ? { isActive: true } : {}
 
-    // Fetch all categories with their subcategories
+    // Fetch all categories with their subcategories (Category model includes isFeatured)
     const categories = await prisma.category.findMany({
       where: whereClause,
       include: {
@@ -108,6 +110,7 @@ export async function GET(request: Request): Promise<NextResponse<SuccessRespons
         image: cat.image,
         description: cat.description,
         isActive: cat.isActive,
+        isFeatured: (cat as { isFeatured?: boolean }).isFeatured ?? false,
         createdAt: cat.createdAt,
         updatedAt: cat.updatedAt,
         subcategories: cat.subcategories.map(sub => {
@@ -149,8 +152,12 @@ export async function GET(request: Request): Promise<NextResponse<SuccessRespons
       where: activeOnly ? { isActive: true } : {}
     })
 
+    // Featured: categories with isFeatured true (max 4 for mobile)
+    const featured = transformedCategories.filter(c => c.isFeatured).slice(0, 4)
+
     const responseData: CategoriesData = {
       categories: transformedCategories,
+      featured,
       totalCategories,
       totalSubcategories,
     }

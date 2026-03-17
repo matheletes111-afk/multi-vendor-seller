@@ -121,7 +121,8 @@ export async function POST(request: NextRequest) {
     const description = formData.get("description") as string || null;
     const commissionRate = parseFloat(formData.get("commissionRate") as string) || 10.0;
     const isActive = formData.get("isActive") === "true";
-    
+    const isFeatured = formData.get("isFeatured") === "true";
+
     const categoryImageFile = formData.get("categoryImage") as File | null;
     const categoryImageUrl = (formData.get("categoryImageUrl") as string)?.trim() || null;
     let categoryImagePath = categoryImageUrl;
@@ -169,6 +170,16 @@ export async function POST(request: NextRequest) {
         { error: "A category with this name already exists" },
         { status: 400 }
       );
+    }
+
+    if (isFeatured) {
+      const featuredCount = await prisma.category.count({ where: { isFeatured: true } });
+      if (featuredCount >= 4) {
+        return NextResponse.json(
+          { error: "Maximum 4 categories can be featured for mobile" },
+          { status: 400 }
+        );
+      }
     }
 
     if (categoryImageFile && categoryImageFile.size > 0) {
@@ -221,6 +232,7 @@ export async function POST(request: NextRequest) {
         mobileIcon: categoryMobileIconPath || null,
         commissionRate,
         isActive,
+        isFeatured,
       },
     });
 

@@ -46,6 +46,7 @@ interface Category {
   image: string | null;
   commissionRate: number;
   isActive: boolean;
+  isFeatured?: boolean;
   createdAt?: string;
   _count: {
     products: number;
@@ -83,6 +84,8 @@ export function CategoriesClient() {
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [togglingFeaturedId, setTogglingFeaturedId] = useState<string | null>(null);
+  const [toggleError, setToggleError] = useState<string | null>(null);
 
   useEffect(() => setMounted(true), []);
 
@@ -108,6 +111,39 @@ export function CategoriesClient() {
       cancelled = true;
     };
   }, [page, perPage]);
+
+  const handleToggleFeatured = async (category: Category) => {
+    const next = !category.isFeatured;
+    setTogglingFeaturedId(category.id);
+    setToggleError(null);
+    try {
+      const res = await fetch(`/api/admin/categories/${category.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isFeatured: next }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setToggleError(data.error || "Failed to update");
+        return;
+      }
+      setData((prev) =>
+        prev
+          ? {
+              ...prev,
+              categories: prev.categories.map((c) =>
+                c.id === category.id ? { ...c, isFeatured: next } : c
+              ),
+            }
+          : null
+      );
+      router.refresh();
+    } catch (e: any) {
+      setToggleError(e.message || "Failed to update");
+    } finally {
+      setTogglingFeaturedId(null);
+    }
+  };
 
   const handleDelete = async (categoryId: string) => {
     setDeletingId(categoryId);
@@ -160,6 +196,11 @@ export function CategoriesClient() {
           <AlertDescription>{decodeURIComponent(params.success)}</AlertDescription>
         </Alert>
       )}
+      {toggleError && (
+        <Alert variant="destructive">
+          <AlertDescription>{toggleError}</AlertDescription>
+        </Alert>
+      )}
 
       <Card className="overflow-hidden border shadow-sm">
         <CardHeader className="pb-4">
@@ -184,13 +225,14 @@ export function CategoriesClient() {
                 <TableHead>Products</TableHead>
                 <TableHead>Subcategories</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead className="whitespace-nowrap">Featured (max 4)</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {data.categories.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-12 text-muted-foreground">
+                  <TableCell colSpan={8} className="text-center py-12 text-muted-foreground">
                     No categories found
                   </TableCell>
                 </TableRow>
@@ -234,6 +276,21 @@ export function CategoriesClient() {
                       <Badge variant={category.isActive ? "default" : "secondary"}>
                         {category.isActive ? "Active" : "Inactive"}
                       </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Button
+                        variant={category.isFeatured ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => handleToggleFeatured(category)}
+                        disabled={togglingFeaturedId === category.id}
+                        className="min-w-[72px]"
+                      >
+                        {togglingFeaturedId === category.id
+                          ? "..."
+                          : category.isFeatured
+                            ? "On"
+                            : "Off"}
+                      </Button>
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">

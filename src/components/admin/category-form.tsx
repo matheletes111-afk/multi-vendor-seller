@@ -36,6 +36,7 @@ export function CategoryForm() {
     description: "",
     commissionRate: 10.0,
     isActive: true,
+    isFeatured: false,
   });
 
   // Category image (link or file)
@@ -149,6 +150,7 @@ export function CategoryForm() {
       formData.append("description", categoryData.description);
       formData.append("commissionRate", categoryData.commissionRate.toString());
       formData.append("isActive", categoryData.isActive.toString());
+      formData.append("isFeatured", categoryData.isFeatured.toString());
 
       if (categoryImageValue?.type === "file") {
         formData.append("categoryImage", categoryImageValue.file);
@@ -291,16 +293,29 @@ export function CategoryForm() {
                 className="w-24"
               />
             </div>
-            <div className="flex items-center gap-2 pt-6 sm:pt-0">
-              <input
-                id="isActive"
-                name="isActive"
-                type="checkbox"
-                checked={categoryData.isActive}
-                onChange={(e) => setCategoryData(prev => ({ ...prev, isActive: e.target.checked }))}
-                className="h-4 w-4 rounded border-input bg-background accent-primary"
-              />
-              <Label htmlFor="isActive" className="text-sm font-medium cursor-pointer">Active</Label>
+            <div className="flex flex-wrap items-center gap-4 pt-6 sm:pt-0">
+              <div className="flex items-center gap-2">
+                <input
+                  id="isActive"
+                  name="isActive"
+                  type="checkbox"
+                  checked={categoryData.isActive}
+                  onChange={(e) => setCategoryData(prev => ({ ...prev, isActive: e.target.checked }))}
+                  className="h-4 w-4 rounded border-input bg-background accent-primary"
+                />
+                <Label htmlFor="isActive" className="text-sm font-medium cursor-pointer">Active</Label>
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  id="isFeatured"
+                  name="isFeatured"
+                  type="checkbox"
+                  checked={categoryData.isFeatured}
+                  onChange={(e) => setCategoryData(prev => ({ ...prev, isFeatured: e.target.checked }))}
+                  className="h-4 w-4 rounded border-input bg-background accent-primary"
+                />
+                <Label htmlFor="isFeatured" className="text-sm font-medium cursor-pointer">Featured (mobile, max 4)</Label>
+              </div>
             </div>
           </div>
         </CardContent>

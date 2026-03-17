@@ -10,7 +10,20 @@ import { Label } from "@/ui/label"
 import { Upload, Link as LinkIcon, Plus, Trash2, Zap } from "lucide-react"
 
 type AttributePair = { key: string; value: string }
-type VariantRow = { name: string; price: string; discount: string; hasGst: boolean; stock: string; sku: string; images: string[]; imageMode: "link" | "upload"; attributes: AttributePair[]; details: string }
+type VariantRow = {
+  name: string
+  price: string
+  discount: string
+  hasGst: boolean
+  stock: string
+  sku: string
+  images: string[]
+  imageMode: "link" | "upload"
+  attributes: AttributePair[]
+  details: string
+  returnType: "NON_RETURNABLE" | "RETURNABLE"
+  returnDays: string
+}
 type GeneratorOption = { optionName: string; valuesText: string }
 
 type Subcategory = { id: string; name: string; slug: string }
@@ -29,7 +42,20 @@ export function NewProductClient() {
   const [uploading, setUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [variants, setVariants] = useState<VariantRow[]>([
-    { name: "Default", price: "", discount: "0", hasGst: true, stock: "0", sku: "", images: [], imageMode: "link", attributes: [], details: "" },
+    {
+      name: "Default",
+      price: "",
+      discount: "0",
+      hasGst: true,
+      stock: "0",
+      sku: "",
+      images: [],
+      imageMode: "link",
+      attributes: [],
+      details: "",
+      returnType: "NON_RETURNABLE",
+      returnDays: "",
+    },
   ])
   const [variantUploadingFor, setVariantUploadingFor] = useState<number | null>(null)
   const variantFileInputRefs = useRef<(HTMLInputElement | null)[]>([])
@@ -48,7 +74,23 @@ export function NewProductClient() {
     : []
 
   function addVariant() {
-    setVariants((prev) => [...prev, { name: "", price: "", discount: "0", hasGst: true, stock: "0", sku: "", images: [], imageMode: "link", attributes: [], details: "" }])
+    setVariants((prev) => [
+      ...prev,
+      {
+        name: "",
+        price: "",
+        discount: "0",
+        hasGst: true,
+        stock: "0",
+        sku: "",
+        images: [],
+        imageMode: "link",
+        attributes: [],
+        details: "",
+        returnType: "NON_RETURNABLE",
+        returnDays: "",
+      },
+    ])
   }
   function removeVariant(index: number) {
     if (variants.length <= 1) return
@@ -162,6 +204,8 @@ export function NewProductClient() {
       imageMode: "link",
       attributes: options.map((opt, idx) => ({ key: (opt.optionName ?? "").trim(), value: combo[idx] ?? "" })),
       details: "",
+      returnType: "NON_RETURNABLE",
+      returnDays: "",
     }))
     setVariants(newVariants)
   }
@@ -223,7 +267,19 @@ export function NewProductClient() {
       setError("Name and category are required")
       return
     }
-    const variantsPayload: { name: string; price: number; discount: number; hasGst: boolean; stock: number; sku?: string; images?: string[]; attributes?: Record<string, string>; details?: string }[] = []
+    const variantsPayload: {
+      name: string
+      price: number
+      discount: number
+      hasGst: boolean
+      stock: number
+      sku?: string
+      images?: string[]
+      attributes?: Record<string, string>
+      details?: string
+      returnType?: "NON_RETURNABLE" | "RETURNABLE"
+      returnDays?: number
+    }[] = []
     for (let i = 0; i < variants.length; i++) {
       const v = variants[i]
       const price = parseFloat(v.price)
@@ -245,6 +301,9 @@ export function NewProductClient() {
                 .map((p) => [(p.key ?? "").trim(), (p.value ?? "").trim()])
             )
           : undefined
+      const returnType = v.returnType === "RETURNABLE" ? "RETURNABLE" : "NON_RETURNABLE"
+      const daysNum = parseInt(v.returnDays || "", 10)
+
       variantsPayload.push({
         name: v.name.trim() || `Variant ${i + 1}`,
         price,
@@ -255,6 +314,8 @@ export function NewProductClient() {
         images: Array.isArray(v.images) && v.images.length > 0 ? v.images : undefined,
         attributes: attributesObj && Object.keys(attributesObj).length > 0 ? attributesObj : undefined,
         details: (v.details ?? "").trim() || undefined,
+        returnType,
+        returnDays: returnType === "RETURNABLE" && !isNaN(daysNum) && daysNum > 0 ? daysNum : undefined,
       })
     }
 
@@ -652,6 +713,37 @@ export function NewProductClient() {
                       value={v.details ?? ""}
                       onChange={(e) => updateVariant(i, "details", e.target.value)}
                     />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Return policy</Label>
+                    <p className="text-xs text-muted-foreground">
+                      Choose whether this variant is returnable. By default, items are non-returnable.
+                    </p>
+                    <div className="flex flex-wrap items-center gap-3">
+                      <select
+                        className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+                        value={v.returnType}
+                        onChange={(e) =>
+                          updateVariant(i, "returnType", e.target.value as VariantRow["returnType"])
+                        }
+                      >
+                        <option value="NON_RETURNABLE">Non-returnable</option>
+                        <option value="RETURNABLE">Returnable</option>
+                      </select>
+                      {v.returnType === "RETURNABLE" && (
+                        <div className="flex items-center gap-2">
+                          <Input
+                            type="number"
+                            min="1"
+                            className="w-24"
+                            placeholder="Days"
+                            value={v.returnDays}
+                            onChange={(e) => updateVariant(i, "returnDays", e.target.value)}
+                          />
+                          <span className="text-xs text-muted-foreground">day return window</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </Card>
               ))}

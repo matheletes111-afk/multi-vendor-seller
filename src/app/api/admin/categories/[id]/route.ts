@@ -51,6 +51,53 @@ export async function GET(
   }
 }
 
+// PATCH update only isFeatured (for list-page toggle). Max 4 featured.
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const session = await auth();
+    if (!session?.user || !isAdmin(session.user)) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { id } = await params;
+    const body = await request.json();
+    const isFeatured = body?.isFeatured === true;
+
+    const existing = await prisma.category.findUnique({ where: { id } });
+    if (!existing) {
+      return NextResponse.json({ error: "Category not found" }, { status: 404 });
+    }
+
+    if (isFeatured) {
+      const featuredCount = await prisma.category.count({
+        where: { isFeatured: true, id: { not: id } },
+      });
+      if (featuredCount >= 4) {
+        return NextResponse.json(
+          { error: "Maximum 4 categories can be featured for mobile" },
+          { status: 400 }
+        );
+      }
+    }
+
+    const updated = await prisma.category.update({
+      where: { id },
+      data: { isFeatured },
+    });
+
+    return NextResponse.json({ category: updated });
+  } catch (error: any) {
+    console.error("Error patching category featured:", error);
+    return NextResponse.json(
+      { error: error.message || "Failed to update" },
+      { status: 500 }
+    );
+  }
+}
+
 // PUT update category
 export async function PUT(
   request: NextRequest,
@@ -71,7 +118,8 @@ export async function PUT(
     const description = formData.get("description") as string || null;
     const commissionRate = parseFloat(formData.get("commissionRate") as string) || 10.0;
     const isActive = formData.get("isActive") === "true";
-    
+    const isFeatured = formData.get("isFeatured") === "true";
+
     const categoryImageFile = formData.get("categoryImage") as File | null;
     const categoryImageUrl = (formData.get("categoryImageUrl") as string)?.trim() || null;
     const removeCategoryImage = formData.get("removeCategoryImage") === "true";
@@ -139,6 +187,20 @@ export async function PUT(
     if (description !== undefined) updateData.description = description;
     if (commissionRate !== undefined) updateData.commissionRate = commissionRate;
     if (isActive !== undefined) updateData.isActive = isActive;
+    if (isFeatured !== undefined) {
+      if (isFeatured) {
+        const featuredCount = await prisma.category.count({
+          where: { isFeatured: true, id: { not: id } },
+        });
+        if (featuredCount >= 4) {
+          return NextResponse.json(
+            { error: "Maximum 4 categories can be featured for mobile" },
+            { status: 400 }
+          );
+        }
+      }
+      updateData.isFeatured = isFeatured;
+    }
 
     let categoryImagePath: string | null = removeCategoryImage ? null : (categoryImageUrl ?? existingCategoryImage ?? null);
 

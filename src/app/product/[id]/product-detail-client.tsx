@@ -21,6 +21,9 @@ type Variant = {
   stock: number
   images?: unknown
   attributes?: Record<string, string> | null
+  details?: string | null
+  returnType: "NON_RETURNABLE" | "RETURNABLE"
+  returnDays?: number | null
 }
 type Product = {
   id: string
@@ -52,6 +55,7 @@ export function ProductDetailClient({ productId }: { productId: string }) {
   const [addedToCart, setAddedToCart] = useState(false)
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null)
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>({})
+  const [showAllDetails, setShowAllDetails] = useState(false)
 
   useEffect(() => {
     fetch(`/api/products/${productId}`)
@@ -138,6 +142,30 @@ export function ProductDetailClient({ productId }: { productId: string }) {
           ? `Please select ${firstMissingLabel} to add to cart.`
           : "Please select a variant to add to cart."
         : null
+
+  // Variant-level return policy (from dedicated fields)
+  const returnPolicy = selectedVariant
+    ? {
+        type: selectedVariant.returnType ?? "NON_RETURNABLE",
+        days: selectedVariant.returnDays ?? undefined,
+      }
+    : null
+
+  // Product details (key/value) shown per selected variant: use its attributes.
+  const detailPairs: { label: string; value: string }[] = (() => {
+    if (!selectedVariant) return []
+    const attrs =
+      selectedVariant.attributes &&
+      typeof selectedVariant.attributes === "object" &&
+      !Array.isArray(selectedVariant.attributes)
+        ? (selectedVariant.attributes as Record<string, string>)
+        : {}
+    return Object.entries(attrs)
+      .map(([k, v]) => ({ label: k, value: String(v ?? "") }))
+      .filter((x) => x.label.trim() && x.value.trim())
+  })()
+  const variantDetailsText = selectedVariant?.details?.trim() || ""
+  const hasVariantDetails = detailPairs.length > 0 || variantDetailsText.length > 0
 
   return (
     <PublicLayout>
@@ -267,9 +295,25 @@ export function ProductDetailClient({ productId }: { productId: string }) {
                 </p>
               )}
 
-              <div className="mt-3 flex items-center gap-2 text-sm text-slate-600">
-                <Truck className="h-4 w-4 text-green-600" />
-                <span>Delivery &amp; availability shown at checkout</span>
+              <div className="mt-3 flex flex-col gap-2 text-sm text-slate-600">
+                <div className="flex items-center gap-2">
+                  <Truck className="h-4 w-4 text-green-600" />
+                  <span>Delivery &amp; availability shown at checkout</span>
+                </div>
+                {selectedVariant && returnPolicy && (
+                  <div className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-700 ring-1 ring-slate-200">
+                    <p className="font-semibold mb-1">Return &amp; Exchange</p>
+                    {returnPolicy.type === "RETURNABLE" ? (
+                      <p>
+                        {returnPolicy.days
+                          ? `${returnPolicy.days}-day return & exchange policy`
+                          : "Return & exchange available within the specified period."}
+                      </p>
+                    ) : (
+                      <p>Non-returnable item.</p>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className="mt-6 flex flex-col gap-3">
@@ -340,12 +384,46 @@ export function ProductDetailClient({ productId }: { productId: string }) {
           </div>
 
           {/* Product description / details */}
-          <div className="mt-8 border-t border-slate-200 pt-6 sm:mt-10 sm:pt-8">
-            <h2 className="text-base font-bold text-slate-900 sm:text-lg">About this item</h2>
-            {product.description ? (
-              <div className="mt-3 whitespace-pre-wrap text-slate-700">{product.description}</div>
-            ) : (
-              <p className="mt-3 text-slate-500">No description provided.</p>
+          <div className="mt-8 border-t border-slate-200 pt-6 sm:mt-10 sm:pt-8 space-y-6">
+            <div>
+              <h2 className="text-base font-bold text-slate-900 sm:text-lg">About this item</h2>
+              {product.description ? (
+                <div className="mt-3 whitespace-pre-wrap text-slate-700">{product.description}</div>
+              ) : (
+                <p className="mt-3 text-slate-500">No description provided.</p>
+              )}
+            </div>
+
+            {selectedVariant && hasVariantDetails && (
+              <div>
+                <h3 className="text-sm font-semibold text-slate-900 sm:text-base">
+                  Product details
+                </h3>
+                {detailPairs.length > 0 && (
+                  <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-xs sm:text-sm text-slate-700">
+                    {detailPairs.map(({ label, value }) => (
+                      <div key={label} className="flex flex-col">
+                        <dt className="font-medium text-slate-500">{label}</dt>
+                        <dd className="text-slate-900">{value}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                )}
+                {hasVariantDetails && (
+                  <button
+                    type="button"
+                    onClick={() => setShowAllDetails((v) => !v)}
+                    className="mt-3 text-sm font-medium text-blue-600 hover:underline"
+                  >
+                    {showAllDetails ? "See less" : "See more"}
+                  </button>
+                )}
+                {showAllDetails && variantDetailsText && (
+                  <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 text-sm text-slate-700 whitespace-pre-wrap">
+                    {variantDetailsText}
+                  </div>
+                )}
+              </div>
             )}
           </div>
 

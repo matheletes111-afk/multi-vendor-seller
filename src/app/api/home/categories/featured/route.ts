@@ -1,12 +1,15 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
-/** GET active categories with subcategories for home page category boxes. Only returns categories that have at least one active product. Public, no auth. */
+const MAX_FEATURED = 4;
+
+/** GET up to 4 featured categories for mobile home. Public, no auth. */
 export async function GET() {
   try {
     const categories = await prisma.category.findMany({
       where: {
         isActive: true,
+        isFeatured: true,
         products: { some: { isActive: true } },
       },
       include: {
@@ -22,13 +25,14 @@ export async function GET() {
           },
         },
       },
-      orderBy: [{ isFeatured: "desc" }, { createdAt: "desc" }],
+      orderBy: { createdAt: "desc" },
+      take: MAX_FEATURED,
     });
     return NextResponse.json(categories);
   } catch (error) {
-    console.error("Error fetching home categories:", error);
+    console.error("Error fetching featured categories:", error);
     return NextResponse.json(
-      { error: "Failed to fetch categories" },
+      { error: "Failed to fetch featured categories" },
       { status: 500 }
     );
   }

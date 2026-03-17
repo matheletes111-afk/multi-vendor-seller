@@ -23,6 +23,7 @@ interface Category {
   id: string
   name: string
   slug: string
+  mobileIcon: string | null
   image: string | null
   description: string | null
   isActive: boolean
@@ -125,9 +126,14 @@ export async function GET(): Promise<NextResponse<SuccessResponse | ErrorRespons
       take: 4,
     })
 
-    // Fetch featured categories (first 5 categories ordered by desc)
+    // Fetch featured categories (isFeatured=true, max 4)
+    // NOTE: Prisma client types may be out of date on Windows if `prisma generate` was skipped due to file locking.
+    // We still query the correct fields at runtime, but keep TS happy with a narrow assertion.
     const featuredCategoriesPromise = prisma.category.findMany({
-      where: { isActive: true },
+      where: {
+        isActive: true,
+        ...({ isFeatured: true } as unknown as Record<string, unknown>),
+      },
       select: {
         id: true,
         name: true,
@@ -136,13 +142,13 @@ export async function GET(): Promise<NextResponse<SuccessResponse | ErrorRespons
         description: true,
         _count: {
           select: {
-            subcategories: true
-          }
-        }
+            subcategories: true,
+          },
+        },
       },
       orderBy: { createdAt: "desc" },
       take: 4,
-    })
+    } as unknown as Parameters<typeof prisma.category.findMany>[0])
 
     // Fetch active ads
     const adsPromise = prisma.sellerAd.findMany({
@@ -198,13 +204,13 @@ export async function GET(): Promise<NextResponse<SuccessResponse | ErrorRespons
     ])
 
     // Transform featured categories to include count
-    const featuredCategories: FeaturedCategory[] = featuredCategoriesRaw.map(cat => ({
+    const featuredCategories: FeaturedCategory[] = (featuredCategoriesRaw as any[]).map((cat) => ({
       id: cat.id,
       name: cat.name,
       slug: cat.slug,
       image: cat.image,
       description: cat.description,
-      subcategoriesCount: cat._count.subcategories
+      subcategoriesCount: cat._count?.subcategories ?? 0
     }))
 
     // Transform categories to match the Category interface

@@ -68,8 +68,34 @@ export async function POST(request: NextRequest) {
   if (variantsRaw.length === 0) return NextResponse.json({ error: "At least one variant is required" }, { status: 400 })
   const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "")
   const imagesData = Array.isArray(body.images) ? body.images : []
-  type VariantInput = { name?: string; sku?: string; price?: number; discount?: number; hasGst?: boolean; stock?: number; images?: string[] | unknown; attributes?: Record<string, string> | unknown; specification?: string; details?: string; additionalInfo?: Record<string, string> | unknown }
-  const variants: { name: string; sku: string | null; price: number; discount: number; hasGst: boolean; stock: number; images: object; attributes: object; specification: string | null; details: string | null; additionalInfo: object | null }[] = []
+  type VariantInput = {
+    name?: string
+    sku?: string
+    price?: number
+    discount?: number
+    hasGst?: boolean
+    stock?: number
+    images?: string[] | unknown
+    attributes?: Record<string, string> | unknown
+    specification?: string
+    details?: string
+    returnType?: "NON_RETURNABLE" | "RETURNABLE"
+    returnDays?: number
+  }
+  const variants: {
+    name: string
+    sku: string | null
+    price: number
+    discount: number
+    hasGst: boolean
+    stock: number
+    images: object
+    attributes: object
+    specification: string | null
+    details: string | null
+    returnType: "NON_RETURNABLE" | "RETURNABLE"
+    returnDays: number | null
+  }[] = []
   for (let i = 0; i < variantsRaw.length; i++) {
     const v = variantsRaw[i] as VariantInput
     const vName = typeof v?.name === "string" ? v.name.trim() : `Variant ${i + 1}`
@@ -78,6 +104,13 @@ export async function POST(request: NextRequest) {
     const vDiscount = Math.round(Number(v?.discount ?? 0) * 100) / 100
     if (isNaN(vPrice) || vPrice <= 0) return NextResponse.json({ error: `Variant ${i + 1}: valid price required` }, { status: 400 })
     if (isNaN(vStock) || vStock < 0) return NextResponse.json({ error: `Variant ${i + 1}: valid stock required` }, { status: 400 })
+    const vReturnType = v?.returnType === "RETURNABLE" ? "RETURNABLE" : "NON_RETURNABLE"
+    const vReturnDaysRaw = typeof v?.returnDays === "number" ? v.returnDays : undefined
+    const vReturnDays =
+      vReturnType === "RETURNABLE" && typeof vReturnDaysRaw === "number" && vReturnDaysRaw > 0
+        ? Math.floor(vReturnDaysRaw)
+        : null
+
     variants.push({
       name: vName,
       sku: typeof v?.sku === "string" ? v.sku || null : null,
@@ -89,7 +122,8 @@ export async function POST(request: NextRequest) {
       attributes: (v?.attributes && typeof v.attributes === "object" && !Array.isArray(v.attributes)) ? v.attributes as object : {},
       specification: typeof v?.specification === "string" ? v.specification : null,
       details: typeof v?.details === "string" ? v.details : null,
-      additionalInfo: (v?.additionalInfo && typeof v.additionalInfo === "object" && !Array.isArray(v.additionalInfo)) ? v.additionalInfo as object : null,
+      returnType: vReturnType,
+      returnDays: vReturnDays,
     })
   }
   try {
@@ -114,7 +148,8 @@ export async function POST(request: NextRequest) {
             attributes: v.attributes,
             specification: v.specification,
             details: v.details,
-            additionalInfo: v.additionalInfo ?? undefined,
+            returnType: v.returnType,
+            returnDays: v.returnDays ?? undefined,
           })),
         },
       },

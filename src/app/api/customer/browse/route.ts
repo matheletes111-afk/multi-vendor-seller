@@ -96,22 +96,26 @@ export async function GET(request: NextRequest) {
   const subcategories = categoryWithSubs?.subcategories ?? []
   const resolvedCategoryId = categoryId ?? subcategoryWithCategory?.category?.id ?? null
 
+  // When filtering by product category (categoryId/subcategoryId), do not show services — that category is for products only
+  const isProductCategoryFilter = Boolean(categoryId || subcategoryId)
   const resolvedServiceCategoryId = serviceCategoryId ?? undefined
   const [services, serviceCategoryWithName] = await Promise.all([
-    prisma.service.findMany({
-      where: {
-        isActive: true,
-        ...(resolvedServiceCategoryId && { serviceCategoryId: resolvedServiceCategoryId }),
-      },
-      include: {
-        serviceCategory: true,
-        seller: { include: { store: true } },
-        _count: { select: { reviews: true } },
-      },
-      take: 50,
-      orderBy: { createdAt: "desc" },
-    }),
-    resolvedServiceCategoryId
+    isProductCategoryFilter
+      ? Promise.resolve([])
+      : prisma.service.findMany({
+          where: {
+            isActive: true,
+            ...(resolvedServiceCategoryId && { serviceCategoryId: resolvedServiceCategoryId }),
+          },
+          include: {
+            serviceCategory: true,
+            seller: { include: { store: true } },
+            _count: { select: { reviews: true } },
+          },
+          take: 50,
+          orderBy: { createdAt: "desc" },
+        }),
+    resolvedServiceCategoryId && !isProductCategoryFilter
       ? prisma.serviceCategory.findUnique({
           where: { id: resolvedServiceCategoryId, isActive: true },
           select: { name: true },

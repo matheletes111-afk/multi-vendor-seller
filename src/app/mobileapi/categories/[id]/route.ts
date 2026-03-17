@@ -52,7 +52,7 @@ export async function GET(request: Request): Promise<NextResponse<SuccessRespons
 
     console.log("Received request with ID:", id) // Debug log
 
-    // If no ID is provided, return all categories (list view)
+    // If no ID is provided, return all categories (list view) plus featured section
     if (!id) {
       const categories = await prisma.category.findMany({
         where: { isActive: true },
@@ -62,6 +62,7 @@ export async function GET(request: Request): Promise<NextResponse<SuccessRespons
           slug: true,
           image: true,
           description: true,
+          ...({ isFeatured: true } as Record<string, boolean>),
           _count: {
             select: {
               products: true,
@@ -71,20 +72,31 @@ export async function GET(request: Request): Promise<NextResponse<SuccessRespons
         },
         orderBy: { name: "asc" }
       })
+      type CategoryListItem = typeof categories[0] & { isFeatured?: boolean }
+      const list = categories as CategoryListItem[]
+
+      const categoryItems = list.map(cat => ({
+        id: cat.id,
+        name: cat.name,
+        slug: cat.slug,
+        image: cat.image,
+        description: cat.description,
+        isFeatured: (cat as { isFeatured?: boolean }).isFeatured ?? false,
+        productsCount: cat._count.products,
+        subcategoriesCount: cat._count.subcategories
+      }))
+
+      // Featured section: categories with isFeatured true (max 4 for mobile)
+      const featured = categoryItems
+        .filter(c => c.isFeatured)
+        .slice(0, 4)
 
       return NextResponse.json({
         success: true,
         message: "Categories fetched successfully",
         data: {
-          categories: categories.map(cat => ({
-            id: cat.id,
-            name: cat.name,
-            slug: cat.slug,
-            image: cat.image,
-            description: cat.description,
-            productsCount: cat._count.products,
-            subcategoriesCount: cat._count.subcategories
-          })),
+          categories: categoryItems,
+          featured,
           total: categories.length
         }
       })

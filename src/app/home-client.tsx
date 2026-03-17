@@ -75,6 +75,7 @@ type Ad = {
 export function HomeClient() {
   const [banners, setBanners] = useState<Banner[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [featuredCategories, setFeaturedCategories] = useState<Category[]>([]);
   const [categoriesLoading, setCategoriesLoading] = useState(true);
   const [productsByCategory, setProductsByCategory] = useState<Record<string, Product[]>>({});
   const [randomProducts, setRandomProducts] = useState<Product[]>([]);
@@ -103,14 +104,18 @@ export function HomeClient() {
 
   useEffect(() => {
     setCategoriesLoading(true);
-    fetch("/api/home/categories")
-      .then((r) => r.json())
-      .then((data) => {
-        setCategories(Array.isArray(data) ? data : []);
+    Promise.all([
+      fetch("/api/home/categories").then((r) => r.json()),
+      fetch("/api/home/categories/featured").then((r) => r.json()),
+    ])
+      .then(([all, featured]) => {
+        setCategories(Array.isArray(all) ? all : []);
+        setFeaturedCategories(Array.isArray(featured) ? featured : []);
         setCategoriesLoading(false);
       })
       .catch(() => {
         setCategories([]);
+        setFeaturedCategories([]);
         setCategoriesLoading(false);
       });
   }, []);
@@ -123,9 +128,9 @@ export function HomeClient() {
   }, []);
 
   useEffect(() => {
-    if (categories.length === 0) return;
-    const latest = categories.slice(0, 4);
-    latest.forEach((cat) => {
+    const forProducts = featuredCategories.length > 0 ? featuredCategories : categories.slice(0, 4);
+    if (forProducts.length === 0) return;
+    forProducts.forEach((cat) => {
       fetch(`/api/home/products?categoryId=${cat.id}&limit=10`)
         .then((r) => r.json())
         .then((list: Product[]) => {
@@ -133,7 +138,7 @@ export function HomeClient() {
         })
         .catch(() => {});
     });
-  }, [categories]);
+  }, [categories, featuredCategories]);
 
   useEffect(() => {
     if (banners.length <= 1) return;
@@ -184,7 +189,9 @@ export function HomeClient() {
     return () => el.removeEventListener("scroll", onScroll);
   }, [ads.length]);
 
-  const latestCategories = categories.slice(0, 4);
+  // Mobile: show up to 4 featured categories; desktop: same or first 4 of all
+  const latestCategories =
+    featuredCategories.length > 0 ? featuredCategories : categories.slice(0, 4);
 
   return (
     <PublicLayout>
@@ -297,12 +304,13 @@ export function HomeClient() {
         {/* Best Sellers: horizontal carousels with arrows (no scrollbar) */}
         {latestCategories.filter((c) => (productsByCategory[c.id]?.length ?? 0) > 0).length > 0 && (
           <section className="border-t border-blue-100 bg-white/70 py-6 sm:py-8">
-            <div className="container mx-auto space-y-6 sm:space-y-8 px-3 sm:px-4">
-              {latestCategories.slice(0, 2).map((cat) => {
-                const products = productsByCategory[cat.id] ?? [];
-                if (products.length === 0) return null;
-                return (
-                  <div key={cat.id}>
+            <div className="container mx-auto px-3 sm:px-4">
+              <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 lg:gap-8">
+                {latestCategories.slice(0, 2).map((cat) => {
+                  const products = productsByCategory[cat.id] ?? []
+                  if (products.length === 0) return null
+                  return (
+                    <div key={cat.id} className="min-w-0">
                     <h2 className="mb-3 sm:mb-4 text-lg font-bold text-slate-800 sm:text-xl">
                       Best Sellers in {cat.name}
                     </h2>
@@ -381,9 +389,10 @@ export function HomeClient() {
                         })}
                       </div>
                     </div>
-                  </div>
-                );
-              })}
+                    </div>
+                  )
+                })}
+              </div>
             </div>
           </section>
         )}
