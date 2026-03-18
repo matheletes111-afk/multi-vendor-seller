@@ -36,6 +36,26 @@ export function ImageLinkOrUpload({
   const [filePreview, setFilePreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Keep UI mode/input in sync with external value (so editing existing URL shows the URL field,
+  // and switching between URL/file keeps preview consistent).
+  useEffect(() => {
+    if (value?.type === "url") {
+      setMode("link");
+      setUrlInput(value.url);
+      if (filePreview) {
+        URL.revokeObjectURL(filePreview);
+        setFilePreview(null);
+      }
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    } else if (value?.type === "file") {
+      setMode("upload");
+      setUrlInput("");
+    } else {
+      setUrlInput("");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value?.type, value?.type === "url" ? value.url : null]);
+
   useEffect(() => {
     return () => {
       if (filePreview) URL.revokeObjectURL(filePreview);
@@ -142,6 +162,11 @@ export function ImageLinkOrUpload({
             onChange={handleUrlChange}
             placeholder="https://example.com/image.jpg"
           />
+          {(value || currentImage) && (
+            <Button type="button" variant="ghost" size="sm" onClick={handleRemove}>
+              Remove
+            </Button>
+          )}
         </div>
       ) : (
         <div className="flex items-center gap-2">

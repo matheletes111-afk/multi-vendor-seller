@@ -106,6 +106,68 @@ export function EditCategoryForm({ category }: { category: Category }) {
     else setRemoveCategoryImage(true);
   };
 
+  const handleSubcategoryImageChange = (value: ImageLinkOrUploadValue | null) => {
+    setSubcategoryForm((prev) => {
+      // For file uploads, create an object URL so list preview works.
+      if (value?.type === "file") {
+        const nextPreview = URL.createObjectURL(value.file);
+        // Revoke previous preview if we created it (best-effort; only revoke blob: URLs)
+        if (prev.imagePreview?.startsWith("blob:")) {
+          try {
+            URL.revokeObjectURL(prev.imagePreview);
+          } catch {
+            // ignore
+          }
+        }
+        return { ...prev, imageValue: value, imagePreview: nextPreview, removeImage: false };
+      }
+
+      if (value?.type === "url") {
+        if (prev.imagePreview?.startsWith("blob:")) {
+          try {
+            URL.revokeObjectURL(prev.imagePreview);
+          } catch {
+            // ignore
+          }
+        }
+        return { ...prev, imageValue: value, imagePreview: value.url, removeImage: false };
+      }
+
+      // cleared
+      if (prev.imagePreview?.startsWith("blob:")) {
+        try {
+          URL.revokeObjectURL(prev.imagePreview);
+        } catch {
+          // ignore
+        }
+      }
+      return { ...prev, imageValue: null, imagePreview: undefined, removeImage: true };
+    });
+  };
+
+  // Cleanup blob previews on unmount
+  useEffect(() => {
+    return () => {
+      for (const sub of subcategories) {
+        if (sub.imagePreview?.startsWith("blob:")) {
+          try {
+            URL.revokeObjectURL(sub.imagePreview);
+          } catch {
+            // ignore
+          }
+        }
+      }
+      if (subcategoryForm.imagePreview?.startsWith("blob:")) {
+        try {
+          URL.revokeObjectURL(subcategoryForm.imagePreview);
+        } catch {
+          // ignore
+        }
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const handleSubcategoryChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target;
     setSubcategoryForm(prev => ({
@@ -191,6 +253,15 @@ export function EditCategoryForm({ category }: { category: Category }) {
     setError("");
 
     try {
+      // If user is currently editing a subcategory, commit that draft into the list
+      // so DB update receives the latest values even if they forgot to click "Update Subcategory".
+      const effectiveSubcategories = (() => {
+        if (editingIndex === null) return subcategories
+        const next = [...subcategories]
+        next[editingIndex] = { ...subcategoryForm }
+        return next
+      })()
+
       const formData = new FormData();
       
       // Append category data
@@ -215,7 +286,7 @@ export function EditCategoryForm({ category }: { category: Category }) {
         formData.append("categoryMobileIconUrl", categoryMobileIconValue.url);
       }
 
-      const subcategoriesPayload = subcategories.map(sub => ({
+      const subcategoriesPayload = effectiveSubcategories.map(sub => ({
         id: sub.id,
         name: sub.name,
         description: sub.description,
@@ -226,7 +297,7 @@ export function EditCategoryForm({ category }: { category: Category }) {
       }));
       formData.append("subcategories", JSON.stringify(subcategoriesPayload));
 
-      subcategories.forEach((sub, index) => {
+      effectiveSubcategories.forEach((sub, index) => {
         if (sub.imageValue?.type === "file") {
           formData.append(`subcategoryImage_${index}`, sub.imageValue.file);
         } else if (sub.imageValue?.type === "url" && sub.imageValue.url) {
@@ -242,7 +313,7 @@ export function EditCategoryForm({ category }: { category: Category }) {
       // Track which images to delete (for removed subcategories with existing images)
       // This would require comparing with original category.subcategories
       const originalSubIds = category.subcategories.map(s => s.id);
-      const currentSubIds = subcategories.filter(s => s.id).map(s => s.id);
+      const currentSubIds = effectiveSubcategories.filter(s => s.id).map(s => s.id);
       const removedSubIds = originalSubIds.filter(id => !currentSubIds.includes(id));
       
       const removedSubImages = category.subcategories
@@ -430,7 +501,7 @@ export function EditCategoryForm({ category }: { category: Category }) {
               <ImageLinkOrUpload
                 label="Subcategory Image"
                 value={subcategoryForm.imageValue ?? null}
-                onChange={(v) => setSubcategoryForm(prev => ({ ...prev, imageValue: v ?? undefined }))}
+                onChange={handleSubcategoryImageChange}
                 currentImage={subcategoryForm.removeImage ? undefined : (subcategoryForm.imagePreview || subcategoryForm.existingImage)}
                 showPreview={true}
               />

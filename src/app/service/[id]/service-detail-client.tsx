@@ -152,11 +152,13 @@ export function ServiceDetailClient({ service }: { service: Service }) {
                         variant="outline"
                         className="border-amber-500 text-amber-700 hover:bg-amber-50"
                         onClick={() => {
-                          if (status === "authenticated") {
-                            router.push("/cart")
-                          } else {
-                            router.push("/customer/login?callbackUrl=" + encodeURIComponent("/cart"))
-                          }
+                          addItem({
+                            serviceId: service.id,
+                            name: service.name,
+                            price: displayPrice,
+                            image: mainImage || null,
+                          })
+                          router.push("/cart")
                         }}
                       >
                         Book / Buy Now

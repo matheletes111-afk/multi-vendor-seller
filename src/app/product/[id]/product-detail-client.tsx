@@ -364,12 +364,17 @@ export function ProductDetailClient({ productId }: { productId: string }) {
                       size="lg"
                       variant="outline"
                       className="w-full border-amber-500 text-amber-700 hover:bg-amber-50 sm:w-auto"
+                      disabled={!canAddToCart}
                       onClick={() => {
-                        if (status === "authenticated") {
-                          router.push("/cart")
-                        } else {
-                          router.push("/customer/login?callbackUrl=" + encodeURIComponent("/cart"))
-                        }
+                        if (!selectedVariant) return
+                        addItem({
+                          productId: product.id,
+                          productVariantId: selectedVariant.id,
+                          name: product.name + (variants.length > 1 ? ` (${selectedVariant.name})` : ""),
+                          price: displayPrice,
+                          image: mainImage || null,
+                        })
+                        router.push("/cart")
                       }}
                     >
                       Buy Now

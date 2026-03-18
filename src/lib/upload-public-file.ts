@@ -23,10 +23,10 @@ type UploadArgs = {
  * - AWS_REGION
  * - AWS_ACCESS_KEY_ID
  * - AWS_SECRET_ACCESS_KEY
- * - S3_BUCKET
+ * - S3_BUCKET or AWS_S3_BUCKET_NAME
  *
  * Optional:
- * - S3_PUBLIC_BASE_URL (e.g. https://cdn.example.com or https://my-bucket.s3.ap-south-1.amazonaws.com)
+ * - S3_PUBLIC_BASE_URL (e.g. https://cdn.example.com or https://my-bucket.s3.region.amazonaws.com)
  */
 export async function uploadPublicFile(args: UploadArgs): Promise<string> {
   const { folder, ext, contentType, buffer, prefix } = args
@@ -34,10 +34,10 @@ export async function uploadPublicFile(args: UploadArgs): Promise<string> {
   const fileName = `${prefix}-${Date.now()}-${randomUUID()}${safeExt}`
 
   const region = process.env.AWS_REGION
-  const bucket = process.env.S3_BUCKET
+  const bucket = process.env.S3_BUCKET || process.env.AWS_S3_BUCKET_NAME
   if (!region || !bucket) {
     throw new Error(
-      `Missing S3 env vars. Set AWS_REGION and S3_BUCKET (and AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY) on the server.`
+      `Missing S3 env vars. Set AWS_REGION and S3_BUCKET (or AWS_S3_BUCKET_NAME) and AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY on the server.`
     )
   }
 
