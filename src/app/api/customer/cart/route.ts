@@ -102,10 +102,6 @@ export async function POST(request: NextRequest) {
     )
   }
   const quantity = typeof payload.quantity === "number" && payload.quantity >= 1 ? payload.quantity : 1
-  const resolved = await resolveCartLine(payload, quantity)
-  if (!resolved) {
-    return NextResponse.json({ error: "Product not found" }, { status: 404 })
-  }
   const userId = session.user.id
   const productId = payload.productId
   const productVariantId = payload.productVariantId ?? null
@@ -117,7 +113,29 @@ export async function POST(request: NextRequest) {
       serviceId: null,
     },
   })
-  const data = {
+  if (existing) {
+    const nextQuantity = existing.quantity + quantity
+    const resolved = await resolveCartLine(payload, nextQuantity)
+    if (!resolved) {
+      return NextResponse.json({ error: "Product not found" }, { status: 404 })
+    }
+    await prisma.cartItem.update({
+      where: { id: existing.id },
+      data: {
+        quantity: nextQuantity,
+        unitPrice: resolved.unitPrice,
+        totalPrice: resolved.totalPrice,
+        hasGst: resolved.hasGst,
+        totalGst: resolved.totalGst,
+        totalPriceInclGst: resolved.totalPriceInclGst,
+      } as Parameters<typeof prisma.cartItem.update>[0]["data"],
+    })
+  } else {
+    const resolved = await resolveCartLine(payload, quantity)
+    if (!resolved) {
+      return NextResponse.json({ error: "Product not found" }, { status: 404 })
+    }
+    const data = {
     userId,
     productId,
     productVariantId,
@@ -130,18 +148,7 @@ export async function POST(request: NextRequest) {
     hasGst: resolved.hasGst,
     totalGst: resolved.totalGst,
     totalPriceInclGst: resolved.totalPriceInclGst,
-  }
-  if (existing) {
-    await prisma.cartItem.update({
-      where: { id: existing.id },
-      data: {
-        quantity,
-        totalPrice: resolved.totalPrice,
-        totalGst: resolved.totalGst,
-        totalPriceInclGst: resolved.totalPriceInclGst,
-      } as Parameters<typeof prisma.cartItem.update>[0]["data"],
-    })
-  } else {
+    }
     await prisma.cartItem.create({ data })
   }
   const items = await prisma.cartItem.findMany({

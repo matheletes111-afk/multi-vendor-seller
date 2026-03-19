@@ -100,11 +100,6 @@ export async function POST(request: NextRequest) {
       ? (payload as { quantity: number }).quantity
       : 1
 
-  const resolved = await resolveCartLine(payload, quantity)
-  if (!resolved) {
-    return NextResponse.json({ success: false, error: "Invalid cart item" }, { status: 400 })
-  }
-
   const userId = auth.userId
 
   if (isProductCartPayload(payload)) {
@@ -116,10 +111,15 @@ export async function POST(request: NextRequest) {
     })
 
     if (existing) {
+      const nextQuantity = existing.quantity + quantity
+      const resolved = await resolveCartLine(payload, nextQuantity)
+      if (!resolved) {
+        return NextResponse.json({ success: false, error: "Invalid cart item" }, { status: 400 })
+      }
       await prisma.cartItem.update({
         where: { id: existing.id },
         data: {
-          quantity,
+          quantity: nextQuantity,
           unitPrice: resolved.unitPrice,
           totalPrice: resolved.totalPrice,
           hasGst: resolved.hasGst,
@@ -128,6 +128,10 @@ export async function POST(request: NextRequest) {
         } as Parameters<typeof prisma.cartItem.update>[0]["data"],
       })
     } else {
+      const resolved = await resolveCartLine(payload, quantity)
+      if (!resolved) {
+        return NextResponse.json({ success: false, error: "Invalid cart item" }, { status: 400 })
+      }
       await prisma.cartItem.create({
         data: {
           userId,
@@ -155,10 +159,15 @@ export async function POST(request: NextRequest) {
     })
 
     if (existing) {
+      const nextQuantity = existing.quantity + quantity
+      const resolved = await resolveCartLine(payload, nextQuantity)
+      if (!resolved) {
+        return NextResponse.json({ success: false, error: "Invalid cart item" }, { status: 400 })
+      }
       await prisma.cartItem.update({
         where: { id: existing.id },
         data: {
-          quantity,
+          quantity: nextQuantity,
           unitPrice: resolved.unitPrice,
           totalPrice: resolved.totalPrice,
           hasGst: resolved.hasGst,
@@ -167,6 +176,10 @@ export async function POST(request: NextRequest) {
         } as Parameters<typeof prisma.cartItem.update>[0]["data"],
       })
     } else {
+      const resolved = await resolveCartLine(payload, quantity)
+      if (!resolved) {
+        return NextResponse.json({ success: false, error: "Invalid cart item" }, { status: 400 })
+      }
       await prisma.cartItem.create({
         data: {
           userId,

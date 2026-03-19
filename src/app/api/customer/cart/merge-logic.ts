@@ -16,8 +16,6 @@ export async function mergeGuestCartForUser(
     const payload = raw as CartAddPayload
     if (!isProductCartPayload(payload)) continue
     const quantity = typeof raw.quantity === "number" && raw.quantity >= 1 ? raw.quantity : 1
-    const resolved = await resolveCartLine(payload, quantity)
-    if (!resolved) continue
     const productId = payload.productId
     const productVariantId = payload.productVariantId ?? null
     const existing = await prisma.cartItem.findFirst({
@@ -28,7 +26,25 @@ export async function mergeGuestCartForUser(
         serviceId: null,
       },
     })
-    const data = {
+    if (existing) {
+      const nextQuantity = existing.quantity + quantity
+      const resolved = await resolveCartLine(payload, nextQuantity)
+      if (!resolved) continue
+      await prisma.cartItem.update({
+        where: { id: existing.id },
+        data: {
+          quantity: nextQuantity,
+          unitPrice: resolved.unitPrice,
+          totalPrice: resolved.totalPrice,
+          hasGst: resolved.hasGst,
+          totalGst: resolved.totalGst,
+          totalPriceInclGst: resolved.totalPriceInclGst,
+        } as Parameters<typeof prisma.cartItem.update>[0]["data"],
+      })
+    } else {
+      const resolved = await resolveCartLine(payload, quantity)
+      if (!resolved) continue
+      const data = {
       userId,
       productId,
       productVariantId,
@@ -41,18 +57,7 @@ export async function mergeGuestCartForUser(
       hasGst: resolved.hasGst,
       totalGst: resolved.totalGst,
       totalPriceInclGst: resolved.totalPriceInclGst,
-    }
-    if (existing) {
-      await prisma.cartItem.update({
-        where: { id: existing.id },
-        data: {
-          quantity,
-          totalPrice: resolved.totalPrice,
-          totalGst: resolved.totalGst,
-          totalPriceInclGst: resolved.totalPriceInclGst,
-        } as Parameters<typeof prisma.cartItem.update>[0]["data"],
-      })
-    } else {
+      }
       await prisma.cartItem.create({ data })
     }
   }
