@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/ui/card"
 import { Button } from "@/ui/button"
 import { Badge } from "@/ui/badge"
 import { Separator } from "@/ui/separator"
-import { formatCurrency, formatDate } from "@/lib/utils"
+import { formatCurrency, formatDate, formatSlotTimeRange } from "@/lib/utils"
 import type { AdminOrderDetailApi } from "@/app/api/admin/orders/types"
 import { ADMIN_ORDER_STATUSES } from "@/app/api/admin/orders/types"
 import { Package, MapPin, User, ArrowLeft, Store, Loader2, Receipt, Banknote, ShoppingBag } from "lucide-react"
@@ -247,6 +247,9 @@ export function AdminOrderDetailClient({ orderId }: { orderId: string }) {
                 </div>
                 <div className="min-w-0 flex-1 space-y-1 text-sm">
                   <p className="font-medium text-slate-900">{itemName(item)}</p>
+                  {item.serviceNameSnapshot && item.serviceSlotStartTime && item.serviceSlotEndTime && (
+                    <p className="text-slate-600 text-xs">Slot: {formatSlotTimeRange(item.serviceSlotStartTime, item.serviceSlotEndTime)}</p>
+                  )}
                   <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 text-slate-600">
                     <span>Qty: {item.quantity}</span>
                     <span>× {formatCurrency(item.price)}</span>

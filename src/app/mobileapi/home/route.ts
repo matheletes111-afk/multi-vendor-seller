@@ -41,6 +41,20 @@ interface Ad {
   serviceId: string | null
 }
 
+interface ServiceCategoryItem {
+  id: string
+  name: string
+  slug: string
+  description: string | null
+  image: string | null
+  mobileIcon: string | null
+  commissionRate: number
+  isActive: boolean
+  createdAt: Date
+  updatedAt: Date
+  servicesCount: number
+}
+
 interface Service {
   id: string
   name: string
@@ -67,6 +81,7 @@ interface HomepageData {
   banners: Banner[]
   categories: Category[]
   featuredCategories: Category[]
+  serviceCategories: ServiceCategoryItem[]
   ads: Ad[]
   services: Service[]
 }
@@ -139,6 +154,25 @@ export async function GET(): Promise<NextResponse<SuccessResponse | ErrorRespons
       take: 4,
     } as unknown as Parameters<typeof prisma.category.findMany>[0])
 
+    // Fetch service categories with full data (active only)
+    const serviceCategoriesPromise = prisma.serviceCategory.findMany({
+      where: { isActive: true },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        description: true,
+        image: true,
+        mobileIcon: true,
+        commissionRate: true,
+        isActive: true,
+        createdAt: true,
+        updatedAt: true,
+        _count: { select: { services: true } },
+      },
+      orderBy: { name: "asc" },
+    })
+
     // Fetch active ads
     const adsPromise = prisma.sellerAd.findMany({
       where: { status: "ACTIVE" },
@@ -184,10 +218,11 @@ export async function GET(): Promise<NextResponse<SuccessResponse | ErrorRespons
     })
 
     // Execute all promises in parallel
-    const [banners, categories, featuredCategoriesRaw, ads, services] = await Promise.all([
+    const [banners, categories, featuredCategoriesRaw, serviceCategoriesRaw, ads, services] = await Promise.all([
       bannersPromise,
       categoriesPromise,
       featuredCategoriesPromise,
+      serviceCategoriesPromise,
       adsPromise,
       servicesPromise,
     ])
@@ -236,11 +271,27 @@ export async function GET(): Promise<NextResponse<SuccessResponse | ErrorRespons
       images: service.images
     }))
 
+    // Transform service categories to full ServiceCategoryItem shape
+    const serviceCategories: ServiceCategoryItem[] = serviceCategoriesRaw.map((c) => ({
+      id: c.id,
+      name: c.name,
+      slug: c.slug,
+      description: c.description,
+      image: c.image,
+      mobileIcon: c.mobileIcon,
+      commissionRate: c.commissionRate,
+      isActive: c.isActive,
+      createdAt: c.createdAt,
+      updatedAt: c.updatedAt,
+      servicesCount: c._count.services,
+    }))
+
     // Compile homepage data
     const homepageData: HomepageData = {
       banners,
       categories: transformedCategories,
       featuredCategories,
+      serviceCategories,
       ads,
       services: transformedServices,
     }

@@ -85,7 +85,7 @@ export async function POST(request: NextRequest) {
     include: CHECKOUT_CART_INCLUDE,
     orderBy: { createdAt: "asc" },
   })
-  const items = cartItems as CartItemForCheckout[]
+  const items = (cartItems as CartItemForCheckout[]).filter((i) => i.productId != null)
 
   if (items.length === 0) {
     return NextResponse.json({ error: "Cart is empty" }, { status: 400 })
@@ -180,7 +180,6 @@ export async function POST(request: NextRequest) {
           subtotalInclGst: row.totalPriceInclGst ?? row.totalPrice + row.totalGst,
         },
       })
-      // Reduce variant stock after order item is created
       if (row.productVariantId) {
         await prisma.productVariant.update({
           where: { id: row.productVariantId },

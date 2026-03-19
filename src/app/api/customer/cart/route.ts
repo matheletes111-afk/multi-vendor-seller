@@ -95,91 +95,54 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 })
   }
   const payload = body as CartAddPayload
+  if (!isProductCartPayload(payload)) {
+    return NextResponse.json(
+      { error: "Services are booked directly. Use Book now on the service page." },
+      { status: 400 }
+    )
+  }
   const quantity = typeof payload.quantity === "number" && payload.quantity >= 1 ? payload.quantity : 1
   const resolved = await resolveCartLine(payload, quantity)
   if (!resolved) {
-    return NextResponse.json({ error: "Product or service not found" }, { status: 404 })
+    return NextResponse.json({ error: "Product not found" }, { status: 404 })
   }
   const userId = session.user.id
-  if (isProductCartPayload(payload)) {
-    const productId = payload.productId
-    const productVariantId = payload.productVariantId ?? null
-    const existing = await prisma.cartItem.findFirst({
-      where: {
-        userId,
-        productId,
-        productVariantId,
-        serviceId: null,
-      },
-    })
-    const data = {
+  const productId = payload.productId
+  const productVariantId = payload.productVariantId ?? null
+  const existing = await prisma.cartItem.findFirst({
+    where: {
       userId,
       productId,
       productVariantId,
       serviceId: null,
-      servicePackageId: null,
-      serviceSlotId: null,
-      quantity,
-      unitPrice: resolved.unitPrice,
-      totalPrice: resolved.totalPrice,
-      hasGst: resolved.hasGst,
-      totalGst: resolved.totalGst,
-      totalPriceInclGst: resolved.totalPriceInclGst,
-    }
-    if (existing) {
-      await prisma.cartItem.update({
-        where: { id: existing.id },
-        data: {
-          quantity,
-          totalPrice: resolved.totalPrice,
-          totalGst: resolved.totalGst,
-          totalPriceInclGst: resolved.totalPriceInclGst,
-        } as Parameters<typeof prisma.cartItem.update>[0]["data"],
-      })
-    } else {
-      await prisma.cartItem.create({ data })
-    }
-  } else {
-    const serviceId = payload.serviceId
-    const servicePackageId = payload.servicePackageId ?? null
-    const serviceSlotId = payload.serviceSlotId ?? null
-    const existing = await prisma.cartItem.findFirst({
-      where: {
-        userId,
-        serviceId,
-        productId: null,
-        productVariantId: null,
-        servicePackageId,
-        serviceSlotId,
-      },
+    },
+  })
+  const data = {
+    userId,
+    productId,
+    productVariantId,
+    serviceId: null,
+    servicePackageId: null,
+    serviceSlotId: null,
+    quantity,
+    unitPrice: resolved.unitPrice,
+    totalPrice: resolved.totalPrice,
+    hasGst: resolved.hasGst,
+    totalGst: resolved.totalGst,
+    totalPriceInclGst: resolved.totalPriceInclGst,
+  }
+  if (existing) {
+    await prisma.cartItem.update({
+      where: { id: existing.id },
+      data: {
+        quantity,
+        totalPrice: resolved.totalPrice,
+        totalGst: resolved.totalGst,
+        totalPriceInclGst: resolved.totalPriceInclGst,
+      } as Parameters<typeof prisma.cartItem.update>[0]["data"],
     })
-    const data = {
-      userId,
-      productId: null,
-      productVariantId: null,
-      serviceId,
-      servicePackageId,
-      serviceSlotId,
-      quantity,
-      unitPrice: resolved.unitPrice,
-      totalPrice: resolved.totalPrice,
-      hasGst: resolved.hasGst,
-      totalGst: resolved.totalGst,
-      totalPriceInclGst: resolved.totalPriceInclGst,
-    }
-    if (existing) {
-      await prisma.cartItem.update({
-        where: { id: existing.id },
-        data: {
-          quantity,
-          totalPrice: resolved.totalPrice,
-          totalGst: resolved.totalGst,
-          totalPriceInclGst: resolved.totalPriceInclGst,
-        } as Parameters<typeof prisma.cartItem.update>[0]["data"],
-      })
-    } else {
-      await prisma.cartItem.create({ data })
-    }
+  } else {
+    await prisma.cartItem.create({ data })
   }
   const items = await prisma.cartItem.findMany({
     where: { userId },
@@ -219,12 +182,14 @@ export async function PATCH(request: NextRequest) {
     await prisma.cartItem.delete({ where: { id: cartItemId } })
   } else if (typeof quantity === "number" && quantity >= 1) {
     const item = existing as typeof existing & CartItemPricing
-    const totalPrice = item.unitPrice * quantity
+    // Services are one booking per line; cap quantity at 1
+    const effectiveQty = existing.serviceId != null ? 1 : quantity
+    const totalPrice = item.unitPrice * effectiveQty
     const totalGst = item.hasGst ? totalPrice * 0.15 : 0
     await prisma.cartItem.update({
       where: { id: cartItemId },
       data: {
-        quantity,
+        quantity: effectiveQty,
         totalPrice,
         totalGst,
         totalPriceInclGst: totalPrice + totalGst,

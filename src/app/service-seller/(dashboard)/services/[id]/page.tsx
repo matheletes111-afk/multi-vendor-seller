@@ -11,7 +11,12 @@ import { Label } from "@/ui/label"
 import { Alert, AlertDescription } from "@/ui/alert"
 import { PricingFields } from "../pricing-fields"
 import { ServiceImageInput } from "../service-image-input"
+import { WeeklyAvailabilityFields } from "../weekly-availability-fields"
 import Link from "next/link"
+
+const weeklyAvailabilitySchema = z.array(
+  z.object({ unavailable: z.boolean(), shiftStart: z.string(), shiftEnd: z.string() })
+).length(7).optional().nullable()
 
 const updateServiceSchema = z.object({
   name: z.string().min(1).optional(),
@@ -23,6 +28,7 @@ const updateServiceSchema = z.object({
   hasGst: z.boolean().optional(),
   duration: z.number().int().positive().optional().nullable(),
   images: z.array(z.string()).optional(),
+  weeklyAvailability: weeklyAvailabilitySchema,
   isActive: z.boolean().optional(),
 })
 
@@ -43,6 +49,7 @@ async function updateService(serviceId: string, data: unknown) {
   updateData.hasGst = validated.data.hasGst ?? service.hasGst
   Object.keys(updateData).forEach((k) => { if (updateData[k] === undefined) delete updateData[k] })
   if (updateData.images !== undefined) updateData.images = Array.isArray(updateData.images) ? updateData.images : []
+  if (updateData.weeklyAvailability !== undefined) updateData.weeklyAvailability = updateData.weeklyAvailability
   try {
     await prisma.service.update({ where: { id: serviceId }, data: updateData })
     revalidatePath("/service-seller/services")
@@ -73,7 +80,17 @@ async function updateServiceForm(serviceId: string, formData: FormData) {
   let duration: number | undefined
   if (durationInput?.trim()) { const p = parseInt(durationInput); if (!isNaN(p) && p > 0) duration = p }
   const discount = Math.max(0, isNaN(parseFloat(discountStr)) ? 0 : parseFloat(discountStr))
-  const data: any = { name, description: (formData.get("description") as string) || undefined, serviceCategoryId, serviceType, isActive, hasGst, discount }
+  let weeklyAvailability: unknown = undefined
+  const waRaw = formData.get("weeklyAvailability") as string | null
+  if (waRaw) {
+    try {
+      const parsed = JSON.parse(waRaw)
+      if (Array.isArray(parsed) && parsed.length === 7) weeklyAvailability = parsed
+    } catch {
+      /* ignore */
+    }
+  }
+  const data: any = { name, description: (formData.get("description") as string) || undefined, serviceCategoryId, serviceType, isActive, hasGst, discount, weeklyAvailability }
   if (basePrice !== undefined) data.basePrice = basePrice
   if (duration !== undefined) data.duration = duration
   if (images.length > 0) data.images = images
@@ -131,128 +148,124 @@ export default async function EditServicePage({
       ? JSON.parse(service.images)
       : []
 
+  const weeklyAvailability = service.weeklyAvailability ?? undefined
+
+  const selectClass = "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+  const textareaClass = "flex min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-y"
+
   return (
-    <div className="container mx-auto py-8">
-      <div className="flex justify-between items-center mb-6">
+    <div className="container mx-auto py-6 px-4 sm:px-6 max-w-6xl">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
         <div>
-          <h1 className="text-3xl font-bold">Edit Service</h1>
-          <p className="text-muted-foreground">Update service information</p>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Edit Service</h1>
+          <p className="text-muted-foreground mt-1">Update service information</p>
         </div>
         <Link href="/service-seller/services">
-          <Button variant="outline">Back to Services</Button>
+          <Button variant="outline" size="sm" className="w-full sm:w-auto">Back to Services</Button>
         </Link>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Service Details</CardTitle>
-          <CardDescription>Update the information for your service</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {searchParamsResolved.error && (
-            <Alert variant="destructive" className="mb-4">
-              <AlertDescription>
-                {decodeURIComponent(searchParamsResolved.error)}
-              </AlertDescription>
+      {searchParamsResolved.error && (
+        <Card className="mb-6 border-destructive/50">
+          <CardContent className="pt-6">
+            <Alert variant="destructive">
+              <AlertDescription>{decodeURIComponent(searchParamsResolved.error)}</AlertDescription>
             </Alert>
-          )}
+          </CardContent>
+        </Card>
+      )}
+      {searchParamsResolved.success && (
+        <Card className="mb-6 border-green-500/30">
+          <CardContent className="pt-6">
+            <p className="text-sm text-green-700 dark:text-green-400">{decodeURIComponent(searchParamsResolved.success)}</p>
+          </CardContent>
+        </Card>
+      )}
 
-          {searchParamsResolved.success && (
-            <Alert className="mb-4">
-              <AlertDescription>
-                {decodeURIComponent(searchParamsResolved.success)}
-              </AlertDescription>
-            </Alert>
-          )}
-
-          <form action={updateServiceForm.bind(null, service.id)} className="space-y-6">
+      <form action={updateServiceForm.bind(null, service.id)} className="space-y-6">
+        <Card className="shadow-sm">
+          <CardHeader className="pb-4">
+            <CardTitle className="text-lg">Basic information</CardTitle>
+            <CardDescription>Name, description, category and type</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-5">
             <div className="space-y-2">
-              <Label htmlFor="name">Service Name *</Label>
-              <Input
-                id="name"
-                name="name"
-                required
-                defaultValue={service.name}
-                placeholder="Enter service name"
-              />
+              <Label htmlFor="name">Service name *</Label>
+              <Input id="name" name="name" required defaultValue={service.name} placeholder="e.g. Home cleaning" className="max-w-xl" />
             </div>
-
             <div className="space-y-2">
               <Label htmlFor="description">Description</Label>
-              <textarea
-                id="description"
-                name="description"
-                className="flex min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                placeholder="Service description"
-                defaultValue={service.description || ""}
-              />
+              <textarea id="description" name="description" className={textareaClass} placeholder="Describe your service" defaultValue={service.description || ""} />
             </div>
-
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="serviceCategoryId">Service category *</Label>
-                <select
-                  id="serviceCategoryId"
-                  name="serviceCategoryId"
-                  required
-                  defaultValue={service.serviceCategoryId}
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                >
-                  <option value="">Select a category</option>
-                  {categories.map((category) => (
-                    <option key={category.id} value={category.id}>
-                      {category.name}
-                    </option>
+                <Label htmlFor="serviceCategoryId">Category *</Label>
+                <select id="serviceCategoryId" name="serviceCategoryId" required defaultValue={service.serviceCategoryId} className={selectClass}>
+                  <option value="">Select category</option>
+                  {categories.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
                   ))}
                 </select>
               </div>
-
               <div className="space-y-2">
-                <Label htmlFor="serviceType">Service Type *</Label>
-                <select
-                  id="serviceType"
-                  name="serviceType"
-                  required
-                  defaultValue={service.serviceType}
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                >
+                <Label htmlFor="serviceType">Service type *</Label>
+                <select id="serviceType" name="serviceType" required defaultValue={service.serviceType} className={selectClass}>
                   <option value="">Select type</option>
                   <option value="APPOINTMENT">Appointment-based</option>
-                  <option value="FIXED_PRICE">Fixed Price</option>
+                  <option value="FIXED_PRICE">Fixed price</option>
                 </select>
               </div>
             </div>
+          </CardContent>
+        </Card>
 
+        <Card className="shadow-sm">
+          <CardHeader className="pb-4">
+            <CardTitle className="text-lg">Pricing & duration</CardTitle>
+            <CardDescription>Base price, discount and duration for appointments</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            <PricingFields
+              basePriceLabel="Base price (for fixed-price services)"
+              defaultBasePrice={service.basePrice ?? 0}
+              defaultDiscount={service.discount ?? 0}
+              defaultHasGst={service.hasGst ?? true}
+              showBasePrice={true}
+              requireBasePrice={false}
+            />
             <div className="space-y-2">
-              <Label className="text-base font-medium">Pricing</Label>
-              <PricingFields
-                basePriceLabel="Base price (for fixed-price services)"
-                defaultBasePrice={service.basePrice ?? 0}
-                defaultDiscount={service.discount ?? 0}
-                defaultHasGst={service.hasGst ?? true}
-                showBasePrice={true}
-                requireBasePrice={false}
-              />
+              <Label htmlFor="duration">Duration (minutes, for appointments)</Label>
+              <Input id="duration" name="duration" type="number" min="1" defaultValue={service.duration ?? ""} placeholder="60" />
             </div>
+          </CardContent>
+        </Card>
 
-            <div className="space-y-2">
-              <Label htmlFor="duration">Duration in minutes (for appointments)</Label>
-              <Input
-                id="duration"
-                name="duration"
-                type="number"
-                min="1"
-                defaultValue={service.duration || ""}
-                placeholder="60"
-              />
-            </div>
+        <Card className="shadow-sm">
+          <CardHeader className="pb-4">
+            <CardTitle className="text-lg">Weekly availability</CardTitle>
+            <CardDescription>Set shift times per day or mark a day as fully unavailable</CardDescription>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <WeeklyAvailabilityFields defaultValue={weeklyAvailability} />
+          </CardContent>
+        </Card>
 
+        <Card className="shadow-sm">
+          <CardHeader className="pb-4">
+            <CardTitle className="text-lg">Images</CardTitle>
+            <CardDescription>Add image URLs (comma separated) or upload multiple images</CardDescription>
+          </CardHeader>
+          <CardContent>
             <ServiceImageInput
               defaultUrls={images}
-              label="Images"
-              hint="Add via image URLs (comma or newline separated) or upload files. Multiple images supported."
+              label="Service images"
+              hint="Paste URLs separated by commas, or upload files. Preview appears below."
             />
+          </CardContent>
+        </Card>
 
+        <Card className="shadow-sm">
+          <CardContent className="pt-6">
             <div className="flex items-center space-x-2">
               <input
                 id="isActive"
@@ -260,22 +273,22 @@ export default async function EditServicePage({
                 type="checkbox"
                 defaultChecked={service.isActive}
                 value="true"
-                className="h-4 w-4 rounded border-gray-300"
+                className="h-4 w-4 rounded border-input"
               />
-              <Label htmlFor="isActive" className="text-sm font-normal">
-                Active (Service will be visible to customers)
+              <Label htmlFor="isActive" className="text-sm font-normal cursor-pointer">
+                Active (service visible to customers)
               </Label>
             </div>
+          </CardContent>
+        </Card>
 
-            <div className="flex gap-4">
-              <Button type="submit">Update Service</Button>
-              <Link href="/service-seller/services">
-                <Button type="button" variant="outline">Cancel</Button>
-              </Link>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
+        <div className="flex flex-col-reverse sm:flex-row gap-3 sm:justify-end">
+          <Link href="/service-seller/services" className="sm:order-2">
+            <Button type="button" variant="outline" className="w-full sm:w-auto">Cancel</Button>
+          </Link>
+          <Button type="submit" className="w-full sm:w-auto sm:order-1">Update service</Button>
+        </div>
+      </form>
     </div>
   )
 }

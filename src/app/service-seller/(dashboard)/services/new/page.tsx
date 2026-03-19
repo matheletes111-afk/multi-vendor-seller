@@ -11,7 +11,16 @@ import { Input } from "@/ui/input"
 import { Label } from "@/ui/label"
 import { PricingFields } from "../pricing-fields"
 import { ServiceImageInput } from "../service-image-input"
+import { WeeklyAvailabilityFields } from "../weekly-availability-fields"
 import Link from "next/link"
+
+const weeklyAvailabilitySchema = z.array(
+  z.object({
+    unavailable: z.boolean(),
+    shiftStart: z.string(),
+    shiftEnd: z.string(),
+  })
+).length(7).optional().nullable()
 
 const createServiceSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -23,6 +32,7 @@ const createServiceSchema = z.object({
   hasGst: z.boolean().optional(),
   duration: z.number().int().positive().optional().nullable(),
   images: z.array(z.string()).optional().nullable(),
+  weeklyAvailability: weeklyAvailabilitySchema,
   isActive: z.boolean().optional(),
 })
 
@@ -41,9 +51,10 @@ async function createService(data: unknown) {
   const imagesData = validated.data.images && Array.isArray(validated.data.images) ? validated.data.images : []
   const basePrice = validated.data.basePrice ?? null
   const discount = Math.round((validated.data.discount ?? 0) * 100) / 100
+  const weeklyAvailability = validated.data.weeklyAvailability ?? undefined
   try {
     await prisma.service.create({
-      data: { sellerId: seller.id, serviceCategoryId: validated.data.serviceCategoryId, name: validated.data.name, slug, description: validated.data.description, serviceType: validated.data.serviceType, basePrice, discount, hasGst: validated.data.hasGst ?? true, duration: validated.data.duration, images: imagesData as any },
+      data: { sellerId: seller.id, serviceCategoryId: validated.data.serviceCategoryId, name: validated.data.name, slug, description: validated.data.description, serviceType: validated.data.serviceType, basePrice, discount, hasGst: validated.data.hasGst ?? true, duration: validated.data.duration, weeklyAvailability: weeklyAvailability as any, images: imagesData as any },
     })
     revalidatePath("/service-seller/services")
     return { success: true }
@@ -72,7 +83,17 @@ async function createServiceForm(formData: FormData) {
   let duration: number | undefined
   if (durationInput?.trim()) { const p = parseInt(durationInput); if (!isNaN(p) && p > 0) duration = p }
   const discount = Math.max(0, isNaN(parseFloat(discountStr)) ? 0 : parseFloat(discountStr))
-  const data = { name, description: (formData.get("description") as string) || undefined, serviceCategoryId, serviceType, basePrice, hasGst, discount, duration, images: images.length > 0 ? images : undefined }
+  let weeklyAvailability: unknown = undefined
+  const waRaw = formData.get("weeklyAvailability") as string | null
+  if (waRaw) {
+    try {
+      const parsed = JSON.parse(waRaw)
+      if (Array.isArray(parsed) && parsed.length === 7) weeklyAvailability = parsed
+    } catch {
+      /* ignore */
+    }
+  }
+  const data = { name, description: (formData.get("description") as string) || undefined, serviceCategoryId, serviceType, basePrice, hasGst, discount, duration, images: images.length > 0 ? images : undefined, weeklyAvailability }
   const result = await createService(data)
   if (result.error) redirect(`/service-seller/services/new?error=${encodeURIComponent(typeof result.error === "string" ? result.error : "Failed")}`)
   redirect("/service-seller/services?success=created")
@@ -95,27 +116,26 @@ export default async function NewServicePage({
     orderBy: { name: "asc" },
   })
 
+  const selectClass = "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+  const textareaClass = "flex min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-y"
+
   return (
-    <div className="container mx-auto py-8">
-      <div className="flex justify-between items-center mb-6">
+    <div className="container mx-auto py-6 px-4 sm:px-6 max-w-6xl">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
         <div>
-          <h1 className="text-3xl font-bold">Add New Service</h1>
-          <p className="text-muted-foreground">Create a new service listing</p>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Add New Service</h1>
+          <p className="text-muted-foreground mt-1">Create a new service listing</p>
         </div>
         <Link href="/service-seller/services">
-          <Button variant="outline">Back to Services</Button>
+          <Button variant="outline" size="sm" className="w-full sm:w-auto">Back to Services</Button>
         </Link>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Service Details</CardTitle>
-          <CardDescription>Fill in the information for your service</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {params.error && (
-            <div className="mb-4 rounded-md bg-destructive/15 p-3 text-sm text-destructive">
-              <p className="font-semibold mb-1">Error creating service:</p>
+      {params.error && (
+        <Card className="mb-6 border-destructive/50">
+          <CardContent className="pt-6">
+            <div className="rounded-md bg-destructive/10 p-4 text-sm text-destructive">
+              <p className="font-semibold mb-1">Error creating service</p>
               <p>{decodeURIComponent(params.error)}</p>
               {params.error.includes("limit reached") && (
                 <Link href="/service-seller/subscription" className="mt-2 inline-block text-sm underline">
@@ -123,103 +143,105 @@ export default async function NewServicePage({
                 </Link>
               )}
             </div>
-          )}
-          {params.success && (
-            <div className="mb-4 rounded-md bg-green-500/15 p-3 text-sm text-green-600">
-              Service created successfully!
-            </div>
-          )}
-          <form action={createServiceForm} className="space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="name">Service Name *</Label>
-              <Input
-                id="name"
-                name="name"
-                required
-                placeholder="Enter service name"
-              />
-            </div>
+          </CardContent>
+        </Card>
+      )}
+      {params.success && (
+        <Card className="mb-6 border-green-500/30">
+          <CardContent className="pt-6">
+            <p className="text-sm text-green-700 dark:text-green-400">Service created successfully!</p>
+          </CardContent>
+        </Card>
+      )}
 
+      <form action={createServiceForm} className="space-y-6">
+        <Card className="shadow-sm">
+          <CardHeader className="pb-4">
+            <CardTitle className="text-lg">Basic information</CardTitle>
+            <CardDescription>Name, description, category and type</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            <div className="space-y-2">
+              <Label htmlFor="name">Service name *</Label>
+              <Input id="name" name="name" required placeholder="e.g. Home cleaning" className="max-w-xl" />
+            </div>
             <div className="space-y-2">
               <Label htmlFor="description">Description</Label>
-              <textarea
-                id="description"
-                name="description"
-                className="flex min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                placeholder="Service description"
-              />
+              <textarea id="description" name="description" className={textareaClass} placeholder="Describe your service" />
             </div>
-
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="serviceCategoryId">Service category *</Label>
-                <select
-                  id="serviceCategoryId"
-                  name="serviceCategoryId"
-                  required
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                >
-                  <option value="">Select a category</option>
-                  {categories.map((category) => (
-                    <option key={category.id} value={category.id}>
-                      {category.name}
-                    </option>
+                <Label htmlFor="serviceCategoryId">Category *</Label>
+                <select id="serviceCategoryId" name="serviceCategoryId" required className={selectClass}>
+                  <option value="">Select category</option>
+                  {categories.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
                   ))}
                 </select>
               </div>
-
               <div className="space-y-2">
-                <Label htmlFor="serviceType">Service Type *</Label>
-                <select
-                  id="serviceType"
-                  name="serviceType"
-                  required
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                >
+                <Label htmlFor="serviceType">Service type *</Label>
+                <select id="serviceType" name="serviceType" required className={selectClass}>
                   <option value="">Select type</option>
                   <option value="APPOINTMENT">Appointment-based</option>
-                  <option value="FIXED_PRICE">Fixed Price</option>
+                  <option value="FIXED_PRICE">Fixed price</option>
                 </select>
               </div>
             </div>
+          </CardContent>
+        </Card>
 
-            <div className="space-y-2">
-              <Label className="text-base font-medium">Pricing</Label>
-              <PricingFields
-                basePriceLabel="Base price (for fixed-price services)"
-                defaultBasePrice={0}
-                defaultDiscount={0}
-                defaultHasGst={true}
-                showBasePrice={true}
-                requireBasePrice={false}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="duration">Duration in minutes (for appointments)</Label>
-              <Input
-                id="duration"
-                name="duration"
-                type="number"
-                min="1"
-                placeholder="60"
-              />
-            </div>
-
-            <ServiceImageInput
-              label="Images"
-              hint="Add via image URLs (comma or newline separated) or upload files. Multiple images supported."
+        <Card className="shadow-sm">
+          <CardHeader className="pb-4">
+            <CardTitle className="text-lg">Pricing & duration</CardTitle>
+            <CardDescription>Base price, discount and duration for appointments</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            <PricingFields
+              basePriceLabel="Base price (for fixed-price services)"
+              defaultBasePrice={0}
+              defaultDiscount={0}
+              defaultHasGst={true}
+              showBasePrice={true}
+              requireBasePrice={false}
             />
-
-            <div className="flex gap-4">
-              <Button type="submit">Create Service</Button>
-              <Link href="/service-seller/services">
-                <Button type="button" variant="outline">Cancel</Button>
-              </Link>
+            <div className="space-y-2">
+              <Label htmlFor="duration">Duration (minutes, for appointments)</Label>
+              <Input id="duration" name="duration" type="number" min="1" placeholder="60" />
             </div>
-          </form>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-sm">
+          <CardHeader className="pb-4">
+            <CardTitle className="text-lg">Weekly availability</CardTitle>
+            <CardDescription>Set shift times per day or mark a day as fully unavailable</CardDescription>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <WeeklyAvailabilityFields />
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-sm">
+          <CardHeader className="pb-4">
+            <CardTitle className="text-lg">Images</CardTitle>
+            <CardDescription>Add image URLs (comma separated) or upload multiple images</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ServiceImageInput
+              label="Service images"
+              hint="Paste URLs separated by commas, or upload files. Preview appears below."
+            />
+          </CardContent>
+        </Card>
+
+        <div className="flex flex-col-reverse sm:flex-row gap-3 sm:justify-end">
+          <Link href="/service-seller/services" className="sm:order-2">
+            <Button type="button" variant="outline" className="w-full sm:w-auto">Cancel</Button>
+          </Link>
+          <Button type="submit" className="w-full sm:w-auto sm:order-1">Create service</Button>
+        </div>
+      </form>
     </div>
   )
 }

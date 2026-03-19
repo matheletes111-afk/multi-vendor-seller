@@ -1,15 +1,14 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useCallback, useEffect } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { Button } from "@/ui/button"
 import { formatCurrency } from "@/lib/utils"
 import { PublicLayout } from "@/components/site-layout"
-import { useCart } from "@/app/cart/cart-context"
 import { UserRole } from "@prisma/client"
-import { Briefcase, ChevronRight, ShoppingCart, Truck } from "lucide-react"
+import { Briefcase, Calendar, ChevronRight, Clock, Loader2, Truck } from "lucide-react"
 
 type Service = {
   id: string
@@ -18,26 +17,129 @@ type Service = {
   basePrice: number | null
   discount: number
   images: unknown
+  serviceType: string
+  duration: number | null
   serviceCategory: { id: string; name: string; slug: string }
   seller: { store: { name: string } | null } | null
   _count: { reviews: number }
 }
 
+type SlotApi = { startTime: string; endTime: string }
+
+function formatSlotTime(iso: string): string {
+  const d = new Date(iso)
+  const hh = String(d.getUTCHours()).padStart(2, "0")
+  const mm = String(d.getUTCMinutes()).padStart(2, "0")
+  return `${hh}:${mm} UTC`
+}
+
+function toDateKey(d: Date): string {
+  return d.toISOString().slice(0, 10)
+}
+
+const SLOT_DATE_LABEL_FORMATTER = new Intl.DateTimeFormat("en-GB", {
+  weekday: "short",
+  day: "numeric",
+  month: "short",
+  timeZone: "UTC",
+})
+
+function formatSlotDateLabel(dateKey: string): string {
+  // Build date in UTC to keep labels stable across server/client time zones.
+  const d = new Date(`${dateKey}T00:00:00.000Z`)
+  return SLOT_DATE_LABEL_FORMATTER.format(d)
+}
+
+const SLOTS_VISIBLE_INITIAL = 6
+
 export function ServiceDetailClient({ service }: { service: Service }) {
   const router = useRouter()
   const { data: session, status } = useSession()
-  const { addItem } = useCart()
-  const canUseCart = status !== "authenticated" || session?.user?.role === UserRole.CUSTOMER
+  const isCustomer = session?.user?.role === UserRole.CUSTOMER
+  const canBook = status !== "authenticated" || isCustomer
   const [selectedImageIndex, setSelectedImageIndex] = useState(0)
-  const [addedToCart, setAddedToCart] = useState(false)
+  const [selectedDate, setSelectedDate] = useState<string | null>(null)
+  const [slots, setSlots] = useState<SlotApi[]>([])
+  const [loadingSlots, setLoadingSlots] = useState(false)
+  const [selectedSlot, setSelectedSlot] = useState<SlotApi | null>(null)
+  const [bookError, setBookError] = useState<string | null>(null)
+  const [slotsExpanded, setSlotsExpanded] = useState(false)
+
+  // Collapse slots when user picks a different date
+  useEffect(() => {
+    setSlotsExpanded(false)
+  }, [selectedDate])
+
+  const isAppointment = service?.serviceType === "APPOINTMENT"
+
+  const fetchSlots = useCallback(
+    async (date: string) => {
+      setLoadingSlots(true)
+      setSelectedSlot(null)
+      setBookError(null)
+      try {
+        const res = await fetch(
+          `/api/customer/services/${service.id}/slots?from=${date}&to=${date}`,
+          { credentials: "include" }
+        )
+        const data = (await res.json()) as SlotApi[]
+        setSlots(Array.isArray(data) ? data : [])
+      } catch {
+        setSlots([])
+      } finally {
+        setLoadingSlots(false)
+      }
+    },
+    [service.id]
+  )
+
+  const onSelectDate = useCallback(
+    (dateKey: string) => {
+      setSelectedDate(dateKey)
+      fetchSlots(dateKey)
+    },
+    [fetchSlots]
+  )
 
   const images: string[] = Array.isArray(service.images)
     ? (service.images as string[])
     : typeof service.images === "string"
-      ? (() => { try { return JSON.parse(service.images) as string[] } catch { return [] } })()
+      ? (() => {
+          try {
+            return JSON.parse(service.images) as string[]
+          } catch {
+            return []
+          }
+        })()
       : []
-  const displayPrice = service.basePrice != null ? Math.max(0, service.basePrice - service.discount) : null
+  const displayPrice = service?.basePrice != null ? Math.max(0, service.basePrice - service.discount) : null
   const mainImage = images[selectedImageIndex] || images[0]
+
+  const canBookWithoutSlot = !isAppointment || !service?.duration
+  const canProceedToBook: boolean = canBookWithoutSlot || (selectedSlot != null && selectedDate != null)
+
+  const goToBook = useCallback(() => {
+    const q = new URLSearchParams()
+    q.set("serviceId", service.id)
+    if (!canBookWithoutSlot && selectedSlot) {
+      q.set("slotStartTime", selectedSlot.startTime)
+      q.set("slotEndTime", selectedSlot.endTime)
+    }
+    const path = "/service-book?" + q.toString()
+    if (!session?.user?.id || !isCustomer) {
+      router.push("/customer/login?callbackUrl=" + encodeURIComponent(path))
+    } else {
+      router.push(path)
+    }
+  }, [service.id, canBookWithoutSlot, selectedSlot, session?.user?.id, isCustomer, router])
+
+  const next14Days: string[] = []
+  const today = new Date()
+  for (let i = 0; i < 14; i++) {
+    const d = new Date(today)
+    d.setDate(d.getDate() + i)
+    next14Days.push(toDateKey(d))
+  }
 
   return (
     <PublicLayout>
@@ -89,7 +191,7 @@ export function ServiceDetailClient({ service }: { service: Service }) {
               )}
             </div>
 
-            {/* Right: Title, price, actions */}
+            {/* Right: Title, price, slot selection, actions */}
             <div className="flex-1">
               <p className="text-sm text-slate-500">{service.serviceCategory.name}</p>
               <h1 className="mt-1 text-2xl font-bold text-slate-900 md:text-3xl">{service.name}</h1>
@@ -110,60 +212,122 @@ export function ServiceDetailClient({ service }: { service: Service }) {
                 )}
               </div>
 
+              {isAppointment && service.duration && (
+                <p className="mt-2 text-sm text-slate-600">
+                  <Clock className="mr-1.5 inline h-4 w-4" />
+                  Duration: {service.duration} min
+                </p>
+              )}
+
               <div className="mt-3 flex items-center gap-2 text-sm text-slate-600">
                 <Truck className="h-4 w-4 text-green-600" />
-                <span>Availability &amp; booking shown at checkout</span>
+                <span>
+                  {isAppointment ? "Choose a date and time slot to book." : "Availability &amp; booking at checkout."}
+                </span>
               </div>
+
+              {/* Slot selection for appointment-based services */}
+              {isAppointment && service.duration && (
+                <div className="mt-5 rounded-lg border border-slate-200 bg-slate-50/50 p-4">
+                  <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-900">
+                    <Calendar className="h-4 w-4" />
+                    Select date and time
+                  </h3>
+                  <div className="mt-3">
+                    <p className="mb-2 text-xs font-medium text-slate-500">Date</p>
+                    <div className="flex flex-wrap gap-2">
+                      {next14Days.map((dateKey) => {
+                        const label = formatSlotDateLabel(dateKey)
+                        return (
+                          <button
+                            key={dateKey}
+                            type="button"
+                            onClick={() => onSelectDate(dateKey)}
+                            className={`rounded-md border px-3 py-2 text-sm font-medium transition-colors ${
+                              selectedDate === dateKey
+                                ? "border-amber-500 bg-amber-50 text-amber-800"
+                                : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
+                            }`}
+                          >
+                            {label}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                  {selectedDate && (
+                    <div className="mt-4">
+                      <p className="mb-2 text-xs font-medium text-slate-500">Time</p>
+                      {loadingSlots ? (
+                        <div className="flex items-center gap-2 text-sm text-slate-500">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Loading slots…
+                        </div>
+                      ) : slots.length === 0 ? (
+                        <p className="text-sm text-slate-500">No slots available on this day.</p>
+                      ) : (
+                        <>
+                          <div className="flex flex-wrap gap-2">
+                            {(slotsExpanded ? slots : slots.slice(0, SLOTS_VISIBLE_INITIAL)).map((slot) => {
+                              const isSelected = selectedSlot?.startTime === slot.startTime
+                              return (
+                                <button
+                                  key={slot.startTime}
+                                  type="button"
+                                  onClick={() => setSelectedSlot(slot)}
+                                  className={`rounded-md border px-3 py-2 text-sm font-medium transition-colors ${
+                                    isSelected
+                                      ? "border-amber-500 bg-amber-50 text-amber-800"
+                                      : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
+                                  }`}
+                                >
+                                  {formatSlotTime(slot.startTime)} – {formatSlotTime(slot.endTime)}
+                                </button>
+                              )
+                            })}
+                          </div>
+                          {slots.length > SLOTS_VISIBLE_INITIAL && (
+                            <button
+                              type="button"
+                              onClick={() => setSlotsExpanded((v) => !v)}
+                              className="mt-2 text-sm font-medium text-amber-600 hover:text-amber-700 hover:underline"
+                            >
+                              {slotsExpanded ? "See less" : `See more (${slots.length - SLOTS_VISIBLE_INITIAL} more)`}
+                            </button>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
 
               {displayPrice != null && (
                 <div className="mt-6 flex flex-col gap-3">
-                  {!canUseCart && (
+                  {!canBook && (
                     <p className="rounded-lg bg-slate-100 px-4 py-2.5 text-sm text-slate-700 ring-1 ring-slate-200">
-                      Only guests and customers can add to cart. Sign in as a customer or sign out to shop.
+                      Sign in as a customer to book this service.
                     </p>
                   )}
-                  {canUseCart && addedToCart && (
-                    <p className="flex items-center gap-2 rounded-lg bg-green-100 px-4 py-2.5 text-sm font-medium text-green-800 ring-1 ring-green-200">
-                      <span className="inline-flex h-2 w-2 rounded-full bg-green-500" aria-hidden />
-                      Added to cart
+                  {canBook && isAppointment && service.duration && !canProceedToBook && (
+                    <p className="rounded-lg bg-amber-50 px-4 py-2.5 text-sm text-amber-800 ring-1 ring-amber-200">
+                      Please select a date and time slot above to book.
                     </p>
                   )}
-                  {canUseCart && (
-                    <div className="flex flex-wrap gap-3">
-                      <Button
-                        size="lg"
-                        className="bg-amber-400 text-black hover:bg-amber-500"
-                        onClick={() => {
-                          addItem({
-                            serviceId: service.id,
-                            name: service.name,
-                            price: displayPrice,
-                            image: mainImage || null,
-                          })
-                          setAddedToCart(true)
-                          setTimeout(() => setAddedToCart(false), 3000)
-                        }}
-                      >
-                        <ShoppingCart className="mr-2 h-5 w-5" />
-                        {addedToCart ? "Added to Cart" : "Add to Cart"}
-                      </Button>
-                      <Button
-                        size="lg"
-                        variant="outline"
-                        className="border-amber-500 text-amber-700 hover:bg-amber-50"
-                        onClick={() => {
-                          addItem({
-                            serviceId: service.id,
-                            name: service.name,
-                            price: displayPrice,
-                            image: mainImage || null,
-                          })
-                          router.push("/cart")
-                        }}
-                      >
-                        Book / Buy Now
-                      </Button>
-                    </div>
+                  {canBook && bookError && (
+                    <p className="rounded-lg bg-red-50 px-4 py-2.5 text-sm text-red-800 ring-1 ring-red-200">
+                      {bookError}
+                    </p>
+                  )}
+                  {canBook && (
+                    <Button
+                      size="lg"
+                      className="bg-amber-400 text-black hover:bg-amber-500"
+                      onClick={goToBook}
+                      disabled={canProceedToBook === false}
+                    >
+                      Book now
+                    </Button>
                   )}
                 </div>
               )}

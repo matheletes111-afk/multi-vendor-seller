@@ -20,6 +20,15 @@ export function formatDate(date: Date | string): string {
   }).format(new Date(date))
 }
 
+/** Format slot time range from ISO strings (UTC). Use for service order slot display. */
+export function formatSlotTimeRange(isoStart: string, isoEnd: string): string {
+  const s = new Date(isoStart)
+  const e = new Date(isoEnd)
+  const hh = (d: Date) => String(d.getUTCHours()).padStart(2, "0")
+  const mm = (d: Date) => String(d.getUTCMinutes()).padStart(2, "0")
+  return `${hh(s)}:${mm(s)} – ${hh(e)}:${mm(e)} UTC`
+}
+
 export function generateSlug(text: string): string {
   return text
     .toString()

@@ -463,6 +463,7 @@ model Service {
   isActive          Boolean     @default(true)
   isFeatured        Boolean     @default(false)
   duration          Int?        // Duration in minutes (for appointments)
+  weeklyAvailability Json?     // [{ unavailable, shiftStart "HH:mm", shiftEnd "HH:mm" }] for each day 0-6 (Sun-Sat)
   createdAt         DateTime    @default(now())
   updatedAt         DateTime    @updatedAt
 
@@ -487,7 +488,7 @@ model ServiceSlot {
   serviceId String
   startTime DateTime
   endTime   DateTime
-  isBooked  Boolean  @default(false)
+  isBooked  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -495,6 +496,7 @@ model ServiceSlot {
   orderItems  OrderItem[]
   cartItems   CartItem[]
 
+  @@unique([serviceId, startTime])
   @@index([serviceId])
   @@index([startTime])
   @@map("service_slots")

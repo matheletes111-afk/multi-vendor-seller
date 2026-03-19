@@ -40,7 +40,7 @@ type CartContextValue = {
   items: CartItem[]
   totalItems: number
   subtotal: number
-  addItem: (item: Omit<CartItem, "quantity"> | CartItem) => void
+  addItem: (item: Omit<CartItem, "quantity"> | CartItem) => Promise<{ error: string } | void>
   removeItem: (itemId: string) => void
   updateQuantity: (itemId: string, quantity: number) => void
   refresh: () => void
@@ -97,23 +97,16 @@ export function CartProvider({ children }: { children: ReactNode }) {
   }, [isCustomer])
 
   const addItem = useCallback(
-    async (input: Omit<CartItem, "quantity"> | CartItem) => {
+    async (input: Omit<CartItem, "quantity"> | CartItem): Promise<{ error: string } | void> => {
+      if (input.serviceId) return
       const quantity = "quantity" in input ? input.quantity : 1
       if (isCustomer) {
+        if (!input.productId) return
         setIsLoading(true)
         try {
-          const body: { productId?: string; productVariantId?: string; serviceId?: string; servicePackageId?: string; serviceSlotId?: string; quantity: number } = { quantity }
-          if (input.productId) {
-            body.productId = input.productId
-            if (input.productVariantId) body.productVariantId = input.productVariantId
-          } else if (input.serviceId) {
-            body.serviceId = input.serviceId
-            if (input.servicePackageId) body.servicePackageId = input.servicePackageId
-            if (input.serviceSlotId) body.serviceSlotId = input.serviceSlotId
-          } else {
-            setIsLoading(false)
-            return
-          }
+          const body: { productId?: string; productVariantId?: string; quantity: number } = { quantity }
+          body.productId = input.productId
+          if (input.productVariantId) body.productVariantId = input.productVariantId
           const res = await fetch("/api/customer/cart", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -123,22 +116,21 @@ export function CartProvider({ children }: { children: ReactNode }) {
           if (res.ok) {
             const data = (await res.json()) as CartItemApi[]
             setItems(Array.isArray(data) ? data.map(mapApiItemToCartItem) : [])
+            return
           }
+          const data = (await res.json().catch(() => ({}))) as { error?: string }
+          return { error: data.error || "Could not add to cart" }
         } finally {
           setIsLoading(false)
         }
-        return
       }
+      if (!input.productId) return
       const next = getCartFromStorage()
       const sameLine = (i: CartItem) =>
-        input.productId && i.productId === input.productId
-          ? (input as CartItem).productVariantId != null
-            ? i.productVariantId === (input as CartItem).productVariantId
-            : i.productVariantId == null
-          : input.serviceId && i.serviceId === input.serviceId
-            ? (i.servicePackageId ?? null) === ((input as CartItem).servicePackageId ?? null) &&
-              (i.serviceSlotId ?? null) === ((input as CartItem).serviceSlotId ?? null)
-            : false
+        i.productId === input.productId &&
+        ((input as CartItem).productVariantId != null
+          ? i.productVariantId === (input as CartItem).productVariantId
+          : i.productVariantId == null)
       const existing = next.find(sameLine)
       if (existing) {
         existing.quantity += quantity
@@ -146,9 +138,6 @@ export function CartProvider({ children }: { children: ReactNode }) {
         next.push({
           productId: input.productId,
           productVariantId: (input as CartItem).productVariantId,
-          serviceId: input.serviceId,
-          servicePackageId: (input as CartItem).servicePackageId,
-          serviceSlotId: (input as CartItem).serviceSlotId,
           name: input.name,
           price: input.price,
           image: input.image ?? null,
@@ -157,6 +146,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       }
       setCartInStorage(next)
       setItems([...next])
+      return
     },
     [isCustomer]
   )
@@ -197,8 +187,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
         removeItem(itemId)
         return
       }
+      const item = items.find((i) => getCartItemId(i) === itemId)
       if (isCustomer) {
-        const item = items.find((i) => getCartItemId(i) === itemId)
         if (item?.id) {
           setIsLoading(true)
           try {
@@ -227,8 +217,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
     [isCustomer, items, removeItem]
   )
 
-  const totalItems = items.reduce((n, i) => n + i.quantity, 0)
-  const subtotal = items.reduce((s, i) => s + i.price * i.quantity, 0)
+  const productItems = items.filter((i) => i.productId)
+  const totalItems = productItems.reduce((n, i) => n + i.quantity, 0)
+  const subtotal = productItems.reduce((s, i) => s + i.price * i.quantity, 0)
 
   const value: CartContextValue = {
     items,

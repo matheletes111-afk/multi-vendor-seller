@@ -205,8 +205,8 @@ export function SiteHeader() {
                       </Link>
                     </>
                   )}
-                  <Link href="/browse" className="px-4 py-3 text-sm text-slate-700 hover:bg-slate-100">
-                    Returns & Orders
+                  <Link href="/my-orders" className="px-4 py-3 text-sm text-slate-700 hover:bg-slate-100">
+                    Orders
                   </Link>
                 </div>
               </SheetContent>
@@ -306,12 +306,11 @@ export function SiteHeader() {
           )}
 
           <Link
-            href="/browse"
+            href="/my-orders"
             className="flex flex-col items-start rounded px-2 py-1.5 text-white hover:opacity-90"
-            aria-label="Returns and Orders"
+            aria-label="Orders"
           >
-            <span className="text-xs text-blue-100">Returns</span>
-            <span className="font-semibold">& Orders</span>
+            <span className="font-semibold">Orders</span>
           </Link>
           </div>
 

@@ -38,6 +38,8 @@ function CustomerLoginForm() {
         serviceId: item.serviceId,
         servicePackageId: item.servicePackageId,
         serviceSlotId: item.serviceSlotId,
+        slotStartTime: item.slotStartTime,
+        slotEndTime: item.slotEndTime,
         quantity: item.quantity,
       }))
       const res = await fetch("/api/customer/auth/login", {

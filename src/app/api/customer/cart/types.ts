@@ -12,6 +12,8 @@ export type CartAddServicePayload = {
   serviceId: string
   servicePackageId?: string | null
   serviceSlotId?: string | null
+  slotStartTime?: string | null
+  slotEndTime?: string | null
   quantity: number
 }
 
@@ -33,6 +35,8 @@ export type GuestCartItemForMerge = {
   serviceId?: string
   servicePackageId?: string
   serviceSlotId?: string
+  slotStartTime?: string
+  slotEndTime?: string
   quantity: number
 }
 

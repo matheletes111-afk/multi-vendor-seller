@@ -11,15 +11,15 @@ export type CartItem = {
   serviceId?: string
   servicePackageId?: string
   serviceSlotId?: string
+  /** Guest cart: chosen slot times (ISO); slot created on merge or when customer adds. */
+  slotStartTime?: string
+  slotEndTime?: string
   name: string
   price: number
   image: string | null
   quantity: number
-  /** From API: GST amount for this line. */
   gstAmount?: number
-  /** From API: whether this line has GST. */
   hasGst?: boolean
-  /** From API: subtotal + GST for this line. */
   lineTotal?: number
 }
 
@@ -43,7 +43,8 @@ export type CartItemApi = {
 export function getCartItemId(item: CartItem): string {
   if (item.id) return item.id
   if (item.productId) return item.productVariantId ? `${item.productId}:${item.productVariantId}` : item.productId
-  return item.serviceId ?? ""
+  if (item.serviceId) return item.slotStartTime ? `${item.serviceId}:${item.slotStartTime}` : item.serviceSlotId ? `${item.serviceId}:${item.serviceSlotId}` : item.serviceId
+  return ""
 }
 
 export function getCartFromStorage(): CartItem[] {

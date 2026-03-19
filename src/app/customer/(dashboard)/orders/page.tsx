@@ -1,12 +1,10 @@
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/ui/card"
+import { Card, CardContent } from "@/ui/card"
 import { Button } from "@/ui/button"
-import { Badge } from "@/ui/badge"
-import { Separator } from "@/ui/separator"
-import { formatCurrency, formatDate } from "@/lib/utils"
 import Link from "next/link"
-import { ShoppingCart, Package, ArrowRight } from "lucide-react"
+import { ShoppingCart, ArrowRight } from "lucide-react"
+import { OrdersListClient } from "./orders-list-client"
 
 export default async function OrdersPage() {
   const session = await auth()
@@ -21,25 +19,52 @@ export default async function OrdersPage() {
         },
       },
       items: {
-        include: {
-          product: true,
-          service: true,
+        select: {
+          id: true,
+          productId: true,
+          serviceId: true,
+          productNameSnapshot: true,
+          serviceNameSnapshot: true,
+          quantity: true,
+          subtotal: true,
         },
       },
     },
     orderBy: { createdAt: "desc" },
   })
 
+  const serializedOrders = orders.map((order) => ({
+    id: order.id,
+    orderNumber: order.orderNumber,
+    createdAt: order.createdAt.toISOString(),
+    totalAmount: order.totalAmount,
+    status: order.status,
+    seller: order.seller
+      ? {
+          store: order.seller.store ? { name: order.seller.store.name } : null,
+        }
+      : { store: null },
+    items: order.items.map((item) => ({
+      id: item.id,
+      productId: item.productId,
+      serviceId: item.serviceId,
+      productNameSnapshot: item.productNameSnapshot,
+      serviceNameSnapshot: item.serviceNameSnapshot,
+      quantity: item.quantity,
+      subtotal: item.subtotal,
+    })),
+  }))
+
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">My Orders</h1>
-        <p className="text-muted-foreground mt-2">
-          View and track your order history
+    <div className="container mx-auto p-4 sm:p-6 max-w-4xl">
+      <div className="mb-6">
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">My Orders</h1>
+        <p className="text-muted-foreground mt-1">
+          View and track your order history. Switch between product and service orders.
         </p>
       </div>
 
-      {orders.length === 0 ? (
+      {serializedOrders.length === 0 ? (
         <Card>
           <CardContent className="py-16 text-center">
             <ShoppingCart className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
@@ -56,54 +81,7 @@ export default async function OrdersPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-4">
-          {orders.map((order) => (
-            <Card key={order.id} className="hover:shadow-md transition-shadow">
-              <CardHeader>
-                <div className="flex justify-between items-start">
-                  <div>
-                    <CardTitle className="text-lg">
-                      <Link
-                        href={`/customer/orders/${order.id}`}
-                        className="hover:underline focus:underline"
-                      >
-                        Order #{order.orderNumber}
-                      </Link>
-                    </CardTitle>
-                    <CardDescription className="mt-1">
-                      {order.seller.store?.name || "Store"} • {formatDate(order.createdAt)}
-                    </CardDescription>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-lg font-semibold">{formatCurrency(order.totalAmount)}</p>
-                    <Badge variant="outline" className="mt-1 capitalize">
-                      {order.status.toLowerCase()}
-                    </Badge>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <Separator className="mb-4" />
-                <div className="space-y-3">
-                  {order.items.map((item) => (
-                    <div key={item.id} className="flex justify-between items-center">
-                      <div className="flex items-center gap-2">
-                        <Package className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-sm">
-                          {(item.productNameSnapshot || item.serviceNameSnapshot) ?? item.product?.name ?? item.service?.name ?? "Item"} × {item.quantity}
-                        </span>
-                      </div>
-                      <span className="text-sm font-medium">{formatCurrency(item.subtotal)}</span>
-                    </div>
-                  ))}
-                </div>
-                <Button variant="outline" size="sm" className="mt-4" asChild>
-                  <Link href={`/customer/orders/${order.id}`}>View details</Link>
-                </Button>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+        <OrdersListClient orders={serializedOrders} />
       )}
     </div>
   )

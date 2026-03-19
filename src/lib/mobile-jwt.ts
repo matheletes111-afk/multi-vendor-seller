@@ -21,11 +21,12 @@ export interface MobileTokens {
 export const generateMobileTokens = (
   payload: MobileTokenPayload
 ): MobileTokens => {
-  // Shorter expiry for mobile access tokens (better security)
+  // Access token expiry: 2 days (used by all mobile auth: customer, service-seller, product-seller)
+  const accessExpiresIn = '2d'
   const accessToken = jwt.sign(
     { ...payload, type: 'access' },
     MOBILE_JWT_SECRET,
-    { expiresIn: '1h' }
+    { expiresIn: accessExpiresIn }
   );
 
   // Longer expiry for mobile refresh tokens
@@ -38,7 +39,7 @@ export const generateMobileTokens = (
   return {
     accessToken,
     refreshToken,
-    expiresIn: 3600 // 1 hour in seconds
+    expiresIn: 2 * 24 * 3600 // 2 days in seconds (172800)
   };
 };
 

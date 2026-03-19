@@ -1,0 +1,65 @@
+import { redirect } from "next/navigation"
+import { auth } from "@/lib/auth"
+import { prisma } from "@/lib/prisma"
+import { UserRole } from "@prisma/client"
+import { PublicLayout } from "@/components/site-layout"
+import { MyOrdersClient } from "./my-orders-client"
+
+export default async function MyOrdersPage() {
+  const session = await auth()
+  if (!session?.user?.id) {
+    redirect("/customer/login?callbackUrl=" + encodeURIComponent("/my-orders"))
+  }
+  if (session.user.role !== UserRole.CUSTOMER) {
+    redirect("/")
+  }
+
+  const orders = await prisma.order.findMany({
+    where: { customerId: session.user.id },
+    include: {
+      seller: { include: { store: true } },
+      items: {
+        select: {
+          id: true,
+          productId: true,
+          serviceId: true,
+          productNameSnapshot: true,
+          serviceNameSnapshot: true,
+          quantity: true,
+          subtotal: true,
+        },
+      },
+    },
+    orderBy: { createdAt: "desc" },
+  })
+
+  const serializedOrders = orders.map((order) => ({
+    id: order.id,
+    orderNumber: order.orderNumber,
+    createdAt: order.createdAt.toISOString(),
+    totalAmount: order.totalAmount,
+    status: order.status,
+    seller: order.seller
+      ? { store: order.seller.store ? { name: order.seller.store.name } : null }
+      : { store: null },
+    items: order.items.map((item) => ({
+      id: item.id,
+      productId: item.productId,
+      serviceId: item.serviceId,
+      productNameSnapshot: item.productNameSnapshot,
+      serviceNameSnapshot: item.serviceNameSnapshot,
+      quantity: item.quantity,
+      subtotal: item.subtotal,
+    })),
+  }))
+
+  return (
+    <PublicLayout>
+      <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100/80">
+        <div className="container mx-auto max-w-4xl px-4 py-6 sm:px-6 sm:py-8">
+          <MyOrdersClient orders={serializedOrders} />
+        </div>
+      </div>
+    </PublicLayout>
+  )
+}

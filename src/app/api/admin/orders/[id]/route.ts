@@ -34,6 +34,7 @@ export async function GET(
           product: { select: { images: true } },
           productVariant: { select: { images: true } },
           service: { select: { images: true } },
+          serviceSlot: { select: { startTime: true, endTime: true } },
         },
       },
     },
@@ -58,6 +59,7 @@ export async function GET(
     const serviceImages = (row.service as { images?: unknown } | null)?.images
     const imageUrl =
       firstImageUrl(variantImages) ?? firstImageUrl(productImages) ?? firstImageUrl(serviceImages) ?? null
+    const slot = row.serviceSlot as { startTime?: Date; endTime?: Date } | null
     return {
       id: row.id,
       productNameSnapshot: row.productNameSnapshot,
@@ -69,6 +71,8 @@ export async function GET(
       gstAmount: row.gstAmount,
       subtotalInclGst: row.subtotalInclGst,
       imageUrl,
+      serviceSlotStartTime: slot?.startTime ? slot.startTime.toISOString() : null,
+      serviceSlotEndTime: slot?.endTime ? slot.endTime.toISOString() : null,
     }
   })
 

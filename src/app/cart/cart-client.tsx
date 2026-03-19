@@ -74,9 +74,9 @@ export function CartClient() {
           <div className="mt-4 flex flex-col gap-4 sm:mt-6 sm:gap-6 lg:flex-row lg:items-start">
             {/* Cart items list */}
             <div className="min-w-0 flex-1 space-y-3 sm:space-y-4">
-              {items.map((item) => {
+              {items.filter((item) => item.productId).map((item) => {
                 const itemId = getCartItemId(item)
-                const itemHref = item.productId ? `/product/${item.productId}` : (item.serviceId ? `/service/${item.serviceId}` : "#")
+                const itemHref = `/product/${item.productId}`
                 return (
                   <div
                     key={itemId}

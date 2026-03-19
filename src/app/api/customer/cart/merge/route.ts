@@ -70,11 +70,10 @@ export async function POST(request: NextRequest) {
   for (const item of items as GuestCartItemForMerge[]) {
     if (!item || typeof item.quantity !== "number" || item.quantity < 1) continue
     const hasProduct = typeof item.productId === "string"
-    const hasService = typeof item.serviceId === "string"
-    if (!hasProduct && !hasService) continue
+    if (!hasProduct) continue
     const resolved = await resolveCartLine(item, item.quantity)
     if (!resolved) continue
-    if (hasProduct) {
+    {
       const productId = item.productId as string
       const productVariantId = item.productVariantId ?? null
       const existing = await prisma.cartItem.findFirst({
@@ -87,35 +86,6 @@ export async function POST(request: NextRequest) {
         serviceId: null,
         servicePackageId: null,
         serviceSlotId: null,
-        quantity: item.quantity,
-        unitPrice: resolved.unitPrice,
-        totalPrice: resolved.totalPrice,
-        hasGst: resolved.hasGst,
-        totalGst: resolved.totalGst,
-        totalPriceInclGst: resolved.totalPriceInclGst,
-      }
-      if (existing) {
-        await prisma.cartItem.update({
-          where: { id: existing.id },
-          data: { quantity: item.quantity, totalPrice: resolved.totalPrice, totalGst: resolved.totalGst, totalPriceInclGst: resolved.totalPriceInclGst },
-        })
-      } else {
-        await prisma.cartItem.create({ data })
-      }
-    } else {
-      const serviceId = item.serviceId as string
-      const servicePackageId = item.servicePackageId ?? null
-      const serviceSlotId = item.serviceSlotId ?? null
-      const existing = await prisma.cartItem.findFirst({
-        where: { userId, serviceId, productId: null, productVariantId: null, servicePackageId, serviceSlotId },
-      })
-      const data = {
-        userId,
-        productId: null,
-        productVariantId: null,
-        serviceId,
-        servicePackageId,
-        serviceSlotId,
         quantity: item.quantity,
         unitPrice: resolved.unitPrice,
         totalPrice: resolved.totalPrice,

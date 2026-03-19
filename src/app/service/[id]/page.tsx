@@ -23,6 +23,8 @@ export default async function ServicePage({ params }: { params: Promise<{ id: st
         basePrice: service.basePrice,
         discount: service.discount,
         images: service.images,
+        serviceType: service.serviceType,
+        duration: service.duration,
         serviceCategory: service.serviceCategory,
         seller: service.seller
           ? { store: service.seller.store ? { name: service.seller.store.name } : null }

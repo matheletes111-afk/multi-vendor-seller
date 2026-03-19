@@ -13,6 +13,9 @@ export type OrderDetailItemApi = {
   gstAmount: number
   subtotalInclGst: number | null
   imageUrl: string | null
+  /** Service slot (for service orders). ISO date-time strings. */
+  serviceSlotStartTime: string | null
+  serviceSlotEndTime: string | null
 }
 
 export type OrderDetailApi = {

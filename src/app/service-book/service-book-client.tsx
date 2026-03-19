@@ -2,19 +2,13 @@
 
 import { useCallback, useEffect, useState } from "react"
 import Link from "next/link"
-import Image from "next/image"
-import { useRouter } from "next/navigation"
 import { PublicLayout } from "@/components/site-layout"
 import { Button } from "@/ui/button"
 import { Input } from "@/ui/input"
 import { Label } from "@/ui/label"
-import { useCart } from "@/app/cart/cart-context"
-import { getCartItemId } from "@/app/cart/cart-types"
 import { formatCurrency } from "@/lib/utils"
 import type { AddressApi } from "@/app/api/customer/checkout/types"
-import type { PlaceOrderResponse } from "@/app/api/customer/checkout/types"
-import { MapPin, Banknote, Loader2, Pencil, Plus } from "lucide-react"
-import { PageLoader } from "@/components/ui/page-loader"
+import { MapPin, Banknote, Loader2, Pencil, Plus, Briefcase } from "lucide-react"
 
 const emptyAddressForm = {
   fullName: "",
@@ -27,9 +21,26 @@ const emptyAddressForm = {
   country: "",
 }
 
-export function CheckoutClient() {
-  const router = useRouter()
-  const { items, totalItems, isLoading: cartLoading } = useCart()
+function formatSlotTime(iso: string): string {
+  const d = new Date(iso)
+  const hh = String(d.getUTCHours()).padStart(2, "0")
+  const mm = String(d.getUTCMinutes()).padStart(2, "0")
+  return `${hh}:${mm} UTC`
+}
+
+export function ServiceBookClient({
+  serviceId,
+  serviceName,
+  displayPrice,
+  slotStartTime,
+  slotEndTime,
+}: {
+  serviceId: string
+  serviceName: string
+  displayPrice: number | null
+  slotStartTime: string | null
+  slotEndTime: string | null
+}) {
   const [addresses, setAddresses] = useState<AddressApi[]>([])
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null)
   const [addressesLoading, setAddressesLoading] = useState(true)
@@ -76,25 +87,27 @@ export function CheckoutClient() {
       setError("Please select a delivery address.")
       return
     }
-    if (productItems.length === 0) {
-      setError("Your cart is empty.")
-      return
-    }
     setError(null)
     setPlacing(true)
     try {
-      const res = await fetch("/api/customer/checkout/place-order", {
+      const body: { serviceId: string; addressId: string; slotStartTime?: string; slotEndTime?: string } = {
+        serviceId,
+        addressId: selectedAddressId,
+      }
+      if (slotStartTime) body.slotStartTime = slotStartTime
+      if (slotEndTime) body.slotEndTime = slotEndTime
+      const res = await fetch("/api/customer/checkout/place-service-order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ addressId: selectedAddressId }),
+        body: JSON.stringify(body),
       })
-      const data = (await res.json()) as PlaceOrderResponse | { error?: string }
+      const data = (await res.json()) as { success?: boolean; error?: string }
       if (!res.ok) {
-        setError("error" in data && typeof data.error === "string" ? data.error : "Failed to place order.")
+        setError(typeof data.error === "string" ? data.error : "Failed to place order.")
         return
       }
-      if ("success" in data && data.success) {
+      if (data.success) {
         window.location.href = "/customer/orders"
         return
       }
@@ -137,7 +150,15 @@ export function CheckoutClient() {
 
   const handleSaveAddress = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!addressForm.fullName.trim() || !addressForm.phone.trim() || !addressForm.addressLine1.trim() || !addressForm.city.trim() || !addressForm.state.trim() || !addressForm.postalCode.trim() || !addressForm.country.trim()) {
+    if (
+      !addressForm.fullName.trim() ||
+      !addressForm.phone.trim() ||
+      !addressForm.addressLine1.trim() ||
+      !addressForm.city.trim() ||
+      !addressForm.state.trim() ||
+      !addressForm.postalCode.trim() ||
+      !addressForm.country.trim()
+    ) {
       setError("Please fill all required fields.")
       return
     }
@@ -161,9 +182,9 @@ export function CheckoutClient() {
           headers: { "Content-Type": "application/json" },
           credentials: "include",
           body: JSON.stringify({
-          ...payload,
-          isDefault: addresses.find((a) => a.id === editingAddressId)?.isDefault ?? false,
-        }),
+            ...payload,
+            isDefault: addresses.find((a) => a.id === editingAddressId)?.isDefault ?? false,
+          }),
         })
         if (!res.ok) {
           const err = (await res.json()) as { error?: string }
@@ -196,58 +217,25 @@ export function CheckoutClient() {
     }
   }
 
-  const productItems = items.filter((i) => i.productId)
-  const cartSubtotal = productItems.reduce((sum, i) => sum + i.price * i.quantity, 0)
-  const cartTax = productItems.reduce((sum, i) => sum + (i.gstAmount ?? 0), 0)
-  const cartGrandTotal = productItems.reduce(
-    (sum, i) => sum + (i.lineTotal ?? i.price * i.quantity + (i.gstAmount ?? 0)),
-    0
-  )
-
-  if (cartLoading) {
-    return (
-      <PublicLayout>
-        <div className="container mx-auto max-w-4xl px-3 py-6 sm:px-4 sm:py-8 overflow-x-hidden">
-          <h1 className="text-xl font-bold text-slate-900 sm:text-2xl">Checkout</h1>
-          <PageLoader message="Loading your cart…" className="min-h-[40vh]" />
-        </div>
-      </PublicLayout>
-    )
-  }
-
-  if (productItems.length === 0 && !addressesLoading) {
-    return (
-      <PublicLayout>
-        <div className="container mx-auto max-w-lg px-3 py-8 text-center sm:px-4 sm:py-12 overflow-x-hidden">
-          <h1 className="text-lg font-semibold text-slate-900 sm:text-xl">Checkout</h1>
-          <p className="mt-2 text-sm text-slate-600 sm:text-base">Your cart is empty.</p>
-          <Button asChild className="mt-6 min-h-11 w-full sm:w-auto">
-            <Link href="/cart">View cart</Link>
-          </Button>
-        </div>
-      </PublicLayout>
-    )
-  }
+  const canPlace = displayPrice != null && selectedAddressId && !addressesLoading
 
   return (
     <PublicLayout>
       <div className="container mx-auto max-w-4xl px-3 py-4 sm:px-4 sm:py-6 md:py-8 overflow-x-hidden">
-        <h1 className="text-xl font-bold text-slate-900 sm:text-2xl">Checkout</h1>
-        <p className="mt-1 text-sm text-slate-600 sm:text-base">
-          {productItems.length} {productItems.length === 1 ? "item" : "items"}
-        </p>
+        <h1 className="text-xl font-bold text-slate-900 sm:text-2xl">Book service</h1>
+        <p className="mt-1 text-sm text-slate-600 sm:text-base">Enter your address and place the booking.</p>
 
         <div className="mt-6 grid gap-6 sm:mt-8 sm:gap-8 md:grid-cols-2">
           <div className="space-y-6 min-w-0">
             <section className="min-w-0">
               <h2 className="flex items-center gap-2 text-base font-semibold text-slate-800 sm:text-lg">
                 <MapPin className="h-4 w-4 shrink-0 sm:h-5 sm:w-5" />
-                Delivery address
+                Delivery / service address
               </h2>
               {addressesLoading ? (
                 <p className="mt-2 text-slate-500">Loading addresses…</p>
               ) : addresses.length === 0 ? (
-                <p className="mt-2 text-slate-500">Add your delivery address to proceed.</p>
+                <p className="mt-2 text-slate-500">Add your address to proceed.</p>
               ) : null}
 
               {!addressesLoading && addresses.length >= 1 && (
@@ -270,7 +258,8 @@ export function CheckoutClient() {
                               <p className="text-slate-600">{addr.phone}</p>
                               <p className="text-slate-700 break-words">
                                 {addr.addressLine1}
-                                {addr.addressLine2 ? `, ${addr.addressLine2}` : ""}, {addr.city}, {addr.state} {addr.postalCode}, {addr.country}
+                                {addr.addressLine2 ? `, ${addr.addressLine2}` : ""}, {addr.city}, {addr.state}{" "}
+                                {addr.postalCode}, {addr.country}
                               </p>
                               {addr.isDefault && (
                                 <span className="mt-1 inline-block text-xs text-primary">Default</span>
@@ -292,7 +281,12 @@ export function CheckoutClient() {
                     ))}
                   </ul>
                   {!showAddressForm && (
-                    <Button type="button" variant="outline" className="mt-3 min-h-10 w-full sm:w-auto" onClick={openAddForm}>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="mt-3 min-h-10 w-full sm:w-auto"
+                      onClick={openAddForm}
+                    >
                       <Plus className="mr-2 h-4 w-4 shrink-0" />
                       Add new address
                     </Button>
@@ -301,15 +295,18 @@ export function CheckoutClient() {
               )}
 
               {!addressesLoading && (addresses.length === 0 || showAddressForm) && (
-                <form onSubmit={handleSaveAddress} className="mt-4 space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-3 sm:p-4">
+                <form
+                  onSubmit={handleSaveAddress}
+                  className="mt-4 space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-3 sm:p-4"
+                >
                   <h3 className="text-sm font-medium text-slate-700">
                     {editingAddressId ? "Edit address" : "Add new address"}
                   </h3>
                   <div className="grid gap-2 sm:grid-cols-2">
                     <div className="space-y-1">
-                      <Label htmlFor="fullName" className="text-xs sm:text-sm">Full name *</Label>
+                      <Label htmlFor="sb-fullName" className="text-xs sm:text-sm">Full name *</Label>
                       <Input
-                        id="fullName"
+                        id="sb-fullName"
                         value={addressForm.fullName}
                         onChange={(e) => setAddressForm((f) => ({ ...f, fullName: e.target.value }))}
                         placeholder="Full name"
@@ -318,9 +315,9 @@ export function CheckoutClient() {
                       />
                     </div>
                     <div className="space-y-1">
-                      <Label htmlFor="phone" className="text-xs sm:text-sm">Phone *</Label>
+                      <Label htmlFor="sb-phone" className="text-xs sm:text-sm">Phone *</Label>
                       <Input
-                        id="phone"
+                        id="sb-phone"
                         value={addressForm.phone}
                         onChange={(e) => setAddressForm((f) => ({ ...f, phone: e.target.value }))}
                         placeholder="Phone"
@@ -330,9 +327,9 @@ export function CheckoutClient() {
                     </div>
                   </div>
                   <div>
-                    <Label htmlFor="addressLine1" className="text-xs sm:text-sm">Address line 1 *</Label>
+                    <Label htmlFor="sb-addressLine1" className="text-xs sm:text-sm">Address line 1 *</Label>
                     <Input
-                      id="addressLine1"
+                      id="sb-addressLine1"
                       value={addressForm.addressLine1}
                       onChange={(e) => setAddressForm((f) => ({ ...f, addressLine1: e.target.value }))}
                       placeholder="Street address"
@@ -341,9 +338,9 @@ export function CheckoutClient() {
                     />
                   </div>
                   <div>
-                    <Label htmlFor="addressLine2" className="text-xs sm:text-sm">Address line 2</Label>
+                    <Label htmlFor="sb-addressLine2" className="text-xs sm:text-sm">Address line 2</Label>
                     <Input
-                      id="addressLine2"
+                      id="sb-addressLine2"
                       value={addressForm.addressLine2}
                       onChange={(e) => setAddressForm((f) => ({ ...f, addressLine2: e.target.value }))}
                       placeholder="Apt, suite, etc."
@@ -352,9 +349,9 @@ export function CheckoutClient() {
                   </div>
                   <div className="grid gap-2 sm:grid-cols-3">
                     <div>
-                      <Label htmlFor="city" className="text-xs sm:text-sm">City *</Label>
+                      <Label htmlFor="sb-city" className="text-xs sm:text-sm">City *</Label>
                       <Input
-                        id="city"
+                        id="sb-city"
                         value={addressForm.city}
                         onChange={(e) => setAddressForm((f) => ({ ...f, city: e.target.value }))}
                         placeholder="City"
@@ -363,9 +360,9 @@ export function CheckoutClient() {
                       />
                     </div>
                     <div>
-                      <Label htmlFor="state" className="text-xs sm:text-sm">State *</Label>
+                      <Label htmlFor="sb-state" className="text-xs sm:text-sm">State *</Label>
                       <Input
-                        id="state"
+                        id="sb-state"
                         value={addressForm.state}
                         onChange={(e) => setAddressForm((f) => ({ ...f, state: e.target.value }))}
                         placeholder="State"
@@ -374,9 +371,9 @@ export function CheckoutClient() {
                       />
                     </div>
                     <div>
-                      <Label htmlFor="postalCode" className="text-xs sm:text-sm">Postal code *</Label>
+                      <Label htmlFor="sb-postalCode" className="text-xs sm:text-sm">Postal code *</Label>
                       <Input
-                        id="postalCode"
+                        id="sb-postalCode"
                         value={addressForm.postalCode}
                         onChange={(e) => setAddressForm((f) => ({ ...f, postalCode: e.target.value }))}
                         placeholder="Postal code"
@@ -386,9 +383,9 @@ export function CheckoutClient() {
                     </div>
                   </div>
                   <div>
-                    <Label htmlFor="country" className="text-xs sm:text-sm">Country *</Label>
+                    <Label htmlFor="sb-country" className="text-xs sm:text-sm">Country *</Label>
                     <Input
-                      id="country"
+                      id="sb-country"
                       value={addressForm.country}
                       onChange={(e) => setAddressForm((f) => ({ ...f, country: e.target.value }))}
                       placeholder="Country"
@@ -401,7 +398,13 @@ export function CheckoutClient() {
                       {formSubmitting ? "Saving…" : editingAddressId ? "Update address" : "Save address"}
                     </Button>
                     {addresses.length >= 1 && (
-                      <Button type="button" variant="outline" onClick={closeAddressForm} disabled={formSubmitting} className="min-h-10 w-full sm:w-auto">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={closeAddressForm}
+                        disabled={formSubmitting}
+                        className="min-h-10 w-full sm:w-auto"
+                      >
                         Cancel
                       </Button>
                     )}
@@ -415,74 +418,42 @@ export function CheckoutClient() {
                 <Banknote className="h-4 w-4 shrink-0 sm:h-5 sm:w-5" />
                 Payment
               </h2>
-              <p className="mt-2 text-xs text-slate-600 sm:text-sm">Cash on Delivery (COD) — pay when you receive your order.</p>
+              <p className="mt-2 text-xs text-slate-600 sm:text-sm">
+                Cash on Delivery (COD) — pay when you receive your order.
+              </p>
             </section>
           </div>
 
           <div className="min-w-0">
             <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4 md:sticky md:top-4">
-              <h2 className="text-base font-semibold text-slate-800 sm:text-lg">Order summary</h2>
-              <ul className="mt-3 max-h-56 space-y-2 overflow-y-auto sm:max-h-72 sm:space-y-3">
-                {productItems.map((item) => {
-                  const itemId = getCartItemId(item)
-                  const subtotal = item.price * item.quantity
-                  const gstAmount = item.gstAmount ?? 0
-                  const lineTotal =
-                    item.lineTotal ?? subtotal + gstAmount
-                  return (
-                    <li key={itemId} className="rounded-lg border border-slate-100 bg-slate-50/50 p-2 text-xs sm:p-3 sm:text-sm">
-                      <div className="flex gap-2 sm:gap-3">
-                        <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded bg-white sm:h-12 sm:w-12">
-                          {item.image ? (
-                            <Image src={item.image} alt={item.name} fill className="object-cover" sizes="(max-width: 640px) 40px, 48px" />
-                          ) : null}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate font-medium text-slate-900">{item.name}</p>
-                          <div className="mt-0.5 flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5 text-slate-600 sm:mt-1 sm:gap-x-2">
-                            <span>Qty: {item.quantity}</span>
-                            <span>× {formatCurrency(item.price)}</span>
-                            <span className="font-medium text-slate-700">
-                              Subtotal: {formatCurrency(subtotal)}
-                            </span>
-                            {item.hasGst && gstAmount > 0 ? (
-                              <span className="text-[10px] text-emerald-700 sm:text-xs">
-                                GST: {formatCurrency(gstAmount)}
-                              </span>
-                            ) : (
-                              <span className="text-[10px] text-slate-500 sm:text-xs">No GST</span>
-                            )}
-                          </div>
-                          <p className="mt-0.5 font-semibold text-slate-900 sm:mt-1">
-                            Line total: {formatCurrency(lineTotal)}
-                          </p>
-                        </div>
-                      </div>
-                    </li>
-                  )
-                })}
-              </ul>
-              <div className="mt-4 space-y-2 border-t border-slate-200 pt-4">
-                <div className="flex justify-between text-xs text-slate-700 sm:text-sm">
-                  <span>Subtotal ({productItems.length} item(s))</span>
-                  <span>{formatCurrency(cartSubtotal)}</span>
+              <h2 className="text-base font-semibold text-slate-800 sm:text-lg">Booking summary</h2>
+              <div className="mt-3 flex gap-3 rounded-lg border border-slate-100 bg-slate-50/50 p-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-200">
+                  <Briefcase className="h-5 w-5 text-slate-600" />
                 </div>
-                {cartTax > 0 && (
-                  <div className="flex justify-between text-xs text-slate-700 sm:text-sm">
-                    <span>Tax (GST)</span>
-                    <span>{formatCurrency(cartTax)}</span>
-                  </div>
-                )}
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium text-slate-900">{serviceName}</p>
+                  {slotStartTime && slotEndTime && (
+                    <p className="mt-0.5 text-sm text-slate-600">
+                      {formatSlotTime(slotStartTime)} – {formatSlotTime(slotEndTime)}
+                    </p>
+                  )}
+                  <p className="mt-1 font-semibold text-slate-900">
+                    {displayPrice != null ? formatCurrency(displayPrice) : "Price on request"}
+                  </p>
+                </div>
+              </div>
+              <div className="mt-4 space-y-2 border-t border-slate-200 pt-4">
                 <div className="flex justify-between border-t border-slate-200 pt-2 text-sm font-semibold text-slate-900 sm:text-base">
-                  <span>Grand total</span>
-                  <span>{formatCurrency(cartGrandTotal)}</span>
+                  <span>Total</span>
+                  <span>{displayPrice != null ? formatCurrency(displayPrice) : "—"}</span>
                 </div>
                 <p className="text-[10px] text-slate-500 sm:text-xs">COD: pay on delivery.</p>
                 <Button
                   className="mt-4 w-full min-h-11 sm:min-h-12"
                   size="lg"
                   onClick={handlePlaceOrder}
-                  disabled={placing || !selectedAddressId || productItems.length === 0}
+                  disabled={placing || !canPlace}
                 >
                   {placing ? (
                     <>
@@ -505,7 +476,7 @@ export function CheckoutClient() {
 
         <div className="mt-4 sm:mt-6">
           <Button variant="ghost" asChild className="min-h-10 w-full sm:w-auto">
-            <Link href="/cart">← Back to cart</Link>
+            <Link href={"/service/" + serviceId}>← Back to service</Link>
           </Button>
         </div>
       </div>
