@@ -108,7 +108,7 @@ export function ServiceBookClient({
         return
       }
       if (data.success) {
-        window.location.href = "/customer/orders"
+        window.location.href = "/my-orders"
         return
       }
       setError("Failed to place order.")

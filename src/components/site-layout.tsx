@@ -39,6 +39,7 @@ export function SiteHeader() {
   const [mounted, setMounted] = useState(false)
   const [categories, setCategories] = useState<Category[]>([])
   const isLoggedIn = status === "authenticated" && !!session?.user
+  const showOrdersLink = status === "authenticated" && session?.user?.role === UserRole.CUSTOMER
   const showBecomePartner = !isLoggedIn
   /** Cart is only for guest or customer; hide for seller/admin */
   const canUseCart = status !== "authenticated" || session?.user?.role === UserRole.CUSTOMER
@@ -205,9 +206,11 @@ export function SiteHeader() {
                       </Link>
                     </>
                   )}
-                  <Link href="/my-orders" className="px-4 py-3 text-sm text-slate-700 hover:bg-slate-100">
-                    Orders
-                  </Link>
+                  {showOrdersLink && (
+                    <Link href="/my-orders" className="px-4 py-3 text-sm text-slate-700 hover:bg-slate-100">
+                      Orders
+                    </Link>
+                  )}
                 </div>
               </SheetContent>
             </Sheet>
@@ -305,13 +308,15 @@ export function SiteHeader() {
             </>
           )}
 
-          <Link
-            href="/my-orders"
-            className="flex flex-col items-start rounded px-2 py-1.5 text-white hover:opacity-90"
-            aria-label="Orders"
-          >
-            <span className="font-semibold">Orders</span>
-          </Link>
+          {showOrdersLink && (
+            <Link
+              href="/my-orders"
+              className="flex flex-col items-start rounded px-2 py-1.5 text-white hover:opacity-90"
+              aria-label="Orders"
+            >
+              <span className="font-semibold">Orders</span>
+            </Link>
+          )}
           </div>
 
           {canUseCart && (

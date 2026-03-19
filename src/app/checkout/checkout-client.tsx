@@ -95,7 +95,7 @@ export function CheckoutClient() {
         return
       }
       if ("success" in data && data.success) {
-        window.location.href = "/customer/orders"
+        window.location.href = "/my-orders"
         return
       }
       setError("Failed to place order.")
