@@ -10,14 +10,18 @@ function customerOrderKindFilter(kind: CustomerOrderKind) {
 export async function listCustomerOrders({
   userId,
   kind,
+  page,
+  pageSize,
 }: {
   userId: string
   kind: CustomerOrderKind
   page?: number
   pageSize?: number
 }): Promise<{ orders: OrderDetailApi[]; total: number; page: number; pageSize: number }> {
-  const safePage = Number.isFinite(page) && (page ?? 1) > 0 ? Math.floor(page as number) : 1
-  const safePageSize = Number.isFinite(pageSize) && (pageSize ?? 10) > 0 ? Math.floor(pageSize as number) : 10
+  const safePage =
+    typeof page === "number" && Number.isFinite(page) && page > 0 ? Math.floor(page) : 1
+  const safePageSize =
+    typeof pageSize === "number" && Number.isFinite(pageSize) && pageSize > 0 ? Math.floor(pageSize) : 10
 
   const where = {
     customerId: userId,

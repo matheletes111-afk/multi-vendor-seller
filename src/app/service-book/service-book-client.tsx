@@ -10,8 +10,20 @@ import { formatCurrency } from "@/lib/utils"
 import type { AddressApi } from "@/app/api/customer/checkout/types"
 import { MapPin, Banknote, Loader2, Pencil, Plus, Briefcase } from "lucide-react"
 
-const emptyAddressForm = {
-  addressType: "HOME" as const,
+type AddressFormState = {
+  addressType: AddressApi["addressType"]
+  fullName: string
+  phone: string
+  addressLine1: string
+  addressLine2: string
+  city: string
+  state: string
+  postalCode: string
+  country: string
+}
+
+const emptyAddressForm: AddressFormState = {
+  addressType: "HOME",
   fullName: "",
   phone: "",
   addressLine1: "",
@@ -49,7 +61,7 @@ export function ServiceBookClient({
   const [error, setError] = useState<string | null>(null)
   const [showAddressForm, setShowAddressForm] = useState(false)
   const [editingAddressId, setEditingAddressId] = useState<string | null>(null)
-  const [addressForm, setAddressForm] = useState(emptyAddressForm)
+  const [addressForm, setAddressForm] = useState<AddressFormState>(emptyAddressForm)
   const [formSubmitting, setFormSubmitting] = useState(false)
 
   const fetchAddresses = useCallback(async () => {
