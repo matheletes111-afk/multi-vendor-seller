@@ -15,6 +15,20 @@ export async function POST(
 
   try {
     const { id } = await params
+
+    const seller = await prisma.seller.findUnique({
+      where: { id },
+      select: { nationIdentityNumber: true },
+    })
+
+    const nid = seller?.nationIdentityNumber?.trim()
+    if (!nid) {
+      return NextResponse.json(
+        { error: "Nation Identity Number is required before approval." },
+        { status: 400 }
+      )
+    }
+
     await prisma.seller.update({
       where: { id },
       data: { isApproved: true },

@@ -2,11 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { isAdmin } from "@/lib/rbac";
-import { writeFile, mkdir } from "fs/promises";
-import path from "path";
-import { existsSync } from "fs";
 
 import { getPaginationFromSearchParams } from "@/lib/admin-pagination";
+import { uploadPublicFile } from "@/lib/upload-public-file";
 
 // GET banners with pagination
 export async function GET(request: NextRequest) {
@@ -103,21 +101,28 @@ export async function POST(request: NextRequest) {
 
     let bannerImagePath: string | null = bannerImageUrl;
 
+    const getImageExtFromContentType = (contentType?: string | null) => {
+      const ct = (contentType || "").toLowerCase();
+      if (ct.includes("png")) return ".png";
+      if (ct.includes("jpeg") || ct.includes("jpg")) return ".jpg";
+      if (ct.includes("webp")) return ".webp";
+      if (ct.includes("gif")) return ".gif";
+      return ".jpg";
+    };
+
     if (bannerImageFile && bannerImageFile.size > 0) {
       try {
         const bytes = await bannerImageFile.arrayBuffer();
         const buffer = Buffer.from(bytes);
-        const fileExtension = path.extname(bannerImageFile.name);
-        const timestamp = Date.now();
-        const randomNum = Math.floor(Math.random() * 10000);
-        const fileName = `banner-${timestamp}-${randomNum}${fileExtension}`;
-        const uploadDir = path.join(process.cwd(), "public/uploads/banners");
-        if (!existsSync(uploadDir)) {
-          await mkdir(uploadDir, { recursive: true });
-        }
-        const filePath = path.join(uploadDir, fileName);
-        await writeFile(filePath, buffer);
-        bannerImagePath = `/uploads/banners/${fileName}`;
+        const contentType = bannerImageFile.type || "image/jpeg";
+        const ext = getImageExtFromContentType(contentType);
+        bannerImagePath = await uploadPublicFile({
+          folder: "banners",
+          ext,
+          contentType,
+          buffer,
+          prefix: "banner",
+        });
       } catch (uploadError) {
         console.error("Error uploading banner image:", uploadError);
         return NextResponse.json({ error: "Failed to upload banner image" }, { status: 500 });

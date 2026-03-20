@@ -26,6 +26,7 @@ import {
 import { formatCurrency } from "@/lib/utils";
 import { getYoutubeEmbedUrl } from "@/lib/youtube";
 import { PageLoader } from "@/components/ui/page-loader";
+import { AddToCartButton } from "@/components/product/AddToCartButton";
 
 const SUB_PLACEHOLDER_ICONS = [Package, Folder, LayoutGrid, Tag, BookOpen, Briefcase, Dumbbell, Music];
 const PRODUCT_PLACEHOLDER_ICONS = [ShoppingBag, Box, Package, Gift, Sparkles, Tag];
@@ -567,12 +568,12 @@ export function HomeClient() {
         {randomProducts.length > 0 && (
           <section className="container mx-auto px-3 sm:px-4 py-6 sm:py-8">
             <h2 className="mb-4 sm:mb-6 text-lg font-bold text-slate-800 sm:text-xl">Explore products</h2>
-            <div className="grid gap-3 sm:gap-4 grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+            <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
               {randomProducts.slice(0, 8).map((p, pIdx) => {
                 const ProductIcon = PRODUCT_PLACEHOLDER_ICONS[pIdx % PRODUCT_PLACEHOLDER_ICONS.length];
                 return (
-                <Link key={p.id} href={`/product/${p.id}`} className="group">
-                  <Card className="h-full overflow-hidden border-0 bg-white shadow-md transition-shadow group-hover:shadow-lg">
+                <Link key={p.id} href={`/product/${p.id}`} className="group block h-full">
+                  <Card className="flex h-full flex-col overflow-hidden border-0 bg-white shadow-md transition-shadow group-hover:shadow-lg">
                     <div className="relative aspect-square w-full overflow-hidden bg-muted flex items-center justify-center">
                       {p.images[0] ? (
                         <img src={p.images[0]} alt={p.name} className="h-full w-full object-cover" />
@@ -580,10 +581,22 @@ export function HomeClient() {
                         <ProductIcon className="h-14 w-14 text-slate-400" />
                       )}
                     </div>
-                    <CardContent className="p-3">
+                    <CardContent className="flex flex-1 flex-col p-3">
                       <p className="line-clamp-2 text-sm font-medium text-slate-800">{p.name}</p>
                       <p className="text-xs text-slate-500">{p.seller?.store?.name ?? "Store"}</p>
                       <p className="mt-1 font-bold text-blue-600">{formatCurrency(Math.max(0, p.basePrice - p.discount))}</p>
+                      <div className="mt-auto pt-3">
+                        <AddToCartButton
+                          productId={p.id}
+                          name={p.name}
+                          price={Math.max(0, p.basePrice - p.discount)}
+                          image={Array.isArray(p.images) ? p.images[0] : null}
+                          size="sm"
+                          label="Add to Cart"
+                          className="w-full justify-center px-2 text-xs sm:px-3 sm:text-sm"
+                          ariaLabel={`Add ${p.name} to cart`}
+                        />
+                      </div>
                     </CardContent>
                   </Card>
                 </Link>

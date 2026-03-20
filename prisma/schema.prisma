@@ -177,6 +177,7 @@ model Seller {
   type        SellerType
   isApproved  Boolean    @default(false)
   isSuspended Boolean    @default(false)
+  nationIdentityNumber String? // Used by admin to verify seller profile during approval
   adBalance   Decimal    @default(0) // Phase 2: top-up; Phase 1: track only
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt

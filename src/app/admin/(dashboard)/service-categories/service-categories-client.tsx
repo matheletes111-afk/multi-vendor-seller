@@ -128,7 +128,6 @@ export function ServiceCategoriesClient() {
       if (!response.ok) {
         throw new Error(resData.error || "Failed to delete service category");
       }
-      router.refresh();
       router.push("/admin/service-categories?success=Service category deleted successfully");
     } catch (error: any) {
       router.push(`/admin/service-categories?error=${encodeURIComponent(error.message)}`);

@@ -15,6 +15,8 @@ export async function POST(request: Request) {
       csrfToken?: string
       guestCart?: unknown
     }
+    const rawCallbackUrl = typeof callbackUrl === "string" ? callbackUrl : "/"
+    const normalizedCallbackUrl = rawCallbackUrl === "/customer" ? "/" : rawCallbackUrl || "/"
     if (!email || !password) {
       return NextResponse.json(
         { error: "Email and password are required" },
@@ -26,7 +28,7 @@ export async function POST(request: Request) {
       email,
       password,
       role: UserRole.CUSTOMER,
-      callbackUrl: callbackUrl || "/",
+      callbackUrl: normalizedCallbackUrl,
       ...(csrfToken && { csrfToken }),
     })
     const cookie = request.headers.get("cookie") ?? ""
@@ -79,7 +81,8 @@ export async function POST(request: Request) {
     }
     if (res.status === 302) {
       const headers = new Headers()
-      headers.set("Location", location || "/customer")
+      const normalizedLocation = location && location !== "/customer" ? location : normalizedCallbackUrl
+      headers.set("Location", normalizedLocation)
       res.headers.getSetCookie?.().forEach((c) => headers.append("Set-Cookie", c))
       return new NextResponse(null, { status: 302, headers })
     }
@@ -103,7 +106,7 @@ export async function POST(request: Request) {
       }
       return NextResponse.json({ error: msg }, { status: 401 })
     }
-    const url = data?.url || callbackUrl || "/customer"
+    const url = normalizedCallbackUrl
     const headers = new Headers()
     res.headers.getSetCookie?.().forEach((c) => headers.append("Set-Cookie", c))
     return NextResponse.json({ ...data, url }, { status: res.status, headers })

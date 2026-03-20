@@ -28,7 +28,9 @@ function NavItem({ href, label, icon }: { href: string; label: string; icon?: Re
       href={href}
       className={cn(
         "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-        isActive ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+        isActive
+          ? "bg-blue-50 text-blue-700 hover:bg-blue-50"
+          : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
       )}
     >
       {icon && <span className="h-4 w-4">{icon}</span>}
@@ -67,7 +69,6 @@ export function AdminLayoutClient({
       <NavItem href="/admin/categories" label="Product Category" icon={<FolderTree className="h-4 w-4" />} />
       <NavItem href="/admin/service-categories" label="Service Category" icon={<Briefcase className="h-4 w-4" />} />
       <NavItem href="/admin/banners" label="Banners" icon={<ImageIcon className="h-4 w-4" />} />
-      <NavItem href="/admin/admanagement" label="Ad Management" icon={<Megaphone className="h-4 w-4" />} />
       <NavItem href="/admin/seller-ads" label="Seller Ads" icon={<BadgeDollarSign className="h-4 w-4" />} />
     </>
   )
@@ -89,7 +90,7 @@ export function AdminLayoutClient({
         </div>
       </Sidebar>
       <div className="flex flex-1 flex-col md:pl-64">
-        <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-background px-6">
+        <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b border-blue-900/20 bg-gradient-to-r from-blue-50 via-blue-200 to-cyan-600 px-6 shadow-md">
           <div className="flex flex-1 items-center gap-4">
             {mounted ? (
               <Sheet>
@@ -125,13 +126,6 @@ export function AdminLayoutClient({
                       {user.email && <p className="text-xs leading-none text-muted-foreground">{user.email}</p>}
                     </div>
                   </DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem asChild>
-                    <Link href="/admin">
-                      <User className="mr-2 h-4 w-4" />
-                      <span>Profile</span>
-                    </Link>
-                  </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={() => signOut({ redirect: false }).then(() => { window.location.href = "/" })}>
                     <LogOut className="mr-2 h-4 w-4" />

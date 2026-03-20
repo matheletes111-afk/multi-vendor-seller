@@ -105,7 +105,8 @@ export default function ServiceSellerRegistrationPage() {
                 <Label htmlFor="phoneCountryCode" className="mb-1.5 block text-sm font-medium text-gray-700">Country code</Label>
                 <Input
                   id="phoneCountryCode"
-                  type="text"
+                  type="tel"
+                  inputMode="numeric"
                   placeholder="+1"
                   value={phoneCountryCode}
                   onChange={(e) => setPhoneCountryCode(e.target.value)}
@@ -118,6 +119,7 @@ export default function ServiceSellerRegistrationPage() {
                 <Input
                   id="phone"
                   type="tel"
+                  inputMode="numeric"
                   placeholder="Optional"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}

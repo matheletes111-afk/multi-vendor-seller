@@ -55,11 +55,16 @@ export async function PUT(request: NextRequest) {
     const name = (fd.get("name") as string)?.trim()
     const phone = (fd.get("phone") as string) ?? ""
     const phoneCountryCode = (fd.get("phoneCountryCode") as string) ?? ""
+    const nationIdentityNumberRaw = fd.get("nationIdentityNumber") as string | null
+    const nationIdentityNumber = (nationIdentityNumberRaw ?? "").trim()
 
     const userData: { name?: string; image?: string | null; phone?: string | null; phoneCountryCode?: string | null } = {}
     if (name !== undefined) userData.name = name
     if (phone !== undefined) userData.phone = phone || null
     if (phoneCountryCode !== undefined) userData.phoneCountryCode = phoneCountryCode || null
+    const sellerData: { nationIdentityNumber?: string | null } = {}
+    // If the form includes the field, treat empty value as null.
+    if (nationIdentityNumberRaw !== null) sellerData.nationIdentityNumber = nationIdentityNumber || null
 
     if (profileImageFile && profileImageFile.size > 0) {
       try {
@@ -86,12 +91,20 @@ export async function PUT(request: NextRequest) {
       })
     }
 
+    if (Object.keys(sellerData).length > 0) {
+      await prisma.seller.update({
+        where: { id: seller.id },
+        data: sellerData,
+      })
+    }
+
     return NextResponse.json({ success: true })
   }
 
   const body = await request.json().catch(() => ({})) as {
     store?: Record<string, unknown>
     user?: { name?: string; image?: string; phone?: string; phoneCountryCode?: string }
+    seller?: { nationIdentityNumber?: string | null }
   }
 
   if (body.store && Object.keys(body.store).length > 0) {
@@ -131,6 +144,20 @@ export async function PUT(request: NextRequest) {
       await prisma.user.update({
         where: { id: session.user.id },
         data: userData,
+      })
+    }
+  }
+
+  if (body.seller && Object.keys(body.seller).length > 0) {
+    const sellerData: { nationIdentityNumber?: string | null } = {}
+    if (body.seller.nationIdentityNumber !== undefined) {
+      const raw = body.seller.nationIdentityNumber ?? ""
+      sellerData.nationIdentityNumber = typeof raw === "string" ? raw.trim() || null : null
+    }
+    if (Object.keys(sellerData).length > 0) {
+      await prisma.seller.update({
+        where: { id: seller.id },
+        data: sellerData,
       })
     }
   }

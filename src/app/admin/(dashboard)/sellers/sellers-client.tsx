@@ -1,9 +1,10 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { Fragment, useState, useEffect, useCallback } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { Button } from "@/ui/button"
 import { Badge } from "@/ui/badge"
+import { Eye } from "lucide-react"
 import {
   Table,
   TableBody,
@@ -31,6 +32,7 @@ export function SellersClient() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
+  const [expandedSellerId, setExpandedSellerId] = useState<string | null>(null)
 
   const successParam = searchParams.get("success")
   const errorParam = searchParams.get("error")
@@ -187,70 +189,139 @@ export function SellersClient() {
                     </TableRow>
                   ) : (
                     data.sellers.map((seller: any) => (
-                      <TableRow key={seller.id}>
-                        <TableCell className="font-medium">
-                          {seller.user?.name || seller.user?.email}
-                        </TableCell>
-                        <TableCell>{seller.store?.name || "—"}</TableCell>
-                        <TableCell>
-                          <Badge variant="secondary">{seller.type}</Badge>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex flex-col gap-1">
-                            <Badge variant={seller.isApproved ? "default" : "outline"}>
-                              {seller.isApproved ? "Approved" : "Pending"}
-                            </Badge>
-                            {seller.isSuspended && (
-                              <Badge variant="destructive">Suspended</Badge>
+                      <Fragment key={seller.id}>
+                        <TableRow>
+                          <TableCell className="font-medium">
+                            {seller.user?.name || seller.user?.email}
+                          </TableCell>
+                          <TableCell>{seller.store?.name || "—"}</TableCell>
+                          <TableCell>
+                            <Badge variant="secondary">{seller.type}</Badge>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex flex-col gap-1">
+                              <Badge variant={seller.isApproved ? "default" : "outline"}>
+                                {seller.isApproved ? "Approved" : "Pending"}
+                              </Badge>
+                              {seller.isSuspended && (
+                                <Badge variant="destructive">Suspended</Badge>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            {seller.subscription?.plan?.displayName ?? (
+                              <span className="text-muted-foreground">None</span>
                             )}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          {seller.subscription?.plan?.displayName ?? (
-                            <span className="text-muted-foreground">None</span>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <div className="text-sm text-muted-foreground">
-                            {seller._count?.products ?? 0} products • {seller._count?.services ?? 0} services • {seller._count?.orders ?? 0} orders
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex justify-end gap-2">
-                            {!seller.isApproved && (
-                              <Button
-                                type="button"
-                                size="sm"
-                                disabled={actionLoading === seller.id}
-                                onClick={() => handleApprove(seller.id)}
-                              >
-                                Approve
-                              </Button>
-                            )}
-                            {seller.isSuspended ? (
+                          </TableCell>
+                          <TableCell>
+                            <div className="text-sm text-muted-foreground">
+                              {seller._count?.products ?? 0} products • {seller._count?.services ?? 0} services •{" "}
+                              {seller._count?.orders ?? 0} orders
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex justify-end gap-2">
                               <Button
                                 type="button"
                                 size="sm"
                                 variant="outline"
-                                disabled={actionLoading === seller.id}
-                                onClick={() => handleUnsuspend(seller.id)}
+                                onClick={() =>
+                                  setExpandedSellerId((prev) => (prev === seller.id ? null : seller.id))
+                                }
                               >
-                                Unsuspend
+                                <Eye className="h-4 w-4 mr-2" />
+                                {expandedSellerId === seller.id ? "Hide details" : "View details"}
                               </Button>
-                            ) : (
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="destructive"
-                                disabled={actionLoading === seller.id}
-                                onClick={() => handleSuspend(seller.id)}
-                              >
-                                Suspend
-                              </Button>
-                            )}
-                          </div>
-                        </TableCell>
-                      </TableRow>
+                              {!seller.isApproved && (
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  disabled={actionLoading === seller.id}
+                                  onClick={() => handleApprove(seller.id)}
+                                >
+                                  Approve
+                                </Button>
+                              )}
+                              {seller.isSuspended ? (
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  disabled={actionLoading === seller.id}
+                                  onClick={() => handleUnsuspend(seller.id)}
+                                >
+                                  Unsuspend
+                                </Button>
+                              ) : (
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="destructive"
+                                  disabled={actionLoading === seller.id}
+                                  onClick={() => handleSuspend(seller.id)}
+                                >
+                                  Suspend
+                                </Button>
+                              )}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+
+                        {expandedSellerId === seller.id && (
+                          <TableRow>
+                            <TableCell colSpan={7}>
+                              <div className="p-4">
+                                <div className="grid gap-4 md:grid-cols-2">
+                                  <div className="space-y-2">
+                                    <div className="text-sm font-medium">Seller Details</div>
+                                    <div className="text-sm text-muted-foreground">
+                                      <div>
+                                        <span className="font-medium text-foreground">Name:</span> {seller.user?.name || "—"}
+                                      </div>
+                                      <div>
+                                        <span className="font-medium text-foreground">Email:</span> {seller.user?.email || "—"}
+                                      </div>
+                                      <div>
+                                        <span className="font-medium text-foreground">Phone:</span>{" "}
+                                        {seller.user?.phoneCountryCode || ""}
+                                        {seller.user?.phone ? ` ${seller.user.phone}` : "—"}
+                                      </div>
+                                      <div>
+                                        <span className="font-medium text-foreground">Nation Identity Number:</span>{" "}
+                                        {seller.nationIdentityNumber || "—"}
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  <div className="space-y-2">
+                                    <div className="text-sm font-medium">Store Details</div>
+                                    <div className="text-sm text-muted-foreground">
+                                      <div>
+                                        <span className="font-medium text-foreground">Store Name:</span> {seller.store?.name || "—"}
+                                      </div>
+                                      <div>
+                                        <span className="font-medium text-foreground">Website:</span>{" "}
+                                        {seller.store?.website || "—"}
+                                      </div>
+                                      <div>
+                                        <span className="font-medium text-foreground">Address:</span>{" "}
+                                        {[
+                                          seller.store?.address,
+                                          seller.store?.city,
+                                          seller.store?.state,
+                                          seller.store?.country,
+                                        ]
+                                          .filter(Boolean)
+                                          .join(", ") || "—"}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </Fragment>
                     ))
                   )}
                 </TableBody>

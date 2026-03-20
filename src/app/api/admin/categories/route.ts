@@ -134,13 +134,23 @@ export async function POST(request: NextRequest) {
     const subcategoryImages = new Map();
     const subcategoryMobileIcons = new Map();
 
-    // Process all image files from formData
+    // Process all subcategory image files from formData.
+    // Note: on the server, these can be `File` or `Blob`-like objects depending on runtime.
+    // We detect file-like values via `arrayBuffer()` instead of `instanceof File`.
     for (const [key, value] of formData.entries()) {
-      if (key.startsWith("subcategoryImage_") && value instanceof File) {
+      if (
+        key.startsWith("subcategoryImage_") &&
+        value &&
+        typeof (value as any).arrayBuffer === "function"
+      ) {
         const index = key.replace("subcategoryImage_", "");
         subcategoryImages.set(index, value);
       }
-      if (key.startsWith("subcategoryMobileIcon_") && value instanceof File) {
+      if (
+        key.startsWith("subcategoryMobileIcon_") &&
+        value &&
+        typeof (value as any).arrayBuffer === "function"
+      ) {
         const index = key.replace("subcategoryMobileIcon_", "");
         subcategoryMobileIcons.set(index, value);
       }
@@ -248,7 +258,7 @@ export async function POST(request: NextRequest) {
             const bytes = await imageFile.arrayBuffer();
             const buffer = Buffer.from(bytes);
 
-            const fileExtension = path.extname(imageFile.name) || ".jpg";
+            const fileExtension = path.extname((imageFile as any).name || "") || ".jpg";
             subImagePath = await uploadPublicFile({
               folder: "subcategories",
               ext: fileExtension,

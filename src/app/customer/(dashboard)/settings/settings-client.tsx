@@ -85,11 +85,25 @@ export function CustomerSettingsClient() {
             <div className="grid gap-4 md:grid-cols-[1fr_2fr]">
               <div className="space-y-2">
                 <Label htmlFor="phoneCountryCode">Country code</Label>
-                <Input id="phoneCountryCode" name="phoneCountryCode" type="text" defaultValue={user.phoneCountryCode || ""} placeholder="+1" />
+                <Input
+                  id="phoneCountryCode"
+                  name="phoneCountryCode"
+                  type="tel"
+                  inputMode="numeric"
+                  defaultValue={user.phoneCountryCode || ""}
+                  placeholder="+1"
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="phone">Phone</Label>
-                <Input id="phone" name="phone" type="tel" defaultValue={user.phone || ""} placeholder="Phone number" />
+                <Input
+                  id="phone"
+                  name="phone"
+                  type="tel"
+                  inputMode="numeric"
+                  defaultValue={user.phone || ""}
+                  placeholder="Phone number"
+                />
               </div>
             </div>
             <Button type="submit" disabled={saving}>{saving ? "Saving..." : "Save changes"}</Button>

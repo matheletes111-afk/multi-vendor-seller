@@ -3,10 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { isAdmin } from "@/lib/rbac";
 import { generateSlug } from "@/lib/utils";
-import { writeFile, mkdir } from "fs/promises";
-import path from "path";
-import { existsSync } from "fs";
 import { getPaginationFromSearchParams } from "@/lib/admin-pagination";
+import { uploadPublicFile } from "@/lib/upload-public-file";
 
 export async function GET(request: NextRequest) {
   try {
@@ -70,6 +68,15 @@ export async function POST(request: NextRequest) {
     let categoryImagePath = categoryImageUrl;
     let mobileIconPath = mobileIconUrl;
 
+    const getImageExtFromContentType = (contentType?: string | null) => {
+      const ct = (contentType || "").toLowerCase();
+      if (ct.includes("png")) return ".png";
+      if (ct.includes("jpeg") || ct.includes("jpg")) return ".jpg";
+      if (ct.includes("webp")) return ".webp";
+      if (ct.includes("gif")) return ".gif";
+      return ".jpg";
+    };
+
     if (!name) {
       return NextResponse.json(
         { error: "Category name is required" },
@@ -90,12 +97,17 @@ export async function POST(request: NextRequest) {
       try {
         const bytes = await categoryImageFile.arrayBuffer();
         const buffer = Buffer.from(bytes);
-        const ext = path.extname(categoryImageFile.name);
-        const fileName = `service-cat-${Date.now()}-${Math.floor(Math.random() * 10000)}${ext}`;
-        const uploadDir = path.join(process.cwd(), "public/uploads/service-categories");
-        if (!existsSync(uploadDir)) await mkdir(uploadDir, { recursive: true });
-        await writeFile(path.join(uploadDir, fileName), buffer);
-        categoryImagePath = `/uploads/service-categories/${fileName}`;
+
+        const contentType = categoryImageFile.type || "image/jpeg";
+        const ext = getImageExtFromContentType(contentType);
+
+        categoryImagePath = await uploadPublicFile({
+          folder: "service-categories",
+          ext,
+          contentType,
+          buffer,
+          prefix: "service-category",
+        });
       } catch (e) {
         console.error("Error uploading service category image:", e);
       }
@@ -105,11 +117,14 @@ export async function POST(request: NextRequest) {
       try {
         const bytes = await mobileIconFile.arrayBuffer();
         const buffer = Buffer.from(bytes);
-        const fileName = `mobile-${Date.now()}-${Math.floor(Math.random() * 10000)}.png`;
-        const uploadDir = path.join(process.cwd(), "public/uploads/service-categories");
-        if (!existsSync(uploadDir)) await mkdir(uploadDir, { recursive: true });
-        await writeFile(path.join(uploadDir, fileName), buffer);
-        mobileIconPath = `/uploads/service-categories/${fileName}`;
+
+        mobileIconPath = await uploadPublicFile({
+          folder: "service-categories",
+          ext: ".png",
+          contentType: "image/png",
+          buffer,
+          prefix: "mobile",
+        });
       } catch (e) {
         console.error("Error uploading service category mobile icon:", e);
       }

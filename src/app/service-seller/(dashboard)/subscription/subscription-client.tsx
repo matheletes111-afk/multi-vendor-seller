@@ -24,10 +24,18 @@ export function ServiceSubscriptionClient() {
 
   async function handleSubscribe(planName: string) {
     setCheckoutLoading(planName)
-    const res = await fetch("/api/service-seller/subscription/checkout", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ planName }) })
+    const res = await fetch("/api/service-seller/subscription/checkout", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ planName, test: true }),
+    })
     const data = await res.json().catch(() => ({}))
     setCheckoutLoading(null)
     if (data.url) window.location.href = data.url
+    if (!data.url) {
+      const subRes = await fetch("/api/service-seller/subscription")
+      if (subRes.ok) setSubscription(await subRes.json())
+    }
   }
 
   if (loading) return <PageLoader message="Loading subscription…" />
@@ -62,7 +70,7 @@ export function ServiceSubscriptionClient() {
               </ul>
               {subscription?.planId !== plan.id && (
                 <Button className="w-full" variant={plan.name === "PREMIUM" ? "default" : "outline"} disabled={!!checkoutLoading} onClick={() => handleSubscribe(plan.name)}>
-                  {checkoutLoading === plan.name ? "Redirecting..." : subscription ? "Upgrade" : "Subscribe"}
+                  {checkoutLoading === plan.name ? "Switching..." : subscription ? "Upgrade" : "Subscribe"}
                 </Button>
               )}
               {subscription?.planId === plan.id && <Button disabled className="w-full">Current Plan</Button>}

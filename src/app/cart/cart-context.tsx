@@ -5,6 +5,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useRef,
   useState,
   type ReactNode,
 } from "react"
@@ -56,6 +57,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(false)
   const isCustomer = session?.user?.role === UserRole.CUSTOMER
   const isCartFromApi = status === "authenticated" && isCustomer
+  const [hasLoadedCartFromApi, setHasLoadedCartFromApi] = useState(false)
+  const didMergeGuestCartRef = useRef(false)
 
   const fetchCartFromApi = useCallback(async () => {
     if (!isCustomer) return
@@ -72,6 +75,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       setItems([])
     } finally {
       setIsLoading(false)
+      setHasLoadedCartFromApi(true)
     }
   }, [isCustomer])
 
@@ -87,6 +91,63 @@ export function CartProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     refresh()
   }, [refresh])
+
+  // One-time merge of guest cart (localStorage) into DB after social login
+  // when the user first becomes an authenticated CUSTOMER.
+  //
+  // Credentials-based login already merges server-side in
+  // `/api/customer/auth/login`, so this should be a no-op there.
+  useEffect(() => {
+    if (!isCustomer) return
+    if (didMergeGuestCartRef.current) return
+    if (status !== "authenticated") return
+    if (!hasLoadedCartFromApi) return
+
+    const guestCart = getCartFromStorage()
+    if (!guestCart.length) {
+      didMergeGuestCartRef.current = true
+      return
+    }
+
+    // If DB cart already has items, don't merge again.
+    if (items.length > 0) {
+      didMergeGuestCartRef.current = true
+      return
+    }
+
+    const run = async () => {
+      try {
+        const payloadItems = guestCart.map((i) => ({
+          productId: i.productId,
+          productVariantId: i.productVariantId ?? undefined,
+          serviceId: i.serviceId,
+          servicePackageId: i.servicePackageId ?? undefined,
+          serviceSlotId: i.serviceSlotId ?? undefined,
+          quantity: i.quantity,
+        }))
+
+        const res = await fetch("/api/customer/cart/merge", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ items: payloadItems }),
+        })
+
+        if (res.ok) {
+          setCartInStorage([])
+          didMergeGuestCartRef.current = true
+          void fetchCartFromApi()
+        } else {
+          // If merge failed, avoid looping forever; treat as merged to prevent repeats.
+          didMergeGuestCartRef.current = true
+        }
+      } catch {
+        didMergeGuestCartRef.current = true
+      }
+    }
+
+    void run()
+  }, [fetchCartFromApi, hasLoadedCartFromApi, isCustomer, items.length, status])
 
   useEffect(() => {
     if (!isCustomer) {

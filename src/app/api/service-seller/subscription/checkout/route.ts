@@ -3,7 +3,7 @@ import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { isServiceSeller } from "@/lib/rbac"
 import { createSubscriptionSession } from "@/lib/stripe"
-import { SubscriptionPlan } from "@prisma/client"
+import { SubscriptionPlan, SubscriptionStatus } from "@prisma/client"
 
 export async function POST(request: NextRequest) {
   const session = await auth()
@@ -15,11 +15,50 @@ export async function POST(request: NextRequest) {
     include: { subscription: { include: { plan: true } } },
   })
   if (!seller) return NextResponse.json({ error: "Seller not found" }, { status: 404 })
-  const body = await request.json().catch(() => ({})) as { planName?: string }
+  const body = await request.json().catch(() => ({})) as { planName?: string; test?: boolean }
   const planName = body.planName as SubscriptionPlan | undefined
   if (!planName) return NextResponse.json({ error: "planName is required" }, { status: 400 })
   const plan = await prisma.plan.findUnique({ where: { name: planName } })
   if (!plan) return NextResponse.json({ error: "Plan not found" }, { status: 404 })
+
+  const testMode = body.test === true
+  const now = new Date()
+  const currentPeriodEnd = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000)
+
+  if (testMode) {
+    const existing = seller.subscription
+    const stripeCustomerId = existing?.stripeCustomerId ?? null
+    const stripeSubscriptionId = existing?.stripeSubscriptionId ?? null
+    const stripePriceId = existing?.stripePriceId ?? null
+
+    await prisma.subscription.upsert({
+      where: { sellerId: seller.id },
+      update: {
+        planId: plan.id,
+        status: SubscriptionStatus.ACTIVE,
+        currentPeriodStart: now,
+        currentPeriodEnd,
+        cancelAtPeriodEnd: false,
+        stripeCustomerId,
+        stripeSubscriptionId,
+        stripePriceId,
+      },
+      create: {
+        sellerId: seller.id,
+        planId: plan.id,
+        status: SubscriptionStatus.ACTIVE,
+        currentPeriodStart: now,
+        currentPeriodEnd,
+        cancelAtPeriodEnd: false,
+        stripeCustomerId,
+        stripeSubscriptionId,
+        stripePriceId,
+      },
+    })
+
+    return NextResponse.json({ url: null })
+  }
+
   const baseUrl = process.env.NEXTAUTH_URL || ""
   const subscriptionBase = `${baseUrl}/service-seller/subscription`
   try {

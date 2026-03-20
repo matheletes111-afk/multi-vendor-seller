@@ -13,7 +13,7 @@ import { getCartItemId } from "@/app/cart/cart-types"
 import { formatCurrency } from "@/lib/utils"
 import type { AddressApi } from "@/app/api/customer/checkout/types"
 import type { PlaceOrderResponse } from "@/app/api/customer/checkout/types"
-import { MapPin, Banknote, Loader2, Pencil, Plus } from "lucide-react"
+import { MapPin, Banknote, Loader2, Pencil, Plus, ShoppingBag } from "lucide-react"
 import { PageLoader } from "@/components/ui/page-loader"
 
 const emptyAddressForm = {
@@ -434,8 +434,20 @@ export function CheckoutClient() {
                       <div className="flex gap-2 sm:gap-3">
                         <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded bg-white sm:h-12 sm:w-12">
                           {item.image ? (
-                            <Image src={item.image} alt={item.name} fill className="object-cover" sizes="(max-width: 640px) 40px, 48px" />
-                          ) : null}
+                            <Image
+                              src={item.image}
+                              alt={item.name}
+                              fill
+                              unoptimized
+                              loading="lazy"
+                              className="object-cover"
+                              sizes="(max-width: 640px) 40px, 48px"
+                            />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center text-slate-300">
+                              <ShoppingBag className="h-5 w-5 sm:h-6 sm:w-6" />
+                            </div>
+                          )}
                         </div>
                         <div className="min-w-0 flex-1">
                           <p className="truncate font-medium text-slate-900">{item.name}</p>

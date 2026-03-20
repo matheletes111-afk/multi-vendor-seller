@@ -2,9 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { isAdmin } from "@/lib/rbac";
-import { writeFile, mkdir, unlink } from "fs/promises";
+import { unlink } from "fs/promises";
 import path from "path";
 import { existsSync } from "fs";
+import { uploadPublicFile } from "@/lib/upload-public-file";
 
 // GET single banner
 export async function GET(
@@ -103,6 +104,15 @@ export async function PUT(
     const bannerImageFile = formData.get("bannerImage") as File | null;
     const bannerImageUrl = (formData.get("bannerImageUrl") as string)?.trim() || null;
 
+    const getImageExtFromContentType = (contentType?: string | null) => {
+      const ct = (contentType || "").toLowerCase();
+      if (ct.includes("png")) return ".png";
+      if (ct.includes("jpeg") || ct.includes("jpg")) return ".jpg";
+      if (ct.includes("webp")) return ".webp";
+      if (ct.includes("gif")) return ".gif";
+      return ".jpg";
+    };
+
     // Check if banner exists
     const existingBanner = await prisma.banner.findUnique({
       where: { id },
@@ -148,22 +158,16 @@ export async function PUT(
       try {
         const bytes = await bannerImageFile.arrayBuffer();
         const buffer = Buffer.from(bytes);
+        const contentType = bannerImageFile.type || "image/jpeg";
+        const ext = getImageExtFromContentType(contentType);
 
-        const fileExtension = path.extname(bannerImageFile.name);
-        const timestamp = Date.now();
-        const randomNum = Math.floor(Math.random() * 10000);
-        const fileName = `banner-${timestamp}-${randomNum}${fileExtension}`;
-        
-        const uploadDir = path.join(process.cwd(), "public/uploads/banners");
-        
-        if (!existsSync(uploadDir)) {
-          await mkdir(uploadDir, { recursive: true });
-        }
-        
-        const filePath = path.join(uploadDir, fileName);
-        await writeFile(filePath, buffer);
-        
-        updateData.bannerImage = `/uploads/banners/${fileName}`;
+        updateData.bannerImage = await uploadPublicFile({
+          folder: "banners",
+          ext,
+          contentType,
+          buffer,
+          prefix: "banner",
+        });
       } catch (uploadError) {
         console.error("Error uploading banner image:", uploadError);
         return NextResponse.json({ error: "Failed to upload banner image" }, { status: 500 });

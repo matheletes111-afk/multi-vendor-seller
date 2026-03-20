@@ -144,6 +144,34 @@ export function CategoryForm() {
 
     try {
       const formData = new FormData();
+
+      // If a subcategory is currently being edited in the UI,
+      // the edited values live in `subcategoryForm` + `editingIndex`.
+      // Persist those changes into the array used for the payload/images.
+      //
+      // Additionally, if the user typed a brand-new subcategory but didn't click
+      // "Add Subcategory", we still include the draft in the payload to avoid
+      // sending `subcategories: []`.
+      const shouldAppendDraft =
+        editingIndex === null && subcategoryForm.name.trim().length > 0;
+
+      const isDuplicateDraft =
+        shouldAppendDraft &&
+        subcategories.some(
+          (sub) => sub.name.trim().toLowerCase() === subcategoryForm.name.trim().toLowerCase()
+        );
+
+      const effectiveSubcategories = (() => {
+        if (editingIndex === null) {
+          if (shouldAppendDraft && !isDuplicateDraft) {
+            return [...subcategories, { ...subcategoryForm }];
+          }
+          return subcategories;
+        }
+        const next = [...subcategories];
+        next[editingIndex] = { ...subcategoryForm };
+        return next;
+      })();
       
       // Append category data
       formData.append("name", categoryData.name);
@@ -163,14 +191,14 @@ export function CategoryForm() {
         formData.append("categoryMobileIconUrl", categoryMobileIconValue.url);
       }
 
-      const subcategoriesPayload = subcategories.map(sub => ({
+      const subcategoriesPayload = effectiveSubcategories.map(sub => ({
         name: sub.name,
         description: sub.description,
         isActive: sub.isActive,
       }));
       formData.append("subcategories", JSON.stringify(subcategoriesPayload));
 
-      subcategories.forEach((sub, index) => {
+      effectiveSubcategories.forEach((sub, index) => {
         if (sub.imageValue?.type === "file") {
           formData.append(`subcategoryImage_${index}`, sub.imageValue.file);
         } else if (sub.imageValue?.type === "url" && sub.imageValue.url) {

@@ -3,9 +3,10 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { isAdmin } from "@/lib/rbac";
 import { generateSlug } from "@/lib/utils";
-import { writeFile, mkdir, unlink } from "fs/promises";
+import { unlink } from "fs/promises";
 import path from "path";
 import { existsSync } from "fs";
+import { uploadPublicFile } from "@/lib/upload-public-file";
 
 export async function GET(
   request: NextRequest,
@@ -22,7 +23,12 @@ export async function GET(
       include: { _count: { select: { services: true } } },
     });
     if (!category) {
-      return NextResponse.json({ error: "Service category not found" }, { status: 404 });
+      // Idempotent delete:
+      // If the UI has stale data or the item was already deleted, don't fail the request.
+      return NextResponse.json(
+        { message: "Service category already deleted" },
+        { status: 200 }
+      );
     }
     return NextResponse.json(category);
   } catch (error: any) {
@@ -61,6 +67,15 @@ export async function PUT(
       return NextResponse.json({ error: "Service category not found" }, { status: 404 });
     }
 
+    const getImageExtFromContentType = (contentType?: string | null) => {
+      const ct = (contentType || "").toLowerCase();
+      if (ct.includes("png")) return ".png";
+      if (ct.includes("jpeg") || ct.includes("jpg")) return ".jpg";
+      if (ct.includes("webp")) return ".webp";
+      if (ct.includes("gif")) return ".gif";
+      return ".jpg";
+    };
+
     const updateData: Record<string, unknown> = {
       description,
       commissionRate,
@@ -91,12 +106,16 @@ export async function PUT(
         }
         const bytes = await categoryImageFile.arrayBuffer();
         const buffer = Buffer.from(bytes);
-        const ext = path.extname(categoryImageFile.name);
-        const fileName = `service-cat-${Date.now()}-${Math.floor(Math.random() * 10000)}${ext}`;
-        const uploadDir = path.join(process.cwd(), "public/uploads/service-categories");
-        if (!existsSync(uploadDir)) await mkdir(uploadDir, { recursive: true });
-        await writeFile(path.join(uploadDir, fileName), buffer);
-        imagePath = `/uploads/service-categories/${fileName}`;
+
+        const contentType = categoryImageFile.type || "image/jpeg";
+        const ext = getImageExtFromContentType(contentType);
+        imagePath = await uploadPublicFile({
+          folder: "service-categories",
+          ext,
+          contentType,
+          buffer,
+          prefix: "service-category",
+        });
       } catch (e) {
         console.error("Error uploading image:", e);
       }
@@ -112,11 +131,13 @@ export async function PUT(
         }
         const bytes = await mobileIconFile.arrayBuffer();
         const buffer = Buffer.from(bytes);
-        const fileName = `mobile-${Date.now()}-${Math.floor(Math.random() * 10000)}.png`;
-        const uploadDir = path.join(process.cwd(), "public/uploads/service-categories");
-        if (!existsSync(uploadDir)) await mkdir(uploadDir, { recursive: true });
-        await writeFile(path.join(uploadDir, fileName), buffer);
-        mobileIconPath = `/uploads/service-categories/${fileName}`;
+        mobileIconPath = await uploadPublicFile({
+          folder: "service-categories",
+          ext: ".png",
+          contentType: "image/png",
+          buffer,
+          prefix: "mobile",
+        });
       } catch (e) {
         console.error("Error uploading mobile icon:", e);
       }

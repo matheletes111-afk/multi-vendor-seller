@@ -23,7 +23,15 @@ function NavItem({ href, label, icon }: { href: string; label: string; icon?: Re
   const pathname = usePathname()
   const isActive = pathname === href || pathname?.startsWith(`${href}/`)
   return (
-    <Link href={href} className={cn("flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors", isActive ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-accent hover:text-accent-foreground")}>
+    <Link
+      href={href}
+      className={cn(
+        "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+        isActive
+          ? "bg-blue-50 text-blue-700 hover:bg-blue-50"
+          : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+      )}
+    >
       {icon && <span className="h-4 w-4">{icon}</span>}
       <span className="flex-1">{label}</span>
     </Link>
@@ -86,7 +94,7 @@ export function ProductSellerLayoutClient({
         </div>
       </Sidebar>
       <div className="flex flex-1 flex-col md:pl-64">
-        <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-background px-6">
+        <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b border-blue-900/20 bg-gradient-to-r from-blue-50 via-blue-200 to-cyan-600 px-6 shadow-md">
           <div className="flex flex-1 items-center gap-4">
             {mounted ? (
               <Sheet>

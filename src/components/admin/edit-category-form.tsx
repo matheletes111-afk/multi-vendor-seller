@@ -253,10 +253,29 @@ export function EditCategoryForm({ category }: { category: Category }) {
     setError("");
 
     try {
+      // Persist the current subcategory draft into the list we submit to the API.
+      // Behavior:
+      // - If the user clicked the pencil and `editingIndex` is set, we update that index.
+      // - If `editingIndex` is null but the draft form has a name, we append it
+      //   (so submitting doesn't send `subcategories: []`).
+      const shouldAppendDraft =
+        editingIndex === null && subcategoryForm.name.trim().length > 0;
+
+      const isDuplicateDraft =
+        shouldAppendDraft &&
+        subcategories.some(
+          (sub) => sub.name.toLowerCase() === subcategoryForm.name.trim().toLowerCase()
+        );
+
       // If user is currently editing a subcategory, commit that draft into the list
       // so DB update receives the latest values even if they forgot to click "Update Subcategory".
       const effectiveSubcategories = (() => {
-        if (editingIndex === null) return subcategories
+        if (editingIndex === null) {
+          if (shouldAppendDraft && !isDuplicateDraft) {
+            return [...subcategories, { ...subcategoryForm, removeImage: subcategoryForm.removeImage || false }];
+          }
+          return subcategories;
+        }
         const next = [...subcategories]
         next[editingIndex] = { ...subcategoryForm }
         return next

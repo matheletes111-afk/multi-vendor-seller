@@ -3,12 +3,9 @@ import { PrismaAdapter } from "@auth/prisma-adapter"
 import Credentials from "next-auth/providers/credentials"
 import Google from "next-auth/providers/google"
 import Facebook from "next-auth/providers/facebook"
-import { cookies } from "next/headers"
 import { prisma } from "@/lib/prisma"
 import bcrypt from "bcryptjs"
 import { UserRole } from "@prisma/client"
-
-const AUTH_INTENDED_ROLE_COOKIE = "auth_intended_role"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const providers: any[] = [
@@ -88,8 +85,19 @@ if (process.env.AUTH_GOOGLE_ID && process.env.AUTH_GOOGLE_SECRET) {
     Google({
       clientId: process.env.AUTH_GOOGLE_ID,
       clientSecret: process.env.AUTH_GOOGLE_SECRET,
-      // Link OAuth accounts to existing users by verified email so sellers can use Google
-      allowDangerousEmailAccountLinking: true,
+      // Always show the Google account chooser so the user can pick a different Gmail.
+      // Without this, Google often auto-reuses the last authenticated account.
+      authorization: {
+        params: {
+          // Force both account selection and a re-check/consent, which tends to make Google show the chooser reliably.
+          prompt: "select_account consent",
+          access_type: "offline",
+          response_type: "code",
+        },
+      },
+      // Important: don't link OAuth accounts to existing users just by email.
+      // Email-based account linking can cause multiple external accounts to attach to the
+      // same `users` row, which then makes role changes appear to affect the wrong user.
     })
   )
 }
@@ -98,7 +106,7 @@ if (process.env.AUTH_FACEBOOK_ID && process.env.AUTH_FACEBOOK_SECRET) {
     Facebook({
       clientId: process.env.AUTH_FACEBOOK_ID,
       clientSecret: process.env.AUTH_FACEBOOK_SECRET,
-      allowDangerousEmailAccountLinking: true,
+      // See Google provider comment above.
     })
   )
 }
@@ -116,67 +124,23 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     error: "/customer/login",
   },
   providers,
-  events: {
-    // When a new user is created via OAuth (Google/Facebook) from seller login pages,
-    // create Seller record and set role from auth_intended_role cookie.
-    async createUser({ user }) {
-      if (!user?.id) return
-      const cookieStore = await cookies()
-      const intended = cookieStore.get(AUTH_INTENDED_ROLE_COOKIE)?.value
-      if (intended === UserRole.SELLER_PRODUCT) {
-        await prisma.user.update({
-          where: { id: user.id },
-          data: { role: UserRole.SELLER_PRODUCT, isEmailVerified: true },
-        })
-        await prisma.seller.create({ data: { userId: user.id, type: "PRODUCT" } })
-      } else if (intended === UserRole.SELLER_SERVICE) {
-        await prisma.user.update({
-          where: { id: user.id },
-          data: { role: UserRole.SELLER_SERVICE, isEmailVerified: true },
-        })
-        await prisma.seller.create({ data: { userId: user.id, type: "SERVICE" } })
-      }
-    },
-  },
   callbacks: {
-    async jwt({ token, user, account }) {
+    async jwt({ token, user }) {
       if (user) {
         token.id = user.id
+        // Keep email in sync with the current OAuth/Credentials sign-in.
+        token.email = user.email
         token.role = (user as any).role
-        if ((user as any).isApproved !== undefined)
-          token.isApproved = (user as any).isApproved
-        if ((user as any).isSuspended !== undefined)
-          token.isSuspended = (user as any).isSuspended
-        // OAuth (Google/Facebook): resolve role from DB; if user has a Seller record, use that role so they get seller access when logging in from seller panels.
-        // We also respect auth_intended_role cookie so that logging in from the customer panel forces CUSTOMER role even if the user has a seller record.
-        if (account?.provider === "google" || account?.provider === "facebook") {
-          const cookieStore = await cookies().catch(() => null)
-          const intended = cookieStore?.get(AUTH_INTENDED_ROLE_COOKIE)?.value as UserRole | undefined
-          if (intended === UserRole.CUSTOMER) {
-            token.role = UserRole.CUSTOMER
-            delete token.isApproved
-            delete token.isSuspended
-            return token
-          }
-
-          const dbUser = await prisma.user.findUnique({
-            where: { id: user.id },
-            select: { role: true, seller: { select: { type: true, isApproved: true, isSuspended: true } } },
-          })
-          if (dbUser?.seller) {
-            token.role = dbUser.seller.type === "PRODUCT" ? UserRole.SELLER_PRODUCT : UserRole.SELLER_SERVICE
-            token.isApproved = dbUser.seller.isApproved
-            token.isSuspended = dbUser.seller.isSuspended ?? false
-          } else if (dbUser) {
-            token.role = dbUser.role
-          }
-        }
+        if ((user as any).isApproved !== undefined) token.isApproved = (user as any).isApproved
+        if ((user as any).isSuspended !== undefined) token.isSuspended = (user as any).isSuspended
       }
+
       return token
     },
     async session({ session, token }) {
       if (session.user && token) {
         session.user.id = token.id as string
+        if (token.email) session.user.email = token.email as string
         session.user.role = token.role as UserRole
         if (token.isApproved !== undefined)
           session.user.isApproved = token.isApproved as boolean
@@ -188,6 +152,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     redirect({ url, baseUrl }) {
       // Use callbackUrl from signIn("google", { callbackUrl: "/product-seller" }) so seller panels get the right redirect
       try {
+        // Allow our OAuth post-process endpoint as a safe intermediate redirect.
+        if (typeof url === "string" && url.startsWith("/api/auth/oauth-postprocess")) {
+          return `${baseUrl.replace(/\/$/, "")}${url}`
+        }
+
         const parsed = url.startsWith("/") ? new URL(url, baseUrl) : new URL(url)
         const callbackUrl = parsed.searchParams.get("callbackUrl") ?? parsed.searchParams.get("redirect")
         if (callbackUrl && typeof callbackUrl === "string" && callbackUrl.startsWith("/") && !callbackUrl.startsWith("//")) {

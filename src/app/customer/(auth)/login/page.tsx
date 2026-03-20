@@ -1,7 +1,7 @@
 "use client"
 
 import { Suspense, useState, useEffect } from "react"
-import { getCsrfToken, signIn } from "next-auth/react"
+import { getCsrfToken, signIn, signOut } from "next-auth/react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import Image from "next/image"
@@ -15,7 +15,8 @@ import { getCartFromStorage, setCartInStorage } from "@/app/cart/cart-types"
 function CustomerLoginForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const callbackUrl = searchParams.get("callbackUrl") || "/dashboard"
+  const rawCallbackUrl = searchParams.get("callbackUrl")
+  const callbackUrl = rawCallbackUrl === "/customer" ? "/" : rawCallbackUrl || "/"
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
@@ -26,6 +27,22 @@ function CustomerLoginForm() {
   useEffect(() => {
     getCsrfToken().then(setCsrfToken)
   }, [])
+
+  useEffect(() => {
+    const err = searchParams.get("error")
+    if (!err) return
+
+    if (err === "EmailAlreadyUsedAsSeller") {
+      const currentRole = searchParams.get("currentRole") ?? ""
+      const roleLabel =
+        currentRole === "SELLER_PRODUCT"
+          ? "Product Seller"
+          : currentRole === "SELLER_SERVICE"
+            ? "Service Seller"
+            : "Seller"
+      setError(`This email is already registered as a ${roleLabel}. Please sign in using the seller login page or use a different email.`)
+    }
+  }, [searchParams])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -154,10 +171,11 @@ function CustomerLoginForm() {
                 variant="outline"
                 className="rounded-full"
                 disabled={loading}
-                onClick={() => {
-                  // Mark this OAuth login as a customer login so auth.ts can set role = CUSTOMER
-                  document.cookie = "auth_intended_role=CUSTOMER; path=/; max-age=300; SameSite=Lax"
-                  signIn("google", { callbackUrl: "/customer" })
+                onClick={async () => {
+                  const nextUrl = encodeURIComponent(callbackUrl)
+                  const callbackUrlWithRole = `/api/auth/oauth-postprocess?role=CUSTOMER&next=${nextUrl}`
+                  await signOut({ redirect: false })
+                  await signIn("google", { callbackUrl: callbackUrlWithRole, redirect: true })
                 }}
               >
                 Google
@@ -167,9 +185,11 @@ function CustomerLoginForm() {
                 variant="outline"
                 className="rounded-full"
                 disabled={loading}
-                onClick={() => {
-                  document.cookie = "auth_intended_role=CUSTOMER; path=/; max-age=300; SameSite=Lax"
-                  signIn("facebook", { callbackUrl: "/customer" })
+                onClick={async () => {
+                  const nextUrl = encodeURIComponent(callbackUrl)
+                  const callbackUrlWithRole = `/api/auth/oauth-postprocess?role=CUSTOMER&next=${nextUrl}`
+                  await signOut({ redirect: false })
+                  await signIn("facebook", { callbackUrl: callbackUrlWithRole, redirect: true })
                 }}
               >
                 Facebook

@@ -29,6 +29,39 @@ type CartItemPricing = {
 type CartItemRow = CartItemWithRelations & CartItemPricing
 
 function toCartItemApi(row: CartItemRow): CartItemApi {
+  const toFirstImage = (raw: unknown): string | null => {
+    if (!raw) return null
+    // Common case: prisma returns string[]
+    if (Array.isArray(raw)) {
+      const first = raw.find((x) => typeof x === "string" && x.trim())
+      return first ?? null
+    }
+    // Sometimes images is stored as a JSON string (e.g. '["https://..."]')
+    if (typeof raw === "string") {
+      const trimmed = raw.trim()
+      // Fast path: already a URL/path
+      if (!trimmed.startsWith("[") && !trimmed.startsWith("{") && trimmed.length > 0) {
+        if (trimmed.startsWith("http") || trimmed.startsWith("/") || trimmed.startsWith("data:")) return trimmed
+      }
+      try {
+        const parsed = JSON.parse(trimmed) as unknown
+        if (typeof parsed === "string") {
+          const s = parsed.trim()
+          if (s && (s.startsWith("http") || s.startsWith("/") || s.startsWith("data:"))) return s
+        }
+        if (Array.isArray(parsed)) {
+          const first = parsed.find((x) => typeof x === "string" && x.trim()) as string | undefined
+          return first ?? null
+        }
+      } catch {
+        // ignore parse failures; fall through
+      }
+      if (trimmed.startsWith("http") || trimmed.startsWith("/") || trimmed.startsWith("data:")) return trimmed
+      return null
+    }
+    return null
+  }
+
   const name =
     row.product != null && row.productVariant != null
       ? `${row.product.name} (${row.productVariant.name})`
@@ -39,10 +72,11 @@ function toCartItemApi(row: CartItemRow): CartItemApi {
           : row.service != null
             ? row.service.name
             : "Item"
-  const images = (row.product?.images as string[] | null) ?? (row.service?.images as string[] | null) ?? []
-  const variantImages = row.productVariant?.images as string[] | null | undefined
-  const rawImage = (Array.isArray(variantImages) && variantImages[0]) ?? images[0]
-  const image = typeof rawImage === "string" ? rawImage : null
+  const variantFirstImage = toFirstImage(row.productVariant?.images as unknown)
+  const productFirstImage = toFirstImage(row.product?.images as unknown)
+  const serviceFirstImage = toFirstImage(row.service?.images as unknown)
+
+  const image = variantFirstImage ?? productFirstImage ?? serviceFirstImage
   return {
     id: row.id,
     productId: row.productId,

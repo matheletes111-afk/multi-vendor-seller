@@ -135,11 +135,21 @@ export async function PUT(
     const deletedSubcategoryImages = JSON.parse(formData.get("deletedSubcategoryImages") as string || "[]");
 
     for (const [key, value] of formData.entries()) {
-      if (key.startsWith("subcategoryImage_") && value instanceof File) {
+      // On the server, uploaded objects can be `File` or `Blob`-like.
+      // Detect file-like values by `arrayBuffer()` availability.
+      if (
+        key.startsWith("subcategoryImage_") &&
+        value &&
+        typeof (value as any).arrayBuffer === "function"
+      ) {
         const index = key.replace("subcategoryImage_", "");
         subcategoryImages.set(index, value);
       }
-      if (key.startsWith("subcategoryMobileIcon_") && value instanceof File) {
+      if (
+        key.startsWith("subcategoryMobileIcon_") &&
+        value &&
+        typeof (value as any).arrayBuffer === "function"
+      ) {
         const index = key.replace("subcategoryMobileIcon_", "");
         subcategoryMobileIcons.set(index, value);
       }
@@ -332,7 +342,7 @@ export async function PUT(
             }
             const bytes = await imageFile.arrayBuffer();
             const buffer = Buffer.from(bytes);
-            const fileExtension = path.extname(imageFile.name) || ".jpg";
+            const fileExtension = path.extname((imageFile as any).name || "") || ".jpg";
             subImagePath = await uploadPublicFile({
               folder: "subcategories",
               ext: fileExtension,

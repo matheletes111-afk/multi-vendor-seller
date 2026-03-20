@@ -1,0 +1,547 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MEEEM - 4-Panel Project Guide</title>
+    <style>
+      :root {
+        --bg: #f6f7fb;
+        --card: #ffffff;
+        --text: #0f172a;
+        --muted: #475569;
+        --primary: #2563eb;
+        --primary2: #f59e0b;
+        --border: rgba(15, 23, 42, 0.10);
+        --shadow: 0 10px 25px rgba(8, 9, 14, 0.08);
+        --radius: 16px;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+        background: linear-gradient(180deg, #eef2ff 0%, var(--bg) 50%, #f8fafc 100%);
+        color: var(--text);
+        line-height: 1.5;
+      }
+      header {
+        padding: 28px 16px 10px;
+        max-width: 980px;
+        margin: 0 auto;
+      }
+      .hero {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+        padding: 18px 18px 16px;
+        position: relative;
+        overflow: hidden;
+      }
+      .hero:before {
+        content: "";
+        position: absolute;
+        inset: -80px -80px auto auto;
+        width: 220px;
+        height: 220px;
+        background: radial-gradient(circle at 30% 30%, rgba(37, 99, 235, 0.22), transparent 60%);
+        transform: rotate(10deg);
+        pointer-events: none;
+      }
+      .hero h1 {
+        margin: 0 0 6px;
+        font-size: 20px;
+      }
+      .hero p {
+        margin: 0;
+        color: var(--muted);
+        font-size: 14px;
+        max-width: 64ch;
+      }
+      .grid {
+        max-width: 980px;
+        margin: 0 auto;
+        padding: 18px 16px 60px;
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 14px;
+      }
+      @media (min-width: 860px) {
+        .grid { grid-template-columns: 1fr 1fr; }
+      }
+
+      /* Panel UI */
+      .layout {
+        max-width: 980px;
+        margin: 0 auto;
+        padding: 14px 16px 60px;
+        display: grid;
+        grid-template-columns: 260px 1fr;
+        gap: 14px;
+        align-items: start;
+      }
+      @media (max-width: 860px) {
+        .layout {
+          grid-template-columns: 1fr;
+          padding-top: 8px;
+        }
+      }
+
+      .sidebar {
+        position: sticky;
+        top: 14px;
+        padding-bottom: 10px;
+      }
+      @media (max-width: 860px) {
+        .sidebar { position: static; }
+      }
+
+      .nav-title {
+        font-size: 12px;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        margin: 0 0 10px;
+      }
+
+      .nav-btn {
+        width: 100%;
+        text-align: left;
+        border: 1px solid var(--border);
+        background: rgba(255, 255, 255, 0.65);
+        border-radius: 14px;
+        padding: 12px 12px;
+        margin-bottom: 10px;
+        cursor: pointer;
+        transition: transform 0.05s ease, border-color 0.15s ease, background 0.15s ease;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .nav-btn:hover { background: rgba(255, 255, 255, 0.9); }
+      .nav-btn:active { transform: translateY(1px); }
+      .nav-btn.active {
+        border-color: rgba(37, 99, 235, 0.35);
+        background: rgba(37, 99, 235, 0.06);
+      }
+
+      .nav-badge {
+        width: 30px;
+        height: 30px;
+        border-radius: 10px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 900;
+        font-size: 12px;
+        background: rgba(37, 99, 235, 0.12);
+        color: var(--primary);
+        flex: 0 0 auto;
+      }
+      .nav-btn.active .nav-badge {
+        background: rgba(37, 99, 235, 0.18);
+      }
+
+      .nav-meta {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+      }
+      .nav-meta b {
+        font-size: 14px;
+      }
+      .nav-meta span {
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      .panel { display: none; }
+      .panel.active { display: block; }
+
+      .panel-card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        box-shadow: 0 8px 20px rgba(2, 6, 23, 0.05);
+        padding: 16px;
+      }
+
+      /* When multiple cards appear in one panel, keep spacing */
+      .panel .card + .card { margin-top: 14px; }
+
+      .group {
+        margin-top: 10px;
+      }
+      .group h3 {
+        margin: 0 0 8px;
+        font-size: 13px;
+        color: var(--text);
+      }
+      .card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        box-shadow: 0 8px 20px rgba(2, 6, 23, 0.05);
+        padding: 16px;
+      }
+      .card h2 {
+        margin: 0 0 8px;
+        font-size: 15px;
+      }
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 10px;
+        border-radius: 999px;
+        border: 1px solid var(--border);
+        background: rgba(255, 255, 255, 0.7);
+        color: var(--muted);
+        font-size: 12px;
+        margin: 0 0 10px;
+      }
+      .pill b { color: var(--text); font-weight: 700; }
+      a {
+        color: var(--primary);
+        text-decoration: none;
+      }
+      a:hover { text-decoration: underline; }
+      ul { margin: 8px 0 0 18px; }
+      li { margin: 6px 0; color: var(--muted); }
+      .section-title {
+        margin-top: 0;
+        font-size: 14px;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+      }
+      .steps {
+        margin-top: 10px;
+        display: grid;
+        gap: 10px;
+      }
+      .step {
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 12px;
+        background: linear-gradient(180deg, rgba(37, 99, 235, 0.04), rgba(37, 99, 235, 0.01));
+      }
+      .step .num {
+        width: 26px;
+        height: 26px;
+        border-radius: 8px;
+        background: rgba(37, 99, 235, 0.13);
+        color: var(--primary);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 800;
+        font-size: 12px;
+        margin-right: 10px;
+      }
+      .step b { color: var(--text); }
+      .route {
+        display: inline-block;
+        margin-top: 8px;
+        padding: 6px 10px;
+        border-radius: 12px;
+        background: rgba(245, 158, 11, 0.10);
+        border: 1px solid rgba(245, 158, 11, 0.25);
+        color: #92400e;
+        font-size: 12px;
+      }
+      .note {
+        margin: 10px 0 0;
+        padding: 12px;
+        border-radius: 14px;
+        background: rgba(245, 158, 11, 0.08);
+        border: 1px solid rgba(245, 158, 11, 0.22);
+        color: #7c2d12;
+        font-size: 13px;
+      }
+      .footer {
+        max-width: 980px;
+        margin: 0 auto;
+        padding: 0 16px 26px;
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .kbd {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+        font-size: 12px;
+        border: 1px solid var(--border);
+        background: rgba(255, 255, 255, 0.7);
+        padding: 2px 6px;
+        border-radius: 8px;
+      }
+    </style>
+  </head>
+
+  <body>
+    <header>
+      <div class="hero">
+        <div class="pill">
+          <span>Project</span> <b>MEEEM Marketplace</b> <span>Quick User Guide</span>
+        </div>
+        <h1>Easy Guide: Pick Your Panel</h1>
+        <p>
+          This page explains how the system works for non-technical users.
+          Use it like a checklist: choose your role/panel on the left, then follow only the steps inside that panel.
+        </p>
+      </div>
+    </header>
+
+    <main class="layout">
+      <aside class="sidebar" aria-label="Choose panel">
+        <div class="nav-title">Panels</div>
+
+        <button type="button" class="nav-btn active" data-panel="customer" aria-controls="panel-customer" aria-selected="true">
+          <span class="nav-badge">C</span>
+          <span class="nav-meta"><b>Customer</b><span>Shop + track orders</span></span>
+        </button>
+
+        <button type="button" class="nav-btn" data-panel="product-seller" aria-controls="panel-product-seller" aria-selected="false">
+          <span class="nav-badge">P</span>
+          <span class="nav-meta"><b>Product Seller</b><span>Sell products</span></span>
+        </button>
+
+        <button type="button" class="nav-btn" data-panel="service-seller" aria-controls="panel-service-seller" aria-selected="false">
+          <span class="nav-badge">S</span>
+          <span class="nav-meta"><b>Service Seller</b><span>Sell services</span></span>
+        </button>
+
+        <button type="button" class="nav-btn" data-panel="admin" aria-controls="panel-admin" aria-selected="false">
+          <span class="nav-badge">A</span>
+          <span class="nav-meta"><b>Admin</b><span>Moderate marketplace</span></span>
+        </button>
+
+        <button type="button" class="nav-btn" data-panel="everyone" aria-controls="panel-everyone" aria-selected="false">
+          <span class="nav-badge">?</span>
+          <span class="nav-meta"><b>Common Tips</b><span>For everyone</span></span>
+        </button>
+      </aside>
+
+      <section aria-label="Panel content">
+        <section id="panel-customer" class="panel active" data-panel="customer">
+          <section class="card">
+        <h2>Shopping (Public Customer View)</h2>
+        <div class="section-title">Start shopping (Public)</div>
+        <div class="steps">
+          <div class="step">
+            <span class="num">1</span>
+            <b>Open the Home page</b>
+            <div class="route">`/`</div>
+            <div class="note">Home shows categories and an “Explore products” grid. For now, the “Add to Cart” button appears only on Explore.</div>
+          </div>
+          <div class="step">
+            <span class="num">2</span>
+            <b>Browse all items</b>
+            <div class="route">`/browse`</div>
+            <div class="note">Browse supports category/subcategory filtering and shows product cards (with Add to Cart) and service cards (with details).</div>
+          </div>
+          <div class="step">
+            <span class="num">3</span>
+            <b>Add to Cart</b>
+            <div class="route">From Browse Product cards or Product details page</div>
+            <div class="note">If a product has variants (like size/color), you may need to select a variant on the product detail page.</div>
+          </div>
+          <div class="step">
+            <span class="num">4</span>
+            <b>Go to Cart + Checkout</b>
+            <div class="route">`/cart` → `/checkout`</div>
+            <div class="note">Checkout shows an order summary, address selection, and “Place order” (COD).</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Your Customer Account</h2>
+        <div class="section-title">After logging in as a customer</div>
+        <div class="steps">
+          <div class="step">
+            <span class="num">1</span>
+            <b>Go to Customer dashboard</b>
+            <div class="route">`/customer`</div>
+          </div>
+          <div class="step">
+            <span class="num">2</span>
+            <b>Manage your profile</b>
+            <div class="route">`/customer/settings`</div>
+          </div>
+          <div class="step">
+            <span class="num">3</span>
+            <b>See your orders</b>
+            <div class="route">`/customer/orders`</div>
+          </div>
+        </div>
+        <div class="note">
+          If you can’t see cart buttons: check you are logged in as <b>customer</b>.
+          The cart is hidden for seller/admin accounts.
+        </div>
+      </section>
+      </section>
+
+      <section id="panel-product-seller" class="panel" data-panel="product-seller">
+        <section class="card">
+          <h2>Product Seller Panel</h2>
+        <div class="section-title">Products, subscription limits, and settings</div>
+        <div class="steps">
+          <div class="step">
+            <span class="num">1</span>
+            <b>Open Product Seller overview</b>
+            <div class="route">`/product-seller`</div>
+          </div>
+          <div class="step">
+            <span class="num">2</span>
+            <b>Products list</b>
+            <div class="route">`/product-seller/products`</div>
+          </div>
+          <div class="step">
+            <span class="num">3</span>
+            <b>Add a new product</b>
+            <div class="route">`/product-seller/products/new`</div>
+            <div class="note">While creating, you set category, images, and variants (size/color) + stock.</div>
+          </div>
+          <div class="step">
+            <span class="num">4</span>
+            <b>Subscription Plans</b>
+            <div class="route">`/product-seller/subscription`</div>
+            <div class="note">Current plan affects restrictions like max number of products. (For testing, plan switching can be done without payment.)</div>
+          </div>
+          <div class="step">
+            <span class="num">5</span>
+            <b>Profile / Settings</b>
+            <div class="route">`/product-seller/settings`</div>
+          </div>
+        </div>
+      </section>
+      </section>
+
+      <section id="panel-service-seller" class="panel" data-panel="service-seller">
+        <section class="card">
+        <h2>Service Seller Panel</h2>
+        <div class="section-title">Services, subscription limits, and settings</div>
+        <div class="steps">
+          <div class="step">
+            <span class="num">1</span>
+            <b>Open Service Seller overview</b>
+            <div class="route">`/service-seller`</div>
+          </div>
+          <div class="step">
+            <span class="num">2</span>
+            <b>Services list</b>
+            <div class="route">`/service-seller/services`</div>
+          </div>
+          <div class="step">
+            <span class="num">3</span>
+            <b>Add a new service</b>
+            <div class="route">`/service-seller/services/new`</div>
+            <div class="note">While creating, you set service type, base price/discount, images, and (if needed) weekly availability.</div>
+          </div>
+          <div class="step">
+            <span class="num">4</span>
+            <b>Subscription Plans</b>
+            <div class="route">`/service-seller/subscription`</div>
+            <div class="note">Current plan affects restrictions like max number of services.</div>
+          </div>
+          <div class="step">
+            <span class="num">5</span>
+            <b>Profile / Settings</b>
+            <div class="route">`/service-seller/settings`</div>
+          </div>
+        </div>
+      </section>
+      </section>
+
+      <section id="panel-admin" class="panel" data-panel="admin">
+      <section class="card">
+        <h2>Admin Panel</h2>
+        <div class="section-title">Moderate marketplace</div>
+        <div class="steps">
+          <div class="step">
+            <span class="num">1</span>
+            <b>Open Admin overview</b>
+            <div class="route">`/admin`</div>
+          </div>
+          <div class="step">
+            <span class="num">2</span>
+            <b>Manage orders</b>
+            <div class="route">`/admin/orders`</div>
+          </div>
+          <div class="step">
+            <span class="num">3</span>
+            <b>Manage sellers</b>
+            <div class="route">`/admin/sellers`</div>
+          </div>
+          <div class="step">
+            <span class="num">4</span>
+            <b>Manage subscriptions</b>
+            <div class="route">`/admin/subscriptions`</div>
+          </div>
+          <div class="step">
+            <span class="num">5</span>
+            <b>Manage categories, services categories, banners, ads</b>
+            <div class="route">`/admin/categories`, `/admin/service-categories`, `/admin/banners`, `/admin/admanagement`, `/admin/seller-ads`</div>
+          </div>
+        </div>
+      </section>
+      </section>
+
+      <section id="panel-everyone" class="panel" data-panel="everyone">
+      <section class="card">
+        <h2>Common Tips (Everyone)</h2>
+        <div class="section-title">Quick reminders</div>
+        <div class="steps">
+          <div class="step">
+            <span class="num">1</span>
+            <b>Make sure you are logged into the correct role</b>
+            <div class="note">Cart + checkout are customer-only. Seller/admin accounts won’t see customer cart buttons.</div>
+          </div>
+          <div class="step">
+            <span class="num">2</span>
+            <b>For products, variants matter</b>
+            <div class="note">If a product has variants (size/color), you must select a valid variant before “Add to Cart” from the product detail page.</div>
+          </div>
+          <div class="step">
+            <span class="num">3</span>
+            <b>For quick testing (subscription)</b>
+            <div class="note">Subscription plan buttons are meant to be used for testing restrictions today. Payment flow can be added later.</div>
+          </div>
+        </div>
+      </section>
+      </section>
+    </section>
+    </main>
+
+    <div class="footer">
+      Tip: if your browser blocks local HTML, copy the file to a safe folder and open it.
+      This guide is static and does not require internet.
+    </div>
+
+    <script>
+      (function () {
+        var buttons = Array.prototype.slice.call(document.querySelectorAll('.nav-btn'));
+        var panels = Array.prototype.slice.call(document.querySelectorAll('.panel'));
+
+        function setActivePanel(panelKey) {
+          buttons.forEach(function (btn) {
+            var isActive = btn.dataset.panel === panelKey;
+            btn.classList.toggle('active', isActive);
+            btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
+          });
+
+          panels.forEach(function (panel) {
+            panel.classList.toggle('active', panel.dataset.panel === panelKey);
+          });
+        }
+
+        buttons.forEach(function (btn) {
+          btn.addEventListener('click', function () {
+            setActivePanel(btn.dataset.panel);
+          });
+        });
+      })();
+    </script>
+  </body>
+</html>
+

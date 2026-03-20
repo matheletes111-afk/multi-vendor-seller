@@ -8,6 +8,7 @@ import { formatCurrency } from "@/lib/utils";
 import { getYoutubeEmbedUrl } from "@/lib/youtube";
 import { PageLoader } from "@/components/ui/page-loader";
 import { Briefcase, ShoppingBag } from "lucide-react";
+import { AddToCartButton } from "@/components/product/AddToCartButton";
 
 type Ad = {
   id: string;
@@ -191,6 +192,31 @@ export function AdPageClient() {
                         {ad.product._count.reviews} review{ad.product._count.reviews !== 1 ? "s" : ""}
                       </p>
                     )}
+                    <div className="mt-3">
+                      <AddToCartButton
+                        productId={ad.product.id}
+                        name={ad.product.name}
+                        price={Math.max(0, ad.product.basePrice - ad.product.discount)}
+                        image={(() => {
+                          const images = Array.isArray(ad.product?.images)
+                            ? ad.product.images
+                            : typeof ad.product?.images === "string"
+                              ? (() => {
+                                  try {
+                                    return JSON.parse(ad.product!.images as string) as string[]
+                                  } catch {
+                                    return []
+                                  }
+                                })()
+                              : []
+                          return images.length > 0 ? images[0] : null
+                        })()}
+                        size="sm"
+                        label="Add to Cart"
+                        className="w-full justify-center"
+                        ariaLabel={`Add ${ad.product.name} to cart`}
+                      />
+                    </div>
                     <span className="mt-2 inline-flex text-sm font-medium text-blue-600 group-hover:underline">
                       View product →
                     </span>

@@ -10,10 +10,12 @@ import { Input } from "@/ui/input"
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuLabel,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/ui/dropdown-menu"
+import { Avatar, AvatarFallback, AvatarImage } from "@/ui/avatar"
 import {
   Sheet,
   SheetContent,
@@ -23,7 +25,7 @@ import {
 } from "@/ui/sheet"
 import { useCart } from "@/app/cart/cart-context"
 import { UserRole } from "@prisma/client"
-import { ChevronDown, LayoutGrid, Menu, Search, ShoppingCart, MapPin, Mail, Phone, Facebook, Twitter, Instagram, Linkedin, Youtube } from "lucide-react"
+import { ChevronDown, LayoutGrid, Menu, Search, ShoppingCart, MapPin, Mail, Phone, Facebook, Twitter, Instagram, Linkedin, Youtube, User } from "lucide-react"
 import { ReactNode } from "react"
 
 const PAGE_BACKGROUND = "bg-gradient-to-b from-violet-300 via-purple-100 to-pink-100"
@@ -43,6 +45,34 @@ export function SiteHeader() {
   const showBecomePartner = !isLoggedIn
   /** Cart is only for guest or customer; hide for seller/admin */
   const canUseCart = status !== "authenticated" || session?.user?.role === UserRole.CUSTOMER
+
+  const userInitials =
+    session?.user?.name
+      ?.split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2) ||
+    session?.user?.email?.[0]?.toUpperCase() ||
+    "U"
+
+  const profileHref =
+    session?.user?.role === UserRole.CUSTOMER
+      ? "/customer/settings"
+      : session?.user?.role === UserRole.SELLER_PRODUCT
+        ? "/product-seller/settings"
+        : session?.user?.role === UserRole.SELLER_SERVICE
+          ? "/service-seller/settings"
+          : "/dashboard"
+
+  const profileLabel =
+    session?.user?.role === UserRole.CUSTOMER
+      ? "Profile"
+      : session?.user?.role === UserRole.SELLER_PRODUCT
+        ? "Profile"
+        : session?.user?.role === UserRole.SELLER_SERVICE
+          ? "Profile"
+          : "Profile"
 
   useEffect(() => setMounted(true), [])
   useEffect(() => {
@@ -228,8 +258,53 @@ export function SiteHeader() {
             )}
           </div>
 
+          {/* Mobile user menu (avatar + profile/logout) */}
+          {mounted && isLoggedIn && (
+            <div className="md:hidden order-50">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    className="relative h-9 w-9 rounded-full p-0 text-white hover:bg-slate-600/50 hover:text-white"
+                    aria-label="Open profile"
+                  >
+                    <Avatar className="h-8 w-8">
+                      <AvatarImage src={session?.user?.image || undefined} alt={session?.user?.name || ""} />
+                      <AvatarFallback>{userInitials}</AvatarFallback>
+                    </Avatar>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56" forceMount>
+                  <DropdownMenuLabel className="font-normal">
+                    <div className="flex flex-col space-y-1">
+                      {session?.user?.name && <p className="text-sm font-medium leading-none">{session.user.name}</p>}
+                      {session?.user?.email && <p className="text-xs leading-none text-muted-foreground">{session.user.email}</p>}
+                    </div>
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link href={profileHref} className="flex items-center gap-2">
+                      <User className="h-4 w-4" />
+                      <span>{profileLabel}</span>
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={() =>
+                      signOut({ redirect: false }).then(() => {
+                        window.location.href = "/"
+                      })
+                    }
+                  >
+                    <span>Logout</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          )}
+
           {/* Desktop nav - hidden on mobile (menu is in sheet) */}
-          <div className="hidden md:flex md:items-center md:gap-2 lg:gap-3">
+          <div className="hidden md:flex md:items-center md:gap-2 lg:gap-3 order-50">
           {mounted ? (
             <>
               {showBecomePartner && (
@@ -278,7 +353,7 @@ export function SiteHeader() {
                   </DropdownMenuContent>
                 </DropdownMenu>
               )}
-            </>
+          </>
           ) : (
             <>
               {showBecomePartner && (
@@ -311,7 +386,7 @@ export function SiteHeader() {
           {showOrdersLink && (
             <Link
               href="/my-orders"
-              className="flex flex-col items-start rounded px-2 py-1.5 text-white hover:opacity-90"
+              className="order-40 flex flex-col items-start rounded px-2 py-1.5 text-white hover:opacity-90"
               aria-label="Orders"
             >
               <span className="font-semibold">Orders</span>
@@ -322,7 +397,7 @@ export function SiteHeader() {
           {canUseCart && (
             <Link
               href="/cart"
-              className="relative flex items-center gap-0.5 rounded p-1.5 text-white hover:opacity-90 sm:gap-1 sm:px-2 sm:py-1.5"
+              className="order-30 relative flex items-center gap-0.5 rounded p-1.5 text-white hover:opacity-90 sm:gap-1 sm:px-2 sm:py-1.5"
               aria-label={`Cart, ${totalItems} items`}
             >
               <span className="relative">
@@ -333,6 +408,51 @@ export function SiteHeader() {
               </span>
               <span className="hidden font-semibold sm:inline">Cart</span>
             </Link>
+          )}
+
+          {/* Desktop-only profile avatar (right of cart) */}
+          {mounted && isLoggedIn && (
+            <div className="hidden md:block order-50">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    className="relative h-9 w-9 rounded-full p-0 text-white hover:bg-slate-600/50 hover:text-white"
+                    aria-label="Open profile"
+                  >
+                    <Avatar className="h-8 w-8">
+                      <AvatarImage src={session?.user?.image || undefined} alt={session?.user?.name || ""} />
+                      <AvatarFallback>{userInitials}</AvatarFallback>
+                    </Avatar>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56" forceMount>
+                  <DropdownMenuLabel className="font-normal">
+                    <div className="flex flex-col space-y-1">
+                      {session?.user?.name && <p className="text-sm font-medium leading-none">{session.user.name}</p>}
+                      {session?.user?.email && <p className="text-xs leading-none text-muted-foreground">{session.user.email}</p>}
+                    </div>
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link href={profileHref} className="flex items-center gap-2">
+                      <User className="h-4 w-4" />
+                      <span>{profileLabel}</span>
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={() =>
+                      signOut({ redirect: false }).then(() => {
+                        window.location.href = "/"
+                      })
+                    }
+                  >
+                    <span>Logout</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           )}
         </nav>
       </div>

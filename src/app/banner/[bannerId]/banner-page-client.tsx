@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/ui/card";
 import { formatCurrency } from "@/lib/utils";
 import { PageLoader } from "@/components/ui/page-loader";
 import { Package, Briefcase, ShoppingBag } from "lucide-react";
+import { AddToCartButton } from "@/components/product/AddToCartButton";
 
 type Banner = {
   id: string;
@@ -285,6 +286,19 @@ export function BannerPageClient() {
                             {product._count.reviews !== 1 ? "s" : ""}
                           </p>
                         )}
+                        <div className="mt-2">
+                          <AddToCartButton
+                            productId={product.id}
+                            name={product.name}
+                            price={finalPrice}
+                            image={firstImage}
+                            size="sm"
+                            label="Add to Cart"
+                            showLabel={true}
+                            ariaLabel={`Add ${product.name} to cart`}
+                            className="w-full justify-center"
+                          />
+                        </div>
                       </CardContent>
                     </Card>
                   </Link>

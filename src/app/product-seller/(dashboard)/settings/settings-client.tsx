@@ -14,6 +14,9 @@ import { ProfilePictureInput } from "@/components/profile-picture-input"
 type Seller = {
   id: string
   type: string
+  isApproved?: boolean
+  isSuspended?: boolean
+  nationIdentityNumber?: string | null
   store: { name: string; description: string | null; phone: string | null; website: string | null; address: string | null; city: string | null; state: string | null; zipCode: string | null; country: string | null; logo: string | null; banner: string | null } | null
   user: { email: string; name: string | null; image: string | null; phone: string | null; phoneCountryCode: string | null }
 }
@@ -36,6 +39,9 @@ export function SettingsClient() {
   const user = seller?.user
   const paramsError = searchParams.get("error")
   const paramsSuccess = searchParams.get("success")
+  const sellerPendingApproval = seller?.isApproved === false
+  const identityMissing = !seller?.nationIdentityNumber || seller.nationIdentityNumber.trim().length === 0
+  const showParamsError = paramsError && paramsError !== "AccountPendingApproval"
 
   async function saveStore(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -74,6 +80,8 @@ export function SettingsClient() {
       if (hasFile) {
         await fetch("/api/product-seller/settings", { method: "PUT", body: fd })
       } else {
+        const nidRaw = fd.get("nationIdentityNumber") as string | null
+        const nationIdentityNumber = (nidRaw ?? "").trim()
         await fetch("/api/product-seller/settings", {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
@@ -84,6 +92,7 @@ export function SettingsClient() {
               phone: (fd.get("phone") as string) ?? "",
               phoneCountryCode: (fd.get("phoneCountryCode") as string) ?? "",
             },
+            seller: { nationIdentityNumber: nationIdentityNumber || null },
           }),
         })
       }
@@ -99,7 +108,23 @@ export function SettingsClient() {
   return (
     <div className="container mx-auto py-8">
       <h1 className="text-3xl font-bold mb-8">Store Settings</h1>
-      {paramsError && <Alert variant="destructive" className="mb-6"><AlertDescription>{decodeURIComponent(paramsError)}</AlertDescription></Alert>}
+      {sellerPendingApproval && (
+        <Alert variant="destructive" className="mb-6">
+          <AlertDescription className="space-y-1">
+            <div className="font-semibold">Admin approval required</div>
+            <div>
+              {identityMissing
+                ? "Please complete your profile by entering your Nation Identity Number below. The admin needs this to approve your seller account."
+                : "Your seller account is pending admin approval. Your profile details have been submitted—please wait for the admin to review and approve."}
+            </div>
+          </AlertDescription>
+        </Alert>
+      )}
+      {showParamsError && (
+        <Alert variant="destructive" className="mb-6">
+          <AlertDescription>{decodeURIComponent(paramsError as string)}</AlertDescription>
+        </Alert>
+      )}
       {paramsSuccess && <Alert className="mb-6"><AlertDescription>{decodeURIComponent(paramsSuccess)}</AlertDescription></Alert>}
       <div className="space-y-6">
         <Card>
@@ -143,9 +168,46 @@ export function SettingsClient() {
                 <p className="text-xs text-muted-foreground">Email cannot be changed</p>
               </div>
               <div className="space-y-2"><Label htmlFor="userName">Name</Label><Input id="userName" name="name" defaultValue={user?.name || ""} placeholder="Your name" /></div>
+              <div className="space-y-2">
+                <Label htmlFor="nationIdentityNumber">Nation Identity Number</Label>
+                <Input
+                  id="nationIdentityNumber"
+                  name="nationIdentityNumber"
+                  defaultValue={seller?.nationIdentityNumber ?? ""}
+                  placeholder="Enter nation identity number"
+                  required={sellerPendingApproval && identityMissing}
+                />
+                <p
+                  className={`text-xs ${
+                    sellerPendingApproval ? (identityMissing ? "text-destructive" : "text-muted-foreground") : "text-muted-foreground"
+                  }`}
+                >
+                  {sellerPendingApproval && identityMissing ? "Required for admin approval." : "Used by admin to verify your seller profile."}
+                </p>
+              </div>
               <div className="grid gap-4 md:grid-cols-[1fr_2fr]">
-                <div className="space-y-2"><Label htmlFor="userPhoneCountryCode">Country code</Label><Input id="userPhoneCountryCode" name="phoneCountryCode" type="text" defaultValue={user?.phoneCountryCode || ""} placeholder="+1" /></div>
-                <div className="space-y-2"><Label htmlFor="userPhone">Phone</Label><Input id="userPhone" name="phone" type="tel" defaultValue={user?.phone || ""} placeholder="Phone number" /></div>
+                <div className="space-y-2">
+                  <Label htmlFor="userPhoneCountryCode">Country code</Label>
+                  <Input
+                    id="userPhoneCountryCode"
+                    name="phoneCountryCode"
+                    type="tel"
+                    inputMode="numeric"
+                    defaultValue={user?.phoneCountryCode || ""}
+                    placeholder="+1"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="userPhone">Phone</Label>
+                  <Input
+                    id="userPhone"
+                    name="phone"
+                    type="tel"
+                    inputMode="numeric"
+                    defaultValue={user?.phone || ""}
+                    placeholder="Phone number"
+                  />
+                </div>
               </div>
               <div className="space-y-2"><Label>Profile picture</Label><ProfilePictureInput currentImage={user?.image} fileInputName="profileImage" urlInputName="image" /></div>
               <div><Label>Seller Type</Label><p className="text-sm text-muted-foreground capitalize">{seller.type.toLowerCase()}</p></div>

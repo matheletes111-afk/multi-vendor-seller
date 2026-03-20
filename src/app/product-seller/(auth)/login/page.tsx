@@ -1,7 +1,7 @@
 "use client"
 
 import { Suspense, useState, useEffect } from "react"
-import { getCsrfToken, signIn } from "next-auth/react"
+import { getCsrfToken, signIn, signOut } from "next-auth/react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import Image from "next/image"
@@ -32,6 +32,10 @@ function ProductSellerLoginForm() {
       setError("Your account is pending approval or has been suspended. You cannot access the dashboard.")
     } else if (err === "NoSellerAccount") {
       setError("You do not have a seller account for this email. If this email is already used as a customer or another role, please use a different email for your seller account or contact support.")
+    } else if (err === "EmailAlreadyUsedAsServiceSeller") {
+      setError("This email is already registered as a Service Seller. Please use a different email to sign in as a Product Seller.")
+    } else if (err === "EmailAlreadyUsedAsCustomer") {
+      setError("This email is already registered as a Customer. Please sign in using the Customer login page or use a different email for Product Seller.")
     }
   }, [searchParams])
 
@@ -148,12 +152,10 @@ function ProductSellerLoginForm() {
                 disabled={loading}
                 onClick={async () => {
                   try {
-                    await fetch(
-                      `/api/auth/set-seller-intent?role=SELLER_PRODUCT&callbackUrl=${encodeURIComponent(
-                        callbackUrl
-                      )}&provider=google`
-                    )
-                    await signIn("google", { callbackUrl })
+                    const nextUrl = encodeURIComponent(callbackUrl)
+                    const callbackUrlWithRole = `/api/auth/oauth-postprocess?role=SELLER_PRODUCT&next=${nextUrl}`
+                    await signOut({ redirect: false })
+                    await signIn("google", { callbackUrl: callbackUrlWithRole, redirect: true })
                   } catch {
                     // NextAuth will surface any configuration errors on the login page
                   }
@@ -168,12 +170,10 @@ function ProductSellerLoginForm() {
                 disabled={loading}
                 onClick={async () => {
                   try {
-                    await fetch(
-                      `/api/auth/set-seller-intent?role=SELLER_PRODUCT&callbackUrl=${encodeURIComponent(
-                        callbackUrl
-                      )}&provider=facebook`
-                    )
-                    await signIn("facebook", { callbackUrl })
+                    const nextUrl = encodeURIComponent(callbackUrl)
+                    const callbackUrlWithRole = `/api/auth/oauth-postprocess?role=SELLER_PRODUCT&next=${nextUrl}`
+                    await signOut({ redirect: false })
+                    await signIn("facebook", { callbackUrl: callbackUrlWithRole, redirect: true })
                   } catch {
                     // ignore
                   }
