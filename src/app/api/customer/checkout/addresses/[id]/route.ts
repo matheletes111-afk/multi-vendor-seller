@@ -7,6 +7,7 @@ import type { AddressApi } from "../../types"
 function toAddressApi(row: {
   id: string
   fullName: string
+  addressType?: "HOME" | "OFFICE" | "OTHER"
   phone: string
   addressLine1: string
   addressLine2: string | null
@@ -19,6 +20,7 @@ function toAddressApi(row: {
   return {
     id: row.id,
     fullName: row.fullName,
+    addressType: row.addressType ?? "OTHER",
     phone: row.phone,
     addressLine1: row.addressLine1,
     addressLine2: row.addressLine2,
@@ -57,6 +59,7 @@ export async function PATCH(
   }
   const payload = body as {
     fullName?: string
+    addressType?: "HOME" | "OFFICE" | "OTHER" | string
     phone?: string
     addressLine1?: string
     addressLine2?: string | null
@@ -67,6 +70,11 @@ export async function PATCH(
     isDefault?: boolean
   }
   const fullName = typeof payload.fullName === "string" && payload.fullName.trim() ? payload.fullName.trim() : existing.fullName
+  const addressTypeCandidate = typeof payload.addressType === "string" ? payload.addressType.trim().toUpperCase() : null
+  const addressType: "HOME" | "OFFICE" | "OTHER" =
+    addressTypeCandidate === "HOME" || addressTypeCandidate === "OFFICE" || addressTypeCandidate === "OTHER"
+      ? addressTypeCandidate
+      : existing.addressType
   const phone = typeof payload.phone === "string" && payload.phone.trim() ? payload.phone.trim() : existing.phone
   const addressLine1 = typeof payload.addressLine1 === "string" && payload.addressLine1.trim() ? payload.addressLine1.trim() : existing.addressLine1
   const city = typeof payload.city === "string" && payload.city.trim() ? payload.city.trim() : existing.city
@@ -85,6 +93,7 @@ export async function PATCH(
     where: { id: addressId },
     data: {
       fullName,
+      addressType,
       phone,
       addressLine1,
       addressLine2,
@@ -93,7 +102,7 @@ export async function PATCH(
       postalCode,
       country,
       isDefault,
-    },
+    } as any,
   })
   return NextResponse.json(toAddressApi(updated))
 }

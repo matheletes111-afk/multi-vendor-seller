@@ -11,6 +11,7 @@ import type { AddressApi } from "@/app/api/customer/checkout/types"
 import { MapPin, Banknote, Loader2, Pencil, Plus, Briefcase } from "lucide-react"
 
 const emptyAddressForm = {
+  addressType: "HOME" as const,
   fullName: "",
   phone: "",
   addressLine1: "",
@@ -122,6 +123,7 @@ export function ServiceBookClient({
   const openEditForm = (addr: AddressApi) => {
     setEditingAddressId(addr.id)
     setAddressForm({
+      addressType: addr.addressType,
       fullName: addr.fullName,
       phone: addr.phone,
       addressLine1: addr.addressLine1,
@@ -165,6 +167,7 @@ export function ServiceBookClient({
     setFormSubmitting(true)
     setError(null)
     const payload = {
+      addressType: addressForm.addressType,
       fullName: addressForm.fullName.trim(),
       phone: addressForm.phone.trim(),
       addressLine1: addressForm.addressLine1.trim(),
@@ -261,9 +264,20 @@ export function ServiceBookClient({
                                 {addr.addressLine2 ? `, ${addr.addressLine2}` : ""}, {addr.city}, {addr.state}{" "}
                                 {addr.postalCode}, {addr.country}
                               </p>
-                              {addr.isDefault && (
-                                <span className="mt-1 inline-block text-xs text-primary">Default</span>
-                              )}
+                              <div className="mt-1 flex flex-wrap items-center gap-2">
+                                <span className="inline-flex items-center rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[10px] font-medium text-slate-700">
+                                  {addr.addressType === "HOME"
+                                    ? "Home"
+                                    : addr.addressType === "OFFICE"
+                                      ? "Office"
+                                      : "Other"}
+                                </span>
+                                {addr.isDefault && (
+                                  <span className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
+                                    Default
+                                  </span>
+                                )}
+                              </div>
                             </div>
                           </label>
                           <Button
@@ -302,6 +316,19 @@ export function ServiceBookClient({
                   <h3 className="text-sm font-medium text-slate-700">
                     {editingAddressId ? "Edit address" : "Add new address"}
                   </h3>
+                  <div>
+                    <Label htmlFor="sb-addressType" className="text-xs sm:text-sm">Address type</Label>
+                    <select
+                      id="sb-addressType"
+                      value={addressForm.addressType}
+                      onChange={(e) => setAddressForm((f) => ({ ...f, addressType: e.target.value as AddressApi["addressType"] }))}
+                      className="min-h-10 w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                    >
+                      <option value="HOME">Home</option>
+                      <option value="OFFICE">Office</option>
+                      <option value="OTHER">Other</option>
+                    </select>
+                  </div>
                   <div className="grid gap-2 sm:grid-cols-2">
                     <div className="space-y-1">
                       <Label htmlFor="sb-fullName" className="text-xs sm:text-sm">Full name *</Label>

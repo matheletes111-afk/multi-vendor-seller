@@ -12,6 +12,7 @@ function unauthorized() {
 function toAddressApi(row: {
   id: string
   fullName: string
+  addressType?: "HOME" | "OFFICE" | "OTHER"
   phone: string
   addressLine1: string
   addressLine2: string | null
@@ -24,6 +25,7 @@ function toAddressApi(row: {
   return {
     id: row.id,
     fullName: row.fullName,
+    addressType: row.addressType ?? "OTHER",
     phone: row.phone,
     addressLine1: row.addressLine1,
     addressLine2: row.addressLine2,
@@ -62,6 +64,7 @@ export async function POST(request: NextRequest) {
 
   const payload = body as {
     fullName?: string
+    addressType?: "HOME" | "OFFICE" | "OTHER" | string
     phone?: string
     addressLine1?: string
     addressLine2?: string | null
@@ -73,6 +76,9 @@ export async function POST(request: NextRequest) {
   }
 
   const fullName = typeof payload.fullName === "string" && payload.fullName.trim() ? payload.fullName.trim() : null
+  const addressTypeCandidate = typeof payload.addressType === "string" ? payload.addressType.trim().toUpperCase() : null
+  const addressType: "HOME" | "OFFICE" | "OTHER" =
+    addressTypeCandidate === "HOME" || addressTypeCandidate === "OFFICE" ? addressTypeCandidate : "OTHER"
   const phone = typeof payload.phone === "string" && payload.phone.trim() ? payload.phone.trim() : null
   const addressLine1 =
     typeof payload.addressLine1 === "string" && payload.addressLine1.trim() ? payload.addressLine1.trim() : null
@@ -103,6 +109,7 @@ export async function POST(request: NextRequest) {
     data: {
       userId: auth.userId,
       fullName,
+      addressType,
       phone,
       addressLine1,
       addressLine2,
@@ -111,7 +118,7 @@ export async function POST(request: NextRequest) {
       postalCode,
       country,
       isDefault,
-    },
+    } as any,
   })
 
   return NextResponse.json(toAddressApi(created))

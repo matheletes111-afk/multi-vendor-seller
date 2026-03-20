@@ -5,6 +5,7 @@
 export type AddressApi = {
   id: string
   fullName: string
+  addressType: "HOME" | "OFFICE" | "OTHER"
   phone: string
   addressLine1: string
   addressLine2: string | null

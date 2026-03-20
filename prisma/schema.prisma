@@ -57,6 +57,12 @@ enum PaymentStatus {
   REFUNDED
 }
 
+enum AddressType {
+  HOME
+  OFFICE
+  OTHER
+}
+
 enum ServiceStatus {
   PENDING
   CONFIRMED
@@ -112,6 +118,7 @@ model UserAddress {
   id            String   @id @default(cuid())
   userId        String
   fullName      String
+  addressType  AddressType @default(OTHER)
   phone         String
   addressLine1  String
   addressLine2  String?

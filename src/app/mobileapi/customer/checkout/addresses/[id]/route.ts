@@ -12,6 +12,7 @@ function unauthorized() {
 function toAddressApi(row: {
   id: string
   fullName: string
+  addressType?: "HOME" | "OFFICE" | "OTHER"
   phone: string
   addressLine1: string
   addressLine2: string | null
@@ -24,6 +25,7 @@ function toAddressApi(row: {
   return {
     id: row.id,
     fullName: row.fullName,
+    addressType: row.addressType ?? "OTHER",
     phone: row.phone,
     addressLine1: row.addressLine1,
     addressLine2: row.addressLine2,
@@ -58,6 +60,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
   const payload = body as {
     fullName?: string
+    addressType?: "HOME" | "OFFICE" | "OTHER" | string
     phone?: string
     addressLine1?: string
     addressLine2?: string | null
@@ -70,6 +73,13 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
   const fullName =
     typeof payload.fullName === "string" && payload.fullName.trim() ? payload.fullName.trim() : existing.fullName
+  const addressTypeCandidate = typeof payload.addressType === "string" ? payload.addressType.trim().toUpperCase() : null
+  const addressType: "HOME" | "OFFICE" | "OTHER" =
+    addressTypeCandidate === "HOME" ||
+    addressTypeCandidate === "OFFICE" ||
+    addressTypeCandidate === "OTHER"
+      ? addressTypeCandidate
+      : ((existing as any).addressType as "HOME" | "OFFICE" | "OTHER" | undefined) ?? "OTHER"
   const phone = typeof payload.phone === "string" && payload.phone.trim() ? payload.phone.trim() : existing.phone
   const addressLine1 =
     typeof payload.addressLine1 === "string" && payload.addressLine1.trim()
@@ -95,6 +105,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     where: { id: addressId },
     data: {
       fullName,
+      addressType,
       phone,
       addressLine1,
       addressLine2,
@@ -103,7 +114,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       postalCode,
       country,
       isDefault,
-    },
+    } as any,
   })
 
   return NextResponse.json(toAddressApi(updated))
