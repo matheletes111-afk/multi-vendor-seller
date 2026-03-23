@@ -38,7 +38,7 @@ export async function GET(
             images: true,
             createdAt: true,
             isVerified: true,
-            user: { select: { name: true } },
+            user: { select: { name: true, image: true } },
           },
         },
       },
@@ -61,6 +61,7 @@ export async function GET(
       createdAt: review.createdAt.toISOString(),
       isVerified: review.isVerified,
       reviewerName,
+      reviewerImage: typeof review.user?.image === "string" && review.user.image.trim().length > 0 ? review.user.image : null,
     }
   })
 

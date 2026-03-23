@@ -9,6 +9,7 @@ export type PublicReviewItem = {
   images: string[]
   createdAt: string
   reviewerName: string
+  reviewerImage?: string | null
   isVerified: boolean
 }
 
@@ -34,6 +35,21 @@ function StarRow({ rating, size = "h-4 w-4" }: { rating: number; size?: string }
       ))}
     </div>
   )
+}
+
+function getSafeImageUrl(value: unknown): string | null {
+  if (typeof value !== "string") return null
+  const trimmed = value.trim()
+  if (!trimmed) return null
+  if (
+    trimmed.startsWith("http://") ||
+    trimmed.startsWith("https://") ||
+    trimmed.startsWith("/") ||
+    trimmed.startsWith("data:image/")
+  ) {
+    return trimmed
+  }
+  return null
 }
 
 export function PublicReviewsSection({
@@ -72,6 +88,18 @@ export function PublicReviewsSection({
             <article key={review.id} className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
+                  <div className="h-7 w-7 shrink-0 overflow-hidden rounded-full border border-slate-200 bg-slate-100">
+                    {getSafeImageUrl(review.reviewerImage) ? (
+                      <img
+                        src={getSafeImageUrl(review.reviewerImage) as string}
+                        alt={review.reviewerName}
+                        className="h-full w-full object-cover"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <div className="h-full w-full" />
+                    )}
+                  </div>
                   <StarRow rating={review.rating} />
                   <p className="text-sm font-semibold text-slate-900">{review.reviewerName}</p>
                   {review.isVerified && (
