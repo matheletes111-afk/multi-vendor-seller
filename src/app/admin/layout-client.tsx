@@ -71,6 +71,7 @@ export function AdminLayoutClient({
       <NavItem href="/admin/service-categories" label="Service Category" icon={<Briefcase className="h-4 w-4" />} />
       <NavItem href="/admin/banners" label="Banners" icon={<ImageIcon className="h-4 w-4" />} />
       <NavItem href="/admin/seller-ads" label="Seller Ads" icon={<BadgeDollarSign className="h-4 w-4" />} />
+      <NavItem href="/admin/settings" label="Settings" icon={<User className="h-4 w-4" />} />
     </>
   )
 

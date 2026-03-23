@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useSearchParams } from "next/navigation"
+import { Eye, EyeOff } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/ui/card"
 import { Button } from "@/ui/button"
 import { Input } from "@/ui/input"
@@ -27,6 +28,10 @@ export function SettingsClient() {
   const [loading, setLoading] = useState(true)
   const [savingStore, setSavingStore] = useState(false)
   const [savingUser, setSavingUser] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
 
   useEffect(() => {
     fetch("/api/product-seller/settings")
@@ -72,17 +77,32 @@ export function SettingsClient() {
 
   async function saveUser(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
+    setError(null)
+    setSuccess(null)
     const form = e.currentTarget
     const fd = new FormData(form)
+    const password = ((fd.get("password") as string | null) ?? "").trim()
+    const confirmPassword = ((fd.get("confirmPassword") as string | null) ?? "").trim()
+    if (password || confirmPassword) {
+      if (password !== confirmPassword) {
+        setError("New password and confirm password do not match.")
+        return
+      }
+      if (password.length < 6) {
+        setError("Password must be at least 6 characters long.")
+        return
+      }
+    }
     const hasFile = fd.get("profileImage") instanceof File && (fd.get("profileImage") as File).size > 0
     setSavingUser(true)
     try {
+      let updateResponse: Response
       if (hasFile) {
-        await fetch("/api/product-seller/settings", { method: "PUT", body: fd })
+        updateResponse = await fetch("/api/product-seller/settings", { method: "PUT", body: fd })
       } else {
         const nidRaw = fd.get("nationIdentityNumber") as string | null
         const nationIdentityNumber = (nidRaw ?? "").trim()
-        await fetch("/api/product-seller/settings", {
+        updateResponse = await fetch("/api/product-seller/settings", {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -91,13 +111,24 @@ export function SettingsClient() {
               image: fd.get("image") || undefined,
               phone: (fd.get("phone") as string) ?? "",
               phoneCountryCode: (fd.get("phoneCountryCode") as string) ?? "",
+              password: password || undefined,
             },
             seller: { nationIdentityNumber: nationIdentityNumber || null },
           }),
         })
       }
+      if (!updateResponse.ok) {
+        const payload = await updateResponse.json().catch(() => null) as { error?: string } | null
+        setError(payload?.error || "Failed to update profile.")
+        return
+      }
       const res = await fetch("/api/product-seller/settings")
-      if (res.ok) setSeller(await res.json())
+      if (res.ok) {
+        setSeller(await res.json())
+        setSuccess("Profile updated")
+      }
+      setShowPassword(false)
+      setShowConfirmPassword(false)
     } finally {
       setSavingUser(false)
     }
@@ -159,9 +190,19 @@ export function SettingsClient() {
           </CardContent>
         </Card>
         <Card>
-          <CardHeader><CardTitle>Account Information</CardTitle><CardDescription>Update your personal information</CardDescription></CardHeader>
+          <CardHeader><CardTitle>Account Information</CardTitle><CardDescription>Update your personal information. New password is optional.</CardDescription></CardHeader>
           <CardContent>
             <form onSubmit={saveUser} className="space-y-4">
+              {error && (
+                <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  {error}
+                </div>
+              )}
+              {success && (
+                <div className="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">
+                  {success}
+                </div>
+              )}
               <div className="space-y-2">
                 <Label htmlFor="userEmail">Email</Label>
                 <Input id="userEmail" type="email" defaultValue={user?.email} disabled className="bg-muted" />
@@ -209,6 +250,53 @@ export function SettingsClient() {
                   />
                 </div>
               </div>
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="password">New password</Label>
+                  <div className="relative">
+                    <Input
+                      id="password"
+                      name="password"
+                      type={showPassword ? "text" : "password"}
+                      placeholder="At least 6 characters"
+                      className="pr-10"
+                    />
+                    <button
+                      type="button"
+                      tabIndex={-1}
+                      onClick={() => setShowPassword((value) => !value)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+                      aria-label={showPassword ? "Hide new password" : "Show new password"}
+                    >
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="confirmPassword">Confirm new password</Label>
+                  <div className="relative">
+                    <Input
+                      id="confirmPassword"
+                      name="confirmPassword"
+                      type={showConfirmPassword ? "text" : "password"}
+                      placeholder="Re-enter new password"
+                      className="pr-10"
+                    />
+                    <button
+                      type="button"
+                      tabIndex={-1}
+                      onClick={() => setShowConfirmPassword((value) => !value)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+                      aria-label={showConfirmPassword ? "Hide confirm password" : "Show confirm password"}
+                    >
+                      {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Leave password fields empty if you do not want to change your password.
+              </p>
               <div className="space-y-2"><Label>Profile picture</Label><ProfilePictureInput currentImage={user?.image} fileInputName="profileImage" urlInputName="image" /></div>
               <div><Label>Seller Type</Label><p className="text-sm text-muted-foreground capitalize">{seller.type.toLowerCase()}</p></div>
               <Button type="submit" disabled={savingUser}>{savingUser ? "Saving..." : "Save Profile Changes"}</Button>

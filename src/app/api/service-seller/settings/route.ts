@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { isServiceSeller } from "@/lib/rbac"
 import path from "path"
+import bcrypt from "bcryptjs"
 import { uploadPublicFile } from "@/lib/upload-public-file"
 
 function getImageExtFromContentType(contentType?: string | null) {
@@ -42,11 +43,18 @@ export async function PUT(request: NextRequest) {
     const phoneCountryCode = (fd.get("phoneCountryCode") as string) ?? ""
     const nationIdentityNumberRaw = fd.get("nationIdentityNumber") as string | null
     const nationIdentityNumber = (nationIdentityNumberRaw ?? "").trim()
+    const password = ((fd.get("password") as string | null) ?? "").trim()
 
-    const userData: { name?: string; image?: string | null; phone?: string | null; phoneCountryCode?: string | null } = {}
+    const userData: { name?: string; image?: string | null; phone?: string | null; phoneCountryCode?: string | null; password?: string } = {}
     if (name !== undefined) userData.name = name
     if (phone !== undefined) userData.phone = phone || null
     if (phoneCountryCode !== undefined) userData.phoneCountryCode = phoneCountryCode || null
+    if (password) {
+      if (password.length < 6) {
+        return NextResponse.json({ error: "Password must be at least 6 characters long" }, { status: 400 })
+      }
+      userData.password = await bcrypt.hash(password, 10)
+    }
     const sellerData: { nationIdentityNumber?: string | null } = {}
     if (nationIdentityNumberRaw !== null) sellerData.nationIdentityNumber = nationIdentityNumber || null
 
@@ -88,7 +96,7 @@ export async function PUT(request: NextRequest) {
 
   const body = await request.json().catch(() => ({})) as {
     store?: Record<string, unknown>
-    user?: { name?: string; image?: string; phone?: string; phoneCountryCode?: string }
+    user?: { name?: string; image?: string; phone?: string; phoneCountryCode?: string; password?: string }
     seller?: { nationIdentityNumber?: string | null }
   }
   if (body.store && Object.keys(body.store).length > 0) {
@@ -100,11 +108,20 @@ export async function PUT(request: NextRequest) {
     }
   }
   if (body.user && Object.keys(body.user).length > 0) {
-    const userData: { name?: string; image?: string; phone?: string | null; phoneCountryCode?: string | null } = {}
+    const userData: { name?: string; image?: string; phone?: string | null; phoneCountryCode?: string | null; password?: string } = {}
     if (body.user.name !== undefined) userData.name = body.user.name
     if (body.user.image !== undefined) userData.image = body.user.image
     if (body.user.phone !== undefined) userData.phone = body.user.phone || null
     if (body.user.phoneCountryCode !== undefined) userData.phoneCountryCode = body.user.phoneCountryCode || null
+    if (body.user.password !== undefined) {
+      const password = body.user.password.trim()
+      if (password) {
+        if (password.length < 6) {
+          return NextResponse.json({ error: "Password must be at least 6 characters long" }, { status: 400 })
+        }
+        userData.password = await bcrypt.hash(password, 10)
+      }
+    }
     if (Object.keys(userData).length > 0) await prisma.user.update({ where: { id: session.user.id }, data: userData })
   }
   if (body.seller && Object.keys(body.seller).length > 0) {

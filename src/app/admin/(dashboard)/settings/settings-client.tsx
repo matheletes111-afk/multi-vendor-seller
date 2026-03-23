@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useEffect, useState } from "react"
 import { Eye, EyeOff } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/ui/card"
 import { Button } from "@/ui/button"
@@ -9,7 +9,7 @@ import { Label } from "@/ui/label"
 import { PageLoader } from "@/components/ui/page-loader"
 import { ProfilePictureInput } from "@/components/profile-picture-input"
 
-type UserProfile = {
+type AdminProfile = {
   id: string
   name: string | null
   email: string
@@ -18,8 +18,8 @@ type UserProfile = {
   phoneCountryCode: string | null
 }
 
-export function CustomerSettingsClient() {
-  const [user, setUser] = useState<UserProfile | null>(null)
+export function AdminSettingsClient() {
+  const [user, setUser] = useState<AdminProfile | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -28,7 +28,7 @@ export function CustomerSettingsClient() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
 
   useEffect(() => {
-    fetch("/api/customer/settings")
+    fetch("/api/admin/settings")
       .then((r) => (r.ok ? r.json() : null))
       .then(setUser)
       .finally(() => setLoading(false))
@@ -40,8 +40,8 @@ export function CustomerSettingsClient() {
     setSuccess(null)
     const form = e.currentTarget
     const fd = new FormData(form)
-    const password = ((fd.get("password") as string) ?? "").trim()
-    const confirmPassword = ((fd.get("confirmPassword") as string) ?? "").trim()
+    const password = ((fd.get("password") as string | null) ?? "").trim()
+    const confirmPassword = ((fd.get("confirmPassword") as string | null) ?? "").trim()
     if (password || confirmPassword) {
       if (password !== confirmPassword) {
         setError("New password and confirm password do not match.")
@@ -57,9 +57,9 @@ export function CustomerSettingsClient() {
     try {
       let updateResponse: Response
       if (hasFile) {
-        updateResponse = await fetch("/api/customer/settings", { method: "PUT", body: fd })
+        updateResponse = await fetch("/api/admin/settings", { method: "PUT", body: fd })
       } else {
-        updateResponse = await fetch("/api/customer/settings", {
+        updateResponse = await fetch("/api/admin/settings", {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -76,7 +76,7 @@ export function CustomerSettingsClient() {
         setError(payload?.error || "Failed to update profile.")
         return
       }
-      const res = await fetch("/api/customer/settings")
+      const res = await fetch("/api/admin/settings")
       if (res.ok) {
         setUser(await res.json())
         setSuccess("Profile updated")
@@ -88,11 +88,11 @@ export function CustomerSettingsClient() {
     }
   }
 
-  if (loading || !user) return <PageLoader message="Loading profile…" />
+  if (loading || !user) return <PageLoader message="Loading profile..." />
 
   return (
     <div className="container mx-auto py-8">
-      <h1 className="text-3xl font-bold mb-8">Profile</h1>
+      <h1 className="text-3xl font-bold mb-8">Admin Settings</h1>
       <Card>
         <CardHeader>
           <CardTitle>Account Information</CardTitle>
