@@ -66,7 +66,9 @@ export async function GET(request: NextRequest) {
   })
 
   const nonNullGroups = groups.filter((g) => typeof g.productId === "string")
-  const productIds = nonNullGroups.map((g) => g.productId)
+  const productIds = nonNullGroups
+    .map((g) => g.productId)
+    .filter((id): id is string => typeof id === "string" && id.length > 0)
   const products = await prisma.product.findMany({
     where: { id: { in: productIds } },
     select: { id: true, name: true, images: true },
@@ -76,14 +78,20 @@ export async function GET(request: NextRequest) {
   )
 
   return NextResponse.json({
-    groups: nonNullGroups.map((g) => ({
-      productId: g.productId,
-      productName: productMetaMap[g.productId]?.name ?? "Product",
-      productImage: productMetaMap[g.productId]?.image ?? null,
-      avgRating: g._avg.rating ?? 0,
-      reviewCount: g._count,
-      latestReviewAt: g._max.createdAt ? g._max.createdAt.toISOString() : null,
-    })),
+    groups: nonNullGroups
+      .map((g) => {
+        const productId = g.productId
+        if (typeof productId !== "string" || productId.length === 0) return null
+        return {
+          productId,
+          productName: productMetaMap[productId]?.name ?? "Product",
+          productImage: productMetaMap[productId]?.image ?? null,
+          avgRating: g._avg.rating ?? 0,
+          reviewCount: g._count,
+          latestReviewAt: g._max.createdAt ? g._max.createdAt.toISOString() : null,
+        }
+      })
+      .filter((row): row is NonNullable<typeof row> => row != null),
     totalCount,
     totalPages,
     page,

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { Prisma } from "@prisma/client"
 
 /** GET browse data: products, services. Sponsored ads only when not filtering by category/subcategory. Optional categoryId/subcategoryId to filter. Public (no auth required). */
 export async function GET(request: NextRequest) {
@@ -15,11 +16,11 @@ export async function GET(request: NextRequest) {
 
   const now = new Date()
   const isServiceCategoryOnly = Boolean(serviceCategoryId && !categoryId && !subcategoryId)
-  const productWhere = {
+  const productWhere: Prisma.ProductWhereInput = {
     isActive: true,
     ...(categoryId && { categoryId }),
     ...(subcategoryId && { subcategoryId }),
-    ...(q && { name: { contains: q, mode: "insensitive" } }),
+    ...(q && { name: { contains: q, mode: Prisma.QueryMode.insensitive } }),
   }
   const isFiltered = true
 
@@ -116,7 +117,7 @@ export async function GET(request: NextRequest) {
           where: {
             isActive: true,
             ...(resolvedServiceCategoryId && { serviceCategoryId: resolvedServiceCategoryId }),
-            ...(q && { name: { contains: q, mode: "insensitive" } }),
+            ...(q && { name: { contains: q, mode: Prisma.QueryMode.insensitive } }),
           },
           include: {
             serviceCategory: true,

@@ -65,7 +65,9 @@ export async function GET(request: NextRequest) {
   })
 
   const nonNullGroups = groups.filter((g) => typeof g.serviceId === "string")
-  const serviceIds = nonNullGroups.map((g) => g.serviceId)
+  const serviceIds = nonNullGroups
+    .map((g) => g.serviceId)
+    .filter((id): id is string => typeof id === "string" && id.length > 0)
   const services = await prisma.service.findMany({
     where: { id: { in: serviceIds } },
     select: { id: true, name: true, images: true },
@@ -75,14 +77,20 @@ export async function GET(request: NextRequest) {
   )
 
   return NextResponse.json({
-    groups: nonNullGroups.map((g) => ({
-      serviceId: g.serviceId,
-      serviceName: serviceMetaMap[g.serviceId]?.name ?? "Service",
-      serviceImage: serviceMetaMap[g.serviceId]?.image ?? null,
-      avgRating: g._avg.rating ?? 0,
-      reviewCount: g._count,
-      latestReviewAt: g._max.createdAt ? g._max.createdAt.toISOString() : null,
-    })),
+    groups: nonNullGroups
+      .map((g) => {
+        const serviceId = g.serviceId
+        if (typeof serviceId !== "string" || serviceId.length === 0) return null
+        return {
+          serviceId,
+          serviceName: serviceMetaMap[serviceId]?.name ?? "Service",
+          serviceImage: serviceMetaMap[serviceId]?.image ?? null,
+          avgRating: g._avg.rating ?? 0,
+          reviewCount: g._count,
+          latestReviewAt: g._max.createdAt ? g._max.createdAt.toISOString() : null,
+        }
+      })
+      .filter((row): row is NonNullable<typeof row> => row != null),
     totalCount,
     totalPages,
     page,
