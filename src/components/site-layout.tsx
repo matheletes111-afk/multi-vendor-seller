@@ -5,6 +5,7 @@ import Link from "next/link"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
 import { signOut, useSession } from "next-auth/react"
+import { formatCurrency } from "@/lib/utils"
 import { Button } from "@/ui/button"
 import { Input } from "@/ui/input"
 import {
@@ -24,8 +25,9 @@ import {
   SheetTrigger,
 } from "@/ui/sheet"
 import { useCart } from "@/app/cart/cart-context"
+import { useWishlist } from "@/app/wishlist/wishlist-context"
 import { UserRole } from "@prisma/client"
-import { ChevronDown, LayoutGrid, Menu, Search, ShoppingCart, MapPin, Mail, Phone, Facebook, Twitter, Instagram, Linkedin, Youtube, User } from "lucide-react"
+import { ChevronDown, Heart, LayoutGrid, Menu, Search, ShoppingCart, Trash2, MapPin, Mail, Phone, Facebook, Twitter, Instagram, Linkedin, Youtube, User } from "lucide-react"
 import { ReactNode } from "react"
 
 const PAGE_BACKGROUND = "bg-gradient-to-b from-violet-300 via-purple-100 to-pink-100"
@@ -37,6 +39,7 @@ export function SiteHeader() {
   const router = useRouter()
   const { data: session, status } = useSession()
   const { totalItems } = useCart()
+  const { count: wishlistCount, items: wishlistItems, canUseWishlist, removeWishlist } = useWishlist()
   const [searchQuery, setSearchQuery] = useState("")
   const [mounted, setMounted] = useState(false)
   const [categories, setCategories] = useState<Category[]>([])
@@ -45,6 +48,7 @@ export function SiteHeader() {
   const showBecomePartner = !isLoggedIn
   /** Cart is only for guest or customer; hide for seller/admin */
   const canUseCart = status !== "authenticated" || session?.user?.role === UserRole.CUSTOMER
+  const topWishlistItems = wishlistItems.slice(0, 6)
 
   const userInitials =
     session?.user?.name
@@ -241,6 +245,11 @@ export function SiteHeader() {
                       Orders
                     </Link>
                   )}
+                  {canUseWishlist && (
+                    <Link href="/browse" className="px-4 py-3 text-sm text-slate-700 hover:bg-slate-100">
+                      Wishlist ({wishlistCount})
+                    </Link>
+                  )}
                 </div>
               </SheetContent>
             </Sheet>
@@ -408,6 +417,84 @@ export function SiteHeader() {
               </span>
               <span className="hidden font-semibold sm:inline">Cart</span>
             </Link>
+          )}
+
+          {canUseWishlist && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="order-35 relative inline-flex h-9 items-center justify-center gap-1 rounded px-1.5 text-white hover:bg-slate-600/50 hover:text-white sm:h-10 sm:px-2"
+                  aria-label={`Wishlist, ${wishlistCount} items`}
+                >
+                  <span className="relative">
+                    <Heart className="h-5 w-5 shrink-0 sm:h-6 sm:w-6" />
+                    <span className="absolute -right-1 -top-1 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-rose-400 px-0.5 text-[9px] font-bold text-black sm:-right-2 sm:-top-2 sm:h-4 sm:min-w-4 sm:px-1 sm:text-[10px]">
+                      {wishlistCount > 99 ? "99+" : wishlistCount}
+                    </span>
+                  </span>
+                  <span className="hidden font-semibold sm:inline">Wishlist</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-[92vw] max-w-sm p-0 sm:w-80">
+                <DropdownMenuLabel className="flex items-center justify-between px-3 py-2">
+                  <span>My Wishlist</span>
+                  <span className="text-xs text-slate-500">{wishlistCount} item{wishlistCount === 1 ? "" : "s"}</span>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {topWishlistItems.length === 0 ? (
+                  <div className="px-3 py-4 text-sm text-slate-600">No products in wishlist yet.</div>
+                ) : (
+                  <div className="max-h-80 overflow-y-auto">
+                    {topWishlistItems.map((item) => (
+                      <DropdownMenuItem key={item.wishlistItemId} asChild className="p-0">
+                        <div className="flex items-center gap-2 px-3 py-2.5">
+                          <Link href={`/product/${item.productId}`} className="flex min-w-0 flex-1 items-center gap-3">
+                            <div className="h-12 w-12 shrink-0 overflow-hidden rounded-md bg-slate-100">
+                              {item.product.image ? (
+                                <img src={item.product.image} alt={item.product.name} className="h-full w-full object-cover" />
+                              ) : (
+                                <div className="flex h-full w-full items-center justify-center text-slate-400">
+                                  <Heart className="h-4 w-4" />
+                                </div>
+                              )}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="line-clamp-2 text-sm font-medium text-slate-900">{item.product.name}</p>
+                              {typeof item.product.price === "number" && (
+                                <p className="text-xs font-semibold text-blue-600">{formatCurrency(item.product.price)}</p>
+                              )}
+                            </div>
+                          </Link>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 shrink-0 text-slate-500 hover:bg-rose-50 hover:text-rose-600"
+                            onClick={(event) => {
+                              event.preventDefault()
+                              event.stopPropagation()
+                              void removeWishlist(item.productId)
+                            }}
+                            aria-label={`Remove ${item.product.name} from wishlist`}
+                            title="Remove from wishlist"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </DropdownMenuItem>
+                    ))}
+                  </div>
+                )}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem asChild>
+                  <Link href="/browse" className="justify-center py-2 font-medium text-blue-700">
+                    Browse more products
+                  </Link>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           )}
 
           {/* Desktop-only profile avatar (right of cart) */}

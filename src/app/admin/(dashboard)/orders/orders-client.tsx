@@ -2,26 +2,61 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/ui/card"
+import { useSearchParams } from "next/navigation"
+import { Card, CardContent } from "@/ui/card"
 import { Badge } from "@/ui/badge"
 import { Button } from "@/ui/button"
 import { formatCurrency, formatDate } from "@/lib/utils"
 import { PageLoader } from "@/components/ui/page-loader"
 import type { AdminOrderListItemApi } from "@/app/api/admin/orders/types"
 import { ShoppingCart, User, Store } from "lucide-react"
+import { AdminPagination } from "@/components/admin/admin-pagination"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/ui/table"
 
 export function AdminOrdersClient() {
-  const [orders, setOrders] = useState<AdminOrderListItemApi[]>([])
+  const searchParams = useSearchParams()
+  const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10) || 1)
+  const perPage = Math.min(50, Math.max(1, parseInt(searchParams.get("perPage") ?? "10", 10) || 10))
+  const params = {
+    error: searchParams.get("error") ?? undefined,
+    success: searchParams.get("success") ?? undefined,
+  }
+
+  const [data, setData] = useState<{
+    orders: AdminOrderListItemApi[]
+    totalCount: number
+    totalPages: number
+  } | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetch("/api/admin/orders", { credentials: "include" })
-      .then((r) => (r.ok ? r.json() : []))
-      .then(setOrders)
-      .finally(() => setLoading(false))
-  }, [])
+    let cancelled = false
+    setLoading(true)
+    fetch(`/api/admin/orders?page=${page}&perPage=${perPage}`, { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((json) => {
+        if (!cancelled && json) setData(json)
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [page, perPage])
 
-  if (loading) return <PageLoader variant="listing" message="Loading orders…" />
+  if (loading && !data) return <PageLoader variant="listing" message="Loading orders…" />
+
+  const orders = data?.orders ?? []
+  const totalCount = data?.totalCount ?? 0
+  const totalPages = data?.totalPages ?? 1
 
   return (
     <div className="container mx-auto p-6 space-y-6">
@@ -39,52 +74,77 @@ export function AdminOrdersClient() {
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-4">
-          {orders.map((order) => (
-            <Card key={order.id} className="hover:shadow-md transition-shadow">
-              <CardHeader>
-                <div className="flex justify-between items-start">
-                  <div>
-                    <CardTitle className="text-lg">
-                      <Link
-                        href={`/admin/orders/${order.id}`}
-                        className="hover:underline focus:underline"
-                      >
-                        Order #{order.orderNumber}
+        <Card className="overflow-hidden">
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Order</TableHead>
+                  <TableHead className="hidden md:table-cell">Customer</TableHead>
+                  <TableHead className="hidden lg:table-cell">Store</TableHead>
+                  <TableHead className="hidden sm:table-cell">Date</TableHead>
+                  <TableHead className="text-right">Total</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="hidden xl:table-cell text-right">Commission</TableHead>
+                  <TableHead className="text-right w-[100px]">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {orders.map((order) => (
+                  <TableRow key={order.id}>
+                    <TableCell className="font-medium">
+                      <Link href={`/admin/orders/${order.id}`} className="hover:underline">
+                        #{order.orderNumber}
                       </Link>
-                    </CardTitle>
-                    <CardDescription className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
+                      <p className="text-xs text-muted-foreground md:hidden mt-0.5">
+                        {order.customerName || order.customerEmail || "—"}
+                      </p>
+                    </TableCell>
+                    <TableCell className="hidden md:table-cell text-muted-foreground text-sm">
                       <span className="flex items-center gap-1">
-                        <User className="h-3 w-3" />
+                        <User className="h-3 w-3 shrink-0" />
                         {order.customerName || order.customerEmail || "—"}
                       </span>
+                    </TableCell>
+                    <TableCell className="hidden lg:table-cell text-muted-foreground text-sm">
                       <span className="flex items-center gap-1">
-                        <Store className="h-3 w-3" />
+                        <Store className="h-3 w-3 shrink-0" />
                         {order.sellerStoreName ?? "—"}
                       </span>
-                      <span>{formatDate(order.createdAt)}</span>
-                    </CardDescription>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-lg font-semibold">{formatCurrency(order.totalAmount)}</p>
-                    <Badge variant="outline" className="mt-1 capitalize">
-                      {order.status.toLowerCase()}
-                    </Badge>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="flex justify-between text-sm text-muted-foreground">
-                  <span>{order.itemCount} item(s)</span>
-                  <span>Commission: -{formatCurrency(order.commission)}</span>
-                </div>
-                <Button variant="outline" size="sm" className="mt-4" asChild>
-                  <Link href={`/admin/orders/${order.id}`}>View details</Link>
-                </Button>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+                    </TableCell>
+                    <TableCell className="hidden sm:table-cell text-muted-foreground text-sm whitespace-nowrap">
+                      {formatDate(order.createdAt)}
+                    </TableCell>
+                    <TableCell className="text-right font-medium whitespace-nowrap">{formatCurrency(order.totalAmount)}</TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className="capitalize whitespace-nowrap">
+                        {order.status.toLowerCase().replace(/_/g, " ")}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="hidden xl:table-cell text-right text-sm text-muted-foreground whitespace-nowrap">
+                      -{formatCurrency(order.commission)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button variant="outline" size="sm" asChild>
+                        <Link href={`/admin/orders/${order.id}`}>View</Link>
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+          <div className="px-6 pb-6">
+            <AdminPagination
+              basePath="/admin/orders"
+              currentPage={page}
+              totalPages={totalPages}
+              totalCount={totalCount}
+              pageSize={perPage}
+              params={params}
+            />
+          </div>
+        </Card>
       )}
     </div>
   )

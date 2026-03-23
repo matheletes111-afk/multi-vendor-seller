@@ -1,11 +1,20 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { isProductSeller } from "@/lib/rbac"
-import { writeFile, mkdir } from "fs/promises"
 import path from "path"
+import { uploadPublicFile } from "@/lib/upload-public-file"
 
 const MAX_BYTES = 5 * 1024 * 1024 // 5 MB
 const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/gif", "image/webp"]
+
+function getImageExtFromContentType(contentType?: string | null) {
+  const ct = (contentType || "").toLowerCase()
+  if (ct.includes("png")) return ".png"
+  if (ct.includes("jpeg") || ct.includes("jpg")) return ".jpg"
+  if (ct.includes("webp")) return ".webp"
+  if (ct.includes("gif")) return ".gif"
+  return ".jpg"
+}
 
 export async function POST(request: NextRequest) {
   const session = await auth()
@@ -40,17 +49,22 @@ export async function POST(request: NextRequest) {
     const bytes = await file.arrayBuffer()
     const buffer = Buffer.from(bytes)
 
-    const ext = path.extname(file.name) || ".jpg"
-    const safeName = `product-${Date.now()}-${Math.random().toString(36).slice(2, 10)}${ext}`
-    const uploadDir = path.join(process.cwd(), "public", "uploads", "products")
-    await mkdir(uploadDir, { recursive: true })
-    const filePath = path.join(uploadDir, safeName)
-    await writeFile(filePath, buffer)
+    const contentType = file.type || "image/jpeg"
+    const extFromName = path.extname((file as { name?: string }).name || "")
+    const ext = extFromName || getImageExtFromContentType(contentType)
 
-    const url = `/uploads/products/${safeName}`
+    const url = await uploadPublicFile({
+      folder: "products",
+      ext,
+      contentType,
+      buffer,
+      prefix: "product",
+    })
+
     return NextResponse.json({ url })
   } catch (err) {
     console.error("Product image upload error:", err)
-    return NextResponse.json({ error: "Failed to upload file" }, { status: 500 })
+    const message = err instanceof Error ? err.message : "Failed to upload file"
+    return NextResponse.json({ error: message }, { status: 500 })
   }
 }

@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma"
 import { UserRole } from "@prisma/client"
 import { PublicLayout } from "@/components/site-layout"
 import { MyOrdersClient } from "./my-orders-client"
+import { deriveOrderStatus } from "@/lib/order-status"
 
 export default async function MyOrdersPage() {
   const session = await auth()
@@ -27,6 +28,7 @@ export default async function MyOrdersPage() {
           serviceNameSnapshot: true,
           quantity: true,
           subtotal: true,
+          itemStatus: true,
         },
       },
     },
@@ -38,7 +40,7 @@ export default async function MyOrdersPage() {
     orderNumber: order.orderNumber,
     createdAt: order.createdAt.toISOString(),
     totalAmount: order.totalAmount,
-    status: order.status,
+    status: deriveOrderStatus(order.items.map((i) => i.itemStatus)),
     seller: order.seller
       ? { store: order.seller.store ? { name: order.seller.store.name } : null }
       : { store: null },
@@ -50,6 +52,7 @@ export default async function MyOrdersPage() {
       serviceNameSnapshot: item.serviceNameSnapshot,
       quantity: item.quantity,
       subtotal: item.subtotal,
+      itemStatus: item.itemStatus,
     })),
   }))
 

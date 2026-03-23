@@ -1,5 +1,5 @@
-import { writeFile, mkdir } from "fs/promises"
 import path from "path"
+import { uploadPublicFile } from "@/lib/upload-public-file"
 
 const MAX_BYTES = 5 * 1024 * 1024 // 5 MB
 const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/gif", "image/webp"]
@@ -16,18 +16,44 @@ export function validateAdCreativeFile(file: File): { ok: true } | { ok: false; 
   return { ok: true }
 }
 
+function getExtAndContentType(file: File): { ext: string; contentType: string } {
+  const contentType = file.type || "application/octet-stream"
+  const extFromName = path.extname((file as { name?: string }).name || "")
+  if (extFromName) {
+    const ext = extFromName.startsWith(".") ? extFromName : `.${extFromName}`
+    return { ext, contentType }
+  }
+  const ct = contentType.toLowerCase()
+  const mimeToExt: Record<string, string> = {
+    "image/jpeg": ".jpg",
+    "image/png": ".png",
+    "image/gif": ".gif",
+    "image/webp": ".webp",
+    "video/mp4": ".mp4",
+    "video/webm": ".webm",
+    "video/quicktime": ".mov",
+  }
+  const ext = mimeToExt[ct] || (ct.startsWith("video/") ? ".mp4" : ".jpg")
+  return { ext, contentType }
+}
+
+/**
+ * Save ad creative (image or video) to public storage (AWS S3 via uploadPublicFile).
+ * Same env vars as other uploads: AWS_REGION, credentials, S3_BUCKET / AWS_S3_BUCKET_NAME.
+ */
 export async function saveAdCreativeFile(file: File): Promise<string> {
   const check = validateAdCreativeFile(file)
   if (!check.ok) throw new Error(check.error)
 
   const bytes = await file.arrayBuffer()
   const buffer = Buffer.from(bytes)
-  const type = file.type?.toLowerCase() ?? ""
-  const ext = path.extname(file.name) || (type.startsWith("video/") ? ".mp4" : ".jpg")
-  const safeName = `ad-${Date.now()}-${Math.random().toString(36).slice(2, 10)}${ext}`
-  const uploadDir = path.join(process.cwd(), "public", "uploads", "seller-ads")
-  await mkdir(uploadDir, { recursive: true })
-  const filePath = path.join(uploadDir, safeName)
-  await writeFile(filePath, buffer)
-  return `/uploads/seller-ads/${safeName}`
+  const { ext, contentType } = getExtAndContentType(file)
+
+  return uploadPublicFile({
+    folder: "seller-ads",
+    ext,
+    contentType,
+    buffer,
+    prefix: "ad",
+  })
 }

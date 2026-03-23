@@ -2,9 +2,18 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { isCustomer } from "@/lib/rbac"
-import { writeFile, mkdir } from "fs/promises"
 import path from "path"
-import { existsSync } from "fs"
+import bcrypt from "bcryptjs"
+import { uploadPublicFile } from "@/lib/upload-public-file"
+
+function getImageExtFromContentType(contentType?: string | null) {
+  const ct = (contentType || "").toLowerCase()
+  if (ct.includes("png")) return ".png"
+  if (ct.includes("jpeg") || ct.includes("jpg")) return ".jpg"
+  if (ct.includes("webp")) return ".webp"
+  if (ct.includes("gif")) return ".gif"
+  return ".jpg"
+}
 
 /** GET current customer user for profile/settings page. */
 export async function GET() {
@@ -28,7 +37,13 @@ export async function PUT(request: NextRequest) {
   }
 
   const contentType = request.headers.get("content-type") ?? ""
-  let userData: { name?: string; image?: string | null; phone?: string | null; phoneCountryCode?: string | null } = {}
+  let userData: {
+    name?: string
+    image?: string | null
+    phone?: string | null
+    phoneCountryCode?: string | null
+    password?: string
+  } = {}
 
   if (contentType.includes("multipart/form-data")) {
     const formData = await request.formData()
@@ -36,25 +51,41 @@ export async function PUT(request: NextRequest) {
     const imageUrl = (formData.get("image") as string)?.trim() || undefined
     const phone = (formData.get("phone") as string) ?? ""
     const phoneCountryCode = (formData.get("phoneCountryCode") as string) ?? ""
+    const password = (formData.get("password") as string) ?? ""
     const profileImageFile = formData.get("profileImage") as File | null
 
     if (name !== undefined) userData.name = name
     if (phone !== undefined) userData.phone = phone || null
     if (phoneCountryCode !== undefined) userData.phoneCountryCode = phoneCountryCode || null
+    if (password.trim()) {
+      if (password.trim().length < 6) {
+        return NextResponse.json({ error: "Password must be at least 6 characters long" }, { status: 400 })
+      }
+      userData.password = await bcrypt.hash(password.trim(), 10)
+    }
 
     if (profileImageFile && profileImageFile.size > 0) {
       try {
+        const type = profileImageFile.type?.toLowerCase() ?? ""
+        if (!type.startsWith("image/")) {
+          return NextResponse.json({ error: "Profile picture must be an image file" }, { status: 400 })
+        }
         const bytes = await profileImageFile.arrayBuffer()
         const buffer = Buffer.from(bytes)
-        const ext = path.extname(profileImageFile.name) || ".jpg"
-        const fileName = `profile-${session.user.id}-${Date.now()}${ext}`
-        const uploadDir = path.join(process.cwd(), "public/uploads/profile")
-        if (!existsSync(uploadDir)) await mkdir(uploadDir, { recursive: true })
-        await writeFile(path.join(uploadDir, fileName), buffer)
-        userData.image = `/uploads/profile/${fileName}`
+        const ct = profileImageFile.type || "image/jpeg"
+        const ext =
+          path.extname((profileImageFile as { name?: string }).name || "") || getImageExtFromContentType(ct)
+        userData.image = await uploadPublicFile({
+          folder: "profile",
+          ext,
+          contentType: ct,
+          buffer,
+          prefix: "profile",
+        })
       } catch (e) {
         console.error("Profile image upload error:", e)
-        return NextResponse.json({ error: "Failed to upload profile image" }, { status: 500 })
+        const message = e instanceof Error ? e.message : "Failed to upload profile image"
+        return NextResponse.json({ error: message }, { status: 500 })
       }
     } else if (imageUrl !== undefined) {
       userData.image = imageUrl || null
@@ -65,11 +96,21 @@ export async function PUT(request: NextRequest) {
       image?: string
       phone?: string
       phoneCountryCode?: string
+      password?: string
     }
     if (body.name !== undefined) userData.name = body.name
     if (body.image !== undefined) userData.image = body.image
     if (body.phone !== undefined) userData.phone = body.phone || null
     if (body.phoneCountryCode !== undefined) userData.phoneCountryCode = body.phoneCountryCode || null
+    if (body.password !== undefined) {
+      const password = body.password.trim()
+      if (password) {
+        if (password.length < 6) {
+          return NextResponse.json({ error: "Password must be at least 6 characters long" }, { status: 400 })
+        }
+        userData.password = await bcrypt.hash(password, 10)
+      }
+    }
   }
 
   if (Object.keys(userData).length === 0) {

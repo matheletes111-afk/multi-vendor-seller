@@ -1,13 +1,24 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { useState, useEffect, useCallback, Fragment } from "react"
+import { useSearchParams, useRouter } from "next/navigation"
+import Link from "next/link"
 import { Card, CardContent } from "@/ui/card"
 import { Button } from "@/ui/button"
 import { Badge } from "@/ui/badge"
 import { formatCurrency, formatDate } from "@/lib/utils"
 import type { OrderDetailApi } from "@/app/api/customer/orders/types"
 import { OrderDetailInline } from "./order-detail-inline"
-import { Package, ShoppingBag, ChevronDown, Loader2 } from "lucide-react"
+import { Package, ShoppingBag, ChevronDown, Loader2, ArrowRight } from "lucide-react"
+import { AdminPagination } from "@/components/admin/admin-pagination"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/ui/table"
 
 type OrderListItem = {
   id: string
@@ -19,148 +30,242 @@ type OrderListItem = {
   items: { id: string; productId: string | null; serviceId: string | null; productNameSnapshot: string | null; serviceNameSnapshot: string | null; quantity: number; subtotal: number }[]
 }
 
-function isProductOrder(order: OrderListItem) {
-  return order.items.some((i) => i.productId != null)
-}
-function isServiceOrder(order: OrderListItem) {
-  return order.items.some((i) => i.serviceId != null)
+function itemLabel(order: OrderListItem) {
+  return order.items.map((i) => (i.productNameSnapshot || i.serviceNameSnapshot || "Item") + " × " + i.quantity).join(", ")
 }
 
-export function OrdersListClient({ orders }: { orders: OrderListItem[] }) {
-  const [tab, setTab] = useState<"product" | "service">("product")
+export function OrdersListClient() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10) || 1)
+  const perPage = Math.min(50, Math.max(1, parseInt(searchParams.get("perPage") ?? "10", 10) || 10))
+  const type = searchParams.get("type") === "service" ? "service" : "product"
+
+  const [orders, setOrders] = useState<OrderListItem[]>([])
+  const [totalCount, setTotalCount] = useState(0)
+  const [totalPages, setTotalPages] = useState(1)
+  const [tabCounts, setTabCounts] = useState({ product: 0, service: 0 })
+  const [loading, setLoading] = useState(true)
+
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [detail, setDetail] = useState<OrderDetailApi | null>(null)
   const [loadingId, setLoadingId] = useState<string | null>(null)
 
-  const productOrders = orders.filter(isProductOrder)
-  const setTabAndCollapse = (newTab: "product" | "service") => {
-    setTab(newTab)
+  const loadOrders = useCallback(() => {
+    setLoading(true)
+    return fetch(`/api/customer/orders?page=${page}&perPage=${perPage}&type=${type}`, { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((json) => {
+        if (json?.orders) {
+          setOrders(json.orders)
+          setTotalCount(json.totalCount ?? 0)
+          setTotalPages(json.totalPages ?? 1)
+          if (json.tabCounts) setTabCounts(json.tabCounts)
+        } else {
+          setOrders([])
+          setTotalCount(0)
+          setTotalPages(1)
+        }
+      })
+      .catch(() => {
+        setOrders([])
+        setTotalCount(0)
+        setTotalPages(1)
+      })
+      .finally(() => setLoading(false))
+  }, [page, perPage, type])
+
+  useEffect(() => {
     setExpandedId(null)
     setDetail(null)
-  }
-  const serviceOrders = orders.filter(isServiceOrder)
-  const displayOrders = tab === "product" ? productOrders : serviceOrders
+    loadOrders()
+  }, [loadOrders])
 
-  const loadDetail = useCallback(async (orderId: string) => {
-    if (expandedId === orderId && detail) {
-      setExpandedId(null)
-      setDetail(null)
-      return
-    }
-    setExpandedId(orderId)
-    setDetail(null)
-    setLoadingId(orderId)
-    try {
-      const res = await fetch(`/api/customer/orders/${orderId}`, { credentials: "include" })
-      if (res.ok) {
-        const data: OrderDetailApi = await res.json()
-        setDetail(data)
-      } else {
+  const setTabAndPage = (next: "product" | "service") => {
+    router.replace(`/customer/orders?type=${next}&page=1`)
+  }
+
+  const fetchOrderDetail = useCallback(async (orderId: string) => {
+    const res = await fetch(`/api/customer/orders/${orderId}`, { credentials: "include" })
+    if (!res.ok) throw new Error("Failed to fetch order detail")
+    return (await res.json()) as OrderDetailApi
+  }, [])
+
+  const loadDetail = useCallback(
+    async (orderId: string) => {
+      if (expandedId === orderId && detail) {
         setExpandedId(null)
+        setDetail(null)
+        return
       }
-    } catch {
-      setExpandedId(null)
-    } finally {
-      setLoadingId(null)
-    }
-  }, [expandedId, detail])
+      setExpandedId(orderId)
+      setDetail(null)
+      setLoadingId(orderId)
+      try {
+        const data = await fetchOrderDetail(orderId)
+        setDetail(data)
+      } catch {
+        setExpandedId(null)
+      } finally {
+        setLoadingId(null)
+      }
+    },
+    [expandedId, detail, fetchOrderDetail]
+  )
+  const refreshDetail = useCallback(
+    async (orderId: string) => {
+      setLoadingId(orderId)
+      try {
+        const data = await fetchOrderDetail(orderId)
+        setDetail(data)
+      } finally {
+        setLoadingId(null)
+      }
+    },
+    [fetchOrderDetail]
+  )
+
 
   const closeDetail = useCallback(() => {
     setExpandedId(null)
     setDetail(null)
   }, [])
 
-  const itemLabel = (order: OrderListItem) =>
-    order.items.map((i) => (i.productNameSnapshot || i.serviceNameSnapshot || "Item") + " × " + i.quantity).join(", ")
+  if (loading) {
+    return (
+      <div className="flex justify-center py-16 text-muted-foreground">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
-      {/* Toggle: Product orders | Service orders */}
       <div className="flex rounded-lg border bg-muted/30 p-1 w-full sm:w-auto sm:min-w-[280px]">
         <button
           type="button"
-          onClick={() => setTabAndCollapse("product")}
+          onClick={() => setTabAndPage("product")}
           className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-md text-sm font-medium transition-colors ${
-            tab === "product" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+            type === "product" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
           }`}
         >
           <Package className="h-4 w-4" />
-          Product orders ({productOrders.length})
+          Product orders ({tabCounts.product})
         </button>
         <button
           type="button"
-          onClick={() => setTabAndCollapse("service")}
+          onClick={() => setTabAndPage("service")}
           className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-md text-sm font-medium transition-colors ${
-            tab === "service" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+            type === "service" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
           }`}
         >
           <ShoppingBag className="h-4 w-4" />
-          Service orders ({serviceOrders.length})
+          Service orders ({tabCounts.service})
         </button>
       </div>
 
-      {displayOrders.length === 0 ? (
+      {orders.length === 0 ? (
         <Card>
-          <CardContent className="py-12 text-center">
+          <CardContent className="py-12 text-center space-y-4">
             <p className="text-muted-foreground">
-              {tab === "product" ? "No product orders yet." : "No service orders yet."}
+              {type === "product" ? "No product orders yet." : "No service orders yet."}
             </p>
+            {tabCounts.product === 0 && tabCounts.service === 0 && (
+              <Button asChild>
+                <Link href="/browse">
+                  Start Shopping
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Link>
+              </Button>
+            )}
           </CardContent>
         </Card>
       ) : (
-        <ul className="space-y-3">
-          {displayOrders.map((order) => (
-            <li key={order.id}>
-              <Card className="overflow-hidden transition-shadow hover:shadow-md">
-                <CardContent className="p-0">
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 sm:p-5">
-                    <div className="min-w-0">
-                      <p className="font-semibold text-lg">Order #{order.orderNumber}</p>
-                      <p className="text-sm text-muted-foreground truncate">
-                        {order.seller?.store?.name ?? "Store"} • {formatDate(order.createdAt)}
-                      </p>
-                      <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
-                        {itemLabel(order)}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-3 shrink-0">
-                      <div className="text-right">
-                        <p className="font-semibold">{formatCurrency(order.totalAmount)}</p>
-                        <Badge variant="outline" className="capitalize text-xs mt-1">{order.status.toLowerCase()}</Badge>
-                      </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => loadDetail(order.id)}
-                        disabled={loadingId !== null && loadingId !== order.id}
-                        className="gap-1.5"
-                      >
-                        {loadingId === order.id ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <ChevronDown className={`h-4 w-4 transition-transform ${expandedId === order.id ? "rotate-180" : ""}`} />
-                        )}
-                        {expandedId === order.id ? "Hide details" : "View details"}
-                      </Button>
-                    </div>
-                  </div>
-
-                  {expandedId === order.id && (
-                    <div className="border-t px-4 pb-4 sm:px-5 sm:pb-5">
-                      {loadingId === order.id ? (
-                        <div className="py-8 flex justify-center text-muted-foreground">
-                          <Loader2 className="h-8 w-8 animate-spin" />
-                        </div>
-                      ) : detail && detail.id === order.id ? (
-                        <OrderDetailInline order={detail} onClose={closeDetail} />
-                      ) : null}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </li>
-          ))}
-        </ul>
+        <Card className="overflow-hidden">
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Order</TableHead>
+                  <TableHead className="hidden sm:table-cell">Store</TableHead>
+                  <TableHead className="hidden md:table-cell">Date</TableHead>
+                  <TableHead className="hidden lg:table-cell max-w-[220px]">Items</TableHead>
+                  <TableHead className="text-right">Total</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right w-[140px]">Details</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {orders.map((order) => (
+                  <Fragment key={order.id}>
+                    <TableRow>
+                      <TableCell className="font-medium">
+                        #{order.orderNumber}
+                        <p className="text-xs text-muted-foreground sm:hidden mt-0.5">
+                          {order.seller?.store?.name ?? "Store"}
+                        </p>
+                      </TableCell>
+                      <TableCell className="hidden sm:table-cell text-muted-foreground text-sm">
+                        {order.seller?.store?.name ?? "Store"}
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell text-muted-foreground text-sm whitespace-nowrap">
+                        {formatDate(order.createdAt)}
+                      </TableCell>
+                      <TableCell className="hidden lg:table-cell text-sm text-muted-foreground max-w-[220px]">
+                        <span className="line-clamp-2">{itemLabel(order)}</span>
+                      </TableCell>
+                      <TableCell className="text-right font-medium whitespace-nowrap">{formatCurrency(order.totalAmount)}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="capitalize text-xs whitespace-nowrap">
+                          {order.status.toLowerCase().replace(/_/g, " ")}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => loadDetail(order.id)}
+                          disabled={loadingId !== null && loadingId !== order.id}
+                          className="gap-1.5"
+                        >
+                          {loadingId === order.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <ChevronDown className={`h-4 w-4 transition-transform ${expandedId === order.id ? "rotate-180" : ""}`} />
+                          )}
+                          {expandedId === order.id ? "Hide" : "View"}
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                    {expandedId === order.id && (
+                      <TableRow className="bg-muted/30 hover:bg-muted/30">
+                        <TableCell colSpan={7} className="p-4 sm:p-5">
+                          {loadingId === order.id ? (
+                            <div className="py-8 flex justify-center text-muted-foreground">
+                              <Loader2 className="h-8 w-8 animate-spin" />
+                            </div>
+                          ) : detail && detail.id === order.id ? (
+                            <OrderDetailInline order={detail} onClose={closeDetail} onReviewSaved={refreshDetail} />
+                          ) : null}
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </Fragment>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+          <div className="px-6 pb-6">
+            <AdminPagination
+              basePath="/customer/orders"
+              currentPage={page}
+              totalPages={totalPages}
+              totalCount={totalCount}
+              pageSize={perPage}
+              params={{ type }}
+            />
+          </div>
+        </Card>
       )}
     </div>
   )

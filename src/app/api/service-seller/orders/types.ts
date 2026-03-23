@@ -17,6 +17,7 @@ export type PatchOrderStatusPayload = { status: SellerOrderStatusValue }
 
 export type SellerOrderDetailItemApi = {
   id: string
+  itemStatus: string
   productNameSnapshot: string | null
   serviceNameSnapshot: string | null
   quantity: number

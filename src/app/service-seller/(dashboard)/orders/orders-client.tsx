@@ -2,13 +2,22 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/ui/card"
+import { useSearchParams } from "next/navigation"
+import { Card, CardContent } from "@/ui/card"
 import { Badge } from "@/ui/badge"
 import { Button } from "@/ui/button"
-import { Separator } from "@/ui/separator"
 import { formatCurrency, formatDate } from "@/lib/utils"
 import { PageLoader } from "@/components/ui/page-loader"
 import { ShoppingCart, Package, User } from "lucide-react"
+import { AdminPagination } from "@/components/admin/admin-pagination"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/ui/table"
 
 type Order = {
   id: string
@@ -30,19 +39,61 @@ type Order = {
   }>
 }
 
+function itemSummary(order: Order): string {
+  return order.items
+    .map((item) => {
+      const name =
+        (item.productNameSnapshot ?? item.serviceNameSnapshot) ?? item.product?.name ?? item.service?.name ?? "Item"
+      return `${name} × ${item.quantity}`
+    })
+    .join(", ")
+}
+
 export function ServiceOrdersClient() {
-  const [orders, setOrders] = useState<Order[]>([])
+  const searchParams = useSearchParams()
+  const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10) || 1)
+  const perPage = Math.min(50, Math.max(1, parseInt(searchParams.get("perPage") ?? "10", 10) || 10))
+  const params = {
+    error: searchParams.get("error") ?? undefined,
+    success: searchParams.get("success") ?? undefined,
+  }
+
+  const [data, setData] = useState<{
+    orders: Order[]
+    totalCount: number
+    totalPages: number
+  } | null>(null)
   const [loading, setLoading] = useState(true)
+
   useEffect(() => {
-    fetch("/api/service-seller/orders").then((r) => (r.ok ? r.json() : [])).then(setOrders).finally(() => setLoading(false))
-  }, [])
-  if (loading) return <PageLoader variant="listing" message="Loading orders…" />
+    let cancelled = false
+    setLoading(true)
+    fetch(`/api/service-seller/orders?page=${page}&perPage=${perPage}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((json) => {
+        if (!cancelled && json) setData(json)
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [page, perPage])
+
+  if (loading && !data) return <PageLoader variant="listing" message="Loading orders…" />
+
+  const orders = data?.orders ?? []
+  const totalCount = data?.totalCount ?? 0
+  const totalPages = data?.totalPages ?? 1
+
   return (
     <div className="container mx-auto p-6 space-y-6">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Orders</h1>
         <p className="text-muted-foreground mt-2">View and manage your orders</p>
       </div>
+
       {orders.length === 0 ? (
         <Card>
           <CardContent className="py-16 text-center">
@@ -52,58 +103,78 @@ export function ServiceOrdersClient() {
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-4">
-          {orders.map((order) => (
-            <Card key={order.id} className="hover:shadow-md transition-shadow">
-              <CardHeader>
-                <div className="flex justify-between items-start">
-                  <div>
-                    <CardTitle className="text-lg">
-                      <Link
-                        href={`/service-seller/orders/${order.id}`}
-                        className="hover:underline focus:underline"
-                      >
-                        Order #{order.orderNumber}
+        <Card className="overflow-hidden">
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Order</TableHead>
+                  <TableHead className="hidden md:table-cell">Customer</TableHead>
+                  <TableHead className="hidden lg:table-cell">Items</TableHead>
+                  <TableHead className="hidden sm:table-cell">Date</TableHead>
+                  <TableHead className="text-right">Total</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="hidden xl:table-cell text-right">Commission</TableHead>
+                  <TableHead className="text-right w-[100px]">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {orders.map((order) => (
+                  <TableRow key={order.id}>
+                    <TableCell className="font-medium">
+                      <Link href={`/service-seller/orders/${order.id}`} className="hover:underline">
+                        #{order.orderNumber}
                       </Link>
-                    </CardTitle>
-                    <CardDescription className="mt-1 flex items-center gap-1">
-                      <User className="h-3 w-3" />
-                      {order.customer.name || order.customer.email} • {formatDate(order.createdAt)}
-                    </CardDescription>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-lg font-semibold">{formatCurrency(order.totalAmount)}</p>
-                    <Badge variant="outline" className="mt-1 capitalize">{order.status.toLowerCase()}</Badge>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <Separator className="mb-4" />
-                <div className="space-y-3">
-                  {order.items.map((item) => (
-                    <div key={item.id} className="flex justify-between items-center">
-                      <div className="flex items-center gap-2">
-                        <Package className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-sm">
-                          {(item.productNameSnapshot ?? item.serviceNameSnapshot) ?? item.product?.name ?? item.service?.name ?? "Item"} × {item.quantity}
-                        </span>
-                      </div>
-                      <span className="text-sm font-medium">{formatCurrency(item.subtotal)}</span>
-                    </div>
-                  ))}
-                  <Separator />
-                  <div className="flex justify-between items-center pt-2">
-                    <span className="text-sm text-muted-foreground">Commission ({order.commissionRate}%)</span>
-                    <span className="text-sm font-medium text-destructive">-{formatCurrency(order.commission)}</span>
-                  </div>
-                </div>
-                <Button variant="outline" size="sm" className="mt-4" asChild>
-                  <Link href={`/service-seller/orders/${order.id}`}>View details</Link>
-                </Button>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+                      <p className="text-xs text-muted-foreground md:hidden mt-0.5 flex items-center gap-1">
+                        <User className="h-3 w-3" />
+                        {order.customer.name || order.customer.email}
+                      </p>
+                    </TableCell>
+                    <TableCell className="hidden md:table-cell text-sm text-muted-foreground">
+                      <span className="flex items-center gap-1">
+                        <User className="h-3 w-3 shrink-0" />
+                        {order.customer.name || order.customer.email}
+                      </span>
+                    </TableCell>
+                    <TableCell className="hidden lg:table-cell max-w-[240px]">
+                      <span className="flex items-start gap-1 text-sm text-muted-foreground line-clamp-2">
+                        <Package className="h-3 w-3 shrink-0 mt-0.5" />
+                        {itemSummary(order)}
+                      </span>
+                    </TableCell>
+                    <TableCell className="hidden sm:table-cell text-muted-foreground text-sm whitespace-nowrap">
+                      {formatDate(order.createdAt)}
+                    </TableCell>
+                    <TableCell className="text-right font-medium whitespace-nowrap">{formatCurrency(order.totalAmount)}</TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className="capitalize whitespace-nowrap">
+                        {order.status.toLowerCase().replace(/_/g, " ")}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="hidden xl:table-cell text-right text-sm text-muted-foreground whitespace-nowrap">
+                      -{formatCurrency(order.commission)} ({order.commissionRate}%)
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button variant="outline" size="sm" asChild>
+                        <Link href={`/service-seller/orders/${order.id}`}>View</Link>
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+          <div className="px-6 pb-6">
+            <AdminPagination
+              basePath="/service-seller/orders"
+              currentPage={page}
+              totalPages={totalPages}
+              totalCount={totalCount}
+              pageSize={perPage}
+              params={params}
+            />
+          </div>
+        </Card>
       )}
     </div>
   )

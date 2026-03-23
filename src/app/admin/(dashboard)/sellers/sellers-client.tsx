@@ -1,8 +1,11 @@
 "use client"
 
 import { Fragment, useState, useEffect, useCallback } from "react"
+import Link from "next/link"
 import { useSearchParams, useRouter } from "next/navigation"
 import { Button } from "@/ui/button"
+import { cn } from "@/lib/utils"
+import { buildAdminPageUrl } from "@/lib/admin-pagination"
 import { Badge } from "@/ui/badge"
 import { Eye } from "lucide-react"
 import {
@@ -23,6 +26,7 @@ export function SellersClient() {
   const router = useRouter()
   const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10) || 1)
   const perPage = Math.min(50, Math.max(1, parseInt(searchParams.get("perPage") ?? "10", 10) || 10))
+  const tab = searchParams.get("tab") ?? "all"
 
   const [data, setData] = useState<{
     sellers: any[]
@@ -44,7 +48,8 @@ export function SellersClient() {
         setLoading(true)
         setError(null)
       }
-      return fetch(`/api/admin/sellers?page=${page}&perPage=${perPage}`)
+      const tabQs = tab === "all" ? "" : `&tab=${encodeURIComponent(tab)}`
+      return fetch(`/api/admin/sellers?page=${page}&perPage=${perPage}${tabQs}`)
         .then((res) => {
           if (!res.ok) throw new Error("Failed to fetch sellers")
           return res.json()
@@ -59,14 +64,15 @@ export function SellersClient() {
           if (showLoading) setLoading(false)
         })
     },
-    [page, perPage]
+    [page, perPage, tab]
   )
 
   useEffect(() => {
     let cancelled = false
     setLoading(true)
     setError(null)
-    fetch(`/api/admin/sellers?page=${page}&perPage=${perPage}`)
+    const tabQs = tab === "all" ? "" : `&tab=${encodeURIComponent(tab)}`
+    fetch(`/api/admin/sellers?page=${page}&perPage=${perPage}${tabQs}`)
       .then((res) => {
         if (!res.ok) throw new Error("Failed to fetch sellers")
         return res.json()
@@ -83,7 +89,7 @@ export function SellersClient() {
     return () => {
       cancelled = true
     }
-  }, [page, perPage])
+  }, [page, perPage, tab])
 
   const handleApprove = async (sellerId: string) => {
     setActionLoading(sellerId)
@@ -136,7 +142,15 @@ export function SellersClient() {
   const params = {
     error: errorParam ?? undefined,
     success: successParam ?? undefined,
+    tab: tab === "all" ? undefined : tab,
   }
+
+  const sellerTabs = [
+    { id: "all", label: "All" },
+    { id: "pending", label: "Pending approval" },
+    { id: "approved", label: "Approved" },
+    { id: "suspended", label: "Suspended" },
+  ] as const
 
   return (
     <div className="container mx-auto p-6 space-y-6">
@@ -162,6 +176,26 @@ export function SellersClient() {
           <CardDescription>All sellers with store, type, status and subscription</CardDescription>
         </CardHeader>
         <CardContent>
+          <div className="flex flex-wrap gap-2 pb-4 mb-4 border-b">
+            {sellerTabs.map((t) => (
+              <Link
+                key={t.id}
+                href={buildAdminPageUrl("/admin/sellers", 1, {
+                  error: params.error,
+                  success: params.success,
+                  tab: t.id === "all" ? undefined : t.id,
+                })}
+                className={cn(
+                  "rounded-full px-3 py-1.5 text-sm font-medium transition-colors",
+                  tab === t.id
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted text-muted-foreground hover:bg-muted/80"
+                )}
+              >
+                {t.label}
+              </Link>
+            ))}
+          </div>
           {loading ? (
             <PageLoader message="Loading sellers…" />
           ) : error ? (

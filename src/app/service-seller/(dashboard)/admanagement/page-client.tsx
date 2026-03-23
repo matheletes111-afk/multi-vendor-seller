@@ -1,11 +1,11 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import Link from "next/link"
 import Image from "next/image"
-import { useSearchParams } from "next/navigation"
+import { useSearchParams, useRouter } from "next/navigation"
 import { Button } from "@/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/ui/card"
+import { Card, CardContent } from "@/ui/card"
 import { Badge } from "@/ui/badge"
 import { Alert, AlertDescription } from "@/ui/alert"
 import {
@@ -21,6 +21,15 @@ import { formatCurrency } from "@/lib/utils"
 import { getYoutubeThumbnailUrl } from "@/lib/youtube"
 import { PageLoader } from "@/components/ui/page-loader"
 import { Plus, Megaphone, Pause, Play, Trash2, ImageIcon, Video } from "lucide-react"
+import { AdminPagination } from "@/components/admin/admin-pagination"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/ui/table"
 
 type Ad = {
   id: string
@@ -39,24 +48,43 @@ type Ad = {
 }
 
 export function ServiceSellerAdmanagementPageClient() {
+  const router = useRouter()
   const searchParams = useSearchParams()
+  const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10) || 1)
+  const perPage = Math.min(50, Math.max(1, parseInt(searchParams.get("perPage") ?? "10", 10) || 10))
+  const paginationParams = {
+    error: searchParams.get("error") ?? undefined,
+    success: searchParams.get("success") ?? undefined,
+  }
+
   const [ads, setAds] = useState<Ad[]>([])
+  const [totalCount, setTotalCount] = useState(0)
+  const [totalPages, setTotalPages] = useState(1)
   const [loading, setLoading] = useState(true)
   const [pausingId, setPausingId] = useState<string | null>(null)
   const [resumingId, setResumingId] = useState<string | null>(null)
 
-  const fetchAds = () => {
-    fetch("/api/service-seller/admanagement")
-      .then((r) => (r.ok ? r.json() : []))
-      .then(setAds)
+  const fetchAds = useCallback(() => {
+    setLoading(true)
+    return fetch(`/api/service-seller/admanagement?page=${page}&perPage=${perPage}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((json) => {
+        if (json?.ads) {
+          setAds(json.ads)
+          setTotalCount(json.totalCount ?? 0)
+          setTotalPages(json.totalPages ?? 1)
+        } else {
+          setAds([])
+          setTotalCount(0)
+          setTotalPages(1)
+        }
+      })
       .finally(() => setLoading(false))
-  }
+  }, [page, perPage])
+
   useEffect(() => {
-    fetch("/api/service-seller/admanagement")
-      .then((r) => (r.ok ? r.json() : []))
-      .then(setAds)
-      .finally(() => setLoading(false))
-  }, [])
+    fetchAds()
+  }, [fetchAds])
 
   const paramsError = searchParams.get("error")
   const paramsSuccess = searchParams.get("success")
@@ -71,7 +99,14 @@ export function ServiceSellerAdmanagementPageClient() {
   }
   async function deleteAdForm(adId: string) {
     const res = await fetch(`/api/service-seller/admanagement/${adId}`, { method: "DELETE" })
-    if (res.ok) setAds((prev) => prev.filter((a) => a.id !== adId))
+    if (res.ok) {
+      const wasLastOnPage = ads.length === 1
+      if (wasLastOnPage && page > 1) {
+        router.replace(`/service-seller/admanagement?page=${page - 1}`)
+        return
+      }
+      fetchAds()
+    }
   }
 
   const statusBadge = (status: string) => {
@@ -115,7 +150,7 @@ export function ServiceSellerAdmanagementPageClient() {
         </Alert>
       )}
 
-      {loading ? (
+      {loading && ads.length === 0 ? (
         <PageLoader message="Loading ads…" />
       ) : ads.length === 0 ? (
         <Card>
@@ -132,77 +167,112 @@ export function ServiceSellerAdmanagementPageClient() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {ads.map((ad) => {
-            const videoThumb = ad.creativeType === "VIDEO" ? getYoutubeThumbnailUrl(ad.creativeUrl) : null
-            return (
-            <Card key={ad.id} className="overflow-hidden">
-              <div className="aspect-video relative bg-muted">
-                {ad.creativeType === "VIDEO" ? (
-                  videoThumb ? (
-                    <img src={videoThumb} alt={ad.title} className="w-full h-full object-cover" />
-                  ) : (
-                    <video src={ad.creativeUrl} className="w-full h-full object-cover" muted preload="metadata" playsInline />
+        <Card className="overflow-hidden">
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[88px]">Creative</TableHead>
+                  <TableHead>Title</TableHead>
+                  <TableHead className="hidden md:table-cell">Service</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="hidden lg:table-cell text-right">Spent / Budget</TableHead>
+                  <TableHead className="hidden sm:table-cell text-right">Clicks</TableHead>
+                  <TableHead className="hidden xl:table-cell text-right">Max CPC</TableHead>
+                  <TableHead className="text-right w-[200px]">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {ads.map((ad) => {
+                  const videoThumb = ad.creativeType === "VIDEO" ? getYoutubeThumbnailUrl(ad.creativeUrl) : null
+                  return (
+                    <TableRow key={ad.id}>
+                      <TableCell className="align-middle">
+                        <div className="relative w-20 h-12 rounded overflow-hidden bg-muted shrink-0">
+                          {ad.creativeType === "VIDEO" ? (
+                            videoThumb ? (
+                              /* eslint-disable-next-line @next/next/no-img-element */
+                              <img src={videoThumb} alt="" className="w-full h-full object-cover" />
+                            ) : (
+                              <video src={ad.creativeUrl} className="w-full h-full object-cover" muted preload="metadata" playsInline />
+                            )
+                          ) : (
+                            <Image src={ad.creativeUrl} alt="" fill className="object-cover" unoptimized />
+                          )}
+                          <span className="absolute top-0.5 right-0.5">
+                            {ad.creativeType === "VIDEO" ? <Video className="h-3 w-3 text-white drop-shadow" /> : <ImageIcon className="h-3 w-3 text-white drop-shadow" />}
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="font-medium max-w-[200px]">
+                        <span className="line-clamp-2">{ad.title}</span>
+                        {ad.service?.name && (
+                          <p className="text-xs text-muted-foreground md:hidden mt-0.5 line-clamp-1">{ad.service.name}</p>
+                        )}
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell text-muted-foreground text-sm">
+                        {ad.service?.name ?? "—"}
+                      </TableCell>
+                      <TableCell>{statusBadge(ad.status)}</TableCell>
+                      <TableCell className="hidden lg:table-cell text-right text-sm whitespace-nowrap">
+                        {formatCurrency(ad.spentAmount)} / {formatCurrency(ad.totalBudget)}
+                      </TableCell>
+                      <TableCell className="hidden sm:table-cell text-right">{ad._count.adClicks}</TableCell>
+                      <TableCell className="hidden xl:table-cell text-right text-sm whitespace-nowrap">{formatCurrency(ad.maxCpc)}</TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex flex-wrap justify-end gap-1">
+                          {ad.status === "ACTIVE" && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              disabled={!!pausingId}
+                              onClick={async () => {
+                                setPausingId(ad.id)
+                                await pauseAd(ad.id)
+                                setPausingId(null)
+                              }}
+                            >
+                              <Pause className="mr-1 h-3 w-3" />
+                              Pause
+                            </Button>
+                          )}
+                          {ad.status === "PAUSED" && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              disabled={!!resumingId}
+                              onClick={async () => {
+                                setResumingId(ad.id)
+                                await resumeAd(ad.id)
+                                setResumingId(null)
+                              }}
+                            >
+                              <Play className="mr-1 h-3 w-3" />
+                              Resume
+                            </Button>
+                          )}
+                          {ad.status !== "ENDED" && (
+                            <DeleteAdButton adId={ad.id} adTitle={ad.title} onDelete={deleteAdForm} />
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
                   )
-                ) : (
-                  <Image src={ad.creativeUrl} alt={ad.title} fill className="object-cover" unoptimized />
-                )}
-                <div className="absolute top-2 right-2">
-                  {ad.creativeType === "VIDEO" ? <Video className="h-4 w-4 text-white drop-shadow" /> : <ImageIcon className="h-4 w-4 text-white drop-shadow" />}
-                </div>
-              </div>
-              <CardHeader>
-                <div className="flex items-start justify-between gap-2">
-                  <CardTitle className="line-clamp-2 text-lg">{ad.title}</CardTitle>
-                  {statusBadge(ad.status)}
-                </div>
-                <CardDescription>
-                  {ad.service?.name && <span className="block">Service: {ad.service.name}</span>}
-                  <span className="block mt-1">Clicks: {ad._count.adClicks} · Spent: {formatCurrency(ad.spentAmount)} / {formatCurrency(ad.totalBudget)}</span>
-                  <span className="block text-xs mt-1">Max CPC: {formatCurrency(ad.maxCpc)}</span>
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="flex flex-wrap gap-2">
-                  {ad.status === "ACTIVE" && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={!!pausingId}
-                      onClick={async () => {
-                        setPausingId(ad.id)
-                        await pauseAd(ad.id)
-                        setPausingId(null)
-                      }}
-                    >
-                      <Pause className="mr-2 h-4 w-4" />
-                      Pause
-                    </Button>
-                  )}
-                  {ad.status === "PAUSED" && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={!!resumingId}
-                      onClick={async () => {
-                        setResumingId(ad.id)
-                        await resumeAd(ad.id)
-                        setResumingId(null)
-                      }}
-                    >
-                      <Play className="mr-2 h-4 w-4" />
-                      Resume
-                    </Button>
-                  )}
-                  {ad.status !== "ENDED" && (
-                    <DeleteAdButton adId={ad.id} adTitle={ad.title} onDelete={deleteAdForm} />
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-            )
-          })}
-        </div>
+                })}
+              </TableBody>
+            </Table>
+          </div>
+          <div className="px-6 pb-6">
+            <AdminPagination
+              basePath="/service-seller/admanagement"
+              currentPage={page}
+              totalPages={totalPages}
+              totalCount={totalCount}
+              pageSize={perPage}
+              params={paginationParams}
+            />
+          </div>
+        </Card>
       )}
     </div>
   )
@@ -221,22 +291,18 @@ function DeleteAdButton({ adId, adTitle, onDelete }: { adId: string; adTitle: st
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button variant="destructive" size="sm">
-          <Trash2 className="mr-2 h-4 w-4" />
+          <Trash2 className="mr-1 h-3 w-3" />
           Delete
         </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Delete Ad</DialogTitle>
-          <DialogDescription>
-            Are you sure you want to delete &quot;{adTitle}&quot;? This cannot be undone.
-          </DialogDescription>
+          <DialogDescription>Are you sure you want to delete &quot;{adTitle}&quot;? This cannot be undone.</DialogDescription>
         </DialogHeader>
         <DialogFooter>
           <Button variant="outline" onClick={() => setOpen(false)} disabled={isDeleting}>Cancel</Button>
-          <Button variant="destructive" onClick={handleDelete} disabled={isDeleting}>
-            {isDeleting ? "Deleting..." : "Delete"}
-          </Button>
+          <Button variant="destructive" onClick={handleDelete} disabled={isDeleting}>{isDeleting ? "Deleting..." : "Delete"}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

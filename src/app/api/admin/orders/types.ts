@@ -18,6 +18,9 @@ export type PatchOrderStatusPayload = { status: AdminOrderStatusValue }
 
 export type AdminOrderDetailItemApi = {
   id: string
+  sellerId: string | null
+  sellerStoreName: string | null
+  itemStatus: string
   productNameSnapshot: string | null
   serviceNameSnapshot: string | null
   quantity: number
@@ -30,6 +33,24 @@ export type AdminOrderDetailItemApi = {
   /** Service slot (for service orders). ISO date-time strings. */
   serviceSlotStartTime: string | null
   serviceSlotEndTime: string | null
+  shippingAmount: number
+  commissionAmount: number
+  commissionRateSnapshot: number
+}
+
+export type AdminOrderSellerGroupApi = {
+  sellerId: string | null
+  sellerStoreName: string | null
+  summary: {
+    subtotal: number
+    tax: number
+    shipping: number
+    commission: number
+    total: number
+  }
+  itemStatuses: Record<string, number>
+  derivedStatus: string
+  itemCount: number
 }
 
 export type AdminOrderListItemApi = {
@@ -72,5 +93,6 @@ export type AdminOrderDetailApi = {
   customerName: string | null
   customerEmail: string | null
   sellerStoreName: string | null
+  sellerGroups: AdminOrderSellerGroupApi[]
   items: AdminOrderDetailItemApi[]
 }

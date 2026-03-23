@@ -4,6 +4,11 @@
 
 export type OrderDetailItemApi = {
   id: string
+  sellerId: string | null
+  sellerStoreName: string | null
+  itemStatus: string
+  productId: string | null
+  serviceId: string | null
   productNameSnapshot: string | null
   serviceNameSnapshot: string | null
   quantity: number
@@ -16,6 +21,32 @@ export type OrderDetailItemApi = {
   /** Service slot (for service orders). ISO date-time strings. */
   serviceSlotStartTime: string | null
   serviceSlotEndTime: string | null
+  review: {
+    id: string
+    rating: number
+    comment: string | null
+    images: string[]
+    isVerified: boolean
+  } | null
+  canReview: boolean
+  shippingAmount: number
+  commissionAmount: number
+  commissionRateSnapshot: number
+}
+
+export type CustomerOrderSellerGroupApi = {
+  sellerId: string | null
+  sellerStoreName: string | null
+  summary: {
+    subtotal: number
+    tax: number
+    shipping: number
+    commission: number
+    total: number
+  }
+  itemStatuses: Record<string, number>
+  derivedStatus: string
+  itemCount: number
 }
 
 export type OrderDetailApi = {
@@ -38,5 +69,6 @@ export type OrderDetailApi = {
   shippingCountry: string | null
   createdAt: string
   sellerStoreName: string | null
+  sellerGroups: CustomerOrderSellerGroupApi[]
   items: OrderDetailItemApi[]
 }

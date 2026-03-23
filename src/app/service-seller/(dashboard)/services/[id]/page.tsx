@@ -2,6 +2,7 @@ import { z } from "zod"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { isServiceSeller } from "@/lib/rbac"
+import { uploadServiceFormImages } from "@/lib/upload-service-form-images"
 import { redirect } from "next/navigation"
 import { revalidatePath } from "next/cache"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/ui/card"
@@ -68,8 +69,17 @@ async function updateServiceForm(serviceId: string, formData: FormData) {
   const serviceCategoryId = formData.get("serviceCategoryId") as string
   const serviceType = formData.get("serviceType") as "APPOINTMENT" | "FIXED_PRICE"
   if (!name || !serviceCategoryId || !serviceType) redirect(`/service-seller/services/${serviceId}?error=missing_required_fields`)
+  let uploadedUrls: string[] = []
+  try {
+    uploadedUrls = await uploadServiceFormImages(formData)
+  } catch (e) {
+    redirect(
+      `/service-seller/services/${serviceId}?error=${encodeURIComponent(e instanceof Error ? e.message : "Upload failed")}`
+    )
+  }
   const imagesInput = (formData.get("images") as string) || ""
-  const images = imagesInput ? imagesInput.split(/[\n,]+/).map((u) => u.trim()).filter(Boolean) : []
+  const linkUrls = imagesInput ? imagesInput.split(/[\n,]+/).map((u) => u.trim()).filter(Boolean) : []
+  const images = Array.from(new Set([...linkUrls, ...uploadedUrls]))
   const basePriceInput = formData.get("basePrice") as string
   const durationInput = formData.get("duration") as string
   const discountStr = (formData.get("discount") as string) || "0"
@@ -243,7 +253,7 @@ export default async function EditServicePage({
         <Card className="shadow-sm">
           <CardHeader className="pb-4">
             <CardTitle className="text-lg">Weekly availability</CardTitle>
-            <CardDescription>Set shift times per day or mark a day as fully unavailable</CardDescription>
+            <CardDescription>Check the days you’re available and set shift times; uncheck a day to mark it closed</CardDescription>
           </CardHeader>
           <CardContent className="pt-0">
             <WeeklyAvailabilityFields defaultValue={weeklyAvailability} />
@@ -253,13 +263,13 @@ export default async function EditServicePage({
         <Card className="shadow-sm">
           <CardHeader className="pb-4">
             <CardTitle className="text-lg">Images</CardTitle>
-            <CardDescription>Add image URLs (comma separated) or upload multiple images</CardDescription>
+            <CardDescription>Upload images — they are saved when you update the service</CardDescription>
           </CardHeader>
           <CardContent>
             <ServiceImageInput
               defaultUrls={images}
               label="Service images"
-              hint="Paste URLs separated by commas, or upload files. Preview appears below."
+              hint="Choose one or more images. Upload runs when you click Update service."
             />
           </CardContent>
         </Card>

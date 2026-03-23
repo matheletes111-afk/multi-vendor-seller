@@ -7,6 +7,11 @@ export async function GET(request: NextRequest) {
   const categoryId = searchParams.get("categoryId") ?? undefined
   const subcategoryId = searchParams.get("subcategoryId") ?? undefined
   const serviceCategoryId = searchParams.get("serviceCategoryId") ?? undefined
+  const qRaw = searchParams.get("q") ?? ""
+  const q = typeof qRaw === "string" ? qRaw.trim() : ""
+  const rawPage = Number(searchParams.get("page") ?? "1")
+  const page = Number.isInteger(rawPage) && rawPage > 0 ? rawPage : 1
+  const pageSize = 50
 
   const now = new Date()
   const isServiceCategoryOnly = Boolean(serviceCategoryId && !categoryId && !subcategoryId)
@@ -14,12 +19,14 @@ export async function GET(request: NextRequest) {
     isActive: true,
     ...(categoryId && { categoryId }),
     ...(subcategoryId && { subcategoryId }),
+    ...(q && { name: { contains: q, mode: "insensitive" } }),
   }
   const isFiltered = true
 
   const [
     sponsoredAdsRaw,
     products,
+    totalProducts,
     categoryWithSubs,
     subcategoryWithCategory,
   ] = await Promise.all([
@@ -48,9 +55,11 @@ export async function GET(request: NextRequest) {
             variants: { take: 1, orderBy: { createdAt: "asc" }, select: { price: true, discount: true } },
             _count: { select: { reviews: true } },
           },
-          take: 50,
+          skip: (page - 1) * pageSize,
+          take: pageSize,
           orderBy: { createdAt: "desc" },
         }),
+    isServiceCategoryOnly ? Promise.resolve(0) : prisma.product.count({ where: productWhere }),
     categoryId && !subcategoryId
       ? prisma.category.findUnique({
           where: { id: categoryId, isActive: true },
@@ -95,6 +104,7 @@ export async function GET(request: NextRequest) {
   const subcategoryName = subcategoryWithCategory?.name ?? null
   const subcategories = categoryWithSubs?.subcategories ?? []
   const resolvedCategoryId = categoryId ?? subcategoryWithCategory?.category?.id ?? null
+  const totalPages = Math.max(1, Math.ceil(totalProducts / pageSize))
 
   // When filtering by product category (categoryId/subcategoryId), do not show services — that category is for products only
   const isProductCategoryFilter = Boolean(categoryId || subcategoryId)
@@ -106,6 +116,7 @@ export async function GET(request: NextRequest) {
           where: {
             isActive: true,
             ...(resolvedServiceCategoryId && { serviceCategoryId: resolvedServiceCategoryId }),
+            ...(q && { name: { contains: q, mode: "insensitive" } }),
           },
           include: {
             serviceCategory: true,
@@ -126,6 +137,10 @@ export async function GET(request: NextRequest) {
   const serviceCategoryName = serviceCategoryWithName?.name ?? null
 
   return NextResponse.json({
+    page,
+    pageSize,
+    totalProducts,
+    totalPages,
     categoryId: categoryId ?? null,
     subcategoryId: subcategoryId ?? null,
     serviceCategoryId: serviceCategoryId ?? null,

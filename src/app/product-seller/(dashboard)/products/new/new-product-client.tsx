@@ -39,6 +39,8 @@ export function NewProductClient() {
   const [imageMode, setImageMode] = useState<"link" | "upload">("link")
   const [imageUrlsText, setImageUrlsText] = useState("")
   const [uploadedImageUrls, setUploadedImageUrls] = useState<string[]>([])
+  const [uploadedImageFiles, setUploadedImageFiles] = useState<File[]>([])
+  const productPreviewUrlsRef = useRef<string[]>([])
   const [uploading, setUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [variants, setVariants] = useState<VariantRow[]>([
@@ -59,6 +61,8 @@ export function NewProductClient() {
   ])
   const [variantUploadingFor, setVariantUploadingFor] = useState<number | null>(null)
   const variantFileInputRefs = useRef<(HTMLInputElement | null)[]>([])
+  const [variantPendingFiles, setVariantPendingFiles] = useState<File[][]>([[]])
+  const variantPreviewUrlsRef = useRef<string[][]>([[]])
   const [generatorOptions, setGeneratorOptions] = useState<GeneratorOption[]>([])
 
   useEffect(() => {
@@ -91,10 +95,15 @@ export function NewProductClient() {
         returnDays: "",
       },
     ])
+    setVariantPendingFiles((prev) => [...prev, []])
+    variantPreviewUrlsRef.current = [...variantPreviewUrlsRef.current, []]
   }
   function removeVariant(index: number) {
     if (variants.length <= 1) return
     setVariants((prev) => prev.filter((_, i) => i !== index))
+    setVariantPendingFiles((prev) => prev.filter((_, i) => i !== index))
+    ;(variantPreviewUrlsRef.current[index] ?? []).forEach((u) => URL.revokeObjectURL(u))
+    variantPreviewUrlsRef.current = variantPreviewUrlsRef.current.filter((_, i) => i !== index)
   }
   function updateVariant(index: number, field: keyof VariantRow, value: string | boolean | string[] | "link" | "upload" | AttributePair[] | string) {
     setVariants((prev) => {
@@ -139,25 +148,20 @@ export function NewProductClient() {
     const files = e.target.files
     if (!files?.length) return
     setVariantUploadingFor(variantIndex)
-    const urls: string[] = []
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i]
-      if (!file.type.startsWith("image/")) continue
-      const fd = new FormData()
-      fd.append("file", file)
-      try {
-        const r = await fetch("/api/product-seller/upload", { method: "POST", body: fd })
-        const j = await r.json().catch(() => ({}))
-        if (j.url) urls.push(j.url)
-      } catch {
-        // skip
-      }
-    }
-    if (urls.length > 0) {
+    const selected = Array.from(files).filter((f) => f.type.startsWith("image/"))
+    if (selected.length > 0) {
+      ;(variantPreviewUrlsRef.current[variantIndex] ?? []).forEach((u) => URL.revokeObjectURL(u))
+      const previewUrls = selected.map((f) => URL.createObjectURL(f))
+      variantPreviewUrlsRef.current[variantIndex] = previewUrls
+      setVariantPendingFiles((prev) => {
+        const next = [...prev]
+        next[variantIndex] = selected
+        return next
+      })
       setVariants((prev) => {
         const next = [...prev]
         const v = next[variantIndex]
-        if (v) next[variantIndex] = { ...v, images: [...(v.images ?? []), ...urls] }
+        if (v) next[variantIndex] = { ...v, images: previewUrls }
         return next
       })
     }
@@ -168,6 +172,19 @@ export function NewProductClient() {
   function removeVariantImage(variantIndex: number, url: string) {
     const v = variants[variantIndex]
     if (!v) return
+    if (v.imageMode === "upload") {
+      const previewUrls = variantPreviewUrlsRef.current[variantIndex] ?? []
+      const idx = previewUrls.indexOf(url)
+      if (idx >= 0) {
+        URL.revokeObjectURL(url)
+        variantPreviewUrlsRef.current[variantIndex] = previewUrls.filter((_, i) => i !== idx)
+        setVariantPendingFiles((prev) => {
+          const next = [...prev]
+          next[variantIndex] = (next[variantIndex] ?? []).filter((_, i) => i !== idx)
+          return next
+        })
+      }
+    }
     updateVariant(variantIndex, "images", (v.images ?? []).filter((u) => u !== url))
   }
 
@@ -208,6 +225,9 @@ export function NewProductClient() {
       returnDays: "",
     }))
     setVariants(newVariants)
+    variantPreviewUrlsRef.current.flat().forEach((u) => URL.revokeObjectURL(u))
+    variantPreviewUrlsRef.current = newVariants.map(() => [])
+    setVariantPendingFiles(newVariants.map(() => []))
   }
 
   function addGeneratorOption() {
@@ -258,13 +278,20 @@ export function NewProductClient() {
     const categoryId = formData.get("categoryId") as string
     const subcategoryId = (formData.get("subcategoryId") as string) || undefined
     const description = (formData.get("description") as string) || undefined
-    const images =
-      imageMode === "link"
-        ? (imageUrlsText || "").split("\n").map((u) => u.trim()).filter(Boolean)
-        : uploadedImageUrls
-
     if (!name || !categoryId) {
       setError("Name and category are required")
+      return
+    }
+    let images: string[] = []
+    try {
+      images =
+        imageMode === "link"
+          ? (imageUrlsText || "").split("\n").map((u) => u.trim()).filter(Boolean)
+          : uploadedImageFiles.length > 0
+            ? await uploadFiles(uploadedImageFiles)
+            : []
+    } catch {
+      setError("Product image upload failed. Please try again.")
       return
     }
     const variantsPayload: {
@@ -304,6 +331,19 @@ export function NewProductClient() {
       const returnType = v.returnType === "RETURNABLE" ? "RETURNABLE" : "NON_RETURNABLE"
       const daysNum = parseInt(v.returnDays || "", 10)
 
+      let variantImages: string[] | undefined
+      try {
+        variantImages =
+          v.imageMode === "link"
+            ? Array.isArray(v.images) && v.images.length > 0 ? v.images : undefined
+            : variantPendingFiles[i]?.length
+              ? await uploadFiles(variantPendingFiles[i])
+              : undefined
+      } catch {
+        setError(`Variant ${i + 1}: image upload failed. Please try again.`)
+        return
+      }
+
       variantsPayload.push({
         name: v.name.trim() || `Variant ${i + 1}`,
         price,
@@ -311,7 +351,7 @@ export function NewProductClient() {
         hasGst: v.hasGst,
         stock,
         sku: v.sku.trim() || undefined,
-        images: Array.isArray(v.images) && v.images.length > 0 ? v.images : undefined,
+        images: variantImages,
         attributes: attributesObj && Object.keys(attributesObj).length > 0 ? attributesObj : undefined,
         details: (v.details ?? "").trim() || undefined,
         returnType,
@@ -345,27 +385,47 @@ export function NewProductClient() {
     const files = e.target.files
     if (!files?.length) return
     setUploading(true)
-    const urls: string[] = []
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i]
-      if (!file.type.startsWith("image/")) continue
-      const fd = new FormData()
-      fd.append("file", file)
-      try {
-        const r = await fetch("/api/product-seller/upload", { method: "POST", body: fd })
-        const j = await r.json().catch(() => ({}))
-        if (j.url) urls.push(j.url)
-      } catch {
-        // skip
-      }
+    const selected = Array.from(files).filter((f) => f.type.startsWith("image/"))
+    if (selected.length > 0) {
+      productPreviewUrlsRef.current.forEach((u) => URL.revokeObjectURL(u))
+      const previewUrls = selected.map((f) => URL.createObjectURL(f))
+      productPreviewUrlsRef.current = previewUrls
+      setUploadedImageFiles(selected)
+      setUploadedImageUrls(previewUrls)
     }
-    setUploadedImageUrls((prev) => [...prev, ...urls])
     setUploading(false)
     e.target.value = ""
   }
 
   function removeUploadedUrl(url: string) {
-    setUploadedImageUrls((prev) => prev.filter((u) => u !== url))
+    setUploadedImageUrls((prev) => {
+      const idx = prev.indexOf(url)
+      if (idx >= 0) {
+        URL.revokeObjectURL(url)
+        setUploadedImageFiles((files) => files.filter((_, i) => i !== idx))
+      }
+      return prev.filter((u) => u !== url)
+    })
+  }
+
+  useEffect(() => {
+    return () => {
+      productPreviewUrlsRef.current.forEach((u) => URL.revokeObjectURL(u))
+      variantPreviewUrlsRef.current.flat().forEach((u) => URL.revokeObjectURL(u))
+    }
+  }, [])
+
+  async function uploadFiles(files: File[]): Promise<string[]> {
+    const urls: string[] = []
+    for (const file of files) {
+      const fd = new FormData()
+      fd.append("file", file)
+      const r = await fetch("/api/product-seller/upload", { method: "POST", body: fd })
+      const j = await r.json().catch(() => ({}))
+      if (!r.ok || !j.url) throw new Error("Image upload failed")
+      urls.push(j.url as string)
+    }
+    return urls
   }
 
   return (

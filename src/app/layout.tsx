@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import { ThemeProvider } from "@/app/theme-provider"
 import { CartProvider } from "@/app/cart/cart-context"
+import { WishlistProvider } from "@/app/wishlist/wishlist-context"
 import { SessionProvider } from "@/components/session-provider"
 import "./globals.css"
 
@@ -32,7 +33,9 @@ export default function RootLayout({
         >
           <SessionProvider>
             <CartProvider>
-              {children}
+              <WishlistProvider>
+                {children}
+              </WishlistProvider>
             </CartProvider>
           </SessionProvider>
         </ThemeProvider>

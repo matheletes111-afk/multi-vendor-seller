@@ -106,6 +106,7 @@ export async function POST(request: NextRequest) {
   await prisma.orderItem.create({
     data: {
       orderId: order.id,
+      sellerId: service.sellerId,
       productId: null,
       productVariantId: null,
       serviceId: service.id,
@@ -119,6 +120,10 @@ export async function POST(request: NextRequest) {
       hasGst: hasGst,
       gstAmount: totalGst,
       subtotalInclGst: subtotal + totalGst,
+      itemStatus: "PENDING",
+      shippingAmount: 0,
+      commissionAmount: commission,
+      commissionRateSnapshot: COMMISSION_RATE,
     },
   })
 

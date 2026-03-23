@@ -15,11 +15,13 @@ export function getPaginationFromSearchParams(params: PaginationParams) {
 export function buildAdminPageUrl(
   basePath: string,
   page: number,
-  existingParams?: { error?: string; success?: string }
+  existingParams?: { error?: string; success?: string; type?: string; tab?: string }
 ) {
   const search = new URLSearchParams()
   search.set("page", String(page))
   if (existingParams?.error) search.set("error", existingParams.error)
   if (existingParams?.success) search.set("success", existingParams.success)
+  if (existingParams?.type) search.set("type", existingParams.type)
+  if (existingParams?.tab) search.set("tab", existingParams.tab)
   return `${basePath}?${search.toString()}`
 }

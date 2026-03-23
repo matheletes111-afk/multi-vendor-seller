@@ -23,6 +23,7 @@ export function AdminOrderDetailClient({ orderId }: { orderId: string }) {
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
   const [statusValue, setStatusValue] = useState<string>("")
+  const [itemStatusDrafts, setItemStatusDrafts] = useState<Record<string, string>>({})
   const [updateLoading, setUpdateLoading] = useState(false)
   const [statusError, setStatusError] = useState<string | null>(null)
 
@@ -40,6 +41,12 @@ export function AdminOrderDetailClient({ orderId }: { orderId: string }) {
         if (data) {
           setOrder(data)
           setStatusValue(data.status)
+          setItemStatusDrafts(
+            data.items.reduce<Record<string, string>>((acc, item) => {
+              acc[item.id] = item.itemStatus
+              return acc
+            }, {})
+          )
         }
       })
   }, [orderId])
@@ -58,6 +65,27 @@ export function AdminOrderDetailClient({ orderId }: { orderId: string }) {
       headers: { "Content-Type": "application/json" },
       credentials: "include",
       body: JSON.stringify({ status: statusValue }),
+    })
+      .then((res) => {
+        if (!res.ok) return res.json().then((d: { error?: string }) => { throw new Error(d.error ?? "Failed") })
+        return fetchOrder()
+      })
+      .catch((err: Error) => setStatusError(err.message))
+      .finally(() => setUpdateLoading(false))
+  }
+
+  const handleUpdateItemStatus = (itemId: string) => {
+    if (!order) return
+    const next = itemStatusDrafts[itemId]
+    const current = order.items.find((item) => item.id === itemId)?.itemStatus
+    if (!next || !current || next === current) return
+    setStatusError(null)
+    setUpdateLoading(true)
+    fetch(`/api/admin/orders/${orderId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ status: next, itemId }),
     })
       .then((res) => {
         if (!res.ok) return res.json().then((d: { error?: string }) => { throw new Error(d.error ?? "Failed") })
@@ -247,6 +275,34 @@ export function AdminOrderDetailClient({ orderId }: { orderId: string }) {
                 </div>
                 <div className="min-w-0 flex-1 space-y-1 text-sm">
                   <p className="font-medium text-slate-900">{itemName(item)}</p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge variant="outline" className="text-[10px] uppercase tracking-wide">
+                      {item.itemStatus.replace(/_/g, " ")}
+                    </Badge>
+                    <span className="text-xs text-muted-foreground">{item.sellerStoreName ?? "Store"}</span>
+                    <Select
+                      value={itemStatusDrafts[item.id] ?? item.itemStatus}
+                      onValueChange={(value) => setItemStatusDrafts((prev) => ({ ...prev, [item.id]: value }))}
+                    >
+                      <SelectTrigger className="h-8 w-[170px]">
+                        <SelectValue placeholder="Change item status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {ADMIN_ORDER_STATUSES.map((s) => (
+                          <SelectItem key={s} value={s}>
+                            {s.charAt(0) + s.slice(1).toLowerCase()}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      size="sm"
+                      onClick={() => handleUpdateItemStatus(item.id)}
+                      disabled={updateLoading || (itemStatusDrafts[item.id] ?? item.itemStatus) === item.itemStatus}
+                    >
+                      {updateLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Update"}
+                    </Button>
+                  </div>
                   {item.serviceNameSnapshot && item.serviceSlotStartTime && item.serviceSlotEndTime && (
                     <p className="text-slate-600 text-xs">Slot: {formatSlotTimeRange(item.serviceSlotStartTime, item.serviceSlotEndTime)}</p>
                   )}
@@ -286,12 +342,31 @@ export function AdminOrderDetailClient({ orderId }: { orderId: string }) {
             <span className="text-muted-foreground">Subtotal ({order.items.length} item(s))</span>
             <span>{formatCurrency(order.subtotal)}</span>
           </div>
-          {order.tax > 0 && (
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Tax (GST)</span>
-              <span>{formatCurrency(order.tax)}</span>
-            </div>
-          )}
+          <div className="flex justify-between text-sm">
+            <span className="text-muted-foreground">Total GST</span>
+            <span>{formatCurrency(order.tax)}</span>
+          </div>
+
+          <div className="mt-1 space-y-1.5">
+            {order.items.map((item) => {
+              const gst = item.hasGst ? item.gstAmount : 0
+              const totalInclGst = item.subtotalInclGst ?? item.subtotal + gst
+              return (
+                <div key={item.id} className="flex justify-between gap-3 text-xs">
+                  <span className="min-w-0 truncate text-muted-foreground">
+                    {item.productNameSnapshot || item.serviceNameSnapshot || "Item"} (x{item.quantity})
+                  </span>
+                  <span className="text-right">
+                    <span className="text-muted-foreground">
+                      {formatCurrency(item.subtotal)} {gst > 0 ? `+ GST ${formatCurrency(gst)}` : "+ No GST"}
+                    </span>
+                    <span className="block font-medium text-slate-900">{formatCurrency(totalInclGst)}</span>
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+
           {order.shipping > 0 && (
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Shipping</span>
@@ -310,6 +385,33 @@ export function AdminOrderDetailClient({ orderId }: { orderId: string }) {
           </div>
         </CardContent>
       </Card>
+
+      {order.sellerGroups.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Seller-wise breakup</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {order.sellerGroups.map((group) => (
+              <div key={group.sellerId ?? `seller-${group.sellerStoreName ?? "unknown"}`} className="rounded-lg border p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="font-medium">{group.sellerStoreName ?? "Store"}</p>
+                  <Badge variant="outline" className="text-[10px] uppercase tracking-wide">
+                    {group.derivedStatus.replace(/_/g, " ")}
+                  </Badge>
+                </div>
+                <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-muted-foreground sm:grid-cols-5">
+                  <p>Items: {group.itemCount}</p>
+                  <p>Subtotal: {formatCurrency(group.summary.subtotal)}</p>
+                  <p>Tax: {formatCurrency(group.summary.tax)}</p>
+                  <p>Shipping: {formatCurrency(group.summary.shipping)}</p>
+                  <p className="font-medium text-foreground">Total: {formatCurrency(group.summary.total)}</p>
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }

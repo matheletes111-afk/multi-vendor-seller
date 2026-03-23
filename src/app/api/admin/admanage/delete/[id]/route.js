@@ -4,10 +4,14 @@ import { auth } from "@/lib/auth"
 import { isAdmin } from "@/lib/rbac"
 import { unlink } from "fs/promises"
 import path from "path"
+import { existsSync } from "fs"
+
+function isLocalPublicUpload(imageUrl) {
+  return typeof imageUrl === "string" && imageUrl.startsWith("/uploads/")
+}
 
 export async function DELETE(request, { params }) {
   try {
-    // IMPORTANT: Await the params to get the id
     const { id } = await params
     console.log("Deleting ad with ID:", id)
 
@@ -21,7 +25,6 @@ export async function DELETE(request, { params }) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Get the ad to find the image path
     const ad = await prisma.adManagement.findUnique({
       where: { id },
     })
@@ -32,20 +35,18 @@ export async function DELETE(request, { params }) {
       return NextResponse.json({ error: "Ad not found" }, { status: 404 })
     }
 
-    // Delete the image file if it exists
-    if (ad.image) {
+    if (ad.image && isLocalPublicUpload(ad.image)) {
       try {
         const imagePath = path.join(process.cwd(), "public", ad.image)
-        console.log("Deleting image at:", imagePath)
-        await unlink(imagePath)
-        console.log("Image deleted successfully")
+        if (existsSync(imagePath)) {
+          await unlink(imagePath)
+          console.log("Local image deleted successfully")
+        }
       } catch (deleteError) {
         console.error("Error deleting image file:", deleteError)
-        // Continue with database deletion even if image deletion fails
       }
     }
 
-    // Delete from database
     await prisma.adManagement.delete({
       where: { id },
     })

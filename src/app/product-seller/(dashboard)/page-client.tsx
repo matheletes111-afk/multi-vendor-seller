@@ -21,13 +21,44 @@ export function ProductSellerPageClient() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    fetch("/api/product-seller/overview")
-      .then((r) => {
-        if (!r.ok) throw new Error("Failed to load")
-        return r.json()
-      })
-      .then(setData)
-      .catch(() => setError("Failed to load dashboard"))
+    const controller = new AbortController()
+
+    const load = async () => {
+      try {
+        const res = await fetch("/api/product-seller/overview", { signal: controller.signal, cache: "no-store" })
+        if (!res.ok) throw new Error("Failed to load")
+        const json = (await res.json()) as Overview
+        setData(json)
+        setError(null)
+      } catch (e: any) {
+        if (e?.name === "AbortError") return
+        setError("Failed to load dashboard")
+      }
+    }
+
+    let isMounted = true
+    const run = async () => {
+      if (!isMounted) return
+      if (document.visibilityState === "hidden") return
+      await load()
+    }
+
+    void run()
+    const intervalId = window.setInterval(() => {
+      void run()
+    }, 30000)
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") void run()
+    }
+    document.addEventListener("visibilitychange", onVisibilityChange)
+
+    return () => {
+      isMounted = false
+      controller.abort()
+      window.clearInterval(intervalId)
+      document.removeEventListener("visibilitychange", onVisibilityChange)
+    }
   }, [])
 
   if (error) {

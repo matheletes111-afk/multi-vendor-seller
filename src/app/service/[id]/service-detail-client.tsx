@@ -7,6 +7,7 @@ import { useSession } from "next-auth/react"
 import { Button } from "@/ui/button"
 import { formatCurrency } from "@/lib/utils"
 import { PublicLayout } from "@/components/site-layout"
+import { PublicReviewsSection, type PublicReviewItem } from "@/components/reviews/public-reviews-section"
 import { UserRole } from "@prisma/client"
 import { Briefcase, Calendar, ChevronRight, Clock, Loader2, Truck } from "lucide-react"
 
@@ -22,6 +23,8 @@ type Service = {
   serviceCategory: { id: string; name: string; slug: string }
   seller: { store: { name: string } | null } | null
   _count: { reviews: number }
+  averageRating: number
+  reviews: PublicReviewItem[]
 }
 
 type SlotApi = { startTime: string; endTime: string }
@@ -196,7 +199,10 @@ export function ServiceDetailClient({ service }: { service: Service }) {
               <p className="text-sm text-slate-500">{service.serviceCategory.name}</p>
               <h1 className="mt-1 text-2xl font-bold text-slate-900 md:text-3xl">{service.name}</h1>
               {service._count.reviews > 0 && (
-                <p className="mt-2 text-sm text-slate-600">{service._count.reviews} rating(s)</p>
+                <p className="mt-2 text-sm text-slate-600">
+                  {service.averageRating.toFixed(1)} rating from {service._count.reviews} review
+                  {service._count.reviews === 1 ? "" : "s"}
+                </p>
               )}
 
               <div className="mt-4 flex items-baseline gap-2">
@@ -356,6 +362,12 @@ export function ServiceDetailClient({ service }: { service: Service }) {
               <p className="mt-3 text-slate-500">No description provided.</p>
             )}
           </div>
+
+          <PublicReviewsSection
+            averageRating={service.averageRating}
+            totalReviews={service._count.reviews}
+            reviews={service.reviews}
+          />
         </div>
 
         <div className="mt-6 text-center">

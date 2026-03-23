@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { isAdmin } from "@/lib/rbac"
 import { getPaginationFromSearchParams } from "@/lib/admin-pagination"
+import type { Prisma, SellerAdStatus } from "@prisma/client"
 
 export async function GET(request: NextRequest) {
   try {
@@ -17,8 +18,21 @@ export async function GET(request: NextRequest) {
       perPage: searchParams.get("perPage") ?? undefined,
     })
 
+    const tab = searchParams.get("tab") ?? "all"
+    let where: Prisma.SellerAdWhereInput = {}
+    const statusMap: Record<string, SellerAdStatus> = {
+      pending: "PENDING_APPROVAL",
+      active: "ACTIVE",
+      paused: "PAUSED",
+      ended: "ENDED",
+    }
+    if (tab !== "all" && statusMap[tab]) {
+      where = { status: statusMap[tab] }
+    }
+
     const [ads, totalCount] = await Promise.all([
       prisma.sellerAd.findMany({
+        where,
         skip,
         take,
         include: {
@@ -34,7 +48,7 @@ export async function GET(request: NextRequest) {
         },
         orderBy: { createdAt: "desc" },
       }),
-      prisma.sellerAd.count(),
+      prisma.sellerAd.count({ where }),
     ])
 
     const serialized = ads.map((ad) => ({

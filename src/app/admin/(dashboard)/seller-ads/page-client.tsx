@@ -2,7 +2,10 @@
 
 import { useState, useEffect, useCallback } from "react"
 import Image from "next/image"
+import Link from "next/link"
 import { useSearchParams, useRouter } from "next/navigation"
+import { cn } from "@/lib/utils"
+import { buildAdminPageUrl } from "@/lib/admin-pagination"
 import { Button } from "@/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/ui/card"
 import { Badge } from "@/ui/badge"
@@ -18,7 +21,7 @@ import {
 import { formatCurrency } from "@/lib/utils"
 import { getYoutubeThumbnailUrl } from "@/lib/youtube"
 import { Megaphone, Check, X, ImageIcon, Video } from "lucide-react"
-import { AdminPagination, AdminPaginationProps } from "@/components/admin/admin-pagination"
+import { AdminPagination } from "@/components/admin/admin-pagination"
 import { PageLoader } from "@/components/ui/page-loader"
 
 type Ad = {
@@ -47,9 +50,11 @@ export function AdminSellerAdsPageClient() {
   const router = useRouter()
   const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10) || 1)
   const perPage = Math.min(50, Math.max(1, parseInt(searchParams.get("perPage") ?? "10", 10) || 10))
+  const tab = searchParams.get("tab") ?? "all"
   const params = {
     error: searchParams.get("error") ?? undefined,
     success: searchParams.get("success") ?? undefined,
+    tab: tab === "all" ? undefined : tab,
   }
 
   const [data, setData] = useState<{
@@ -65,7 +70,8 @@ export function AdminSellerAdsPageClient() {
     setLoading(true)
     setFetchError(null)
     try {
-      const res = await fetch(`/api/admin/seller-ads?page=${page}&perPage=${perPage}`)
+      const tabQs = tab === "all" ? "" : `&tab=${encodeURIComponent(tab)}`
+      const res = await fetch(`/api/admin/seller-ads?page=${page}&perPage=${perPage}${tabQs}`)
       if (!res.ok) throw new Error("Failed to fetch seller ads")
       const json = await res.json()
       setData(json)
@@ -74,7 +80,7 @@ export function AdminSellerAdsPageClient() {
     } finally {
       setLoading(false)
     }
-  }, [page, perPage])
+  }, [page, perPage, tab])
 
   useEffect(() => {
     fetchAds()
@@ -97,6 +103,14 @@ export function AdminSellerAdsPageClient() {
     router.replace("/admin/seller-ads?success=Rejected")
     return {}
   }
+
+  const adTabs = [
+    { id: "all", label: "All" },
+    { id: "pending", label: "Pending" },
+    { id: "active", label: "Active" },
+    { id: "paused", label: "Paused" },
+    { id: "ended", label: "Ended" },
+  ] as const
 
   const statusBadge = (status: string) => {
     switch (status) {
@@ -145,6 +159,26 @@ export function AdminSellerAdsPageClient() {
             <div className="py-12 text-center text-destructive">{fetchError}</div>
           ) : !data ? null : (
             <>
+          <div className="flex flex-wrap gap-2 pb-4 mb-4 border-b">
+            {adTabs.map((t) => (
+              <Link
+                key={t.id}
+                href={buildAdminPageUrl("/admin/seller-ads", 1, {
+                  error: params.error,
+                  success: params.success,
+                  tab: t.id === "all" ? undefined : t.id,
+                })}
+                className={cn(
+                  "rounded-full px-3 py-1.5 text-sm font-medium transition-colors",
+                  tab === t.id
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted text-muted-foreground hover:bg-muted/80"
+                )}
+              >
+                {t.label}
+              </Link>
+            ))}
+          </div>
           <Table>
             <TableHeader>
               <TableRow>
@@ -171,18 +205,18 @@ export function AdminSellerAdsPageClient() {
                 data.ads.map((ad) => (
                   <TableRow key={ad.id}>
                     <TableCell>
-                      <div className="relative w-24 h-14 rounded overflow-hidden bg-muted shrink-0">
+                      <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-full bg-muted ring-2 ring-border">
                         {ad.creativeType === "VIDEO" ? (
                           getYoutubeThumbnailUrl(ad.creativeUrl) ? (
                             <img
                               src={getYoutubeThumbnailUrl(ad.creativeUrl)!}
                               alt={ad.title}
-                              className="w-full h-full object-cover"
+                              className="h-full w-full object-cover"
                             />
                           ) : (
                             <video
                               src={ad.creativeUrl}
-                              className="w-full h-full object-cover"
+                              className="h-full w-full object-cover"
                               muted
                               preload="metadata"
                               playsInline
@@ -197,7 +231,7 @@ export function AdminSellerAdsPageClient() {
                             unoptimized
                           />
                         )}
-                        <div className="absolute bottom-0.5 right-0.5">
+                        <div className="absolute bottom-0.5 right-0.5 rounded-full bg-black/50 p-0.5">
                           {ad.creativeType === "VIDEO" ? (
                             <Video className="h-3 w-3 text-white drop-shadow" />
                           ) : (

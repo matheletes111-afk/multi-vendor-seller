@@ -3,8 +3,9 @@ import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { isProductSeller } from "@/lib/rbac"
 import { saveAdCreativeFile, validateAdCreativeFile } from "@/lib/ad-upload"
+import { getPaginationFromSearchParams } from "@/lib/admin-pagination"
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   const session = await auth()
 
   if (!session?.user || !isProductSeller(session.user)) {
@@ -19,14 +20,27 @@ export async function GET() {
     return NextResponse.json({ error: "Seller not found" }, { status: 404 })
   }
 
-  const ads = await prisma.sellerAd.findMany({
-    where: { sellerId: seller.id, productId: { not: null } },
-    include: {
-      product: { select: { id: true, name: true, slug: true } },
-      _count: { select: { adClicks: true } },
-    },
-    orderBy: { createdAt: "desc" },
+  const { searchParams } = new URL(request.url)
+  const { skip, take, page, perPage } = getPaginationFromSearchParams({
+    page: searchParams.get("page") ?? undefined,
+    perPage: searchParams.get("perPage") ?? undefined,
   })
+
+  const where = { sellerId: seller.id, productId: { not: null } }
+
+  const [ads, totalCount] = await Promise.all([
+    prisma.sellerAd.findMany({
+      where,
+      skip,
+      take,
+      include: {
+        product: { select: { id: true, name: true, slug: true } },
+        _count: { select: { adClicks: true } },
+      },
+      orderBy: { createdAt: "desc" },
+    }),
+    prisma.sellerAd.count({ where }),
+  ])
 
   const serialized = ads.map((ad) => ({
     ...ad,
@@ -36,7 +50,15 @@ export async function GET() {
     targetCountries: ad.targetCountries as string[] | null,
   }))
 
-  return NextResponse.json(serialized)
+  const totalPages = Math.ceil(totalCount / perPage) || 1
+
+  return NextResponse.json({
+    ads: serialized,
+    totalCount,
+    totalPages,
+    page,
+    perPage,
+  })
 }
 
 export async function POST(request: NextRequest) {

@@ -20,9 +20,12 @@ export function NewAdClient() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    fetch("/api/product-seller/products")
-      .then((r) => (r.ok ? r.json() : []))
-      .then((list) => setProducts(list.map((p: { id: string; name: string }) => ({ id: p.id, name: p.name }))))
+    fetch("/api/product-seller/products?page=1&perPage=100")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((json) => {
+        const list = json?.products ?? []
+        setProducts(list.map((p: { id: string; name: string }) => ({ id: p.id, name: p.name })))
+      })
       .catch(() => setProducts([]))
   }, [])
 

@@ -1,0 +1,609 @@
+MOBILE API CONTRACT: CART -> CHECKOUT -> ORDER
+Project: multi-vendor-seller
+Audience: Flutter app integration
+Auth: Bearer token required for all /mobileapi/customer/* routes below
+
+============================================================
+1) GET CART
+============================================================
+Endpoint:
+GET /mobileapi/customer/cart
+
+Headers:
+Authorization: Bearer <token>
+
+Response 200 (array):
+[
+  {
+    "id": "cartItemId",
+    "productId": "prod_123",
+    "productVariantId": "var_123",
+    "serviceId": null,
+    "servicePackageId": null,
+    "serviceSlotId": null,
+    "quantity": 2,
+    "unitPrice": 100,
+    "totalPrice": 200,
+    "hasGst": true,
+    "totalGst": 30,
+    "totalPriceInclGst": 230,
+    "name": "Product Name (Variant)",
+    "image": "https://..."
+  }
+]
+
+Error 401:
+{ "success": false, "error": "Unauthorized. Valid customer token required." }
+
+============================================================
+2) ADD TO CART
+============================================================
+Endpoint:
+POST /mobileapi/customer/cart
+
+Headers:
+Authorization: Bearer <token>
+Content-Type: application/json
+
+Payload (product):
+{
+  "productId": "prod_123",
+  "productVariantId": "var_123",
+  "quantity": 1
+}
+
+Payload (service):
+{
+  "serviceId": "svc_123",
+  "servicePackageId": "pkg_123",
+  "serviceSlotId": "slot_123",
+  "quantity": 1
+}
+
+Response 200:
+Same format as GET /mobileapi/customer/cart (updated full cart array).
+
+Error examples:
+400 { "success": false, "error": "Invalid payload" }
+400 { "success": false, "error": "Invalid cart item" }
+401 { "success": false, "error": "Unauthorized. Valid customer token required." }
+
+============================================================
+3) UPDATE / REMOVE CART ITEM
+============================================================
+Endpoint:
+PATCH /mobileapi/customer/cart
+
+Headers:
+Authorization: Bearer <token>
+Content-Type: application/json
+
+Payload (update quantity):
+{
+  "cartItemId": "cartItemId",
+  "quantity": 3
+}
+
+Payload (remove):
+{
+  "cartItemId": "cartItemId",
+  "remove": true
+}
+
+Response 200:
+Same format as GET /mobileapi/customer/cart (updated full cart array).
+
+Error examples:
+400 { "success": false, "error": "cartItemId required" }
+400 { "success": false, "error": "Invalid patch payload" }
+404 { "success": false, "error": "Cart item not found" }
+
+============================================================
+4) MERGE GUEST CART AFTER LOGIN
+============================================================
+Endpoint:
+POST /mobileapi/customer/cart/merge
+
+Headers:
+Authorization: Bearer <token>
+Content-Type: application/json
+
+Payload:
+{
+  "items": [
+    {
+      "productId": "prod_123",
+      "productVariantId": "var_123",
+      "quantity": 2
+    },
+    {
+      "serviceId": "svc_123",
+      "servicePackageId": "pkg_123",
+      "serviceSlotId": "slot_123",
+      "quantity": 1
+    }
+  ]
+}
+
+Response 200:
+{ "success": true }
+
+============================================================
+5) LIST CHECKOUT ADDRESSES
+============================================================
+Endpoint:
+GET /mobileapi/customer/checkout/addresses
+
+Headers:
+Authorization: Bearer <token>
+
+Response 200:
+{
+  "success": true,
+  "data": [
+    {
+      "id": "addr_123",
+      "fullName": "John Doe",
+      "addressType": "HOME",
+      "phone": "123456789",
+      "addressLine1": "Line 1",
+      "addressLine2": null,
+      "city": "City",
+      "state": "State",
+      "postalCode": "0000",
+      "country": "Country",
+      "isDefault": true
+    }
+  ]
+}
+
+============================================================
+6) PLACE ORDER (MAIN FLOW CHANGE)
+============================================================
+Endpoint:
+POST /mobileapi/customer/checkout/place-order
+
+Headers:
+Authorization: Bearer <token>
+Content-Type: application/json
+
+Payload:
+{
+  "addressId": "addr_123"
+}
+
+Response 200:
+{
+  "success": true,
+  "orderIds": ["ord_123"],
+  "orders": [
+    {
+      "orderId": "ord_123",
+      "orderNumber": "ORD-...",
+      "sellerId": "MULTI",
+      "totalAmount": 345.5,
+      "itemCount": 3
+    }
+  ]
+}
+
+IMPORTANT CHANGE (OLD -> NEW):
+- OLD: one checkout could return multiple orders (one per seller).
+- NEW: one checkout returns one order containing multiple seller-owned order items.
+- Keep Flutter side ready for:
+  - orderIds usually length 1 now
+  - orders[0].sellerId can be "MULTI"
+
+Error examples:
+400 { "success": false, "error": "addressId required" }
+404 { "success": false, "error": "Address not found" }
+400 { "success": false, "error": "Cart is empty" }
+400 { "success": false, "error": "No seller-mapped items found in cart" }
+
+============================================================
+7) ORDER LIST APIS (PRODUCT/SERVICE TABS)
+============================================================
+Endpoints:
+GET /mobileapi/customer/orders/products/list?page=1
+GET /mobileapi/customer/orders/services/list?page=1
+
+Response 200:
+{
+  "success": true,
+  "message": "Product orders fetched successfully",
+  "data": {
+    "orders": [
+      {
+        "id": "ord_123",
+        "orderNumber": "ORD-...",
+        "status": "PARTIALLY_DELIVERED",
+        "totalAmount": 215,
+        "subtotal": 200,
+        "tax": 15,
+        "shipping": 0,
+        "paymentMethod": "COD",
+        "paymentStatus": "PENDING",
+        "shippingFullName": "John Doe",
+        "shippingPhone": "...",
+        "shippingAddressLine1": "...",
+        "shippingAddressLine2": null,
+        "shippingCity": "...",
+        "shippingState": "...",
+        "shippingPostalCode": "...",
+        "shippingCountry": "...",
+        "createdAt": "2026-...",
+        "sellerStoreName": "Multiple sellers",
+        "sellerGroups": [
+          {
+            "sellerId": "seller_1",
+            "sellerStoreName": "Store A",
+            "summary": {
+              "subtotal": 100,
+              "tax": 15,
+              "shipping": 0,
+              "commission": 11.5,
+              "total": 115
+            },
+            "itemStatuses": { "DELIVERED": 1 },
+            "derivedStatus": "DELIVERED",
+            "itemCount": 1
+          },
+          {
+            "sellerId": "seller_2",
+            "sellerStoreName": "Store B",
+            "summary": {
+              "subtotal": 100,
+              "tax": 0,
+              "shipping": 0,
+              "commission": 10,
+              "total": 100
+            },
+            "itemStatuses": { "PENDING": 1 },
+            "derivedStatus": "PENDING",
+            "itemCount": 1
+          }
+        ],
+        "items": [
+          {
+            "id": "item_1",
+            "sellerId": "seller_1",
+            "sellerStoreName": "Store A",
+            "itemStatus": "DELIVERED",
+            "productId": "prod_123",
+            "serviceId": null,
+            "productNameSnapshot": "Product A",
+            "serviceNameSnapshot": null,
+            "quantity": 1,
+            "price": 100,
+            "subtotal": 100,
+            "hasGst": true,
+            "gstAmount": 15,
+            "subtotalInclGst": 115,
+            "imageUrl": "https://...",
+            "serviceSlotStartTime": null,
+            "serviceSlotEndTime": null,
+            "review": null,
+            "canReview": true,
+            "shippingAmount": 0,
+            "commissionAmount": 11.5,
+            "commissionRateSnapshot": 10
+          },
+          {
+            "id": "item_2",
+            "sellerId": "seller_2",
+            "sellerStoreName": "Store B",
+            "itemStatus": "PENDING",
+            "productId": "prod_456",
+            "serviceId": null,
+            "productNameSnapshot": "Product B",
+            "serviceNameSnapshot": null,
+            "quantity": 2,
+            "price": 50,
+            "subtotal": 100,
+            "hasGst": false,
+            "gstAmount": 0,
+            "subtotalInclGst": 100,
+            "imageUrl": "https://...",
+            "serviceSlotStartTime": null,
+            "serviceSlotEndTime": null,
+            "review": null,
+            "canReview": false,
+            "shippingAmount": 0,
+            "commissionAmount": 10,
+            "commissionRateSnapshot": 10
+          }
+        ]
+      }
+    ],
+    "total": 1,
+    "page": 1,
+    "pageSize": 10
+  }
+}
+
+NOTES FOR FLUTTER:
+- status can now be derived mixed values (e.g. PARTIALLY_DELIVERED, PARTIALLY_CANCELLED, MIXED).
+- parse and display itemStatus per item.
+- use sellerGroups for seller-wise breakup UI.
+
+============================================================
+8) ORDER DETAILS APIS (PRODUCT/SERVICE)
+============================================================
+Endpoints:
+GET /mobileapi/customer/orders/products/details/{orderId}
+GET /mobileapi/customer/orders/services/details/{orderId}
+
+Response shape:
+{
+  "success": true,
+  "message": "Order details fetched successfully",
+  "data": {
+    "id": "ord_123",
+    "orderNumber": "ORD-...",
+    "status": "PARTIALLY_DELIVERED",
+    "totalAmount": 215,
+    "subtotal": 200,
+    "tax": 15,
+    "shipping": 0,
+    "paymentMethod": "COD",
+    "paymentStatus": "PENDING",
+    "shippingFullName": "John Doe",
+    "shippingPhone": "...",
+    "shippingAddressLine1": "...",
+    "shippingAddressLine2": null,
+    "shippingCity": "...",
+    "shippingState": "...",
+    "shippingPostalCode": "...",
+    "shippingCountry": "...",
+    "createdAt": "2026-...",
+    "sellerStoreName": "Multiple sellers",
+    "sellerGroups": [
+      {
+        "sellerId": "seller_1",
+        "sellerStoreName": "Store A",
+        "summary": {
+          "subtotal": 100,
+          "tax": 15,
+          "shipping": 0,
+          "commission": 11.5,
+          "total": 115
+        },
+        "itemStatuses": { "DELIVERED": 1 },
+        "derivedStatus": "DELIVERED",
+        "itemCount": 1
+      },
+      {
+        "sellerId": "seller_2",
+        "sellerStoreName": "Store B",
+        "summary": {
+          "subtotal": 100,
+          "tax": 0,
+          "shipping": 0,
+          "commission": 10,
+          "total": 100
+        },
+        "itemStatuses": { "PENDING": 1 },
+        "derivedStatus": "PENDING",
+        "itemCount": 1
+      }
+    ],
+    "items": [
+      {
+        "id": "item_1",
+        "sellerId": "seller_1",
+        "sellerStoreName": "Store A",
+        "itemStatus": "DELIVERED",
+        "productId": "prod_123",
+        "serviceId": null,
+        "productNameSnapshot": "Product A",
+        "serviceNameSnapshot": null,
+        "quantity": 1,
+        "price": 100,
+        "subtotal": 100,
+        "hasGst": true,
+        "gstAmount": 15,
+        "subtotalInclGst": 115,
+        "imageUrl": "https://...",
+        "serviceSlotStartTime": null,
+        "serviceSlotEndTime": null,
+        "review": null,
+        "canReview": true,
+        "shippingAmount": 0,
+        "commissionAmount": 11.5,
+        "commissionRateSnapshot": 10
+      },
+      {
+        "id": "item_2",
+        "sellerId": "seller_2",
+        "sellerStoreName": "Store B",
+        "itemStatus": "PENDING",
+        "productId": "prod_456",
+        "serviceId": null,
+        "productNameSnapshot": "Product B",
+        "serviceNameSnapshot": null,
+        "quantity": 2,
+        "price": 50,
+        "subtotal": 100,
+        "hasGst": false,
+        "gstAmount": 0,
+        "subtotalInclGst": 100,
+        "imageUrl": "https://...",
+        "serviceSlotStartTime": null,
+        "serviceSlotEndTime": null,
+        "review": null,
+        "canReview": false,
+        "shippingAmount": 0,
+        "commissionAmount": 10,
+        "commissionRateSnapshot": 10
+      }
+    ]
+  }
+}
+
+============================================================
+9) BACKWARD COMPATIBILITY NOTES
+============================================================
+- Some old orders may not have all new item-level data until backfill is run.
+- Frontend should handle null sellerId/sellerStoreName safely.
+- Always treat item-level status as source of truth for fulfillment UI.
+
+============================================================
+END
+============================================================
+
+
+============================================================
+10) WISHLIST APIS (WEB + MOBILE)
+============================================================
+Added mobile API:
+src/app/mobileapi/customer/wishlist/route.ts
+
+- GET list
+- POST toggle add/remove
+- DELETE remove
+- bearer token customer auth only
+
+Access rules (as requested)
+- Guests: cannot see wishlist icon/heart, cannot use APIs
+- Logged-in non-customer roles: cannot see wishlist icon/heart, APIs return forbidden/unauthorized
+- Logged-in CUSTOMER: full wishlist access
+
+------------------------------------------------------------
+API contract (payload/response)
+------------------------------------------------------------
+Web toggle
+POST /api/customer/wishlist
+
+payload:
+{ "productId": "prod_123" }
+
+success (added):
+{
+  "ok": true,
+  "action": "added",
+  "item": {
+    "wishlistItemId": "wish_1",
+    "productId": "prod_123",
+    "createdAt": "2026-03-23T07:00:00.000Z",
+    "product": { "id": "prod_123", "name": "Product", "slug": "product", "image": "/img.jpg", "price": 199 }
+  },
+  "count": 3
+}
+
+success (removed):
+{ "ok": true, "action": "removed", "item": null, "count": 2 }
+
+error:
+{ "error": "Unauthorized | Forbidden: only customers can use wishlist | productId is required | Product not found" }
+
+Web list
+GET /api/customer/wishlist
+
+success:
+{ "items": [/* WishlistItemApi[] */], "count": 3 }
+
+Mobile toggle
+POST /mobileapi/customer/wishlist
+
+payload:
+{ "productId": "prod_123" }
+
+success:
+{
+  "success": true,
+  "message": "Wishlist updated",
+  "data": { "action": "added", "item": { /* WishlistItemApi */ }, "count": 3 }
+}
+
+removed:
+{
+  "success": true,
+  "message": "Wishlist updated",
+  "data": { "action": "removed", "item": null, "count": 2 }
+}
+
+error:
+{ "success": false, "error": "Unauthorized. Valid customer token required. | productId is required | Product not found" }
+
+Mobile list
+GET /mobileapi/customer/wishlist
+
+success:
+{
+  "success": true,
+  "message": "Wishlist fetched",
+  "data": { "items": [/* WishlistItemApi[] */], "count": 3 }
+}
+
+Mobile API remove added
+
+DELETE /mobileapi/customer/wishlist
+
+payload:
+{ "productId": "prod_123" }
+
+response:
+{
+  "success": true,
+  "message": "Wishlist updated",
+  "data": { "action": "removed", "item": null, "count": 2 }
+}
+
+Web UI remove added
+
+In header wishlist dropdown, each product now has a trash/remove button.
+Clicking it removes immediately from wishlist and updates count/list.
+
+Also still enforced:
+- only logged-in CUSTOMER can use wishlist (view/add/remove)
+
+
+======================================================
+11) MOBILE SETTINGS API (/mobileapi/customer/settings)
+======================================================
+
+Get profile
+Method: GET
+Headers: Authorization: Bearer <customer_token>
+
+Response (200)
+{
+  "success": true,
+  "message": "Profile fetched",
+  "data": {
+    "id": "clx123",
+    "name": "John Doe",
+    "email": "john@example.com",
+    "image": "/uploads/profile/profile-abc.jpg",
+    "phone": "9999999999",
+    "phoneCountryCode": "+91"
+  }
+}
+
+Update profile (FormData)
+Method: PUT
+Headers: Authorization: Bearer <customer_token>
+
+Form fields:
+- name
+- image
+- phone
+- phoneCountryCode
+- password (optional, min 6)
+- profileImage (file)
+
+Response (200)
+{
+  "success": true,
+  "message": "Profile updated successfully",
+  "data": {
+    "id": "clx123",
+    "name": "John Doe",
+    "email": "john@example.com",
+    "image": "/uploads/profile/profile-new.jpg",
+    "phone": "9999999999",
+    "phoneCountryCode": "+91"
+  }
+}
+
+

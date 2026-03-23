@@ -94,6 +94,7 @@ model User {
   orders        Order[]
   reviews       Review[]
   cartItems     CartItem[]
+  wishlistItems WishlistItem[]
   addresses     UserAddress[]
   recentViews   RecentView[]
 
@@ -195,6 +196,7 @@ model Seller {
   products     Product[]
   services     Service[]
   orders       Order[]
+  orderItems   OrderItem[]
   sellerAds    SellerAd[]
 
   @@map("sellers")
@@ -411,6 +413,7 @@ model Product {
   orderItems   OrderItem[]
   reviews      Review[]
   cartItems    CartItem[]
+  wishlistItems WishlistItem[]
   sellerAds    SellerAd[]
   recentViews  RecentView[]
 
@@ -420,6 +423,21 @@ model Product {
   @@index([sellerId])
   @@index([isActive])
   @@map("products")
+}
+
+model WishlistItem {
+  id        String   @id @default(cuid())
+  userId    String
+  productId String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, productId])
+  @@index([userId])
+  @@map("wishlist_items")
 }
 
 enum ReturnPolicyType {
@@ -532,7 +550,7 @@ model Order {
   id              String        @id @default(cuid())
   orderNumber     String        @default(cuid()) @unique
   customerId      String
-  sellerId        String
+  sellerId        String?
   status          OrderStatus   @default(PENDING)
   totalAmount     Float
   subtotal        Float
@@ -555,7 +573,7 @@ model Order {
   updatedAt       DateTime    @updatedAt
 
   customer   User        @relation(fields: [customerId], references: [id])
-  seller     Seller      @relation(fields: [sellerId], references: [id])
+  seller     Seller?     @relation(fields: [sellerId], references: [id])
   items      OrderItem[]
   payments   Payment[]
   commissions Commission[]
@@ -569,6 +587,7 @@ model Order {
 model OrderItem {
   id                  String   @id @default(cuid())
   orderId             String
+  sellerId            String?
   productId           String?
   serviceId           String?
   productVariantId    String?
@@ -582,16 +601,24 @@ model OrderItem {
   hasGst              Boolean  @default(true)
   gstAmount           Float    @default(0)
   subtotalInclGst     Float?   // subtotal + gstAmount
+  itemStatus          OrderStatus @default(PENDING)
+  shippingAmount      Float    @default(0)
+  commissionAmount    Float    @default(0)
+  commissionRateSnapshot Float @default(0)
   createdAt           DateTime @default(now())
 
   order          Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  seller         Seller?         @relation(fields: [sellerId], references: [id], onDelete: SetNull)
   product        Product?        @relation(fields: [productId], references: [id])
   service        Service?        @relation(fields: [serviceId], references: [id])
   productVariant ProductVariant? @relation(fields: [productVariantId], references: [id])
   servicePackage ServicePackage? @relation(fields: [servicePackageId], references: [id])
   serviceSlot    ServiceSlot?    @relation(fields: [serviceSlotId], references: [id])
+  review         Review?
 
   @@index([orderId])
+  @@index([orderId, sellerId])
+  @@index([sellerId, itemStatus])
   @@map("order_items")
 }
 
@@ -638,8 +665,10 @@ model Review {
   userId    String
   productId String?
   serviceId String?
+  orderItemId String? @unique
   rating    Int      // 1-5
   comment   String?  @db.Text
+  images    Json?
   isVerified Boolean @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -647,9 +676,11 @@ model Review {
   user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   product Product? @relation(fields: [productId], references: [id], onDelete: Cascade)
   service Service? @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  orderItem OrderItem? @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
 
   @@index([productId])
   @@index([serviceId])
+  @@index([orderItemId])
   @@map("reviews")
 }
 

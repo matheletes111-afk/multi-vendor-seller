@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import Link from "next/link"
 import { useSearchParams, useRouter } from "next/navigation"
 import { Button } from "@/ui/button"
@@ -24,9 +24,10 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/ui/dialog"
-import { formatCurrency } from "@/lib/utils"
+import { cn, formatCurrency } from "@/lib/utils"
 import { PageLoader } from "@/components/ui/page-loader"
 import { Plus, Package, Pencil, Trash2 } from "lucide-react"
+import { AdminPagination } from "@/components/admin/admin-pagination"
 
 type Product = {
   id: string
@@ -40,32 +41,96 @@ type Product = {
   _count: { orderItems: number; reviews: number }
 }
 
+/** Long names truncate; "View more" expands inline (does not navigate). */
+function ProductNameCell({ name, variantSummary }: { name: string; variantSummary: string }) {
+  const [expanded, setExpanded] = useState(false)
+  const likelyOverflows = name.length > 32
+
+  return (
+    <div className="flex items-start gap-2 min-w-0">
+      <div className="min-w-0 flex-1">
+        <p
+          className={cn(
+            "text-sm font-medium text-foreground",
+            expanded ? "break-words" : "truncate"
+          )}
+        >
+          {name}
+        </p>
+        <p className="text-xs text-muted-foreground/90 mt-0.5 truncate">{variantSummary}</p>
+      </div>
+      {likelyOverflows && (
+        <button
+          type="button"
+          onClick={() => setExpanded((e) => !e)}
+          className="text-xs font-medium text-primary shrink-0 whitespace-nowrap pt-0.5 hover:underline"
+        >
+          {expanded ? "View less" : "View more"}
+        </button>
+      )}
+    </div>
+  )
+}
+
 export function ProductsPageClient() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10) || 1)
+  const perPage = Math.min(50, Math.max(1, parseInt(searchParams.get("perPage") ?? "10", 10) || 10))
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [imageErrors, setImageErrors] = useState<Set<string>>(new Set())
+  const [totalCount, setTotalCount] = useState(0)
+  const [totalPages, setTotalPages] = useState(1)
+
+  const loadProducts = useCallback(() => {
+    setLoading(true)
+    setImageErrors(new Set())
+    return fetch(`/api/product-seller/products?page=${page}&perPage=${perPage}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((json) => {
+        if (json?.products) {
+          setProducts(json.products)
+          setTotalCount(json.totalCount ?? 0)
+          setTotalPages(json.totalPages ?? 1)
+        } else {
+          setProducts([])
+          setTotalCount(0)
+          setTotalPages(1)
+        }
+      })
+      .catch(() => {
+        setProducts([])
+        setTotalCount(0)
+        setTotalPages(1)
+      })
+      .finally(() => setLoading(false))
+  }, [page, perPage])
 
   useEffect(() => {
-    fetch("/api/product-seller/products")
-      .then((r) => (r.ok ? r.json() : []))
-      .then(setProducts)
-      .catch(() => setProducts([]))
-      .finally(() => setLoading(false))
-  }, [])
+    loadProducts()
+  }, [loadProducts])
 
   const paramsError = searchParams.get("error")
   const paramsSuccess = searchParams.get("success")
+  const paginationParams = {
+    error: paramsError ?? undefined,
+    success: paramsSuccess ?? undefined,
+  }
 
   const handleDelete = async (productId: string) => {
     setDeletingId(productId)
+    const wasLastOnPage = products.length === 1
     try {
       const res = await fetch(`/api/product-seller/products/${productId}`, { method: "DELETE" })
       if (res.ok) {
-        setProducts((prev) => prev.filter((p) => p.id !== productId))
-        router.replace("/product-seller/products?success=Product+deleted+permanently")
+        if (wasLastOnPage && page > 1) {
+          router.replace(`/product-seller/products?page=${page - 1}&success=Product+deleted+permanently`)
+        } else {
+          await loadProducts()
+          router.replace("/product-seller/products?success=Product+deleted+permanently")
+        }
       } else {
         const data = await res.json().catch(() => ({}))
         router.replace(`/product-seller/products?error=${encodeURIComponent(data.error || "Delete failed")}`)
@@ -141,7 +206,7 @@ export function ProductsPageClient() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Preview</TableHead>
-                  <TableHead>Name</TableHead>
+                  <TableHead className="min-w-[200px] max-w-[280px]">Name</TableHead>
                   <TableHead>Category</TableHead>
                   <TableHead>Variants</TableHead>
                   <TableHead>Price</TableHead>
@@ -171,14 +236,13 @@ export function ProductsPageClient() {
                           </div>
                         )}
                       </TableCell>
-                      <TableCell>
-                        <Link href={`/product-seller/products/${product.id}`} className="font-medium hover:underline">
-                          {product.name}
-                        </Link>
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          {product.variants.length} variant(s)
-                          {product.variants[0] != null && ` · Stock: ${product.variants[0].stock}`}
-                        </p>
+                      <TableCell className="min-w-0 max-w-[280px]">
+                        <ProductNameCell
+                          name={product.name}
+                          variantSummary={`${product.variants.length} variant(s)${
+                            product.variants[0] != null ? ` · Stock: ${product.variants[0].stock}` : ""
+                          }`}
+                        />
                       </TableCell>
                       <TableCell className="text-muted-foreground">
                         {product.category.name}
@@ -233,6 +297,16 @@ export function ProductsPageClient() {
               </TableBody>
             </Table>
           </CardContent>
+          <div className="px-6 pb-6">
+            <AdminPagination
+              basePath="/product-seller/products"
+              currentPage={page}
+              totalPages={totalPages}
+              totalCount={totalCount}
+              pageSize={perPage}
+              params={paginationParams}
+            />
+          </div>
         </Card>
       )}
     </div>

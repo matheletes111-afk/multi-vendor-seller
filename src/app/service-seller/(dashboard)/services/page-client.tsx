@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import Link from "next/link"
 import { useSearchParams, useRouter } from "next/navigation"
 import { Button } from "@/ui/button"
@@ -27,6 +27,7 @@ import {
 import { formatCurrency } from "@/lib/utils"
 import { PageLoader } from "@/components/ui/page-loader"
 import { Edit, Trash2, Briefcase } from "lucide-react"
+import { AdminPagination } from "@/components/admin/admin-pagination"
 
 type Service = {
   id: string
@@ -53,24 +54,57 @@ function getServiceImageUrls(images: unknown): string[] {
 export function ServicesPageClient() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10) || 1)
+  const perPage = Math.min(50, Math.max(1, parseInt(searchParams.get("perPage") ?? "10", 10) || 10))
   const [services, setServices] = useState<Service[]>([])
   const [loading, setLoading] = useState(true)
+  const [totalCount, setTotalCount] = useState(0)
+  const [totalPages, setTotalPages] = useState(1)
+
+  const loadServices = useCallback(() => {
+    setLoading(true)
+    return fetch(`/api/service-seller/services?page=${page}&perPage=${perPage}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((json) => {
+        if (json?.services) {
+          setServices(json.services)
+          setTotalCount(json.totalCount ?? 0)
+          setTotalPages(json.totalPages ?? 1)
+        } else {
+          setServices([])
+          setTotalCount(0)
+          setTotalPages(1)
+        }
+      })
+      .catch(() => {
+        setServices([])
+        setTotalCount(0)
+        setTotalPages(1)
+      })
+      .finally(() => setLoading(false))
+  }, [page, perPage])
 
   useEffect(() => {
-    fetch("/api/service-seller/services")
-      .then((r) => (r.ok ? r.json() : []))
-      .then(setServices)
-      .finally(() => setLoading(false))
-  }, [])
+    loadServices()
+  }, [loadServices])
 
   const paramsError = searchParams.get("error")
   const paramsSuccess = searchParams.get("success")
+  const paginationParams = {
+    error: paramsError ?? undefined,
+    success: paramsSuccess ?? undefined,
+  }
 
   async function handleDelete(serviceId: string) {
+    const wasLastOnPage = services.length === 1
     const res = await fetch(`/api/service-seller/services/${serviceId}`, { method: "DELETE" })
     if (res.ok) {
-      setServices((prev) => prev.filter((s) => s.id !== serviceId))
-      router.replace("/service-seller/services?success=Service+deleted+permanently")
+      if (wasLastOnPage && page > 1) {
+        router.replace(`/service-seller/services?page=${page - 1}&success=Service+deleted+permanently`)
+      } else {
+        await loadServices()
+        router.replace("/service-seller/services?success=Service+deleted+permanently")
+      }
     } else {
       const data = await res.json().catch(() => ({}))
       router.replace(`/service-seller/services?error=${encodeURIComponent(data.error || "Delete failed")}`)
@@ -183,6 +217,16 @@ export function ServicesPageClient() {
                 })}
               </TableBody>
             </Table>
+          </div>
+          <div className="px-6 pb-6">
+            <AdminPagination
+              basePath="/service-seller/services"
+              currentPage={page}
+              totalPages={totalPages}
+              totalCount={totalCount}
+              pageSize={perPage}
+              params={paginationParams}
+            />
           </div>
         </Card>
       )}

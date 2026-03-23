@@ -20,16 +20,25 @@ export async function GET() {
     return NextResponse.json({ error: "Seller not found" }, { status: 404 })
   }
 
-  const [subscription, totalProducts, totalOrders, revenue] = await Promise.all([
+  const [subscription, totalProducts, totalOrders, totalRevenue] = await Promise.all([
     prisma.subscription.findFirst({
       where: { sellerId: seller.id },
       include: { plan: true },
     }),
     prisma.product.count({ where: { sellerId: seller.id, isActive: true } }),
-    prisma.order.count({ where: { sellerId: seller.id } }),
-    prisma.order.aggregate({
-      where: { sellerId: seller.id },
-      _sum: { subtotal: true },
+    prisma.order.count({
+      where: {
+        items: {
+          some: { sellerId: seller.id, productId: { not: null } },
+        },
+      },
+    }),
+    prisma.orderItem.aggregate({
+      where: {
+        sellerId: seller.id,
+        productId: { not: null },
+      },
+      _sum: { commissionAmount: true },
     }),
   ])
 
@@ -37,7 +46,7 @@ export async function GET() {
     subscription: subscription ? { ...subscription, plan: subscription.plan } : null,
     totalProducts,
     totalOrders,
-    totalRevenue: revenue._sum.subtotal ?? 0,
-    totalRevenueFormatted: formatCurrency(revenue._sum.subtotal ?? 0),
+    totalRevenue: totalRevenue._sum.commissionAmount ?? 0,
+    totalRevenueFormatted: formatCurrency(totalRevenue._sum.commissionAmount ?? 0),
   })
 }

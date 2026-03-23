@@ -63,11 +63,11 @@ export function WeeklyAvailabilityFields({
               <label className="flex items-center gap-2 cursor-pointer flex-shrink-0">
                 <input
                   type="checkbox"
-                  checked={days[index].unavailable}
-                  onChange={(e) => updateDay(index, { unavailable: e.target.checked })}
+                  checked={!days[index].unavailable}
+                  onChange={(e) => updateDay(index, { unavailable: !e.target.checked })}
                   className="h-4 w-4 rounded border-input"
                 />
-                <span className="text-xs text-muted-foreground">Unavailable (full day)</span>
+                <span className="text-xs text-muted-foreground">Available on this day</span>
               </label>
               {!days[index].unavailable && (
                 <div className="grid grid-cols-2 gap-3 mt-1">

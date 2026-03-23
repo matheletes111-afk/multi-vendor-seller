@@ -1,71 +1,51 @@
 "use client"
 
-import { useState, useRef } from "react"
+import { useEffect, useRef, useState } from "react"
 import { Label } from "@/ui/label"
 import { Button } from "@/ui/button"
-import { Upload, Link as LinkIcon, Trash2, ImagePlus } from "lucide-react"
+import { Upload, ImagePlus } from "lucide-react"
 
-function parseUrlText(text: string): string[] {
-  return text
-    .split(/[\n,]+/)
-    .map((u) => u.trim())
-    .filter(Boolean)
-}
-
+/**
+ * File upload only (no URL field). On edit, existing URLs are preserved via a hidden `images` field.
+ */
 export function ServiceImageInput({
-  name = "images",
   defaultUrls = [],
   label = "Images",
-  hint = "Add image URLs (comma separated) or upload multiple images. Preview below.",
+  hint = "Choose images — they upload when you submit the form.",
 }: {
-  name?: string
   defaultUrls?: string[]
   label?: string
   hint?: string
 }) {
-  const [linkText, setLinkText] = useState(() => (defaultUrls?.length ? defaultUrls.join(", ") : ""))
-  const [uploadedUrls, setUploadedUrls] = useState<string[]>([])
-  const [uploading, setUploading] = useState(false)
-  const [mode, setMode] = useState<"link" | "upload">(defaultUrls?.length ? "link" : "upload")
+  const [previews, setPreviews] = useState<string[]>([])
+  const blobUrls = useRef<string[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const linkUrls = parseUrlText(linkText)
-  const allUrls = Array.from(new Set([...linkUrls, ...uploadedUrls]))
-
-  async function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
-    const files = e.target.files
-    if (!files?.length) return
-    setUploading(true)
-    const newUrls: string[] = []
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i]
-      if (!file.type.startsWith("image/")) continue
-      const fd = new FormData()
-      fd.append("file", file)
-      try {
-        const r = await fetch("/api/service-seller/upload", { method: "POST", body: fd })
-        const j = await r.json().catch(() => ({}))
-        if (j.url) newUrls.push(j.url)
-      } catch {
-        // skip
-      }
+  useEffect(() => {
+    return () => {
+      blobUrls.current.forEach((u) => URL.revokeObjectURL(u))
     }
-    if (newUrls.length > 0) setUploadedUrls((prev) => [...prev, ...newUrls])
-    setUploading(false)
-    e.target.value = ""
-  }
+  }, [])
 
-  function removeUrl(url: string) {
-    setUploadedUrls((prev) => prev.filter((u) => u !== url))
-    setLinkText((prev) =>
-      parseUrlText(prev)
-        .filter((u) => u !== url)
-        .join(", ")
-    )
+  function onFilesChange(e: React.ChangeEvent<HTMLInputElement>) {
+    blobUrls.current.forEach((u) => URL.revokeObjectURL(u))
+    blobUrls.current = []
+    const files = e.target.files
+    if (!files?.length) {
+      setPreviews([])
+      return
+    }
+    const next: string[] = []
+    for (let i = 0; i < files.length; i++) {
+      const u = URL.createObjectURL(files[i])
+      blobUrls.current.push(u)
+      next.push(u)
+    }
+    setPreviews(next)
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       <div className="flex items-center gap-2">
         <ImagePlus className="h-5 w-5 text-muted-foreground" />
         <div>
@@ -74,97 +54,64 @@ export function ServiceImageInput({
         </div>
       </div>
 
-      {/* Toggle: Image links | Upload */}
-      <div className="flex rounded-lg border bg-muted/30 p-1 w-full sm:w-auto sm:min-w-[260px]">
-        <button
-          type="button"
-          onClick={() => setMode("link")}
-          className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-md text-sm font-medium transition-colors ${
-            mode === "link" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          <LinkIcon className="h-4 w-4" />
-          Via link
-        </button>
-        <button
-          type="button"
-          onClick={() => setMode("upload")}
-          className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-md text-sm font-medium transition-colors ${
-            mode === "upload" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-          }`}
-        >
+      {defaultUrls.length > 0 && (
+        <input type="hidden" name="images" defaultValue={defaultUrls.join("\n")} />
+      )}
+
+      <div className="space-y-2">
+        <Label className="text-sm flex items-center gap-1.5">
           <Upload className="h-4 w-4" />
-          Upload
-        </button>
+          Upload images
+        </Label>
+        <input
+          ref={fileInputRef}
+          type="file"
+          name="serviceImages"
+          accept="image/jpeg,image/png,image/gif,image/webp"
+          multiple
+          className="hidden"
+          onChange={onFilesChange}
+        />
+        <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
+          Choose images
+        </Button>
       </div>
 
-      {mode === "link" ? (
-        <div className="space-y-1.5">
-          <Label className="text-sm flex items-center gap-1.5">
-            <LinkIcon className="h-4 w-4" />
-            Image links (comma separated)
-          </Label>
-          <textarea
-            className="flex min-h-[88px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-y"
-            placeholder="https://example.com/photo1.jpg, https://example.com/photo2.jpg"
-            value={linkText}
-            onChange={(e) => setLinkText(e.target.value)}
-          />
-        </div>
-      ) : (
-        <div className="space-y-1.5">
-          <Label className="text-sm flex items-center gap-1.5">
-            <Upload className="h-4 w-4" />
-            Upload images
-          </Label>
-          <div className="flex flex-wrap items-center gap-2">
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/jpeg,image/png,image/gif,image/webp"
-              multiple
-              className="hidden"
-              onChange={handleFileSelect}
-            />
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={uploading}
-            >
-              {uploading ? "Uploading…" : "Choose multiple images"}
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {/* Preview grid */}
-      {allUrls.length > 0 && (
-        <div className="space-y-2">
-          <p className="text-xs font-medium text-muted-foreground">Preview ({allUrls.length} image{allUrls.length !== 1 ? "s" : ""})</p>
-          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3">
-            {allUrls.map((url) => (
-              <div
-                key={url}
-                className="relative aspect-square rounded-lg border border-input bg-muted overflow-hidden group"
-              >
-                <img src={url} alt="" className="h-full w-full object-cover" />
-                <button
-                  type="button"
-                  onClick={() => removeUrl(url)}
-                  className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg"
-                  aria-label="Remove image"
-                >
-                  <Trash2 className="h-6 w-6 text-white" />
-                </button>
+      {(defaultUrls.length > 0 || previews.length > 0) && (
+        <div className="space-y-3 pt-1">
+          {defaultUrls.length > 0 && (
+            <div className="space-y-2">
+              <div className="flex flex-wrap gap-3">
+                {defaultUrls.map((url) => (
+                  <div
+                    key={url}
+                    className="h-16 w-16 shrink-0 overflow-hidden rounded-full border-2 border-border bg-muted ring-2 ring-offset-2 ring-ring/10"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={url} alt="" className="h-full w-full object-cover" referrerPolicy="no-referrer" />
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            </div>
+          )}
+          {previews.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-xs font-medium text-muted-foreground">New selection ({previews.length})</p>
+              <div className="flex flex-wrap gap-3">
+                {previews.map((src) => (
+                  <div
+                    key={src}
+                    className="h-16 w-16 shrink-0 rounded-full border-2 border-dashed border-primary/40 bg-muted overflow-hidden ring-2 ring-offset-2 ring-primary/20"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={src} alt="" className="h-full w-full object-cover" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
-
-      <input type="hidden" name={name} value={allUrls.join("\n")} />
     </div>
   )
 }

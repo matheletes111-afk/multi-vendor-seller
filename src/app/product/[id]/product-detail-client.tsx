@@ -9,6 +9,8 @@ import { formatCurrency } from "@/lib/utils"
 import { getYoutubeEmbedUrl } from "@/lib/youtube"
 import { PublicLayout } from "@/components/site-layout"
 import { useCart } from "@/app/cart/cart-context"
+import { WishlistButton } from "@/components/product/WishlistButton"
+import { PublicReviewsSection, type PublicReviewItem } from "@/components/reviews/public-reviews-section"
 import { UserRole } from "@prisma/client"
 import { PageLoader } from "@/components/ui/page-loader"
 import { ChevronRight, ShoppingCart, Truck } from "lucide-react"
@@ -33,6 +35,8 @@ type Product = {
   category: { id: string; name: string; slug: string }
   seller: { store: { name: string } | null }
   _count: { reviews: number }
+  averageRating: number
+  reviews: PublicReviewItem[]
   variants: Variant[]
 }
 
@@ -230,7 +234,10 @@ export function ProductDetailClient({ productId }: { productId: string }) {
               <p className="text-xs text-slate-500 sm:text-sm">{product.category.name}</p>
               <h1 className="mt-1 text-xl font-bold text-slate-900 sm:text-2xl md:text-3xl">{product.name}</h1>
               {product._count.reviews > 0 && (
-                <p className="mt-2 text-sm text-slate-600">{product._count.reviews} rating(s)</p>
+                <p className="mt-2 text-sm text-slate-600">
+                  {product.averageRating.toFixed(1)} rating from {product._count.reviews} review
+                  {product._count.reviews === 1 ? "" : "s"}
+                </p>
               )}
 
               {/* Amazon/Flipkart style: choose options (Size, Color, etc.) then Add to Cart */}
@@ -340,6 +347,9 @@ export function ProductDetailClient({ productId }: { productId: string }) {
                 )}
                 {canUseCart && (
                   <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+                    <div className="sm:order-3">
+                      <WishlistButton productId={product.id} className="h-11 w-11 border border-slate-200" />
+                    </div>
                     <Button
                       size="lg"
                       className="w-full bg-amber-400 text-black hover:bg-amber-500 sm:w-auto"
@@ -441,6 +451,12 @@ export function ProductDetailClient({ productId }: { productId: string }) {
               </div>
             )}
           </div>
+
+          <PublicReviewsSection
+            averageRating={product.averageRating}
+            totalReviews={product._count.reviews}
+            reviews={product.reviews}
+          />
 
           {/* Sponsored banner for this product */}
           {productAd && (

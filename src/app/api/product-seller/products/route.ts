@@ -3,8 +3,9 @@ import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { isProductSeller } from "@/lib/rbac"
 import { checkProductLimit } from "@/lib/subscriptions"
+import { getPaginationFromSearchParams } from "@/lib/admin-pagination"
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   const session = await auth()
 
   if (!session?.user || !isProductSeller(session.user)) {
@@ -16,26 +17,53 @@ export async function GET() {
   })
 
   if (!seller) {
-    return NextResponse.json([])
+    return NextResponse.json({
+      products: [],
+      totalCount: 0,
+      totalPages: 1,
+      page: 1,
+      perPage: 10,
+    })
   }
 
-  const products = await prisma.product.findMany({
-    where: { sellerId: seller.id },
-    include: {
-      category: true,
-      subcategory: true,
-      variants: true,
-      _count: {
-        select: {
-          orderItems: true,
-          reviews: true,
-        },
-      },
-    },
-    orderBy: { createdAt: "desc" },
+  const { searchParams } = new URL(request.url)
+  const { skip, take, page, perPage } = getPaginationFromSearchParams({
+    page: searchParams.get("page") ?? undefined,
+    perPage: searchParams.get("perPage") ?? undefined,
   })
 
-  return NextResponse.json(products)
+  const where = { sellerId: seller.id }
+
+  const [products, totalCount] = await Promise.all([
+    prisma.product.findMany({
+      where,
+      skip,
+      take,
+      include: {
+        category: true,
+        subcategory: true,
+        variants: true,
+        _count: {
+          select: {
+            orderItems: true,
+            reviews: true,
+          },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+    }),
+    prisma.product.count({ where }),
+  ])
+
+  const totalPages = Math.ceil(totalCount / perPage) || 1
+
+  return NextResponse.json({
+    products,
+    totalCount,
+    totalPages,
+    page,
+    perPage,
+  })
 }
 
 export async function POST(request: NextRequest) {

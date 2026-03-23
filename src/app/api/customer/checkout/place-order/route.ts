@@ -52,7 +52,7 @@ function getItemName(item: CartItemForCheckout): { productName: string | null; s
 
 const COMMISSION_RATE = 10
 
-/** POST /api/customer/checkout/place-order — create order(s) from cart (one per seller), COD. CUSTOMER only. */
+/** POST /api/customer/checkout/place-order — create one order with item-level seller ownership. CUSTOMER only. */
 export async function POST(request: NextRequest) {
   const session = await auth()
   if (!session?.user?.id) {
@@ -85,7 +85,7 @@ export async function POST(request: NextRequest) {
     include: CHECKOUT_CART_INCLUDE,
     orderBy: { createdAt: "asc" },
   })
-  const items = (cartItems as CartItemForCheckout[]).filter((i) => i.productId != null)
+  const items = (cartItems as CartItemForCheckout[]).filter((i) => i.productId != null || i.serviceId != null)
 
   if (items.length === 0) {
     return NextResponse.json({ error: "Cart is empty" }, { status: 400 })
@@ -115,97 +115,105 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  const bySeller = new Map<string, typeof items>()
-  for (const item of items) {
-    const sid = getSellerId(item)
-    if (!sid) continue
-    let list = bySeller.get(sid)
-    if (!list) {
-      list = []
-      bySeller.set(sid, list)
-    }
-    list.push(item)
+  const normalizedItems = items
+    .map((item) => ({ item, sellerId: getSellerId(item) }))
+    .filter((row): row is { item: CartItemForCheckout; sellerId: string } => !!row.sellerId)
+
+  if (normalizedItems.length === 0) {
+    return NextResponse.json({ error: "No seller-mapped items found in cart" }, { status: 400 })
   }
 
-  const orderIds: string[] = []
-  const ordersSummary: PlaceOrderResponse["orders"] = []
+  const subtotal = normalizedItems.reduce((sum, row) => sum + row.item.totalPrice, 0)
+  const tax = normalizedItems.reduce((sum, row) => sum + row.item.totalGst, 0)
+  const shipping = 0
+  const totalAmount = subtotal + tax + shipping
+  const commission = totalAmount * (COMMISSION_RATE / 100)
 
-  for (const [sellerId, sellerItems] of bySeller) {
-    const subtotal = sellerItems.reduce((s, i) => s + i.totalPrice, 0)
-    const tax = sellerItems.reduce((s, i) => s + i.totalGst, 0)
-    const totalAmount = subtotal + tax
-    const commission = totalAmount * (COMMISSION_RATE / 100)
-
-    const order = await prisma.order.create({
-      data: {
-        customerId: session.user.id,
-        sellerId,
-        status: "PENDING",
-        totalAmount,
-        subtotal,
-        tax,
-        shipping: 0,
-        commission,
-        commissionRate: COMMISSION_RATE,
-        paymentStatus: "PENDING",
-        paymentMethod: "COD",
-        shippingFullName: address.fullName,
-        shippingPhone: address.phone,
-        shippingAddressLine1: address.addressLine1,
-        shippingAddressLine2: address.addressLine2,
-        shippingCity: address.city,
-        shippingState: address.state,
-        shippingPostalCode: address.postalCode,
-        shippingCountry: address.country,
-      },
+  const sellerSubtotal = new Map<string, number>()
+  for (const row of normalizedItems) {
+    sellerSubtotal.set(row.sellerId, (sellerSubtotal.get(row.sellerId) ?? 0) + row.item.totalPrice)
+  }
+  const sellerShipping = new Map<string, number>()
+  if (shipping > 0 && subtotal > 0) {
+    let assigned = 0
+    const entries = [...sellerSubtotal.entries()]
+    entries.forEach(([sid, sub], idx) => {
+      const value = idx === entries.length - 1 ? shipping - assigned : Number(((shipping * sub) / subtotal).toFixed(6))
+      assigned += value
+      sellerShipping.set(sid, value)
     })
+  }
 
-    for (const row of sellerItems) {
-      const { productName, serviceName } = getItemName(row)
-      await prisma.orderItem.create({
-        data: {
-          orderId: order.id,
-          productId: row.productId,
-          productVariantId: row.productVariantId,
-          serviceId: row.serviceId,
-          servicePackageId: row.servicePackageId,
-          serviceSlotId: row.serviceSlotId,
-          productNameSnapshot: productName,
-          serviceNameSnapshot: serviceName,
-          quantity: row.quantity,
-          price: row.unitPrice,
-          subtotal: row.totalPrice,
-          hasGst: row.hasGst,
-          gstAmount: row.totalGst,
-          subtotalInclGst: row.totalPriceInclGst ?? row.totalPrice + row.totalGst,
-        },
-      })
-      if (row.productVariantId) {
-        await prisma.productVariant.update({
-          where: { id: row.productVariantId },
-          data: { stock: { decrement: row.quantity } },
-        })
-      }
-    }
+  const order = await prisma.order.create({
+    data: {
+      customerId: session.user.id,
+      sellerId: null,
+      status: "PENDING",
+      totalAmount,
+      subtotal,
+      tax,
+      shipping,
+      commission,
+      commissionRate: COMMISSION_RATE,
+      paymentStatus: "PENDING",
+      paymentMethod: "COD",
+      shippingFullName: address.fullName,
+      shippingPhone: address.phone,
+      shippingAddressLine1: address.addressLine1,
+      shippingAddressLine2: address.addressLine2,
+      shippingCity: address.city,
+      shippingState: address.state,
+      shippingPostalCode: address.postalCode,
+      shippingCountry: address.country,
+    },
+  })
 
-    await prisma.payment.create({
+  for (const row of normalizedItems) {
+    const { productName, serviceName } = getItemName(row.item)
+    const lineTotalInclGst = row.item.totalPriceInclGst ?? row.item.totalPrice + row.item.totalGst
+    const itemShippingAmount =
+      subtotal > 0 ? Number((((sellerShipping.get(row.sellerId) ?? 0) * row.item.totalPrice) / (sellerSubtotal.get(row.sellerId) ?? 1)).toFixed(6)) : 0
+    const itemCommissionAmount = (lineTotalInclGst + itemShippingAmount) * (COMMISSION_RATE / 100)
+
+    await prisma.orderItem.create({
       data: {
         orderId: order.id,
-        amount: totalAmount,
-        status: "PENDING",
-        method: "COD",
+        sellerId: row.sellerId,
+        productId: row.item.productId,
+        productVariantId: row.item.productVariantId,
+        serviceId: row.item.serviceId,
+        servicePackageId: row.item.servicePackageId,
+        serviceSlotId: row.item.serviceSlotId,
+        productNameSnapshot: productName,
+        serviceNameSnapshot: serviceName,
+        quantity: row.item.quantity,
+        price: row.item.unitPrice,
+        subtotal: row.item.totalPrice,
+        hasGst: row.item.hasGst,
+        gstAmount: row.item.totalGst,
+        subtotalInclGst: lineTotalInclGst,
+        itemStatus: "PENDING",
+        shippingAmount: itemShippingAmount,
+        commissionAmount: itemCommissionAmount,
+        commissionRateSnapshot: COMMISSION_RATE,
       },
     })
-
-    orderIds.push(order.id)
-    ordersSummary.push({
-      orderId: order.id,
-      orderNumber: order.orderNumber,
-      sellerId,
-      totalAmount,
-      itemCount: sellerItems.length,
-    })
+    if (row.item.productVariantId) {
+      await prisma.productVariant.update({
+        where: { id: row.item.productVariantId },
+        data: { stock: { decrement: row.item.quantity } },
+      })
+    }
   }
+
+  await prisma.payment.create({
+    data: {
+      orderId: order.id,
+      amount: totalAmount,
+      status: "PENDING",
+      method: "COD",
+    },
+  })
 
   await prisma.cartItem.deleteMany({
     where: { userId: session.user.id },
@@ -213,8 +221,16 @@ export async function POST(request: NextRequest) {
 
   const response: PlaceOrderResponse = {
     success: true,
-    orderIds,
-    orders: ordersSummary,
+    orderIds: [order.id],
+    orders: [
+      {
+        orderId: order.id,
+        orderNumber: order.orderNumber,
+        sellerId: "MULTI",
+        totalAmount,
+        itemCount: normalizedItems.length,
+      },
+    ],
   }
   return NextResponse.json(response)
 }

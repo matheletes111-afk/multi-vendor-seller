@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { isAdmin } from "@/lib/rbac"
 import { getPaginationFromSearchParams } from "@/lib/admin-pagination"
+import type { Prisma } from "@prisma/client"
 
 export async function GET(request: NextRequest) {
   try {
@@ -17,8 +18,15 @@ export async function GET(request: NextRequest) {
       perPage: searchParams.get("perPage") ?? undefined,
     })
 
+    const tab = searchParams.get("tab") ?? "all"
+    let where: Prisma.SellerWhereInput = {}
+    if (tab === "pending") where = { isApproved: false }
+    else if (tab === "approved") where = { isApproved: true, isSuspended: false }
+    else if (tab === "suspended") where = { isSuspended: true }
+
     const [sellers, totalCount] = await Promise.all([
       prisma.seller.findMany({
+        where,
         skip,
         take,
         include: {
@@ -37,7 +45,7 @@ export async function GET(request: NextRequest) {
         },
         orderBy: { createdAt: "desc" },
       }),
-      prisma.seller.count(),
+      prisma.seller.count({ where }),
     ])
 
     const totalPages = Math.ceil(totalCount / perPage)

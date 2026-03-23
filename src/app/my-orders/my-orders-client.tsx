@@ -8,6 +8,7 @@ import { Badge } from "@/ui/badge"
 import { formatCurrency, formatDate } from "@/lib/utils"
 import type { OrderDetailApi } from "@/app/api/customer/orders/types"
 import { OrderDetailInline } from "@/app/customer/(dashboard)/orders/order-detail-inline"
+import { deriveOrderStatus } from "@/lib/order-status"
 import { Package, ShoppingBag, Plus, Minus, Loader2, ShoppingCart, ArrowRight } from "lucide-react"
 
 type OrderListItem = {
@@ -25,6 +26,7 @@ type OrderListItem = {
     serviceNameSnapshot: string | null
     quantity: number
     subtotal: number
+    itemStatus: string
   }[]
 }
 
@@ -50,6 +52,12 @@ export function MyOrdersClient({ orders }: { orders: OrderListItem[] }) {
   }
   const displayOrders = tab === "product" ? productOrders : serviceOrders
 
+  const fetchOrderDetail = useCallback(async (orderId: string) => {
+    const res = await fetch(`/api/customer/orders/${orderId}`, { credentials: "include" })
+    if (!res.ok) throw new Error("Failed to fetch order detail")
+    return (await res.json()) as OrderDetailApi
+  }, [])
+
   const toggleDetail = useCallback(
     async (orderId: string) => {
       if (expandedId === orderId && detail) {
@@ -61,31 +69,37 @@ export function MyOrdersClient({ orders }: { orders: OrderListItem[] }) {
       setDetail(null)
       setLoadingId(orderId)
       try {
-        const res = await fetch(`/api/customer/orders/${orderId}`, { credentials: "include" })
-        if (res.ok) {
-          const data: OrderDetailApi = await res.json()
-          setDetail(data)
-        } else {
-          setExpandedId(null)
-        }
+        const data = await fetchOrderDetail(orderId)
+        setDetail(data)
       } catch {
         setExpandedId(null)
       } finally {
         setLoadingId(null)
       }
     },
-    [expandedId, detail]
+    [expandedId, detail, fetchOrderDetail]
   )
+  const refreshDetail = useCallback(
+    async (orderId: string) => {
+      setLoadingId(orderId)
+      try {
+        const data = await fetchOrderDetail(orderId)
+        setDetail(data)
+      } finally {
+        setLoadingId(null)
+      }
+    },
+    [fetchOrderDetail]
+  )
+
 
   const closeDetail = useCallback(() => {
     setExpandedId(null)
     setDetail(null)
   }, [])
 
-  const itemLabel = (order: OrderListItem) =>
-    order.items
-      .map((i) => (i.productNameSnapshot || i.serviceNameSnapshot || "Item") + " × " + i.quantity)
-      .join(", ")
+  const itemLabel = (items: OrderListItem["items"]) =>
+    items.map((i) => (i.productNameSnapshot || i.serviceNameSnapshot || "Item") + " × " + i.quantity).join(", ")
 
   return (
     <div className="space-y-6">
@@ -147,6 +161,17 @@ export function MyOrdersClient({ orders }: { orders: OrderListItem[] }) {
       ) : (
         <ul className="space-y-3">
           {displayOrders.map((order) => {
+            const visibleItems =
+              tab === "product" ? order.items.filter((i) => i.productId != null) : order.items.filter((i) => i.serviceId != null)
+            const displayStatus = deriveOrderStatus(visibleItems.map((i) => i.itemStatus as any))
+            const statusCounts = visibleItems.reduce<Record<string, number>>((acc, i) => {
+              acc[i.itemStatus] = (acc[i.itemStatus] ?? 0) + 1
+              return acc
+            }, {})
+            const statusSummary = Object.entries(statusCounts)
+              .slice(0, 3)
+              .map(([s, c]) => `${s.toLowerCase().replace(/_/g, " ")} (${c})`)
+              .join(", ")
             const isExpanded = expandedId === order.id
             const isLoading = loadingId === order.id
             return (
@@ -163,8 +188,9 @@ export function MyOrdersClient({ orders }: { orders: OrderListItem[] }) {
                           {order.seller?.store?.name ?? "Store"} • {formatDate(order.createdAt)}
                         </p>
                         <p className="mt-1 line-clamp-2 text-sm text-slate-500">
-                          {itemLabel(order)}
+                          {itemLabel(visibleItems)}
                         </p>
+                        {statusSummary ? <p className="mt-0.5 text-[11px] text-slate-400">{statusSummary}</p> : null}
                       </div>
                       <div className="flex shrink-0 items-center gap-3">
                         <div className="text-right">
@@ -175,7 +201,7 @@ export function MyOrdersClient({ orders }: { orders: OrderListItem[] }) {
                             variant="outline"
                             className="mt-1 capitalize text-slate-600"
                           >
-                            {order.status.toLowerCase()}
+                            {displayStatus.toLowerCase().replace(/_/g, " ")}
                           </Badge>
                         </div>
                         <Button
@@ -205,7 +231,7 @@ export function MyOrdersClient({ orders }: { orders: OrderListItem[] }) {
                             <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
                           </div>
                         ) : detail && detail.id === order.id ? (
-                          <OrderDetailInline order={detail} onClose={closeDetail} />
+                          <OrderDetailInline order={detail} onClose={closeDetail} onReviewSaved={refreshDetail} />
                         ) : null}
                       </div>
                     )}

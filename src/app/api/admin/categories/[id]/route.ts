@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { isAdmin } from "@/lib/rbac";
 import { generateSlug } from "@/lib/utils";
-import { writeFile, mkdir, unlink } from "fs/promises";
+import { unlink } from "fs/promises";
 import path from "path";
 import { existsSync } from "fs";
 import { uploadPublicFile } from "@/lib/upload-public-file";

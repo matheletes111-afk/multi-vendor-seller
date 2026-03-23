@@ -20,10 +20,44 @@ export function ServiceSellerPageClient() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    fetch("/api/service-seller/overview")
-      .then((r) => (r.ok ? r.json() : null))
-      .then(setData)
-      .catch(() => setError("Failed to load dashboard"))
+    const controller = new AbortController()
+
+    const load = async () => {
+      try {
+        const res = await fetch("/api/service-seller/overview", { signal: controller.signal, cache: "no-store" })
+        if (!res.ok) throw new Error("Failed to load")
+        const json = (await res.json()) as Overview
+        setData(json)
+        setError(null)
+      } catch (e: any) {
+        if (e?.name === "AbortError") return
+        setError("Failed to load dashboard")
+      }
+    }
+
+    let isMounted = true
+    const run = async () => {
+      if (!isMounted) return
+      if (document.visibilityState === "hidden") return
+      await load()
+    }
+
+    void run()
+    const intervalId = window.setInterval(() => {
+      void run()
+    }, 30000)
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") void run()
+    }
+    document.addEventListener("visibilitychange", onVisibilityChange)
+
+    return () => {
+      isMounted = false
+      controller.abort()
+      window.clearInterval(intervalId)
+      document.removeEventListener("visibilitychange", onVisibilityChange)
+    }
   }, [])
 
   if (error) return <div className="container mx-auto p-6"><p className="text-destructive">{error}</p></div>

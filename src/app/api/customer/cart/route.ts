@@ -107,7 +107,7 @@ export async function GET() {
   const items = await prisma.cartItem.findMany({
     where: { userId: session.user.id },
     include: cartItemInclude,
-    orderBy: { createdAt: "asc" },
+    orderBy: { updatedAt: "desc" },
   })
   const result: CartItemApi[] = items.map((row) => toCartItemApi(row as CartItemRow))
   return NextResponse.json(result)
@@ -188,7 +188,7 @@ export async function POST(request: NextRequest) {
   const items = await prisma.cartItem.findMany({
     where: { userId },
     include: cartItemInclude,
-    orderBy: { createdAt: "asc" },
+    orderBy: { updatedAt: "desc" },
   })
   return NextResponse.json(items.map((row) => toCartItemApi(row as CartItemRow)))
 }
@@ -242,7 +242,7 @@ export async function PATCH(request: NextRequest) {
   const items = await prisma.cartItem.findMany({
     where: { userId: session.user.id },
     include: cartItemInclude,
-    orderBy: { createdAt: "asc" },
+    orderBy: { updatedAt: "desc" },
   })
   return NextResponse.json(items.map((row) => toCartItemApi(row as CartItemRow)))
 }

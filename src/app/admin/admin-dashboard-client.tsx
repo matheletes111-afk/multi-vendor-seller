@@ -33,23 +33,45 @@ export function AdminDashboardClient() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    let cancelled = false
-    fetch("/api/admin/overview")
-      .then((res) => {
+    const controller = new AbortController()
+
+    const load = async () => {
+      try {
+        const res = await fetch("/api/admin/overview", { signal: controller.signal, cache: "no-store" })
         if (!res.ok) throw new Error("Failed to fetch overview")
-        return res.json()
-      })
-      .then((json) => {
-        if (!cancelled) setData(json)
-      })
-      .catch((e) => {
-        if (!cancelled) setError(e.message)
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false)
-      })
+        const json = (await res.json()) as Overview
+        setData(json)
+        setError(null)
+      } catch (e: any) {
+        if (e?.name === "AbortError") return
+        setError(e?.message || "Failed to fetch overview")
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    let isMounted = true
+    const run = async () => {
+      if (!isMounted) return
+      if (document.visibilityState === "hidden") return
+      await load()
+    }
+
+    void run()
+    const intervalId = window.setInterval(() => {
+      void run()
+    }, 30000)
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") void run()
+    }
+    document.addEventListener("visibilitychange", onVisibilityChange)
+
     return () => {
-      cancelled = true
+      isMounted = false
+      controller.abort()
+      window.clearInterval(intervalId)
+      document.removeEventListener("visibilitychange", onVisibilityChange)
     }
   }, [])
 

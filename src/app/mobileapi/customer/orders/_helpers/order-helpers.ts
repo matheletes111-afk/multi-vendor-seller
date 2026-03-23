@@ -1,5 +1,7 @@
 import { prisma } from "@/lib/prisma"
 import type { OrderDetailApi } from "@/app/api/customer/orders/types"
+import { deriveOrderStatus, summarizeSellerItemStatuses } from "@/lib/order-status"
+import { getSellerSubscription, canReceiveReviews } from "@/lib/subscriptions"
 
 export type CustomerOrderKind = "product" | "service"
 
@@ -37,6 +39,7 @@ export async function listCustomerOrders({
       seller: { include: { store: true } },
       items: {
         include: {
+          seller: { include: { store: { select: { name: true } } } },
           product: { select: { images: true } },
           productVariant: { select: { images: true } },
           service: { select: { images: true } },
@@ -61,6 +64,11 @@ export async function listCustomerOrders({
 
       return {
         id: row.id,
+        sellerId: row.sellerId,
+        sellerStoreName: row.seller?.store?.name ?? null,
+        itemStatus: row.itemStatus,
+        productId: row.productId,
+        serviceId: row.serviceId,
         productNameSnapshot: row.productNameSnapshot,
         serviceNameSnapshot: row.serviceNameSnapshot,
         quantity: row.quantity,
@@ -72,13 +80,72 @@ export async function listCustomerOrders({
         imageUrl,
         serviceSlotStartTime: slot?.startTime ? slot.startTime.toISOString() : null,
         serviceSlotEndTime: slot?.endTime ? slot.endTime.toISOString() : null,
+        review: null,
+        canReview: false,
+        shippingAmount: row.shippingAmount,
+        commissionAmount: row.commissionAmount,
+        commissionRateSnapshot: row.commissionRateSnapshot,
+      }
+    })
+
+    const sellerGroupMap = new Map<
+      string,
+      {
+        sellerId: string | null
+        sellerStoreName: string | null
+        subtotal: number
+        tax: number
+        shipping: number
+        commission: number
+        total: number
+        statuses: import("@prisma/client").OrderStatus[]
+        itemCount: number
+      }
+    >()
+    for (const item of order.items) {
+      const key = item.sellerId ?? "unknown"
+      const current = sellerGroupMap.get(key) ?? {
+        sellerId: item.sellerId ?? null,
+        sellerStoreName: item.seller?.store?.name ?? null,
+        subtotal: 0,
+        tax: 0,
+        shipping: 0,
+        commission: 0,
+        total: 0,
+        statuses: [],
+        itemCount: 0,
+      }
+      current.subtotal += item.subtotal
+      current.tax += item.gstAmount
+      current.shipping += item.shippingAmount
+      current.commission += item.commissionAmount
+      current.total += (item.subtotalInclGst ?? item.subtotal + item.gstAmount) + item.shippingAmount
+      current.statuses.push(item.itemStatus)
+      current.itemCount += 1
+      sellerGroupMap.set(key, current)
+    }
+    const sellerGroups = [...sellerGroupMap.values()].map((group) => {
+      const statusSummary = summarizeSellerItemStatuses(group.statuses)
+      return {
+        sellerId: group.sellerId,
+        sellerStoreName: group.sellerStoreName,
+        summary: {
+          subtotal: group.subtotal,
+          tax: group.tax,
+          shipping: group.shipping,
+          commission: group.commission,
+          total: group.total,
+        },
+        itemStatuses: statusSummary.counts,
+        derivedStatus: statusSummary.derivedStatus,
+        itemCount: group.itemCount,
       }
     })
 
     return {
       id: order.id,
       orderNumber: order.orderNumber,
-      status: order.status,
+      status: deriveOrderStatus(order.items.map((item) => item.itemStatus)),
       totalAmount: order.totalAmount,
       subtotal: order.subtotal,
       tax: order.tax,
@@ -95,6 +162,7 @@ export async function listCustomerOrders({
       shippingCountry: order.shippingCountry,
       createdAt: order.createdAt.toISOString(),
       sellerStoreName: order.seller?.store?.name ?? null,
+      sellerGroups,
       items,
     }
   })
@@ -135,10 +203,20 @@ export async function getCustomerOrderDetail({
       seller: { include: { store: true } },
       items: {
         include: {
+          seller: { include: { store: { select: { name: true } } } },
           product: { select: { images: true } },
           productVariant: { select: { images: true } },
           service: { select: { images: true } },
           serviceSlot: { select: { startTime: true, endTime: true } },
+          review: {
+            select: {
+              id: true,
+              rating: true,
+              comment: true,
+              images: true,
+              isVerified: true,
+            },
+          },
         },
       },
     },
@@ -146,7 +224,15 @@ export async function getCustomerOrderDetail({
 
   if (!order) return null
 
-  // Keep the full `items` array (both product + service) like web does.
+  const sellerIds = [...new Set(order.items.map((item) => item.sellerId).filter((v): v is string => !!v))]
+  const sellerReviewEnabled = new Map<string, boolean>()
+  await Promise.all(
+    sellerIds.map(async (sellerId) => {
+      const subscription = await getSellerSubscription(sellerId)
+      sellerReviewEnabled.set(sellerId, canReceiveReviews(sellerId, subscription))
+    })
+  )
+
   const items = order.items.map((row) => {
     const productImages = (row.product as { images?: unknown } | null)?.images
     const variantImages = (row.productVariant as { images?: unknown } | null)?.images
@@ -157,6 +243,11 @@ export async function getCustomerOrderDetail({
 
     return {
       id: row.id,
+      sellerId: row.sellerId,
+      sellerStoreName: row.seller?.store?.name ?? null,
+      itemStatus: row.itemStatus,
+      productId: row.productId,
+      serviceId: row.serviceId,
       productNameSnapshot: row.productNameSnapshot,
       serviceNameSnapshot: row.serviceNameSnapshot,
       quantity: row.quantity,
@@ -168,13 +259,86 @@ export async function getCustomerOrderDetail({
       imageUrl,
       serviceSlotStartTime: slot?.startTime ? slot.startTime.toISOString() : null,
       serviceSlotEndTime: slot?.endTime ? slot.endTime.toISOString() : null,
+      review: row.review
+        ? {
+            id: row.review.id,
+            rating: row.review.rating,
+            comment: row.review.comment,
+            images: Array.isArray(row.review.images)
+              ? row.review.images.filter((v): v is string => typeof v === "string")
+              : [],
+            isVerified: row.review.isVerified,
+          }
+        : null,
+      canReview:
+        row.itemStatus === "DELIVERED" &&
+        (!!row.sellerId && sellerReviewEnabled.get(row.sellerId) === true) &&
+        !row.review &&
+        !!(row.productId || row.serviceId),
+      shippingAmount: row.shippingAmount,
+      commissionAmount: row.commissionAmount,
+      commissionRateSnapshot: row.commissionRateSnapshot,
+    }
+  })
+
+  const sellerGroupMap = new Map<
+    string,
+    {
+      sellerId: string | null
+      sellerStoreName: string | null
+      subtotal: number
+      tax: number
+      shipping: number
+      commission: number
+      total: number
+      statuses: import("@prisma/client").OrderStatus[]
+      itemCount: number
+    }
+  >()
+  for (const item of order.items) {
+    const key = item.sellerId ?? "unknown"
+    const current = sellerGroupMap.get(key) ?? {
+      sellerId: item.sellerId ?? null,
+      sellerStoreName: item.seller?.store?.name ?? null,
+      subtotal: 0,
+      tax: 0,
+      shipping: 0,
+      commission: 0,
+      total: 0,
+      statuses: [],
+      itemCount: 0,
+    }
+    current.subtotal += item.subtotal
+    current.tax += item.gstAmount
+    current.shipping += item.shippingAmount
+    current.commission += item.commissionAmount
+    current.total += (item.subtotalInclGst ?? item.subtotal + item.gstAmount) + item.shippingAmount
+    current.statuses.push(item.itemStatus)
+    current.itemCount += 1
+    sellerGroupMap.set(key, current)
+  }
+  const sellerGroups = [...sellerGroupMap.values()].map((group) => {
+    const statusSummary = summarizeSellerItemStatuses(group.statuses)
+    return {
+      sellerId: group.sellerId,
+      sellerStoreName: group.sellerStoreName,
+      summary: {
+        subtotal: group.subtotal,
+        tax: group.tax,
+        shipping: group.shipping,
+        commission: group.commission,
+        total: group.total,
+      },
+      itemStatuses: statusSummary.counts,
+      derivedStatus: statusSummary.derivedStatus,
+      itemCount: group.itemCount,
     }
   })
 
   return {
     id: order.id,
     orderNumber: order.orderNumber,
-    status: order.status,
+    status: deriveOrderStatus(order.items.map((item) => item.itemStatus)),
     totalAmount: order.totalAmount,
     subtotal: order.subtotal,
     tax: order.tax,
@@ -191,6 +355,7 @@ export async function getCustomerOrderDetail({
     shippingCountry: order.shippingCountry,
     createdAt: order.createdAt.toISOString(),
     sellerStoreName: order.seller?.store?.name ?? null,
+    sellerGroups,
     items,
   }
 }

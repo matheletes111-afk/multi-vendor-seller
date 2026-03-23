@@ -195,8 +195,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
       const existing = next.find(sameLine)
       if (existing) {
         existing.quantity += quantity
+        const existingIndex = next.findIndex((i) => getCartItemId(i) === getCartItemId(existing))
+        if (existingIndex > 0) {
+          const [line] = next.splice(existingIndex, 1)
+          next.unshift(line)
+        }
       } else {
-        next.push({
+        next.unshift({
           productId: input.productId,
           productVariantId: (input as CartItem).productVariantId,
           name: input.name,

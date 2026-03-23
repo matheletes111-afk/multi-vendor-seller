@@ -67,11 +67,16 @@ export function EditProductClient({ productId }: { productId: string }) {
   const [error, setError] = useState<string | null>(null)
   const [masterImageMode, setMasterImageMode] = useState<"link" | "upload">("link")
   const [masterImageUrl, setMasterImageUrl] = useState("")
+  const [masterImageFile, setMasterImageFile] = useState<File | null>(null)
+  const [masterImagePreviewUrl, setMasterImagePreviewUrl] = useState("")
+  const masterImagePreviewUrlRef = useRef("")
   const [uploading, setUploading] = useState(false)
   const masterFileInputRef = useRef<HTMLInputElement>(null)
   const [variants, setVariants] = useState<VariantRow[]>([])
   const [variantUploadingFor, setVariantUploadingFor] = useState<number | null>(null)
   const variantFileInputRefs = useRef<(HTMLInputElement | null)[]>([])
+  const [variantPendingFiles, setVariantPendingFiles] = useState<File[][]>([])
+  const variantPreviewUrlsRef = useRef<string[][]>([])
   const [generatorOptions, setGeneratorOptions] = useState<GeneratorOption[]>([{ optionName: "Size", valuesText: "M, L, XL" }, { optionName: "Color", valuesText: "Red, Blue" }])
 
   useEffect(() => {
@@ -84,6 +89,9 @@ export function EditProductClient({ productId }: { productId: string }) {
       if (p?.categoryId) setSelectedCategoryId(p.categoryId)
       const imgs = normalizeImages(p?.images)
       setMasterImageUrl(Array.isArray(imgs) && imgs.length > 0 ? imgs[0] : "")
+      setMasterImageFile(null)
+      setMasterImagePreviewUrl("")
+      masterImagePreviewUrlRef.current = ""
       const v = (p as Product)?.variants ?? []
       setVariants(
         v.length > 0
@@ -128,6 +136,8 @@ export function EditProductClient({ productId }: { productId: string }) {
               },
             ]
       )
+      setVariantPendingFiles(new Array(v.length > 0 ? v.length : 1).fill(null).map(() => []))
+      variantPreviewUrlsRef.current = new Array(v.length > 0 ? v.length : 1).fill(null).map(() => [])
     }).catch(() => setProduct(null)).finally(() => setLoading(false))
   }, [productId])
 
@@ -167,10 +177,15 @@ export function EditProductClient({ productId }: { productId: string }) {
         returnDays: "",
       },
     ])
+    setVariantPendingFiles((prev) => [...prev, []])
+    variantPreviewUrlsRef.current = [...variantPreviewUrlsRef.current, []]
   }
   function removeVariant(index: number) {
     if (variants.length <= 1) return
     setVariants((prev) => prev.filter((_, i) => i !== index))
+    setVariantPendingFiles((prev) => prev.filter((_, i) => i !== index))
+    ;(variantPreviewUrlsRef.current[index] ?? []).forEach((u) => URL.revokeObjectURL(u))
+    variantPreviewUrlsRef.current = variantPreviewUrlsRef.current.filter((_, i) => i !== index)
   }
   function updateVariant(index: number, field: keyof VariantRow, value: string | boolean | string[] | "link" | "upload" | AttributePair[]) {
     setVariants((prev) => {
@@ -215,25 +230,20 @@ export function EditProductClient({ productId }: { productId: string }) {
     const files = e.target.files
     if (!files?.length) return
     setVariantUploadingFor(variantIndex)
-    const urls: string[] = []
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i]
-      if (!file.type.startsWith("image/")) continue
-      const fd = new FormData()
-      fd.append("file", file)
-      try {
-        const r = await fetch("/api/product-seller/upload", { method: "POST", body: fd })
-        const j = await r.json().catch(() => ({}))
-        if (j.url) urls.push(j.url)
-      } catch {
-        // skip
-      }
-    }
-    if (urls.length > 0) {
+    const selected = Array.from(files).filter((f) => f.type.startsWith("image/"))
+    if (selected.length > 0) {
+      ;(variantPreviewUrlsRef.current[variantIndex] ?? []).forEach((u) => URL.revokeObjectURL(u))
+      const previewUrls = selected.map((f) => URL.createObjectURL(f))
+      variantPreviewUrlsRef.current[variantIndex] = previewUrls
+      setVariantPendingFiles((prev) => {
+        const next = [...prev]
+        next[variantIndex] = selected
+        return next
+      })
       setVariants((prev) => {
         const next = [...prev]
         const v = next[variantIndex]
-        if (v) next[variantIndex] = { ...v, images: [...(v.images ?? []), ...urls] }
+        if (v) next[variantIndex] = { ...v, images: [...(v.images ?? []), ...previewUrls] }
         return next
       })
     }
@@ -244,6 +254,17 @@ export function EditProductClient({ productId }: { productId: string }) {
   function removeVariantImage(variantIndex: number, url: string) {
     const v = variants[variantIndex]
     if (!v) return
+    const previewUrls = variantPreviewUrlsRef.current[variantIndex] ?? []
+    const previewIndex = previewUrls.indexOf(url)
+    if (previewIndex >= 0) {
+      URL.revokeObjectURL(url)
+      variantPreviewUrlsRef.current[variantIndex] = previewUrls.filter((_, i) => i !== previewIndex)
+      setVariantPendingFiles((prev) => {
+        const next = [...prev]
+        next[variantIndex] = (next[variantIndex] ?? []).filter((_, i) => i !== previewIndex)
+        return next
+      })
+    }
     updateVariant(variantIndex, "images", (v.images ?? []).filter((u) => u !== url))
   }
 
@@ -252,6 +273,26 @@ export function EditProductClient({ productId }: { productId: string }) {
       .split(/[\n,]+/)
       .map((u) => u.trim())
       .filter(Boolean)
+  }
+
+  useEffect(() => {
+    return () => {
+      if (masterImagePreviewUrlRef.current) URL.revokeObjectURL(masterImagePreviewUrlRef.current)
+      variantPreviewUrlsRef.current.flat().forEach((u) => URL.revokeObjectURL(u))
+    }
+  }, [])
+
+  async function uploadFiles(files: File[]): Promise<string[]> {
+    const urls: string[] = []
+    for (const file of files) {
+      const fd = new FormData()
+      fd.append("file", file)
+      const r = await fetch("/api/product-seller/upload", { method: "POST", body: fd })
+      const j = await r.json().catch(() => ({}))
+      if (!r.ok || !j.url) throw new Error("Image upload failed")
+      urls.push(j.url as string)
+    }
+    return urls
   }
 
   function cartesian<T>(arrays: T[][]): T[][] {
@@ -284,6 +325,9 @@ export function EditProductClient({ productId }: { productId: string }) {
       returnDays: "",
     }))
     setVariants(newVariants)
+    variantPreviewUrlsRef.current.flat().forEach((u) => URL.revokeObjectURL(u))
+    variantPreviewUrlsRef.current = newVariants.map(() => [])
+    setVariantPendingFiles(newVariants.map(() => []))
   }
 
   function addGeneratorOption() {
@@ -336,11 +380,19 @@ export function EditProductClient({ productId }: { productId: string }) {
     const subcategoryId = (formData.get("subcategoryId") as string) || null
     const description = (formData.get("description") as string) || undefined
     const isActive = (formData.get("isActive") as string) === "true"
-    const images = masterImageUrl.trim() ? [masterImageUrl.trim()] : []
+    let images = masterImageUrl.trim() ? [masterImageUrl.trim()] : []
 
     if (!name || !categoryId) {
       setError("Name and category are required")
       return
+    }
+    if (masterImageMode === "upload" && masterImageFile) {
+      try {
+        images = await uploadFiles([masterImageFile])
+      } catch {
+        setError("Master image upload failed. Please try again.")
+        return
+      }
     }
     const variantsPayload: {
       name: string
@@ -379,6 +431,21 @@ export function EditProductClient({ productId }: { productId: string }) {
       const returnType = v.returnType === "RETURNABLE" ? "RETURNABLE" : "NON_RETURNABLE"
       const daysNum = parseInt(v.returnDays || "", 10)
 
+      let variantImages: string[] | undefined
+      try {
+        if (v.imageMode === "link") {
+          variantImages = Array.isArray(v.images) && v.images.length > 0 ? v.images : undefined
+        } else {
+          const existingUrls = (v.images ?? []).filter((u) => !u.startsWith("blob:"))
+          const uploadedUrls = variantPendingFiles[i]?.length ? await uploadFiles(variantPendingFiles[i]) : []
+          const merged = Array.from(new Set([...existingUrls, ...uploadedUrls]))
+          variantImages = merged.length > 0 ? merged : undefined
+        }
+      } catch {
+        setError(`Variant ${i + 1}: image upload failed. Please try again.`)
+        return
+      }
+
       variantsPayload.push({
         name: v.name.trim() || `Variant ${i + 1}`,
         price,
@@ -386,7 +453,7 @@ export function EditProductClient({ productId }: { productId: string }) {
         hasGst: v.hasGst,
         stock,
         sku: v.sku.trim() || undefined,
-        images: Array.isArray(v.images) && v.images.length > 0 ? v.images : undefined,
+        images: variantImages,
         attributes: attributesObj && Object.keys(attributesObj).length > 0 ? attributesObj : undefined,
         details: (v.details ?? "").trim() || undefined,
         returnType,
@@ -424,15 +491,11 @@ export function EditProductClient({ productId }: { productId: string }) {
       return
     }
     setUploading(true)
-    const fd = new FormData()
-    fd.append("file", file)
-    try {
-      const r = await fetch("/api/product-seller/upload", { method: "POST", body: fd })
-      const j = await r.json().catch(() => ({}))
-      if (j.url) setMasterImageUrl(j.url)
-    } catch {
-      // keep current
-    }
+    if (masterImagePreviewUrl) URL.revokeObjectURL(masterImagePreviewUrl)
+    setMasterImageFile(file)
+    const previewUrl = URL.createObjectURL(file)
+    masterImagePreviewUrlRef.current = previewUrl
+    setMasterImagePreviewUrl(previewUrl)
     setUploading(false)
     e.target.value = ""
   }
@@ -550,7 +613,13 @@ export function EditProductClient({ productId }: { productId: string }) {
                     type="text"
                     placeholder="/uploads/products/your-image.jpg or https://example.com/image.jpg"
                     value={masterImageUrl}
-                    onChange={(e) => setMasterImageUrl(e.target.value)}
+                    onChange={(e) => {
+                      setMasterImageFile(null)
+                      if (masterImagePreviewUrl) URL.revokeObjectURL(masterImagePreviewUrl)
+                      setMasterImagePreviewUrl("")
+                      masterImagePreviewUrlRef.current = ""
+                      setMasterImageUrl(e.target.value)
+                    }}
                     className="w-full"
                   />
                   <p className="text-xs text-muted-foreground">Enter one image URL. Changing it replaces the current master image.</p>
@@ -561,7 +630,13 @@ export function EditProductClient({ productId }: { productId: string }) {
                         <img src={masterImageUrl} alt="Master preview" className="w-full h-full object-cover" />
                         <button
                           type="button"
-                          onClick={() => setMasterImageUrl("")}
+                          onClick={() => {
+                            setMasterImageFile(null)
+                            if (masterImagePreviewUrl) URL.revokeObjectURL(masterImagePreviewUrl)
+                            setMasterImagePreviewUrl("")
+                            masterImagePreviewUrlRef.current = ""
+                            setMasterImageUrl("")
+                          }}
                           className="absolute top-0 right-0 bg-destructive/90 text-destructive-foreground text-xs px-1.5 py-0.5 rounded-bl"
                         >
                           ×
@@ -585,17 +660,23 @@ export function EditProductClient({ productId }: { productId: string }) {
                     onClick={() => masterFileInputRef.current?.click()}
                     disabled={uploading}
                   >
-                    {uploading ? "Uploading..." : "Choose image (replaces current)"}
+                    {uploading ? "Preparing..." : "Choose image (replaces current)"}
                   </Button>
-                  {masterImageUrl && (
+                  {(masterImagePreviewUrl || masterImageUrl) && (
                     <div className="mt-2">
                       <p className="text-xs font-medium text-muted-foreground mb-1">Preview</p>
                       <div className="flex flex-wrap items-center gap-2">
                         <div className="relative w-32 h-32 rounded overflow-hidden border bg-muted">
-                          <img src={masterImageUrl} alt="Master preview" className="w-full h-full object-cover" />
+                          <img src={masterImagePreviewUrl || masterImageUrl} alt="Master preview" className="w-full h-full object-cover" />
                           <button
                             type="button"
-                            onClick={() => setMasterImageUrl("")}
+                            onClick={() => {
+                              setMasterImageFile(null)
+                              if (masterImagePreviewUrl) URL.revokeObjectURL(masterImagePreviewUrl)
+                              setMasterImagePreviewUrl("")
+                              masterImagePreviewUrlRef.current = ""
+                              setMasterImageUrl("")
+                            }}
                             className="absolute top-0 right-0 bg-destructive/90 text-destructive-foreground text-xs px-1.5 py-0.5 rounded-bl"
                           >
                             ×

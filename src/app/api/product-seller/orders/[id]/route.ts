@@ -8,6 +8,7 @@ import type {
   SellerOrderDetailItemApi,
 } from "../types"
 import { SELLER_ORDER_STATUSES } from "../types"
+import { deriveOrderStatus } from "@/lib/order-status"
 
 function isValidSellerStatus(s: string): s is PatchOrderStatusPayload["status"] {
   return SELLER_ORDER_STATUSES.includes(s as PatchOrderStatusPayload["status"])
@@ -30,10 +31,11 @@ export async function GET(
 
   const { id: orderId } = await params
   const order = await prisma.order.findFirst({
-    where: { id: orderId, sellerId: seller.id },
+    where: { id: orderId, items: { some: { sellerId: seller.id, productId: { not: null } } } },
     include: {
       customer: true,
       items: {
+        where: { sellerId: seller.id, productId: { not: null } },
         include: {
           product: { select: { images: true } },
           productVariant: { select: { images: true } },
@@ -64,6 +66,7 @@ export async function GET(
       firstImageUrl(variantImages) ?? firstImageUrl(productImages) ?? firstImageUrl(serviceImages) ?? null
     return {
       id: row.id,
+      itemStatus: row.itemStatus,
       productNameSnapshot: row.productNameSnapshot,
       serviceNameSnapshot: row.serviceNameSnapshot,
       quantity: row.quantity,
@@ -79,12 +82,12 @@ export async function GET(
   const body: SellerOrderDetailApi = {
     id: order.id,
     orderNumber: order.orderNumber,
-    status: order.status,
-    totalAmount: order.totalAmount,
-    subtotal: order.subtotal,
-    tax: order.tax,
-    shipping: order.shipping,
-    commission: order.commission,
+    status: deriveOrderStatus(order.items.map((item) => item.itemStatus)),
+    totalAmount: order.items.reduce((sum, item) => sum + (item.subtotalInclGst ?? item.subtotal + item.gstAmount) + item.shippingAmount, 0),
+    subtotal: order.items.reduce((sum, item) => sum + item.subtotal, 0),
+    tax: order.items.reduce((sum, item) => sum + item.gstAmount, 0),
+    shipping: order.items.reduce((sum, item) => sum + item.shippingAmount, 0),
+    commission: order.items.reduce((sum, item) => sum + item.commissionAmount, 0),
     commissionRate: order.commissionRate,
     paymentMethod: order.paymentMethod,
     paymentStatus: order.paymentStatus,
@@ -121,7 +124,7 @@ export async function PATCH(
 
   const { id: orderId } = await params
   const order = await prisma.order.findFirst({
-    where: { id: orderId, sellerId: seller.id },
+    where: { id: orderId, items: { some: { sellerId: seller.id, productId: { not: null } } } },
   })
   if (!order) return NextResponse.json({ error: "Order not found" }, { status: 404 })
 
@@ -133,28 +136,38 @@ export async function PATCH(
   }
   const payload = body as PatchOrderStatusPayload
   const status = typeof payload.status === "string" ? payload.status.trim().toUpperCase() : null
+  const itemId = typeof (body as { itemId?: string }).itemId === "string" ? (body as { itemId?: string }).itemId : null
+  const itemIds = Array.isArray((body as { itemIds?: string[] }).itemIds)
+    ? (body as { itemIds?: string[] }).itemIds!.filter((v): v is string => typeof v === "string")
+    : []
   if (!status || !isValidSellerStatus(status)) {
     return NextResponse.json(
       { error: "Invalid status. Use one of: " + SELLER_ORDER_STATUSES.join(", ") },
       { status: 400 }
     )
   }
-  if (order.status === "CANCELLED" || order.status === "REFUNDED") {
-    return NextResponse.json(
-      { error: "Cannot change status of cancelled or refunded order" },
-      { status: 400 }
-    )
-  }
-  if (status === "CANCELLED" && order.status !== "PENDING") {
-    return NextResponse.json(
-      { error: "Can only cancel orders that are PENDING" },
-      { status: 400 }
-    )
+  const targetItemIds = [...new Set([...(itemId ? [itemId] : []), ...itemIds])]
+  if (targetItemIds.length === 0) {
+    return NextResponse.json({ error: "itemId or itemIds is required for item-level status update" }, { status: 400 })
   }
 
-  await prisma.order.update({
-    where: { id: orderId },
-    data: { status },
+  const ownItems = await prisma.orderItem.findMany({
+    where: { orderId, id: { in: targetItemIds }, sellerId: seller.id, productId: { not: null } },
+    select: { id: true, itemStatus: true },
   })
-  return NextResponse.json({ success: true, status })
+  if (ownItems.length !== targetItemIds.length) {
+    return NextResponse.json({ error: "One or more items are not found for this seller" }, { status: 404 })
+  }
+  if (ownItems.some((row) => row.itemStatus === "CANCELLED" || row.itemStatus === "REFUNDED")) {
+    return NextResponse.json({ error: "Cannot change cancelled or refunded item status" }, { status: 400 })
+  }
+  if (status === "CANCELLED" && ownItems.some((row) => row.itemStatus !== "PENDING")) {
+    return NextResponse.json({ error: "Can only cancel items that are PENDING" }, { status: 400 })
+  }
+
+  await prisma.orderItem.updateMany({
+    where: { id: { in: targetItemIds }, orderId, sellerId: seller.id, productId: { not: null } },
+    data: { itemStatus: status },
+  })
+  return NextResponse.json({ success: true, status, updatedItemIds: targetItemIds })
 }

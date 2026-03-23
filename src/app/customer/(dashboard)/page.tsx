@@ -93,7 +93,7 @@ export default async function CustomerDashboard() {
                     <div>
                       <CardTitle>Order #{order.id.slice(0, 8)}</CardTitle>
                       <CardDescription className="mt-1">
-                        {order.seller.store?.name || "Store"} • {formatDate(order.createdAt)}
+                        {order.seller?.store?.name || "Store"} • {formatDate(order.createdAt)}
                       </CardDescription>
                     </div>
                     <div className="text-right">

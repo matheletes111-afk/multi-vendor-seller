@@ -518,12 +518,10 @@ export function CheckoutClient() {
                   <span>Subtotal ({productItems.length} item(s))</span>
                   <span>{formatCurrency(cartSubtotal)}</span>
                 </div>
-                {cartTax > 0 && (
-                  <div className="flex justify-between text-xs text-slate-700 sm:text-sm">
-                    <span>Tax (GST)</span>
-                    <span>{formatCurrency(cartTax)}</span>
-                  </div>
-                )}
+                <div className="flex justify-between text-xs text-slate-700 sm:text-sm">
+                  <span>Total GST (Tax)</span>
+                  <span>{formatCurrency(cartTax)}</span>
+                </div>
                 <div className="flex justify-between border-t border-slate-200 pt-2 text-sm font-semibold text-slate-900 sm:text-base">
                   <span>Grand total</span>
                   <span>{formatCurrency(cartGrandTotal)}</span>

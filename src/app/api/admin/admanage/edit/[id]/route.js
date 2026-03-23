@@ -2,12 +2,26 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { auth } from "@/lib/auth"
 import { isAdmin } from "@/lib/rbac"
-import { writeFile, mkdir, unlink } from "fs/promises"
+import { unlink } from "fs/promises"
 import path from "path"
+import { existsSync } from "fs"
+import { uploadPublicFile } from "@/lib/upload-public-file"
+
+function getImageExtFromContentType(contentType) {
+  const ct = (contentType || "").toLowerCase()
+  if (ct.includes("png")) return ".png"
+  if (ct.includes("jpeg") || ct.includes("jpg")) return ".jpg"
+  if (ct.includes("webp")) return ".webp"
+  if (ct.includes("gif")) return ".gif"
+  return ".jpg"
+}
+
+function isLocalPublicUpload(imageUrl) {
+  return typeof imageUrl === "string" && imageUrl.startsWith("/uploads/")
+}
 
 export async function PUT(request, { params }) {
   try {
-    // IMPORTANT: Await the params to get the id
     const { id } = await params
     console.log("Updating ad with ID:", id)
 
@@ -16,34 +30,30 @@ export async function PUT(request, { params }) {
       return NextResponse.json({ error: "Ad ID is required" }, { status: 400 })
     }
 
-    // Check authentication
     const session = await auth()
     if (!session?.user || !isAdmin(session.user)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Parse form data
     const formData = await request.formData()
     const title = formData.get("title")
     const description = formData.get("description")
     const isActive = formData.get("isActive") === "true"
     const imageFile = formData.get("image")
 
-    console.log("Received data:", { 
+    console.log("Received data:", {
       id,
-      title, 
-      description, 
-      isActive, 
+      title,
+      description,
+      isActive,
       hasImage: !!imageFile,
-      imageFileName: imageFile?.name 
+      imageFileName: imageFile?.name,
     })
 
-    // Validate title
     if (!title) {
       return NextResponse.json({ error: "Title is required" }, { status: 400 })
     }
 
-    // Check if ad exists
     const existingAd = await prisma.adManagement.findUnique({
       where: { id },
     })
@@ -56,44 +66,43 @@ export async function PUT(request, { params }) {
 
     let imagePath = existingAd.image
 
-    // Handle image upload if new file is provided
     if (imageFile && imageFile.size > 0) {
       try {
-        // Delete old image if exists
-        if (existingAd.image) {
+        const type = (imageFile.type || "").toLowerCase()
+        if (!type.startsWith("image/")) {
+          return NextResponse.json({ error: "Image must be an image file" }, { status: 400 })
+        }
+        if (existingAd.image && isLocalPublicUpload(existingAd.image)) {
           try {
             const oldImagePath = path.join(process.cwd(), "public", existingAd.image)
-            await unlink(oldImagePath)
-            console.log("Old image deleted")
+            if (existsSync(oldImagePath)) {
+              await unlink(oldImagePath)
+              console.log("Old local image deleted")
+            }
           } catch (deleteError) {
             console.log("Old image delete error (ignored):", deleteError)
           }
         }
 
-        // Save new image
         const bytes = await imageFile.arrayBuffer()
         const buffer = Buffer.from(bytes)
-
-        const fileExtension = path.extname(imageFile.name)
-        const timestamp = Date.now()
-        const randomNum = Math.floor(Math.random() * 10000)
-        const fileName = `ad-${timestamp}-${randomNum}${fileExtension}`
-        
-        const uploadDir = path.join(process.cwd(), "public/uploads/advertisements")
-        await mkdir(uploadDir, { recursive: true })
-        
-        const filePath = path.join(uploadDir, fileName)
-        await writeFile(filePath, buffer)
-        
-        imagePath = `/uploads/advertisements/${fileName}`
-        console.log("New image saved:", imagePath)
+        const contentType = imageFile.type || "image/jpeg"
+        const ext = path.extname(imageFile.name || "") || getImageExtFromContentType(contentType)
+        imagePath = await uploadPublicFile({
+          folder: "advertisements",
+          ext,
+          contentType,
+          buffer,
+          prefix: "admin-ad",
+        })
+        console.log("New image uploaded:", imagePath)
       } catch (uploadError) {
         console.error("Image upload error:", uploadError)
-        return NextResponse.json({ error: "Failed to upload image" }, { status: 500 })
+        const message = uploadError instanceof Error ? uploadError.message : "Failed to upload image"
+        return NextResponse.json({ error: message }, { status: 500 })
       }
     }
 
-    // Update database
     const updatedAd = await prisma.adManagement.update({
       where: { id },
       data: {

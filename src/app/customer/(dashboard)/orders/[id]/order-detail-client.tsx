@@ -205,12 +205,31 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
             <span className="text-muted-foreground">Subtotal ({order.items.length} item(s))</span>
             <span>{formatCurrency(order.subtotal)}</span>
           </div>
-          {order.tax > 0 && (
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Tax (GST)</span>
-              <span>{formatCurrency(order.tax)}</span>
-            </div>
-          )}
+          <div className="flex justify-between text-sm">
+            <span className="text-muted-foreground">Total GST</span>
+            <span>{formatCurrency(order.tax)}</span>
+          </div>
+
+          <div className="mt-1 space-y-1.5">
+            {order.items.map((item) => {
+              const gst = item.hasGst ? item.gstAmount : 0
+              const totalInclGst = item.subtotalInclGst ?? item.subtotal + gst
+              return (
+                <div key={item.id} className="flex justify-between gap-3 text-xs">
+                  <span className="min-w-0 truncate text-muted-foreground">
+                    {item.productNameSnapshot || item.serviceNameSnapshot || "Item"} (x{item.quantity})
+                  </span>
+                  <span className="text-right">
+                    <span className="text-muted-foreground">
+                      {formatCurrency(item.subtotal)} {gst > 0 ? `+ GST ${formatCurrency(gst)}` : "+ No GST"}
+                    </span>
+                    <span className="block font-medium text-slate-900">{formatCurrency(totalInclGst)}</span>
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+
           {order.shipping > 0 && (
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Shipping</span>

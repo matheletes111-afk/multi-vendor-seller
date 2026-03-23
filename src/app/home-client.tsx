@@ -27,6 +27,7 @@ import { formatCurrency } from "@/lib/utils";
 import { getYoutubeEmbedUrl } from "@/lib/youtube";
 import { PageLoader } from "@/components/ui/page-loader";
 import { AddToCartButton } from "@/components/product/AddToCartButton";
+import { WishlistButton } from "@/components/product/WishlistButton";
 
 const SUB_PLACEHOLDER_ICONS = [Package, Folder, LayoutGrid, Tag, BookOpen, Briefcase, Dumbbell, Music];
 const PRODUCT_PLACEHOLDER_ICONS = [ShoppingBag, Box, Package, Gift, Sparkles, Tag];
@@ -336,6 +337,9 @@ export function HomeClient() {
                       className="flex flex-col overflow-hidden rounded-lg bg-white shadow transition-shadow hover:shadow-lg"
                     >
                       <div className="relative aspect-square w-full overflow-hidden rounded-t-lg bg-muted flex items-center justify-center">
+                        <div className="absolute right-2 top-2 z-10">
+                          <WishlistButton productId={p.id} />
+                        </div>
                         {p.images?.[0] ? (
                           <img src={p.images[0]} alt={p.name} className="h-full w-full object-cover" loading="lazy" />
                         ) : (
@@ -427,6 +431,9 @@ export function HomeClient() {
                               className="flex w-32 shrink-0 snap-start flex-col overflow-hidden rounded-lg bg-white shadow transition-shadow hover:shadow-lg sm:w-40"
                             >
                               <div className="relative aspect-square w-full overflow-hidden rounded-t-lg bg-muted flex items-center justify-center">
+                                <div className="absolute right-2 top-2 z-10">
+                                  <WishlistButton productId={p.id} />
+                                </div>
                                 {p.images[0] ? (
                                   <img src={p.images[0]} alt={p.name} className="h-full w-full object-cover" />
                                 ) : (
@@ -575,6 +582,9 @@ export function HomeClient() {
                 <Link key={p.id} href={`/product/${p.id}`} className="group block h-full">
                   <Card className="flex h-full flex-col overflow-hidden border-0 bg-white shadow-md transition-shadow group-hover:shadow-lg">
                     <div className="relative aspect-square w-full overflow-hidden bg-muted flex items-center justify-center">
+                      <div className="absolute right-2 top-2 z-10">
+                        <WishlistButton productId={p.id} />
+                      </div>
                       {p.images[0] ? (
                         <img src={p.images[0]} alt={p.name} className="h-full w-full object-cover" />
                       ) : (

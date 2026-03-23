@@ -2,8 +2,17 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { auth } from "@/lib/auth"
 import { isAdmin } from "@/lib/rbac"
-import { writeFile, mkdir } from "fs/promises"
 import path from "path"
+import { uploadPublicFile } from "@/lib/upload-public-file"
+
+function getImageExtFromContentType(contentType) {
+  const ct = (contentType || "").toLowerCase()
+  if (ct.includes("png")) return ".png"
+  if (ct.includes("jpeg") || ct.includes("jpg")) return ".jpg"
+  if (ct.includes("webp")) return ".webp"
+  if (ct.includes("gif")) return ".gif"
+  return ".jpg"
+}
 
 export async function POST(request) {
   try {
@@ -26,34 +35,28 @@ export async function POST(request) {
 
     let imagePath = null
 
-    // Handle image upload if file exists
     if (imageFile && imageFile.size > 0) {
       try {
+        const type = (imageFile.type || "").toLowerCase()
+        if (!type.startsWith("image/")) {
+          return NextResponse.json({ error: "Image must be an image file" }, { status: 400 })
+        }
         const bytes = await imageFile.arrayBuffer()
         const buffer = Buffer.from(bytes)
-
-        // Generate unique filename using timestamp + random number
-        const fileExtension = path.extname(imageFile.name)
-        const timestamp = Date.now()
-        const randomNum = Math.floor(Math.random() * 10000)
-        const fileName = `ad-${timestamp}-${randomNum}${fileExtension}`
-        
-        // Define upload path
-        const uploadDir = path.join(process.cwd(), "public/uploads/advertisements")
-        
-        // Create directory if it doesn't exist
-        await mkdir(uploadDir, { recursive: true })
-        
-        // Save file
-        const filePath = path.join(uploadDir, fileName)
-        await writeFile(filePath, buffer)
-        console.log("File saved to:", filePath)
-        
-        // Store the public URL path
-        imagePath = `/uploads/advertisements/${fileName}`
+        const contentType = imageFile.type || "image/jpeg"
+        const ext = path.extname(imageFile.name || "") || getImageExtFromContentType(contentType)
+        imagePath = await uploadPublicFile({
+          folder: "advertisements",
+          ext,
+          contentType,
+          buffer,
+          prefix: "admin-ad",
+        })
+        console.log("Image uploaded to:", imagePath)
       } catch (uploadError) {
         console.error("Error uploading file:", uploadError)
-        return NextResponse.json({ error: "Failed to upload image" }, { status: 500 })
+        const message = uploadError instanceof Error ? uploadError.message : "Failed to upload image"
+        return NextResponse.json({ error: message }, { status: 500 })
       }
     }
 

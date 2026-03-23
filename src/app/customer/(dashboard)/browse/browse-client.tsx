@@ -1,14 +1,18 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { useSearchParams } from "next/navigation"
 import Link from "next/link"
+import { useSession } from "next-auth/react"
+import { UserRole } from "@prisma/client"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/ui/card"
 import { Badge } from "@/ui/badge"
 import { formatCurrency } from "@/lib/utils"
 import { PageLoader } from "@/components/ui/page-loader"
 import { Package, Briefcase, ShoppingBag, ChevronRight } from "lucide-react"
 import { AddToCartButton } from "@/components/product/AddToCartButton"
+import { WishlistButton } from "@/components/product/WishlistButton"
 
 type Product = {
   id: string
@@ -38,11 +42,19 @@ function getServiceFirstImage(images: unknown): string | null {
 type Subcategory = { id: string; name: string; slug: string }
 
 export function BrowseClient() {
+  const router = useRouter()
+  const { status, data: session } = useSession()
+  const canUseWishlist = status === "authenticated" && session?.user?.role === UserRole.CUSTOMER
   const searchParams = useSearchParams()
   const categoryId = searchParams.get("categoryId")
   const subcategoryId = searchParams.get("subcategoryId")
+  const q = searchParams.get("q")
+  const pageParam = Number(searchParams.get("page") ?? "1")
+  const currentPage = Number.isInteger(pageParam) && pageParam > 0 ? pageParam : 1
   const [products, setProducts] = useState<Product[]>([])
   const [services, setServices] = useState<Service[]>([])
+  const [totalProducts, setTotalProducts] = useState(0)
+  const [totalPages, setTotalPages] = useState(1)
   const [categoryName, setCategoryName] = useState<string | null>(null)
   const [subcategoryName, setSubcategoryName] = useState<string | null>(null)
   const [subcategories, setSubcategories] = useState<Subcategory[]>([])
@@ -53,12 +65,17 @@ export function BrowseClient() {
     const params = new URLSearchParams()
     if (categoryId) params.set("categoryId", categoryId)
     if (subcategoryId) params.set("subcategoryId", subcategoryId)
+    if (q) params.set("q", q)
+    params.set("page", String(currentPage))
     const qs = params.toString()
+    setLoading(true)
     fetch(`/api/customer/browse${qs ? `?${qs}` : ""}`)
       .then((r) => (r.ok ? r.json() : {}))
       .then((data: {
         products?: Product[]
         services?: Service[]
+        totalProducts?: number
+        totalPages?: number
         categoryName?: string | null
         subcategoryName?: string | null
         subcategories?: Subcategory[]
@@ -66,13 +83,22 @@ export function BrowseClient() {
       }) => {
         setProducts(data.products || [])
         setServices(data.services || [])
+        setTotalProducts(data.totalProducts ?? 0)
+        setTotalPages(Math.max(1, data.totalPages ?? 1))
         setCategoryName(data.categoryName ?? null)
         setSubcategoryName(data.subcategoryName ?? null)
         setSubcategories(data.subcategories || [])
         setResolvedCategoryId(data.resolvedCategoryId ?? null)
       })
       .finally(() => setLoading(false))
-  }, [categoryId, subcategoryId])
+  }, [categoryId, subcategoryId, q, currentPage])
+
+  const changePage = (nextPage: number) => {
+    const params = new URLSearchParams(searchParams.toString())
+    if (nextPage <= 1) params.delete("page")
+    else params.set("page", String(nextPage))
+    router.push(`/browse${params.toString() ? `?${params.toString()}` : ""}`)
+  }
 
   if (loading) return <PageLoader variant="listing" message="Loading products…" />
 
@@ -136,7 +162,7 @@ export function BrowseClient() {
           <div className="flex flex-wrap items-center gap-2 mb-4 sm:mb-6">
             <Package className="h-4 w-4 sm:h-5 sm:w-5 text-slate-600 shrink-0" />
             <h2 className="text-lg font-semibold tracking-tight sm:text-xl md:text-2xl">Products</h2>
-            <Badge variant="secondary" className="text-xs">{products.length}</Badge>
+            <Badge variant="secondary" className="text-xs">{totalProducts}</Badge>
           </div>
           {products.length === 0 ? (
             <Card className="overflow-hidden">
@@ -154,6 +180,11 @@ export function BrowseClient() {
                   <Link key={product.id} href={`/product/${product.id}`} className="group min-w-0">
                     <Card className="hover:shadow-md transition-shadow h-full overflow-hidden border border-slate-200 bg-white shadow-sm group-hover:shadow-lg">
                       <div className="relative aspect-square w-full overflow-hidden bg-muted flex items-center justify-center">
+                        {canUseWishlist && (
+                          <div className="absolute right-2 top-2 z-10">
+                            <WishlistButton productId={product.id} />
+                          </div>
+                        )}
                         {firstImage ? (
                           <img src={firstImage} alt={product.name} className="h-full w-full object-cover" loading="lazy" />
                         ) : (
@@ -185,6 +216,31 @@ export function BrowseClient() {
                   </Link>
                 )
               })}
+            </div>
+          )}
+          {totalProducts > 0 && (
+            <div className="mt-5 flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white p-3">
+              <p className="text-sm text-muted-foreground">
+                Page {currentPage} of {totalPages} ({totalProducts} products)
+              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => changePage(currentPage - 1)}
+                  disabled={currentPage <= 1}
+                  className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Previous
+                </button>
+                <button
+                  type="button"
+                  onClick={() => changePage(currentPage + 1)}
+                  disabled={currentPage >= totalPages}
+                  className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Next
+                </button>
+              </div>
             </div>
           )}
         </section>

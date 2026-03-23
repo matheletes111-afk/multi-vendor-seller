@@ -2,9 +2,17 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { isServiceSeller } from "@/lib/rbac"
-import { writeFile, mkdir } from "fs/promises"
 import path from "path"
-import { existsSync } from "fs"
+import { uploadPublicFile } from "@/lib/upload-public-file"
+
+function getImageExtFromContentType(contentType?: string | null) {
+  const ct = (contentType || "").toLowerCase()
+  if (ct.includes("png")) return ".png"
+  if (ct.includes("jpeg") || ct.includes("jpg")) return ".jpg"
+  if (ct.includes("webp")) return ".webp"
+  if (ct.includes("gif")) return ".gif"
+  return ".jpg"
+}
 
 export async function GET() {
   const session = await auth()
@@ -44,17 +52,26 @@ export async function PUT(request: NextRequest) {
 
     if (profileImageFile && profileImageFile.size > 0) {
       try {
+        const type = profileImageFile.type?.toLowerCase() ?? ""
+        if (!type.startsWith("image/")) {
+          return NextResponse.json({ error: "Profile picture must be an image file" }, { status: 400 })
+        }
         const bytes = await profileImageFile.arrayBuffer()
         const buffer = Buffer.from(bytes)
-        const ext = path.extname(profileImageFile.name) || ".jpg"
-        const fileName = `profile-${session.user.id}-${Date.now()}${ext}`
-        const uploadDir = path.join(process.cwd(), "public/uploads/profile")
-        if (!existsSync(uploadDir)) await mkdir(uploadDir, { recursive: true })
-        await writeFile(path.join(uploadDir, fileName), buffer)
-        userData.image = `/uploads/profile/${fileName}`
+        const ct = profileImageFile.type || "image/jpeg"
+        const ext =
+          path.extname((profileImageFile as { name?: string }).name || "") || getImageExtFromContentType(ct)
+        userData.image = await uploadPublicFile({
+          folder: "profile",
+          ext,
+          contentType: ct,
+          buffer,
+          prefix: "profile",
+        })
       } catch (e) {
         console.error("Profile image upload error:", e)
-        return NextResponse.json({ error: "Failed to upload profile image" }, { status: 500 })
+        const message = e instanceof Error ? e.message : "Failed to upload profile image"
+        return NextResponse.json({ error: message }, { status: 500 })
       }
     } else if (imageUrl !== undefined) {
       userData.image = imageUrl || null
