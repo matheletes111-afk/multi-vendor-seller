@@ -65,13 +65,28 @@ export async function PUT(request: NextRequest) {
 
   if (contentType.includes("multipart/form-data")) {
     const formData = await request.formData()
-    const name = typeof formData.get("name") === "string" ? (formData.get("name") as string).trim() : undefined
-    const imageUrl = typeof formData.get("image") === "string" ? (formData.get("image") as string).trim() : undefined
-    const phone = typeof formData.get("phone") === "string" ? (formData.get("phone") as string) : undefined
-    const phoneCountryCode =
-      typeof formData.get("phoneCountryCode") === "string" ? (formData.get("phoneCountryCode") as string) : undefined
-    const password = typeof formData.get("password") === "string" ? (formData.get("password") as string) : undefined
-    const profileImageFile = formData.get("profileImage") as File | null
+    const getString = (...keys: string[]) => {
+      for (const key of keys) {
+        const value = formData.get(key)
+        if (typeof value === "string") return value
+      }
+      return undefined
+    }
+    const getFile = (...keys: string[]) => {
+      for (const key of keys) {
+        const value = formData.get(key)
+        if (value instanceof File) return value
+      }
+      return null
+    }
+
+    // Support both flat keys and nested client keys from mobile forms.
+    const name = getString("name", "user[name]")?.trim()
+    const imageUrl = getString("image", "imageUrl", "user[image]")?.trim()
+    const phone = getString("phone", "user[phone]")
+    const phoneCountryCode = getString("phoneCountryCode", "phone_country_code", "user[phoneCountryCode]")
+    const password = getString("password", "user[password]")
+    const profileImageFile = getFile("profileImage", "profile_image", "image")
 
     if (name !== undefined) userData.name = name
     if (phone !== undefined) userData.phone = phone || null
