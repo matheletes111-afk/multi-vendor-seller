@@ -23,6 +23,7 @@ type Order = {
   id: string
   orderNumber: string
   status: string
+  hasReturnFlag?: boolean
   totalAmount: number
   commissionRate: number
   commission: number
@@ -125,6 +126,11 @@ export function OrdersClient() {
                       <Link href={`/product-seller/orders/${order.id}`} className="hover:underline">
                         #{order.orderNumber}
                       </Link>
+                      {order.hasReturnFlag ? (
+                        <Badge variant="destructive" className="ml-2 text-[10px] uppercase tracking-wide">
+                          Return
+                        </Badge>
+                      ) : null}
                       <p className="text-xs text-muted-foreground md:hidden mt-0.5 flex items-center gap-1">
                         <User className="h-3 w-3" />
                         {order.customer.name || order.customer.email}

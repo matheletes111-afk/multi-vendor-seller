@@ -38,7 +38,12 @@ export async function GET(request: NextRequest) {
         customer: true,
         items: {
           where: { sellerId: seller.id, productId: { not: null } },
-          include: { product: true, service: true },
+          include: {
+            product: true,
+            service: true,
+            productVariant: { select: { returnType: true } },
+            returnRequest: { select: { status: true } },
+          },
         },
       },
       orderBy: { createdAt: "desc" },
@@ -56,6 +61,11 @@ export async function GET(request: NextRequest) {
     tax: order.items.reduce((sum, item) => sum + item.gstAmount, 0),
     shipping: order.items.reduce((sum, item) => sum + item.shippingAmount, 0),
     commission: order.items.reduce((sum, item) => sum + item.commissionAmount, 0),
+    hasReturnFlag: order.items.some(
+      (item) =>
+        item.productVariant?.returnType === "RETURNABLE" &&
+        (item.returnRequest?.status === "REQUESTED" || item.returnRequest?.status === "ACCEPTED")
+    ),
   }))
 
   return NextResponse.json({

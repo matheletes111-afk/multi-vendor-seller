@@ -8,7 +8,7 @@ export default async function OrdersPage() {
   if (!session?.user) return null
 
   return (
-    <div className="container mx-auto p-4 sm:p-6 max-w-4xl">
+    <div className="container mx-auto p-4 sm:p-6">
       <div className="mb-6">
         <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">My Orders</h1>
         <p className="text-muted-foreground mt-1">

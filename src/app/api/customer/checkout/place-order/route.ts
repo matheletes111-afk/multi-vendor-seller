@@ -175,7 +175,7 @@ export async function POST(request: NextRequest) {
       subtotal > 0 ? Number((((sellerShipping.get(row.sellerId) ?? 0) * row.item.totalPrice) / (sellerSubtotal.get(row.sellerId) ?? 1)).toFixed(6)) : 0
     const itemCommissionAmount = (lineTotalInclGst + itemShippingAmount) * (COMMISSION_RATE / 100)
 
-    await prisma.orderItem.create({
+    const createdItem = await prisma.orderItem.create({
       data: {
         orderId: order.id,
         sellerId: row.sellerId,
@@ -196,6 +196,13 @@ export async function POST(request: NextRequest) {
         shippingAmount: itemShippingAmount,
         commissionAmount: itemCommissionAmount,
         commissionRateSnapshot: COMMISSION_RATE,
+      },
+    })
+    await prisma.orderItemStatusHistory.create({
+      data: {
+        orderItemId: createdItem.id,
+        status: "PENDING",
+        note: "Order placed",
       },
     })
     if (row.item.productVariantId) {

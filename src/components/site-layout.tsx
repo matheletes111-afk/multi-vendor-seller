@@ -34,6 +34,7 @@ const PAGE_BACKGROUND = "bg-gradient-to-b from-violet-300 via-purple-100 to-pink
 
 type Subcategory = { id: string; name: string; slug: string; image: string | null }
 type Category = { id: string; name: string; slug: string; subcategories: Subcategory[] }
+type ServiceCategory = { id: string; name: string; slug: string }
 
 export function SiteHeader() {
   const router = useRouter()
@@ -43,6 +44,7 @@ export function SiteHeader() {
   const [searchQuery, setSearchQuery] = useState("")
   const [mounted, setMounted] = useState(false)
   const [categories, setCategories] = useState<Category[]>([])
+  const [serviceCategories, setServiceCategories] = useState<ServiceCategory[]>([])
   const isLoggedIn = status === "authenticated" && !!session?.user
   const showOrdersLink = status === "authenticated" && session?.user?.role === UserRole.CUSTOMER
   const showBecomePartner = !isLoggedIn
@@ -80,10 +82,21 @@ export function SiteHeader() {
 
   useEffect(() => setMounted(true), [])
   useEffect(() => {
-    fetch("/api/home/categories")
-      .then((r) => (r.ok ? r.json() : []))
-      .then(setCategories)
-      .catch(() => setCategories([]))
+    Promise.all([
+      fetch("/api/home/categories").then((r) => (r.ok ? r.json() : [])),
+      fetch("/mobileapi/services/categories?activeOnly=true").then((r) => (r.ok ? r.json() : null)),
+    ])
+      .then(([productCats, serviceResp]) => {
+        setCategories(Array.isArray(productCats) ? productCats : [])
+        const list = serviceResp?.success && Array.isArray(serviceResp?.data?.categories)
+          ? serviceResp.data.categories
+          : []
+        setServiceCategories(list)
+      })
+      .catch(() => {
+        setCategories([])
+        setServiceCategories([])
+      })
   }, [])
 
   const handleSearch = (e: React.FormEvent) => {
@@ -149,6 +162,21 @@ export function SiteHeader() {
                       ))}
                     </div>
                   ))}
+                  {serviceCategories.length > 0 && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuLabel  className="font-medium">
+                        Service Categories
+                      </DropdownMenuLabel>
+                      {serviceCategories.map((cat) => (
+                        <DropdownMenuItem asChild key={`service-${cat.id}`}>
+                          <Link href={`/browse?serviceCategoryId=${cat.id}`} className="pl-6 text-sm text-slate-600">
+                            {cat.name}
+                          </Link>
+                        </DropdownMenuItem>
+                      ))}
+                    </>
+                  )}
                 </DropdownMenuContent>
               </DropdownMenu>
             ) : (
@@ -214,6 +242,19 @@ export function SiteHeader() {
                       ))}
                     </div>
                   ))}
+                  {serviceCategories.length > 0 && (
+                    <>
+                      <div className="my-2 border-t border-slate-200" />
+                      <p className="px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        Service Categories
+                      </p>
+                      {serviceCategories.map((cat) => (
+                        <Link href={`/browse?serviceCategoryId=${cat.id}`} key={`mobile-service-${cat.id}`} className="flex px-4 py-2.5 pl-8 text-sm text-slate-700 hover:bg-slate-100">
+                          {cat.name}
+                        </Link>
+                      ))}
+                    </>
+                  )}
                   <div className="my-2 border-t border-slate-200" />
                   {showBecomePartner && (
                     <>

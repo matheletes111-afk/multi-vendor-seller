@@ -102,6 +102,11 @@ function AdminLoginForm() {
               <AlertDescription>Please check your email to verify your account before signing in.</AlertDescription>
             </Alert>
           )}
+          {searchParams.get("reset") === "1" && (
+            <Alert className="mb-5 border-green-200 bg-green-50 text-green-800">
+              <AlertDescription>Password reset successful. Please sign in with your new password.</AlertDescription>
+            </Alert>
+          )}
           {error && (
             <Alert variant="destructive" className="mb-5">
               <AlertCircle className="h-4 w-4" />
@@ -118,6 +123,11 @@ function AdminLoginForm() {
               <div className="relative">
                 <Input id="password" type={showPassword ? "text" : "password"} placeholder="**********" value={password} onChange={(e) => setPassword(e.target.value)} required disabled={loading} className="rounded-xl border-gray-200 pr-10" />
                 <button type="button" tabIndex={-1} onClick={() => setShowPassword((p) => !p)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" aria-label={showPassword ? "Hide password" : "Show password"}>{showPassword ? <EyeOff size={18} /> : <Eye size={18} />}</button>
+              </div>
+              <div className="mt-2 text-right">
+                <Link href="/admin/forgot-password" className="text-sm font-medium text-blue-600 hover:underline">
+                  Forgot password?
+                </Link>
               </div>
             </div>
             <div className="text-center">

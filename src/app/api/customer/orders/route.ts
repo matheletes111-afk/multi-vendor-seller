@@ -49,10 +49,17 @@ export async function GET(request: NextRequest) {
             itemStatus: true,
             productId: true,
             serviceId: true,
+            productVariantId: true,
             productNameSnapshot: true,
             serviceNameSnapshot: true,
             quantity: true,
             subtotal: true,
+            productVariant: {
+              select: {
+                returnType: true,
+                returnDays: true,
+              },
+            },
             seller: { select: { store: { select: { name: true } } } },
           },
         },
@@ -94,10 +101,13 @@ export async function GET(request: NextRequest) {
       itemStatus: item.itemStatus,
       productId: item.productId,
       serviceId: item.serviceId,
+      productVariantId: item.productVariantId,
       productNameSnapshot: item.productNameSnapshot,
       serviceNameSnapshot: item.serviceNameSnapshot,
       quantity: item.quantity,
       subtotal: item.subtotal,
+      returnPolicyType: item.productVariant?.returnType ?? null,
+      returnPolicyDays: item.productVariant?.returnDays ?? null,
     })),
     }
   })

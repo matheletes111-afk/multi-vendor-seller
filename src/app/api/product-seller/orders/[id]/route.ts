@@ -38,8 +38,24 @@ export async function GET(
         where: { sellerId: seller.id, productId: { not: null } },
         include: {
           product: { select: { images: true } },
-          productVariant: { select: { images: true } },
+          productVariant: { select: { images: true, returnType: true } },
           service: { select: { images: true } },
+          returnRequest: {
+            select: {
+              status: true,
+              pickupStatus: true,
+              refundStatus: true,
+            },
+          },
+          statusHistory: {
+            select: {
+              status: true,
+              location: true,
+              note: true,
+              createdAt: true,
+            },
+            orderBy: { createdAt: "asc" },
+          },
         },
       },
     },
@@ -64,6 +80,7 @@ export async function GET(
     const serviceImages = (row.service as { images?: unknown } | null)?.images
     const imageUrl =
       firstImageUrl(variantImages) ?? firstImageUrl(productImages) ?? firstImageUrl(serviceImages) ?? null
+    const returnAvailable = row.productVariant?.returnType === "RETURNABLE"
     return {
       id: row.id,
       itemStatus: row.itemStatus,
@@ -76,6 +93,17 @@ export async function GET(
       gstAmount: row.gstAmount,
       subtotalInclGst: row.subtotalInclGst,
       imageUrl,
+      returnAvailable,
+      returnRequestStatus: row.returnRequest?.status ?? null,
+      pickupStatus: row.returnRequest?.pickupStatus ?? (returnAvailable ? "NOT_REQUESTED" : null),
+      refundStatus: row.returnRequest?.refundStatus ?? (returnAvailable ? "NOT_REQUESTED" : null),
+      deliveryProofImage: row.deliveryProofImage ?? null,
+      statusHistory: row.statusHistory.map((h) => ({
+        status: h.status,
+        location: h.location ?? null,
+        note: h.note ?? null,
+        createdAt: h.createdAt.toISOString(),
+      })),
     }
   })
 
@@ -134,8 +162,16 @@ export async function PATCH(
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 })
   }
-  const payload = body as PatchOrderStatusPayload
+  const payload = body as PatchOrderStatusPayload & {
+    deliveryProofImage?: string
+    location?: string
+    note?: string
+  }
   const status = typeof payload.status === "string" ? payload.status.trim().toUpperCase() : null
+  const deliveryProofImage =
+    typeof payload.deliveryProofImage === "string" ? payload.deliveryProofImage.trim() : ""
+  const location = typeof payload.location === "string" ? payload.location.trim() : ""
+  const note = typeof payload.note === "string" ? payload.note.trim() : ""
   const itemId = typeof (body as { itemId?: string }).itemId === "string" ? (body as { itemId?: string }).itemId : null
   const itemIds = Array.isArray((body as { itemIds?: string[] }).itemIds)
     ? (body as { itemIds?: string[] }).itemIds!.filter((v): v is string => typeof v === "string")
@@ -164,10 +200,26 @@ export async function PATCH(
   if (status === "CANCELLED" && ownItems.some((row) => row.itemStatus !== "PENDING")) {
     return NextResponse.json({ error: "Can only cancel items that are PENDING" }, { status: 400 })
   }
+  if (status === "DELIVERED" && !deliveryProofImage) {
+    return NextResponse.json({ error: "Delivery proof image is required when marking delivered" }, { status: 400 })
+  }
 
-  await prisma.orderItem.updateMany({
-    where: { id: { in: targetItemIds }, orderId, sellerId: seller.id, productId: { not: null } },
-    data: { itemStatus: status },
+  await prisma.$transaction(async (tx) => {
+    await tx.orderItem.updateMany({
+      where: { id: { in: targetItemIds }, orderId, sellerId: seller.id, productId: { not: null } },
+      data:
+        status === "DELIVERED"
+          ? { itemStatus: status, deliveredAt: new Date(), deliveryProofImage }
+          : { itemStatus: status },
+    })
+    await tx.orderItemStatusHistory.createMany({
+      data: targetItemIds.map((id) => ({
+        orderItemId: id,
+        status: status as import("@prisma/client").OrderStatus,
+        location: location || null,
+        note: note || null,
+      })),
+    })
   })
   return NextResponse.json({ success: true, status, updatedItemIds: targetItemIds })
 }

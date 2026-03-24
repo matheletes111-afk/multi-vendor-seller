@@ -49,6 +49,10 @@ export function BrowseClient() {
   const categoryId = searchParams.get("categoryId")
   const subcategoryId = searchParams.get("subcategoryId")
   const q = searchParams.get("q")
+  const sortParam = searchParams.get("sort")
+  const sort = sortParam === "price_desc" || sortParam === "price_asc" || sortParam === "newest" ? sortParam : "newest"
+  const minPrice = Number(searchParams.get("minPrice") ?? "0")
+  const maxPrice = Number(searchParams.get("maxPrice") ?? "100000")
   const pageParam = Number(searchParams.get("page") ?? "1")
   const currentPage = Number.isInteger(pageParam) && pageParam > 0 ? pageParam : 1
   const [products, setProducts] = useState<Product[]>([])
@@ -66,6 +70,9 @@ export function BrowseClient() {
     if (categoryId) params.set("categoryId", categoryId)
     if (subcategoryId) params.set("subcategoryId", subcategoryId)
     if (q) params.set("q", q)
+    if (sort && sort !== "newest") params.set("sort", sort)
+    if (Number.isFinite(minPrice) && minPrice > 0) params.set("minPrice", String(minPrice))
+    if (Number.isFinite(maxPrice) && maxPrice < 100000) params.set("maxPrice", String(maxPrice))
     params.set("page", String(currentPage))
     const qs = params.toString()
     setLoading(true)
@@ -91,7 +98,7 @@ export function BrowseClient() {
         setResolvedCategoryId(data.resolvedCategoryId ?? null)
       })
       .finally(() => setLoading(false))
-  }, [categoryId, subcategoryId, q, currentPage])
+  }, [categoryId, subcategoryId, q, sort, minPrice, maxPrice, currentPage])
 
   const changePage = (nextPage: number) => {
     const params = new URLSearchParams(searchParams.toString())
@@ -99,6 +106,22 @@ export function BrowseClient() {
     else params.set("page", String(nextPage))
     router.push(`/browse${params.toString() ? `?${params.toString()}` : ""}`)
   }
+
+  const updateFilters = (updates: Record<string, string | null>, resetPage = true) => {
+    const params = new URLSearchParams(searchParams.toString())
+    Object.entries(updates).forEach(([key, value]) => {
+      if (value == null || value === "") params.delete(key)
+      else params.set(key, value)
+    })
+    if (resetPage) params.delete("page")
+    router.push(`/browse${params.toString() ? `?${params.toString()}` : ""}`)
+  }
+
+  const productPrices = products.map((p) => Math.max(0, (p.basePrice ?? 0) - (p.discount ?? 0)))
+  const availableMin = productPrices.length > 0 ? Math.min(...productPrices) : 0
+  const availableMax = productPrices.length > 0 ? Math.max(...productPrices) : 100000
+  const safeMin = Number.isFinite(minPrice) ? Math.max(0, minPrice) : 0
+  const safeMax = Number.isFinite(maxPrice) ? Math.max(0, maxPrice) : 100000
 
   if (loading) return <PageLoader variant="listing" message="Loading products…" />
 
@@ -138,6 +161,74 @@ export function BrowseClient() {
             {isSubcategoryView ? `Products in ${subcategoryName}` : categoryName ? `Products in ${categoryName}` : "Discover products and services from our sellers"}
           </p>
         </div>
+
+        <section className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+            <div className="md:col-span-1">
+              <label htmlFor="sortBy" className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Sort by</label>
+              <select
+                id="sortBy"
+                value={sort}
+                onChange={(e) => updateFilters({ sort: e.target.value === "newest" ? null : e.target.value })}
+                className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="newest">Newly arrived</option>
+                <option value="price_desc">Price: high to low</option>
+                <option value="price_asc">Price: low to high</option>
+              </select>
+            </div>
+            <div className="md:col-span-3 grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <div className="mb-1 flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  <span>Min price</span>
+                  <span>{formatCurrency(safeMin)}</span>
+                </div>
+                <input
+                  type="range"
+                  min={0}
+                  max={Math.max(availableMax, safeMax, 100)}
+                  step={100}
+                  value={Math.min(safeMin, safeMax)}
+                  onChange={(e) => {
+                    const nextMin = Number(e.target.value)
+                    updateFilters({ minPrice: nextMin > 0 ? String(nextMin) : null, maxPrice: safeMax < 100000 ? String(Math.max(safeMax, nextMin)) : null })
+                  }}
+                  className="h-2 w-full cursor-pointer appearance-none rounded-lg bg-slate-200 accent-blue-600"
+                />
+                <p className="mt-1 text-xs text-slate-500">From {formatCurrency(Math.max(0, availableMin))}</p>
+              </div>
+              <div>
+                <div className="mb-1 flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  <span>Max price</span>
+                  <span>{safeMax >= 100000 ? "No limit" : formatCurrency(safeMax)}</span>
+                </div>
+                <input
+                  type="range"
+                  min={Math.max(0, safeMin)}
+                  max={Math.max(availableMax, safeMax, 100)}
+                  step={100}
+                  value={Math.max(safeMin, safeMax)}
+                  onChange={(e) => {
+                    const nextMax = Number(e.target.value)
+                    updateFilters({ maxPrice: nextMax >= 100000 ? null : String(nextMax) })
+                  }}
+                  className="h-2 w-full cursor-pointer appearance-none rounded-lg bg-slate-200 accent-blue-600"
+                />
+                <p className="mt-1 text-xs text-slate-500">Up to {formatCurrency(Math.max(availableMin, availableMax))}</p>
+              </div>
+            </div>
+          </div>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => updateFilters({ sort: null, minPrice: null, maxPrice: null })}
+              className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+            >
+              Reset filters
+            </button>
+            <p className="text-xs text-slate-500">Showing products matching your selected price and sort.</p>
+          </div>
+        </section>
 
         {/* Subcategories: only when viewing a category (not subcategory) and API returned subcategories */}
         {isCategoryView && subcategories.length > 0 && (

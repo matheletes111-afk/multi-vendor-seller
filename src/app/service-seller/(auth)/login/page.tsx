@@ -120,6 +120,11 @@ function ServiceSellerLoginForm() {
               <AlertDescription>Please check your email to verify your account before signing in.</AlertDescription>
             </Alert>
           )}
+          {searchParams.get("reset") === "1" && (
+            <Alert className="mb-5 border-green-200 bg-green-50 text-green-800">
+              <AlertDescription>Password reset successful. Please sign in with your new password.</AlertDescription>
+            </Alert>
+          )}
           {error && (
             <Alert variant="destructive" className="mb-5">
               <AlertCircle className="h-4 w-4" />
@@ -162,6 +167,16 @@ function ServiceSellerLoginForm() {
                 >
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
+              </div>
+              <div className="mt-2 text-right">
+                <Link href="/service-seller/forgot-password" className="text-sm font-medium text-blue-600 hover:underline">
+                  Forgot password?
+                </Link>
+              </div>
+              <div className="mt-3 text-center">
+                <Button type="button" variant="outline" asChild className="w-full rounded-full sm:max-w-[260px]">
+                  <Link href={`/service-seller/login/email-otp?callbackUrl=${encodeURIComponent(callbackUrl)}`}>Login via Email OTP</Link>
+                </Button>
               </div>
             </div>
             <div className="text-center">

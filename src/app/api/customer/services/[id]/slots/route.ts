@@ -14,16 +14,17 @@ export async function GET(
 
   const service = await prisma.service.findUnique({
     where: { id: serviceId, isActive: true },
-    select: { id: true, weeklyAvailability: true, duration: true, serviceType: true },
+    select: { id: true, weeklyAvailability: true, duration: true },
   })
-  if (!service || service.serviceType !== "APPOINTMENT") {
+  if (!service) {
     return NextResponse.json([])
   }
 
   const now = new Date()
   const fromDate = fromStr ? parseDate(fromStr) : new Date(now.getFullYear(), now.getMonth(), now.getDate())
   const toDate = toStr ? parseDate(toStr) : new Date(fromDate ?? now)
-  if (toDate) toDate.setDate(toDate.getDate() + 13)
+  // Default window is 14 days only when caller did not provide an explicit `to`.
+  if (!toStr && toDate) toDate.setDate(toDate.getDate() + 13)
 
   if (!fromDate || !toDate || fromDate > toDate) {
     return NextResponse.json({ error: "Invalid from/to dates" }, { status: 400 })

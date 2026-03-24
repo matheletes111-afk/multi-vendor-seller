@@ -8,6 +8,14 @@ export async function GET(request: NextRequest) {
   const categoryId = searchParams.get("categoryId") ?? undefined
   const subcategoryId = searchParams.get("subcategoryId") ?? undefined
   const serviceCategoryId = searchParams.get("serviceCategoryId") ?? undefined
+  const sortParam = searchParams.get("sort")
+  const sort = sortParam === "price_desc" || sortParam === "price_asc" || sortParam === "newest" ? sortParam : "newest"
+  const minPriceParam = searchParams.get("minPrice")
+  const maxPriceParam = searchParams.get("maxPrice")
+  const minPriceRaw = minPriceParam == null ? NaN : Number(minPriceParam)
+  const maxPriceRaw = maxPriceParam == null ? NaN : Number(maxPriceParam)
+  const minPrice = Number.isFinite(minPriceRaw) ? Math.max(0, minPriceRaw) : undefined
+  const maxPrice = Number.isFinite(maxPriceRaw) ? Math.max(0, maxPriceRaw) : undefined
   const qRaw = searchParams.get("q") ?? ""
   const q = typeof qRaw === "string" ? qRaw.trim() : ""
   const rawPage = Number(searchParams.get("page") ?? "1")
@@ -26,8 +34,7 @@ export async function GET(request: NextRequest) {
 
   const [
     sponsoredAdsRaw,
-    products,
-    totalProducts,
+    allProducts,
     categoryWithSubs,
     subcategoryWithCategory,
   ] = await Promise.all([
@@ -56,11 +63,8 @@ export async function GET(request: NextRequest) {
             variants: { take: 1, orderBy: { createdAt: "asc" }, select: { price: true, discount: true } },
             _count: { select: { reviews: true } },
           },
-          skip: (page - 1) * pageSize,
-          take: pageSize,
           orderBy: { createdAt: "desc" },
         }),
-    isServiceCategoryOnly ? Promise.resolve(0) : prisma.product.count({ where: productWhere }),
     categoryId && !subcategoryId
       ? prisma.category.findUnique({
           where: { id: categoryId, isActive: true },
@@ -92,20 +96,42 @@ export async function GET(request: NextRequest) {
   type AdRow = { spentAmount?: unknown; totalBudget?: unknown; [k: string]: unknown }
   const sponsoredAds = isFiltered ? [] : (sponsoredAdsRaw as AdRow[]).filter((ad) => Number(ad.spentAmount) < Number(ad.totalBudget))
 
-  const productsWithListingPrice = products.map((p) => {
+  const productsWithListingPrice = allProducts.map((p) => {
     const first = (p as { variants?: { price: number; discount: number }[] }).variants?.[0]
+    const basePrice = first?.price ?? 0
+    const discount = first?.discount ?? 0
     return {
       ...p,
-      basePrice: first?.price ?? 0,
-      discount: first?.discount ?? 0,
+      basePrice,
+      discount,
+      finalPrice: Math.max(0, basePrice - discount),
     }
   })
+
+  const minFilter = minPrice ?? 0
+  const maxFilter = maxPrice
+  const filteredProducts = productsWithListingPrice.filter((p) => {
+    const finalPrice = p.finalPrice
+    if (finalPrice < minFilter) return false
+    if (typeof maxFilter === "number" && finalPrice > maxFilter) return false
+    return true
+  })
+
+  const sortedProducts = [...filteredProducts].sort((a, b) => {
+    if (sort === "price_asc") return a.finalPrice - b.finalPrice
+    if (sort === "price_desc") return b.finalPrice - a.finalPrice
+    return 0
+  })
+
+  const totalProducts = sortedProducts.length
+  const totalPages = Math.max(1, Math.ceil(totalProducts / pageSize))
+  const currentPage = Math.min(page, totalPages)
+  const paginatedProducts = sortedProducts.slice((currentPage - 1) * pageSize, currentPage * pageSize)
 
   const categoryName = categoryWithSubs?.name ?? subcategoryWithCategory?.category?.name ?? null
   const subcategoryName = subcategoryWithCategory?.name ?? null
   const subcategories = categoryWithSubs?.subcategories ?? []
   const resolvedCategoryId = categoryId ?? subcategoryWithCategory?.category?.id ?? null
-  const totalPages = Math.max(1, Math.ceil(totalProducts / pageSize))
 
   // When filtering by product category (categoryId/subcategoryId), do not show services — that category is for products only
   const isProductCategoryFilter = Boolean(categoryId || subcategoryId)
@@ -138,10 +164,13 @@ export async function GET(request: NextRequest) {
   const serviceCategoryName = serviceCategoryWithName?.name ?? null
 
   return NextResponse.json({
-    page,
+    page: currentPage,
     pageSize,
     totalProducts,
     totalPages,
+    sort,
+    minPrice: minPrice ?? null,
+    maxPrice: maxPrice ?? null,
     categoryId: categoryId ?? null,
     subcategoryId: subcategoryId ?? null,
     serviceCategoryId: serviceCategoryId ?? null,
@@ -156,7 +185,7 @@ export async function GET(request: NextRequest) {
       spentAmount: Number(ad.spentAmount),
       maxCpc: Number(ad.maxCpc),
     })),
-    products: productsWithListingPrice,
+    products: paginatedProducts,
     services,
   })
 }

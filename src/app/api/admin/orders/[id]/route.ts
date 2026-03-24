@@ -5,6 +5,7 @@ import { isAdmin } from "@/lib/rbac"
 import type {
   AdminOrderDetailApi,
   AdminOrderDetailItemApi,
+  AdminOrderItemStatusHistoryApi,
   PatchOrderStatusPayload,
 } from "../types"
 import { ADMIN_ORDER_STATUSES } from "../types"
@@ -34,9 +35,20 @@ export async function GET(
         include: {
           seller: { include: { store: { select: { name: true } } } },
           product: { select: { images: true } },
-          productVariant: { select: { images: true } },
+          productVariant: { select: { images: true, returnType: true } },
           service: { select: { images: true } },
           serviceSlot: { select: { startTime: true, endTime: true } },
+          returnRequest: {
+            select: {
+              status: true,
+              pickupStatus: true,
+              refundStatus: true,
+            },
+          },
+          statusHistory: {
+            select: { status: true, location: true, note: true, createdAt: true },
+            orderBy: { createdAt: "asc" },
+          },
         },
       },
     },
@@ -62,6 +74,7 @@ export async function GET(
     const imageUrl =
       firstImageUrl(variantImages) ?? firstImageUrl(productImages) ?? firstImageUrl(serviceImages) ?? null
     const slot = row.serviceSlot as { startTime?: Date; endTime?: Date } | null
+    const returnAvailable = row.productVariant?.returnType === "RETURNABLE"
     return {
       id: row.id,
       sellerId: row.sellerId,
@@ -81,6 +94,20 @@ export async function GET(
       shippingAmount: row.shippingAmount,
       commissionAmount: row.commissionAmount,
       commissionRateSnapshot: row.commissionRateSnapshot,
+      deliveryProofImage: row.deliveryProofImage ?? null,
+      deliveredAt: row.deliveredAt ? row.deliveredAt.toISOString() : null,
+      statusHistory: row.statusHistory.map(
+        (h): AdminOrderItemStatusHistoryApi => ({
+          status: h.status,
+          location: h.location ?? null,
+          note: h.note ?? null,
+          createdAt: h.createdAt.toISOString(),
+        })
+      ),
+      returnAvailable,
+      returnRequestStatus: row.returnRequest?.status ?? null,
+      pickupStatus: row.returnRequest?.pickupStatus ?? (returnAvailable ? "NOT_REQUESTED" : null),
+      refundStatus: row.returnRequest?.refundStatus ?? (returnAvailable ? "NOT_REQUESTED" : null),
     }
   })
 
@@ -189,6 +216,10 @@ export async function PATCH(
   }
   const payload = body as PatchOrderStatusPayload
   const status = typeof payload.status === "string" ? payload.status.trim().toUpperCase() : null
+  const deliveryProofImage =
+    typeof payload.deliveryProofImage === "string" ? payload.deliveryProofImage.trim() : ""
+  const location = typeof payload.location === "string" ? payload.location.trim() : ""
+  const note = typeof payload.note === "string" ? payload.note.trim() : ""
   const itemId = typeof (body as { itemId?: string }).itemId === "string" ? (body as { itemId?: string }).itemId : null
   const itemIds = Array.isArray((body as { itemIds?: string[] }).itemIds)
     ? (body as { itemIds?: string[] }).itemIds!.filter((v): v is string => typeof v === "string")
@@ -202,21 +233,55 @@ export async function PATCH(
 
   const targetItemIds = [...new Set([...(itemId ? [itemId] : []), ...itemIds])]
   if (targetItemIds.length === 0) {
+    if (status === "DELIVERED") {
+      return NextResponse.json(
+        {
+          error:
+            "Cannot mark every line item delivered from the bulk control. Use per-item update and upload delivery proof.",
+        },
+        { status: 400 }
+      )
+    }
     await prisma.orderItem.updateMany({
       where: { orderId },
       data: { itemStatus: status },
     })
     return NextResponse.json({ success: true, status, updatedAllItems: true })
   }
-  const count = await prisma.orderItem.count({
+
+  const targetItems = await prisma.orderItem.findMany({
     where: { orderId, id: { in: targetItemIds } },
+    select: { id: true, itemStatus: true },
   })
-  if (count !== targetItemIds.length) {
+  if (targetItems.length !== targetItemIds.length) {
     return NextResponse.json({ error: "One or more items are not in this order" }, { status: 404 })
   }
-  await prisma.orderItem.updateMany({
-    where: { orderId, id: { in: targetItemIds } },
-    data: { itemStatus: status },
+  if (targetItems.some((row) => row.itemStatus === "CANCELLED" || row.itemStatus === "REFUNDED")) {
+    return NextResponse.json({ error: "Cannot change cancelled or refunded item status" }, { status: 400 })
+  }
+  if (status === "CANCELLED" && targetItems.some((row) => row.itemStatus !== "PENDING")) {
+    return NextResponse.json({ error: "Can only cancel items that are PENDING" }, { status: 400 })
+  }
+  if (status === "DELIVERED" && !deliveryProofImage) {
+    return NextResponse.json({ error: "Delivery proof image is required when marking delivered" }, { status: 400 })
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.orderItem.updateMany({
+      where: { orderId, id: { in: targetItemIds } },
+      data:
+        status === "DELIVERED"
+          ? { itemStatus: status, deliveredAt: new Date(), deliveryProofImage }
+          : { itemStatus: status },
+    })
+    await tx.orderItemStatusHistory.createMany({
+      data: targetItemIds.map((id) => ({
+        orderItemId: id,
+        status: status as import("@prisma/client").OrderStatus,
+        location: location || null,
+        note: note || null,
+      })),
+    })
   })
   return NextResponse.json({ success: true, status, updatedItemIds: targetItemIds })
 }

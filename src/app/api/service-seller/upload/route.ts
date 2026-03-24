@@ -25,6 +25,15 @@ export async function POST(request: NextRequest) {
 
   const formData = await request.formData()
   const file = formData.get("file") as File | null
+  const purposeRaw = formData.get("purpose")
+  const purpose = typeof purposeRaw === "string" ? purposeRaw.trim().toLowerCase() : ""
+
+  let folder = "services"
+  let prefix = "service"
+  if (purpose === "delivery-proof") {
+    folder = "orders/delivery-proof"
+    prefix = "delivery-proof"
+  }
 
   if (!file || file.size === 0) {
     return NextResponse.json({ error: "No file provided" }, { status: 400 })
@@ -54,11 +63,11 @@ export async function POST(request: NextRequest) {
     const ext = extFromName || getImageExtFromContentType(contentType)
 
     const url = await uploadPublicFile({
-      folder: "services",
+      folder,
       ext,
       contentType,
       buffer,
-      prefix: "service",
+      prefix,
     })
 
     return NextResponse.json({ url })

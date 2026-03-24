@@ -8,27 +8,30 @@ import type { GuestCartItemForMerge } from "@/app/api/customer/cart/types"
 export async function POST(request: Request) {
   try {
     const body = await request.json()
-    const { email, password, callbackUrl, csrfToken, guestCart } = body as {
+    const { email, password, otpLoginToken, callbackUrl, csrfToken, guestCart } = body as {
       email?: string
       password?: string
+      otpLoginToken?: string
       callbackUrl?: string
       csrfToken?: string
       guestCart?: unknown
     }
     const rawCallbackUrl = typeof callbackUrl === "string" ? callbackUrl : "/"
     const normalizedCallbackUrl = rawCallbackUrl === "/customer" ? "/" : rawCallbackUrl || "/"
-    if (!email || !password) {
+    const hasOtpLoginToken = typeof otpLoginToken === "string" && otpLoginToken.trim().length > 0
+    if (!email || (!password && !hasOtpLoginToken)) {
       return NextResponse.json(
-        { error: "Email and password are required" },
+        { error: "Email and password or OTP login token are required" },
         { status: 400 }
       )
     }
     const origin = new URL(request.url).origin
     const form = new URLSearchParams({
       email,
-      password,
+      password: hasOtpLoginToken ? "__OTP_LOGIN__" : (password as string),
       role: UserRole.CUSTOMER,
       callbackUrl: normalizedCallbackUrl,
+      ...(hasOtpLoginToken ? { otpLoginToken: otpLoginToken!.trim() } : {}),
       ...(csrfToken && { csrfToken }),
     })
     const cookie = request.headers.get("cookie") ?? ""

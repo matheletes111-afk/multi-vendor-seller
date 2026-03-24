@@ -186,11 +186,26 @@ export function CartProvider({ children }: { children: ReactNode }) {
         }
       }
       if (!input.productId) return
+      let effectiveVariantId = (input as CartItem).productVariantId
+      if (!effectiveVariantId) {
+        try {
+          const res = await fetch(`/api/products/${input.productId}`)
+          if (res.ok) {
+            const data = (await res.json()) as { variants?: Array<{ id: string }> }
+            const firstVariantId = Array.isArray(data.variants) ? data.variants[0]?.id : undefined
+            if (typeof firstVariantId === "string" && firstVariantId.length > 0) {
+              effectiveVariantId = firstVariantId
+            }
+          }
+        } catch {
+          // keep as undefined when default variant fetch fails
+        }
+      }
       const next = getCartFromStorage()
       const sameLine = (i: CartItem) =>
         i.productId === input.productId &&
-        ((input as CartItem).productVariantId != null
-          ? i.productVariantId === (input as CartItem).productVariantId
+        (effectiveVariantId != null
+          ? i.productVariantId === effectiveVariantId
           : i.productVariantId == null)
       const existing = next.find(sameLine)
       if (existing) {
@@ -203,7 +218,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       } else {
         next.unshift({
           productId: input.productId,
-          productVariantId: (input as CartItem).productVariantId,
+          productVariantId: effectiveVariantId,
           name: input.name,
           price: input.price,
           image: input.image ?? null,

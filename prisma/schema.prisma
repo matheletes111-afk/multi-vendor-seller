@@ -445,6 +445,24 @@ enum ReturnPolicyType {
   RETURNABLE
 }
 
+enum ReturnRequestStatus {
+  REQUESTED
+  ACCEPTED
+  REJECTED
+}
+
+enum PickupStatus {
+  NOT_REQUESTED
+  PENDING
+  COMPLETED
+}
+
+enum RefundStatus {
+  NOT_REQUESTED
+  PENDING
+  COMPLETED
+}
+
 model ProductVariant {
   id            String   @id @default(cuid())
   productId     String
@@ -605,6 +623,8 @@ model OrderItem {
   shippingAmount      Float    @default(0)
   commissionAmount    Float    @default(0)
   commissionRateSnapshot Float @default(0)
+  deliveredAt         DateTime?
+  deliveryProofImage  String?
   createdAt           DateTime @default(now())
 
   order          Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
@@ -615,11 +635,47 @@ model OrderItem {
   servicePackage ServicePackage? @relation(fields: [servicePackageId], references: [id])
   serviceSlot    ServiceSlot?    @relation(fields: [serviceSlotId], references: [id])
   review         Review?
+  returnRequest  ReturnRequest?
+  statusHistory  OrderItemStatusHistory[]
 
   @@index([orderId])
   @@index([orderId, sellerId])
   @@index([sellerId, itemStatus])
   @@map("order_items")
+}
+
+model OrderItemStatusHistory {
+  id          String      @id @default(cuid())
+  orderItemId String
+  status      OrderStatus
+  location    String?
+  note        String?
+  createdAt   DateTime    @default(now())
+
+  orderItem OrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+
+  @@index([orderItemId, createdAt])
+  @@map("order_item_status_history")
+}
+
+model ReturnRequest {
+  id            String              @id @default(cuid())
+  orderItemId   String              @unique
+  orderId       String
+  customerId    String
+  sellerId      String
+  reason        String?
+  status        ReturnRequestStatus @default(REQUESTED)
+  pickupStatus  PickupStatus        @default(NOT_REQUESTED)
+  refundStatus  RefundStatus        @default(NOT_REQUESTED)
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  orderItem OrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+
+  @@index([orderId, customerId])
+  @@index([sellerId, status])
+  @@map("return_requests")
 }
 
 model Payment {

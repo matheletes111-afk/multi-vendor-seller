@@ -7,10 +7,17 @@ import bcrypt from "bcryptjs"
 export async function POST(request: Request) {
   try {
     const body = await request.json()
-    const { email, password, callbackUrl, csrfToken } = body
-    if (!email || !password) {
+    const { email, password, otpLoginToken, callbackUrl, csrfToken } = body as {
+      email?: string
+      password?: string
+      otpLoginToken?: string
+      callbackUrl?: string
+      csrfToken?: string
+    }
+    const hasOtpLoginToken = typeof otpLoginToken === "string" && otpLoginToken.trim().length > 0
+    if (!email || (!password && !hasOtpLoginToken)) {
       return NextResponse.json(
-        { error: "Email and password are required" },
+        { error: "Email and password or OTP login token are required" },
         { status: 400 }
       )
     }
@@ -21,9 +28,10 @@ export async function POST(request: Request) {
       select: { id: true, password: true, role: true, isEmailVerified: true },
     })
     if (
+      !hasOtpLoginToken &&
       user?.role === UserRole.SELLER_PRODUCT &&
       user.password &&
-      (await bcrypt.compare(password, user.password))
+      (await bcrypt.compare(password as string, user.password))
     ) {
       // Email not verified → send to OTP page
       if (user.isEmailVerified === false) {
@@ -38,9 +46,10 @@ export async function POST(request: Request) {
     const origin = new URL(request.url).origin
     const form = new URLSearchParams({
       email,
-      password,
+      password: hasOtpLoginToken ? "__OTP_LOGIN__" : (password as string),
       role: UserRole.SELLER_PRODUCT,
       callbackUrl: callbackUrl || "/product-seller",
+      ...(hasOtpLoginToken ? { otpLoginToken: otpLoginToken!.trim() } : {}),
       ...(csrfToken && { csrfToken }),
     })
     const cookie = request.headers.get("cookie") ?? ""

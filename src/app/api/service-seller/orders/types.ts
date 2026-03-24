@@ -13,6 +13,16 @@ export const SELLER_ORDER_STATUSES = [
 
 export type SellerOrderStatusValue = (typeof SELLER_ORDER_STATUSES)[number]
 
+/** Line-item statuses service sellers may set (no product shipping steps). */
+export const SERVICE_SELLER_LINE_ITEM_STATUS_OPTIONS = [
+  "PENDING",
+  "CONFIRMED",
+  "DELIVERED",
+  "CANCELLED",
+] as const
+
+export type ServiceSellerLineItemStatusOption = (typeof SERVICE_SELLER_LINE_ITEM_STATUS_OPTIONS)[number]
+
 export type PatchOrderStatusPayload = { status: SellerOrderStatusValue }
 
 export type SellerOrderDetailItemApi = {
@@ -30,6 +40,13 @@ export type SellerOrderDetailItemApi = {
   /** Service slot (for service orders). ISO date-time strings. */
   serviceSlotStartTime: string | null
   serviceSlotEndTime: string | null
+  deliveryProofImage: string | null
+  statusHistory: {
+    status: string
+    location: string | null
+    note: string | null
+    createdAt: string
+  }[]
 }
 
 export type SellerOrderDetailApi = {

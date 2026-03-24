@@ -34,12 +34,23 @@ export function OrderDetailInline({
   >({})
 
   const [editingReview, setEditingReview] = useState<Record<string, boolean>>({})
+  const [returnLoadingItemId, setReturnLoadingItemId] = useState<string | null>(null)
+  const [returnError, setReturnError] = useState<string | null>(null)
+  const [cancelLoading, setCancelLoading] = useState(false)
+  const [cancelError, setCancelError] = useState<string | null>(null)
   const isObjectUrl = (url: string) => url.startsWith("blob:")
 
   const itemName = (item: OrderDetailApi["items"][number]) =>
     item.productNameSnapshot || item.serviceNameSnapshot || "Item"
   const lineTotal = (item: OrderDetailApi["items"][number]) =>
     item.subtotalInclGst ?? item.subtotal + item.gstAmount
+  const returnLabel = (item: OrderDetailApi["items"][number]) => {
+    if (item.returnAvailable) {
+      const days = item.returnPolicyDays ?? 0
+      return days > 0 ? `Return (${days} days)` : "Return"
+    }
+    return "No return"
+  }
 
   const getDraft = (itemId: string) =>
     drafts[itemId] ?? { rating: 0, comment: "", files: [], previewUrls: [], submitting: false, error: null }
@@ -133,6 +144,46 @@ export function OrderDetailInline({
     }
   }
 
+  const requestReturn = async (itemId: string) => {
+    setReturnError(null)
+    setReturnLoadingItemId(itemId)
+    try {
+      const res = await fetch(`/api/customer/orders/${order.id}/items/${itemId}/return-request`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      })
+      const json = await res.json().catch(() => ({} as { error?: string }))
+      if (!res.ok) throw new Error(json?.error || "Failed to request return")
+      await onReviewSaved?.(order.id)
+    } catch (error) {
+      setReturnError(error instanceof Error ? error.message : "Failed to request return")
+    } finally {
+      setReturnLoadingItemId(null)
+    }
+  }
+
+  const canCancelOrder = order.items.length > 0 && order.items.every((item) => item.itemStatus === "PENDING")
+  const cancelOrder = async () => {
+    if (!canCancelOrder || cancelLoading) return
+    setCancelError(null)
+    setCancelLoading(true)
+    try {
+      const res = await fetch(`/api/customer/orders/${order.id}/cancel`, {
+        method: "POST",
+        credentials: "include",
+      })
+      const json = await res.json().catch(() => ({} as { error?: string }))
+      if (!res.ok) throw new Error(json?.error || "Failed to cancel order")
+      await onReviewSaved?.(order.id)
+    } catch (error) {
+      setCancelError(error instanceof Error ? error.message : "Failed to cancel order")
+    } finally {
+      setCancelLoading(false)
+    }
+  }
+
   return (
     <div className="mt-4 rounded-lg border bg-muted/30 p-4 sm:p-5 space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
       <div className="flex items-center justify-between">
@@ -167,6 +218,14 @@ export function OrderDetailInline({
               <span className="text-muted-foreground">Payment</span>
               <span>{order.paymentMethod ?? "—"} ({order.paymentStatus.toLowerCase()})</span>
             </div>
+            {canCancelOrder && (
+              <div className="pt-1">
+                <Button size="sm" variant="outline" onClick={cancelOrder} disabled={cancelLoading} className="h-8 text-xs">
+                  {cancelLoading ? "Cancelling..." : "Cancel Order"}
+                </Button>
+              </div>
+            )}
+            {cancelError && <p className="text-xs font-medium text-red-600">{cancelError}</p>}
           </CardContent>
         </Card>
 
@@ -222,7 +281,15 @@ export function OrderDetailInline({
                   )}
                 </div>
                 <div className="min-w-0 flex-1 space-y-0.5 text-sm">
-                  <p className="font-medium">{itemName(item)}</p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="font-medium">{itemName(item)}</p>
+                    <Badge
+                      variant="outline"
+                      className={item.returnAvailable ? "text-[10px] font-semibold text-emerald-700 border-emerald-300" : "text-[10px] font-semibold text-slate-600"}
+                    >
+                      {returnLabel(item)}
+                    </Badge>
+                  </div>
                   <div className="flex items-center gap-2">
                     <Badge variant="outline" className="text-[10px] uppercase tracking-wide">
                       {item.itemStatus.replace(/_/g, " ")}
@@ -241,6 +308,48 @@ export function OrderDetailInline({
                   <p className="text-xs text-muted-foreground">
                     Shipping: {formatCurrency(item.shippingAmount)} • Commission: {formatCurrency(item.commissionAmount)}
                   </p>
+                  {item.returnAvailable && (
+                    <div className="mt-1 flex flex-wrap items-center gap-2">
+                      <Badge variant="outline" className="text-[10px] uppercase tracking-wide">
+                        Return: {item.returnRequestStatus ?? "ELIGIBLE"}
+                      </Badge>
+                      <Badge variant="outline" className="text-[10px] uppercase tracking-wide">
+                        Pickup: {item.pickupStatus ?? "NOT_REQUESTED"}
+                      </Badge>
+                      <Badge variant="outline" className="text-[10px] uppercase tracking-wide">
+                        Refund: {item.refundStatus ?? "NOT_REQUESTED"}
+                      </Badge>
+                      {item.itemStatus === "DELIVERED" && !item.returnRequestStatus && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => requestReturn(item.id)}
+                          disabled={returnLoadingItemId === item.id}
+                          className="h-7 text-xs"
+                        >
+                          {returnLoadingItemId === item.id ? "Requesting..." : "Request Return"}
+                        </Button>
+                      )}
+                    </div>
+                  )}
+                  {item.statusHistory.length > 0 && (
+                    <div className="mt-1 rounded-md border bg-white/80 p-2">
+                      <p className="mb-1 text-[11px] font-semibold text-slate-700">Tracking timeline</p>
+                      <ul className="space-y-1.5">
+                        {item.statusHistory.map((h, idx) => (
+                          <li key={`${item.id}-hist-${idx}`} className="relative pl-4 text-[11px] text-slate-600">
+                            <span className="absolute left-0 top-1.5 h-2 w-2 rounded-full bg-slate-400" />
+                            <span className="font-medium text-slate-700">{h.status}</span>
+                            {h.location ? ` • ${h.location}` : ""}
+                            {h.note ? ` • ${h.note}` : ""}
+                            <span className="block text-[10px] text-slate-500">
+                              {new Date(h.createdAt).toLocaleString()}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                   {item.review ? (
                     editingReview[item.id] ? (
                       <div className="mt-2 rounded-md border bg-background p-2.5">
@@ -554,6 +663,7 @@ export function OrderDetailInline({
           </ul>
         </CardContent>
       </Card>
+      {returnError && <p className="text-xs font-medium text-red-600">{returnError}</p>}
 
       <Card>
         <CardHeader className="pb-2">

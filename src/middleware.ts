@@ -11,15 +11,29 @@ export async function middleware(request: NextRequest) {
     "/customer/login",
     "/customer/registration",
     "/customer/verify-otp",
+    "/customer/login/email-otp",
+    "/customer/login/email-otp/verify",
+    "/customer/forgot-password",
+    "/customer/reset-password",
     "/admin/login",
     "/admin/registration",
     "/admin/verify-otp",
+    "/admin/forgot-password",
+    "/admin/reset-password",
     "/product-seller/login",
     "/product-seller/registration",
     "/product-seller/verify-otp",
+    "/product-seller/login/email-otp",
+    "/product-seller/login/email-otp/verify",
+    "/product-seller/forgot-password",
+    "/product-seller/reset-password",
     "/service-seller/login",
     "/service-seller/registration",
     "/service-seller/verify-otp",
+    "/service-seller/login/email-otp",
+    "/service-seller/login/email-otp/verify",
+    "/service-seller/forgot-password",
+    "/service-seller/reset-password",
   ]
   if (allowedAuthPaths.some((p) => path === p || path.startsWith(p + "?"))) {
     return NextResponse.next()
@@ -55,7 +69,22 @@ export async function middleware(request: NextRequest) {
 
   // Customer routes (allow login, registration, verify-otp without session)
   if (path.startsWith("/customer")) {
-    if (path === "/customer/login" || path === "/customer/registration" || path === "/customer/verify-otp" || path.startsWith("/customer/login?") || path.startsWith("/customer/registration?") || path.startsWith("/customer/verify-otp?")) {
+    if (
+      path === "/customer/login" ||
+      path === "/customer/registration" ||
+      path === "/customer/verify-otp" ||
+      path === "/customer/login/email-otp" ||
+      path === "/customer/login/email-otp/verify" ||
+      path === "/customer/forgot-password" ||
+      path === "/customer/reset-password" ||
+      path.startsWith("/customer/login?") ||
+      path.startsWith("/customer/registration?") ||
+      path.startsWith("/customer/verify-otp?") ||
+      path.startsWith("/customer/login/email-otp?") ||
+      path.startsWith("/customer/login/email-otp/verify?") ||
+      path.startsWith("/customer/forgot-password?") ||
+      path.startsWith("/customer/reset-password?")
+    ) {
       return NextResponse.next()
     }
     if (!session?.user) {
@@ -68,7 +97,18 @@ export async function middleware(request: NextRequest) {
 
   // Admin routes (allow login, registration, verify-otp without session)
   if (path.startsWith("/admin")) {
-    if (path === "/admin/login" || path === "/admin/registration" || path === "/admin/verify-otp" || path.startsWith("/admin/login?") || path.startsWith("/admin/registration?") || path.startsWith("/admin/verify-otp?")) {
+    if (
+      path === "/admin/login" ||
+      path === "/admin/registration" ||
+      path === "/admin/verify-otp" ||
+      path === "/admin/forgot-password" ||
+      path === "/admin/reset-password" ||
+      path.startsWith("/admin/login?") ||
+      path.startsWith("/admin/registration?") ||
+      path.startsWith("/admin/verify-otp?") ||
+      path.startsWith("/admin/forgot-password?") ||
+      path.startsWith("/admin/reset-password?")
+    ) {
       return NextResponse.next()
     }
     if (!session?.user) {
@@ -81,7 +121,22 @@ export async function middleware(request: NextRequest) {
 
   // Product seller routes (allow login, registration, verify-otp without session)
   if (path.startsWith("/product-seller")) {
-    if (path === "/product-seller/login" || path === "/product-seller/registration" || path === "/product-seller/verify-otp" || path.startsWith("/product-seller/login?") || path.startsWith("/product-seller/registration?") || path.startsWith("/product-seller/verify-otp?")) {
+    if (
+      path === "/product-seller/login" ||
+      path === "/product-seller/registration" ||
+      path === "/product-seller/verify-otp" ||
+      path === "/product-seller/login/email-otp" ||
+      path === "/product-seller/login/email-otp/verify" ||
+      path === "/product-seller/forgot-password" ||
+      path === "/product-seller/reset-password" ||
+      path.startsWith("/product-seller/login?") ||
+      path.startsWith("/product-seller/registration?") ||
+      path.startsWith("/product-seller/verify-otp?") ||
+      path.startsWith("/product-seller/login/email-otp?") ||
+      path.startsWith("/product-seller/login/email-otp/verify?") ||
+      path.startsWith("/product-seller/forgot-password?") ||
+      path.startsWith("/product-seller/reset-password?")
+    ) {
       return NextResponse.next()
     }
     if (!session?.user) {
@@ -105,7 +160,22 @@ export async function middleware(request: NextRequest) {
 
   // Service seller routes (allow login, registration, verify-otp without session)
   if (path.startsWith("/service-seller")) {
-    if (path === "/service-seller/login" || path === "/service-seller/registration" || path === "/service-seller/verify-otp" || path.startsWith("/service-seller/login?") || path.startsWith("/service-seller/registration?") || path.startsWith("/service-seller/verify-otp?")) {
+    if (
+      path === "/service-seller/login" ||
+      path === "/service-seller/registration" ||
+      path === "/service-seller/verify-otp" ||
+      path === "/service-seller/login/email-otp" ||
+      path === "/service-seller/login/email-otp/verify" ||
+      path === "/service-seller/forgot-password" ||
+      path === "/service-seller/reset-password" ||
+      path.startsWith("/service-seller/login?") ||
+      path.startsWith("/service-seller/registration?") ||
+      path.startsWith("/service-seller/verify-otp?") ||
+      path.startsWith("/service-seller/login/email-otp?") ||
+      path.startsWith("/service-seller/login/email-otp/verify?") ||
+      path.startsWith("/service-seller/forgot-password?") ||
+      path.startsWith("/service-seller/reset-password?")
+    ) {
       return NextResponse.next()
     }
     if (!session?.user) {

@@ -32,6 +32,19 @@ export type OrderDetailItemApi = {
   shippingAmount: number
   commissionAmount: number
   commissionRateSnapshot: number
+  returnAvailable: boolean
+  returnPolicyType: "RETURNABLE" | "NON_RETURNABLE" | null
+  returnPolicyDays: number | null
+  returnRequestStatus: "REQUESTED" | "ACCEPTED" | "REJECTED" | null
+  pickupStatus: "NOT_REQUESTED" | "PENDING" | "COMPLETED" | null
+  refundStatus: "NOT_REQUESTED" | "PENDING" | "COMPLETED" | null
+  deliveryProofImage: string | null
+  statusHistory: {
+    status: string
+    location: string | null
+    note: string | null
+    createdAt: string
+  }[]
 }
 
 export type CustomerOrderSellerGroupApi = {

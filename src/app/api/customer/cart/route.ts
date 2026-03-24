@@ -13,6 +13,16 @@ const cartItemInclude = {
   servicePackage: { select: { id: true, name: true, price: true } },
 } as const
 
+async function getEffectiveProductVariantId(productId: string, preferredVariantId?: string | null) {
+  if (preferredVariantId) return preferredVariantId
+  const variant = await prisma.productVariant.findFirst({
+    where: { productId },
+    select: { id: true },
+    orderBy: { createdAt: "asc" },
+  })
+  return variant?.id ?? null
+}
+
 type CartItemWithRelations = Awaited<
   ReturnType<typeof prisma.cartItem.findMany<{ include: typeof cartItemInclude }>>
 >[number]
@@ -138,7 +148,14 @@ export async function POST(request: NextRequest) {
   const quantity = typeof payload.quantity === "number" && payload.quantity >= 1 ? payload.quantity : 1
   const userId = session.user.id
   const productId = payload.productId
-  const productVariantId = payload.productVariantId ?? null
+  const productVariantId = await getEffectiveProductVariantId(productId, payload.productVariantId ?? null)
+  if (!productVariantId) {
+    return NextResponse.json({ error: "No variant found for this product" }, { status: 400 })
+  }
+  const payloadWithVariant: CartAddPayload = {
+    ...payload,
+    productVariantId,
+  }
   const existing = await prisma.cartItem.findFirst({
     where: {
       userId,
@@ -149,7 +166,7 @@ export async function POST(request: NextRequest) {
   })
   if (existing) {
     const nextQuantity = existing.quantity + quantity
-    const resolved = await resolveCartLine(payload, nextQuantity)
+    const resolved = await resolveCartLine(payloadWithVariant, nextQuantity)
     if (!resolved) {
       return NextResponse.json({ error: "Product not found" }, { status: 404 })
     }
@@ -165,7 +182,7 @@ export async function POST(request: NextRequest) {
       } as Parameters<typeof prisma.cartItem.update>[0]["data"],
     })
   } else {
-    const resolved = await resolveCartLine(payload, quantity)
+    const resolved = await resolveCartLine(payloadWithVariant, quantity)
     if (!resolved) {
       return NextResponse.json({ error: "Product not found" }, { status: 404 })
     }

@@ -41,9 +41,25 @@ export async function listCustomerOrders({
         include: {
           seller: { include: { store: { select: { name: true } } } },
           product: { select: { images: true } },
-          productVariant: { select: { images: true } },
+          productVariant: { select: { images: true, returnType: true, returnDays: true } },
           service: { select: { images: true } },
           serviceSlot: { select: { startTime: true, endTime: true } },
+          returnRequest: {
+            select: {
+              status: true,
+              pickupStatus: true,
+              refundStatus: true,
+            },
+          },
+          statusHistory: {
+            select: {
+              status: true,
+              location: true,
+              note: true,
+              createdAt: true,
+            },
+            orderBy: { createdAt: "asc" },
+          },
         },
       },
     },
@@ -61,6 +77,10 @@ export async function listCustomerOrders({
         firstImageUrl(variantImages) ?? firstImageUrl(productImages) ?? firstImageUrl(serviceImages) ?? null
 
       const slot = row.serviceSlot as { startTime?: Date; endTime?: Date } | null
+      const variantReturnType = row.productVariant?.returnType ?? null
+      const variantReturnDays = row.productVariant?.returnDays ?? null
+      const returnAvailable = !!row.productId && variantReturnType === "RETURNABLE"
+      const request = row.returnRequest
 
       return {
         id: row.id,
@@ -85,6 +105,19 @@ export async function listCustomerOrders({
         shippingAmount: row.shippingAmount,
         commissionAmount: row.commissionAmount,
         commissionRateSnapshot: row.commissionRateSnapshot,
+        returnAvailable,
+        returnPolicyType: variantReturnType,
+        returnPolicyDays: variantReturnDays,
+        returnRequestStatus: returnAvailable ? request?.status ?? null : null,
+        pickupStatus: returnAvailable ? request?.pickupStatus ?? "NOT_REQUESTED" : null,
+        refundStatus: returnAvailable ? request?.refundStatus ?? "NOT_REQUESTED" : null,
+        deliveryProofImage: row.deliveryProofImage ?? null,
+        statusHistory: row.statusHistory.map((h) => ({
+          status: h.status,
+          location: h.location ?? null,
+          note: h.note ?? null,
+          createdAt: h.createdAt.toISOString(),
+        })),
       }
     })
 
@@ -205,9 +238,25 @@ export async function getCustomerOrderDetail({
         include: {
           seller: { include: { store: { select: { name: true } } } },
           product: { select: { images: true } },
-          productVariant: { select: { images: true } },
+          productVariant: { select: { images: true, returnType: true, returnDays: true } },
           service: { select: { images: true } },
           serviceSlot: { select: { startTime: true, endTime: true } },
+          returnRequest: {
+            select: {
+              status: true,
+              pickupStatus: true,
+              refundStatus: true,
+            },
+          },
+          statusHistory: {
+            select: {
+              status: true,
+              location: true,
+              note: true,
+              createdAt: true,
+            },
+            orderBy: { createdAt: "asc" },
+          },
           review: {
             select: {
               id: true,
@@ -240,6 +289,10 @@ export async function getCustomerOrderDetail({
     const imageUrl =
       firstImageUrl(variantImages) ?? firstImageUrl(productImages) ?? firstImageUrl(serviceImages) ?? null
     const slot = row.serviceSlot as { startTime?: Date; endTime?: Date } | null
+    const variantReturnType = row.productVariant?.returnType ?? null
+    const variantReturnDays = row.productVariant?.returnDays ?? null
+    const returnAvailable = !!row.productId && variantReturnType === "RETURNABLE"
+    const request = row.returnRequest
 
     return {
       id: row.id,
@@ -278,6 +331,19 @@ export async function getCustomerOrderDetail({
       shippingAmount: row.shippingAmount,
       commissionAmount: row.commissionAmount,
       commissionRateSnapshot: row.commissionRateSnapshot,
+      returnAvailable,
+      returnPolicyType: variantReturnType,
+      returnPolicyDays: variantReturnDays,
+      returnRequestStatus: returnAvailable ? request?.status ?? null : null,
+      pickupStatus: returnAvailable ? request?.pickupStatus ?? "NOT_REQUESTED" : null,
+      refundStatus: returnAvailable ? request?.refundStatus ?? "NOT_REQUESTED" : null,
+      deliveryProofImage: row.deliveryProofImage ?? null,
+      statusHistory: row.statusHistory.map((h) => ({
+        status: h.status,
+        location: h.location ?? null,
+        note: h.note ?? null,
+        createdAt: h.createdAt.toISOString(),
+      })),
     }
   })
 

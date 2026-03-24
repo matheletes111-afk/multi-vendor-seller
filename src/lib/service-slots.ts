@@ -88,10 +88,10 @@ export async function createServiceSlotIfAllowed(
 ): Promise<{ id: string }> {
   const service = await prisma.service.findUnique({
     where: { id: serviceId, isActive: true },
-    select: { id: true, weeklyAvailability: true, duration: true, serviceType: true },
+    select: { id: true, weeklyAvailability: true, duration: true },
   })
-  if (!service || service.serviceType !== "APPOINTMENT") {
-    throw new Error("Service not found or not bookable")
+  if (!service) {
+    throw new Error("Service not found")
   }
   const slotDate = new Date(startTime)
   slotDate.setUTCHours(0, 0, 0, 0)

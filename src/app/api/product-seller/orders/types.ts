@@ -14,6 +14,17 @@ export type SellerOrderDetailItemApi = {
   gstAmount: number
   subtotalInclGst: number | null
   imageUrl: string | null
+  returnAvailable: boolean
+  returnRequestStatus: "REQUESTED" | "ACCEPTED" | "REJECTED" | null
+  pickupStatus: "NOT_REQUESTED" | "PENDING" | "COMPLETED" | null
+  refundStatus: "NOT_REQUESTED" | "PENDING" | "COMPLETED" | null
+  deliveryProofImage: string | null
+  statusHistory: {
+    status: string
+    location: string | null
+    note: string | null
+    createdAt: string
+  }[]
 }
 
 /** Allowed status values for seller PATCH (no REFUNDED). */

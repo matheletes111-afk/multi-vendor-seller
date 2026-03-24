@@ -31,6 +31,7 @@ import { WishlistButton } from "@/components/product/WishlistButton";
 
 const SUB_PLACEHOLDER_ICONS = [Package, Folder, LayoutGrid, Tag, BookOpen, Briefcase, Dumbbell, Music];
 const PRODUCT_PLACEHOLDER_ICONS = [ShoppingBag, Box, Package, Gift, Sparkles, Tag];
+const SERVICE_PLACEHOLDER_ICONS = [Briefcase, Sparkles, Tag, Music, Dumbbell, Folder];
 import { PublicLayout } from "@/components/site-layout";
 
 type Banner = {
@@ -68,6 +69,16 @@ type Product = {
   seller: { store: { name: string } | null };
 };
 
+type Service = {
+  id: string;
+  name: string;
+  basePrice: number | null;
+  discount: number;
+  images: unknown;
+  serviceCategory: { id: string; name: string; slug: string } | null;
+  seller: { store: { name: string } | null } | null;
+};
+
 type Ad = {
   id: string;
   title: string;
@@ -84,6 +95,10 @@ export function HomeClient() {
   const [categoriesLoading, setCategoriesLoading] = useState(true);
   const [productsByCategory, setProductsByCategory] = useState<Record<string, Product[]>>({});
   const [randomProducts, setRandomProducts] = useState<Product[]>([]);
+  const [homeSort, setHomeSort] = useState<"newest" | "price_desc" | "price_asc">("newest");
+  const [homeMinPrice, setHomeMinPrice] = useState(0);
+  const [homeMaxPrice, setHomeMaxPrice] = useState(100000);
+  const [homeServices, setHomeServices] = useState<Service[]>([]);
   const [recentViewProducts, setRecentViewProducts] = useState<Product[]>([]);
   const [bannerIndex, setBannerIndex] = useState(0);
   const { data: session, status } = useSession();
@@ -92,6 +107,7 @@ export function HomeClient() {
   const [sponsoredIndex, setSponsoredIndex] = useState(0);
   const sponsoredScrollRef = useRef<HTMLDivElement>(null);
   const bestSellersRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const serviceCarouselRef = useRef<HTMLDivElement>(null);
   // Mobile icon only on mobile; on web use main image only
   const [isMobileViewport, setIsMobileViewport] = useState(false);
   useEffect(() => {
@@ -132,6 +148,20 @@ export function HomeClient() {
       .then((r) => r.json())
       .then(setRandomProducts)
       .catch(() => setRandomProducts([]));
+  }, []);
+
+  useEffect(() => {
+    if (randomProducts.length === 0) return;
+    const prices = randomProducts.map((p) => Math.max(0, (p.basePrice ?? 0) - (p.discount ?? 0)));
+    const maxPrice = Math.max(...prices, 100);
+    setHomeMaxPrice(maxPrice);
+  }, [randomProducts]);
+
+  useEffect(() => {
+    fetch("/api/home/services?limit=12")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((data: Service[]) => setHomeServices(Array.isArray(data) ? data : []))
+      .catch(() => setHomeServices([]));
   }, []);
 
   useEffect(() => {
@@ -210,6 +240,37 @@ export function HomeClient() {
   // Mobile: show up to 4 featured categories; desktop: same or first 4 of all
   const latestCategories =
     featuredCategories.length > 0 ? featuredCategories : categories.slice(0, 4);
+
+  const serviceFirstImage = (images: unknown): string | null => {
+    if (Array.isArray(images) && images.length > 0 && typeof images[0] === "string") return images[0];
+    if (typeof images === "string") {
+      try {
+        const parsed = JSON.parse(images) as string[];
+        return Array.isArray(parsed) && typeof parsed[0] === "string" ? parsed[0] : null;
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  };
+
+  const randomProductPrices = randomProducts.map((p) => Math.max(0, (p.basePrice ?? 0) - (p.discount ?? 0)));
+  const randomMin = randomProductPrices.length > 0 ? Math.min(...randomProductPrices) : 0;
+  const randomMax = randomProductPrices.length > 0 ? Math.max(...randomProductPrices) : 100000;
+  const filteredAndSortedHomeProducts = [...randomProducts]
+    .filter((p) => {
+      const finalPrice = Math.max(0, (p.basePrice ?? 0) - (p.discount ?? 0));
+      if (finalPrice < homeMinPrice) return false;
+      if (finalPrice > homeMaxPrice) return false;
+      return true;
+    })
+    .sort((a, b) => {
+      const aPrice = Math.max(0, (a.basePrice ?? 0) - (a.discount ?? 0));
+      const bPrice = Math.max(0, (b.basePrice ?? 0) - (b.discount ?? 0));
+      if (homeSort === "price_asc") return aPrice - bPrice;
+      if (homeSort === "price_desc") return bPrice - aPrice;
+      return 0;
+    });
 
   return (
     <PublicLayout>
@@ -574,9 +635,75 @@ export function HomeClient() {
         {/* Explore products: Amazon-style grid */}
         {randomProducts.length > 0 && (
           <section className="container mx-auto px-3 sm:px-4 py-6 sm:py-8">
-            <h2 className="mb-4 sm:mb-6 text-lg font-bold text-slate-800 sm:text-xl">Explore products</h2>
+            <div className="mb-4 rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:mb-6 sm:p-4">
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                <h2 className="text-lg font-bold text-slate-800 sm:text-xl">Explore products</h2>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setHomeSort("newest");
+                    setHomeMinPrice(0);
+                    setHomeMaxPrice(Math.max(100000, randomMax));
+                  }}
+                  className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                >
+                  Reset filters
+                </button>
+              </div>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+                <div className="md:col-span-1">
+                  <label htmlFor="homeSort" className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Sort by
+                  </label>
+                  <select
+                    id="homeSort"
+                    value={homeSort}
+                    onChange={(e) => setHomeSort(e.target.value as "newest" | "price_desc" | "price_asc")}
+                    className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="newest">Newly arrived</option>
+                    <option value="price_desc">Price: high to low</option>
+                    <option value="price_asc">Price: low to high</option>
+                  </select>
+                </div>
+                <div className="md:col-span-3 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div>
+                    <div className="mb-1 flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      <span>Min price</span>
+                      <span>{formatCurrency(homeMinPrice)}</span>
+                    </div>
+                    <input
+                      type="range"
+                      min={0}
+                      max={Math.max(100, randomMax, homeMaxPrice)}
+                      step={100}
+                      value={Math.min(homeMinPrice, homeMaxPrice)}
+                      onChange={(e) => setHomeMinPrice(Math.min(Number(e.target.value), homeMaxPrice))}
+                      className="h-2 w-full cursor-pointer appearance-none rounded-lg bg-slate-200 accent-blue-600"
+                    />
+                    <p className="mt-1 text-xs text-slate-500">From {formatCurrency(Math.max(0, randomMin))}</p>
+                  </div>
+                  <div>
+                    <div className="mb-1 flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      <span>Max price</span>
+                      <span>{homeMaxPrice >= 100000 ? "No limit" : formatCurrency(homeMaxPrice)}</span>
+                    </div>
+                    <input
+                      type="range"
+                      min={Math.max(0, homeMinPrice)}
+                      max={Math.max(100, randomMax, homeMaxPrice)}
+                      step={100}
+                      value={Math.max(homeMinPrice, homeMaxPrice)}
+                      onChange={(e) => setHomeMaxPrice(Number(e.target.value))}
+                      className="h-2 w-full cursor-pointer appearance-none rounded-lg bg-slate-200 accent-blue-600"
+                    />
+                    <p className="mt-1 text-xs text-slate-500">Up to {formatCurrency(Math.max(randomMin, randomMax))}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
             <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-              {randomProducts.slice(0, 8).map((p, pIdx) => {
+              {filteredAndSortedHomeProducts.slice(0, 8).map((p, pIdx) => {
                 const ProductIcon = PRODUCT_PLACEHOLDER_ICONS[pIdx % PRODUCT_PLACEHOLDER_ICONS.length];
                 return (
                 <Link key={p.id} href={`/product/${p.id}`} className="group block h-full">
@@ -612,9 +739,100 @@ export function HomeClient() {
                 </Link>
               );})}
             </div>
+            {filteredAndSortedHomeProducts.length === 0 && (
+              <Card className="mt-4 border border-slate-200 bg-white">
+                <CardContent className="py-8 text-center text-sm text-slate-500">No products match this price range.</CardContent>
+              </Card>
+            )}
+            
+          </section>
+        )}
+
+        {/* Explore services: responsive carousel directly after explore products */}
+        {homeServices.length > 0 && (
+          <section className="container mx-auto px-3 sm:px-4 pb-6 sm:pb-8">
+            <div className="mb-4 sm:mb-5 flex items-center justify-between gap-2">
+              <h2 className="text-lg font-bold text-slate-800 sm:text-xl">Explore services</h2>
+              
+            </div>
+            <div className="relative">
+              {homeServices.length > 1 && (
+                <>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="icon"
+                    className="absolute left-0 top-1/2 z-10 h-8 w-8 -translate-y-1/2 rounded-full shadow-md sm:-left-3 sm:h-9 sm:w-9"
+                    onClick={() => {
+                      const el = serviceCarouselRef.current;
+                      if (!el) return;
+                      const card = el.querySelector("[data-service-card]") as HTMLElement | null;
+                      const gap = 12;
+                      const cardWidth = (card?.getBoundingClientRect().width ?? 220) + gap;
+                      el.scrollLeft = Math.max(0, el.scrollLeft - cardWidth);
+                    }}
+                    aria-label="Previous services"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="icon"
+                    className="absolute right-0 top-1/2 z-10 h-8 w-8 -translate-y-1/2 rounded-full shadow-md sm:-right-3 sm:h-9 sm:w-9"
+                    onClick={() => {
+                      const el = serviceCarouselRef.current;
+                      if (!el) return;
+                      const card = el.querySelector("[data-service-card]") as HTMLElement | null;
+                      const gap = 12;
+                      const cardWidth = (card?.getBoundingClientRect().width ?? 220) + gap;
+                      el.scrollLeft = Math.min(el.scrollWidth - el.clientWidth, el.scrollLeft + cardWidth);
+                    }}
+                    aria-label="Next services"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </>
+              )}
+              <div
+                ref={serviceCarouselRef}
+                className="flex gap-3 overflow-x-auto overflow-y-hidden py-2 scroll-smooth snap-x snap-mandatory [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden sm:gap-4"
+              >
+                {homeServices.map((s, idx) => {
+                  const ServiceIcon = SERVICE_PLACEHOLDER_ICONS[idx % SERVICE_PLACEHOLDER_ICONS.length];
+                  const imageUrl = serviceFirstImage(s.images);
+                  const finalPrice = s.basePrice == null ? null : Math.max(0, s.basePrice - (s.discount ?? 0));
+                  return (
+                    <Link
+                      key={s.id}
+                      href={`/service/${s.id}`}
+                      data-service-card
+                      className="group flex w-[78vw] max-w-[280px] min-w-[220px] shrink-0 snap-start flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition-shadow hover:shadow-lg sm:w-[280px]"
+                    >
+                      <div className="relative aspect-[4/3] w-full overflow-hidden bg-slate-100 flex items-center justify-center">
+                        {imageUrl ? (
+                          <img src={imageUrl} alt={s.name} className="h-full w-full object-cover transition-transform group-hover:scale-[1.02]" />
+                        ) : (
+                          <ServiceIcon className="h-12 w-12 text-slate-400" />
+                        )}
+                      </div>
+                      <CardContent className="p-3 sm:p-4">
+                        <p className="line-clamp-2 text-sm font-semibold text-slate-900">{s.name}</p>
+                        <p className="mt-1 text-xs text-slate-500">{s.seller?.store?.name ?? "Service seller"}</p>
+                        <p className="text-xs text-slate-500">{s.serviceCategory?.name ?? "Service"}</p>
+                        <p className="mt-2 text-sm font-bold text-blue-600">
+                          {finalPrice == null ? "Contact for price" : formatCurrency(finalPrice)}
+                        </p>
+                      </CardContent>
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+
             <div className="mt-6 text-center">
               <Button asChild className="bg-blue-600 text-white hover:bg-blue-700">
-                <Link href="/browse">View all products</Link>
+                <Link href="/browse">View all</Link>
               </Button>
             </div>
           </section>

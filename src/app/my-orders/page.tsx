@@ -24,11 +24,18 @@ export default async function MyOrdersPage() {
           id: true,
           productId: true,
           serviceId: true,
+          productVariantId: true,
           productNameSnapshot: true,
           serviceNameSnapshot: true,
           quantity: true,
           subtotal: true,
           itemStatus: true,
+          productVariant: {
+            select: {
+              returnType: true,
+              returnDays: true,
+            },
+          },
         },
       },
     },
@@ -48,11 +55,14 @@ export default async function MyOrdersPage() {
       id: item.id,
       productId: item.productId,
       serviceId: item.serviceId,
+      productVariantId: item.productVariantId,
       productNameSnapshot: item.productNameSnapshot,
       serviceNameSnapshot: item.serviceNameSnapshot,
       quantity: item.quantity,
       subtotal: item.subtotal,
       itemStatus: item.itemStatus,
+      returnPolicyType: item.productVariant?.returnType ?? null,
+      returnPolicyDays: item.productVariant?.returnDays ?? null,
     })),
   }))
 

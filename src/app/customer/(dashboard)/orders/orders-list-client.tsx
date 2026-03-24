@@ -27,11 +27,37 @@ type OrderListItem = {
   totalAmount: number
   status: string
   seller: { store: { name: string | null } | null }
-  items: { id: string; productId: string | null; serviceId: string | null; productNameSnapshot: string | null; serviceNameSnapshot: string | null; quantity: number; subtotal: number }[]
+  items: {
+    id: string
+    productId: string | null
+    serviceId: string | null
+    productVariantId: string | null
+    productNameSnapshot: string | null
+    serviceNameSnapshot: string | null
+    quantity: number
+    subtotal: number
+    returnPolicyType: "RETURNABLE" | "NON_RETURNABLE" | null
+    returnPolicyDays: number | null
+  }[]
 }
 
 function itemLabel(order: OrderListItem) {
   return order.items.map((i) => (i.productNameSnapshot || i.serviceNameSnapshot || "Item") + " × " + i.quantity).join(", ")
+}
+
+function isReturnableItem(item: OrderListItem["items"][number]) {
+  return !item.serviceId && item.returnPolicyType === "RETURNABLE" && (item.returnPolicyDays ?? 0) > 0
+}
+
+function returnMeta(item: OrderListItem["items"][number]) {
+  if (isReturnableItem(item)) {
+    return {
+      label: "Return",
+      text: `${item.returnPolicyDays} day${item.returnPolicyDays === 1 ? "" : "s"}`,
+      className: "text-emerald-700",
+    }
+  }
+  return { label: "No return", text: "", className: "text-slate-600" }
 }
 
 export function OrdersListClient() {
@@ -50,6 +76,7 @@ export function OrdersListClient() {
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [detail, setDetail] = useState<OrderDetailApi | null>(null)
   const [loadingId, setLoadingId] = useState<string | null>(null)
+  const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({})
 
   const loadOrders = useCallback(() => {
     setLoading(true)
@@ -211,8 +238,57 @@ export function OrdersListClient() {
                       <TableCell className="hidden md:table-cell text-muted-foreground text-sm whitespace-nowrap">
                         {formatDate(order.createdAt)}
                       </TableCell>
-                      <TableCell className="hidden lg:table-cell text-sm text-muted-foreground max-w-[220px]">
-                        <span className="line-clamp-2">{itemLabel(order)}</span>
+                      <TableCell className="hidden lg:table-cell text-sm text-muted-foreground min-w-[320px] max-w-[420px]">
+                        {expandedItems[order.id] ? (
+                          <div className="space-y-1">
+                            {order.items.map((item) => {
+                              const name = item.productNameSnapshot || item.serviceNameSnapshot || "Item"
+                              const meta = returnMeta(item)
+                              return (
+                                <p key={item.id} className="truncate">
+                                  <span>{name} x {item.quantity}</span>
+                                  <span className="mx-1.5 text-slate-300">|</span>
+                                  <span className={`font-semibold ${meta.className}`}>{meta.label}</span>
+                                  {meta.text ? <span className="text-slate-500"> ({meta.text})</span> : null}
+                                </p>
+                              )
+                            })}
+                          </div>
+                        ) : (
+                          <div className="space-y-1">
+                            {order.items.slice(0, 2).map((item) => {
+                              const name = item.productNameSnapshot || item.serviceNameSnapshot || "Item"
+                              const meta = returnMeta(item)
+                              return (
+                                <p key={item.id} className="truncate">
+                                  <span>{name} x {item.quantity}</span>
+                                  <span className="mx-1.5 text-slate-300">|</span>
+                                  <span className={`font-semibold ${meta.className}`}>{meta.label}</span>
+                                  {meta.text ? <span className="text-slate-500"> ({meta.text})</span> : null}
+                                </p>
+                              )
+                            })}
+                            {order.items.length > 2 && (
+                              <p className="text-xs text-muted-foreground">+{order.items.length - 2} more item(s)</p>
+                            )}
+                          </div>
+                        )}
+                        <div className="mt-1">
+                          <Badge variant="outline" className="text-[10px]">
+                            Returnable {order.items.filter(isReturnableItem).length}/{order.items.length}
+                          </Badge>
+                        </div>
+                        {order.items.length > 2 && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setExpandedItems((prev) => ({ ...prev, [order.id]: !prev[order.id] }))
+                            }
+                            className="mt-1 text-xs font-medium text-blue-600 hover:underline"
+                          >
+                            {expandedItems[order.id] ? "View less" : "View more"}
+                          </button>
+                        )}
                       </TableCell>
                       <TableCell className="text-right font-medium whitespace-nowrap">{formatCurrency(order.totalAmount)}</TableCell>
                       <TableCell>

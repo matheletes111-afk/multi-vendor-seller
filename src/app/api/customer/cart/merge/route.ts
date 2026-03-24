@@ -12,6 +12,16 @@ const cartItemInclude = {
   servicePackage: { select: { id: true, name: true, price: true } },
 } as const
 
+async function getEffectiveProductVariantId(productId: string, preferredVariantId?: string | null) {
+  if (preferredVariantId) return preferredVariantId
+  const variant = await prisma.productVariant.findFirst({
+    where: { productId },
+    select: { id: true },
+    orderBy: { createdAt: "asc" },
+  })
+  return variant?.id ?? null
+}
+
 type CartItemWithRelations = Awaited<
   ReturnType<typeof prisma.cartItem.findMany<{ include: typeof cartItemInclude }>>
 >[number]
@@ -71,11 +81,17 @@ export async function POST(request: NextRequest) {
     if (!item || typeof item.quantity !== "number" || item.quantity < 1) continue
     const hasProduct = typeof item.productId === "string"
     if (!hasProduct) continue
-    const resolved = await resolveCartLine(item, item.quantity)
+    const effectiveVariantId = await getEffectiveProductVariantId(item.productId as string, item.productVariantId ?? null)
+    if (!effectiveVariantId) continue
+    const normalizedItem: GuestCartItemForMerge = {
+      ...item,
+      productVariantId: effectiveVariantId,
+    }
+    const resolved = await resolveCartLine(normalizedItem, item.quantity)
     if (!resolved) continue
     {
       const productId = item.productId as string
-      const productVariantId = item.productVariantId ?? null
+      const productVariantId = effectiveVariantId
       const existing = await prisma.cartItem.findFirst({
         where: { userId, productId, productVariantId, serviceId: null },
       })

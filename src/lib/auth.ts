@@ -6,6 +6,7 @@ import Facebook from "next-auth/providers/facebook"
 import { prisma } from "@/lib/prisma"
 import bcrypt from "bcryptjs"
 import { UserRole } from "@prisma/client"
+import { verifyOtpLoginToken } from "@/lib/web-otp-login"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const providers: any[] = [
@@ -14,9 +15,10 @@ const providers: any[] = [
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
         role: { label: "Role", type: "text" },
+        otpLoginToken: { label: "OTP Login Token", type: "text" },
       },
       async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) {
+        if (!credentials?.email) {
           return null
         }
 
@@ -24,17 +26,28 @@ const providers: any[] = [
           where: { email: credentials.email as string },
         })
 
-        if (!user || !user.password) {
+        if (!user) {
           return null
         }
 
-        const isPasswordValid = await bcrypt.compare(
-          credentials.password as string,
-          user.password
-        )
+        const otpLoginToken =
+          typeof credentials.otpLoginToken === "string" ? credentials.otpLoginToken.trim() : ""
+        const isOtpLogin = otpLoginToken.length > 0
+        if (isOtpLogin) {
+          const payload = verifyOtpLoginToken(otpLoginToken)
+          if (!payload) return null
+          if (payload.email !== user.email.toLowerCase().trim()) return null
+          if (payload.role !== user.role) return null
+        } else {
+          if (!credentials?.password || !user.password) return null
+          const isPasswordValid = await bcrypt.compare(
+            credentials.password as string,
+            user.password
+          )
 
-        if (!isPasswordValid) {
-          return null
+          if (!isPasswordValid) {
+            return null
+          }
         }
 
         const requestedRole = credentials.role as string | undefined

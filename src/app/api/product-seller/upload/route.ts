@@ -25,6 +25,16 @@ export async function POST(request: NextRequest) {
 
   const formData = await request.formData()
   const file = formData.get("file") as File | null
+  const purposeRaw = formData.get("purpose")
+  const purpose = typeof purposeRaw === "string" ? purposeRaw.trim().toLowerCase() : ""
+
+  /** Default: product catalog images. `delivery-proof` → order delivery proof (same S3 bucket, separate folder). */
+  let folder = "products"
+  let prefix = "product"
+  if (purpose === "delivery-proof") {
+    folder = "orders/delivery-proof"
+    prefix = "delivery-proof"
+  }
 
   if (!file || file.size === 0) {
     return NextResponse.json({ error: "No file provided" }, { status: 400 })
@@ -54,11 +64,11 @@ export async function POST(request: NextRequest) {
     const ext = extFromName || getImageExtFromContentType(contentType)
 
     const url = await uploadPublicFile({
-      folder: "products",
+      folder,
       ext,
       contentType,
       buffer,
-      prefix: "product",
+      prefix,
     })
 
     return NextResponse.json({ url })

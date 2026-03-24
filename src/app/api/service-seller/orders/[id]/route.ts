@@ -7,11 +7,12 @@ import type {
   SellerOrderDetailApi,
   SellerOrderDetailItemApi,
 } from "../types"
-import { SELLER_ORDER_STATUSES } from "../types"
+import { SERVICE_SELLER_LINE_ITEM_STATUS_OPTIONS } from "../types"
 import { deriveOrderStatus } from "@/lib/order-status"
+import type { OrderStatus } from "@prisma/client"
 
-function isValidSellerStatus(s: string): s is PatchOrderStatusPayload["status"] {
-  return SELLER_ORDER_STATUSES.includes(s as PatchOrderStatusPayload["status"])
+function isValidServiceSellerItemStatus(s: string): boolean {
+  return (SERVICE_SELLER_LINE_ITEM_STATUS_OPTIONS as readonly string[]).includes(s)
 }
 
 /** GET /api/service-seller/orders/[id] — get one order for current service seller. */
@@ -41,6 +42,15 @@ export async function GET(
           productVariant: { select: { images: true } },
           service: { select: { images: true } },
           serviceSlot: { select: { startTime: true, endTime: true } },
+          statusHistory: {
+            select: {
+              status: true,
+              location: true,
+              note: true,
+              createdAt: true,
+            },
+            orderBy: { createdAt: "asc" },
+          },
         },
       },
     },
@@ -80,6 +90,13 @@ export async function GET(
       imageUrl,
       serviceSlotStartTime: slot?.startTime ? slot.startTime.toISOString() : null,
       serviceSlotEndTime: slot?.endTime ? slot.endTime.toISOString() : null,
+      deliveryProofImage: row.deliveryProofImage ?? null,
+      statusHistory: row.statusHistory.map((h) => ({
+        status: h.status,
+        location: h.location ?? null,
+        note: h.note ?? null,
+        createdAt: h.createdAt.toISOString(),
+      })),
     }
   })
 
@@ -138,15 +155,23 @@ export async function PATCH(
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 })
   }
-  const payload = body as PatchOrderStatusPayload
+  const payload = body as PatchOrderStatusPayload & {
+    deliveryProofImage?: string
+    location?: string
+    note?: string
+  }
   const status = typeof payload.status === "string" ? payload.status.trim().toUpperCase() : null
+  const deliveryProofImage =
+    typeof payload.deliveryProofImage === "string" ? payload.deliveryProofImage.trim() : ""
+  const location = typeof payload.location === "string" ? payload.location.trim() : ""
+  const note = typeof payload.note === "string" ? payload.note.trim() : ""
   const itemId = typeof (body as { itemId?: string }).itemId === "string" ? (body as { itemId?: string }).itemId : null
   const itemIds = Array.isArray((body as { itemIds?: string[] }).itemIds)
     ? (body as { itemIds?: string[] }).itemIds!.filter((v): v is string => typeof v === "string")
     : []
-  if (!status || !isValidSellerStatus(status)) {
+  if (!status || !isValidServiceSellerItemStatus(status)) {
     return NextResponse.json(
-      { error: "Invalid status. Use one of: " + SELLER_ORDER_STATUSES.join(", ") },
+      { error: "Invalid status. Use one of: " + SERVICE_SELLER_LINE_ITEM_STATUS_OPTIONS.join(", ") },
       { status: 400 }
     )
   }
@@ -167,10 +192,30 @@ export async function PATCH(
   if (status === "CANCELLED" && ownItems.some((row) => row.itemStatus !== "PENDING")) {
     return NextResponse.json({ error: "Can only cancel items that are PENDING" }, { status: 400 })
   }
+  if (status === "DELIVERED" && !deliveryProofImage) {
+    return NextResponse.json({ error: "Delivery proof image is required when marking delivered" }, { status: 400 })
+  }
 
-  await prisma.orderItem.updateMany({
-    where: { id: { in: targetItemIds }, orderId, sellerId: seller.id, serviceId: { not: null } },
-    data: { itemStatus: status },
+  await prisma.$transaction(async (tx) => {
+    await tx.orderItem.updateMany({
+      where: { id: { in: targetItemIds }, orderId, sellerId: seller.id, serviceId: { not: null } },
+      data:
+        status === "DELIVERED"
+          ? {
+              itemStatus: status as OrderStatus,
+              deliveredAt: new Date(),
+              deliveryProofImage,
+            }
+          : { itemStatus: status as OrderStatus },
+    })
+    await tx.orderItemStatusHistory.createMany({
+      data: targetItemIds.map((id) => ({
+        orderItemId: id,
+        status: status as import("@prisma/client").OrderStatus,
+        location: location || null,
+        note: note || null,
+      })),
+    })
   })
   return NextResponse.json({ success: true, status, updatedItemIds: targetItemIds })
 }

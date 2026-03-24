@@ -37,7 +37,11 @@ function formatSlotTime(iso: string): string {
 }
 
 function toDateKey(d: Date): string {
-  return d.toISOString().slice(0, 10)
+  // Use local calendar date, not UTC ISO date, to avoid day-shift bugs in positive timezones.
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, "0")
+  const day = String(d.getDate()).padStart(2, "0")
+  return `${y}-${m}-${day}`
 }
 
 const SLOT_DATE_LABEL_FORMATTER = new Intl.DateTimeFormat("en-GB", {
@@ -72,8 +76,6 @@ export function ServiceDetailClient({ service }: { service: Service }) {
   useEffect(() => {
     setSlotsExpanded(false)
   }, [selectedDate])
-
-  const isAppointment = service?.serviceType === "APPOINTMENT"
 
   const fetchSlots = useCallback(
     async (date: string) => {
@@ -118,8 +120,8 @@ export function ServiceDetailClient({ service }: { service: Service }) {
   const displayPrice = service?.basePrice != null ? Math.max(0, service.basePrice - service.discount) : null
   const mainImage = images[selectedImageIndex] || images[0]
 
-  const canBookWithoutSlot = !isAppointment || !service?.duration
-  const canProceedToBook: boolean = canBookWithoutSlot || (selectedSlot != null && selectedDate != null)
+  const canBookWithoutSlot = false
+  const canProceedToBook: boolean = selectedSlot != null && selectedDate != null
 
   const goToBook = useCallback(() => {
     const q = new URLSearchParams()
@@ -218,22 +220,22 @@ export function ServiceDetailClient({ service }: { service: Service }) {
                 )}
               </div>
 
-              {isAppointment && service.duration && (
+              {service?.duration ? (
                 <p className="mt-2 text-sm text-slate-600">
                   <Clock className="mr-1.5 inline h-4 w-4" />
                   Duration: {service.duration} min
                 </p>
-              )}
+              ) : null}
 
               <div className="mt-3 flex items-center gap-2 text-sm text-slate-600">
                 <Truck className="h-4 w-4 text-green-600" />
                 <span>
-                  {isAppointment ? "Choose a date and time slot to book." : "Availability &amp; booking at checkout."}
+                  Choose a date and time slot to book.
                 </span>
               </div>
 
-              {/* Slot selection for appointment-based services */}
-              {isAppointment && service.duration && (
+              {/* Slot selection for all service types */}
+              {
                 <div className="mt-5 rounded-lg border border-slate-200 bg-slate-50/50 p-4">
                   <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-900">
                     <Calendar className="h-4 w-4" />
@@ -306,7 +308,7 @@ export function ServiceDetailClient({ service }: { service: Service }) {
                     </div>
                   )}
                 </div>
-              )}
+              }
 
               {displayPrice != null && (
                 <div className="mt-6 flex flex-col gap-3">
@@ -315,7 +317,7 @@ export function ServiceDetailClient({ service }: { service: Service }) {
                       Sign in as a customer to book this service.
                     </p>
                   )}
-                  {canBook && isAppointment && service.duration && !canProceedToBook && (
+                  {canBook && !canProceedToBook && (
                     <p className="rounded-lg bg-amber-50 px-4 py-2.5 text-sm text-amber-800 ring-1 ring-amber-200">
                       Please select a date and time slot above to book.
                     </p>

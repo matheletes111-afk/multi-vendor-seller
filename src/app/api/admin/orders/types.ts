@@ -14,7 +14,20 @@ export const ADMIN_ORDER_STATUSES = [
 
 export type AdminOrderStatusValue = (typeof ADMIN_ORDER_STATUSES)[number]
 
-export type PatchOrderStatusPayload = { status: AdminOrderStatusValue }
+export type PatchOrderStatusPayload = {
+  status: AdminOrderStatusValue
+  /** Per-item update: delivery proof URL (S3) when status is DELIVERED */
+  deliveryProofImage?: string
+  location?: string
+  note?: string
+}
+
+export type AdminOrderItemStatusHistoryApi = {
+  status: string
+  location: string | null
+  note: string | null
+  createdAt: string
+}
 
 export type AdminOrderDetailItemApi = {
   id: string
@@ -36,6 +49,14 @@ export type AdminOrderDetailItemApi = {
   shippingAmount: number
   commissionAmount: number
   commissionRateSnapshot: number
+  /** Proof image URL when delivered */
+  deliveryProofImage: string | null
+  deliveredAt: string | null
+  statusHistory: AdminOrderItemStatusHistoryApi[]
+  returnAvailable: boolean
+  returnRequestStatus: string | null
+  pickupStatus: string | null
+  refundStatus: string | null
 }
 
 export type AdminOrderSellerGroupApi = {

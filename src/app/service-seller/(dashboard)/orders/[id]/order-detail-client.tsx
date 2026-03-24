@@ -8,8 +8,10 @@ import { Badge } from "@/ui/badge"
 import { Separator } from "@/ui/separator"
 import { formatCurrency, formatDate, formatSlotTimeRange } from "@/lib/utils"
 import type { SellerOrderDetailApi } from "@/app/api/service-seller/orders/types"
-import { SELLER_ORDER_STATUSES } from "@/app/api/service-seller/orders/types"
-import { Package, MapPin, User, ArrowLeft, Loader2, Receipt, Banknote, ShoppingBag } from "lucide-react"
+import {
+  SERVICE_SELLER_LINE_ITEM_STATUS_OPTIONS,
+} from "@/app/api/service-seller/orders/types"
+import { Package, MapPin, User, ArrowLeft, Loader2, Receipt, Banknote, ShoppingBag, Upload } from "lucide-react"
 import {
   Select,
   SelectContent,
@@ -18,13 +20,49 @@ import {
   SelectValue,
 } from "@/ui/select"
 
+/** Dropdown options: service flow excludes shipping-style statuses; keep legacy if item already has one. */
+function lineItemStatusSelectValues(currentItemStatus: string): string[] {
+  const base: string[] = [...SERVICE_SELLER_LINE_ITEM_STATUS_OPTIONS]
+  if (
+    (currentItemStatus === "PROCESSING" || currentItemStatus === "SHIPPED") &&
+    !base.includes(currentItemStatus)
+  ) {
+    base.push(currentItemStatus)
+  }
+  return base
+}
+
 export function ServiceSellerOrderDetailClient({ orderId }: { orderId: string }) {
   const [order, setOrder] = useState<SellerOrderDetailApi | null>(null)
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
   const [itemStatusDrafts, setItemStatusDrafts] = useState<Record<string, string>>({})
+  const [deliveryProofDrafts, setDeliveryProofDrafts] = useState<Record<string, string>>({})
+  const [deliveryProofFiles, setDeliveryProofFiles] = useState<Record<string, File | null>>({})
+  const [locationDrafts, setLocationDrafts] = useState<Record<string, string>>({})
+  const [noteDrafts, setNoteDrafts] = useState<Record<string, string>>({})
   const [updateLoading, setUpdateLoading] = useState(false)
   const [statusError, setStatusError] = useState<string | null>(null)
+  const [deliveryProofUploadingItemId, setDeliveryProofUploadingItemId] = useState<string | null>(null)
+
+  const uploadDeliveryProofOnSave = async (itemId: string): Promise<string> => {
+    const file = deliveryProofFiles[itemId]
+    if (!file) throw new Error("Choose a delivery proof image first")
+    const fd = new FormData()
+    fd.append("file", file)
+    fd.append("purpose", "delivery-proof")
+    setDeliveryProofUploadingItemId(itemId)
+    const res = await fetch("/api/service-seller/upload", {
+      method: "POST",
+      body: fd,
+      credentials: "include",
+    })
+    const data = (await res.json()) as { url?: string; error?: string }
+    if (!res.ok) throw new Error(data.error ?? "Upload failed")
+    if (!data.url) throw new Error("No URL returned from upload")
+    setDeliveryProofDrafts((prev) => ({ ...prev, [itemId]: data.url! }))
+    return data.url
+  }
 
   const fetchOrder = useCallback(() => {
     return fetch(`/api/service-seller/orders/${orderId}`, { credentials: "include" })
@@ -45,6 +83,30 @@ export function ServiceSellerOrderDetailClient({ orderId }: { orderId: string })
               return acc
             }, {})
           )
+          setDeliveryProofDrafts(
+            data.items.reduce<Record<string, string>>((acc, item) => {
+              acc[item.id] = item.deliveryProofImage ?? ""
+              return acc
+            }, {})
+          )
+          setDeliveryProofFiles(
+            data.items.reduce<Record<string, File | null>>((acc, item) => {
+              acc[item.id] = null
+              return acc
+            }, {})
+          )
+          setLocationDrafts(
+            data.items.reduce<Record<string, string>>((acc, item) => {
+              acc[item.id] = item.statusHistory[item.statusHistory.length - 1]?.location ?? ""
+              return acc
+            }, {})
+          )
+          setNoteDrafts(
+            data.items.reduce<Record<string, string>>((acc, item) => {
+              acc[item.id] = ""
+              return acc
+            }, {})
+          )
         }
       })
   }, [orderId])
@@ -59,7 +121,7 @@ export function ServiceSellerOrderDetailClient({ orderId }: { orderId: string })
     order.status !== "CANCELLED" &&
     order.status !== "REFUNDED"
 
-  const handleUpdateItemStatus = (itemId: string) => {
+  const handleUpdateItemStatus = async (itemId: string) => {
     if (!order || !canUpdateStatus) return
     const current = order.items.find((item) => item.id === itemId)?.itemStatus
     const next = itemStatusDrafts[itemId]
@@ -70,18 +132,38 @@ export function ServiceSellerOrderDetailClient({ orderId }: { orderId: string })
     }
     setStatusError(null)
     setUpdateLoading(true)
-    fetch(`/api/service-seller/orders/${orderId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({ status: next, itemId }),
-    })
-      .then((res) => {
-        if (!res.ok) return res.json().then((d: { error?: string }) => { throw new Error(d.error ?? "Failed") })
-        return fetchOrder()
+    try {
+      let deliveryProofImage = (deliveryProofDrafts[itemId] || "").trim()
+      if (next === "DELIVERED" && !deliveryProofImage) {
+        deliveryProofImage = await uploadDeliveryProofOnSave(itemId)
+      }
+      if (next === "DELIVERED" && !deliveryProofImage) {
+        throw new Error("Delivery proof image is required for delivered status")
+      }
+      const res = await fetch(`/api/service-seller/orders/${orderId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          status: next,
+          itemId,
+          deliveryProofImage: next === "DELIVERED" ? deliveryProofImage : undefined,
+          location: (locationDrafts[itemId] || "").trim() || undefined,
+          note: (noteDrafts[itemId] || "").trim() || undefined,
+        }),
       })
-      .catch((err: Error) => setStatusError(err.message))
-      .finally(() => setUpdateLoading(false))
+      if (!res.ok) {
+        const d = (await res.json()) as { error?: string }
+        throw new Error(d.error ?? "Failed")
+      }
+      await fetchOrder()
+      setDeliveryProofFiles((prev) => ({ ...prev, [itemId]: null }))
+    } catch (err) {
+      setStatusError(err instanceof Error ? err.message : "Failed")
+    } finally {
+      setUpdateLoading(false)
+      setDeliveryProofUploadingItemId(null)
+    }
   }
 
   if (loading) {
@@ -230,6 +312,66 @@ export function ServiceSellerOrderDetailClient({ orderId }: { orderId: string })
                     </Badge>
                     {canUpdateStatus && (
                       <>
+                        {(itemStatusDrafts[item.id] ?? item.itemStatus) === "DELIVERED" && (
+                          <div className="flex flex-wrap items-center gap-2">
+                            <input
+                              type="file"
+                              accept="image/jpeg,image/png,image/gif,image/webp"
+                              className="sr-only"
+                              id={`delivery-proof-file-${item.id}`}
+                              onChange={(e) => {
+                                const f = e.target.files?.[0]
+                                if (f) {
+                                  setDeliveryProofFiles((prev) => ({ ...prev, [item.id]: f }))
+                                  setDeliveryProofDrafts((prev) => ({ ...prev, [item.id]: "" }))
+                                }
+                                e.target.value = ""
+                              }}
+                            />
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="h-8 gap-1.5"
+                              disabled={deliveryProofUploadingItemId === item.id}
+                              onClick={() =>
+                                document.getElementById(`delivery-proof-file-${item.id}`)?.click()
+                              }
+                            >
+                              {deliveryProofUploadingItemId === item.id ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              ) : (
+                                <Upload className="h-3.5 w-3.5" />
+                              )}
+                              {deliveryProofUploadingItemId === item.id ? "Uploading…" : "Choose image"}
+                            </Button>
+                            {(deliveryProofDrafts[item.id] || "").trim() ? (
+                              <Badge variant="secondary" className="text-[10px] font-normal">
+                                Image ready
+                              </Badge>
+                            ) : deliveryProofFiles[item.id] ? (
+                              <Badge variant="secondary" className="text-[10px] font-normal">
+                                Selected: {deliveryProofFiles[item.id]?.name}
+                              </Badge>
+                            ) : (
+                              <span className="text-[10px] text-amber-700">Required for delivered</span>
+                            )}
+                          </div>
+                        )}
+                        <input
+                          type="text"
+                          value={locationDrafts[item.id] ?? ""}
+                          onChange={(e) => setLocationDrafts((prev) => ({ ...prev, [item.id]: e.target.value }))}
+                          placeholder="Current location (optional)"
+                          className="h-8 w-[210px] rounded-md border border-input bg-background px-2 text-xs"
+                        />
+                        <input
+                          type="text"
+                          value={noteDrafts[item.id] ?? ""}
+                          onChange={(e) => setNoteDrafts((prev) => ({ ...prev, [item.id]: e.target.value }))}
+                          placeholder="Update note (optional)"
+                          className="h-8 w-[210px] rounded-md border border-input bg-background px-2 text-xs"
+                        />
                         <Select
                           value={itemStatusDrafts[item.id] ?? item.itemStatus}
                           onValueChange={(value) => setItemStatusDrafts((prev) => ({ ...prev, [item.id]: value }))}
@@ -238,7 +380,7 @@ export function ServiceSellerOrderDetailClient({ orderId }: { orderId: string })
                             <SelectValue placeholder="Change item status" />
                           </SelectTrigger>
                           <SelectContent>
-                            {SELLER_ORDER_STATUSES.map((s) => (
+                            {lineItemStatusSelectValues(item.itemStatus).map((s) => (
                               <SelectItem key={s} value={s}>
                                 {s.charAt(0) + s.slice(1).toLowerCase()}
                               </SelectItem>
@@ -257,6 +399,27 @@ export function ServiceSellerOrderDetailClient({ orderId }: { orderId: string })
                   </div>
                   {item.serviceNameSnapshot && item.serviceSlotStartTime && item.serviceSlotEndTime && (
                     <p className="text-slate-600 text-xs">Slot: {formatSlotTimeRange(item.serviceSlotStartTime, item.serviceSlotEndTime)}</p>
+                  )}
+                  {item.deliveryProofImage && (
+                    <a
+                      href={item.deliveryProofImage}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-block text-xs text-blue-600 underline"
+                    >
+                      View delivery proof
+                    </a>
+                  )}
+                  {item.statusHistory.length > 0 && (
+                    <div className="mt-1 space-y-1 rounded-md bg-white/60 p-2 text-[11px]">
+                      {item.statusHistory.map((h, idx) => (
+                        <p key={`${item.id}-hist-${idx}`} className="text-slate-600">
+                          {new Date(h.createdAt).toLocaleString()} - {h.status}
+                          {h.location ? ` @ ${h.location}` : ""}
+                          {h.note ? ` (${h.note})` : ""}
+                        </p>
+                      ))}
+                    </div>
                   )}
                   <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 text-slate-600">
                     <span>Qty: {item.quantity}</span>

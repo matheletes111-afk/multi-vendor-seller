@@ -117,3 +117,67 @@ export async function sendVerificationOtpEmail({
   `
   return sendEmail({ to, subject, html })
 }
+
+export async function sendPasswordResetOtpEmail({
+  to,
+  otp,
+  name,
+}: {
+  to: string
+  otp: string
+  name?: string | null
+}) {
+  const subject = "Your password reset code"
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+      <div style="background-color: #f8f9fa; padding: 30px; border-radius: 10px;">
+        <h2 style="color: #333; margin-bottom: 20px;">Reset your password</h2>
+        <p style="color: #666; line-height: 1.6;">
+          ${name ? `Hi ${name},` : "Hi there,"}
+        </p>
+        <p style="color: #666; line-height: 1.6;">
+          Use this 6-digit code to reset your password:
+        </p>
+        <p style="font-size: 28px; font-weight: bold; letter-spacing: 8px; color: #007bff; margin: 24px 0;">
+          ${otp}
+        </p>
+        <p style="color: #999; font-size: 12px;">
+          This code will expire in 10 minutes. Do not share it with anyone.
+        </p>
+      </div>
+    </div>
+  `
+  return sendEmail({ to, subject, html })
+}
+
+export async function sendLoginOtpEmail({
+  to,
+  otp,
+  name,
+}: {
+  to: string
+  otp: string
+  name?: string | null
+}) {
+  const subject = "Your login OTP code"
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+      <div style="background-color: #f8f9fa; padding: 30px; border-radius: 10px;">
+        <h2 style="color: #333; margin-bottom: 20px;">Login verification code</h2>
+        <p style="color: #666; line-height: 1.6;">
+          ${name ? `Hi ${name},` : "Hi there,"}
+        </p>
+        <p style="color: #666; line-height: 1.6;">
+          Use this 6-digit OTP to login:
+        </p>
+        <p style="font-size: 28px; font-weight: bold; letter-spacing: 8px; color: #007bff; margin: 24px 0;">
+          ${otp}
+        </p>
+        <p style="color: #999; font-size: 12px;">
+          This code will expire in 10 minutes. Do not share it with anyone.
+        </p>
+      </div>
+    </div>
+  `
+  return sendEmail({ to, subject, html })
+}
