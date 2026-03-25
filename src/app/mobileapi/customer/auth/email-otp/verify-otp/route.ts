@@ -66,8 +66,22 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
     
     const UserDetails = await prisma.user.findUnique({
       where: { id: user.id },
-      select: { id: true, name: true, email: true, image: true, phone: true, phoneCountryCode: true },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        image: true,
+        phone: true,
+        phoneCountryCode: true,
+      },
     })
+    
+    if (!UserDetails) {
+      return NextResponse.json({
+        success: false,
+        message: "User not found",
+      }, { status: 404 })
+    }
     
     return NextResponse.json({
       success: true,
