@@ -12,6 +12,7 @@ type ApiResponse =
           id: string
           email: string
           name: string | null
+          image: string | null
           role: UserRole
           phone: string | null
           phoneCountryCode: string | null
@@ -64,7 +65,7 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
 
     const tokens = generateMobileTokens({ userId: user.id, email: user.email, role: user.role })
     
-    const UserDetails = await prisma.user.findUnique({
+    const UserDetails = await prisma.user.findUniqueOrThrow({
       where: { id: user.id },
       select: {
         id: true,
@@ -73,16 +74,13 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
         image: true,
         phone: true,
         phoneCountryCode: true,
+        role: true,
+        isEmailVerified: true,
+        createdAt: true,
+        updatedAt: true,
       },
     })
-    
-    if (!UserDetails) {
-      return NextResponse.json({
-        success: false,
-        error: "User not found",
-      }, { status: 404 })
-    }
-    
+
     return NextResponse.json({
       success: true,
       message: "OTP login successful",
