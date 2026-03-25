@@ -180,7 +180,7 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
     if (!UserDetails) {
       return NextResponse.json({
         success: false,
-        message: "User not found",
+        error: "User not found",
       }, { status: 404 })
     }
   
