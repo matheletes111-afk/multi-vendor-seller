@@ -160,7 +160,18 @@ export async function PUT(request: NextRequest) {
 
   const updatedUser = await prisma.user.findUnique({
     where: { id: auth.userId },
-    select: { id: true, name: true, email: true, image: true, phone: true, phoneCountryCode: true },
+    select: { 
+      id: true,
+      name: true,
+      email: true,
+      image: true,
+      phone: true,
+      phoneCountryCode: true,
+      role: true,
+      isEmailVerified: true,
+      createdAt: true,
+      updatedAt: true,
+     },
   })
 
   return NextResponse.json({
