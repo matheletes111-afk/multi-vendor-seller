@@ -33,6 +33,14 @@ export async function PUT(request: NextRequest) {
   if (!seller) return NextResponse.json({ error: "Seller not found" }, { status: 404 })
 
   const contentType = request.headers.get("content-type") ?? ""
+  const getRequiredPhoneFieldsError = (phone: string | null | undefined, countryCode: string | null | undefined) => {
+    const normalizedPhone = (phone ?? "").trim()
+    const normalizedCountryCode = (countryCode ?? "").trim()
+    if (!normalizedPhone || !normalizedCountryCode) {
+      return "Phone and country code are required."
+    }
+    return null
+  }
 
   if (contentType.includes("multipart/form-data")) {
     const fd = await request.formData()
@@ -49,6 +57,8 @@ export async function PUT(request: NextRequest) {
     if (name !== undefined) userData.name = name
     if (phone !== undefined) userData.phone = phone || null
     if (phoneCountryCode !== undefined) userData.phoneCountryCode = phoneCountryCode || null
+    const phoneError = getRequiredPhoneFieldsError(userData.phone, userData.phoneCountryCode)
+    if (phoneError) return NextResponse.json({ error: phoneError }, { status: 400 })
     if (password) {
       if (password.length < 6) {
         return NextResponse.json({ error: "Password must be at least 6 characters long" }, { status: 400 })
@@ -113,6 +123,8 @@ export async function PUT(request: NextRequest) {
     if (body.user.image !== undefined) userData.image = body.user.image
     if (body.user.phone !== undefined) userData.phone = body.user.phone || null
     if (body.user.phoneCountryCode !== undefined) userData.phoneCountryCode = body.user.phoneCountryCode || null
+    const phoneError = getRequiredPhoneFieldsError(userData.phone, userData.phoneCountryCode)
+    if (phoneError) return NextResponse.json({ error: phoneError }, { status: 400 })
     if (body.user.password !== undefined) {
       const password = body.user.password.trim()
       if (password) {

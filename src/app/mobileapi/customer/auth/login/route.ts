@@ -171,13 +171,21 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
     // Remove password from user object
     const { password: _, ...userWithoutPassword } = user
 
+
+    const UserDetails = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { id: true, name: true, email: true, image: true, phone: true, phoneCountryCode: true },
+    })
+  
+
     // Return success response
     return NextResponse.json<SuccessResponse>(
       { 
         success: true,
         message: "Login successful",
         data: {
-          user: userWithoutPassword,
+          // user: userWithoutPassword,
+          user: UserDetails,
           tokens,
           sessionInfo: {
             expiresIn: tokens.expiresIn,

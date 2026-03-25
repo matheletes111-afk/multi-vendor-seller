@@ -12,8 +12,10 @@ export async function POST(request: Request) {
   try {
     const body = await request.json()
     const { name, email, password, phone, phoneCountryCode } = body
-    if (!email || !password) {
-      return NextResponse.json({ error: "Email and password are required" }, { status: 400 })
+    const normalizedPhone = typeof phone === "string" ? phone.trim() : ""
+    const normalizedPhoneCountryCode = typeof phoneCountryCode === "string" ? phoneCountryCode.trim() : ""
+    if (!email || !password || !normalizedPhone || !normalizedPhoneCountryCode) {
+      return NextResponse.json({ error: "Email, password, phone, and country code are required" }, { status: 400 })
     }
     const existingUser = await prisma.user.findUnique({ where: { email } })
     if (existingUser) {
@@ -30,8 +32,8 @@ export async function POST(request: Request) {
         name: name ?? null,
         password: hashedPassword,
         role: UserRole.ADMIN,
-        phone: phone ?? null,
-        phoneCountryCode: phoneCountryCode ?? null,
+        phone: normalizedPhone,
+        phoneCountryCode: normalizedPhoneCountryCode,
         isEmailVerified: false,
         verifyEmailOtp,
         emailVerificationExpires,

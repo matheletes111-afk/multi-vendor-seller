@@ -26,6 +26,10 @@ export default function ServiceSellerRegistrationPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
+    if (!phoneCountryCode.trim() || !phone.trim()) {
+      setError("Country code and phone are required")
+      return
+    }
     if (password !== confirmPassword) {
       setError("Passwords do not match")
       return
@@ -39,7 +43,7 @@ export default function ServiceSellerRegistrationPage() {
       const res = await fetch("/api/service-seller/auth/registration", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, phone: phone || undefined, phoneCountryCode: phoneCountryCode || undefined, password }),
+        body: JSON.stringify({ name, email, phone: phone.trim(), phoneCountryCode: phoneCountryCode.trim(), password }),
       })
       const data = await res.json()
       if (!res.ok) {
@@ -110,6 +114,7 @@ export default function ServiceSellerRegistrationPage() {
                   placeholder="+1"
                   value={phoneCountryCode}
                   onChange={(e) => setPhoneCountryCode(e.target.value)}
+                  required
                   disabled={loading}
                   className="rounded-xl border-gray-200"
                 />
@@ -120,9 +125,10 @@ export default function ServiceSellerRegistrationPage() {
                   id="phone"
                   type="tel"
                   inputMode="numeric"
-                  placeholder="Optional"
+                  placeholder="Phone number"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
+                  required
                   disabled={loading}
                   className="rounded-xl border-gray-200"
                 />

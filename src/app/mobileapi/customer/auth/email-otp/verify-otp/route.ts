@@ -63,21 +63,17 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
     })
 
     const tokens = generateMobileTokens({ userId: user.id, email: user.email, role: user.role })
+    
+    const UserDetails = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { id: true, name: true, email: true, image: true, phone: true, phoneCountryCode: true },
+    })
+    
     return NextResponse.json({
       success: true,
       message: "OTP login successful",
       data: {
-        user: {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          role: user.role,
-          phone: user.phone,
-          phoneCountryCode: user.phoneCountryCode,
-          isEmailVerified: user.isEmailVerified,
-          createdAt: user.createdAt,
-          updatedAt: user.updatedAt,
-        },
+        user: UserDetails,
         tokens,
         sessionInfo: { expiresIn: tokens.expiresIn, tokenType: "Bearer" },
       },

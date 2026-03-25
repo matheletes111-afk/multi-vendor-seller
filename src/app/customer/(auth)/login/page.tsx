@@ -168,6 +168,11 @@ function CustomerLoginForm() {
                   <Link href={`/customer/login/email-otp?callbackUrl=${encodeURIComponent(callbackUrl)}`}>Login via Email OTP</Link>
                 </Button>
               </div>
+              <div className="mt-2 text-center">
+                <Button type="button" variant="outline" asChild className="w-full rounded-full sm:max-w-[260px]">
+                  <Link href={`/customer/login/phone-otp?callbackUrl=${encodeURIComponent(callbackUrl)}`}>Login via Number</Link>
+                </Button>
+              </div>
             </div>
             <div className="text-center">
               <Button type="submit" disabled={loading} className="mx-auto w-full rounded-full sm:max-w-[200px]">{loading ? "Signing in..." : "Sign In"}</Button>

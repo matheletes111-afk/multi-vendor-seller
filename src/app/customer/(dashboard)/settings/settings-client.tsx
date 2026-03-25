@@ -40,6 +40,12 @@ export function CustomerSettingsClient() {
     setSuccess(null)
     const form = e.currentTarget
     const fd = new FormData(form)
+    const phone = ((fd.get("phone") as string | null) ?? "").trim()
+    const phoneCountryCode = ((fd.get("phoneCountryCode") as string | null) ?? "").trim()
+    if (!phone || !phoneCountryCode) {
+      setError("Phone and country code are required.")
+      return
+    }
     const password = ((fd.get("password") as string) ?? "").trim()
     const confirmPassword = ((fd.get("confirmPassword") as string) ?? "").trim()
     if (password || confirmPassword) {
@@ -97,7 +103,7 @@ export function CustomerSettingsClient() {
         <CardHeader>
           <CardTitle>Account Information</CardTitle>
           <CardDescription>
-            Update your personal information. Phone, country code, and new password are optional.
+            Update your personal information. Phone and country code are required.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -135,6 +141,7 @@ export function CustomerSettingsClient() {
                   inputMode="numeric"
                   defaultValue={user.phoneCountryCode || ""}
                   placeholder="+1"
+                  required
                 />
               </div>
               <div className="space-y-2">
@@ -146,6 +153,7 @@ export function CustomerSettingsClient() {
                   inputMode="numeric"
                   defaultValue={user.phone || ""}
                   placeholder="Phone number"
+                  required
                 />
               </div>
             </div>

@@ -56,6 +56,12 @@ export function ServiceSettingsClient() {
     setSuccess(null)
     const form = e.currentTarget
     const fd = new FormData(form)
+    const phone = ((fd.get("phone") as string | null) ?? "").trim()
+    const phoneCountryCode = ((fd.get("phoneCountryCode") as string | null) ?? "").trim()
+    if (!phone || !phoneCountryCode) {
+      setError("Phone and country code are required.")
+      return
+    }
     const password = ((fd.get("password") as string | null) ?? "").trim()
     const confirmPassword = ((fd.get("confirmPassword") as string | null) ?? "").trim()
     if (password || confirmPassword) {
@@ -157,7 +163,7 @@ export function ServiceSettingsClient() {
           </CardContent>
         </Card>
         <Card>
-          <CardHeader><CardTitle>Account Information</CardTitle><CardDescription>Update your personal information. New password is optional.</CardDescription></CardHeader>
+          <CardHeader><CardTitle>Account Information</CardTitle><CardDescription>Update your personal information. Phone and country code are required.</CardDescription></CardHeader>
           <CardContent>
             <form onSubmit={saveUser} className="space-y-4">
               {error && (
@@ -199,6 +205,7 @@ export function ServiceSettingsClient() {
                     inputMode="numeric"
                     defaultValue={user?.phoneCountryCode || ""}
                     placeholder="+1"
+                    required
                   />
                 </div>
                 <div className="space-y-2">
@@ -210,6 +217,7 @@ export function ServiceSettingsClient() {
                     inputMode="numeric"
                     defaultValue={user?.phone || ""}
                     placeholder="Phone number"
+                    required
                   />
                 </div>
               </div>

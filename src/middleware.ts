@@ -13,6 +13,8 @@ export async function middleware(request: NextRequest) {
     "/customer/verify-otp",
     "/customer/login/email-otp",
     "/customer/login/email-otp/verify",
+    "/customer/login/phone-otp",
+    "/customer/login/phone-otp/verify",
     "/customer/forgot-password",
     "/customer/reset-password",
     "/admin/login",
@@ -25,6 +27,8 @@ export async function middleware(request: NextRequest) {
     "/product-seller/verify-otp",
     "/product-seller/login/email-otp",
     "/product-seller/login/email-otp/verify",
+    "/product-seller/login/phone-otp",
+    "/product-seller/login/phone-otp/verify",
     "/product-seller/forgot-password",
     "/product-seller/reset-password",
     "/service-seller/login",
@@ -75,6 +79,8 @@ export async function middleware(request: NextRequest) {
       path === "/customer/verify-otp" ||
       path === "/customer/login/email-otp" ||
       path === "/customer/login/email-otp/verify" ||
+      path === "/customer/login/phone-otp" ||
+      path === "/customer/login/phone-otp/verify" ||
       path === "/customer/forgot-password" ||
       path === "/customer/reset-password" ||
       path.startsWith("/customer/login?") ||
@@ -82,6 +88,8 @@ export async function middleware(request: NextRequest) {
       path.startsWith("/customer/verify-otp?") ||
       path.startsWith("/customer/login/email-otp?") ||
       path.startsWith("/customer/login/email-otp/verify?") ||
+      path.startsWith("/customer/login/phone-otp?") ||
+      path.startsWith("/customer/login/phone-otp/verify?") ||
       path.startsWith("/customer/forgot-password?") ||
       path.startsWith("/customer/reset-password?")
     ) {
@@ -127,6 +135,8 @@ export async function middleware(request: NextRequest) {
       path === "/product-seller/verify-otp" ||
       path === "/product-seller/login/email-otp" ||
       path === "/product-seller/login/email-otp/verify" ||
+      path === "/product-seller/login/phone-otp" ||
+      path === "/product-seller/login/phone-otp/verify" ||
       path === "/product-seller/forgot-password" ||
       path === "/product-seller/reset-password" ||
       path.startsWith("/product-seller/login?") ||
@@ -134,6 +144,8 @@ export async function middleware(request: NextRequest) {
       path.startsWith("/product-seller/verify-otp?") ||
       path.startsWith("/product-seller/login/email-otp?") ||
       path.startsWith("/product-seller/login/email-otp/verify?") ||
+      path.startsWith("/product-seller/login/phone-otp?") ||
+      path.startsWith("/product-seller/login/phone-otp/verify?") ||
       path.startsWith("/product-seller/forgot-password?") ||
       path.startsWith("/product-seller/reset-password?")
     ) {

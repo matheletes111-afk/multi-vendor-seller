@@ -5,14 +5,14 @@ import Link from "next/link"
 import Image from "next/image"
 import { useRouter, useSearchParams } from "next/navigation"
 import { getCsrfToken } from "next-auth/react"
-import { AlertCircle, Mail, KeyRound } from "lucide-react"
+import { AlertCircle, KeyRound, Smartphone } from "lucide-react"
 import { Button } from "@/ui/button"
 import { Input } from "@/ui/input"
 import { Label } from "@/ui/label"
 import { Alert, AlertDescription } from "@/ui/alert"
 import { getCartFromStorage, setCartInStorage } from "@/app/cart/cart-types"
 
-type EmailOtpLoginConfig = {
+type PhoneOtpLoginConfig = {
   panelTitle: string
   sendOtpApi: string
   verifyOtpApi: string
@@ -23,11 +23,11 @@ type EmailOtpLoginConfig = {
   defaultCallbackUrl: string
 }
 
-export function EmailOtpLoginRequestForm({ config }: { config: EmailOtpLoginConfig }) {
+export function PhoneOtpLoginRequestForm({ config }: { config: PhoneOtpLoginConfig }) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const callbackUrl = searchParams.get("callbackUrl") || config.defaultCallbackUrl
-  const [email, setEmail] = useState("")
+  const [phone, setPhone] = useState("")
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
 
@@ -39,17 +39,14 @@ export function EmailOtpLoginRequestForm({ config }: { config: EmailOtpLoginConf
       const res = await fetch(config.sendOtpApi, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim() }),
+        body: JSON.stringify({ phone: phone.trim() }),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
         setError(data.error || "Failed to send OTP.")
         return
       }
-      const q = new URLSearchParams({
-        email: email.trim(),
-        callbackUrl,
-      })
+      const q = new URLSearchParams({ phone: phone.trim(), callbackUrl })
       router.push(`${config.verifyPath}?${q.toString()}`)
     } catch {
       setError("Something went wrong. Please try again.")
@@ -67,8 +64,8 @@ export function EmailOtpLoginRequestForm({ config }: { config: EmailOtpLoginConf
           </a>
         </div>
         <div className="mb-6 sm:mb-8">
-          <h1 className="text-left text-xl font-semibold text-gray-900 sm:text-2xl">{config.panelTitle} OTP Login</h1>
-          <p className="mt-1 text-left text-sm text-gray-500">Enter your email to receive login OTP.</p>
+          <h1 className="text-left text-xl font-semibold text-gray-900 sm:text-2xl">{config.panelTitle} Phone OTP Login</h1>
+          <p className="mt-1 text-left text-sm text-gray-500">Enter your mobile number with country code to receive OTP.</p>
         </div>
         <form onSubmit={handleSendOtp}>
           {error && (
@@ -79,13 +76,13 @@ export function EmailOtpLoginRequestForm({ config }: { config: EmailOtpLoginConf
           )}
           <div className="space-y-5">
             <div>
-              <Label htmlFor="email" className="mb-1.5 block text-sm font-medium text-gray-700">Email</Label>
-              <Input id="email" type="email" placeholder="example@gmail.com" value={email} onChange={(e) => setEmail(e.target.value)} required disabled={loading} className="rounded-xl border-gray-200" />
+              <Label htmlFor="phone" className="mb-1.5 block text-sm font-medium text-gray-700">Phone Number</Label>
+              <Input id="phone" type="tel" placeholder="+919876543210" value={phone} onChange={(e) => setPhone(e.target.value)} required disabled={loading} className="rounded-xl border-gray-200" />
             </div>
             <div className="text-center">
               <Button type="submit" disabled={loading} className="mx-auto w-full rounded-full sm:max-w-[240px]">
-                <Mail className="mr-2 h-4 w-4" />
-                {loading ? "Sending OTP..." : "Send Login OTP"}
+                <Smartphone className="mr-2 h-4 w-4" />
+                {loading ? "Sending OTP..." : "Send SMS OTP"}
               </Button>
             </div>
           </div>
@@ -100,10 +97,9 @@ export function EmailOtpLoginRequestForm({ config }: { config: EmailOtpLoginConf
   )
 }
 
-export function EmailOtpLoginVerifyForm({ config }: { config: EmailOtpLoginConfig }) {
-  const router = useRouter()
+export function PhoneOtpLoginVerifyForm({ config }: { config: PhoneOtpLoginConfig }) {
   const searchParams = useSearchParams()
-  const email = (searchParams.get("email") || "").trim()
+  const phone = (searchParams.get("phone") || "").trim()
   const callbackUrl = searchParams.get("callbackUrl") || config.defaultCallbackUrl
   const [otp, setOtp] = useState("")
   const [error, setError] = useState("")
@@ -117,17 +113,17 @@ export function EmailOtpLoginVerifyForm({ config }: { config: EmailOtpLoginConfi
   const handleVerifyAndLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
-    if (!email) return setError("Email is missing. Please start again.")
+    if (!phone) return setError("Phone number is missing. Please start again.")
     if (otp.length !== 6) return setError("Enter the 6-digit OTP.")
     setLoading(true)
     try {
       const verifyRes = await fetch(config.verifyOtpApi, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, otp }),
+        body: JSON.stringify({ phone, otp }),
       })
       const verifyData = await verifyRes.json().catch(() => ({}))
-      if (!verifyRes.ok || !verifyData.otpLoginToken) {
+      if (!verifyRes.ok || !verifyData.otpLoginToken || !verifyData.email) {
         setError(verifyData.error || "Invalid or expired OTP.")
         return
       }
@@ -150,7 +146,7 @@ export function EmailOtpLoginVerifyForm({ config }: { config: EmailOtpLoginConfi
             slotEndTime: item.slotEndTime,
             quantity: item.quantity,
           })),
-          email,
+          email: verifyData.email,
           otpLoginToken: verifyData.otpLoginToken,
           callbackUrl,
           csrfToken: csrfToken ?? undefined,
@@ -180,14 +176,14 @@ export function EmailOtpLoginVerifyForm({ config }: { config: EmailOtpLoginConfi
   }
 
   const resendOtp = async () => {
-    if (!email || loading) return
+    if (!phone || loading) return
     setError("")
     setLoading(true)
     try {
       const res = await fetch(config.sendOtpApi, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ phone }),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) setError(data.error || "Failed to send OTP.")
@@ -198,12 +194,12 @@ export function EmailOtpLoginVerifyForm({ config }: { config: EmailOtpLoginConfi
     }
   }
 
-  if (!email) {
+  if (!phone) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50/90 p-4">
         <div className="w-full max-w-[440px] rounded-3xl bg-white p-8 shadow-xl text-center">
-          <p className="text-gray-600">Missing email. Please start from OTP login page.</p>
-          <Link href={config.requestPath} className="mt-4 inline-block text-blue-600 hover:underline">Go to OTP login</Link>
+          <p className="text-gray-600">Missing phone number. Please start from phone OTP login page.</p>
+          <Link href={config.requestPath} className="mt-4 inline-block text-blue-600 hover:underline">Go to phone OTP login</Link>
         </div>
       </div>
     )
@@ -218,8 +214,8 @@ export function EmailOtpLoginVerifyForm({ config }: { config: EmailOtpLoginConfi
           </a>
         </div>
         <div className="mb-6 sm:mb-8">
-          <h1 className="text-left text-xl font-semibold text-gray-900 sm:text-2xl">Verify Login OTP</h1>
-          <p className="mt-1 text-left text-sm text-gray-500">Enter OTP sent to {email}</p>
+          <h1 className="text-left text-xl font-semibold text-gray-900 sm:text-2xl">Verify SMS OTP</h1>
+          <p className="mt-1 text-left text-sm text-gray-500">Enter OTP sent to {phone}</p>
         </div>
         <form onSubmit={handleVerifyAndLogin}>
           {error && (

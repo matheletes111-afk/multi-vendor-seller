@@ -37,6 +37,14 @@ export async function PUT(request: NextRequest) {
   }
 
   const contentType = request.headers.get("content-type") ?? ""
+  const getRequiredPhoneFieldsError = (phone: string | null | undefined, countryCode: string | null | undefined) => {
+    const normalizedPhone = (phone ?? "").trim()
+    const normalizedCountryCode = (countryCode ?? "").trim()
+    if (!normalizedPhone || !normalizedCountryCode) {
+      return "Phone and country code are required."
+    }
+    return null
+  }
   const userData: {
     name?: string
     image?: string | null
@@ -57,6 +65,8 @@ export async function PUT(request: NextRequest) {
     if (name !== undefined) userData.name = name
     userData.phone = phone || null
     userData.phoneCountryCode = phoneCountryCode || null
+    const phoneError = getRequiredPhoneFieldsError(userData.phone, userData.phoneCountryCode)
+    if (phoneError) return NextResponse.json({ error: phoneError }, { status: 400 })
     if (password) {
       if (password.length < 6) {
         return NextResponse.json({ error: "Password must be at least 6 characters long" }, { status: 400 })
@@ -101,6 +111,8 @@ export async function PUT(request: NextRequest) {
     if (body.image !== undefined) userData.image = body.image
     if (body.phone !== undefined) userData.phone = body.phone || null
     if (body.phoneCountryCode !== undefined) userData.phoneCountryCode = body.phoneCountryCode || null
+    const phoneError = getRequiredPhoneFieldsError(userData.phone, userData.phoneCountryCode)
+    if (phoneError) return NextResponse.json({ error: phoneError }, { status: 400 })
     if (body.password !== undefined) {
       const password = body.password.trim()
       if (password) {
