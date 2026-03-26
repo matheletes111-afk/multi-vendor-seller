@@ -25,6 +25,7 @@ type VariantRow = {
   details: string
   returnType: "NON_RETURNABLE" | "RETURNABLE"
   returnDays: string
+  replacementAllowed: boolean
 }
 type GeneratorOption = { optionName: string; valuesText: string }
 
@@ -42,6 +43,9 @@ type Variant = {
   attributes?: unknown
   details?: string | null
   additionalInfo?: unknown
+  returnType?: string
+  returnDays?: number | null
+  replacementAllowed?: boolean
 }
 type Product = {
   id: string
@@ -104,6 +108,14 @@ export function EditProductClient({ productId }: { productId: string }) {
                 ? (x.additionalInfo as any)
                 : {}
             const rp = addInfo?.returnPolicy ?? { type: "NON_RETURNABLE" }
+              const dbRt = x.returnType === "RETURNABLE" ? "RETURNABLE" : "NON_RETURNABLE"
+              const rt = dbRt === "RETURNABLE" ? "RETURNABLE" : rp.type === "RETURNABLE" ? "RETURNABLE" : "NON_RETURNABLE"
+              const days =
+                x.returnDays != null && x.returnDays > 0
+                  ? String(x.returnDays)
+                  : rp.days
+                    ? String(rp.days)
+                    : ""
               return {
                 name: x.name,
                 price: String(x.price),
@@ -115,8 +127,9 @@ export function EditProductClient({ productId }: { productId: string }) {
                 imageMode: "link" as const,
                 attributes: attrs,
               details: typeof x.details === "string" ? x.details : "",
-              returnType: rp.type === "RETURNABLE" ? "RETURNABLE" : "NON_RETURNABLE",
-              returnDays: rp.days ? String(rp.days) : "",
+              returnType: rt,
+              returnDays: days,
+              replacementAllowed: x.replacementAllowed === true,
               }
             })
           : [
@@ -133,6 +146,7 @@ export function EditProductClient({ productId }: { productId: string }) {
                 details: "",
                 returnType: "NON_RETURNABLE",
                 returnDays: "",
+                replacementAllowed: false,
               },
             ]
       )
@@ -175,6 +189,7 @@ export function EditProductClient({ productId }: { productId: string }) {
         details: "",
         returnType: "NON_RETURNABLE",
         returnDays: "",
+        replacementAllowed: false,
       },
     ])
     setVariantPendingFiles((prev) => [...prev, []])
@@ -323,6 +338,7 @@ export function EditProductClient({ productId }: { productId: string }) {
       details: "",
       returnType: "NON_RETURNABLE",
       returnDays: "",
+      replacementAllowed: false,
     }))
     setVariants(newVariants)
     variantPreviewUrlsRef.current.flat().forEach((u) => URL.revokeObjectURL(u))
@@ -406,6 +422,7 @@ export function EditProductClient({ productId }: { productId: string }) {
       details?: string
       returnType?: "NON_RETURNABLE" | "RETURNABLE"
       returnDays?: number
+      replacementAllowed?: boolean
     }[] = []
     for (let i = 0; i < variants.length; i++) {
       const v = variants[i]
@@ -458,6 +475,7 @@ export function EditProductClient({ productId }: { productId: string }) {
         details: (v.details ?? "").trim() || undefined,
         returnType,
         returnDays: returnType === "RETURNABLE" && !isNaN(daysNum) && daysNum > 0 ? daysNum : undefined,
+        replacementAllowed: returnType === "RETURNABLE" && v.replacementAllowed,
       })
     }
 
@@ -907,6 +925,17 @@ export function EditProductClient({ productId }: { productId: string }) {
                         </div>
                       )}
                     </div>
+                    {v.returnType === "RETURNABLE" && (
+                      <label className="flex items-center gap-2 text-sm cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={v.replacementAllowed}
+                          onChange={(e) => updateVariant(i, "replacementAllowed", e.target.checked)}
+                          className="rounded border-input"
+                        />
+                        <span>Allow exchange (customer can request replacement variant)</span>
+                      </label>
+                    )}
                   </div>
                 </Card>
               ))}

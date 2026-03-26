@@ -3,7 +3,7 @@ import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { isServiceSeller } from "@/lib/rbac"
 import { checkServiceLimit } from "@/lib/subscriptions"
-import { uploadServiceFormImages } from "@/lib/upload-service-form-images"
+import { uploadMasterServiceImage, uploadServiceGalleryImages } from "@/lib/upload-service-form-images"
 import { redirect } from "next/navigation"
 import { revalidatePath } from "next/cache"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/ui/card"
@@ -11,7 +11,8 @@ import { Button } from "@/ui/button"
 import { Input } from "@/ui/input"
 import { Label } from "@/ui/label"
 import { PricingFields } from "../pricing-fields"
-import { ServiceImageInput } from "../service-image-input"
+import { ServiceMasterImageInput } from "../service-master-image-input"
+import { ServiceGalleryImageInput } from "../service-gallery-image-input"
 import { WeeklyAvailabilityFields } from "../weekly-availability-fields"
 import Link from "next/link"
 
@@ -33,6 +34,7 @@ const createServiceSchema = z.object({
   hasGst: z.boolean().optional(),
   duration: z.number().int().positive().optional().nullable(),
   images: z.array(z.string()).optional().nullable(),
+  galleryImages: z.array(z.string()).optional().nullable(),
   weeklyAvailability: weeklyAvailabilitySchema,
   isActive: z.boolean().optional(),
 })
@@ -50,12 +52,28 @@ async function createService(data: unknown) {
   if (!limitCheck.allowed) return { error: `Service limit reached. You have ${limitCheck.current} and your plan allows ${limitCheck.limit === null ? "unlimited" : limitCheck.limit}. Please upgrade.` }
   const slug = validated.data.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "")
   const imagesData = validated.data.images && Array.isArray(validated.data.images) ? validated.data.images : []
+  const galleryData =
+    validated.data.galleryImages && Array.isArray(validated.data.galleryImages) ? validated.data.galleryImages : []
   const basePrice = validated.data.basePrice ?? null
   const discount = Math.round((validated.data.discount ?? 0) * 100) / 100
   const weeklyAvailability = validated.data.weeklyAvailability ?? undefined
   try {
     await prisma.service.create({
-      data: { sellerId: seller.id, serviceCategoryId: validated.data.serviceCategoryId, name: validated.data.name, slug, description: validated.data.description, serviceType: validated.data.serviceType, basePrice, discount, hasGst: validated.data.hasGst ?? true, duration: validated.data.duration, weeklyAvailability: weeklyAvailability as any, images: imagesData as any },
+      data: {
+        sellerId: seller.id,
+        serviceCategoryId: validated.data.serviceCategoryId,
+        name: validated.data.name,
+        slug,
+        description: validated.data.description,
+        serviceType: validated.data.serviceType,
+        basePrice,
+        discount,
+        hasGst: validated.data.hasGst ?? true,
+        duration: validated.data.duration,
+        weeklyAvailability: weeklyAvailability as any,
+        images: imagesData as any,
+        galleryImages: galleryData as any,
+      },
     })
     revalidatePath("/service-seller/services")
     return { success: true }
@@ -73,15 +91,20 @@ async function createServiceForm(formData: FormData) {
   const serviceCategoryId = formData.get("serviceCategoryId") as string
   const serviceType = formData.get("serviceType") as "APPOINTMENT" | "FIXED_PRICE"
   if (!name || !serviceCategoryId || !serviceType) redirect("/service-seller/services/new?error=missing_required_fields")
-  let uploadedUrls: string[] = []
+  let masterUpload: string | null = null
+  let galleryUploads: string[] = []
   try {
-    uploadedUrls = await uploadServiceFormImages(formData)
+    masterUpload = await uploadMasterServiceImage(formData)
+    galleryUploads = await uploadServiceGalleryImages(formData)
   } catch (e) {
     redirect(`/service-seller/services/new?error=${encodeURIComponent(e instanceof Error ? e.message : "Upload failed")}`)
   }
-  const imagesInput = (formData.get("images") as string) || ""
-  const linkUrls = imagesInput ? imagesInput.split(/[\n,]+/).map((u) => u.trim()).filter(Boolean) : []
-  const images = Array.from(new Set([...linkUrls, ...uploadedUrls]))
+  const masterUrlRaw = (formData.get("masterImageUrl") as string)?.trim() || ""
+  const master = masterUpload || masterUrlRaw || null
+  const galleryRaw = (formData.get("galleryImageUrls") as string) || ""
+  const linkGallery = galleryRaw.split(/[\n\r]+/).map((u) => u.trim()).filter(Boolean)
+  const gallery = Array.from(new Set([...linkGallery, ...galleryUploads]))
+  const images = master ? [master] : []
   const basePriceInput = formData.get("basePrice") as string
   const durationInput = formData.get("duration") as string
   const discountStr = (formData.get("discount") as string) || "0"
@@ -101,7 +124,19 @@ async function createServiceForm(formData: FormData) {
       /* ignore */
     }
   }
-  const data = { name, description: (formData.get("description") as string) || undefined, serviceCategoryId, serviceType, basePrice, hasGst, discount, duration, images: images.length > 0 ? images : undefined, weeklyAvailability }
+  const data = {
+    name,
+    description: (formData.get("description") as string) || undefined,
+    serviceCategoryId,
+    serviceType,
+    basePrice,
+    hasGst,
+    discount,
+    duration,
+    images: images.length > 0 ? images : undefined,
+    galleryImages: gallery,
+    weeklyAvailability,
+  }
   const result = await createService(data)
   if (result.error) redirect(`/service-seller/services/new?error=${encodeURIComponent(typeof result.error === "string" ? result.error : "Failed")}`)
   redirect("/service-seller/services?success=created")
@@ -233,12 +268,14 @@ export default async function NewServicePage({
         <Card className="shadow-sm">
           <CardHeader className="pb-4">
             <CardTitle className="text-lg">Images</CardTitle>
-            <CardDescription>Upload images — they are saved when you create the service</CardDescription>
+            <CardDescription>Master image and gallery upload to your bucket when you create the service</CardDescription>
           </CardHeader>
-          <CardContent>
-            <ServiceImageInput
-              label="Service images"
-              hint="Choose one or more images. Upload runs when you click Create service."
+          <CardContent className="space-y-10">
+            <ServiceMasterImageInput
+              hint="Shown in listings and as the main photo. Uploads when you click Create service."
+            />
+            <ServiceGalleryImageInput
+              hint="Additional photos with preview. Uploads when you click Create service."
             />
           </CardContent>
         </Card>

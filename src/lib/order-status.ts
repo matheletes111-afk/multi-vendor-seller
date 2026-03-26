@@ -8,6 +8,7 @@ const STATUS_PRIORITY: Record<OrderStatus, number> = {
   DELIVERED: 50,
   CANCELLED: 60,
   REFUNDED: 70,
+  EXCHANGED: 75,
 }
 
 export type DerivedOrderStatus =
@@ -25,11 +26,13 @@ export function deriveOrderStatus(itemStatuses: OrderStatus[]): DerivedOrderStat
   const hasDelivered = unique.has("DELIVERED")
   const hasCancelled = unique.has("CANCELLED")
   const hasRefunded = unique.has("REFUNDED")
-  const hasActive = [...unique].some((s) => s !== "DELIVERED" && s !== "CANCELLED" && s !== "REFUNDED")
+  const hasExchanged = unique.has("EXCHANGED")
+  const terminal = new Set<OrderStatus>(["DELIVERED", "CANCELLED", "REFUNDED", "EXCHANGED"])
+  const hasActive = [...unique].some((s) => !terminal.has(s))
 
-  if (hasDelivered && (hasActive || hasCancelled || hasRefunded)) return "PARTIALLY_DELIVERED"
-  if (hasCancelled && (hasActive || hasDelivered || hasRefunded)) return "PARTIALLY_CANCELLED"
-  if (hasRefunded && (hasActive || hasDelivered || hasCancelled)) return "PARTIALLY_REFUNDED"
+  if (hasDelivered && (hasActive || hasCancelled || hasRefunded || hasExchanged)) return "PARTIALLY_DELIVERED"
+  if (hasCancelled && (hasActive || hasDelivered || hasRefunded || hasExchanged)) return "PARTIALLY_CANCELLED"
+  if ((hasRefunded || hasExchanged) && (hasActive || hasDelivered || hasCancelled)) return "PARTIALLY_REFUNDED"
 
   return "MIXED"
 }

@@ -58,6 +58,7 @@ export async function GET(request: NextRequest) {
               select: {
                 returnType: true,
                 returnDays: true,
+                replacementAllowed: true,
               },
             },
             seller: { select: { store: { select: { name: true } } } },
@@ -108,6 +109,7 @@ export async function GET(request: NextRequest) {
       subtotal: item.subtotal,
       returnPolicyType: item.productVariant?.returnType ?? null,
       returnPolicyDays: item.productVariant?.returnDays ?? null,
+      replacementAllowed: item.productVariant?.replacementAllowed === true,
     })),
     }
   })

@@ -80,6 +80,82 @@ export function computeSlotsInRange(
   return result
 }
 
+/** Parse YYYY-MM-DD calendar date for slot range queries. */
+export function parseServiceDateKey(s: string): Date | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s.trim())
+  if (!match) return null
+  const y = parseInt(match[1], 10)
+  const m = parseInt(match[2], 10) - 1
+  const d = parseInt(match[3], 10)
+  if (m < 0 || m > 11 || d < 1 || d > 31) return null
+  const date = new Date(y, m, d)
+  if (date.getFullYear() !== y || date.getMonth() !== m || date.getDate() !== d) return null
+  return date
+}
+
+/**
+ * Available slots for a service in [from, to] (inclusive calendar days), excluding booked ServiceSlot rows.
+ * Matches GET /api/customer/services/[id]/slots behaviour.
+ */
+export async function getAvailableServiceSlotsList(
+  serviceId: string,
+  fromStr: string | null,
+  toStr: string | null
+): Promise<
+  | { ok: true; slots: { startTime: string; endTime: string }[] }
+  | { ok: false; error: string; status: number }
+> {
+  const service = await prisma.service.findUnique({
+    where: { id: serviceId, isActive: true },
+    select: { id: true, weeklyAvailability: true, duration: true },
+  })
+  if (!service) {
+    return { ok: true, slots: [] }
+  }
+
+  const now = new Date()
+  const fromDate = fromStr ? parseServiceDateKey(fromStr) : new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  if (!fromDate) {
+    return { ok: false, error: "Invalid from/to dates", status: 400 }
+  }
+  const toEnd = toStr ? parseServiceDateKey(toStr) : new Date(fromDate)
+  if (!toEnd) {
+    return { ok: false, error: "Invalid from/to dates", status: 400 }
+  }
+  if (!toStr) {
+    toEnd.setDate(toEnd.getDate() + 13)
+  }
+
+  if (fromDate > toEnd) {
+    return { ok: false, error: "Invalid from/to dates", status: 400 }
+  }
+
+  const computed = computeSlotsInRange(service.weeklyAvailability, service.duration, fromDate, toEnd, now)
+
+  const fromUtc = new Date(Date.UTC(fromDate.getFullYear(), fromDate.getMonth(), fromDate.getDate(), 0, 0, 0, 0))
+  const toUtc = new Date(
+    Date.UTC(toEnd.getFullYear(), toEnd.getMonth(), toEnd.getDate(), 23, 59, 59, 999)
+  )
+
+  const booked = await prisma.serviceSlot.findMany({
+    where: {
+      serviceId,
+      startTime: { gte: fromUtc, lte: toUtc },
+    },
+    select: { startTime: true },
+  })
+  const bookedStarts = new Set(booked.map((s) => s.startTime.getTime()))
+
+  const available = computed.filter((s) => !bookedStarts.has(s.startTime.getTime()))
+
+  const slots = available.map((s) => ({
+    startTime: s.startTime.toISOString(),
+    endTime: s.endTime.toISOString(),
+  }))
+
+  return { ok: true, slots }
+}
+
 /** Create a ServiceSlot (booked) if the slot is allowed by weeklyAvailability. Returns id or throws. Used by reserve API and cart/merge. */
 export async function createServiceSlotIfAllowed(
   serviceId: string,

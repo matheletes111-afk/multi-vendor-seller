@@ -33,8 +33,22 @@ export type OrderDetailItemApi = {
   commissionAmount: number
   commissionRateSnapshot: number
   returnAvailable: boolean
+  /** When true (per variant), customer may request exchange instead of refund only. */
+  replacementAllowed: boolean
   returnPolicyType: "RETURNABLE" | "NON_RETURNABLE" | null
   returnPolicyDays: number | null
+  returnResolutionType: "REFUND" | "EXCHANGE" | null
+  replacementOrderItemId: string | null
+  /** Set on the new line created for an exchange; links back to the original item. */
+  exchangeSourceOrderItemId: string | null
+  exchangeTopUpAmount: number
+  exchangeTopUpStatus: "NOT_REQUIRED" | "PENDING" | "COMPLETED" | null
+  exchangeRefundDifferenceAmount: number
+  exchangeRefundDifferenceStatus: "NOT_REQUESTED" | "PENDING" | "COMPLETED" | null
+  /** Customer's return reason (after a return is requested). */
+  returnReason: string | null
+  /** Uploaded photo URLs for the return request. */
+  returnImages: string[]
   returnRequestStatus: "REQUESTED" | "ACCEPTED" | "REJECTED" | null
   pickupStatus: "NOT_REQUESTED" | "PENDING" | "COMPLETED" | null
   refundStatus: "NOT_REQUESTED" | "PENDING" | "COMPLETED" | null

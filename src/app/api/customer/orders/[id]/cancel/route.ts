@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { UserRole } from "@prisma/client"
+import { releaseServiceSlotsForOrderItems } from "@/lib/release-service-slot"
 
 /** POST /api/customer/orders/[id]/cancel — cancel own order if all items are still PENDING. */
 export async function POST(
@@ -52,6 +53,10 @@ export async function POST(
         })
       }
     }
+    await releaseServiceSlotsForOrderItems(
+      tx,
+      order.items.map((i) => i.id)
+    )
   })
 
   return NextResponse.json({ success: true })

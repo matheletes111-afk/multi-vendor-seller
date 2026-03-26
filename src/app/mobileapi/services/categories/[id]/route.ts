@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { getServiceDisplayImageUrls } from "@/lib/service-images"
 
 export const dynamic = "force-dynamic"
 
@@ -91,6 +92,7 @@ export async function GET(
         discount: true,
         hasGst: true,
         images: true,
+        galleryImages: true,
         isActive: true,
         isFeatured: true,
         duration: true,
@@ -102,7 +104,7 @@ export async function GET(
 
     const mapped: ServiceItem[] = services.map((s) => ({
       ...s,
-      images: (s.images as string[]) ?? [],
+      images: getServiceDisplayImageUrls({ images: s.images, galleryImages: s.galleryImages }),
     }))
 
     const totalServices = await prisma.service.count({

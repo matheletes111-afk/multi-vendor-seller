@@ -48,6 +48,20 @@ enum OrderStatus {
   DELIVERED
   CANCELLED
   REFUNDED
+  EXCHANGED
+}
+
+enum ReturnResolutionType {
+  REFUND
+  EXCHANGE
+}
+
+/// Tracks whether the customer’s extra payment for a pricier exchange was received (typically COD at delivery).
+/// COMPLETED = seller recorded that the price difference was collected — it does not block shipment in the app.
+enum ExchangeTopUpStatus {
+  NOT_REQUIRED
+  PENDING
+  COMPLETED
 }
 
 enum PaymentStatus {
@@ -97,8 +111,26 @@ model User {
   wishlistItems WishlistItem[]
   addresses     UserAddress[]
   recentViews   RecentView[]
+  walletBalance Decimal    @default(0) @db.Decimal(14, 2)
+  walletTransactions WalletTransaction[]
 
   @@map("users")
+}
+
+model WalletTransaction {
+  id              String   @id @default(cuid())
+  userId          String
+  amount          Decimal  @db.Decimal(14, 2)
+  reason          String
+  returnRequestId String?  @unique
+  note            String?
+  createdAt       DateTime @default(now())
+
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  returnRequest ReturnRequest? @relation(fields: [returnRequestId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@map("wallet_transactions")
 }
 
 model RecentView {
@@ -479,6 +511,8 @@ model ProductVariant {
   // Structured return policy per variant
   returnType    ReturnPolicyType @default(NON_RETURNABLE)
   returnDays    Int?
+  // When true, customer may request exchange (replacement) for this variant; gated by return policy.
+  replacementAllowed Boolean @default(false)
   // Additional JSON details if needed
   additionalInfo Json?   // e.g. {"Material":"Cotton","Care":"Machine wash"}
   createdAt     DateTime @default(now())
@@ -487,6 +521,7 @@ model ProductVariant {
   product     Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
   orderItems  OrderItem[]
   cartItems   CartItem[]
+  returnRequestsAsReplacement ReturnRequest[] @relation("ReturnReplacementVariant")
 
   @@index([productId])
   @@map("product_variants")
@@ -503,7 +538,8 @@ model Service {
   basePrice         Float?      // For fixed-price services
   discount          Float       @default(0)      // Discount amount per item
   hasGst            Boolean     @default(true)   // Y = 15% GST at checkout, N = no GST
-  images            Json        // Array of image URLs stored as JSON
+  images            Json        // Master/cover image URL(s); typically [oneUrl] — listing hero
+  galleryImages     Json        @default("[]")   // Additional gallery image URLs
   isActive          Boolean     @default(true)
   isFeatured        Boolean     @default(false)
   duration          Int?        // Duration in minutes (for appointments)
@@ -626,6 +662,8 @@ model OrderItem {
   deliveredAt         DateTime?
   deliveryProofImage  String?
   createdAt           DateTime @default(now())
+  /// Points to the original line when this row is a Flipkart-style exchange replacement shipment.
+  exchangeSourceOrderItemId String?
 
   order          Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
   seller         Seller?         @relation(fields: [sellerId], references: [id], onDelete: SetNull)
@@ -636,7 +674,12 @@ model OrderItem {
   serviceSlot    ServiceSlot?    @relation(fields: [serviceSlotId], references: [id])
   review         Review?
   returnRequest  ReturnRequest?
+  returnRequestAsReplacement ReturnRequest? @relation("ReturnReplacementOrderItem")
+  exchangeSourceOrderItem    OrderItem?     @relation("ExchangeReplacement", fields: [exchangeSourceOrderItemId], references: [id], onDelete: SetNull)
+  exchangeReplacementItems   OrderItem[]    @relation("ExchangeReplacement")
   statusHistory  OrderItemStatusHistory[]
+
+  @@index([exchangeSourceOrderItemId])
 
   @@index([orderId])
   @@index([orderId, sellerId])
@@ -665,16 +708,31 @@ model ReturnRequest {
   customerId    String
   sellerId      String
   reason        String?
+  /// JSON array of image URLs (customer uploads). Required on new requests via API.
+  returnImages  Json               @default("[]")
   status        ReturnRequestStatus @default(REQUESTED)
   pickupStatus  PickupStatus        @default(NOT_REQUESTED)
   refundStatus  RefundStatus        @default(NOT_REQUESTED)
+  resolutionType ReturnResolutionType @default(REFUND)
+  replacementVariantId String?
+  replacementOrderItemId String?   @unique
+  /// When replacement costs more than original (incl. GST): amount customer must pay before shipment.
+  exchangeTopUpAmount Float        @default(0)
+  exchangeTopUpStatus ExchangeTopUpStatus @default(NOT_REQUIRED)
+  /// When replacement costs less: amount credited to customer wallet after replacement is delivered.
+  exchangeRefundDifferenceAmount Float @default(0)
+  exchangeRefundDifferenceStatus RefundStatus @default(NOT_REQUESTED)
   createdAt     DateTime            @default(now())
   updatedAt     DateTime            @updatedAt
 
   orderItem OrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  replacementVariant ProductVariant? @relation("ReturnReplacementVariant", fields: [replacementVariantId], references: [id], onDelete: SetNull)
+  replacementOrderItem OrderItem? @relation("ReturnReplacementOrderItem", fields: [replacementOrderItemId], references: [id], onDelete: SetNull)
+  walletCredit WalletTransaction?
 
   @@index([orderId, customerId])
   @@index([sellerId, status])
+  @@index([replacementVariantId])
   @@map("return_requests")
 }
 

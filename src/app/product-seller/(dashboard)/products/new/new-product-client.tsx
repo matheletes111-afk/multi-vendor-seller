@@ -23,6 +23,7 @@ type VariantRow = {
   details: string
   returnType: "NON_RETURNABLE" | "RETURNABLE"
   returnDays: string
+  replacementAllowed: boolean
 }
 type GeneratorOption = { optionName: string; valuesText: string }
 
@@ -57,6 +58,7 @@ export function NewProductClient() {
       details: "",
       returnType: "NON_RETURNABLE",
       returnDays: "",
+      replacementAllowed: false,
     },
   ])
   const [variantUploadingFor, setVariantUploadingFor] = useState<number | null>(null)
@@ -93,6 +95,7 @@ export function NewProductClient() {
         details: "",
         returnType: "NON_RETURNABLE",
         returnDays: "",
+        replacementAllowed: false,
       },
     ])
     setVariantPendingFiles((prev) => [...prev, []])
@@ -223,6 +226,7 @@ export function NewProductClient() {
       details: "",
       returnType: "NON_RETURNABLE",
       returnDays: "",
+      replacementAllowed: false,
     }))
     setVariants(newVariants)
     variantPreviewUrlsRef.current.flat().forEach((u) => URL.revokeObjectURL(u))
@@ -306,6 +310,7 @@ export function NewProductClient() {
       details?: string
       returnType?: "NON_RETURNABLE" | "RETURNABLE"
       returnDays?: number
+      replacementAllowed?: boolean
     }[] = []
     for (let i = 0; i < variants.length; i++) {
       const v = variants[i]
@@ -356,6 +361,7 @@ export function NewProductClient() {
         details: (v.details ?? "").trim() || undefined,
         returnType,
         returnDays: returnType === "RETURNABLE" && !isNaN(daysNum) && daysNum > 0 ? daysNum : undefined,
+        replacementAllowed: returnType === "RETURNABLE" && v.replacementAllowed,
       })
     }
 
@@ -804,6 +810,17 @@ export function NewProductClient() {
                         </div>
                       )}
                     </div>
+                    {v.returnType === "RETURNABLE" && (
+                      <label className="flex items-center gap-2 text-sm cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={v.replacementAllowed}
+                          onChange={(e) => updateVariant(i, "replacementAllowed", e.target.checked)}
+                          className="rounded border-input"
+                        />
+                        <span>Allow exchange (customer can request replacement variant)</span>
+                      </label>
+                    )}
                   </div>
                 </Card>
               ))}

@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma"
+import { getServiceFirstDisplayImageUrl } from "@/lib/service-images"
 import type { CartAddPayload, GuestCartItemForMerge } from "./types"
 import { isProductCartPayload } from "./types"
 
@@ -75,8 +76,10 @@ export async function resolveServiceCartLine(
   const totalPrice = unitPrice * quantity
   const totalGst = hasGst ? totalPrice * GST_RATE : 0
   const totalPriceInclGst = totalPrice + totalGst
-  const images = (service.images as string[] | null) ?? []
-  const image = images[0] ?? null
+  const image = getServiceFirstDisplayImageUrl({
+    images: service.images,
+    galleryImages: service.galleryImages,
+  })
   return { unitPrice, hasGst, totalPrice, totalGst, totalPriceInclGst, name, image }
 }
 

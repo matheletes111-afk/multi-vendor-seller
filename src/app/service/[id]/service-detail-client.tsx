@@ -7,7 +7,7 @@ import { useSession } from "next-auth/react"
 import { Button } from "@/ui/button"
 import { formatCurrency } from "@/lib/utils"
 import { PublicLayout } from "@/components/site-layout"
-import { PublicReviewsSection, type PublicReviewItem } from "@/components/reviews/public-reviews-section"
+import { PublicReviewsSection, StarRow, type PublicReviewItem } from "@/components/reviews/public-reviews-section"
 import { UserRole } from "@prisma/client"
 import { Briefcase, Calendar, ChevronRight, Clock, Loader2, Truck } from "lucide-react"
 
@@ -17,7 +17,11 @@ type Service = {
   description: string | null
   basePrice: number | null
   discount: number
-  images: unknown
+  images: string[]
+  /** Cover / listing image only (when split from gallery). */
+  masterImage?: string | null
+  /** Additional gallery URLs only. */
+  galleryImages?: string[]
   serviceType: string
   duration: number | null
   serviceCategory: { id: string; name: string; slug: string }
@@ -106,19 +110,11 @@ export function ServiceDetailClient({ service }: { service: Service }) {
     [fetchSlots]
   )
 
-  const images: string[] = Array.isArray(service.images)
-    ? (service.images as string[])
-    : typeof service.images === "string"
-      ? (() => {
-          try {
-            return JSON.parse(service.images) as string[]
-          } catch {
-            return []
-          }
-        })()
-      : []
+  const images = service.images
+  const galleryOnly = service.galleryImages ?? []
   const displayPrice = service?.basePrice != null ? Math.max(0, service.basePrice - service.discount) : null
   const mainImage = images[selectedImageIndex] || images[0]
+  const showGallerySection = images.length > 1
 
   const canBookWithoutSlot = false
   const canProceedToBook: boolean = selectedSlot != null && selectedDate != null
@@ -165,7 +161,7 @@ export function ServiceDetailClient({ service }: { service: Service }) {
           <div className="flex flex-col gap-8 lg:flex-row">
             {/* Left: Image gallery */}
             <div className="flex shrink-0 flex-col gap-3 lg:w-[380px]">
-              <div className="relative aspect-square w-full overflow-hidden rounded-lg bg-slate-100">
+              <div id="service-main-photo" className="relative aspect-square w-full overflow-hidden rounded-lg bg-slate-100 scroll-mt-24">
                 {mainImage ? (
                   <img
                     src={mainImage}
@@ -179,19 +175,22 @@ export function ServiceDetailClient({ service }: { service: Service }) {
                 )}
               </div>
               {images.length > 1 && (
-                <div className="flex gap-2 overflow-x-auto pb-1">
-                  {images.map((src, i) => (
-                    <button
-                      key={i}
-                      type="button"
-                      onClick={() => setSelectedImageIndex(i)}
-                      className={`h-16 w-16 shrink-0 overflow-hidden rounded-md border-2 bg-slate-50 ${
-                        selectedImageIndex === i ? "border-amber-500" : "border-transparent"
-                      }`}
-                    >
-                      <img src={src} alt="" className="h-full w-full object-cover" />
-                    </button>
-                  ))}
+                <div className="space-y-2">
+                  <p className="text-xs font-medium text-slate-500">Gallery — tap a photo</p>
+                  <div className="flex gap-2 overflow-x-auto pb-1">
+                    {images.map((src, i) => (
+                      <button
+                        key={i}
+                        type="button"
+                        onClick={() => setSelectedImageIndex(i)}
+                        className={`h-16 w-16 shrink-0 overflow-hidden rounded-md border-2 bg-slate-50 ${
+                          selectedImageIndex === i ? "border-amber-500" : "border-transparent"
+                        }`}
+                      >
+                        <img src={src} alt="" className="h-full w-full object-cover" />
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
@@ -200,12 +199,29 @@ export function ServiceDetailClient({ service }: { service: Service }) {
             <div className="flex-1">
               <p className="text-sm text-slate-500">{service.serviceCategory.name}</p>
               <h1 className="mt-1 text-2xl font-bold text-slate-900 md:text-3xl">{service.name}</h1>
-              {service._count.reviews > 0 && (
-                <p className="mt-2 text-sm text-slate-600">
-                  {service.averageRating.toFixed(1)} rating from {service._count.reviews} review
-                  {service._count.reviews === 1 ? "" : "s"}
-                </p>
-              )}
+              <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <StarRow rating={service.averageRating} size="h-5 w-5" />
+                  <span className="text-sm text-slate-700">
+                    {service._count.reviews > 0 ? (
+                      <>
+                        <span className="font-semibold">{service.averageRating.toFixed(1)}</span>
+                        <span className="text-slate-500">
+                          {" "}
+                          ({service._count.reviews} review{service._count.reviews === 1 ? "" : "s"})
+                        </span>
+                      </>
+                    ) : (
+                      <span className="text-slate-500">No reviews yet</span>
+                    )}
+                  </span>
+                </div>
+                {service._count.reviews > 0 && (
+                  <a href="#reviews" className="text-sm font-medium text-amber-700 hover:underline">
+                    Read reviews
+                  </a>
+                )}
+              </div>
 
               <div className="mt-4 flex items-baseline gap-2">
                 {displayPrice != null ? (
@@ -364,6 +380,41 @@ export function ServiceDetailClient({ service }: { service: Service }) {
               <p className="mt-3 text-slate-500">No description provided.</p>
             )}
           </div>
+
+          {showGallerySection && (
+            <section className="mt-10 border-t border-slate-200 pt-8" aria-labelledby="service-gallery-heading">
+              <h2 id="service-gallery-heading" className="text-lg font-bold text-slate-900">
+                Gallery
+              </h2>
+              <p className="mt-1 text-sm text-slate-600">
+                {galleryOnly.length > 0
+                  ? `${images.length} photos — ${galleryOnly.length} additional gallery image${galleryOnly.length === 1 ? "" : "s"} plus cover.`
+                  : `${images.length} photos — tap any image to preview it above.`}
+              </p>
+              <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+                {images.map((src, i) => (
+                  <button
+                    key={`${src}-${i}`}
+                    type="button"
+                    onClick={() => {
+                      setSelectedImageIndex(i)
+                      document.getElementById("service-main-photo")?.scrollIntoView({ behavior: "smooth", block: "start" })
+                    }}
+                    className={`relative aspect-square overflow-hidden rounded-lg border-2 bg-slate-100 text-left transition-colors ${
+                      selectedImageIndex === i ? "border-amber-500 ring-2 ring-amber-200" : "border-slate-200 hover:border-slate-300"
+                    }`}
+                  >
+                    <img src={src} alt="" className="h-full w-full object-cover" loading="lazy" />
+                    {i === 0 && images.length > 1 && (
+                      <span className="absolute left-1.5 top-1.5 rounded bg-black/65 px-1.5 py-0.5 text-[10px] font-medium text-white">
+                        Cover
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </section>
+          )}
 
           <PublicReviewsSection
             averageRating={service.averageRating}

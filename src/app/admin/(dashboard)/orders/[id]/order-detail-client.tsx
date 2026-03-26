@@ -1,15 +1,41 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle } from "@/ui/card"
 import { Button } from "@/ui/button"
 import { Badge } from "@/ui/badge"
 import { Separator } from "@/ui/separator"
+import { Alert, AlertDescription, AlertTitle } from "@/ui/alert"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/ui/dialog"
 import { formatCurrency, formatDate, formatSlotTimeRange } from "@/lib/utils"
 import type { AdminOrderDetailApi } from "@/app/api/admin/orders/types"
 import { ADMIN_ORDER_STATUSES } from "@/app/api/admin/orders/types"
-import { Package, MapPin, User, ArrowLeft, Store, Loader2, Receipt, Banknote, ShoppingBag, History, Upload } from "lucide-react"
+import {
+  Package,
+  MapPin,
+  User,
+  ArrowLeft,
+  Store,
+  Loader2,
+  Receipt,
+  Banknote,
+  ShoppingBag,
+  History,
+  Upload,
+  RefreshCw,
+  ArrowLeftRight,
+  Wallet,
+  CheckCircle2,
+  AlertCircle,
+} from "lucide-react"
 import {
   Select,
   SelectContent,
@@ -17,6 +43,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/ui/select"
+import { exchangeTopUpCodLabel } from "@/lib/exchange-top-up-display"
+import { flattenOrderItemsForDisplay } from "@/lib/customer-order-item-order"
+
+type ReturnAction = "ACCEPT" | "REJECT" | "PICKUP_COMPLETED" | "REFUND_COMPLETED" | "EXCHANGE_TOP_UP_RECEIVED"
 
 export function AdminOrderDetailClient({ orderId }: { orderId: string }) {
   const [order, setOrder] = useState<AdminOrderDetailApi | null>(null)
@@ -30,6 +60,14 @@ export function AdminOrderDetailClient({ orderId }: { orderId: string }) {
   const [deliveryProofUploadingItemId, setDeliveryProofUploadingItemId] = useState<string | null>(null)
   const [updateLoading, setUpdateLoading] = useState(false)
   const [statusError, setStatusError] = useState<string | null>(null)
+  const [successMessage, setSuccessMessage] = useState<string | null>(null)
+  const [returnActionLoadingItemId, setReturnActionLoadingItemId] = useState<string | null>(null)
+  const [confirmReturn, setConfirmReturn] = useState<{
+    itemId: string
+    action: ReturnAction
+    title: string
+    description: string
+  } | null>(null)
 
   const uploadDeliveryProofOnSave = async (itemId: string): Promise<string> => {
     const file = deliveryProofFiles[itemId]
@@ -102,6 +140,33 @@ export function AdminOrderDetailClient({ orderId }: { orderId: string }) {
     fetchOrder().finally(() => setLoading(false))
   }, [fetchOrder])
 
+  useEffect(() => {
+    if (!successMessage) return
+    const t = window.setTimeout(() => setSuccessMessage(null), 5000)
+    return () => window.clearTimeout(t)
+  }, [successMessage])
+
+  const handleReturnAction = (itemId: string, action: ReturnAction) => {
+    setStatusError(null)
+    setReturnActionLoadingItemId(itemId)
+    fetch(`/api/admin/orders/${orderId}/items/${itemId}/return-request`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ action }),
+    })
+      .then((res) => {
+        if (!res.ok) return res.json().then((d: { error?: string }) => { throw new Error(d.error ?? "Failed") })
+        return fetchOrder()
+      })
+      .then(() => setSuccessMessage("Return action completed."))
+      .catch((err: Error) => setStatusError(err.message))
+      .finally(() => {
+        setReturnActionLoadingItemId(null)
+        setConfirmReturn(null)
+      })
+  }
+
   const canUpdateLineItems =
     order && order.status !== "CANCELLED" && order.status !== "REFUNDED"
 
@@ -150,6 +215,11 @@ export function AdminOrderDetailClient({ orderId }: { orderId: string }) {
     }
   }
 
+  const orderedItems = useMemo(
+    () => (order ? flattenOrderItemsForDisplay(order.items) : []),
+    [order],
+  )
+
   if (loading) {
     return (
       <div className="container mx-auto p-6">
@@ -181,6 +251,21 @@ export function AdminOrderDetailClient({ orderId }: { orderId: string }) {
 
   return (
     <div className="container mx-auto p-4 sm:p-6 space-y-6">
+      {successMessage && (
+        <Alert className="border-emerald-200 bg-emerald-50 text-emerald-900">
+          <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+          <AlertTitle>Success</AlertTitle>
+          <AlertDescription>{successMessage}</AlertDescription>
+        </Alert>
+      )}
+      {statusError && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Error</AlertTitle>
+          <AlertDescription>{statusError}</AlertDescription>
+        </Alert>
+      )}
+
       <Button variant="ghost" size="sm" asChild>
         <Link href="/admin/orders" className="flex items-center gap-1">
           <ArrowLeft className="h-4 w-4" />
@@ -195,85 +280,8 @@ export function AdminOrderDetailClient({ orderId }: { orderId: string }) {
         </p>
       </div>
 
-      {/* 4-panel style: Summary | Delivery, Customer | Store, Items, Price breakdown */}
-      <div className="grid gap-4 sm:gap-6 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <Receipt className="h-4 w-4" />
-              Summary
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Store</span>
-              <span className="font-medium">{order.sellerStoreName ?? "—"}</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Payment</span>
-              <span>{order.paymentMethod ?? "—"} ({order.paymentStatus.toLowerCase()})</span>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <MapPin className="h-4 w-4" />
-              Delivery address
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="text-sm text-muted-foreground">
-            {order.shippingFullName ? (
-              <>
-                <p className="font-medium text-foreground">{order.shippingFullName}</p>
-                {order.shippingPhone && <p>{order.shippingPhone}</p>}
-                {order.shippingAddressLine1 && (
-                  <p className="mt-1">
-                    {order.shippingAddressLine1}
-                    {order.shippingAddressLine2 ? `, ${order.shippingAddressLine2}` : ""}
-                    <br />
-                    {order.shippingCity}
-                    {order.shippingState && `, ${order.shippingState}`}
-                    {order.shippingPostalCode && ` ${order.shippingPostalCode}`}
-                    {order.shippingCountry && `, ${order.shippingCountry}`}
-                  </p>
-                )}
-              </>
-            ) : (
-              <p>—</p>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <User className="h-4 w-4" />
-              Customer
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="text-sm">
-            <p className="font-medium text-foreground">{order.customerName ?? order.customerEmail ?? "—"}</p>
-            {order.customerEmail && order.customerName && (
-              <p className="text-muted-foreground">{order.customerEmail}</p>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <Store className="h-4 w-4" />
-              Seller / Store
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="text-sm">
-            <p className="font-medium text-foreground">{order.sellerStoreName ?? "—"}</p>
-          </CardContent>
-        </Card>
-      </div>
-
+      <div className="grid gap-6 lg:grid-cols-5 lg:items-start">
+        <div className="space-y-6 lg:col-span-3">
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
@@ -282,9 +290,10 @@ export function AdminOrderDetailClient({ orderId }: { orderId: string }) {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <ul className="space-y-4">
-            {order.items.map((item) => (
-              <li key={item.id} className="flex gap-4 rounded-lg border border-slate-100 bg-slate-50/50 p-3 sm:p-4">
+          <ul className="space-y-6">
+            {orderedItems.map((item) => (
+              <li key={item.id} className="space-y-4 rounded-lg border border-slate-100 bg-slate-50/50 p-3 sm:p-4">
+                <div className="flex gap-4">
                 <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-md bg-white sm:h-20 sm:w-20">
                   {item.imageUrl ? (
                     <img
@@ -306,6 +315,15 @@ export function AdminOrderDetailClient({ orderId }: { orderId: string }) {
                     </Badge>
                     <span className="text-xs text-muted-foreground">{item.sellerStoreName ?? "Store"}</span>
                   </div>
+
+                  {item.exchangeSourceOrderItemId && (
+                    <div className="rounded-md border border-amber-200 bg-amber-50 px-2 py-1.5 text-xs">
+                      <p className="font-semibold uppercase tracking-wide text-amber-950">Exchange product</p>
+                      <p className="mt-1 font-medium text-amber-900">
+                        This line replaces another item on the order. Original return pickup follows the seller workflow.
+                      </p>
+                    </div>
+                  )}
 
                   {item.deliveryProofImage && (
                     <div className="rounded-md border border-emerald-100 bg-emerald-50/50 p-2 text-xs">
@@ -333,20 +351,309 @@ export function AdminOrderDetailClient({ orderId }: { orderId: string }) {
                     </div>
                   )}
 
-                  {item.returnAvailable && (
-                    <div className="rounded-md border border-slate-200 bg-white p-3 text-xs">
-                      <p className="mb-2 font-medium text-slate-700">Return details</p>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Badge variant="outline" className="text-[10px] uppercase tracking-wide">
-                          Return: {item.returnRequestStatus ?? "NONE"}
-                        </Badge>
-                        <Badge variant="outline" className="text-[10px] uppercase tracking-wide">
-                          Pickup: {item.pickupStatus ?? "NOT_REQUESTED"}
-                        </Badge>
-                        <Badge variant="outline" className="text-[10px] uppercase tracking-wide">
-                          Refund: {item.refundStatus ?? "NOT_REQUESTED"}
+                  {item.serviceNameSnapshot && item.serviceSlotStartTime && item.serviceSlotEndTime && (
+                    <p className="text-slate-600 text-xs">Slot: {formatSlotTimeRange(item.serviceSlotStartTime, item.serviceSlotEndTime)}</p>
+                  )}
+                  <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 text-slate-600">
+                    <span>Qty: {item.quantity}</span>
+                    <span>× {formatCurrency(item.price)}</span>
+                    <span className="font-medium text-slate-700">
+                      Subtotal: {formatCurrency(item.subtotal)}
+                    </span>
+                    {item.hasGst ? (
+                      <span className="text-xs text-emerald-700">
+                        GST: {formatCurrency(item.gstAmount)}
+                      </span>
+                    ) : (
+                      <span className="text-xs text-slate-500">No GST</span>
+                    )}
+                  </div>
+                  <p className="font-semibold text-slate-900">
+                    Line total: {formatCurrency(lineTotal(item))}
+                  </p>
+                </div>
+                </div>
+
+                  {item.statusHistory.length > 0 && (
+                    <div className="mt-3 rounded-lg border border-slate-200 bg-gradient-to-b from-slate-50/80 to-white p-3 shadow-sm">
+                      <div className="mb-2 flex items-center gap-2">
+                        <History className="h-3.5 w-3.5 text-slate-500" aria-hidden />
+                        <span className="text-xs font-semibold tracking-wide text-slate-700">
+                          Shipment timeline
+                        </span>
+                        <Badge variant="secondary" className="ml-auto text-[10px] font-normal">
+                          {item.statusHistory.length} update{item.statusHistory.length !== 1 ? "s" : ""}
                         </Badge>
                       </div>
+                      <ul className="relative ml-1.5 space-y-0 border-l-2 border-slate-200 pl-4">
+                        {item.statusHistory.map((h, idx) => {
+                          const isLast = idx === item.statusHistory.length - 1
+                          return (
+                            <li
+                              key={`${item.id}-hist-${idx}`}
+                              className="relative pb-4 last:pb-0"
+                            >
+                              <span
+                                className={`absolute -left-[calc(0.5rem+5px)] top-1.5 flex h-2.5 w-2.5 rounded-full ring-4 ring-white ${
+                                  isLast ? "bg-emerald-500" : "bg-slate-400"
+                                }`}
+                                aria-hidden
+                              />
+                              <div className="min-w-0 pl-7 sm:pl-8">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <Badge
+                                  variant="outline"
+                                  className="text-[10px] font-semibold uppercase tracking-wide"
+                                >
+                                  {String(h.status).replace(/_/g, " ")}
+                                </Badge>
+                                <span className="text-[10px] text-slate-500">
+                                  {new Date(h.createdAt).toLocaleString()}
+                                </span>
+                              </div>
+                              {h.location ? (
+                                <p className="mt-1 flex items-start gap-1.5 text-[11px] text-slate-600">
+                                  <MapPin className="mt-0.5 h-3 w-3 shrink-0 text-slate-400" />
+                                  <span>{h.location}</span>
+                                </p>
+                              ) : null}
+                              {h.note ? (
+                                <p className="mt-0.5 text-[11px] leading-snug text-slate-600">
+                                  <span className="font-medium text-slate-500">Note: </span>
+                                  {h.note}
+                                </p>
+                              ) : null}
+                              </div>
+                            </li>
+                          )
+                        })}
+                      </ul>
+                    </div>
+                  )}
+
+                  {item.returnAvailable && !item.exchangeSourceOrderItemId && (
+                    <div className="rounded-md border border-slate-200 bg-white p-3 text-xs space-y-3">
+                      <p className="flex items-center gap-2 font-medium text-slate-700">
+                        <RefreshCw className="h-4 w-4 shrink-0 text-slate-600" aria-hidden />
+                        Return / refund / exchange
+                      </p>
+                      {(item.returnReason || (item.returnImages?.length ?? 0) > 0) && (
+                        <div className="rounded-md border border-slate-100 bg-slate-50/80 p-2">
+                          <p className="font-semibold text-slate-900">Customer submission</p>
+                          {item.returnReason && (
+                            <p className="mt-1 whitespace-pre-wrap text-slate-700">{item.returnReason}</p>
+                          )}
+                          {(item.returnImages ?? []).length > 0 && (
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              {(item.returnImages ?? []).map((url) => (
+                                <a
+                                  key={url}
+                                  href={url}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="block h-16 w-16 overflow-hidden rounded border bg-white"
+                                >
+                                  <img src={url} alt="" className="h-full w-full object-cover" />
+                                </a>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      <div className="grid gap-2 sm:grid-cols-3">
+                        <div className="rounded-lg border border-slate-200 bg-slate-50/50 p-2 text-center">
+                          <p className="text-[10px] font-medium uppercase text-muted-foreground">Return</p>
+                          <p className="mt-1 font-medium text-slate-900">{item.returnRequestStatus ?? "NONE"}</p>
+                        </div>
+                        <div className="rounded-lg border border-slate-200 bg-slate-50/50 p-2 text-center">
+                          <p className="text-[10px] font-medium uppercase text-muted-foreground">Pickup</p>
+                          <p className="mt-1 font-medium text-slate-900">{item.pickupStatus ?? "NOT_REQUESTED"}</p>
+                        </div>
+                        <div className="rounded-lg border border-slate-200 bg-slate-50/50 p-2 text-center">
+                          <p className="text-[10px] font-medium uppercase text-muted-foreground">Refund</p>
+                          <p className="mt-1 font-medium text-slate-900">{item.refundStatus ?? "NOT_REQUESTED"}</p>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge variant="outline" className="text-[10px] uppercase tracking-wide">
+                          {item.returnResolutionType === "EXCHANGE" ? "Exchange" : "Refund"}
+                        </Badge>
+                        {item.replacementAllowed && (
+                          <Badge variant="outline" className="text-[10px] uppercase tracking-wide text-emerald-800">
+                            Exchange eligible
+                          </Badge>
+                        )}
+                      </div>
+
+                      {item.returnRequestStatus === "REQUESTED" && (
+                        <div className="flex flex-wrap gap-2">
+                          <Button
+                            size="sm"
+                            className="bg-emerald-600 text-white hover:bg-emerald-700"
+                            disabled={returnActionLoadingItemId === item.id}
+                            onClick={() =>
+                              setConfirmReturn({
+                                itemId: item.id,
+                                action: "ACCEPT",
+                                title: "Accept return?",
+                                description: "The customer’s return request will be accepted.",
+                              })
+                            }
+                          >
+                            Approve return
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            disabled={returnActionLoadingItemId === item.id}
+                            onClick={() =>
+                              setConfirmReturn({
+                                itemId: item.id,
+                                action: "REJECT",
+                                title: "Reject return?",
+                                description: "This will reject the customer’s return request.",
+                              })
+                            }
+                          >
+                            Reject return
+                          </Button>
+                        </div>
+                      )}
+
+                      {item.returnRequestStatus === "ACCEPTED" && (item.returnResolutionType ?? "REFUND") === "REFUND" && (
+                        <div className="flex flex-wrap gap-2">
+                          <Button
+                            size="sm"
+                            variant="default"
+                            className="bg-blue-600 text-white hover:bg-blue-700"
+                            disabled={returnActionLoadingItemId === item.id || item.pickupStatus === "COMPLETED"}
+                            onClick={() =>
+                              setConfirmReturn({
+                                itemId: item.id,
+                                action: "PICKUP_COMPLETED",
+                                title: "Mark pickup complete?",
+                                description: "Confirm that the return pickup has been completed.",
+                              })
+                            }
+                          >
+                            Mark pickup complete
+                          </Button>
+                          <Button
+                            size="sm"
+                            className="bg-violet-600 text-white hover:bg-violet-700"
+                            disabled={
+                              returnActionLoadingItemId === item.id ||
+                              item.pickupStatus !== "COMPLETED" ||
+                              item.refundStatus === "COMPLETED"
+                            }
+                            onClick={() =>
+                              setConfirmReturn({
+                                itemId: item.id,
+                                action: "REFUND_COMPLETED",
+                                title: "Process refund?",
+                                description: "Mark the refund as completed for this return.",
+                              })
+                            }
+                          >
+                            Process refund
+                          </Button>
+                        </div>
+                      )}
+
+                      {item.returnRequestStatus === "ACCEPTED" && item.returnResolutionType === "EXCHANGE" && (
+                        <div className="space-y-4">
+                          <div className="rounded-xl border border-violet-200 bg-gradient-to-br from-violet-50/90 to-white px-3 py-3 shadow-sm">
+                            <div className="flex items-start gap-3">
+                              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-violet-100 text-violet-700">
+                                <ArrowLeftRight className="h-4 w-4" aria-hidden />
+                              </span>
+                              <div className="min-w-0 space-y-1">
+                                <h3 className="text-sm font-semibold leading-snug text-violet-950">
+                                  Exchange product — shipment
+                                </h3>
+                                <p className="text-xs leading-relaxed text-violet-900/85">
+                                  Use the <span className="font-medium">new line item</span> on this order to ship the
+                                  replacement. Pickup completes when that line is marked{" "}
+                                  <span className="font-medium">delivered</span>.
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+
+                          {((item.exchangeTopUpAmount ?? 0) > 0.01 || (item.exchangeRefundDifferenceAmount ?? 0) > 0.01) && (
+                            <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+                              <div className="border-b border-slate-100 bg-slate-50/80 px-3 py-2">
+                                <h4 className="flex items-center gap-2 text-xs font-semibold text-slate-900">
+                                  <Banknote className="h-3.5 w-3.5 text-slate-600" aria-hidden />
+                                  Replacement price adjustment
+                                </h4>
+                              </div>
+                              <div className="space-y-3 p-3">
+                                {(item.exchangeTopUpAmount ?? 0) > 0.01 && (
+                                  <div className="rounded-lg border border-amber-200 bg-amber-50/90 p-3 text-amber-950">
+                                    <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-900">
+                                      Customer pays (upgrade / top-up)
+                                    </p>
+                                    <p className="mt-1 text-xl font-bold tabular-nums">
+                                      {formatCurrency(item.exchangeTopUpAmount)}
+                                    </p>
+                                    <p className="mt-1 text-xs text-amber-900/90">{exchangeTopUpCodLabel(item.exchangeTopUpStatus)}</p>
+                                    {item.exchangeTopUpStatus === "PENDING" && (
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="mt-3 w-full border-amber-300 bg-white hover:bg-amber-100/80 sm:w-auto"
+                                        disabled={returnActionLoadingItemId === item.id}
+                                        onClick={() =>
+                                          setConfirmReturn({
+                                            itemId: item.id,
+                                            action: "EXCHANGE_TOP_UP_RECEIVED",
+                                            title: "Record COD collected?",
+                                            description:
+                                              "Mark that you received the exchange price difference (e.g. COD at delivery).",
+                                          })
+                                        }
+                                      >
+                                        Record COD / payment received
+                                      </Button>
+                                    )}
+                                  </div>
+                                )}
+                                {(item.exchangeRefundDifferenceAmount ?? 0) > 0.01 && (
+                                  <div className="rounded-lg border border-sky-200 bg-sky-50/90 p-3 text-sky-950">
+                                    <div className="flex items-start gap-2">
+                                      <Wallet className="h-4 w-4 shrink-0 text-sky-800" aria-hidden />
+                                      <div className="min-w-0 flex-1 space-y-1">
+                                        <p className="text-[10px] font-semibold uppercase tracking-wide text-sky-900">
+                                          Credit to customer (cheaper replacement)
+                                        </p>
+                                        <p className="text-xl font-bold tabular-nums text-sky-950">
+                                          {formatCurrency(item.exchangeRefundDifferenceAmount)}
+                                        </p>
+                                        <p className="text-xs text-sky-900/90">
+                                          Status: {item.exchangeRefundDifferenceStatus ?? "—"}
+                                        </p>
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
+
+                          {(item.exchangeTopUpAmount ?? 0) <= 0.01 && (item.exchangeRefundDifferenceAmount ?? 0) <= 0.01 && (
+                            <p className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-2 text-xs text-slate-700">
+                              No extra payment or wallet credit — same or matched price.
+                            </p>
+                          )}
+                        </div>
+                      )}
+
+                      {item.replacementOrderItemId && (
+                        <p className="font-mono text-[10px] text-muted-foreground">
+                          Replacement line item id: {item.replacementOrderItemId}
+                        </p>
+                      )}
                     </div>
                   )}
 
@@ -476,88 +783,93 @@ export function AdminOrderDetailClient({ orderId }: { orderId: string }) {
                       </div>
                     </div>
                   )}
-
-                  {item.serviceNameSnapshot && item.serviceSlotStartTime && item.serviceSlotEndTime && (
-                    <p className="text-slate-600 text-xs">Slot: {formatSlotTimeRange(item.serviceSlotStartTime, item.serviceSlotEndTime)}</p>
-                  )}
-                  <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 text-slate-600">
-                    <span>Qty: {item.quantity}</span>
-                    <span>× {formatCurrency(item.price)}</span>
-                    <span className="font-medium text-slate-700">
-                      Subtotal: {formatCurrency(item.subtotal)}
-                    </span>
-                    {item.hasGst ? (
-                      <span className="text-xs text-emerald-700">
-                        GST: {formatCurrency(item.gstAmount)}
-                      </span>
-                    ) : (
-                      <span className="text-xs text-slate-500">No GST</span>
-                    )}
-                  </div>
-                  <p className="font-semibold text-slate-900">
-                    Line total: {formatCurrency(lineTotal(item))}
-                  </p>
-
-                  {item.statusHistory.length > 0 && (
-                    <div className="mt-3 rounded-lg border border-slate-200 bg-gradient-to-b from-slate-50/80 to-white p-3 shadow-sm">
-                      <div className="mb-2 flex items-center gap-2">
-                        <History className="h-3.5 w-3.5 text-slate-500" aria-hidden />
-                        <span className="text-xs font-semibold tracking-wide text-slate-700">
-                          Shipment timeline
-                        </span>
-                        <Badge variant="secondary" className="ml-auto text-[10px] font-normal">
-                          {item.statusHistory.length} update{item.statusHistory.length !== 1 ? "s" : ""}
-                        </Badge>
-                      </div>
-                      <ul className="relative ml-1.5 space-y-0 border-l-2 border-slate-200 pl-4">
-                        {item.statusHistory.map((h, idx) => {
-                          const isLast = idx === item.statusHistory.length - 1
-                          return (
-                            <li
-                              key={`${item.id}-hist-${idx}`}
-                              className="relative pb-4 last:pb-0"
-                            >
-                              <span
-                                className={`absolute -left-[calc(0.5rem+5px)] top-1.5 flex h-2.5 w-2.5 rounded-full ring-4 ring-white ${
-                                  isLast ? "bg-emerald-500" : "bg-slate-400"
-                                }`}
-                                aria-hidden
-                              />
-                              <div className="flex flex-wrap items-center gap-2">
-                                <Badge
-                                  variant="outline"
-                                  className="text-[10px] font-semibold uppercase tracking-wide"
-                                >
-                                  {String(h.status).replace(/_/g, " ")}
-                                </Badge>
-                                <span className="text-[10px] text-slate-500">
-                                  {new Date(h.createdAt).toLocaleString()}
-                                </span>
-                              </div>
-                              {h.location ? (
-                                <p className="mt-1 flex items-start gap-1.5 text-[11px] text-slate-600">
-                                  <MapPin className="mt-0.5 h-3 w-3 shrink-0 text-slate-400" />
-                                  <span>{h.location}</span>
-                                </p>
-                              ) : null}
-                              {h.note ? (
-                                <p className="mt-0.5 text-[11px] leading-snug text-slate-600">
-                                  <span className="font-medium text-slate-500">Note: </span>
-                                  {h.note}
-                                </p>
-                              ) : null}
-                            </li>
-                          )
-                        })}
-                      </ul>
-                    </div>
-                  )}
-                </div>
               </li>
             ))}
           </ul>
         </CardContent>
       </Card>
+        </div>
+
+        <aside className="space-y-6 lg:col-span-2 lg:sticky lg:top-6 self-start">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Receipt className="h-4 w-4" />
+              Order summary
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Order status</span>
+              <Badge variant="outline" className="capitalize">{order.status.replace(/_/g, " ").toLowerCase()}</Badge>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Store</span>
+              <span className="font-medium">{order.sellerStoreName ?? "—"}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Payment</span>
+              <span>{order.paymentMethod ?? "—"} ({order.paymentStatus.toLowerCase()})</span>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <MapPin className="h-4 w-4" />
+              Delivery address
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="text-sm text-muted-foreground">
+            {order.shippingFullName ? (
+              <>
+                <p className="font-medium text-foreground">{order.shippingFullName}</p>
+                {order.shippingPhone && <p>{order.shippingPhone}</p>}
+                {order.shippingAddressLine1 && (
+                  <p className="mt-1">
+                    {order.shippingAddressLine1}
+                    {order.shippingAddressLine2 ? `, ${order.shippingAddressLine2}` : ""}
+                    <br />
+                    {order.shippingCity}
+                    {order.shippingState && `, ${order.shippingState}`}
+                    {order.shippingPostalCode && ` ${order.shippingPostalCode}`}
+                    {order.shippingCountry && `, ${order.shippingCountry}`}
+                  </p>
+                )}
+              </>
+            ) : (
+              <p>—</p>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <User className="h-4 w-4" />
+              Customer
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="text-sm">
+            <p className="font-medium text-foreground">{order.customerName ?? order.customerEmail ?? "—"}</p>
+            {order.customerEmail && order.customerName && (
+              <p className="text-muted-foreground">{order.customerEmail}</p>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Store className="h-4 w-4" />
+              Seller / Store
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="text-sm">
+            <p className="font-medium text-foreground">{order.sellerStoreName ?? "—"}</p>
+          </CardContent>
+        </Card>
 
       <Card>
         <CardHeader>
@@ -568,7 +880,7 @@ export function AdminOrderDetailClient({ orderId }: { orderId: string }) {
         </CardHeader>
         <CardContent className="space-y-2">
           <div className="flex justify-between text-sm">
-            <span className="text-muted-foreground">Subtotal ({order.items.length} item(s))</span>
+            <span className="text-muted-foreground">Subtotal ({orderedItems.length} line(s))</span>
             <span>{formatCurrency(order.subtotal)}</span>
           </div>
           <div className="flex justify-between text-sm">
@@ -577,7 +889,7 @@ export function AdminOrderDetailClient({ orderId }: { orderId: string }) {
           </div>
 
           <div className="mt-1 space-y-1.5">
-            {order.items.map((item) => {
+            {orderedItems.map((item) => {
               const gst = item.hasGst ? item.gstAmount : 0
               const totalInclGst = item.subtotalInclGst ?? item.subtotal + gst
               return (
@@ -641,6 +953,33 @@ export function AdminOrderDetailClient({ orderId }: { orderId: string }) {
           </CardContent>
         </Card>
       )}
+        </aside>
+      </div>
+
+      <Dialog open={!!confirmReturn} onOpenChange={(open) => !open && setConfirmReturn(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{confirmReturn?.title}</DialogTitle>
+            <DialogDescription>{confirmReturn?.description}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button type="button" variant="outline" onClick={() => setConfirmReturn(null)}>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              disabled={!confirmReturn || returnActionLoadingItemId === confirmReturn.itemId}
+              onClick={() => confirmReturn && handleReturnAction(confirmReturn.itemId, confirmReturn.action)}
+            >
+              {returnActionLoadingItemId === confirmReturn?.itemId ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                "Confirm"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

@@ -78,6 +78,7 @@ export async function PUT(
       details?: string
       returnType?: "NON_RETURNABLE" | "RETURNABLE"
       returnDays?: number
+      replacementAllowed?: boolean
     }>
   }
 
@@ -129,6 +130,7 @@ export async function PUT(
           vReturnType === "RETURNABLE" && typeof vReturnDaysRaw === "number" && vReturnDaysRaw > 0
             ? Math.floor(vReturnDaysRaw)
             : null
+        const replacementAllowed = v?.replacementAllowed === true
         await prisma.productVariant.create({
           data: {
             productId: id,
@@ -144,6 +146,7 @@ export async function PUT(
             details: typeof v?.details === "string" ? v.details : null,
             returnType: vReturnType,
             returnDays: vReturnDays ?? undefined,
+            replacementAllowed,
           },
         })
       }

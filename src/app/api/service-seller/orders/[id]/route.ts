@@ -10,6 +10,7 @@ import type {
 import { SERVICE_SELLER_LINE_ITEM_STATUS_OPTIONS } from "../types"
 import { deriveOrderStatus } from "@/lib/order-status"
 import type { OrderStatus } from "@prisma/client"
+import { releaseServiceSlotsForOrderItems } from "@/lib/release-service-slot"
 
 function isValidServiceSellerItemStatus(s: string): boolean {
   return (SERVICE_SELLER_LINE_ITEM_STATUS_OPTIONS as readonly string[]).includes(s)
@@ -216,6 +217,9 @@ export async function PATCH(
         note: note || null,
       })),
     })
+    if (status === "CANCELLED") {
+      await releaseServiceSlotsForOrderItems(tx, targetItemIds)
+    }
   })
   return NextResponse.json({ success: true, status, updatedItemIds: targetItemIds })
 }

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { JsonValue } from "@prisma/client/runtime/library"
+import { getServiceDisplayImageUrls } from "@/lib/service-images"
 
 // Define types for the response data
 interface Banner {
@@ -201,6 +202,7 @@ export async function GET(): Promise<NextResponse<SuccessResponse | ErrorRespons
         discount: true,
         hasGst: true,
         images: true,
+        galleryImages: true,
         isActive: true,
         isFeatured: true,
         duration: true,
@@ -265,10 +267,12 @@ export async function GET(): Promise<NextResponse<SuccessResponse | ErrorRespons
       }))
     }))
 
-    // Services already match the Service interface
-    const transformedServices: Service[] = services.map(service => ({
+    const transformedServices: Service[] = services.map((service) => ({
       ...service,
-      images: service.images
+      images: getServiceDisplayImageUrls({
+        images: service.images,
+        galleryImages: service.galleryImages,
+      }) as unknown as JsonValue,
     }))
 
     // Transform service categories to full ServiceCategoryItem shape

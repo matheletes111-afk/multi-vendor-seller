@@ -8,6 +8,7 @@ import { formatCurrency } from "@/lib/utils";
 import { PageLoader } from "@/components/ui/page-loader";
 import { Package, Briefcase, ShoppingBag } from "lucide-react";
 import { AddToCartButton } from "@/components/product/AddToCartButton";
+import { getServiceFirstDisplayImageUrl } from "@/lib/service-images";
 
 type Banner = {
   id: string;
@@ -35,16 +36,11 @@ type Service = {
   name: string;
   basePrice: number | null;
   images?: unknown;
+  galleryImages?: unknown;
   serviceCategory: { name: string };
   seller: { store: { name: string } | null };
   _count: { reviews: number };
 };
-
-function getServiceFirstImage(images: unknown): string | null {
-  if (Array.isArray(images) && images.length > 0) return images[0] as string;
-  if (typeof images === "string") try { const a = JSON.parse(images) as string[]; return a[0] ?? null; } catch { return null; }
-  return null;
-}
 
 export function BannerPageClient() {
   const params = useParams();
@@ -80,6 +76,7 @@ export function BannerPageClient() {
           if (data.categoryId) params.set("categoryId", data.categoryId);
           if (data.subcategoryId) params.set("subcategoryId", data.subcategoryId);
         }
+        params.set("pageSize", "50");
         const qs = params.toString();
         return fetch(`/api/customer/browse${qs ? `?${qs}` : ""}`);
       })
@@ -163,7 +160,7 @@ export function BannerPageClient() {
           ) : (
             <div className="grid grid-cols-1 gap-3 sm:gap-4 sm:grid-cols-2 lg:grid-cols-4">
               {services.map((service) => {
-                const firstImg = getServiceFirstImage(service.images);
+                const firstImg = getServiceFirstDisplayImageUrl(service);
                 return (
                 <Link key={service.id} href={`/service/${service.id}`} className="block min-w-0">
                   <Card className="h-full overflow-hidden border border-slate-200 bg-white shadow-sm transition-shadow hover:shadow-md">

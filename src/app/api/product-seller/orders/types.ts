@@ -15,6 +15,17 @@ export type SellerOrderDetailItemApi = {
   subtotalInclGst: number | null
   imageUrl: string | null
   returnAvailable: boolean
+  replacementAllowed: boolean
+  returnResolutionType: "REFUND" | "EXCHANGE" | null
+  replacementOrderItemId: string | null
+  returnReason: string | null
+  returnImages: string[]
+  /** Present on the new line created for an exchange (points to original item). */
+  exchangeSourceOrderItemId: string | null
+  exchangeTopUpAmount: number
+  exchangeTopUpStatus: "NOT_REQUIRED" | "PENDING" | "COMPLETED" | null
+  exchangeRefundDifferenceAmount: number
+  exchangeRefundDifferenceStatus: "NOT_REQUESTED" | "PENDING" | "COMPLETED" | null
   returnRequestStatus: "REQUESTED" | "ACCEPTED" | "REJECTED" | null
   pickupStatus: "NOT_REQUESTED" | "PENDING" | "COMPLETED" | null
   refundStatus: "NOT_REQUESTED" | "PENDING" | "COMPLETED" | null

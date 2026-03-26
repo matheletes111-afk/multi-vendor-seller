@@ -173,16 +173,21 @@ function ServiceSellerLoginForm() {
                   Forgot password?
                 </Link>
               </div>
+              <div className="mt-4 text-center">
+                <Button type="submit" disabled={loading} className="mx-auto w-full rounded-full sm:max-w-[200px]">
+                  {loading ? "Signing in..." : "Sign In"}
+                </Button>
+              </div>
               <div className="mt-3 text-center">
                 <Button type="button" variant="outline" asChild className="w-full rounded-full sm:max-w-[260px]">
                   <Link href={`/service-seller/login/email-otp?callbackUrl=${encodeURIComponent(callbackUrl)}`}>Login via Email OTP</Link>
                 </Button>
               </div>
-            </div>
-            <div className="text-center">
-              <Button type="submit" disabled={loading} className="mx-auto w-full rounded-full sm:max-w-[200px]">
-                {loading ? "Signing in..." : "Sign In"}
-              </Button>
+              <div className="mt-2 text-center">
+                <Button type="button" variant="outline" asChild className="w-full rounded-full sm:max-w-[260px]">
+                  <Link href={`/service-seller/login/phone-otp?callbackUrl=${encodeURIComponent(callbackUrl)}`}>Login via Number</Link>
+                </Button>
+              </div>
             </div>
             <div className="relative my-6">
               <div className="absolute inset-0 flex items-center">

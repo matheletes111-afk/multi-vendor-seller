@@ -1,0 +1,730 @@
+Mobile API — service catalog, listing & booking
+================================================================================
+For mobile developers: full request and response payloads below match the Next.js
+routes under /mobileapi/ unless noted. Base URL: https://<your-host>
+
+
+================================================================================
+GLOBAL
+================================================================================
+
+Headers (when a body is sent):
+  Content-Type: application/json
+
+Customer-authenticated routes:
+  Authorization: Bearer <mobile_access_token>
+
+Default JSON error shape (most routes):
+  { "success": false, "error": "<string>" }
+
+Exception — GET /mobileapi/customer/checkout/addresses on success returns a raw JSON array (no wrapper).
+
+
+================================================================================
+A) LISTING — Service categories (all)
+================================================================================
+
+GET /mobileapi/services/categories
+
+Query parameters:
+  activeOnly     optional   default "true" — pass "false" to include inactive categories
+  includeCounts  optional   "true" to add servicesCount per category
+  limit          optional   1–200, cap number of categories returned
+
+Path / body: none
+Auth: none (public)
+
+
+--- Response 200 (full payload example) ---
+
+{
+  "success": true,
+  "message": "Service categories fetched successfully",
+  "data": {
+    "categories": [
+      {
+        "id": "clxxxxxxxxxxxxxxxxxxxxx",
+        "name": "Home",
+        "slug": "home",
+        "description": "Home services",
+        "image": "https://cdn.example.com/categories/home.jpg",
+        "mobileIcon": "https://cdn.example.com/icons/home.png",
+        "isActive": true,
+        "createdAt": "2025-01-15T10:00:00.000Z",
+        "updatedAt": "2025-03-01T12:00:00.000Z",
+        "servicesCount": 12
+      }
+    ],
+    "total": 1
+  }
+}
+
+Note: Omit "includeCounts" or use includeCounts=false — then category objects do NOT include servicesCount.
+      When includeCounts=true, each category includes servicesCount as in the example above.
+
+--- Response 500 ---
+
+{ "success": false, "error": "Internal server error" }
+
+
+================================================================================
+B) LISTING — Service category by id (category + services)
+================================================================================
+
+GET /mobileapi/services/categories/{categoryId}
+
+Path parameters:
+  categoryId   string   Service category id (cuid)
+
+Query parameters:
+  activeOnly   optional   default "true" — only active services
+  limit        optional   1–200, default 50 — max services returned
+
+Auth: none (public)
+
+
+--- Response 200 (full payload example) ---
+
+{
+  "success": true,
+  "message": "Service category fetched successfully",
+  "data": {
+    "category": {
+      "id": "clxxxxxxxxxxxxxxxxxxxxx",
+      "name": "Home",
+      "slug": "home",
+      "description": "Home services",
+      "image": "https://cdn.example.com/categories/home.jpg",
+      "mobileIcon": "https://cdn.example.com/icons/home.png",
+      "isActive": true,
+      "createdAt": "2025-01-15T10:00:00.000Z",
+      "updatedAt": "2025-03-01T12:00:00.000Z"
+    },
+    "services": [
+      {
+        "id": "clyyyyyyyyyyyyyyyyyyyyy",
+        "serviceCategoryId": "clxxxxxxxxxxxxxxxxxxxxx",
+        "name": "House cleaning",
+        "slug": "house-cleaning",
+        "description": "Deep clean",
+        "serviceType": "APPOINTMENT",
+        "basePrice": 120.0,
+        "discount": 10.0,
+        "hasGst": true,
+        "images": [
+          "https://cdn.example.com/services/master.jpg",
+          "https://cdn.example.com/services/gallery1.jpg"
+        ],
+        "isActive": true,
+        "isFeatured": false,
+        "duration": 60,
+        "createdAt": "2025-02-01T08:00:00.000Z",
+        "updatedAt": "2025-02-01T08:00:00.000Z",
+        "seller": {
+          "store": { "name": "Sparkle Co" }
+        }
+      }
+    ],
+    "totalServices": 42
+  }
+}
+
+serviceType: "APPOINTMENT" | "FIXED_PRICE"
+images: combined master + gallery URLs (same order as web carousel).
+
+--- Response 404 ---
+
+{ "success": false, "error": "Service category not found" }
+
+--- Response 500 ---
+
+{ "success": false, "error": "Internal server error" }
+
+
+================================================================================
+C) LISTING — All services
+================================================================================
+
+GET /mobileapi/services/all
+
+Query parameters:
+  activeOnly     optional   default "true"
+  limit          optional   1–200, default 50
+  featuredOnly   optional   "true" to only return featured services
+
+Auth: none (public)
+
+
+--- Response 200 (full payload example) ---
+
+{
+  "success": true,
+  "message": "Services fetched successfully",
+  "data": {
+    "services": [
+      {
+        "id": "clyyyyyyyyyyyyyyyyyyyyy",
+        "serviceCategoryId": "clxxxxxxxxxxxxxxxxxxxxx",
+        "serviceCategory": {
+          "id": "clxxxxxxxxxxxxxxxxxxxxx",
+          "name": "Home",
+          "slug": "home"
+        },
+        "name": "House cleaning",
+        "slug": "house-cleaning",
+        "description": "Deep clean",
+        "serviceType": "APPOINTMENT",
+        "basePrice": 120.0,
+        "discount": 10.0,
+        "hasGst": true,
+        "images": [
+          "https://cdn.example.com/services/master.jpg",
+          "https://cdn.example.com/services/gallery1.jpg"
+        ],
+        "isActive": true,
+        "isFeatured": false,
+        "duration": 60,
+        "createdAt": "2025-02-01T08:00:00.000Z",
+        "updatedAt": "2025-02-01T08:00:00.000Z",
+        "seller": {
+          "store": { "name": "Sparkle Co" }
+        }
+      }
+    ],
+    "total": 100
+  }
+}
+
+--- Response 500 ---
+
+{ "success": false, "error": "Internal server error" }
+
+
+================================================================================
+D) SERVICE DETAIL
+================================================================================
+
+GET /mobileapi/services/{serviceId}
+
+Path parameters:
+  serviceId   string
+
+Query / body: none
+Auth: none (public)
+
+
+--- Response 200 (full payload example) ---
+
+{
+  "success": true,
+  "message": "Service fetched successfully",
+  "data": {
+    "service": {
+      "id": "clyyyyyyyyyyyyyyyyyyyyy",
+      "name": "House cleaning",
+      "slug": "house-cleaning",
+      "description": "Full home deep clean",
+      "serviceType": "APPOINTMENT",
+      "basePrice": 120.0,
+      "discount": 10.0,
+      "hasGst": true,
+      "displayPrice": 110.0,
+      "images": [
+        "https://cdn.example.com/services/master.jpg",
+        "https://cdn.example.com/services/gallery1.jpg"
+      ],
+      "masterImage": "https://cdn.example.com/services/master.jpg",
+      "galleryImages": [
+        "https://cdn.example.com/services/gallery1.jpg"
+      ],
+      "duration": 60,
+      "isFeatured": false,
+      "serviceCategory": {
+        "id": "clxxxxxxxxxxxxxxxxxxxxx",
+        "name": "Home",
+        "slug": "home"
+      },
+      "seller": {
+        "store": { "name": "Sparkle Co" }
+      },
+      "serviceSeller": {
+        "store": {
+          "name": "Sparkle Co",
+          "phone": "+64 9 123 4567",
+          "logo": "https://cdn.example.com/store/logo.png",
+          "address": "1 Queen St",
+          "city": "Auckland",
+          "state": null,
+          "zipCode": "1010",
+          "country": "NZ"
+        },
+        "account": {
+          "name": "Jane Seller",
+          "email": "jane@example.com",
+          "phone": "+6421000000",
+          "phoneCountryCode": "+64",
+          "image": "https://cdn.example.com/users/jane.jpg"
+        }
+      },
+      "reviewCount": 5,
+      "averageRating": 4.6,
+      "reviews": [
+        {
+          "id": "clzzzzzzzzzzzzzzzzzzzzz",
+          "rating": 5,
+          "comment": "Great service",
+          "images": [],
+          "createdAt": "2025-03-01T12:00:00.000Z",
+          "isVerified": true,
+          "reviewerName": "Alex"
+        }
+      ]
+    }
+  }
+}
+
+displayPrice = max(0, basePrice - discount) when basePrice is set; null if no fixed base price logic applies.
+
+--- Response 404 ---
+
+{ "success": false, "error": "Service not found" }
+
+--- Response 500 ---
+
+{ "success": false, "error": "Internal server error" }
+
+
+================================================================================
+E) AVAILABLE TIME SLOTS
+================================================================================
+
+GET /mobileapi/services/{serviceId}/slots?from=YYYY-MM-DD&to=YYYY-MM-DD
+
+Path parameters:
+  serviceId   string
+
+Query parameters:
+  from   optional   YYYY-MM-DD; if omitted, server uses local “today” semantics
+  to     optional   YYYY-MM-DD; if omitted, server extends range (e.g. 14 days from from)
+
+Auth: none (public)
+
+
+--- Request ---
+No body.
+
+
+--- Response 200 (full payload example) ---
+
+{
+  "success": true,
+  "message": "Slots fetched successfully",
+  "data": {
+    "slots": [
+      {
+        "startTime": "2025-03-26T09:00:00.000Z",
+        "endTime": "2025-03-26T10:00:00.000Z"
+      }
+    ]
+  }
+}
+
+Empty slots: "slots": []
+
+
+--- Response 400 (invalid date range) ---
+
+{ "success": false, "error": "Invalid from/to dates" }
+
+
+--- Response 500 ---
+
+{ "success": false, "error": "Internal server error" }
+
+
+================================================================================
+F) RESERVE SLOT (optional)
+================================================================================
+
+POST /mobileapi/services/{serviceId}/slots/reserve
+
+Path parameters:
+  serviceId   string
+
+Headers:
+  Authorization: Bearer <token>
+  Content-Type: application/json
+
+
+--- Request body (full payload) ---
+
+{
+  "startTime": "2025-03-26T09:00:00.000Z",
+  "endTime": "2025-03-26T10:00:00.000Z"
+}
+
+
+--- Response 200 ---
+
+{
+  "success": true,
+  "message": "Slot reserved",
+  "data": {
+    "serviceSlotId": "clslotidxxxxxxxxxxxxxxx"
+  }
+}
+
+
+--- Response 400 ---
+
+{ "success": false, "error": "Invalid JSON" }
+{ "success": false, "error": "startTime and endTime required (ISO strings)" }
+{ "success": false, "error": "Invalid startTime or endTime" }
+{ "success": false, "error": "Slot not available" }
+
+
+--- Response 401 ---
+
+{ "success": false, "error": "Unauthorized. Valid customer token required." }
+
+
+--- Response 409 ---
+
+{ "success": false, "error": "This slot was just booked by someone else" }
+
+
+================================================================================
+G) LIST ADDRESSES
+================================================================================
+
+GET /mobileapi/customer/checkout/addresses
+
+Headers:
+  Authorization: Bearer <token>
+
+
+--- Request ---
+No body.
+
+
+--- Response 200 (full payload — raw array, no success wrapper) ---
+
+[
+  {
+    "id": "claddrxxxxxxxxxxxxxxxxx",
+    "fullName": "Jane Doe",
+    "addressType": "HOME",
+    "phone": "+64123456789",
+    "addressLine1": "1 Queen St",
+    "addressLine2": null,
+    "city": "Auckland",
+    "state": "Auckland",
+    "postalCode": "1010",
+    "country": "NZ",
+    "isDefault": true
+  }
+]
+
+addressType: "HOME" | "OFFICE" | "OTHER"
+
+
+--- Response 401 ---
+
+{ "success": false, "error": "Unauthorized. Valid customer token required." }
+
+
+================================================================================
+H) CREATE ADDRESS
+================================================================================
+
+POST /mobileapi/customer/checkout/addresses
+
+Headers:
+  Authorization: Bearer <token>
+  Content-Type: application/json
+
+
+--- Request body (full payload) ---
+
+{
+  "fullName": "Jane Doe",
+  "phone": "+64123456789",
+  "addressLine1": "1 Queen St",
+  "addressLine2": "Unit 2",
+  "city": "Auckland",
+  "state": "Auckland",
+  "postalCode": "1010",
+  "country": "NZ",
+  "addressType": "HOME",
+  "isDefault": true
+}
+
+Required: fullName, phone, addressLine1, city, state, postalCode, country
+Optional: addressLine2, addressType (default OTHER), isDefault
+
+
+--- Response 200 (full payload) ---
+
+{
+  "id": "claddrxxxxxxxxxxxxxxxxx",
+  "fullName": "Jane Doe",
+  "addressType": "HOME",
+  "phone": "+64123456789",
+  "addressLine1": "1 Queen St",
+  "addressLine2": "Unit 2",
+  "city": "Auckland",
+  "state": "Auckland",
+  "postalCode": "1010",
+  "country": "NZ",
+  "isDefault": true
+}
+
+
+--- Response 400 (validation) ---
+
+{ "error": "Missing required fields: fullName, phone, addressLine1, city, state, postalCode, country" }
+
+
+--- Response 400 (invalid JSON) ---
+
+{ "success": false, "error": "Invalid JSON" }
+
+
+--- Response 401 ---
+
+{ "success": false, "error": "Unauthorized. Valid customer token required." }
+
+
+================================================================================
+I) UPDATE ADDRESS
+================================================================================
+
+PATCH /mobileapi/customer/checkout/addresses/{addressId}
+
+Path parameters:
+  addressId   string
+
+Headers:
+  Authorization: Bearer <token>
+  Content-Type: application/json
+
+
+--- Request body (full payload — all fields optional; omitted fields keep existing values) ---
+
+{
+  "fullName": "Jane Doe",
+  "phone": "+64123456789",
+  "addressLine1": "2 Queen St",
+  "addressLine2": null,
+  "city": "Auckland",
+  "state": "Auckland",
+  "postalCode": "1010",
+  "country": "NZ",
+  "addressType": "OFFICE",
+  "isDefault": false
+}
+
+
+--- Response 200 (full payload) ---
+Same address object shape as POST create (single object).
+
+
+--- Response 400 ---
+
+{ "success": false, "error": "Invalid JSON" }
+
+
+--- Response 401 ---
+
+{ "success": false, "error": "Unauthorized. Valid customer token required." }
+
+
+--- Response 404 ---
+
+{ "success": false, "error": "Address not found" }
+
+
+================================================================================
+J) DELETE ADDRESS
+================================================================================
+
+DELETE /mobileapi/customer/checkout/addresses/{addressId}
+
+Path parameters:
+  addressId   string
+
+Headers:
+  Authorization: Bearer <token>
+  Content-Type: not required (no body)
+
+
+--- Request body ---
+None
+
+
+--- Response 200 ---
+
+{ "success": true }
+
+
+--- Response 401 ---
+
+{ "success": false, "error": "Unauthorized. Valid customer token required." }
+
+
+--- Response 404 ---
+
+{ "success": false, "error": "Address not found" }
+
+
+================================================================================
+K) PLACE SERVICE ORDER
+================================================================================
+
+POST /mobileapi/customer/checkout/place-service-order
+
+Headers:
+  Authorization: Bearer <token>
+  Content-Type: application/json
+
+
+--- Request body option A — use reserved slot id ---
+
+{
+  "serviceId": "clyyyyyyyyyyyyyyyyyyyyy",
+  "addressId": "claddrxxxxxxxxxxxxxxxxx",
+  "serviceSlotId": "clslotidxxxxxxxxxxxxxxx"
+}
+
+
+--- Request body option B — slot by time (server creates slot) ---
+
+{
+  "serviceId": "clyyyyyyyyyyyyyyyyyyyyy",
+  "addressId": "claddrxxxxxxxxxxxxxxxxx",
+  "slotStartTime": "2025-03-26T09:00:00.000Z",
+  "slotEndTime": "2025-03-26T10:00:00.000Z"
+}
+
+Required: serviceId, addressId
+Slot: either serviceSlotId OR both slotStartTime and slotEndTime
+
+
+--- Response 200 (full payload) ---
+
+{
+  "success": true,
+  "message": "Order placed",
+  "data": {
+    "orderId": "clorderxxxxxxxxxxxxxxxx",
+    "orderNumber": "clorderxxxxxxxxxxxxxxxx"
+  }
+}
+
+
+--- Response 400 ---
+
+{ "success": false, "error": "Invalid JSON" }
+{ "success": false, "error": "serviceId required" }
+{ "success": false, "error": "addressId required" }
+{ "success": false, "error": "Invalid service slot" }
+{ "success": false, "error": "This slot is already used" }
+{ "success": false, "error": "Slot not available" }
+
+
+--- Response 401 ---
+
+{ "success": false, "error": "Unauthorized. Valid customer token required." }
+
+
+--- Response 404 ---
+
+{ "success": false, "error": "Address not found" }
+{ "success": false, "error": "Service not found" }
+
+
+--- Response 409 ---
+
+{ "success": false, "error": "This slot was just booked by someone else" }
+
+
+================================================================================
+TypeScript — consolidated types (mobile)
+================================================================================
+
+export type MobileServiceCategory = {
+  id: string
+  name: string
+  slug: string
+  description: string | null
+  image: string | null
+  mobileIcon: string | null
+  isActive: boolean
+  createdAt: string
+  updatedAt: string
+  servicesCount?: number
+}
+
+export type MobileServiceListItem = {
+  id: string
+  serviceCategoryId: string
+  serviceCategory?: { id: string; name: string; slug: string }
+  name: string
+  slug: string
+  description: string | null
+  serviceType: string
+  basePrice: number | null
+  discount: number
+  hasGst: boolean
+  images: string[]
+  isActive: boolean
+  isFeatured: boolean
+  duration: number | null
+  createdAt: string
+  updatedAt: string
+  seller?: { store: { name: string } | null } | null
+}
+
+export type MobileCustomerAddress = {
+  id: string
+  fullName: string
+  addressType: "HOME" | "OFFICE" | "OTHER"
+  phone: string
+  addressLine1: string
+  addressLine2: string | null
+  city: string
+  state: string
+  postalCode: string
+  country: string
+  isDefault: boolean
+}
+
+export type MobileCreateAddressBody = {
+  fullName: string
+  phone: string
+  addressLine1: string
+  addressLine2?: string | null
+  city: string
+  state: string
+  postalCode: string
+  country: string
+  addressType?: "HOME" | "OFFICE" | "OTHER"
+  isDefault?: boolean
+}
+
+export type MobilePatchAddressBody = Partial<MobileCreateAddressBody>
+
+export type MobilePlaceServiceOrderBody =
+  | { serviceId: string; addressId: string; serviceSlotId: string }
+  | { serviceId: string; addressId: string; slotStartTime: string; slotEndTime: string }
+
+
+================================================================================
+Suggested flow
+================================================================================
+1. GET /mobileapi/services/categories (or /all /categories/{id}) — browse.
+2. GET /mobileapi/services/{id} — detail.
+3. GET /mobileapi/services/{id}/slots?from=&to= — pick slots.
+4. Optional: POST .../slots/reserve — hold slot.
+5. GET /mobileapi/customer/checkout/addresses — ensure address; POST/PATCH/DELETE as needed.
+6. POST /mobileapi/customer/checkout/place-service-order — book.

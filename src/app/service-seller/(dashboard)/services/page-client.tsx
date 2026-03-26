@@ -28,6 +28,7 @@ import { formatCurrency } from "@/lib/utils"
 import { PageLoader } from "@/components/ui/page-loader"
 import { Edit, Trash2, Briefcase } from "lucide-react"
 import { AdminPagination } from "@/components/admin/admin-pagination"
+import { getServiceDisplayImageUrls } from "@/lib/service-images"
 
 type Service = {
   id: string
@@ -38,17 +39,12 @@ type Service = {
   duration: number | null
   isActive: boolean
   images: unknown
+  galleryImages?: unknown
   serviceCategory: { name: string }
   serviceType: string
   slots: unknown[]
   packages: unknown[]
   _count: { orderItems: number; reviews: number }
-}
-
-function getServiceImageUrls(images: unknown): string[] {
-  if (Array.isArray(images)) return images as string[]
-  if (typeof images === "string") try { return JSON.parse(images) as string[] } catch { return [] }
-  return []
 }
 
 export function ServicesPageClient() {
@@ -163,7 +159,10 @@ export function ServicesPageClient() {
               </TableHeader>
               <TableBody>
                 {services.map((service) => {
-                  const imageUrls = getServiceImageUrls(service.images)
+                  const imageUrls = getServiceDisplayImageUrls({
+                    images: service.images,
+                    galleryImages: service.galleryImages,
+                  })
                   const firstImage = imageUrls[0]
                   const priceText = service.basePrice != null
                     ? formatCurrency(Math.max(0, service.basePrice - service.discount))

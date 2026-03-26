@@ -11,7 +11,7 @@ import type { SellerOrderDetailApi } from "@/app/api/service-seller/orders/types
 import {
   SERVICE_SELLER_LINE_ITEM_STATUS_OPTIONS,
 } from "@/app/api/service-seller/orders/types"
-import { Package, MapPin, User, ArrowLeft, Loader2, Receipt, Banknote, ShoppingBag, Upload } from "lucide-react"
+import { Package, MapPin, User, ArrowLeft, Loader2, Receipt, Banknote, ShoppingBag, Upload, ExternalLink } from "lucide-react"
 import {
   Select,
   SelectContent,
@@ -44,6 +44,8 @@ export function ServiceSellerOrderDetailClient({ orderId }: { orderId: string })
   const [updateLoading, setUpdateLoading] = useState(false)
   const [statusError, setStatusError] = useState<string | null>(null)
   const [deliveryProofUploadingItemId, setDeliveryProofUploadingItemId] = useState<string | null>(null)
+  /** Local blob URLs for file picker preview before upload */
+  const [deliveryProofFilePreview, setDeliveryProofFilePreview] = useState<Record<string, string>>({})
 
   const uploadDeliveryProofOnSave = async (itemId: string): Promise<string> => {
     const file = deliveryProofFiles[itemId]
@@ -95,6 +97,10 @@ export function ServiceSellerOrderDetailClient({ orderId }: { orderId: string })
               return acc
             }, {})
           )
+          setDeliveryProofFilePreview((prev) => {
+            Object.values(prev).forEach((u) => URL.revokeObjectURL(u))
+            return {}
+          })
           setLocationDrafts(
             data.items.reduce<Record<string, string>>((acc, item) => {
               acc[item.id] = item.statusHistory[item.statusHistory.length - 1]?.location ?? ""
@@ -115,6 +121,12 @@ export function ServiceSellerOrderDetailClient({ orderId }: { orderId: string })
     setLoading(true)
     fetchOrder().finally(() => setLoading(false))
   }, [fetchOrder])
+
+  useEffect(() => {
+    return () => {
+      Object.values(deliveryProofFilePreview).forEach((u) => URL.revokeObjectURL(u))
+    }
+  }, [deliveryProofFilePreview])
 
   const canUpdateStatus =
     order &&
@@ -158,6 +170,12 @@ export function ServiceSellerOrderDetailClient({ orderId }: { orderId: string })
       }
       await fetchOrder()
       setDeliveryProofFiles((prev) => ({ ...prev, [itemId]: null }))
+      setDeliveryProofFilePreview((prev) => {
+        const u = prev[itemId]
+        if (u) URL.revokeObjectURL(u)
+        const { [itemId]: _, ...rest } = prev
+        return rest
+      })
     } catch (err) {
       setStatusError(err instanceof Error ? err.message : "Failed")
     } finally {
@@ -289,7 +307,19 @@ export function ServiceSellerOrderDetailClient({ orderId }: { orderId: string })
         </CardHeader>
         <CardContent>
           <ul className="space-y-4">
-            {order.items.map((item) => (
+            {order.items.map((item) => {
+              const draftStatus = itemStatusDrafts[item.id] ?? item.itemStatus
+              const draftProofUrl = (deliveryProofDrafts[item.id] || "").trim()
+              const proofPreviewUrl =
+                draftProofUrl ||
+                deliveryProofFilePreview[item.id] ||
+                (item.itemStatus === "DELIVERED" ? item.deliveryProofImage : null) ||
+                ""
+              const showDeliveryProofPreview =
+                proofPreviewUrl &&
+                (item.itemStatus === "DELIVERED" || draftStatus === "DELIVERED")
+
+              return (
               <li key={item.id} className="flex gap-4 rounded-lg border border-slate-100 bg-slate-50/50 p-3 sm:p-4">
                 <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-md bg-white sm:h-20 sm:w-20">
                   {item.imageUrl ? (
@@ -322,6 +352,11 @@ export function ServiceSellerOrderDetailClient({ orderId }: { orderId: string })
                               onChange={(e) => {
                                 const f = e.target.files?.[0]
                                 if (f) {
+                                  setDeliveryProofFilePreview((prev) => {
+                                    const old = prev[item.id]
+                                    if (old) URL.revokeObjectURL(old)
+                                    return { ...prev, [item.id]: URL.createObjectURL(f) }
+                                  })
                                   setDeliveryProofFiles((prev) => ({ ...prev, [item.id]: f }))
                                   setDeliveryProofDrafts((prev) => ({ ...prev, [item.id]: "" }))
                                 }
@@ -400,15 +435,31 @@ export function ServiceSellerOrderDetailClient({ orderId }: { orderId: string })
                   {item.serviceNameSnapshot && item.serviceSlotStartTime && item.serviceSlotEndTime && (
                     <p className="text-slate-600 text-xs">Slot: {formatSlotTimeRange(item.serviceSlotStartTime, item.serviceSlotEndTime)}</p>
                   )}
-                  {item.deliveryProofImage && (
-                    <a
-                      href={item.deliveryProofImage}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-block text-xs text-blue-600 underline"
-                    >
-                      View delivery proof
-                    </a>
+                  {item.itemStatus === "CANCELLED" && item.serviceNameSnapshot && !item.productNameSnapshot && (
+                    <p className="text-xs font-medium text-emerald-800">
+                      The service time slot was released and is available to book again.
+                    </p>
+                  )}
+                  {showDeliveryProofPreview && (
+                    <div className="mt-2 flex flex-wrap items-center gap-3 rounded-md border border-slate-200 bg-white p-2 shadow-sm">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={proofPreviewUrl}
+                        alt="Delivery proof"
+                        className="h-24 w-24 rounded-md border object-cover sm:h-28 sm:w-28"
+                      />
+                      <div className="min-w-0 flex flex-col gap-1">
+                        <span className="text-xs font-medium text-slate-700">Delivery proof</span>
+                        <a
+                          href={proofPreviewUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 underline"
+                        >
+                          Open full size <ExternalLink className="h-3 w-3" />
+                        </a>
+                      </div>
+                    </div>
                   )}
                   {item.statusHistory.length > 0 && (
                     <div className="mt-1 space-y-1 rounded-md bg-white/60 p-2 text-[11px]">
@@ -440,7 +491,7 @@ export function ServiceSellerOrderDetailClient({ orderId }: { orderId: string })
                   </p>
                 </div>
               </li>
-            ))}
+            )})}
           </ul>
         </CardContent>
       </Card>

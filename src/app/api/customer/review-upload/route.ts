@@ -24,15 +24,22 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid image type. Use JPEG, PNG, WebP or GIF." }, { status: 400 })
   }
 
+  const purposeRaw = formData.get("purpose")
+  const purpose = typeof purposeRaw === "string" ? purposeRaw.trim().toLowerCase() : ""
+  const isReturn = purpose === "return"
+  const folder = isReturn ? "return-images" : "review-images"
+  const prefix = isReturn ? "return" : "review"
+
   try {
     const bytes = await file.arrayBuffer()
     const ext = path.extname(file.name) || ".jpg"
+    // S3 PutObject via uploadPublicFile (see src/lib/upload-public-file.ts).
     const url = await uploadPublicFile({
-      folder: "review-images",
+      folder,
       ext,
       contentType: file.type,
       buffer: Buffer.from(bytes),
-      prefix: "review",
+      prefix,
     })
     return NextResponse.json({ url })
   } catch (error) {

@@ -5,6 +5,7 @@ import { UserRole } from "@prisma/client"
 import type { OrderDetailApi, OrderDetailItemApi } from "../types"
 import { getSellerSubscription, canReceiveReviews } from "@/lib/subscriptions"
 import { deriveOrderStatus, summarizeSellerItemStatuses } from "@/lib/order-status"
+import { parseReturnImagesJson } from "@/lib/return-request-validation"
 
 /** GET /api/customer/orders/[id] — get one order for current customer. CUSTOMER only. */
 export async function GET(
@@ -28,14 +29,24 @@ export async function GET(
         include: {
           seller: { include: { store: { select: { name: true } } } },
           product: { select: { images: true } },
-          productVariant: { select: { images: true, returnType: true, returnDays: true } },
+          productVariant: {
+            select: { images: true, returnType: true, returnDays: true, replacementAllowed: true },
+          },
           service: { select: { images: true } },
           serviceSlot: { select: { startTime: true, endTime: true } },
           returnRequest: {
             select: {
               status: true,
+              reason: true,
+              returnImages: true,
               pickupStatus: true,
               refundStatus: true,
+              resolutionType: true,
+              replacementOrderItemId: true,
+              exchangeTopUpAmount: true,
+              exchangeTopUpStatus: true,
+              exchangeRefundDifferenceAmount: true,
+              exchangeRefundDifferenceStatus: true,
             },
           },
           statusHistory: {
@@ -109,6 +120,8 @@ export async function GET(
     const variantReturnType = row.productVariant?.returnType ?? null
     const variantReturnDays = row.productVariant?.returnDays ?? null
     const returnAvailable = !!row.productId && variantReturnType === "RETURNABLE"
+    const replacementAllowed =
+      !!row.productId && row.productVariant?.replacementAllowed === true && returnAvailable
     const request = row.returnRequest
     return {
       id: row.id,
@@ -146,8 +159,18 @@ export async function GET(
       commissionAmount: row.commissionAmount,
       commissionRateSnapshot: row.commissionRateSnapshot,
       returnAvailable,
+      replacementAllowed,
       returnPolicyType: variantReturnType,
       returnPolicyDays: variantReturnDays,
+      returnResolutionType: returnAvailable ? request?.resolutionType ?? null : null,
+      replacementOrderItemId: returnAvailable ? request?.replacementOrderItemId ?? null : null,
+      exchangeSourceOrderItemId: row.exchangeSourceOrderItemId ?? null,
+      exchangeTopUpAmount: returnAvailable ? request?.exchangeTopUpAmount ?? 0 : 0,
+      exchangeTopUpStatus: returnAvailable ? request?.exchangeTopUpStatus ?? null : null,
+      exchangeRefundDifferenceAmount: returnAvailable ? request?.exchangeRefundDifferenceAmount ?? 0 : 0,
+      exchangeRefundDifferenceStatus: returnAvailable ? request?.exchangeRefundDifferenceStatus ?? null : null,
+      returnReason: returnAvailable ? request?.reason ?? null : null,
+      returnImages: returnAvailable ? parseReturnImagesJson(request?.returnImages) : [],
       returnRequestStatus: returnAvailable ? request?.status ?? null : null,
       pickupStatus: returnAvailable ? request?.pickupStatus ?? "NOT_REQUESTED" : null,
       refundStatus: returnAvailable ? request?.refundStatus ?? "NOT_REQUESTED" : null,

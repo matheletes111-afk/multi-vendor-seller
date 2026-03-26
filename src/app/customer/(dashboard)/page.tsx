@@ -6,6 +6,7 @@ import { Badge } from "@/ui/badge"
 import Link from "next/link"
 import { formatCurrency, formatDate } from "@/lib/utils"
 import { Store, ShoppingCart, ArrowRight, Package } from "lucide-react"
+import { CustomerWalletCard } from "./customer-wallet-card"
 
 export default async function CustomerDashboard() {
   const session = await auth()
@@ -34,6 +35,8 @@ export default async function CustomerDashboard() {
           Welcome back, {session.user.name || session.user.email}
         </p>
       </div>
+
+      <CustomerWalletCard />
 
       <div className="grid gap-4 md:grid-cols-2">
         <Link href="/browse">

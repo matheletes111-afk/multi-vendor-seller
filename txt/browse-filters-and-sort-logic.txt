@@ -1,0 +1,302 @@
+================================================================================
+BROWSE PAGE — FILTER & SORT LOGIC (REFERENCE)
+================================================================================
+Source of truth in code: src/app/api/customer/browse/route.ts
+UI: src/app/customer/(dashboard)/browse/browse-client.tsx
+
+This document describes how each filter works, where data comes from, and
+whether values are "dynamic" (computed from DB / live data) or fixed in UI.
+
+
+================================================================================
+1. ARE ALL FILTERS "DYNAMIC"?
+================================================================================
+
+Mostly YES, with these meanings:
+
+  A) Dynamic from database (changes when admins/sellers change data)
+     - Department / categories list
+     - Product rows (name, price, variant fields, seller, subscription)
+     - Average rating (from Review rows)
+     - Sold count (sum of OrderItem quantities per product)
+     - filterMeta.priceExtent (min/max final price among products in the
+       current base query result, before applying min/max price filters)
+
+  B) Dynamic from the current product result set (same API fetch scope)
+     - Brand checkbox list: unique "brand" values seen on that result set,
+       plus the label "Other" when a product has no brand in attributes.
+
+  C) Fixed in the UI (not loaded from a separate "filters" table)
+     - Discount tier checkboxes: only 10, 20, 30, 40, 50 (percent thresholds)
+     - Return policy options: fixed codes (fr, 7, 10, 30, none) — see §6
+     - Rating filter: only 1, 2, 3, 4 ("X stars & up")
+     - Availability: in / out / any
+     - Seller type: branded / regular / any
+
+  D) Server-side filtering model
+     - All products matching the base Prisma `where` (active categories,
+       subcategory, search q) are loaded, then enriched in memory, then
+       filtered and sorted in memory. No extra SQL per filter except the
+       initial product fetch and batch aggregates (reviews, order items).
+
+
+================================================================================
+2. WHICH PRODUCT ROW IS USED? (IMPORTANT)
+================================================================================
+
+For each product, the API uses the FIRST variant only:
+
+  - Order: variants ordered by createdAt ascending, take 1.
+  - Fields used from that variant:
+      price          → treated as list / base price
+      discount       → discount AMOUNT (currency), not a percent field
+      stock
+      returnType     → ReturnPolicyType enum
+      returnDays     → nullable Int
+      attributes     → JSON (used for brand)
+
+If a product has multiple variants, filters and listing price reflect only
+that first variant. The product create/edit UI stores per-variant price and
+discount; that matches this behavior.
+
+
+================================================================================
+3. DEPARTMENT / CATEGORY FILTER
+================================================================================
+
+Where it comes from:
+  - Table: Category (Prisma model Category), isActive: true.
+  - API returns filterMeta.categories: id, name, slug (sorted by name).
+
+URL params:
+  - cats=comma-separated category IDs (multi-select from sidebar), OR
+  - categoryId=... (legacy single category, e.g. from header links).
+
+Server logic:
+  - effectiveCategoryIds = cats split, OR [categoryId] if cats empty.
+  - productWhere: categoryId in effectiveCategoryIds when non-empty.
+
+Dynamic: YES — list of departments comes from the DB.
+
+
+================================================================================
+4. BRAND FILTER
+================================================================================
+
+Where "brand" comes from:
+  - NOT a separate Brand table in this codebase.
+  - Read from the FIRST variant's JSON: attributes.brand OR attributes.Brand
+    (string). If missing or empty, the product is treated as brand "Other"
+    for the filter list and matching.
+
+How the checkbox list is built:
+  - After loading all products for the current base query, the API collects
+    unique values: brand || "Other" for each product, sorts alphabetically,
+    and returns that as filterMeta.brands.
+
+URL param:
+  - brands=comma-separated brand names (case-insensitive match when filtering).
+
+Server logic:
+  - If brands filter non-empty, product must match one of the selected names
+    (normalized to lowercase).
+
+Dynamic: YES — options depend on which products are in the current result set
+(before applying the brand filter).
+
+
+================================================================================
+5. DISCOUNT % FILTER (10% / 20% / … AND ABOVE)
+================================================================================
+
+In the database (product variant):
+  - price     = list price (numeric)
+  - discount  = discount AMOUNT off that price (same currency as price), NOT
+                stored as a percentage column.
+
+How the API computes "discount percent" for filtering and display:
+
+  discountPercent = round( (discount / basePrice) * 100 )
+
+  where basePrice = variant.price (first variant).
+
+  - If basePrice <= 0, discountPercent is 0.
+
+Examples:
+  - price 100, discount 10  → 10%
+  - price 50, discount 15   → 30%
+
+URL param:
+  - disc=comma-separated list of allowed thresholds: 10, 20, 30, 40, 50 only.
+
+Server logic (when user selects one or more tiers):
+  - OR logic: product passes if discountPercent >= ANY selected threshold.
+    Example: disc=10,30 → show products with computed percent >= 10 OR >= 30,
+    which simplifies to "≥ 10" if both selected; multiple tiers widen the set
+    to any product meeting at least one threshold.
+
+Dynamic: Threshold labels are fixed; whether a product matches depends on
+variant price and discount amount from the DB.
+
+
+================================================================================
+6. RETURN / REFUND FILTER (FREE RETURNS, 7/10/30 DAYS, NON-RETURNABLE)
+================================================================================
+
+Where data comes from:
+  - First variant only: returnType (enum), returnDays (nullable Int).
+
+Prisma enums:
+
+  ReturnPolicyType:
+    - NON_RETURNABLE
+    - RETURNABLE
+
+UI labels (browse-client) map to URL codes ret=...
+
+Code "fr" — "Free Returns (7+ days)" in UI:
+  - Meaning in code:
+      returnType === RETURNABLE  AND  (returnDays ?? 0) >= 7
+  - So: returnable with a window of at least 7 days. It is NOT a separate
+    "free shipping" flag; it is a policy + minimum days check.
+
+Code "7" — "7 Days Return":
+  - returnDays === 7 (exact match).
+
+Code "10" — "10 Days Return":
+  - returnDays === 10 (exact match).
+
+Code "30" — "30 Days Return":
+  - returnDays === 30 (exact match).
+
+Code "none" — "Non-returnable":
+  - returnType === NON_RETURNABLE
+
+When multiple return filters are selected (comma-separated):
+  - OR logic: product passes if ANY selected code matches (matchesReturnFilters).
+
+Dynamic: YES — driven by variant returnType/returnDays in the DB.
+
+
+================================================================================
+7. CUSTOMER REVIEWS (STAR RATING) FILTER
+================================================================================
+
+Where averages come from:
+  - prisma.review.groupBy by productId, _avg.rating, for product IDs in the
+    current batch.
+
+URL param:
+  - rating=1 | 2 | 3 | 4  meaning "at least N stars" (average rating).
+
+Server logic:
+  - Product passes if avgRating >= rating (numeric).
+  - Products with no reviews get avgRating 0; they will not pass 1+ filters.
+
+Dynamic: YES — from Review table.
+
+
+================================================================================
+8. PRICE RANGE (MIN / MAX)
+================================================================================
+
+What price is filtered:
+  - finalPrice = max(0, variant.price - variant.discount)  (first variant).
+
+URL params:
+  - minPrice, maxPrice (numbers). Defaults in UI often omit max (e.g. 100000).
+
+Server logic:
+  - finalPrice must be >= minPrice (default 0 if unset).
+  - If maxPrice is set, finalPrice must be <= maxPrice.
+
+filterMeta.priceExtent:
+  - min/max of finalPrice across all products in the enriched set BEFORE the
+    min/max price filters are applied (helps show typical range in the UI).
+
+Dynamic: YES.
+
+
+================================================================================
+9. AVAILABILITY (IN STOCK / OUT OF STOCK)
+================================================================================
+
+Where it comes from:
+  - First variant's stock (integer).
+
+URL param:
+  - avail=in  → stock > 0
+  - avail=out → stock <= 0
+  - omit        → no stock filter
+
+Dynamic: YES.
+
+
+================================================================================
+10. SELLER TYPE — "BRANDED STORE" VS "REGULAR SELLER"
+================================================================================
+
+This is NOT a manual "seller type" field on the product.
+
+A product is considered "Branded seller" (isBrandedSeller = true) if ANY of:
+
+  1) The seller's Store has a non-null logo (store.logo).
+  2) The seller has an active subscription relation and plan.name is NOT FREE
+     (SubscriptionPlan enum: FREE, STANDARD, PREMIUM — any non-FREE counts).
+
+Otherwise "Regular" (false).
+
+URL param:
+  - seller=branded   → only products where isBrandedSeller is true
+  - seller=regular   → only where false
+  - omit             → no filter
+
+Dynamic: YES — from Store + Subscription + Plan tables.
+
+
+================================================================================
+11. SEARCH QUERY (q)
+================================================================================
+
+  - productWhere.name contains q (case-insensitive), when q is non-empty.
+
+Also applied to services section when not in product-only category mode.
+
+Dynamic: YES.
+
+
+================================================================================
+12. SORT ORDER (sort PARAM)
+================================================================================
+
+Default when sort is missing or invalid: newest (by product createdAt).
+
+Implemented sort:
+
+  price_asc   → ascending finalPrice
+  price_desc  → descending finalPrice
+  featured    → isFeatured true first, then newer createdAt
+  newest      → newer createdAt first (default branch)
+  bestseller  → higher soldCount first, then newer createdAt
+  rating      → higher avgRating first, then more review count
+
+soldCount is the sum of OrderItem.quantity for that productId (all orders).
+
+Services block (browse page):
+  - Not re-sorted by these product sorts; services use their own query
+    (createdAt desc, take 50) when shown.
+
+
+================================================================================
+13. PAGINATION
+================================================================================
+
+  - page: page number (1-based).
+  - pageSize: default 12, max 100 (optional query param).
+
+Filtering and sorting happen BEFORE slicing for the current page.
+
+
+================================================================================
+14. END OF DOCUMENT
+================================================================================

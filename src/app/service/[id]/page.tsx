@@ -1,19 +1,7 @@
 import { prisma } from "@/lib/prisma"
 import { notFound } from "next/navigation"
 import { ServiceDetailClient } from "./service-detail-client"
-
-function extractImageUrls(images: unknown): string[] {
-  if (Array.isArray(images)) return images.filter((value): value is string => typeof value === "string")
-  if (typeof images === "string") {
-    try {
-      const parsed = JSON.parse(images)
-      if (Array.isArray(parsed)) return parsed.filter((value): value is string => typeof value === "string")
-    } catch {
-      return []
-    }
-  }
-  return []
-}
+import { extractImageUrls, getServiceDisplayImageUrls, parseServiceImagesForSellerForm } from "@/lib/service-images"
 
 export default async function ServicePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -46,6 +34,15 @@ export default async function ServicePage({ params }: { params: Promise<{ id: st
   ])
   if (!service) notFound()
 
+  const { masterUrl, galleryUrls } = parseServiceImagesForSellerForm({
+    images: service.images,
+    galleryImages: service.galleryImages,
+  })
+  const displayImages = getServiceDisplayImageUrls({
+    images: service.images,
+    galleryImages: service.galleryImages,
+  })
+
   const reviews = service.reviews.map((review) => {
     const safeName = (review.user?.name || "").trim()
     const reviewerName = safeName ? safeName.split(/\s+/)[0] : "Verified buyer"
@@ -68,7 +65,9 @@ export default async function ServicePage({ params }: { params: Promise<{ id: st
         description: service.description,
         basePrice: service.basePrice,
         discount: service.discount,
-        images: service.images,
+        images: displayImages,
+        masterImage: masterUrl,
+        galleryImages: galleryUrls,
         serviceType: service.serviceType,
         duration: service.duration,
         serviceCategory: service.serviceCategory,

@@ -9,6 +9,12 @@ import type {
 } from "../types"
 import { SELLER_ORDER_STATUSES } from "../types"
 import { deriveOrderStatus } from "@/lib/order-status"
+import { completeExchangeOnReplacementDelivered } from "@/lib/exchange-completion"
+import {
+  assertExchangeReplacementCanAdvance,
+  ExchangeTopUpRequiredError,
+} from "@/lib/exchange-guards"
+import { parseReturnImagesJson } from "@/lib/return-request-validation"
 
 function isValidSellerStatus(s: string): s is PatchOrderStatusPayload["status"] {
   return SELLER_ORDER_STATUSES.includes(s as PatchOrderStatusPayload["status"])
@@ -38,13 +44,22 @@ export async function GET(
         where: { sellerId: seller.id, productId: { not: null } },
         include: {
           product: { select: { images: true } },
-          productVariant: { select: { images: true, returnType: true } },
+          productVariant: { select: { images: true, returnType: true, replacementAllowed: true } },
           service: { select: { images: true } },
           returnRequest: {
             select: {
               status: true,
+              reason: true,
+              returnImages: true,
               pickupStatus: true,
               refundStatus: true,
+              resolutionType: true,
+              replacementVariantId: true,
+              replacementOrderItemId: true,
+              exchangeTopUpAmount: true,
+              exchangeTopUpStatus: true,
+              exchangeRefundDifferenceAmount: true,
+              exchangeRefundDifferenceStatus: true,
             },
           },
           statusHistory: {
@@ -81,6 +96,7 @@ export async function GET(
     const imageUrl =
       firstImageUrl(variantImages) ?? firstImageUrl(productImages) ?? firstImageUrl(serviceImages) ?? null
     const returnAvailable = row.productVariant?.returnType === "RETURNABLE"
+    const replacementAllowed = row.productVariant?.replacementAllowed === true
     return {
       id: row.id,
       itemStatus: row.itemStatus,
@@ -94,6 +110,16 @@ export async function GET(
       subtotalInclGst: row.subtotalInclGst,
       imageUrl,
       returnAvailable,
+      replacementAllowed,
+      returnResolutionType: row.returnRequest?.resolutionType ?? null,
+      replacementOrderItemId: row.returnRequest?.replacementOrderItemId ?? null,
+      returnReason: row.returnRequest?.reason ?? null,
+      returnImages: parseReturnImagesJson(row.returnRequest?.returnImages),
+      exchangeSourceOrderItemId: row.exchangeSourceOrderItemId ?? null,
+      exchangeTopUpAmount: row.returnRequest?.exchangeTopUpAmount ?? 0,
+      exchangeTopUpStatus: row.returnRequest?.exchangeTopUpStatus ?? null,
+      exchangeRefundDifferenceAmount: row.returnRequest?.exchangeRefundDifferenceAmount ?? 0,
+      exchangeRefundDifferenceStatus: row.returnRequest?.exchangeRefundDifferenceStatus ?? null,
       returnRequestStatus: row.returnRequest?.status ?? null,
       pickupStatus: row.returnRequest?.pickupStatus ?? (returnAvailable ? "NOT_REQUESTED" : null),
       refundStatus: row.returnRequest?.refundStatus ?? (returnAvailable ? "NOT_REQUESTED" : null),
@@ -194,8 +220,8 @@ export async function PATCH(
   if (ownItems.length !== targetItemIds.length) {
     return NextResponse.json({ error: "One or more items are not found for this seller" }, { status: 404 })
   }
-  if (ownItems.some((row) => row.itemStatus === "CANCELLED" || row.itemStatus === "REFUNDED")) {
-    return NextResponse.json({ error: "Cannot change cancelled or refunded item status" }, { status: 400 })
+  if (ownItems.some((row) => row.itemStatus === "CANCELLED" || row.itemStatus === "REFUNDED" || row.itemStatus === "EXCHANGED")) {
+    return NextResponse.json({ error: "Cannot change cancelled, refunded, or exchanged item status" }, { status: 400 })
   }
   if (status === "CANCELLED" && ownItems.some((row) => row.itemStatus !== "PENDING")) {
     return NextResponse.json({ error: "Can only cancel items that are PENDING" }, { status: 400 })
@@ -204,22 +230,44 @@ export async function PATCH(
     return NextResponse.json({ error: "Delivery proof image is required when marking delivered" }, { status: 400 })
   }
 
-  await prisma.$transaction(async (tx) => {
-    await tx.orderItem.updateMany({
-      where: { id: { in: targetItemIds }, orderId, sellerId: seller.id, productId: { not: null } },
-      data:
-        status === "DELIVERED"
-          ? { itemStatus: status, deliveredAt: new Date(), deliveryProofImage }
-          : { itemStatus: status },
+  try {
+    // Commit shipment updates first; run exchange completion in a second transaction.
+    // A single long interactive transaction can trigger P2028 ("Transaction not found") on some setups.
+    await prisma.$transaction(async (tx) => {
+      for (const id of targetItemIds) {
+        await assertExchangeReplacementCanAdvance(tx, id, status as import("@prisma/client").OrderStatus)
+      }
+      await tx.orderItem.updateMany({
+        where: { id: { in: targetItemIds }, orderId, sellerId: seller.id, productId: { not: null } },
+        data:
+          status === "DELIVERED"
+            ? { itemStatus: status, deliveredAt: new Date(), deliveryProofImage }
+            : { itemStatus: status },
+      })
+      await tx.orderItemStatusHistory.createMany({
+        data: targetItemIds.map((id) => ({
+          orderItemId: id,
+          status: status as import("@prisma/client").OrderStatus,
+          location: location || null,
+          note: note || null,
+        })),
+      })
     })
-    await tx.orderItemStatusHistory.createMany({
-      data: targetItemIds.map((id) => ({
-        orderItemId: id,
-        status: status as import("@prisma/client").OrderStatus,
-        location: location || null,
-        note: note || null,
-      })),
-    })
-  })
+
+    if (status === "DELIVERED") {
+      await prisma.$transaction(async (tx) => {
+        for (const itemId of targetItemIds) {
+          await completeExchangeOnReplacementDelivered(tx, itemId)
+        }
+      })
+    }
+  } catch (e) {
+    if (e instanceof ExchangeTopUpRequiredError) {
+      return NextResponse.json({ error: e.message }, { status: 400 })
+    }
+    const message = e instanceof Error ? e.message : "Failed to update order item status"
+    console.error("PATCH product-seller order item status:", e)
+    return NextResponse.json({ error: message }, { status: 500 })
+  }
   return NextResponse.json({ success: true, status, updatedItemIds: targetItemIds })
 }

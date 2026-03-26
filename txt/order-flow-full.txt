@@ -1,0 +1,454 @@
+================================================================================
+  FULL ORDER FLOW — CUSTOMER, PRODUCT SELLER, ADMIN (REFERENCE DOCUMENT)
+  Multi-vendor marketplace app (products + services). Examples are illustrative.
+================================================================================
+
+ACTORS
+------
+  • Customer     — browses, cart, checkout, tracks orders, return / exchange / refund requests
+  • Product seller — owns store; confirms ships items; handles return workflow for their lines
+  • Admin        — oversight; can update order/line status and return actions similar to seller
+  • System       — Prisma DB: Order, OrderItem, ReturnRequest, User.walletBalance, WalletTransaction
+
+
+--------------------------------------------------------------------------------
+PART A — CUSTOMER: FROM ADD TO CART TO DELIVERY (HAPPY PATH)
+--------------------------------------------------------------------------------
+
+1) Browse & add to cart
+   • Customer browses /browse, opens a product, picks variant (size/color), quantity.
+   • POST /api/customer/cart adds or updates CartItem (productId + productVariantId + qty).
+   • Stock is checked at checkout time (not necessarily decremented on add).
+
+2) Checkout (logged-in customer)
+   • Customer selects shipping address (UserAddress).
+   • POST /api/customer/checkout/place-order with { addressId }.
+   • Cart lines become Order + OrderItem rows (one order can hold multiple sellers’ lines).
+   • Order: subtotal, tax, shipping, commission snapshot; payment often COD (PENDING).
+   • Line item: snapshots (name, price, GST), itemStatus starts at PENDING.
+
+3) Fulfillment (seller-driven; see Part C)
+   • Typical line progression: PENDING → CONFIRMED → PROCESSING → SHIPPED → DELIVERED.
+   • Seller (or admin) PATCHes per line; DELIVERED may require delivery proof image URL.
+
+4) Customer sees order
+   • /customer/orders lists orders; order detail shows lines, per-line shipment timeline,
+     and totals.
+
+Example (happy path)
+  • Priya adds “T-Shirt — Red / M” × 1 to cart → checkout with home address.
+  • Order #ORD-1001 created; line A1 = PENDING.
+  • Seller marks A1 → SHIPPED → DELIVERED (with proof).
+  • Priya sees delivered item; no return.
+
+
+--------------------------------------------------------------------------------
+PART B — CUSTOMER: RETURN / REFUND ONLY (NO EXCHANGE)
+--------------------------------------------------------------------------------
+
+ Preconditions (product rules)
+   • Variant must be returnable (return policy / return days) and item delivered
+     within window; app exposes returnAvailable on the line when eligible.
+
+1) Customer opens order detail → “Return / refund”
+   • Submits reason + images → creates ReturnRequest (status REQUESTED),
+     resolutionType = REFUND.
+
+2) Seller or Admin
+   • Approve → return ACCEPTED (via PATCH return-request action ACCEPT).
+   • Reject → REJECTED (customer’s request is denied).
+
+3) Refund path after acceptance
+   • Seller marks pickup COMPLETED when return is collected from customer.
+   • Seller marks refund COMPLETED when money is refunded (platform records status).
+
+4) Line / order
+   • Original line item may move toward REFUNDED / cancelled semantics per business rules;
+     order-level status may reflect REFUNDED when appropriate.
+
+Example (refund)
+  • Line A1 delivered, returnable. Priya requests refund: “Wrong size”, photos.
+  • Request = REQUESTED → seller Accept → ACCEPTED.
+  • Logistics: pickup COMPLETED → refund COMPLETED.
+  • Priya sees refund status on the return dashboard.
+
+
+--------------------------------------------------------------------------------
+PART C — CUSTOMER: EXCHANGE (REPLACEMENT LINE ON SAME ORDER)
+--------------------------------------------------------------------------------
+
+Concept
+   • Original line is the “source”. If exchange is accepted, a new OrderItem
+     (replacement) is created on the same Order, linked by exchangeSourceOrderItemId.
+   • Customer chooses replacement variant (when allowed: replacementAllowed on variant).
+
+Price difference (exchange pricing helper in app)
+   • Replacement more expensive than original (incl. GST): exchangeTopUpAmount > 0
+     → customer may owe top-up (COD/online); seller can record EXCHANGE_TOP_UP_RECEIVED.
+   • Replacement cheaper: exchangeRefundDifferenceAmount > 0
+     → credited to customer wallet when replacement is DELIVERED (see Part F).
+   • Same price: both amounts ~0.
+
+1) Customer requests exchange
+   • ReturnRequest created with resolutionType = EXCHANGE, replacement variant chosen,
+     pending pricing flags as computed.
+
+2) Seller accepts
+   • ACCEPT on return request; replacement line may be created + linked.
+
+3) Seller ships the replacement (new line)
+   • Updates status on the replacement line (new shipment), not the old line.
+   • When replacement hits DELIVERED (and return pickup not already completed),
+     system can complete exchange: wallet credit if cheaper, pickup COMPLETED,
+     original line EXCHANGED, optionally restock original variant.
+
+4) Top-up (more expensive replacement)
+   • Seller UI explains customer pays difference; seller may “Record COD / payment”
+     when top-up is collected; shipment is not blocked solely by that in-app.
+
+Example A — upgrade (pay more)
+  • Original line ₹1,000; replacement ₹1,200 → top-up ₹200 (PENDING until recorded).
+  • New line B1 created; seller ships B1 → DELIVERED → exchange completion runs.
+
+Example B — cheaper replacement (wallet)
+  • Original ₹1,000; replacement ₹800 → ₹200 wallet credit (PENDING until
+    replacement delivered; then credited to User.walletBalance + WalletTransaction).
+
+Example C — same price
+  • No top-up, no wallet row; still two lines: source + replacement shipment.
+
+
+--------------------------------------------------------------------------------
+PART D — PRODUCT SELLER PANEL (ORDER & RETURN WORKFLOW)
+--------------------------------------------------------------------------------
+
+Where to work
+   • /product-seller/orders — list
+   • /product-seller/orders/[id] — order detail (two columns: left = lines in display
+     order: original then replacement; right = order summary)
+
+Per line item the seller typically sees (in order):
+   1) Product information (image, variant ref, qty, price, GST, line item status)
+   2) Shipment timeline (status history)
+   3) Return & refund / exchange (only on original lines — not on exchange replacement rows)
+   4) Update shipment status (next status, optional location/note, delivery proof if DELIVERED)
+
+Allowed line statuses (PATCH) — seller
+   PENDING, CONFIRMED, PROCESSING, SHIPPED, DELIVERED, CANCELLED
+   (seller flow does not use line REFUNDED the same way as admin naming may.)
+
+Return actions (when seller has return UI)
+   • Approve return / Reject return (REQUESTED)
+   • Refund path: Mark pickup complete, Process refund (after pickup)
+   • Exchange path: guidance + top-up recording + ship replacement line
+
+APIs (representative)
+   • GET/PATCH /api/product-seller/orders/[id]
+   • PATCH /api/product-seller/orders/[id]/items/[orderItemId]/return-request
+     with actions: ACCEPT, REJECT, PICKUP_COMPLETED, REFUND_COMPLETED,
+     EXCHANGE_TOP_UP_RECEIVED
+
+
+--------------------------------------------------------------------------------
+PART E — ADMIN PANEL (ORDER & RETURN WORKFLOW)
+--------------------------------------------------------------------------------
+
+Where to work
+   • /admin/orders — list
+   • /admin/orders/[id] — detail: left column items (same conceptual order as seller:
+     product row → shipment timeline → return/exchange → update line status);
+     right sticky column: order summary, delivery, customer, seller, price breakdown,
+     seller-wise breakup.
+
+Allowed line statuses (PATCH) — admin
+   PENDING, CONFIRMED, PROCESSING, SHIPPED, DELIVERED, CANCELLED, REFUNDED
+
+Return actions mirror seller for oversight (same return-request PATCH pattern under
+admin routes).
+
+APIs (representative)
+   • GET/PATCH /api/admin/orders/[id]
+   • PATCH /api/admin/orders/[id]/items/[orderItemId]/return-request
+
+
+--------------------------------------------------------------------------------
+PART F — SYSTEM — EXCHANGE COMPLETION & WALLET (AUTOMATIC)
+--------------------------------------------------------------------------------
+
+WHEN the cheaper-exchange wallet amount is credited (implemented behaviour)
+   • Only after the EXCHANGE REPLACEMENT line (new OrderItem with
+     exchangeSourceOrderItemId set) is marked DELIVERED — i.e. “exchange product
+     delivery completed” in the system.
+   • Not when the customer requests exchange, not when the seller accepts, not when
+     the original item is picked up alone, not when the original line was first
+     delivered before the exchange.
+   • Flow: Seller or Admin PATCH /api/.../orders/[id] with itemId = replacement
+     line id, status = DELIVERED (+ delivery proof). The API saves DELIVERED, then
+     runs completeExchangeOnReplacementDelivered(replacementOrderItemId) in a follow-up
+     transaction (see src/lib/exchange-completion.ts — it requires replacement.itemStatus
+     === DELIVERED).
+
+What runs inside completeExchangeOnReplacementDelivered (cheaper replacement):
+   • If replacement order item is DELIVERED and linked return is EXCHANGE and
+     pickup not yet completed on that return:
+   • If exchangeRefundDifferenceAmount > 0 and exchangeRefundDifferenceStatus was PENDING:
+   • Increment user.walletBalance (once), create WalletTransaction
+     (reason EXCHANGE_PRICE_DIFFERENCE), set exchangeRefundDifferenceStatus COMPLETED.
+   • Then mark pickup COMPLETED, original line EXCHANGED, restock original variant stock.
+
+Idempotent: wallet row keyed by returnRequestId avoids double credit.
+
+
+--------------------------------------------------------------------------------
+PART G — QUICK COMPARISON TABLE
+--------------------------------------------------------------------------------
+
+Scenario                    Customer action           Seller / Admin         System
+────────────────────────────────────────────────────────────────────────────────────────
+Happy delivery              Receive item              Ship → Deliver         History rows
+Refund only                 Request → wait            Approve → pickup →     Refund status
+                                                      refund
+Exchange upgrade            Pick variant, pay diff    Ship replacement,      Top-up flags
+                                                      record COD if needed
+Exchange cheaper            Pick variant              Ship replacement       Wallet on delivery
+Exchange same price         Pick variant              Ship replacement       Complete exchange
+Rejected return             —                         Reject                 Request closed
+
+
+--------------------------------------------------------------------------------
+PART H — DATA YOU WILL SEE IN DB (MENTAL MODEL)
+--------------------------------------------------------------------------------
+
+Order
+   • status, paymentStatus, totals, shipping address snapshot
+
+OrderItem
+   • itemStatus, snapshots, exchangeSourceOrderItemId (if replacement line)
+
+ReturnRequest
+   • status (REQUESTED/ACCEPTED/REJECTED), pickupStatus, refundStatus,
+     resolutionType, replacementVariantId, replacementOrderItemId,
+     exchangeTopUpAmount, exchangeTopUpStatus,
+     exchangeRefundDifferenceAmount, exchangeRefundDifferenceStatus
+
+User
+   • walletBalance (running balance after credits)
+
+WalletTransaction
+   • amount, reason, returnRequestId (optional link)
+
+
+--------------------------------------------------------------------------------
+PART I — DATABASE ARCHITECTURE: RETURN, EXCHANGE, TOP-UP, WALLET CREDIT
+--------------------------------------------------------------------------------
+
+This section maps Prisma models (see prisma/schema.prisma) to behaviour: refund-only
+returns, exchange with replacement line, “due payment” when the new product costs more,
+and wallet credit when the replacement costs less.
+
+────────────────────────────────────────────────────────────────────────────────
+I.1 RELATIONSHIP OVERVIEW (TEXT DIAGRAM)
+────────────────────────────────────────────────────────────────────────────────
+
+  User (customer)
+    | id, walletBalance (Decimal, running total)
+    |
+    +-- WalletTransaction[]  (optional one per return credit: reason EXCHANGE_PRICE_DIFFERENCE)
+    |
+  Order
+    |
+    +-- OrderItem[]  (many lines per order; multi-seller possible)
+
+  OrderItem (original purchased line)
+    | id
+    | returnRequest?  (1:1)  ←── ReturnRequest.orderItemId UNIQUE
+    |
+    +-- OrderItem[]  exchangeReplacementItems  (replacement rows point back here)
+
+  OrderItem (replacement / exchange line)
+    | exchangeSourceOrderItemId → original OrderItem.id
+    | (no ReturnRequest on the replacement row; return stays on the original line)
+
+  ReturnRequest
+    | orderItemId   → original line only
+    | replacementOrderItemId → new OrderItem.id (unique) after accept
+    | replacementVariantId → ProductVariant customer chose
+    | exchangeTopUpAmount + exchangeTopUpStatus        (pay more scenario)
+    | exchangeRefundDifferenceAmount + exchangeRefundDifferenceStatus  (cheaper → wallet)
+
+  WalletTransaction
+    | returnRequestId UNIQUE (when set, ties one credit to one return)
+    | userId, amount, reason
+
+
+────────────────────────────────────────────────────────────────────────────────
+I.2 KEY TABLES & FIELDS
+────────────────────────────────────────────────────────────────────────────────
+
+User (table: users)
+  walletBalance   Decimal(14,2)  @default(0)
+  • Sum of all credits/debits the app applies (e.g. exchange price-difference credit).
+  • Not the same as “order total”; it is a customer balance store.
+
+WalletTransaction (table: wallet_transactions)
+  id              cuid
+  userId          → User
+  amount          Decimal(14,2)   (positive for credit in current exchange flow)
+  reason          String          e.g. "EXCHANGE_PRICE_DIFFERENCE"
+  returnRequestId String? @unique  → ReturnRequest (one wallet row per return credit)
+  note            String?         e.g. human-readable explanation
+  createdAt       DateTime
+
+OrderItem (table: order_items) — fields relevant to exchange
+  exchangeSourceOrderItemId  String?  → OrderItem.id
+  • NULL = normal line or original line.
+  • SET = this row is the replacement shipment; value is the original line’s id.
+
+  itemStatus  enum OrderStatus  (PENDING … DELIVERED … EXCHANGED / REFUNDED / cancelled states)
+  • Original line may end as EXCHANGED after exchange completes.
+  • Replacement line is fulfilled like a normal shipment until DELIVERED.
+
+ReturnRequest (table: return_requests) — one row per original line return/exchange
+  orderItemId   String @unique     → must be the ORIGINAL line (not replacement)
+  orderId, customerId, sellerId
+  status        ReturnRequestStatus: REQUESTED | ACCEPTED | REJECTED
+  pickupStatus  PickupStatus: NOT_REQUESTED | PENDING | COMPLETED
+  refundStatus  RefundStatus: NOT_REQUESTED | PENDING | COMPLETED  (refund path)
+  resolutionType ReturnResolutionType: REFUND | EXCHANGE
+
+  replacementVariantId  String?   → ProductVariant (customer’s chosen replacement)
+  replacementOrderItemId  String? @unique → OrderItem.id of new line (after seller accepts)
+
+  --- Price difference: replacement vs original line (both incl. GST, same qty) ---
+
+  exchangeTopUpAmount   Float @default(0)
+  • If replacement line total (incl. GST) > original line total (incl. GST):
+    stores the difference the customer must pay (top-up / upgrade).
+
+  exchangeTopUpStatus   ExchangeTopUpStatus @default(NOT_REQUIRED)
+  • NOT_REQUIRED — no extra payment (replacement cheaper or equal).
+  • PENDING — top-up is due; seller may ship; customer pays COD etc. (seller records receipt).
+  • COMPLETED — seller recorded that the top-up was received (e.g. COD).
+
+  exchangeRefundDifferenceAmount Float @default(0)
+  • If replacement total (incl. GST) < original total:
+    stores the positive difference (what the customer is “owed” as credit).
+
+  exchangeRefundDifferenceStatus RefundStatus @default(NOT_REQUESTED)
+  • Reuses RefundStatus enum for “credit lifecycle”:
+    NOT_REQUESTED — no wallet credit (equal or upgrade-only case).
+    PENDING — credit is queued until replacement is DELIVERED.
+    COMPLETED — wallet credited and status updated by system (see Part F).
+
+  walletCredit  WalletTransaction?  (optional relation name from Prisma)
+
+
+────────────────────────────────────────────────────────────────────────────────
+I.3 ENUMS (PRISMA)
+────────────────────────────────────────────────────────────────────────────────
+
+ReturnRequestStatus: REQUESTED, ACCEPTED, REJECTED
+PickupStatus:        NOT_REQUESTED, PENDING, COMPLETED
+RefundStatus:        NOT_REQUESTED, PENDING, COMPLETED
+ReturnResolutionType: REFUND, EXCHANGE
+ExchangeTopUpStatus: NOT_REQUIRED, PENDING, COMPLETED
+
+Pricing is computed in code (src/lib/exchange-pricing.ts):
+  originalLineInclGst  = OrderItem subtotalInclGst ?? subtotal + gst
+  replacementLineInclGst = from variant price × qty + GST rules
+  diff = replacement - original (rounded)
+
+  If diff > 0.01  → exchangeTopUpAmount = diff, exchangeRefundDifferenceAmount = 0
+  If diff < -0.01 → exchangeRefundDifferenceAmount = -diff, exchangeTopUpAmount = 0
+  Else            → both ~0, statuses NOT_REQUIRED / NOT_REQUESTED
+
+
+────────────────────────────────────────────────────────────────────────────────
+I.4 SCENARIO EXAMPLES (DB-LEVEL)
+────────────────────────────────────────────────────────────────────────────────
+
+Example 1 — REFUND ONLY (no exchange)
+  ReturnRequest:
+    resolutionType = REFUND
+    status = ACCEPTED → pickup → refund
+    exchangeTopUpAmount = 0, exchangeTopUpStatus = NOT_REQUIRED
+    exchangeRefundDifferenceAmount = 0, exchangeRefundDifferenceStatus = NOT_REQUESTED
+    replacementOrderItemId = null
+  OrderItem: original may become REFUNDED; no second line.
+
+Example 2 — EXCHANGE, SAME OR NEAR PRICE
+  Original line O1: ₹1,000.00 incl. GST
+  Replacement variant totals: ₹1,000.00 incl. GST
+  After accept + create replacement line R1:
+    exchangeTopUpAmount = 0, exchangeTopUpStatus = NOT_REQUIRED
+    exchangeRefundDifferenceAmount = 0, exchangeRefundDifferenceStatus = NOT_REQUESTED
+  R1.exchangeSourceOrderItemId = O1.id
+  On R1 DELIVERED: complete exchange (pickup COMPLETED, O1 EXCHANGED); no wallet row.
+
+Example 3 — EXCHANGE, REPLACEMENT MORE EXPENSIVE (“due payment” / top-up)
+  Original O1: ₹1,000.00 incl. GST
+  Replacement: ₹1,250.00 incl. GST  → diff = +250
+
+  ReturnRequest after accept:
+    exchangeTopUpAmount = 250
+    exchangeTopUpStatus = PENDING   (customer owes ₹250)
+    exchangeRefundDifferenceAmount = 0
+    exchangeRefundDifferenceStatus = NOT_REQUESTED
+
+  Seller may ship R1 before top-up is recorded in app; UI shows COD / record payment.
+  PATCH action EXCHANGE_TOP_UP_RECEIVED:
+    exchangeTopUpStatus = COMPLETED
+
+  No WalletTransaction for this scenario (money is owed to seller, not credit to customer).
+
+Example 4 — EXCHANGE, REPLACEMENT CHEAPER (wallet credit)
+  Original O1: ₹1,000.00 incl. GST
+  Replacement: ₹750.00 incl. GST  → diff = -250
+
+  ReturnRequest after accept:
+    exchangeTopUpAmount = 0
+    exchangeTopUpStatus = NOT_REQUIRED
+    exchangeRefundDifferenceAmount = 250
+    exchangeRefundDifferenceStatus = PENDING   (credit pending until delivery)
+
+  When replacement line R1 is marked DELIVERED (admin or seller PATCH) — delivery completed:
+    • This is the only moment the wallet credit runs for this exchange (after R1 is
+      persisted as DELIVERED; then completion runs in code).
+    • User.walletBalance += 250
+    • WalletTransaction: amount=250, reason=EXCHANGE_PRICE_DIFFERENCE, returnRequestId=…
+    • exchangeRefundDifferenceStatus = COMPLETED
+    • ReturnRequest.pickupStatus = COMPLETED, original line EXCHANGED, restock original variant
+
+  Idempotency: if WalletTransaction already exists for this returnRequestId, balance is
+  not incremented again.
+
+
+────────────────────────────────────────────────────────────────────────────────
+I.5 OPERATIONAL SUMMARY TABLE
+────────────────────────────────────────────────────────────────────────────────
+
+Case                    exchangeTopUpAmount    exchangeTopUpStatus     exchangeRefund…Amount   exchangeRefund…Status   WalletTransaction
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+Refund only             0                      NOT_REQUIRED          0                       NOT_REQUESTED         —
+Exchange equal price    0                      NOT_REQUIRED            0                       NOT_REQUESTED         —
+Exchange upgrade        >0                     PENDING→COMPLETED       0                       NOT_REQUESTED         —
+Exchange cheaper        0                      NOT_REQUIRED            >0                      PENDING→COMPLETED     1 row on delivery
+
+
+────────────────────────────────────────────────────────────────────────────────
+I.6 NOTES FOR IMPLEMENTERS
+────────────────────────────────────────────────────────────────────────────────
+  • All monetary fields on ReturnRequest are Float in schema; User/Wallet use Decimal.
+  • Wallet credit timing: implemented exactly on “replacement delivery completed” —
+    completeExchangeOnReplacementDelivered(replacementOrderItemId) is called after the
+    replacement OrderItem row is updated to itemStatus DELIVERED (admin + product-seller
+    PATCH handlers). The helper exits without crediting if replacement is not DELIVERED.
+  • Cheaper-exchange credit does NOT run at return accept, at shipment, or on the
+    original line’s status alone — only when the replacement line reaches DELIVERED.
+  • Admin and product-seller order PATCH both invoke the same completion helper after
+    delivery, so wallet behaviour does not depend on which role marked delivered.
+
+
+================================================================================
+  END OF DOCUMENT — Keep in sync when order/return APIs change.
+================================================================================

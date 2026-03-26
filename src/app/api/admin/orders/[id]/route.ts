@@ -10,6 +10,8 @@ import type {
 } from "../types"
 import { ADMIN_ORDER_STATUSES } from "../types"
 import { deriveOrderStatus, summarizeSellerItemStatuses } from "@/lib/order-status"
+import { parseReturnImagesJson } from "@/lib/return-request-validation"
+import { completeExchangeOnReplacementDelivered } from "@/lib/exchange-completion"
 
 function isValidAdminStatus(s: string): s is PatchOrderStatusPayload["status"] {
   return ADMIN_ORDER_STATUSES.includes(s as PatchOrderStatusPayload["status"])
@@ -35,14 +37,22 @@ export async function GET(
         include: {
           seller: { include: { store: { select: { name: true } } } },
           product: { select: { images: true } },
-          productVariant: { select: { images: true, returnType: true } },
+          productVariant: { select: { images: true, returnType: true, replacementAllowed: true } },
           service: { select: { images: true } },
           serviceSlot: { select: { startTime: true, endTime: true } },
           returnRequest: {
             select: {
               status: true,
+              reason: true,
+              returnImages: true,
+              resolutionType: true,
+              replacementOrderItemId: true,
               pickupStatus: true,
               refundStatus: true,
+              exchangeTopUpAmount: true,
+              exchangeTopUpStatus: true,
+              exchangeRefundDifferenceAmount: true,
+              exchangeRefundDifferenceStatus: true,
             },
           },
           statusHistory: {
@@ -75,6 +85,9 @@ export async function GET(
       firstImageUrl(variantImages) ?? firstImageUrl(productImages) ?? firstImageUrl(serviceImages) ?? null
     const slot = row.serviceSlot as { startTime?: Date; endTime?: Date } | null
     const returnAvailable = row.productVariant?.returnType === "RETURNABLE"
+    const replacementAllowed =
+      !!row.productId && row.productVariant?.replacementAllowed === true && returnAvailable
+    const req = row.returnRequest
     return {
       id: row.id,
       sellerId: row.sellerId,
@@ -105,9 +118,19 @@ export async function GET(
         })
       ),
       returnAvailable,
-      returnRequestStatus: row.returnRequest?.status ?? null,
-      pickupStatus: row.returnRequest?.pickupStatus ?? (returnAvailable ? "NOT_REQUESTED" : null),
-      refundStatus: row.returnRequest?.refundStatus ?? (returnAvailable ? "NOT_REQUESTED" : null),
+      replacementAllowed,
+      returnResolutionType: returnAvailable ? req?.resolutionType ?? null : null,
+      returnReason: returnAvailable ? req?.reason ?? null : null,
+      returnImages: returnAvailable ? parseReturnImagesJson(req?.returnImages) : [],
+      replacementOrderItemId: returnAvailable ? req?.replacementOrderItemId ?? null : null,
+      exchangeSourceOrderItemId: row.exchangeSourceOrderItemId ?? null,
+      exchangeTopUpAmount: returnAvailable ? req?.exchangeTopUpAmount ?? 0 : 0,
+      exchangeTopUpStatus: returnAvailable ? req?.exchangeTopUpStatus ?? null : null,
+      exchangeRefundDifferenceAmount: returnAvailable ? req?.exchangeRefundDifferenceAmount ?? 0 : 0,
+      exchangeRefundDifferenceStatus: returnAvailable ? req?.exchangeRefundDifferenceStatus ?? null : null,
+      returnRequestStatus: returnAvailable ? req?.status ?? null : null,
+      pickupStatus: returnAvailable ? req?.pickupStatus ?? "NOT_REQUESTED" : null,
+      refundStatus: returnAvailable ? req?.refundStatus ?? "NOT_REQUESTED" : null,
     }
   })
 
@@ -266,22 +289,36 @@ export async function PATCH(
     return NextResponse.json({ error: "Delivery proof image is required when marking delivered" }, { status: 400 })
   }
 
-  await prisma.$transaction(async (tx) => {
-    await tx.orderItem.updateMany({
-      where: { orderId, id: { in: targetItemIds } },
-      data:
-        status === "DELIVERED"
-          ? { itemStatus: status, deliveredAt: new Date(), deliveryProofImage }
-          : { itemStatus: status },
+  try {
+    await prisma.$transaction(async (tx) => {
+      await tx.orderItem.updateMany({
+        where: { orderId, id: { in: targetItemIds } },
+        data:
+          status === "DELIVERED"
+            ? { itemStatus: status, deliveredAt: new Date(), deliveryProofImage }
+            : { itemStatus: status },
+      })
+      await tx.orderItemStatusHistory.createMany({
+        data: targetItemIds.map((id) => ({
+          orderItemId: id,
+          status: status as import("@prisma/client").OrderStatus,
+          location: location || null,
+          note: note || null,
+        })),
+      })
     })
-    await tx.orderItemStatusHistory.createMany({
-      data: targetItemIds.map((id) => ({
-        orderItemId: id,
-        status: status as import("@prisma/client").OrderStatus,
-        location: location || null,
-        note: note || null,
-      })),
-    })
-  })
+
+    if (status === "DELIVERED") {
+      await prisma.$transaction(async (tx) => {
+        for (const itemId of targetItemIds) {
+          await completeExchangeOnReplacementDelivered(tx, itemId)
+        }
+      })
+    }
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Failed to update order item status"
+    console.error("PATCH admin order item status:", e)
+    return NextResponse.json({ error: message }, { status: 500 })
+  }
   return NextResponse.json({ success: true, status, updatedItemIds: targetItemIds })
 }

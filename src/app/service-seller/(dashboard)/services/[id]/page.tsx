@@ -2,7 +2,8 @@ import { z } from "zod"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { isServiceSeller } from "@/lib/rbac"
-import { uploadServiceFormImages } from "@/lib/upload-service-form-images"
+import { uploadMasterServiceImage, uploadServiceGalleryImages } from "@/lib/upload-service-form-images"
+import { parseServiceImagesForSellerForm } from "@/lib/service-images"
 import { redirect } from "next/navigation"
 import { revalidatePath } from "next/cache"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/ui/card"
@@ -11,7 +12,8 @@ import { Input } from "@/ui/input"
 import { Label } from "@/ui/label"
 import { Alert, AlertDescription } from "@/ui/alert"
 import { PricingFields } from "../pricing-fields"
-import { ServiceImageInput } from "../service-image-input"
+import { ServiceMasterImageInput } from "../service-master-image-input"
+import { ServiceGalleryImageInput } from "../service-gallery-image-input"
 import { WeeklyAvailabilityFields } from "../weekly-availability-fields"
 import Link from "next/link"
 
@@ -29,6 +31,7 @@ const updateServiceSchema = z.object({
   hasGst: z.boolean().optional(),
   duration: z.number().int().positive().optional().nullable(),
   images: z.array(z.string()).optional(),
+  galleryImages: z.array(z.string()).optional(),
   weeklyAvailability: weeklyAvailabilitySchema,
   isActive: z.boolean().optional(),
 })
@@ -50,6 +53,8 @@ async function updateService(serviceId: string, data: unknown) {
   updateData.hasGst = validated.data.hasGst ?? service.hasGst
   Object.keys(updateData).forEach((k) => { if (updateData[k] === undefined) delete updateData[k] })
   if (updateData.images !== undefined) updateData.images = Array.isArray(updateData.images) ? updateData.images : []
+  if (updateData.galleryImages !== undefined)
+    updateData.galleryImages = Array.isArray(updateData.galleryImages) ? updateData.galleryImages : []
   if (updateData.weeklyAvailability !== undefined) updateData.weeklyAvailability = updateData.weeklyAvailability
   try {
     await prisma.service.update({ where: { id: serviceId }, data: updateData })
@@ -69,17 +74,22 @@ async function updateServiceForm(serviceId: string, formData: FormData) {
   const serviceCategoryId = formData.get("serviceCategoryId") as string
   const serviceType = formData.get("serviceType") as "APPOINTMENT" | "FIXED_PRICE"
   if (!name || !serviceCategoryId || !serviceType) redirect(`/service-seller/services/${serviceId}?error=missing_required_fields`)
-  let uploadedUrls: string[] = []
+  let masterUpload: string | null = null
+  let galleryUploads: string[] = []
   try {
-    uploadedUrls = await uploadServiceFormImages(formData)
+    masterUpload = await uploadMasterServiceImage(formData)
+    galleryUploads = await uploadServiceGalleryImages(formData)
   } catch (e) {
     redirect(
       `/service-seller/services/${serviceId}?error=${encodeURIComponent(e instanceof Error ? e.message : "Upload failed")}`
     )
   }
-  const imagesInput = (formData.get("images") as string) || ""
-  const linkUrls = imagesInput ? imagesInput.split(/[\n,]+/).map((u) => u.trim()).filter(Boolean) : []
-  const images = Array.from(new Set([...linkUrls, ...uploadedUrls]))
+  const masterUrlRaw = (formData.get("masterImageUrl") as string)?.trim() || ""
+  const master = masterUpload || masterUrlRaw || null
+  const galleryRaw = (formData.get("galleryImageUrls") as string) || ""
+  const linkGallery = galleryRaw.split(/[\n\r]+/).map((u) => u.trim()).filter(Boolean)
+  const gallery = Array.from(new Set([...linkGallery, ...galleryUploads]))
+  const images = master ? [master] : []
   const basePriceInput = formData.get("basePrice") as string
   const durationInput = formData.get("duration") as string
   const discountStr = (formData.get("discount") as string) || "0"
@@ -103,7 +113,8 @@ async function updateServiceForm(serviceId: string, formData: FormData) {
   const data: any = { name, description: (formData.get("description") as string) || undefined, serviceCategoryId, serviceType, isActive, hasGst, discount, weeklyAvailability }
   if (basePrice !== undefined) data.basePrice = basePrice
   if (duration !== undefined) data.duration = duration
-  if (images.length > 0) data.images = images
+  data.images = images
+  data.galleryImages = gallery
   const result = await updateService(serviceId, data)
   if (result.error) redirect(`/service-seller/services/${serviceId}?error=${encodeURIComponent(typeof result.error === "string" ? result.error : "Failed")}`)
   redirect("/service-seller/services?success=Service updated successfully")
@@ -152,11 +163,10 @@ export default async function EditServicePage({
     orderBy: { name: "asc" },
   })
 
-  const images = Array.isArray(service.images)
-    ? service.images as string[]
-    : typeof service.images === "string"
-      ? JSON.parse(service.images)
-      : []
+  const { masterUrl, galleryUrls } = parseServiceImagesForSellerForm({
+    images: service.images,
+    galleryImages: service.galleryImages,
+  })
 
   const weeklyAvailability = service.weeklyAvailability ?? undefined
 
@@ -263,13 +273,16 @@ export default async function EditServicePage({
         <Card className="shadow-sm">
           <CardHeader className="pb-4">
             <CardTitle className="text-lg">Images</CardTitle>
-            <CardDescription>Upload images — they are saved when you update the service</CardDescription>
+            <CardDescription>Master image and gallery — uploads run when you click Update service</CardDescription>
           </CardHeader>
-          <CardContent>
-            <ServiceImageInput
-              defaultUrls={images}
-              label="Service images"
-              hint="Choose one or more images. Upload runs when you click Update service."
+          <CardContent className="space-y-10">
+            <ServiceMasterImageInput
+              defaultUrl={masterUrl}
+              hint="Shown in listings. Uploads when you click Update service."
+            />
+            <ServiceGalleryImageInput
+              defaultUrls={galleryUrls}
+              hint="Additional photos — saved URLs show below; remove before update to delete from the service."
             />
           </CardContent>
         </Card>

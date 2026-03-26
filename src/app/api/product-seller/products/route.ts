@@ -109,6 +109,7 @@ export async function POST(request: NextRequest) {
     details?: string
     returnType?: "NON_RETURNABLE" | "RETURNABLE"
     returnDays?: number
+    replacementAllowed?: boolean
   }
   const variants: {
     name: string
@@ -123,6 +124,7 @@ export async function POST(request: NextRequest) {
     details: string | null
     returnType: "NON_RETURNABLE" | "RETURNABLE"
     returnDays: number | null
+    replacementAllowed: boolean
   }[] = []
   for (let i = 0; i < variantsRaw.length; i++) {
     const v = variantsRaw[i] as VariantInput
@@ -139,6 +141,8 @@ export async function POST(request: NextRequest) {
         ? Math.floor(vReturnDaysRaw)
         : null
 
+    const replacementAllowed = v?.replacementAllowed === true
+
     variants.push({
       name: vName,
       sku: typeof v?.sku === "string" ? v.sku || null : null,
@@ -152,6 +156,7 @@ export async function POST(request: NextRequest) {
       details: typeof v?.details === "string" ? v.details : null,
       returnType: vReturnType,
       returnDays: vReturnDays,
+      replacementAllowed,
     })
   }
   try {
@@ -178,6 +183,7 @@ export async function POST(request: NextRequest) {
             details: v.details,
             returnType: v.returnType,
             returnDays: v.returnDays ?? undefined,
+            replacementAllowed: v.replacementAllowed,
           })),
         },
       },

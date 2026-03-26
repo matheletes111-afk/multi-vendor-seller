@@ -95,9 +95,6 @@ export function HomeClient() {
   const [categoriesLoading, setCategoriesLoading] = useState(true);
   const [productsByCategory, setProductsByCategory] = useState<Record<string, Product[]>>({});
   const [randomProducts, setRandomProducts] = useState<Product[]>([]);
-  const [homeSort, setHomeSort] = useState<"newest" | "price_desc" | "price_asc">("newest");
-  const [homeMinPrice, setHomeMinPrice] = useState(0);
-  const [homeMaxPrice, setHomeMaxPrice] = useState(100000);
   const [homeServices, setHomeServices] = useState<Service[]>([]);
   const [recentViewProducts, setRecentViewProducts] = useState<Product[]>([]);
   const [bannerIndex, setBannerIndex] = useState(0);
@@ -149,13 +146,6 @@ export function HomeClient() {
       .then(setRandomProducts)
       .catch(() => setRandomProducts([]));
   }, []);
-
-  useEffect(() => {
-    if (randomProducts.length === 0) return;
-    const prices = randomProducts.map((p) => Math.max(0, (p.basePrice ?? 0) - (p.discount ?? 0)));
-    const maxPrice = Math.max(...prices, 100);
-    setHomeMaxPrice(maxPrice);
-  }, [randomProducts]);
 
   useEffect(() => {
     fetch("/api/home/services?limit=12")
@@ -254,23 +244,7 @@ export function HomeClient() {
     return null;
   };
 
-  const randomProductPrices = randomProducts.map((p) => Math.max(0, (p.basePrice ?? 0) - (p.discount ?? 0)));
-  const randomMin = randomProductPrices.length > 0 ? Math.min(...randomProductPrices) : 0;
-  const randomMax = randomProductPrices.length > 0 ? Math.max(...randomProductPrices) : 100000;
-  const filteredAndSortedHomeProducts = [...randomProducts]
-    .filter((p) => {
-      const finalPrice = Math.max(0, (p.basePrice ?? 0) - (p.discount ?? 0));
-      if (finalPrice < homeMinPrice) return false;
-      if (finalPrice > homeMaxPrice) return false;
-      return true;
-    })
-    .sort((a, b) => {
-      const aPrice = Math.max(0, (a.basePrice ?? 0) - (a.discount ?? 0));
-      const bPrice = Math.max(0, (b.basePrice ?? 0) - (b.discount ?? 0));
-      if (homeSort === "price_asc") return aPrice - bPrice;
-      if (homeSort === "price_desc") return bPrice - aPrice;
-      return 0;
-    });
+  const exploreProductsPreview = randomProducts.slice(0, 8);
 
   return (
     <PublicLayout>
@@ -632,78 +606,12 @@ export function HomeClient() {
           </section>
         )}
 
-        {/* Explore products: Amazon-style grid */}
+        {/* Explore products: grid (filters hidden on home — use /browse to refine) */}
         {randomProducts.length > 0 && (
           <section className="container mx-auto px-3 sm:px-4 py-6 sm:py-8">
-            <div className="mb-4 rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:mb-6 sm:p-4">
-              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                <h2 className="text-lg font-bold text-slate-800 sm:text-xl">Explore products</h2>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setHomeSort("newest");
-                    setHomeMinPrice(0);
-                    setHomeMaxPrice(Math.max(100000, randomMax));
-                  }}
-                  className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
-                >
-                  Reset filters
-                </button>
-              </div>
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-                <div className="md:col-span-1">
-                  <label htmlFor="homeSort" className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    Sort by
-                  </label>
-                  <select
-                    id="homeSort"
-                    value={homeSort}
-                    onChange={(e) => setHomeSort(e.target.value as "newest" | "price_desc" | "price_asc")}
-                    className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="newest">Newly arrived</option>
-                    <option value="price_desc">Price: high to low</option>
-                    <option value="price_asc">Price: low to high</option>
-                  </select>
-                </div>
-                <div className="md:col-span-3 grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <div>
-                    <div className="mb-1 flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-slate-500">
-                      <span>Min price</span>
-                      <span>{formatCurrency(homeMinPrice)}</span>
-                    </div>
-                    <input
-                      type="range"
-                      min={0}
-                      max={Math.max(100, randomMax, homeMaxPrice)}
-                      step={100}
-                      value={Math.min(homeMinPrice, homeMaxPrice)}
-                      onChange={(e) => setHomeMinPrice(Math.min(Number(e.target.value), homeMaxPrice))}
-                      className="h-2 w-full cursor-pointer appearance-none rounded-lg bg-slate-200 accent-blue-600"
-                    />
-                    <p className="mt-1 text-xs text-slate-500">From {formatCurrency(Math.max(0, randomMin))}</p>
-                  </div>
-                  <div>
-                    <div className="mb-1 flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-slate-500">
-                      <span>Max price</span>
-                      <span>{homeMaxPrice >= 100000 ? "No limit" : formatCurrency(homeMaxPrice)}</span>
-                    </div>
-                    <input
-                      type="range"
-                      min={Math.max(0, homeMinPrice)}
-                      max={Math.max(100, randomMax, homeMaxPrice)}
-                      step={100}
-                      value={Math.max(homeMinPrice, homeMaxPrice)}
-                      onChange={(e) => setHomeMaxPrice(Number(e.target.value))}
-                      className="h-2 w-full cursor-pointer appearance-none rounded-lg bg-slate-200 accent-blue-600"
-                    />
-                    <p className="mt-1 text-xs text-slate-500">Up to {formatCurrency(Math.max(randomMin, randomMax))}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
+            <h2 className="mb-4 text-lg font-bold text-slate-800 sm:mb-6 sm:text-xl">Explore products</h2>
             <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-              {filteredAndSortedHomeProducts.slice(0, 8).map((p, pIdx) => {
+              {exploreProductsPreview.map((p, pIdx) => {
                 const ProductIcon = PRODUCT_PLACEHOLDER_ICONS[pIdx % PRODUCT_PLACEHOLDER_ICONS.length];
                 return (
                 <Link key={p.id} href={`/product/${p.id}`} className="group block h-full">
@@ -739,12 +647,6 @@ export function HomeClient() {
                 </Link>
               );})}
             </div>
-            {filteredAndSortedHomeProducts.length === 0 && (
-              <Card className="mt-4 border border-slate-200 bg-white">
-                <CardContent className="py-8 text-center text-sm text-slate-500">No products match this price range.</CardContent>
-              </Card>
-            )}
-            
           </section>
         )}
 

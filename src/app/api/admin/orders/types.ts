@@ -54,6 +54,19 @@ export type AdminOrderDetailItemApi = {
   deliveredAt: string | null
   statusHistory: AdminOrderItemStatusHistoryApi[]
   returnAvailable: boolean
+  replacementAllowed: boolean
+  /** REFUND vs EXCHANGE when a return exists. */
+  returnResolutionType: "REFUND" | "EXCHANGE" | null
+  returnReason: string | null
+  returnImages: string[]
+  /** Exchange replacement line id on this order, if any. */
+  replacementOrderItemId: string | null
+  /** Set on the new line when it is an exchange shipment. */
+  exchangeSourceOrderItemId: string | null
+  exchangeTopUpAmount: number
+  exchangeTopUpStatus: "NOT_REQUIRED" | "PENDING" | "COMPLETED" | null
+  exchangeRefundDifferenceAmount: number
+  exchangeRefundDifferenceStatus: "NOT_REQUESTED" | "PENDING" | "COMPLETED" | null
   returnRequestStatus: string | null
   pickupStatus: string | null
   refundStatus: string | null

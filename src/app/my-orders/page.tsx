@@ -34,6 +34,7 @@ export default async function MyOrdersPage() {
             select: {
               returnType: true,
               returnDays: true,
+              replacementAllowed: true,
             },
           },
         },
@@ -63,13 +64,14 @@ export default async function MyOrdersPage() {
       itemStatus: item.itemStatus,
       returnPolicyType: item.productVariant?.returnType ?? null,
       returnPolicyDays: item.productVariant?.returnDays ?? null,
+      replacementAllowed: item.productVariant?.replacementAllowed === true,
     })),
   }))
 
   return (
     <PublicLayout>
       <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100/80">
-        <div className="container mx-auto max-w-4xl px-4 py-6 sm:px-6 sm:py-8">
+        <div className="container mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
           <MyOrdersClient orders={serializedOrders} />
         </div>
       </div>

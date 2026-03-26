@@ -36,6 +36,8 @@ export async function middleware(request: NextRequest) {
     "/service-seller/verify-otp",
     "/service-seller/login/email-otp",
     "/service-seller/login/email-otp/verify",
+    "/service-seller/login/phone-otp",
+    "/service-seller/login/phone-otp/verify",
     "/service-seller/forgot-password",
     "/service-seller/reset-password",
   ]
@@ -178,6 +180,8 @@ export async function middleware(request: NextRequest) {
       path === "/service-seller/verify-otp" ||
       path === "/service-seller/login/email-otp" ||
       path === "/service-seller/login/email-otp/verify" ||
+      path === "/service-seller/login/phone-otp" ||
+      path === "/service-seller/login/phone-otp/verify" ||
       path === "/service-seller/forgot-password" ||
       path === "/service-seller/reset-password" ||
       path.startsWith("/service-seller/login?") ||
@@ -185,6 +189,8 @@ export async function middleware(request: NextRequest) {
       path.startsWith("/service-seller/verify-otp?") ||
       path.startsWith("/service-seller/login/email-otp?") ||
       path.startsWith("/service-seller/login/email-otp/verify?") ||
+      path.startsWith("/service-seller/login/phone-otp?") ||
+      path.startsWith("/service-seller/login/phone-otp/verify?") ||
       path.startsWith("/service-seller/forgot-password?") ||
       path.startsWith("/service-seller/reset-password?")
     ) {

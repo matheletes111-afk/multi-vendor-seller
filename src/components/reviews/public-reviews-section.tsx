@@ -23,7 +23,8 @@ function formatReviewDate(iso: string): string {
   }).format(d)
 }
 
-function StarRow({ rating, size = "h-4 w-4" }: { rating: number; size?: string }) {
+/** Reusable star row for product/service headers and review cards. */
+export function StarRow({ rating, size = "h-4 w-4" }: { rating: number; size?: string }) {
   const safeRating = Math.max(0, Math.min(5, Math.round(rating)))
   return (
     <div className="flex items-center gap-0.5" aria-label={`${safeRating} out of 5 stars`}>
@@ -62,7 +63,7 @@ export function PublicReviewsSection({
   reviews: PublicReviewItem[]
 }) {
   return (
-    <section className="mt-8 border-t border-slate-200 pt-6 sm:mt-10 sm:pt-8">
+    <section id="reviews" className="mt-8 scroll-mt-24 border-t border-slate-200 pt-6 sm:mt-10 sm:pt-8">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h2 className="text-base font-bold text-slate-900 sm:text-lg">Ratings & reviews</h2>

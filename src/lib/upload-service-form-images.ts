@@ -13,9 +13,7 @@ function extFromType(ct?: string | null) {
   return ".jpg"
 }
 
-/** Upload `serviceImages` file parts from a service create/update FormData. */
-export async function uploadServiceFormImages(formData: FormData): Promise<string[]> {
-  const parts = formData.getAll("serviceImages")
+async function uploadBlobParts(parts: FormDataEntryValue[], folder: string, prefix: string): Promise<string[]> {
   const urls: string[] = []
   for (const part of parts) {
     if (!part || typeof (part as Blob).arrayBuffer !== "function") continue
@@ -28,13 +26,31 @@ export async function uploadServiceFormImages(formData: FormData): Promise<strin
     const ext = path.extname((part as File).name || "") || extFromType(type)
     urls.push(
       await uploadPublicFile({
-        folder: "services",
+        folder,
         ext,
         contentType: type,
         buffer,
-        prefix: "service",
+        prefix,
       })
     )
   }
   return urls
+}
+
+/** Single master/cover image from `masterImage` file part. */
+export async function uploadMasterServiceImage(formData: FormData): Promise<string | null> {
+  const part = formData.get("masterImage")
+  if (!part || typeof (part as Blob).arrayBuffer !== "function") return null
+  const urls = await uploadBlobParts([part], "services", "service")
+  return urls[0] ?? null
+}
+
+/** Gallery images from `serviceGalleryImages` file parts. */
+export async function uploadServiceGalleryImages(formData: FormData): Promise<string[]> {
+  return uploadBlobParts(formData.getAll("serviceGalleryImages"), "services", "service-gallery")
+}
+
+/** @deprecated Use uploadMasterServiceImage + uploadServiceGalleryImages */
+export async function uploadServiceFormImages(formData: FormData): Promise<string[]> {
+  return uploadBlobParts(formData.getAll("serviceImages"), "services", "service")
 }

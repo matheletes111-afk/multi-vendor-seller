@@ -4,13 +4,14 @@ import { resolveCartLine } from "@/app/api/customer/cart/resolve"
 import type { CartAddPayload, CartItemApi, CartPatchPayload } from "@/app/api/customer/cart/types"
 import { isProductCartPayload } from "@/app/api/customer/cart/types"
 import { getMobileCustomerAuth } from "@/app/mobileapi/_helpers/customer-auth"
+import { getServiceFirstDisplayImageUrl } from "@/lib/service-images"
 
 export const dynamic = "force-dynamic"
 
 const cartItemInclude = {
   product: { select: { id: true, name: true, images: true } },
   productVariant: { select: { id: true, name: true, price: true, discount: true, hasGst: true, images: true } },
-  service: { select: { id: true, name: true, basePrice: true, discount: true, hasGst: true, images: true } },
+  service: { select: { id: true, name: true, basePrice: true, discount: true, hasGst: true, images: true, galleryImages: true } },
   servicePackage: { select: { id: true, name: true, price: true } },
 } as const
 
@@ -41,9 +42,16 @@ function toCartItemApi(row: CartItemRow): CartItemApi {
             ? row.service.name
             : "Item"
 
-  const images = (row.product?.images as string[] | null) ?? (row.service?.images as string[] | null) ?? []
   const variantImages = row.productVariant?.images as string[] | null | undefined
-  const rawImage = (Array.isArray(variantImages) && variantImages[0]) ?? images[0]
+  const rawImage = row.product
+    ? (Array.isArray(variantImages) && variantImages[0]) ??
+      ((row.product.images as string[] | null) ?? [])[0]
+    : row.service
+      ? getServiceFirstDisplayImageUrl({
+          images: row.service.images,
+          galleryImages: row.service.galleryImages,
+        })
+      : null
   const image = typeof rawImage === "string" ? rawImage : null
 
   return {
