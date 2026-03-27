@@ -4,6 +4,10 @@ import type { PrismaClient } from "@prisma/client"
 export const ORDER_CANCEL_BLOCKED_DELIVERED =
   "Cannot cancel: at least one item on this order has been delivered."
 
+/** Shown when seller/admin tries to change fulfillment status after a line is already delivered. */
+export const ORDER_ITEM_LOCKED_AFTER_DELIVERED =
+  "Cannot change status after this item has been delivered."
+
 type PrismaWithOrderItem = Pick<PrismaClient, "orderItem">
 
 export async function getOrderHasDeliveredLine(

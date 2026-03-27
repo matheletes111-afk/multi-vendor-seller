@@ -12,7 +12,11 @@ import { deriveOrderStatus } from "@/lib/order-status"
 import type { OrderStatus } from "@prisma/client"
 import { releaseServiceSlotsForOrderItems } from "@/lib/release-service-slot"
 import { serviceSellerItemsNet } from "@/lib/service-seller-order-money"
-import { getOrderHasDeliveredLine, ORDER_CANCEL_BLOCKED_DELIVERED } from "@/lib/order-cancel-guard"
+import {
+  getOrderHasDeliveredLine,
+  ORDER_CANCEL_BLOCKED_DELIVERED,
+  ORDER_ITEM_LOCKED_AFTER_DELIVERED,
+} from "@/lib/order-cancel-guard"
 
 function isValidServiceSellerItemStatus(s: string): boolean {
   return (SERVICE_SELLER_LINE_ITEM_STATUS_OPTIONS as readonly string[]).includes(s)
@@ -203,6 +207,9 @@ export async function PATCH(
   }
   if (ownItems.some((row) => row.itemStatus === "CANCELLED" || row.itemStatus === "REFUNDED")) {
     return NextResponse.json({ error: "Cannot change cancelled or refunded item status" }, { status: 400 })
+  }
+  if (ownItems.some((row) => row.itemStatus === "DELIVERED")) {
+    return NextResponse.json({ error: ORDER_ITEM_LOCKED_AFTER_DELIVERED }, { status: 400 })
   }
   if (status === "CANCELLED" && (await getOrderHasDeliveredLine(prisma, orderId))) {
     return NextResponse.json({ error: ORDER_CANCEL_BLOCKED_DELIVERED }, { status: 400 })

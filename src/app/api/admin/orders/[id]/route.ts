@@ -12,7 +12,11 @@ import { ADMIN_ORDER_STATUSES } from "../types"
 import { deriveOrderStatus, summarizeSellerItemStatuses } from "@/lib/order-status"
 import { parseReturnImagesJson } from "@/lib/return-request-validation"
 import { completeExchangeOnReplacementDelivered } from "@/lib/exchange-completion"
-import { getOrderHasDeliveredLine, ORDER_CANCEL_BLOCKED_DELIVERED } from "@/lib/order-cancel-guard"
+import {
+  getOrderHasDeliveredLine,
+  ORDER_CANCEL_BLOCKED_DELIVERED,
+  ORDER_ITEM_LOCKED_AFTER_DELIVERED,
+} from "@/lib/order-cancel-guard"
 
 function isValidAdminStatus(s: string): s is PatchOrderStatusPayload["status"] {
   return ADMIN_ORDER_STATUSES.includes(s as PatchOrderStatusPayload["status"])
@@ -272,6 +276,9 @@ export async function PATCH(
     if (status === "CANCELLED" && (await getOrderHasDeliveredLine(prisma, orderId))) {
       return NextResponse.json({ error: ORDER_CANCEL_BLOCKED_DELIVERED }, { status: 400 })
     }
+    if (await getOrderHasDeliveredLine(prisma, orderId)) {
+      return NextResponse.json({ error: ORDER_ITEM_LOCKED_AFTER_DELIVERED }, { status: 400 })
+    }
     await prisma.orderItem.updateMany({
       where: { orderId },
       data: { itemStatus: status },
@@ -288,6 +295,9 @@ export async function PATCH(
   }
   if (targetItems.some((row) => row.itemStatus === "CANCELLED" || row.itemStatus === "REFUNDED")) {
     return NextResponse.json({ error: "Cannot change cancelled or refunded item status" }, { status: 400 })
+  }
+  if (targetItems.some((row) => row.itemStatus === "DELIVERED")) {
+    return NextResponse.json({ error: ORDER_ITEM_LOCKED_AFTER_DELIVERED }, { status: 400 })
   }
   if (status === "CANCELLED" && (await getOrderHasDeliveredLine(prisma, orderId))) {
     return NextResponse.json({ error: ORDER_CANCEL_BLOCKED_DELIVERED }, { status: 400 })

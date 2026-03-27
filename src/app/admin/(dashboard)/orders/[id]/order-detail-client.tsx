@@ -45,7 +45,10 @@ import {
 } from "@/ui/select"
 import { exchangeTopUpCodLabel } from "@/lib/exchange-top-up-display"
 import { flattenOrderItemsForDisplay } from "@/lib/customer-order-item-order"
-import { ORDER_CANCEL_BLOCKED_DELIVERED } from "@/lib/order-cancel-guard"
+import {
+  ORDER_CANCEL_BLOCKED_DELIVERED,
+  ORDER_ITEM_LOCKED_AFTER_DELIVERED,
+} from "@/lib/order-cancel-guard"
 
 type ReturnAction = "ACCEPT" | "REJECT" | "PICKUP_COMPLETED" | "REFUND_COMPLETED" | "EXCHANGE_TOP_UP_RECEIVED"
 
@@ -176,6 +179,10 @@ export function AdminOrderDetailClient({ orderId }: { orderId: string }) {
     const next = itemStatusDrafts[itemId]
     const current = order.items.find((item) => item.id === itemId)?.itemStatus
     if (!next || !current || next === current) return
+    if (current === "DELIVERED") {
+      setStatusError(ORDER_ITEM_LOCKED_AFTER_DELIVERED)
+      return
+    }
     if (next === "CANCELLED" && current !== "PENDING") {
       setStatusError("Can only cancel items that are PENDING")
       return
@@ -665,7 +672,7 @@ export function AdminOrderDetailClient({ orderId }: { orderId: string }) {
                     </div>
                   )}
 
-                  {canUpdateLineItems && (
+                  {canUpdateLineItems && item.itemStatus !== "DELIVERED" && (
                     <div className="mt-2 w-full rounded-md border bg-white p-3">
                       <p className="mb-2 text-xs font-semibold text-slate-700">Update line item status</p>
                       <div className="grid gap-2 md:grid-cols-2">

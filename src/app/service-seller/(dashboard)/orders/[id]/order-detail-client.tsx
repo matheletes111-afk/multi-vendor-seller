@@ -11,7 +11,10 @@ import type { SellerOrderDetailApi } from "@/app/api/service-seller/orders/types
 import {
   SERVICE_SELLER_LINE_ITEM_STATUS_OPTIONS,
 } from "@/app/api/service-seller/orders/types"
-import { ORDER_CANCEL_BLOCKED_DELIVERED } from "@/lib/order-cancel-guard"
+import {
+  ORDER_CANCEL_BLOCKED_DELIVERED,
+  ORDER_ITEM_LOCKED_AFTER_DELIVERED,
+} from "@/lib/order-cancel-guard"
 import { Package, MapPin, User, ArrowLeft, Loader2, Receipt, Banknote, ShoppingBag, Upload, ExternalLink } from "lucide-react"
 import {
   Select,
@@ -139,6 +142,10 @@ export function ServiceSellerOrderDetailClient({ orderId }: { orderId: string })
     const current = order.items.find((item) => item.id === itemId)?.itemStatus
     const next = itemStatusDrafts[itemId]
     if (!next || !current || next === current) return
+    if (current === "DELIVERED") {
+      setStatusError(ORDER_ITEM_LOCKED_AFTER_DELIVERED)
+      return
+    }
     if (next === "CANCELLED" && current !== "PENDING") {
       setStatusError("Can only cancel items that are PENDING")
       return
@@ -345,7 +352,7 @@ export function ServiceSellerOrderDetailClient({ orderId }: { orderId: string })
                     <Badge variant="outline" className="text-[10px] uppercase tracking-wide">
                       {item.itemStatus.replace(/_/g, " ")}
                     </Badge>
-                    {canUpdateStatus && (
+                    {canUpdateStatus && item.itemStatus !== "DELIVERED" && (
                       <>
                         {(itemStatusDrafts[item.id] ?? item.itemStatus) === "DELIVERED" && (
                           <div className="flex flex-wrap items-center gap-2">

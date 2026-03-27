@@ -15,7 +15,11 @@ import {
   ExchangeTopUpRequiredError,
 } from "@/lib/exchange-guards"
 import { parseReturnImagesJson } from "@/lib/return-request-validation"
-import { getOrderHasDeliveredLine, ORDER_CANCEL_BLOCKED_DELIVERED } from "@/lib/order-cancel-guard"
+import {
+  getOrderHasDeliveredLine,
+  ORDER_CANCEL_BLOCKED_DELIVERED,
+  ORDER_ITEM_LOCKED_AFTER_DELIVERED,
+} from "@/lib/order-cancel-guard"
 
 function isValidSellerStatus(s: string): s is PatchOrderStatusPayload["status"] {
   return SELLER_ORDER_STATUSES.includes(s as PatchOrderStatusPayload["status"])
@@ -226,6 +230,9 @@ export async function PATCH(
   }
   if (ownItems.some((row) => row.itemStatus === "CANCELLED" || row.itemStatus === "REFUNDED" || row.itemStatus === "EXCHANGED")) {
     return NextResponse.json({ error: "Cannot change cancelled, refunded, or exchanged item status" }, { status: 400 })
+  }
+  if (ownItems.some((row) => row.itemStatus === "DELIVERED")) {
+    return NextResponse.json({ error: ORDER_ITEM_LOCKED_AFTER_DELIVERED }, { status: 400 })
   }
   if (status === "CANCELLED" && (await getOrderHasDeliveredLine(prisma, orderId))) {
     return NextResponse.json({ error: ORDER_CANCEL_BLOCKED_DELIVERED }, { status: 400 })

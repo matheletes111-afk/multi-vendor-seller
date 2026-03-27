@@ -50,7 +50,10 @@ import {
 import { getExchangeOrderPriceBreakdown } from "@/lib/exchange-order-display"
 import { exchangeTopUpCodLabel } from "@/lib/exchange-top-up-display"
 import { flattenOrderItemsForDisplay } from "@/lib/customer-order-item-order"
-import { ORDER_CANCEL_BLOCKED_DELIVERED } from "@/lib/order-cancel-guard"
+import {
+  ORDER_CANCEL_BLOCKED_DELIVERED,
+  ORDER_ITEM_LOCKED_AFTER_DELIVERED,
+} from "@/lib/order-cancel-guard"
 
 const MAX_PROOF_BYTES = 5 * 1024 * 1024
 const TIMELINE_PREVIEW = 5
@@ -271,6 +274,10 @@ export function ProductSellerOrderDetailClient({ orderId }: { orderId: string })
     const current = order.items.find((item) => item.id === itemId)?.itemStatus
     const next = itemStatusDrafts[itemId]
     if (!next || !current || next === current) return
+    if (current === "DELIVERED") {
+      setStatusError(ORDER_ITEM_LOCKED_AFTER_DELIVERED)
+      return
+    }
     if (next === "CANCELLED" && current !== "PENDING") {
       setStatusError("Can only cancel items that are PENDING")
       return
@@ -429,7 +436,10 @@ export function ProductSellerOrderDetailClient({ orderId }: { orderId: string })
           {orderedItems.map((item) => {
             const draftStatus = itemStatusDrafts[item.id] ?? item.itemStatus
             const showShipmentForm =
-              canUpdateStatus && item.itemStatus !== "REFUNDED" && item.itemStatus !== "EXCHANGED"
+              canUpdateStatus &&
+              item.itemStatus !== "REFUNDED" &&
+              item.itemStatus !== "EXCHANGED" &&
+              item.itemStatus !== "DELIVERED"
             const hist = item.statusHistory
             const expanded = timelineExpanded[item.id] ?? false
             const timelineShown = expanded ? hist : hist.slice(-TIMELINE_PREVIEW)
@@ -578,10 +588,27 @@ export function ProductSellerOrderDetailClient({ orderId }: { orderId: string })
                 {item.returnAvailable && !item.exchangeSourceOrderItemId && (
                   <Card className="border-slate-200 shadow-md">
                     <CardHeader>
-                      <CardTitle className="flex items-center gap-2 text-lg">
-                        <RefreshCw className="h-5 w-5 text-slate-700" aria-hidden />
-                        Return &amp; refund information
+                      <CardTitle className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                        <span className="flex items-center gap-2 text-lg">
+                          <RefreshCw className="h-5 w-5 shrink-0 text-slate-700" aria-hidden />
+                          <span className="font-semibold text-slate-900">Return request</span>
+                        </span>
+                        <span
+                          className={cn(
+                            "inline-flex w-fit items-center rounded-lg border-2 px-4 py-2 text-sm font-bold uppercase tracking-wide shadow-sm",
+                            (item.returnResolutionType ?? "REFUND") === "EXCHANGE"
+                              ? "border-blue-300 bg-blue-50 text-blue-800"
+                              : "border-amber-300 bg-amber-50 text-amber-900",
+                          )}
+                        >
+                          {(item.returnResolutionType ?? "REFUND") === "EXCHANGE" ? "Exchange" : "Refund"}
+                        </span>
                       </CardTitle>
+                      <CardDescription className="text-slate-600">
+                        {(item.returnResolutionType ?? "REFUND") === "EXCHANGE"
+                          ? "The customer asked to swap this item for a replacement. Review their submission and approve or reject."
+                          : "The customer asked for a refund on this line. Review their submission and approve or reject."}
+                      </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
                       {(item.returnReason || (item.returnImages?.length ?? 0) > 0) && (
@@ -629,12 +656,6 @@ export function ProductSellerOrderDetailClient({ orderId }: { orderId: string })
                         </div>
                       </div>
 
-                      <div className="flex flex-wrap gap-2">
-                        <Badge variant="outline" className="text-[10px] uppercase">
-                          {(item.returnResolutionType ?? "REFUND") === "EXCHANGE" ? "Exchange" : "Refund"}
-                        </Badge>
-                      </div>
-
                       {item.returnRequestStatus === "REQUESTED" && (
                         <div className="flex flex-wrap gap-2">
                           <Button
@@ -645,12 +666,20 @@ export function ProductSellerOrderDetailClient({ orderId }: { orderId: string })
                               setConfirmReturn({
                                 itemId: item.id,
                                 action: "ACCEPT",
-                                title: "Accept return?",
-                                description: "The customer’s return request will be accepted.",
+                                title:
+                                  (item.returnResolutionType ?? "REFUND") === "EXCHANGE"
+                                    ? "Approve exchange?"
+                                    : "Approve return?",
+                                description:
+                                  (item.returnResolutionType ?? "REFUND") === "EXCHANGE"
+                                    ? "The customer’s exchange request will be accepted."
+                                    : "The customer’s return request will be accepted.",
                               })
                             }
                           >
-                            Approve return
+                            {(item.returnResolutionType ?? "REFUND") === "EXCHANGE"
+                              ? "Approve exchange"
+                              : "Approve return"}
                           </Button>
                           <Button
                             size="sm"
@@ -660,12 +689,20 @@ export function ProductSellerOrderDetailClient({ orderId }: { orderId: string })
                               setConfirmReturn({
                                 itemId: item.id,
                                 action: "REJECT",
-                                title: "Reject return?",
-                                description: "This will reject the customer’s return request.",
+                                title:
+                                  (item.returnResolutionType ?? "REFUND") === "EXCHANGE"
+                                    ? "Reject exchange?"
+                                    : "Reject return?",
+                                description:
+                                  (item.returnResolutionType ?? "REFUND") === "EXCHANGE"
+                                    ? "This will reject the customer’s exchange request."
+                                    : "This will reject the customer’s return request.",
                               })
                             }
                           >
-                            Reject return
+                            {(item.returnResolutionType ?? "REFUND") === "EXCHANGE"
+                              ? "Reject exchange"
+                              : "Reject return"}
                           </Button>
                         </div>
                       )}

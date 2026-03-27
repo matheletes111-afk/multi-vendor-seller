@@ -112,10 +112,12 @@ function buildCustomerReturnTimeline(
   if (isExchange) {
     const rep = replacementLine?.itemStatus?.toUpperCase() ?? ""
     const repDelivered = rep === "DELIVERED"
+    const approvalLabel =
+      rs === "ACCEPTED" ? "Return & exchange approved" : "Awaiting seller approval"
 
     const raw: Omit<TimelineStep, "current">[] = [
       { key: "e1", label: "Return request submitted", done: !!rs },
-      { key: "e2", label: "Return & exchange approved", done: rs === "ACCEPTED" },
+      { key: "e2", label: approvalLabel, done: rs === "ACCEPTED" },
       { key: "e3", label: "Pickup of your original item", done: ps === "COMPLETED" },
       { key: "e4", label: "Replacement delivered to you", done: repDelivered },
     ]
@@ -129,9 +131,11 @@ function buildCustomerReturnTimeline(
     }))
   }
 
+  const refundApprovalLabel = rs === "ACCEPTED" ? "Return approved" : "Awaiting seller approval"
+
   const raw: Omit<TimelineStep, "current">[] = [
     { key: "r1", label: "Return request submitted", done: !!rs },
-    { key: "r2", label: "Return approved", done: rs === "ACCEPTED" },
+    { key: "r2", label: refundApprovalLabel, done: rs === "ACCEPTED" },
     { key: "r3", label: "Pickup of original item", done: ps === "COMPLETED" },
     { key: "r4", label: "Refund processed", done: fs === "COMPLETED" },
   ]
@@ -496,13 +500,32 @@ export function CustomerReturnExchangeStatusDashboard({
         )}
 
         {item.returnResolutionType === "EXCHANGE" && item.returnRequestStatus && (
-          <div className="flex flex-wrap items-center gap-2 rounded-lg border border-violet-100 bg-violet-50/80 px-3 py-2 text-xs text-violet-900">
+          <div
+            className={cn(
+              "flex flex-wrap items-center gap-2 rounded-lg border px-3 py-2 text-xs",
+              item.returnRequestStatus === "REQUESTED"
+                ? "border-amber-100 bg-amber-50/90 text-amber-950"
+                : "border-violet-100 bg-violet-50/80 text-violet-900",
+            )}
+          >
             <Package className="h-3.5 w-3.5 shrink-0" aria-hidden />
-            <span className="font-semibold">Exchange in progress</span>
-            <Badge variant="outline" className="border-violet-200 bg-white text-[10px] uppercase text-violet-800">
-              Active
+            <span className="font-semibold">
+              {item.returnRequestStatus === "REQUESTED"
+                ? "Exchange request — waiting for seller"
+                : "Exchange in progress"}
+            </span>
+            <Badge
+              variant="outline"
+              className={cn(
+                "border bg-white text-[10px] uppercase",
+                item.returnRequestStatus === "REQUESTED"
+                  ? "border-amber-200 text-amber-900"
+                  : "border-violet-200 text-violet-800",
+              )}
+            >
+              {item.returnRequestStatus === "REQUESTED" ? "Pending" : "Active"}
             </Badge>
-            {item.replacementOrderItemId && (
+            {item.replacementOrderItemId && item.returnRequestStatus === "ACCEPTED" && (
               <span className="w-full text-[11px] text-violet-800/90">
                 Your replacement appears as another product line on this order — use its Order tracking for shipment
                 status.
