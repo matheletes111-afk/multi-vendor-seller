@@ -1,4 +1,5 @@
 import type { Prisma } from "@prisma/client"
+import { applySellerDebitForCustomerWalletCredit } from "@/lib/seller-customer-wallet-mirror"
 
 const EPS = 0.01
 
@@ -27,6 +28,8 @@ export async function completeExchangeOnReplacementDelivered(
     where: { orderItemId: sourceId },
     select: {
       id: true,
+      orderId: true,
+      sellerId: true,
       resolutionType: true,
       pickupStatus: true,
       customerId: true,
@@ -57,6 +60,14 @@ export async function completeExchangeOnReplacementDelivered(
           returnRequestId: rr.id,
           note: "Exchange: price difference for cheaper replacement (credited on delivery)",
         },
+      })
+      await applySellerDebitForCustomerWalletCredit(tx, {
+        sellerId: rr.sellerId,
+        returnRequestId: rr.id,
+        orderId: rr.orderId,
+        amount: diffAmount,
+        reason: "EXCHANGE_PRICE_DIFFERENCE",
+        note: "Customer wallet credit for cheaper exchange (replacement delivered)",
       })
     }
     await tx.returnRequest.update({

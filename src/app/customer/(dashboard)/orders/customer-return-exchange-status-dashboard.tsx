@@ -411,6 +411,11 @@ export function CustomerReturnExchangeStatusDashboard({
                     Amount: {formatCurrency(lineTotal)}
                   </p>
                 )}
+                {item.returnResolutionType !== "EXCHANGE" && item.refundStatus === "COMPLETED" && (
+                  <p className="mt-2 text-xs text-gray-600">
+                    Credited to your wallet when the seller confirmed pickup.
+                  </p>
+                )}
                 {item.returnResolutionType === "EXCHANGE" && (
                   <p className="mt-2 text-xs text-gray-600">
                     Exchanges do not refund to your card. Wallet credit for a cheaper replacement appears under Exchange
@@ -624,7 +629,7 @@ export function CustomerReturnExchangeStatusDashboard({
         {item.refundStatus === "COMPLETED" && (
           <div className="flex flex-wrap items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50/80 px-4 py-3 text-sm text-emerald-900">
             <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-600" aria-hidden />
-            <span className="font-medium">Refund received for this line.</span>
+            <span className="font-medium">Wallet credit received for this line.</span>
           </div>
         )}
       </CardContent>

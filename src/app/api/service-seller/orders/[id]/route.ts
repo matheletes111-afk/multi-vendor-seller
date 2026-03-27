@@ -11,6 +11,8 @@ import { SERVICE_SELLER_LINE_ITEM_STATUS_OPTIONS } from "../types"
 import { deriveOrderStatus } from "@/lib/order-status"
 import type { OrderStatus } from "@prisma/client"
 import { releaseServiceSlotsForOrderItems } from "@/lib/release-service-slot"
+import { serviceSellerItemsNet } from "@/lib/service-seller-order-money"
+import { getOrderHasDeliveredLine, ORDER_CANCEL_BLOCKED_DELIVERED } from "@/lib/order-cancel-guard"
 
 function isValidServiceSellerItemStatus(s: string): boolean {
   return (SERVICE_SELLER_LINE_ITEM_STATUS_OPTIONS as readonly string[]).includes(s)
@@ -101,15 +103,27 @@ export async function GET(
     }
   })
 
+  const sellerItems = order.items
+  const totalAmount = sellerItems.reduce(
+    (sum, item) => sum + (item.subtotalInclGst ?? item.subtotal + item.gstAmount) + item.shippingAmount,
+    0
+  )
+  const commission = sellerItems.reduce((sum, item) => sum + item.commissionAmount, 0)
+  const sellerNet = serviceSellerItemsNet(sellerItems)
+
+  const orderHasDeliveredLine = await getOrderHasDeliveredLine(prisma, order.id)
+
   const body: SellerOrderDetailApi = {
     id: order.id,
     orderNumber: order.orderNumber,
+    orderHasDeliveredLine,
     status: deriveOrderStatus(order.items.map((item) => item.itemStatus)),
-    totalAmount: order.items.reduce((sum, item) => sum + (item.subtotalInclGst ?? item.subtotal + item.gstAmount) + item.shippingAmount, 0),
+    totalAmount,
     subtotal: order.items.reduce((sum, item) => sum + item.subtotal, 0),
     tax: order.items.reduce((sum, item) => sum + item.gstAmount, 0),
     shipping: order.items.reduce((sum, item) => sum + item.shippingAmount, 0),
-    commission: order.items.reduce((sum, item) => sum + item.commissionAmount, 0),
+    commission,
+    sellerNet,
     commissionRate: order.commissionRate,
     paymentMethod: order.paymentMethod,
     paymentStatus: order.paymentStatus,
@@ -189,6 +203,9 @@ export async function PATCH(
   }
   if (ownItems.some((row) => row.itemStatus === "CANCELLED" || row.itemStatus === "REFUNDED")) {
     return NextResponse.json({ error: "Cannot change cancelled or refunded item status" }, { status: 400 })
+  }
+  if (status === "CANCELLED" && (await getOrderHasDeliveredLine(prisma, orderId))) {
+    return NextResponse.json({ error: ORDER_CANCEL_BLOCKED_DELIVERED }, { status: 400 })
   }
   if (status === "CANCELLED" && ownItems.some((row) => row.itemStatus !== "PENDING")) {
     return NextResponse.json({ error: "Can only cancel items that are PENDING" }, { status: 400 })

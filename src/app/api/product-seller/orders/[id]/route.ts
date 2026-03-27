@@ -15,6 +15,7 @@ import {
   ExchangeTopUpRequiredError,
 } from "@/lib/exchange-guards"
 import { parseReturnImagesJson } from "@/lib/return-request-validation"
+import { getOrderHasDeliveredLine, ORDER_CANCEL_BLOCKED_DELIVERED } from "@/lib/order-cancel-guard"
 
 function isValidSellerStatus(s: string): s is PatchOrderStatusPayload["status"] {
   return SELLER_ORDER_STATUSES.includes(s as PatchOrderStatusPayload["status"])
@@ -133,9 +134,12 @@ export async function GET(
     }
   })
 
+  const orderHasDeliveredLine = await getOrderHasDeliveredLine(prisma, order.id)
+
   const body: SellerOrderDetailApi = {
     id: order.id,
     orderNumber: order.orderNumber,
+    orderHasDeliveredLine,
     status: deriveOrderStatus(order.items.map((item) => item.itemStatus)),
     totalAmount: order.items.reduce((sum, item) => sum + (item.subtotalInclGst ?? item.subtotal + item.gstAmount) + item.shippingAmount, 0),
     subtotal: order.items.reduce((sum, item) => sum + item.subtotal, 0),
@@ -222,6 +226,9 @@ export async function PATCH(
   }
   if (ownItems.some((row) => row.itemStatus === "CANCELLED" || row.itemStatus === "REFUNDED" || row.itemStatus === "EXCHANGED")) {
     return NextResponse.json({ error: "Cannot change cancelled, refunded, or exchanged item status" }, { status: 400 })
+  }
+  if (status === "CANCELLED" && (await getOrderHasDeliveredLine(prisma, orderId))) {
+    return NextResponse.json({ error: ORDER_CANCEL_BLOCKED_DELIVERED }, { status: 400 })
   }
   if (status === "CANCELLED" && ownItems.some((row) => row.itemStatus !== "PENDING")) {
     return NextResponse.json({ error: "Can only cancel items that are PENDING" }, { status: 400 })

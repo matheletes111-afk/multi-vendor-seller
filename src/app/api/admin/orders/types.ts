@@ -106,6 +106,8 @@ export type AdminOrderListItemApi = {
 export type AdminOrderDetailApi = {
   id: string
   orderNumber: string
+  /** True if any line on the order is delivered (cancelling any line is blocked). */
+  orderHasDeliveredLine: boolean
   status: string
   totalAmount: number
   subtotal: number

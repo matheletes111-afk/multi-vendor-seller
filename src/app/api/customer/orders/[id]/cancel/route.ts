@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { UserRole } from "@prisma/client"
 import { releaseServiceSlotsForOrderItems } from "@/lib/release-service-slot"
+import { ORDER_CANCEL_BLOCKED_DELIVERED } from "@/lib/order-cancel-guard"
 
 /** POST /api/customer/orders/[id]/cancel — cancel own order if all items are still PENDING. */
 export async function POST(
@@ -29,6 +30,9 @@ export async function POST(
   })
   if (!order) return NextResponse.json({ error: "Order not found" }, { status: 404 })
   if (order.items.length === 0) return NextResponse.json({ error: "No items found for this order" }, { status: 400 })
+  if (order.items.some((item) => item.itemStatus === "DELIVERED")) {
+    return NextResponse.json({ error: ORDER_CANCEL_BLOCKED_DELIVERED }, { status: 400 })
+  }
   if (order.items.some((item) => item.itemStatus !== "PENDING")) {
     return NextResponse.json({ error: "Only orders with all items in PENDING can be cancelled" }, { status: 400 })
   }

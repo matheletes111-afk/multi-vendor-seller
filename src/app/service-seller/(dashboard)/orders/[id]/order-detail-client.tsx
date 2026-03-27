@@ -11,6 +11,7 @@ import type { SellerOrderDetailApi } from "@/app/api/service-seller/orders/types
 import {
   SERVICE_SELLER_LINE_ITEM_STATUS_OPTIONS,
 } from "@/app/api/service-seller/orders/types"
+import { ORDER_CANCEL_BLOCKED_DELIVERED } from "@/lib/order-cancel-guard"
 import { Package, MapPin, User, ArrowLeft, Loader2, Receipt, Banknote, ShoppingBag, Upload, ExternalLink } from "lucide-react"
 import {
   Select,
@@ -140,6 +141,10 @@ export function ServiceSellerOrderDetailClient({ orderId }: { orderId: string })
     if (!next || !current || next === current) return
     if (next === "CANCELLED" && current !== "PENDING") {
       setStatusError("Can only cancel items that are PENDING")
+      return
+    }
+    if (next === "CANCELLED" && order.orderHasDeliveredLine) {
+      setStatusError(ORDER_CANCEL_BLOCKED_DELIVERED)
       return
     }
     setStatusError(null)
@@ -416,7 +421,11 @@ export function ServiceSellerOrderDetailClient({ orderId }: { orderId: string })
                           </SelectTrigger>
                           <SelectContent>
                             {lineItemStatusSelectValues(item.itemStatus).map((s) => (
-                              <SelectItem key={s} value={s}>
+                              <SelectItem
+                                key={s}
+                                value={s}
+                                disabled={s === "CANCELLED" && order.orderHasDeliveredLine}
+                              >
                                 {s.charAt(0) + s.slice(1).toLowerCase()}
                               </SelectItem>
                             ))}
@@ -541,8 +550,17 @@ export function ServiceSellerOrderDetailClient({ orderId }: { orderId: string })
           )}
           <Separator className="my-2" />
           <div className="flex justify-between font-semibold text-base pt-1">
-            <span>Grand total</span>
+            <span>Grand total (your lines)</span>
             <span>{formatCurrency(order.totalAmount)}</span>
+          </div>
+          <div className="flex justify-between text-sm pt-2">
+            <span className="text-muted-foreground">Platform fee ({order.commissionRate}%)</span>
+            <span className="tabular-nums">−{formatCurrency(order.commission)}</span>
+          </div>
+          <Separator className="my-2" />
+          <div className="flex justify-between font-semibold text-base text-emerald-900">
+            <span>Your net (after fees)</span>
+            <span className="tabular-nums">{formatCurrency(order.sellerNet)}</span>
           </div>
         </CardContent>
       </Card>

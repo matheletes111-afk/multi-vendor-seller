@@ -211,6 +211,11 @@ enum CreativeType {
   VIDEO
 }
 
+enum SellerBalanceTxnKind {
+  DEBIT
+  CREDIT
+}
+
 model Seller {
   id          String     @id @default(cuid())
   userId      String     @unique
@@ -219,6 +224,8 @@ model Seller {
   isSuspended Boolean    @default(false)
   nationIdentityNumber String? // Used by admin to verify seller profile during approval
   adBalance   Decimal    @default(0) // Phase 2: top-up; Phase 1: track only
+  /// Net position in the platform: decreases when customers get wallet credits; increases when you record exchange top-up collected.
+  netBalance  Decimal    @default(0) @db.Decimal(14, 2)
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
 
@@ -230,8 +237,29 @@ model Seller {
   orders       Order[]
   orderItems   OrderItem[]
   sellerAds    SellerAd[]
+  balanceTransactions SellerBalanceTransaction[]
 
   @@map("sellers")
+}
+
+model SellerBalanceTransaction {
+  id              String               @id @default(cuid())
+  sellerId        String
+  /// Absolute value; use `kind` for direction (DEBIT = charge to seller, CREDIT = money to seller).
+  amount          Decimal              @db.Decimal(14, 2)
+  kind            SellerBalanceTxnKind @default(DEBIT)
+  reason          String
+  returnRequestId String
+  orderId         String?
+  note            String?
+  createdAt       DateTime             @default(now())
+
+  seller        Seller        @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  returnRequest ReturnRequest @relation(fields: [returnRequestId], references: [id], onDelete: Cascade)
+
+  @@unique([returnRequestId, reason])
+  @@index([sellerId, createdAt])
+  @@map("seller_balance_transactions")
 }
 
 model SellerAd {
@@ -729,6 +757,7 @@ model ReturnRequest {
   replacementVariant ProductVariant? @relation("ReturnReplacementVariant", fields: [replacementVariantId], references: [id], onDelete: SetNull)
   replacementOrderItem OrderItem? @relation("ReturnReplacementOrderItem", fields: [replacementOrderItemId], references: [id], onDelete: SetNull)
   walletCredit WalletTransaction?
+  sellerBalanceTransactions SellerBalanceTransaction[]
 
   @@index([orderId, customerId])
   @@index([sellerId, status])

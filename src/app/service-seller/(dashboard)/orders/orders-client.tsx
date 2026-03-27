@@ -8,7 +8,7 @@ import { Badge } from "@/ui/badge"
 import { Button } from "@/ui/button"
 import { formatCurrency, formatDate } from "@/lib/utils"
 import { PageLoader } from "@/components/ui/page-loader"
-import { ShoppingCart, Package, User } from "lucide-react"
+import { ShoppingCart, Package, User, TrendingUp } from "lucide-react"
 import { AdminPagination } from "@/components/admin/admin-pagination"
 import {
   Table,
@@ -26,6 +26,8 @@ type Order = {
   totalAmount: number
   commissionRate: number
   commission: number
+  /** Your net for this order (gross on your lines − platform commission). */
+  sellerNet: number
   createdAt: string
   customer: { name: string | null; email: string | null }
   items: Array<{
@@ -112,9 +114,15 @@ export function ServiceOrdersClient() {
                   <TableHead className="hidden md:table-cell">Customer</TableHead>
                   <TableHead className="hidden lg:table-cell">Items</TableHead>
                   <TableHead className="hidden sm:table-cell">Date</TableHead>
-                  <TableHead className="text-right">Total</TableHead>
+                  <TableHead className="text-right">Gross</TableHead>
+                  <TableHead className="text-right">
+                    <span className="inline-flex items-center gap-1">
+                      <TrendingUp className="h-3.5 w-3.5" aria-hidden />
+                      Your net
+                    </span>
+                  </TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead className="hidden xl:table-cell text-right">Commission</TableHead>
+                  <TableHead className="hidden xl:table-cell text-right">Platform fee</TableHead>
                   <TableHead className="text-right w-[100px]">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -145,14 +153,19 @@ export function ServiceOrdersClient() {
                     <TableCell className="hidden sm:table-cell text-muted-foreground text-sm whitespace-nowrap">
                       {formatDate(order.createdAt)}
                     </TableCell>
-                    <TableCell className="text-right font-medium whitespace-nowrap">{formatCurrency(order.totalAmount)}</TableCell>
+                    <TableCell className="text-right font-medium whitespace-nowrap text-muted-foreground">
+                      {formatCurrency(order.totalAmount)}
+                    </TableCell>
+                    <TableCell className="text-right font-semibold whitespace-nowrap text-emerald-800 tabular-nums">
+                      {formatCurrency(order.sellerNet)}
+                    </TableCell>
                     <TableCell>
                       <Badge variant="outline" className="capitalize whitespace-nowrap">
                         {order.status.toLowerCase().replace(/_/g, " ")}
                       </Badge>
                     </TableCell>
                     <TableCell className="hidden xl:table-cell text-right text-sm text-muted-foreground whitespace-nowrap">
-                      -{formatCurrency(order.commission)} ({order.commissionRate}%)
+                      {formatCurrency(order.commission)} ({order.commissionRate}%)
                     </TableCell>
                     <TableCell className="text-right">
                       <Button variant="outline" size="sm" asChild>

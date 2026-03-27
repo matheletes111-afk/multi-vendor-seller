@@ -55,6 +55,8 @@ export type PatchOrderStatusPayload = { status: SellerOrderStatusValue }
 export type SellerOrderDetailApi = {
   id: string
   orderNumber: string
+  /** True if any line on the order is delivered (cancelling any line is blocked). */
+  orderHasDeliveredLine: boolean
   status: string
   totalAmount: number
   subtotal: number

@@ -6,7 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/ui/card"
 import { Button } from "@/ui/button"
 import { Alert, AlertDescription, AlertTitle } from "@/ui/alert"
 import { PageLoader } from "@/components/ui/page-loader"
-import { Package, ShoppingCart, DollarSign, AlertCircle, ArrowRight } from "lucide-react"
+import { formatCurrency } from "@/lib/utils"
+import { Package, ShoppingCart, DollarSign, AlertCircle, ArrowRight, Wallet } from "lucide-react"
 
 type Overview = {
   subscription: { plan: { name: string } } | null
@@ -14,6 +15,10 @@ type Overview = {
   totalOrders: number
   totalRevenue: number
   totalRevenueFormatted: string
+  netBalance: number
+  netBalanceFormatted: string
+  balanceCreditsTotal: number
+  balanceDebitsTotal: number
 }
 
 export function ProductSellerPageClient() {
@@ -70,7 +75,15 @@ export function ProductSellerPageClient() {
   }
   if (!data) return <PageLoader message="Loading dashboard…" />
 
-  const { subscription, totalProducts, totalOrders, totalRevenueFormatted } = data
+  const {
+    subscription,
+    totalProducts,
+    totalOrders,
+    totalRevenueFormatted,
+    netBalanceFormatted,
+    balanceCreditsTotal,
+    balanceDebitsTotal,
+  } = data
 
   return (
     <div className="container mx-auto p-6 space-y-8">
@@ -130,6 +143,34 @@ export function ProductSellerPageClient() {
           <CardContent>
             <div className="text-2xl font-bold">{totalRevenueFormatted}</div>
             <p className="text-xs text-muted-foreground mt-1">Total revenue</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Net balance</CardTitle>
+            <Wallet className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="space-y-1.5 rounded-lg border border-slate-100 bg-slate-50/80 px-3 py-2.5 text-xs">
+              <div className="flex justify-between gap-3 font-medium text-emerald-900">
+                <span>Credits (+)</span>
+                <span className="tabular-nums">+{formatCurrency(balanceCreditsTotal)}</span>
+              </div>
+              <div className="flex justify-between gap-3 font-medium text-rose-900">
+                <span>Charges (−)</span>
+                <span className="tabular-nums">−{formatCurrency(balanceDebitsTotal)}</span>
+              </div>
+              <div className="flex justify-between gap-3 border-t border-slate-200 pt-1.5 text-sm font-bold text-slate-950">
+                <span>Net</span>
+                <span className="tabular-nums">{netBalanceFormatted}</span>
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              <Link href="/product-seller/balance" className="text-primary underline-offset-2 hover:underline">
+                Full ledger &amp; details
+              </Link>
+            </p>
           </CardContent>
         </Card>
       </div>

@@ -50,6 +50,7 @@ import {
 import { getExchangeOrderPriceBreakdown } from "@/lib/exchange-order-display"
 import { exchangeTopUpCodLabel } from "@/lib/exchange-top-up-display"
 import { flattenOrderItemsForDisplay } from "@/lib/customer-order-item-order"
+import { ORDER_CANCEL_BLOCKED_DELIVERED } from "@/lib/order-cancel-guard"
 
 const MAX_PROOF_BYTES = 5 * 1024 * 1024
 const TIMELINE_PREVIEW = 5
@@ -272,6 +273,10 @@ export function ProductSellerOrderDetailClient({ orderId }: { orderId: string })
     if (!next || !current || next === current) return
     if (next === "CANCELLED" && current !== "PENDING") {
       setStatusError("Can only cancel items that are PENDING")
+      return
+    }
+    if (next === "CANCELLED" && order.orderHasDeliveredLine) {
+      setStatusError(ORDER_CANCEL_BLOCKED_DELIVERED)
       return
     }
     setStatusError(null)
@@ -677,7 +682,8 @@ export function ProductSellerOrderDetailClient({ orderId }: { orderId: string })
                                 itemId: item.id,
                                 action: "PICKUP_COMPLETED",
                                 title: "Mark pickup complete?",
-                                description: "Confirm that the return pickup has been completed.",
+                                description:
+                                  "Confirm that the return pickup has been completed. The customer will receive this line’s amount in their wallet (same as exchange price-difference credits).",
                               })
                             }
                           >
@@ -689,18 +695,20 @@ export function ProductSellerOrderDetailClient({ orderId }: { orderId: string })
                             disabled={
                               returnActionLoadingItemId === item.id ||
                               item.pickupStatus !== "COMPLETED" ||
-                              item.refundStatus === "COMPLETED"
+                              item.refundStatus !== "COMPLETED" ||
+                              item.itemStatus === "REFUNDED"
                             }
                             onClick={() =>
                               setConfirmReturn({
                                 itemId: item.id,
                                 action: "REFUND_COMPLETED",
-                                title: "Process refund?",
-                                description: "Mark the refund as completed for this return.",
+                                title: "Finalize return?",
+                                description:
+                                  "Mark this line as refunded and restock the product. Wallet credit was already added when pickup was completed.",
                               })
                             }
                           >
-                            Process refund
+                            Finalize return
                           </Button>
                         </div>
                       )}
@@ -881,7 +889,11 @@ export function ProductSellerOrderDetailClient({ orderId }: { orderId: string })
                             </SelectTrigger>
                             <SelectContent>
                               {SELLER_ORDER_STATUSES.map((s) => (
-                                <SelectItem key={s} value={s}>
+                                <SelectItem
+                                  key={s}
+                                  value={s}
+                                  disabled={s === "CANCELLED" && order.orderHasDeliveredLine}
+                                >
                                   <span className="flex items-center gap-2">
                                     <span
                                       className={cn(

@@ -52,12 +52,16 @@ export type SellerOrderDetailItemApi = {
 export type SellerOrderDetailApi = {
   id: string
   orderNumber: string
+  /** True if any line on the order is delivered (cancelling any line is blocked). */
+  orderHasDeliveredLine: boolean
   status: string
   totalAmount: number
   subtotal: number
   tax: number
   shipping: number
   commission: number
+  /** Your net for this order’s service lines: gross − platform commission. */
+  sellerNet: number
   commissionRate: number
   paymentMethod: string | null
   paymentStatus: string

@@ -3,6 +3,8 @@ import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { isAdmin } from "@/lib/rbac"
 import { createExchangeReplacementOrderItem } from "@/lib/exchange-replacement"
+import { creditReturnRefundToWalletOnPickup } from "@/lib/return-refund-wallet"
+import { applySellerCreditForExchangeTopUpCollected } from "@/lib/seller-customer-wallet-mirror"
 
 type ReturnAction =
   | "ACCEPT"
@@ -44,6 +46,7 @@ export async function PATCH(
     },
     select: {
       id: true,
+      customerId: true,
       sellerId: true,
       status: true,
       pickupStatus: true,
@@ -68,20 +71,30 @@ export async function PATCH(
     if (req.exchangeTopUpStatus !== "PENDING") {
       return NextResponse.json({ error: "Top-up is not pending" }, { status: 400 })
     }
-    const updated = await prisma.returnRequest.update({
-      where: { id: req.id },
-      data: { exchangeTopUpStatus: "COMPLETED" },
-      select: {
-        id: true,
-        status: true,
-        pickupStatus: true,
-        refundStatus: true,
-        resolutionType: true,
-        exchangeTopUpAmount: true,
-        exchangeTopUpStatus: true,
-        exchangeRefundDifferenceAmount: true,
-        exchangeRefundDifferenceStatus: true,
-      },
+    const topUp = req.exchangeTopUpAmount ?? 0
+    const updated = await prisma.$transaction(async (tx) => {
+      await applySellerCreditForExchangeTopUpCollected(tx, {
+        sellerId: req.sellerId,
+        returnRequestId: req.id,
+        orderId,
+        amount: topUp,
+        note: "Exchange upgrade: price difference collected from customer (recorded as received)",
+      })
+      return tx.returnRequest.update({
+        where: { id: req.id },
+        data: { exchangeTopUpStatus: "COMPLETED" },
+        select: {
+          id: true,
+          status: true,
+          pickupStatus: true,
+          refundStatus: true,
+          resolutionType: true,
+          exchangeTopUpAmount: true,
+          exchangeTopUpStatus: true,
+          exchangeRefundDifferenceAmount: true,
+          exchangeRefundDifferenceStatus: true,
+        },
+      })
     })
     return NextResponse.json({ success: true, returnRequest: updated })
   }
@@ -170,6 +183,32 @@ export async function PATCH(
     if (req.status !== "ACCEPTED") {
       return NextResponse.json({ error: "Pickup can be completed only for accepted returns" }, { status: 400 })
     }
+    if (req.pickupStatus === "COMPLETED") {
+      const updated = await prisma.returnRequest.findUnique({
+        where: { id: req.id },
+        select: { id: true, status: true, pickupStatus: true, refundStatus: true, resolutionType: true },
+      })
+      return NextResponse.json({ success: true, returnRequest: updated })
+    }
+
+    if (req.resolutionType === "REFUND") {
+      const updated = await prisma.$transaction(async (tx) => {
+        await creditReturnRefundToWalletOnPickup(tx, {
+          returnRequestId: req.id,
+          customerId: req.customerId,
+          orderItemId,
+          sellerId: req.sellerId,
+          orderId,
+        })
+        return tx.returnRequest.update({
+          where: { id: req.id },
+          data: { pickupStatus: "COMPLETED", refundStatus: "COMPLETED" },
+          select: { id: true, status: true, pickupStatus: true, refundStatus: true, resolutionType: true },
+        })
+      })
+      return NextResponse.json({ success: true, returnRequest: updated })
+    }
+
     const updated = await prisma.returnRequest.update({
       where: { id: req.id },
       data: { pickupStatus: "COMPLETED" },
@@ -178,38 +217,54 @@ export async function PATCH(
     return NextResponse.json({ success: true, returnRequest: updated })
   }
 
+  if (action !== "REFUND_COMPLETED") {
+    return NextResponse.json({ error: "Invalid action" }, { status: 400 })
+  }
+
   if (req.status !== "ACCEPTED") {
     return NextResponse.json({ error: "Refund can be completed only for accepted returns" }, { status: 400 })
   }
   if (req.pickupStatus !== "COMPLETED") {
-    return NextResponse.json({ error: "Complete pickup before refund" }, { status: 400 })
+    return NextResponse.json({ error: "Complete pickup before finalizing return" }, { status: 400 })
+  }
+  if (req.resolutionType === "REFUND" && req.refundStatus !== "COMPLETED") {
+    return NextResponse.json(
+      { error: "Wallet credit is applied when pickup is completed; complete pickup first" },
+      { status: 400 }
+    )
   }
 
   const updated = await prisma.$transaction(async (tx) => {
-    const rr = await tx.returnRequest.update({
+    const current = await tx.orderItem.findUnique({
+      where: { id: orderItemId },
+      select: { itemStatus: true, productVariantId: true, quantity: true },
+    })
+    if (!current) {
+      throw new Error("Order item not found")
+    }
+    if (current.itemStatus !== "REFUNDED") {
+      await tx.orderItem.update({
+        where: { id: orderItemId },
+        data: { itemStatus: "REFUNDED" },
+      })
+      await tx.orderItemStatusHistory.create({
+        data: {
+          orderItemId,
+          status: "REFUNDED",
+          note: "Return finalized: item refunded and restocked",
+        },
+      })
+      if (current.productVariantId) {
+        await tx.productVariant.update({
+          where: { id: current.productVariantId },
+          data: { stock: { increment: current.quantity } },
+        })
+      }
+    }
+    return tx.returnRequest.findUnique({
       where: { id: req.id },
-      data: { refundStatus: "COMPLETED" },
       select: { id: true, status: true, pickupStatus: true, refundStatus: true, resolutionType: true },
     })
-    const item = await tx.orderItem.update({
-      where: { id: orderItemId },
-      data: { itemStatus: "REFUNDED" },
-      select: { productId: true, productVariantId: true, quantity: true },
-    })
-    await tx.orderItemStatusHistory.create({
-      data: {
-        orderItemId,
-        status: "REFUNDED",
-        note: "Refund completed",
-      },
-    })
-    if (item.productVariantId) {
-      await tx.productVariant.update({
-        where: { id: item.productVariantId },
-        data: { stock: { increment: item.quantity } },
-      })
-    }
-    return rr
   })
 
   return NextResponse.json({ success: true, returnRequest: updated })

@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma"
 import { isServiceSeller } from "@/lib/rbac"
 import { getPaginationFromSearchParams } from "@/lib/admin-pagination"
 import { deriveOrderStatus } from "@/lib/order-status"
+import { serviceSellerItemsNet } from "@/lib/service-seller-order-money"
 
 export async function GET(request: NextRequest) {
   const session = await auth()
@@ -38,15 +39,25 @@ export async function GET(request: NextRequest) {
 
   const totalPages = Math.ceil(totalCount / perPage) || 1
 
-  const serialized = orders.map((order) => ({
-    ...order,
-    status: deriveOrderStatus(order.items.map((item) => item.itemStatus)),
-    totalAmount: order.items.reduce((sum, item) => sum + (item.subtotalInclGst ?? item.subtotal + item.gstAmount) + item.shippingAmount, 0),
-    subtotal: order.items.reduce((sum, item) => sum + item.subtotal, 0),
-    tax: order.items.reduce((sum, item) => sum + item.gstAmount, 0),
-    shipping: order.items.reduce((sum, item) => sum + item.shippingAmount, 0),
-    commission: order.items.reduce((sum, item) => sum + item.commissionAmount, 0),
-  }))
+  const serialized = orders.map((order) => {
+    const items = order.items
+    const totalAmount = items.reduce(
+      (sum, item) => sum + (item.subtotalInclGst ?? item.subtotal + item.gstAmount) + item.shippingAmount,
+      0
+    )
+    const commission = items.reduce((sum, item) => sum + item.commissionAmount, 0)
+    const sellerNet = serviceSellerItemsNet(items)
+    return {
+      ...order,
+      status: deriveOrderStatus(order.items.map((item) => item.itemStatus)),
+      totalAmount,
+      subtotal: order.items.reduce((sum, item) => sum + item.subtotal, 0),
+      tax: order.items.reduce((sum, item) => sum + item.gstAmount, 0),
+      shipping: order.items.reduce((sum, item) => sum + item.shippingAmount, 0),
+      commission,
+      sellerNet,
+    }
+  })
 
   return NextResponse.json({
     orders: serialized,

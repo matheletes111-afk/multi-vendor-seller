@@ -50,9 +50,13 @@ export async function GET() {
     return {
       id: tx.id,
       amount: Number(tx.amount),
+      /** Customer wallet only increases; all entries are credits to the customer. */
+      kind: "CREDIT" as const,
       reason: tx.reason,
       note: tx.note,
       createdAt: tx.createdAt.toISOString(),
+      returnRequestId: tx.returnRequestId,
+      resolutionType: rr?.resolutionType ?? null,
       orderNumber,
       orderId,
       orderItemProductName,
