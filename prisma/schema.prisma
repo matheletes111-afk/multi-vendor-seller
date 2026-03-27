@@ -224,7 +224,7 @@ model Seller {
   isSuspended Boolean    @default(false)
   nationIdentityNumber String? // Used by admin to verify seller profile during approval
   adBalance   Decimal    @default(0) // Phase 2: top-up; Phase 1: track only
-  /// Net position in the platform: decreases when customers get wallet credits; increases when you record exchange top-up collected.
+  /// Net position: + seller net when lines are delivered, − customer wallet credits (returns/exchange diff), + exchange top-up recorded.
   netBalance  Decimal    @default(0) @db.Decimal(14, 2)
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
@@ -249,16 +249,21 @@ model SellerBalanceTransaction {
   amount          Decimal              @db.Decimal(14, 2)
   kind            SellerBalanceTxnKind @default(DEBIT)
   reason          String
-  returnRequestId String
+  /// Wallet / return-linked rows (debits and exchange top-up credits).
+  returnRequestId String?
+  /// Product line delivery settlement (CREDIT seller net when line is delivered). Set for all rows; mirrors return request line when applicable.
+  orderItemId     String?
   orderId         String?
   note            String?
   createdAt       DateTime             @default(now())
 
-  seller        Seller        @relation(fields: [sellerId], references: [id], onDelete: Cascade)
-  returnRequest ReturnRequest @relation(fields: [returnRequestId], references: [id], onDelete: Cascade)
+  seller        Seller         @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  returnRequest ReturnRequest? @relation(fields: [returnRequestId], references: [id], onDelete: Cascade)
+  orderItem     OrderItem?     @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
 
-  @@unique([returnRequestId, reason])
   @@index([sellerId, createdAt])
+  @@index([returnRequestId])
+  @@index([orderItemId, reason])
   @@map("seller_balance_transactions")
 }
 
@@ -706,6 +711,7 @@ model OrderItem {
   exchangeSourceOrderItem    OrderItem?     @relation("ExchangeReplacement", fields: [exchangeSourceOrderItemId], references: [id], onDelete: SetNull)
   exchangeReplacementItems   OrderItem[]    @relation("ExchangeReplacement")
   statusHistory  OrderItemStatusHistory[]
+  sellerBalanceTransactions SellerBalanceTransaction[]
 
   @@index([exchangeSourceOrderItemId])
 

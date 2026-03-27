@@ -12,6 +12,7 @@ import { ADMIN_ORDER_STATUSES } from "../types"
 import { deriveOrderStatus, summarizeSellerItemStatuses } from "@/lib/order-status"
 import { parseReturnImagesJson } from "@/lib/return-request-validation"
 import { completeExchangeOnReplacementDelivered } from "@/lib/exchange-completion"
+import { applySellerCreditForOrderLineDelivered } from "@/lib/seller-order-line-settlement"
 import {
   getOrderHasDeliveredLine,
   ORDER_CANCEL_BLOCKED_DELIVERED,
@@ -326,6 +327,11 @@ export async function PATCH(
           note: note || null,
         })),
       })
+      if (status === "DELIVERED") {
+        for (const id of targetItemIds) {
+          await applySellerCreditForOrderLineDelivered(tx, id)
+        }
+      }
     })
 
     if (status === "DELIVERED") {

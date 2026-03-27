@@ -20,6 +20,7 @@ import {
   ORDER_CANCEL_BLOCKED_DELIVERED,
   ORDER_ITEM_LOCKED_AFTER_DELIVERED,
 } from "@/lib/order-cancel-guard"
+import { applySellerCreditForOrderLineDelivered } from "@/lib/seller-order-line-settlement"
 
 function isValidSellerStatus(s: string): s is PatchOrderStatusPayload["status"] {
   return SELLER_ORDER_STATUSES.includes(s as PatchOrderStatusPayload["status"])
@@ -266,6 +267,11 @@ export async function PATCH(
           note: note || null,
         })),
       })
+      if (status === "DELIVERED") {
+        for (const id of targetItemIds) {
+          await applySellerCreditForOrderLineDelivered(tx, id)
+        }
+      }
     })
 
     if (status === "DELIVERED") {

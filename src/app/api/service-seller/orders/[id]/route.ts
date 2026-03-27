@@ -17,6 +17,7 @@ import {
   ORDER_CANCEL_BLOCKED_DELIVERED,
   ORDER_ITEM_LOCKED_AFTER_DELIVERED,
 } from "@/lib/order-cancel-guard"
+import { applySellerCreditForOrderLineDelivered } from "@/lib/seller-order-line-settlement"
 
 function isValidServiceSellerItemStatus(s: string): boolean {
   return (SERVICE_SELLER_LINE_ITEM_STATUS_OPTIONS as readonly string[]).includes(s)
@@ -241,6 +242,11 @@ export async function PATCH(
         note: note || null,
       })),
     })
+    if (status === "DELIVERED") {
+      for (const id of targetItemIds) {
+        await applySellerCreditForOrderLineDelivered(tx, id)
+      }
+    }
     if (status === "CANCELLED") {
       await releaseServiceSlotsForOrderItems(tx, targetItemIds)
     }

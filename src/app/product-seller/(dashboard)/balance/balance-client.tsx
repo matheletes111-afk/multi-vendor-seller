@@ -28,6 +28,7 @@ type Tx = {
 }
 
 function reasonLabel(reason: string): string {
+  if (reason === "ORDER_LINE_DELIVERED") return "Order line delivered — your net (after commission)"
   if (reason === "RETURN_REFUND") return "Return refund credited to customer wallet"
   if (reason === "EXCHANGE_PRICE_DIFFERENCE") return "Cheaper exchange — difference credited to customer wallet"
   if (reason === "EXCHANGE_TOP_UP_COLLECTED") return "Exchange upgrade — top-up you recorded as received"
@@ -83,8 +84,9 @@ export function BalanceClient() {
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Net balance &amp; transactions</h1>
         <p className="text-muted-foreground mt-2 max-w-2xl text-sm leading-relaxed">
-          Your platform net balance moves when customers receive wallet credits (debits to you) and when you record
-          exchange upgrade payments collected (credits to you). The list below matches those events.
+          Your net balance increases when an order line is marked delivered (your share after commission) and when you
+          record exchange upgrade payments. It decreases when customers receive wallet credits from returns or cheaper
+          exchanges. The list below matches those events.
         </p>
       </div>
 
@@ -95,7 +97,8 @@ export function BalanceClient() {
             Net balance
           </CardTitle>
           <CardDescription>
-            Credits add when you record exchange top-ups received; charges apply when customers get wallet credits.
+            Credits add when lines are delivered and when you record exchange top-ups; charges apply when customers get
+            wallet credits.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">

@@ -3,7 +3,7 @@ import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { isProductSeller } from "@/lib/rbac"
 
-/** GET /api/product-seller/balance-transactions — net balance + ledger (customer wallet credits charged to seller). */
+/** GET /api/product-seller/balance-transactions — net balance + ledger (delivered-line credits, wallet debits, exchange top-ups). */
 export async function GET() {
   const session = await auth()
   if (!session?.user || !isProductSeller(session.user)) {
@@ -35,6 +35,13 @@ export async function GET() {
           },
         },
       },
+      orderItem: {
+        select: {
+          productNameSnapshot: true,
+          serviceNameSnapshot: true,
+          order: { select: { id: true, orderNumber: true } },
+        },
+      },
     },
   }),
     prisma.sellerBalanceTransaction.aggregate({
@@ -48,10 +55,12 @@ export async function GET() {
   ])
 
   const transactions = rows.map((r) => {
-    const order = r.returnRequest?.orderItem?.order
+    const order = r.returnRequest?.orderItem?.order ?? r.orderItem?.order
     const lineName =
       r.returnRequest?.orderItem?.productNameSnapshot ??
       r.returnRequest?.orderItem?.serviceNameSnapshot ??
+      r.orderItem?.productNameSnapshot ??
+      r.orderItem?.serviceNameSnapshot ??
       null
     return {
       id: r.id,

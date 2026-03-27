@@ -20,6 +20,12 @@ export async function applySellerDebitForCustomerWalletCredit(
   })
   if (existing) return
 
+  const rr = await tx.returnRequest.findUnique({
+    where: { id: params.returnRequestId },
+    select: { orderItemId: true },
+  })
+  if (!rr) throw new Error("Return request not found for seller balance transaction")
+
   await tx.seller.update({
     where: { id: params.sellerId },
     data: { netBalance: { decrement: params.amount } },
@@ -31,6 +37,7 @@ export async function applySellerDebitForCustomerWalletCredit(
       kind: "DEBIT",
       reason: params.reason,
       returnRequestId: params.returnRequestId,
+      orderItemId: rr.orderItemId,
       orderId: params.orderId,
       note: params.note,
     },
@@ -56,6 +63,12 @@ export async function applySellerCreditForExchangeTopUpCollected(
   })
   if (existing) return
 
+  const rr = await tx.returnRequest.findUnique({
+    where: { id: params.returnRequestId },
+    select: { orderItemId: true },
+  })
+  if (!rr) throw new Error("Return request not found for seller balance transaction")
+
   await tx.seller.update({
     where: { id: params.sellerId },
     data: { netBalance: { increment: params.amount } },
@@ -67,6 +80,7 @@ export async function applySellerCreditForExchangeTopUpCollected(
       kind: "CREDIT",
       reason,
       returnRequestId: params.returnRequestId,
+      orderItemId: rr.orderItemId,
       orderId: params.orderId,
       note: params.note,
     },
