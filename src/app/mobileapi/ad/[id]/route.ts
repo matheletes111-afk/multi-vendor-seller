@@ -1,12 +1,14 @@
-import { NextResponse } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 
+// Fix: Use NextRequest and await params
 export async function GET(
-  request: Request,
-  { params }: { params: { id: string } }
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params
+    // Await the params (required in Next.js 15+)
+    const { id } = await params
     
     // Fetch ad with all relations
     const ad = await prisma.sellerAd.findUnique({
