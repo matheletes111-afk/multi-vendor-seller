@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
-/** GET a single active ad by id with connected product/service for the ad page. Public, no auth. */
+/** GET a single active ad by id with optional connected product/service for the ad page. Public, no auth. */
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -9,14 +9,11 @@ export async function GET(
   const { id } = await params;
   if (!id) return NextResponse.json({ error: "Ad id required" }, { status: 400 });
 
-  const now = new Date();
   try {
     const ad = await prisma.sellerAd.findFirst({
       where: {
         id,
         status: "ACTIVE",
-        startAt: { lte: now },
-        endAt: { gte: now },
       },
       select: {
         id: true,
