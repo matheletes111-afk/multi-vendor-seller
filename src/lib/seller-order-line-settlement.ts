@@ -35,7 +35,6 @@ export async function applySellerCreditForOrderLineDelivered(
       subtotal: true,
       gstAmount: true,
       shippingAmount: true,
-      commissionAmount: true,
       itemStatus: true,
     },
   })
@@ -43,22 +42,22 @@ export async function applySellerCreditForOrderLineDelivered(
   if (!item.productId && !item.serviceId) return
 
   const lineIncl = originalOrderItemLineTotalInclGst(item)
-  const sellerNet = roundMoney(lineIncl + item.shippingAmount - item.commissionAmount)
-  if (sellerNet <= EPS) return
+  const creditAmount = roundMoney(lineIncl + item.shippingAmount)
+  if (creditAmount <= EPS) return
 
   await tx.seller.update({
     where: { id: item.sellerId },
-    data: { netBalance: { increment: sellerNet } },
+    data: { netBalance: { increment: creditAmount } },
   })
   await tx.sellerBalanceTransaction.create({
     data: {
       sellerId: item.sellerId,
-      amount: sellerNet,
+      amount: creditAmount,
       kind: "CREDIT",
       reason: SELLER_BALANCE_REASON_ORDER_LINE_DELIVERED,
       orderItemId: item.id,
       orderId: item.orderId,
-      note: "Seller net when line marked delivered (line incl. GST + shipping − commission)",
+      note: "Seller credit when line marked delivered (line incl. GST + shipping)",
     },
   })
 }

@@ -28,7 +28,7 @@ type Tx = {
 }
 
 function reasonLabel(reason: string): string {
-  if (reason === "ORDER_LINE_DELIVERED") return "Order line delivered — your net (after commission)"
+  if (reason === "ORDER_LINE_DELIVERED") return "Order line delivered"
   if (reason === "RETURN_REFUND") return "Return refund credited to customer wallet"
   if (reason === "EXCHANGE_PRICE_DIFFERENCE") return "Cheaper exchange — difference credited to customer wallet"
   if (reason === "EXCHANGE_TOP_UP_COLLECTED") return "Exchange upgrade — top-up you recorded as received"
