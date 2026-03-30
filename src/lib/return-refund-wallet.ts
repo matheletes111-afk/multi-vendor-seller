@@ -1,4 +1,4 @@
-import type { Prisma } from "@prisma/client"
+import { Prisma } from "@prisma/client"
 import { originalOrderItemLineTotalInclGst } from "@/lib/exchange-pricing"
 import { applySellerDebitForCustomerWalletCredit } from "@/lib/seller-customer-wallet-mirror"
 
@@ -42,18 +42,31 @@ export async function creditReturnRefundToWalletOnPickup(
     return { creditedAmount: Number(existing.amount) }
   }
 
+  // Create the wallet transaction first so concurrency cannot double-credit.
+  // If a second request races, it will hit the unique constraint and we treat it as already processed.
+  try {
+    await tx.walletTransaction.create({
+      data: {
+        userId: params.customerId,
+        amount,
+        reason: "RETURN_REFUND",
+        returnRequestId: params.returnRequestId,
+        note: "Return refund: credited to wallet after pickup (item received)",
+      },
+    })
+  } catch (e) {
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
+      const created = await tx.walletTransaction.findUnique({
+        where: { returnRequestId: params.returnRequestId },
+      })
+      return { creditedAmount: created ? Number(created.amount) : amount }
+    }
+    throw e
+  }
+
   await tx.user.update({
     where: { id: params.customerId },
     data: { walletBalance: { increment: amount } },
-  })
-  await tx.walletTransaction.create({
-    data: {
-      userId: params.customerId,
-      amount,
-      reason: "RETURN_REFUND",
-      returnRequestId: params.returnRequestId,
-      note: "Return refund: credited to wallet after pickup (item received)",
-    },
   })
   await applySellerDebitForCustomerWalletCredit(tx, {
     sellerId: params.sellerId,
