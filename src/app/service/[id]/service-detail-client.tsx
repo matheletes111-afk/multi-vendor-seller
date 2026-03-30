@@ -10,6 +10,8 @@ import { PublicLayout } from "@/components/site-layout"
 import { PublicReviewsSection, StarRow, type PublicReviewItem } from "@/components/reviews/public-reviews-section"
 import { UserRole } from "@prisma/client"
 import { Briefcase, Calendar, ChevronRight, Clock, Loader2, Truck } from "lucide-react"
+import { WishlistButton } from "@/components/product/WishlistButton"
+import { ShareButton } from "@/components/share-button"
 
 type Service = {
   id: string
@@ -198,7 +200,10 @@ export function ServiceDetailClient({ service }: { service: Service }) {
             {/* Right: Title, price, slot selection, actions */}
             <div className="flex-1">
               <p className="text-sm text-slate-500">{service.serviceCategory.name}</p>
-              <h1 className="mt-1 text-2xl font-bold text-slate-900 md:text-3xl">{service.name}</h1>
+              <div className="mt-1 flex items-start justify-between gap-3">
+                <h1 className="min-w-0 flex-1 text-2xl font-bold text-slate-900 md:text-3xl">{service.name}</h1>
+                <ShareButton title={service.name} className="shrink-0" />
+              </div>
               <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <StarRow rating={service.averageRating} size="h-5 w-5" />
@@ -344,14 +349,17 @@ export function ServiceDetailClient({ service }: { service: Service }) {
                     </p>
                   )}
                   {canBook && (
-                    <Button
-                      size="lg"
-                      className="bg-amber-400 text-black hover:bg-amber-500"
-                      onClick={goToBook}
-                      disabled={canProceedToBook === false}
-                    >
-                      Book now
-                    </Button>
+                    <div className="flex flex-wrap items-center gap-3">
+                      <Button
+                        size="lg"
+                        className="bg-amber-400 text-black hover:bg-amber-500"
+                        onClick={goToBook}
+                        disabled={canProceedToBook === false}
+                      >
+                        Book now
+                      </Button>
+                      <WishlistButton serviceId={service.id} className="h-11 w-11 border border-slate-200" />
+                    </div>
                   )}
                 </div>
               )}

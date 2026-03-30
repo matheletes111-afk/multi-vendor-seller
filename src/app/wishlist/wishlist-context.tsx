@@ -12,11 +12,21 @@ type WishlistProduct = {
   price: number | null
 }
 
+type WishlistService = {
+  id: string
+  name: string
+  slug: string
+  image: string | null
+  price: number | null
+}
+
 export type WishlistItem = {
   wishlistItemId: string
-  productId: string
+  productId: string | null
+  serviceId: string | null
   createdAt: string
-  product: WishlistProduct
+  product: WishlistProduct | null
+  service: WishlistService | null
 }
 
 type WishlistResponse = {
@@ -36,10 +46,16 @@ type WishlistContextValue = {
   count: number
   loading: boolean
   canUseWishlist: boolean
-  isWishlisted: (productId: string) => boolean
+  isWishlisted: (productId?: string, serviceId?: string) => boolean
   refreshWishlist: () => Promise<void>
-  toggleWishlist: (productId: string) => Promise<{ action: "added" | "removed" } | { error: string }>
-  removeWishlist: (productId: string) => Promise<{ action: "removed" } | { error: string }>
+  toggleWishlist: (
+    productId?: string,
+    serviceId?: string
+  ) => Promise<{ action: "added" | "removed" } | { error: string }>
+  removeWishlist: (
+    productId?: string,
+    serviceId?: string
+  ) => Promise<{ action: "removed" } | { error: string }>
 }
 
 const WishlistContext = createContext<WishlistContextValue | null>(null)
@@ -83,22 +99,34 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
   }, [refreshWishlist])
 
   const isWishlisted = useCallback(
-    (productId: string) => items.some((item) => item.productId === productId),
+    (productId?: string, serviceId?: string) => {
+      if (productId) {
+        return items.some((item) => item.productId === productId && item.serviceId == null)
+      }
+      if (serviceId) {
+        return items.some((item) => item.serviceId === serviceId && item.productId == null)
+      }
+      return false
+    },
     [items]
   )
 
   const toggleWishlist = useCallback(
     async (
-      productId: string
+      productId?: string,
+      serviceId?: string
     ): Promise<{ action: "added" | "removed" } | { error: string }> => {
       if (!canUseWishlist) return { error: "Only logged-in customers can use wishlist." }
+      if (!productId && !serviceId) return { error: "productId or serviceId is required" }
+      if (productId && serviceId) return { error: "Cannot add both productId and serviceId" }
+
       setLoading(true)
       try {
         const response = await fetch("/api/customer/wishlist", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
-          body: JSON.stringify({ productId }),
+          body: JSON.stringify({ productId, serviceId }),
         })
         if (!response.ok) {
           const errorData = (await response.json().catch(() => ({}))) as { error?: string }
@@ -109,11 +137,15 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
         const action = data.action === "removed" ? "removed" : "added"
 
         setItems((prev) => {
+          const matchesTarget = (item: WishlistItem) =>
+            productId
+              ? item.productId === productId && item.serviceId == null
+              : item.serviceId === serviceId && item.productId == null
           if (action === "removed") {
-            return prev.filter((item) => item.productId !== productId)
+            return prev.filter((item) => !matchesTarget(item))
           }
           if (!data.item) return prev
-          const withoutExisting = prev.filter((item) => item.productId !== productId)
+          const withoutExisting = prev.filter((item) => !matchesTarget(item))
           return [data.item, ...withoutExisting]
         })
         if (typeof data.count === "number") {
@@ -132,22 +164,30 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
   )
 
   const removeWishlist = useCallback(
-    async (productId: string) => {
+    async (productId?: string, serviceId?: string) => {
       if (!canUseWishlist) return { error: "Only logged-in customers can use wishlist." }
+      if (!productId && !serviceId) return { error: "productId or serviceId is required" }
+
       setLoading(true)
       try {
         const response = await fetch("/api/customer/wishlist", {
           method: "DELETE",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
-          body: JSON.stringify({ productId }),
+          body: JSON.stringify({ productId, serviceId }),
         })
         if (!response.ok) {
           const errorData = (await response.json().catch(() => ({}))) as { error?: string }
           return { error: errorData.error ?? "Could not remove from wishlist." }
         }
         const data = (await response.json()) as ToggleResponse
-        setItems((prev) => prev.filter((item) => item.productId !== productId))
+        setItems((prev) =>
+          prev.filter((item) =>
+            productId
+              ? !(item.productId === productId && item.serviceId == null)
+              : !(item.serviceId === serviceId && item.productId == null)
+          )
+        )
         if (typeof data.count === "number") setCount(data.count)
         else setCount((prev) => Math.max(0, prev - 1))
         return { action: "removed" as const }

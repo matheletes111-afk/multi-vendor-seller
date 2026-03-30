@@ -1,16 +1,30 @@
 import { NextRequest, NextResponse } from "next/server";
+import { UserRole } from "@prisma/client";
+import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
-/** GET products for home: optional categoryId for "Best Sellers in X", else featured + latest. Public, no auth. */
+/** GET products for home: optional categoryId for "Best Sellers in X", else featured + latest. Logged-in customers with category interests get products from those categories (Explore / For you). */
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const categoryId = searchParams.get("categoryId");
     const limit = Math.min(Number(searchParams.get("limit")) || 12, 24);
 
-    const where = { isActive: true };
+    const where: { isActive: boolean; categoryId?: string | { in: string[] } } = { isActive: true };
     if (categoryId) {
-      (where as any).categoryId = categoryId;
+      where.categoryId = categoryId;
+    } else {
+      const session = await auth();
+      if (session?.user?.id && session.user.role === UserRole.CUSTOMER) {
+        const interests = await prisma.userCategoryInterest.findMany({
+          where: { userId: session.user.id },
+          select: { categoryId: true },
+        });
+        const ids = interests.map((i) => i.categoryId);
+        if (ids.length > 0) {
+          where.categoryId = { in: ids };
+        }
+      }
     }
 
     const products = await prisma.product.findMany({

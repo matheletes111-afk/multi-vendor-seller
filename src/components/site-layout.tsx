@@ -485,16 +485,20 @@ export function SiteHeader() {
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 {topWishlistItems.length === 0 ? (
-                  <div className="px-3 py-4 text-sm text-slate-600">No products in wishlist yet.</div>
+                  <div className="px-3 py-4 text-sm text-slate-600">No items in wishlist yet.</div>
                 ) : (
                   <div className="max-h-80 overflow-y-auto">
                     {topWishlistItems.map((item) => (
                       <DropdownMenuItem key={item.wishlistItemId} asChild className="p-0">
                         <div className="flex items-center gap-2 px-3 py-2.5">
-                          <Link href={`/product/${item.productId}`} className="flex min-w-0 flex-1 items-center gap-3">
+                          <Link
+                            href={item.productId ? `/product/${item.productId}` : `/service/${item.serviceId}`}
+                            className="flex min-w-0 flex-1 items-center gap-3"
+                          >
                             <div className="h-12 w-12 shrink-0 overflow-hidden rounded-md bg-slate-100">
-                              {item.product.image ? (
-                                <img src={item.product.image} alt={item.product.name} className="h-full w-full object-cover" />
+                              {(item.product?.image || item.service?.image) ? (
+                                /* eslint-disable-next-line @next/next/no-img-element */
+                                <img src={item.product?.image || item.service?.image || ""} alt={item.product?.name || item.service?.name || ""} className="h-full w-full object-cover" />
                               ) : (
                                 <div className="flex h-full w-full items-center justify-center text-slate-400">
                                   <Heart className="h-4 w-4" />
@@ -502,9 +506,9 @@ export function SiteHeader() {
                               )}
                             </div>
                             <div className="min-w-0 flex-1">
-                              <p className="line-clamp-2 text-sm font-medium text-slate-900">{item.product.name}</p>
-                              {typeof item.product.price === "number" && (
-                                <p className="text-xs font-semibold text-blue-600">{formatCurrency(item.product.price)}</p>
+                              <p className="line-clamp-2 text-sm font-medium text-slate-900">{item.product?.name || item.service?.name}</p>
+                              {typeof (item.product?.price || item.service?.price) === "number" && (
+                                <p className="text-xs font-semibold text-blue-600">{formatCurrency(item.product?.price || item.service?.price || 0)}</p>
                               )}
                             </div>
                           </Link>
@@ -516,9 +520,9 @@ export function SiteHeader() {
                             onClick={(event) => {
                               event.preventDefault()
                               event.stopPropagation()
-                              void removeWishlist(item.productId)
+                              void removeWishlist(item.productId ?? undefined, item.serviceId ?? undefined)
                             }}
-                            aria-label={`Remove ${item.product.name} from wishlist`}
+                            aria-label={`Remove ${item.product?.name || item.service?.name} from wishlist`}
                             title="Remove from wishlist"
                           >
                             <Trash2 className="h-4 w-4" />
@@ -531,7 +535,7 @@ export function SiteHeader() {
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
                   <Link href="/browse" className="justify-center py-2 font-medium text-blue-700">
-                    Browse more products
+                    Browse marketplace
                   </Link>
                 </DropdownMenuItem>
               </DropdownMenuContent>

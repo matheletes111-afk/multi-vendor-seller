@@ -42,6 +42,7 @@ export async function GET(request: NextRequest) {
               store: { select: { name: true } },
             },
           },
+          customer: { select: { email: true, name: true } },
           product: { select: { id: true, name: true } },
           service: { select: { id: true, name: true } },
           _count: { select: { adClicks: true } },

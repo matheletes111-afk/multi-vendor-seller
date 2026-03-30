@@ -10,6 +10,7 @@ import { getYoutubeEmbedUrl } from "@/lib/youtube"
 import { PublicLayout } from "@/components/site-layout"
 import { useCart } from "@/app/cart/cart-context"
 import { WishlistButton } from "@/components/product/WishlistButton"
+import { ShareButton } from "@/components/share-button"
 import { PublicReviewsSection, type PublicReviewItem } from "@/components/reviews/public-reviews-section"
 import { UserRole } from "@prisma/client"
 import { PageLoader } from "@/components/ui/page-loader"
@@ -232,7 +233,10 @@ export function ProductDetailClient({ productId }: { productId: string }) {
             {/* Right: Title, price, actions */}
             <div className="min-w-0 flex-1">
               <p className="text-xs text-slate-500 sm:text-sm">{product.category.name}</p>
-              <h1 className="mt-1 text-xl font-bold text-slate-900 sm:text-2xl md:text-3xl">{product.name}</h1>
+              <div className="mt-1 flex items-start justify-between gap-3">
+                <h1 className="min-w-0 flex-1 text-xl font-bold text-slate-900 sm:text-2xl md:text-3xl">{product.name}</h1>
+                <ShareButton title={product.name} className="shrink-0" />
+              </div>
               {product._count.reviews > 0 && (
                 <p className="mt-2 text-sm text-slate-600">
                   {product.averageRating.toFixed(1)} rating from {product._count.reviews} review

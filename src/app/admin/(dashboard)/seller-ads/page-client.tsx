@@ -39,7 +39,8 @@ type Ad = {
   seller: {
     user: { email: string | null; name: string | null }
     store: { name: string | null } | null
-  }
+  } | null
+  customer: { email: string | null; name: string | null } | null
   product: { id: string; name: string } | null
   service: { id: string; name: string } | null
   _count: { adClicks: number }
@@ -242,13 +243,22 @@ export function AdminSellerAdsPageClient() {
                     </TableCell>
                     <TableCell className="font-medium max-w-[180px]">{ad.title}</TableCell>
                     <TableCell className="text-muted-foreground">
-                      <div>{ad.seller.store?.name || ad.seller.user.email}</div>
-                      {ad.seller.store?.name && (
-                        <div className="text-xs">{ad.seller.user.email}</div>
+                      {ad.seller ? (
+                        <>
+                          <div>{ad.seller.store?.name || ad.seller.user.email}</div>
+                          {ad.seller.store?.name && <div className="text-xs">{ad.seller.user.email}</div>}
+                        </>
+                      ) : ad.customer ? (
+                        <>
+                          <div>Customer</div>
+                          <div className="text-xs">{ad.customer.email}</div>
+                        </>
+                      ) : (
+                        "—"
                       )}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {ad.product ? ad.product.name : ad.service ? ad.service.name : "—"}
+                      {ad.product ? ad.product.name : ad.service ? ad.service.name : "Own business"}
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline">{ad.creativeType}</Badge>

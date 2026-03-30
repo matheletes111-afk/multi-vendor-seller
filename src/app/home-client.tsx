@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { UserRole } from "@prisma/client";
@@ -33,6 +33,10 @@ const SUB_PLACEHOLDER_ICONS = [Package, Folder, LayoutGrid, Tag, BookOpen, Brief
 const PRODUCT_PLACEHOLDER_ICONS = [ShoppingBag, Box, Package, Gift, Sparkles, Tag];
 const SERVICE_PLACEHOLDER_ICONS = [Briefcase, Sparkles, Tag, Music, Dumbbell, Folder];
 import { PublicLayout } from "@/components/site-layout";
+import {
+  CategoryInterestModal,
+  type CategoryPickItem,
+} from "@/components/customer/category-interest-modal";
 
 type Banner = {
   id: string;
@@ -103,6 +107,11 @@ export function HomeClient() {
   const [sponsoredCarouselPaused, setSponsoredCarouselPaused] = useState(false);
   const [sponsoredIndex, setSponsoredIndex] = useState(0);
   const sponsoredScrollRef = useRef<HTMLDivElement>(null);
+  const [interestModalOpen, setInterestModalOpen] = useState(false);
+  const [interestPickerCategories, setInterestPickerCategories] = useState<CategoryPickItem[]>([]);
+  const [interestInitialIds, setInterestInitialIds] = useState<string[]>([]);
+  /** True when the customer has saved at least one category interest (drives “For you” label). */
+  const [hasCategoryInterests, setHasCategoryInterests] = useState(false);
   const bestSellersRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const serviceCarouselRef = useRef<HTMLDivElement>(null);
   // Mobile icon only on mobile; on web use main image only
@@ -118,7 +127,7 @@ export function HomeClient() {
   useEffect(() => {
     fetch("/api/home/banners")
       .then((r) => r.json())
-      .then(setBanners)
+      .then((data: unknown) => setBanners(Array.isArray(data) ? data : []))
       .catch(() => setBanners([]));
   }, []);
 
@@ -140,12 +149,49 @@ export function HomeClient() {
       });
   }, []);
 
-  useEffect(() => {
-    fetch("/api/home/products")
+  const refreshHomeProducts = useCallback(() => {
+    fetch("/api/home/products", { credentials: "include" })
       .then((r) => r.json())
-      .then(setRandomProducts)
+      .then((data: unknown) => {
+        setRandomProducts(Array.isArray(data) ? (data as Product[]) : []);
+      })
       .catch(() => setRandomProducts([]));
   }, []);
+
+  useEffect(() => {
+    refreshHomeProducts();
+  }, [refreshHomeProducts, status, session?.user?.id, session?.user?.role]);
+
+  useEffect(() => {
+    if (status !== "authenticated" || session?.user?.role !== UserRole.CUSTOMER) {
+      setInterestModalOpen(false);
+      setInterestPickerCategories([]);
+      setInterestInitialIds([]);
+      setHasCategoryInterests(false);
+      return;
+    }
+    let cancelled = false;
+    fetch("/api/customer/category-interests", { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: { needsPrompt?: boolean; categories?: CategoryPickItem[]; selectedIds?: string[] } | null) => {
+        if (cancelled || !data) return;
+        const selected = Array.isArray(data.selectedIds) ? data.selectedIds : [];
+        setHasCategoryInterests(selected.length > 0);
+        if (data.needsPrompt && Array.isArray(data.categories) && data.categories.length > 0) {
+          setInterestPickerCategories(data.categories);
+          setInterestInitialIds(selected);
+          setInterestModalOpen(true);
+        } else {
+          setInterestModalOpen(false);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setInterestModalOpen(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [status, session?.user?.role, session?.user?.id]);
 
   useEffect(() => {
     fetch("/api/home/services?limit=12")
@@ -171,8 +217,9 @@ export function HomeClient() {
     forProducts.forEach((cat) => {
       fetch(`/api/home/products?categoryId=${cat.id}&limit=10`)
         .then((r) => r.json())
-        .then((list: Product[]) => {
-          setProductsByCategory((prev) => ({ ...prev, [cat.id]: list }));
+        .then((list: unknown) => {
+          const rows = Array.isArray(list) ? (list as Product[]) : [];
+          setProductsByCategory((prev) => ({ ...prev, [cat.id]: rows }));
         })
         .catch(() => {});
     });
@@ -246,8 +293,26 @@ export function HomeClient() {
 
   const exploreProductsPreview = randomProducts.slice(0, 8);
 
+  const onInterestModalCompleted = useCallback(() => {
+    setInterestModalOpen(false);
+    fetch("/api/customer/category-interests", { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: { selectedIds?: string[] } | null) => {
+        const selected = Array.isArray(data?.selectedIds) ? data.selectedIds : [];
+        setHasCategoryInterests(selected.length > 0);
+      })
+      .catch(() => {});
+    refreshHomeProducts();
+  }, [refreshHomeProducts]);
+
   return (
     <PublicLayout>
+      <CategoryInterestModal
+        open={interestModalOpen}
+        categories={interestPickerCategories}
+        initialSelectedIds={interestInitialIds}
+        onCompleted={onInterestModalCompleted}
+      />
       <div className="flex-1" style={{ background: "#fefefe" }}>
         {categoriesLoading ? (
           <div className="flex min-h-[70vh] items-center justify-center">
@@ -606,10 +671,30 @@ export function HomeClient() {
           </section>
         )}
 
-        {/* Explore products: grid (filters hidden on home — use /browse to refine) */}
+        {/* Explore products / For you: grid (filters hidden on home — use /browse to refine) */}
+        {status === "authenticated" &&
+          session?.user?.role === UserRole.CUSTOMER &&
+          hasCategoryInterests &&
+          randomProducts.length === 0 &&
+          !interestModalOpen && (
+            <section className="container mx-auto px-3 sm:px-4 py-6 sm:py-8">
+              <h2 className="mb-2 text-lg font-bold text-slate-800 sm:text-xl">For you</h2>
+              <p className="mb-4 max-w-lg text-sm text-slate-600">
+                Nothing listed in your categories yet. Browse the marketplace to discover more.
+              </p>
+              <Button asChild className="bg-blue-600 text-white hover:bg-blue-700">
+                <Link href="/browse">Browse products</Link>
+              </Button>
+            </section>
+          )}
+
         {randomProducts.length > 0 && (
           <section className="container mx-auto px-3 sm:px-4 py-6 sm:py-8">
-            <h2 className="mb-4 text-lg font-bold text-slate-800 sm:mb-6 sm:text-xl">Explore products</h2>
+            <h2 className="mb-4 text-lg font-bold text-slate-800 sm:mb-6 sm:text-xl">
+              {status === "authenticated" && session?.user?.role === UserRole.CUSTOMER && hasCategoryInterests
+                ? "For you"
+                : "Explore products"}
+            </h2>
             <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
               {exploreProductsPreview.map((p, pIdx) => {
                 const ProductIcon = PRODUCT_PLACEHOLDER_ICONS[pIdx % PRODUCT_PLACEHOLDER_ICONS.length];
@@ -712,6 +797,9 @@ export function HomeClient() {
                       className="group flex w-[78vw] max-w-[280px] min-w-[220px] shrink-0 snap-start flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition-shadow hover:shadow-lg sm:w-[280px]"
                     >
                       <div className="relative aspect-[4/3] w-full overflow-hidden bg-slate-100 flex items-center justify-center">
+                        <div className="absolute right-2 top-2 z-10">
+                          <WishlistButton serviceId={s.id} />
+                        </div>
                         {imageUrl ? (
                           <img src={imageUrl} alt={s.name} className="h-full w-full object-cover transition-transform group-hover:scale-[1.02]" />
                         ) : (

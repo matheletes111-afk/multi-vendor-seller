@@ -1,0 +1,587 @@
+1. Ad List Endpoint Response
+Endpoint: GET /mobileapi/ad/list
+Query Parameters:
+page (optional): Page number, default: 1
+
+limit (optional): Items per page, default: 10
+
+status (optional): ACTIVE, PAUSED, PENDING_APPROVAL, ENDED
+
+creativeType (optional): IMAGE, VIDEO
+
+sellerId (optional): Filter by seller
+
+customerUserId (optional): Filter by customer
+
+Response Payload:
+json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "cm7xyz123456",
+      "title": "Summer Sale - 50% Off on Electronics",
+      "description": "Get amazing discounts on all electronic items. Limited time offer!",
+      "creativeType": "IMAGE",
+      "creativeUrl": "https://cdn.meeem.com/ads/summer-sale-banner.jpg",
+      "status": "ACTIVE",
+      "totalBudget": 5000,
+      "spentAmount": 1250.50,
+      "maxCpc": 2.50,
+      "clicks": 502,
+      "startAt": "2026-04-01T00:00:00.000Z",
+      "endAt": "2026-04-30T23:59:59.000Z",
+      "createdAt": "2026-03-15T10:30:00.000Z",
+      "advertiser": {
+        "type": "SELLER",
+        "id": "seller_123",
+        "storeName": "TechZone Electronics",
+        "name": "Rajesh Kumar"
+      },
+      "productId": "prod_789",
+      "serviceId": null,
+      "target": {
+        "id": "prod_789",
+        "name": "Smartphone X Pro",
+        "type": "PRODUCT",
+        "image": "https://cdn.meeem.com/products/smartphone-x-pro.jpg"
+      },
+      "targeting": {
+        "targetCountries": ["IN", "US", "AE"],
+        "targetAgeMin": 18,
+        "targetAgeMax": 45,
+        "expandAudience": true
+      }
+    },
+    {
+      "id": "cm7xyz789012",
+      "title": "Home Cleaning Services",
+      "description": "Professional home cleaning at affordable prices",
+      "creativeType": "VIDEO",
+      "creativeUrl": "https://cdn.meeem.com/ads/cleaning-service-video.mp4",
+      "status": "ACTIVE",
+      "totalBudget": 3000,
+      "spentAmount": 450.25,
+      "maxCpc": 1.75,
+      "clicks": 257,
+      "startAt": "2026-03-20T00:00:00.000Z",
+      "endAt": "2026-05-20T23:59:59.000Z",
+      "createdAt": "2026-03-18T14:15:00.000Z",
+      "advertiser": {
+        "type": "SELLER",
+        "id": "seller_456",
+        "storeName": "CleanMate Services",
+        "name": "Priya Sharma"
+      },
+      "productId": null,
+      "serviceId": "service_123",
+      "target": {
+        "id": "service_123",
+        "name": "Deep Cleaning Service",
+        "type": "SERVICE",
+        "image": "https://cdn.meeem.com/services/cleaning.jpg"
+      },
+      "targeting": {
+        "targetCountries": ["IN"],
+        "targetAgeMin": null,
+        "targetAgeMax": null,
+        "expandAudience": false
+      }
+    },
+    {
+      "id": "cm7xyz345678",
+      "title": "Fitness Studio - New Year Offer",
+      "description": "Join our fitness classes with special discounts",
+      "creativeType": "IMAGE",
+      "creativeUrl": "https://cdn.meeem.com/ads/fitness-studio.jpg",
+      "status": "ACTIVE",
+      "totalBudget": 2000,
+      "spentAmount": 890.75,
+      "maxCpc": 1.50,
+      "clicks": 594,
+      "startAt": "2026-03-01T00:00:00.000Z",
+      "endAt": "2026-04-15T23:59:59.000Z",
+      "createdAt": "2026-02-25T09:00:00.000Z",
+      "advertiser": null,
+      "productId": null,
+      "serviceId": "service_456",
+      "target": {
+        "id": "service_456",
+        "name": "Group Fitness Classes",
+        "type": "SERVICE",
+        "image": "https://cdn.meeem.com/services/fitness.jpg"
+      },
+      "targeting": {
+        "targetCountries": ["IN", "SG"],
+        "targetAgeMin": 15,
+        "targetAgeMax": 50,
+        "expandAudience": true
+      }
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "limit": 10,
+    "total": 25,
+    "totalPages": 3,
+    "hasNext": true,
+    "hasPrev": false
+  }
+}
+Error Response:
+json
+{
+  "success": false,
+  "error": "Failed to fetch ads"
+}
+2. Ad Details Endpoint Response
+Endpoint: GET /mobileapi/ad/:id
+Path Parameters:
+id: Ad ID (e.g., cm7xyz123456)
+
+Response Payload (Product Ad):
+json
+{
+  "success": true,
+  "data": {
+    "id": "cm7xyz123456",
+    "title": "Summer Sale - 50% Off on Electronics",
+    "description": "Get amazing discounts on all electronic items. Limited time offer!",
+    "creativeType": "IMAGE",
+    "creativeUrl": "https://cdn.meeem.com/ads/summer-sale-banner.jpg",
+    "status": "ACTIVE",
+    "totalBudget": 5000,
+    "spentAmount": 1250.50,
+    "remainingBudget": 3749.50,
+    "maxCpc": 2.50,
+    "clicks": 502,
+    "startAt": "2026-04-01T00:00:00.000Z",
+    "endAt": "2026-04-30T23:59:59.000Z",
+    "createdAt": "2026-03-15T10:30:00.000Z",
+    "updatedAt": "2026-03-29T08:15:22.000Z",
+    "productId": "prod_789",
+    "serviceId": null,
+    "advertiser": {
+      "type": "SELLER",
+      "id": "seller_123",
+      "userId": "user_456",
+      "name": "Rajesh Kumar",
+      "email": "rajesh@techzone.com",
+      "phone": "+919876543210",
+      "storeName": "TechZone Electronics",
+      "storeLogo": "https://cdn.meeem.com/stores/techzone-logo.png"
+    },
+    "target": {
+      "type": "PRODUCT",
+      "id": "prod_789",
+      "name": "Smartphone X Pro",
+      "slug": "smartphone-x-pro",
+      "description": "Latest flagship smartphone with 5G support, 108MP camera, and 5000mAh battery",
+      "images": [
+        "https://cdn.meeem.com/products/smartphone-x-pro-1.jpg",
+        "https://cdn.meeem.com/products/smartphone-x-pro-2.jpg",
+        "https://cdn.meeem.com/products/smartphone-x-pro-3.jpg"
+      ],
+      "category": "Electronics",
+      "subcategory": "Smartphones",
+      "priceRange": {
+        "min": 49999,
+        "max": 69999
+      },
+      "variantCount": 3
+    },
+    "targeting": {
+      "targetCountries": ["IN", "US", "AE"],
+      "targetAgeMin": 18,
+      "targetAgeMax": 45,
+      "expandAudience": true
+    },
+    "recentClicks": [
+      {
+        "id": "click_001",
+        "createdAt": "2026-03-29T08:15:22.000Z",
+        "sessionId": "session_abc123"
+      },
+      {
+        "id": "click_002",
+        "createdAt": "2026-03-29T07:42:15.000Z",
+        "sessionId": "session_def456"
+      },
+      {
+        "id": "click_003",
+        "createdAt": "2026-03-29T06:30:08.000Z",
+        "sessionId": "session_ghi789"
+      }
+    ],
+    "statistics": {
+      "totalClicks": 502,
+      "avgCpc": 2.49,
+      "budgetUtilization": 25.01,
+      "daysRemaining": 32
+    }
+  }
+}
+Response Payload (Service Ad):
+json
+{
+  "success": true,
+  "data": {
+    "id": "cm7xyz789012",
+    "title": "Home Cleaning Services",
+    "description": "Professional home cleaning at affordable prices. Deep cleaning, regular cleaning, and move-in/move-out services available.",
+    "creativeType": "VIDEO",
+    "creativeUrl": "https://cdn.meeem.com/ads/cleaning-service-video.mp4",
+    "status": "ACTIVE",
+    "totalBudget": 3000,
+    "spentAmount": 450.25,
+    "remainingBudget": 2549.75,
+    "maxCpc": 1.75,
+    "clicks": 257,
+    "startAt": "2026-03-20T00:00:00.000Z",
+    "endAt": "2026-05-20T23:59:59.000Z",
+    "createdAt": "2026-03-18T14:15:00.000Z",
+    "updatedAt": "2026-03-29T09:20:45.000Z",
+    "productId": null,
+    "serviceId": "service_123",
+    "advertiser": {
+      "type": "SELLER",
+      "id": "seller_456",
+      "userId": "user_789",
+      "name": "Priya Sharma",
+      "email": "priya@cleanmate.com",
+      "phone": "+919876543211",
+      "storeName": "CleanMate Services",
+      "storeLogo": "https://cdn.meeem.com/stores/cleanmate-logo.png"
+    },
+    "target": {
+      "type": "SERVICE",
+      "id": "service_123",
+      "name": "Deep Cleaning Service",
+      "slug": "deep-cleaning-service",
+      "description": "Complete deep cleaning of entire home including kitchen, bathrooms, and all rooms",
+      "images": ["https://cdn.meeem.com/services/cleaning-deep.jpg"],
+      "serviceType": "APPOINTMENT",
+      "basePrice": 2499,
+      "category": "Home Services",
+      "packageCount": 3
+    },
+    "targeting": {
+      "targetCountries": ["IN"],
+      "targetAgeMin": null,
+      "targetAgeMax": null,
+      "expandAudience": false
+    },
+    "recentClicks": [
+      {
+        "id": "click_201",
+        "createdAt": "2026-03-29T08:15:22.000Z",
+        "sessionId": "session_xyz789"
+      },
+      {
+        "id": "click_202",
+        "createdAt": "2026-03-28T22:30:15.000Z",
+        "sessionId": "session_abc456"
+      }
+    ],
+    "statistics": {
+      "totalClicks": 257,
+      "avgCpc": 1.75,
+      "budgetUtilization": 15.01,
+      "daysRemaining": 52
+    }
+  }
+}
+Response Payload (Customer Ad - No Product/Service):
+json
+{
+  "success": true,
+  "data": {
+    "id": "cm7xyz345678",
+    "title": "Freelance Web Development Services",
+    "description": "Professional web developer offering custom website development, e-commerce solutions, and web applications",
+    "creativeType": "IMAGE",
+    "creativeUrl": "https://cdn.meeem.com/ads/freelance-webdev.jpg",
+    "status": "ACTIVE",
+    "totalBudget": 1000,
+    "spentAmount": 340.80,
+    "remainingBudget": 659.20,
+    "maxCpc": 1.20,
+    "clicks": 284,
+    "startAt": "2026-03-25T00:00:00.000Z",
+    "endAt": "2026-04-25T23:59:59.000Z",
+    "createdAt": "2026-03-24T16:45:00.000Z",
+    "updatedAt": "2026-03-29T10:05:33.000Z",
+    "productId": null,
+    "serviceId": null,
+    "advertiser": {
+      "type": "CUSTOMER",
+      "id": "customer_789",
+      "name": "Amit Patel",
+      "email": "amit.patel@email.com",
+      "phone": "+919876543212"
+    },
+    "target": null,
+    "targeting": {
+      "targetCountries": ["IN", "US", "CA", "UK"],
+      "targetAgeMin": 20,
+      "targetAgeMax": 55,
+      "expandAudience": true
+    },
+    "recentClicks": [
+      {
+        "id": "click_401",
+        "createdAt": "2026-03-29T09:45:12.000Z",
+        "sessionId": "session_lmn456"
+      },
+      {
+        "id": "click_402",
+        "createdAt": "2026-03-29T08:30:55.000Z",
+        "sessionId": "session_opq789"
+      }
+    ],
+    "statistics": {
+      "totalClicks": 284,
+      "avgCpc": 1.20,
+      "budgetUtilization": 34.08,
+      "daysRemaining": 27
+    }
+  }
+}
+Error Response (Ad Not Found):
+json
+{
+  "success": false,
+  "error": "Ad not found"
+}
+Error Response (Server Error):
+json
+{
+  "success": false,
+  "error": "Failed to fetch ad details"
+}
+
+3. Customer category interests (onboarding + saved categories)
+All endpoints require: Header Authorization: Bearer <customer access JWT>
+
+3a. GET /mobileapi/customer/category-interests
+Returns the user’s saved product categories and whether the app should still show the interest onboarding prompt.
+
+Response Payload (success):
+json
+{
+  "success": true,
+  "data": {
+    "userId": "cluserxxxxxxxx",
+    "categories": [
+      {
+        "id": "clcatelectronics",
+        "name": "Electronics",
+        "slug": "electronics",
+        "image": "https://cdn.meeem.com/categories/electronics.jpg",
+        "mobileIcon": "https://cdn.meeem.com/categories/mobile/electronics.png"
+      }
+    ],
+    "completedAt": "2026-03-30T12:00:00.000Z",
+    "needsPrompt": false
+  }
+}
+
+Response Payload (onboarding not finished yet — show category picker):
+json
+{
+  "success": true,
+  "data": {
+    "userId": "cluserxxxxxxxx",
+    "categories": [],
+    "completedAt": null,
+    "needsPrompt": true
+  }
+}
+
+Field notes:
+- categories: rows from user_category_interests joined to Category (empty array if none saved).
+- completedAt: ISO timestamp when onboarding was finished (Save or Skip), or null if never completed.
+- needsPrompt: true until the user completes onboarding (same meaning as web); then false.
+
+Error Response (server):
+json
+{
+  "success": false,
+  "error": "Failed to fetch category interests"
+}
+
+401 Unauthorized (invalid or missing Bearer token):
+json
+{
+  "success": false,
+  "error": "unauthorized"
+}
+
+3b. POST /mobileapi/customer/category-interests
+Save selected categories (replaces any previous selection) or skip onboarding.
+
+Request body (choose one flow):
+
+Save one or more active categories (IDs must exist and be isActive):
+json
+{
+  "categoryIds": ["clcatelectronics", "clcatfashion"]
+}
+
+Skip onboarding with no categories (same as sending an empty array — legacy):
+json
+{
+  "skip": true
+}
+
+Legacy empty array (clears interests and marks onboarding complete):
+json
+{
+  "categoryIds": []
+}
+
+Response Payload (success):
+json
+{
+  "success": true,
+  "data": {
+    "userId": "cluserxxxxxxxx",
+    "categories": [
+      {
+        "id": "clcatelectronics",
+        "name": "Electronics",
+        "slug": "electronics",
+        "image": "https://cdn.meeem.com/categories/electronics.jpg",
+        "mobileIcon": "https://cdn.meeem.com/categories/mobile/electronics.png"
+      }
+    ],
+    "completedAt": "2026-03-30T12:05:00.000Z",
+    "needsPrompt": false
+  }
+}
+
+Error examples (400):
+json
+{
+  "success": false,
+  "error": "Select at least one category, or send skip: true, or use an empty categoryIds array"
+}
+
+json
+{
+  "success": false,
+  "error": "One or more category IDs are invalid or inactive"
+}
+
+401 Unauthorized:
+json
+{
+  "success": false,
+  "error": "unauthorized"
+}
+
+500: server error (body may use generic "Failed to save category interests").
+
+4. Products from interested categories
+Endpoint: GET /mobileapi/customer/interest-products
+Auth: Authorization: Bearer <customer access JWT>
+
+Query parameters:
+- page (optional): default 1
+- limit (optional): default 10, max 50
+
+Returns active products whose categoryId is in the user’s saved interests. Ordered by isFeatured desc, then createdAt desc.
+
+If the user has no category interests saved, returns success with empty data and hasInterests: false.
+
+Response Payload (has interests, success):
+json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "clprod123",
+      "name": "Wireless Earbuds",
+      "slug": "wireless-earbuds",
+      "description": "Noise cancelling earbuds",
+      "images": ["https://cdn.meeem.com/products/earbuds-1.jpg"],
+      "priceRange": {
+        "min": 1999,
+        "max": 2499
+      },
+      "lowestPrice": 1999,
+      "category": {
+        "id": "clcatelectronics",
+        "name": "Electronics",
+        "slug": "electronics"
+      },
+      "subcategory": {
+        "id": "clsubaudio",
+        "name": "Audio",
+        "slug": "audio"
+      },
+      "seller": {
+        "id": "clseller1",
+        "storeName": "TechZone Electronics",
+        "storeLogo": "https://cdn.meeem.com/stores/techzone-logo.png"
+      },
+      "rating": 4.5,
+      "reviewCount": 12,
+      "isActive": true,
+      "isFeatured": true,
+      "createdAt": "2026-03-28T10:00:00.000Z"
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "limit": 10,
+    "total": 42,
+    "totalPages": 5,
+    "hasNext": true,
+    "hasPrev": false
+  },
+  "meta": {
+    "hasInterests": true,
+    "interestedCategories": [
+      {
+        "id": "clcatelectronics",
+        "name": "Electronics",
+        "slug": "electronics"
+      }
+    ],
+    "productCount": 42
+  }
+}
+
+Response Payload (no interests saved — empty feed):
+json
+{
+  "success": true,
+  "data": [],
+  "pagination": {
+    "page": 1,
+    "limit": 10,
+    "total": 0,
+    "totalPages": 0,
+    "hasNext": false,
+    "hasPrev": false
+  },
+  "meta": {
+    "hasInterests": false,
+    "productCount": 0
+  }
+}
+
+Error Response:
+json
+{
+  "success": false,
+  "error": "Failed to fetch products"
+}
+
+401 Unauthorized:
+json
+{
+  "success": false,
+  "error": "unauthorized"
+}

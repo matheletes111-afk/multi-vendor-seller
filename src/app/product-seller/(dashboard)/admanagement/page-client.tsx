@@ -129,7 +129,7 @@ export function ProductSellerAdmanagementPageClient() {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Ad Management</h1>
-          <p className="text-muted-foreground mt-2">Promote your products with sponsored ads (CPC)</p>
+          <p className="text-muted-foreground mt-2">Promote a product or run your own image/video ad (CPC)</p>
         </div>
         <Button asChild>
           <Link href="/product-seller/admanagement/new">
@@ -157,7 +157,7 @@ export function ProductSellerAdmanagementPageClient() {
           <CardContent className="py-16 text-center">
             <Megaphone className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
             <h3 className="text-lg font-semibold mb-2">No ads yet</h3>
-            <p className="text-muted-foreground mb-6">Create an ad to promote a product. You pay only when customers click.</p>
+            <p className="text-muted-foreground mb-6">Create an ad for a product or for your business. You pay only when customers click.</p>
             <Button asChild>
               <Link href="/product-seller/admanagement/new">
                 <Plus className="mr-2 h-4 w-4" />
@@ -174,7 +174,7 @@ export function ProductSellerAdmanagementPageClient() {
                 <TableRow>
                   <TableHead className="w-[88px]">Creative</TableHead>
                   <TableHead>Title</TableHead>
-                  <TableHead className="hidden md:table-cell">Product</TableHead>
+                  <TableHead className="hidden md:table-cell">Product / own ad</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="hidden lg:table-cell text-right">Spent / Budget</TableHead>
                   <TableHead className="hidden sm:table-cell text-right">Clicks</TableHead>
@@ -206,12 +206,12 @@ export function ProductSellerAdmanagementPageClient() {
                       </TableCell>
                       <TableCell className="font-medium max-w-[200px]">
                         <span className="line-clamp-2">{ad.title}</span>
-                        {ad.product?.name && (
-                          <p className="text-xs text-muted-foreground md:hidden mt-0.5 line-clamp-1">{ad.product.name}</p>
-                        )}
+                        <p className="text-xs text-muted-foreground md:hidden mt-0.5 line-clamp-1">
+                          {ad.product?.name ?? "Own business ad"}
+                        </p>
                       </TableCell>
                       <TableCell className="hidden md:table-cell text-muted-foreground text-sm">
-                        {ad.product?.name ?? "—"}
+                        {ad.product?.name ?? "Own business ad"}
                       </TableCell>
                       <TableCell>{statusBadge(ad.status)}</TableCell>
                       <TableCell className="hidden lg:table-cell text-right text-sm whitespace-nowrap">

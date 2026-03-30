@@ -7,11 +7,12 @@ import { Button } from "@/ui/button"
 import { useWishlist } from "@/app/wishlist/wishlist-context"
 
 type WishlistButtonProps = {
-  productId: string
+  productId?: string
+  serviceId?: string
   className?: string
 }
 
-export function WishlistButton({ productId, className }: WishlistButtonProps) {
+export function WishlistButton({ productId, serviceId, className }: WishlistButtonProps) {
   const { status, data: session } = useSession()
   const { canUseWishlist, isWishlisted, toggleWishlist, loading } = useWishlist()
 
@@ -19,7 +20,7 @@ export function WishlistButton({ productId, className }: WishlistButtonProps) {
     return null
   }
 
-  const active = isWishlisted(productId)
+  const active = isWishlisted(productId, serviceId)
 
   return (
     <Button
@@ -31,7 +32,7 @@ export function WishlistButton({ productId, className }: WishlistButtonProps) {
       onClick={(event) => {
         event.preventDefault()
         event.stopPropagation()
-        void toggleWishlist(productId)
+        void toggleWishlist(productId, serviceId)
       }}
       aria-label={active ? "Remove from wishlist" : "Add to wishlist"}
       title={active ? "Remove from wishlist" : "Add to wishlist"}

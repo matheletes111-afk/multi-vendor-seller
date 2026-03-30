@@ -61,6 +61,7 @@ async function createAd(data: unknown) {
     await prisma.sellerAd.create({
       data: {
         sellerId: seller.id,
+        customerUserId: null,
         serviceId: validated.data.serviceId,
         title: validated.data.title,
         description: validated.data.description || null,

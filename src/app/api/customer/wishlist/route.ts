@@ -3,11 +3,15 @@ import { UserRole } from "@prisma/client"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 
+/** Stale Prisma client types: run `npx prisma generate` after WishlistItem gained `serviceId` / `service`. */
+const wishlistItem = prisma.wishlistItem as any
+
 export const dynamic = "force-dynamic"
 
 type WishlistItemApi = {
   wishlistItemId: string
-  productId: string
+  productId: string | null
+  serviceId: string | null
   createdAt: string
   product: {
     id: string
@@ -15,7 +19,14 @@ type WishlistItemApi = {
     slug: string
     image: string | null
     price: number | null
-  }
+  } | null
+  service: {
+    id: string
+    name: string
+    slug: string
+    image: string | null
+    price: number | null
+  } | null
 }
 
 function toFirstImage(raw: unknown): string | null {
@@ -41,23 +52,55 @@ function toFirstImage(raw: unknown): string | null {
 
 function toItemApi(item: {
   id: string
-  productId: string
+  productId: string | null
+  serviceId: string | null
   createdAt: Date
-  product: { id: string; name: string; slug: string; images: unknown; variants: Array<{ price: number; discount: number }> }
+  product: {
+    id: string
+    name: string
+    slug: string
+    images: unknown
+    variants: Array<{ price: number; discount: number }>
+  } | null
+  service: {
+    id: string
+    name: string
+    slug: string
+    images: unknown
+    basePrice: number | null
+    discount: number
+  } | null
 }): WishlistItemApi {
-  const firstVariant = item.product.variants[0]
-  const price = firstVariant ? Math.max(0, firstVariant.price - (firstVariant.discount ?? 0)) : null
+  const productPrice = item.product?.variants[0]
+    ? Math.max(0, item.product.variants[0].price - (item.product.variants[0].discount ?? 0))
+    : null
+  const servicePrice = item.service?.basePrice != null
+    ? Math.max(0, item.service.basePrice - (item.service.discount ?? 0))
+    : null
+
   return {
     wishlistItemId: item.id,
     productId: item.productId,
+    serviceId: item.serviceId,
     createdAt: item.createdAt.toISOString(),
-    product: {
-      id: item.product.id,
-      name: item.product.name,
-      slug: item.product.slug,
-      image: toFirstImage(item.product.images),
-      price,
-    },
+    product: item.product
+      ? {
+          id: item.product.id,
+          name: item.product.name,
+          slug: item.product.slug,
+          image: toFirstImage(item.product.images),
+          price: productPrice,
+        }
+      : null,
+    service: item.service
+      ? {
+          id: item.service.id,
+          name: item.service.name,
+          slug: item.service.slug,
+          image: toFirstImage(item.service.images),
+          price: servicePrice,
+        }
+      : null,
   }
 }
 
@@ -74,7 +117,7 @@ export async function GET() {
   if (!session?.user?.id) return unauthorized()
   if (session.user.role !== UserRole.CUSTOMER) return forbidden()
 
-  const rows = await prisma.wishlistItem.findMany({
+  const rows = await wishlistItem.findMany({
     where: { userId: session.user.id },
     include: {
       product: {
@@ -88,6 +131,16 @@ export async function GET() {
             orderBy: { price: "asc" },
             take: 1,
           },
+        },
+      },
+      service: {
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+          images: true,
+          basePrice: true,
+          discount: true,
         },
       },
     },
@@ -112,36 +165,55 @@ export async function POST(request: NextRequest) {
 
   const productId = typeof (body as { productId?: unknown })?.productId === "string"
     ? (body as { productId: string }).productId.trim()
-    : ""
-  if (!productId) {
-    return NextResponse.json({ error: "productId is required" }, { status: 400 })
+    : null
+  const serviceId = typeof (body as { serviceId?: unknown })?.serviceId === "string"
+    ? (body as { serviceId: string }).serviceId.trim()
+    : null
+
+  if (!productId && !serviceId) {
+    return NextResponse.json({ error: "productId or serviceId is required" }, { status: 400 })
+  }
+  if (productId && serviceId) {
+    return NextResponse.json({ error: "Cannot add both productId and serviceId" }, { status: 400 })
   }
 
-  const product = await prisma.product.findFirst({
-    where: { id: productId, isActive: true },
-    select: { id: true },
-  })
-  if (!product) {
-    return NextResponse.json({ error: "Product not found" }, { status: 404 })
+  if (productId) {
+    const product = await prisma.product.findFirst({
+      where: { id: productId, isActive: true },
+      select: { id: true },
+    })
+    if (!product) {
+      return NextResponse.json({ error: "Product not found" }, { status: 404 })
+    }
+  } else if (serviceId) {
+    const service = await prisma.service.findFirst({
+      where: { id: serviceId, isActive: true },
+      select: { id: true },
+    })
+    if (!service) {
+      return NextResponse.json({ error: "Service not found" }, { status: 404 })
+    }
   }
 
-  const existing = await prisma.wishlistItem.findUnique({
+  const existing = await wishlistItem.findFirst({
     where: {
-      userId_productId: {
-        userId: session.user.id,
-        productId,
-      },
+      userId: session.user.id,
+      ...(productId ? { productId, serviceId: null } : { serviceId: serviceId!, productId: null }),
     },
   })
 
   if (existing) {
-    await prisma.wishlistItem.delete({ where: { id: existing.id } })
-    const count = await prisma.wishlistItem.count({ where: { userId: session.user.id } })
-    return NextResponse.json({ ok: true, action: "removed", item: null, count })
+    await wishlistItem.delete({ where: { id: existing.id } })
+    const count = await wishlistItem.count({ where: { userId: session.user.id } })
+    return NextResponse.json({ ok: true, action: "removed" as const, item: null, count })
   }
 
-  const created = await prisma.wishlistItem.create({
-    data: { userId: session.user.id, productId },
+  const created = await wishlistItem.create({
+    data: {
+      userId: session.user.id,
+      productId: productId ?? null,
+      serviceId: serviceId ?? null,
+    },
     include: {
       product: {
         select: {
@@ -156,10 +228,20 @@ export async function POST(request: NextRequest) {
           },
         },
       },
+      service: {
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+          images: true,
+          basePrice: true,
+          discount: true,
+        },
+      },
     },
   })
-  const count = await prisma.wishlistItem.count({ where: { userId: session.user.id } })
-  return NextResponse.json({ ok: true, action: "added", item: toItemApi(created), count })
+  const count = await wishlistItem.count({ where: { userId: session.user.id } })
+  return NextResponse.json({ ok: true, action: "added" as const, item: toItemApi(created), count })
 }
 
 export async function DELETE(request: NextRequest) {
@@ -176,17 +258,22 @@ export async function DELETE(request: NextRequest) {
 
   const productId = typeof (body as { productId?: unknown })?.productId === "string"
     ? (body as { productId: string }).productId.trim()
-    : ""
-  if (!productId) {
-    return NextResponse.json({ error: "productId is required" }, { status: 400 })
+    : null
+  const serviceId = typeof (body as { serviceId?: unknown })?.serviceId === "string"
+    ? (body as { serviceId: string }).serviceId.trim()
+    : null
+
+  if (!productId && !serviceId) {
+    return NextResponse.json({ error: "productId or serviceId is required" }, { status: 400 })
+  }
+  if (productId && serviceId) {
+    return NextResponse.json({ error: "Cannot send both productId and serviceId" }, { status: 400 })
   }
 
-  const existing = await prisma.wishlistItem.findUnique({
+  const existing = await wishlistItem.findFirst({
     where: {
-      userId_productId: {
-        userId: session.user.id,
-        productId,
-      },
+      userId: session.user.id,
+      ...(productId ? { productId, serviceId: null } : { serviceId: serviceId!, productId: null }),
     },
     select: { id: true },
   })
@@ -194,8 +281,7 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: "Wishlist item not found" }, { status: 404 })
   }
 
-  await prisma.wishlistItem.delete({ where: { id: existing.id } })
-  const count = await prisma.wishlistItem.count({ where: { userId: session.user.id } })
-  return NextResponse.json({ ok: true, action: "removed", item: null, count })
+  await wishlistItem.delete({ where: { id: existing.id } })
+  const count = await wishlistItem.count({ where: { userId: session.user.id } })
+  return NextResponse.json({ ok: true, action: "removed" as const, item: null, count })
 }
-

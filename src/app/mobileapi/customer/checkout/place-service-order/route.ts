@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { allocateNextOrderNumberTx } from "@/lib/order-number"
 import { createServiceSlotIfAllowed } from "@/lib/service-slots"
 import { getMobileCustomerAuth } from "@/app/mobileapi/_helpers/customer-auth"
 
@@ -117,28 +118,32 @@ export async function POST(request: NextRequest) {
   const totalAmount = subtotal + totalGst
   const commission = totalAmount * (COMMISSION_RATE / 100)
 
-  const order = await prisma.order.create({
-    data: {
-      customerId: auth.userId,
-      sellerId: service.sellerId,
-      status: "PENDING",
-      totalAmount,
-      subtotal,
-      tax: totalGst,
-      shipping: 0,
-      commission,
-      commissionRate: COMMISSION_RATE,
-      paymentStatus: "PENDING",
-      paymentMethod: "COD",
-      shippingFullName: address.fullName,
-      shippingPhone: address.phone,
-      shippingAddressLine1: address.addressLine1,
-      shippingAddressLine2: address.addressLine2,
-      shippingCity: address.city,
-      shippingState: address.state,
-      shippingPostalCode: address.postalCode,
-      shippingCountry: address.country,
-    },
+  const order = await prisma.$transaction(async (tx) => {
+    const orderNumber = await allocateNextOrderNumberTx(tx)
+    return tx.order.create({
+      data: {
+        orderNumber,
+        customerId: auth.userId,
+        sellerId: service.sellerId,
+        status: "PENDING",
+        totalAmount,
+        subtotal,
+        tax: totalGst,
+        shipping: 0,
+        commission,
+        commissionRate: COMMISSION_RATE,
+        paymentStatus: "PENDING",
+        paymentMethod: "COD",
+        shippingFullName: address.fullName,
+        shippingPhone: address.phone,
+        shippingAddressLine1: address.addressLine1,
+        shippingAddressLine2: address.addressLine2,
+        shippingCity: address.city,
+        shippingState: address.state,
+        shippingPostalCode: address.postalCode,
+        shippingCountry: address.country,
+      },
+    })
   })
 
   await prisma.orderItem.create({

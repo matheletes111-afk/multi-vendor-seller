@@ -1,0 +1,292 @@
+1. GET /mobileapi/wishlist - Fetch Wishlist
+Request:
+http
+GET /mobileapi/wishlist
+Authorization: Bearer <your_jwt_token>
+Response (Success):
+json
+{
+  "success": true,
+  "message": "Wishlist fetched",
+  "data": {
+    "items": [
+      {
+        "wishlistItemId": "wish_123456",
+        "productId": "prod_789",
+        "serviceId": null,
+        "createdAt": "2026-03-30T10:30:00.000Z",
+        "product": {
+          "id": "prod_789",
+          "name": "Smartphone X Pro",
+          "slug": "smartphone-x-pro",
+          "image": "https://cdn.meeem.com/products/smartphone-x-pro-1.jpg",
+          "price": 49999
+        },
+        "service": null
+      },
+      {
+        "wishlistItemId": "wish_789012",
+        "productId": null,
+        "serviceId": "service_123",
+        "createdAt": "2026-03-29T15:20:00.000Z",
+        "product": null,
+        "service": {
+          "id": "service_123",
+          "name": "Deep Cleaning Service",
+          "slug": "deep-cleaning-service",
+          "image": "https://cdn.meeem.com/services/cleaning-deep.jpg",
+          "price": 2499
+        }
+      },
+      {
+        "wishlistItemId": "wish_345678",
+        "productId": "prod_456",
+        "serviceId": null,
+        "createdAt": "2026-03-28T09:15:00.000Z",
+        "product": {
+          "id": "prod_456",
+          "name": "Wireless Headphones",
+          "slug": "wireless-headphones",
+          "image": "https://cdn.meeem.com/products/headphones.jpg",
+          "price": 2999
+        },
+        "service": null
+      }
+    ],
+    "count": 3
+  }
+}
+Response (Empty Wishlist):
+json
+{
+  "success": true,
+  "message": "Wishlist fetched",
+  "data": {
+    "items": [],
+    "count": 0
+  }
+}
+Response (Unauthorized):
+json
+{
+  "success": false,
+  "error": "Unauthorized. Valid customer token required."
+}
+2. POST /mobileapi/wishlist - Add to Wishlist (Toggle)
+Request (Add Product):
+http
+POST /mobileapi/wishlist
+Authorization: Bearer <your_jwt_token>
+Content-Type: application/json
+
+{
+  "productId": "prod_789"
+}
+Response (Added):
+json
+{
+  "success": true,
+  "message": "Wishlist updated",
+  "data": {
+    "action": "added",
+    "item": {
+      "wishlistItemId": "wish_123456",
+      "productId": "prod_789",
+      "serviceId": null,
+      "createdAt": "2026-03-30T10:30:00.000Z",
+      "product": {
+        "id": "prod_789",
+        "name": "Smartphone X Pro",
+        "slug": "smartphone-x-pro",
+        "image": "https://cdn.meeem.com/products/smartphone-x-pro-1.jpg",
+        "price": 49999
+      },
+      "service": null
+    },
+    "count": 3
+  }
+}
+Request (Add Service):
+http
+POST /mobileapi/wishlist
+Authorization: Bearer <your_jwt_token>
+Content-Type: application/json
+
+{
+  "serviceId": "service_123"
+}
+Response (Added):
+json
+{
+  "success": true,
+  "message": "Wishlist updated",
+  "data": {
+    "action": "added",
+    "item": {
+      "wishlistItemId": "wish_789012",
+      "productId": null,
+      "serviceId": "service_123",
+      "createdAt": "2026-03-30T10:35:00.000Z",
+      "product": null,
+      "service": {
+        "id": "service_123",
+        "name": "Deep Cleaning Service",
+        "slug": "deep-cleaning-service",
+        "image": "https://cdn.meeem.com/services/cleaning-deep.jpg",
+        "price": 2499
+      }
+    },
+    "count": 4
+  }
+}
+Request (Toggle - Remove if exists):
+http
+POST /mobileapi/wishlist
+Authorization: Bearer <your_jwt_token>
+Content-Type: application/json
+
+{
+  "productId": "prod_789"
+}
+Response (Removed - Toggle):
+json
+{
+  "success": true,
+  "message": "Wishlist updated",
+  "data": {
+    "action": "removed",
+    "item": null,
+    "count": 2
+  }
+}
+Error Responses:
+Missing ID:
+
+json
+{
+  "success": false,
+  "error": "productId or serviceId is required"
+}
+Both IDs Provided:
+
+json
+{
+  "success": false,
+  "error": "Cannot add both productId and serviceId"
+}
+Product Not Found:
+
+json
+{
+  "success": false,
+  "error": "Product not found"
+}
+Service Not Found:
+
+json
+{
+  "success": false,
+  "error": "Service not found"
+}
+Invalid JSON:
+
+json
+{
+  "success": false,
+  "error": "Invalid JSON"
+}
+3. DELETE /mobileapi/wishlist - Remove from Wishlist
+Request (Remove Product):
+http
+DELETE /mobileapi/wishlist
+Authorization: Bearer <your_jwt_token>
+Content-Type: application/json
+
+{
+  "productId": "prod_789"
+}
+Response (Removed):
+json
+{
+  "success": true,
+  "message": "Wishlist updated",
+  "data": {
+    "action": "removed",
+    "item": null,
+    "count": 2
+  }
+}
+Request (Remove Service):
+http
+DELETE /mobileapi/wishlist
+Authorization: Bearer <your_jwt_token>
+Content-Type: application/json
+
+{
+  "serviceId": "service_123"
+}
+Response (Removed):
+json
+{
+  "success": true,
+  "message": "Wishlist updated",
+  "data": {
+    "action": "removed",
+    "item": null,
+    "count": 1
+  }
+}
+Error Responses:
+Item Not Found:
+
+json
+{
+  "success": false,
+  "error": "Wishlist item not found"
+}
+Missing ID:
+
+json
+{
+  "success": false,
+  "error": "productId or serviceId is required"
+}
+Both IDs Provided:
+
+json
+{
+  "success": false,
+  "error": "Cannot send both productId and serviceId"
+}
+4. Price Calculation Details
+The API calculates prices as follows:
+
+For Products:
+javascript
+price = variant.price - variant.discount
+// Takes the lowest price variant
+For Services:
+javascript
+price = service.basePrice - service.discount
+// Only if basePrice is not null
+Example with Discount:
+Product with discount:
+
+json
+{
+  "product": {
+    "id": "prod_789",
+    "name": "Smartphone X Pro",
+    "price": 49999  // After discount: 54999 - 5000
+  }
+}
+Service with discount:
+
+json
+{
+  "service": {
+    "id": "service_123",
+    "name": "Deep Cleaning Service",
+    "price": 2249  // After discount: 2499 - 250
+  }
+}

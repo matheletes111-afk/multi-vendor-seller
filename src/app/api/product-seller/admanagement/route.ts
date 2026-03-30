@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
     perPage: searchParams.get("perPage") ?? undefined,
   })
 
-  const where = { sellerId: seller.id, productId: { not: null } }
+  const where = { sellerId: seller.id }
 
   const [ads, totalCount] = await Promise.all([
     prisma.sellerAd.findMany({
@@ -98,6 +98,7 @@ export async function POST(request: NextRequest) {
       if (aud >= 1) maxCpc = totalBudget / aud
     }
     body = {
+      adType: (formData.get("adType") as string) || "promote_product",
       productId: formData.get("productId") as string,
       title: formData.get("title") as string,
       description: (formData.get("description") as string) || undefined,
@@ -117,7 +118,10 @@ export async function POST(request: NextRequest) {
     body = await request.json().catch(() => ({})) as Record<string, string | number | boolean | undefined>
   }
 
-  const productId = String(body.productId ?? "")
+  const adTypeRaw = String(body.adType ?? "promote_product").trim().toLowerCase().replace(/-/g, "_")
+  const isOwnAd = adTypeRaw === "own_ad" || adTypeRaw === "ownad"
+  const productIdRaw = String(body.productId ?? "").trim()
+  const resolvedProductId = isOwnAd ? null : productIdRaw
   const title = String(body.title ?? "").trim()
   const creativeUrl = String(body.creativeUrl ?? "").trim()
   const creativeType = body.creativeType === "VIDEO" ? "VIDEO" : "IMAGE"
@@ -126,8 +130,11 @@ export async function POST(request: NextRequest) {
   const startAt = new Date(String(body.startAt ?? ""))
   const endAt = new Date(String(body.endAt ?? ""))
 
-  if (!productId || !title || !creativeUrl) {
-    return NextResponse.json({ error: "productId, title, and creative URL are required" }, { status: 400 })
+  if (!isOwnAd && !productIdRaw) {
+    return NextResponse.json({ error: "productId is required when promoting a product" }, { status: 400 })
+  }
+  if (!title || !creativeUrl) {
+    return NextResponse.json({ error: "title and creative URL are required" }, { status: 400 })
   }
   if (isNaN(totalBudget) || totalBudget <= 0 || isNaN(maxCpc) || maxCpc <= 0) {
     return NextResponse.json({ error: "Valid totalBudget and maxCpc required" }, { status: 400 })
@@ -137,10 +144,12 @@ export async function POST(request: NextRequest) {
   }
   if (endAt <= startAt) return NextResponse.json({ error: "End date must be after start date" }, { status: 400 })
 
-  const product = await prisma.product.findFirst({
-    where: { id: productId, sellerId: seller.id },
-  })
-  if (!product) return NextResponse.json({ error: "Product not found" }, { status: 404 })
+  if (!isOwnAd && resolvedProductId) {
+    const product = await prisma.product.findFirst({
+      where: { id: resolvedProductId, sellerId: seller.id },
+    })
+    if (!product) return NextResponse.json({ error: "Product not found" }, { status: 404 })
+  }
 
   let targetCountries: string[] | null = null
   const tc = body.targetCountries
@@ -161,7 +170,8 @@ export async function POST(request: NextRequest) {
     await prisma.sellerAd.create({
       data: {
         sellerId: seller.id,
-        productId,
+        customerUserId: null,
+        productId: resolvedProductId,
         title,
         description: (body.description as string) || null,
         creativeType,

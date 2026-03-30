@@ -99,6 +99,8 @@ model User {
   verifyEmailOtp          String?
   emailVerificationExpires DateTime?
   emailOtpSentAt          DateTime?
+  /// Set when the customer finishes or skips the category-interest onboarding (web/mobile).
+  categoryInterestPromptCompletedAt DateTime?
   createdAt               DateTime  @default(now())
   updatedAt               DateTime  @updatedAt
 
@@ -113,6 +115,9 @@ model User {
   recentViews   RecentView[]
   walletBalance Decimal    @default(0) @db.Decimal(14, 2)
   walletTransactions WalletTransaction[]
+  /// CPC ads created by customers (own business / creative-only; no linked product).
+  customerSellerAds SellerAd[] @relation("CustomerSellerAds")
+  categoryInterests UserCategoryInterest[]
 
   @@map("users")
 }
@@ -269,7 +274,10 @@ model SellerBalanceTransaction {
 
 model SellerAd {
   id              String         @id @default(cuid())
-  sellerId        String
+  /// Set for seller-created ads; null when the advertiser is a customer user.
+  sellerId        String?
+  /// Set for customer-created “own business” ads; null when created by a seller.
+  customerUserId  String?
   productId       String?
   serviceId       String?
   title           String
@@ -290,12 +298,14 @@ model SellerAd {
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
 
-  seller    Seller     @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  seller    Seller?    @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  customer  User?      @relation("CustomerSellerAds", fields: [customerUserId], references: [id], onDelete: Cascade)
   product   Product?   @relation(fields: [productId], references: [id], onDelete: SetNull)
   service   Service?   @relation(fields: [serviceId], references: [id], onDelete: SetNull)
   adClicks  AdClick[]
 
   @@index([sellerId])
+  @@index([customerUserId])
   @@index([status])
   @@index([startAt, endAt])
   @@map("seller_ads")
@@ -390,8 +400,24 @@ model Category {
   products      Product[]
   subcategories Subcategory[]
   banners       Banner[]
+  userInterests UserCategoryInterest[]
 
   @@map("categories")
+}
+
+model UserCategoryInterest {
+  id         String   @id @default(cuid())
+  userId     String
+  categoryId String
+  createdAt  DateTime @default(now())
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, categoryId])
+  @@index([userId])
+  @@index([categoryId])
+  @@map("user_category_interests")
 }
 
 model ServiceCategory {
@@ -493,14 +519,16 @@ model Product {
 model WishlistItem {
   id        String   @id @default(cuid())
   userId    String
-  productId String
+  productId String?
+  serviceId String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  product Product? @relation(fields: [productId], references: [id], onDelete: Cascade)
+  service Service? @relation(fields: [serviceId], references: [id], onDelete: Cascade)
 
-  @@unique([userId, productId])
+  @@unique([userId, productId, serviceId])
   @@index([userId])
   @@map("wishlist_items")
 }
@@ -588,6 +616,7 @@ model Service {
   reviews          Review[]
   cartItems        CartItem[]
   sellerAds        SellerAd[]
+  wishlistItems    WishlistItem[]
 
   @@unique([sellerId, slug])
   @@index([serviceCategoryId])
@@ -633,9 +662,17 @@ model ServicePackage {
   @@map("service_packages")
 }
 
+/// Human-readable reference: `meeem00000001`, `meeem00000002`, … (see `allocateNextOrderNumber`).
+model OrderCounter {
+  id        Int @id @default(1)
+  lastValue Int @default(0)
+
+  @@map("order_counters")
+}
+
 model Order {
   id              String        @id @default(cuid())
-  orderNumber     String        @default(cuid()) @unique
+  orderNumber     String        @unique
   customerId      String
   sellerId        String?
   status          OrderStatus   @default(PENDING)

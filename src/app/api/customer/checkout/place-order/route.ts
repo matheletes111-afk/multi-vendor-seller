@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { allocateNextOrderNumberTx } from "@/lib/order-number"
 import { UserRole } from "@prisma/client"
 import type { PlaceOrderResponse } from "../types"
 
@@ -144,28 +145,32 @@ export async function POST(request: NextRequest) {
     })
   }
 
-  const order = await prisma.order.create({
-    data: {
-      customerId: session.user.id,
-      sellerId: null,
-      status: "PENDING",
-      totalAmount,
-      subtotal,
-      tax,
-      shipping,
-      commission,
-      commissionRate: COMMISSION_RATE,
-      paymentStatus: "PENDING",
-      paymentMethod: "COD",
-      shippingFullName: address.fullName,
-      shippingPhone: address.phone,
-      shippingAddressLine1: address.addressLine1,
-      shippingAddressLine2: address.addressLine2,
-      shippingCity: address.city,
-      shippingState: address.state,
-      shippingPostalCode: address.postalCode,
-      shippingCountry: address.country,
-    },
+  const order = await prisma.$transaction(async (tx) => {
+    const orderNumber = await allocateNextOrderNumberTx(tx)
+    return tx.order.create({
+      data: {
+        orderNumber,
+        customerId: session.user.id,
+        sellerId: null,
+        status: "PENDING",
+        totalAmount,
+        subtotal,
+        tax,
+        shipping,
+        commission,
+        commissionRate: COMMISSION_RATE,
+        paymentStatus: "PENDING",
+        paymentMethod: "COD",
+        shippingFullName: address.fullName,
+        shippingPhone: address.phone,
+        shippingAddressLine1: address.addressLine1,
+        shippingAddressLine2: address.addressLine2,
+        shippingCity: address.city,
+        shippingState: address.state,
+        shippingPostalCode: address.postalCode,
+        shippingCountry: address.country,
+      },
+    })
   })
 
   for (const row of normalizedItems) {
