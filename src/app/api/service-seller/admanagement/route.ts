@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
     perPage: searchParams.get("perPage") ?? undefined,
   })
 
-  const where = { sellerId: seller.id, serviceId: { not: null } }
+  const where = { sellerId: seller.id }
 
   const [ads, totalCount] = await Promise.all([
     prisma.sellerAd.findMany({

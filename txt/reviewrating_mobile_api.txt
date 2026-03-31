@@ -1,0 +1,77 @@
+# Review & Rating Mobile API Endpoints
+
+## Base Path
+`/mobileapi/customer/reviewrating`
+
+## Authentication
+All endpoints require a valid customer token passed via the Authorization header:
+`Authorization: Bearer <your_jwt_token>`
+
+---
+
+### 1. Submit a New Review
+- **Method**: `POST`
+- **Path**: `/mobileapi/customer/reviewrating`
+- **Description**: Submits a brand-new review and rating for an order item. The item MUST be in the `"DELIVERED"` status.
+
+#### Request Body Payload (JSON)
+```json
+{
+  "orderItemId": "string", // REQUIRED. The ID of the specific order item.
+  "rating": 5,             // REQUIRED. An integer from 1 to 5.
+  "comment": "string",     // OPTIONAL. A text comment documenting the customer's experience (max 2000 characters).
+  "images": ["string"]     // OPTIONAL. Array of up to 5 image URLs. Must be HTTP/HTTPS strings.
+}
+```
+
+#### Success Response (HTTP 201)
+```json
+{
+  "success": true,
+  "message": "Review submitted successfully",
+  "data": {
+    "reviewId": "cuid_string_here"
+  }
+}
+```
+
+#### Error Responses
+- **401 Unauthorized**: Missing or invalid token.
+- **400 Bad Request**: Invalid JSON body, missing/invalid fields, or item has not been marked DELIVERED yet.
+- **404 Not Found**: The specified order item could not be found or does not belong to the user.
+- **409 Conflict**: A review has already been submitted for this order item.
+- **403 Forbidden**: The seller's subscription plan does not allow them to receive reviews.
+
+---
+
+### 2. Update an Existing Review
+- **Method**: `PATCH`
+- **Path**: `/mobileapi/customer/reviewrating`
+- **Description**: Updates a review previously posted by the authenticated customer.
+
+#### Request Body Payload (JSON)
+```json
+{
+  "orderItemId": "string", // REQUIRED. The ID of the order item corresponding to your review.
+  "rating": 4,             // REQUIRED. New or existing integer rating (1 to 5).
+  "comment": "string",     // OPTIONAL. Updated text comment.
+  "images": ["string"]     // OPTIONAL. Entire new array of image URLs (replaces old one).
+}
+```
+
+#### Success Response (HTTP 200)
+```json
+{
+  "success": true,
+  "message": "Review updated successfully",
+  "data": {
+    "reviewId": "cuid_string_here"
+  }
+}
+```
+
+#### Error Responses
+- **401 Unauthorized**: Missing or invalid token.
+- **404 Not Found**: Order item or existing review not found.
+- **403 Forbidden**: You are trying to update a review that belongs to someone else.
+- **400 Bad Request**: Validation or formatting errors.

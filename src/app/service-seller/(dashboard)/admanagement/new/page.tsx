@@ -6,16 +6,13 @@ import { redirect } from "next/navigation"
 import { revalidatePath } from "next/cache"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/ui/card"
 import { Button } from "@/ui/button"
-import { Input } from "@/ui/input"
-import { Label } from "@/ui/label"
 import Link from "next/link"
-import { AdCreativeField } from "@/components/ads/ad-creative-field"
-import { BudgetAudienceField } from "@/components/ads/budget-audience-field"
-import { CountryMultiSelect } from "@/components/ads/country-multi-select"
 import { saveAdCreativeFile, validateAdCreativeFile } from "@/lib/ad-upload"
+import { ServiceAdFormClient } from "./service-ad-form-client"
 
 const createAdSchema = z.object({
-  serviceId: z.string().min(1, "Service is required"),
+  adType: z.enum(["promote_service", "own_ad"]).optional(),
+  serviceId: z.string().optional(),
   title: z.string().min(1, "Title is required"),
   description: z.string().optional(),
   creativeType: z.enum(["IMAGE", "VIDEO"]),
@@ -35,11 +32,18 @@ async function createAd(data: unknown) {
   const session = await auth()
   if (!session?.user || !isServiceSeller(session.user)) return { error: "Unauthorized" }
   const validated = createAdSchema.safeParse(data)
-  if (!validated.success) return { error: "Invalid data", details: validated.error.errors }
+  if (!validated.success) {
+    return { error: `Invalid data: ${validated.error.errors.map(e => `${e.path.join(".")}: ${e.message}`).join(", ")}`, details: validated.error.errors }
+  }
   const seller = await prisma.seller.findUnique({ where: { userId: session.user.id } })
   if (!seller || seller.type !== "SERVICE") return { error: "Seller not found" }
-  const service = await prisma.service.findFirst({ where: { id: validated.data.serviceId, sellerId: seller.id } })
-  if (!service) return { error: "Service not found" }
+  const isOwnAd = validated.data.adType === "own_ad"
+  if (!isOwnAd && !validated.data.serviceId) return { error: "Service is required" }
+  let service = null
+  if (!isOwnAd) {
+    service = await prisma.service.findFirst({ where: { id: validated.data.serviceId, sellerId: seller.id } })
+    if (!service) return { error: "Service not found" }
+  }
   const startAt = new Date(validated.data.startAt)
   const endAt = new Date(validated.data.endAt)
   if (endAt <= startAt) return { error: "End date must be after start date" }
@@ -62,7 +66,7 @@ async function createAd(data: unknown) {
       data: {
         sellerId: seller.id,
         customerUserId: null,
-        serviceId: validated.data.serviceId,
+        serviceId: isOwnAd ? null : validated.data.serviceId,
         title: validated.data.title,
         description: validated.data.description || null,
         creativeType: validated.data.creativeType,
@@ -92,7 +96,9 @@ async function createAdForm(formData: FormData) {
   "use server"
   const session = await auth()
   if (!session?.user || !isServiceSeller(session.user)) redirect("/service-seller/login?error=session_expired")
-  const serviceId = formData.get("serviceId") as string
+  const adType = formData.get("adType") as string
+  const isOwnAd = adType === "own_ad"
+  const serviceId = (formData.get("serviceId") as string) || undefined
   const title = formData.get("title") as string
   const creativeType = (formData.get("creativeType") as string) || "IMAGE"
   const creativeFile = formData.get("creativeFile") as File | null
@@ -114,7 +120,7 @@ async function createAdForm(formData: FormData) {
   const endAt = formData.get("endAt") as string
   const targetCountries = (formData.get("targetCountries") as string) || ""
   const expandAudience = (formData.get("expandAudience") as string) === "on"
-  if (!serviceId || !title || !creativeUrl || !totalBudgetStr || !startAt || !endAt) {
+  if ((!isOwnAd && !serviceId) || !title || !creativeUrl || !totalBudgetStr || !startAt || !endAt) {
     redirect("/service-seller/admanagement/new?error=missing_required_fields")
   }
   const totalBudget = parseFloat(totalBudgetStr)
@@ -131,6 +137,7 @@ async function createAdForm(formData: FormData) {
   const targetAgeMin = targetAgeMinStr ? parseInt(targetAgeMinStr, 10) : undefined
   const targetAgeMax = targetAgeMaxStr ? parseInt(targetAgeMaxStr, 10) : undefined
   const data = {
+    adType,
     serviceId,
     title,
     description: (formData.get("description") as string) || undefined,
@@ -195,99 +202,7 @@ export default async function NewAdPage({
               {decodeURIComponent(params.error)}
             </div>
           )}
-          <form action={createAdForm} className="space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="serviceId">Service to promote *</Label>
-              <select
-                id="serviceId"
-                name="serviceId"
-                required
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-              >
-                <option value="">Select a service</option>
-                {services.map((s) => (
-                  <option key={s.id} value={s.id}>{s.name}</option>
-                ))}
-              </select>
-              {services.length === 0 && (
-                <p className="text-sm text-muted-foreground">Create a service first from Services.</p>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="title">Ad title *</Label>
-              <Input id="title" name="title" required placeholder="e.g. Book Your Session Today" />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="description">Description (optional)</Label>
-              <textarea
-                id="description"
-                name="description"
-                className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                placeholder="Short description for the ad"
-              />
-            </div>
-
-            <AdCreativeField />
-
-            <BudgetAudienceField />
-
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="startAt">Start date *</Label>
-                <Input id="startAt" name="startAt" type="datetime-local" required />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="endAt">End date *</Label>
-                <Input id="endAt" name="endAt" type="datetime-local" required />
-              </div>
-            </div>
-
-            <CountryMultiSelect />
-
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="targetAgeMin">Target age min (optional)</Label>
-                <Input
-                  id="targetAgeMin"
-                  name="targetAgeMin"
-                  type="number"
-                  min="0"
-                  max="120"
-                  placeholder="e.g. 18"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="targetAgeMax">Target age max (optional)</Label>
-                <Input
-                  id="targetAgeMax"
-                  name="targetAgeMax"
-                  type="number"
-                  min="0"
-                  max="120"
-                  placeholder="e.g. 65"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <input type="checkbox" id="expandAudience" name="expandAudience" className="rounded border-input" />
-                <Label htmlFor="expandAudience">Expand audience</Label>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                When on: if your target countries would show the ad to very few people, we may show it to a broader audience so it still gets reach. When off: ad is shown only to users matching your selected countries.
-              </p>
-            </div>
-
-            <div className="flex gap-4">
-              <Button type="submit">Create Ad</Button>
-              <Link href="/service-seller/admanagement">
-                <Button type="button" variant="outline">Cancel</Button>
-              </Link>
-            </div>
-          </form>
+          <ServiceAdFormClient services={services} action={createAdForm} />
         </CardContent>
       </Card>
     </div>

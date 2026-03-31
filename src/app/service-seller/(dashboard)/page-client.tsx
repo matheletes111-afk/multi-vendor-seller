@@ -19,6 +19,15 @@ type Overview = {
   platformCommissionFormatted: string
   sellerNetTotal: number
   sellerNetFormatted: string
+  creditList?: Array<{
+    id: string
+    orderId: string
+    orderNumber: string
+    serviceName: string
+    createdAt: string
+    gross: number
+    grossFormatted: string
+  }>
 }
 
 export function ServiceSellerPageClient() {
@@ -76,8 +85,7 @@ export function ServiceSellerPageClient() {
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
         <p className="text-muted-foreground mt-2">
-          Overview of your service seller account. Net worth below is gross service-line value minus platform fees (no
-          product-style wallet adjustments).
+          Overview of your service seller account. Net worth below is fully credited (platform fees currently waived).
         </p>
       </div>
       {!subscription && (
@@ -126,12 +134,12 @@ export function ServiceSellerPageClient() {
           <TrendingUp className="h-5 w-5 text-muted-foreground" />
         </CardHeader>
         <CardContent className="space-y-3">
-          <div className="max-w-md space-y-2 rounded-xl border border-slate-100 bg-slate-50/80 px-4 py-3 text-sm">
+          <Link href="/service-seller/net-worth" className="block max-w-md space-y-2 rounded-xl border border-slate-100 bg-slate-50/80 px-4 py-3 text-sm transition-colors hover:bg-slate-100/80">
             <div className="flex justify-between gap-4 font-medium text-emerald-900">
               <span>Gross (+)</span>
               <span className="tabular-nums">+{formatCurrency(data.sellerGrossTotal)}</span>
             </div>
-            <div className="flex justify-between gap-4 font-medium text-rose-900">
+            <div className="flex justify-between gap-4 font-medium text-slate-500">
               <span>Platform fees (−)</span>
               <span className="tabular-nums">−{formatCurrency(data.platformCommissionTotal)}</span>
             </div>
@@ -139,13 +147,13 @@ export function ServiceSellerPageClient() {
               <span>Net worth</span>
               <span className="tabular-nums">{sellerNetFormatted}</span>
             </div>
-          </div>
+          </Link>
           <p className="text-xs leading-relaxed text-muted-foreground max-w-2xl">
-            Gross is the total of your service order lines (incl. GST and line shipping). Platform fees are commission on
-            those lines. Net worth = gross − fees, same basis as the orders list.
+            Gross is the total of your service order lines (incl. GST and line shipping). Platform fees are currently waived. Net worth = gross.
           </p>
         </CardContent>
       </Card>
+
     </div>
   )
 }

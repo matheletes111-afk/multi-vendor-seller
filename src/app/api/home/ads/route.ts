@@ -9,6 +9,7 @@ export async function GET() {
       select: {
         id: true,
         title: true,
+        description: true,
         creativeType: true,
         creativeUrl: true,
         productId: true,

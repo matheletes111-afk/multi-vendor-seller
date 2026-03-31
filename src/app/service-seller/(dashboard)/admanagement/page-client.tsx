@@ -211,7 +211,7 @@ export function ServiceSellerAdmanagementPageClient() {
                         )}
                       </TableCell>
                       <TableCell className="hidden md:table-cell text-muted-foreground text-sm">
-                        {ad.service?.name ?? "—"}
+                        {ad.service?.name ?? "Own business ad"}
                       </TableCell>
                       <TableCell>{statusBadge(ad.status)}</TableCell>
                       <TableCell className="hidden lg:table-cell text-right text-sm whitespace-nowrap">

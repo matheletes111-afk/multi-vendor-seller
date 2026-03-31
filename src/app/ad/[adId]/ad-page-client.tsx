@@ -13,6 +13,7 @@ import { AddToCartButton } from "@/components/product/AddToCartButton";
 type Ad = {
   id: string;
   title: string;
+  description: string | null;
   creativeType: string;
   creativeUrl: string;
   productId: string | null;
@@ -145,6 +146,14 @@ export function AdPageClient() {
 
       {/* Connected product and service */}
       <div className="container mx-auto w-full max-w-7xl px-3 py-5 sm:px-4 sm:py-6 md:px-5 md:py-8">
+        {ad.description?.trim() && (
+          <Card className="mb-4 border-slate-200 bg-slate-50/60">
+            <CardContent className="px-4 py-3 sm:px-5 sm:py-4">
+              <h2 className="text-sm font-semibold text-slate-800 sm:text-base">About this ad</h2>
+              <p className="mt-1 text-sm leading-relaxed text-slate-600 sm:text-[15px]">{ad.description}</p>
+            </CardContent>
+          </Card>
+        )}
         <h2 className="text-lg font-bold text-slate-800 mb-4 sm:text-xl md:text-2xl">Related to this ad</h2>
         <div className="grid grid-cols-1 gap-4 sm:gap-6 sm:grid-cols-2 lg:grid-cols-2 max-w-4xl">
           {ad.product && (
@@ -271,9 +280,9 @@ export function AdPageClient() {
           );})()}
         </div>
         {!ad.product && !ad.service && (
-          <Card className="overflow-hidden">
+          <Card className="overflow-hidden border-slate-200">
             <CardContent className="py-8 text-center sm:py-10 px-4">
-              <p className="text-muted-foreground text-sm sm:text-base">No linked product or service.</p>
+              <p className="text-muted-foreground text-sm sm:text-base">This ad is for the business brand and is not linked to a product or service.</p>
               <Link href="/browse" className="mt-4 inline-block text-blue-600 hover:underline text-sm sm:text-base">
                 Browse marketplace
               </Link>

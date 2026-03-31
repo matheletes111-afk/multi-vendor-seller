@@ -86,6 +86,7 @@ type Service = {
 type Ad = {
   id: string;
   title: string;
+  description: string | null;
   creativeType: string;
   creativeUrl: string;
   productId: string | null;
@@ -659,6 +660,16 @@ export function HomeClient() {
                       <span className="font-semibold text-slate-900 line-clamp-2 group-hover:text-blue-600 text-sm sm:text-base">
                         {ad.title}
                       </span>
+                      {ad.description?.trim() && (
+                        <p className="mt-1 line-clamp-2 text-xs text-slate-600 sm:text-sm">
+                          {ad.description}
+                        </p>
+                      )}
+                      {!ad.productId && !ad.serviceId && (
+                        <span className="mt-2 inline-flex w-fit rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-blue-700">
+                          Business ad
+                        </span>
+                      )}
                       <span className="mt-2 inline-flex text-sm font-medium text-blue-600 group-hover:underline">
                         View details →
                       </span>

@@ -26,31 +26,51 @@ export async function GET() {
         serviceId: { not: null },
       },
       select: {
+        id: true,
+        orderId: true,
+        createdAt: true,
         subtotalInclGst: true,
         subtotal: true,
         gstAmount: true,
         shippingAmount: true,
         commissionAmount: true,
+        serviceNameSnapshot: true,
+        order: {
+          select: { orderNumber: true }
+        }
       },
+      orderBy: { createdAt: "desc" },
     }),
   ])
 
-  const platformCommissionTotal = serviceLines.reduce((s, i) => s + i.commissionAmount, 0)
-  const sellerGrossTotal = serviceLines.reduce((s, i) => s + serviceSellerLineGross(i), 0)
-  const sellerNetTotal = serviceSellerItemsNet(serviceLines)
+  // For now, platform fees are not deducted; all is credited to the seller.
+  const platformCommissionTotal = 0
+  const sellerGrossTotal = serviceLines.reduce((s, i) => s + serviceSellerLineGross(i as any), 0)
+  const sellerNetTotal = sellerGrossTotal
+
+  const creditList = serviceLines.map(i => {
+    const grossVal = serviceSellerLineGross(i as any)
+    return {
+      id: i.id,
+      orderId: i.orderId,
+      orderNumber: i.order?.orderNumber || "Unknown",
+      serviceName: i.serviceNameSnapshot || "Service",
+      createdAt: i.createdAt,
+      gross: grossVal,
+      grossFormatted: formatCurrency(grossVal)
+    }
+  })
 
   return NextResponse.json({
     subscription: subscription ? { ...subscription, plan: subscription.plan } : null,
     totalServices,
     totalOrders,
-    /** Gross value of your service lines (before platform fee). */
     sellerGrossTotal,
     sellerGrossFormatted: formatCurrency(sellerGrossTotal),
-    /** Sum of platform commission on your service lines (fees). */
     platformCommissionTotal,
     platformCommissionFormatted: formatCurrency(platformCommissionTotal),
-    /** Your estimated net from all service order lines: gross − platform commission. No product-style return/exchange wallet adjustments. */
     sellerNetTotal,
     sellerNetFormatted: formatCurrency(sellerNetTotal),
+    creditList,
   })
 }

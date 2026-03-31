@@ -1,3 +1,5 @@
+Login user:
+=========
 POST /mobileapi/ads/click
 Authorization: Bearer <jwt_token>
 X-Ad-Session-Id: sess_1234567890_abc123
@@ -5,6 +7,17 @@ Content-Type: application/json
 
 {
   "adId": "ad_123456"
+}
+
+Guest User:
+===========
+http
+POST /mobileapi/ads/click
+X-Ad-Session-Id: sess_789012
+Content-Type: application/json
+
+{
+  "adId": "ad_123"
 }
 
 

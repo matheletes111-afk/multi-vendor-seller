@@ -23,7 +23,7 @@ export async function GET(
   }
 
   const ad = await prisma.sellerAd.findFirst({
-    where: { id, sellerId: seller.id, serviceId: { not: null } },
+    where: { id, sellerId: seller.id },
     include: {
       service: true,
       _count: { select: { adClicks: true } },

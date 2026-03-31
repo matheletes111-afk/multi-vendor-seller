@@ -18,6 +18,7 @@ export async function GET(
       select: {
         id: true,
         title: true,
+        description: true,
         creativeType: true,
         creativeUrl: true,
         productId: true,
@@ -73,6 +74,7 @@ export async function GET(
     return NextResponse.json({
       id: ad.id,
       title: ad.title,
+      description: ad.description,
       creativeType: ad.creativeType,
       creativeUrl: ad.creativeUrl,
       productId: ad.productId,
