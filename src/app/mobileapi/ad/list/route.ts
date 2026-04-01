@@ -78,22 +78,8 @@ export async function GET(request: Request) {
             email: true
           }
         },
-        product: {
-          select: {
-            id: true,
-            name: true,
-            slug: true,
-            images: true
-          }
-        },
-        service: {
-          select: {
-            id: true,
-            name: true,
-            slug: true,
-            images: true
-          }
-        },
+        product: true,
+        service: true,
         adClicks: {
           select: {
             id: true
