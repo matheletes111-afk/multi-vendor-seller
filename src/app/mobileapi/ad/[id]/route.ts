@@ -9,7 +9,7 @@ export async function GET(
   try {
     // Await the params (required in Next.js 15+)
     const { id } = await params
-    
+
     // Fetch ad with all relations
     const ad = await prisma.sellerAd.findUnique({
       where: { id },
@@ -59,17 +59,17 @@ export async function GET(
         }
       }
     })
-    
+
     if (!ad) {
       return NextResponse.json(
         { success: false, error: "Ad not found" },
         { status: 404 }
       )
     }
-    
+
     // Calculate statistics
     const totalClicks = ad.adClicks?.length || 0
-    
+
     // Format response with proper null handling
     const formattedAd = {
       id: ad.id,
@@ -91,55 +91,63 @@ export async function GET(
       productId: ad.productId || null,
       serviceId: ad.serviceId || null,
       // Advertiser info
-      advertiser: ad.seller 
+      advertiser: ad.seller
         ? {
-            type: "SELLER" as const,
-            id: ad.seller.id,
-            userId: ad.seller.userId,
-            name: ad.seller.user?.name || null,
-            email: ad.seller.user?.email || null,
-            phone: ad.seller.user?.phone || null,
-            storeName: ad.seller.store?.name || null,
-            storeLogo: ad.seller.store?.logo || null
-          }
+          type: "SELLER" as const,
+          id: ad.seller.id,
+          userId: ad.seller.userId,
+          name: ad.seller.user?.name || null,
+          email: ad.seller.user?.email || null,
+          phone: ad.seller.user?.phone || null,
+          storeName: ad.seller.store?.name || null,
+          storeLogo: ad.seller.store?.logo || null
+        }
         : ad.customer
-        ? {
+          ? {
             type: "CUSTOMER" as const,
             id: ad.customer.id,
             name: ad.customer.name || null,
             email: ad.customer.email || null,
             phone: ad.customer.phone || null
           }
-        : null,
-      // Target details - only include if product or service exists
-      target: ad.product ? {
-        type: "PRODUCT" as const,
-        id: ad.product.id,
-        name: ad.product.name,
-        slug: ad.product.slug,
-        description: ad.product.description,
-        images: ad.product.images,
-        category: ad.product.category?.name || null,
-        subcategory: ad.product.subcategory?.name || null,
-        priceRange: ad.product.variants && ad.product.variants.length > 0 
-          ? {
-              min: Math.min(...ad.product.variants.map(v => v.price)),
-              max: Math.max(...ad.product.variants.map(v => v.price))
-            }
           : null,
-        variantCount: ad.product.variants?.length || 0
-      } : ad.service ? {
-        type: "SERVICE" as const,
-        id: ad.service.id,
-        name: ad.service.name,
-        slug: ad.service.slug,
-        description: ad.service.description,
-        images: ad.service.images,
-        serviceType: ad.service.serviceType,
-        basePrice: ad.service.basePrice,
-        category: ad.service.serviceCategory?.name || null,
-        packageCount: ad.service.packages?.length || 0
-      } : null,
+      // Target details - only include if product or service exists
+      // target: ad.product ? {
+      //   type: "PRODUCT" as const,
+      //   id: ad.product.id,
+      //   name: ad.product.name,
+      //   slug: ad.product.slug,
+      //   description: ad.product.description,
+      //   images: ad.product.images,
+      //   category: ad.product.category?.name || null,
+      //   subcategory: ad.product.subcategory?.name || null,
+      //   priceRange: ad.product.variants && ad.product.variants.length > 0 
+      //     ? {
+      //         min: Math.min(...ad.product.variants.map(v => v.price)),
+      //         max: Math.max(...ad.product.variants.map(v => v.price))
+      //       }
+      //     : null,
+      //   variantCount: ad.product.variants?.length || 0
+      // } : ad.service ? {
+      //   type: "SERVICE" as const,
+      //   id: ad.service.id,
+      //   name: ad.service.name,
+      //   slug: ad.service.slug,
+      //   description: ad.service.description,
+      //   images: ad.service.images,
+      //   serviceType: ad.service.serviceType,
+      //   basePrice: ad.service.basePrice,
+      //   category: ad.service.serviceCategory?.name || null,
+      //   packageCount: ad.service.packages?.length || 0
+      // } : null,
+      target: {
+        product: ad.product
+          ? { ...ad.product, type: "PRODUCT" as const }
+          : null,
+        service: ad.service
+          ? { ...ad.service, type: "SERVICE" as const }
+          : null
+      },
       // Targeting info
       targeting: {
         targetCountries: ad.targetCountries,
@@ -163,12 +171,12 @@ export async function GET(
         ))
       }
     }
-    
+
     return NextResponse.json({
       success: true,
       data: formattedAd
     })
-    
+
   } catch (error) {
     console.error("Error fetching ad details:", error)
     return NextResponse.json(
