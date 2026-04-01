@@ -20,7 +20,7 @@ import {
 import { formatCurrency } from "@/lib/utils"
 import { getYoutubeThumbnailUrl } from "@/lib/youtube"
 import { PageLoader } from "@/components/ui/page-loader"
-import { Plus, Megaphone, Pause, Play, Trash2, ImageIcon, Video } from "lucide-react"
+import { Plus, Megaphone, Pause, Play, Trash2, ImageIcon, Video, Eye } from "lucide-react"
 import { AdminPagination } from "@/components/admin/admin-pagination"
 import {
   Table,
@@ -109,8 +109,11 @@ export function ServiceSellerAdmanagementPageClient() {
     }
   }
 
-  const statusBadge = (status: string) => {
-    switch (status) {
+  const statusBadge = (ad: Ad) => {
+    if (new Date(ad.endAt) < new Date()) {
+      return <Badge variant="secondary">Ended</Badge>
+    }
+    switch (ad.status) {
       case "PENDING_APPROVAL":
         return <Badge variant="secondary">Pending approval</Badge>
       case "ACTIVE":
@@ -120,7 +123,7 @@ export function ServiceSellerAdmanagementPageClient() {
       case "ENDED":
         return <Badge variant="secondary">Ended</Badge>
       default:
-        return <Badge variant="outline">{status}</Badge>
+        return <Badge variant="outline">{ad.status}</Badge>
     }
   }
 
@@ -213,7 +216,7 @@ export function ServiceSellerAdmanagementPageClient() {
                       <TableCell className="hidden md:table-cell text-muted-foreground text-sm">
                         {ad.service?.name ?? "Own business ad"}
                       </TableCell>
-                      <TableCell>{statusBadge(ad.status)}</TableCell>
+                      <TableCell>{statusBadge(ad)}</TableCell>
                       <TableCell className="hidden lg:table-cell text-right text-sm whitespace-nowrap">
                         {formatCurrency(ad.spentAmount)} / {formatCurrency(ad.totalBudget)}
                       </TableCell>
@@ -221,6 +224,12 @@ export function ServiceSellerAdmanagementPageClient() {
                       <TableCell className="hidden xl:table-cell text-right text-sm whitespace-nowrap">{formatCurrency(ad.maxCpc)}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex flex-wrap justify-end gap-1">
+                          <Button asChild variant="outline" size="sm">
+                            <Link href={`/service-seller/admanagement/${ad.id}`}>
+                              <Eye className="mr-1 h-3 w-3" />
+                              Details
+                            </Link>
+                          </Button>
                           {ad.status === "ACTIVE" && (
                             <Button
                               variant="outline"

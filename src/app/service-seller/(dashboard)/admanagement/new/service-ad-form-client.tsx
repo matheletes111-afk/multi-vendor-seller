@@ -19,7 +19,17 @@ export function ServiceAdFormClient({
 }) {
   const [adType, setAdType] = useState<"promote_service" | "own_ad">("promote_service")
   const [loading, setLoading] = useState(false)
+  const [placements, setPlacements] = useState<string[]>(["WEB"])
   const isPromoteService = adType === "promote_service"
+  const hasWeb = placements.includes("WEB")
+  const hasMobile = placements.includes("MOBILE")
+
+  function togglePlacement(p: string) {
+    setPlacements(prev => {
+      const next = prev.includes(p) ? prev.filter(x => x !== p) : [...prev, p]
+      return next.length > 0 ? next : prev // Prevent unchecking both
+    })
+  }
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     setLoading(true)
@@ -95,7 +105,56 @@ export function ServiceAdFormClient({
         />
       </div>
 
-      <AdCreativeField />
+      <div className="space-y-3">
+        <Label>Placements *</Label>
+        <div className="flex gap-4">
+          <label className={cn(
+            "flex items-center gap-2 border p-3 rounded-md cursor-pointer transition-colors flex-1",
+            hasWeb ? "border-primary bg-primary/5" : "hover:bg-muted/40"
+          )}>
+            <input 
+              type="checkbox" 
+              checked={hasWeb} 
+              onChange={() => togglePlacement("WEB")}
+              className="rounded border-input text-primary focus:ring-primary"
+            />
+            <span className="font-medium">Web Banners</span>
+          </label>
+          <label className={cn(
+            "flex items-center gap-2 border p-3 rounded-md cursor-pointer transition-colors flex-1",
+            hasMobile ? "border-primary bg-primary/5" : "hover:bg-muted/40"
+          )}>
+            <input 
+              type="checkbox" 
+              checked={hasMobile} 
+              onChange={() => togglePlacement("MOBILE")}
+              className="rounded border-input text-primary focus:ring-primary"
+            />
+            <span className="font-medium">Mobile Stories</span>
+          </label>
+        </div>
+        {placements.map(p => (
+          <input key={p} type="hidden" name="placements" value={p} />
+        ))}
+      </div>
+
+      <div className="space-y-6 pt-2">
+        {hasWeb && (
+          <div className="rounded-lg border p-4 bg-card">
+            <AdCreativeField label="Web Creative (Image or Video) *" />
+          </div>
+        )}
+        
+        {hasMobile && (
+          <div className="rounded-lg border p-4 bg-card">
+            <AdCreativeField 
+              label="Mobile Creative (Portrait Image or Video) *" 
+              requiresPortrait 
+              fieldNamePrefix="mobile" 
+            />
+          </div>
+        )}
+      </div>
 
       <BudgetAudienceField />
 

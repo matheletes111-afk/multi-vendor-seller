@@ -4,8 +4,13 @@ import { prisma } from "@/lib/prisma";
 /** GET active seller ads for home page. Shows all ACTIVE ads (no date filter) so all approved ads appear. Public, no auth. */
 export async function GET() {
   try {
+    const now = new Date();
     const ads = await prisma.sellerAd.findMany({
-      where: { status: "ACTIVE" },
+      where: { 
+        status: "ACTIVE",
+        startAt: { lte: now },
+        endAt: { gte: now }
+      },
       select: {
         id: true,
         title: true,

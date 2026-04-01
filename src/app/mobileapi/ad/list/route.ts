@@ -19,6 +19,10 @@ export async function GET(request: Request) {
     // Build where clause
     const where: any = {}
 
+    // Only return ads specifically targeted for mobile devices
+    // @ts-ignore - Prisma client needs regeneration
+    where.placements = { has: "MOBILE" }
+
     if (status) {
       where.status = status
     } else {
@@ -96,12 +100,24 @@ export async function GET(request: Request) {
     })
 
     // Transform data for response with proper null handling
-    const formattedAds = ads.map(ad => ({
+    const formattedAds = ads.map(ad => {
+      // @ts-ignore - Prisma needs generation
+      const mobileType = ad.mobileCreativeType
+      // @ts-ignore
+      const mobileUrl = ad.mobileCreativeUrl
+      // @ts-ignore
+      const placementsArray = ad.placements || ["WEB"]
+      return {
       id: ad.id,
       title: ad.title,
       description: ad.description,
-      creativeType: ad.creativeType,
-      creativeUrl: ad.creativeUrl,
+      creativeType: mobileType || ad.creativeType,
+      creativeUrl: mobileUrl || ad.creativeUrl,
+      placements: placementsArray,
+      webCreativeType: ad.creativeType,
+      webCreativeUrl: ad.creativeUrl,
+      mobileCreativeType: mobileType,
+      mobileCreativeUrl: mobileUrl,
       status: ad.status,
       totalBudget: ad.totalBudget,
       spentAmount: ad.spentAmount,
@@ -141,7 +157,7 @@ export async function GET(request: Request) {
         targetAgeMax: ad.targetAgeMax,
         expandAudience: ad.expandAudience
       }
-    }))
+    }})
 
     return NextResponse.json({
       success: true,

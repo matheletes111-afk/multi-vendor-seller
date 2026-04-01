@@ -20,7 +20,7 @@ import {
 import { formatCurrency } from "@/lib/utils"
 import { getYoutubeThumbnailUrl } from "@/lib/youtube"
 import { PageLoader } from "@/components/ui/page-loader"
-import { Plus, Megaphone, Pause, Play, Trash2, ImageIcon, Video } from "lucide-react"
+import { Plus, Megaphone, Pause, Play, Trash2, ImageIcon, Video, Eye } from "lucide-react"
 import { AdminPagination } from "@/components/admin/admin-pagination"
 import {
   Table,
@@ -116,8 +116,11 @@ export function CustomerAdmanagementPageClient() {
     }
   }
 
-  const statusBadge = (status: string) => {
-    switch (status) {
+  const statusBadge = (ad: Ad) => {
+    if (new Date(ad.endAt) < new Date()) {
+      return <Badge variant="secondary">Ended</Badge>
+    }
+    switch (ad.status) {
       case "PENDING_APPROVAL":
         return <Badge variant="secondary">Pending approval</Badge>
       case "ACTIVE":
@@ -127,7 +130,7 @@ export function CustomerAdmanagementPageClient() {
       case "ENDED":
         return <Badge variant="secondary">Ended</Badge>
       default:
-        return <Badge variant="outline">{status}</Badge>
+        return <Badge variant="outline">{ad.status}</Badge>
     }
   }
 
@@ -213,7 +216,7 @@ export function CustomerAdmanagementPageClient() {
                       <TableCell className="font-medium max-w-[200px]">
                         <span className="line-clamp-2">{ad.title}</span>
                       </TableCell>
-                      <TableCell>{statusBadge(ad.status)}</TableCell>
+                      <TableCell>{statusBadge(ad)}</TableCell>
                       <TableCell className="hidden lg:table-cell text-right text-sm whitespace-nowrap">
                         {formatCurrency(ad.spentAmount)} / {formatCurrency(ad.totalBudget)}
                       </TableCell>
@@ -221,6 +224,12 @@ export function CustomerAdmanagementPageClient() {
                       <TableCell className="hidden xl:table-cell text-right text-sm whitespace-nowrap">{formatCurrency(ad.maxCpc)}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex flex-wrap justify-end gap-1">
+                          <Button asChild variant="outline" size="sm">
+                            <Link href={`/customer/admanagement/${ad.id}`}>
+                              <Eye className="mr-1 h-3 w-3" />
+                              Details
+                            </Link>
+                          </Button>
                           {ad.status === "ACTIVE" && (
                             <Button
                               variant="outline"

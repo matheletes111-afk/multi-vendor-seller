@@ -71,12 +71,24 @@ export async function GET(
     const totalClicks = ad.adClicks?.length || 0
 
     // Format response with proper null handling
+    // @ts-ignore
+    const mobileType = ad.mobileCreativeType
+    // @ts-ignore
+    const mobileUrl = ad.mobileCreativeUrl
+    // @ts-ignore
+    const placements = ad.placements || ["WEB"]
+
     const formattedAd = {
       id: ad.id,
       title: ad.title,
       description: ad.description,
-      creativeType: ad.creativeType,
-      creativeUrl: ad.creativeUrl,
+      creativeType: mobileType || ad.creativeType,
+      creativeUrl: mobileUrl || ad.creativeUrl,
+      placements: placements,
+      webCreativeType: ad.creativeType,
+      webCreativeUrl: ad.creativeUrl,
+      mobileCreativeType: mobileType,
+      mobileCreativeUrl: mobileUrl,
       status: ad.status,
       totalBudget: ad.totalBudget,
       spentAmount: ad.spentAmount,

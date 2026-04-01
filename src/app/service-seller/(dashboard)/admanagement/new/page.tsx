@@ -15,8 +15,11 @@ const createAdSchema = z.object({
   serviceId: z.string().optional(),
   title: z.string().min(1, "Title is required"),
   description: z.string().optional(),
-  creativeType: z.enum(["IMAGE", "VIDEO"]),
-  creativeUrl: z.string().min(1, "Creative URL or file is required"),
+  placements: z.array(z.enum(["WEB", "MOBILE"])).min(1, "At least one placement is required"),
+  creativeType: z.enum(["IMAGE", "VIDEO"]).optional(),
+  creativeUrl: z.string().optional(),
+  mobileCreativeType: z.enum(["IMAGE", "VIDEO"]).optional(),
+  mobileCreativeUrl: z.string().optional(),
   totalBudget: z.number().positive("Budget must be positive"),
   maxCpc: z.number().positive("Max CPC must be positive"),
   startAt: z.string().min(1, "Start date is required"),
@@ -48,6 +51,13 @@ async function createAd(data: unknown) {
   const endAt = new Date(validated.data.endAt)
   if (endAt <= startAt) return { error: "End date must be after start date" }
   if (validated.data.maxCpc > validated.data.totalBudget) return { error: "Max CPC cannot exceed total budget" }
+  
+  if (validated.data.placements.includes("WEB") && !validated.data.creativeUrl) {
+    return { error: "Web Creative is required when Web placement is selected" }
+  }
+  if (validated.data.placements.includes("MOBILE") && !validated.data.mobileCreativeUrl) {
+    return { error: "Mobile Creative is required when Mobile placement is selected" }
+  }
   let countries: string[] | null = null
   if (validated.data.targetCountries) {
     const raw = validated.data.targetCountries as string
@@ -61,29 +71,34 @@ async function createAd(data: unknown) {
   const ageMin = validated.data.targetAgeMin
   const ageMax = validated.data.targetAgeMax
   if (ageMin != null && ageMax != null && ageMin > ageMax) return { error: "Min age cannot be greater than max age" }
-  try {
-    await prisma.sellerAd.create({
-      data: {
-        sellerId: seller.id,
-        customerUserId: null,
-        serviceId: isOwnAd ? null : validated.data.serviceId,
-        title: validated.data.title,
-        description: validated.data.description || null,
-        creativeType: validated.data.creativeType,
-        creativeUrl: validated.data.creativeUrl,
-        status: "PENDING_APPROVAL",
-        totalBudget: validated.data.totalBudget,
-        spentAmount: 0,
-        maxCpc: validated.data.maxCpc,
-        targetAudience: validated.data.targetAudience ?? null,
-        startAt,
-        endAt,
-        targetCountries: countries?.length ? (countries as unknown as object) : undefined,
-        targetAgeMin: ageMin ?? null,
-        targetAgeMax: ageMax ?? null,
-        expandAudience: validated.data.expandAudience ?? false,
-      },
-    })
+    
+    // Bypass TS type checking for un-generated fields
+    const adData: any = {
+      sellerId: seller.id,
+      customerUserId: null,
+      serviceId: isOwnAd ? null : validated.data.serviceId,
+      title: validated.data.title,
+      description: validated.data.description || null,
+      placements: validated.data.placements,
+      creativeType: validated.data.creativeType || "IMAGE",
+      creativeUrl: validated.data.creativeUrl || validated.data.mobileCreativeUrl || "",
+      mobileCreativeType: validated.data.mobileCreativeType,
+      mobileCreativeUrl: validated.data.mobileCreativeUrl,
+      status: "PENDING_APPROVAL",
+      totalBudget: validated.data.totalBudget,
+      spentAmount: 0,
+      maxCpc: validated.data.maxCpc,
+      targetAudience: validated.data.targetAudience ?? null,
+      startAt,
+      endAt,
+      targetCountries: countries?.length ? (countries as unknown as object) : undefined,
+      targetAgeMin: ageMin ?? null,
+      targetAgeMax: ageMax ?? null,
+      expandAudience: validated.data.expandAudience ?? false,
+    }
+
+    try {
+      await prisma.sellerAd.create({ data: adData })
     revalidatePath("/service-seller/admanagement")
     return { success: true }
   } catch (error: unknown) {
@@ -100,14 +115,38 @@ async function createAdForm(formData: FormData) {
   const isOwnAd = adType === "own_ad"
   const serviceId = (formData.get("serviceId") as string) || undefined
   const title = formData.get("title") as string
+  const placements = formData.getAll("placements") as ("WEB" | "MOBILE")[]
+  const hasWeb = placements.includes("WEB")
+  const hasMobile = placements.includes("MOBILE")
+
+  if (placements.length === 0) {
+    redirect("/service-seller/admanagement/new?error=missing_placements")
+  }
+
   const creativeType = (formData.get("creativeType") as string) || "IMAGE"
   const creativeFile = formData.get("creativeFile") as File | null
   let creativeUrl = (formData.get("creativeUrl") as string) || ""
-  if (creativeFile && creativeFile.size > 0) {
+
+  if (hasWeb && creativeFile && creativeFile.size > 0) {
     const check = validateAdCreativeFile(creativeFile)
-    if (!check.ok) redirect(`/service-seller/admanagement/new?error=${encodeURIComponent(check.error)}`)
+    if (!check.ok) redirect(`/service-seller/admanagement/new?error=${encodeURIComponent("Web Creative: " + check.error)}`)
     try {
       creativeUrl = await saveAdCreativeFile(creativeFile)
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Upload failed"
+      redirect(`/service-seller/admanagement/new?error=${encodeURIComponent(msg)}`)
+    }
+  }
+
+  const mobileCreativeType = (formData.get("mobilecreativeType") as string) || "IMAGE"
+  const mobileCreativeFile = formData.get("mobilecreativeFile") as File | null
+  let mobileCreativeUrl = (formData.get("mobilecreativeUrl") as string) || ""
+
+  if (hasMobile && mobileCreativeFile && mobileCreativeFile.size > 0) {
+    const check = validateAdCreativeFile(mobileCreativeFile)
+    if (!check.ok) redirect(`/service-seller/admanagement/new?error=${encodeURIComponent("Mobile Creative: " + check.error)}`)
+    try {
+      mobileCreativeUrl = await saveAdCreativeFile(mobileCreativeFile)
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Upload failed"
       redirect(`/service-seller/admanagement/new?error=${encodeURIComponent(msg)}`)
@@ -120,8 +159,14 @@ async function createAdForm(formData: FormData) {
   const endAt = formData.get("endAt") as string
   const targetCountries = (formData.get("targetCountries") as string) || ""
   const expandAudience = (formData.get("expandAudience") as string) === "on"
-  if ((!isOwnAd && !serviceId) || !title || !creativeUrl || !totalBudgetStr || !startAt || !endAt) {
+  if ((!isOwnAd && !serviceId) || !title || !totalBudgetStr || !startAt || !endAt) {
     redirect("/service-seller/admanagement/new?error=missing_required_fields")
+  }
+  if (hasWeb && !creativeUrl) {
+    redirect("/service-seller/admanagement/new?error=missing_web_creative")
+  }
+  if (hasMobile && !mobileCreativeUrl) {
+    redirect("/service-seller/admanagement/new?error=missing_mobile_creative")
   }
   const totalBudget = parseFloat(totalBudgetStr)
   const targetAudience = targetAudienceStr ? parseInt(targetAudienceStr, 10) : 0
@@ -141,8 +186,11 @@ async function createAdForm(formData: FormData) {
     serviceId,
     title,
     description: (formData.get("description") as string) || undefined,
+    placements,
     creativeType: creativeType === "VIDEO" ? "VIDEO" as const : "IMAGE" as const,
-    creativeUrl,
+    creativeUrl: creativeUrl || undefined,
+    mobileCreativeType: mobileCreativeType === "VIDEO" ? "VIDEO" as const : "IMAGE" as const,
+    mobileCreativeUrl: mobileCreativeUrl || undefined,
     totalBudget,
     maxCpc,
     targetAudience: targetAudience >= 1 ? targetAudience : undefined,

@@ -216,6 +216,11 @@ enum CreativeType {
   VIDEO
 }
 
+enum AdPlacement {
+  WEB
+  MOBILE
+}
+
 enum SellerBalanceTxnKind {
   DEBIT
   CREDIT
@@ -284,6 +289,9 @@ model SellerAd {
   description     String?        @db.Text
   creativeType    CreativeType
   creativeUrl     String
+  mobileCreativeType CreativeType?
+  mobileCreativeUrl  String?
+  placements      AdPlacement[]  @default([WEB])
   status          SellerAdStatus @default(PENDING_APPROVAL)
   totalBudget     Decimal
   spentAmount     Decimal        @default(0)

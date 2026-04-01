@@ -77,17 +77,34 @@ export async function POST(request: NextRequest) {
   const contentType = request.headers.get("content-type") || ""
   if (contentType.includes("multipart/form-data")) {
     const formData = await request.formData()
+    const placements = formData.getAll("placements") as string[]
+    const hasWeb = placements.includes("WEB")
+    const hasMobile = placements.includes("MOBILE")
+
     const creativeFile = formData.get("creativeFile") as File | null
     let creativeUrl = (formData.get("creativeUrl") as string) || ""
-    if (creativeFile && creativeFile.size > 0) {
+    if (hasWeb && creativeFile && creativeFile.size > 0) {
       const check = validateAdCreativeFile(creativeFile)
-      if (!check.ok) return NextResponse.json({ error: check.error }, { status: 400 })
+      if (!check.ok) return NextResponse.json({ error: "Web Creative: " + check.error }, { status: 400 })
       try {
         creativeUrl = await saveAdCreativeFile(creativeFile)
       } catch (e) {
         return NextResponse.json({ error: e instanceof Error ? e.message : "Upload failed" }, { status: 400 })
       }
     }
+
+    const mobileCreativeFile = formData.get("mobilecreativeFile") as File | null
+    let mobileCreativeUrl = (formData.get("mobilecreativeUrl") as string) || ""
+    if (hasMobile && mobileCreativeFile && mobileCreativeFile.size > 0) {
+      const check = validateAdCreativeFile(mobileCreativeFile)
+      if (!check.ok) return NextResponse.json({ error: "Mobile Creative: " + check.error }, { status: 400 })
+      try {
+        mobileCreativeUrl = await saveAdCreativeFile(mobileCreativeFile)
+      } catch (e) {
+        return NextResponse.json({ error: e instanceof Error ? e.message : "Upload failed" }, { status: 400 })
+      }
+    }
+
     const totalBudgetStr = (formData.get("totalBudget") as string) || ""
     const maxCpcStr = (formData.get("maxCpc") as string) || ""
     const targetAudienceStr = (formData.get("targetAudience") as string) || ""
@@ -102,8 +119,11 @@ export async function POST(request: NextRequest) {
       productId: formData.get("productId") as string,
       title: formData.get("title") as string,
       description: (formData.get("description") as string) || undefined,
+      placements: placements,
       creativeType: ((formData.get("creativeType") as string) || "IMAGE") as "IMAGE" | "VIDEO",
       creativeUrl,
+      mobileCreativeType: ((formData.get("mobilecreativeType") as string) || "IMAGE") as "IMAGE" | "VIDEO",
+      mobileCreativeUrl,
       totalBudget,
       maxCpc,
       startAt: formData.get("startAt") as string,
@@ -123,18 +143,30 @@ export async function POST(request: NextRequest) {
   const productIdRaw = String(body.productId ?? "").trim()
   const resolvedProductId = isOwnAd ? null : productIdRaw
   const title = String(body.title ?? "").trim()
+  const placements = (body.placements as unknown as string[]) || ["WEB"]
   const creativeUrl = String(body.creativeUrl ?? "").trim()
   const creativeType = body.creativeType === "VIDEO" ? "VIDEO" : "IMAGE"
+  const mobileCreativeUrl = String(body.mobileCreativeUrl ?? "").trim()
+  const mobileCreativeType = body.mobileCreativeType === "VIDEO" ? "VIDEO" : "IMAGE"
   const totalBudget = Number(body.totalBudget ?? 0)
   const maxCpc = Number(body.maxCpc ?? 0)
   const startAt = new Date(String(body.startAt ?? ""))
   const endAt = new Date(String(body.endAt ?? ""))
 
+  if (placements.length === 0) {
+    return NextResponse.json({ error: "At least one placement is required" }, { status: 400 })
+  }
   if (!isOwnAd && !productIdRaw) {
     return NextResponse.json({ error: "productId is required when promoting a product" }, { status: 400 })
   }
-  if (!title || !creativeUrl) {
-    return NextResponse.json({ error: "title and creative URL are required" }, { status: 400 })
+  if (!title) {
+    return NextResponse.json({ error: "Title is required" }, { status: 400 })
+  }
+  if (placements.includes("WEB") && !creativeUrl) {
+    return NextResponse.json({ error: "Web creative URL or file is required for Web placement" }, { status: 400 })
+  }
+  if (placements.includes("MOBILE") && !mobileCreativeUrl) {
+    return NextResponse.json({ error: "Mobile creative URL or file is required for Mobile placement" }, { status: 400 })
   }
   if (isNaN(totalBudget) || totalBudget <= 0 || isNaN(maxCpc) || maxCpc <= 0) {
     return NextResponse.json({ error: "Valid totalBudget and maxCpc required" }, { status: 400 })
@@ -174,8 +206,14 @@ export async function POST(request: NextRequest) {
         productId: resolvedProductId,
         title,
         description: (body.description as string) || null,
-        creativeType,
-        creativeUrl,
+        // @ts-ignore
+        placements: placements as any,
+        creativeType: creativeType,
+        creativeUrl: creativeUrl || mobileCreativeUrl || "",
+        // @ts-ignore
+        mobileCreativeType: mobileCreativeType,
+        // @ts-ignore
+        mobileCreativeUrl: mobileCreativeUrl || null,
         status: "PENDING_APPROVAL",
         totalBudget,
         spentAmount: 0,

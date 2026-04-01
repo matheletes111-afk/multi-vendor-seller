@@ -21,6 +21,12 @@ export function getYoutubeVideoId(url: string): string | null {
     ) {
       return u.pathname.replace("/embed/", "").split("/")[0]
     }
+    if (
+      (u.hostname === "www.youtube.com" || u.hostname === "youtube.com") &&
+      u.pathname.startsWith("/shorts/")
+    ) {
+      return u.pathname.replace("/shorts/", "").split("/")[0]
+    }
     return null
   } catch {
     return null

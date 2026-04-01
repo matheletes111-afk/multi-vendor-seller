@@ -35,9 +35,19 @@ export function NewAdForm({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [adType, setAdType] = useState<"promote_product" | "own_ad">("promote_product")
+  const [placements, setPlacements] = useState<string[]>(["WEB"])
 
   const isSeller = mode === "product-seller"
   const showProduct = isSeller && adType === "promote_product"
+  const hasWeb = placements.includes("WEB")
+  const hasMobile = placements.includes("MOBILE")
+
+  function togglePlacement(p: string) {
+    setPlacements(prev => {
+      const next = prev.includes(p) ? prev.filter(x => x !== p) : [...prev, p]
+      return next.length > 0 ? next : prev
+    })
+  }
 
   useEffect(() => {
     if (!isSeller) return
@@ -58,6 +68,10 @@ export function NewAdForm({
     if (isSeller) {
       formData.set("adType", adType)
     }
+    
+    // Add all selected placements to the formData
+    formData.delete("placements") // clear any existing from hidden inputs if needed
+    placements.forEach(p => formData.append("placements", p))
     if (showProduct) {
       const pid = formData.get("productId")
       if (!pid || String(pid).trim() === "") {
@@ -146,6 +160,37 @@ export function NewAdForm({
               </div>
             )}
 
+            <div className="space-y-3">
+              <Label>Placements *</Label>
+              <div className="flex gap-4">
+                <label className={cn(
+                  "flex items-center gap-2 border p-3 rounded-md cursor-pointer transition-colors flex-1",
+                  hasWeb ? "border-primary bg-primary/5" : "hover:bg-muted/40"
+                )}>
+                  <input 
+                    type="checkbox" 
+                    checked={hasWeb} 
+                    onChange={() => togglePlacement("WEB")}
+                    className="rounded border-input text-primary focus:ring-primary"
+                  />
+                  <span className="font-medium">Web Banners</span>
+                </label>
+                <label className={cn(
+                  "flex items-center gap-2 border p-3 rounded-md cursor-pointer transition-colors flex-1",
+                  hasMobile ? "border-primary bg-primary/5" : "hover:bg-muted/40"
+                )}>
+                  <input 
+                    type="checkbox" 
+                    checked={hasMobile} 
+                    onChange={() => togglePlacement("MOBILE")}
+                    className="rounded border-input text-primary focus:ring-primary"
+                  />
+                  <span className="font-medium">Mobile Stories</span>
+                </label>
+              </div>
+              {/* Note: Placements are appended directly to FormData in handleSubmit */}
+            </div>
+
             {showProduct && (
               <div className="space-y-2">
                 <Label htmlFor="productId">Product to promote *</Label>
@@ -181,7 +226,25 @@ export function NewAdForm({
                 placeholder="Short description for the ad"
               />
             </div>
-            <AdCreativeField />
+            
+            <div className="space-y-6 pt-2">
+              {hasWeb && (
+                <div className="rounded-lg border p-4 bg-card">
+                  <AdCreativeField label="Web Creative (Image or Video) *" />
+                </div>
+              )}
+              
+              {hasMobile && (
+                <div className="rounded-lg border p-4 bg-card">
+                  <AdCreativeField 
+                    label="Mobile Creative (Portrait Image or Video) *" 
+                    requiresPortrait 
+                    fieldNamePrefix="mobile" 
+                  />
+                </div>
+              )}
+            </div>
+
             <BudgetAudienceField />
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">

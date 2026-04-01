@@ -15,9 +15,12 @@ import { getYoutubeEmbedUrl } from "@/lib/youtube"
 
 type Props = {
   uploadEndpoint?: string
+  label?: string
+  requiresPortrait?: boolean
+  fieldNamePrefix?: string
 }
 
-export function AdCreativeField(_props: Props) {
+export function AdCreativeField({ label = "Creative (image or video) *", requiresPortrait = false, fieldNamePrefix = "", ..._props }: Props) {
   const [creativeType, setCreativeType] = useState<"IMAGE" | "VIDEO">("IMAGE")
   const [imageMode, setImageMode] = useState<"url" | "upload">("upload")
   const [videoMode, setVideoMode] = useState<"url" | "upload">("upload")
@@ -53,6 +56,40 @@ export function AdCreativeField(_props: Props) {
       e.target.value = ""
       return
     }
+
+    if (requiresPortrait) {
+      const blobUrl = URL.createObjectURL(file)
+      if (type === "IMAGE") {
+        const img = new window.Image()
+        img.onload = () => {
+          if (img.width >= img.height) {
+            setUploadError("Image must be portrait (vertical) for mobile stories.")
+            if (imageFileRef.current) imageFileRef.current.value = ""
+            URL.revokeObjectURL(blobUrl)
+          } else {
+            setImagePreviewBlob(blobUrl)
+          }
+        }
+        img.onerror = () => setUploadError("Invalid image file format.")
+        img.src = blobUrl
+        return
+      } else {
+        const video = document.createElement("video")
+        video.onloadedmetadata = () => {
+          if (video.videoWidth >= video.videoHeight) {
+            setUploadError("Video must be portrait (vertical) for mobile stories.")
+            if (videoFileRef.current) videoFileRef.current.value = ""
+            URL.revokeObjectURL(blobUrl)
+          } else {
+            setVideoPreviewBlob(blobUrl)
+          }
+        }
+        video.onerror = () => setUploadError("Invalid video file format.")
+        video.src = blobUrl
+        return
+      }
+    }
+
     const blobUrl = URL.createObjectURL(file)
     if (type === "IMAGE") setImagePreviewBlob(blobUrl)
     else setVideoPreviewBlob(blobUrl)
@@ -63,7 +100,7 @@ export function AdCreativeField(_props: Props) {
 
   return (
     <div className="space-y-4">
-      <Label>Creative (image or video) *</Label>
+      <Label>{label}</Label>
 
       {/* Toggle 1: Creative type = Image | Video */}
       <div className="flex gap-4 p-3 rounded-lg border bg-muted/40">
@@ -106,11 +143,16 @@ export function AdCreativeField(_props: Props) {
               Via link
             </button>
           </div>
+          {imageMode === "url" && requiresPortrait && (
+            <div className="mb-2 p-3 bg-amber-500/10 border border-amber-500/20 text-amber-500 text-sm rounded-md">
+              <strong>Warning:</strong> The aspect ratio of external links cannot be checked. Ensure this is a vertical/portrait image, otherwise it will appear cropped on mobile.
+            </div>
+          )}
           {imageMode === "url" ? (
             <>
               <Input
-                id="creativeUrl"
-                name="creativeUrl"
+                id={`${fieldNamePrefix}creativeUrl`}
+                name={`${fieldNamePrefix}creativeUrl`}
                 type="url"
                 required
                 value={imageUrl}
@@ -128,7 +170,7 @@ export function AdCreativeField(_props: Props) {
               <input
                 ref={imageFileRef}
                 type="file"
-                name="creativeFile"
+                name={`${fieldNamePrefix}creativeFile`}
                 accept={IMAGE_ACCEPT}
                 className="hidden"
                 onChange={(e) => handleFileSelect(e, "IMAGE")}
@@ -148,7 +190,7 @@ export function AdCreativeField(_props: Props) {
                   <img src={imagePreview} alt="Preview" className="w-full h-full object-contain" />
                 </div>
               )}
-              <p className="text-xs text-muted-foreground">JPEG, PNG, GIF, WebP. Max 5 MB. File uploads when you click Save.</p>
+              <p className="text-xs text-muted-foreground">JPEG, PNG, GIF, WebP. Max 5 MB. {requiresPortrait ? "Must be portrait format." : "File uploads when you click Save."}</p>
             </div>
           )}
         </div>
@@ -173,16 +215,38 @@ export function AdCreativeField(_props: Props) {
               Via link
             </button>
           </div>
+          {videoMode === "url" && requiresPortrait && (
+            <div className="mb-2 p-3 bg-amber-500/10 border border-amber-500/20 text-amber-500 text-sm rounded-md">
+              <strong>Note:</strong> If you use a YouTube link for Mobile Stories, it <strong>must</strong> be a YouTube Short link.
+            </div>
+          )}
           {videoMode === "url" ? (
             <>
               <Input
-                id="creativeUrl"
-                name="creativeUrl"
+                id={`${fieldNamePrefix}creativeUrl`}
+                name={`${fieldNamePrefix}creativeUrl`}
                 type="url"
                 required
                 value={videoUrl}
-                onChange={(e) => setVideoUrl(e.target.value)}
-                placeholder="https://example.com/video.mp4"
+                onChange={(e) => {
+                  const val = e.target.value
+                  setVideoUrl(val)
+                  if (requiresPortrait) {
+                    const lval = val.toLowerCase()
+                    if ((lval.includes("youtube.com") || lval.includes("youtu.be")) && !lval.includes("/shorts/")) {
+                      const msg = "Mobile YouTube links must be a YouTube Short (/shorts/)."
+                      e.target.setCustomValidity(msg)
+                      setUploadError(msg)
+                    } else {
+                      e.target.setCustomValidity("")
+                      setUploadError(null)
+                    }
+                  } else {
+                    e.target.setCustomValidity("")
+                    setUploadError(null)
+                  }
+                }}
+                placeholder="https://example.com/video.mp4 or YouTube Short link"
               />
               {videoUrl && (() => {
                 const embedUrl = getYoutubeEmbedUrl(videoUrl)
@@ -208,7 +272,7 @@ export function AdCreativeField(_props: Props) {
               <input
                 ref={videoFileRef}
                 type="file"
-                name="creativeFile"
+                name={`${fieldNamePrefix}creativeFile`}
                 accept={VIDEO_ACCEPT}
                 className="hidden"
                 onChange={(e) => handleFileSelect(e, "VIDEO")}
@@ -228,13 +292,13 @@ export function AdCreativeField(_props: Props) {
                   <video src={videoPreview} controls className="w-full h-full object-contain" />
                 </div>
               )}
-              <p className="text-xs text-muted-foreground">MP4, WebM. Max 5 MB. File uploads when you click Save.</p>
+              <p className="text-xs text-muted-foreground">MP4, WebM. Max 5 MB. {requiresPortrait ? "Must be portrait format." : "File uploads when you click Save."}</p>
             </div>
           )}
         </div>
       )}
 
-      <input type="hidden" name="creativeType" value={creativeType} readOnly />
+      <input type="hidden" name={`${fieldNamePrefix}creativeType`} value={creativeType} readOnly />
       {uploadError && <p className="text-sm text-destructive">{uploadError}</p>}
     </div>
   )

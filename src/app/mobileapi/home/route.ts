@@ -174,9 +174,17 @@ export async function GET(): Promise<NextResponse<SuccessResponse | ErrorRespons
       orderBy: { name: "asc" },
     })
 
+    const now = new Date()
+    
     // Fetch active ads
     const adsPromise = prisma.sellerAd.findMany({
-      where: { status: "ACTIVE" },
+      where: { 
+        status: "ACTIVE",
+        startAt: { lte: now },
+        endAt: { gte: now },
+        // @ts-ignore
+        placements: { has: "MOBILE" }
+      },
       select: {
         id: true,
         title: true,
