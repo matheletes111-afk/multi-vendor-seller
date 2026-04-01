@@ -78,7 +78,14 @@ export async function GET(request: Request) {
             email: true
           }
         },
-        product: true,
+        product: {
+          include: {
+            variants: {
+              take: 1,
+              orderBy: { price: "asc" }
+            }
+          }
+        },
         service: true,
         adClicks: {
           select: {

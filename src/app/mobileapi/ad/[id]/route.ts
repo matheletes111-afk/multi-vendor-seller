@@ -112,42 +112,34 @@ export async function GET(
           }
           : null,
       // Target details - only include if product or service exists
-      // target: ad.product ? {
-      //   type: "PRODUCT" as const,
-      //   id: ad.product.id,
-      //   name: ad.product.name,
-      //   slug: ad.product.slug,
-      //   description: ad.product.description,
-      //   images: ad.product.images,
-      //   category: ad.product.category?.name || null,
-      //   subcategory: ad.product.subcategory?.name || null,
-      //   priceRange: ad.product.variants && ad.product.variants.length > 0 
-      //     ? {
-      //         min: Math.min(...ad.product.variants.map(v => v.price)),
-      //         max: Math.max(...ad.product.variants.map(v => v.price))
-      //       }
-      //     : null,
-      //   variantCount: ad.product.variants?.length || 0
-      // } : ad.service ? {
-      //   type: "SERVICE" as const,
-      //   id: ad.service.id,
-      //   name: ad.service.name,
-      //   slug: ad.service.slug,
-      //   description: ad.service.description,
-      //   images: ad.service.images,
-      //   serviceType: ad.service.serviceType,
-      //   basePrice: ad.service.basePrice,
-      //   category: ad.service.serviceCategory?.name || null,
-      //   packageCount: ad.service.packages?.length || 0
-      // } : null,
-      target: {
-        product: ad.product
-          ? { ...ad.product, type: "PRODUCT" as const }
+      target: ad.product ? {
+        type: "PRODUCT" as const,
+        id: ad.product.id,
+        name: ad.product.name,
+        slug: ad.product.slug,
+        description: ad.product.description,
+        images: ad.product.images,
+        category: ad.product.category?.name || null,
+        subcategory: ad.product.subcategory?.name || null,
+        priceRange: ad.product.variants && ad.product.variants.length > 0
+          ? {
+            min: Math.min(...ad.product.variants.map(v => v.price)),
+            max: Math.max(...ad.product.variants.map(v => v.price))
+          }
           : null,
-        service: ad.service
-          ? { ...ad.service, type: "SERVICE" as const }
-          : null
-      },
+        variantCount: ad.product.variants?.length || 0
+      } : ad.service ? {
+        type: "SERVICE" as const,
+        id: ad.service.id,
+        name: ad.service.name,
+        slug: ad.service.slug,
+        description: ad.service.description,
+        images: ad.service.images,
+        serviceType: ad.service.serviceType,
+        basePrice: ad.service.basePrice,
+        category: ad.service.serviceCategory?.name || null,
+        packageCount: ad.service.packages?.length || 0
+      } : null,
       // Targeting info
       targeting: {
         targetCountries: ad.targetCountries,
