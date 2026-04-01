@@ -610,7 +610,7 @@ export function HomeClient() {
                 style={{ scrollBehavior: sponsoredCarouselPaused ? "auto" : "smooth" }}
               >
               {ads.map((ad) => {
-                const adPageHref = `/ad/${ad.id}`;
+                const adPageHref = `/api/ads/click?adId=${ad.id}&redirect_to_ad=true`;
                 const isVideo = ad.creativeType === "VIDEO";
                 const youtubeEmbed = isVideo ? getYoutubeEmbedUrl(ad.creativeUrl) : null;
                 return (

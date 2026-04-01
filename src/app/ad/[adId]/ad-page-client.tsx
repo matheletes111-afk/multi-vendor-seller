@@ -76,6 +76,13 @@ export function AdPageClient() {
     };
   }, [adId]);
 
+  useEffect(() => {
+    if (adId && !loading && !notFound) {
+      // Background call to record the click
+      fetch(`/api/ads/click?adId=${adId}`).catch(() => {});
+    }
+  }, [adId, loading, notFound]);
+
   if (loading) return <PageLoader message="Loading…" />;
 
   if (notFound || !ad) {
