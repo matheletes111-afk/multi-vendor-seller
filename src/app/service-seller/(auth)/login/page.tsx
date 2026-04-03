@@ -59,8 +59,7 @@ function ServiceSellerLoginForm() {
       if (res.status === 302) {
         const loc = res.headers.get("Location")
         if (loc && !loc.includes("error=")) {
-          router.push(loc)
-          router.refresh()
+          window.location.href = loc
           return
         }
       }
@@ -80,8 +79,7 @@ function ServiceSellerLoginForm() {
           setError(msg)
           return
         }
-        router.push(data?.url ?? callbackUrl)
-        router.refresh()
+        window.location.href = data?.url ?? callbackUrl
         return
       }
       const data = await res.json().catch(() => ({}))

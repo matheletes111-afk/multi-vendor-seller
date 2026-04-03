@@ -139,6 +139,26 @@ export function SellersClient() {
     }
   }
 
+  const handleAdminAction = async (sellerId: string, action: string, feedback?: string) => {
+    setActionLoading(sellerId)
+    try {
+      const res = await fetch(`/api/admin/sellers/${sellerId}/status`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action, feedback })
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || "Failed")
+      await loadSellers({ showLoading: false })
+      router.push(`/admin/sellers?success=${action}_success`)
+      router.refresh()
+    } catch (e: any) {
+      router.push(`/admin/sellers?error=${encodeURIComponent(e.message)}`)
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
   const params = {
     error: errorParam ?? undefined,
     success: successParam ?? undefined,
@@ -305,50 +325,93 @@ export function SellersClient() {
                           <TableRow>
                             <TableCell colSpan={7}>
                               <div className="p-4">
-                                <div className="grid gap-4 md:grid-cols-2">
-                                  <div className="space-y-2">
-                                    <div className="text-sm font-medium">Seller Details</div>
-                                    <div className="text-sm text-muted-foreground">
-                                      <div>
-                                        <span className="font-medium text-foreground">Name:</span> {seller.user?.name || "—"}
-                                      </div>
-                                      <div>
-                                        <span className="font-medium text-foreground">Email:</span> {seller.user?.email || "—"}
-                                      </div>
-                                      <div>
-                                        <span className="font-medium text-foreground">Phone:</span>{" "}
-                                        {seller.user?.phoneCountryCode || ""}
-                                        {seller.user?.phone ? ` ${seller.user.phone}` : "—"}
-                                      </div>
-                                      <div>
-                                        <span className="font-medium text-foreground">Nation Identity Number:</span>{" "}
-                                        {seller.nationIdentityNumber || "—"}
-                                      </div>
+                                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                                  <div className="space-y-4">
+                                    <div className="font-bold border-b pb-1">Basic & Store</div>
+                                    <div className="text-sm space-y-1">
+                                      <div><span className="text-muted-foreground mr-2">Email:</span>{seller.user?.email}</div>
+                                      <div><span className="text-muted-foreground mr-2">Phone:</span>{seller.user?.phoneCountryCode} {seller.user?.phone}</div>
+                                      <div><span className="text-muted-foreground mr-2">Store:</span>{seller.store?.name}</div>
+                                      <div><span className="text-muted-foreground mr-2">NIN:</span>{seller.nationIdentityNumber || "—"}</div>
+                                    </div>
+                                    <div className="font-bold border-b pb-1 pt-2">Authorized Categories</div>
+                                    <div className="flex flex-wrap gap-1">
+                                       {(seller.type === "PRODUCT" ? seller.selectedCategories : seller.selectedServiceCategories)?.map((c: any) => (
+                                           <Badge key={c.id} variant="outline" className="text-[10px]">{c.name}</Badge>
+                                       )) || <span className="text-xs text-muted-foreground">None selected</span>}
                                     </div>
                                   </div>
 
-                                  <div className="space-y-2">
-                                    <div className="text-sm font-medium">Store Details</div>
-                                    <div className="text-sm text-muted-foreground">
-                                      <div>
-                                        <span className="font-medium text-foreground">Store Name:</span> {seller.store?.name || "—"}
-                                      </div>
-                                      <div>
-                                        <span className="font-medium text-foreground">Website:</span>{" "}
-                                        {seller.store?.website || "—"}
-                                      </div>
-                                      <div>
-                                        <span className="font-medium text-foreground">Address:</span>{" "}
-                                        {[
-                                          seller.store?.address,
-                                          seller.store?.city,
-                                          seller.store?.state,
-                                          seller.store?.country,
-                                        ]
-                                          .filter(Boolean)
-                                          .join(", ") || "—"}
-                                      </div>
+                                  <div className="space-y-4">
+                                    <div className="font-bold border-b pb-1">Business Information</div>
+                                    <div className="text-sm space-y-1">
+                                      <div><span className="text-muted-foreground mr-2">Name:</span>{seller.businessInfo?.businessName || "—"}</div>
+                                      <div><span className="text-muted-foreground mr-2">Type:</span>{seller.businessInfo?.businessType || "—"}</div>
+                                      <div><span className="text-muted-foreground mr-2">Reg No:</span>{seller.businessInfo?.businessRegNumber || "—"}</div>
+                                      <div><span className="text-muted-foreground mr-2">TIN:</span>{seller.businessInfo?.taxIdNumber || "—"}</div>
+                                      <div><span className="text-muted-foreground mr-2">Address:</span>{seller.businessInfo?.street}, {seller.businessInfo?.city}</div>
                                     </div>
+                                    {seller.businessInfo?.busRegCertUrl && (
+                                        <a href={seller.businessInfo.busRegCertUrl} target="_blank" className="text-xs text-primary underline flex items-center gap-1">
+                                            View Registration Certificate
+                                        </a>
+                                    )}
+                                  </div>
+
+                                  <div className="space-y-4">
+                                    <div className="font-bold border-b pb-1">KYC & Identity</div>
+                                    <div className="text-sm space-y-1">
+                                      <div><span className="text-muted-foreground mr-2">ID Type:</span>{seller.kyc?.idType || "—"}</div>
+                                      <div><span className="text-muted-foreground mr-2">ID No:</span>{seller.kyc?.idNumber || "—"}</div>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-2 mt-2">
+                                       {seller.kyc?.idFrontUrl && (
+                                           <div className="space-y-1">
+                                               <span className="text-[10px] text-muted-foreground">ID Front</span>
+                                               <img src={seller.kyc.idFrontUrl} className="h-16 w-full object-cover border rounded cursor-pointer" onClick={() => window.open(seller.kyc.idFrontUrl)} />
+                                           </div>
+                                       )}
+                                       {seller.kyc?.idBackUrl && (
+                                            <div className="space-y-1">
+                                                <span className="text-[10px] text-muted-foreground">ID Back</span>
+                                                <img src={seller.kyc.idBackUrl} className="h-16 w-full object-cover border rounded cursor-pointer" onClick={() => window.open(seller.kyc.idBackUrl)} />
+                                            </div>
+                                       )}
+                                       {seller.kyc?.selfieUrl && (
+                                            <div className="space-y-1 col-span-2">
+                                                <span className="text-[10px] text-muted-foreground">Selfie</span>
+                                                <img src={seller.kyc.selfieUrl} className="h-24 w-24 object-cover border rounded mx-auto cursor-pointer" onClick={() => window.open(seller.kyc.selfieUrl)} />
+                                            </div>
+                                       )}
+                                    </div>
+                                  </div>
+
+                                  <div className="space-y-4 lg:col-span-3 grid md:grid-cols-2 bg-muted/30 p-4 rounded-lg">
+                                     <div>
+                                        <div className="font-bold border-b pb-1 mb-2">Bank Details</div>
+                                        <div className="text-sm space-y-1">
+                                            <div><span className="text-muted-foreground mr-2">Bank:</span>{seller.bankDetails?.bankName}</div>
+                                            <div><span className="text-muted-foreground mr-2">Holdr:</span>{seller.bankDetails?.accountHolderName}</div>
+                                            <div><span className="text-muted-foreground mr-2">Acc No:</span>{seller.bankDetails?.accountNumber}</div>
+                                            <div><span className="text-muted-foreground mr-2">Payout:</span>{seller.bankDetails?.preferredPayoutMethod}</div>
+                                        </div>
+                                     </div>
+                                     <div className="flex flex-col justify-end gap-2 items-end">
+                                        <div className="text-xs text-muted-foreground italic mb-2">Admin Review Actions</div>
+                                        <div className="flex gap-2">
+                                            {!seller.isApproved && (
+                                                <>
+                                                    <Button size="sm" variant="outline" className="text-yellow-600 border-yellow-600 hover:bg-yellow-50" onClick={() => {
+                                                        const msg = prompt("Enter feedback for correction:");
+                                                        if (msg) handleAdminAction(seller.id, "correction", msg);
+                                                    }}>Need Correction</Button>
+                                                    <Button size="sm" variant="destructive" onClick={() => {
+                                                        if (confirm("Reject this seller account?")) handleAdminAction(seller.id, "reject");
+                                                    }}>Reject</Button>
+                                                </>
+                                            )}
+                                        </div>
+                                     </div>
                                   </div>
                                 </div>
                               </div>

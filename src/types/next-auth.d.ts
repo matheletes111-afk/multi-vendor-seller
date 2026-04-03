@@ -13,6 +13,8 @@ declare module "next-auth" {
       /** Set for seller roles; must be true to access seller panels */
       isApproved?: boolean
       isSuspended?: boolean
+      onboardingCompleted?: boolean
+      onboardingStep?: number
     }
   }
 
@@ -24,6 +26,8 @@ declare module "next-auth" {
     image?: string | null
     isApproved?: boolean
     isSuspended?: boolean
+    onboardingCompleted?: boolean
+    onboardingStep?: number
   }
 }
 
@@ -34,6 +38,7 @@ declare module "next-auth/jwt" {
     role: UserRole
     isApproved?: boolean
     isSuspended?: boolean
+    onboardingCompleted?: boolean
+    onboardingStep?: number
   }
 }
-

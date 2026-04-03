@@ -11,87 +11,94 @@ import { verifyOtpLoginToken } from "@/lib/web-otp-login"
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const providers: any[] = [
   Credentials({
-      credentials: {
-        email: { label: "Email", type: "email" },
-        password: { label: "Password", type: "password" },
-        role: { label: "Role", type: "text" },
-        otpLoginToken: { label: "OTP Login Token", type: "text" },
-      },
-      async authorize(credentials) {
-        if (!credentials?.email) {
+    credentials: {
+      email: { label: "Email", type: "email" },
+      password: { label: "Password", type: "password" },
+      role: { label: "Role", type: "text" },
+      otpLoginToken: { label: "OTP Login Token", type: "text" },
+    },
+    async authorize(credentials) {
+      if (!credentials?.email) {
+        return null
+      }
+
+      const user = await prisma.user.findUnique({
+        where: { email: credentials.email as string },
+      })
+
+      if (!user) {
+        return null
+      }
+
+      const otpLoginToken =
+        typeof credentials.otpLoginToken === "string" ? credentials.otpLoginToken.trim() : ""
+      const isOtpLogin = otpLoginToken.length > 0
+      if (isOtpLogin) {
+        const payload = verifyOtpLoginToken(otpLoginToken)
+        if (!payload) return null
+        if (payload.email !== user.email.toLowerCase().trim()) return null
+        if (payload.role !== user.role) return null
+      } else {
+        if (!credentials?.password || !user.password) return null
+        const isPasswordValid = await bcrypt.compare(
+          credentials.password as string,
+          user.password
+        )
+
+        if (!isPasswordValid) {
           return null
         }
+      }
 
-        const user = await prisma.user.findUnique({
-          where: { email: credentials.email as string },
-        })
+      const requestedRole = credentials.role as string | undefined
+      if (requestedRole && user.role !== requestedRole) {
+        return null
+      }
 
-        if (!user) {
-          return null
-        }
-
-        const otpLoginToken =
-          typeof credentials.otpLoginToken === "string" ? credentials.otpLoginToken.trim() : ""
-        const isOtpLogin = otpLoginToken.length > 0
-        if (isOtpLogin) {
-          const payload = verifyOtpLoginToken(otpLoginToken)
-          if (!payload) return null
-          if (payload.email !== user.email.toLowerCase().trim()) return null
-          if (payload.role !== user.role) return null
-        } else {
-          if (!credentials?.password || !user.password) return null
-          const isPasswordValid = await bcrypt.compare(
-            credentials.password as string,
-            user.password
-          )
-
-          if (!isPasswordValid) {
-            return null
-          }
-        }
-
-        const requestedRole = credentials.role as string | undefined
-        if (requestedRole && user.role !== requestedRole) {
-          return null
-        }
-
-        // Sellers: allow login even if pending admin approval, but block suspended.
-        // We also surface isApproved / isSuspended on the session so middleware can restrict access.
+      // Sellers: allow login even if pending admin approval, but block suspended.
+      // We also surface isApproved / isSuspended on the session so middleware can restrict access.
+      if (
+        user.role === UserRole.SELLER_PRODUCT ||
+        user.role === UserRole.SELLER_SERVICE
+      ) {
+        const seller = await prisma.seller.findUnique({
+          where: { userId: user.id },
+          select: {
+            isApproved: true,
+            isSuspended: true,
+            onboardingCompleted: true,
+            onboardingStep: true,
+          } as any,
+        }) as any
         if (
-          user.role === UserRole.SELLER_PRODUCT ||
-          user.role === UserRole.SELLER_SERVICE
+          !seller ||
+          (seller.isSuspended ?? false)
         ) {
-          const seller = await prisma.seller.findUnique({
-            where: { userId: user.id },
-            select: { isApproved: true, isSuspended: true },
-          })
-          if (
-            !seller ||
-            (seller.isSuspended ?? false)
-          ) {
-            return null
-          }
-          return {
-            id: user.id,
-            email: user.email,
-            name: user.name,
-            role: user.role,
-            image: user.image,
-            isApproved: seller.isApproved,
-            isSuspended: seller.isSuspended ?? false,
-          }
+          return null
         }
-
         return {
           id: user.id,
           email: user.email,
           name: user.name,
           role: user.role,
           image: user.image,
+          isApproved: seller.isApproved,
+          isSuspended: seller.isSuspended ?? false,
+          onboardingCompleted: seller.onboardingCompleted,
+          onboardingStep: seller.onboardingStep,
         }
-      },
-    }),
-  ]
+      }
+
+      return {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        image: user.image,
+      }
+    },
+  }),
+]
 
 if (process.env.AUTH_GOOGLE_ID && process.env.AUTH_GOOGLE_SECRET) {
   providers.push(
@@ -138,14 +145,61 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   },
   providers,
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger, session }) {
+      // Handle session updates from the client side (e.g. update({ onboardingCompleted: true }))
+      if (trigger === "update" && session) {
+        if (session.name !== undefined) token.name = session.name
+        if (session.image !== undefined) token.image = session.image
+        if (session.onboardingCompleted !== undefined) token.onboardingCompleted = session.onboardingCompleted
+        if (session.isApproved !== undefined) token.isApproved = session.isApproved
+        if (session.isSuspended !== undefined) token.isSuspended = session.isSuspended
+        if (session.onboardingStep !== undefined) token.onboardingStep = session.onboardingStep
+        return token
+      }
+
       if (user) {
         token.id = user.id
-        // Keep email in sync with the current OAuth/Credentials sign-in.
         token.email = user.email
         token.role = (user as any).role
-        if ((user as any).isApproved !== undefined) token.isApproved = (user as any).isApproved
-        if ((user as any).isSuspended !== undefined) token.isSuspended = (user as any).isSuspended
+
+        let sellerInfo = user as any
+
+        // For Social logins (PrismaAdapter), the 'user' object from the adapter 
+        // doesn't include Seller-specific fields like onboardingCompleted.
+        // We fetch them here if they are missing but the role is a SELLER.
+        if (
+          (token.role === UserRole.SELLER_PRODUCT || token.role === UserRole.SELLER_SERVICE) &&
+          sellerInfo.onboardingCompleted === undefined
+        ) {
+          const seller = await prisma.seller.findUnique({
+            where: { userId: user.id },
+            select: {
+              isApproved: true,
+              isSuspended: true,
+              onboardingCompleted: true,
+              onboardingStep: true,
+            } as any
+          })
+          if (seller) {
+            sellerInfo = { ...sellerInfo, ...seller }
+          }
+        }
+
+        if (sellerInfo.isApproved !== undefined) token.isApproved = sellerInfo.isApproved
+        if (sellerInfo.isSuspended !== undefined) token.isSuspended = sellerInfo.isSuspended
+        if (sellerInfo.onboardingCompleted !== undefined)
+          token.onboardingCompleted = sellerInfo.onboardingCompleted
+        if (sellerInfo.onboardingStep !== undefined)
+          token.onboardingStep = sellerInfo.onboardingStep
+      } else if (
+        token.role === UserRole.SELLER_PRODUCT ||
+        token.role === UserRole.SELLER_SERVICE
+      ) {
+        // Robustness: rely on the token's current state for the Edge runtime (middleware).
+        // Real-time re-validation should happen in Node-safe layouts/pages, not in the JWT callback.
+        if (token.onboardingCompleted === undefined) {
+          token.onboardingCompleted = false
+        }
       }
 
       return token
@@ -159,6 +213,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           session.user.isApproved = token.isApproved as boolean
         if (token.isSuspended !== undefined)
           session.user.isSuspended = token.isSuspended as boolean
+        if (token.onboardingCompleted !== undefined)
+          session.user.onboardingCompleted = token.onboardingCompleted as boolean
+        if (token.onboardingStep !== undefined)
+          session.user.onboardingStep = token.onboardingStep as number
       }
       return session
     },

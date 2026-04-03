@@ -158,10 +158,16 @@ export default async function EditServicePage({
     redirect("/service-seller/services?error=service_not_found")
   }
 
-  const categories = await prisma.serviceCategory.findMany({
-    where: { isActive: true },
-    orderBy: { name: "asc" },
+  const sellerWithCats = await prisma.seller.findUnique({
+    where: { userId: session.user.id },
+    select: {
+      selectedServiceCategories: {
+        where: { isActive: true },
+        orderBy: { name: "asc" }
+      }
+    }
   })
+  const categories = sellerWithCats?.selectedServiceCategories || []
 
   const { masterUrl, galleryUrls } = parseServiceImagesForSellerForm({
     images: service.images,

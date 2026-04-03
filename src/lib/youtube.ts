@@ -4,28 +4,32 @@
 export function getYoutubeVideoId(url: string): string | null {
   if (!url || typeof url !== "string") return null
   try {
-    const u = new URL(url.trim())
-    if (u.hostname === "youtu.be" && u.pathname.slice(1)) {
-      return u.pathname.slice(1).split("/")[0]
+    const trimmed = url.trim()
+    // Handle youtu.be short links
+    if (trimmed.includes("youtu.be/")) {
+      return trimmed.split("youtu.be/")[1]?.split(/[?#]/)[0] ?? null
     }
-    if (
-      (u.hostname === "www.youtube.com" || u.hostname === "youtube.com") &&
-      u.pathname === "/watch" &&
-      u.searchParams.get("v")
-    ) {
-      return u.searchParams.get("v")
-    }
-    if (
-      (u.hostname === "www.youtube.com" || u.hostname === "youtube.com") &&
-      u.pathname.startsWith("/embed/")
-    ) {
-      return u.pathname.replace("/embed/", "").split("/")[0]
-    }
-    if (
-      (u.hostname === "www.youtube.com" || u.hostname === "youtube.com") &&
-      u.pathname.startsWith("/shorts/")
-    ) {
-      return u.pathname.replace("/shorts/", "").split("/")[0]
+
+    const u = new URL(trimmed)
+    const hostname = u.hostname.replace("www.", "")
+    
+    if (hostname === "youtube.com" || hostname === "m.youtube.com") {
+      // Standard watch URL
+      if (u.pathname === "/watch") {
+        return u.searchParams.get("v")
+      }
+      // Embed URL
+      if (u.pathname.startsWith("/embed/")) {
+        return u.pathname.replace("/embed/", "").split("/")[0]
+      }
+      // Shorts URL
+      if (u.pathname.startsWith("/shorts/")) {
+        return u.pathname.replace("/shorts/", "").split("/")[0]
+      }
+      // v= variant in path (rare)
+      if (u.pathname.startsWith("/v/")) {
+        return u.pathname.replace("/v/", "").split("/")[0]
+      }
     }
     return null
   } catch {

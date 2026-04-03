@@ -20,8 +20,15 @@ export async function GET() {
   if (!session?.user || !isServiceSeller(session.user)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   const seller = await prisma.seller.findUnique({
     where: { userId: session.user.id },
-    include: { store: true, user: { select: { id: true, name: true, email: true, image: true, phone: true, phoneCountryCode: true } } },
-  })
+    include: {
+      store: true,
+      businessInfo: true,
+      kyc: true,
+      bankDetails: true,
+      selectedServiceCategories: true,
+      user: { select: { id: true, name: true, email: true, image: true, phone: true, phoneCountryCode: true } }
+    } as any,
+  }) as any
   if (!seller) return NextResponse.json({ error: "Seller not found" }, { status: 404 })
   return NextResponse.json(seller)
 }
@@ -29,7 +36,7 @@ export async function GET() {
 export async function PUT(request: NextRequest) {
   const session = await auth()
   if (!session?.user || !isServiceSeller(session.user)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  const seller = await prisma.seller.findUnique({ where: { userId: session.user.id }, include: { store: true } })
+  const seller = await prisma.seller.findUnique({ where: { userId: session.user.id }, include: { store: true } as any }) as any
   if (!seller) return NextResponse.json({ error: "Seller not found" }, { status: 404 })
 
   const contentType = request.headers.get("content-type") ?? ""
@@ -95,19 +102,60 @@ export async function PUT(request: NextRequest) {
       userData.image = imageUrl || null
     }
 
+    if (userData.phone) {
+      const existing = await prisma.user.findFirst({
+        where: { phone: userData.phone, NOT: { id: session.user.id } }
+      })
+      if (existing) return NextResponse.json({ error: "Phone number already in use" }, { status: 400 })
+    }
+
     if (Object.keys(userData).length > 0) {
       await prisma.user.update({ where: { id: session.user.id }, data: userData })
     }
     if (Object.keys(sellerData).length > 0) {
       await prisma.seller.update({ where: { id: seller.id }, data: sellerData })
     }
+
+    // Handle new onboarding files
+    const busRegCert = fd.get("busRegCert") as File | null
+    if (busRegCert && busRegCert.size > 0) {
+        const url = await uploadPublicFile({
+            folder: "onboarding/business",
+            ext: path.extname(busRegCert.name) || ".pdf",
+            contentType: busRegCert.type || "application/pdf",
+            buffer: Buffer.from(await busRegCert.arrayBuffer()),
+            prefix: "bus-reg",
+        })
+        await (prisma as any).sellerBusinessInfo.upsert({
+            where: { sellerId: seller.id },
+            update: { busRegCertUrl: url },
+            create: { sellerId: seller.id, busRegCertUrl: url }
+        })
+    }
+
+    const bankPassbook = fd.get("bankPassbook") as File | null
+    if (bankPassbook && bankPassbook.size > 0) {
+        const url = await uploadPublicFile({
+            folder: "onboarding/bank",
+            ext: path.extname(bankPassbook.name) || ".jpg",
+            contentType: bankPassbook.type || "image/jpeg",
+            buffer: Buffer.from(await bankPassbook.arrayBuffer()),
+            prefix: "bank-passbook",
+        })
+        await (prisma as any).sellerBankDetails.upsert({
+            where: { sellerId: seller.id },
+            update: { passbookUrl: url },
+            create: { sellerId: seller.id, passbookUrl: url }
+        })
+    }
+
     return NextResponse.json({ success: true })
   }
 
   const body = await request.json().catch(() => ({})) as {
     store?: Record<string, unknown>
     user?: { name?: string; image?: string; phone?: string; phoneCountryCode?: string; password?: string }
-    seller?: { nationIdentityNumber?: string | null }
+    seller?: Record<string, any>
   }
   if (body.store && Object.keys(body.store).length > 0) {
     const allowed = ["name", "description", "phone", "website", "address", "city", "state", "zipCode", "country", "logo", "banner"]
@@ -134,13 +182,48 @@ export async function PUT(request: NextRequest) {
         userData.password = await bcrypt.hash(password, 10)
       }
     }
+    if (userData.phone) {
+      const existing = await prisma.user.findFirst({
+        where: { phone: userData.phone, NOT: { id: session.user.id } }
+      })
+      if (existing) return NextResponse.json({ error: "Phone number already in use" }, { status: 400 })
+    }
+
     if (Object.keys(userData).length > 0) await prisma.user.update({ where: { id: session.user.id }, data: userData })
   }
   if (body.seller && Object.keys(body.seller).length > 0) {
-    const sellerData: { nationIdentityNumber?: string | null } = {}
+    const s = body.seller as any
+    if (s.businessInfo) {
+        await (prisma as any).sellerBusinessInfo.upsert({
+            where: { sellerId: seller.id },
+            update: s.businessInfo,
+            create: { ...s.businessInfo, sellerId: seller.id }
+        })
+    }
+    if (s.bankDetails) {
+        await (prisma as any).sellerBankDetails.upsert({
+            where: { sellerId: seller.id },
+            update: s.bankDetails,
+            create: { ...s.bankDetails, sellerId: seller.id }
+        })
+    }
+    if (s.kyc) {
+        await (prisma as any).sellerKYC.upsert({
+            where: { sellerId: seller.id },
+            update: s.kyc,
+            create: { ...s.kyc, sellerId: seller.id }
+        })
+    }
+
+    const sellerData: any = {}
     if (body.seller.nationIdentityNumber !== undefined) {
       const raw = body.seller.nationIdentityNumber ?? ""
       sellerData.nationIdentityNumber = typeof raw === "string" ? raw.trim() || null : null
+    }
+    if (body.seller.categoryIds && Array.isArray(body.seller.categoryIds)) {
+        sellerData.selectedServiceCategories = {
+            set: body.seller.categoryIds.map((id: string) => ({ id }))
+        }
     }
     if (Object.keys(sellerData).length > 0) {
       await prisma.seller.update({ where: { id: seller.id }, data: sellerData })

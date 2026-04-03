@@ -136,7 +136,19 @@ export async function POST(request: Request) {
       }
       return NextResponse.json({ error: msg }, { status: 401 })
     }
-    const url = data?.url || callbackUrl || "/service-seller"
+    let url = data?.url || callbackUrl || "/service-seller"
+
+    // Final safety: check if onboarding is needed and force URL if so.
+    try {
+      const u = await prisma.user.findUnique({ where: { email }, select: { id: true, role: true } })
+      if (u?.role === UserRole.SELLER_SERVICE) {
+        const s = await prisma.seller.findUnique({ where: { userId: u.id }, select: { onboardingCompleted: true } })
+        if (s && !s.onboardingCompleted) {
+          url = "/service-seller/onboarding"
+        }
+      }
+    } catch { /* ignore and use default */ }
+
     const headers = new Headers()
     res.headers.getSetCookie?.().forEach((c) => headers.append("Set-Cookie", c))
     return NextResponse.json({ ...data, url }, { status: res.status, headers })

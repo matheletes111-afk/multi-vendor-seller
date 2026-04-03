@@ -86,7 +86,7 @@ export function EditProductClient({ productId }: { productId: string }) {
   useEffect(() => {
     Promise.all([
       fetch(`/api/product-seller/products/${productId}`).then((r) => (r.ok ? r.json() : null)),
-      fetch("/api/categories/list-with-subcategories").then((r) => (r.ok ? r.json() : [])),
+      fetch("/api/product-seller/categories").then((r) => (r.ok ? r.json() : [])),
     ]).then(([p, cats]) => {
       setProduct(p)
       setCategories(cats)

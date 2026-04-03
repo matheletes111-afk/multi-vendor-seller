@@ -3,7 +3,8 @@ import { redirect } from "next/navigation"
 import { isProductSeller } from "@/lib/rbac"
 import { ProductSellerLayoutClient } from "../layout-client"
 
-export default async function ProductSellerLayout({
+/** Onboarding lives outside `(dashboard)` so the dashboard layout’s onboarding redirect cannot loop when `x-current-path` is missing from RSC requests. */
+export default async function ProductSellerOnboardingLayout({
   children,
 }: {
   children: React.ReactNode
@@ -13,9 +14,9 @@ export default async function ProductSellerLayout({
   if (!session?.user) redirect("/product-seller/login")
   if (!isProductSeller(session.user)) redirect("/dashboard")
 
-  const u = session.user as { onboardingCompleted?: boolean }
-  if (u.onboardingCompleted !== true) {
-    redirect("/product-seller/onboarding")
+  const u = session.user as { isSuspended?: boolean }
+  if (u.isSuspended === true) {
+    redirect("/product-seller/login?error=AccountSuspended")
   }
 
   return (

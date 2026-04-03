@@ -32,6 +32,11 @@ export async function GET(request: NextRequest) {
         include: {
           user: true,
           store: true,
+          businessInfo: true,
+          kyc: true,
+          bankDetails: true,
+          selectedCategories: true,
+          selectedServiceCategories: true,
           subscription: {
             include: { plan: true },
           },
@@ -42,7 +47,7 @@ export async function GET(request: NextRequest) {
               orders: true,
             },
           },
-        },
+        } as any,
         orderBy: { createdAt: "desc" },
       }),
       prisma.seller.count({ where }),

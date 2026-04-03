@@ -6,5 +6,6 @@ import { ServiceSellerPageClient } from "./page-client"
 export default async function ServiceSellerDashboard() {
   const session = await auth()
   if (!session?.user || !isServiceSeller(session.user)) redirect("/service-seller/login")
+  if ((session.user as any).onboardingCompleted !== true) redirect("/service-seller/onboarding")
   return <ServiceSellerPageClient />
 }

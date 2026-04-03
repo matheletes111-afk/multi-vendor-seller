@@ -1,4 +1,4 @@
-1. Ad List Endpoint Response
+1. Ad List Endpoint Response (WhatsApp Status / Stories Basis)
 Endpoint: GET /mobileapi/ad/list
 Query Parameters:
 page (optional): Page number, default: 1
@@ -19,104 +19,72 @@ json
   "success": true,
   "data": [
     {
-      "id": "cm7xyz123456",
-      "title": "Summer Sale - 50% Off on Electronics",
-      "description": "Get amazing discounts on all electronic items. Limited time offer!",
-      "creativeType": "IMAGE",
-      "creativeUrl": "https://cdn.meeem.com/ads/summer-sale-banner.jpg",
-      "status": "ACTIVE",
-      "totalBudget": 5000,
-      "spentAmount": 1250.50,
-      "maxCpc": 2.50,
-      "clicks": 502,
-      "startAt": "2026-04-01T00:00:00.000Z",
-      "endAt": "2026-04-30T23:59:59.000Z",
-      "createdAt": "2026-03-15T10:30:00.000Z",
       "advertiser": {
         "type": "SELLER",
         "id": "seller_123",
         "storeName": "TechZone Electronics",
-        "name": "Rajesh Kumar"
+        "name": "Rajesh Kumar",
+        "avatar": "https://cdn.meeem.com/stores/techzone-logo.png",
+        "sellerType": "PRODUCT"
       },
-      "productId": "prod_789",
-      "serviceId": null,
-      "target": {
-        "id": "prod_789",
-        "name": "Smartphone X Pro",
-        "type": "PRODUCT",
-        "image": "https://cdn.meeem.com/products/smartphone-x-pro.jpg"
-      },
-      "targeting": {
-        "targetCountries": ["IN", "US", "AE"],
-        "targetAgeMin": 18,
-        "targetAgeMax": 45,
-        "expandAudience": true
-      }
+      "ads": [
+        {
+          "id": "cm7xyz123456",
+          "title": "Summer Sale - 50% Off on Electronics",
+          "description": "Get amazing discounts on all electronic items. Limited time offer!",
+          "creativeType": "IMAGE",
+          "creativeUrl": "https://cdn.meeem.com/ads/mobile-summer-sale.jpg",
+          "mobileCreativeType": "IMAGE",
+          "mobileCreativeUrl": "https://cdn.meeem.com/ads/mobile-summer-sale.jpg",
+          "status": "ACTIVE",
+          "totalBudget": 5000,
+          "spentAmount": 1250.50,
+          "maxCpc": 2.50,
+          "clicks": 502,
+          "startAt": "2026-04-01T00:00:00.000Z",
+          "endAt": "2026-04-30T23:59:59.000Z",
+          "createdAt": "2026-03-15T10:30:00.000Z",
+          "productId": "prod_789",
+          "serviceId": null,
+          "target": {
+            "product": {
+              "id": "prod_789",
+              "name": "Smartphone X Pro",
+              "type": "PRODUCT",
+              "images": ["https://cdn.meeem.com/products/smartphone-x-pro.jpg"]
+            },
+            "service": null
+          },
+          "targeting": {
+            "targetCountries": ["IN", "US", "AE"],
+            "targetAgeMin": 18,
+            "targetAgeMax": 45,
+            "expandAudience": true
+          }
+        }
+      ]
     },
     {
-      "id": "cm7xyz789012",
-      "title": "Home Cleaning Services",
-      "description": "Professional home cleaning at affordable prices",
-      "creativeType": "VIDEO",
-      "creativeUrl": "https://cdn.meeem.com/ads/cleaning-service-video.mp4",
-      "status": "ACTIVE",
-      "totalBudget": 3000,
-      "spentAmount": 450.25,
-      "maxCpc": 1.75,
-      "clicks": 257,
-      "startAt": "2026-03-20T00:00:00.000Z",
-      "endAt": "2026-05-20T23:59:59.000Z",
-      "createdAt": "2026-03-18T14:15:00.000Z",
       "advertiser": {
-        "type": "SELLER",
-        "id": "seller_456",
-        "storeName": "CleanMate Services",
-        "name": "Priya Sharma"
+        "type": "CUSTOMER",
+        "id": "customer_789",
+        "name": "Amit Patel",
+        "avatar": "https://cdn.meeem.com/avatars/amit.jpg",
+        "email": "amit.patel@email.com"
       },
-      "productId": null,
-      "serviceId": "service_123",
-      "target": {
-        "id": "service_123",
-        "name": "Deep Cleaning Service",
-        "type": "SERVICE",
-        "image": "https://cdn.meeem.com/services/cleaning.jpg"
-      },
-      "targeting": {
-        "targetCountries": ["IN"],
-        "targetAgeMin": null,
-        "targetAgeMax": null,
-        "expandAudience": false
-      }
-    },
-    {
-      "id": "cm7xyz345678",
-      "title": "Fitness Studio - New Year Offer",
-      "description": "Join our fitness classes with special discounts",
-      "creativeType": "IMAGE",
-      "creativeUrl": "https://cdn.meeem.com/ads/fitness-studio.jpg",
-      "status": "ACTIVE",
-      "totalBudget": 2000,
-      "spentAmount": 890.75,
-      "maxCpc": 1.50,
-      "clicks": 594,
-      "startAt": "2026-03-01T00:00:00.000Z",
-      "endAt": "2026-04-15T23:59:59.000Z",
-      "createdAt": "2026-02-25T09:00:00.000Z",
-      "advertiser": null,
-      "productId": null,
-      "serviceId": "service_456",
-      "target": {
-        "id": "service_456",
-        "name": "Group Fitness Classes",
-        "type": "SERVICE",
-        "image": "https://cdn.meeem.com/services/fitness.jpg"
-      },
-      "targeting": {
-        "targetCountries": ["IN", "SG"],
-        "targetAgeMin": 15,
-        "targetAgeMax": 50,
-        "expandAudience": true
-      }
+      "ads": [
+        {
+          "id": "cm7xyz345678",
+          "title": "Freelance Web Dev",
+          "description": "Developer for hire",
+          "creativeType": "IMAGE",
+          "creativeUrl": "https://cdn.meeem.com/ads/mobile-webdev.jpg",
+          "mobileCreativeUrl": "https://cdn.meeem.com/ads/mobile-webdev.jpg",
+          "status": "ACTIVE",
+          "clicks": 12,
+          "createdAt": "2026-03-24T16:45:00.000Z"
+        }
+      ]
     }
   ],
   "pagination": {
@@ -125,7 +93,9 @@ json
     "total": 25,
     "totalPages": 3,
     "hasNext": true,
-    "hasPrev": false
+    "hasPrev": false,
+    "totalAds": 25,
+    "totalGroups": 2
   }
 }
 Error Response:
@@ -134,6 +104,17 @@ json
   "success": false,
   "error": "Failed to fetch ads"
 }
+
+
+
+
+
+
+
+
+
+
+
 2. Ad Details Endpoint Response
 Endpoint: GET /mobileapi/ad/:id
 Path Parameters:

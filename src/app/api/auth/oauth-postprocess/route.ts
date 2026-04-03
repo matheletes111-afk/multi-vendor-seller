@@ -53,7 +53,7 @@ export async function GET(request: NextRequest) {
   }
 
   const safeNext = isAllowedNextPath(nextParam) ? nextParam : ROLE_DEFAULT_NEXT[intendedRole]
-  const redirectResponse = NextResponse.redirect(new URL(safeNext, request.url))
+  let redirectResponse = NextResponse.redirect(new URL(safeNext, request.url))
 
   const existingUser = await prisma.user.findUnique({
     where: { id: userId },
@@ -158,22 +158,30 @@ export async function GET(request: NextRequest) {
     })
 
     if (existingToken) {
-      ;(existingToken as any).role = intendedRole
+      ; (existingToken as any).role = intendedRole
       if (intendedRole === UserRole.CUSTOMER) {
         delete (existingToken as any).isApproved
         delete (existingToken as any).isSuspended
       } else {
         const seller = await prisma.seller.findUnique({
           where: { userId },
-          select: { isApproved: true, isSuspended: true },
+          select: { isApproved: true, isSuspended: true, onboardingCompleted: true, onboardingStep: true },
         })
         ;(existingToken as any).isApproved = seller?.isApproved ?? false
         ;(existingToken as any).isSuspended = seller?.isSuspended ?? false
+        ;(existingToken as any).onboardingCompleted = seller?.onboardingCompleted ?? false
+        ;(existingToken as any).onboardingStep = seller?.onboardingStep ?? 2
+        
+        // Final safety: Override redirect URL if onboarding is not complete
+        if (!seller?.onboardingCompleted) {
+          const redirectPath = intendedRole === UserRole.SELLER_PRODUCT ? "/product-seller/onboarding" : "/service-seller/onboarding"
+          redirectResponse = NextResponse.redirect(new URL(redirectPath, request.url))
+        }
       }
 
       // Keep email in sync as well.
       if (session?.user?.email) {
-        ;(existingToken as any).email = session.user.email
+        ; (existingToken as any).email = session.user.email
       }
 
       const newJwt = await encode({

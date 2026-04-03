@@ -68,7 +68,7 @@ export function NewProductClient() {
   const [generatorOptions, setGeneratorOptions] = useState<GeneratorOption[]>([])
 
   useEffect(() => {
-    fetch("/api/categories/list-with-subcategories")
+    fetch("/api/product-seller/categories")
       .then((r) => (r.ok ? r.json() : []))
       .then(setCategories)
       .catch(() => setCategories([]))

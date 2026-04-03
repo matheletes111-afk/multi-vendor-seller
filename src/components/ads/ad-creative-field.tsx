@@ -5,6 +5,7 @@ import { Label } from "@/ui/label"
 import { Input } from "@/ui/input"
 import { Button } from "@/ui/button"
 import { Upload, Link as LinkIcon, ImageIcon, Video } from "lucide-react"
+import { cn } from "@/lib/utils"
 
 const MAX_MB = 5
 const MAX_BYTES = MAX_MB * 1024 * 1024
@@ -18,9 +19,10 @@ type Props = {
   label?: string
   requiresPortrait?: boolean
   fieldNamePrefix?: string
+  onCreativeChange?: (creative: { type: "IMAGE" | "VIDEO", url: string | null }) => void
 }
 
-export function AdCreativeField({ label = "Creative (image or video) *", requiresPortrait = false, fieldNamePrefix = "", ..._props }: Props) {
+export function AdCreativeField({ label = "Creative (image or video) *", requiresPortrait = false, fieldNamePrefix = "", onCreativeChange, ..._props }: Props) {
   const [creativeType, setCreativeType] = useState<"IMAGE" | "VIDEO">("IMAGE")
   const [imageMode, setImageMode] = useState<"url" | "upload">("upload")
   const [videoMode, setVideoMode] = useState<"url" | "upload">("upload")
@@ -39,6 +41,24 @@ export function AdCreativeField({ label = "Creative (image or video) *", require
       if (videoPreviewBlob) URL.revokeObjectURL(videoPreviewBlob)
     }
   }, [imagePreviewBlob, videoPreviewBlob])
+
+  const imagePreview = imageMode === "upload" ? imagePreviewBlob : imageUrl
+  const videoPreview = videoMode === "upload" ? videoPreviewBlob : videoUrl
+
+  const lastEmitted = useRef<string>("")
+
+  useEffect(() => {
+    const currentUrl = creativeType === "IMAGE" ? imagePreview : videoPreview
+    const stateStr = JSON.stringify({ type: creativeType, url: currentUrl })
+    
+    if (stateStr !== lastEmitted.current) {
+      lastEmitted.current = stateStr
+      onCreativeChange?.({ 
+        type: creativeType, 
+        url: currentUrl
+      })
+    }
+  }, [creativeType, imagePreview, videoPreview, onCreativeChange])
 
   function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>, type: "IMAGE" | "VIDEO") {
     const file = e.target.files?.[0]
@@ -94,9 +114,6 @@ export function AdCreativeField({ label = "Creative (image or video) *", require
     if (type === "IMAGE") setImagePreviewBlob(blobUrl)
     else setVideoPreviewBlob(blobUrl)
   }
-
-  const imagePreview = imageMode === "upload" ? imagePreviewBlob : imageUrl
-  const videoPreview = videoMode === "upload" ? videoPreviewBlob : videoUrl
 
   return (
     <div className="space-y-4">
@@ -160,7 +177,10 @@ export function AdCreativeField({ label = "Creative (image or video) *", require
                 placeholder="https://example.com/image.jpg"
               />
               {imageUrl && (
-                <div className="rounded-md border overflow-hidden bg-muted/30 aspect-video max-w-sm">
+                <div className={cn(
+                  "rounded-md border overflow-hidden bg-muted/30 max-w-sm",
+                  requiresPortrait ? "aspect-[9/16] h-[300px]" : "aspect-video"
+                )}>
                   <img src={imageUrl} alt="Preview" className="w-full h-full object-contain" onError={() => {}} />
                 </div>
               )}
@@ -186,7 +206,10 @@ export function AdCreativeField({ label = "Creative (image or video) *", require
                 </Button>
               </div>
               {imagePreview && (
-                <div className="rounded-md border overflow-hidden bg-muted/30 aspect-video max-w-sm">
+                <div className={cn(
+                  "rounded-md border overflow-hidden bg-muted/30 max-w-sm",
+                  requiresPortrait ? "aspect-[9/16] h-[300px]" : "aspect-video"
+                )}>
                   <img src={imagePreview} alt="Preview" className="w-full h-full object-contain" />
                 </div>
               )}
@@ -251,7 +274,10 @@ export function AdCreativeField({ label = "Creative (image or video) *", require
               {videoUrl && (() => {
                 const embedUrl = getYoutubeEmbedUrl(videoUrl)
                 return (
-                  <div className="rounded-md border overflow-hidden bg-muted/30 aspect-video max-w-sm">
+                  <div className={cn(
+                    "rounded-md border overflow-hidden bg-muted/30 max-w-sm",
+                    requiresPortrait ? "aspect-[9/16] h-[300px]" : "aspect-video"
+                  )}>
                     {embedUrl ? (
                       <iframe
                         src={embedUrl}
@@ -288,7 +314,10 @@ export function AdCreativeField({ label = "Creative (image or video) *", require
                 </Button>
               </div>
               {videoPreview && (
-                <div className="rounded-md border overflow-hidden bg-muted/30 aspect-video max-w-sm">
+                <div className={cn(
+                  "rounded-md border overflow-hidden bg-muted/30 max-w-sm",
+                  requiresPortrait ? "aspect-[9/16] h-[300px]" : "aspect-video"
+                )}>
                   <video src={videoPreview} controls className="w-full h-full object-contain" />
                 </div>
               )}

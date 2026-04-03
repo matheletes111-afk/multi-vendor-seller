@@ -126,6 +126,13 @@ export async function PUT(request: NextRequest) {
 
   if (Object.keys(userData).length === 0) return NextResponse.json({ success: true })
 
+  if (userData.phone) {
+    const existing = await prisma.user.findFirst({
+      where: { phone: userData.phone, NOT: { id: session.user.id } }
+    })
+    if (existing) return NextResponse.json({ error: "Phone number already in use" }, { status: 400 })
+  }
+
   await prisma.user.update({
     where: { id: session.user.id },
     data: userData,

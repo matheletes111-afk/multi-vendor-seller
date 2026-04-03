@@ -211,6 +211,13 @@ enum SellerAdStatus {
   ENDED
 }
 
+enum OnboardingStatus {
+  PENDING
+  APPROVED
+  CORRECTION_NEEDED
+  REJECTED
+}
+
 enum CreativeType {
   IMAGE
   VIDEO
@@ -232,7 +239,14 @@ model Seller {
   type        SellerType
   isApproved  Boolean    @default(false)
   isSuspended Boolean    @default(false)
-  nationIdentityNumber String? // Used by admin to verify seller profile during approval
+  nationIdentityNumber String? // Deprecated in favor of KYC model but keeping for backward compatibility if needed
+
+  // Onboarding Status
+  onboardingStep      Int               @default(2) // Start from Step 2
+  onboardingCompleted Boolean           @default(false)
+  status              OnboardingStatus  @default(PENDING)
+  adminFeedback       String?           @db.Text
+
   adBalance   Decimal    @default(0) // Phase 2: top-up; Phase 1: track only
   /// Net position: + seller net when lines are delivered, − customer wallet credits (returns/exchange diff), + exchange top-up recorded.
   netBalance  Decimal    @default(0) @db.Decimal(14, 2)
@@ -241,6 +255,11 @@ model Seller {
 
   user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   store        Store?
+  businessInfo SellerBusinessInfo?
+  kyc          SellerKYC?
+  bankDetails  SellerBankDetails?
+  agreement    SellerAgreement?
+  
   subscription Subscription?
   products     Product[]
   services     Service[]
@@ -249,7 +268,81 @@ model Seller {
   sellerAds    SellerAd[]
   balanceTransactions SellerBalanceTransaction[]
 
+  selectedCategories    Category[]      @relation("SellerCategories")
+  selectedServiceCategories ServiceCategory[] @relation("SellerServiceCategories")
+
   @@map("sellers")
+}
+
+model SellerBusinessInfo {
+  id                String   @id @default(cuid())
+  sellerId          String   @unique
+  businessName      String?
+  businessType      String?  // Individual, Proprietor, Partnership, Company
+  businessRegNumber String?
+  taxIdNumber       String?
+  busRegCertUrl     String?
+  street            String?
+  city              String?
+  district          String?
+  postalCode        String?
+  yearsInOperation Int?
+  natureOfBusiness  String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  seller            Seller   @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+
+  @@map("seller_business_info")
+}
+
+model SellerKYC {
+  id                String   @id @default(cuid())
+  sellerId          String   @unique
+  idType            String?  // National ID, Passport, Driver's License
+  idNumber          String?
+  idFrontUrl        String?
+  idBackUrl         String?
+  selfieUrl         String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  seller            Seller   @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+
+  @@map("seller_kyc")
+}
+
+model SellerBankDetails {
+  id                   String   @id @default(cuid())
+  sellerId             String   @unique
+  bankName             String?
+  accountHolderName    String?
+  accountNumber        String?
+  branchName           String?
+  passbookUrl          String?
+  mobileMoneyOption    String?  // Orange Money, Africell Money
+  preferredPayoutMethod String? // Bank Transfer, Mobile Wallet
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  seller               Seller   @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+
+  @@map("seller_bank_details")
+}
+
+model SellerAgreement {
+  id                   String   @id @default(cuid())
+  sellerId             String   @unique
+  agreedToTerms        Boolean  @default(false)
+  agreedToCommission   Boolean  @default(false)
+  agreedToReturnPolicy Boolean  @default(false)
+  agreedToPrivacy      Boolean  @default(false)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  seller               Seller   @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+
+  @@map("seller_agreements")
 }
 
 model SellerBalanceTransaction {
@@ -409,6 +502,7 @@ model Category {
   subcategories Subcategory[]
   banners       Banner[]
   userInterests UserCategoryInterest[]
+  sellers       Seller[] @relation("SellerCategories")
 
   @@map("categories")
 }
@@ -442,6 +536,7 @@ model ServiceCategory {
 
   services      Service[]
   banners       Banner[]
+  sellers       Seller[] @relation("SellerServiceCategories")
 
   @@map("service_categories")
 }

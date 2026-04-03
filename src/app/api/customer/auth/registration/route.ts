@@ -21,6 +21,10 @@ export async function POST(request: Request) {
     if (existingUser) {
       return NextResponse.json({ error: "User with this email already exists" }, { status: 400 })
     }
+    const existingPhone = await prisma.user.findFirst({ where: { phone: normalizedPhone } })
+    if (existingPhone) {
+      return NextResponse.json({ error: "User with this phone number already exists" }, { status: 400 })
+    }
     const hashedPassword = await bcrypt.hash(password, 10)
     const verifyEmailOtp = randomInt(100000, 999999).toString()
     const emailVerificationExpires = new Date(Date.now() + OTP_EXPIRY_MS)

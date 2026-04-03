@@ -5,6 +5,7 @@ import { UserRole } from "@prisma/client"
 
 export async function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname
+  console.log(`Middleware: ${path}`)
 
   // Allow panel login/registration without running auth (avoids NextAuth redirect to pages.signIn)
   const allowedAuthPaths = [
@@ -129,89 +130,60 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // Product seller routes (allow login, registration, verify-otp without session)
-  if (path.startsWith("/product-seller")) {
+  // Seller routes (Product & Service)
+  if (path.startsWith("/product-seller") || path.startsWith("/service-seller")) {
+    const isService = path.startsWith("/service-seller")
+    const prefix = isService ? "/service-seller" : "/product-seller"
+    const expectedRole = isService ? UserRole.SELLER_SERVICE : UserRole.SELLER_PRODUCT
+    
+    // Public paths for sellers
     if (
-      path === "/product-seller/login" ||
-      path === "/product-seller/registration" ||
-      path === "/product-seller/verify-otp" ||
-      path === "/product-seller/login/email-otp" ||
-      path === "/product-seller/login/email-otp/verify" ||
-      path === "/product-seller/login/phone-otp" ||
-      path === "/product-seller/login/phone-otp/verify" ||
-      path === "/product-seller/forgot-password" ||
-      path === "/product-seller/reset-password" ||
-      path.startsWith("/product-seller/login?") ||
-      path.startsWith("/product-seller/registration?") ||
-      path.startsWith("/product-seller/verify-otp?") ||
-      path.startsWith("/product-seller/login/email-otp?") ||
-      path.startsWith("/product-seller/login/email-otp/verify?") ||
-      path.startsWith("/product-seller/login/phone-otp?") ||
-      path.startsWith("/product-seller/login/phone-otp/verify?") ||
-      path.startsWith("/product-seller/forgot-password?") ||
-      path.startsWith("/product-seller/reset-password?")
+      path === `${prefix}/login` ||
+      path === `${prefix}/registration` ||
+      path === `${prefix}/verify-otp` ||
+      path === `${prefix}/login/email-otp` ||
+      path === `${prefix}/login/email-otp/verify` ||
+      path === `${prefix}/login/phone-otp` ||
+      path === `${prefix}/login/phone-otp/verify` ||
+      path === `${prefix}/forgot-password` ||
+      path === `${prefix}/reset-password` ||
+      path.startsWith(`${prefix}/login?`) ||
+      path.startsWith(`${prefix}/registration?`) ||
+      path.startsWith(`${prefix}/verify-otp?`) ||
+      path.startsWith(`${prefix}/login/email-otp?`) ||
+      path.startsWith(`${prefix}/login/email-otp/verify?`) ||
+      path.startsWith(`${prefix}/login/phone-otp?`) ||
+      path.startsWith(`${prefix}/login/phone-otp/verify?`) ||
+      path.startsWith(`${prefix}/forgot-password?`) ||
+      path.startsWith(`${prefix}/reset-password?`)
     ) {
       return NextResponse.next()
     }
-    if (!session?.user) {
-      return NextResponse.redirect(new URL("/product-seller/login", request.url))
-    }
-    if (session.user.role !== UserRole.SELLER_PRODUCT) {
-      return NextResponse.redirect(new URL("/product-seller/login?error=NoSellerAccount", request.url))
-    }
-    const u = session.user as { isApproved?: boolean; isSuspended?: boolean }
-    // Suspended sellers cannot access dashboard at all
-    if (u.isSuspended === true) {
-      return NextResponse.redirect(new URL("/product-seller/login?error=AccountSuspended", request.url))
-    }
-    // Pending approval: allow only settings/profile page; redirect all other routes to settings
-    const isSettingsRoute =
-      path === "/product-seller/settings" || path.startsWith("/product-seller/settings/")
-    if (u.isApproved === false && !isSettingsRoute) {
-      return NextResponse.redirect(new URL("/product-seller/settings?error=AccountPendingApproval", request.url))
-    }
-  }
 
-  // Service seller routes (allow login, registration, verify-otp without session)
-  if (path.startsWith("/service-seller")) {
-    if (
-      path === "/service-seller/login" ||
-      path === "/service-seller/registration" ||
-      path === "/service-seller/verify-otp" ||
-      path === "/service-seller/login/email-otp" ||
-      path === "/service-seller/login/email-otp/verify" ||
-      path === "/service-seller/login/phone-otp" ||
-      path === "/service-seller/login/phone-otp/verify" ||
-      path === "/service-seller/forgot-password" ||
-      path === "/service-seller/reset-password" ||
-      path.startsWith("/service-seller/login?") ||
-      path.startsWith("/service-seller/registration?") ||
-      path.startsWith("/service-seller/verify-otp?") ||
-      path.startsWith("/service-seller/login/email-otp?") ||
-      path.startsWith("/service-seller/login/email-otp/verify?") ||
-      path.startsWith("/service-seller/login/phone-otp?") ||
-      path.startsWith("/service-seller/login/phone-otp/verify?") ||
-      path.startsWith("/service-seller/forgot-password?") ||
-      path.startsWith("/service-seller/reset-password?")
-    ) {
-      return NextResponse.next()
-    }
     if (!session?.user) {
-      return NextResponse.redirect(new URL("/service-seller/login", request.url))
+      return NextResponse.redirect(new URL(`${prefix}/login`, request.url))
     }
-    if (session.user.role !== UserRole.SELLER_SERVICE) {
-      return NextResponse.redirect(new URL("/service-seller/login?error=NoSellerAccount", request.url))
+    if (session.user.role !== expectedRole) {
+      return NextResponse.redirect(new URL(`${prefix}/login?error=InvalidRole`, request.url))
     }
-    const u = session.user as { isApproved?: boolean; isSuspended?: boolean }
-    // Suspended sellers cannot access dashboard at all
+
+    const u = session.user as { onboardingCompleted?: boolean; isApproved?: boolean; isSuspended?: boolean }
     if (u.isSuspended === true) {
-      return NextResponse.redirect(new URL("/service-seller/login?error=AccountSuspended", request.url))
+      return NextResponse.redirect(new URL(`${prefix}/login?error=AccountSuspended`, request.url))
     }
-    // Pending approval: allow only settings/profile page; redirect all other routes to settings
-    const isSettingsRoute =
-      path === "/service-seller/settings" || path.startsWith("/service-seller/settings/")
-    if (u.isApproved === false && !isSettingsRoute) {
-      return NextResponse.redirect(new URL("/service-seller/settings?error=AccountPendingApproval", request.url))
+
+    const normalizedPath = path.endsWith('/') ? path.slice(0, -1) : path
+    const isOnboardingRoute = normalizedPath === `${prefix}/onboarding` || normalizedPath.startsWith(`${prefix}/onboarding/`)
+    const isSettingsRoute = normalizedPath === `${prefix}/settings` || normalizedPath.startsWith(`${prefix}/settings/`)
+
+    // 1) Handle Onboarding (Allow access to onboarding route, force redirect others if not done)
+    if (!u.onboardingCompleted && !isOnboardingRoute) {
+      return NextResponse.redirect(new URL(`${prefix}/onboarding`, request.url))
+    }
+
+    // 2) Handle Approval (Allow access to settings and onboarding while pending, force redirect others to settings)
+    if (u.isApproved === false && !isSettingsRoute && !isOnboardingRoute) {
+      return NextResponse.redirect(new URL(`${prefix}/settings?error=AccountPendingApproval`, request.url))
     }
   }
 
@@ -223,7 +195,9 @@ export const config = {
     "/dashboard/:path*",
     "/customer/:path*",
     "/admin/:path*",
+    "/product-seller",
     "/product-seller/:path*",
+    "/service-seller",
     "/service-seller/:path*",
     "/api/protected/:path*",
   ],

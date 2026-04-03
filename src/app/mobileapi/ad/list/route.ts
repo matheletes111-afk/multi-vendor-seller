@@ -19,9 +19,10 @@ export async function GET(request: Request) {
     // Build where clause
     const where: any = {}
 
-    // Only return ads specifically targeted for mobile devices
+    // Only return ads specifically targeted for mobile devices with an image present
     // @ts-ignore - Prisma client needs regeneration
     where.placements = { has: "MOBILE" }
+    where.mobileCreativeUrl = { not: null, notIn: [""] }
 
     if (status) {
       where.status = status
@@ -46,12 +47,12 @@ export async function GET(request: Request) {
     const now = new Date()
 
     // If filtering by active status, also check date range
-    if (status === "ACTIVE") {
+    if (!status || status === "ACTIVE") {
       where.startAt = { lte: now }
       where.endAt = { gte: now }
     }
 
-    // Get total count for pagination
+    // Get total count for pagination (representing total ads matching criteria)
     const total = await prisma.sellerAd.count({ where })
 
     // Fetch ads with relations
@@ -70,7 +71,8 @@ export async function GET(request: Request) {
               select: {
                 id: true,
                 name: true,
-                email: true
+                email: true,
+                image: true
               }
             }
           }
@@ -79,7 +81,8 @@ export async function GET(request: Request) {
           select: {
             id: true,
             name: true,
-            email: true
+            email: true,
+            image: true
           }
         },
         product: {
@@ -99,76 +102,95 @@ export async function GET(request: Request) {
       }
     })
 
-    // Transform data for response with proper null handling
-    const formattedAds = ads.map(ad => {
+    // Group ads by advertiser (WhatsApp status/stories style)
+    const groupedAdvertisers = new Map<string, any>()
+
+    for (const ad of ads) {
+      const advertiserId = ad.sellerId || ad.customerUserId || "anonymous"
+      
+      if (!groupedAdvertisers.has(advertiserId)) {
+        groupedAdvertisers.set(advertiserId, {
+          advertiser: ad.seller
+            ? {
+              type: "SELLER",
+              id: ad.seller.id,
+              storeName: ad.seller.store?.name || null,
+              name: ad.seller.user?.name || null,
+              avatar: ad.seller.store?.logo || ad.seller.user?.image || null,
+              sellerType: ad.seller.type // PRODUCT or SERVICE
+            }
+            : ad.customer
+              ? {
+                type: "CUSTOMER",
+                id: ad.customer.id,
+                name: ad.customer.name || null,
+                avatar: ad.customer.image || null,
+                email: ad.customer.email || null
+              }
+              : null,
+          ads: []
+        })
+      }
+
       // @ts-ignore - Prisma needs generation
       const mobileType = ad.mobileCreativeType
       // @ts-ignore
       const mobileUrl = ad.mobileCreativeUrl
       // @ts-ignore
       const placementsArray = ad.placements || ["WEB"]
-      return {
-      id: ad.id,
-      title: ad.title,
-      description: ad.description,
-      creativeType: mobileType || ad.creativeType,
-      creativeUrl: mobileUrl || ad.creativeUrl,
-      placements: placementsArray,
-      webCreativeType: ad.creativeType,
-      webCreativeUrl: ad.creativeUrl,
-      mobileCreativeType: mobileType,
-      mobileCreativeUrl: mobileUrl,
-      status: ad.status,
-      totalBudget: ad.totalBudget,
-      spentAmount: ad.spentAmount,
-      maxCpc: ad.maxCpc,
-      clicks: ad.adClicks?.length || 0,
-      startAt: ad.startAt,
-      endAt: ad.endAt,
-      createdAt: ad.createdAt,
-      advertiser: ad.seller
-        ? {
-          type: "SELLER" as const,
-          id: ad.seller.id,
-          storeName: ad.seller.store?.name || null,
-          name: ad.seller.user?.name || null
+
+      groupedAdvertisers.get(advertiserId).ads.push({
+        id: ad.id,
+        title: ad.title,
+        description: ad.description,
+        creativeType: mobileType || ad.creativeType,
+        creativeUrl: mobileUrl || ad.creativeUrl,
+        placements: placementsArray,
+        webCreativeType: ad.creativeType,
+        webCreativeUrl: ad.creativeUrl,
+        mobileCreativeType: mobileType,
+        mobileCreativeUrl: mobileUrl,
+        status: ad.status,
+        totalBudget: ad.totalBudget,
+        spentAmount: ad.spentAmount,
+        maxCpc: ad.maxCpc,
+        clicks: ad.adClicks?.length || 0,
+        startAt: ad.startAt,
+        endAt: ad.endAt,
+        createdAt: ad.createdAt,
+        productId: ad.productId || null,
+        serviceId: ad.serviceId || null,
+        target: {
+          product: ad.product
+            ? { ...ad.product, type: "PRODUCT" as const }
+            : null,
+          service: ad.service
+            ? { ...ad.service, type: "SERVICE" as const }
+            : null
+        },
+        targeting: {
+          targetCountries: ad.targetCountries,
+          targetAgeMin: ad.targetAgeMin,
+          targetAgeMax: ad.targetAgeMax,
+          expandAudience: ad.expandAudience
         }
-        : ad.customer
-          ? {
-            type: "CUSTOMER" as const,
-            id: ad.customer.id,
-            name: ad.customer.name || null,
-            email: ad.customer.email || null
-          }
-          : null,
-      productId: ad.productId || null,
-      serviceId: ad.serviceId || null,
-      target: {
-        product: ad.product
-          ? { ...ad.product, type: "PRODUCT" as const }
-          : null,
-        service: ad.service
-          ? { ...ad.service, type: "SERVICE" as const }
-          : null
-      },
-      targeting: {
-        targetCountries: ad.targetCountries,
-        targetAgeMin: ad.targetAgeMin,
-        targetAgeMax: ad.targetAgeMax,
-        expandAudience: ad.expandAudience
-      }
-    }})
+      })
+    }
+
+    const data = Array.from(groupedAdvertisers.values())
 
     return NextResponse.json({
       success: true,
-      data: formattedAds,
+      data: data,
       pagination: {
         page,
         limit,
         total,
         totalPages: Math.ceil(total / limit),
         hasNext: skip + limit < total,
-        hasPrev: page > 1
+        hasPrev: page > 1,
+        totalAds: total,
+        totalGroups: data.length
       }
     })
 
