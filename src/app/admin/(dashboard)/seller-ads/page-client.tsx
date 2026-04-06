@@ -62,6 +62,9 @@ export function AdminSellerAdsPageClient() {
     ads: Ad[]
     totalCount: number
     totalPages: number
+    totalRevenue: number
+    activeCount: number
+    pendingCount: number
   } | null>(null)
   const [loading, setLoading] = useState(true)
   const [fetchError, setFetchError] = useState<string | null>(null)
@@ -115,19 +118,19 @@ export function AdminSellerAdsPageClient() {
 
   const statusBadge = (ad: Ad) => {
     if (new Date(ad.endAt) < new Date()) {
-      return <Badge variant="secondary">Ended</Badge>
+      return <Badge variant="secondary" className="font-medium">Ended</Badge>
     }
     switch (ad.status) {
       case "PENDING_APPROVAL":
-        return <Badge variant="secondary">Pending approval</Badge>
+        return <Badge variant="secondary" className="font-medium">Pending approval</Badge>
       case "ACTIVE":
-        return <Badge variant="default">Active</Badge>
+        return <Badge variant="default" className="font-medium">Active</Badge>
       case "PAUSED":
-        return <Badge variant="outline">Paused</Badge>
+        return <Badge variant="outline" className="font-medium">Paused</Badge>
       case "ENDED":
-        return <Badge variant="secondary">Ended</Badge>
+        return <Badge variant="secondary" className="font-medium">Ended</Badge>
       default:
-        return <Badge variant="outline">{ad.status}</Badge>
+        return <Badge variant="outline" className="font-medium">{ad.status}</Badge>
     }
   }
 
@@ -146,17 +149,62 @@ export function AdminSellerAdsPageClient() {
         </Alert>
       )}
       {params.success && (
-        <Alert className="mb-6">
-          <AlertDescription>{decodeURIComponent(params.success)}</AlertDescription>
+        <Alert className="mb-6 border-emerald-200 bg-emerald-50 text-emerald-900">
+          <AlertDescription className="font-medium text-xs">{decodeURIComponent(params.success)}</AlertDescription>
         </Alert>
       )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Ads list</CardTitle>
-          <CardDescription>All ads with status and performance</CardDescription>
+      {/* Stats Summary */}
+      <div className="grid gap-4 md:grid-cols-3">
+        <Card className="border-none shadow-md bg-gradient-to-br from-primary/5 to-background ring-1 ring-primary/10">
+          <CardHeader className="pb-2">
+            <CardDescription className="text-[10px] font-medium uppercase tracking-[0.2em] text-primary/60">Global Revenue</CardDescription>
+            <CardTitle className="text-3xl font-medium text-foreground tabular-nums">
+              {loading ? "..." : formatCurrency(data?.totalRevenue || 0)}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center gap-2">
+              <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-widest">Platform ad earnings</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-none shadow-md bg-background ring-1 ring-border/50">
+          <CardHeader className="pb-2">
+            <CardDescription className="text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground">Active Campaigns</CardDescription>
+            <CardTitle className="text-3xl font-medium text-foreground tabular-nums">
+              {loading ? "..." : data?.activeCount || 0}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-widest">Currently running ads</p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-none shadow-md bg-background ring-1 ring-border/50">
+          <CardHeader className="pb-2">
+            <CardDescription className="text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground">Pending Review</CardDescription>
+            <CardTitle className="text-3xl font-medium text-foreground tabular-nums">
+              {loading ? "..." : data?.pendingCount || 0}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-widest">Awaiting admin action</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card className="border-none shadow-xl rounded-2xl overflow-hidden mt-2">
+        <CardHeader className="bg-muted/30 pb-4">
+          <div className="flex items-center gap-2">
+            <Megaphone className="h-4 w-4 text-primary" />
+            <CardTitle className="text-sm font-medium uppercase tracking-[0.2em]">Ads list</CardTitle>
+          </div>
+          <CardDescription className="text-xs font-medium text-muted-foreground/60">Manage across-platform campaigns</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-6">
           {loading && !data ? (
             <PageLoader message="Loading ads…" />
           ) : fetchError ? (
@@ -183,18 +231,19 @@ export function AdminSellerAdsPageClient() {
               </Link>
             ))}
           </div>
+          <div className="rounded-xl border border-muted/50 overflow-hidden">
           <Table>
-            <TableHeader>
+            <TableHeader className="bg-muted/30">
               <TableRow>
-                <TableHead>Preview</TableHead>
-                <TableHead>Title</TableHead>
-                <TableHead>Seller</TableHead>
-                <TableHead>Product / Service</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Budget / Spent</TableHead>
-                <TableHead>Clicks</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableHead className="text-[10px] font-medium uppercase tracking-widest py-4">Preview</TableHead>
+                <TableHead className="text-[10px] font-medium uppercase tracking-widest py-4">Title</TableHead>
+                <TableHead className="text-[10px] font-medium uppercase tracking-widest py-4">Seller</TableHead>
+                <TableHead className="text-[10px] font-medium uppercase tracking-widest py-4">Context</TableHead>
+                <TableHead className="text-[10px] font-medium uppercase tracking-widest py-4">Format</TableHead>
+                <TableHead className="text-[10px] font-medium uppercase tracking-widest py-4">Status</TableHead>
+                <TableHead className="text-[10px] font-medium uppercase tracking-widest py-4">Allocation / Spend</TableHead>
+                <TableHead className="text-[10px] font-medium uppercase tracking-widest py-4">Performance</TableHead>
+                <TableHead className="text-[10px] font-medium uppercase tracking-widest py-4 text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -207,9 +256,9 @@ export function AdminSellerAdsPageClient() {
                 </TableRow>
               ) : (
                 data.ads.map((ad) => (
-                  <TableRow key={ad.id}>
-                    <TableCell>
-                      <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-full bg-muted ring-2 ring-border">
+                  <TableRow key={ad.id} className="hover:bg-muted/5 transition-colors group">
+                    <TableCell className="py-4">
+                      <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-muted ring-2 ring-background shadow-sm transition-transform group-hover:scale-105">
                         {ad.creativeType === "VIDEO" ? (
                           getYoutubeThumbnailUrl(ad.creativeUrl) ? (
                             <img
@@ -244,33 +293,41 @@ export function AdminSellerAdsPageClient() {
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell className="font-medium max-w-[180px]">{ad.title}</TableCell>
-                    <TableCell className="text-muted-foreground">
+                    <TableCell className="font-medium text-sm text-foreground max-w-[180px]">{ad.title}</TableCell>
+                    <TableCell>
                       {ad.seller ? (
-                        <>
-                          <div>{ad.seller.store?.name || ad.seller.user.email}</div>
-                          {ad.seller.store?.name && <div className="text-xs">{ad.seller.user.email}</div>}
-                        </>
+                        <div className="flex flex-col gap-0.5">
+                          <span className="text-sm font-medium text-foreground">{ad.seller.store?.name || ad.seller.user.name}</span>
+                          <span className="text-[10px] font-medium text-muted-foreground tabular-nums">{ad.seller.user.email}</span>
+                        </div>
                       ) : ad.customer ? (
-                        <>
-                          <div>Customer</div>
-                          <div className="text-xs">{ad.customer.email}</div>
-                        </>
+                        <div className="flex flex-col gap-0.5">
+                          <span className="text-sm font-medium text-foreground">Customer</span>
+                          <span className="text-[10px] font-medium text-muted-foreground tabular-nums">{ad.customer.email}</span>
+                        </div>
                       ) : (
-                        "—"
+                        <span className="text-xs font-medium text-muted-foreground italic">System</span>
                       )}
                     </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {ad.product ? ad.product.name : ad.service ? ad.service.name : "Own business"}
+                    <TableCell className="text-muted-foreground font-medium text-xs">
+                      {ad.product ? ad.product.name : ad.service ? ad.service.name : "Direct Business"}
                     </TableCell>
                     <TableCell>
-                      <Badge variant="outline">{ad.creativeType}</Badge>
+                      <Badge variant="outline" className="font-medium uppercase text-[9px] tracking-tight bg-muted/5">{ad.creativeType}</Badge>
                     </TableCell>
                     <TableCell>{statusBadge(ad)}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {formatCurrency(ad.spentAmount)} / {formatCurrency(ad.totalBudget)}
+                    <TableCell className="text-xs font-medium">
+                      <div className="flex flex-col gap-0.5">
+                        <span className="text-foreground">{formatCurrency(ad.spentAmount)}</span>
+                        <span className="text-[10px] text-muted-foreground/60 tracking-wider">OF {formatCurrency(ad.totalBudget)}</span>
+                      </div>
                     </TableCell>
-                    <TableCell className="text-muted-foreground">{ad._count.adClicks}</TableCell>
+                    <TableCell className="text-muted-foreground font-medium">
+                       <div className="flex items-center gap-1.5">
+                         <Eye className="h-3.5 w-3.5 text-primary/40" />
+                         <span className="text-sm tabular-nums">{ad._count.adClicks}</span>
+                       </div>
+                    </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
                         <Button asChild variant="outline" size="sm">
@@ -315,6 +372,7 @@ export function AdminSellerAdsPageClient() {
               )}
             </TableBody>
           </Table>
+          </div>
           <AdminPagination
             basePath="/admin/seller-ads"
             currentPage={page}

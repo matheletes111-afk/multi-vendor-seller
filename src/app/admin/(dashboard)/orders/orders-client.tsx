@@ -210,10 +210,10 @@ export function AdminOrdersClient() {
             <div className="flex items-end">
               <Button 
                 onClick={handleSearch} 
-                className="w-full h-10 rounded-xl font-medium uppercase tracking-widest text-[10px] shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all"
+                className="w-full h-10 rounded-xl font-medium uppercase tracking-widest text-[10px] bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/30 hover:scale-[1.02] active:scale-[0.98] transition-all"
               >
                 <Search className="w-3.5 h-3.5 mr-2" />
-                Execute Search
+                Search
               </Button>
             </div>
           </div>
