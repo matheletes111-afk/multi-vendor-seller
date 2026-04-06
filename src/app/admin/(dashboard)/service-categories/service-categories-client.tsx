@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/ui/card";
+import { cn } from "@/lib/utils";
 import { Badge } from "@/ui/badge";
 import { Alert, AlertDescription } from "@/ui/alert";
 import {
@@ -55,10 +56,8 @@ function CategoryImageCell({ image, name }: { image: string | null; name: string
   const [failed, setFailed] = useState(false);
   const src = image && !failed ? image : null;
   return (
-    <div className="relative w-12 h-12 rounded overflow-hidden bg-muted shrink-0 flex items-center justify-center">
+    <div className="relative w-12 h-12 rounded-2xl overflow-hidden bg-muted shadow-inner flex items-center justify-center border border-muted/50 group-hover:scale-105 transition-transform duration-500">
       {src ? (
-        /* referrerPolicy helps external CDN images (e.g. Unsplash) load on list page; onError fallback when they don't */
-        /* eslint-disable-next-line @next/next/no-img-element */
         <img
           src={src}
           alt={name}
@@ -67,7 +66,7 @@ function CategoryImageCell({ image, name }: { image: string | null; name: string
           onError={() => setFailed(true)}
         />
       ) : (
-        <span className="text-muted-foreground text-xs">—</span>
+        <Briefcase className="h-5 w-5 text-muted-foreground/30" />
       )}
     </div>
   );
@@ -137,154 +136,172 @@ export function ServiceCategoriesClient() {
   };
 
   return (
-    <div className="container mx-auto p-4 sm:p-6 space-y-4 sm:space-y-6 max-w-7xl">
-      <div className="flex flex-col gap-4 sm:flex-row sm:justify-between sm:items-center">
+    <div className="container mx-auto p-6 space-y-8 animate-in fade-in duration-700">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Service categories</h1>
-          <p className="text-sm text-muted-foreground mt-1">Manage categories for services (no subcategories)</p>
+          <h1 className="text-2xl font-medium text-foreground">Service Categories</h1>
+          <p className="text-muted-foreground mt-2 text-lg font-medium">Manage professional service classifications</p>
         </div>
-        {mounted ? (
+        {mounted && (
           <Link href="/admin/service-categories/new">
-            <Button>
+            <Button className="rounded-full px-6 font-medium text-xs h-12 shadow-lg shadow-primary/20 hover:scale-105 transition-all">
               <Plus className="mr-2 h-4 w-4" />
               Add Service Category
             </Button>
           </Link>
-        ) : (
-          <div className="h-10 w-[180px] rounded-md bg-muted" />
         )}
       </div>
 
       {params.error && (
-        <Alert variant="destructive">
-          <AlertDescription>{decodeURIComponent(params.error)}</AlertDescription>
+        <Alert variant="destructive" className="border-none shadow-xl bg-destructive/10 text-destructive animate-in slide-in-from-top-4 duration-500">
+          <AlertDescription className="font-medium">{decodeURIComponent(params.error)}</AlertDescription>
         </Alert>
       )}
       {params.success && (
-        <Alert>
-          <AlertDescription>{decodeURIComponent(params.success)}</AlertDescription>
+        <Alert className="border-none shadow-xl bg-green-500/10 text-green-600 animate-in slide-in-from-top-4 duration-500">
+          <AlertDescription className="font-medium text-xs">Action completed: {decodeURIComponent(params.success)}</AlertDescription>
         </Alert>
       )}
 
-      <Card className="overflow-hidden border shadow-sm">
-        <CardHeader className="pb-4">
-          <CardTitle className="text-lg">Service category list</CardTitle>
-          <CardDescription>All service categories with service counts</CardDescription>
+      <Card className="border-none shadow-2xl overflow-hidden rounded-3xl bg-gradient-to-br from-background via-background to-muted/20">
+        <CardHeader className="pb-4 border-b border-muted/30">
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-xl font-medium">Service Directory Hierarchy</CardTitle>
+              <CardDescription className="text-sm font-medium">Configure commission rates and portfolio visibility</CardDescription>
+            </div>
+            {data && (
+              <Badge variant="outline" className="px-4 py-1 font-medium rounded-full shadow-sm bg-background">
+                {data.totalCount} Categories
+              </Badge>
+            )}
+          </div>
         </CardHeader>
-        <CardContent className="p-0 sm:p-6">
+        <CardContent className="p-0">
           {loading && !data ? (
-            <PageLoader message="Loading service categories…" />
+            <div className="py-32">
+              <PageLoader message="Organizing service matrix…" />
+            </div>
           ) : fetchError ? (
-            <div className="py-12 text-center text-destructive px-4">{fetchError}</div>
+            <div className="py-24 text-center">
+              <p className="text-destructive font-medium">{fetchError}</p>
+            </div>
           ) : !data ? null : (
             <>
               <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-16 shrink-0">Image</TableHead>
-                    <TableHead>Name</TableHead>
-                    <TableHead className="hidden md:table-cell">Description</TableHead>
-                    <TableHead>Commission</TableHead>
-                    <TableHead>Services</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {data.categories.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={7} className="text-center py-12 text-muted-foreground">
-                        No service categories found
-                      </TableCell>
+                <Table>
+                  <TableHeader className="bg-muted/40 transition-none">
+                    <TableRow className="hover:bg-transparent border-none">
+                      <TableHead className="py-5 pl-8 text-[10px] font-medium uppercase tracking-widest text-muted-foreground/80">Preview</TableHead>
+                      <TableHead className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground/80">Service Category</TableHead>
+                      <TableHead className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground/80">Commission</TableHead>
+                      <TableHead className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground/80">Active Listings</TableHead>
+                      <TableHead className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground/80">Visibility</TableHead>
+                      <TableHead className="text-right pr-8 text-[10px] font-medium uppercase tracking-widest text-muted-foreground/80">Control</TableHead>
                     </TableRow>
-                  ) : (
-                    sortByCreatedAtDesc(data.categories).map((category) => (
-                      <TableRow key={category.id}>
-                        <TableCell>
-                          <CategoryImageCell image={category.image} name={category.name} />
-                        </TableCell>
-                        <TableCell className="font-medium">{category.name}</TableCell>
-                        <TableCell className="max-w-[200px] truncate text-muted-foreground hidden md:table-cell">
-                          {category.description || "—"}
-                        </TableCell>
-                        <TableCell>{category.commissionRate}%</TableCell>
-                        <TableCell>
-                          <span className="inline-flex items-center gap-1 text-muted-foreground">
-                            <Briefcase className="h-4 w-4" />
-                            {category._count.services}
-                          </span>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant={category.isActive ? "default" : "secondary"}>
-                            {category.isActive ? "Active" : "Inactive"}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex justify-end gap-2 flex-wrap">
-                            <Link href={`/admin/service-categories/${category.id}/edit?page=${page}&perPage=${perPage}`}>
-                              <Button variant="outline" size="sm" className="shrink-0">
-                                <Pencil className="mr-2 h-4 w-4" />
-                                Edit
-                              </Button>
-                            </Link>
-                            <Dialog>
-                              <DialogTrigger asChild>
-                                <Button
-                                  variant="destructive"
-                                  size="sm"
-                                  title={
-                                    category._count.services > 0
-                                      ? "Cannot delete: this category has services. Remove or reassign them first."
-                                      : undefined
-                                  }
-                                  className={category._count.services > 0 ? "opacity-60" : undefined}
-                                >
-                                  <Trash2 className="mr-2 h-4 w-4" />
-                                  Delete
-                                </Button>
-                              </DialogTrigger>
-                              <DialogContent>
-                                <DialogHeader>
-                                  <DialogTitle>Delete Service Category</DialogTitle>
-                                  <DialogDescription>
-                                    {category._count.services > 0 ? (
-                                      <>
-                                        Cannot delete &quot;{category.name}&quot; because it has{" "}
-                                        <strong>{category._count.services} service(s)</strong>. Remove or reassign them first.
-                                      </>
-                                    ) : (
-                                      <>
-                                        Are you sure you want to delete &quot;{category.name}&quot;? This cannot be undone.
-                                      </>
-                                    )}
-                                  </DialogDescription>
-                                </DialogHeader>
-                                <DialogFooter>
-                                  <DialogTrigger asChild>
-                                    <Button variant="outline">Cancel</Button>
-                                  </DialogTrigger>
-                                  {category._count.services === 0 && (
-                                    <Button
-                                      variant="destructive"
-                                      onClick={() => handleDelete(category.id)}
-                                      disabled={deletingId === category.id}
-                                    >
-                                      {deletingId === category.id ? "Deleting..." : "Delete"}
-                                    </Button>
-                                  )}
-                                </DialogFooter>
-                              </DialogContent>
-                            </Dialog>
-                          </div>
+                  </TableHeader>
+                  <TableBody>
+                    {data.categories.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={6} className="py-24 text-center">
+                          <Briefcase className="h-12 w-12 text-muted-foreground/20 mx-auto mb-4" />
+                          <p className="text-muted-foreground font-medium text-xs">No service categories identified</p>
                         </TableCell>
                       </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
+                    ) : (
+                      sortByCreatedAtDesc(data.categories).map((category) => (
+                        <TableRow key={category.id} className="group transition-all hover:bg-muted/20 border-b border-muted/30">
+                          <TableCell className="pl-8">
+                            <CategoryImageCell image={category.image} name={category.name} />
+                          </TableCell>
+                          <TableCell className="font-medium py-5">
+                            <div className="flex flex-col">
+                              <span className="text-sm line-clamp-1">{category.name}</span>
+                              <span className="text-[10px] text-muted-foreground/60 font-medium line-clamp-1 italic">{category.description || "Service niche description pending"}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="bg-emerald-500/10 text-emerald-600 px-3 py-1 rounded-full text-xs font-medium w-fit border border-emerald-500/10">
+                              {category.commissionRate}%
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-1.5 font-medium text-sm text-foreground/80">
+                              <Briefcase className="h-3.5 w-3.5 text-indigo-500/70" />
+                              {category._count.services}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge className={cn(
+                              "rounded-full text-[9px] font-medium uppercase tracking-widest px-3 py-0.5 border-none shadow-sm shadow-black/5",
+                              category.isActive ? "bg-green-500 text-white" : "bg-muted text-muted-foreground"
+                            )}>
+                              {category.isActive ? "Live" : "Inactive"}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right pr-8">
+                            <div className="flex justify-end gap-2 transition-all duration-300">
+                              <Link href={`/admin/service-categories/${category.id}/edit?page=${page}&perPage=${perPage}`}>
+                                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full hover:bg-primary/10 hover:text-primary">
+                                  <Pencil className="h-4 w-4" />
+                                </Button>
+                              </Link>
+                              <Dialog>
+                                <DialogTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className={cn(
+                                      "h-8 w-8 rounded-full hover:bg-destructive/10 hover:text-destructive",
+                                      category._count.services > 0 && "opacity-30 cursor-not-allowed"
+                                    )}
+                                    disabled={category._count.services > 0}
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </DialogTrigger>
+                                <DialogContent className="rounded-3xl border-none shadow-2xl">
+                                  <DialogHeader>
+                                    <DialogTitle className="text-2xl font-medium">Archive Service Niche</DialogTitle>
+                                    <DialogDescription className="text-base font-medium pt-2">
+                                      {category._count.services > 0 ? (
+                                        <>
+                                          Cannot delete &quot;<span className="text-foreground font-medium">{category.name}</span>&quot; because it has{" "}
+                                          <Badge className="bg-primary">{category._count.services}</Badge> active service listings.
+                                        </>
+                                      ) : (
+                                        <>
+                                          Are you sure you want to permanently remove &quot;<span className="text-foreground font-medium">{category.name}</span>&quot;? This action is irreversible.
+                                        </>
+                                      )}
+                                    </DialogDescription>
+                                  </DialogHeader>
+                                  <DialogFooter className="gap-2 sm:gap-0 mt-6">
+                                    <DialogTrigger asChild>
+                                      <Button variant="outline" className="rounded-full px-6 font-medium uppercase tracking-widest text-[10px]">Cancel</Button>
+                                    </DialogTrigger>
+                                    {category._count.services === 0 && (
+                                        <Button
+                                          variant="destructive"
+                                          className="rounded-full px-6 font-medium uppercase tracking-widest text-[10px] shadow-lg shadow-destructive/20"
+                                        onClick={() => handleDelete(category.id)}
+                                        disabled={deletingId === category.id}
+                                      >
+                                        {deletingId === category.id ? "Archiving..." : "Confirm Removal"}
+                                      </Button>
+                                    )}
+                                  </DialogFooter>
+                                </DialogContent>
+                              </Dialog>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
               </div>
-              <div className="px-4 py-3 sm:px-6 sm:py-4 border-t">
+              <div className="p-8 bg-muted/10 border-t border-muted/20 rounded-b-3xl">
                 <AdminPagination
                   basePath="/admin/service-categories"
                   currentPage={page}

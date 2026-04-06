@@ -84,8 +84,8 @@ export function AdminReviewDetailsClient({ type, id }: { type: "product" | "serv
             )}
           </div>
           <div>
-          <h1 className="text-3xl font-bold tracking-tight">Review details</h1>
-          <p className="mt-2 text-muted-foreground">{data?.itemName ?? "Item"}</p>
+          <h1 className="text-2xl font-medium text-foreground">Review details</h1>
+          <p className="mt-2 text-muted-foreground text-sm font-medium">{data?.itemName ?? "Item"}</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -101,7 +101,7 @@ export function AdminReviewDetailsClient({ type, id }: { type: "product" | "serv
         <Card>
           <CardContent className="py-16 text-center">
             <MessageSquare className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
-            <h3 className="text-lg font-semibold">No reviews yet</h3>
+            <h3 className="text-lg font-medium">No reviews yet</h3>
           </CardContent>
         </Card>
       ) : (

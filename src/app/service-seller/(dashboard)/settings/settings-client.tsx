@@ -49,6 +49,14 @@ export function ServiceSettingsClient() {
   const paramsError = searchParams.get("error")
   const paramsSuccess = searchParams.get("success")
 
+  const getErrorMessage = (err: string | null) => {
+    if (!err) return null
+    if (err === "AccountPendingApproval") {
+        return "Your account application is currently pending review by our administration team. You will be notified once your account is fully verified and ready for listing services."
+    }
+    return err
+  }
+
   async function handleSave(e: React.FormEvent<HTMLFormElement>, section: string) {
     e.preventDefault()
     setSaving(section)
@@ -74,7 +82,12 @@ export function ServiceSettingsClient() {
             } else if (section === "kyc") {
                 body.seller = { kyc: Object.fromEntries(formData.entries()) }
             } else if (section === "user") {
-                body.user = Object.fromEntries(formData.entries())
+                const entries = Object.fromEntries(formData.entries())
+                const { nationIdentityNumber, ...userData } = entries as any
+                body.user = userData
+                if (nationIdentityNumber !== undefined) {
+                    body.seller = { nationIdentityNumber }
+                }
             }
 
             res = await fetch("/api/service-seller/settings", {
@@ -121,7 +134,10 @@ export function ServiceSettingsClient() {
       </div>
 
       {(paramsError || error) && (
-        <Alert variant="destructive" className="mb-6"><AlertTitle>Error</AlertTitle><AlertDescription>{paramsError || error}</AlertDescription></Alert>
+        <Alert variant="destructive" className="mb-6">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{getErrorMessage(paramsError) || error}</AlertDescription>
+        </Alert>
       )}
 
       {(paramsSuccess || success) && (
@@ -145,8 +161,34 @@ export function ServiceSettingsClient() {
                   <div className="space-y-2"><Label>Country Code</Label><Input name="phoneCountryCode" defaultValue={seller.user.phoneCountryCode || ""} /></div>
                   <div className="space-y-2"><Label>Phone Number</Label><Input name="phone" defaultValue={seller.user.phone || ""} /></div>
                </div>
-               <div className="pt-2"><Label>Profile Image</Label><ProfilePictureInput currentImage={seller.user.image} fileInputName="profileImage" urlInputName="image" /></div>
-               <Button type="submit" disabled={saving === "user"}>{saving === "user" ? "Saving..." : "Update Profile"}</Button>
+               <div className="grid md:grid-cols-1 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-emerald-800 font-semibold">National Identity Number (NIN)</Label>
+                    <Input name="nationIdentityNumber" defaultValue={seller.nationIdentityNumber || ""} placeholder="Enter 11-digit NIN" className="focus:ring-emerald-500" />
+                  </div>
+               </div>
+               <div className="grid md:grid-cols-1 gap-4 border-t pt-4">
+                  <div className="space-y-2">
+                    <Label className="text-emerald-800 font-semibold">New Password (Optional)</Label>
+                    <div className="relative max-w-sm">
+                      <Input 
+                        name="password" 
+                        type={showPassword ? "text" : "password"} 
+                        placeholder="Leave blank to keep current" 
+                        className="pr-10 focus:ring-emerald-500"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                      >
+                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
+                  </div>
+               </div>
+               <div className="pt-2"><Label className="text-emerald-800 font-semibold">Profile Image</Label><ProfilePictureInput currentImage={seller.user.image} fileInputName="profileImage" urlInputName="image" /></div>
+               <Button type="submit" disabled={saving === "user"} className="bg-emerald-600 hover:bg-emerald-700">{saving === "user" ? "Saving..." : "Update Profile"}</Button>
             </form>
           </CardContent>
         </Card>

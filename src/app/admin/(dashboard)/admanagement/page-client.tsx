@@ -31,6 +31,7 @@ import {
 } from "@/ui/dialog"
 import { Plus, Pencil, Trash2, Upload, X, ImageIcon } from "lucide-react"
 import { AdminPagination } from "@/components/admin/admin-pagination"
+import { cn } from "@/lib/utils"
 
 type Ad = {
   id: string
@@ -82,89 +83,114 @@ export function AdManagementPageClient() {
   }, [page, perPage])
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <div className="flex justify-between items-center">
+    <div className="container mx-auto p-6 space-y-8 animate-in fade-in duration-700">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Ad Management</h1>
-          <p className="text-muted-foreground mt-2">Manage your advertisement images and content</p>
+          <h1 className="text-2xl font-medium text-foreground">Advertisement Management</h1>
+          <p className="text-muted-foreground mt-2 text-lg font-medium">Manage your platform&apos;s visual real estate and marketing assets</p>
         </div>
         <AddAdForm />
       </div>
 
       {params?.error && (
-        <Alert variant="destructive">
-          <AlertDescription>{decodeURIComponent(params.error)}</AlertDescription>
+        <Alert variant="destructive" className="border-none shadow-xl bg-destructive/10 text-destructive animate-in slide-in-from-top-4 duration-500">
+          <AlertDescription className="font-medium">{decodeURIComponent(params.error)}</AlertDescription>
         </Alert>
       )}
       {params?.success && (
-        <Alert>
-          <AlertDescription>{decodeURIComponent(params.success)}</AlertDescription>
+        <Alert className="border-none shadow-xl bg-green-500/10 text-green-600 animate-in slide-in-from-top-4 duration-500">
+          <AlertDescription className="font-medium text-xs">Action completed: {decodeURIComponent(params.success)}</AlertDescription>
         </Alert>
       )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Ad list</CardTitle>
-          <CardDescription>All advertisement images and content</CardDescription>
+      <Card className="border-none shadow-2xl overflow-hidden rounded-3xl bg-gradient-to-br from-background via-background to-muted/20">
+        <CardHeader className="pb-4 border-b border-muted/30">
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-xl font-medium">Creative Assets</CardTitle>
+              <CardDescription className="text-sm font-medium">Review and moderate all platform advertisements</CardDescription>
+            </div>
+            {data && (
+              <Badge variant="outline" className="px-4 py-1 font-medium rounded-full shadow-sm bg-background border-primary/20 text-primary">
+                {data.totalCount} Ad Units
+              </Badge>
+            )}
+          </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-0">
           {loading && !data ? (
-            <PageLoader message="Loading ads…" />
+            <div className="py-32">
+              <PageLoader message="Loading creative engine…" />
+            </div>
           ) : fetchError ? (
-            <div className="py-12 text-center text-destructive">{fetchError}</div>
+            <div className="py-24 text-center">
+              <p className="text-destructive font-medium">{fetchError}</p>
+            </div>
           ) : !data ? null : (
             <>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Preview</TableHead>
-                <TableHead>Title</TableHead>
-                <TableHead>Description</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {data.ads.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={5} className="text-center py-12 text-muted-foreground">
-                    No advertisements found
-                  </TableCell>
-                </TableRow>
-              ) : (
-                data.ads.map((ad) => (
-                  <TableRow key={ad.id}>
-                    <TableCell>
-                      <AdImage image={ad.image} title={ad.title} />
-                    </TableCell>
-                    <TableCell className="font-medium">{ad.title}</TableCell>
-                    <TableCell className="max-w-[240px] truncate text-muted-foreground">
-                      {ad.description || "—"}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={ad.isActive ? "default" : "secondary"}>
-                        {ad.isActive ? "Active" : "Inactive"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <EditAdForm ad={ad} />
-                        <DeleteAdButton adId={ad.id} adTitle={ad.title} />
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-          <AdminPagination
-            basePath="/admin/admanagement"
-            currentPage={page}
-            totalPages={data.totalPages}
-            totalCount={data.totalCount}
-            pageSize={perPage}
-            params={params}
-          />
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader className="bg-muted/40 transition-none">
+                    <TableRow className="hover:bg-transparent border-none">
+                      <TableHead className="py-5 pl-8 text-[10px] font-medium uppercase tracking-widest text-muted-foreground/80">Asset Preview</TableHead>
+                      <TableHead className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground/80">Creative Title</TableHead>
+                      <TableHead className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground/80">Narrative</TableHead>
+                      <TableHead className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground/80">Status</TableHead>
+                      <TableHead className="text-right pr-8 text-[10px] font-medium uppercase tracking-widest text-muted-foreground/80">Control</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {data.ads.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={5} className="py-24 text-center">
+                          <Plus className="h-12 w-12 text-muted-foreground/20 mx-auto mb-4" />
+                          <p className="text-muted-foreground font-medium text-xs">No advertisements identified</p>
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      data.ads.map((ad) => (
+                        <TableRow key={ad.id} className="group transition-all hover:bg-muted/20 border-b border-muted/30">
+                          <TableCell className="pl-8">
+                            <AdImage image={ad.image} title={ad.title} />
+                          </TableCell>
+                          <TableCell className="py-5">
+                            <span className="text-sm font-medium truncate max-w-[200px] block">{ad.title}</span>
+                          </TableCell>
+                          <TableCell>
+                            <span className="text-[10px] text-muted-foreground/60 italic line-clamp-1 max-w-[240px] block font-medium">
+                              {ad.description || "Detailed creative narrative pending"}
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            <Badge className={cn(
+                              "rounded-full text-[9px] font-medium uppercase tracking-widest px-3 py-0.5 border-none shadow-sm shadow-black/5",
+                              ad.isActive ? "bg-green-500 text-white" : "bg-muted text-muted-foreground"
+                            )}>
+                              {ad.isActive ? "Live" : "Holding"}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right pr-8">
+                            <div className="flex justify-end gap-2 transition-all duration-300">
+                              <EditAdForm ad={ad} />
+                              <DeleteAdButton adId={ad.id} adTitle={ad.title} />
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+              <div className="p-8 bg-muted/10 border-t border-muted/20 rounded-b-3xl">
+                <AdminPagination
+                  basePath="/admin/admanagement"
+                  currentPage={page}
+                  totalPages={data.totalPages}
+                  totalCount={data.totalCount}
+                  pageSize={perPage}
+                  params={params}
+                />
+              </div>
             </>
           )}
         </CardContent>
@@ -177,13 +203,13 @@ function AdImage({ image, title }: { image: string | null | undefined; title: st
   const [imageError, setImageError] = useState(false)
   if (!image || imageError) {
     return (
-      <div className="w-20 h-12 rounded-md bg-muted flex items-center justify-center border border-border shrink-0">
-        <ImageIcon className="h-6 w-6 text-muted-foreground" />
+      <div className="w-24 h-14 rounded-2xl bg-muted/50 flex items-center justify-center border-2 border-dashed border-muted shrink-0 shadow-inner">
+        <ImageIcon className="h-5 w-5 text-muted-foreground/30" />
       </div>
     )
   }
   return (
-    <div className="relative w-20 h-12 rounded-md overflow-hidden bg-muted border border-border shrink-0">
+    <div className="relative w-24 h-14 rounded-2xl overflow-hidden bg-muted shadow-lg border border-muted/50 transition-transform group-hover:scale-105 duration-500 shrink-0">
       <Image src={image} alt={title} fill sizes="80px" className="object-cover" onError={() => setImageError(true)} />
     </div>
   )
@@ -247,49 +273,51 @@ function AddAdForm() {
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
-        <Button>
+        <Button className="rounded-full px-6 font-medium text-xs h-12 shadow-lg shadow-primary/20 hover:scale-105 transition-all">
           <Plus className="mr-2 h-4 w-4" />
           Add Advertisement
         </Button>
       </SheetTrigger>
-      <SheetContent className="overflow-y-auto">
-        <SheetHeader>
-          <SheetTitle>Add New Advertisement</SheetTitle>
-          <SheetDescription>Create a new advertisement image and content</SheetDescription>
+      <SheetContent className="overflow-y-auto rounded-l-3xl border-none shadow-2xl bg-gradient-to-b from-background to-muted/20">
+        <SheetHeader className="pb-8">
+          <SheetTitle className="text-2xl font-medium uppercase tracking-tight">Deploy Creative</SheetTitle>
+          <SheetDescription className="text-base font-medium">Create a new advertisement image and content strategy</SheetDescription>
         </SheetHeader>
-        <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+        <form onSubmit={handleSubmit} className="mt-2 space-y-6">
           <div className="space-y-2">
-            <Label htmlFor="title">Title *</Label>
-            <Input id="title" name="title" placeholder="e.g., Summer Sale Banner" required />
+            <Label htmlFor="title" className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground ml-1">Asset Title *</Label>
+            <Input id="title" name="title" className="rounded-2xl border-muted bg-muted/30 focus-visible:ring-primary h-11" placeholder="e.g., Seasonal Global Campaign" required />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="description">Description</Label>
-            <Textarea id="description" name="description" placeholder="Advertisement description" rows={4} />
+            <Label htmlFor="description" className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground ml-1">Narrative Deck</Label>
+            <Textarea id="description" name="description" className="rounded-2xl border-muted bg-muted/30 focus-visible:ring-primary min-h-[120px]" placeholder="Outline the marketing objective..." rows={4} />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="image">Image</Label>
+            <Label htmlFor="image" className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground ml-1">Hero Asset</Label>
             {!imagePreview ? (
-              <label htmlFor="image-upload" className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer hover:bg-gray-50">
-                <Upload className="w-8 h-8 mb-2 text-gray-400" />
-                <p className="text-sm text-gray-500">Click to upload image</p>
+              <label htmlFor="image-upload" className="flex flex-col items-center justify-center w-full h-40 border-2 border-dashed border-muted rounded-[2rem] cursor-pointer hover:bg-primary/5 hover:border-primary/30 transition-all group">
+                <div className="p-4 bg-muted/50 rounded-2xl group-hover:bg-primary/10 transition-colors">
+                  <Upload className="w-6 h-6 text-muted-foreground group-hover:text-primary" />
+                </div>
+                <p className="mt-3 text-xs font-medium uppercase tracking-widest text-muted-foreground group-hover:text-primary">Stash Creative Asset</p>
                 <input id="image-upload" name="image" type="file" accept="image/*" className="hidden" onChange={handleImageChange} />
               </label>
             ) : (
-              <div className="relative w-full h-48 rounded-md overflow-hidden">
+              <div className="relative w-full h-48 rounded-[2rem] overflow-hidden shadow-xl border border-muted ring-offset-4 ring-2 ring-transparent hover:ring-primary/20 transition-all">
                 <Image src={imagePreview} alt="Preview" fill className="object-cover" />
-                <button type="button" onClick={removeImage} className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-600">
+                <button type="button" onClick={removeImage} className="absolute top-4 right-4 p-2 bg-destructive text-white rounded-full hover:bg-destructive/90 shadow-lg transform hover:scale-110 transition-all">
                   <X className="h-4 w-4" />
                 </button>
               </div>
             )}
           </div>
-          <div className="flex items-center space-x-2">
-            <input id="isActive" name="isActive" type="checkbox" defaultChecked className="h-4 w-4 rounded border-gray-300" />
-            <Label htmlFor="isActive" className="text-sm font-normal">Active</Label>
+          <div className="flex items-center space-x-3 p-4 bg-muted/30 rounded-2xl">
+            <input id="isActive" name="isActive" type="checkbox" defaultChecked className="h-5 w-5 rounded-lg border-muted text-primary focus:ring-primary" />
+            <Label htmlFor="isActive" className="text-xs font-medium uppercase tracking-widest">Enable immediate deployment</Label>
           </div>
-          <div className="flex gap-2 pt-4">
-            <Button type="submit" className="flex-1" disabled={loading}>{loading ? "Creating..." : "Create Advertisement"}</Button>
-            <Button type="button" variant="outline" onClick={() => { setOpen(false); setImagePreview(null); setImageFile(null) }} disabled={loading}>Cancel</Button>
+          <div className="flex gap-3 pt-6">
+            <Button type="submit" className="flex-1 rounded-full h-12 font-medium uppercase tracking-widest text-xs shadow-xl shadow-primary/20" disabled={loading}>{loading ? "Synchronizing..." : "Initiate Unit"}</Button>
+            <Button type="button" variant="outline" className="rounded-full h-12 px-6 font-medium uppercase tracking-widest text-xs" onClick={() => { setOpen(false); setImagePreview(null); setImageFile(null) }} disabled={loading}>Discard</Button>
           </div>
         </form>
       </SheetContent>
@@ -353,54 +381,53 @@ function EditAdForm({ ad }: { ad: Ad }) {
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
-        <Button variant="outline" size="sm">
-          <Pencil className="mr-2 h-4 w-4" />
-          Edit
+        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full hover:bg-primary/10 hover:text-primary transition-colors">
+          <Pencil className="h-4 w-4" />
         </Button>
       </SheetTrigger>
-      <SheetContent>
-        <SheetHeader>
-          <SheetTitle>Edit Advertisement</SheetTitle>
-          <SheetDescription>Update advertisement information</SheetDescription>
+      <SheetContent className="overflow-y-auto rounded-l-3xl border-none shadow-2xl bg-gradient-to-b from-background to-muted/20">
+        <SheetHeader className="pb-8">
+          <SheetTitle className="text-2xl font-medium uppercase tracking-tight">Refine Creative</SheetTitle>
+          <SheetDescription className="text-base font-medium">Update advertisement visuals and strategic content</SheetDescription>
         </SheetHeader>
-        <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+        <form onSubmit={handleSubmit} className="mt-2 space-y-6">
           <div className="space-y-2">
-            <Label htmlFor="title">Title *</Label>
-            <Input id="title" name="title" defaultValue={ad.title} required />
+            <Label htmlFor="title" className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground ml-1">Asset Title *</Label>
+            <Input id="title" name="title" defaultValue={ad.title} className="rounded-2xl border-muted bg-muted/30 focus-visible:ring-primary h-11" required />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="description">Description</Label>
-            <Textarea id="description" name="description" rows={3} defaultValue={ad.description || ""} />
+            <Label htmlFor="description" className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground ml-1">Narrative Deck</Label>
+            <Textarea id="description" name="description" className="rounded-2xl border-muted bg-muted/30 focus-visible:ring-primary min-h-[100px]" rows={3} defaultValue={ad.description || ""} />
           </div>
-          {ad.image && (
-            <div className="relative w-full h-32 rounded-md border overflow-hidden">
-              <Image src={ad.image} alt={ad.title} fill className="object-cover" />
+          {ad.image && !imagePreview && (
+            <div className="relative w-full h-32 rounded-2xl border border-muted/50 overflow-hidden shadow-inner bg-muted/10">
+              <Image src={ad.image} alt={ad.title} fill className="object-contain" />
             </div>
           )}
           <div className="space-y-2">
-            <Label htmlFor="edit-image-upload">New Image (Optional)</Label>
+            <Label htmlFor="edit-image-upload" className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground ml-1">Visual Replacement</Label>
             {!imagePreview ? (
-              <label htmlFor="edit-image-upload" className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer hover:bg-gray-50">
-                <Upload className="w-8 h-8 mb-2 text-gray-400" />
-                <p className="text-sm text-gray-500">Click to upload new image</p>
+              <label htmlFor="edit-image-upload" className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-muted rounded-[2rem] cursor-pointer hover:bg-primary/5 hover:border-primary/30 transition-all">
+                <Upload className="w-6 h-6 mb-2 text-muted-foreground" />
+                <p className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">Upload New Hero Asset</p>
                 <input id="edit-image-upload" type="file" accept="image/*" className="hidden" onChange={handleImageChange} />
               </label>
             ) : (
-              <div className="relative w-full h-32 rounded-md border overflow-hidden">
+              <div className="relative w-full h-40 rounded-[2rem] border-2 border-primary/20 overflow-hidden shadow-xl">
                 <Image src={imagePreview} alt="Preview" fill className="object-cover" />
-                <button type="button" onClick={removeImage} className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full">
-                  <X className="h-4 w-4" />
+                <button type="button" onClick={removeImage} className="absolute top-3 right-3 p-1.5 bg-destructive text-white rounded-full hover:bg-destructive/90 transform hover:scale-110 transition-all shadow-lg">
+                  <X className="h-3.5 w-3.5" />
                 </button>
               </div>
             )}
           </div>
-          <div className="flex items-center space-x-2">
-            <input id="isActive" name="isActive" type="checkbox" defaultChecked={ad.isActive} className="h-4 w-4 rounded" />
-            <Label htmlFor="isActive">Active</Label>
+          <div className="flex items-center space-x-3 p-4 bg-muted/30 rounded-2xl">
+            <input id="isActive" name="isActive" type="checkbox" defaultChecked={ad.isActive} className="h-5 w-5 rounded-lg border-muted text-primary focus:ring-primary" />
+            <Label htmlFor="isActive" className="text-xs font-medium uppercase tracking-widest whitespace-nowrap">Live Deployment Enabled</Label>
           </div>
-          <div className="flex gap-2 pt-4">
-            <Button type="submit" disabled={loading}>{loading ? "Updating..." : "Update"}</Button>
-            <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+          <div className="flex gap-3 pt-6">
+            <Button type="submit" className="flex-1 rounded-full h-12 font-medium uppercase tracking-widest text-xs shadow-xl shadow-primary/20" disabled={loading}>{loading ? "Synchronizing..." : "Update Creative"}</Button>
+            <Button type="button" variant="outline" className="rounded-full h-12 px-6 font-medium uppercase tracking-widest text-xs" onClick={() => setOpen(false)}>Discard</Button>
           </div>
         </form>
       </SheetContent>
@@ -435,21 +462,20 @@ function DeleteAdButton({ adId, adTitle }: { adId: string; adTitle: string }) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="destructive" size="sm">
-          <Trash2 className="mr-2 h-4 w-4" />
-          Delete
+        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full hover:bg-destructive/10 hover:text-destructive transition-colors">
+          <Trash2 className="h-4 w-4" />
         </Button>
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent className="rounded-3xl border-none shadow-2xl">
         <DialogHeader>
-          <DialogTitle>Delete Advertisement</DialogTitle>
-          <DialogDescription>
-            Are you sure you want to delete &quot;{adTitle}&quot;? This cannot be undone.
+          <DialogTitle className="text-2xl font-black">Archive Advertisement</DialogTitle>
+          <DialogDescription className="text-base font-medium pt-2">
+            Are you sure you want to permanently discard &quot;<span className="text-foreground font-bold">{adTitle}</span>&quot;? This asset will be immediately removed from all live marketing inventories.
           </DialogDescription>
         </DialogHeader>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => setOpen(false)} disabled={isDeleting}>Cancel</Button>
-          <Button variant="destructive" onClick={handleDelete} disabled={isDeleting}>{isDeleting ? "Deleting..." : "Delete"}</Button>
+        <DialogFooter className="gap-2 sm:gap-0 mt-6">
+          <Button variant="outline" className="rounded-full px-6 font-bold uppercase tracking-widest text-[10px]" onClick={() => setOpen(false)} disabled={isDeleting}>Cancel</Button>
+          <Button variant="destructive" className="rounded-full px-6 font-black uppercase tracking-widest text-[10px] shadow-lg shadow-destructive/20" onClick={handleDelete} disabled={isDeleting}>{isDeleting ? "Archiving..." : "Confirm Removal"}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

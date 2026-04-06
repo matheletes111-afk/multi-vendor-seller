@@ -1,11 +1,13 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Eye, EyeOff } from "lucide-react"
+import { Eye, EyeOff, User, Mail, Phone, Lock, ShieldCheck, Globe, Smartphone } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/ui/card"
 import { Button } from "@/ui/button"
 import { Input } from "@/ui/input"
 import { Label } from "@/ui/label"
+import { Badge } from "@/ui/badge"
+import { Alert, AlertDescription } from "@/ui/alert"
 import { PageLoader } from "@/components/ui/page-loader"
 import { ProfilePictureInput } from "@/components/profile-picture-input"
 
@@ -85,7 +87,7 @@ export function AdminSettingsClient() {
       const res = await fetch("/api/admin/settings")
       if (res.ok) {
         setUser(await res.json())
-        setSuccess("Profile updated")
+        setSuccess("Profile credentials synchronized")
       }
       setShowPassword(false)
       setShowConfirmPassword(false)
@@ -94,120 +96,189 @@ export function AdminSettingsClient() {
     }
   }
 
-  if (loading || !user) return <PageLoader message="Loading profile..." />
+  if (loading || !user) return <PageLoader message="Decrypting profile data..." />
 
   return (
-    <div className="container mx-auto py-8">
-      <h1 className="text-3xl font-bold mb-8">Admin Settings</h1>
-      <Card>
-        <CardHeader>
-          <CardTitle>Account Information</CardTitle>
-          <CardDescription>
-            Update your personal information. Phone and country code are required.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={saveProfile} className="space-y-4">
-            {error && (
-              <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-                {error}
+    <div className="container mx-auto p-6 space-y-10 animate-in fade-in duration-700">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-medium text-foreground">Security & Settings</h1>
+          <p className="text-muted-foreground mt-2 text-lg font-medium">Manage your administrative credentials and biometric profile</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Badge variant="outline" className="px-4 py-1.5 text-sm font-medium rounded-full shadow-sm bg-background border-primary/20 text-primary">
+            Master Admin Access
+          </Badge>
+        </div>
+      </div>
+
+      <div className="grid gap-8 lg:grid-cols-3">
+        {/* Left Column: Visual Profile */}
+        <Card className="border-none shadow-2xl overflow-hidden rounded-[2.5rem] bg-gradient-to-br from-background via-background to-muted/20 lg:h-fit">
+          <CardHeader className="pb-6 border-b border-muted/30 bg-muted/10">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-primary/10 rounded-2xl">
+                <User className="h-6 w-6 text-primary" />
               </div>
-            )}
-            {success && (
-              <div className="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">
-                {success}
+              <CardTitle className="text-xl font-medium">Visual Identity</CardTitle>
+            </div>
+            <CardDescription className="pt-1 font-medium italic text-xs uppercase tracking-widest opacity-60">Authentication Avatar</CardDescription>
+          </CardHeader>
+          <CardContent className="pt-10 pb-12 flex flex-col items-center">
+             <div className="relative group cursor-pointer ring-8 ring-primary/5 rounded-full ring-offset-4 ring-offset-background p-1 bg-background shadow-2xl transition-all hover:scale-105 duration-500">
+                <ProfilePictureInput currentImage={user.image} fileInputName="profileImage" urlInputName="image" />
+             </div>
+             <div className="mt-8 text-center space-y-2">
+                <h3 className="text-2xl font-medium">{user.name || "System Operator"}</h3>
+                <div className="flex items-center justify-center gap-2 px-4 py-1.5 bg-muted/50 rounded-full border border-muted w-fit mx-auto">
+                    <ShieldCheck className="h-3.5 w-3.5 text-green-500" />
+                    <span className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">Identity Verified</span>
+                </div>
+             </div>
+          </CardContent>
+        </Card>
+
+        {/* Right Column: Core Credentials */}
+        <Card className="border-none shadow-2xl overflow-hidden rounded-[2.5rem] bg-gradient-to-br from-background via-background to-muted/20 lg:col-span-2">
+          <CardHeader className="pb-6 border-b border-muted/30">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-indigo-500/10 rounded-2xl">
+                <Lock className="h-6 w-6 text-indigo-600" />
               </div>
-            )}
-            <div className="space-y-2">
-              <Label>Profile picture</Label>
-              <ProfilePictureInput currentImage={user.image} fileInputName="profileImage" urlInputName="image" />
+              <CardTitle className="text-xl font-medium">Master Credentials</CardTitle>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" defaultValue={user.email} disabled className="bg-muted" />
-              <p className="text-xs text-muted-foreground">Email cannot be changed</p>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="name">Name</Label>
-              <Input id="name" name="name" defaultValue={user.name || ""} placeholder="Your name" />
-            </div>
-            <div className="grid gap-4 md:grid-cols-[1fr_2fr]">
-              <div className="space-y-2">
-                <Label htmlFor="phoneCountryCode">Country code</Label>
-                <Input
-                  id="phoneCountryCode"
-                  name="phoneCountryCode"
-                  type="tel"
-                  inputMode="numeric"
-                  defaultValue={user.phoneCountryCode || ""}
-                  placeholder="+1"
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="phone">Phone</Label>
-                <Input
-                  id="phone"
-                  name="phone"
-                  type="tel"
-                  inputMode="numeric"
-                  defaultValue={user.phone || ""}
-                  placeholder="Phone number"
-                  required
-                />
-              </div>
-            </div>
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="password">New password</Label>
-                <div className="relative">
-                  <Input
-                    id="password"
-                    name="password"
-                    type={showPassword ? "text" : "password"}
-                    placeholder="At least 6 characters"
-                    className="pr-10"
-                  />
-                  <button
-                    type="button"
-                    tabIndex={-1}
-                    onClick={() => setShowPassword((value) => !value)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-                    aria-label={showPassword ? "Hide new password" : "Show new password"}
-                  >
-                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
+            <CardDescription className="pt-1 font-medium italic text-xs uppercase tracking-widest opacity-60">System Security Parameters</CardDescription>
+          </CardHeader>
+          <CardContent className="p-10">
+            <form onSubmit={saveProfile} className="space-y-8">
+              {error && (
+                <Alert variant="destructive" className="border-none shadow-xl bg-destructive/10 text-destructive animate-in slide-in-from-top-4 duration-500">
+                  <AlertDescription className="font-medium">{error}</AlertDescription>
+                </Alert>
+              )}
+              {success && (
+                <Alert className="border-none shadow-xl bg-green-500/10 text-green-600 animate-in slide-in-from-top-4 duration-500">
+                  <AlertDescription className="font-medium text-xs">Update phase: {success}</AlertDescription>
+                </Alert>
+              )}
+
+              <div className="grid gap-8 md:grid-cols-2">
+                <div className="space-y-3">
+                  <Label className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground ml-1">System Handle</Label>
+                  <div className="relative">
+                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50" />
+                    <Input id="email" type="email" defaultValue={user.email} disabled className="pl-12 bg-muted/40 border-muted rounded-2xl h-12 font-medium cursor-not-allowed opacity-60" />
+                  </div>
+                  <p className="text-[9px] text-muted-foreground/60 ml-1 italic">* Primary authentication channel (locked)</p>
+                </div>
+                <div className="space-y-3">
+                  <Label htmlFor="name" className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground ml-1">Display Designation</Label>
+                  <div className="relative">
+                    <User className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50" />
+                    <Input id="name" name="name" defaultValue={user.name || ""} placeholder="Operator designation" className="pl-12 border-muted bg-muted/20 rounded-2xl h-12 focus-visible:ring-primary font-medium shadow-inner" />
+                  </div>
                 </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="confirmPassword">Confirm new password</Label>
-                <div className="relative">
-                  <Input
-                    id="confirmPassword"
-                    name="confirmPassword"
-                    type={showConfirmPassword ? "text" : "password"}
-                    placeholder="Re-enter new password"
-                    className="pr-10"
-                  />
-                  <button
-                    type="button"
-                    tabIndex={-1}
-                    onClick={() => setShowConfirmPassword((value) => !value)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-                    aria-label={showConfirmPassword ? "Hide confirm password" : "Show confirm password"}
-                  >
-                    {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
+
+              <div className="grid gap-8 md:grid-cols-2">
+                <div className="space-y-3">
+                  <Label htmlFor="phoneCountryCode" className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground ml-1">Global Prefix</Label>
+                  <div className="relative">
+                    <Globe className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50" />
+                    <Input
+                      id="phoneCountryCode"
+                      name="phoneCountryCode"
+                      type="tel"
+                      inputMode="numeric"
+                      defaultValue={user.phoneCountryCode || ""}
+                      placeholder="+234"
+                      className="pl-12 border-muted bg-muted/20 rounded-2xl h-12 focus-visible:ring-primary font-medium shadow-inner"
+                      required
+                    />
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  <Label htmlFor="phone" className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground ml-1">Secure Line</Label>
+                  <div className="relative">
+                    <Smartphone className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50" />
+                    <Input
+                      id="phone"
+                      name="phone"
+                      type="tel"
+                      inputMode="numeric"
+                      defaultValue={user.phone || ""}
+                      placeholder="Telephonic signature"
+                      className="pl-12 border-muted bg-muted/20 rounded-2xl h-12 focus-visible:ring-primary font-medium shadow-inner"
+                      required
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Leave password fields empty if you do not want to change your password.
-            </p>
-            <Button type="submit" disabled={saving}>{saving ? "Saving..." : "Save changes"}</Button>
-          </form>
-        </CardContent>
-      </Card>
+
+              <div className="pt-8 border-t border-muted/30">
+                <div className="flex items-center gap-3 mb-8">
+                  <ShieldCheck className="h-4 w-4 text-orange-500" />
+                  <h4 className="text-[10px] font-medium uppercase tracking-[0.3em] text-muted-foreground/60">Cryptographic Update</h4>
+                </div>
+                
+                <div className="grid gap-8 md:grid-cols-2">
+                  <div className="space-y-3">
+                    <Label htmlFor="password" title="Leave empty to keep current password" className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground ml-1">New Hash Secret</Label>
+                    <div className="relative">
+                      <Input
+                        id="password"
+                        name="password"
+                        type={showPassword ? "text" : "password"}
+                        placeholder="Min 6 characters required"
+                        className="pr-12 pl-4 border-muted bg-muted/20 rounded-2xl h-12 focus-visible:ring-primary font-medium shadow-inner"
+                      />
+                      <button
+                        type="button"
+                        tabIndex={-1}
+                        onClick={() => setShowPassword((value) => !value)}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground/40 hover:text-primary transition-colors"
+                        aria-label={showPassword ? "Hide new password" : "Show new password"}
+                      >
+                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
+                  </div>
+                  <div className="space-y-3">
+                    <Label htmlFor="confirmPassword" title="Leave empty to keep current password" className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground ml-1">Verify Hash</Label>
+                    <div className="relative">
+                      <Input
+                        id="confirmPassword"
+                        name="confirmPassword"
+                        type={showConfirmPassword ? "text" : "password"}
+                        placeholder="Repeat secret for parity"
+                        className="pr-12 pl-4 border-muted bg-muted/20 rounded-2xl h-12 focus-visible:ring-primary font-medium shadow-inner"
+                      />
+                      <button
+                        type="button"
+                        tabIndex={-1}
+                        onClick={() => setShowConfirmPassword((value) => !value)}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground/40 hover:text-primary transition-colors"
+                        aria-label={showConfirmPassword ? "Hide confirm password" : "Show confirm password"}
+                      >
+                        {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-10 flex flex-col sm:flex-row items-center justify-between gap-6">
+                <p className="text-[10px] font-medium text-muted-foreground/60 italic max-w-sm">
+                  System configuration updates are logged. Ensure cryptographic parity before submitting changes.
+                </p>
+                <Button type="submit" disabled={saving} className="w-full sm:w-fit rounded-full px-12 h-14 font-medium uppercase tracking-[0.2em] text-[11px] shadow-2xl shadow-primary/30 hover:scale-105 transition-all">
+                  {saving ? "Synchronizing..." : "Synchronize System"}
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   )
 }

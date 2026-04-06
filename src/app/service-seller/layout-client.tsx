@@ -52,8 +52,8 @@ const navContent = (
     <NavItem href="/service-seller/services" label="Services" icon={<Briefcase className="h-4 w-4" />} />
     <NavItem href="/service-seller/admanagement" label="Ads" icon={<Megaphone className="h-4 w-4" />} />
     <NavItem href="/service-seller/orders" label="Orders" icon={<ShoppingCart className="h-4 w-4" />} />
-    <NavItem href="/service-seller/reviews" label="Reviews" icon={<Star className="h-4 w-4" />} />
-    <NavItem href="/service-seller/net-worth" label="Net Worth" icon={<TrendingUp className="h-4 w-4" />} />
+    {/* <NavItem href="/service-seller/reviews" label="Reviews" icon={<Star className="h-4 w-4" />} /> */}
+    {/* <NavItem href="/service-seller/net-worth" label="Net Worth" icon={<TrendingUp className="h-4 w-4" />} /> */}
     <NavItem href="/service-seller/subscription" label="Subscription" icon={<CreditCard className="h-4 w-4" />} />
     <NavItem href="/service-seller/settings" label="Settings" icon={<Settings className="h-4 w-4" />} />
   </>

@@ -15,13 +15,26 @@ export function getPaginationFromSearchParams(params: PaginationParams) {
 export function buildAdminPageUrl(
   basePath: string,
   page: number,
-  existingParams?: { error?: string; success?: string; type?: string; tab?: string }
+  existingParams?: any
 ) {
   const search = new URLSearchParams()
+  
+  if (existingParams) {
+    if (typeof existingParams.forEach === 'function') {
+      // Handles URLSearchParams or ReadonlyURLSearchParams
+      existingParams.forEach((value: string, key: string) => {
+        search.set(key, value)
+      })
+    } else {
+      // Handles plain objects
+      Object.entries(existingParams).forEach(([key, value]) => {
+        if (value) search.set(key, String(value))
+      })
+    }
+  }
+
   search.set("page", String(page))
-  if (existingParams?.error) search.set("error", existingParams.error)
-  if (existingParams?.success) search.set("success", existingParams.success)
-  if (existingParams?.type) search.set("type", existingParams.type)
-  if (existingParams?.tab) search.set("tab", existingParams.tab)
-  return `${basePath}?${search.toString()}`
+  
+  const queryString = search.toString()
+  return queryString ? `${basePath}?${queryString}` : basePath
 }

@@ -70,6 +70,25 @@ export async function POST(request: NextRequest) {
         natureOfBusiness: formData.get("natureOfBusiness") as string,
       } : jsonBody.data
 
+      const nationIdentityNumber = formData ? (formData.get("nationIdentityNumber") as string) : jsonBody.data.nationIdentityNumber
+
+      if (formData) {
+        const profileImageFile = formData.get("profileImage") as File | null
+        if (profileImageFile && profileImageFile.size > 0) {
+          const imageUrl = await uploadPublicFile({
+            folder: "profile",
+            ext: path.extname(profileImageFile.name) || ".jpg",
+            contentType: profileImageFile.type || "image/jpeg",
+            buffer: Buffer.from(await profileImageFile.arrayBuffer()),
+            prefix: "profile",
+          })
+          await prisma.user.update({
+            where: { id: session.user.id },
+            data: { image: imageUrl },
+          })
+        }
+      }
+
       let busRegCertUrl = seller.businessInfo?.busRegCertUrl
       if (formData) {
         const file = formData.get("busRegCert") as File | null
@@ -89,6 +108,13 @@ export async function POST(request: NextRequest) {
         update: { ...data, busRegCertUrl },
         create: { ...data, busRegCertUrl, sellerId: seller.id },
       })
+
+      if (nationIdentityNumber) {
+        await prisma.seller.update({
+          where: { id: seller.id },
+          data: { nationIdentityNumber },
+        })
+      }
     } else if (step === 3) {
       // Step 3: KYC
       const data = formData ? {

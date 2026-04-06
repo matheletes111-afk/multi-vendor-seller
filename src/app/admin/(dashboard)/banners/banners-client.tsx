@@ -24,9 +24,10 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/ui/dialog";
-import { Plus, Pencil, Trash2, Eye, EyeOff } from "lucide-react";
+import { Plus, Pencil, Trash2, Eye, EyeOff, Tag, Calendar } from "lucide-react";
 import { AdminPagination } from "@/components/admin/admin-pagination";
 import { PageLoader } from "@/components/ui/page-loader";
+import { cn } from "@/lib/utils";
 
 interface Banner {
   id: string;
@@ -65,7 +66,6 @@ export function BannersClient() {
 
   useEffect(() => setMounted(true), []);
 
-  /** Refetch list without showing full-page loading (e.g. after status toggle). */
   const refetchBanners = () => {
     return fetch(`/api/admin/banners?page=${page}&perPage=${perPage}`)
       .then((res) => {
@@ -108,13 +108,10 @@ export function BannersClient() {
       const response = await fetch(`/api/admin/banners/${bannerId}`, {
         method: "DELETE",
       });
-
       const data = await response.json();
-
       if (!response.ok) {
         throw new Error(data.error || "Failed to delete banner");
       }
-
       window.location.href = "/admin/banners?success=Banner deleted successfully";
     } catch (error: any) {
       window.location.href = `/admin/banners?error=${encodeURIComponent(error.message)}`;
@@ -128,19 +125,13 @@ export function BannersClient() {
     try {
       const response = await fetch(`/api/admin/banners/${bannerId}`, {
         method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ isActive: !currentStatus }),
       });
-
       const resData = await response.json();
-
       if (!response.ok) {
         throw new Error(resData.error || "Failed to update banner status");
       }
-
-      // Refresh list so Status column updates without full page reload
       await refetchBanners();
     } catch (error: any) {
       alert(error.message);
@@ -158,179 +149,201 @@ export function BannersClient() {
   };
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <div className="flex justify-between items-center">
+    <div className="container mx-auto p-6 space-y-8 animate-in fade-in duration-700">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Banner Management</h1>
-          <p className="text-muted-foreground mt-2">Create and manage promotional banners</p>
+          <h1 className="text-2xl font-medium text-foreground">Banner Management</h1>
+          <p className="text-muted-foreground mt-2 text-lg font-medium">Curate promotional real estate for all categories</p>
         </div>
-        {mounted ? (
+        {mounted && (
           <Link href="/admin/banners/new">
-            <Button>
+            <Button className="rounded-full px-6 font-medium text-xs h-12 shadow-lg shadow-primary/20 hover:scale-105 transition-all">
               <Plus className="mr-2 h-4 w-4" />
               Add New Banner
             </Button>
           </Link>
-        ) : (
-          <div className="h-10 w-[140px] rounded-md bg-muted" />
         )}
       </div>
 
       {params.error && (
-        <Alert variant="destructive">
-          <AlertDescription>{decodeURIComponent(params.error)}</AlertDescription>
+        <Alert variant="destructive" className="border-none shadow-xl bg-destructive/10 text-destructive animate-in slide-in-from-top-4 duration-500">
+          <AlertDescription className="font-medium">{decodeURIComponent(params.error)}</AlertDescription>
         </Alert>
       )}
       {params.success && (
-        <Alert>
-          <AlertDescription>{decodeURIComponent(params.success)}</AlertDescription>
+        <Alert className="border-none shadow-xl bg-green-500/10 text-green-600 animate-in slide-in-from-top-4 duration-500">
+          <AlertDescription className="font-medium text-xs">Action completed: {decodeURIComponent(params.success)}</AlertDescription>
         </Alert>
       )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Banner list</CardTitle>
-          <CardDescription>All banners with targeting and status</CardDescription>
+      <Card className="border-none shadow-2xl overflow-hidden rounded-3xl bg-gradient-to-br from-background via-background to-muted/20">
+        <CardHeader className="pb-4 border-b border-muted/30">
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-xl font-medium">Promotion Inventory</CardTitle>
+              <CardDescription className="text-sm font-medium">Monitor active banner slots and performance targeting</CardDescription>
+            </div>
+            {data && (
+              <Badge variant="outline" className="px-4 py-1 font-medium rounded-full shadow-sm bg-background border-primary/20 text-primary">
+                {data.totalCount} Banners
+              </Badge>
+            )}
+          </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-0">
           {loading && !data ? (
-            <PageLoader message="Loading banners…" />
+            <div className="py-32">
+              <PageLoader message="Rendering visual inventory…" />
+            </div>
           ) : fetchError ? (
-            <div className="py-12 text-center text-destructive">{fetchError}</div>
+            <div className="py-24 text-center">
+              <p className="text-destructive font-medium">{fetchError}</p>
+            </div>
           ) : !data ? null : (
             <>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Preview</TableHead>
-                <TableHead>Heading</TableHead>
-                <TableHead>Target</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Created</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {data.banners.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={6} className="text-center py-12 text-muted-foreground">
-                    No banners found
-                  </TableCell>
-                </TableRow>
-              ) : (
-                data.banners.map((banner) => (
-                  <TableRow key={banner.id}>
-                    <TableCell>
-                      {banner.bannerImage && !imageErrors.has(banner.id) ? (
-                        <div className="relative w-20 h-12 rounded overflow-hidden bg-muted shrink-0">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={banner.bannerImage.startsWith("http") ? banner.bannerImage : banner.bannerImage}
-                            alt={banner.bannerHeading}
-                            className="w-full h-full object-cover"
-                            onError={() => handleImageError(banner.id)}
-                          />
-                        </div>
-                      ) : (
-                        <div className="w-20 h-12 rounded bg-muted flex items-center justify-center text-muted-foreground text-xs">
-                          No image
-                        </div>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Link href={`/admin/banners/${banner.id}/edit`} className="font-medium hover:underline">
-                        {banner.bannerHeading}
-                      </Link>
-                      {banner.bannerDescription && (
-                        <p className="text-sm text-muted-foreground line-clamp-1 mt-0.5">{banner.bannerDescription}</p>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {banner.serviceCategory
-                        ? `Service: ${banner.serviceCategory.name}`
-                        : banner.category
-                        ? `Product: ${banner.category.name}`
-                        : banner.subcategory
-                        ? `Sub: ${banner.subcategory.name} (${banner.subcategory.category.name})`
-                        : banner.targetType === "service"
-                        ? "All services"
-                        : banner.targetType === "product"
-                        ? "All products"
-                        : "All products & services"}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={banner.isActive ? "default" : "secondary"}>
-                        {banner.isActive ? "Active" : "Inactive"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{formatDate(banner.createdAt)}</TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleToggleStatus(banner.id, banner.isActive)}
-                          disabled={togglingId === banner.id}
-                          title={banner.isActive ? "Deactivate" : "Activate"}
-                        >
-                          {togglingId === banner.id ? (
-                            <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                          ) : banner.isActive ? (
-                            <EyeOff className="h-4 w-4" />
-                          ) : (
-                            <Eye className="h-4 w-4" />
-                          )}
-                        </Button>
-                        <Link href={`/admin/banners/${banner.id}/edit`}>
-                          <Button variant="outline" size="sm">
-                            <Pencil className="mr-2 h-4 w-4" />
-                            Edit
-                          </Button>
-                        </Link>
-                        <Dialog>
-                          <DialogTrigger asChild>
-                            <Button variant="destructive" size="sm">
-                              <Trash2 className="mr-2 h-4 w-4" />
-                              Delete
-                            </Button>
-                          </DialogTrigger>
-                          <DialogContent>
-                            <DialogHeader>
-                              <DialogTitle>Delete Banner</DialogTitle>
-                              <DialogDescription>
-                                Are you sure you want to delete &quot;{banner.bannerHeading}&quot;? This action cannot be
-                                undone.
-                              </DialogDescription>
-                            </DialogHeader>
-                            <DialogFooter>
-                              <DialogTrigger asChild>
-                                <Button variant="outline">Cancel</Button>
-                              </DialogTrigger>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader className="bg-muted/40 transition-none">
+                    <TableRow className="hover:bg-transparent border-none">
+                      <TableHead className="py-5 pl-8 text-[10px] font-medium uppercase tracking-widest text-muted-foreground/80">Visual</TableHead>
+                      <TableHead className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground/80">Message & Details</TableHead>
+                      <TableHead className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground/80">Targeting</TableHead>
+                      <TableHead className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground/80">Standing</TableHead>
+                      <TableHead className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground/80">Timeline</TableHead>
+                      <TableHead className="text-right pr-8 text-[10px] font-medium uppercase tracking-widest text-muted-foreground/80">Control</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {data.banners.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={6} className="py-24 text-center">
+                          <Plus className="h-12 w-12 text-muted-foreground/20 mx-auto mb-4" />
+                          <p className="text-muted-foreground font-medium text-xs">No promotional banners identified</p>
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      data.banners.map((banner) => (
+                        <TableRow key={banner.id} className="group transition-all hover:bg-muted/20 border-b border-muted/30">
+                          <TableCell className="pl-8">
+                            {banner.bannerImage && !imageErrors.has(banner.id) ? (
+                              <div className="relative w-24 h-14 rounded-2xl overflow-hidden bg-muted shadow-lg border border-muted/50 transition-transform group-hover:scale-105 duration-500">
+                                <img
+                                  src={banner.bannerImage}
+                                  alt={banner.bannerHeading}
+                                  className="w-full h-full object-cover"
+                                  onError={() => handleImageError(banner.id)}
+                                />
+                              </div>
+                            ) : (
+                              <div className="w-24 h-14 rounded-2xl bg-muted/50 flex items-center justify-center border-2 border-dashed border-muted">
+                                <Plus className="h-5 w-5 text-muted-foreground/30" />
+                              </div>
+                            )}
+                          </TableCell>
+                          <TableCell className="py-5">
+                            <div className="flex flex-col">
+                              <span className="text-sm font-medium truncate max-w-[200px]">{banner.bannerHeading}</span>
+                              <span className="text-[10px] text-muted-foreground/60 italic line-clamp-1 max-w-[200px]">{banner.bannerDescription || "No description provided"}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <div className="p-1.5 bg-indigo-500/10 rounded-lg">
+                                <Tag className={cn("h-3.5 w-3.5", banner.serviceCategory || banner.targetType === "service" ? "text-indigo-600" : "text-emerald-600")} />
+                              </div>
+                              <span className="text-xs font-medium text-foreground/80 lowercase italic whitespace-nowrap">
+                                {banner.serviceCategory
+                                  ? banner.serviceCategory.name
+                                  : banner.category
+                                  ? banner.category.name
+                                  : banner.subcategory
+                                  ? banner.subcategory.name
+                                  : banner.targetType || "global"}
+                              </span>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge className={cn(
+                              "rounded-full text-[9px] font-medium uppercase tracking-widest px-3 py-0.5 border-none shadow-sm shadow-black/5",
+                              banner.isActive ? "bg-green-500 text-white" : "bg-muted text-muted-foreground"
+                            )}>
+                              {banner.isActive ? "Live" : "Inactive"}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2 text-muted-foreground/80">
+                              <Calendar className="h-3 w-3" />
+                              <span className="text-[10px] font-medium">{formatDate(banner.createdAt)}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-right pr-8">
+                            <div className="flex justify-end gap-2 transition-all duration-300">
                               <Button
-                                variant="destructive"
-                                onClick={() => handleDelete(banner.id)}
-                                disabled={deletingId === banner.id}
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 rounded-full hover:bg-primary/10 hover:text-primary transition-colors"
+                                onClick={() => handleToggleStatus(banner.id, banner.isActive)}
+                                disabled={togglingId === banner.id}
                               >
-                                {deletingId === banner.id ? "Deleting..." : "Delete"}
+                                {togglingId === banner.id ? (
+                                  <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                                ) : banner.isActive ? (
+                                  <EyeOff className="h-4 w-4" />
+                                ) : (
+                                  <Eye className="h-4 w-4" />
+                                )}
                               </Button>
-                            </DialogFooter>
-                          </DialogContent>
-                        </Dialog>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-          <AdminPagination
-            basePath="/admin/banners"
-            currentPage={page}
-            totalPages={data.totalPages}
-            totalCount={data.totalCount}
-            pageSize={perPage}
-            params={params}
-          />
+                              <Link href={`/admin/banners/${banner.id}/edit`}>
+                                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full hover:bg-primary/10 hover:text-primary">
+                                  <Pencil className="h-4 w-4" />
+                                </Button>
+                              </Link>
+                              <Dialog>
+                                <DialogTrigger asChild>
+                                  <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full hover:bg-destructive/10 hover:text-destructive">
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </DialogTrigger>
+                                <DialogContent className="rounded-3xl border-none shadow-2xl">
+                                  <DialogHeader>
+                                    <DialogTitle className="text-2xl font-medium">Teardown Banner</DialogTitle>
+                                    <DialogDescription className="text-base font-medium pt-2">
+                                      Are you sure you want to permanently delete &quot;<span className="text-foreground font-medium">{banner.bannerHeading}</span>&quot;? This action will immediately remove it from all assigned inventory slots.
+                                    </DialogDescription>
+                                  </DialogHeader>
+                                  <DialogFooter className="gap-2 sm:gap-0 mt-6">
+                                    <DialogTrigger asChild>
+                                      <Button variant="outline" className="rounded-full px-6 font-medium uppercase tracking-widest text-[10px]">Cancel</Button>
+                                    </DialogTrigger>
+                                      <Button
+                                        variant="destructive"
+                                        className="rounded-full px-6 font-medium uppercase tracking-widest text-[10px] shadow-lg shadow-destructive/20"
+                                      onClick={() => handleDelete(banner.id)}
+                                      disabled={deletingId === banner.id}
+                                    >
+                                      {deletingId === banner.id ? "Deleting..." : "Confirm Removal"}
+                                    </Button>
+                                  </DialogFooter>
+                                </DialogContent>
+                              </Dialog>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+              <div className="p-8 bg-muted/10 border-t border-muted/20 rounded-b-3xl">
+                <AdminPagination
+                  basePath="/admin/banners"
+                  currentPage={page}
+                  totalPages={data.totalPages}
+                  totalCount={data.totalCount}
+                  pageSize={perPage}
+                  params={params}
+                />
+              </div>
             </>
           )}
         </CardContent>
@@ -338,3 +351,4 @@ export function BannersClient() {
     </div>
   );
 }
+

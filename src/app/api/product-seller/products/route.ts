@@ -4,6 +4,13 @@ import { prisma } from "@/lib/prisma"
 import { isProductSeller } from "@/lib/rbac"
 import { checkProductLimit } from "@/lib/subscriptions"
 import { getPaginationFromSearchParams } from "@/lib/admin-pagination"
+import {
+  parseVariantInput,
+  sellerHasSelectedCategory,
+  slugFromName,
+  type NormalizedVariant,
+  type VariantInput,
+} from "@/lib/product-seller-product-payload"
 
 export async function GET(request: NextRequest) {
   const session = await auth()
@@ -85,6 +92,8 @@ export async function POST(request: NextRequest) {
   const name = typeof body.name === "string" ? body.name.trim() : ""
   const categoryId = typeof body.categoryId === "string" ? body.categoryId : ""
   if (!name || !categoryId) return NextResponse.json({ error: "Name and category are required" }, { status: 400 })
+  const allowedCat = await sellerHasSelectedCategory(seller.id, categoryId)
+  if (!allowedCat) return NextResponse.json({ error: "Category is not in your allowed list" }, { status: 400 })
   const subcategoryId = typeof body.subcategoryId === "string" ? body.subcategoryId || null : null
   if (subcategoryId) {
     const sub = await prisma.subcategory.findFirst({
@@ -94,70 +103,13 @@ export async function POST(request: NextRequest) {
   }
   const variantsRaw = Array.isArray(body.variants) ? body.variants : []
   if (variantsRaw.length === 0) return NextResponse.json({ error: "At least one variant is required" }, { status: 400 })
-  const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "")
+  const slug = slugFromName(name)
   const imagesData = Array.isArray(body.images) ? body.images : []
-  type VariantInput = {
-    name?: string
-    sku?: string
-    price?: number
-    discount?: number
-    hasGst?: boolean
-    stock?: number
-    images?: string[] | unknown
-    attributes?: Record<string, string> | unknown
-    specification?: string
-    details?: string
-    returnType?: "NON_RETURNABLE" | "RETURNABLE"
-    returnDays?: number
-    replacementAllowed?: boolean
-  }
-  const variants: {
-    name: string
-    sku: string | null
-    price: number
-    discount: number
-    hasGst: boolean
-    stock: number
-    images: object
-    attributes: object
-    specification: string | null
-    details: string | null
-    returnType: "NON_RETURNABLE" | "RETURNABLE"
-    returnDays: number | null
-    replacementAllowed: boolean
-  }[] = []
+  const variants: NormalizedVariant[] = []
   for (let i = 0; i < variantsRaw.length; i++) {
-    const v = variantsRaw[i] as VariantInput
-    const vName = typeof v?.name === "string" ? v.name.trim() : `Variant ${i + 1}`
-    const vPrice = Number(v?.price ?? 0)
-    const vStock = Number(v?.stock ?? 0)
-    const vDiscount = Math.round(Number(v?.discount ?? 0) * 100) / 100
-    if (isNaN(vPrice) || vPrice <= 0) return NextResponse.json({ error: `Variant ${i + 1}: valid price required` }, { status: 400 })
-    if (isNaN(vStock) || vStock < 0) return NextResponse.json({ error: `Variant ${i + 1}: valid stock required` }, { status: 400 })
-    const vReturnType = v?.returnType === "RETURNABLE" ? "RETURNABLE" : "NON_RETURNABLE"
-    const vReturnDaysRaw = typeof v?.returnDays === "number" ? v.returnDays : undefined
-    const vReturnDays =
-      vReturnType === "RETURNABLE" && typeof vReturnDaysRaw === "number" && vReturnDaysRaw > 0
-        ? Math.floor(vReturnDaysRaw)
-        : null
-
-    const replacementAllowed = v?.replacementAllowed === true
-
-    variants.push({
-      name: vName,
-      sku: typeof v?.sku === "string" ? v.sku || null : null,
-      price: vPrice,
-      discount: vDiscount,
-      hasGst: v?.hasGst !== false,
-      stock: Math.floor(vStock),
-      images: Array.isArray(v?.images) ? (v.images as object) : [],
-      attributes: (v?.attributes && typeof v.attributes === "object" && !Array.isArray(v.attributes)) ? v.attributes as object : {},
-      specification: typeof v?.specification === "string" ? v.specification : null,
-      details: typeof v?.details === "string" ? v.details : null,
-      returnType: vReturnType,
-      returnDays: vReturnDays,
-      replacementAllowed,
-    })
+    const parsed = parseVariantInput(variantsRaw[i] as VariantInput, i)
+    if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: 400 })
+    variants.push(parsed.variant)
   }
   try {
     const product = await prisma.product.create({

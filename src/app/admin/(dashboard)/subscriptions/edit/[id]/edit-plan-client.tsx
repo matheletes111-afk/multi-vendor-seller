@@ -106,7 +106,7 @@ export function EditPlanClient({ planId }: { planId: string }) {
     <>
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-3xl font-bold">Edit Subscription Plan</h1>
+          <h1 className="text-2xl font-medium text-foreground">Edit Subscription Plan</h1>
           <p className="text-muted-foreground">Update plan details and limits</p>
         </div>
         <Link href="/admin/subscriptions">

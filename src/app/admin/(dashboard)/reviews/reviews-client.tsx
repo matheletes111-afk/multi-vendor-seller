@@ -66,14 +66,14 @@ export function AdminReviewsClient() {
   return (
     <div className="container mx-auto p-6 space-y-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Reviews</h1>
-        <p className="mt-2 text-muted-foreground">Customer ratings across products and services</p>
+        <h1 className="text-2xl font-medium text-foreground">Reviews</h1>
+        <p className="mt-2 text-muted-foreground text-sm font-medium">Customer ratings across products and services</p>
       </div>
       {groups.length === 0 ? (
         <Card>
           <CardContent className="py-16 text-center">
             <MessageSquare className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
-            <h3 className="text-lg font-semibold">No reviews yet</h3>
+            <h3 className="text-lg font-medium">No reviews yet</h3>
           </CardContent>
         </Card>
       ) : (
@@ -114,7 +114,7 @@ export function AdminReviewsClient() {
                         {shouldShowSeeMore(row) && (
                           <button
                             type="button"
-                            className="text-xs font-medium text-blue-600 hover:underline w-fit"
+                            className="text-xs font-medium text-primary hover:underline w-fit"
                             onClick={() => setExpanded((prev) => ({ ...prev, [key]: !prev[key] }))}
                           >
                             {expanded[key] ? "See less" : "See more"}
@@ -131,7 +131,7 @@ export function AdminReviewsClient() {
                       {row.itemId && row.itemId !== "undefined" && row.itemId !== "null" ? (
                         <a
                           href={`/admin/reviews/${row.itemType}/${row.itemId}`}
-                          className="text-sm text-blue-600 hover:underline"
+                          className="text-sm text-primary font-medium hover:underline"
                         >
                           View all
                         </a>

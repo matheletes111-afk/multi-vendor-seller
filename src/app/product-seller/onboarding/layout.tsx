@@ -1,7 +1,6 @@
 import { auth } from "@/lib/auth"
 import { redirect } from "next/navigation"
 import { isProductSeller } from "@/lib/rbac"
-import { ProductSellerLayoutClient } from "../layout-client"
 
 /** Onboarding lives outside `(dashboard)` so the dashboard layout’s onboarding redirect cannot loop when `x-current-path` is missing from RSC requests. */
 export default async function ProductSellerOnboardingLayout({
@@ -20,14 +19,8 @@ export default async function ProductSellerOnboardingLayout({
   }
 
   return (
-    <ProductSellerLayoutClient
-      user={{
-        name: session.user.name ?? null,
-        email: session.user.email ?? null,
-        image: session.user.image ?? null,
-      }}
-    >
+    <div className="min-h-screen bg-[#F0F9F8]">
       {children}
-    </ProductSellerLayoutClient>
+    </div>
   )
 }

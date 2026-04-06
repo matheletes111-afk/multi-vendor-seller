@@ -134,9 +134,9 @@ export function AdminSellerAdsPageClient() {
   return (
     <div className="container mx-auto p-6 space-y-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Seller Ads</h1>
-        <p className="text-muted-foreground mt-2">
-          Approve or reject seller-created ads. Only approved ads show in Sponsored.
+        <h1 className="text-2xl font-medium text-foreground"> Ads</h1>
+        <p className="text-muted-foreground mt-2 text-sm font-medium">
+          Approve or reject ads. Only approved ads show in Sponsored.
         </p>
       </div>
 
@@ -153,8 +153,8 @@ export function AdminSellerAdsPageClient() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Seller ads list</CardTitle>
-          <CardDescription>All seller-created ads with status and performance</CardDescription>
+          <CardTitle>Ads list</CardTitle>
+          <CardDescription>All ads with status and performance</CardDescription>
         </CardHeader>
         <CardContent>
           {loading && !data ? (

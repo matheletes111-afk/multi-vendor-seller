@@ -16,11 +16,45 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
   const { skip, take, page, perPage } = getPaginationFromSearchParams({
     page: searchParams.get("page") ?? undefined,
-    perPage: searchParams.get("perPage") ?? undefined,
+    perPage: searchParams.get("perPage") ?? "10",
   })
+
+  const sellerQuery = searchParams.get("seller")
+  const customerQuery = searchParams.get("customer")
+  const statusQuery = searchParams.get("status")
+
+  const where: any = {}
+
+  if (customerQuery) {
+    where.customer = {
+      name: { contains: customerQuery, mode: "insensitive" },
+    }
+  }
+
+  if (sellerQuery) {
+    where.items = {
+      some: {
+        seller: {
+          store: {
+            name: { contains: sellerQuery, mode: "insensitive" },
+          },
+        },
+      },
+    }
+  }
+
+  if (statusQuery && statusQuery !== "null") {
+    // Making status filter "accurate" by ensuring all items match the selected status
+    // for terminal states, or matching the order record's status if that's the source.
+    // Given the UI uses deriveOrderStatus, we filter by items to be most accurate.
+    where.items = {
+      every: { itemStatus: statusQuery as any }
+    }
+  }
 
   const [orders, totalCount] = await Promise.all([
     prisma.order.findMany({
+      where,
       skip,
       take,
       include: {
@@ -35,13 +69,19 @@ export async function GET(request: NextRequest) {
             shippingAmount: true,
             commissionAmount: true,
             subtotalInclGst: true,
+            productNameSnapshot: true,
+            serviceNameSnapshot: true,
+            quantity: true,
+            price: true,
             seller: { select: { store: { select: { name: true } } } },
+            product: { select: { images: true } },
+            service: { select: { images: true } },
           },
         },
       },
       orderBy: { createdAt: "desc" },
     }),
-    prisma.order.count(),
+    prisma.order.count({ where }),
   ])
 
   const result: AdminOrderListItemApi[] = orders.map((o) => ({
@@ -62,6 +102,25 @@ export async function GET(request: NextRequest) {
         return names.length === 1 ? names[0] : names.length > 1 ? "Multiple sellers" : o.seller?.store?.name ?? null
       })() ?? null,
     itemCount: o.items.length,
+    items: o.items.map(item => {
+      let imageUrl: string | null = null
+      if (item.product?.images) {
+        const imgs = item.product.images as any
+        imageUrl = Array.isArray(imgs) ? imgs[0] : imgs
+      } else if (item.service?.images) {
+        const imgs = item.service.images as any
+        imageUrl = Array.isArray(imgs) ? imgs[0] : imgs
+      }
+      return {
+        id: item.id,
+        productName: item.productNameSnapshot,
+        serviceName: item.serviceNameSnapshot,
+        quantity: item.quantity,
+        price: Number(item.price),
+        status: item.itemStatus,
+        imageUrl
+      }
+    })
   }))
 
   const totalPages = Math.ceil(totalCount / perPage) || 1

@@ -28,6 +28,7 @@ import { cn, formatCurrency } from "@/lib/utils"
 import { PageLoader } from "@/components/ui/page-loader"
 import { Plus, Package, Pencil, Trash2 } from "lucide-react"
 import { AdminPagination } from "@/components/admin/admin-pagination"
+import { BulkUploadDialog } from "./bulk-upload-dialog"
 
 type Product = {
   id: string
@@ -166,12 +167,15 @@ export function ProductsPageClient() {
           <h1 className="text-3xl font-bold tracking-tight">Products</h1>
           <p className="text-muted-foreground mt-2">Manage your product listings</p>
         </div>
-        <Button asChild>
-          <Link href="/product-seller/products/new">
-            <Plus className="mr-2 h-4 w-4" />
-            Add Product
-          </Link>
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <BulkUploadDialog onImported={loadProducts} />
+          <Button asChild>
+            <Link href="/product-seller/products/new">
+              <Plus className="mr-2 h-4 w-4" />
+              Add Product
+            </Link>
+          </Button>
+        </div>
       </div>
 
       {paramsError && (

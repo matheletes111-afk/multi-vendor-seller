@@ -11,7 +11,7 @@ export type AdminPaginationProps = {
   totalPages: number
   totalCount: number
   pageSize: number
-  params?: { error?: string; success?: string; type?: string; tab?: string }
+  params?: any
 }
 
 export function AdminPagination({

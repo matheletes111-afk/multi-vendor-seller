@@ -16,6 +16,7 @@ import {
   AlertCircle,
   ArrowRight,
 } from "lucide-react"
+import { Button } from "@/ui/button"
 
 type Overview = {
   totalSellers: number
@@ -78,8 +79,13 @@ export function AdminDashboardClient() {
   if (loading && !data) return <PageLoader message="Loading dashboard…" />
   if (error) {
     return (
-      <div className="container mx-auto p-6">
-        <div className="py-12 text-center text-destructive">{error}</div>
+      <div className="container mx-auto p-6 flex items-center justify-center min-h-[400px]">
+        <div className="text-center space-y-4">
+          <div className="p-3 bg-destructive/10 inline-block rounded-full">
+            <AlertCircle className="h-10 w-10 text-destructive" />
+          </div>
+          <p className="text-destructive font-medium text-lg">{error}</p>
+        </div>
       </div>
     )
   }
@@ -96,151 +102,136 @@ export function AdminDashboardClient() {
   } = data
 
   return (
-    <div className="container mx-auto p-6 space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-        <p className="text-muted-foreground mt-2">
-          Overview of your marketplace platform
-        </p>
+    <div className="container mx-auto p-6 space-y-10 animate-in fade-in duration-700">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-medium text-foreground">Admin Overview</h1>
+          <p className="text-muted-foreground mt-1 text-sm font-medium">Real-time marketplace monitoring & management</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Badge variant="outline" className="px-3 py-1 text-xs font-medium rounded-full shadow-sm bg-background border-primary/20 text-primary">
+            Live Updates Enabled
+          </Badge>
+        </div>
       </div>
 
       {pendingSellers > 0 && (
-        <Card className="border-destructive/50 bg-destructive/5">
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <AlertCircle className="h-5 w-5 text-destructive" />
-              <CardTitle className="text-destructive">Pending Approvals</CardTitle>
+        <Card className="border-none shadow-xl bg-gradient-to-r from-red-500/10 via-destructive/5 to-transparent relative overflow-hidden group">
+          <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:scale-110 transition-transform duration-500">
+            <AlertCircle className="h-20 w-20 text-destructive rotate-12" />
+          </div>
+          <CardHeader className="pb-3">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-destructive/10 rounded-xl shadow-inner">
+                <AlertCircle className="h-5 w-5 text-destructive" />
+              </div>
+              <CardTitle className="text-xl font-medium text-destructive">Attention Required</CardTitle>
             </div>
-            <CardDescription>
-              {pendingSellers} seller{pendingSellers !== 1 ? "s" : ""} waiting for approval
+            <CardDescription className="text-sm font-medium text-muted-foreground/80 mt-1">
+              You have {pendingSellers} seller{pendingSellers !== 1 ? "s" : ""} waiting for approval.
             </CardDescription>
           </CardHeader>
           <CardContent>
             <Link href="/admin/sellers">
-              <Badge variant="destructive" className="cursor-pointer hover:bg-destructive/90">
-                Review Now
-              </Badge>
+              <Button variant="destructive" className="rounded-full px-5 font-medium text-xs hover:scale-105 transition-all shadow-lg shadow-destructive/20">
+                Review Applications <ArrowRight className="ml-2 w-4 h-4" />
+              </Button>
             </Link>
           </CardContent>
         </Card>
       )}
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Sellers</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{totalSellers}</div>
-            <p className="text-xs text-muted-foreground mt-1">Total registered sellers</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Customers</CardTitle>
-            <ShoppingBag className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{totalCustomers}</div>
-            <p className="text-xs text-muted-foreground mt-1">Total customers</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Products</CardTitle>
-            <Package className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{totalProducts}</div>
-            <p className="text-xs text-muted-foreground mt-1">Active products</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Services</CardTitle>
-            <Briefcase className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{totalServices}</div>
-            <p className="text-xs text-muted-foreground mt-1">Active services</p>
-          </CardContent>
-        </Card>
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+        {[
+          { label: "Sellers", value: totalSellers, icon: Users, color: "blue", desc: "Registered accounts" },
+          { label: "Customers", value: totalCustomers, icon: ShoppingBag, color: "green", desc: "Platform users" },
+          { label: "Products", value: totalProducts, icon: Package, color: "orange", desc: "Active listings" },
+          { label: "Services", value: totalServices, icon: Briefcase, color: "purple", desc: "Available services" },
+        ].map((stat) => (
+          <Card key={stat.label} className="border-none shadow-lg bg-background hover:shadow-xl transition-all duration-300 group overflow-hidden">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-xs font-medium text-muted-foreground/80 lowercase tracking-widest">{stat.label}</CardTitle>
+              <div className={`p-1.5 bg-${stat.color}-500/10 rounded-lg group-hover:scale-110 transition-transform`}>
+                <stat.icon className={`h-4 w-4 text-${stat.color}-500`} />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-medium text-foreground">{stat.value.toLocaleString()}</div>
+              <p className="text-[10px] font-medium text-muted-foreground/60 mt-1">{stat.desc}</p>
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <ShoppingCart className="h-5 w-5" />
-              Total Orders
-            </CardTitle>
-            <CardDescription>All time orders</CardDescription>
+      <div className="grid gap-6 md:grid-cols-2">
+        <Card className="border-none shadow-xl bg-gradient-to-br from-indigo-500/5 to-transparent relative overflow-hidden group">
+          <CardHeader className="pb-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-lg font-medium flex items-center gap-2">
+                  <ShoppingCart className="h-5 w-5 text-indigo-500" />
+                  Total Orders
+                </CardTitle>
+                <CardDescription className="text-xs font-medium">Accumulated platform transaction volume</CardDescription>
+              </div>
+              <div className="p-2 bg-indigo-500/10 rounded-2xl group-hover:rotate-6 transition-transform">
+                <ShoppingCart className="h-6 w-6 text-indigo-500" />
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{totalOrders}</div>
+            <div className="text-4xl font-medium text-indigo-600 dark:text-indigo-400">{totalOrders.toLocaleString()}</div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <DollarSign className="h-5 w-5" />
-              Platform Revenue
-            </CardTitle>
-            <CardDescription>Total commissions earned</CardDescription>
+        <Card className="border-none shadow-xl bg-gradient-to-br from-emerald-500/5 to-transparent relative overflow-hidden group">
+          <CardHeader className="pb-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-lg font-medium flex items-center gap-2">
+                  <DollarSign className="h-5 w-5 text-emerald-500" />
+                  Platform Revenue
+                </CardTitle>
+                <CardDescription className="text-xs font-medium">Total commissions earned to date</CardDescription>
+              </div>
+              <div className="p-2 bg-emerald-500/10 rounded-2xl group-hover:rotate-6 transition-transform">
+                <DollarSign className="h-6 w-6 text-emerald-500" />
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{formatCurrency(totalRevenue)}</div>
+            <div className="text-4xl font-medium text-emerald-600 dark:text-emerald-400">{formatCurrency(totalRevenue)}</div>
           </CardContent>
         </Card>
       </div>
 
       <div>
-        <h2 className="text-2xl font-semibold tracking-tight mb-4">Quick Actions</h2>
-        <div className="grid gap-4 md:grid-cols-3">
-          <Link href="/admin/sellers">
-            <Card className="hover:shadow-md transition-shadow cursor-pointer h-full">
-              <CardHeader>
-                <CardTitle className="flex items-center justify-between">
-                  Manage Sellers
-                  <ArrowRight className="h-4 w-4" />
-                </CardTitle>
-                <CardDescription>
-                  Approve, suspend, or manage sellers
-                </CardDescription>
-              </CardHeader>
-            </Card>
-          </Link>
-          <Link href="/admin/subscriptions">
-            <Card className="hover:shadow-md transition-shadow cursor-pointer h-full">
-              <CardHeader>
-                <CardTitle className="flex items-center justify-between">
-                  Manage Subscriptions
-                  <ArrowRight className="h-4 w-4" />
-                </CardTitle>
-                <CardDescription>
-                  View and manage seller subscriptions
-                </CardDescription>
-              </CardHeader>
-            </Card>
-          </Link>
-          <Link href="/admin/categories">
-            <Card className="hover:shadow-md transition-shadow cursor-pointer h-full">
-              <CardHeader>
-                <CardTitle className="flex items-center justify-between">
-                  Manage Categories
-                  <ArrowRight className="h-4 w-4" />
-                </CardTitle>
-                <CardDescription>
-                  Create and manage categories
-                </CardDescription>
-              </CardHeader>
-            </Card>
-          </Link>
+        <h2 className="text-lg font-medium mb-6 flex items-center gap-2 text-foreground/80">
+          <ArrowRight className="h-5 w-5 text-primary" />
+          Quick Actions
+        </h2>
+        <div className="grid gap-6 md:grid-cols-3">
+          {[
+            { href: "/admin/sellers", title: "Manage Sellers", desc: "Review and moderate seller accounts", icon: Users },
+            { href: "/admin/subscriptions", title: "Subscription Controls", desc: "Manage billing plans and revenue", icon: DollarSign },
+            { href: "/admin/categories", title: "Catalog Hierarchy", desc: "Organize product & service categories", icon: Package },
+          ].map((action) => (
+            <Link href={action.href} key={action.title}>
+              <Card className="hover:shadow-lg hover:-translate-y-1 transition-all duration-300 border-none bg-muted/40 group h-full">
+                <CardHeader>
+                  <CardTitle className="flex items-center justify-between font-medium text-base group-hover:text-primary transition-colors">
+                    {action.title}
+                    <div className="p-2 bg-primary/5 rounded-lg group-hover:bg-primary group-hover:text-primary-foreground transition-all">
+                      <action.icon className="h-4 w-4" />
+                    </div>
+                  </CardTitle>
+                  <CardDescription className="text-xs font-medium group-hover:text-foreground/80 transition-colors">
+                    {action.desc}
+                  </CardDescription>
+                </CardHeader>
+              </Card>
+            </Link>
+          ))}
         </div>
       </div>
     </div>

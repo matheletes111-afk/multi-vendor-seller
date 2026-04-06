@@ -51,8 +51,8 @@ export function CategoriesPageClient({
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Categories</h1>
-          <p className="text-muted-foreground mt-2">Manage product and service categories</p>
+          <h1 className="text-2xl font-medium text-foreground">Categories</h1>
+          <p className="text-muted-foreground mt-2 text-sm font-medium">Manage product and service categories</p>
         </div>
         {mounted ? (
           <AddCategoryForm createCategoryForm={createCategoryForm} />
@@ -97,7 +97,7 @@ export function CategoriesPageClient({
                 <div className="space-y-4">
                   <div>
                     <p className="text-sm text-muted-foreground">Commission Rate</p>
-                    <p className="text-lg font-semibold">{category.commissionRate}%</p>
+                    <p className="text-lg font-medium">{category.commissionRate}%</p>
                   </div>
                   <Separator />
                   <div className="flex items-center gap-4 text-sm">
@@ -274,7 +274,7 @@ function DeleteCategoryButton({
           <DialogTitle>Delete Category</DialogTitle>
           <DialogDescription>
             {hasUsage ? (
-              <>Cannot delete category &quot;{categoryName}&quot; because it is used by <strong>{productCount} product(s)</strong>. Remove or reassign first.</>
+              <>Cannot delete category &quot;{categoryName}&quot; because it is used by <span className="font-medium">{productCount} product(s)</span>. Remove or reassign first.</>
             ) : (
               <>Are you sure you want to delete &quot;{categoryName}&quot;? This cannot be undone.</>
             )}

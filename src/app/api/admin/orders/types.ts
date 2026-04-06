@@ -101,6 +101,15 @@ export type AdminOrderListItemApi = {
   customerEmail: string | null
   sellerStoreName: string | null
   itemCount: number
+  items: {
+    id: string
+    productName: string | null
+    serviceName: string | null
+    quantity: number
+    price: number
+    status: string
+    imageUrl: string | null
+  }[]
 }
 
 export type AdminOrderDetailApi = {

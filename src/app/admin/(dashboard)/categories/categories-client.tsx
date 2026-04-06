@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/ui/card";
+import { cn } from "@/lib/utils";
 import { Badge } from "@/ui/badge";
 import { Alert, AlertDescription } from "@/ui/alert";
 import {
@@ -70,7 +71,6 @@ export function CategoriesClient() {
   const searchParams = useSearchParams();
   const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10) || 1);
   const perPage = Math.min(50, Math.max(1, parseInt(searchParams.get("perPage") ?? "10", 10) || 10));
-  // Keep these as stable strings to avoid dynamic deps array issues
   const errorParam = searchParams.get("error") ?? "";
   const successParam = searchParams.get("success") ?? "";
   const params = {
@@ -161,7 +161,6 @@ export function CategoriesClient() {
         throw new Error(data.error || "Failed to delete category");
       }
 
-      // Optimistic UI update so list refreshes immediately
       setData((prev) => {
         if (!prev) return prev;
         const nextCategories = prev.categories.filter((c) => c.id !== categoryId);
@@ -182,214 +181,230 @@ export function CategoriesClient() {
   };
 
   return (
-    <div className="container mx-auto p-4 sm:p-6 space-y-4 sm:space-y-6 max-w-7xl">
-      <div className="flex flex-col gap-4 sm:flex-row sm:justify-between sm:items-center">
+    <div className="container mx-auto p-6 space-y-8 animate-in fade-in duration-700">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Product categories</h1>
-          <p className="text-sm text-muted-foreground mt-1">Manage categories and subcategories for products</p>
+          <h1 className="text-2xl font-medium text-foreground">Product Categories</h1>
+          <p className="text-muted-foreground mt-2 text-lg font-medium">Structure and organize your marketplace catalog</p>
         </div>
-        {mounted ? (
+        {mounted && (
           <Link href="/admin/categories/new">
-            <Button>
+            <Button className="rounded-full px-6 font-medium text-xs h-12 shadow-lg shadow-primary/20 hover:scale-105 transition-all">
               <Plus className="mr-2 h-4 w-4" />
               Add Category
             </Button>
           </Link>
-        ) : (
-          <div className="h-10 w-[140px] rounded-md bg-muted" />
         )}
       </div>
 
       {params.error && (
-        <Alert variant="destructive">
-          <AlertDescription>{decodeURIComponent(params.error)}</AlertDescription>
+        <Alert variant="destructive" className="border-none shadow-xl bg-destructive/10 text-destructive animate-in slide-in-from-top-4 duration-500">
+          <AlertDescription className="font-medium">{decodeURIComponent(params.error)}</AlertDescription>
         </Alert>
       )}
       {params.success && (
-        <Alert>
-          <AlertDescription>{decodeURIComponent(params.success)}</AlertDescription>
+        <Alert className="border-none shadow-xl bg-green-500/10 text-green-600 animate-in slide-in-from-top-4 duration-500">
+          <AlertDescription className="font-medium text-xs">Action completed: {decodeURIComponent(params.success)}</AlertDescription>
         </Alert>
       )}
       {toggleError && (
-        <Alert variant="destructive">
-          <AlertDescription>{toggleError}</AlertDescription>
+        <Alert variant="destructive" className="border-none shadow-xl bg-destructive/10 text-destructive animate-in slide-in-from-top-4 duration-500">
+          <AlertDescription className="font-medium">{toggleError}</AlertDescription>
         </Alert>
       )}
 
-      <Card className="overflow-hidden border shadow-sm">
-        <CardHeader className="pb-4">
-          <CardTitle className="text-lg">Category list</CardTitle>
-          <CardDescription>All product categories with product and subcategory counts</CardDescription>
+      <Card className="border-none shadow-2xl overflow-hidden rounded-3xl bg-gradient-to-br from-background via-background to-muted/20">
+        <CardHeader className="pb-4 border-b border-muted/30">
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-xl font-medium">Category Catalog</CardTitle>
+              <CardDescription className="text-sm font-medium">Manage visibility, commissions, and hierarchy</CardDescription>
+            </div>
+            {data && (
+              <Badge variant="outline" className="px-4 py-1 font-medium rounded-full shadow-sm bg-background">
+                {data.totalCount} Categories
+              </Badge>
+            )}
+          </div>
         </CardHeader>
-        <CardContent className="p-0 sm:p-6">
+        <CardContent className="p-0">
           {loading && !data ? (
-            <PageLoader message="Loading categories…" />
+            <div className="py-32">
+              <PageLoader message="Organizing categories…" />
+            </div>
           ) : fetchError ? (
-            <div className="py-12 text-center text-destructive px-4">{fetchError}</div>
+            <div className="py-24 text-center">
+              <p className="text-destructive font-medium">{fetchError}</p>
+            </div>
           ) : !data ? null : (
             <>
-          <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-16">Image</TableHead>
-                <TableHead>Name</TableHead>
-                <TableHead className="hidden md:table-cell">Description</TableHead>
-                <TableHead>Commission</TableHead>
-                <TableHead>Products</TableHead>
-                <TableHead>Subcategories</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="whitespace-nowrap">Featured (max 4)</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {data.categories.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={8} className="text-center py-12 text-muted-foreground">
-                    No categories found
-                  </TableCell>
-                </TableRow>
-              ) : (
-                sortByCreatedAtDesc(data.categories).map((category) => (
-                  <TableRow key={category.id}>
-                    <TableCell>
-                      {category.image ? (
-                        <div className="relative w-12 h-12 rounded overflow-hidden bg-muted shrink-0">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={category.image}
-                            alt={category.name}
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
-                      ) : (
-                        <div className="w-12 h-12 rounded bg-muted flex items-center justify-center text-muted-foreground text-xs shrink-0">
-                          —
-                        </div>
-                      )}
-                    </TableCell>
-                    <TableCell className="font-medium">{category.name}</TableCell>
-                    <TableCell className="max-w-[200px] truncate text-muted-foreground hidden md:table-cell">
-                      {category.description || "—"}
-                    </TableCell>
-                    <TableCell>{category.commissionRate}%</TableCell>
-                    <TableCell>
-                      <span className="inline-flex items-center gap-1 text-muted-foreground">
-                        <Package className="h-4 w-4" />
-                        {category._count.products}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <span className="inline-flex items-center gap-1 text-muted-foreground">
-                        <FolderTree className="h-4 w-4" />
-                        {category._count.subcategories}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={category.isActive ? "default" : "secondary"}>
-                        {category.isActive ? "Active" : "Inactive"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Button
-                        variant={category.isFeatured ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => handleToggleFeatured(category)}
-                        disabled={togglingFeaturedId === category.id}
-                        className="min-w-[72px]"
-                      >
-                        {togglingFeaturedId === category.id
-                          ? "..."
-                          : category.isFeatured
-                            ? "On"
-                            : "Off"}
-                      </Button>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Link href={`/admin/categories/${category.id}/edit?page=${page}&perPage=${perPage}`}>
-                          <Button variant="outline" size="sm" className="shrink-0">
-                            <Pencil className="mr-2 h-4 w-4" />
-                            Edit
-                          </Button>
-                        </Link>
-                        <Dialog>
-                          <DialogTrigger asChild>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader className="bg-muted/40 transition-none">
+                    <TableRow className="hover:bg-transparent border-none">
+                      <TableHead className="py-5 pl-8 text-[10px] font-medium uppercase tracking-widest text-muted-foreground/80">Preview</TableHead>
+                      <TableHead className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground/80">Entity Details</TableHead>
+                      <TableHead className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground/80">Revenue Share</TableHead>
+                      <TableHead className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground/80">Inventory</TableHead>
+                      <TableHead className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground/80">Hierarchy</TableHead>
+                      <TableHead className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground/80">Visibility</TableHead>
+                      <TableHead className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground/80">Featured</TableHead>
+                      <TableHead className="text-right pr-8 text-[10px] font-medium uppercase tracking-widest text-muted-foreground/80">Control</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {data.categories.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={8} className="py-24 text-center">
+                          <FolderTree className="h-12 w-12 text-muted-foreground/20 mx-auto mb-4" />
+                          <p className="text-muted-foreground font-medium text-xs">No categories found in registry</p>
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      sortByCreatedAtDesc(data.categories).map((category) => (
+                        <TableRow key={category.id} className="group transition-all hover:bg-muted/20 border-b border-muted/30">
+                          <TableCell className="pl-8">
+                            {category.image ? (
+                              <div className="relative w-12 h-12 rounded-2xl overflow-hidden bg-muted shadow-inner group-hover:scale-105 transition-transform duration-500 border border-muted/50">
+                                <img
+                                  src={category.image}
+                                  alt={category.name}
+                                  className="w-full h-full object-cover"
+                                />
+                              </div>
+                            ) : (
+                              <div className="w-12 h-12 rounded-2xl bg-muted/50 border-2 border-dashed border-muted flex items-center justify-center text-muted-foreground/30">
+                                <Package className="h-5 w-5" />
+                              </div>
+                            )}
+                          </TableCell>
+                          <TableCell className="font-medium py-5">
+                            <div className="flex flex-col">
+                              <span className="text-sm line-clamp-1">{category.name}</span>
+                              <span className="text-[10px] text-muted-foreground/60 font-medium line-clamp-1 italic">{category.description || "No description provided"}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="bg-emerald-500/10 text-emerald-600 px-3 py-1 rounded-full text-xs font-medium w-fit border border-emerald-500/10">
+                              {category.commissionRate}%
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-1.5 font-medium text-xs text-foreground/80">
+                              <Package className="h-3.5 w-3.5 text-orange-500/70" />
+                              {category._count.products}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-1.5 font-medium text-xs text-foreground/80">
+                              <FolderTree className="h-3.5 w-3.5 text-indigo-500/70" />
+                              {category._count.subcategories}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge className={cn(
+                              "rounded-full text-[9px] font-medium uppercase tracking-widest px-3 py-0.5 border-none shadow-sm shadow-black/5",
+                              category.isActive ? "bg-green-500 text-white" : "bg-muted text-muted-foreground"
+                            )}>
+                              {category.isActive ? "Active" : "Archived"}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
                             <Button
-                              variant="destructive"
+                              variant={category.isFeatured ? "default" : "outline"}
                               size="sm"
-                              title={
-                                category._count.products > 0
-                                  ? "Cannot delete: this category has products. Remove or reassign them first."
-                                  : undefined
-                              }
-                              className={
-                                category._count.products > 0
-                                  ? "opacity-60"
-                                  : undefined
-                              }
-                            >
-                              <Trash2 className="mr-2 h-4 w-4" />
-                              Delete
-                            </Button>
-                          </DialogTrigger>
-                          <DialogContent>
-                            <DialogHeader>
-                              <DialogTitle>Delete Category</DialogTitle>
-                              <DialogDescription>
-                                {category._count.products > 0 ? (
-                                  <>
-                                    Cannot delete &quot;{category.name}&quot; because it has{" "}
-                                    <strong>{category._count.products} product(s)</strong>. Remove or reassign them first.
-                                  </>
-                                ) : (
-                                  <>
-                                    Are you sure you want to delete &quot;{category.name}&quot;?
-                                    {category._count.subcategories > 0 && (
-                                      <span className="block mt-2 text-destructive">
-                                        This will also delete {category._count.subcategories} subcategory(ies).
-                                      </span>
-                                    )}{" "}
-                                    This cannot be undone.
-                                  </>
-                                )}
-                              </DialogDescription>
-                            </DialogHeader>
-                            <DialogFooter>
-                              <DialogTrigger asChild>
-                                <Button variant="outline">Cancel</Button>
-                              </DialogTrigger>
-                              {category._count.products === 0 && (
-                                <Button
-                                  variant="destructive"
-                                  onClick={() => handleDelete(category.id)}
-                                  disabled={deletingId === category.id}
-                                >
-                                  {deletingId === category.id ? "Deleting..." : "Delete"}
-                                </Button>
+                              onClick={() => handleToggleFeatured(category)}
+                              disabled={togglingFeaturedId === category.id}
+                              className={cn(
+                                "rounded-full h-7 px-4 text-[9px] font-medium uppercase tracking-widest transition-all",
+                                category.isFeatured ? "bg-primary shadow-lg shadow-primary/20" : "border-2"
                               )}
-                            </DialogFooter>
-                          </DialogContent>
-                        </Dialog>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-          </div>
-          <div className="px-4 py-3 sm:px-6 sm:py-4 border-t">
-            <AdminPagination
-              basePath="/admin/categories"
-              currentPage={page}
-              totalPages={data.totalPages}
-              totalCount={data.totalCount}
-              pageSize={perPage}
-              params={params}
-            />
-          </div>
+                            >
+                              {togglingFeaturedId === category.id
+                                ? "..."
+                                : category.isFeatured
+                                  ? "Featured"
+                                  : "Promote"}
+                            </Button>
+                          </TableCell>
+                          <TableCell className="text-right pr-8">
+                            <div className="flex justify-end gap-2 transition-all duration-300">
+                              <Link href={`/admin/categories/${category.id}/edit?page=${page}&perPage=${perPage}`}>
+                                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full hover:bg-primary/10 hover:text-primary">
+                                  <Pencil className="h-4 w-4" />
+                                </Button>
+                              </Link>
+                              
+                              <Dialog>
+                                <DialogTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className={cn(
+                                      "h-8 w-8 rounded-full hover:bg-destructive/10 hover:text-destructive",
+                                      category._count.products > 0 && "opacity-30 cursor-not-allowed"
+                                    )}
+                                    disabled={category._count.products > 0}
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </DialogTrigger>
+                                <DialogContent className="rounded-3xl border-none shadow-2xl">
+                                  <DialogHeader>
+                                    <DialogTitle className="text-2xl font-medium">Decommission Category</DialogTitle>
+                                    <DialogDescription className="text-base font-medium pt-2">
+                                      {category._count.products > 0 ? (
+                                        <>
+                                          Cannot delete &quot;<span className="text-foreground font-medium">{category.name}</span>&quot; because it has{" "}
+                                          <Badge className="bg-primary">{category._count.products}</Badge> active products.
+                                        </>
+                                      ) : (
+                                        <>
+                                          Are you sure you want to purge &quot;<span className="text-foreground font-medium">{category.name}</span>&quot;?
+                                          {category._count.subcategories > 0 && (
+                                            <span className="block mt-4 p-3 bg-destructive/10 text-destructive rounded-2xl font-medium border border-destructive/20">
+                                              Warning: This will also terminate {category._count.subcategories} subcategories.
+                                            </span>
+                                          )}
+                                        </>
+                                      )}
+                                    </DialogDescription>
+                                  </DialogHeader>
+                                  <DialogFooter className="gap-2 sm:gap-0 mt-6">
+                                    <DialogTrigger asChild>
+                                      <Button variant="outline" className="rounded-full px-6 font-medium uppercase tracking-widest text-[10px]">Cancel</Button>
+                                    </DialogTrigger>
+                                    {category._count.products === 0 && (
+                                        <Button
+                                          variant="destructive"
+                                          className="rounded-full px-6 font-medium uppercase tracking-widest text-[10px] shadow-lg shadow-destructive/20"
+                                        onClick={() => handleDelete(category.id)}
+                                        disabled={deletingId === category.id}
+                                      >
+                                        {deletingId === category.id ? "Processing..." : "Purge Now"}
+                                      </Button>
+                                    )}
+                                  </DialogFooter>
+                                </DialogContent>
+                              </Dialog>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+              <div className="p-8 bg-muted/10 border-t border-muted/20 rounded-b-3xl">
+                <AdminPagination
+                  basePath="/admin/categories"
+                  currentPage={page}
+                  totalPages={data.totalPages}
+                  totalCount={data.totalCount}
+                  pageSize={perPage}
+                  params={params}
+                />
+              </div>
             </>
           )}
         </CardContent>
