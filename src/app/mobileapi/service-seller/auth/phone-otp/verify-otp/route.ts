@@ -20,7 +20,7 @@ type ApiResponse =
           isEmailVerified: boolean
           createdAt: Date
           updatedAt: Date
-          sellerInfo: { isApproved: boolean; isSuspended: boolean; type: string | null } | null
+          sellerInfo: { isApproved: boolean; isSuspended: boolean; onboardingCompleted: boolean; onboardingStep: number; type: string | null } | null
         }
         tokens: { accessToken: string; refreshToken: string; expiresIn: number }
         sessionInfo: { expiresIn: number; tokenType: "Bearer" }
@@ -67,7 +67,7 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
         emailVerificationExpires: true,
         createdAt: true,
         updatedAt: true,
-        seller: { select: { isApproved: true, isSuspended: true, type: true } },
+        seller: { select: { isApproved: true, isSuspended: true, onboardingCompleted: true, onboardingStep: true, type: true } },
       },
     })
 
@@ -77,11 +77,12 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
     if (!user.seller) {
       return NextResponse.json({ success: false, error: "Seller account not properly configured. Please contact support." }, { status: 403 })
     }
-    if (!user.seller.isApproved) {
+    // Relaxed: Allow login if onboarding is not completed
+    if (!user.seller.isApproved && user.seller.onboardingCompleted) {
       return NextResponse.json(
         {
           success: false,
-          error: "Your account is pending admin approval. You cannot log in until approved.",
+          error: "Your account is pending admin approval.",
           needsApproval: true,
           approvalStatus: "PENDING",
         },

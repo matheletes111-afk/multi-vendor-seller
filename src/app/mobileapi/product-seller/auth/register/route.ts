@@ -44,6 +44,7 @@ interface SuccessResponse {
     requiresVerification: true
     verificationDetails: VerificationDetails
     verifyUrl: string
+    otp?: string // Added for testing
   }
 }
 
@@ -129,6 +130,22 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
       )
     }
 
+    // Check existing phone
+    if (phone) {
+      const existingPhone = await prisma.user.findFirst({
+        where: { phone: phone.trim() }
+      })
+      if (existingPhone) {
+        return NextResponse.json<ErrorResponse>(
+          { 
+            success: false,
+            error: "User with this phone number already exists"
+          },
+          { status: 400 }
+        )
+      }
+    }
+
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10)
     
@@ -206,7 +223,8 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
               expiresIn: OTP_EXPIRY_MS / 1000,
               resendCooldown: 60,
             },
-            verifyUrl: "/mobileapi/product-seller/verify-otp"
+            verifyUrl: "/mobileapi/product-seller/verify-otp",
+            otp: verifyEmailOtp
           }
         },
         { status: 201 }
@@ -229,7 +247,8 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
             expiresIn: OTP_EXPIRY_MS / 1000, // in seconds
             resendCooldown: 60, // 60 seconds cooldown for resend
           },
-          verifyUrl: "/mobileapi/product-seller/verify-otp"
+          verifyUrl: "/mobileapi/product-seller/verify-otp",
+          otp: verifyEmailOtp
         }
       },
       { status: 201 }

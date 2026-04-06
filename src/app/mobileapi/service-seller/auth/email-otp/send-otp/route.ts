@@ -9,7 +9,15 @@ const RESEND_COOLDOWN_MS = 60 * 1000
 
 type ApiResponse =
   | { success: true; message: string; data: { email: string; expiresIn: number; resendCooldown: number } }
-  | { success: false; error: string; waitTime?: number }
+  | { 
+      success: false; 
+      error: string; 
+      waitTime?: number;
+      needsVerification?: boolean;
+      authStatus?: string;
+      verifyUrl?: string;
+      data?: { email: string }
+    }
 
 /** POST /mobileapi/service-seller/auth/email-otp/send-otp — Body: { email } */
 export async function POST(request: Request): Promise<NextResponse<ApiResponse>> {
@@ -26,7 +34,17 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
       return NextResponse.json({ success: false, error: "No account found for this email in service seller panel." }, { status: 404 })
     }
     if (!user.isEmailVerified) {
-      return NextResponse.json({ success: false, error: "Please verify your email first before OTP login." }, { status: 400 })
+      return NextResponse.json(
+        { 
+          success: false, 
+          error: "Please verify your email first.",
+          needsVerification: true,
+          authStatus: "PENDING_VERIFICATION",
+          verifyUrl: "/mobileapi/service-seller/verify-otp",
+          data: { email }
+        }, 
+        { status: 403 }
+      )
     }
 
     if (user.emailOtpSentAt) {

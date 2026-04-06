@@ -1,0 +1,268 @@
+# FULL MOBILE AUTH API DOCUMENTATION (Detailed Scenarios)
+
+This document is the definitive guide for Product and Service Seller mobile authentication. It covers all success and error scenarios with exact JSON structures.
+
+---
+
+## TABLE OF CONTENTS
+1. [Product Seller Registration](#1-product-seller-registration)
+2. [Product Seller Verification & Resend](#2-product-seller-verification--resend)
+3. [Product Seller Password Login](#3-product-seller-password-login)
+4. [Product Seller Email OTP Login](#4-product-seller-email-otp-login)
+5. [Product Seller Phone OTP Login](#5-product-seller-phone-otp-login)
+6. [Service Seller Endpoints](#6-service-seller-endpoints)
+7. [Global Status Reference](#7-global-status-reference)
+
+---
+
+## 1. PRODUCT SELLER REGISTRATION
+
+**Endpoint**: `POST /mobileapi/product-seller/auth/register`
+
+### Scenario: Success
+- **Request Payload**:
+  ```json
+  {
+    "name": "John Doe",
+    "email": "john@example.com",
+    "password": "password123",
+    "phone": "9876543210",
+    "phoneCountryCode": "+91"
+  }
+  ```
+- **Response (201 Created)**:
+  ```json
+  {
+    "success": true,
+    "message": "Please verify your email with the OTP sent.",
+    "data": {
+      "userId": "uuid-string",
+      "email": "john@example.com",
+      "otp": "123456",
+      "requiresVerification": true,
+      "verificationDetails": {
+        "method": "OTP",
+        "expiresIn": 600,
+        "resendCooldown": 60
+      },
+      "verifyUrl": "/mobileapi/product-seller/verify-otp"
+    }
+  }
+  ```
+
+### Scenario: Duplicate Email/Phone
+- **Response (400 Bad Request)**:
+  ```json
+  {
+    "success": false,
+    "error": "User with this email already exists" 
+    // OR "User with this phone number already exists"
+  }
+  ```
+
+### Scenario: Validation Error
+- **Response (400 Bad Request)**:
+  ```json
+  {
+    "success": false,
+    "error": "Password must be at least 6 characters long"
+  }
+  ```
+
+---
+
+## 2. PRODUCT SELLER VERIFICATION & RESEND
+
+### 2.1 Verify Registration OTP
+**Endpoint**: `POST /mobileapi/product-seller/auth/verify-otp`
+
+- **Payload**: `{ "email": "john@example.com", "otp": "123456" }`
+- **Response (200 OK - Success)**:
+  ```json
+  {
+    "success": true,
+    "message": "Your email is verified successfully. You can now login to complete your onboarding profile.",
+    "data": {
+      "email": "john@example.com",
+      "isEmailVerified": true,
+      "approvalStatus": "PENDING",
+      "loginAvailable": true,
+      "nextSteps": "Please login to complete your onboarding process."
+    }
+  }
+  ```
+- **Response (400 - Wrong/Expired OTP)**:
+  ```json
+  { "success": false, "error": "Invalid OTP." }
+  // OR { "success": false, "error": "OTP has expired. Please request a new one.", "expired": true }
+  ```
+
+### 2.2 Resend Registration OTP
+**Endpoint**: `POST /mobileapi/product-seller/auth/resend-otp`
+
+- **Payload**: `{ "email": "john@example.com" }`
+- **Response (200 OK - Success)**:
+  ```json
+  {
+    "success": true,
+    "message": "New OTP sent successfully",
+    "data": {
+      "email": "john@example.com",
+      "expiresIn": 600,
+      "resendCooldown": 60,
+      "otp": "654321"
+    }
+  }
+  ```
+- **Response (429 - Cooldown)**:
+  ```json
+  { "success": false, "error": "Please wait 45 seconds before requesting a new OTP", "waitTime": 45 }
+  ```
+
+---
+
+## 3. PRODUCT SELLER PASSWORD LOGIN
+
+**Endpoint**: `POST /mobileapi/product-seller/auth/login`
+
+### Scenario: Success (Fully Approved)
+- **Payload**: `{ "email": "...", "password": "..." }`
+- **Response (200 OK)**:
+  ```json
+  {
+    "success": true,
+    "message": "Login successful",
+    "data": {
+      "user": {
+        "id": "...",
+        "email": "...",
+        "sellerInfo": {
+          "isApproved": true,
+          "isSuspended": false,
+          "onboardingCompleted": true,
+          "onboardingStep": 4,
+          "type": "PRODUCT"
+        }
+      },
+      "tokens": { "accessToken": "...", "refreshToken": "..." },
+      "sessionInfo": { "expiresIn": 604800, "tokenType": "Bearer" }
+    }
+  }
+  ```
+
+### Scenario: Needs Onboarding (Not yet approved, but can login)
+- **Response (200 OK)**:
+  ```json
+  {
+    "success": true,
+    "message": "Login successful",
+    "data": {
+      "user": {
+        "sellerInfo": {
+          "isApproved": false,
+          "onboardingCompleted": false,
+          "onboardingStep": 1
+        }
+      },
+      "tokens": { ... }
+    }
+  }
+  ```
+
+### Scenario: Unverified Email (Action Required)
+- **Response (403 Forbidden)**:
+  ```json
+  {
+    "success": false,
+    "error": "Please verify your email first.",
+    "needsVerification": true,
+    "authStatus": "PENDING_VERIFICATION",
+    "verifyUrl": "/mobileapi/product-seller/verify-otp",
+    "data": { "email": "john@example.com" }
+  }
+  ```
+
+### Scenario: Pending Admin Approval (Onboarding is Done)
+- **Response (403 Forbidden)**:
+  ```json
+  {
+    "success": false,
+    "error": "Your account is pending admin approval.",
+    "needsApproval": true,
+    "approvalStatus": "PENDING",
+    "authStatus": "PENDING_APPROVAL"
+  }
+  ```
+
+### Scenario: Account Suspended
+- **Response (403 Forbidden)**:
+  ```json
+  {
+    "success": false,
+    "error": "Your account has been suspended. Please contact support.",
+    "isSuspended": true,
+    "authStatus": "SUSPENDED"
+  }
+  ```
+
+---
+
+## 4. PRODUCT SELLER EMAIL OTP LOGIN
+
+### 4.1 Send Login OTP
+**Endpoint**: `POST /mobileapi/product-seller/auth/email-otp/send-otp`
+
+- **Payload**: `{ "email": "john@example.com" }`
+- **Success (200)**: `{ "success": true, "data": { "email": "...", "expiresIn": 600, "resendCooldown": 60 } }`
+- **Unverified Error (403)**: Same JSON as Unverified Login (See Section 3).
+
+### 4.2 Verify Login OTP
+**Endpoint**: `POST /mobileapi/product-seller/auth/email-otp/verify-otp`
+
+- **Payload**: `{ "email": "...", "otp": "..." }`
+- **Success (200)**: Same data structure as Password Login Success (See Section 3).
+
+---
+
+## 5. PRODUCT SELLER PHONE OTP LOGIN
+
+### 5.1 Send Login Phone OTP
+**Endpoint**: `POST /mobileapi/product-seller/auth/phone-otp/send-otp`
+
+- **Payload**: `{ "phone": "+919876543210" }`
+- **Success (200)**: `{ "success": true, "data": { "phone": "...", "expiresIn": 600, "resendCooldown": 60 } }`
+
+### 5.2 Verify Login Phone OTP
+**Endpoint**: `POST /mobileapi/product-seller/auth/phone-otp/verify-otp`
+
+- **Payload**: `{ "phone": "...", "otp": "..." }`
+- **Success (200)**: Same data structure as Password Login Success (See Section 3).
+
+---
+
+## 6. SERVICE SELLER ENDPOINTS
+
+The **Service Seller** endpoints follow the exact same request/response structures as above, but with the following base URL:
+`/mobileapi/service-seller/auth/...`
+
+Endpoints covered:
+- `/register`
+- `/login`
+- `/verify-otp`
+- `/resend-otp`
+- `/email-otp/send-otp`
+- `/email-otp/verify-otp`
+- `/phone-otp/send-otp`
+- `/phone-otp/verify-otp`
+
+---
+
+## 7. GLOBAL STATUS REFERENCE
+
+- **isApproved**: Boolean. If false AND onboardingCompleted is true, user is blocked with "Pending Approval" message.
+- **onboardingCompleted**: Boolean. If false, mobile apps should direct user to the onboarding multi-step form.
+- **authStatus**: Use this string field for navigation logic:
+  - `"PENDING_VERIFICATION"` -> Redirect to OTP Screen.
+  - `"PENDING_APPROVAL"` -> Show "Awaiting Approval" Screen.
+  - `"SUSPENDED"` -> Show "Account Suspended" Message.
+- **loginAvailable**: Boolean. Returned after registration OTP verification to indicate login is now allowed.

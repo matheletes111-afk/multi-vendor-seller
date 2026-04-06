@@ -16,6 +16,8 @@ interface ProductSellerLoginRequest {
 interface SellerInfo {
   isApproved: boolean
   isSuspended: boolean
+  onboardingCompleted: boolean
+  onboardingStep: number
   type: string | null
 }
 
@@ -63,6 +65,7 @@ interface ErrorResponse {
   needsApproval?: boolean
   isSuspended?: boolean
   approvalStatus?: string
+  authStatus?: "PENDING_VERIFICATION" | "PENDING_APPROVAL" | "ACTIVE" | "SUSPENDED"
   verifyUrl?: string
   data?: {
     email?: string
@@ -145,6 +148,8 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
           select: {
             isApproved: true,
             isSuspended: true,
+            onboardingCompleted: true,
+            onboardingStep: true,
             type: true
           }
         }
@@ -192,6 +197,7 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
           success: false,
           error: "Please verify your email first.",
           needsVerification: true,
+          authStatus: "PENDING_VERIFICATION",
           verifyUrl: "/mobileapi/product-seller/verify-otp",
           data: {
             email: user.email
@@ -213,11 +219,12 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
     }
 
     // Check seller approval status
-    if (!user.seller.isApproved) {
+    // Relaxed: Allow login if onboarding is not completed
+    if (!user.seller.isApproved && user.seller.onboardingCompleted) {
       return NextResponse.json<ErrorResponse>(
         { 
           success: false,
-          error: "Your account is pending admin approval. You cannot log in until approved.",
+          error: "Your account is pending admin approval.",
           needsApproval: true,
           approvalStatus: "PENDING"
         },

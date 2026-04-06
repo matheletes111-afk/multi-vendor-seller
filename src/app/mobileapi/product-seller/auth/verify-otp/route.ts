@@ -26,7 +26,7 @@ interface AlreadyVerifiedResponse {
     email: string
     isEmailVerified: true
     approvalStatus: "PENDING"
-    loginAvailable: false
+    loginAvailable: true
   }
 }
 
@@ -38,7 +38,7 @@ interface NewlyVerifiedResponse {
     email: string
     isEmailVerified: true
     approvalStatus: "PENDING"
-    loginAvailable: false
+    loginAvailable: true
     nextSteps: string
   }
 }
@@ -138,12 +138,12 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
       return NextResponse.json<AlreadyVerifiedResponse>(
         { 
           success: true,
-          message: "Your email is already verified. You are currently in awaiting approval stage. Once admin approves, you can login.",
+          message: "Your email is verified successfully. You can now login to complete your onboarding profile.",
           data: {
             email: user.email,
             isEmailVerified: true,
             approvalStatus: "PENDING",
-            loginAvailable: false
+            loginAvailable: true
           }
         },
         { status: 200 }
@@ -201,13 +201,13 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
     return NextResponse.json<NewlyVerifiedResponse>(
       { 
         success: true,
-        message: "Your email is verified successfully. You are currently in awaiting approval stage. Once admin approves, you can login.",
+        message: "Your email is verified successfully. You can now login to complete your onboarding profile.",
         data: {
           email: user.email,
           isEmailVerified: true,
           approvalStatus: "PENDING",
-          loginAvailable: false,
-          nextSteps: "Please wait for admin approval. You will be notified once your account is approved."
+          loginAvailable: true,
+          nextSteps: "Please login to complete your onboarding process."
         }
       },
       { status: 200 }

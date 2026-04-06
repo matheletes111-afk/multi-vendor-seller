@@ -10,7 +10,15 @@ const RESEND_COOLDOWN_MS = 60 * 1000
 
 type ApiResponse =
   | { success: true; message: string; data: { phone: string; expiresIn: number; resendCooldown: number } }
-  | { success: false; error: string; waitTime?: number }
+  | { 
+      success: false; 
+      error: string; 
+      waitTime?: number;
+      needsVerification?: boolean;
+      authStatus?: string;
+      verifyUrl?: string;
+      data?: { email?: string; phone?: string }
+    }
 
 /** POST /mobileapi/product-seller/auth/phone-otp/send-otp — Body: { phone }. Same rules as web /api/product-seller/auth/phone-otp/send-otp */
 export async function POST(request: Request): Promise<NextResponse<ApiResponse>> {
@@ -50,7 +58,17 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
       )
     }
     if (!user.isEmailVerified) {
-      return NextResponse.json({ success: false, error: "Please verify your email first before OTP login." }, { status: 400 })
+      return NextResponse.json(
+        { 
+          success: false, 
+          error: "Please verify your email first.",
+          needsVerification: true,
+          authStatus: "PENDING_VERIFICATION",
+          verifyUrl: "/mobileapi/product-seller/verify-otp",
+          data: { phone: normalizedPhone }
+        }, 
+        { status: 403 }
+      )
     }
 
     const now = new Date()

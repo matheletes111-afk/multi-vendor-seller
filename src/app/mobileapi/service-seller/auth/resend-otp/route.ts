@@ -1,65 +1,45 @@
 import { randomInt } from "crypto"
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import bcrypt from "bcryptjs"
-import { UserRole, Prisma } from "@prisma/client"
+import { UserRole } from "@prisma/client"
 import { sendVerificationOtpEmail } from "@/lib/email"
 
 // Constants
 const OTP_EXPIRY_MS = 10 * 60 * 1000 // 10 minutes
-const RESEND_COOLDOWN_SECONDS = 60 // 60 seconds cooldown for resend
+const RESEND_COOLDOWN_MS = 60 * 1000 // 1 minute cooldown
 
 // Define request body interface
-interface ServiceSellerRegisterRequest {
-  name?: string
+interface ResendOtpRequest {
   email: string
-  password: string
-  phone?: string
-  phoneCountryCode?: string
 }
 
-// Define user response type from Prisma select
-type UserResponse = Pick<Prisma.UserGetPayload<{}>, 'id' | 'email' | 'name' | 'role'>
-
-// Define verification details type
-interface VerificationDetails {
-  method: "OTP"
-  expiresIn: number // in seconds
-  resendCooldown: number // in seconds
-}
-
-// Define success response data type
-interface SuccessResponseData {
-  userId: string
+// Define user select type
+interface UserWithOtpInfo {
+  id: string
   email: string
   name: string | null
-  role: UserRole
-  requiresVerification: true
-  verificationDetails: VerificationDetails
-  verifyUrl: string
+  isEmailVerified: boolean
+  emailOtpSentAt: Date | null
 }
 
 // Define success response type
 interface SuccessResponse {
   success: true
   message: string
-  data: SuccessResponseData
+  data: {
+    email: string
+    expiresIn: number
+    resendCooldown: number
+    otp?: string // Added for testing
+  }
 }
 
 // Define error response type
 interface ErrorResponse {
   success: false
   error: string
-  data?: {
-    email?: string
-  }
-}
-
-// Define error response with email data type
-interface ErrorResponseWithEmail extends ErrorResponse {
-  data: {
-    email: string
-  }
+  alreadyVerified?: boolean
+  waitTime?: number
 }
 
 // Union type for all possible responses
@@ -68,7 +48,7 @@ type ApiResponse = SuccessResponse | ErrorResponse
 export async function POST(request: Request): Promise<NextResponse<ApiResponse>> {
   try {
     // Parse request body with error handling
-    let body: ServiceSellerRegisterRequest
+    let body: ResendOtpRequest
     try {
       body = await request.json()
     } catch {
@@ -81,28 +61,22 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
       )
     }
 
-    const { name, email, password, phone, phoneCountryCode } = body
+    const email = typeof body.email === "string" ? body.email.trim() : ""
 
-    // Validate required fields
-    if (!email || !password) {
+    // Validation
+    if (!email) {
       return NextResponse.json<ErrorResponse>(
         { 
           success: false,
-          error: "Email and password are required" 
+          error: "Email is required" 
         },
         { status: 400 }
       )
     }
 
-    // Sanitize inputs
-    const sanitizedEmail = email.toLowerCase().trim()
-    const sanitizedName = name?.trim() || null
-    const sanitizedPhone = phone?.trim() || null
-    const sanitizedPhoneCountryCode = phoneCountryCode?.trim() || null
-
     // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (!emailRegex.test(sanitizedEmail)) {
+    if (!emailRegex.test(email)) {
       return NextResponse.json<ErrorResponse>(
         { 
           success: false,
@@ -112,159 +86,109 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
       )
     }
 
-    // Validate password strength
-    if (password.length < 6) {
-      return NextResponse.json<ErrorResponse>(
-        { 
-          success: false,
-          error: "Password must be at least 6 characters long" 
-        },
-        { status: 400 }
-      )
-    }
-
-    // Validate phone if provided
-    if (sanitizedPhone) {
-      const phoneRegex = /^[0-9]{10}$/
-      if (!phoneRegex.test(sanitizedPhone)) {
-        return NextResponse.json<ErrorResponse>(
-          { 
-            success: false,
-            error: "Invalid phone number format. Must be 10 digits." 
-          },
-          { status: 400 }
-        )
-      }
-    }
-
-    // Check existing user
-    const existingUser = await prisma.user.findUnique({ 
-      where: { email: sanitizedEmail } 
-    })
-
-    if (existingUser) {
-      const errorResponse: ErrorResponseWithEmail = {
-        success: false,
-        error: "User with this email already exists",
-        data: {
-          email: sanitizedEmail
-        }
-      }
-      return NextResponse.json<ErrorResponse>(errorResponse, { status: 400 })
-    }
-
-    // Hash password
-    const hashedPassword = await bcrypt.hash(password, 10)
-    
-    // Generate OTP
-    const verifyEmailOtp = randomInt(100000, 999999).toString()
-    const emailVerificationExpires = new Date(Date.now() + OTP_EXPIRY_MS)
-    const now = new Date()
-
-    // Create user with SELLER_SERVICE role
-    const user = await prisma.user.create({
-      data: {
-        email: sanitizedEmail,
-        name: sanitizedName,
-        password: hashedPassword,
-        role: UserRole.SELLER_SERVICE,
-        phone: sanitizedPhone,
-        phoneCountryCode: sanitizedPhoneCountryCode,
-        isEmailVerified: false,
-        verifyEmailOtp,
-        emailVerificationExpires,
-        emailOtpSentAt: now,
+    // Find user with SELLER_SERVICE role
+    const user = await prisma.user.findFirst({
+      where: { 
+        email: email.toLowerCase().trim(),
+        role: UserRole.SELLER_SERVICE 
       },
       select: {
         id: true,
         email: true,
         name: true,
-        role: true,
+        isEmailVerified: true,
+        emailOtpSentAt: true,
       }
-    })
+    }) as UserWithOtpInfo | null
 
-    // Create seller record with SERVICE type
-    try {
-      await prisma.seller.create({ 
-        data: { 
-          userId: user.id, 
-          type: "SERVICE" 
-        } 
-      })
-    } catch (sellerError) {
-      // If seller creation fails, delete the user to maintain data consistency
-      await prisma.user.delete({ where: { id: user.id } })
-      
-      console.error("Seller creation failed:", sellerError)
+    if (!user) {
       return NextResponse.json<ErrorResponse>(
         { 
           success: false,
-          error: "Failed to create seller account" 
+          error: "Seller not found with this email" 
+        },
+        { status: 404 }
+      )
+    }
+
+    // Check if already verified
+    if (user.isEmailVerified) {
+      return NextResponse.json<ErrorResponse>(
+        { 
+          success: false,
+          error: "Email already verified. You can now login to complete your onboarding profile.",
+          alreadyVerified: true
+        },
+        { status: 400 }
+      )
+    }
+
+    // Check cooldown period
+    if (user.emailOtpSentAt) {
+      const timeSinceLastOtp = Date.now() - user.emailOtpSentAt.getTime()
+      if (timeSinceLastOtp < RESEND_COOLDOWN_MS) {
+        const waitTime = Math.ceil((RESEND_COOLDOWN_MS - timeSinceLastOtp) / 1000)
+        return NextResponse.json<ErrorResponse>(
+          { 
+            success: false,
+            error: `Please wait ${waitTime} seconds before requesting a new OTP`,
+            waitTime
+          },
+          { status: 429 }
+        )
+      }
+    }
+
+    // Generate new OTP
+    const newOtp = randomInt(100000, 999999).toString()
+    const newExpiry = new Date(Date.now() + OTP_EXPIRY_MS)
+    const now = new Date()
+
+    // Update user with new OTP
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        verifyEmailOtp: newOtp,
+        emailVerificationExpires: newExpiry,
+        emailOtpSentAt: now,
+      }
+    })
+
+    // Send OTP email
+    try {
+      await sendVerificationOtpEmail({
+        to: email,
+        otp: newOtp,
+        name: user.name,
+      })
+    } catch (emailError) {
+      console.error("Failed to send OTP email:", emailError)
+      return NextResponse.json<ErrorResponse>(
+        { 
+          success: false,
+          error: "Failed to send OTP email. Please try again." 
         },
         { status: 500 }
       )
     }
 
-    // Send OTP email
-    try {
-      await sendVerificationOtpEmail({
-        to: sanitizedEmail,
-        otp: verifyEmailOtp,
-        name: sanitizedName,
-      })
-    } catch (emailError) {
-      console.error("Failed to send verification email:", emailError)
-      
-      const successResponseData: SuccessResponseData = {
-        userId: user.id,
-        email: user.email,
-        name: user.name,
-        role: user.role,
-        requiresVerification: true,
-        verificationDetails: {
-          method: "OTP",
-          expiresIn: OTP_EXPIRY_MS / 1000,
-          resendCooldown: RESEND_COOLDOWN_SECONDS,
-        },
-        verifyUrl: "/mobileapi/service-seller/verify-otp"
-      }
-      
-      return NextResponse.json<SuccessResponse>(
-        { 
-          success: true,
-          message: "Registration successful but failed to send verification email. Please contact support.",
-          data: successResponseData
-        },
-        { status: 201 }
-      )
-    }
-
     // Return success response
-    const successResponseData: SuccessResponseData = {
-      userId: user.id,
-      email: user.email,
-      name: user.name,
-      role: user.role,
-      requiresVerification: true,
-      verificationDetails: {
-        method: "OTP",
-        expiresIn: OTP_EXPIRY_MS / 1000, // in seconds
-        resendCooldown: RESEND_COOLDOWN_SECONDS, // 60 seconds cooldown for resend
-      },
-      verifyUrl: "/mobileapi/service-seller/verify-otp"
-    }
-
     return NextResponse.json<SuccessResponse>(
       { 
         success: true,
-        message: "Please verify your email with the OTP sent.",
-        data: successResponseData
+        message: "New OTP sent successfully",
+        data: {
+          email: user.email,
+          expiresIn: OTP_EXPIRY_MS / 1000, // in seconds
+          resendCooldown: RESEND_COOLDOWN_MS / 1000, // in seconds
+          otp: newOtp
+        }
       },
-      { status: 201 }
+      { status: 200 }
     )
 
   } catch (error) {
-    console.error("Mobile service seller registration error:", error)
+    console.error("Mobile service seller resend-otp error:", error)
     
     // Handle specific error types
     if (error instanceof Error) {
@@ -276,19 +200,6 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
           },
           { status: 500 }
         )
-      }
-      
-      // Handle Prisma specific errors
-      if (error instanceof Prisma.PrismaClientKnownRequestError) {
-        if (error.code === 'P2002') {
-          return NextResponse.json<ErrorResponse>(
-            { 
-              success: false,
-              error: "A unique constraint would be violated." 
-            },
-            { status: 400 }
-          )
-        }
       }
     }
 
