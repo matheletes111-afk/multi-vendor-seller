@@ -477,9 +477,27 @@ export function SellersClient() {
                                                 <span className="text-sm font-medium truncate">{seller.businessInfo?.businessRegNumber || "—"}</span>
                                               </div>
                                               <div className="flex flex-col gap-1">
-                                                <span className="text-[10px] font-medium text-muted-foreground/60">Tax ID / TIN</span>
+                                                <span className="text-[10px] font-medium text-muted-foreground/60">Tax ID / Tin no</span>
                                                 <span className="text-sm font-medium">{seller.businessInfo?.taxIdNumber || "—"}</span>
                                               </div>
+                                              <div className="flex flex-col gap-1">
+                                                <span className="text-[10px] font-medium text-muted-foreground/60">GST Registered</span>
+                                                <Badge variant="outline" className={cn("w-fit text-[9px] font-medium uppercase", seller.businessInfo?.haveGst ? "bg-green-500/10 text-green-600 border-green-200" : "bg-red-500/10 text-red-600 border-red-200")}>
+                                                  {seller.businessInfo?.haveGst ? "Yes" : "No"}
+                                                </Badge>
+                                              </div>
+                                              {seller.businessInfo?.haveGst && (
+                                                <>
+                                                  <div className="flex flex-col gap-1">
+                                                    <span className="text-[10px] font-medium text-muted-foreground/60">GST Customer Name</span>
+                                                    <span className="text-sm font-medium">{seller.businessInfo?.gstCustomerName || "—"}</span>
+                                                  </div>
+                                                  <div className="flex flex-col gap-1">
+                                                    <span className="text-[10px] font-medium text-muted-foreground/60">GST Inv No</span>
+                                                    <span className="text-sm font-medium">{seller.businessInfo?.gstInvNo || "—"}</span>
+                                                  </div>
+                                                </>
+                                              )}
                                               <div className="flex flex-col gap-1">
                                                 <span className="text-[10px] font-medium text-muted-foreground/60">Status</span>
                                                 <Badge variant="outline" className="w-fit text-[9px] font-medium uppercase">{seller.status}</Badge>

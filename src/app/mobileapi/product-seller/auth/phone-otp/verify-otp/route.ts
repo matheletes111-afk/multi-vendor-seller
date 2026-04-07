@@ -20,7 +20,7 @@ type ApiResponse =
           isEmailVerified: boolean
           createdAt: Date
           updatedAt: Date
-          sellerInfo: { isApproved: boolean; isSuspended: boolean; onboardingCompleted: boolean; onboardingStep: number; type: string | null } | null
+          sellerInfo: { isApproved: boolean; isSuspended: boolean; onboardingCompleted: boolean; onboardingStep: number; mobileStep: number; type: string | null } | null
         }
         tokens: { accessToken: string; refreshToken: string; expiresIn: number }
         sessionInfo: { expiresIn: number; tokenType: "Bearer" }
@@ -117,7 +117,10 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
           isEmailVerified: user.isEmailVerified,
           createdAt: user.createdAt,
           updatedAt: user.updatedAt,
-          sellerInfo: user.seller,
+          sellerInfo: {
+            ...user.seller,
+            mobileStep: Math.max(1, (user.seller?.onboardingStep || 1) - 1)
+          },
         },
         tokens,
         sessionInfo: { expiresIn: tokens.expiresIn, tokenType: "Bearer" },

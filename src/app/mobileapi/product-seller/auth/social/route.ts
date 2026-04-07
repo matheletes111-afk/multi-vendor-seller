@@ -13,6 +13,9 @@ interface SocialLoginRequest {
 interface SellerInfo {
   isApproved: boolean
   isSuspended: boolean
+  onboardingCompleted: boolean
+  onboardingStep: number
+  mobileStep: number
   type: string | null
 }
 
@@ -100,7 +103,7 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
             isEmailVerified: true,
             createdAt: true,
             updatedAt: true,
-            seller: { select: { isApproved: true, isSuspended: true, type: true } },
+            seller: { select: { isApproved: true, isSuspended: true, onboardingCompleted: true, onboardingStep: true, type: true } },
           },
         },
       },
@@ -161,7 +164,10 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
               isEmailVerified: u.isEmailVerified ?? false,
               createdAt: u.createdAt,
               updatedAt: u.updatedAt,
-              sellerInfo: u.seller,
+              sellerInfo: {
+                ...u.seller,
+                mobileStep: Math.max(1, (u.seller?.onboardingStep || 1) - 1)
+              } as any,
             },
             tokens,
             sessionInfo: { expiresIn: tokens.expiresIn, tokenType: "Bearer" },
@@ -239,7 +245,10 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
               isEmailVerified: existingUser.isEmailVerified ?? false,
               createdAt: existingUser.createdAt,
               updatedAt: existingUser.updatedAt,
-              sellerInfo: seller,
+              sellerInfo: {
+                ...seller,
+                mobileStep: Math.max(1, (seller?.onboardingStep || 1) - 1)
+              } as any,
             },
             tokens,
             sessionInfo: { expiresIn: tokens.expiresIn, tokenType: "Bearer" },

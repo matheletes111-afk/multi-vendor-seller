@@ -57,18 +57,27 @@ export async function POST(request: NextRequest) {
   try {
     if (step === 2) {
       // Step 2: Business Information
+      const haveGst = formData ? (formData.get("haveGst") === "true") : !!jsonBody.data.haveGst
       const data = formData ? {
         businessName: formData.get("businessName") as string,
         businessType: formData.get("businessType") as string,
         businessRegNumber: formData.get("businessRegNumber") as string,
-        taxIdNumber: formData.get("taxIdNumber") as string,
+        taxIdNumber: haveGst ? (formData.get("taxIdNumber") as string) : null,
         street: formData.get("street") as string,
         city: formData.get("city") as string,
         district: formData.get("district") as string,
         postalCode: formData.get("postalCode") as string,
-        yearsInOperation: parseInt(formData.get("yearsInOperation") as string, 10) || 0,
         natureOfBusiness: formData.get("natureOfBusiness") as string,
-      } : jsonBody.data
+        haveGst: haveGst,
+        gstInvNo: haveGst ? (formData.get("gstInvNo") as string) : null,
+        gstCustomerName: haveGst ? (formData.get("gstCustomerName") as string) : null,
+      } : {
+        ...jsonBody.data,
+        haveGst: haveGst,
+        taxIdNumber: haveGst ? jsonBody.data.taxIdNumber : null,
+        gstInvNo: haveGst ? jsonBody.data.gstInvNo : null,
+        gstCustomerName: haveGst ? jsonBody.data.gstCustomerName : null,
+      }
 
       const nationIdentityNumber = formData ? (formData.get("nationIdentityNumber") as string) : jsonBody.data.nationIdentityNumber
 

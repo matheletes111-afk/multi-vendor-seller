@@ -13,11 +13,12 @@ interface ProductSellerLoginRequest {
 }
 
 // Define seller info type from the select query
-interface SellerInfo {
+interface     SellerInfo {
   isApproved: boolean
   isSuspended: boolean
   onboardingCompleted: boolean
   onboardingStep: number
+  mobileStep: number
   type: string | null
 }
 
@@ -263,7 +264,10 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
         data: {
           user: {
             ...userWithoutPassword,
-            sellerInfo: seller
+            sellerInfo: {
+              ...seller,
+              mobileStep: Math.max(1, seller.onboardingStep - 1)
+            }
           },
           tokens,
           sessionInfo: {

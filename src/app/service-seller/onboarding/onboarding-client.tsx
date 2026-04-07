@@ -37,6 +37,7 @@ export function ServiceOnboardingClient() {
     agreedToReturnPolicy: false,
     agreedToPrivacy: false
   })
+  const [haveGst, setHaveGst] = useState(false)
 
   useEffect(() => {
     if (seller) {
@@ -50,6 +51,9 @@ export function ServiceOnboardingClient() {
           agreedToReturnPolicy: !!seller.agreement.agreedToReturnPolicy,
           agreedToPrivacy: !!seller.agreement.agreedToPrivacy
         })
+      }
+      if (seller.businessInfo) {
+        setHaveGst(!!seller.businessInfo.haveGst)
       }
     }
   }, [seller])
@@ -339,9 +343,46 @@ export function ServiceOnboardingClient() {
                       <Input id="businessRegNumber" name="businessRegNumber" defaultValue={seller.businessInfo?.businessRegNumber || ""} placeholder="if applicable" className="h-12 rounded-xl" />
                     </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="taxIdNumber">Tax Identification Number (TIN) *</Label>
-                    <Input id="taxIdNumber" name="taxIdNumber" defaultValue={seller.businessInfo?.taxIdNumber || ""} required className="h-12 rounded-xl" />
+                  <div className="space-y-4 pt-6 border-t border-slate-100">
+                    <h2 className="text-xl font-bold text-slate-800">GST Info</h2>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="haveGst">Do you have GST? *</Label>
+                        <Select 
+                          name="haveGst" 
+                          key={haveGst ? "yes" : "no"}
+                          defaultValue={haveGst ? "true" : "false"} 
+                          onValueChange={(val) => setHaveGst(val === "true")}
+                        >
+                          <SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Select" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="false">No</SelectItem>
+                            <SelectItem value="true">Yes</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
+                    {haveGst && (
+                      <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="taxIdNumber">Tin no *</Label>
+                            <Input id="taxIdNumber" name="taxIdNumber" defaultValue={seller.businessInfo?.taxIdNumber || ""} required={haveGst} className="h-12 rounded-xl" />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="gstCustomerName">Customer GST Name *</Label>
+                            <Input id="gstCustomerName" name="gstCustomerName" defaultValue={seller.businessInfo?.gstCustomerName || ""} required={haveGst} className="h-12 rounded-xl" />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="gstInvNo">Inv No *</Label>
+                            <Input id="gstInvNo" name="gstInvNo" defaultValue={seller.businessInfo?.gstInvNo || ""} required={haveGst} className="h-12 rounded-xl" />
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                   <div className="space-y-2 pt-2">
                     <Label htmlFor="busRegCert" className="text-sm font-semibold">Business Registration Certificate / Trade License</Label>

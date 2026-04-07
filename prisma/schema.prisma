@@ -288,6 +288,9 @@ model SellerBusinessInfo {
   postalCode        String?
   yearsInOperation Int?
   natureOfBusiness  String?
+  haveGst           Boolean  @default(false)
+  gstInvNo          String?
+  gstCustomerName   String?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 

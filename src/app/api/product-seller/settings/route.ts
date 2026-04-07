@@ -246,6 +246,15 @@ export async function PUT(request: NextRequest) {
   if (body.seller && Object.keys(body.seller).length > 0) {
     const s = body.seller as any
     if (s.businessInfo) {
+        if (s.businessInfo.haveGst !== undefined) {
+            const h = s.businessInfo.haveGst === "true" || s.businessInfo.haveGst === true;
+            s.businessInfo.haveGst = h;
+            if (!h) {
+                s.businessInfo.taxIdNumber = null;
+                s.businessInfo.gstInvNo = null;
+                s.businessInfo.gstCustomerName = null;
+            }
+        }
         await (prisma as any).sellerBusinessInfo.upsert({
             where: { sellerId: seller.id },
             update: s.businessInfo,

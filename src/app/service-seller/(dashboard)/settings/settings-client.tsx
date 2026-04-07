@@ -26,6 +26,7 @@ export function ServiceSettingsClient() {
   const [success, setSuccess] = useState<string | null>(null)
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  const [haveGst, setHaveGst] = useState(false)
 
   useEffect(() => {
     async function loadData() {
@@ -34,10 +35,14 @@ export function ServiceSettingsClient() {
           fetch("/api/service-seller/settings"),
           fetch("/api/service-categories")
         ])
-        if (sellerRes.ok) setSeller(await sellerRes.json())
         if (catsRes.ok) {
-            const catsData = await catsRes.json()
-            setServiceCategories(catsData.categories || [])
+          const catsData = await catsRes.json()
+          setServiceCategories(catsData.categories || [])
+        }
+        if (sellerRes.ok) {
+          const s = await sellerRes.json()
+          setSeller(s)
+          if (s.businessInfo) setHaveGst(!!s.businessInfo.haveGst)
         }
       } finally {
         setLoading(false)
@@ -214,8 +219,44 @@ export function ServiceSettingsClient() {
                </div>
                <div className="grid md:grid-cols-2 gap-4">
                  <div className="space-y-2"><Label>Trade License / Reg No.</Label><Input name="businessRegNumber" defaultValue={seller.businessInfo?.businessRegNumber || ""} /></div>
-                 <div className="space-y-2"><Label>TIN</Label><Input name="taxIdNumber" defaultValue={seller.businessInfo?.taxIdNumber || ""} /></div>
+                 <div className="space-y-2">
+                   <Label>Do you have GST? *</Label>
+                   <Select 
+                     name="haveGst" 
+                     key={haveGst ? "yes" : "no"}
+                     defaultValue={haveGst ? "true" : "false"}
+                     onValueChange={(val) => setHaveGst(val === "true")}
+                   >
+                     <SelectTrigger><SelectValue /></SelectTrigger>
+                     <SelectContent>
+                       <SelectItem value="false">No</SelectItem>
+                       <SelectItem value="true">Yes</SelectItem>
+                     </SelectContent>
+                   </Select>
+                 </div>
                </div>
+               <div className="grid md:grid-cols-2 gap-4">
+                 {haveGst && (
+                   <div className="space-y-2 animate-in fade-in slide-in-from-top-1 duration-300">
+                     <Label>Tin no (Tax ID) *</Label>
+                     <Input name="taxIdNumber" defaultValue={seller.businessInfo?.taxIdNumber || ""} required={haveGst} />
+                   </div>
+                 )}
+                 {haveGst && (
+                   <div className="space-y-2 animate-in fade-in slide-in-from-top-1 duration-300">
+                     <Label>Customer GST Name *</Label>
+                     <Input name="gstCustomerName" defaultValue={seller.businessInfo?.gstCustomerName || ""} required={haveGst} />
+                   </div>
+                 )}
+               </div>
+               {haveGst && (
+                 <div className="grid md:grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-1 duration-300">
+                   <div className="space-y-2">
+                     <Label>Inv No *</Label>
+                     <Input name="gstInvNo" defaultValue={seller.businessInfo?.gstInvNo || ""} required={haveGst} />
+                   </div>
+                 </div>
+               )}
                <div className="space-y-2 pt-2">
                   <Label>Registration Document</Label>
                   <div className="flex items-center gap-3">

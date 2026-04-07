@@ -8,10 +8,11 @@ This document is the definitive guide for Product and Service Seller mobile auth
 1. [Product Seller Registration](#1-product-seller-registration)
 2. [Product Seller Verification & Resend](#2-product-seller-verification--resend)
 3. [Product Seller Password Login](#3-product-seller-password-login)
-4. [Product Seller Email OTP Login](#4-product-seller-email-otp-login)
-5. [Product Seller Phone OTP Login](#5-product-seller-phone-otp-login)
-6. [Service Seller Endpoints](#6-service-seller-endpoints)
-7. [Global Status Reference](#7-global-status-reference)
+4. [Product Seller Social Login](#4-product-seller-social-login)
+5. [Product Seller Email OTP Login](#5-product-seller-email-otp-login)
+6. [Product Seller Phone OTP Login](#6-product-seller-phone-otp-login)
+7. [Service Seller Endpoints](#7-service-seller-endpoints)
+8. [Global Status Reference](#8-global-status-reference)
 
 ---
 
@@ -60,15 +61,6 @@ This document is the definitive guide for Product and Service Seller mobile auth
   }
   ```
 
-### Scenario: Validation Error
-- **Response (400 Bad Request)**:
-  ```json
-  {
-    "success": false,
-    "error": "Password must be at least 6 characters long"
-  }
-  ```
-
 ---
 
 ## 2. PRODUCT SELLER VERIFICATION & RESEND
@@ -91,16 +83,9 @@ This document is the definitive guide for Product and Service Seller mobile auth
     }
   }
   ```
-- **Response (400 - Wrong/Expired OTP)**:
-  ```json
-  { "success": false, "error": "Invalid OTP." }
-  // OR { "success": false, "error": "OTP has expired. Please request a new one.", "expired": true }
-  ```
 
 ### 2.2 Resend Registration OTP
 **Endpoint**: `POST /mobileapi/product-seller/auth/resend-otp`
-
-- **Payload**: `{ "email": "john@example.com" }`
 - **Response (200 OK - Success)**:
   ```json
   {
@@ -113,10 +98,6 @@ This document is the definitive guide for Product and Service Seller mobile auth
       "otp": "654321"
     }
   }
-  ```
-- **Response (429 - Cooldown)**:
-  ```json
-  { "success": false, "error": "Please wait 45 seconds before requesting a new OTP", "waitTime": 45 }
   ```
 
 ---
@@ -140,12 +121,13 @@ This document is the definitive guide for Product and Service Seller mobile auth
           "isApproved": true,
           "isSuspended": false,
           "onboardingCompleted": true,
-          "onboardingStep": 4,
+          "onboardingStep": 6,
+          "mobileStep": 5,
           "type": "PRODUCT"
         }
       },
       "tokens": { "accessToken": "...", "refreshToken": "..." },
-      "sessionInfo": { "expiresIn": 604800, "tokenType": "Bearer" }
+      "sessionInfo": { "expiresIn": 172800, "tokenType": "Bearer" }
     }
   }
   ```
@@ -161,7 +143,8 @@ This document is the definitive guide for Product and Service Seller mobile auth
         "sellerInfo": {
           "isApproved": false,
           "onboardingCompleted": false,
-          "onboardingStep": 1
+          "onboardingStep": 1,
+          "mobileStep": 1
         }
       },
       "tokens": { ... }
@@ -182,65 +165,53 @@ This document is the definitive guide for Product and Service Seller mobile auth
   }
   ```
 
-### Scenario: Pending Admin Approval (Onboarding is Done)
-- **Response (403 Forbidden)**:
-  ```json
-  {
-    "success": false,
-    "error": "Your account is pending admin approval.",
-    "needsApproval": true,
-    "approvalStatus": "PENDING",
-    "authStatus": "PENDING_APPROVAL"
-  }
-  ```
+---
 
-### Scenario: Account Suspended
-- **Response (403 Forbidden)**:
+## 4. PRODUCT SELLER SOCIAL LOGIN
+
+**Endpoint**: `POST /mobileapi/product-seller/auth/social`
+
+- **Payload**:
   ```json
   {
-    "success": false,
-    "error": "Your account has been suspended. Please contact support.",
-    "isSuspended": true,
-    "authStatus": "SUSPENDED"
+    "provider": "google", // or "facebook"
+    "idToken": "...",
+    "accessToken": "..." // required for facebook
   }
   ```
+- **Response (200 OK - Success)**:
+  Same structure as Password Login Success (See Section 3). 
+  Includes `sellerInfo` with `onboardingStep` and `mobileStep`.
 
 ---
 
-## 4. PRODUCT SELLER EMAIL OTP LOGIN
+## 5. PRODUCT SELLER EMAIL OTP LOGIN
 
-### 4.1 Send Login OTP
+### 5.1 Send Login OTP
 **Endpoint**: `POST /mobileapi/product-seller/auth/email-otp/send-otp`
-
 - **Payload**: `{ "email": "john@example.com" }`
-- **Success (200)**: `{ "success": true, "data": { "email": "...", "expiresIn": 600, "resendCooldown": 60 } }`
-- **Unverified Error (403)**: Same JSON as Unverified Login (See Section 3).
 
-### 4.2 Verify Login OTP
+### 5.2 Verify Login OTP
 **Endpoint**: `POST /mobileapi/product-seller/auth/email-otp/verify-otp`
-
 - **Payload**: `{ "email": "...", "otp": "..." }`
-- **Success (200)**: Same data structure as Password Login Success (See Section 3).
+- **Success (200)**: Same data structure as Password Login Success. Includes `mobileStep`.
 
 ---
 
-## 5. PRODUCT SELLER PHONE OTP LOGIN
+## 6. PRODUCT SELLER PHONE OTP LOGIN
 
-### 5.1 Send Login Phone OTP
+### 6.1 Send Login Phone OTP
 **Endpoint**: `POST /mobileapi/product-seller/auth/phone-otp/send-otp`
-
 - **Payload**: `{ "phone": "+919876543210" }`
-- **Success (200)**: `{ "success": true, "data": { "phone": "...", "expiresIn": 600, "resendCooldown": 60 } }`
 
-### 5.2 Verify Login Phone OTP
+### 6.2 Verify Login Phone OTP
 **Endpoint**: `POST /mobileapi/product-seller/auth/phone-otp/verify-otp`
-
 - **Payload**: `{ "phone": "...", "otp": "..." }`
-- **Success (200)**: Same data structure as Password Login Success (See Section 3).
+- **Success (200)**: Same data structure as Password Login Success. Includes `mobileStep`.
 
 ---
 
-## 6. SERVICE SELLER ENDPOINTS
+## 7. SERVICE SELLER ENDPOINTS
 
 The **Service Seller** endpoints follow the exact same request/response structures as above, but with the following base URL:
 `/mobileapi/service-seller/auth/...`
@@ -248,6 +219,7 @@ The **Service Seller** endpoints follow the exact same request/response structur
 Endpoints covered:
 - `/register`
 - `/login`
+- `/social`
 - `/verify-otp`
 - `/resend-otp`
 - `/email-otp/send-otp`
@@ -257,10 +229,17 @@ Endpoints covered:
 
 ---
 
-## 7. GLOBAL STATUS REFERENCE
+## 8. GLOBAL STATUS REFERENCE
 
 - **isApproved**: Boolean. If false AND onboardingCompleted is true, user is blocked with "Pending Approval" message.
 - **onboardingCompleted**: Boolean. If false, mobile apps should direct user to the onboarding multi-step form.
+- **onboardingStep**: Integer (1-6). The internal database step number.
+- **mobileStep**: Integer (1-5). The simplified step number for mobile apps.
+  - `1`: Business Info
+  - `2`: Identity (KYC)
+  - `3`: Bank Details
+  - `4`: Venture/Store Setup
+  - `5`: Agreement
 - **authStatus**: Use this string field for navigation logic:
   - `"PENDING_VERIFICATION"` -> Redirect to OTP Screen.
   - `"PENDING_APPROVAL"` -> Show "Awaiting Approval" Screen.

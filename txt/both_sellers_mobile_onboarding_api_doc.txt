@@ -1,0 +1,253 @@
+# FULL MOBILE ONBOARDING API DOCUMENTATION (Product & Service)
+
+This document is the official guide for implementing the step-by-step onboarding process (Steps 1-5) for mobile sellers.
+
+---
+
+## 1. GENERAL REQUIREMENTS
+### PRODUCT SELLER
+- **GET**: `/mobileapi/product-seller/onboarding`
+- **POST**: `/mobileapi/product-seller/onboarding`
+- **GET (Categories)**: `/mobileapi/product-seller/categories` (To fetch the list for Step 4)
+
+### SERVICE SELLER
+- **GET**: `/mobileapi/service-seller/onboarding`
+- **POST**: `/mobileapi/service-seller/onboarding`
+- **GET (Categories)**: `/mobileapi/service-seller/categories` (To fetch the list for Step 4)
+
+- **Auth**: `Authorization: Bearer <token>` (Required for ALL endpoints)
+- **Mapping**: Mobile Step 1-5 maps to Database `onboardingStep` 2-6.
+- **Resuming**: Always hit `GET` first to see which step the user is on and pre-fill their data.
+
+---
+
+## 2. CATEGORY LIST FETCHING
+Before the seller reaches Step 4, you should fetch the available categories to display the checklist.
+
+**Endpoint**: `GET /mobileapi/[seller-type]/categories`
+- **Product Seller**: `GET /mobileapi/product-seller/categories`
+- **Service Seller**: `GET /mobileapi/service-seller/categories`
+
+**Success Response (200 OK)**:
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "uuid-01",
+      "name": "Electronics",
+      "description": "Gadgets and devices",
+      "image": "https://storage.com/cat-electronics.jpg"
+    },
+    {
+      "id": "uuid-02",
+      "name": "Home Appliances",
+      "description": "Kitchen and living",
+      "image": "https://storage.com/cat-home.jpg"
+    }
+  ]
+}
+```
+
+---
+
+## 3. FETCH STATUS (GET)
+**Endpoint**: `GET /mobileapi/[seller-type]/onboarding`
+
+### Success Response (200 OK)
+```json
+{
+  "success": true,
+  "data": {
+    "onboardingCompleted": false,
+    "onboardingStep": 2,
+    "mobileStep": 1,
+    "businessInfo": {
+      "id": "uuid-string",
+      "sellerId": "seller-uuid",
+      "businessName": "My Awesome Store",
+      "businessType": "Proprietor",
+      "businessRegNumber": "REG-12345",
+      "busRegCertUrl": "https://storageapi.com/onboarding/business/bus-reg-ceb.pdf",
+      "taxIdNumber": "GST-99999",
+      "street": "123 Market St",
+      "city": "Mumbai",
+      "district": "Maharashtra",
+      "postalCode": "400001",
+      "natureOfBusiness": "Retail",
+      "haveGst": true,
+      "gstInvNo": "INV-001",
+      "gstCustomerName": "John Doe",
+      "createdAt": "2026-04-07T11:00:00Z",
+      "updatedAt": "2026-04-07T11:00:00Z"
+    },
+    "kyc": {
+      "id": "uuid-string",
+      "idType": "Aadhar",
+      "idNumber": "123456789012",
+      "idFrontUrl": "https://storageapi.com/onboarding/kyc/id-front.jpg",
+      "idBackUrl": "https://storageapi.com/onboarding/kyc/id-back.jpg",
+      "selfieUrl": "https://storageapi.com/onboarding/kyc/selfie.jpg"
+    },
+    "bankDetails": {
+      "id": "uuid-string",
+      "bankName": "HDFC Bank",
+      "accountHolderName": "John Doe",
+      "accountNumber": "50100012345678",
+      "branchName": "Andheri West",
+      "preferredPayoutMethod": "Direct Bank Transfer",
+      "passbookUrl": "https://storageapi.com/onboarding/bank/bank-passbook.jpg"
+    },
+    "nationIdentityNumber": "12345678901",
+    "store": {
+      "id": "uuid-string",
+      "name": "My Marketplace",
+      "description": "Premium electronics store",
+      "logo": "https://storageapi.com/profile/profile-image.jpg"
+    },
+    "selectedCategories": [
+      { "id": "cat-01", "name": "Electronics" },
+      { "id": "cat-02", "name": "Gadgets" }
+    ],
+    "selectedServiceCategories": [
+      { "id": "srv-01", "name": "Plumbing" }
+    ]
+  }
+}
+```
+
+---
+
+## 4. STEP-BY-STEP SUBMISSION (POST)
+
+### STEP 1: BUSINESS INFORMATION
+**Action**: Save core business identity, NIN, and GST registration.
+- **Method**: `POST`
+- **Content-Type**: `multipart/form-data`
+
+| Field | Type | Description | Required |
+| :--- | :--- | :--- | :--- |
+| `step` | string | Constant "1" | Yes |
+| `businessName` | string | Legal name of the business | Yes |
+| `businessType` | string | "Individual", "Proprietor", "Partnership", "Company" | Yes |
+| `businessRegNumber` | string | Registration number (if any) | No |
+| `nationIdentityNumber` | string | 11-digit NIN identifier | Yes |
+| `street` | string | Physical street address | Yes |
+| `city` | string | City name | Yes |
+| `district` | string | District/State | Yes |
+| `postalCode` | string | 6-digit postal code | Yes |
+| `natureOfBusiness` | string | Brief description of operations | No |
+| `haveGst` | string | "true" or "false" | Yes |
+| `taxIdNumber` | string | GSTIN / Tin No (REQUIRED if haveGst is true) | Cond. |
+| `gstCustomerName`| string | Customer GST Name (REQUIRED if haveGst is true) | Cond. |
+| `gstInvNo` | string | Invoice Number (REQUIRED if haveGst is true) | Cond. |
+| **Files** | | | |
+| `profileImage` | File | JPG/PNG/WebP format | Yes |
+| `busRegCert` | File | PDF/JPG registration certificate | No |
+
+**GST Logic Note**: If `haveGst` is `"false"`, the API will automatically set `taxIdNumber`, `gstCustomerName`, and `gstInvNo` to **null** in the database.
+
+---
+
+### STEP 2: IDENTITY VERIFICATION (KYC)
+**Action**: Verify seller identity with government-issued documents.
+- **Method**: `POST`
+- **Content-Type**: `multipart/form-data`
+
+| Field | Type | Description | Required |
+| :--- | :--- | :--- | :--- |
+| `step` | string | Constant "2" | Yes |
+| `idType` | string | "Aadhar", "Voter ID", "Passport", etc. | Yes |
+| `idNumber` | string | Unique document number | Yes |
+| **Files** | | | |
+| `idFront` | File | Front side of the ID card | Yes |
+| `idBack` | File | Back side of the ID card | Yes |
+| `selfie` | File | Live photo of the seller's face | Yes |
+
+---
+
+### STEP 3: BANK & PAYOUT DETAILS
+**Action**: Configure where the seller will receive payments.
+- **Method**: `POST`
+- **Content-Type**: `multipart/form-data`
+
+| Field | Type | Description | Required |
+| :--- | :--- | :--- | :--- |
+| `step` | string | Constant "3" | Yes |
+| `bankName` | string | Official name of the bank | Yes |
+| `accountHolderName`| string | Name as it appears on bank record | Yes |
+| `accountNumber` | string | Full account number | Yes |
+| `branchName` | string | Branch name or address | Yes |
+| `preferredPayoutMethod`| string | "Direct Bank Transfer" | Yes |
+| **Files** | | | |
+| `bankPassbook` | File | Photo of passbook or cancelled cheque | Yes |
+
+---
+
+### STEP 4 (PRODUCT): STORE SETUP
+**Action**: Create the public seller storefront.
+- **Method**: `POST`
+- **Content-Type**: `application/json`
+
+| Field | Type | Description | Required | Sample Value |
+| :--- | :--- | :--- | :--- | :--- |
+| `step` | integer | Constant 4 | Yes | 4 |
+| `storeName` | string | Name visible to customers | Yes | "Prime Electronics" |
+| `description` | string | Store biography | No | "Best tech in town" |
+| `categoryIds` | array | IDs assigned to the store | Yes | ["cat-01", "cat-02"] |
+
+---
+
+### STEP 4 (SERVICE): CATEGORY SELECTION
+**Action**: Select the service categories offered.
+- **Method**: `POST`
+- **Content-Type**: `application/json`
+
+| Field | Type | Description | Required | Sample Value |
+| :--- | :--- | :--- | :--- | :--- |
+| `step` | integer | Constant 4 | Yes | 4 |
+| `categoryIds` | array | IDs of service categories | Yes | ["srv-101", "srv-202"] |
+
+---
+
+### STEP 5: AGREEMENT & COMPLETION
+**Action**: Finalize the onboarding by accepting terms.
+- **Method**: `POST`
+- **Content-Type**: `application/json`
+
+| Field | Type | Description | Required | Sample Value |
+| :--- | :--- | :--- | :--- | :--- |
+| `step` | integer | Constant 5 | Yes | 5 |
+| `agreedToTerms` | boolean | Must be true | Yes | true |
+| `agreedToCommission`| boolean | Must be true | Yes | true |
+| `agreedToReturnPolicy`| boolean | Must be true | Yes | true |
+| `agreedToPrivacy` | boolean | Must be true | Yes | true |
+
+---
+
+## 5. SUCCESS RESPONSE (ALL STEPS)
+**Response (200 OK)**:
+```json
+{
+  "success": true,
+  "message": "Step 1 saved successfully",
+  "data": {
+    "nextStep": 2,
+    "onboardingCompleted": false
+  }
+}
+```
+
+---
+
+## 6. ERROR RESPONSES
+- **401 Unauthorized**: Token missing or expired.
+- **403 Forbidden**: Wrong role or account suspended.
+- **500 Server Error**: Database connection failure or file upload error.
+
+```json
+{
+  "success": false,
+  "error": "The nationIdentityNumber must be 11 characters long"
+}
+```
