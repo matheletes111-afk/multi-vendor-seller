@@ -53,7 +53,7 @@ export async function PUT(
     const formData = await request.formData();
     const name = formData.get("name") as string;
     const description = (formData.get("description") as string) || null;
-    const commissionRate = parseFloat(formData.get("commissionRate") as string) || 10.0;
+    const commissionRate = 0.0; // Disabled project-wide
     const isActive = formData.get("isActive") === "true";
     const categoryImageFile = formData.get("categoryImage") as File | null;
     const categoryImageUrl = (formData.get("categoryImageUrl") as string)?.trim() || null;

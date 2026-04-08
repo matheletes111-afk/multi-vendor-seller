@@ -117,7 +117,7 @@ export async function PUT(
     
     const name = formData.get("name") as string;
     const description = formData.get("description") as string || null;
-    const commissionRate = parseFloat(formData.get("commissionRate") as string) || 10.0;
+    const commissionRate = 0.0; // Fixed to 0 per system requirements
     const isActive = formData.get("isActive") === "true";
     const isFeatured = formData.get("isFeatured") === "true";
 

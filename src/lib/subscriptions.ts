@@ -143,3 +143,40 @@ export function canReceiveReviews(sellerId: string, subscription: { plan: { name
   return PLAN_LIMITS[subscription.plan.name].canReceiveReviews
 }
 
+/** 
+ * Automatically activates the free plan (0 RS) for a new seller. 
+ * Used during registration/onboarding.
+ */
+export async function activateFreePlan(sellerId: string) {
+  try {
+    // 1. Find the plan with price 0
+    const freePlan = await prisma.plan.findFirst({
+      where: { price: 0 },
+    })
+
+    if (!freePlan) {
+      console.error(`[activateFreePlan] No plan with 0 RS found in database. Cannot auto-activate for seller ${sellerId}`)
+      return null
+    }
+
+    // 2. Create the subscription
+    const subscription = await prisma.subscription.upsert({
+      where: { sellerId },
+      create: {
+        sellerId,
+        planId: freePlan.id,
+        status: "ACTIVE",
+      },
+      update: {
+        planId: freePlan.id,
+        status: "ACTIVE",
+      },
+    })
+
+    return subscription
+  } catch (error) {
+    console.error(`[activateFreePlan] Error activating free plan for seller ${sellerId}:`, error)
+    return null
+  }
+}
+

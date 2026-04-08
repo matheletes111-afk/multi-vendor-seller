@@ -169,7 +169,13 @@ export function EditPlanClient({ planId }: { planId: string }) {
                   defaultValue={plan.price}
                   required
                   placeholder="0.00"
+                  disabled={plan.price === 0}
                 />
+                {plan.price === 0 && (
+                  <p className="text-xs text-muted-foreground font-medium">
+                    The price of the default free plan (0 RS) cannot be changed.
+                  </p>
+                )}
               </div>
             </div>
 

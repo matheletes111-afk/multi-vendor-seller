@@ -14,6 +14,15 @@ import {
 import { Label } from "@/ui/label"
 import { Upload } from "lucide-react"
 
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/ui/select"
+import CheckboxV2 from "@/ui/checkbox-v2"
+
 type Subcategory = { id: string; name: string; slug: string }
 type CategoryWithSub = { id: string; name: string; slug: string; subcategories: Subcategory[] }
 
@@ -27,6 +36,12 @@ export function BulkUploadDialog({ onImported }: { onImported?: () => void }) {
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<string | null>(null)
   const [importErrors, setImportErrors] = useState<string[]>([])
+
+  // Template states
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string>("")
+  const [selectedSubIds, setSelectedSubIds] = useState<string[]>([])
+
+  const selectedCategory = categories.find((c) => c.id === selectedCategoryId)
 
   const loadCategories = useCallback(() => {
     setLoadingCats(true)
@@ -43,29 +58,35 @@ export function BulkUploadDialog({ onImported }: { onImported?: () => void }) {
       setResult(null)
       setImportErrors([])
       setFile(null)
+      setSelectedCategoryId("")
+      setSelectedSubIds([])
       loadCategories()
     }
   }, [open, loadCategories])
 
   async function handleDownloadTemplate(format: "csv" | "xlsx") {
+    if (!selectedCategoryId) {
+      setError("Please select a category first.")
+      return
+    }
     setError(null)
     setDownloading(format)
     try {
-      const res = await fetch(`/api/product-seller/products/bulk-template?format=${format}`, {
-        credentials: "include",
-      })
+      const subParam = selectedSubIds.length > 0 ? `&subcategoryIds=${selectedSubIds.join(",")}` : ""
+      const url = `/api/product-seller/products/bulk-template?format=${format}&categoryId=${selectedCategoryId}${subParam}`
+      const res = await fetch(url, { credentials: "include" })
       if (!res.ok) {
         const j = await res.json().catch(() => ({}))
         setError(typeof j.error === "string" ? j.error : "Failed to download template")
         return
       }
       const blob = await res.blob()
-      const url = URL.createObjectURL(blob)
+      const dUrl = URL.createObjectURL(blob)
       const a = document.createElement("a")
-      a.href = url
+      a.href = dUrl
       a.download = format === "xlsx" ? "product-bulk-template.xlsx" : "product-bulk-template.csv"
       a.click()
-      URL.revokeObjectURL(url)
+      URL.revokeObjectURL(dUrl)
     } finally {
       setDownloading(null)
     }
@@ -107,152 +128,121 @@ export function BulkUploadDialog({ onImported }: { onImported?: () => void }) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button type="button" variant="outline">
+        <Button type="button" variant="outline" className="rounded-full shadow-sm hover:scale-105 transition-all">
           <Upload className="mr-2 h-4 w-4" />
-          Bulk upload
+          Bulk Upload
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Bulk upload products</DialogTitle>
-          <DialogDescription className="text-left">
-            Add many products at once using a spreadsheet. You can include products from different categories in the same
-            file.
+          <DialogTitle>Bulk Upload Products</DialogTitle>
+          <DialogDescription className="text-left font-medium">
+            Generate a custom template and add multiple products to your catalog at once.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 py-1">
-          <div className="rounded-lg border bg-muted/40 p-4 text-sm space-y-3">
-            <p className="font-medium text-foreground">How it works</p>
-            <ol className="list-decimal pl-4 space-y-2 text-muted-foreground leading-relaxed">
-              <li>
-                <span className="text-foreground">Download a template</span> (Excel or CSV) and open it on your computer.
-              </li>
-              <li>
-                Each <strong className="text-foreground">row</strong> is one sellable option — for example one size or
-                color. That row needs a <strong className="text-foreground">name</strong> for that option, a{" "}
-                <strong className="text-foreground">price</strong>, and <strong className="text-foreground">stock</strong>{" "}
-                (how many you have).
-              </li>
-              <li>
-                Rows that belong to the <strong className="text-foreground">same product</strong> (e.g. Small, Medium,
-                Large) should use the <strong className="text-foreground">same value</strong> in the first column
-                (product key). The template shows an example.
-              </li>
-              <li>
-                Pick your <strong className="text-foreground">category</strong> and optional <strong className="text-foreground">type</strong>{" "}
-                from the list below. Copy the short <strong className="text-foreground">codes</strong> into the matching
-                columns in the spreadsheet — the column headers use words like <code className="text-xs bg-background px-1 rounded">category_id</code>{" "}
-                and <code className="text-xs bg-background px-1 rounded">subcategory_id</code>; those are just the
-                spreadsheet column names for “category code” and “type code”.
-              </li>
-              <li>
-                Using Excel? Enter your data on the sheet named <strong className="text-foreground">Products</strong>.
-              </li>
-            </ol>
-          </div>
+        <div className="space-y-6 py-2">
+          {/* Step 1: Selection */}
+          <section className="space-y-4 rounded-xl border bg-muted/30 p-5">
+            <h3 className="text-sm font-semibold flex items-center gap-2">
+              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] text-primary-foreground">1</span>
+              Configure Your Template
+            </h3>
+            
+            <div className="space-y-2">
+              <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Select Main Category</Label>
+              <Select value={selectedCategoryId} onValueChange={(val) => { setSelectedCategoryId(val); setSelectedSubIds([]) }}>
+                <SelectTrigger className="bg-background">
+                  <SelectValue placeholder={loadingCats ? "Loading categories..." : "Choose a category"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {categories.map(c => (
+                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-          <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-4 text-sm space-y-2">
-            <p className="font-medium text-foreground">Wrong category or type code?</p>
-            <p className="text-muted-foreground leading-relaxed">
-              If any <strong className="text-foreground">category_id</strong> or <strong className="text-foreground">subcategory_id</strong>{" "}
-              is unknown, not yours, or doesn&apos;t match the category (e.g. a sub-type from another category), the import{" "}
-              <strong className="text-foreground">stops and nothing is saved</strong>. You&apos;ll see a list of problems with
-              the product name and row numbers — fix the spreadsheet and import again.
-            </p>
-          </div>
-
-          <div className="rounded-lg border bg-muted/40 p-4 text-sm space-y-2">
-            <p className="font-medium text-foreground">Variant attributes (optional)</p>
-            <p className="text-muted-foreground leading-relaxed">
-              In the manual product form, each variant can have extra fields like Size or Color. In the spreadsheet, use
-              the column named <code className="text-xs bg-background px-1 rounded border">attributes_json</code> — one
-              per <strong className="text-foreground">row</strong> (each row is one variant).
-            </p>
-            <p className="text-muted-foreground leading-relaxed">
-              Put a <strong className="text-foreground">JSON object</strong> with quote marks around names and values, e.g.{" "}
-              <code className="text-xs bg-background px-1 rounded break-all">{`{"Size":"M","Color":"Blue"}`}</code>. Leave the
-              cell empty if that variant has no attributes. In CSV files, wrap the whole thing in double quotes if it
-              contains commas:{" "}
-              <code className="text-xs bg-background px-1 rounded break-all">{`"{""Size"":""L"",""Color"":""Red""}"`}</code>
-            </p>
-          </div>
-
-          {loadingCats ? (
-            <p className="text-sm text-muted-foreground">Loading your categories…</p>
-          ) : categories.length === 0 ? (
-            <p className="text-sm text-destructive">No categories assigned. Complete onboarding or contact admin.</p>
-          ) : (
-            <>
+            {selectedCategory && selectedCategory.subcategories?.length > 0 && (
               <div className="space-y-2">
-                <Label className="text-base">Your categories — copy the codes into the sheet</Label>
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  Under each category name, copy the <strong className="text-foreground">Category code</strong> into the
-                  category column. If you use a sub-type (e.g. Men&apos;s clothing), copy the <strong className="text-foreground">Type code</strong>{" "}
-                  into the subcategory column. You can use different categories in different rows of the same file.
-                </p>
-                <div className="space-y-3 max-h-52 overflow-y-auto pr-1">
-                  {categories.map((cat) => (
-                    <div key={cat.id} className="rounded-lg border bg-card p-3 text-sm shadow-sm">
-                      <p className="font-semibold text-foreground">{cat.name}</p>
-                      <p className="mt-2 text-xs text-muted-foreground">
-                        Category code:{" "}
-                        <code className="text-xs font-mono bg-muted px-1.5 py-0.5 rounded border select-all">{cat.id}</code>
-                      </p>
-                      {cat.subcategories?.length ? (
-                        <div className="mt-2 pt-2 border-t border-border/60">
-                          <p className="text-xs font-medium text-muted-foreground mb-1.5">Types (optional)</p>
-                          <ul className="space-y-1.5">
-                            {cat.subcategories.map((sub) => (
-                              <li key={sub.id} className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-xs">
-                                <span className="text-foreground">{sub.name}</span>
-                                <span className="text-muted-foreground">→</span>
-                                <code className="font-mono bg-muted px-1.5 py-0.5 rounded border select-all">{sub.id}</code>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      ) : null}
+                <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Select Sub-Categories (Optional)</Label>
+                <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto p-3 border rounded-lg bg-background">
+                  {selectedCategory.subcategories.map(sub => (
+                    <div key={sub.id} className="flex items-center space-x-2 p-1 hover:bg-muted/50 rounded transition-colors">
+                      <CheckboxV2 
+                        id={sub.id} 
+                        checked={selectedSubIds.includes(sub.id)} 
+                        onChange={(e) => {
+                          const isChecked = e.target.checked
+                          if (isChecked) setSelectedSubIds(prev => [...prev, sub.id])
+                          else setSelectedSubIds(prev => prev.filter(id => id !== sub.id))
+                        }}
+                      />
+                      <Label htmlFor={sub.id} className="text-xs font-medium cursor-pointer leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                        {sub.name}
+                      </Label>
                     </div>
                   ))}
                 </div>
               </div>
+            )}
 
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="sm"
-                  disabled={downloading !== null}
-                  onClick={() => handleDownloadTemplate("csv")}
-                >
-                  {downloading === "csv" ? "Downloading…" : "Download CSV template"}
-                </Button>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="sm"
-                  disabled={downloading !== null}
-                  onClick={() => handleDownloadTemplate("xlsx")}
-                >
-                  {downloading === "xlsx" ? "Downloading…" : "Download Excel template"}
-                </Button>
-              </div>
+            <div className="flex flex-wrap gap-2 pt-2">
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                className="font-medium text-xs rounded-full"
+                disabled={!selectedCategoryId || downloading !== null}
+                onClick={() => handleDownloadTemplate("csv")}
+              >
+                {downloading === "csv" ? "Downloading..." : "Download CSV Template"}
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                className="font-medium text-xs rounded-full"
+                disabled={!selectedCategoryId || downloading !== null}
+                onClick={() => handleDownloadTemplate("xlsx")}
+              >
+                {downloading === "xlsx" ? "Downloading..." : "Download Excel Template"}
+              </Button>
+            </div>
+            {!selectedCategoryId && (
+              <p className="text-[10px] text-muted-foreground italic">* Select a category to enable template downloads with dummy products.</p>
+            )}
+          </section>
 
-              <div className="space-y-2">
-                <Label htmlFor="bulk-file">Your completed file</Label>
-                <p className="text-xs text-muted-foreground">CSV or Excel (.xlsx)</p>
-                <InputFile id="bulk-file" onFile={(f) => setFile(f)} disabled={importing} />
-              </div>
-            </>
-          )}
+          {/* Tips Section */}
+          <div className="rounded-lg border bg-blue-500/5 p-4 text-xs space-y-2">
+            <p className="font-semibold text-blue-600 dark:text-blue-400">Pro Tips:</p>
+            <ul className="list-disc pl-4 space-y-1 text-muted-foreground font-medium">
+              <li>The template includes <strong className="text-foreground underline">dummy rows</strong> to guide you. Replace or delete them.</li>
+              <li>Use the <code className="bg-background px-1 rounded border">condition</code> column to specify <strong className="text-foreground">NEW</strong> or <strong className="text-foreground">USED</strong>.</li>
+              <li>Multiple variants? Use the same <code className="bg-background px-1 rounded border">product_key</code> for those rows.</li>
+            </ul>
+          </div>
 
-          {error && <p className="text-sm text-destructive">{error}</p>}
-          {result && <p className="text-sm text-green-600 dark:text-green-500">{result}</p>}
+          {/* Step 2: Upload */}
+          <section className="space-y-4 rounded-xl border bg-muted/30 p-5">
+            <h3 className="text-sm font-semibold flex items-center gap-2">
+              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] text-primary-foreground">2</span>
+              Upload & Import
+            </h3>
+            <div className="space-y-2">
+              <Label htmlFor="bulk-file" className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Choose your completed file</Label>
+              <InputFile id="bulk-file" onFile={(f) => setFile(f)} disabled={importing} />
+              <p className="text-[10px] text-muted-foreground">Supported formats: .csv, .xlsx</p>
+            </div>
+          </section>
+
+          {error && <p className="text-sm font-medium text-destructive animate-in slide-in-from-top-1">{error}</p>}
+          {result && <p className="text-sm font-medium text-emerald-600 dark:text-emerald-500 animate-in slide-in-from-top-1">{result}</p>}
           {importErrors.length > 0 && (
             <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm max-h-40 overflow-y-auto">
-              <p className="font-medium text-destructive mb-2">Please fix these in your file</p>
-              <ul className="list-disc pl-4 space-y-1 text-muted-foreground">
+              <p className="font-semibold text-destructive mb-2">Import Errors:</p>
+              <ul className="list-disc pl-4 space-y-1 text-muted-foreground font-medium">
                 {importErrors.map((e, i) => (
                   <li key={i}>{e}</li>
                 ))}
@@ -261,12 +251,17 @@ export function BulkUploadDialog({ onImported }: { onImported?: () => void }) {
           )}
         </div>
 
-        <DialogFooter className="gap-2 sm:gap-0">
-          <Button type="button" variant="outline" onClick={() => setOpen(false)}>
-            Close
+        <DialogFooter className="gap-2 sm:gap-0 mt-4">
+          <Button type="button" variant="outline" className="rounded-full font-medium" onClick={() => setOpen(false)}>
+            Cancel
           </Button>
-          <Button type="button" disabled={!file || importing || categories.length === 0} onClick={handleImport}>
-            {importing ? "Importing…" : "Import products"}
+          <Button 
+            type="button" 
+            className="rounded-full font-medium bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20"
+            disabled={!file || importing} 
+            onClick={handleImport}
+          >
+            {importing ? "Importing Products..." : "Start Import"}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -289,7 +284,7 @@ function InputFile({
       type="file"
       accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
       disabled={disabled}
-      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm file:mr-3 file:rounded file:border-0 file:bg-muted file:px-3 file:py-1 file:text-sm"
+      className="flex h-11 w-full rounded-lg border border-input bg-background px-3 py-2.5 text-xs file:mr-3 file:rounded-md file:border-0 file:bg-muted file:px-3 file:py-1 file:text-xs file:font-semibold cursor-pointer file:cursor-pointer"
       onChange={(e) => {
         const f = e.target.files?.[0] ?? null
         onFile(f)

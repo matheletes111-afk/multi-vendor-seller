@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma"
 import bcrypt from "bcryptjs"
 import { UserRole } from "@prisma/client"
 import { sendVerificationOtpEmail } from "@/lib/email"
+import { activateFreePlan } from "@/lib/subscriptions"
 
 // Constants
 const OTP_EXPIRY_MS = 10 * 60 * 1000 // 10 minutes
@@ -178,12 +179,13 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
 
     // Create seller record
     try {
-      await prisma.seller.create({ 
+      const seller = await prisma.seller.create({ 
         data: { 
           userId: user.id, 
           type: "PRODUCT" 
         } 
       })
+      await activateFreePlan(seller.id)
     } catch (sellerError) {
       // If seller creation fails, delete the user to maintain data consistency
       await prisma.user.delete({ where: { id: user.id } })

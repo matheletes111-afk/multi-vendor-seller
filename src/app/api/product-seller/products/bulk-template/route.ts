@@ -30,11 +30,32 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "No categories assigned. Complete onboarding first." }, { status: 400 })
   }
 
-  const categoryIds = seller.selectedCategories.map((c) => c.id)
-  const format = new URL(request.url).searchParams.get("format")?.toLowerCase() ?? "csv"
+  const { searchParams } = new URL(request.url)
+  const format = searchParams.get("format")?.toLowerCase() ?? "csv"
+  const categoryId = searchParams.get("categoryId")
+  const subcategoryIds = searchParams.get("subcategoryIds")?.split(",").filter(Boolean) ?? []
+
+  if (!categoryId) {
+    return NextResponse.json({ error: "Category ID is required" }, { status: 400 })
+  }
+
+  // Fetch category and subcategory names for dummy data
+  const category = await prisma.category.findUnique({
+    where: { id: categoryId },
+    select: { name: true, subcategories: { where: { id: { in: subcategoryIds } }, select: { id: true, name: true } } }
+  })
+
+  if (!category) {
+    return NextResponse.json({ error: "Category not found" }, { status: 404 })
+  }
+
+  const subcategoryNames: Record<string, string> = {}
+  category.subcategories.forEach(s => {
+    subcategoryNames[s.id] = s.name
+  })
 
   if (format === "xlsx") {
-    const buf = buildTemplateXlsx(categoryIds)
+    const buf = buildTemplateXlsx(categoryId, subcategoryIds, category.name, subcategoryNames)
     return new NextResponse(new Uint8Array(buf), {
       headers: {
         "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -43,7 +64,7 @@ export async function GET(request: NextRequest) {
     })
   }
 
-  const buf = buildTemplateCsv(categoryIds)
+  const buf = buildTemplateCsv(categoryId, subcategoryIds, category.name, subcategoryNames)
   return new NextResponse(new Uint8Array(buf), {
     headers: {
       "Content-Type": "text/csv; charset=utf-8",

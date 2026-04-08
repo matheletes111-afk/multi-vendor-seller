@@ -199,7 +199,7 @@ export async function GET(): Promise<NextResponse<SuccessResponse | ErrorRespons
 
     // Fetch services with related data (only 10) - WITHOUT category relation
     const servicesPromise = prisma.service.findMany({
-      where: { isActive: true },
+      where: { isActive: true, isDeleted: false },
       select: {
         id: true,
         name: true,

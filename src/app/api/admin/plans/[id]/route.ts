@@ -48,6 +48,11 @@ export async function PUT(
     }
 
     const { id } = await params
+    const existing = await prisma.plan.findUnique({ where: { id } })
+    if (!existing) {
+      return NextResponse.json({ error: "Plan not found" }, { status: 404 })
+    }
+
     const body = await request.json()
     const {
       displayName,
@@ -61,7 +66,30 @@ export async function PUT(
     const updateData: Record<string, unknown> = {}
     if (displayName !== undefined) updateData.displayName = displayName
     if (description !== undefined) updateData.description = description
-    if (typeof price === "number") updateData.price = price
+    
+    if (typeof price === "number") {
+      // Rule: If plan is already 0, price cannot be changed
+      if (existing.price === 0 && price !== 0) {
+        return NextResponse.json(
+          { error: "The price of a 0 RS plan cannot be changed." }, 
+          { status: 400 }
+        )
+      }
+      
+      // Rule: Only one 0 RS plan allowed
+      if (price === 0 && existing.price !== 0) {
+        const otherFreePlan = await prisma.plan.findFirst({
+          where: { price: 0, id: { not: id } }
+        })
+        if (otherFreePlan) {
+          return NextResponse.json(
+            { error: "Only one plan with 0 RS is allowed. A 0 RS plan already exists." }, 
+            { status: 400 }
+          )
+        }
+      }
+      updateData.price = price
+    }
     if (maxProducts === null || maxProducts === "unlimited" || maxProducts === "") {
       updateData.maxProducts = null
     } else if (typeof maxProducts === "number") {

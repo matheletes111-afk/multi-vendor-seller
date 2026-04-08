@@ -34,7 +34,7 @@ export function CategoryForm() {
   const [categoryData, setCategoryData] = useState({
     name: "",
     description: "",
-    commissionRate: 10.0,
+    commissionRate: 0.0,
     isActive: true,
     isFeatured: false,
   });
@@ -307,20 +307,6 @@ export function CategoryForm() {
           </div>
 
           <div className="flex flex-wrap items-center gap-6 rounded-lg border bg-muted/20 p-4">
-            <div className="space-y-2 min-w-[140px]">
-              <Label htmlFor="commissionRate" className="text-sm font-medium">Commission (%)</Label>
-              <Input
-                id="commissionRate"
-                name="commissionRate"
-                type="number"
-                step="0.1"
-                min="0"
-                max="100"
-                value={categoryData.commissionRate}
-                onChange={handleCategoryChange}
-                className="w-24"
-              />
-            </div>
             <div className="flex flex-wrap items-center gap-4 pt-6 sm:pt-0">
               <div className="flex items-center gap-2">
                 <input

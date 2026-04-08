@@ -164,6 +164,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<InterestPr
     const products = await prisma.product.findMany({
       where: {
         isActive: true,
+        isDeleted: false,
         categoryId: { in: interestCategoryIds }
       },
       include: {
@@ -210,6 +211,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<InterestPr
     const total = await prisma.product.count({
       where: {
         isActive: true,
+        isDeleted: false,
         categoryId: { in: interestCategoryIds }
       }
     })

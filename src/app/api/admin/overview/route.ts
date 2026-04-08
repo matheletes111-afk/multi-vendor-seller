@@ -16,7 +16,8 @@ export async function GET() {
       totalProducts,
       totalServices,
       totalOrders,
-      totalRevenue,
+      adAgg,
+      subscriptionPlans,
       pendingSellers,
     ] = await Promise.all([
       prisma.seller.count(),
@@ -24,11 +25,22 @@ export async function GET() {
       prisma.product.count({ where: { isActive: true } }),
       prisma.service.count({ where: { isActive: true } }),
       prisma.order.count(),
-      prisma.commission.aggregate({
-        _sum: { amount: true },
+      prisma.sellerAd.aggregate({
+        _sum: { spentAmount: true }
+      }),
+      prisma.plan.findMany({
+        where: { price: { gt: 0 } },
+        include: { _count: { select: { subscriptions: true } } }
       }),
       prisma.seller.count({ where: { isApproved: false } }),
     ])
+
+    const adRevenue = Number(adAgg._sum.spentAmount ?? 0)
+    const subscriptionRevenue = subscriptionPlans.reduce((sum, plan) => sum + (plan.price * plan._count.subscriptions), 0)
+    const commissionRevenue = 0 // Commission is handled separately for now
+
+    // Total platform revenue is Subscription + Ad revenue
+    const totalPlatformRevenue = subscriptionRevenue + adRevenue
 
     return NextResponse.json({
       totalSellers,
@@ -36,7 +48,10 @@ export async function GET() {
       totalProducts,
       totalServices,
       totalOrders,
-      totalRevenue: totalRevenue._sum.amount ?? 0,
+      totalRevenue: totalPlatformRevenue,
+      subscriptionRevenue,
+      adRevenue,
+      commissionRevenue,
       pendingSellers,
     })
   } catch (error) {

@@ -25,6 +25,9 @@ type Overview = {
   totalServices: number
   totalOrders: number
   totalRevenue: number
+  subscriptionRevenue: number
+  adRevenue: number
+  commissionRevenue: number
   pendingSellers: number
 }
 
@@ -98,6 +101,9 @@ export function AdminDashboardClient() {
     totalServices,
     totalOrders,
     totalRevenue,
+    subscriptionRevenue,
+    adRevenue,
+    commissionRevenue,
     pendingSellers,
   } = data
 
@@ -163,7 +169,7 @@ export function AdminDashboardClient() {
         ))}
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         <Card className="border-none shadow-xl bg-gradient-to-br from-indigo-500/5 to-transparent relative overflow-hidden group">
           <CardHeader className="pb-4">
             <div className="flex items-center justify-between">
@@ -184,15 +190,55 @@ export function AdminDashboardClient() {
           </CardContent>
         </Card>
 
+        <Card className="border-none shadow-xl bg-gradient-to-br from-blue-500/5 to-transparent relative overflow-hidden group">
+          <CardHeader className="pb-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-lg font-medium flex items-center gap-2">
+                  <DollarSign className="h-5 w-5 text-blue-500" />
+                  Subscription Revenue
+                </CardTitle>
+                <CardDescription className="text-xs font-medium">Income from seller plans</CardDescription>
+              </div>
+              <div className="p-2 bg-blue-500/10 rounded-2xl group-hover:rotate-6 transition-transform">
+                <DollarSign className="h-6 w-6 text-blue-500" />
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-4xl font-medium text-blue-600 dark:text-blue-400">{formatCurrency(subscriptionRevenue)}</div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-none shadow-xl bg-gradient-to-br from-orange-500/5 to-transparent relative overflow-hidden group">
+          <CardHeader className="pb-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-lg font-medium flex items-center gap-2">
+                  <DollarSign className="h-5 w-5 text-orange-500" />
+                  Ad Revenue
+                </CardTitle>
+                <CardDescription className="text-xs font-medium">Income from direct ad promotions</CardDescription>
+              </div>
+              <div className="p-2 bg-orange-500/10 rounded-2xl group-hover:rotate-6 transition-transform">
+                <DollarSign className="h-6 w-6 text-orange-500" />
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-4xl font-medium text-orange-600 dark:text-orange-400">{formatCurrency(adRevenue)}</div>
+          </CardContent>
+        </Card>
+
         <Card className="border-none shadow-xl bg-gradient-to-br from-emerald-500/5 to-transparent relative overflow-hidden group">
           <CardHeader className="pb-4">
             <div className="flex items-center justify-between">
               <div>
                 <CardTitle className="text-lg font-medium flex items-center gap-2">
                   <DollarSign className="h-5 w-5 text-emerald-500" />
-                  Platform Revenue
+                  Total Platform Revenue
                 </CardTitle>
-                <CardDescription className="text-xs font-medium">Total commissions earned to date</CardDescription>
+                <CardDescription className="text-xs font-medium">Combined subscription and ad revenue</CardDescription>
               </div>
               <div className="p-2 bg-emerald-500/10 rounded-2xl group-hover:rotate-6 transition-transform">
                 <DollarSign className="h-6 w-6 text-emerald-500" />

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { UserRole } from "@prisma/client"
 import { generateMobileTokens } from "@/lib/mobile-jwt"
 import { verifySocialToken } from "@/lib/social-auth"
+import { activateFreePlan } from "@/lib/subscriptions"
 
 interface SocialLoginRequest {
   provider: "google" | "facebook"
@@ -281,8 +282,9 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
     })
     const newSeller = await prisma.seller.create({
       data: { userId: newUser.id, type: "SERVICE" },
-      select: { isApproved: true, isSuspended: true, onboardingCompleted: true, onboardingStep: true, type: true },
+      select: { id: true, isApproved: true, isSuspended: true, onboardingCompleted: true, onboardingStep: true, type: true },
     })
+    await activateFreePlan(newSeller.id)
     await prisma.account.create({
       data: {
         userId: newUser.id,

@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
     const formData = await request.formData();
     const name = formData.get("name") as string;
     const description = (formData.get("description") as string) || null;
-    const commissionRate = parseFloat(formData.get("commissionRate") as string) || 10.0;
+    const commissionRate = 0.0; // Commission is being disabled project-wide
     const isActive = formData.get("isActive") === "true";
     const categoryImageFile = formData.get("categoryImage") as File | null;
     const categoryImageUrl = (formData.get("categoryImageUrl") as string)?.trim() || null;

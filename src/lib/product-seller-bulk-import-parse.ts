@@ -16,6 +16,7 @@ export const BULK_COLUMN_KEYS = [
   "description",
   "product_images",
   "subcategory_id",
+  "condition",
   "variant_name",
   "price",
   "discount",
@@ -214,133 +215,74 @@ export function parseBulkFile(buffer: Buffer, fileName: string): { rows: BulkDat
   return { rows: [], sheetErrors: ["Upload a .csv or .xlsx file."] }
 }
 
-/** Five sample rows: multi-variant group, another product, single-row product, third product. Delete or replace before real import. */
-export function exampleDataRows(categoryIds: string[]): string[][] {
-  const ids = categoryIds.length > 0 ? categoryIds : [""]
-  const cat = (i: number) => ids[i % ids.length]
+/**
+ * Returns dummy data rows based on selected category/subcategories.
+ * One example product per selected subcategory.
+ */
+export function exampleDataRows(
+  categoryId: string,
+  subcategoryIds: string[],
+  categoryName: string,
+  subcategoryNames: Record<string, string>
+): string[][] {
+  const finalCategoryName = categoryName || "My Category"
+  const finalSubIds = subcategoryIds.length > 0 ? subcategoryIds : [""]
 
-  return [
-    [
-      "GROUP1",
-      cat(0),
-      "Example T-shirt",
-      "Cotton crew neck — delete sample rows before uploading real products",
-      "https://example.com/tshirt-front.jpg",
-      "",
-      "Small",
-      "24.99",
-      "0",
-      "Y",
-      "25",
-      "TSH-S",
-      "",
-      '{"size":"S"}',
-      "",
-      "",
-      "NON_RETURNABLE",
-      "",
-      "N",
-    ],
-    [
-      "GROUP1",
-      cat(0),
-      "Example T-shirt",
-      "",
-      "",
-      "",
-      "Large",
-      "24.99",
-      "0",
-      "Y",
-      "15",
-      "TSH-L",
-      "",
-      '{"size":"L"}',
-      "",
-      "",
-      "NON_RETURNABLE",
-      "",
-      "N",
-    ],
-    [
-      "GROUP2",
-      cat(1),
-      "Travel mug",
-      "Insulated 500ml",
-      "",
-      "",
-      "Black",
-      "18.50",
-      "2",
-      "Y",
-      "40",
-      "MUG-BLK",
-      "",
-      "",
-      "",
-      "",
-      "RETURNABLE",
-      "14",
-      "Y",
-    ],
-    [
-      "",
-      cat(2),
-      "Notebook 3-pack",
-      "Lined paper — one row = one product with a single variant",
-      "https://example.com/notebook.jpg",
-      "",
-      "Default",
-      "12.00",
-      "0",
-      "Y",
-      "100",
-      "NB-3PK",
-      "",
-      "",
-      "",
-      "",
-      "NON_RETURNABLE",
-      "",
-      "N",
-    ],
-    [
-      "GROUP3",
-      cat(3),
-      "Sports bottle",
-      "BPA-free 750ml",
-      "",
-      "",
-      "Blue",
-      "9.99",
-      "0",
-      "N",
-      "60",
-      "BOT-BLU",
-      "",
-      "",
-      "",
-      "",
-      "NON_RETURNABLE",
-      "",
-      "N",
-    ],
-  ]
+  return finalSubIds.map((subId, idx) => {
+    const subName = subcategoryNames[subId] || ""
+    const prodName = subName ? `${finalCategoryName} - ${subName} Example` : `${finalCategoryName} Example Product`
+    
+    return [
+      `GROUP_${idx + 1}`,   // product_key
+      categoryId,           // category_id
+      prodName,             // product_name
+      "This is a dummy product generated for your template. Replace or delete before import.", // description
+      "https://example.com/sample-image.jpg", // product_images
+      subId,                // subcategory_id
+      "NEW",                // condition
+      "Default",            // variant_name
+      "100.00",             // price
+      "0",                  // discount
+      "Y",                  // has_gst
+      "50",                 // stock
+      `SKU-${idx + 1}`,     // sku
+      "",                   // variant_images
+      '{"color":"blue"}',   // attributes_json
+      "Sample specs",       // specification
+      "Sample details",     // details
+      "NON_RETURNABLE",     // return_type
+      "",                   // return_days
+      "N",                  // replacement_allowed
+    ]
+  })
 }
 
-export function buildTemplateCsv(categoryIds: string[]): Buffer {
+export function buildTemplateCsv(
+  categoryId: string,
+  subcategoryIds: string[],
+  categoryName: string,
+  subcategoryNames: Record<string, string>
+): Buffer {
   const headers = [...BULK_COLUMN_KEYS]
   const headerLine = headers.map(escapeCsvField).join(",")
-  const rows = exampleDataRows(categoryIds).map((r) => r.map(escapeCsvField).join(","))
+  const rows = exampleDataRows(categoryId, subcategoryIds, categoryName, subcategoryNames).map((r) =>
+    r.map(escapeCsvField).join(",")
+  )
   const bom = "\uFEFF"
   const body = `${bom}${headerLine}\r\n${rows.join("\r\n")}\r\n`
   return Buffer.from(body, "utf8")
 }
 
-export function buildTemplateXlsx(categoryIds: string[]): Buffer {
+export function buildTemplateXlsx(
+  categoryId: string,
+  subcategoryIds: string[],
+  categoryName: string,
+  subcategoryNames: Record<string, string>
+): Buffer {
   const headers = [...BULK_COLUMN_KEYS]
   const wb = XLSX.utils.book_new()
-  const ws = XLSX.utils.aoa_to_sheet([headers, ...exampleDataRows(categoryIds)])
+  const data = exampleDataRows(categoryId, subcategoryIds, categoryName, subcategoryNames)
+  const ws = XLSX.utils.aoa_to_sheet([headers, ...data])
   XLSX.utils.book_append_sheet(wb, ws, BULK_SHEET_NAME)
 
   const instr: string[][] = [

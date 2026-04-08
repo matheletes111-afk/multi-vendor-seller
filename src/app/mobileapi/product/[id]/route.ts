@@ -15,10 +15,11 @@ export async function GET(
       }, { status: 400 })
     }
 
-    const product = await prisma.product.findUnique({
+    const product = await prisma.product.findFirst({
       where: { 
         id, 
-        isActive: true 
+        isActive: true,
+        isDeleted: false
       },
       include: {
         category: true,

@@ -41,6 +41,7 @@ export function NewProductClient() {
   const [imageUrlsText, setImageUrlsText] = useState("")
   const [uploadedImageUrls, setUploadedImageUrls] = useState<string[]>([])
   const [uploadedImageFiles, setUploadedImageFiles] = useState<File[]>([])
+  const [condition, setCondition] = useState<"NEW" | "USED">("NEW")
   const productPreviewUrlsRef = useRef<string[]>([])
   const [uploading, setUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -374,6 +375,7 @@ export function NewProductClient() {
         description,
         categoryId,
         subcategoryId: subcategoryId || undefined,
+        condition,
         images: images.length ? images : undefined,
         variants: variantsPayload,
       }),
@@ -476,6 +478,20 @@ export function NewProductClient() {
                 className="flex min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                 placeholder="Product description"
               />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="condition">Product Type *</Label>
+              <select
+                id="condition"
+                name="condition"
+                required
+                value={condition}
+                onChange={(e) => setCondition(e.target.value as "NEW" | "USED")}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              >
+                <option value="NEW">New</option>
+                <option value="USED">Used</option>
+              </select>
             </div>
             <div className="space-y-2">
               <Label htmlFor="categoryId">Category *</Label>

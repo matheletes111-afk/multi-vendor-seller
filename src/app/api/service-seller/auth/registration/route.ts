@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma"
 import bcrypt from "bcryptjs"
 import { UserRole } from "@prisma/client"
 import { sendVerificationOtpEmail } from "@/lib/email"
+import { activateFreePlan } from "@/lib/subscriptions"
 
 const OTP_EXPIRY_MS = 10 * 60 * 1000 // 10 min
 
@@ -44,7 +45,8 @@ export async function POST(request: Request) {
         emailOtpSentAt: now,
       },
     })
-    await prisma.seller.create({ data: { userId: user.id, type: "SERVICE" } })
+    const seller = await prisma.seller.create({ data: { userId: user.id, type: "SERVICE" } })
+    await activateFreePlan(seller.id)
 
     await sendVerificationOtpEmail({
       to: email,

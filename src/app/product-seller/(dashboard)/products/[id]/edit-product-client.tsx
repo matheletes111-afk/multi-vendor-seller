@@ -57,6 +57,7 @@ type Product = {
   subcategory?: { id: string; name: string } | null
   images: unknown
   isActive: boolean
+  condition: "NEW" | "USED"
   variants: Variant[]
 }
 
@@ -68,6 +69,7 @@ export function EditProductClient({ productId }: { productId: string }) {
   const [selectedCategoryId, setSelectedCategoryId] = useState("")
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [condition, setCondition] = useState<"NEW" | "USED">("NEW")
   const [error, setError] = useState<string | null>(null)
   const [masterImageMode, setMasterImageMode] = useState<"link" | "upload">("link")
   const [masterImageUrl, setMasterImageUrl] = useState("")
@@ -91,6 +93,7 @@ export function EditProductClient({ productId }: { productId: string }) {
       setProduct(p)
       setCategories(cats)
       if (p?.categoryId) setSelectedCategoryId(p.categoryId)
+      if (p?.condition) setCondition(p.condition)
       const imgs = normalizeImages(p?.images)
       setMasterImageUrl(Array.isArray(imgs) && imgs.length > 0 ? imgs[0] : "")
       setMasterImageFile(null)
@@ -489,6 +492,7 @@ export function EditProductClient({ productId }: { productId: string }) {
         categoryId,
         subcategoryId: subcategoryId || undefined,
         isActive,
+        condition,
         images,
         variants: variantsPayload,
       }),
@@ -570,6 +574,20 @@ export function EditProductClient({ productId }: { productId: string }) {
                 placeholder="Product description"
                 defaultValue={product.description || ""}
               />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="condition">Product Type *</Label>
+              <select
+                id="condition"
+                name="condition"
+                required
+                value={condition}
+                onChange={(e) => setCondition(e.target.value as "NEW" | "USED")}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              >
+                <option value="NEW">New</option>
+                <option value="USED">Used</option>
+              </select>
             </div>
             <div className="space-y-2">
               <Label htmlFor="categoryId">Category *</Label>

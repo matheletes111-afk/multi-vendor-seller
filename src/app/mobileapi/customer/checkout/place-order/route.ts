@@ -7,9 +7,9 @@ import { getMobileCustomerAuth } from "@/app/mobileapi/_helpers/customer-auth"
 export const dynamic = "force-dynamic"
 
 const CHECKOUT_CART_INCLUDE = {
-  product: { select: { sellerId: true, name: true } },
+  product: { select: { sellerId: true, name: true, isDeleted: true } },
   productVariant: { select: { name: true } },
-  service: { select: { sellerId: true, name: true } },
+  service: { select: { sellerId: true, name: true, isDeleted: true } },
   servicePackage: { select: { name: true } },
 } as const
 
@@ -83,6 +83,22 @@ export async function POST(request: NextRequest) {
 
   if (items.length === 0) {
     return NextResponse.json({ success: false, error: "Cart is empty" }, { status: 400 })
+  }
+
+  // Double check that No products/services in cart were recently deleted
+  for (const item of items) {
+    if (item.productId && (!item.product || (item.product as any).isDeleted)) {
+      return NextResponse.json(
+        { success: false, error: `Product "${item.product?.name || 'Unknown'}" is no longer available.` },
+        { status: 400 }
+      )
+    }
+    if (item.serviceId && (!item.service || (item.service as any).isDeleted)) {
+      return NextResponse.json(
+        { success: false, error: `Service "${item.service?.name || 'Unknown'}" is no longer available.` },
+        { status: 400 }
+      )
+    }
   }
 
   // Validate stock for product variants

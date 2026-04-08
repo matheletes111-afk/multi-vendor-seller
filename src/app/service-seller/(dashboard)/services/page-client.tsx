@@ -26,7 +26,7 @@ import {
 } from "@/ui/dialog"
 import { formatCurrency } from "@/lib/utils"
 import { PageLoader } from "@/components/ui/page-loader"
-import { Edit, Trash2, Briefcase } from "lucide-react"
+import { Edit, Trash2, Briefcase, Megaphone } from "lucide-react"
 import { AdminPagination } from "@/components/admin/admin-pagination"
 import { getServiceDisplayImageUrls } from "@/lib/service-images"
 
@@ -197,6 +197,12 @@ export function ServicesPageClient() {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-2 flex-wrap">
+                          <Button variant="default" size="sm" className="bg-blue-600 hover:bg-blue-700" asChild>
+                            <Link href={`/service-seller/admanagement/new?serviceId=${service.id}`}>
+                              <Megaphone className="mr-2 h-4 w-4 shrink-0" />
+                              Promote
+                            </Link>
+                          </Button>
                           <Button variant="outline" size="sm" asChild>
                             <Link href={`/service-seller/services/${service.id}`}>
                               <Edit className="mr-2 h-4 w-4 shrink-0" />

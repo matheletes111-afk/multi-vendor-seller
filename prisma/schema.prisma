@@ -51,6 +51,11 @@ enum OrderStatus {
   EXCHANGED
 }
 
+enum ProductCondition {
+  NEW
+  USED
+}
+
 enum ReturnResolutionType {
   REFUND
   EXCHANGE
@@ -599,7 +604,9 @@ model Product {
   description    String?  @db.Text
   images         Json     // Array of image URLs (parent/listing image)
   isActive       Boolean  @default(true)
+  isDeleted      Boolean  @default(false)
   isFeatured    Boolean  @default(false)
+  condition      ProductCondition @default(NEW)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
@@ -619,6 +626,7 @@ model Product {
   @@index([subcategoryId])
   @@index([sellerId])
   @@index([isActive])
+  @@index([isDeleted])
   @@map("products")
 }
 
@@ -708,6 +716,7 @@ model Service {
   images            Json        // Master/cover image URL(s); typically [oneUrl] — listing hero
   galleryImages     Json        @default("[]")   // Additional gallery image URLs
   isActive          Boolean     @default(true)
+  isDeleted         Boolean     @default(false)
   isFeatured        Boolean     @default(false)
   duration          Int?        // Duration in minutes (for appointments)
   weeklyAvailability Json?     // [{ unavailable, shiftStart "HH:mm", shiftEnd "HH:mm" }] for each day 0-6 (Sun-Sat)
@@ -728,6 +737,7 @@ model Service {
   @@index([serviceCategoryId])
   @@index([sellerId])
   @@index([isActive])
+  @@index([isDeleted])
   @@map("services")
 }
 

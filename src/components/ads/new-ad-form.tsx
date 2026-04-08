@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/ui/card"
 import { Button } from "@/ui/button"
 import { Input } from "@/ui/input"
@@ -39,7 +39,9 @@ export function NewAdForm({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [adType, setAdType] = useState<"promote_product" | "own_ad">("promote_product")
-  const [placements, setPlacements] = useState<string[]>(["WEB"])
+  const [placements, setPlacements] = useState<string[]>(["WEB", "MOBILE"])
+  const [selectedProductId, setSelectedProductId] = useState<string>("")
+  const searchParams = useSearchParams()
 
   // Live Preview States
   const [title, setTitle] = useState("")
@@ -75,9 +77,22 @@ export function NewAdForm({
       .then((json) => {
         const list = json?.products ?? []
         setProducts(list.map((p: { id: string; name: string }) => ({ id: p.id, name: p.name })))
+        
+        // Check for productId in URL
+        const urlPid = searchParams.get("productId")
+        if (urlPid) {
+          setAdType("promote_product")
+          setSelectedProductId(urlPid)
+          
+          // Auto-populate title if product exists
+          const product = list.find((p: any) => p.id === urlPid)
+          if (product && !title) {
+            setTitle(`Promoting ${product.name}`)
+          }
+        }
       })
       .catch(() => setProducts([]))
-  }, [isSeller])
+  }, [isSeller, searchParams])
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -287,6 +302,8 @@ export function NewAdForm({
                       id="productId"
                       name="productId"
                       required
+                      value={selectedProductId}
+                      onChange={(e) => setSelectedProductId(e.target.value)}
                       className="flex h-12 w-full rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm transition-focus focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary shadow-sm"
                     >
                       <option value="">Select a product to link</option>

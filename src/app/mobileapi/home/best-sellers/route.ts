@@ -41,7 +41,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<SuccessRes
 
     const grouped = await prisma.product.groupBy({
       by: ["sellerId"],
-      where: { isActive: true },
+      where: { isActive: true, isDeleted: false },
       _count: { _all: true },
       orderBy: { _count: { sellerId: "desc" } },
       take: limitSellers,
@@ -66,7 +66,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<SuccessRes
         })
 
         const products = await prisma.product.findMany({
-          where: { isActive: true, sellerId: g.sellerId },
+          where: { isActive: true, isDeleted: false, sellerId: g.sellerId },
           take: productsPerSeller,
           orderBy: [{ isFeatured: "desc" }, { createdAt: "desc" }],
           select: {

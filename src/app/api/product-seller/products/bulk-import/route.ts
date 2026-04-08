@@ -63,6 +63,7 @@ type PreparedProduct = {
   description: string | null
   images: string[]
   subcategoryId: string | null
+  condition: string
   variants: NormalizedVariant[]
 }
 
@@ -221,6 +222,9 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    const firstValidCondition = sorted.find(r => (r.cells.condition ?? "").trim())?.cells.condition?.trim().toUpperCase()
+    const condition = (firstValidCondition === "USED") ? "USED" : "NEW"
+
     const variants: NormalizedVariant[] = []
     for (const r of sorted) {
       const c = r.cells
@@ -290,6 +294,7 @@ export async function POST(request: NextRequest) {
       description,
       images: productImages,
       subcategoryId,
+      condition,
       variants,
     })
   }
@@ -331,6 +336,7 @@ export async function POST(request: NextRequest) {
             name: p.name,
             slug: `${slugFromName(p.name)}-${uniqueSlugSuffix()}`,
             description: p.description,
+            condition: p.condition as any,
             images: (p.images.length ? p.images : []) as object,
             variants: {
               create: p.variants.map((v) => ({
@@ -349,7 +355,7 @@ export async function POST(request: NextRequest) {
                 replacementAllowed: v.replacementAllowed,
               })),
             },
-          },
+          } as any,
         })
       )
     )

@@ -57,9 +57,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: false, error: "Address not found" }, { status: 404 })
   }
 
-  const service = await prisma.service.findUnique({
-    where: { id: serviceId, isActive: true },
-    select: { id: true, name: true, sellerId: true, basePrice: true, discount: true, hasGst: true },
+  const service = await prisma.service.findFirst({
+    where: { id: serviceId, isActive: true, isDeleted: false },
+    select: { id: true, name: true, sellerId: true, basePrice: true, discount: true, hasGst: true, isDeleted: true },
   })
   if (!service) {
     return NextResponse.json({ success: false, error: "Service not found" }, { status: 404 })

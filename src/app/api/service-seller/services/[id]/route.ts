@@ -45,6 +45,14 @@ export async function DELETE(
   if (!seller) return NextResponse.json({ error: "Seller not found" }, { status: 404 })
   const service = await prisma.service.findFirst({ where: { id, sellerId: seller.id } })
   if (!service) return NextResponse.json({ error: "Service not found" }, { status: 404 })
-  await prisma.service.delete({ where: { id } })
+  const deletedSlug = `${service.slug}-deleted-${Date.now()}`
+  await prisma.service.update({ 
+    where: { id },
+    data: { 
+      isDeleted: true,
+      isActive: false,
+      slug: deletedSlug
+    } 
+  })
   return NextResponse.json({ success: true })
 }

@@ -153,6 +153,7 @@ export async function GET(request: NextRequest) {
 
   const productWhere: Prisma.ProductWhereInput = {
     isActive: true,
+    isDeleted: false,
     ...(effectiveCategoryIds.length > 0 && { categoryId: { in: effectiveCategoryIds } }),
     ...(subcategoryId && { subcategoryId }),
     ...(q && { name: { contains: q, mode: Prisma.QueryMode.insensitive } }),
@@ -382,6 +383,7 @@ export async function GET(request: NextRequest) {
       : prisma.service.findMany({
           where: {
             isActive: true,
+            isDeleted: false,
             ...(resolvedServiceCategoryId && { serviceCategoryId: resolvedServiceCategoryId }),
             ...(q && { name: { contains: q, mode: Prisma.QueryMode.insensitive } }),
           },

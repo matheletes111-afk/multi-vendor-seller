@@ -12,6 +12,7 @@ export async function GET(request: Request) {
     const services = await prisma.service.findMany({
       where: {
         isActive: true,
+        isDeleted: false,
         ...(serviceCategoryId ? { serviceCategoryId } : {}),
       },
       take: limit,

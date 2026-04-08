@@ -1,7 +1,8 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { useState, useCallback, useEffect } from "react"
 import Link from "next/link"
+import { useSearchParams } from "next/navigation"
 import { Button } from "@/ui/button"
 import { Input } from "@/ui/input"
 import { Label } from "@/ui/label"
@@ -24,7 +25,9 @@ export function ServiceAdFormClient({
 }) {
   const [adType, setAdType] = useState<"promote_service" | "own_ad">("promote_service")
   const [loading, setLoading] = useState(false)
-  const [placements, setPlacements] = useState<string[]>(["WEB"])
+  const [placements, setPlacements] = useState<string[]>(["WEB", "MOBILE"])
+  const [selectedServiceId, setSelectedServiceId] = useState<string>("")
+  const searchParams = useSearchParams()
 
   // Live Preview States
   const [title, setTitle] = useState("")
@@ -43,6 +46,20 @@ export function ServiceAdFormClient({
   const handleMobileCreativeChange = useCallback((c: CreativeState) => {
     setMobileCreative(c)
   }, [])
+
+  useEffect(() => {
+    const urlSid = searchParams.get("serviceId")
+    if (urlSid) {
+      setAdType("promote_service")
+      setSelectedServiceId(urlSid)
+      
+      // Auto-populate title if service exists
+      const service = services.find(s => s.id === urlSid)
+      if (service && !title) {
+        setTitle(`Promoting ${service.name}`)
+      }
+    }
+  }, [searchParams, services, title])
 
   function togglePlacement(p: string) {
     setPlacements(prev => {
@@ -155,6 +172,8 @@ export function ServiceAdFormClient({
                 id="serviceId"
                 name="serviceId"
                 required={isPromoteService}
+                value={selectedServiceId}
+                onChange={(e) => setSelectedServiceId(e.target.value)}
                 className="flex h-12 w-full rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm transition-focus focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary shadow-sm"
               >
                 <option value="">Select a service to link</option>

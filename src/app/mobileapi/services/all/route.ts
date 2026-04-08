@@ -42,6 +42,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<SuccessRes
     const featuredOnly = searchParams.get("featuredOnly") === "true"
 
     const where = {
+      isDeleted: false,
       ...(activeOnly ? { isActive: true } : {}),
       ...(featuredOnly ? { isFeatured: true } : {}),
     }

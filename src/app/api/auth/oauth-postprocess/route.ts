@@ -4,6 +4,7 @@ import { SellerType, UserRole } from "@prisma/client"
 import { prisma } from "@/lib/prisma"
 import { auth } from "@/lib/auth"
 import { encode, getToken } from "next-auth/jwt"
+import { activateFreePlan } from "@/lib/subscriptions"
 
 // Ensure this runs in Node runtime (Prisma + Auth.js server helpers).
 export const runtime = "nodejs"
@@ -126,21 +127,23 @@ export async function GET(request: NextRequest) {
       where: { id: userId },
       data: { role: UserRole.SELLER_PRODUCT, isEmailVerified: true },
     })
-    await prisma.seller.upsert({
+    const seller = await prisma.seller.upsert({
       where: { userId },
       create: { userId, type: SellerType.PRODUCT },
       update: { type: SellerType.PRODUCT },
     })
+    await activateFreePlan(seller.id)
   } else if (intendedRole === UserRole.SELLER_SERVICE) {
     await prisma.user.update({
       where: { id: userId },
       data: { role: UserRole.SELLER_SERVICE, isEmailVerified: true },
     })
-    await prisma.seller.upsert({
+    const seller = await prisma.seller.upsert({
       where: { userId },
       create: { userId, type: SellerType.SERVICE },
       update: { type: SellerType.SERVICE },
     })
+    await activateFreePlan(seller.id)
   }
 
   // Update NextAuth JWT cookie immediately so edge middleware sees the new role.

@@ -126,7 +126,8 @@ export async function GET(
     const products = await prisma.product.findMany({
       where: { 
         categoryId: id,
-        isActive: true 
+        isActive: true,
+        isDeleted: false
       },
       take: limit,
       orderBy: [{ isFeatured: "desc" }, { createdAt: "desc" }],
@@ -174,7 +175,8 @@ export async function GET(
     const productsCount = await prisma.product.count({
       where: { 
         categoryId: id,
-        isActive: true 
+        isActive: true,
+        isDeleted: false
       }
     })
 

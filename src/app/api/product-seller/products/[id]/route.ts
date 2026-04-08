@@ -65,6 +65,7 @@ export async function PUT(
     subcategoryId?: string | null
     images?: string[]
     isActive?: boolean
+    condition?: string
     variants?: Array<{
       name?: string
       sku?: string
@@ -103,6 +104,10 @@ export async function PUT(
   }
   if (body.images !== undefined) updateData.images = Array.isArray(body.images) ? body.images : (existing as { images: unknown }).images
   if (typeof body.isActive === "boolean") updateData.isActive = body.isActive
+  if (typeof body.condition === "string") {
+    const c = body.condition.toUpperCase()
+    updateData.condition = (c === "USED") ? "USED" : "NEW"
+  }
 
   if (body.name) {
     (updateData as { slug?: string }).slug = body.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "")
@@ -153,7 +158,7 @@ export async function PUT(
     }
     const product = await prisma.product.update({
       where: { id },
-      data: updateData as never,
+      data: updateData as any,
       include: { category: true, subcategory: true, variants: true },
     })
     return NextResponse.json(product)
@@ -189,6 +194,14 @@ export async function DELETE(
     return NextResponse.json({ error: "Product not found" }, { status: 404 })
   }
 
-  await prisma.product.delete({ where: { id } })
+  const deletedSlug = `${product.slug}-deleted-${Date.now()}`
+  await prisma.product.update({ 
+    where: { id },
+    data: { 
+      isDeleted: true,
+      isActive: false,
+      slug: deletedSlug
+    } 
+  })
   return NextResponse.json({ success: true })
 }

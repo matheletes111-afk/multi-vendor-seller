@@ -244,9 +244,8 @@ export function CategoriesClient() {
                     <TableRow className="hover:bg-transparent border-none">
                       <TableHead className="py-5 pl-8 text-[10px] font-medium uppercase tracking-widest text-muted-foreground/80">Preview</TableHead>
                       <TableHead className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground/80">Entity Details</TableHead>
-                      <TableHead className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground/80">Revenue Share</TableHead>
-                      <TableHead className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground/80">Inventory</TableHead>
-                      <TableHead className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground/80">Hierarchy</TableHead>
+                      <TableHead className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground/80">Total Products</TableHead>
+                      <TableHead className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground/80">Subcategories</TableHead>
                       <TableHead className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground/80">Visibility</TableHead>
                       <TableHead className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground/80">Featured</TableHead>
                       <TableHead className="text-right pr-8 text-[10px] font-medium uppercase tracking-widest text-muted-foreground/80">Control</TableHead>
@@ -282,11 +281,6 @@ export function CategoriesClient() {
                             <div className="flex flex-col">
                               <span className="text-sm line-clamp-1">{category.name}</span>
                               <span className="text-[10px] text-muted-foreground/60 font-medium line-clamp-1 italic">{category.description || "No description provided"}</span>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <div className="bg-emerald-500/10 text-emerald-600 px-3 py-1 rounded-full text-xs font-medium w-fit border border-emerald-500/10">
-                              {category.commissionRate}%
                             </div>
                           </TableCell>
                           <TableCell>

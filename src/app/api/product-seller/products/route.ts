@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
     perPage: searchParams.get("perPage") ?? undefined,
   })
 
-  const where = { sellerId: seller.id }
+  const where = { sellerId: seller.id, isDeleted: false }
 
   const [products, totalCount] = await Promise.all([
     prisma.product.findMany({
@@ -111,6 +111,9 @@ export async function POST(request: NextRequest) {
     if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: 400 })
     variants.push(parsed.variant)
   }
+  const conditionInput = typeof body.condition === "string" ? body.condition.toUpperCase() : "NEW"
+  const condition = (conditionInput === "USED") ? "USED" : "NEW"
+
   try {
     const product = await prisma.product.create({
       data: {
@@ -120,6 +123,7 @@ export async function POST(request: NextRequest) {
         name,
         slug,
         description: (body.description as string) ?? null,
+        condition: condition as any,
         images: imagesData as object,
         variants: {
           create: variants.map((v) => ({
@@ -138,7 +142,7 @@ export async function POST(request: NextRequest) {
             replacementAllowed: v.replacementAllowed,
           })),
         },
-      },
+      } as any,
       include: { category: true, subcategory: true, variants: true },
     })
     return NextResponse.json(product)

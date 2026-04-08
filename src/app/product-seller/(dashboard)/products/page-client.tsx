@@ -26,7 +26,7 @@ import {
 } from "@/ui/dialog"
 import { cn, formatCurrency } from "@/lib/utils"
 import { PageLoader } from "@/components/ui/page-loader"
-import { Plus, Package, Pencil, Trash2 } from "lucide-react"
+import { Plus, Package, Pencil, Trash2, Megaphone } from "lucide-react"
 import { AdminPagination } from "@/components/admin/admin-pagination"
 import { BulkUploadDialog } from "./bulk-upload-dialog"
 
@@ -279,6 +279,12 @@ export function ProductsPageClient() {
                       <TableCell className="text-sm text-muted-foreground">{formatDate(product.createdAt)}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
+                          <Link href={`/product-seller/admanagement/new?productId=${product.id}`}>
+                            <Button variant="default" size="sm" className="bg-blue-600 hover:bg-blue-700">
+                              <Megaphone className="mr-2 h-4 w-4" />
+                              Promote
+                            </Button>
+                          </Link>
                           <Link href={`/product-seller/products/${product.id}`}>
                             <Button variant="outline" size="sm">
                               <Pencil className="mr-2 h-4 w-4" />
