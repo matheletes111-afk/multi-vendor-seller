@@ -49,7 +49,9 @@ import {
   MapPinned,
   Search,
   Handshake,
-  Check
+  Check,
+  Scale,
+  Fingerprint
 } from "lucide-react"
 
 export function SellersClient() {
@@ -451,10 +453,11 @@ export function SellersClient() {
                                   <Button 
                                     variant="ghost" 
                                     size="sm" 
-                                    className="h-7 px-2 text-[10px] font-medium uppercase tracking-widest text-muted-foreground/50 hover:text-primary hover:bg-primary/5 rounded-full"
-                                    onClick={() => {
+                                    className="h-7 px-3 text-[10px] font-bold uppercase tracking-widest text-primary hover:bg-primary/10 bg-primary/5 border border-primary/20 rounded-full transition-all"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
                                       setSelectedSellerId(seller.id)
-                                      setCommissionValue("")
+                                      setCommissionValue(seller.commissionRate || "")
                                       setIsCommissionDialogOpen(true)
                                     }}
                                   >
@@ -524,20 +527,20 @@ export function SellersClient() {
                                     <div className="grid gap-6 md:grid-cols-2 2xl:grid-cols-3">
                                       
                                       {/* PART 1: CORPORATE DNA - Identity */}
-                                      <Card className="border-none shadow-md bg-background rounded-2xl overflow-hidden flex flex-col">
-                                        <CardHeader className="bg-muted/30 pb-4">
+                                      <Card className="border border-muted/50 shadow-xl bg-background rounded-3xl overflow-hidden flex flex-col border-l-4 border-l-blue-500/40">
+                                        <CardHeader className="bg-muted/30 pb-4 border-b border-muted/20">
                                           <div className="flex items-center justify-between">
-                                            <CardTitle className="text-xs font-medium flex items-center gap-2 text-primary">
+                                            <CardTitle className="text-xs font-bold uppercase tracking-wider flex items-center gap-2 text-blue-600">
                                               <User className="h-4 w-4" /> Personal / Corporate Identity
                                             </CardTitle>
-                                            {seller.user?.image && (
-                                              <div className="w-8 h-8 rounded-full border-2 border-primary/20 overflow-hidden shadow-sm">
-                                                <img src={seller.user.image} className="w-full h-full object-cover" />
-                                              </div>
-                                            )}
                                           </div>
                                         </CardHeader>
                                         <CardContent className="pt-6 space-y-4 flex-1">
+                                          {seller.user?.image && (
+                                            <div className="pb-2">
+                                              <DocumentThumbnail url={seller.user.image} title="Profile Picture" />
+                                            </div>
+                                          )}
                                           <div className="space-y-4">
                                             <div className="flex items-center gap-3">
                                               <div className="p-2 bg-muted rounded-xl"><User className="h-3.5 w-3.5 text-muted-foreground" /></div>
@@ -566,11 +569,11 @@ export function SellersClient() {
                                         </CardContent>
                                       </Card>
 
-                                      {/* PART 2: LEGAL VENTURE - Business */}
-                                      <Card className="border-none shadow-md bg-background rounded-2xl overflow-hidden flex flex-col">
-                                        <CardHeader className="bg-muted/30 pb-4">
-                                          <CardTitle className="text-xs font-medium flex items-center gap-2 text-indigo-500 shrink-0">
-                                            <Building2 className="h-4 w-4" /> Legal Venture
+                                      {/* PART 2: LEGAL VENTURE */}
+                                      <Card className="border border-muted/50 shadow-xl bg-background rounded-3xl overflow-hidden flex flex-col border-l-4 border-l-indigo-500/40">
+                                        <CardHeader className="bg-muted/30 pb-4 border-b border-muted/20">
+                                          <CardTitle className="text-xs font-bold uppercase tracking-wider flex items-center gap-2 text-indigo-600">
+                                            <Scale className="h-4 w-4" /> Legal Venture
                                           </CardTitle>
                                         </CardHeader>
                                         <CardContent className="pt-6 space-y-4 flex-1">
@@ -625,9 +628,9 @@ export function SellersClient() {
                                       </Card>
 
                                       {/* PART 3: STORE VISUALS & OFFERINGS */}
-                                      <Card className="border-none shadow-md bg-background rounded-2xl overflow-hidden flex flex-col">
-                                        <CardHeader className="bg-muted/30 pb-4">
-                                          <CardTitle className="text-xs font-medium flex items-center gap-2 text-primary">
+                                      <Card className="border border-muted/50 shadow-xl bg-background rounded-3xl overflow-hidden flex flex-col border-l-4 border-l-amber-500/40">
+                                        <CardHeader className="bg-muted/30 pb-4 border-b border-muted/20">
+                                          <CardTitle className="text-xs font-bold uppercase tracking-wider flex items-center gap-2 text-amber-600">
                                             <Store className="h-4 w-4" /> Store Visuals & Offerings
                                           </CardTitle>
                                         </CardHeader>
@@ -679,19 +682,19 @@ export function SellersClient() {
                                         </CardContent>
                                       </Card>
 
-                                      {/* PART 4: FINANCIAL ANCHOR - Bank */}
-                                      <Card className="border-none shadow-md bg-background rounded-2xl overflow-hidden flex flex-col">
-                                        <CardHeader className="bg-muted/30 pb-4">
-                                          <CardTitle className="text-xs font-medium flex items-center gap-2 text-indigo-500">
-                                            <CreditCard className="h-4 w-4" /> Financial Details
+                                      {/* PART 4: FINANCIAL ANCHOR */}
+                                      <Card className="border border-muted/50 shadow-xl bg-background rounded-3xl overflow-hidden flex flex-col border-l-4 border-l-emerald-500/40">
+                                        <CardHeader className="bg-muted/30 pb-4 border-b border-muted/20">
+                                          <CardTitle className="text-xs font-bold uppercase tracking-wider flex items-center gap-2 text-emerald-600">
+                                            <CreditCard className="h-4 w-4" /> Financial Anchor
                                           </CardTitle>
                                         </CardHeader>
                                         <CardContent className="pt-6 space-y-4 flex-1">
-                                          <div className="p-4 bg-primary/5 rounded-2xl border border-primary/10">
+                                          <div className="p-4 bg-emerald-500/5 rounded-2xl border border-emerald-500/10">
                                             <div className="space-y-4">
                                               <div className="flex flex-col gap-1">
-                                                <span className="text-[9px] font-medium text-primary/60 ml-1">Bank Name</span>
-                                                <div className="bg-white p-2.5 rounded-xl border border-primary/10 font-medium text-sm text-primary shadow-sm flex items-center gap-2">
+                                                <span className="text-[9px] font-medium text-emerald-600/60 ml-1">Bank Name</span>
+                                                <div className="bg-white p-2.5 rounded-xl border border-emerald-500/10 font-medium text-sm text-emerald-700 shadow-sm flex items-center gap-2">
                                                   <Building2 className="w-4 h-4" /> {seller.bankDetails?.bankName || "—"}
                                                 </div>
                                               </div>
@@ -707,9 +710,9 @@ export function SellersClient() {
                                                 </div>
                                               </div>
 
-                                              <div className="flex flex-col p-3 bg-white rounded-xl border border-primary/10 shadow-inner">
+                                              <div className="flex flex-col p-3 bg-white rounded-xl border border-emerald-500/10 shadow-inner">
                                                 <span className="text-[9px] font-medium text-muted-foreground/60 mb-1">Account Signature</span>
-                                                <span className="text-sm font-mono font-medium tracking-tight">{seller.bankDetails?.accountNumber || "—"}</span>
+                                                <span className="text-sm font-mono font-medium tracking-tight text-emerald-800">{seller.bankDetails?.accountNumber || "—"}</span>
                                               </div>
                                             </div>
                                           </div>
@@ -717,32 +720,26 @@ export function SellersClient() {
                                           <div className="space-y-3 pt-2">
                                             <div className="flex justify-between items-center px-2">
                                               <span className="text-[10px] font-medium text-muted-foreground/60">Payout Channel</span>
-                                              <Badge className="bg-primary/10 text-primary border-none rounded-full font-medium text-[9px] uppercase tracking-widest">{seller.bankDetails?.preferredPayoutMethod || "Transfer"}</Badge>
+                                              <Badge className="bg-emerald-500/10 text-emerald-700 border-none rounded-full font-medium text-[9px] uppercase tracking-widest">{seller.bankDetails?.preferredPayoutMethod || "Transfer"}</Badge>
                                             </div>
-                                            {seller.bankDetails?.mobileMoneyOption && (
-                                              <div className="flex justify-between items-center px-2">
-                                                <span className="text-[10px] font-medium text-muted-foreground/60">Mobile Provider</span>
-                                                <span className="text-xs font-medium">{seller.bankDetails.mobileMoneyOption}</span>
-                                              </div>
-                                            )}
                                           </div>
                                         </CardContent>
                                       </Card>
 
-                                      {/* PART 5: KYC EVIDENCE - Documents */}
-                                      <Card className="border-none shadow-md bg-background rounded-2xl overflow-hidden flex flex-col md:col-span-2 2xl:col-span-1">
-                                        <CardHeader className="bg-muted/30 pb-4">
-                                          <CardTitle className="text-xs font-medium flex items-center gap-2 text-emerald-500">
-                                            <ShieldCheck className="h-4 w-4" /> Verification & KYC Documents
+                                      {/* PART 5: KYC EVIDENCE */}
+                                      <Card className="border border-muted/50 shadow-xl bg-background rounded-3xl overflow-hidden flex flex-col border-l-4 border-l-rose-500/40 md:col-span-2 2xl:col-span-1">
+                                        <CardHeader className="bg-muted/30 pb-4 border-b border-muted/20">
+                                          <CardTitle className="text-xs font-bold uppercase tracking-wider flex items-center gap-2 text-rose-600">
+                                            <Fingerprint className="h-4 w-4" /> KYC EVIDENCE
                                           </CardTitle>
                                         </CardHeader>
                                         <CardContent className="pt-6 space-y-6 flex-1">
-                                          <div className="flex justify-between items-center bg-emerald-500/5 p-3 rounded-xl border border-emerald-500/10">
-                                            <div className="flex flex-col"><span className="text-[9px] font-medium text-emerald-600/60 mb-0.5">Verification Method</span><span className="text-xs font-medium">{seller.kyc?.idType || "Biometric"}</span></div>
-                                            <div className="text-xs font-mono font-medium tracking-normal bg-white px-2.5 py-1 rounded-lg shadow-sm border border-emerald-100">{seller.kyc?.idNumber || "—"}</div>
+                                          <div className="flex justify-between items-center bg-rose-500/5 p-3 rounded-xl border border-rose-500/10">
+                                            <div className="flex flex-col"><span className="text-[9px] font-medium text-rose-600/60 mb-0.5">Verification Method</span><span className="text-xs font-medium">{seller.kyc?.idType || "Biometric"}</span></div>
+                                            <div className="text-xs font-mono font-medium tracking-normal bg-white px-2.5 py-1 rounded-lg shadow-sm border border-rose-100">{seller.kyc?.idNumber || "—"}</div>
                                           </div>
                                           
-                                          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                                          <div className="grid grid-cols-2 lg:grid-cols-4 2xl:grid-cols-2 gap-3">
                                             <DocumentThumbnail url={seller.kyc?.idFrontUrl} title="ID Front Image" />
                                             <DocumentThumbnail url={seller.kyc?.idBackUrl} title="ID Back Image" />
                                             <DocumentThumbnail url={seller.kyc?.selfieUrl} title="Live Selfie" />
@@ -753,9 +750,9 @@ export function SellersClient() {
                                       </Card>
 
                                       {/* PART 6: AGREEMENTS & COMPLIANCE */}
-                                      <Card className="border-none shadow-md bg-background rounded-2xl overflow-hidden flex flex-col">
-                                        <CardHeader className="bg-muted/30 pb-4">
-                                          <CardTitle className="text-xs font-medium flex items-center gap-2 text-amber-500">
+                                      <Card className="border border-muted/50 shadow-xl bg-background rounded-3xl overflow-hidden flex flex-col border-l-4 border-l-purple-500/40">
+                                        <CardHeader className="bg-muted/30 pb-4 border-b border-muted/20">
+                                          <CardTitle className="text-xs font-bold uppercase tracking-wider flex items-center gap-2 text-purple-600">
                                             <Handshake className="h-4 w-4" /> Agreements & Policies
                                           </CardTitle>
                                         </CardHeader>
@@ -842,119 +839,8 @@ export function SellersClient() {
                                       
                                     </div>
                                   </div>
-
-                                    {/* Correction Dialog */}
-                                    <Dialog open={isCorrectionDialogOpen} onOpenChange={setIsCorrectionDialogOpen}>
-                                      <DialogContent>
-                                        <DialogHeader>
-                                          <DialogTitle>Request Correction</DialogTitle>
-                                          <DialogDescription>
-                                            Detail the necessary changes required for this seller application. This message will be sent to the seller.
-                                          </DialogDescription>
-                                        </DialogHeader>
-                                        <div className="py-4">
-                                          <Textarea
-                                            placeholder="Example: Your business registration document is blurry. Please upload a clearer copy."
-                                            value={feedbackText}
-                                            onChange={(e) => setFeedbackText(e.target.value)}
-                                            className="min-h-[120px]"
-                                          />
-                                        </div>
-                                        <DialogFooter>
-                                          <Button variant="outline" onClick={() => setIsCorrectionDialogOpen(false)}>Cancel</Button>
-                                          <Button
-                                            className="bg-orange-500 hover:bg-orange-600"
-                                            disabled={!feedbackText.trim() || actionLoading === selectedSellerId}
-                                            onClick={async () => {
-                                              if (selectedSellerId) {
-                                                await handleAdminAction(selectedSellerId, "correction", feedbackText)
-                                                setIsCorrectionDialogOpen(false)
-                                              }
-                                            }}
-                                          >
-                                            {actionLoading === selectedSellerId ? "Processing..." : "Send Request"}
-                                          </Button>
-                                        </DialogFooter>
-                                      </DialogContent>
-                                    </Dialog>
-
-                                    {/* Reject Dialog */}
-                                    <Dialog open={isRejectDialogOpen} onOpenChange={setIsRejectDialogOpen}>
-                                      <DialogContent>
-                                        <DialogHeader>
-                                          <DialogTitle className="text-destructive">Reject Seller Application</DialogTitle>
-                                          <DialogDescription>
-                                            Are you sure you want to permanently reject this seller? This action cannot be undone and will prevent the seller from operating on the platform.
-                                          </DialogDescription>
-                                        </DialogHeader>
-                                        <DialogFooter>
-                                          <Button variant="outline" onClick={() => setIsRejectDialogOpen(false)}>Cancel</Button>
-                                          <Button
-                                            variant="destructive"
-                                            disabled={actionLoading === selectedSellerId}
-                                            onClick={async () => {
-                                              if (selectedSellerId) {
-                                                await handleAdminAction(selectedSellerId, "reject")
-                                                setIsRejectDialogOpen(false)
-                                              }
-                                            }}
-                                          >
-                                            {actionLoading === selectedSellerId ? "Rejecting..." : "Reject Permanently"}
-                                          </Button>
-                                        </DialogFooter>
-                                      </DialogContent>
-                                    </Dialog>
-
-                                    {/* Commission Dialog */}
-                                    <Dialog open={isCommissionDialogOpen} onOpenChange={setIsCommissionDialogOpen}>
-                                      <DialogContent className="sm:max-w-[400px] border-none shadow-2xl rounded-[2rem]">
-                                        <DialogHeader>
-                                          <div className="flex items-center gap-3 mb-2">
-                                            <div className="p-2 bg-amber-500/10 rounded-xl">
-                                              <Globe className="h-5 w-5 text-amber-600" />
-                                            </div>
-                                            <DialogTitle className="text-xl font-medium">Assign Seller Commission</DialogTitle>
-                                          </div>
-                                          <DialogDescription className="text-sm font-medium opacity-60">
-                                            Set a custom commission rate for this specific seller. This will override the platform base rate.
-                                          </DialogDescription>
-                                        </DialogHeader>
-                                        <div className="py-8 space-y-4">
-                                          <div className="space-y-3">
-                                            <Label htmlFor="commRate" className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground ml-1">Override Rate (%)</Label>
-                                            <div className="relative">
-                                              <div className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground/40 font-bold">%</div>
-                                              <Input
-                                                id="commRate"
-                                                type="number"
-                                                placeholder="e.g. 12.5"
-                                                step="0.1"
-                                                value={commissionValue}
-                                                onChange={(e) => setCommissionValue(e.target.value ? parseFloat(e.target.value) : "")}
-                                                className="pl-12 border-muted bg-muted/20 rounded-2xl h-14 focus-visible:ring-amber-500 font-bold text-lg shadow-inner"
-                                              />
-                                            </div>
-                                            <p className="text-[9px] text-muted-foreground/60 ml-1 italic">* Leave empty or set to 0 to use platform default.</p>
-                                          </div>
-                                        </div>
-                                        <DialogFooter className="gap-3">
-                                          <Button variant="ghost" className="rounded-full px-6 font-medium text-xs uppercase tracking-widest" onClick={() => setIsCommissionDialogOpen(false)}>Cancel</Button>
-                                          <Button
-                                            className="bg-amber-500 hover:bg-amber-600 rounded-full px-8 h-12 font-medium uppercase tracking-[0.1em] text-[10px] shadow-lg shadow-amber-500/20"
-                                            disabled={actionLoading === selectedSellerId}
-                                            onClick={() => {
-                                              if (selectedSellerId) {
-                                                handleUpdateCommission(selectedSellerId, commissionValue === "" ? null : Number(commissionValue))
-                                              }
-                                            }}
-                                          >
-                                            {actionLoading === selectedSellerId ? "Synchronizing..." : "Update Commission"}
-                                          </Button>
-                                        </DialogFooter>
-                                      </DialogContent>
-                                    </Dialog>
-                                  </TableCell>
-                                </TableRow>
+                                </TableCell>
+                              </TableRow>
                             )}
                           </Fragment>
                         )
@@ -963,6 +849,119 @@ export function SellersClient() {
                   </TableBody>
                 </Table>
               </div>
+
+              {/* Correction Dialog */}
+              <Dialog open={isCorrectionDialogOpen} onOpenChange={setIsCorrectionDialogOpen}>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Request Correction</DialogTitle>
+                    <DialogDescription>
+                      Inform the seller about missing or incorrect information. They will be notified to update their details.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="py-4">
+                    <Label htmlFor="feedback">Adjustment Feedback</Label>
+                    <Textarea 
+                      id="feedback" 
+                      placeholder="e.g. Please re-upload your clear bank passbook..." 
+                      className="mt-2"
+                      value={feedbackText}
+                      onChange={(e) => setFeedbackText(e.target.value)}
+                    />
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setIsCorrectionDialogOpen(false)}>Cancel</Button>
+                    <Button 
+                      disabled={actionLoading === selectedSellerId}
+                      onClick={async () => {
+                        if (selectedSellerId) {
+                          await handleAdminAction(selectedSellerId, "correction", feedbackText)
+                          setIsCorrectionDialogOpen(false)
+                        }
+                      }}
+                    >
+                      {actionLoading === selectedSellerId ? "Sending..." : "Send Request"}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+
+              {/* Reject Dialog */}
+              <Dialog open={isRejectDialogOpen} onOpenChange={setIsRejectDialogOpen}>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle className="text-destructive">Reject Seller Application</DialogTitle>
+                    <DialogDescription>
+                      Are you sure you want to permanently reject this seller? This action cannot be undone and will prevent the seller from operating on the platform.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setIsRejectDialogOpen(false)}>Cancel</Button>
+                    <Button
+                      variant="destructive"
+                      disabled={actionLoading === selectedSellerId}
+                      onClick={async () => {
+                        if (selectedSellerId) {
+                          await handleAdminAction(selectedSellerId, "reject")
+                          setIsRejectDialogOpen(false)
+                        }
+                      }}
+                    >
+                      {actionLoading === selectedSellerId ? "Rejecting..." : "Reject Permanently"}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+
+              {/* Commission Dialog */}
+              <Dialog open={isCommissionDialogOpen} onOpenChange={setIsCommissionDialogOpen}>
+                <DialogContent className="sm:max-w-[400px] border-none shadow-2xl rounded-[2rem]">
+                  <DialogHeader>
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="p-2 bg-amber-500/10 rounded-xl">
+                        <Globe className="h-5 w-5 text-amber-600" />
+                      </div>
+                      <DialogTitle className="text-xl font-medium">Assign Seller Commission</DialogTitle>
+                    </div>
+                    <DialogDescription className="text-sm font-medium opacity-60">
+                      Set a custom commission rate for this specific seller. This will override the platform base rate.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="py-8 space-y-4">
+                    <div className="space-y-3">
+                      <Label htmlFor="commRate" className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground ml-1">Override Rate (%)</Label>
+                      <div className="relative">
+                        <div className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground/40 font-bold">%</div>
+                        <Input
+                          id="commRate"
+                          type="number"
+                          placeholder="e.g. 12.5"
+                          step="0.1"
+                          value={commissionValue}
+                          onChange={(e) => setCommissionValue(e.target.value ? parseFloat(e.target.value) : "")}
+                          className="pl-12 border-muted bg-muted/20 rounded-2xl h-14 focus-visible:ring-amber-500 font-bold text-lg shadow-inner"
+                        />
+                      </div>
+                      <p className="text-[9px] text-muted-foreground/60 ml-1 italic">* Leave empty or set to 0 to use platform default.</p>
+                    </div>
+                  </div>
+                  <DialogFooter className="gap-3">
+                    <Button variant="ghost" className="rounded-full px-6 font-medium text-xs uppercase tracking-widest" onClick={() => setIsCommissionDialogOpen(false)}>Cancel</Button>
+                    <Button
+                      className="bg-amber-500 hover:bg-amber-600 rounded-full px-8 h-12 font-medium uppercase tracking-[0.1em] text-[10px] shadow-lg shadow-amber-500/20"
+                      disabled={actionLoading === selectedSellerId}
+                      onClick={() => {
+                        if (selectedSellerId) {
+                          handleUpdateCommission(selectedSellerId, commissionValue === "" ? null : Number(commissionValue))
+                        }
+                      }}
+                    >
+                      {actionLoading === selectedSellerId ? "Synchronizing..." : "Update Commission"}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+
               <div className="p-8 bg-muted/10 border-t border-muted/20 rounded-b-3xl">
                 <AdminPagination
                   basePath="/admin/sellers"
