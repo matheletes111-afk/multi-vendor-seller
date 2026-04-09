@@ -161,6 +161,7 @@ export async function POST(request: NextRequest) {
             accountNumber: formData.get("accountNumber") as string,
             branchName: formData.get("branchName") as string,
             preferredPayoutMethod: formData.get("preferredPayoutMethod") as string,
+            mobileMoneyOption: formData.get("mobileMoneyOption") as string,
         } : { ...jsonBody.data };
 
         if (formData) {
