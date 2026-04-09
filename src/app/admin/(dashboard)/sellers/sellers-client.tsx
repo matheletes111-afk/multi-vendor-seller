@@ -97,7 +97,7 @@ export function SellersClient() {
       const tabQs = tab === "all" ? "" : `&tab=${encodeURIComponent(tab)}`
       const searchQs = searchQ ? `&search=${encodeURIComponent(searchQ)}` : ""
       const typeQs = typeFilter !== "ALL" ? `&type=${encodeURIComponent(typeFilter)}` : ""
-      
+
       return fetch(`/api/admin/sellers?page=${page}&perPage=${perPage}${tabQs}${searchQs}${typeQs}`)
         .then((res) => {
           if (!res.ok) throw new Error("Failed to fetch sellers")
@@ -123,7 +123,7 @@ export function SellersClient() {
     const tabQs = tab === "all" ? "" : `&tab=${encodeURIComponent(tab)}`
     const searchQs = searchQ ? `&search=${encodeURIComponent(searchQ)}` : ""
     const typeQs = typeFilter !== "ALL" ? `&type=${encodeURIComponent(typeFilter)}` : ""
-    
+
     fetch(`/api/admin/sellers?page=${page}&perPage=${perPage}${tabQs}${searchQs}${typeQs}`)
       .then((res) => {
         if (!res.ok) throw new Error("Failed to fetch sellers")
@@ -195,9 +195,9 @@ export function SellersClient() {
     setActionLoading(sellerId)
     try {
       const res = await fetch(`/api/admin/sellers/${sellerId}/status`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action, feedback })
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, feedback })
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || "Failed")
@@ -207,7 +207,7 @@ export function SellersClient() {
     } catch (e: any) {
       router.push(`/admin/sellers?error=${encodeURIComponent(e.message)}`)
     } finally {
-        setActionLoading(null)
+      setActionLoading(null)
     }
   }
 
@@ -283,8 +283,8 @@ export function SellersClient() {
               {/* Name Search */}
               <div className="relative flex-1 md:max-w-[300px]">
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input 
-                  placeholder="Search sellers by name..." 
+                <Input
+                  placeholder="Search sellers by name..."
                   className="pl-9 bg-background/50 border-muted rounded-xl"
                   value={searchInput}
                   onChange={(e) => setSearchInput(e.target.value)}
@@ -298,10 +298,10 @@ export function SellersClient() {
               </div>
 
               {/* Seller Type Select */}
-              <Select 
-                value={typeFilter} 
+              <Select
+                value={typeFilter}
                 onValueChange={(val) => {
-                   router.push(buildAdminPageUrl("/admin/sellers", 1, { ...params, type: val === "ALL" ? undefined : val }))
+                  router.push(buildAdminPageUrl("/admin/sellers", 1, { ...params, type: val === "ALL" ? undefined : val }))
                 }}
               >
                 <SelectTrigger className="w-[160px] bg-background/50 border-muted rounded-xl">
@@ -315,10 +315,10 @@ export function SellersClient() {
               </Select>
 
               {/* Status Select */}
-              <Select 
-                value={tab} 
+              <Select
+                value={tab}
                 onValueChange={(val) => {
-                   router.push(buildAdminPageUrl("/admin/sellers", 1, { ...params, tab: val === "all" ? undefined : val }))
+                  router.push(buildAdminPageUrl("/admin/sellers", 1, { ...params, tab: val === "all" ? undefined : val }))
                 }}
               >
                 <SelectTrigger className="w-[160px] bg-background/50 border-muted rounded-xl">
@@ -333,7 +333,7 @@ export function SellersClient() {
               </Select>
 
               {/* Search Button */}
-              <Button 
+              <Button
                 onClick={() => {
                   const paramObj = { ...params, search: searchInput || undefined }
                   router.push(buildAdminPageUrl("/admin/sellers", 1, paramObj))
@@ -347,31 +347,31 @@ export function SellersClient() {
           </div>
         </CardHeader>
         <CardContent className="p-0">
-        {loading ? (
-          <div className="py-32">
-            <PageLoader message="Curating seller list…" />
-          </div>
-        ) : error ? (
-          <div className="py-24 text-center px-6">
-            <AlertCircle className="h-10 w-10 text-destructive mx-auto mb-4" />
-            <p className="text-destructive font-medium">{error}</p>
-            <Button variant="outline" className="mt-4 rounded-full font-medium" onClick={() => loadSellers()}>Try Again</Button>
-          </div>
-        ) : !data ? null : (
-          <>
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader className="bg-muted/30 border-none transition-none">
-                  <TableRow className="hover:bg-transparent border-none">
-                    <TableHead className="py-4 pl-8 text-xs font-medium text-muted-foreground/80">Identity</TableHead>
-                    <TableHead className="text-xs font-medium text-muted-foreground/80">Venture</TableHead>
-                    <TableHead className="text-xs font-medium text-muted-foreground/80">Classification</TableHead>
-                    <TableHead className="text-xs font-medium text-muted-foreground/80">Standing</TableHead>
-                    <TableHead className="text-xs font-medium text-muted-foreground/80">Subscription</TableHead>
-                    <TableHead className="text-xs font-medium text-muted-foreground/80">Commission</TableHead>
-                    <TableHead className="text-right pr-8 text-xs font-medium text-muted-foreground/80">Control</TableHead>
-                  </TableRow>
-                </TableHeader>
+          {loading ? (
+            <div className="py-32">
+              <PageLoader message="Curating seller list…" />
+            </div>
+          ) : error ? (
+            <div className="py-24 text-center px-6">
+              <AlertCircle className="h-10 w-10 text-destructive mx-auto mb-4" />
+              <p className="text-destructive font-medium">{error}</p>
+              <Button variant="outline" className="mt-4 rounded-full font-medium" onClick={() => loadSellers()}>Try Again</Button>
+            </div>
+          ) : !data ? null : (
+            <>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader className="bg-muted/30 border-none transition-none">
+                    <TableRow className="hover:bg-transparent border-none">
+                      <TableHead className="py-4 pl-8 text-xs font-medium text-muted-foreground/80">Identity</TableHead>
+                      <TableHead className="text-xs font-medium text-muted-foreground/80">Venture</TableHead>
+                      <TableHead className="text-xs font-medium text-muted-foreground/80">Classification</TableHead>
+                      <TableHead className="text-xs font-medium text-muted-foreground/80">Standing</TableHead>
+                      <TableHead className="text-xs font-medium text-muted-foreground/80">Subscription</TableHead>
+                      <TableHead className="text-xs font-medium text-muted-foreground/80">Commission</TableHead>
+                      <TableHead className="text-right pr-8 text-xs font-medium text-muted-foreground/80">Control</TableHead>
+                    </TableRow>
+                  </TableHeader>
                   <TableBody>
                     {data.sellers.length === 0 ? (
                       <TableRow>
@@ -410,7 +410,7 @@ export function SellersClient() {
                               </TableCell>
                               <TableCell>
                                 <div className="flex flex-wrap gap-1.5">
-                                  <Badge 
+                                  <Badge
                                     className={cn(
                                       "rounded-full text-[9px] font-medium uppercase tracking-widest px-2 py-0.5 border-none shadow-sm",
                                       seller.isApproved ? "bg-green-500 text-white" : "bg-blue-500 text-white"
@@ -437,7 +437,7 @@ export function SellersClient() {
                               </TableCell>
                               <TableCell>
                                 {seller.commissionRate != null ? (
-                                  <div 
+                                  <div
                                     className="flex items-center gap-2 cursor-pointer group/comm"
                                     onClick={() => {
                                       setSelectedSellerId(seller.id)
@@ -450,9 +450,9 @@ export function SellersClient() {
                                     </Badge>
                                   </div>
                                 ) : (
-                                  <Button 
-                                    variant="ghost" 
-                                    size="sm" 
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
                                     className="h-7 px-3 text-[10px] font-bold uppercase tracking-widest text-primary hover:bg-primary/10 bg-primary/5 border border-primary/20 rounded-full transition-all"
                                     onClick={(e) => {
                                       e.stopPropagation();
@@ -461,7 +461,7 @@ export function SellersClient() {
                                       setIsCommissionDialogOpen(true)
                                     }}
                                   >
-                                   Assign
+                                    Assign
                                   </Button>
                                 )}
                               </TableCell>
@@ -479,7 +479,7 @@ export function SellersClient() {
                                   >
                                     <ChevronDown className="h-4 w-4" />
                                   </Button>
-                                  
+
                                   <div className="flex items-center gap-2 transition-all duration-300">
                                     {!seller.isApproved && (
                                       <Button
@@ -525,7 +525,7 @@ export function SellersClient() {
                                 <TableCell colSpan={7} className="p-0">
                                   <div className="p-8 space-y-8 animate-in slide-in-from-top-4 duration-500">
                                     <div className="grid gap-6 md:grid-cols-2 2xl:grid-cols-3">
-                                      
+
                                       {/* PART 1: CORPORATE DNA - Identity */}
                                       <Card className="border border-muted/50 shadow-xl bg-background rounded-3xl overflow-hidden flex flex-col border-l-4 border-l-blue-500/40">
                                         <CardHeader className="bg-muted/30 pb-4 border-b border-muted/20">
@@ -559,7 +559,7 @@ export function SellersClient() {
                                               <div className="flex flex-col"><span className="text-[10px] font-medium text-muted-foreground/60">NIN</span><span className="text-sm font-medium">{seller.nationIdentityNumber || "Pending"}</span></div>
                                             </div>
                                           </div>
-                                          
+
                                           {seller.adminFeedback && (
                                             <div className="mt-4 p-3 bg-red-500/5 rounded-2xl border border-red-500/10">
                                               <span className="text-[8px] font-medium uppercase text-red-600 tracking-widest block mb-1">Administrative Memo</span>
@@ -581,7 +581,7 @@ export function SellersClient() {
                                             <span className="text-[9px] font-medium text-muted-foreground/60 block mb-1">Trade Name</span>
                                             <span className="text-sm font-medium">{seller.businessInfo?.businessName || seller.store?.name || "—"}</span>
                                           </div>
-                                          
+
                                           <div className="grid grid-cols-2 gap-4">
                                             <div className="flex flex-col gap-1">
                                               <span className="text-[10px] font-medium text-muted-foreground/60">Structure</span>
@@ -653,7 +653,7 @@ export function SellersClient() {
 
                                             {seller.store?.lat && seller.store?.lng ? (
                                               <div className="flex flex-col gap-1.5 mt-2 rounded-xl border border-muted/50 p-2 relative h-28 overflow-hidden group">
-                                                <img 
+                                                <img
                                                   src={`https://maps.googleapis.com/maps/api/staticmap?center=${seller.store.lat},${seller.store.lng}&zoom=15&size=400x150&markers=color:red%7C${seller.store.lat},${seller.store.lng}&key=${process.env.NEXT_PUBLIC_MAP_KEY}`}
                                                   className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-all duration-700"
                                                   alt="Map static"
@@ -665,8 +665,8 @@ export function SellersClient() {
                                               </div>
                                             ) : (
                                               <div className="flex flex-col justify-center items-center py-4 bg-muted/10 rounded-xl border border-dashed border-muted/50 h-28">
-                                                 <MapPin className="h-5 w-5 text-muted-foreground/30 mb-2" />
-                                                 <span className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground/50">Location unlisted</span>
+                                                <MapPin className="h-5 w-5 text-muted-foreground/30 mb-2" />
+                                                <span className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground/50">Location unlisted</span>
                                               </div>
                                             )}
                                           </div>
@@ -698,7 +698,7 @@ export function SellersClient() {
                                                   <Building2 className="w-4 h-4" /> {seller.bankDetails?.bankName || "—"}
                                                 </div>
                                               </div>
-                                              
+
                                               <div className="grid grid-cols-2 gap-4">
                                                 <div className="flex flex-col">
                                                   <span className="text-[9px] font-medium text-muted-foreground/60 mb-1 ml-1">Beneficiary</span>
@@ -738,7 +738,7 @@ export function SellersClient() {
                                             <div className="flex flex-col"><span className="text-[9px] font-medium text-rose-600/60 mb-0.5">Verification Method</span><span className="text-xs font-medium">{seller.kyc?.idType || "Biometric"}</span></div>
                                             <div className="text-xs font-mono font-medium tracking-normal bg-white px-2.5 py-1 rounded-lg shadow-sm border border-rose-100">{seller.kyc?.idNumber || "—"}</div>
                                           </div>
-                                          
+
                                           <div className="grid grid-cols-2 lg:grid-cols-4 2xl:grid-cols-2 gap-3">
                                             <DocumentThumbnail url={seller.kyc?.idFrontUrl} title="ID Front Image" />
                                             <DocumentThumbnail url={seller.kyc?.idBackUrl} title="ID Back Image" />
@@ -757,39 +757,39 @@ export function SellersClient() {
                                           </CardTitle>
                                         </CardHeader>
                                         <CardContent className="pt-6 flex flex-col items-center justify-center flex-1 space-y-4">
-                                            {seller.agreement ? (
-                                              <div className="w-full space-y-3">
-                                                 <div className="flex items-center justify-between p-3 rounded-xl bg-muted/40 border border-muted">
-                                                    <span className="text-xs font-medium text-muted-foreground">General Terms Accepted</span>
-                                                    <Badge className={cn("rounded-full h-5 w-5 p-0 flex items-center justify-center border-none", seller.agreement.acceptedTerms ? "bg-emerald-500" : "bg-red-500")}>
-                                                       {seller.agreement.acceptedTerms ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
-                                                    </Badge>
-                                                 </div>
-                                                 <div className="flex items-center justify-between p-3 rounded-xl bg-muted/40 border border-muted">
-                                                    <span className="text-xs font-medium text-muted-foreground">Privacy Policy Accepted</span>
-                                                    <Badge className={cn("rounded-full h-5 w-5 p-0 flex items-center justify-center border-none", seller.agreement.acceptedPrivacyPolicy ? "bg-emerald-500" : "bg-red-500")}>
-                                                       {seller.agreement.acceptedPrivacyPolicy ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
-                                                    </Badge>
-                                                 </div>
-                                                 <div className="flex items-center justify-between p-3 rounded-xl bg-muted/40 border border-muted">
-                                                    <span className="text-xs font-medium text-muted-foreground">Return Policy Check</span>
-                                                    <Badge className={cn("rounded-full h-5 w-5 p-0 flex items-center justify-center border-none", seller.agreement.acceptedReturnPolicy ? "bg-emerald-500" : "bg-red-500")}>
-                                                       {seller.agreement.acceptedReturnPolicy ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
-                                                    </Badge>
-                                                 </div>
-                                                 <div className="flex items-center justify-between p-3 rounded-xl bg-muted/40 border border-muted">
-                                                    <span className="text-xs font-medium text-muted-foreground">Commission Details</span>
-                                                    <Badge className={cn("rounded-full h-5 w-5 p-0 flex items-center justify-center border-none", seller.agreement.acceptedCommission ? "bg-emerald-500" : "bg-red-500")}>
-                                                       {seller.agreement.acceptedCommission ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
-                                                    </Badge>
-                                                 </div>
+                                          {seller.agreement ? (
+                                            <div className="w-full space-y-3">
+                                              <div className="flex items-center justify-between p-3 rounded-xl bg-muted/40 border border-muted">
+                                                <span className="text-xs font-medium text-muted-foreground">General Terms Accepted</span>
+                                                <Badge className={cn("rounded-full h-5 w-5 p-0 flex items-center justify-center border-none", seller.agreement.agreedToTerms ? "bg-emerald-500" : "bg-red-500")}>
+                                                  {seller.agreement.agreedToTerms ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
+                                                </Badge>
                                               </div>
-                                            ) : (
-                                              <div className="flex flex-col items-center justify-center py-6 text-center space-y-2">
-                                                 <AlertCircle className="h-8 w-8 text-amber-500/50" />
-                                                 <span className="text-sm font-medium text-muted-foreground block text-balance">The seller has not finalized the agreement stage.</span>
+                                              <div className="flex items-center justify-between p-3 rounded-xl bg-muted/40 border border-muted">
+                                                <span className="text-xs font-medium text-muted-foreground">Privacy Policy Accepted</span>
+                                                <Badge className={cn("rounded-full h-5 w-5 p-0 flex items-center justify-center border-none", seller.agreement.agreedToPrivacy ? "bg-emerald-500" : "bg-red-500")}>
+                                                  {seller.agreement.agreedToPrivacy ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
+                                                </Badge>
                                               </div>
-                                            )}
+                                              <div className="flex items-center justify-between p-3 rounded-xl bg-muted/40 border border-muted">
+                                                <span className="text-xs font-medium text-muted-foreground">Return Policy Check</span>
+                                                <Badge className={cn("rounded-full h-5 w-5 p-0 flex items-center justify-center border-none", seller.agreement.agreedToReturnPolicy ? "bg-emerald-500" : "bg-red-500")}>
+                                                  {seller.agreement.agreedToReturnPolicy ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
+                                                </Badge>
+                                              </div>
+                                              <div className="flex items-center justify-between p-3 rounded-xl bg-muted/40 border border-muted">
+                                                <span className="text-xs font-medium text-muted-foreground">Commission Details</span>
+                                                <Badge className={cn("rounded-full h-5 w-5 p-0 flex items-center justify-center border-none", seller.agreement.agreedToCommission ? "bg-emerald-500" : "bg-red-500")}>
+                                                  {seller.agreement.agreedToCommission ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
+                                                </Badge>
+                                              </div>
+                                            </div>
+                                          ) : (
+                                            <div className="flex flex-col items-center justify-center py-6 text-center space-y-2">
+                                              <AlertCircle className="h-8 w-8 text-amber-500/50" />
+                                              <span className="text-sm font-medium text-muted-foreground block text-balance">The seller has not finalized the agreement stage.</span>
+                                            </div>
+                                          )}
                                         </CardContent>
                                       </Card>
 
@@ -798,7 +798,7 @@ export function SellersClient() {
                                         <div className="flex items-center gap-6">
                                           <div className="space-y-1 relative group">
                                             <div className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground/60 flex items-center gap-2">
-                                              Onboarding Progress 
+                                              Onboarding Progress
                                               {seller.onboardingCompleted && <CheckCircle className="h-3 w-3 text-emerald-500" />}
                                             </div>
                                             <div className="text-sm font-medium flex items-center gap-2">
@@ -836,7 +836,7 @@ export function SellersClient() {
                                           )}
                                         </div>
                                       </div>
-                                      
+
                                     </div>
                                   </div>
                                 </TableCell>
@@ -861,9 +861,9 @@ export function SellersClient() {
                   </DialogHeader>
                   <div className="py-4">
                     <Label htmlFor="feedback">Adjustment Feedback</Label>
-                    <Textarea 
-                      id="feedback" 
-                      placeholder="e.g. Please re-upload your clear bank passbook..." 
+                    <Textarea
+                      id="feedback"
+                      placeholder="e.g. Please re-upload your clear bank passbook..."
                       className="mt-2"
                       value={feedbackText}
                       onChange={(e) => setFeedbackText(e.target.value)}
@@ -871,7 +871,7 @@ export function SellersClient() {
                   </div>
                   <DialogFooter>
                     <Button variant="outline" onClick={() => setIsCorrectionDialogOpen(false)}>Cancel</Button>
-                    <Button 
+                    <Button
                       disabled={actionLoading === selectedSellerId}
                       onClick={async () => {
                         if (selectedSellerId) {
