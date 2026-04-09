@@ -5,8 +5,23 @@ import { allocateNextOrderNumberTx } from "@/lib/order-number"
 import { createServiceSlotIfAllowed } from "@/lib/service-slots"
 import { UserRole } from "@prisma/client"
 
-const COMMISSION_RATE = 10
 const GST_RATE = 0.15
+
+/** Resolve commission rate for a single seller (server-side only). */
+async function resolveSellerCommissionRate(sellerId: string): Promise<number> {
+  const DEFAULT_RATE = 10
+  const [globalRows, sellerRows] = await Promise.all([
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (prisma as any).globalSetting.findFirst() as Promise<{ baseCommission: number } | null>,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (prisma as any).seller.findFirst({
+      where: { id: sellerId },
+      select: { commissionRate: true },
+    }) as Promise<{ commissionRate: number | null } | null>,
+  ])
+  const baseRate: number = globalRows?.baseCommission ?? DEFAULT_RATE
+  return sellerRows?.commissionRate ?? baseRate
+}
 
 /** POST /api/customer/checkout/place-service-order — direct service booking (no cart). CUSTOMER only. */
 export async function POST(request: NextRequest) {
@@ -56,7 +71,13 @@ export async function POST(request: NextRequest) {
   let serviceSlotId: string | null = null
   const slotStartTime = payload.slotStartTime ? new Date(payload.slotStartTime) : null
   const slotEndTime = payload.slotEndTime ? new Date(payload.slotEndTime) : null
-  if (slotStartTime && slotEndTime && !isNaN(slotStartTime.getTime()) && !isNaN(slotEndTime.getTime()) && slotStartTime < slotEndTime) {
+  if (
+    slotStartTime &&
+    slotEndTime &&
+    !isNaN(slotStartTime.getTime()) &&
+    !isNaN(slotEndTime.getTime()) &&
+    slotStartTime < slotEndTime
+  ) {
     try {
       const { id } = await createServiceSlotIfAllowed(serviceId, slotStartTime, slotEndTime)
       serviceSlotId = id
@@ -78,7 +99,10 @@ export async function POST(request: NextRequest) {
   const subtotal = unitPrice * quantity
   const totalGst = hasGst ? subtotal * GST_RATE : 0
   const totalAmount = subtotal + totalGst
-  const commission = totalAmount * (COMMISSION_RATE / 100)
+
+  // ── Commission (server-side only, never returned to customer) ───────────────
+  const commissionRate = await resolveSellerCommissionRate(service.sellerId)
+  const commission = totalAmount * (commissionRate / 100)
 
   const order = await prisma.$transaction(async (tx) => {
     const orderNumber = await allocateNextOrderNumberTx(tx)
@@ -93,7 +117,7 @@ export async function POST(request: NextRequest) {
         tax: totalGst,
         shipping: 0,
         commission,
-        commissionRate: COMMISSION_RATE,
+        commissionRate,
         paymentStatus: "PENDING",
         paymentMethod: "COD",
         shippingFullName: address.fullName,
@@ -122,13 +146,13 @@ export async function POST(request: NextRequest) {
       quantity: 1,
       price: unitPrice,
       subtotal,
-      hasGst: hasGst,
+      hasGst,
       gstAmount: totalGst,
       subtotalInclGst: subtotal + totalGst,
       itemStatus: "PENDING",
       shippingAmount: 0,
       commissionAmount: commission,
-      commissionRateSnapshot: COMMISSION_RATE,
+      commissionRateSnapshot: commissionRate,
     },
   })
 
@@ -141,6 +165,7 @@ export async function POST(request: NextRequest) {
     },
   })
 
+  // ── Customer-facing response — NO commission data ───────────────────────────
   return NextResponse.json({
     success: true,
     orderId: order.id,

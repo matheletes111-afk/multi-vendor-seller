@@ -25,12 +25,13 @@ export async function GET(request: NextRequest) {
       active: "ACTIVE",
       paused: "PAUSED",
       ended: "ENDED",
+      rejected: "REJECTED" as any,
     }
     if (tab !== "all" && statusMap[tab]) {
       where = { status: statusMap[tab] }
     }
 
-    const [ads, totalCount, stats, activeCount, pendingCount] = await Promise.all([
+    const [ads, totalCount, stats, activeCount, pendingCount, rejectedCount] = await Promise.all([
       prisma.sellerAd.findMany({
         where,
         skip,
@@ -57,6 +58,7 @@ export async function GET(request: NextRequest) {
       }),
       prisma.sellerAd.count({ where: { status: "ACTIVE" } }),
       prisma.sellerAd.count({ where: { status: "PENDING_APPROVAL" } }),
+      prisma.sellerAd.count({ where: { status: "REJECTED" as any } }),
     ])
 
     const serialized = ads.map((ad) => ({
@@ -77,6 +79,7 @@ export async function GET(request: NextRequest) {
       totalRevenue: Number(stats._sum.spentAmount || 0),
       activeCount,
       pendingCount,
+      rejectedCount,
     })
   } catch (error) {
     console.error("Error fetching seller ads:", error)

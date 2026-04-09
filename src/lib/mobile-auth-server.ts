@@ -4,7 +4,7 @@ import { prisma } from "./prisma";
 import { UserRole } from "@prisma/client";
 
 export type MobileAuthResult =
-  | { success: true; user: { id: string; email: string; role: UserRole }; seller: any }
+  | { success: true; user: { id: string; email: string; role: UserRole; name?: string | null; phone?: string | null; phoneCountryCode?: string | null; image?: string | null }; seller: any }
   | { success: false; errorResponse: NextResponse };
 
 /**
@@ -60,6 +60,7 @@ export async function verifyMobileAuth(
           store: true,
           selectedCategories: true,
           selectedServiceCategories: true,
+          agreement: true,
         },
       },
     },
@@ -77,7 +78,15 @@ export async function verifyMobileAuth(
 
   return {
     success: true,
-    user: { id: user.id, email: user.email, role: user.role as UserRole },
+    user: { 
+      id: user.id, 
+      email: user.email, 
+      role: user.role as UserRole,
+      name: user.name,
+      phone: user.phone,
+      phoneCountryCode: user.phoneCountryCode,
+      image: user.image
+    },
     seller: user.seller,
   };
 }

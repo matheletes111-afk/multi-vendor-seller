@@ -25,25 +25,18 @@ type CartItemForCheckout = Awaited<
 }
 
 function getSellerId(item: CartItemForCheckout): string | null {
-  const sellerId = item.product?.sellerId ?? item.service?.sellerId ?? null
-  return sellerId
+  return item.product?.sellerId ?? item.service?.sellerId ?? null
 }
 
 function getItemName(item: CartItemForCheckout): { productName: string | null; serviceName: string | null } {
   if (item.product && item.productVariant) {
-    return {
-      productName: `${item.product.name} (${item.productVariant.name})`,
-      serviceName: null,
-    }
+    return { productName: `${item.product.name} (${item.productVariant.name})`, serviceName: null }
   }
   if (item.product) {
     return { productName: item.product.name, serviceName: null }
   }
   if (item.service && item.servicePackage) {
-    return {
-      productName: null,
-      serviceName: `${item.service.name} - ${item.servicePackage.name}`,
-    }
+    return { productName: null, serviceName: `${item.service.name} - ${item.servicePackage.name}` }
   }
   if (item.service) {
     return { productName: null, serviceName: item.service.name }
@@ -51,7 +44,32 @@ function getItemName(item: CartItemForCheckout): { productName: string | null; s
   return { productName: null, serviceName: null }
 }
 
-const COMMISSION_RATE = 10
+/** Resolve the effective commission rate for a seller.
+ *  Priority: seller-specific override > global base rate > hard-coded fallback (10%) */
+async function resolveCommissionRates(
+  sellerIds: string[]
+): Promise<{ baseRate: number; sellerMap: Map<string, number> }> {
+  const DEFAULT_RATE = 10
+
+  // Use raw query to avoid TS complaining about newly-added fields that may not
+  // yet be reflected in the generated Prisma client types.
+  const [globalRows, sellerRows] = await Promise.all([
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (prisma as any).globalSetting.findFirst() as Promise<{ baseCommission: number } | null>,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (prisma as any).seller.findMany({
+      where: { id: { in: sellerIds } },
+      select: { id: true, commissionRate: true },
+    }) as Promise<{ id: string; commissionRate: number | null }[]>,
+  ])
+
+  const baseRate: number = globalRows?.baseCommission ?? DEFAULT_RATE
+  const sellerMap = new Map<string, number>()
+  for (const s of sellerRows) {
+    sellerMap.set(s.id, s.commissionRate ?? baseRate)
+  }
+  return { baseRate, sellerMap }
+}
 
 /** POST /api/customer/checkout/place-order — create one order with item-level seller ownership. CUSTOMER only. */
 export async function POST(request: NextRequest) {
@@ -62,12 +80,14 @@ export async function POST(request: NextRequest) {
   if (session.user.role !== UserRole.CUSTOMER) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
+
   let body: unknown
   try {
     body = await request.json()
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 })
   }
+
   const payload = body as { addressId?: string }
   const addressId = typeof payload.addressId === "string" ? payload.addressId.trim() : null
   if (!addressId) {
@@ -81,19 +101,25 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Address not found" }, { status: 404 })
   }
 
+  // ── Cart ────────────────────────────────────────────────────────────────────
   const cartItems = await prisma.cartItem.findMany({
     where: { userId: session.user.id },
     include: CHECKOUT_CART_INCLUDE,
     orderBy: { createdAt: "asc" },
   })
-  const items = (cartItems as CartItemForCheckout[]).filter((i) => i.productId != null || i.serviceId != null)
+  const items = (cartItems as CartItemForCheckout[]).filter(
+    (i) => i.productId != null || i.serviceId != null
+  )
 
   if (items.length === 0) {
     return NextResponse.json({ error: "Cart is empty" }, { status: 400 })
   }
 
-  // Validate and reserve stock for product variants
-  const variantIds = [...new Set(items.map((i) => i.productVariantId).filter(Boolean))] as string[]
+  // ── Stock Validation ────────────────────────────────────────────────────────
+  const variantIds = [
+    ...new Set(items.map((i) => i.productVariantId).filter(Boolean)),
+  ] as string[]
+
   if (variantIds.length > 0) {
     const variants = await prisma.productVariant.findMany({
       where: { id: { in: variantIds } },
@@ -104,7 +130,10 @@ export async function POST(request: NextRequest) {
       if (item.productVariantId) {
         const v = variantById.get(item.productVariantId)
         if (!v) {
-          return NextResponse.json({ error: "A product variant in your cart is no longer available." }, { status: 400 })
+          return NextResponse.json(
+            { error: "A product variant in your cart is no longer available." },
+            { status: 400 }
+          )
         }
         if (v.stock < item.quantity) {
           return NextResponse.json(
@@ -116,6 +145,7 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  // ── Normalise items (attach sellerId) ───────────────────────────────────────
   const normalizedItems = items
     .map((item) => ({ item, sellerId: getSellerId(item) }))
     .filter((row): row is { item: CartItemForCheckout; sellerId: string } => !!row.sellerId)
@@ -124,27 +154,56 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "No seller-mapped items found in cart" }, { status: 400 })
   }
 
+  // ── Totals ──────────────────────────────────────────────────────────────────
   const subtotal = normalizedItems.reduce((sum, row) => sum + row.item.totalPrice, 0)
   const tax = normalizedItems.reduce((sum, row) => sum + row.item.totalGst, 0)
   const shipping = 0
   const totalAmount = subtotal + tax + shipping
-  const commission = totalAmount * (COMMISSION_RATE / 100)
 
+  // Per-seller subtotal (needed to split shipping proportionally)
   const sellerSubtotal = new Map<string, number>()
   for (const row of normalizedItems) {
     sellerSubtotal.set(row.sellerId, (sellerSubtotal.get(row.sellerId) ?? 0) + row.item.totalPrice)
   }
+
   const sellerShipping = new Map<string, number>()
   if (shipping > 0 && subtotal > 0) {
     let assigned = 0
     const entries = [...sellerSubtotal.entries()]
     entries.forEach(([sid, sub], idx) => {
-      const value = idx === entries.length - 1 ? shipping - assigned : Number(((shipping * sub) / subtotal).toFixed(6))
+      const value =
+        idx === entries.length - 1
+          ? shipping - assigned
+          : Number(((shipping * sub) / subtotal).toFixed(6))
       assigned += value
       sellerShipping.set(sid, value)
     })
   }
 
+  // ── Commission Calculation (server-side only, hidden from customer) ──────────
+  const uniqueSellerIds = [...new Set(normalizedItems.map((n) => n.sellerId))]
+  const { baseRate, sellerMap } = await resolveCommissionRates(uniqueSellerIds)
+
+  let totalOrderCommission = 0
+  const itemCommissionData = normalizedItems.map((row) => {
+    const rate = sellerMap.get(row.sellerId) ?? baseRate
+    const lineTotalInclGst =
+      row.item.totalPriceInclGst ?? row.item.totalPrice + row.item.totalGst
+    const itemShippingAmount =
+      subtotal > 0
+        ? Number(
+            (
+              ((sellerShipping.get(row.sellerId) ?? 0) * row.item.totalPrice) /
+              (sellerSubtotal.get(row.sellerId) ?? 1)
+            ).toFixed(6)
+          )
+        : 0
+    const commAmt = (lineTotalInclGst + itemShippingAmount) * (rate / 100)
+    totalOrderCommission += commAmt
+    return { rate, commAmt, lineTotalInclGst, itemShippingAmount }
+  })
+
+  // ── Create Order ────────────────────────────────────────────────────────────
   const order = await prisma.$transaction(async (tx) => {
     const orderNumber = await allocateNextOrderNumberTx(tx)
     return tx.order.create({
@@ -157,8 +216,8 @@ export async function POST(request: NextRequest) {
         subtotal,
         tax,
         shipping,
-        commission,
-        commissionRate: COMMISSION_RATE,
+        commission: totalOrderCommission,
+        commissionRate: baseRate,
         paymentStatus: "PENDING",
         paymentMethod: "COD",
         shippingFullName: address.fullName,
@@ -173,12 +232,11 @@ export async function POST(request: NextRequest) {
     })
   })
 
-  for (const row of normalizedItems) {
+  // ── Create Order Items ──────────────────────────────────────────────────────
+  for (let idx = 0; idx < normalizedItems.length; idx++) {
+    const row = normalizedItems[idx]
     const { productName, serviceName } = getItemName(row.item)
-    const lineTotalInclGst = row.item.totalPriceInclGst ?? row.item.totalPrice + row.item.totalGst
-    const itemShippingAmount =
-      subtotal > 0 ? Number((((sellerShipping.get(row.sellerId) ?? 0) * row.item.totalPrice) / (sellerSubtotal.get(row.sellerId) ?? 1)).toFixed(6)) : 0
-    const itemCommissionAmount = (lineTotalInclGst + itemShippingAmount) * (COMMISSION_RATE / 100)
+    const itemData = itemCommissionData[idx]
 
     const createdItem = await prisma.orderItem.create({
       data: {
@@ -196,13 +254,14 @@ export async function POST(request: NextRequest) {
         subtotal: row.item.totalPrice,
         hasGst: row.item.hasGst,
         gstAmount: row.item.totalGst,
-        subtotalInclGst: lineTotalInclGst,
+        subtotalInclGst: itemData.lineTotalInclGst,
         itemStatus: "PENDING",
-        shippingAmount: itemShippingAmount,
-        commissionAmount: itemCommissionAmount,
-        commissionRateSnapshot: COMMISSION_RATE,
+        shippingAmount: itemData.itemShippingAmount,
+        commissionAmount: itemData.commAmt,
+        commissionRateSnapshot: itemData.rate,
       },
     })
+
     await prisma.orderItemStatusHistory.create({
       data: {
         orderItemId: createdItem.id,
@@ -210,6 +269,7 @@ export async function POST(request: NextRequest) {
         note: "Order placed",
       },
     })
+
     if (row.item.productVariantId) {
       await prisma.productVariant.update({
         where: { id: row.item.productVariantId },
@@ -218,6 +278,7 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  // ── Payment & Cleanup ───────────────────────────────────────────────────────
   await prisma.payment.create({
     data: {
       orderId: order.id,
@@ -231,6 +292,7 @@ export async function POST(request: NextRequest) {
     where: { userId: session.user.id },
   })
 
+  // ── Response (customer-facing — NO commission data exposed) ─────────────────
   const response: PlaceOrderResponse = {
     success: true,
     orderIds: [order.id],

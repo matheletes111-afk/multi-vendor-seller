@@ -20,9 +20,11 @@ import {
 } from "@/ui/table"
 import { formatCurrency } from "@/lib/utils"
 import { getYoutubeThumbnailUrl } from "@/lib/youtube"
-import { Megaphone, Check, X, ImageIcon, Video, Eye } from "lucide-react"
+import { Megaphone, Check, X, ImageIcon, Video, Eye, MessageSquare } from "lucide-react"
 import { AdminPagination } from "@/components/admin/admin-pagination"
 import { PageLoader } from "@/components/ui/page-loader"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/ui/dialog"
+import { Textarea } from "@/ui/textarea"
 
 type Ad = {
   id: string
@@ -31,6 +33,7 @@ type Ad = {
   creativeType: string
   creativeUrl: string
   status: string
+  rejectionReason: string | null
   totalBudget: number
   spentAmount: number
   maxCpc: number
@@ -65,10 +68,15 @@ export function AdminSellerAdsPageClient() {
     totalRevenue: number
     activeCount: number
     pendingCount: number
+    rejectedCount: number
   } | null>(null)
   const [loading, setLoading] = useState(true)
   const [fetchError, setFetchError] = useState<string | null>(null)
   const [loadingId, setLoadingId] = useState<string | null>(null)
+  
+  const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false)
+  const [rejectionReason, setRejectionReason] = useState("")
+  const [adToReject, setAdToReject] = useState<string | null>(null)
 
   const fetchAds = useCallback(async () => {
     setLoading(true)
@@ -99,8 +107,12 @@ export function AdminSellerAdsPageClient() {
     return {}
   }
 
-  const rejectAd = async (adId: string) => {
-    const res = await fetch(`/api/admin/seller-ads/${adId}/reject`, { method: "POST" })
+  const rejectAd = async (adId: string, reason: string) => {
+    const res = await fetch(`/api/admin/seller-ads/${adId}/reject`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reason }),
+    })
     const json = await res.json()
     if (!res.ok) return { error: json.error || "Failed" }
     await fetchAds()
@@ -113,6 +125,7 @@ export function AdminSellerAdsPageClient() {
     { id: "pending", label: "Pending" },
     { id: "active", label: "Active" },
     { id: "paused", label: "Paused" },
+    { id: "rejected", label: "Rejected" },
     { id: "ended", label: "Ended" },
   ] as const
 
@@ -129,6 +142,8 @@ export function AdminSellerAdsPageClient() {
         return <Badge variant="outline" className="font-medium">Paused</Badge>
       case "ENDED":
         return <Badge variant="secondary" className="font-medium">Ended</Badge>
+      case "REJECTED":
+        return <Badge variant="destructive" className="font-medium">Rejected</Badge>
       default:
         return <Badge variant="outline" className="font-medium">{ad.status}</Badge>
     }
@@ -354,10 +369,10 @@ export function AdminSellerAdsPageClient() {
                             variant="destructive"
                             size="sm"
                             disabled={loadingId === ad.id}
-                            onClick={async () => {
-                              setLoadingId(ad.id)
-                              await rejectAd(ad.id)
-                              setLoadingId(null)
+                            onClick={() => {
+                              setAdToReject(ad.id)
+                              setRejectionReason("")
+                              setIsRejectDialogOpen(true)
                             }}
                           >
                             <X className="mr-1 h-4 w-4" />
@@ -373,6 +388,44 @@ export function AdminSellerAdsPageClient() {
             </TableBody>
           </Table>
           </div>
+
+          <Dialog open={isRejectDialogOpen} onOpenChange={setIsRejectDialogOpen}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Reject Ad</DialogTitle>
+                <DialogDescription>
+                  Please provide a reason for rejecting this ad. This will be visible to the seller.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="py-4">
+                <Textarea
+                  placeholder="Reason for rejection..."
+                  value={rejectionReason}
+                  onChange={(e) => setRejectionReason(e.target.value)}
+                  className="min-h-[100px]"
+                />
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setIsRejectDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  variant="destructive"
+                  disabled={!rejectionReason.trim() || loadingId === adToReject}
+                  onClick={async () => {
+                    if (!adToReject) return
+                    setLoadingId(adToReject)
+                    await rejectAd(adToReject, rejectionReason)
+                    setLoadingId(null)
+                    setIsRejectDialogOpen(false)
+                  }}
+                >
+                  {loadingId === adToReject ? "Rejecting..." : "Reject Ad"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
           <AdminPagination
             basePath="/admin/seller-ads"
             currentPage={page}

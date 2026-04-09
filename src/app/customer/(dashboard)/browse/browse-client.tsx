@@ -119,6 +119,7 @@ export function BrowseClient() {
   const retParam = searchParams.get("ret")
   const availParam = searchParams.get("avail")
   const sellerParam = searchParams.get("seller")
+  const conditionParam = searchParams.get("condition")
 
   const pageParam = Number(searchParams.get("page") ?? "1")
   const currentPage = Number.isInteger(pageParam) && pageParam > 0 ? pageParam : 1
@@ -159,6 +160,7 @@ export function BrowseClient() {
     if (retParam) params.set("ret", retParam)
     if (availParam) params.set("avail", availParam)
     if (sellerParam) params.set("seller", sellerParam)
+    if (conditionParam) params.set("condition", conditionParam)
     params.set("page", String(currentPage))
     return params.toString()
   }, [
@@ -175,6 +177,7 @@ export function BrowseClient() {
     retParam,
     availParam,
     sellerParam,
+    conditionParam,
     currentPage,
   ])
 
@@ -256,6 +259,7 @@ export function BrowseClient() {
   const selectedBrands = useMemo(() => new Set(parseComma(brandsParam)), [brandsParam])
   const selectedDisc = useMemo(() => new Set(parseComma(discParam)), [discParam])
   const selectedRet = useMemo(() => new Set(parseComma(retParam)), [retParam])
+  const selectedCondition = useMemo(() => new Set(parseComma(conditionParam)), [conditionParam])
 
   function parseComma(s: string | null): string[] {
     if (!s?.trim()) return []
@@ -291,6 +295,13 @@ export function BrowseClient() {
     else next.add(code)
     updateFilters({ ret: [...next].join(",") || null })
   }
+  
+  function toggleCondition(condition: string) {
+    const next = new Set(selectedCondition)
+    if (next.has(condition)) next.delete(condition)
+    else next.add(condition)
+    updateFilters({ condition: [...next].join(",") || null })
+  }
 
   const activeChips: { key: string; label: string; clear: () => void }[] = []
   if (catsParam) activeChips.push({ key: "cats", label: `Categories (${parseComma(catsParam).length})`, clear: () => updateFilters({ cats: null }) })
@@ -300,6 +311,7 @@ export function BrowseClient() {
   if (ratingParam) activeChips.push({ key: "rating", label: `${ratingParam}+ stars`, clear: () => updateFilters({ rating: null }) })
   if (discParam) activeChips.push({ key: "disc", label: "Discount", clear: () => updateFilters({ disc: null }) })
   if (retParam) activeChips.push({ key: "ret", label: "Return policy", clear: () => updateFilters({ ret: null }) })
+  if (conditionParam) activeChips.push({ key: "condition", label: `Condition (${parseComma(conditionParam).length})`, clear: () => updateFilters({ condition: null }) })
   if (availParam) activeChips.push({ key: "avail", label: availParam === "in" ? "In stock" : "Out of stock", clear: () => updateFilters({ avail: null }) })
   if (sellerParam) activeChips.push({ key: "seller", label: sellerParam === "branded" ? "Branded store" : "Regular seller", clear: () => updateFilters({ seller: null }) })
   if (Number.isFinite(minPrice) && minPrice > 0) activeChips.push({ key: "min", label: `Min ${formatCurrency(minPrice)}`, clear: () => updateFilters({ minPrice: null }) })
@@ -492,6 +504,22 @@ export function BrowseClient() {
                 className="rounded border-slate-300 text-amber-500 focus:ring-amber-500"
               />
               {label}
+            </label>
+          ))}
+        </div>
+      </CollapsibleSection>
+
+      <CollapsibleSection title="Condition">
+        <div className="space-y-2">
+          {["NEW", "USED"].map((c) => (
+            <label key={c} className="flex cursor-pointer items-center gap-2 text-sm text-slate-700">
+              <input
+                type="checkbox"
+                checked={selectedCondition.has(c)}
+                onChange={() => toggleCondition(c)}
+                className="rounded border-slate-300 text-amber-500 focus:ring-amber-500"
+              />
+              {c === "NEW" ? "New" : "Used"}
             </label>
           ))}
         </div>

@@ -19,10 +19,39 @@ export async function GET(request: NextRequest) {
     })
 
     const tab = searchParams.get("tab") ?? "all"
+    const search = searchParams.get("search")?.trim()
+    const type = searchParams.get("type") // "PRODUCT" or "SERVICE"
+    const status = searchParams.get("status") // "PENDING", "APPROVED", "SUSPENDED", "ONBOARDING"
+
     let where: Prisma.SellerWhereInput = {}
-    if (tab === "pending") where = { isApproved: false }
-    else if (tab === "approved") where = { isApproved: true, isSuspended: false }
-    else if (tab === "suspended") where = { isSuspended: true }
+    
+    // Status Logic (supports both legacy 'tab' and new 'status' select)
+    const effectiveStatus = status && status !== "all" ? status.toLowerCase() : tab
+    if (effectiveStatus === "pending") {
+       where = { ...where, isApproved: false, status: { not: "REJECTED" } }
+    } else if (effectiveStatus === "approved") {
+       where = { ...where, isApproved: true, isSuspended: false }
+    } else if (effectiveStatus === "suspended") {
+       where = { ...where, isSuspended: true }
+    } else if (effectiveStatus === "onboarding") {
+       where = { ...where, onboardingCompleted: false }
+    }
+
+    if (type && type !== "all" && type !== "ALL") {
+       where = { ...where, type: type as any }
+    }
+
+    if (search) {
+       where = {
+          ...where,
+          OR: [
+             { user: { name: { contains: search, mode: "insensitive" } } },
+             { store: { name: { contains: search, mode: "insensitive" } } },
+             { businessInfo: { businessName: { contains: search, mode: "insensitive" } } },
+             { user: { email: { contains: search, mode: "insensitive" } } },
+          ]
+       }
+    }
 
     const [sellers, totalCount] = await Promise.all([
       prisma.seller.findMany({
@@ -37,6 +66,7 @@ export async function GET(request: NextRequest) {
           bankDetails: true,
           selectedCategories: true,
           selectedServiceCategories: true,
+          agreement: true,
           subscription: {
             include: { plan: true },
           },

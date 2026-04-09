@@ -30,8 +30,6 @@ export type OrderDetailItemApi = {
   } | null
   canReview: boolean
   shippingAmount: number
-  commissionAmount: number
-  commissionRateSnapshot: number
   returnAvailable: boolean
   /** When true (per variant), customer may request exchange instead of refund only. */
   replacementAllowed: boolean
@@ -68,7 +66,6 @@ export type CustomerOrderSellerGroupApi = {
     subtotal: number
     tax: number
     shipping: number
-    commission: number
     total: number
   }
   itemStatuses: Record<string, number>

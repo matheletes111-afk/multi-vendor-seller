@@ -149,6 +149,58 @@ export async function PUT(request: NextRequest) {
         })
     }
 
+    // Handle Store Visuals
+    const storeLogo = fd.get("storeLogo") as File | null
+    const storeBanner = fd.get("storeBanner") as File | null
+    const storeUpdates: any = {}
+
+    if (storeLogo && storeLogo.size > 0) {
+        storeUpdates.logo = await uploadPublicFile({
+            folder: "onboarding/store",
+            ext: path.extname(storeLogo.name) || ".jpg",
+            contentType: storeLogo.type || "image/jpeg",
+            buffer: Buffer.from(await storeLogo.arrayBuffer()),
+            prefix: "store-logo",
+        })
+    }
+    if (storeBanner && storeBanner.size > 0) {
+        storeUpdates.banner = await uploadPublicFile({
+            folder: "onboarding/store",
+            ext: path.extname(storeBanner.name) || ".jpg",
+            contentType: storeBanner.type || "image/jpeg",
+            buffer: Buffer.from(await storeBanner.arrayBuffer()),
+            prefix: "store-banner",
+        })
+    }
+
+    const latRaw = fd.get("storeLat") as string | null
+    const lngRaw = fd.get("storeLng") as string | null
+    const addressRaw = fd.get("storeAddress") as string | null
+
+    if (addressRaw) storeUpdates.address = addressRaw
+
+    if (latRaw && lngRaw) {
+        const lat = parseFloat(latRaw)
+        const lng = parseFloat(lngRaw)
+        if (!isNaN(lat) && !isNaN(lng)) {
+            storeUpdates.lat = lat
+            storeUpdates.lng = lng
+        }
+    }
+
+    if (Object.keys(storeUpdates).length > 0) {
+        if (seller.store) {
+            await prisma.store.update({
+                where: { id: seller.store.id },
+                data: storeUpdates
+            })
+        } else {
+            await prisma.store.create({
+                data: { ...storeUpdates, sellerId: seller.id, name: "My Store" }
+            })
+        }
+    }
+
     return NextResponse.json({ success: true })
   }
 
@@ -158,7 +210,7 @@ export async function PUT(request: NextRequest) {
     seller?: Record<string, any>
   }
   if (body.store && Object.keys(body.store).length > 0) {
-    const allowed = ["name", "description", "phone", "website", "address", "city", "state", "zipCode", "country", "logo", "banner"]
+    const allowed = ["name", "description", "phone", "website", "address", "city", "state", "zipCode", "country", "logo", "banner", "lat", "lng"]
     const data = Object.fromEntries(Object.entries(body.store as Record<string, string>).filter(([k]) => allowed.includes(k)))
     if (Object.keys(data).length > 0) {
       if (seller.store) await prisma.store.update({ where: { id: seller.store.id }, data })

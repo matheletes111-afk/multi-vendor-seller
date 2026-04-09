@@ -13,6 +13,7 @@ import Checkbox from "@/ui/checkbox-v2"
 import { Alert, AlertDescription, AlertTitle } from "@/ui/alert"
 import { PageLoader } from "@/components/ui/page-loader"
 import { ProfilePictureInput } from "@/components/profile-picture-input"
+import { StoreLocationPicker } from "@/components/store-location-picker"
 import { FileText, Image as ImageIcon, CheckCircle2, ChevronLeft, ChevronRight, Upload, Check, User, LogOut } from "lucide-react"
 import Image from "next/image"
 import { cn } from "@/lib/utils"
@@ -103,31 +104,47 @@ export function ProductOnboardingClient() {
     formData.append("step", currentStep.toString())
 
     try {
-      let res: Response
-      if (currentStep === 5 || currentStep === 6) {
-        // JSON submission for steps without files
-        const data: any = {}
-        if (currentStep === 5) {
-          data.name = formData.get("storeName")
-          data.description = formData.get("description")
-          data.categoryIds = formData.getAll("categoryIds")
+        let res: Response
+        if (currentStep === 5 || currentStep === 6) {
+          // JSON submission for steps without files
+          const data: any = {}
+          if (currentStep === 5) {
+            // If Step 5 has files, we'll fall through to FormData submission below
+            const logo = formData.get("storeLogo") as File | null
+            const banner = formData.get("storeBanner") as File | null
+            if ((logo && logo.size > 0) || (banner && banner.size > 0)) {
+              res = await fetch("/api/product-seller/onboarding", {
+                method: "POST",
+                body: formData
+              })
+            } else {
+              data.name = formData.get("storeName")
+              data.description = formData.get("description")
+              data.categoryIds = formData.getAll("categoryIds")
+              res = await fetch("/api/product-seller/onboarding", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ step: currentStep, data })
+              })
+            }
+          } else {
+            // Step 6
+            data.agreedToTerms = formData.get("agreedToTerms") === "on"
+            data.agreedToCommission = formData.get("agreedToCommission") === "on"
+            data.agreedToReturnPolicy = formData.get("agreedToReturnPolicy") === "on"
+            data.agreedToPrivacy = formData.get("agreedToPrivacy") === "on"
+            res = await fetch("/api/product-seller/onboarding", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ step: currentStep, data })
+            })
+          }
         } else {
-          data.agreedToTerms = formData.get("agreedToTerms") === "on"
-          data.agreedToCommission = formData.get("agreedToCommission") === "on"
-          data.agreedToReturnPolicy = formData.get("agreedToReturnPolicy") === "on"
-          data.agreedToPrivacy = formData.get("agreedToPrivacy") === "on"
+          res = await fetch("/api/product-seller/onboarding", {
+            method: "POST",
+            body: formData
+          })
         }
-        res = await fetch("/api/product-seller/onboarding", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ step: currentStep, data })
-        })
-      } else {
-        res = await fetch("/api/product-seller/onboarding", {
-          method: "POST",
-          body: formData
-        })
-      }
 
       const result = await res.json()
       if (!res.ok) throw new Error(result.error || "Failed to save step")
@@ -562,13 +579,47 @@ export function ProductOnboardingClient() {
                   <p className="text-slate-500 mt-2">Tell us about your store and what you sell.</p>
                 </div>
                 <div className="space-y-6">
-                  <div className="space-y-2">
-                    <Label htmlFor="storeName">Store Name *</Label>
-                    <Input id="storeName" name="storeName" defaultValue={seller.store?.name || ""} required className="h-12 rounded-xl" />
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="storeName">Store Name *</Label>
+                        <Input id="storeName" name="storeName" defaultValue={seller.store?.name || ""} required className="h-12 rounded-xl" />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="description">Store Description</Label>
+                        <Textarea id="description" name="description" defaultValue={seller.store?.description || ""} rows={4} className="rounded-xl" />
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="description">Store Description</Label>
-                    <Textarea id="description" name="description" defaultValue={seller.store?.description || ""} rows={4} className="rounded-xl" />
+
+                  <div className="space-y-4 pt-4 border-t border-slate-100">
+                    <h2 className="text-xl font-bold text-slate-800">Store Visuals</h2>
+                    <p className="text-xs text-slate-500 mb-4">Upload your store logo and banner to personalize your profile.</p>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-2">
+                        <Label htmlFor="storeLogo" className="flex items-center gap-2"><ImageIcon className="h-4 w-4" /> Store Logo *</Label>
+                        <div className="mt-1 p-4 border-2 border-dashed rounded-2xl bg-purple-50/30 border-purple-100 transition-colors hover:bg-purple-50/50">
+                          <Input id="storeLogo" name="storeLogo" type="file" accept="image/*" className="cursor-pointer" onChange={(e) => handleFileChange(e, "storeLogo")} />
+                          {renderFilePreview("storeLogo", seller.store?.logo, "Store Logo")}
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="storeBanner" className="flex items-center gap-2"><ImageIcon className="h-4 w-4" /> Store Banner *</Label>
+                        <div className="mt-1 p-4 border-2 border-dashed rounded-2xl bg-purple-50/30 border-purple-100 transition-colors hover:bg-purple-50/50">
+                          <Input id="storeBanner" name="storeBanner" type="file" accept="image/*" className="cursor-pointer" onChange={(e) => handleFileChange(e, "storeBanner")} />
+                          {renderFilePreview("storeBanner", seller.store?.banner, "Store Banner")}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4 pt-4 border-t border-slate-100">
+                    <h2 className="text-xl font-bold text-slate-800">Store Location</h2>
+                    <p className="text-xs text-slate-500 mb-4">Search and pin your store address on the map. Coordinates are saved automatically.</p>
+                    <StoreLocationPicker
+                      initialLat={seller.store?.lat}
+                      initialLng={seller.store?.lng}
+                      initialAddress={seller.store?.address}
+                    />
                   </div>
 
                   <div className="space-y-4 pt-4 border-t border-slate-100">

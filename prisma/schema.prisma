@@ -214,6 +214,7 @@ enum SellerAdStatus {
   ACTIVE
   PAUSED
   ENDED
+  REJECTED
 }
 
 enum OnboardingStatus {
@@ -251,6 +252,7 @@ model Seller {
   onboardingCompleted Boolean           @default(false)
   status              OnboardingStatus  @default(PENDING)
   adminFeedback       String?           @db.Text
+  commissionRate      Float?            // Seller-specific commission override
 
   adBalance   Decimal    @default(0) // Phase 2: top-up; Phase 1: track only
   /// Net position: + seller net when lines are delivered, − customer wallet credits (returns/exchange diff), + exchange top-up recorded.
@@ -403,6 +405,7 @@ model SellerAd {
   targetAgeMax    Int?
   expandAudience  Boolean        @default(false)
   startAt         DateTime
+  rejectionReason String?        @db.Text
   endAt           DateTime
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
@@ -448,6 +451,8 @@ model Store {
   country     String?
   phone       String?
   website     String?
+  lat         Float?
+  lng         Float?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -1024,4 +1029,12 @@ model AdManagement {
   updatedAt     DateTime @updatedAt
 
   @@map("ad_managements")
+}
+
+model GlobalSetting {
+  id              String   @id @default(cuid())
+  baseCommission  Float    @default(10.0)
+  updatedAt       DateTime @updatedAt
+
+  @@map("global_settings")
 }

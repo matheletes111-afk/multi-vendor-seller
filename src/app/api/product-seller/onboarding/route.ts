@@ -207,8 +207,48 @@ export async function POST(request: NextRequest) {
       })
     } else if (step === 5) {
       // Step 5: Store Setup & Categories
-      const data = jsonBody.data
-      const { categoryIds, ...storeData } = data
+      const categoryIds = formData ? formData.getAll("categoryIds") : jsonBody.data.categoryIds
+      const storeData: any = formData ? {
+        name: formData.get("storeName") as string,
+        description: formData.get("description") as string,
+      } : { ...jsonBody.data }
+
+      if (formData) {
+        const logo = formData.get("storeLogo") as File | null
+        const banner = formData.get("storeBanner") as File | null
+        if (logo && logo.size > 0) {
+          storeData.logo = await uploadPublicFile({
+            folder: "onboarding/store",
+            ext: path.extname(logo.name) || ".jpg",
+            contentType: logo.type || "image/jpeg",
+            buffer: Buffer.from(await logo.arrayBuffer()),
+            prefix: "store-logo",
+          })
+        }
+        if (banner && banner.size > 0) {
+          storeData.banner = await uploadPublicFile({
+            folder: "onboarding/store",
+            ext: path.extname(banner.name) || ".jpg",
+            contentType: banner.type || "image/jpeg",
+            buffer: Buffer.from(await banner.arrayBuffer()),
+            prefix: "store-banner",
+          })
+        }
+        const latRaw = formData.get("storeLat")
+        const lngRaw = formData.get("storeLng")
+        const addressRaw = formData.get("storeAddress")
+
+        if (addressRaw) storeData.address = addressRaw as string
+
+        if (latRaw && lngRaw) {
+          const lat = parseFloat(latRaw as string)
+          const lng = parseFloat(lngRaw as string)
+          if (!isNaN(lat) && !isNaN(lng)) {
+            storeData.lat = lat
+            storeData.lng = lng
+          }
+        }
+      }
 
       if (seller.store) {
         await prisma.store.update({

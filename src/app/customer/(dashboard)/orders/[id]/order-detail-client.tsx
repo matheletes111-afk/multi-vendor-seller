@@ -479,10 +479,6 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
     return "No return"
   }
 
-  const totalCommission = useMemo(() => {
-    if (!order) return 0
-    return order.items.reduce((s, i) => s + (i.commissionAmount ?? 0), 0)
-  }, [order])
 
   const priceBreakdown = useMemo(
     () => (order ? getExchangeOrderPriceBreakdown(order) : ({ kind: "standard" } as const)),
@@ -940,10 +936,6 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
                     formatCurrency(order.shipping)
                   )}
                 </span>
-              </div>
-              <div className="flex justify-between text-gray-600">
-                <span>Commission</span>
-                <span className="font-mono font-medium text-gray-900">{formatCurrency(totalCommission)}</span>
               </div>
               <Separator className="bg-gray-200" />
               <div className="flex justify-between text-lg font-bold text-gray-900">

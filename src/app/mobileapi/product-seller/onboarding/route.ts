@@ -22,6 +22,7 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({
     success: true,
     data: {
+      user: auth.user,
       onboardingCompleted: seller.onboardingCompleted,
       onboardingStep: seller.onboardingStep,
       mobileStep: mobileStep,
@@ -31,6 +32,7 @@ export async function GET(request: NextRequest) {
       store: seller.store,
       selectedCategories: seller.selectedCategories,
       nationIdentityNumber: seller.nationIdentityNumber,
+      agreement: seller.agreement,
     },
   });
 }
@@ -215,6 +217,53 @@ export async function POST(request: NextRequest) {
         description: formData.get("description") as string,
       } : { ...jsonBody.data };
 
+      if (formData) {
+        const logoFile = formData.get("storeLogo") as File | null;
+        const bannerFile = formData.get("storeBanner") as File | null;
+
+        if (logoFile && logoFile.size > 0) {
+          storeData.logo = await uploadPublicFile({
+            folder: "onboarding/store",
+            ext: path.extname(logoFile.name) || ".jpg",
+            contentType: logoFile.type || "image/jpeg",
+            buffer: Buffer.from(await logoFile.arrayBuffer()),
+            prefix: "store-logo",
+          });
+        }
+        if (bannerFile && bannerFile.size > 0) {
+          storeData.banner = await uploadPublicFile({
+            folder: "onboarding/store",
+            ext: path.extname(bannerFile.name) || ".jpg",
+            contentType: bannerFile.type || "image/jpeg",
+            buffer: Buffer.from(await bannerFile.arrayBuffer()),
+            prefix: "store-banner",
+          });
+        }
+        
+        const latRaw = formData.get("storeLat") as string | null;
+        const lngRaw = formData.get("storeLng") as string | null;
+        const addressRaw = formData.get("storeAddress") as string | null;
+
+        if (addressRaw) storeData.address = addressRaw;
+
+        if (latRaw && lngRaw) {
+          const lat = parseFloat(latRaw);
+          const lng = parseFloat(lngRaw);
+          if (!isNaN(lat) && !isNaN(lng)) {
+            storeData.lat = lat;
+            storeData.lng = lng;
+          }
+        }
+      } else {
+         if(jsonBody.data.storeLat != undefined && jsonBody.data.storeLng != undefined){
+            storeData.lat = parseFloat(jsonBody.data.storeLat)
+            storeData.lng = parseFloat(jsonBody.data.storeLng)
+         }
+         if(jsonBody.data.storeAddress != undefined){
+            storeData.address = String(jsonBody.data.storeAddress)
+         }
+      }
+
       const categoryIds = formData ? formData.getAll("categoryIds") : jsonBody.data.categoryIds;
 
       await prisma.seller.update({
@@ -226,7 +275,7 @@ export async function POST(request: NextRequest) {
           },
           store: {
             upsert: {
-              create: { ...storeData, sellerId: seller.id },
+              create: { ...storeData },
               update: { ...storeData },
             },
           },

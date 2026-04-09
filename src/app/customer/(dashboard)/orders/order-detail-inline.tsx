@@ -622,7 +622,7 @@ export function OrderDetailInline({
                     </p>
                   )}
                   <p className="text-xs text-gray-500">
-                    Shipping: {formatCurrency(item.shippingAmount)} • Commission: {formatCurrency(item.commissionAmount)}
+                    Shipping: {formatCurrency(item.shippingAmount)}
                   </p>
                   {item.statusHistory.length > 0 && (
                     <div className="mt-3 rounded-lg border border-gray-200 bg-white p-3 shadow-sm">

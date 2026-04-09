@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useSearchParams } from "next/navigation"
-import { Eye, EyeOff, FileText, CheckCircle2, AlertCircle } from "lucide-react"
+import { Eye, EyeOff, FileText, CheckCircle2, AlertCircle, Camera, Mail, Phone, MapPin, Building, ShieldCheck, MapPinned, User, ShoppingBag, ChevronRight, X } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/ui/card"
 import { Button } from "@/ui/button"
 import { Input } from "@/ui/input"
@@ -11,6 +11,8 @@ import { Textarea } from "@/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/ui/select"
 import { Alert, AlertDescription, AlertTitle } from "@/ui/alert"
 import { Badge } from "@/ui/badge"
+import { Separator } from "@/ui/separator"
+import { StoreLocationPicker } from "@/components/store-location-picker"
 import Checkbox from "@/ui/checkbox-v2"
 import { PageLoader } from "@/components/ui/page-loader"
 import { ProfilePictureInput } from "@/components/profile-picture-input"
@@ -27,6 +29,18 @@ export function SettingsClient() {
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [haveGst, setHaveGst] = useState(false)
+  const [previews, setPreviews] = useState<Record<string, { file: File, url: string }>>({})
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, key: string) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      const url = URL.createObjectURL(file)
+      setPreviews(prev => {
+        if (prev[key]) URL.revokeObjectURL(prev[key].url)
+        return { ...prev, [key]: { file, url } }
+      })
+    }
+  }
 
   useEffect(() => {
     async function loadData() {
@@ -356,10 +370,45 @@ export function SettingsClient() {
                     </div>
                  </div>
                  
-                 <div className="grid md:grid-cols-2 gap-4 pt-4 border-t">
-                    <div className="space-y-2"><Label>Store Logo URL</Label><Input name="logo" defaultValue={seller.store?.logo || ""} /></div>
-                    <div className="space-y-2"><Label>Store Banner URL</Label><Input name="banner" defaultValue={seller.store?.banner || ""} /></div>
+                 <div className="grid md:grid-cols-2 gap-6 pt-4 border-t">
+                    <div className="space-y-3">
+                        <Label className="font-bold">Store Logo</Label>
+                        <div className="mt-1 flex flex-col items-center gap-4 p-6 border-2 border-dashed rounded-xl bg-slate-50/50 border-slate-200">
+                            { (previews.storeLogo || seller.store?.logo) ? (
+                                <div className="relative w-32 h-32 rounded-lg overflow-hidden border shadow-sm">
+                                    <img src={previews.storeLogo ? previews.storeLogo.url : seller.store.logo} alt="Logo Preview" className="w-full h-full object-cover" />
+                                </div>
+                            ) : (
+                                <div className="w-32 h-32 rounded-lg bg-slate-100 flex items-center justify-center border border-slate-200 text-slate-400 font-medium text-xs">No Logo</div>
+                            )}
+                            <Input name="storeLogo" type="file" accept="image/*" className="max-w-xs" onChange={(e) => handleFileChange(e, "storeLogo")} />
+                        </div>
+                    </div>
+                    <div className="space-y-3">
+                        <Label className="font-bold">Store Banner</Label>
+                        <div className="mt-1 flex flex-col items-center gap-4 p-6 border-2 border-dashed rounded-xl bg-slate-50/50 border-slate-200">
+                            { (previews.storeBanner || seller.store?.banner) ? (
+                                <div className="relative w-full aspect-[3/1] rounded-lg overflow-hidden border shadow-sm">
+                                    <img src={previews.storeBanner ? previews.storeBanner.url : seller.store.banner} alt="Banner Preview" className="w-full h-full object-cover" />
+                                </div>
+                            ) : (
+                                <div className="w-full aspect-[3/1] rounded-lg bg-slate-100 flex items-center justify-center border border-slate-200 text-slate-400 font-medium text-xs">No Banner</div>
+                            )}
+                            <Input name="storeBanner" type="file" accept="image/*" className="max-w-xs" onChange={(e) => handleFileChange(e, "storeBanner")} />
+                        </div>
+                    </div>
                  </div>
+
+                 <div className="space-y-4 pt-4 border-t">
+                    <Label className="font-bold text-lg">Store Location</Label>
+                    <p className="text-xs text-muted-foreground mb-4">Set your permanent store location on the map.</p>
+                    <StoreLocationPicker
+                      initialLat={seller.store?.lat}
+                      initialLng={seller.store?.lng}
+                      initialAddress={seller.store?.address}
+                    />
+                 </div>
+
                  <Button type="submit" disabled={saving === "store"}>{saving === "store" ? "Saving..." : "Update Store Info"}</Button>
               </form>
            </CardContent>

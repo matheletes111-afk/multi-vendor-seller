@@ -44,6 +44,7 @@ type Ad = {
   startAt: string
   endAt: string
   service: { id: string; name: string; slug: string } | null
+  rejectionReason: string | null
   _count: { adClicks: number }
 }
 
@@ -122,6 +123,17 @@ export function ServiceSellerAdmanagementPageClient() {
         return <Badge variant="outline">Paused</Badge>
       case "ENDED":
         return <Badge variant="secondary">Ended</Badge>
+      case "REJECTED":
+        return (
+          <div className="flex flex-col items-start gap-1">
+            <Badge variant="destructive">Rejected</Badge>
+            {ad.rejectionReason && (
+              <p className="text-[10px] text-destructive font-medium max-w-[150px] leading-tight italic">
+                Reason: {ad.rejectionReason}
+              </p>
+            )}
+          </div>
+        )
       default:
         return <Badge variant="outline">{ad.status}</Badge>
     }

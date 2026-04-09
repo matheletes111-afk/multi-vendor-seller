@@ -18,6 +18,10 @@ type AdminProfile = {
   image: string | null
   phone: string | null
   phoneCountryCode: string | null
+  globalSettings?: {
+    id: string
+    baseCommission: number
+  }
 }
 
 export function AdminSettingsClient() {
@@ -42,12 +46,15 @@ export function AdminSettingsClient() {
     setSuccess(null)
     const form = e.currentTarget
     const fd = new FormData(form)
+    
+    // Ensure baseCommission is added to body for JSON or FormData
     const phone = ((fd.get("phone") as string | null) ?? "").trim()
     const phoneCountryCode = ((fd.get("phoneCountryCode") as string | null) ?? "").trim()
     if (!phone || !phoneCountryCode) {
       setError("Phone and country code are required.")
       return
     }
+
     const password = ((fd.get("password") as string | null) ?? "").trim()
     const confirmPassword = ((fd.get("confirmPassword") as string | null) ?? "").trim()
     if (password || confirmPassword) {
@@ -60,6 +67,7 @@ export function AdminSettingsClient() {
         return
       }
     }
+
     const hasFile = fd.get("profileImage") instanceof File && (fd.get("profileImage") as File).size > 0
     setSaving(true)
     try {
@@ -67,16 +75,20 @@ export function AdminSettingsClient() {
       if (hasFile) {
         updateResponse = await fetch("/api/admin/settings", { method: "PUT", body: fd })
       } else {
-        updateResponse = await fetch("/api/admin/settings", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
+        const body: any = {
             name: fd.get("name") || undefined,
             image: (fd.get("image") as string) || undefined,
             phone: (fd.get("phone") as string) ?? "",
             phoneCountryCode: (fd.get("phoneCountryCode") as string) ?? "",
             password: password || undefined,
-          }),
+        }
+        const baseCommission = fd.get("baseCommission")
+        if (baseCommission) body.baseCommission = parseFloat(baseCommission as string)
+
+        updateResponse = await fetch("/api/admin/settings", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
         })
       }
       if (!updateResponse.ok) {
@@ -87,7 +99,7 @@ export function AdminSettingsClient() {
       const res = await fetch("/api/admin/settings")
       if (res.ok) {
         setUser(await res.json())
-        setSuccess("Profile credentials synchronized")
+        setSuccess("Profile settings synchronized")
       }
       setShowPassword(false)
       setShowConfirmPassword(false)
@@ -138,19 +150,19 @@ export function AdminSettingsClient() {
           </CardContent>
         </Card>
 
-        {/* Right Column: Core Credentials */}
-        <Card className="border-none shadow-2xl overflow-hidden rounded-[2.5rem] bg-gradient-to-br from-background via-background to-muted/20 lg:col-span-2">
-          <CardHeader className="pb-6 border-b border-muted/30">
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-indigo-500/10 rounded-2xl">
-                <Lock className="h-6 w-6 text-indigo-600" />
+        {/* Right Columns: Core Credentials & Platform Settings */}
+        <form onSubmit={saveProfile} className="lg:col-span-2 space-y-8">
+          <Card className="border-none shadow-2xl overflow-hidden rounded-[2.5rem] bg-gradient-to-br from-background via-background to-muted/20">
+            <CardHeader className="pb-6 border-b border-muted/30">
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-indigo-500/10 rounded-2xl">
+                  <Lock className="h-6 w-6 text-indigo-600" />
+                </div>
+                <CardTitle className="text-xl font-medium">Master Credentials</CardTitle>
               </div>
-              <CardTitle className="text-xl font-medium">Master Credentials</CardTitle>
-            </div>
-            <CardDescription className="pt-1 font-medium italic text-xs uppercase tracking-widest opacity-60">System Security Parameters</CardDescription>
-          </CardHeader>
-          <CardContent className="p-10">
-            <form onSubmit={saveProfile} className="space-y-8">
+              <CardDescription className="pt-1 font-medium italic text-xs uppercase tracking-widest opacity-60">System Security Parameters</CardDescription>
+            </CardHeader>
+            <CardContent className="p-10 space-y-8">
               {error && (
                 <Alert variant="destructive" className="border-none shadow-xl bg-destructive/10 text-destructive animate-in slide-in-from-top-4 duration-500">
                   <AlertDescription className="font-medium">{error}</AlertDescription>
@@ -266,18 +278,47 @@ export function AdminSettingsClient() {
                   </div>
                 </div>
               </div>
+            </CardContent>
+          </Card>
 
-              <div className="pt-10 flex flex-col sm:flex-row items-center justify-between gap-6">
-                <p className="text-[10px] font-medium text-muted-foreground/60 italic max-w-sm">
-                  System configuration updates are logged. Ensure cryptographic parity before submitting changes.
-                </p>
-                <Button type="submit" disabled={saving} className="w-full sm:w-fit rounded-full px-12 h-14 font-medium uppercase tracking-[0.2em] text-[11px] shadow-2xl shadow-primary/30 hover:scale-105 transition-all">
-                  {saving ? "Synchronizing..." : "Synchronize System"}
-                </Button>
+          <Card className="border-none shadow-2xl overflow-hidden rounded-[2.5rem] bg-gradient-to-br from-background via-background to-amber-500/5 border-l-4 border-amber-500">
+            <CardHeader className="pb-6 border-b border-muted/30">
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-amber-500/10 rounded-2xl">
+                  <Globe className="h-6 w-6 text-amber-600" />
+                </div>
+                <CardTitle className="text-xl font-medium text-amber-900">Platform Configuration</CardTitle>
               </div>
-            </form>
-          </CardContent>
-        </Card>
+              <CardDescription className="pt-1 font-medium italic text-xs uppercase tracking-widest opacity-60">Global economic parameters</CardDescription>
+            </CardHeader>
+            <CardContent className="p-10">
+              <div className="space-y-3">
+                <Label htmlFor="baseCommission" className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground ml-1">Platform Base Commission (%)</Label>
+                <div className="relative">
+                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground/50 font-medium px-4">%</div>
+                  <Input
+                    id="baseCommission"
+                    name="baseCommission"
+                    type="number"
+                    step="0.1"
+                    defaultValue={user.globalSettings?.baseCommission ?? 10.0}
+                    className="pl-12 border-muted bg-muted/20 rounded-2xl h-12 focus-visible:ring-amber-500 font-medium shadow-inner"
+                  />
+                </div>
+                <p className="text-[9px] text-muted-foreground/60 ml-1 italic">* Applied to all sellers unless overridden individually.</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-6 p-4">
+            <p className="text-[10px] font-medium text-muted-foreground/60 italic max-w-sm">
+              System configuration updates are logged. Ensure cryptographic parity before submitting changes.
+            </p>
+            <Button type="submit" disabled={saving} className="w-full sm:w-fit rounded-full px-12 h-14 font-medium uppercase tracking-[0.2em] text-[11px] shadow-2xl shadow-primary/30 hover:scale-105 transition-all">
+              {saving ? "Synchronizing..." : "Synchronize System"}
+            </Button>
+          </div>
+        </form>
       </div>
     </div>
   )

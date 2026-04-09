@@ -19,9 +19,15 @@ export async function POST(
     if (ad.status !== "PENDING_APPROVAL") {
       return NextResponse.json({ error: "Ad is not pending approval" }, { status: 400 })
     }
+    const body = await _request.json().catch(() => ({}))
+    const { reason = "" } = body
+    
     await prisma.sellerAd.update({
       where: { id },
-      data: { status: "ENDED" },
+      data: { 
+        status: "REJECTED",
+        rejectionReason: reason || null
+      } as any,
     })
     return NextResponse.json({ success: true })
   } catch (error) {

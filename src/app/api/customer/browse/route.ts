@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { Prisma, ReturnPolicyType, SubscriptionPlan } from "@prisma/client"
+import { Prisma, ReturnPolicyType, SubscriptionPlan, ProductCondition } from "@prisma/client"
 
 const DEFAULT_PAGE_SIZE = 12
 const MAX_PAGE_SIZE = 100
@@ -32,6 +32,7 @@ type EnrichedProduct = {
   returnDays: number | null
   isBrandedSeller: boolean
   discountPercent: number
+  condition: ProductCondition
 }
 
 function parseCommaList(s: string | null): string[] {
@@ -140,6 +141,10 @@ export async function GET(request: NextRequest) {
   const sellerParam = searchParams.get("seller")
   const sellerFilter = sellerParam === "branded" || sellerParam === "regular" ? sellerParam : undefined
 
+  const conditionFilter = parseCommaList(searchParams.get("condition")).filter((x) =>
+    ["NEW", "USED"].includes(x)
+  ) as ProductCondition[]
+
   const rawPage = Number(searchParams.get("page") ?? "1")
   const page = Number.isInteger(rawPage) && rawPage > 0 ? rawPage : 1
   const rawPageSize = Number(searchParams.get("pageSize") ?? String(DEFAULT_PAGE_SIZE))
@@ -157,6 +162,7 @@ export async function GET(request: NextRequest) {
     ...(effectiveCategoryIds.length > 0 && { categoryId: { in: effectiveCategoryIds } }),
     ...(subcategoryId && { subcategoryId }),
     ...(q && { name: { contains: q, mode: Prisma.QueryMode.insensitive } }),
+    ...(conditionFilter.length > 0 && { condition: { in: conditionFilter } }),
   }
 
   const isFiltered = true
@@ -323,6 +329,7 @@ export async function GET(request: NextRequest) {
       returnDays,
       isBrandedSeller: isBrandedSeller(p.seller?.store ?? null, planName),
       discountPercent: computeDiscountPercent(basePrice, discount),
+      condition: p.condition,
     }
   })
 
@@ -428,6 +435,7 @@ export async function GET(request: NextRequest) {
     returnDays: p.returnDays,
     isBrandedSeller: p.isBrandedSeller,
     discountPercent: p.discountPercent,
+    condition: p.condition,
   })
 
   return NextResponse.json({

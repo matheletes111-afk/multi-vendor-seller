@@ -156,8 +156,6 @@ export async function GET(
         !row.review &&
         !!(row.productId || row.serviceId),
       shippingAmount: row.shippingAmount,
-      commissionAmount: row.commissionAmount,
-      commissionRateSnapshot: row.commissionRateSnapshot,
       returnAvailable,
       replacementAllowed,
       returnPolicyType: variantReturnType,
@@ -192,7 +190,6 @@ export async function GET(
       subtotal: number
       tax: number
       shipping: number
-      commission: number
       total: number
       statuses: import("@prisma/client").OrderStatus[]
       itemCount: number
@@ -207,7 +204,6 @@ export async function GET(
       subtotal: 0,
       tax: 0,
       shipping: 0,
-      commission: 0,
       total: 0,
       statuses: [],
       itemCount: 0,
@@ -215,7 +211,6 @@ export async function GET(
     current.subtotal += item.subtotal
     current.tax += item.gstAmount
     current.shipping += item.shippingAmount
-    current.commission += item.commissionAmount
     current.total += (item.subtotalInclGst ?? item.subtotal + item.gstAmount) + item.shippingAmount
     current.statuses.push(item.itemStatus)
     current.itemCount += 1
@@ -231,7 +226,6 @@ export async function GET(
         subtotal: group.subtotal,
         tax: group.tax,
         shipping: group.shipping,
-        commission: group.commission,
         total: group.total,
       },
       itemStatuses: statusSummary.counts,
