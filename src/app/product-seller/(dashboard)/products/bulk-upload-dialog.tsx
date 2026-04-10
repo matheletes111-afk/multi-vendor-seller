@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { Button } from "@/ui/button"
 import {
   Dialog,
@@ -232,7 +232,7 @@ export function BulkUploadDialog({ onImported }: { onImported?: () => void }) {
             </h3>
             <div className="space-y-2">
               <Label htmlFor="bulk-file" className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Choose your completed file</Label>
-              <InputFile id="bulk-file" onFile={(f) => setFile(f)} disabled={importing} />
+              <InputFile id="bulk-file" onFile={(f) => setFile(f)} disabled={importing} file={file} />
               <p className="text-[10px] text-muted-foreground">Supported formats: .csv, .xlsx</p>
             </div>
           </section>
@@ -273,13 +273,24 @@ function InputFile({
   id,
   onFile,
   disabled,
+  file,
 }: {
   id: string
   onFile: (f: File | null) => void
   disabled?: boolean
+  file: File | null
 }) {
+  const ref = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (!file && ref.current) {
+      ref.current.value = ""
+    }
+  }, [file])
+
   return (
     <input
+      ref={ref}
       id={id}
       type="file"
       accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
@@ -288,7 +299,6 @@ function InputFile({
       onChange={(e) => {
         const f = e.target.files?.[0] ?? null
         onFile(f)
-        e.target.value = ""
       }}
     />
   )

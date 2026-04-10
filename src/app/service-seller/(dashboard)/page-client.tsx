@@ -11,6 +11,8 @@ import { Briefcase, ShoppingCart, AlertCircle, ArrowRight, TrendingUp } from "lu
 
 type Overview = {
   subscription: { plan: { name: string } } | null
+  commissionRate: number | null
+  isGlobalRate: boolean
   totalServices: number
   totalOrders: number
   sellerGrossTotal: number
@@ -78,7 +80,7 @@ export function ServiceSellerPageClient() {
   if (error) return <div className="container mx-auto p-6"><p className="text-destructive">{error}</p></div>
   if (!data) return <PageLoader message="Loading dashboard…" />
 
-  const { subscription, totalServices, totalOrders, sellerNetFormatted, platformCommissionFormatted } = data
+  const { subscription, totalServices, totalOrders, sellerNetFormatted, platformCommissionFormatted, commissionRate, isGlobalRate } = data
 
   return (
     <div className="container mx-auto p-6 space-y-8">
@@ -88,6 +90,7 @@ export function ServiceSellerPageClient() {
           Overview of your service seller account. Net worth below is fully credited (platform fees currently waived).
         </p>
       </div>
+
       {!subscription && (
         <Alert className="border-destructive/50 bg-destructive/5">
           <AlertCircle className="h-4 w-4 text-destructive" />
@@ -100,35 +103,58 @@ export function ServiceSellerPageClient() {
           </div>
         </Alert>
       )}
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card>
+
+      <div className="grid gap-4 md:grid-cols-3">
+        <Card className="border-none shadow-xl bg-background rounded-3xl overflow-hidden">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Services</CardTitle>
-            <Briefcase className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Services</CardTitle>
+            <div className="p-2 bg-primary/10 rounded-xl">
+              <Briefcase className="h-4 w-4 text-primary" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{totalServices}</div>
-            <p className="text-xs text-muted-foreground mt-1">Active services</p>
+            <div className="text-3xl font-bold tracking-tight">{totalServices}</div>
+            <p className="text-[10px] font-medium text-muted-foreground mt-2 uppercase tracking-wider opacity-60">Active services</p>
           </CardContent>
         </Card>
-        <Card>
+
+        <Card className="border-none shadow-xl bg-background rounded-3xl overflow-hidden">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Orders</CardTitle>
-            <ShoppingCart className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Orders</CardTitle>
+            <div className="p-2 bg-primary/10 rounded-xl">
+              <ShoppingCart className="h-4 w-4 text-primary" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{totalOrders}</div>
-            <p className="text-xs text-muted-foreground mt-1">Orders with your services</p>
-            <p className="text-xs mt-2">
-              <Link href="/service-seller/orders" className="text-primary underline-offset-2 hover:underline">
-                Per-order gross &amp; net
+            <div className="text-3xl font-bold tracking-tight">{totalOrders}</div>
+            <p className="text-[10px] font-medium text-muted-foreground mt-2 uppercase tracking-wider opacity-60">
+              <Link href="/service-seller/orders" className="hover:text-primary underline-offset-4 hover:underline transition-colors">
+                View order ledger →
               </Link>
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-none shadow-xl bg-background rounded-3xl overflow-hidden relative group">
+          <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+            <TrendingUp className="h-12 w-12 text-primary" />
+          </div>
+          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+            <CardTitle className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Platform Commission</CardTitle>
+            <div className="p-2 bg-amber-500/10 rounded-xl">
+              <TrendingUp className="h-4 w-4 text-amber-600" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold tracking-tight text-amber-600">{commissionRate ?? 0}%</div>
+            <p className="text-[10px] font-medium text-muted-foreground mt-2 uppercase tracking-wider opacity-60">
+              {isGlobalRate ? "Platform Default Rate" : "Admin Set Custom Rate"}
             </p>
           </CardContent>
         </Card>
       </div>
 
-      <Card>
+      <Card className="border-none shadow-xl bg-background rounded-3xl overflow-hidden">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-base font-semibold">Net worth</CardTitle>
           <TrendingUp className="h-5 w-5 text-muted-foreground" />
@@ -153,7 +179,6 @@ export function ServiceSellerPageClient() {
           </p>
         </CardContent>
       </Card>
-
     </div>
   )
 }

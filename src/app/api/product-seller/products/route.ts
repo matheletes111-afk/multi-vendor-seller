@@ -39,7 +39,49 @@ export async function GET(request: NextRequest) {
     perPage: searchParams.get("perPage") ?? undefined,
   })
 
-  const where = { sellerId: seller.id, isDeleted: false }
+  // Filters
+  const q = searchParams.get("q") || ""
+  const startDate = searchParams.get("startDate") || ""
+  const endDate = searchParams.get("endDate") || ""
+  const categoryId = searchParams.get("categoryId") || ""
+  const subcategoryId = searchParams.get("subcategoryId") || ""
+  const minPrice = searchParams.get("minPrice") || ""
+  const maxPrice = searchParams.get("maxPrice") || ""
+
+  const where: any = { 
+    sellerId: seller.id, 
+    isDeleted: false 
+  }
+
+  if (q) {
+    where.name = { contains: q, mode: "insensitive" }
+  }
+
+  if (startDate || endDate) {
+    where.createdAt = {}
+    if (startDate) where.createdAt.gte = new Date(startDate)
+    if (endDate) {
+      const end = new Date(endDate)
+      end.setHours(23, 59, 59, 999)
+      where.createdAt.lte = end
+    }
+  }
+
+  if (categoryId) {
+    where.categoryId = categoryId
+  }
+
+  if (subcategoryId) {
+    where.subcategoryId = subcategoryId
+  }
+
+  if (minPrice || maxPrice) {
+    where.variants = {
+      some: {}
+    }
+    if (minPrice) where.variants.some.price = { ...where.variants.some.price, gte: parseFloat(minPrice) }
+    if (maxPrice) where.variants.some.price = { ...where.variants.some.price, lte: parseFloat(maxPrice) }
+  }
 
   const [products, totalCount] = await Promise.all([
     prisma.product.findMany({
@@ -150,5 +192,43 @@ export async function POST(request: NextRequest) {
     const err = error as { code?: string }
     if (err.code === "P2002") return NextResponse.json({ error: "Product with this name already exists" }, { status: 400 })
     return NextResponse.json({ error: "Failed to create product" }, { status: 500 })
+  }
+}
+
+/** DELETE multiple products (bulk soft-delete). */
+export async function DELETE(request: NextRequest) {
+  const session = await auth()
+  if (!session?.user || !isProductSeller(session.user)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+  const seller = await prisma.seller.findUnique({ where: { userId: session.user.id } })
+  if (!seller) return NextResponse.json({ error: "Seller not found" }, { status: 404 })
+
+  const body = await request.json().catch(() => ({}))
+  const { ids } = body
+
+  if (!Array.isArray(ids) || ids.length === 0) {
+    return NextResponse.json({ error: "No product IDs provided" }, { status: 400 })
+  }
+
+  try {
+    const result = await prisma.product.updateMany({
+      where: {
+        id: { in: ids },
+        sellerId: seller.id,
+        isDeleted: false,
+      },
+      data: {
+        isDeleted: true,
+      },
+    })
+
+    return NextResponse.json({
+      message: `Successfully deleted ${result.count} product(s)`,
+      count: result.count,
+    })
+  } catch (error) {
+    console.error("Bulk delete error:", error)
+    return NextResponse.json({ error: "Failed to delete products" }, { status: 500 })
   }
 }

@@ -8,7 +8,10 @@ import { serviceSellerItemsNet, serviceSellerLineGross } from "@/lib/service-sel
 export async function GET() {
   const session = await auth()
   if (!session?.user || !isServiceSeller(session.user)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  const seller = await prisma.seller.findUnique({ where: { userId: session.user.id }, select: { id: true } })
+  const [seller, globalSetting] = await Promise.all([
+    prisma.seller.findUnique({ where: { userId: session.user.id }, select: { id: true, commissionRate: true } }),
+    prisma.globalSetting.findFirst(),
+  ])
   if (!seller) return NextResponse.json({ error: "Seller not found" }, { status: 404 })
   const [subscription, totalServices, totalOrders, serviceLines] = await Promise.all([
     prisma.subscription.findFirst({ where: { sellerId: seller.id }, include: { plan: true } }),
@@ -63,6 +66,8 @@ export async function GET() {
 
   return NextResponse.json({
     subscription: subscription ? { ...subscription, plan: subscription.plan } : null,
+    commissionRate: seller.commissionRate ?? globalSetting?.baseCommission ?? 0,
+    isGlobalRate: seller.commissionRate === null || seller.commissionRate === undefined,
     totalServices,
     totalOrders,
     sellerGrossTotal,

@@ -21,6 +21,10 @@ export async function GET(request: NextRequest) {
       user: auth.user,
       onboardingCompleted: seller.onboardingCompleted,
       onboardingStep: seller.onboardingStep,
+      status: seller.status, // PENDING, APPROVED, CORRECTION_NEEDED, REJECTED
+      adminFeedback: seller.adminFeedback,
+      isApproved: seller.isApproved,
+      isSuspended: seller.isSuspended,
       mobileStep: mobileStep,
       businessInfo: seller.businessInfo,
       kyc: seller.kyc,
@@ -272,6 +276,8 @@ export async function POST(request: NextRequest) {
             data: {
                 onboardingCompleted: true,
                 onboardingStep: 6,
+                status: "PENDING", // Reset to pending for admin review
+                adminFeedback: null, // Clear old correction feedback
                 agreement: { upsert: { create: { ...agreementData }, update: { ...agreementData } } },
             },
         });

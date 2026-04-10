@@ -11,10 +11,13 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  const seller = await prisma.seller.findUnique({
-    where: { userId: session.user.id },
-    select: { id: true, netBalance: true },
-  })
+  const [seller, globalSetting] = await Promise.all([
+    prisma.seller.findUnique({
+      where: { userId: session.user.id },
+      select: { id: true, netBalance: true, commissionRate: true },
+    }),
+    prisma.globalSetting.findFirst(),
+  ])
 
   if (!seller) {
     return NextResponse.json({ error: "Seller not found" }, { status: 404 })
@@ -56,6 +59,8 @@ export async function GET() {
 
   return NextResponse.json({
     subscription: subscription ? { ...subscription, plan: subscription.plan } : null,
+    commissionRate: seller.commissionRate ?? globalSetting?.baseCommission ?? 0,
+    isGlobalRate: seller.commissionRate === null || seller.commissionRate === undefined,
     totalProducts,
     totalOrders,
     totalRevenue: totalRevenue._sum.commissionAmount ?? 0,

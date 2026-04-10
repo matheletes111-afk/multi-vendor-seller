@@ -22,8 +22,20 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get("search")?.trim()
     const type = searchParams.get("type") // "PRODUCT" or "SERVICE"
     const status = searchParams.get("status") // "PENDING", "APPROVED", "SUSPENDED", "ONBOARDING"
+    const startDate = searchParams.get("startDate")
+    const endDate = searchParams.get("endDate")
 
     let where: Prisma.SellerWhereInput = {}
+
+    if (startDate || endDate) {
+      where.createdAt = {}
+      if (startDate) where.createdAt.gte = new Date(startDate)
+      if (endDate) {
+        const end = new Date(endDate)
+        end.setHours(23, 59, 59, 999)
+        where.createdAt.lte = end
+      }
+    }
     
     // Status Logic (supports both legacy 'tab' and new 'status' select)
     const effectiveStatus = status && status !== "all" ? status.toLowerCase() : tab
