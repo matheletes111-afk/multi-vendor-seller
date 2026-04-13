@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
       adminFeedback: seller.adminFeedback,
       isApproved: seller.isApproved,
       isSuspended: seller.isSuspended,
-      mobileStep: mobileStep,
+      mobileStep: seller.status === "CORRECTION_NEEDED" ? 1 : mobileStep,
       businessInfo: seller.businessInfo,
       kyc: seller.kyc,
       bankDetails: seller.bankDetails,
@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
     if (mobileStep === 1) {
       // Step 1: Business Information
       const haveGst = formData ? (formData.get("haveGst") === "true") : !!jsonBody.data.haveGst;
-      
+
       const businessData = formData ? {
         businessName: formData.get("businessName") as string,
         businessType: formData.get("businessType") as string,
@@ -244,7 +244,7 @@ export async function POST(request: NextRequest) {
             prefix: "store-banner",
           });
         }
-        
+
         const latRaw = formData.get("storeLat") as string | null;
         const lngRaw = formData.get("storeLng") as string | null;
         const addressRaw = formData.get("storeAddress") as string | null;
@@ -260,13 +260,13 @@ export async function POST(request: NextRequest) {
           }
         }
       } else {
-         if(jsonBody.data.storeLat != undefined && jsonBody.data.storeLng != undefined){
-            storeData.lat = parseFloat(jsonBody.data.storeLat)
-            storeData.lng = parseFloat(jsonBody.data.storeLng)
-         }
-         if(jsonBody.data.storeAddress != undefined){
-            storeData.address = String(jsonBody.data.storeAddress)
-         }
+        if (jsonBody.data.storeLat != undefined && jsonBody.data.storeLng != undefined) {
+          storeData.lat = parseFloat(jsonBody.data.storeLat)
+          storeData.lng = parseFloat(jsonBody.data.storeLng)
+        }
+        if (jsonBody.data.storeAddress != undefined) {
+          storeData.address = String(jsonBody.data.storeAddress)
+        }
       }
 
       const categoryIds = formData ? formData.getAll("categoryIds") : jsonBody.data.categoryIds;
