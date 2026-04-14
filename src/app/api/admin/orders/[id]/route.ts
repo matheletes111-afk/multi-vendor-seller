@@ -256,6 +256,7 @@ export async function PATCH(
     location?: string
     note?: string
   }
+  const { status } = payload
   const deliveryProofImage = typeof payload.deliveryProofImage === "string" ? payload.deliveryProofImage.trim() : ""
   const location = typeof payload.location === "string" ? payload.location.trim() : ""
   const note = typeof payload.note === "string" ? payload.note.trim() : ""
