@@ -34,6 +34,9 @@ export type AdminOrderDetailItemApi = {
   id: string
   sellerId: string | null
   sellerStoreName: string | null
+  sellerName: string | null
+  sellerEmail: string | null
+  sellerPhone: string | null
   itemStatus: string
   productNameSnapshot: string | null
   serviceNameSnapshot: string | null

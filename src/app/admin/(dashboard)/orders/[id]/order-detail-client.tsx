@@ -341,10 +341,18 @@ export function AdminOrderDetailClient({ orderId }: { orderId: string }) {
                         <div className="flex flex-wrap items-start justify-between gap-2">
                           <div>
                             <p className="font-medium text-lg text-foreground">{itemName(item)}</p>
-                            <p className="text-xs text-muted-foreground flex items-center gap-1.5 mt-0.5">
-                              <Store className="w-3.5 h-3.5" />
-                              {item.sellerStoreName ?? "Store"}
-                            </p>
+                            <div className="flex flex-col gap-1 mt-1.5 mb-2 border-l-2 border-primary/20 pl-2">
+                              <p className="text-[11px] font-medium text-muted-foreground flex items-center gap-1.5 uppercase tracking-wide">
+                                <Store className="w-3.5 h-3.5 text-primary/60" />
+                                {item.sellerStoreName ?? "Platform / No Store"}
+                              </p>
+                              <p className="text-[11px] font-medium text-muted-foreground flex items-center gap-1.5 uppercase tracking-wide">
+                                <User className="w-3.5 h-3.5 text-primary/60" />
+                                {item.sellerName ?? "Unknown Seller"}
+                                {item.sellerPhone ? ` • ${item.sellerPhone}` : ""}
+                                {item.sellerEmail ? ` • ${item.sellerEmail}` : ""}
+                              </p>
+                            </div>
                           </div>
                           <div className="flex flex-wrap items-center gap-2">
                             <Badge 
@@ -435,7 +443,20 @@ export function AdminOrderDetailClient({ orderId }: { orderId: string }) {
                         </ul>
                       </div>
                     )}
-                    
+                    {item.deliveryProofImage && (
+                      <div className="rounded-2xl border border-muted/50 bg-muted/5 p-5 shadow-sm mt-4">
+                        <div className="mb-4 flex items-center gap-2">
+                          <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                          <span className="text-[10px] font-bold uppercase tracking-tight text-foreground/70">
+                            Visual Delivery Proof
+                          </span>
+                        </div>
+                        <a href={item.deliveryProofImage} target="_blank" rel="noreferrer" className="block w-fit rounded-xl overflow-hidden border-2 border-muted/20 hover:border-primary/50 transition-colors">
+                          <img src={item.deliveryProofImage} alt="Delivery Proof" className="h-40 w-auto object-cover" />
+                        </a>
+                      </div>
+                    )}
+
                     {/* Item Management Section (Update Status) */}
                     {canUpdateLineItems && item.itemStatus !== "DELIVERED" && (
                       <div className="rounded-2xl border-2 border-primary/5 bg-background p-5 shadow-inner">
@@ -518,6 +539,59 @@ export function AdminOrderDetailClient({ orderId }: { orderId: string }) {
                             {updateLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save Changes"}
                           </Button>
                         </div>
+
+                        {(itemStatusDrafts[item.id] ?? item.itemStatus) === "DELIVERED" && (
+                          <div className="mt-4 space-y-2">
+                            <span className="text-[10px] font-medium uppercase text-muted-foreground tracking-widest px-1">Upload Delivery Proof</span>
+                            <div className="flex flex-wrap items-center gap-4">
+                              <input
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                id={`delivery-proof-file-${item.id}`}
+                                onChange={(e) => {
+                                  const f = e.target.files?.[0]
+                                  if (f) {
+                                    setDeliveryProofFiles((prev) => ({ ...prev, [item.id]: f }))
+                                    setDeliveryProofDrafts((prev) => ({ ...prev, [item.id]: "" }))
+                                  }
+                                  e.target.value = ""
+                                }}
+                              />
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="h-9 gap-2 rounded-xl border-primary/20 bg-primary/5 text-primary hover:bg-primary/10 transition-colors"
+                                disabled={deliveryProofUploadingItemId === item.id}
+                                onClick={() => document.getElementById(`delivery-proof-file-${item.id}`)?.click()}
+                              >
+                                {deliveryProofUploadingItemId === item.id ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <Upload className="h-4 w-4" />
+                                )}
+                                <span className="font-bold text-[10px] uppercase tracking-wide">
+                                  {deliveryProofUploadingItemId === item.id ? "Uploading…" : "Choose Image"}
+                                </span>
+                              </Button>
+
+                              {(deliveryProofDrafts[item.id] || "").trim() ? (
+                                <Badge variant="secondary" className="px-3 py-1 rounded-lg bg-emerald-50 text-emerald-700 border-emerald-200">
+                                  Image Pre-loaded
+                                </Badge>
+                              ) : deliveryProofFiles[item.id] ? (
+                                <Badge variant="secondary" className="px-3 py-1 rounded-lg bg-emerald-50 text-emerald-700 border-emerald-200">
+                                  {deliveryProofFiles[item.id]?.name}
+                                </Badge>
+                              ) : (
+                                <span className="text-[10px] text-amber-600 font-medium px-1">
+                                  * Required to mark as delivered
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        )}
 
                         {(itemStatusDrafts[item.id] ?? item.itemStatus) === "DELIVERED" && item.itemStatus === "OUT_FOR_DELIVERY" && item.sellerId && (
                           <div className="mt-4 space-y-2 max-w-sm">

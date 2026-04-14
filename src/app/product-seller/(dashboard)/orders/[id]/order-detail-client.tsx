@@ -629,6 +629,23 @@ export function ProductSellerOrderDetailClient({ orderId }: { orderId: string })
                   </Card>
                 )}
 
+                {/* D. Visual Delivery Proof block */}
+                {item.deliveryProofImage && (
+                  <Card className="border-none shadow-xl rounded-2xl overflow-hidden bg-white mt-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    <CardHeader className="flex flex-row items-center gap-3 border-b bg-emerald-50/50 py-4 px-6">
+                      <div className="p-1.5 bg-emerald-100 rounded-lg">
+                        <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+                      </div>
+                      <CardTitle className="text-xs font-bold uppercase tracking-widest text-emerald-900">Visual Delivery Proof</CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-6">
+                      <a href={item.deliveryProofImage} target="_blank" rel="noreferrer" className="group relative block w-fit rounded-xl overflow-hidden border-2 border-muted/20 hover:border-emerald-500/50 transition-colors shadow-sm">
+                        <img src={item.deliveryProofImage} alt="Delivery Proof" className="h-48 w-auto object-cover transition-transform duration-500 group-hover:scale-105" />
+                      </a>
+                    </CardContent>
+                  </Card>
+                )}
+
                 {/* E. Return / refund / exchange redesign */}
                 {item.returnAvailable && !item.exchangeSourceOrderItemId && (
                   <Card className="border-none shadow-xl rounded-3xl overflow-hidden bg-white/50 backdrop-blur-sm animate-in zoom-in-95 duration-500">

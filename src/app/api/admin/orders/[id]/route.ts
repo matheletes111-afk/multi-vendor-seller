@@ -42,7 +42,7 @@ export async function GET(
       seller: { include: { store: { select: { name: true } } } },
       items: {
         include: {
-          seller: { include: { store: { select: { name: true } } } },
+          seller: { include: { store: { select: { name: true } }, user: { select: { name: true, email: true, phone: true, phoneCountryCode: true } } } },
           product: { select: { images: true } },
           productVariant: { select: { images: true, returnType: true, replacementAllowed: true } },
           service: { select: { images: true } },
@@ -99,6 +99,9 @@ export async function GET(
       id: row.id,
       sellerId: row.sellerId,
       sellerStoreName: row.seller?.store?.name ?? null,
+      sellerName: row.seller?.user?.name ?? null,
+      sellerEmail: row.seller?.user?.email ?? null,
+      sellerPhone: row.seller?.user?.phone ? `${row.seller?.user?.phoneCountryCode ?? ""}${row.seller?.user?.phone}` : null,
       itemStatus: row.itemStatus,
       productNameSnapshot: row.productNameSnapshot,
       serviceNameSnapshot: row.serviceNameSnapshot,
