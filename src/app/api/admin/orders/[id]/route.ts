@@ -318,6 +318,18 @@ export async function PATCH(
     return NextResponse.json({ error: "Delivery proof image is required when marking delivered" }, { status: 400 })
   }
 
+  // Service status validation: only PENDING, CONFIRMED, DELIVERED, CANCELLED allowed for services.
+  const SERVICE_STATUSES = ["PENDING", "CONFIRMED", "DELIVERED", "CANCELLED"]
+  if (!SERVICE_STATUSES.includes(status)) {
+    const hasService = targetItems.some(item => !item.productId)
+    if (hasService) {
+      return NextResponse.json(
+        { error: `Status "${status}" is not applicable to service items. Use one of: ${SERVICE_STATUSES.join(", ")}` },
+        { status: 400 }
+      )
+    }
+  }
+
   // OTP Verification for moving from OUT_FOR_DELIVERY to DELIVERED (Products only)
   if (status === "DELIVERED") {
     for (const item of (targetItems as any[])) {

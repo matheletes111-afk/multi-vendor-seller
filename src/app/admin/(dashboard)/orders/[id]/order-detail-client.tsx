@@ -472,7 +472,14 @@ export function AdminOrderDetailClient({ orderId }: { orderId: string }) {
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent className="rounded-xl border-none shadow-2xl">
-                                {ADMIN_ORDER_STATUSES.filter(s => s !== "REFUNDED").map((s) => {
+                                {ADMIN_ORDER_STATUSES.filter(s => {
+                                  if (s === "REFUNDED") return false
+                                  const isService = !!item.serviceNameSnapshot
+                                  if (isService) {
+                                    return ["PENDING", "CONFIRMED", "DELIVERED", "CANCELLED"].includes(s)
+                                  }
+                                  return true
+                                }).map((s) => {
                                   const currentIndex = ADMIN_ORDER_STATUSES.indexOf(item.itemStatus as any)
                                   const sIndex = ADMIN_ORDER_STATUSES.indexOf(s as any)
                                   const isDisabled =
