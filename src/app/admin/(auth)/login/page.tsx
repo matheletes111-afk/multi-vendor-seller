@@ -134,9 +134,9 @@ function AdminLoginForm() {
               <Button type="submit" disabled={loading} className="mx-auto w-full rounded-full sm:max-w-[200px]">{loading ? "Signing in..." : "Sign In"}</Button>
             </div>
           </div>
-          <p className="mt-6 text-center text-sm text-gray-600">
+          {/* <p className="mt-6 text-center text-sm text-gray-600">
             Don&apos;t have an account? <Link href="/admin/registration" className="font-medium text-blue-600 hover:underline">Admin Registration</Link>
-          </p>
+          </p> */}
         </form>
       </div>
     </div>

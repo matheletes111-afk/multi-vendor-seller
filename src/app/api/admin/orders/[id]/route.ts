@@ -18,6 +18,7 @@ import {
   ORDER_CANCEL_BLOCKED_DELIVERED,
   ORDER_ITEM_LOCKED_AFTER_DELIVERED,
 } from "@/lib/order-cancel-guard"
+import { sendDeliveryOtp } from "@/lib/delivery-otp"
 
 function isValidAdminStatus(s: string): s is PatchOrderStatusPayload["status"] {
   return ADMIN_ORDER_STATUSES.includes(s as PatchOrderStatusPayload["status"])
@@ -37,7 +38,7 @@ export async function GET(
   const order = await prisma.order.findUnique({
     where: { id: orderId },
     include: {
-      customer: { select: { name: true, email: true } },
+      customer: { select: { name: true, email: true, phone: true, phoneCountryCode: true } },
       seller: { include: { store: { select: { name: true } } } },
       items: {
         include: {
@@ -115,6 +116,8 @@ export async function GET(
       commissionRateSnapshot: row.commissionRateSnapshot,
       deliveryProofImage: row.deliveryProofImage ?? null,
       deliveredAt: row.deliveredAt ? row.deliveredAt.toISOString() : null,
+      deliveryOtp: (row as any).deliveryOtp ?? null,
+      deliveryOtpExpires: (row as any).deliveryOtpExpires ? (row as any).deliveryOtpExpires.toISOString() : null,
       statusHistory: row.statusHistory.map(
         (h): AdminOrderItemStatusHistoryApi => ({
           status: h.status,
@@ -220,6 +223,8 @@ export async function GET(
     createdAt: order.createdAt.toISOString(),
     customerName: order.customer?.name ?? null,
     customerEmail: order.customer?.email ?? null,
+    customerPhone: order.customer?.phone ?? null,
+    customerPhoneCountryCode: order.customer?.phoneCountryCode ?? null,
     sellerStoreName: order.seller?.store?.name ?? null,
     sellerGroups,
     items,
@@ -246,16 +251,19 @@ export async function PATCH(
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 })
   }
-  const payload = body as PatchOrderStatusPayload
-  const status = typeof payload.status === "string" ? payload.status.trim().toUpperCase() : null
-  const deliveryProofImage =
-    typeof payload.deliveryProofImage === "string" ? payload.deliveryProofImage.trim() : ""
+  const payload = body as PatchOrderStatusPayload & {
+    deliveryProofImage?: string
+    location?: string
+    note?: string
+  }
+  const deliveryProofImage = typeof payload.deliveryProofImage === "string" ? payload.deliveryProofImage.trim() : ""
   const location = typeof payload.location === "string" ? payload.location.trim() : ""
   const note = typeof payload.note === "string" ? payload.note.trim() : ""
   const itemId = typeof (body as { itemId?: string }).itemId === "string" ? (body as { itemId?: string }).itemId : null
   const itemIds = Array.isArray((body as { itemIds?: string[] }).itemIds)
     ? (body as { itemIds?: string[] }).itemIds!.filter((v): v is string => typeof v === "string")
     : []
+  const otpInput = typeof payload.otp === "string" ? payload.otp.trim() : ""
   if (!status || !isValidAdminStatus(status)) {
     return NextResponse.json(
       { error: "Invalid status. Use one of: " + ADMIN_ORDER_STATUSES.join(", ") },
@@ -282,15 +290,15 @@ export async function PATCH(
     }
     await prisma.orderItem.updateMany({
       where: { orderId },
-      data: { itemStatus: status },
+      data: { itemStatus: status } as any,
     })
     return NextResponse.json({ success: true, status, updatedAllItems: true })
   }
 
-  const targetItems = await prisma.orderItem.findMany({
+  const targetItems = (await prisma.orderItem.findMany({
     where: { orderId, id: { in: targetItemIds } },
-    select: { id: true, itemStatus: true },
-  })
+    select: { id: true, itemStatus: true, productId: true, deliveryOtp: true, deliveryOtpExpires: true } as any,
+  })) as any[]
   if (targetItems.length !== targetItemIds.length) {
     return NextResponse.json({ error: "One or more items are not in this order" }, { status: 404 })
   }
@@ -310,19 +318,62 @@ export async function PATCH(
     return NextResponse.json({ error: "Delivery proof image is required when marking delivered" }, { status: 400 })
   }
 
+  // OTP Verification for moving from OUT_FOR_DELIVERY to DELIVERED (Products only)
+  if (status === "DELIVERED") {
+    for (const item of (targetItems as any[])) {
+      if (item.productId && item.itemStatus === "OUT_FOR_DELIVERY") {
+        if (!otpInput) {
+          return NextResponse.json({ error: "OTP is required for delivery", itemId: item.id }, { status: 400 })
+        }
+        if (item.deliveryOtp !== otpInput) {
+          return NextResponse.json({ error: "Invalid delivery OTP", itemId: item.id }, { status: 400 })
+        }
+        if (item.deliveryOtpExpires && new Date() > item.deliveryOtpExpires) {
+          return NextResponse.json({ error: "Delivery OTP has expired", itemId: item.id }, { status: 400 })
+        }
+      }
+    }
+  }
+
+  // Handle OUT_FOR_DELIVERY: Generate and Send OTP (Products only)
+  let otpData: { otp: string; expiry: Date } | null = null
+  if (status === "OUT_FOR_DELIVERY" && targetItems.some(i => i.productId)) {
+    const fullOrder = await prisma.order.findUnique({
+      where: { id: orderId },
+      include: { customer: { select: { email: true, phone: true, phoneCountryCode: true, name: true } } }
+    })
+    if (!fullOrder || !fullOrder.customer) {
+      return NextResponse.json({ error: "Customer details not found for OTP" }, { status: 404 })
+    }
+    
+    const combinedPhone = 
+      fullOrder.customer.phoneCountryCode && fullOrder.customer.phone
+        ? `+${fullOrder.customer.phoneCountryCode.replace(/\D/g, "")}${fullOrder.customer.phone.replace(/\D/g, "")}`
+        : fullOrder.customer.phone
+
+    otpData = await sendDeliveryOtp({
+      toEmail: fullOrder.customer.email,
+      toPhone: combinedPhone,
+      orderNumber: fullOrder.orderNumber,
+      customerName: fullOrder.customer.name,
+    })
+  }
+
   try {
     await prisma.$transaction(async (tx) => {
       await tx.orderItem.updateMany({
         where: { orderId, id: { in: targetItemIds } },
         data:
           status === "DELIVERED"
-            ? { itemStatus: status, deliveredAt: new Date(), deliveryProofImage }
-            : { itemStatus: status },
+            ? ({ itemStatus: status as any, deliveredAt: new Date(), deliveryProofImage } as any)
+            : status === "OUT_FOR_DELIVERY" && otpData
+            ? ({ itemStatus: status as any, deliveryOtp: otpData.otp, deliveryOtpExpires: otpData.expiry } as any)
+            : ({ itemStatus: status as any } as any),
       })
       await tx.orderItemStatusHistory.createMany({
         data: targetItemIds.map((id) => ({
           orderItemId: id,
-          status: status as import("@prisma/client").OrderStatus,
+          status: status as any,
           location: location || null,
           note: note || null,
         })),

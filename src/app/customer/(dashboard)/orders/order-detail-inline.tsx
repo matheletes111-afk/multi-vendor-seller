@@ -42,6 +42,7 @@ import {
   CheckCircle2,
   Store,
 } from "lucide-react"
+import Link from "next/link"
 
 export function OrderDetailInline({
   order,
@@ -550,147 +551,152 @@ export function OrderDetailInline({
               }
 
               return (
-              <li
-                key={item.id}
-                className="flex gap-4 rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition-shadow duration-200 hover:shadow-md"
-              >
-                <div className="relative h-[52px] w-[52px] shrink-0 overflow-hidden rounded-lg bg-gray-100 ring-1 ring-gray-100 sm:h-16 sm:w-16">
-                  {item.imageUrl ? (
-                    <img src={item.imageUrl} alt={itemName(item)} className="h-full w-full object-cover" />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center text-muted-foreground">
-                      <Package className="h-6 w-6 sm:h-8 sm:w-8" />
-                    </div>
-                  )}
-                </div>
-                <div className="min-w-0 flex-1 space-y-1.5 text-sm">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="font-medium text-gray-900">{itemName(item)}</p>
-                    <Badge
-                      variant="outline"
-                      className={
-                        item.returnAvailable
-                          ? "border-emerald-200 bg-emerald-50 text-[10px] font-semibold text-emerald-800"
-                          : "border-gray-200 text-[10px] font-semibold text-gray-600"
-                      }
-                    >
-                      {returnLabel(item)}
-                    </Badge>
-                    {item.itemStatus === "REFUNDED" && (
-                      <span className="rounded-full border border-emerald-200 bg-emerald-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-emerald-800">
-                        Refunded
-                      </span>
+                <li
+                  key={item.id}
+                  className="flex gap-4 rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition-shadow duration-200 hover:shadow-md"
+                >
+                  <div className="relative h-[52px] w-[52px] shrink-0 overflow-hidden rounded-lg bg-gray-100 ring-1 ring-gray-100 sm:h-16 sm:w-16">
+                    {item.imageUrl ? (
+                      <img src={item.imageUrl} alt={itemName(item)} className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center text-muted-foreground">
+                        <Package className="h-6 w-6 sm:h-8 sm:w-8" />
+                      </div>
                     )}
                   </div>
-                  {item.exchangeSourceOrderItemId && (
-                    <p className="rounded-md border border-indigo-200 bg-indigo-50 px-2.5 py-2 text-[11px] leading-relaxed text-indigo-950">
-                      <span className="font-semibold">Exchange product</span> — track shipment below like any order.
-                      Your original item&apos;s pickup is completed when this line is delivered.
-                    </p>
-                  )}
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Badge variant="outline" className="border-gray-200 text-[10px] font-medium uppercase tracking-wide text-gray-700">
-                      {item.itemStatus.replace(/_/g, " ")}
-                    </Badge>
-                    <span className="inline-flex items-center gap-1 text-xs text-gray-500">
-                      <Store className="h-3.5 w-3.5 text-gray-400" aria-hidden />
-                      {item.sellerStoreName ?? "Store"}
-                    </span>
-                  </div>
-                  {item.serviceNameSnapshot && item.serviceSlotStartTime && item.serviceSlotEndTime && (
-                    <p className="text-muted-foreground text-xs">Slot: {formatSlotTimeRange(item.serviceSlotStartTime, item.serviceSlotEndTime)}</p>
-                  )}
-                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-gray-600">
-                    <span>
-                      Qty <span className="font-medium text-gray-900">{item.quantity}</span>
-                    </span>
-                    <span>
-                      Price <span className="font-medium text-gray-900">{formatCurrency(item.price)}</span>
-                    </span>
-                    {item.hasGst && (
-                      <span className="text-emerald-700">
-                        GST <span className="font-medium">{formatCurrency(item.gstAmount)}</span>
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-base font-bold text-gray-900">
-                    Line total: {formatCurrency(lineTotal(item))}
-                  </p>
-                  {item.itemStatus === "REFUNDED" && (
-                    <p className="text-sm font-medium text-emerald-700">
-                      Refund amount (line): {formatCurrency(lineTotal(item))}
-                    </p>
-                  )}
-                  <p className="text-xs text-gray-500">
-                    Shipping: {formatCurrency(item.shippingAmount)}
-                  </p>
-                  {item.statusHistory.length > 0 && (
-                    <div className="mt-3 rounded-lg border border-gray-200 bg-white p-3 shadow-sm">
-                      <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500">Tracking timeline</p>
-                      <ul className="relative space-y-0 border-l-2 border-gray-200 pl-4">
-                        {item.statusHistory.map((h, idx) => {
-                          const isPast = idx < item.statusHistory.length - 1
-                          return (
-                            <li key={`${item.id}-hist-${idx}`} className="relative pb-4 last:pb-0">
-                              <span className="absolute -left-[calc(0.5rem+5px)] top-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-white ring-2 ring-gray-200">
-                                <CheckCircle2
-                                  className={`h-4 w-4 ${isPast ? "text-green-600" : "text-blue-600"}`}
-                                  aria-hidden
-                                />
-                              </span>
-                              <div className="min-w-0 pl-8 sm:pl-9">
-                                <p className={`text-xs font-bold ${isPast ? "text-green-700" : "text-blue-600"}`}>
-                                  {String(h.status).replace(/_/g, " ")}
-                                </p>
-                                {h.location ? <p className="text-[11px] text-gray-600">{h.location}</p> : null}
-                                {h.note ? <p className="text-[11px] text-gray-600">{h.note}</p> : null}
-                                <span className="text-[10px] text-gray-500">
-                                  {new Date(h.createdAt).toLocaleString()}
-                                </span>
-                              </div>
-                            </li>
-                          )
-                        })}
-                      </ul>
-                    </div>
-                  )}
-                  {item.returnAvailable && !item.exchangeSourceOrderItemId && (
-                    <div className="mt-3 w-full min-w-0">
-                      <CustomerReturnExchangeStatusDashboard
-                        compact
-                        sectionId={`return-section-${item.id}`}
-                        item={item}
-                        replacementLine={
-                          item.replacementOrderItemId
-                            ? (order.items.find((l) => l.id === item.replacementOrderItemId) ?? null)
-                            : null
+                  <div className="min-w-0 flex-1 space-y-1.5 text-sm">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="font-medium text-gray-900">{itemName(item)}</p>
+                      <Badge
+                        variant="outline"
+                        className={
+                          item.returnAvailable
+                            ? "border-emerald-200 bg-emerald-50 text-[10px] font-semibold text-emerald-800"
+                            : "border-gray-200 text-[10px] font-semibold text-gray-600"
                         }
-                        returnWindowText={returnWindowText}
-                        daysLeft={daysLeft}
-                        formatCurrency={formatCurrency}
-                        lineTotal={lineTotal(item)}
-                        onRequestRefund={() => openRefundDialog(item.id)}
-                        onRequestExchange={() => void openExchangeDialog(item.id)}
-                        returnLoadingItemId={returnLoadingItemId}
-                        exchangeOptionsLoading={exchangeOptionsLoading}
-                        exchangeItemId={exchangeItemId}
-                        requestRefundLabel="Request refund"
-                        requestExchangeLabel="Exchange item"
-                      />
+                      >
+                        {returnLabel(item)}
+                      </Badge>
+                      {item.itemStatus === "REFUNDED" && (
+                        <span className="rounded-full border border-emerald-200 bg-emerald-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-emerald-800">
+                          Refunded
+                        </span>
+                      )}
                     </div>
-                  )}
-                  <CustomerOrderReviewSection
-                    className="mt-3"
-                    item={item}
-                    getDraft={getDraft}
-                    patchDraft={patchDraft}
-                    editingReview={editingReview}
-                    setEditingReview={setEditingReview}
-                    submitReview={submitReview}
-                    isObjectUrl={isObjectUrl}
-                  />
-                </div>
-              </li>
+                    {item.exchangeSourceOrderItemId && (
+                      <p className="rounded-md border border-indigo-200 bg-indigo-50 px-2.5 py-2 text-[11px] leading-relaxed text-indigo-950">
+                        <span className="font-semibold">Exchange product</span> — track shipment below like any order.
+                        Your original item&apos;s pickup is completed when this line is delivered.
+                      </p>
+                    )}
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge variant="outline" className="border-gray-200 text-[10px] font-medium uppercase tracking-wide text-gray-700">
+                        {item.itemStatus.replace(/_/g, " ")}
+                      </Badge>
+                      <Button variant="outline" size="sm" asChild className="h-6 text-[10px] px-2 rounded-lg border-blue-200 bg-blue-50 text-blue-700 font-bold uppercase tracking-tighter">
+                        <Link href={`/customer/orders/${order.id}/invoice?sellerId=${item.sellerId}`} target="_blank">
+                          Invoice
+                        </Link>
+                      </Button>
+                      <span className="inline-flex items-center gap-1 text-xs text-gray-500">
+                        <Store className="h-3.5 w-3.5 text-gray-400" aria-hidden />
+                        {item.sellerStoreName ?? "Store"}
+                      </span>
+                    </div>
+                    {item.serviceNameSnapshot && item.serviceSlotStartTime && item.serviceSlotEndTime && (
+                      <p className="text-muted-foreground text-xs">Slot: {formatSlotTimeRange(item.serviceSlotStartTime, item.serviceSlotEndTime)}</p>
+                    )}
+                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-gray-600">
+                      <span>
+                        Qty <span className="font-medium text-gray-900">{item.quantity}</span>
+                      </span>
+                      <span>
+                        Price <span className="font-medium text-gray-900">{formatCurrency(item.price)}</span>
+                      </span>
+                      {item.hasGst && (
+                        <span className="text-emerald-700">
+                          GST <span className="font-medium">{formatCurrency(item.gstAmount)}</span>
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-base font-bold text-gray-900">
+                      Line total: {formatCurrency(lineTotal(item))}
+                    </p>
+                    {item.itemStatus === "REFUNDED" && (
+                      <p className="text-sm font-medium text-emerald-700">
+                        Refund amount (line): {formatCurrency(lineTotal(item))}
+                      </p>
+                    )}
+                    <p className="text-xs text-gray-500">
+                      Shipping: {formatCurrency(item.shippingAmount)}
+                    </p>
+                    {item.statusHistory.length > 0 && (
+                      <div className="mt-3 rounded-lg border border-gray-200 bg-white p-3 shadow-sm">
+                        <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500">Tracking timeline</p>
+                        <ul className="relative space-y-0 border-l-2 border-gray-200 pl-4">
+                          {item.statusHistory.map((h, idx) => {
+                            const isPast = idx < item.statusHistory.length - 1
+                            return (
+                              <li key={`${item.id}-hist-${idx}`} className="relative pb-4 last:pb-0">
+                                <span className="absolute -left-[calc(0.5rem+5px)] top-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-white ring-2 ring-gray-200">
+                                  <CheckCircle2
+                                    className={`h-4 w-4 ${isPast ? "text-green-600" : "text-blue-600"}`}
+                                    aria-hidden
+                                  />
+                                </span>
+                                <div className="min-w-0 pl-8 sm:pl-9">
+                                  <p className={`text-xs font-bold ${isPast ? "text-green-700" : "text-blue-600"}`}>
+                                    {String(h.status).replace(/_/g, " ")}
+                                  </p>
+                                  {h.location ? <p className="text-[11px] text-gray-600">{h.location}</p> : null}
+                                  {h.note ? <p className="text-[11px] text-gray-600">{h.note}</p> : null}
+                                  <span className="text-[10px] text-gray-500">
+                                    {new Date(h.createdAt).toLocaleString()}
+                                  </span>
+                                </div>
+                              </li>
+                            )
+                          })}
+                        </ul>
+                      </div>
+                    )}
+                    {item.returnAvailable && !item.exchangeSourceOrderItemId && (
+                      <div className="mt-3 w-full min-w-0">
+                        <CustomerReturnExchangeStatusDashboard
+                          compact
+                          sectionId={`return-section-${item.id}`}
+                          item={item}
+                          replacementLine={
+                            item.replacementOrderItemId
+                              ? (order.items.find((l) => l.id === item.replacementOrderItemId) ?? null)
+                              : null
+                          }
+                          returnWindowText={returnWindowText}
+                          daysLeft={daysLeft}
+                          formatCurrency={formatCurrency}
+                          lineTotal={lineTotal(item)}
+                          onRequestRefund={() => openRefundDialog(item.id)}
+                          onRequestExchange={() => void openExchangeDialog(item.id)}
+                          returnLoadingItemId={returnLoadingItemId}
+                          exchangeOptionsLoading={exchangeOptionsLoading}
+                          exchangeItemId={exchangeItemId}
+                          requestRefundLabel="Request refund"
+                          requestExchangeLabel="Exchange item"
+                        />
+                      </div>
+                    )}
+                    <CustomerOrderReviewSection
+                      className="mt-3"
+                      item={item}
+                      getDraft={getDraft}
+                      patchDraft={patchDraft}
+                      editingReview={editingReview}
+                      setEditingReview={setEditingReview}
+                      submitReview={submitReview}
+                      isObjectUrl={isObjectUrl}
+                    />
+                  </div>
+                </li>
               )
             })}
           </ul>

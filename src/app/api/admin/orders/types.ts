@@ -7,6 +7,7 @@ export const ADMIN_ORDER_STATUSES = [
   "CONFIRMED",
   "PROCESSING",
   "SHIPPED",
+  "OUT_FOR_DELIVERY",
   "DELIVERED",
   "CANCELLED",
   "REFUNDED",
@@ -16,10 +17,10 @@ export type AdminOrderStatusValue = (typeof ADMIN_ORDER_STATUSES)[number]
 
 export type PatchOrderStatusPayload = {
   status: AdminOrderStatusValue
-  /** Per-item update: delivery proof URL (S3) when status is DELIVERED */
   deliveryProofImage?: string
   location?: string
   note?: string
+  otp?: string
 }
 
 export type AdminOrderItemStatusHistoryApi = {
@@ -52,6 +53,8 @@ export type AdminOrderDetailItemApi = {
   /** Proof image URL when delivered */
   deliveryProofImage: string | null
   deliveredAt: string | null
+  deliveryOtp: string | null
+  deliveryOtpExpires: string | null
   statusHistory: AdminOrderItemStatusHistoryApi[]
   returnAvailable: boolean
   replacementAllowed: boolean
@@ -137,6 +140,8 @@ export type AdminOrderDetailApi = {
   createdAt: string
   customerName: string | null
   customerEmail: string | null
+  customerPhone: string | null
+  customerPhoneCountryCode: string | null
   sellerStoreName: string | null
   sellerGroups: AdminOrderSellerGroupApi[]
   items: AdminOrderDetailItemApi[]

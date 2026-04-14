@@ -21,6 +21,7 @@ import {
   ORDER_ITEM_LOCKED_AFTER_DELIVERED,
 } from "@/lib/order-cancel-guard"
 import { applySellerCreditForOrderLineDelivered } from "@/lib/seller-order-line-settlement"
+import { sendDeliveryOtp } from "@/lib/delivery-otp"
 
 function isValidSellerStatus(s: string): s is PatchOrderStatusPayload["status"] {
   return SELLER_ORDER_STATUSES.includes(s as PatchOrderStatusPayload["status"])
@@ -130,6 +131,9 @@ export async function GET(
       pickupStatus: row.returnRequest?.pickupStatus ?? (returnAvailable ? "NOT_REQUESTED" : null),
       refundStatus: row.returnRequest?.refundStatus ?? (returnAvailable ? "NOT_REQUESTED" : null),
       deliveryProofImage: row.deliveryProofImage ?? null,
+      deliveredAt: (row as any).deliveredAt ? (row as any).deliveredAt.toISOString() : null,
+      deliveryOtp: (row as any).deliveryOtp ?? null,
+      deliveryOtpExpires: (row as any).deliveryOtpExpires ? (row as any).deliveryOtpExpires.toISOString() : null,
       statusHistory: row.statusHistory.map((h) => ({
         status: h.status,
         location: h.location ?? null,
@@ -165,6 +169,8 @@ export async function GET(
     createdAt: order.createdAt.toISOString(),
     customerName: order.customer?.name ?? null,
     customerEmail: order.customer?.email ?? null,
+    customerPhone: order.customer?.phone ?? null,
+    customerPhoneCountryCode: order.customer?.phoneCountryCode ?? null,
     items,
   }
   return NextResponse.json(body)
@@ -211,6 +217,7 @@ export async function PATCH(
   const itemIds = Array.isArray((body as { itemIds?: string[] }).itemIds)
     ? (body as { itemIds?: string[] }).itemIds!.filter((v): v is string => typeof v === "string")
     : []
+  const otpInput = typeof payload.otp === "string" ? payload.otp.trim() : ""
   if (!status || !isValidSellerStatus(status)) {
     return NextResponse.json(
       { error: "Invalid status. Use one of: " + SELLER_ORDER_STATUSES.join(", ") },
@@ -222,10 +229,10 @@ export async function PATCH(
     return NextResponse.json({ error: "itemId or itemIds is required for item-level status update" }, { status: 400 })
   }
 
-  const ownItems = await prisma.orderItem.findMany({
+  const ownItems = (await prisma.orderItem.findMany({
     where: { orderId, id: { in: targetItemIds }, sellerId: seller.id, productId: { not: null } },
-    select: { id: true, itemStatus: true },
-  })
+    select: { id: true, itemStatus: true, deliveryOtp: true, deliveryOtpExpires: true } as any,
+  })) as any[]
   if (ownItems.length !== targetItemIds.length) {
     return NextResponse.json({ error: "One or more items are not found for this seller" }, { status: 404 })
   }
@@ -245,24 +252,67 @@ export async function PATCH(
     return NextResponse.json({ error: "Delivery proof image is required when marking delivered" }, { status: 400 })
   }
 
+  // OTP Verification for moving from OUT_FOR_DELIVERY to DELIVERED
+  if (status === "DELIVERED") {
+    for (const item of (ownItems as any[])) {
+      if (item.itemStatus === "OUT_FOR_DELIVERY") {
+        if (!otpInput) {
+          return NextResponse.json({ error: "OTP is required for delivery", itemId: item.id }, { status: 400 })
+        }
+        if (item.deliveryOtp !== otpInput) {
+          return NextResponse.json({ error: "Invalid delivery OTP", itemId: item.id }, { status: 400 })
+        }
+        if (item.deliveryOtpExpires && new Date() > item.deliveryOtpExpires) {
+          return NextResponse.json({ error: "Delivery OTP has expired", itemId: item.id }, { status: 400 })
+        }
+      }
+    }
+  }
+
+  // Handle OUT_FOR_DELIVERY: Generate and Send OTP
+  let otpData: { otp: string; expiry: Date } | null = null
+  if (status === "OUT_FOR_DELIVERY") {
+    const fullOrder = await prisma.order.findUnique({
+      where: { id: orderId },
+      include: { customer: { select: { email: true, phone: true, phoneCountryCode: true, name: true } } }
+    })
+    if (!fullOrder || !fullOrder.customer) {
+      return NextResponse.json({ error: "Customer details not found for OTP" }, { status: 404 })
+    }
+    
+    const combinedPhone = 
+      fullOrder.customer.phoneCountryCode && fullOrder.customer.phone
+        ? `+${fullOrder.customer.phoneCountryCode.replace(/\D/g, "")}${fullOrder.customer.phone.replace(/\D/g, "")}`
+        : fullOrder.customer.phone
+
+    otpData = await sendDeliveryOtp({
+      toEmail: fullOrder.customer.email,
+      toPhone: combinedPhone,
+      orderNumber: fullOrder.orderNumber,
+      customerName: fullOrder.customer.name,
+    })
+  }
+
   try {
     // Commit shipment updates first; run exchange completion in a second transaction.
     // A single long interactive transaction can trigger P2028 ("Transaction not found") on some setups.
     await prisma.$transaction(async (tx) => {
       for (const id of targetItemIds) {
-        await assertExchangeReplacementCanAdvance(tx, id, status as import("@prisma/client").OrderStatus)
+        await assertExchangeReplacementCanAdvance(tx, id, status as any)
       }
       await tx.orderItem.updateMany({
         where: { id: { in: targetItemIds }, orderId, sellerId: seller.id, productId: { not: null } },
         data:
           status === "DELIVERED"
-            ? { itemStatus: status, deliveredAt: new Date(), deliveryProofImage }
-            : { itemStatus: status },
+            ? ({ itemStatus: status as any, deliveredAt: new Date(), deliveryProofImage } as any)
+            : status === "OUT_FOR_DELIVERY" && otpData
+            ? ({ itemStatus: status as any, deliveryOtp: otpData.otp, deliveryOtpExpires: otpData.expiry } as any)
+            : ({ itemStatus: status as any } as any),
       })
       await tx.orderItemStatusHistory.createMany({
         data: targetItemIds.map((id) => ({
           orderItemId: id,
-          status: status as import("@prisma/client").OrderStatus,
+          status: status as any,
           location: location || null,
           note: note || null,
         })),

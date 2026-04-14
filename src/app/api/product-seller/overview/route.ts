@@ -23,7 +23,7 @@ export async function GET() {
     return NextResponse.json({ error: "Seller not found" }, { status: 404 })
   }
 
-  const [subscription, totalProducts, totalOrders, totalRevenue, creditsAgg, debitsAgg] = await Promise.all([
+  const [subscription, totalProducts, totalOrders, totalRevenue, creditsAgg, debitsAgg, totalAdClicks] = await Promise.all([
     prisma.subscription.findFirst({
       where: { sellerId: seller.id },
       include: { plan: true },
@@ -51,6 +51,13 @@ export async function GET() {
       where: { sellerId: seller.id, kind: "DEBIT" },
       _sum: { amount: true },
     }),
+    prisma.adClick.count({
+      where: {
+        ad: {
+          sellerId: seller.id
+        }
+      }
+    })
   ])
 
   const netBalance = Number(seller.netBalance)
@@ -71,5 +78,6 @@ export async function GET() {
     balanceCreditsFormatted: formatCurrency(balanceCreditsTotal),
     balanceDebitsTotal,
     balanceDebitsFormatted: formatCurrency(balanceDebitsTotal),
+    totalAdClicks,
   })
 }

@@ -22,8 +22,19 @@ export async function GET(request: NextRequest) {
   const sellerQuery = searchParams.get("seller")
   const customerQuery = searchParams.get("customer")
   const statusQuery = searchParams.get("status")
+  const typeQuery = searchParams.get("type")?.toUpperCase() // 'PRODUCT' or 'SERVICE'
 
   const where: any = {}
+
+  if (typeQuery === "PRODUCT") {
+    where.items = {
+      some: { productNameSnapshot: { not: null } },
+    }
+  } else if (typeQuery === "SERVICE") {
+    where.items = {
+      some: { serviceNameSnapshot: { not: null } },
+    }
+  }
 
   if (customerQuery) {
     where.customer = {

@@ -168,9 +168,16 @@ export function ServiceOrdersClient() {
                       {formatCurrency(order.commission)} ({order.commissionRate}%)
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button variant="outline" size="sm" asChild>
-                        <Link href={`/service-seller/orders/${order.id}`}>View</Link>
-                      </Button>
+                      <div className="flex justify-end gap-2">
+                        <Button variant="outline" size="sm" asChild>
+                          <Link href={`/service-seller/orders/${order.id}`}>View</Link>
+                        </Button>
+                        <Button variant="outline" size="sm" asChild className="border-primary/20 hover:bg-primary/5 text-primary">
+                          <Link href={`/service-seller/orders/${order.id}/invoice`} target="_blank">
+                            Invoice
+                          </Link>
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}

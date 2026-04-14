@@ -16,7 +16,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/ui/dialog"
-import { formatCurrency, formatDate, formatSlotTimeRange } from "@/lib/utils"
+import { formatCurrency, formatDate, formatSlotTimeRange, cn } from "@/lib/utils"
 import type { AdminOrderDetailApi } from "@/app/api/admin/orders/types"
 import { ADMIN_ORDER_STATUSES } from "@/app/api/admin/orders/types"
 import {
@@ -36,6 +36,7 @@ import {
   Wallet,
   CheckCircle2,
   AlertCircle,
+  ShieldCheck,
 } from "lucide-react"
 import {
   Select,
@@ -62,6 +63,7 @@ export function AdminOrderDetailClient({ orderId }: { orderId: string }) {
   const [deliveryProofFiles, setDeliveryProofFiles] = useState<Record<string, File | null>>({})
   const [locationDrafts, setLocationDrafts] = useState<Record<string, string>>({})
   const [noteDrafts, setNoteDrafts] = useState<Record<string, string>>({})
+  const [otpDrafts, setOtpDrafts] = useState<Record<string, string>>({})
   const [deliveryProofUploadingItemId, setDeliveryProofUploadingItemId] = useState<string | null>(null)
   const [updateLoading, setUpdateLoading] = useState(false)
   const [statusError, setStatusError] = useState<string | null>(null)
@@ -131,6 +133,12 @@ export function AdminOrderDetailClient({ orderId }: { orderId: string }) {
             }, {})
           )
           setNoteDrafts(
+            data.items.reduce<Record<string, string>>((acc, item) => {
+              acc[item.id] = ""
+              return acc
+            }, {})
+          )
+          setOtpDrafts(
             data.items.reduce<Record<string, string>>((acc, item) => {
               acc[item.id] = ""
               return acc
@@ -212,6 +220,7 @@ export function AdminOrderDetailClient({ orderId }: { orderId: string }) {
           deliveryProofImage: next === "DELIVERED" ? deliveryProofImage : undefined,
           location: (locationDrafts[itemId] || "").trim() || undefined,
           note: (noteDrafts[itemId] || "").trim() || undefined,
+          otp: (otpDrafts[itemId] || "").trim() || undefined,
         }),
       })
       if (!res.ok) {
@@ -286,11 +295,17 @@ export function AdminOrderDetailClient({ orderId }: { orderId: string }) {
         </Link>
       </Button>
 
-      <div>
-        <h1 className="text-2xl font-medium text-foreground">Order details</h1>
-        <p className="text-muted-foreground mt-1">
-          Order #{order.orderNumber} • {formatDate(order.createdAt)}
-        </p>
+      <div className="flex flex-col gap-2 mb-8">
+        <h1 className="text-3xl font-bold text-foreground">
+          Order Fulfillment
+        </h1>
+        <div className="flex flex-wrap items-center gap-3 mt-1.5">
+          <span className="font-medium text-sm bg-muted px-2 py-0.5 rounded-md text-muted-foreground border border-muted-foreground/10">
+            ORD#{order.orderNumber}
+          </span>
+          <span>•</span>
+          <span>{formatDate(order.createdAt)}</span>
+        </div>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-5 lg:items-start">
@@ -331,15 +346,22 @@ export function AdminOrderDetailClient({ orderId }: { orderId: string }) {
                               {item.sellerStoreName ?? "Store"}
                             </p>
                           </div>
-                          <Badge 
-                            className={`capitalize font-medium text-[10px] tracking-widest px-3 py-1 rounded-full border-none shadow-sm ${
-                              item.itemStatus === "DELIVERED" ? "bg-green-500 text-white" :
-                              item.itemStatus === "CANCELLED" ? "bg-destructive text-white" :
-                              "bg-primary/10 text-primary"
-                            }`}
-                          >
-                            {item.itemStatus.replace(/_/g, " ")}
-                          </Badge>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <Badge 
+                              className={`capitalize font-medium text-[10px] tracking-widest px-3 py-1 rounded-full border-none shadow-sm ${
+                                item.itemStatus === "DELIVERED" ? "bg-green-500 text-white" :
+                                item.itemStatus === "CANCELLED" ? "bg-destructive text-white" :
+                                "bg-primary/10 text-primary"
+                              }`}
+                            >
+                              {item.itemStatus.replace(/_/g, " ")}
+                            </Badge>
+                            <Button variant="outline" size="sm" asChild className="h-6 text-[10px] px-2 rounded-lg border-primary/20 hover:bg-primary/5 text-primary font-bold uppercase tracking-tighter">
+                              <Link href={`/admin/orders/${order.id}/invoice?sellerId=${item.sellerId}`} target="_blank">
+                                Invoice
+                              </Link>
+                            </Button>
+                          </div>
                         </div>
 
                         {item.exchangeSourceOrderItemId && (
@@ -369,39 +391,42 @@ export function AdminOrderDetailClient({ orderId }: { orderId: string }) {
                       <div className="rounded-2xl border border-muted/50 bg-muted/5 p-5 shadow-sm">
                         <div className="mb-4 flex items-center gap-2">
                           <History className="h-4 w-4 text-primary" />
-                          <span className="text-sm font-medium uppercase tracking-widest text-foreground">
-                            Shipment timeline
+                          <span className="text-[10px] font-bold uppercase tracking-tight text-foreground/70">
+                            Shipment history log
                           </span>
                         </div>
-                        <ul className="relative ml-2 space-y-0 border-l-2 border-primary/20 pl-6">
+                        <ul className="relative ml-1 space-y-3 border-l-2 border-primary/10 pl-4">
                           {item.statusHistory.map((h, idx) => {
                             const isLast = idx === item.statusHistory.length - 1
                             return (
                               <li key={`${item.id}-hist-${idx}`} className="relative pb-6 last:pb-0">
                                 <span
-                                  className={`absolute -left-[calc(1.5rem+5px)] top-1 flex h-2.5 w-2.5 rounded-full ring-4 ring-background ${
-                                    isLast ? "bg-primary shadow-[0_0_8px_rgba(var(--primary),0.5)]" : "bg-muted-foreground/30"
+                                  className={`absolute -left-[calc(1.5rem+3px)] top-1 flex h-2 w-2 rounded-full ring-2 ring-background ${
+                                    isLast ? "bg-primary" : "bg-muted-foreground/30"
                                   }`}
                                 />
-                                <div className="space-y-1">
+                                <div className="space-y-0.5">
                                   <div className="flex items-center gap-2">
-                                    <Badge variant="outline" className="text-[10px] font-medium uppercase tracking-widest border-primary/20 bg-primary/5 text-primary">
+                                    <Badge variant="outline" className="text-[9px] h-4 font-bold uppercase tracking-tight border-primary/20 bg-primary/5 text-primary">
                                       {String(h.status).replace(/_/g, " ")}
                                     </Badge>
-                                    <span className="text-[10px] font-medium text-muted-foreground tabular-nums">
+                                    <span className="text-[9px] font-medium text-muted-foreground/60 tabular-nums">
                                       {new Date(h.createdAt).toLocaleString()}
                                     </span>
                                   </div>
-                                  {h.location && (
-                                    <p className="flex items-center gap-1.5 text-[11px] font-medium text-foreground/70">
-                                      <MapPin className="h-3 w-3 text-primary/60" />
-                                      {h.location}
-                                    </p>
-                                  )}
-                                  {h.note && (
-                                    <p className="text-[11px] text-muted-foreground leading-relaxed italic bg-background/50 p-2 rounded-lg border border-muted/30">
-                                      "{h.note}"
-                                    </p>
+                                  {(h.location || h.note) && (
+                                    <div className="pl-1 space-y-0.5">
+                                      {h.location && (
+                                        <p className="text-[10px] font-bold text-foreground/70 flex items-center gap-1">
+                                          <MapPin className="h-2.5 w-2.5 opacity-60" /> {h.location}
+                                        </p>
+                                      )}
+                                      {h.note && (
+                                        <p className="text-[10px] text-muted-foreground italic leading-tight">
+                                          {h.note}
+                                        </p>
+                                      )}
+                                    </div>
                                   )}
                                 </div>
                               </li>
@@ -447,9 +472,33 @@ export function AdminOrderDetailClient({ orderId }: { orderId: string }) {
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent className="rounded-xl border-none shadow-2xl">
-                                {ADMIN_ORDER_STATUSES.map((s) => (
-                                  <SelectItem key={s} value={s} className="capitalize">{s.toLowerCase()}</SelectItem>
-                                ))}
+                                {ADMIN_ORDER_STATUSES.filter(s => s !== "REFUNDED").map((s) => {
+                                  const currentIndex = ADMIN_ORDER_STATUSES.indexOf(item.itemStatus as any)
+                                  const sIndex = ADMIN_ORDER_STATUSES.indexOf(s as any)
+                                  const isDisabled =
+                                    sIndex <= currentIndex ||
+                                    (s === "CANCELLED" && (item.itemStatus !== "PENDING" || order.orderHasDeliveredLine))
+
+                                  return (
+                                    <SelectItem key={s} value={s} disabled={isDisabled}>
+                                      <span className="flex items-center gap-2">
+                                        <span
+                                          className={cn(
+                                            "inline-block h-2 w-2 rounded-full",
+                                            s === "CONFIRMED" && "bg-emerald-500",
+                                            s === "PROCESSING" && "bg-amber-500",
+                                            s === "SHIPPED" && "bg-blue-500",
+                                            s === "OUT_FOR_DELIVERY" && "bg-violet-500",
+                                            s === "DELIVERED" && "bg-emerald-600",
+                                            s === "PENDING" && "bg-slate-400",
+                                            s === "CANCELLED" && "bg-red-500"
+                                          )}
+                                        />
+                                        {s.charAt(0) + s.slice(1).toLowerCase()}
+                                      </span>
+                                    </SelectItem>
+                                  )
+                                })}
                               </SelectContent>
                             </Select>
                           </label>
@@ -462,106 +511,157 @@ export function AdminOrderDetailClient({ orderId }: { orderId: string }) {
                             {updateLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save Changes"}
                           </Button>
                         </div>
+
+                        {(itemStatusDrafts[item.id] ?? item.itemStatus) === "DELIVERED" && item.itemStatus === "OUT_FOR_DELIVERY" && item.sellerId && (
+                          <div className="mt-4 space-y-2 max-w-sm">
+                            <span className="text-[10px] font-medium uppercase text-muted-foreground tracking-widest px-1">Customer Delivery OTP</span>
+                            <div className="relative">
+                              <ShieldCheck className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-primary/60" aria-hidden />
+                              <Input
+                                type="text"
+                                maxLength={6}
+                                value={otpDrafts[item.id] ?? ""}
+                                onChange={(e) => setOtpDrafts((prev) => ({ ...prev, [item.id]: e.target.value.replace(/\D/g, "") }))}
+                                placeholder="6-digit OTP"
+                                className="pl-10 h-9 bg-muted/20 border-none rounded-xl"
+                              />
+                            </div>
+                            <p className="text-[10px] text-muted-foreground italic px-1">
+                              This product is currently <span className="font-semibold text-violet-600">Out for Delivery</span>. Verify OTP to mark as delivered.
+                            </p>
+                          </div>
+                        )}
                       </div>
                     )}
-                    <Separator className="!mt-10" />
-                  </li>
-                ))}
-              </ul>
-            </CardContent>
-          </Card>
-        </div>
+                      <Separator className="!mt-10" />
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+          </div>
 
-        <aside className="space-y-6 lg:col-span-2 lg:sticky lg:top-6 self-start">
-          <Card className="border-none shadow-xl rounded-2xl overflow-hidden">
-            <CardHeader className="bg-primary/5 py-5">
-              <CardTitle className="text-lg flex items-center gap-3">
-                <div className="p-2 bg-primary/10 rounded-xl">
-                  <Receipt className="w-5 h-5 text-primary" />
+        <aside className="space-y-6 lg:col-span-2 lg:sticky lg:top-6 self-start animate-in fade-in slide-in-from-right-10 duration-1000">
+          <Card className="border-none shadow-2xl rounded-[2.5rem] overflow-hidden bg-white/40 backdrop-blur-md">
+            <CardHeader className="bg-foreground py-8 px-8">
+              <CardTitle className="text-xl flex items-center gap-4 text-background">
+                <div className="p-2.5 bg-background/10 rounded-2xl border border-background/20 backdrop-blur-sm">
+                  <Receipt className="w-6 h-6 text-background" />
                 </div>
-                Order Summary
+                <span className="font-bold uppercase tracking-wider text-xs">Order Analytics</span>
               </CardTitle>
             </CardHeader>
-            <CardContent className="p-6 space-y-6">
-              <div className="space-y-4">
-                <div className="flex justify-between items-center bg-muted/20 p-3 rounded-xl border border-muted/10">
-                  <span className="text-sm font-medium text-muted-foreground uppercase tracking-widest">Status</span>
-                  <Badge className="bg-primary/10 text-primary border-none font-medium text-[10px] uppercase tracking-widest px-3 py-1 rounded-full">
-                    {order.status.replace(/_/g, " ").toLowerCase()}
+            <CardContent className="p-8 space-y-8">
+              <div className="space-y-6">
+                <div className="flex justify-between items-center bg-muted/20 p-5 rounded-3xl border border-muted/10">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Current Phase</span>
+                  <Badge className="bg-foreground text-background border-none font-bold text-[10px] uppercase tracking-wider px-4 py-1.5 rounded-full shadow-sm">
+                    {order.status.replace(/_/g, " ")}
                   </Badge>
                 </div>
-                <div className="flex justify-between items-center border-b border-muted/30 pb-4">
-                  <span className="text-sm font-medium text-muted-foreground lowercase tracking-widest flex items-center gap-2">
-                    <User className="w-4 h-4" /> Customer
-                  </span>
-                  <div className="text-right">
-                    <p className="font-medium text-sm">{order.customerName ?? "—"}</p>
-                    <p className="text-[10px] font-medium text-muted-foreground">{order.customerEmail ?? ""}</p>
-                  </div>
-                </div>
-                <div className="flex justify-between items-center border-b border-muted/30 pb-4">
-                  <span className="text-sm font-medium text-muted-foreground lowercase tracking-widest flex items-center gap-2">
-                    <Store className="w-4 h-4" /> Merchant
-                  </span>
-                  <span className="font-medium text-sm">{order.sellerStoreName ?? "—"}</span>
-                </div>
-                <div className="flex justify-between items-center border-b border-muted/30 pb-4">
-                  <span className="text-sm font-medium text-muted-foreground lowercase tracking-widest flex items-center gap-2">
-                    <Wallet className="w-4 h-4" /> Payment
-                  </span>
-                  <div className="text-right">
-                    <p className="font-medium text-sm uppercase">{order.paymentMethod ?? "COD"}</p>
-                    <Badge variant="outline" className="text-[9px] h-4 font-medium uppercase tracking-widest">{order.paymentStatus}</Badge>
-                  </div>
+
+                <div className="rounded-3xl border border-muted/20 bg-background/50 p-6 space-y-5">
+                   <div className="flex justify-between items-start">
+                      <div className="space-y-1">
+                         <p className="text-[10px] font-bold uppercase tracking-wider text-foreground/70">Client Identity</p>
+                         <p className="font-bold text-base text-foreground">{order.customerName ?? "Anonymous"}</p>
+                         <p className="text-[11px] font-medium text-muted-foreground break-all">{order.customerEmail ?? ""}</p>
+                         {order.customerPhone && (
+                            <p className="text-[11px] font-bold text-primary flex items-center gap-1">
+                              {order.customerPhoneCountryCode ? `(+${order.customerPhoneCountryCode.replace(/\D/g, "")}) ` : ""}
+                              {order.customerPhone}
+                            </p>
+                          )}
+                      </div>
+                      <div className="p-3 bg-primary/5 rounded-2xl">
+                         <User className="w-5 h-5 text-primary/60" />
+                      </div>
+                   </div>
+
+                   <div className="h-px bg-muted/20" />
+
+                   <div className="flex justify-between items-start">
+                      <div className="space-y-1">
+                         <p className="text-[10px] font-bold uppercase tracking-wider text-foreground/70">Origin Merchant</p>
+                         <p className="font-bold text-base text-foreground">{order.sellerStoreName ?? "Private Label"}</p>
+                      </div>
+                      <div className="p-3 bg-primary/5 rounded-2xl">
+                         <Store className="w-5 h-5 text-primary/60" />
+                      </div>
+                   </div>
+
+                   <div className="h-px bg-muted/20" />
+
+                   <div className="flex justify-between items-start">
+                      <div className="space-y-1">
+                         <p className="text-[10px] font-bold uppercase tracking-wider text-foreground/70">Payment Intelligence</p>
+                         <div className="flex items-center gap-2 mt-1">
+                            <p className="font-bold text-xs uppercase tracking-wider text-foreground">{order.paymentMethod ?? "COD"}</p>
+                            <span className="text-muted-foreground/30">•</span>
+                            <Badge variant="outline" className="text-[9px] h-5 px-3 font-bold uppercase tracking-wider border-primary/20 bg-primary/5 text-primary">
+                               {order.paymentStatus}
+                            </Badge>
+                         </div>
+                      </div>
+                      <div className="p-3 bg-primary/5 rounded-2xl">
+                         <Wallet className="w-5 h-5 text-primary/60" />
+                      </div>
+                   </div>
                 </div>
               </div>
 
               {/* Delivery Address Card Improvement */}
-              <div className="rounded-2xl bg-muted/30 p-5 space-y-3">
-                <h4 className="flex items-center gap-2 text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
-                  <MapPin className="w-3.5 h-3.5" /> Shipping Address
+              <div className="rounded-[2.5rem] bg-foreground/5 border border-foreground/5 p-8 space-y-5 group hover:bg-foreground/[0.08] transition-all">
+                <h4 className="flex items-center gap-3 text-[10px] font-bold uppercase tracking-wider text-foreground/80">
+                  <div className="p-2 bg-foreground/10 rounded-xl">
+                    <MapPin className="w-4 h-4" />
+                  </div>
+                  Shipping Destination
                 </h4>
                 {order.shippingFullName ? (
-                  <div className="space-y-1 text-sm leading-relaxed">
-                    <p className="font-medium text-foreground">{order.shippingFullName}</p>
-                    <p className="font-medium text-muted-foreground tabular-nums text-xs">{order.shippingPhone ?? ""}</p>
-                    <p className="text-foreground/80 font-medium">
-                      {order.shippingAddressLine1}
-                      {order.shippingAddressLine2 ? `, ${order.shippingAddressLine2}` : ""}
-                    </p>
-                    <p className="text-foreground/80 font-medium">
-                      {order.shippingCity}, {order.shippingState} {order.shippingPostalCode}
-                    </p>
+                  <div className="space-y-2 text-sm leading-relaxed">
+                    <p className="font-bold text-foreground text-lg tracking-tight">{order.shippingFullName}</p>
+                    <p className="font-semibold text-primary tabular-nums text-xs bg-primary/10 w-fit px-3 py-1 rounded-full">{order.shippingPhone ?? ""}</p>
+                    <div className="pt-2 space-y-1 text-muted-foreground font-medium">
+                        <p>{order.shippingAddressLine1}</p>
+                        {order.shippingAddressLine2 && <p>{order.shippingAddressLine2}</p>}
+                        <p className="text-foreground uppercase tracking-wider text-[11px] font-bold pt-1">
+                          {order.shippingCity}, {order.shippingState} {order.shippingPostalCode}
+                        </p>
+                    </div>
                   </div>
                 ) : (
-                  <p className="text-muted-foreground italic text-xs">No address provided</p>
+                  <p className="text-sm font-bold text-muted-foreground italic">No logistics data provided</p>
                 )}
               </div>
 
               {/* Price Breakdown Redesign */}
-              <div className="space-y-4 pt-4">
-                <div className="space-y-2">
+              <div className="space-y-4 pt-4 relative">
+                <div className="absolute -top-3 left-4 bg-background px-2 text-[10px] font-bold uppercase tracking-wider text-primary/60">
+                  Billing Details
+                </div>
+                <div className="space-y-3 rounded-2xl border border-muted/20 bg-muted/10 p-5">
                   <div className="flex justify-between text-sm font-medium">
                     <span className="text-muted-foreground">Subtotal</span>
-                    <span className="font-medium tabular-nums">{formatCurrency(order.subtotal)}</span>
+                    <span className="font-semibold tabular-nums">{formatCurrency(order.subtotal)}</span>
                   </div>
                   <div className="flex justify-between text-sm font-medium">
-                    <span className="text-muted-foreground">GST (included)</span>
-                    <span className="font-medium text-emerald-600 tabular-nums">{formatCurrency(order.tax)}</span>
+                    <span className="text-muted-foreground">GST (Included)</span>
+                    <span className="font-semibold text-emerald-600 tabular-nums">{formatCurrency(order.tax)}</span>
                   </div>
                   {order.shipping > 0 && (
                     <div className="flex justify-between text-sm font-medium text-orange-500">
                       <span>Shipping</span>
-                      <span className="font-medium tabular-nums">{formatCurrency(order.shipping)}</span>
+                      <span className="font-semibold tabular-nums">{formatCurrency(order.shipping)}</span>
                     </div>
                   )}
-                </div>
-                <div className="pt-4 border-t-2 border-dashed border-primary/20">
-                  <div className="flex justify-between items-center">
-                    <span className="text-lg font-medium uppercase tracking-widest text-primary">Grand Total</span>
-                    <span className="text-2xl font-medium tabular-nums text-primary">
-                      {formatCurrency(order.totalAmount)}
-                    </span>
+                  <div className="pt-3 border-t border-dashed border-muted-foreground/20">
+                    <div className="flex justify-between items-center">
+                      <span className="text-base font-bold uppercase tracking-tight text-primary">Grand Total</span>
+                      <span className="text-xl font-bold tabular-nums text-primary">
+                        {formatCurrency(order.totalAmount)}
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>

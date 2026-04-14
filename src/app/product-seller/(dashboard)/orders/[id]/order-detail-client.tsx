@@ -31,6 +31,7 @@ import {
   X,
   ArrowLeftRight,
   Wallet,
+  ShieldCheck,
 } from "lucide-react"
 import {
   Select,
@@ -155,6 +156,7 @@ export function ProductSellerOrderDetailClient({ orderId }: { orderId: string })
   const [deliveryProofFiles, setDeliveryProofFiles] = useState<Record<string, File | null>>({})
   const [locationDrafts, setLocationDrafts] = useState<Record<string, string>>({})
   const [noteDrafts, setNoteDrafts] = useState<Record<string, string>>({})
+  const [otpDrafts, setOtpDrafts] = useState<Record<string, string>>({})
   const [updateLoading, setUpdateLoading] = useState(false)
   const [statusError, setStatusError] = useState<string | null>(null)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
@@ -226,6 +228,12 @@ export function ProductSellerOrderDetailClient({ orderId }: { orderId: string })
             }, {})
           )
           setNoteDrafts(
+            data.items.reduce<Record<string, string>>((acc, item) => {
+              acc[item.id] = ""
+              return acc
+            }, {})
+          )
+          setOtpDrafts(
             data.items.reduce<Record<string, string>>((acc, item) => {
               acc[item.id] = ""
               return acc
@@ -306,6 +314,7 @@ export function ProductSellerOrderDetailClient({ orderId }: { orderId: string })
           deliveryProofImage: next === "DELIVERED" ? deliveryProofImage : undefined,
           location: (locationDrafts[itemId] || "").trim() || undefined,
           note: (noteDrafts[itemId] || "").trim() || undefined,
+          otp: (otpDrafts[itemId] || "").trim() || undefined,
         }),
       })
       if (!res.ok) {
@@ -402,31 +411,43 @@ export function ProductSellerOrderDetailClient({ orderId }: { orderId: string })
         </Alert>
       )}
 
-      {/* Page header */}
-      <header className="flex flex-col gap-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0 space-y-2">
-          <Button variant="ghost" size="sm" className="-ml-2 h-9 gap-1.5 text-slate-600" asChild>
+      {/* Page header redesign */}
+      <header className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between animate-in fade-in slide-in-from-top-4 duration-500">
+        <div className="space-y-4">
+          <Button variant="ghost" size="sm" className="-ml-2 h-9 gap-2 text-muted-foreground hover:text-primary hover:bg-primary/5 transition-all" asChild>
             <Link href="/product-seller/orders">
-              <ArrowLeft className="h-4 w-4 shrink-0" aria-hidden />
+              <ArrowLeft className="h-4 w-4" />
               Back to orders
             </Link>
           </Button>
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">Order Details</h1>
-            <p className="mt-1 font-mono text-sm text-slate-500">Order #{order.orderNumber}</p>
-            <p className="text-xs text-muted-foreground">ID: {order.id}</p>
+            <h1 className="text-3xl font-bold text-foreground">
+              Order Fulfillment
+            </h1>
+            <div className="flex flex-wrap items-center gap-3 mt-1.5">
+              <span className="font-medium text-sm bg-muted px-2 py-0.5 rounded-md text-muted-foreground border border-muted-foreground/10">
+                ORD#{order.orderNumber}
+              </span>
+              <span className="text-xs text-muted-foreground flex items-center gap-1.5 font-medium">
+                <Clock className="w-3.5 h-3.5 text-amber-500/70" />
+                {lastUpdated ? `Updated ${lastUpdated.toLocaleString()}` : formatDate(order.createdAt)}
+              </span>
+            </div>
           </div>
         </div>
-        <div className="flex flex-col items-start gap-2 sm:items-end">
-          <Badge className={cn("border px-3 py-1 text-sm capitalize", orderStatusBadgeClass(order.status))}>
-            {order.status.replace(/_/g, " ").toLowerCase()}
-          </Badge>
-          <p className="text-xs text-muted-foreground">
-            Last activity: {lastUpdated ? lastUpdated.toLocaleString() : formatDate(order.createdAt)}
-          </p>
-          <Badge variant="outline" className="text-xs capitalize">
-            Payment: {order.paymentStatus.toLowerCase()}
-          </Badge>
+        <div className="flex flex-col gap-3 items-start md:items-end">
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground/60 px-1">Global Status</span>
+            <Badge className={cn("border-none px-4 py-1.5 rounded-full text-xs font-bold shadow-sm uppercase tracking-wide", orderStatusBadgeClass(order.status))}>
+              {order.status.replace(/_/g, " ")}
+            </Badge>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground/60 px-1">Payment</span>
+            <Badge variant="outline" className="text-xs font-bold uppercase tracking-tight py-1 rounded-lg shadow-inner bg-background/50 backdrop-blur-sm">
+              {order.paymentStatus}
+            </Badge>
+          </div>
         </div>
       </header>
 
@@ -448,186 +469,216 @@ export function ProductSellerOrderDetailClient({ orderId }: { orderId: string })
 
             return (
               <Fragment key={item.id}>
-                {/* A. Product information */}
-                <Card className="border-slate-200 shadow-md transition-shadow hover:shadow-lg">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="flex items-center gap-2 text-lg">
-                      <ShoppingBag className="h-5 w-5 text-amber-600" aria-hidden />
-                      {item.exchangeSourceOrderItemId ? "Exchange product" : "Product information"}
+                {/* A. Product information redesign */}
+                <Card className="border-none shadow-xl rounded-2xl overflow-hidden bg-gradient-to-br from-background to-muted/5 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                  <CardHeader className="border-b bg-muted/20 py-6">
+                    <CardTitle className="flex items-center gap-3 text-xl">
+                      <div className="p-2.5 bg-amber-500/10 rounded-2xl">
+                        <ShoppingBag className="h-6 w-6 text-amber-600" />
+                      </div>
+                      {item.exchangeSourceOrderItemId ? "Exchange Item Replacement" : "Line Item Details"}
                     </CardTitle>
-                    <CardDescription>
+                    <CardDescription className="pl-14">
                       {item.exchangeSourceOrderItemId
-                        ? "Replacement line for an exchange — pack and ship like a normal order."
-                        : "Line item details and current fulfillment status"}
+                        ? "Special replacement for an approved exchange. Pack and ship immediately."
+                        : "Detailed product metrics and fulfillment tracking."}
                     </CardDescription>
                   </CardHeader>
-                  <CardContent className="flex flex-col gap-4 sm:flex-row">
-                    <div className="relative h-28 w-28 shrink-0 overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
-                      {item.imageUrl ? (
-                        <img src={item.imageUrl} alt="" className="h-full w-full object-cover" />
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center text-slate-300">
-                          <Package className="h-12 w-12" aria-hidden />
-                        </div>
-                      )}
-                    </div>
-                    <div className="min-w-0 flex-1 space-y-2">
-                      <p className="text-lg font-bold leading-snug text-slate-900">{itemName(item)}</p>
-                      <p className="text-sm text-muted-foreground">
-                        <span className="font-medium text-slate-700">Variant / reference:</span>{" "}
-                        {item.id.slice(0, 12)}…
-                      </p>
-                      {item.exchangeSourceOrderItemId && (
-                        <div className="rounded-lg border border-amber-200 bg-amber-50/90 px-3 py-3">
-                          <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-900">
-                            Exchange product (ship this line)
-                          </p>
-                          <p className="mt-2 text-sm leading-relaxed text-amber-950">
-                            Treat this line like a normal order: pack and ship the replacement. When you mark it{" "}
-                            <span className="font-medium">delivered</span>, the customer&apos;s original return pickup is
-                            closed automatically.
-                          </p>
-                        </div>
-                      )}
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-sm text-slate-600">
-                          Qty <span className="font-semibold text-slate-900">{item.quantity}</span>
-                        </span>
-                        <span className="text-slate-300">·</span>
-                        <span className="text-sm text-slate-600">
-                          Unit {formatCurrency(item.price)}
-                        </span>
-                        <Badge className={cn("border text-[10px] uppercase tracking-wide", itemStatusBadgeClass(item.itemStatus))}>
-                          {item.itemStatus.replace(/_/g, " ")}
-                        </Badge>
-                      </div>
-                      <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-600">
-                        <span>Subtotal: {formatCurrency(item.subtotal)}</span>
-                        {item.hasGst ? (
-                          <span className="text-emerald-700">GST: {formatCurrency(item.gstAmount)}</span>
+                  <CardContent className="p-8">
+                    <div className="flex flex-col gap-8 md:flex-row">
+                      <div className="relative h-32 w-32 shrink-0 overflow-hidden rounded-3xl bg-white shadow-2xl ring-1 ring-muted flex items-center justify-center p-2">
+                        {item.imageUrl ? (
+                          <img src={item.imageUrl} alt="" className="h-full w-full object-contain transition-transform hover:scale-110 duration-500" />
                         ) : (
-                          <span className="text-slate-500">No GST</span>
+                          <Package className="h-16 w-16 text-muted-foreground/30" />
                         )}
-                        <span className="font-semibold text-slate-900">Line total: {formatCurrency(lineTotal(item))}</span>
+                        <div className="absolute top-2 right-2 flex gap-1">
+                           <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]"></div>
+                        </div>
+                      </div>
+                      <div className="flex-1 space-y-4">
+                        <div className="flex flex-wrap items-start justify-between gap-4">
+                          <div className="space-y-1">
+                            <h3 className="text-2xl font-bold tracking-tight text-foreground">{itemName(item)}</h3>
+                            <p className="text-xs text-muted-foreground font-mono flex items-center gap-1.5 uppercase tracking-widest">
+                              Reference: {item.id.slice(0, 12).toUpperCase()}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Badge className={cn("px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest border-none shadow-md", itemStatusBadgeClass(item.itemStatus))}>
+                              {item.itemStatus.replace(/_/g, " ")}
+                            </Badge>
+                            <Button variant="outline" size="sm" asChild className="h-8 text-[11px] font-bold uppercase tracking-tighter px-4 rounded-full border-primary/20 hover:bg-primary/5 text-primary shadow-sm hover:shadow transition-all">
+                              <Link href={`/product-seller/orders/${order.id}/invoice`} target="_blank">
+                                Invoice
+                              </Link>
+                            </Button>
+                          </div>
+                        </div>
+
+                        {item.exchangeSourceOrderItemId && (
+                          <div className="rounded-2xl border-2 border-dashed border-amber-300 bg-amber-50/70 p-5 mt-2 transition-all hover:bg-amber-50 shadow-inner">
+                            <p className="text-xs font-bold uppercase tracking-widest text-amber-900 flex items-center gap-2">
+                              <RefreshCw className="w-4 h-4 animate-spin-slow" />
+                              Active Replacement Shipment
+                            </p>
+                            <p className="mt-2 text-sm leading-relaxed text-amber-950/80 font-medium">
+                              Ship this item normally. Status automatically completes the original return when delivered.
+                            </p>
+                          </div>
+                        )}
+
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 pt-4 border-t border-foreground/10 mt-4">
+                          <div className="space-y-1">
+                            <p className="text-[10px] uppercase font-black text-foreground/70 tracking-widest">Quantity</p>
+                            <p className="text-lg font-bold tabular-nums">{item.quantity} units</p>
+                          </div>
+                          <div className="space-y-1">
+                            <p className="text-[10px] uppercase font-black text-foreground/70 tracking-widest">Unit Price</p>
+                            <p className="text-lg font-bold tabular-nums text-primary/80">{formatCurrency(item.price)}</p>
+                          </div>
+                          <div className="space-y-1">
+                            <p className="text-[10px] uppercase font-black text-foreground/70 tracking-widest">Tax (GST)</p>
+                            <p className={cn("text-lg font-bold tabular-nums", item.hasGst ? "text-emerald-600" : "text-muted-foreground")}>
+                              {item.hasGst ? formatCurrency(item.gstAmount) : "N/A"}
+                            </p>
+                          </div>
+                          <div className="space-y-1">
+                            <p className="text-[10px] uppercase font-black text-foreground/70 tracking-widest">Total Value</p>
+                            <p className="text-xl font-black tabular-nums text-foreground">{formatCurrency(lineTotal(item))}</p>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </CardContent>
                 </Card>
 
-                {/* C. Shipment timeline (before return / shipment update) */}
+                {/* C. Shipment timeline redesign */}
                 {hist.length > 0 && (
-                  <Card className="border-slate-200 shadow-md">
-                    <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2">
-                      <div>
-                        <CardTitle className="flex items-center gap-2 text-lg">
-                          <History className="h-5 w-5 text-slate-600" aria-hidden />
-                          Shipment timeline
-                        </CardTitle>
-                        <CardDescription>History of status changes for this line item</CardDescription>
+                  <Card className="border-none shadow-xl rounded-2xl overflow-hidden bg-muted/5 mt-6">
+                    <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 border-b bg-muted/20 py-4 px-6">
+                      <div className="flex items-center gap-3">
+                         <div className="p-1.5 bg-primary/10 rounded-lg">
+                            <History className="h-4 w-4 text-primary" />
+                         </div>
+                         <div>
+                            <CardTitle className="text-xs font-bold uppercase tracking-widest">Shipment Log</CardTitle>
+                         </div>
                       </div>
-                      <Badge variant="secondary" className="font-normal">
-                        {hist.length} update{hist.length !== 1 ? "s" : ""}
-                      </Badge>
                     </CardHeader>
-                    <CardContent>
-                      <ul className="relative ml-1.5 space-y-0 border-l-2 border-slate-200 pl-5">
+                    <CardContent className="pt-6">
+                      <ul className="relative ml-2 space-y-3 border-l-2 border-primary/10 pl-4">
                         {timelineShown.map((h, idx) => {
                           const globalIdx = timelineOffset + idx
                           const isLatest = globalIdx === hist.length - 1
                           return (
-                            <li key={`${item.id}-hist-${h.createdAt}-${globalIdx}`} className="relative pb-6 last:pb-0">
-                              <TimelineDot isLatest={isLatest} />
-                              <div
-                                className={cn(
-                                  "-ml-px rounded-lg border py-3 pl-8 pr-3 sm:pl-9",
-                                  isLatest ? "border-l-4 border-l-emerald-500 bg-emerald-50/40" : "border-slate-200 bg-white"
+                            <li key={`${item.id}-hist-${h.createdAt}-${globalIdx}`} className="relative pb-8 last:pb-0">
+                               <div className={cn(
+                                "absolute -left-[calc(1rem + 5px)] top-1 flex h-2 w-2 rounded-full ring-2 ring-background",
+                                isLatest ? "bg-primary" : "bg-muted-foreground/30"
+                               )} />
+                               <div
+                                 className={cn(
+                                   "rounded-xl border p-3",
+                                   isLatest ? "border-primary/20 bg-primary/5 shadow-sm" : "border-muted/20 bg-background/50"
+                                 )}
+                               >
+                                 <div className="flex flex-wrap items-center justify-between gap-2">
+                                   <div className="flex items-center gap-2">
+                                     <Badge className={cn("px-2 py-0 h-4 rounded text-[8px] font-bold uppercase tracking-widest border-none", itemStatusBadgeClass(String(h.status)))}>
+                                       {String(h.status).replace(/_/g, " ")}
+                                     </Badge>
+                                     <span className="text-[9px] font-medium text-muted-foreground/60 tabular-nums">
+                                       {new Date(h.createdAt).toLocaleString()}
+                                     </span>
+                                   </div>
+                                 </div>
+                                {(h.location || h.note) && (
+                                   <div className="mt-2 space-y-1">
+                                      {h.location && (
+                                        <p className="flex items-center gap-1.5 text-[10px] font-bold text-foreground/70 lowercase">
+                                          <MapPin className="h-2.5 w-2.5" /> {h.location}
+                                        </p>
+                                      )}
+                                      {h.note && (
+                                        <p className="text-[10px] text-muted-foreground/80 leading-tight italic px-2 border-l border-muted-foreground/20">
+                                          {h.note}
+                                        </p>
+                                      )}
+                                   </div>
                                 )}
-                              >
-                                <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-                                  <span className="flex shrink-0 items-center justify-center">
-                                    {timelineIconForStatus(String(h.status))}
-                                  </span>
-                                  <Badge variant="outline" className="text-[10px] font-semibold uppercase tracking-wide">
-                                    {String(h.status).replace(/_/g, " ")}
-                                  </Badge>
-                                  <span className="text-xs text-slate-500">{new Date(h.createdAt).toLocaleString()}</span>
-                                </div>
-                                {h.location ? (
-                                  <p className="mt-2 flex items-start gap-2 text-sm text-slate-700">
-                                    <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" aria-hidden />
-                                    <span>{h.location}</span>
-                                  </p>
-                                ) : null}
-                                {h.note ? (
-                                  <p className="mt-2 flex items-start gap-2 text-sm italic text-slate-600">
-                                    <MessageSquare className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" aria-hidden />
-                                    <span>{h.note}</span>
-                                  </p>
-                                ) : null}
                               </div>
                             </li>
                           )
                         })}
                       </ul>
                       {hasMore && (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="mt-4"
-                          onClick={() => setTimelineExpanded((prev) => ({ ...prev, [item.id]: !expanded }))}
-                        >
-                          {expanded ? "Show fewer updates" : `Show all updates (${hist.length})`}
-                        </Button>
+                        <div className="mt-8 flex justify-center">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="rounded-full px-6 font-bold uppercase tracking-widest text-[10px] hover:bg-primary/5 text-primary transition-all"
+                            onClick={() => setTimelineExpanded((prev) => ({ ...prev, [item.id]: !expanded }))}
+                          >
+                            {expanded ? "Collapse Timeline" : `Explore Full History (${hist.length} Updates)`}
+                          </Button>
+                        </div>
                       )}
                     </CardContent>
                   </Card>
                 )}
 
-                {/* E. Return / refund / exchange */}
+                {/* E. Return / refund / exchange redesign */}
                 {item.returnAvailable && !item.exchangeSourceOrderItemId && (
-                  <Card className="border-slate-200 shadow-md">
-                    <CardHeader>
-                      <CardTitle className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-                        <span className="flex items-center gap-2 text-lg">
-                          <RefreshCw className="h-5 w-5 shrink-0 text-slate-700" aria-hidden />
-                          <span className="font-semibold text-slate-900">Return request</span>
-                        </span>
-                        <span
+                  <Card className="border-none shadow-xl rounded-3xl overflow-hidden bg-white/50 backdrop-blur-sm animate-in zoom-in-95 duration-500">
+                    <CardHeader className="bg-muted/40 p-8 border-b border-muted/20">
+                      <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+                        <div className="flex items-center gap-4">
+                           <div className="p-3 bg-primary/10 rounded-2xl">
+                              <RefreshCw className="h-7 w-7 text-primary" />
+                           </div>
+                           <div className="space-y-1">
+                              <CardTitle className="text-2xl font-black tracking-tight">Return Management</CardTitle>
+                              <CardDescription className="text-sm font-medium">Customer initiated a resolution request</CardDescription>
+                           </div>
+                        </div>
+                        <div
                           className={cn(
-                            "inline-flex w-fit items-center rounded-lg border-2 px-4 py-2 text-sm font-bold uppercase tracking-wide shadow-sm",
+                            "inline-flex w-fit items-center rounded-2xl border-2 px-6 py-2.5 text-xs font-black uppercase tracking-[0.2em] shadow-lg",
                             (item.returnResolutionType ?? "REFUND") === "EXCHANGE"
-                              ? "border-blue-300 bg-blue-50 text-blue-800"
-                              : "border-amber-300 bg-amber-50 text-amber-900",
+                              ? "border-blue-300 bg-blue-50 text-blue-800 shadow-blue-200/50"
+                              : "border-amber-400 bg-amber-50 text-amber-900 shadow-amber-200/50",
                           )}
                         >
-                          {(item.returnResolutionType ?? "REFUND") === "EXCHANGE" ? "Exchange" : "Refund"}
-                        </span>
-                      </CardTitle>
-                      <CardDescription className="text-slate-600">
-                        {(item.returnResolutionType ?? "REFUND") === "EXCHANGE"
-                          ? "The customer asked to swap this item for a replacement. Review their submission and approve or reject."
-                          : "The customer asked for a refund on this line. Review their submission and approve or reject."}
-                      </CardDescription>
+                          {(item.returnResolutionType ?? "REFUND") === "EXCHANGE" ? "Exchange Req" : "Refund Req"}
+                        </div>
+                      </div>
                     </CardHeader>
-                    <CardContent className="space-y-4">
+                    <CardContent className="p-8 space-y-8">
                       {(item.returnReason || (item.returnImages?.length ?? 0) > 0) && (
-                        <div className="rounded-lg border border-slate-200 bg-slate-50/80 p-4">
-                          <p className="text-sm font-semibold text-slate-900">Customer submission</p>
+                        <div className="rounded-[2rem] border border-muted/30 bg-muted/5 p-8 space-y-6">
+                           <div className="flex items-center gap-2">
+                              <MessageSquare className="w-4 h-4 text-primary/60" />
+                              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/60">Reason for Request</p>
+                           </div>
                           {item.returnReason && (
-                            <p className="mt-2 whitespace-pre-wrap text-sm text-slate-700">{item.returnReason}</p>
+                            <p className="whitespace-pre-wrap text-base font-medium leading-relaxed text-foreground/80">{item.returnReason}</p>
                           )}
                           {(item.returnImages ?? []).length > 0 && (
-                            <div className="mt-3 flex flex-wrap gap-2">
+                            <div className="mt-6 flex flex-wrap gap-4">
                               {(item.returnImages ?? []).map((url) => (
                                 <a
                                   key={url}
                                   href={url}
                                   target="_blank"
                                   rel="noreferrer"
-                                  className="block h-20 w-20 overflow-hidden rounded-md border bg-white shadow-sm"
+                                  className="group relative block h-24 w-24 overflow-hidden rounded-2xl border-2 border-muted/20 bg-white transition-all hover:scale-105 hover:shadow-xl active:scale-95"
                                 >
                                   <img src={url} alt="" className="h-full w-full object-cover" />
+                                  <div className="absolute inset-0 bg-primary/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                     <Upload className="w-6 h-6 text-white" />
+                                  </div>
                                 </a>
                               ))}
                             </div>
@@ -635,32 +686,26 @@ export function ProductSellerOrderDetailClient({ orderId }: { orderId: string })
                         </div>
                       )}
 
-                      <div className="grid gap-3 sm:grid-cols-3">
-                        <div className="rounded-lg border border-slate-200 p-3 text-center">
-                          <p className="text-xs font-medium uppercase text-muted-foreground">Return status</p>
-                          <Badge className={cn("mt-2 border", returnRequestBadgeClass(item.returnRequestStatus))}>
-                            {item.returnRequestStatus ?? "NONE"}
-                          </Badge>
-                        </div>
-                        <div className="rounded-lg border border-slate-200 p-3 text-center">
-                          <p className="text-xs font-medium uppercase text-muted-foreground">Pickup status</p>
-                          <Badge className={cn("mt-2 border", pickupBadgeClass(item.pickupStatus))}>
-                            {item.pickupStatus ?? "NOT_REQUESTED"}
-                          </Badge>
-                        </div>
-                        <div className="rounded-lg border border-slate-200 p-3 text-center">
-                          <p className="text-xs font-medium uppercase text-muted-foreground">Refund status</p>
-                          <Badge className={cn("mt-2 border", refundBadgeClass(item.refundStatus))}>
-                            {item.refundStatus ?? "NOT_REQUESTED"}
-                          </Badge>
-                        </div>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        {[
+                          { label: "Return status", val: item.returnRequestStatus, class: returnRequestBadgeClass },
+                          { label: "Pickup status", val: item.pickupStatus, class: pickupBadgeClass },
+                          { label: "Refund status", val: item.refundStatus, class: refundBadgeClass }
+                        ].map((stat) => (
+                          <div key={stat.label} className="rounded-3xl border border-muted/30 bg-background/40 p-6 flex flex-col items-center justify-center text-center gap-3 group hover:border-primary/20 transition-colors">
+                            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/50">{stat.label}</p>
+                            <Badge className={cn("px-4 py-1.5 rounded-full border-none shadow-inner text-[10px] font-bold tracking-widest uppercase transition-transform group-hover:scale-110", stat.class(stat.val))}>
+                              {stat.val ?? "NONE"}
+                            </Badge>
+                          </div>
+                        ))}
                       </div>
 
                       {item.returnRequestStatus === "REQUESTED" && (
-                        <div className="flex flex-wrap gap-2">
+                        <div className="flex flex-wrap gap-4 pt-4">
                           <Button
-                            size="sm"
-                            className="bg-emerald-600 text-white hover:bg-emerald-700"
+                            size="lg"
+                            className="flex-1 md:flex-none rounded-full px-8 bg-emerald-600 text-white hover:bg-emerald-700 shadow-lg shadow-emerald-200 transition-all font-bold uppercase tracking-widest text-[10px]"
                             disabled={returnActionLoadingItemId === item.id}
                             onClick={() =>
                               setConfirmReturn({
@@ -668,22 +713,23 @@ export function ProductSellerOrderDetailClient({ orderId }: { orderId: string })
                                 action: "ACCEPT",
                                 title:
                                   (item.returnResolutionType ?? "REFUND") === "EXCHANGE"
-                                    ? "Approve exchange?"
-                                    : "Approve return?",
+                                    ? "Authorize Exchange?"
+                                    : "Authorize Return?",
                                 description:
                                   (item.returnResolutionType ?? "REFUND") === "EXCHANGE"
-                                    ? "The customer’s exchange request will be accepted."
-                                    : "The customer’s return request will be accepted.",
+                                    ? "The customer's exchange request will be accepted for processing."
+                                    : "The customer's return request will be accepted for processing.",
                               })
                             }
                           >
                             {(item.returnResolutionType ?? "REFUND") === "EXCHANGE"
-                              ? "Approve exchange"
-                              : "Approve return"}
+                              ? "Authorize Exchange"
+                              : "Authorize Return"}
                           </Button>
                           <Button
-                            size="sm"
+                            size="lg"
                             variant="destructive"
+                            className="flex-1 md:flex-none rounded-full px-8 shadow-lg shadow-red-200 transition-all font-bold uppercase tracking-widest text-[10px]"
                             disabled={returnActionLoadingItemId === item.id}
                             onClick={() =>
                               setConfirmReturn({
@@ -691,80 +737,79 @@ export function ProductSellerOrderDetailClient({ orderId }: { orderId: string })
                                 action: "REJECT",
                                 title:
                                   (item.returnResolutionType ?? "REFUND") === "EXCHANGE"
-                                    ? "Reject exchange?"
-                                    : "Reject return?",
+                                    ? "Deny Exchange?"
+                                    : "Deny Return?",
                                 description:
                                   (item.returnResolutionType ?? "REFUND") === "EXCHANGE"
-                                    ? "This will reject the customer’s exchange request."
-                                    : "This will reject the customer’s return request.",
+                                    ? "This will reject the customer's exchange request."
+                                    : "This will reject the customer's return request.",
                               })
                             }
                           >
                             {(item.returnResolutionType ?? "REFUND") === "EXCHANGE"
-                              ? "Reject exchange"
-                              : "Reject return"}
+                              ? "Deny Exchange"
+                              : "Deny Return"}
                           </Button>
                         </div>
                       )}
 
                       {item.returnRequestStatus === "ACCEPTED" && (item.returnResolutionType ?? "REFUND") === "REFUND" && (
-                        <div className="flex flex-wrap gap-2">
+                        <div className="flex flex-wrap gap-4 pt-4">
                           <Button
-                            size="sm"
+                            size="lg"
                             variant="default"
-                            className="bg-blue-600 text-white hover:bg-blue-700"
+                            className="flex-1 md:flex-none rounded-full px-8 bg-blue-600 text-white hover:bg-blue-700 shadow-lg shadow-blue-200 transition-all font-bold uppercase tracking-widest text-[10px]"
                             disabled={returnActionLoadingItemId === item.id || item.pickupStatus === "COMPLETED"}
                             onClick={() =>
                               setConfirmReturn({
                                 itemId: item.id,
                                 action: "PICKUP_COMPLETED",
-                                title: "Mark pickup complete?",
+                                title: "Confirm Logistical Success?",
                                 description:
-                                  "Confirm that the return pickup has been completed. The customer will receive this line’s amount in their wallet (same as exchange price-difference credits).",
+                                  "Verify the return pickup is complete. The client will be credited in their wallet instantly.",
                               })
                             }
                           >
-                            Mark pickup complete
+                            Confirm Pickup
                           </Button>
                           <Button
-                            size="sm"
-                            className="bg-violet-600 text-white hover:bg-violet-700"
+                            size="lg"
+                            className="flex-1 md:flex-none rounded-full px-8 bg-violet-600 text-white hover:bg-violet-700 shadow-lg shadow-violet-200 transition-all font-bold uppercase tracking-widest text-[10px]"
                             disabled={
                               returnActionLoadingItemId === item.id ||
                               item.pickupStatus !== "COMPLETED" ||
-                              item.refundStatus !== "COMPLETED" ||
+                               item.refundStatus !== "COMPLETED" ||
                               item.itemStatus === "REFUNDED"
                             }
                             onClick={() =>
                               setConfirmReturn({
                                 itemId: item.id,
                                 action: "REFUND_COMPLETED",
-                                title: "Finalize return?",
+                                title: "Finalize Return Cycle?",
                                 description:
-                                  "Mark this line as refunded and restock the product. Wallet credit was already added when pickup was completed.",
+                                  "Mark this line as fully refunded and restock inventory.",
                               })
                             }
                           >
-                            Finalize return
+                            Finalize Cycle
                           </Button>
                         </div>
                       )}
 
                       {item.returnRequestStatus === "ACCEPTED" && item.returnResolutionType === "EXCHANGE" && (
-                        <div className="space-y-5">
-                          <div className="rounded-xl border border-violet-200 bg-gradient-to-br from-violet-50/90 to-white px-4 py-4 shadow-sm">
-                            <div className="flex items-start gap-3">
-                              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-violet-100 text-violet-700">
-                                <ArrowLeftRight className="h-5 w-5" aria-hidden />
+                        <div className="space-y-8 pt-4">
+                          <div className="rounded-[2.5rem] border border-violet-200 bg-gradient-to-br from-violet-600 to-violet-900 p-8 shadow-2xl shadow-violet-200 animate-in slide-in-from-left-8 duration-700">
+                            <div className="flex items-start gap-6">
+                              <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-white/20 text-white backdrop-blur-md border border-white/30 shadow-xl">
+                                <ArrowLeftRight className="h-7 w-7" />
                               </span>
-                              <div className="min-w-0 space-y-1.5">
-                                <h3 className="text-base font-semibold leading-snug text-violet-950">
-                                  Exchange product — shipment
+                              <div className="min-w-0 space-y-2">
+                                <h3 className="text-xl font-black leading-snug text-white uppercase tracking-tight">
+                                  Replacement Protocol Active
                                 </h3>
-                                <p className="text-sm leading-relaxed text-violet-900/85">
-                                  Use the <span className="font-medium">new line item</span> on this order to ship the
-                                  replacement product. Pickup for the returned item completes automatically when that
-                                  replacement is marked <span className="font-medium">delivered</span>.
+                                <p className="text-sm leading-relaxed text-white/80 font-medium">
+                                  Execute shipment for the <span className="text-white font-bold">New Line Item</span>. 
+                                  The return logistics cycle resolves automatically upon delivery verification of the replacement.
                                 </p>
                               </div>
                             </div>
@@ -772,85 +817,68 @@ export function ProductSellerOrderDetailClient({ orderId }: { orderId: string })
 
                           {((item.exchangeTopUpAmount ?? 0) > 0.01 ||
                             (item.exchangeRefundDifferenceAmount ?? 0) > 0.01) && (
-                            <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-                              <div className="border-b border-slate-100 bg-slate-50/80 px-4 py-3">
-                                <h4 className="flex items-center gap-2 text-sm font-semibold text-slate-900">
-                                  <Banknote className="h-4 w-4 text-slate-600" aria-hidden />
-                                  Replacement price adjustment
+                            <div className="overflow-hidden rounded-[2.5rem] border border-muted/20 bg-background shadow-xl">
+                              <div className="border-b border-muted/20 bg-muted/10 px-8 py-6">
+                                <h4 className="flex items-center gap-3 text-sm font-black uppercase tracking-widest text-foreground">
+                                  <Banknote className="h-5 w-5 text-primary" />
+                                  Price Equalization
                                 </h4>
-                                <p className="mt-1 text-xs leading-relaxed text-slate-600">
-                                  Shows whether the customer must pay extra for a higher-priced replacement, or receives
-                                  wallet credit if the replacement is cheaper. Line totals include tax as on the order.
+                                <p className="mt-2 text-xs font-bold text-muted-foreground uppercase opacity-60">
+                                  Value adjustment for target replacement vs original item
                                 </p>
                               </div>
-                              <div className="space-y-4 p-4">
+                              <div className="space-y-6 p-8">
                                 {(item.exchangeTopUpAmount ?? 0) > 0.01 && (
-                                  <div className="rounded-lg border border-amber-200 bg-amber-50/90 p-4 text-amber-950 shadow-sm">
-                                    <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-900">
-                                      Customer pays you (upgrade / top-up)
+                                  <div className="rounded-3xl border border-amber-500/20 bg-amber-500/5 p-8 text-amber-950 transition-colors hover:bg-amber-500/10">
+                                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-600/80 mb-2">
+                                      Client Surcharge (Top-up)
                                     </p>
-                                    <p className="mt-2 text-2xl font-bold tabular-nums tracking-tight">
+                                    <p className="text-4xl font-black tabular-nums tracking-tighter text-amber-900">
                                       {formatCurrency(item.exchangeTopUpAmount)}
                                     </p>
-                                    <p className="mt-1 text-sm text-amber-900/90">
-                                      You can ship the replacement anytime. Collect the difference as COD at delivery (or
-                                      online). When you have the money, record it below — this does not block shipment.
+                                    <p className="mt-4 text-sm font-medium leading-relaxed opacity-80">
+                                      Collect this difference as <span className="font-bold">COD</span> at the destination. Record collection to finalize the delta.
                                     </p>
-                                    <p className="mt-2 text-sm font-medium text-amber-950">
-                                      {exchangeTopUpCodLabel(item.exchangeTopUpStatus)}
-                                    </p>
-                                    {item.exchangeTopUpStatus === "PENDING" && (
-                                      <Button
-                                        size="sm"
-                                        variant="outline"
-                                        className="mt-4 w-full border-amber-300 bg-white hover:bg-amber-100/80 sm:w-auto"
-                                        disabled={returnActionLoadingItemId === item.id}
-                                        onClick={() =>
-                                          setConfirmReturn({
-                                            itemId: item.id,
-                                            action: "EXCHANGE_TOP_UP_RECEIVED",
-                                            title: "Record COD collected?",
-                                            description:
-                                              "Mark that you received the exchange price difference (e.g. COD at delivery).",
-                                          })
-                                        }
-                                      >
-                                        Record COD / payment received
-                                      </Button>
-                                    )}
+                                    <div className="mt-6 flex flex-wrap items-center justify-between gap-4 border-t border-amber-900/10 pt-6">
+                                       <span className="text-xs font-bold uppercase tracking-widest text-amber-900/60">
+                                          Current Status: {exchangeTopUpCodLabel(item.exchangeTopUpStatus)}
+                                       </span>
+                                       {item.exchangeTopUpStatus === "PENDING" && (
+                                          <Button
+                                            size="sm"
+                                            className="rounded-full bg-amber-600 text-white hover:bg-amber-700 shadow-md transition-all font-bold uppercase tracking-widest text-[9px] px-6"
+                                            disabled={returnActionLoadingItemId === item.id}
+                                            onClick={() =>
+                                              setConfirmReturn({
+                                                itemId: item.id,
+                                                action: "EXCHANGE_TOP_UP_RECEIVED",
+                                                title: "Verify Collection?",
+                                                description: "Confirm receipt of the price difference amount.",
+                                              })
+                                            }
+                                          >
+                                            Record Collection
+                                          </Button>
+                                       )}
+                                    </div>
                                   </div>
                                 )}
 
                                 {(item.exchangeRefundDifferenceAmount ?? 0) > 0.01 && (
-                                  <div className="rounded-lg border border-sky-200 bg-sky-50/90 p-4 text-sky-950 shadow-sm">
-                                    <div className="flex items-start gap-3">
-                                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-sky-100 text-sky-800">
-                                        <Wallet className="h-4 w-4" aria-hidden />
-                                      </span>
-                                      <div className="min-w-0 flex-1 space-y-3">
-                                        <div>
-                                          <p className="text-[11px] font-semibold uppercase tracking-wide text-sky-900">
-                                            Credit to customer (cheaper replacement)
-                                          </p>
-                                          <p className="mt-2 text-2xl font-bold tabular-nums tracking-tight text-sky-950">
-                                            {formatCurrency(item.exchangeRefundDifferenceAmount)}
-                                          </p>
-                                        </div>
-                                        <p className="text-sm leading-relaxed text-sky-900/90">
-                                          This amount is credited to the customer&apos;s wallet after you mark the
-                                          replacement <span className="font-medium">delivered</span>. You do not collect
-                                          this — it is handled automatically.
-                                        </p>
-                                        <div className="rounded-md border border-sky-200/80 bg-white/80 px-3 py-2.5 text-sm text-sky-900">
-                                          <span className="font-medium">Status:</span>{" "}
-                                          {item.exchangeRefundDifferenceStatus ?? "—"}
-                                          {item.exchangeRefundDifferenceStatus === "PENDING"
-                                            ? " — credited after replacement is delivered"
-                                            : item.exchangeRefundDifferenceStatus === "COMPLETED"
-                                              ? " — credited"
-                                              : ""}
-                                        </div>
-                                      </div>
+                                  <div className="rounded-3xl border border-blue-500/20 bg-blue-500/5 p-8 text-blue-950 transition-colors hover:bg-blue-500/10">
+                                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-600/80 mb-2">
+                                      Client Reimbursement (Surplus)
+                                    </p>
+                                    <p className="text-4xl font-black tabular-nums tracking-tighter text-blue-900">
+                                      {formatCurrency(item.exchangeRefundDifferenceAmount)}
+                                    </p>
+                                    <p className="mt-4 text-sm font-medium leading-relaxed opacity-80">
+                                      Credited to the customer's secure wallet automatically upon <span className="font-bold">Delivered</span> verification.
+                                    </p>
+                                    <div className="mt-6 bg-white/40 backdrop-blur-sm rounded-2xl p-4 border border-blue-900/5">
+                                       <p className="text-[10px] font-bold uppercase tracking-widest text-blue-900/60">
+                                          Status: {item.exchangeRefundDifferenceStatus ?? "Awaiting Delivery"}
+                                       </p>
                                     </div>
                                   </div>
                                 )}
@@ -860,9 +888,9 @@ export function ProductSellerOrderDetailClient({ orderId }: { orderId: string })
 
                           {(item.exchangeTopUpAmount ?? 0) <= 0.01 &&
                             (item.exchangeRefundDifferenceAmount ?? 0) <= 0.01 && (
-                              <p className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-700">
-                                No extra payment or wallet credit applies for this exchange — same or matched price.
-                              </p>
+                              <div className="rounded-3xl border border-muted/20 bg-muted/5 p-6 text-center">
+                                <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Pricing Neutral Settlement</p>
+                              </div>
                             )}
                         </div>
                       )}
@@ -876,87 +904,127 @@ export function ProductSellerOrderDetailClient({ orderId }: { orderId: string })
                   </Card>
                 )}
 
-                {/* B. Shipment status update */}
+                {/* B. Shipment status update redesign */}
                 {showShipmentForm && (
-                  <Card className="border-slate-200 shadow-md">
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2 text-lg">
-                        <Truck className="h-5 w-5 text-amber-600" aria-hidden />
-                        Update shipment status
-                      </CardTitle>
-                      <CardDescription>Location and notes are optional unless you mark the item as delivered.</CardDescription>
+                  <Card className="border-none shadow-[LRB] rounded-[3rem] overflow-hidden bg-gradient-to-tr from-background to-amber-500/5 animate-in slide-in-from-right-8 duration-700">
+                    <CardHeader className="p-8 border-b border-muted/20 bg-muted/10">
+                      <div className="flex items-center gap-4">
+                         <div className="p-3 bg-amber-500/10 rounded-2xl shadow-inner">
+                            <Truck className="h-7 w-7 text-amber-600" aria-hidden />
+                         </div>
+                         <div>
+                            <CardTitle className="text-2xl font-black tracking-tight">Dispatcher Hub</CardTitle>
+                            <CardDescription className="text-sm font-medium">Coordinate the final journey of this item</CardDescription>
+                         </div>
+                      </div>
                     </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div className="grid gap-4 md:grid-cols-2">
-                        <label className="space-y-2">
-                          <span className="text-sm font-medium text-slate-700">Current location (optional)</span>
-                          <div className="relative">
-                            <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden />
+                    <CardContent className="p-10 space-y-10">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <div className="space-y-3">
+                          <label className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/60 px-2 flex items-center gap-2">
+                             <MapPin className="w-3.5 h-3.5" /> Physical Location
+                          </label>
+                          <div className="group relative">
                             <input
                               type="text"
                               value={locationDrafts[item.id] ?? ""}
                               onChange={(e) => setLocationDrafts((prev) => ({ ...prev, [item.id]: e.target.value }))}
-                              placeholder="Enter current city / hub / location"
-                              className="h-10 w-full rounded-md border border-input bg-background pl-10 pr-3 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
+                              placeholder="City / Hub Terminal"
+                              className="h-14 w-full rounded-2xl border-none bg-muted/20 px-6 font-bold text-foreground placeholder:opacity-30 focus:bg-background focus:ring-4 focus:ring-amber-500/20 transition-all shadow-inner"
                               autoComplete="off"
                             />
                           </div>
-                        </label>
-                        <label className="space-y-2">
-                          <span className="text-sm font-medium text-slate-700">Update note (optional)</span>
-                          <div className="relative">
-                            <MessageSquare className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden />
+                        </div>
+                        <div className="space-y-3">
+                          <label className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/60 px-2 flex items-center gap-2">
+                             <MessageSquare className="w-3.5 h-3.5" /> Dispatch Note
+                          </label>
+                          <div className="group relative">
                             <input
                               type="text"
                               value={noteDrafts[item.id] ?? ""}
                               onChange={(e) => setNoteDrafts((prev) => ({ ...prev, [item.id]: e.target.value }))}
-                              placeholder="e.g. Packed and dispatched"
-                              className="h-10 w-full rounded-md border border-input bg-background pl-10 pr-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
+                              placeholder="Internal or customer remark"
+                              className="h-14 w-full rounded-2xl border-none bg-muted/20 px-6 font-bold text-foreground placeholder:opacity-30 focus:bg-background focus:ring-4 focus:ring-amber-500/20 transition-all shadow-inner"
                             />
                           </div>
-                        </label>
-                        <label className="space-y-2 md:col-span-2">
-                          <span className="text-sm font-medium text-slate-700">Next status</span>
+                        </div>
+                        <div className="space-y-3 md:col-span-2">
+                          <label className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/60 px-2">Transition to Next Logic Stage</label>
                           <Select
                             value={draftStatus}
                             onValueChange={(value) => setItemStatusDrafts((prev) => ({ ...prev, [item.id]: value }))}
                           >
-                            <SelectTrigger className="h-10 w-full" aria-label="Next shipment status">
-                              <SelectValue placeholder="Select next status" />
+                            <SelectTrigger className="h-14 w-full rounded-2xl border-none bg-muted/20 px-6 font-black uppercase tracking-widest text-xs shadow-inner focus:ring-4 focus:ring-amber-500/20 transition-all">
+                              <SelectValue placeholder="Target Status" />
                             </SelectTrigger>
-                            <SelectContent>
-                              {SELLER_ORDER_STATUSES.map((s) => (
-                                <SelectItem
-                                  key={s}
-                                  value={s}
-                                  disabled={s === "CANCELLED" && order.orderHasDeliveredLine}
-                                >
-                                  <span className="flex items-center gap-2">
-                                    <span
-                                      className={cn(
-                                        "inline-block h-2 w-2 rounded-full",
-                                        s === "CONFIRMED" && "bg-emerald-500",
-                                        s === "PROCESSING" && "bg-amber-500",
-                                        s === "SHIPPED" && "bg-blue-500",
-                                        s === "DELIVERED" && "bg-emerald-600",
-                                        s === "PENDING" && "bg-slate-400",
-                                        s === "CANCELLED" && "bg-red-500"
-                                      )}
-                                    />
-                                    {s.charAt(0) + s.slice(1).toLowerCase()}
-                                  </span>
-                                </SelectItem>
-                              ))}
+                            <SelectContent className="rounded-2xl border-none shadow-2xl p-2">
+                              {SELLER_ORDER_STATUSES.map((s) => {
+                                const currentIndex = SELLER_ORDER_STATUSES.indexOf(item.itemStatus as any)
+                                const sIndex = SELLER_ORDER_STATUSES.indexOf(s as any)
+                                const isDisabled =
+                                  sIndex <= currentIndex ||
+                                  (s === "CANCELLED" && (item.itemStatus !== "PENDING" || order.orderHasDeliveredLine))
+
+                                return (
+                                  <SelectItem
+                                    key={s}
+                                    value={s}
+                                    disabled={isDisabled}
+                                    className="rounded-xl py-3 font-bold uppercase tracking-widest text-[10px]"
+                                  >
+                                    <span className="flex items-center gap-3">
+                                      <span
+                                        className={cn(
+                                          "inline-block h-2.5 w-2.5 rounded-full shadow-sm",
+                                          s === "CONFIRMED" && "bg-emerald-500",
+                                          s === "PROCESSING" && "bg-amber-500",
+                                          s === "SHIPPED" && "bg-blue-500",
+                                          s === "OUT_FOR_DELIVERY" && "bg-violet-500",
+                                          s === "DELIVERED" && "bg-emerald-600",
+                                          s === "PENDING" && "bg-slate-400",
+                                          s === "CANCELLED" && "bg-red-500"
+                                        )}
+                                      />
+                                      {s.replace(/_/g, " ")}
+                                    </span>
+                                  </SelectItem>
+                                )
+                              })}
                             </SelectContent>
                           </Select>
-                        </label>
+                        </div>
                       </div>
 
+                      {draftStatus === "DELIVERED" && item.itemStatus === "OUT_FOR_DELIVERY" && (
+                        <div className="space-y-4 rounded-3xl bg-violet-600 p-8 text-white shadow-xl shadow-violet-200 animate-in zoom-in-95 duration-500">
+                          <label className="text-[10px] font-bold uppercase tracking-wider text-white/60 px-1 flex items-center gap-2">
+                             <ShieldCheck className="w-4 h-4" /> Secure Delivery Token
+                          </label>
+                          <div className="relative">
+                            <input
+                              type="text"
+                              maxLength={6}
+                              value={otpDrafts[item.id] ?? ""}
+                              onChange={(e) => setOtpDrafts((prev) => ({ ...prev, [item.id]: e.target.value.replace(/\D/g, "") }))}
+                              placeholder="6-DIGIT CODE"
+                              className="h-20 w-full rounded-2xl border-none bg-white text-center text-4xl font-black tracking-[1em] text-violet-700 shadow-inner placeholder:text-violet-100 placeholder:tracking-normal focus:ring-8 focus:ring-white/20 transition-all"
+                            />
+                             <div className="absolute right-6 top-1/2 -translate-y-1/2">
+                                <ShieldCheck className="w-8 h-8 opacity-20" />
+                             </div>
+                          </div>
+                          <p className="text-xs font-bold leading-relaxed text-white/80 italic text-center">
+                            Verification required for items marked <span className="underline">Out for Delivery</span>.
+                          </p>
+                        </div>
+                      )}
+
                       {draftStatus === "DELIVERED" && (
-                        <div className="space-y-2">
-                          <span className="text-sm font-medium text-slate-700">
-                            Delivery proof image <span className="text-red-600">*</span>
-                          </span>
+                        <div className="space-y-4">
+                          <label className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/60 px-2 flex items-center gap-2">
+                             <Upload className="w-3.5 h-3.5" /> Visual Delivery Proof
+                          </label>
                           <div
                             role="button"
                             tabIndex={0}
@@ -970,105 +1038,80 @@ export function ProductSellerOrderDetailClient({ orderId }: { orderId: string })
                               e.preventDefault()
                               setDragOverItemId(item.id)
                             }}
-                            onDragLeave={() => setDragOverItemId((id) => (id === item.id ? null : id))}
+                            onDragLeave={() => setDragOverItemId(null)}
                             onDrop={(e) => {
                               e.preventDefault()
                               setDragOverItemId(null)
-                              assignProofFile(item.id, e.dataTransfer.files?.[0])
+                              assignProofFile(item.id, e.dataTransfer.files[0])
                             }}
-                            className={cn(
-                              "relative flex min-h-[120px] cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed p-6 text-center transition-colors",
-                              dragOverItemId === item.id
-                                ? "border-amber-500 bg-amber-50/50"
-                                : "border-slate-300 bg-slate-50/50 hover:border-amber-400 hover:bg-amber-50/30"
-                            )}
                             onClick={() => document.getElementById(`delivery-proof-file-${item.id}`)?.click()}
+                            className={cn(
+                              "relative flex min-h-[220px] flex-col items-center justify-center rounded-[2.5rem] border-4 border-dashed transition-all duration-300",
+                              dragOverItemId === item.id
+                                ? "border-amber-500 bg-amber-50 scale-95 shadow-inner"
+                                : deliveryProofFiles[item.id] || deliveryProofDrafts[item.id]
+                                  ? "border-emerald-500/30 bg-emerald-50/20"
+                                  : "border-muted/30 bg-muted/10 hover:border-amber-500/50 hover:bg-muted/20"
+                            )}
                           >
                             <input
-                              type="file"
-                              accept="image/jpeg,image/png,image/gif,image/webp"
-                              className="sr-only"
                               id={`delivery-proof-file-${item.id}`}
-                              onChange={(e) => {
-                                assignProofFile(item.id, e.target.files?.[0])
-                                e.target.value = ""
-                              }}
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={(e) => assignProofFile(item.id, e.target.files?.[0])}
                             />
-                            <Upload className="mb-2 h-8 w-8 text-slate-400" aria-hidden />
-                            <p className="text-sm font-medium text-slate-700">Drag &amp; drop or click to upload</p>
-                            <p className="mt-1 text-xs text-muted-foreground">JPG, PNG, GIF, WebP — max 5MB. Uploads to S3 when you save.</p>
-                          </div>
-                          <div className="flex flex-wrap items-center gap-2">
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              className="gap-1.5"
-                              disabled={deliveryProofUploadingItemId === item.id}
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                document.getElementById(`delivery-proof-file-${item.id}`)?.click()
-                              }}
-                            >
-                              {deliveryProofUploadingItemId === item.id ? (
-                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                              ) : (
-                                <Upload className="h-3.5 w-3.5" />
-                              )}
-                              Choose image
-                            </Button>
-                            {(deliveryProofDrafts[item.id] || "").trim() ? (
-                              <Badge variant="secondary" className="font-normal">
-                                Proof on file
-                              </Badge>
-                            ) : deliveryProofFiles[item.id] ? (
-                              <Badge variant="secondary" className="font-normal">
-                                Selected: {deliveryProofFiles[item.id]?.name}
-                              </Badge>
-                            ) : null}
-                          </div>
-                          {(deliveryProofDrafts[item.id] || "").trim() && (
-                            <div className="flex items-center gap-3 rounded-md border border-slate-200 bg-white p-2">
-                              <img
-                                src={(deliveryProofDrafts[item.id] || "").trim()}
-                                alt="Delivery proof preview"
-                                className="h-14 w-14 rounded-md border object-cover"
-                              />
-                              <div className="min-w-0 flex-1">
-                                <a
-                                  href={(deliveryProofDrafts[item.id] || "").trim()}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="text-sm font-medium text-blue-600 underline"
-                                >
-                                  Open proof image
-                                </a>
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="sm"
-                                  className="mt-1 h-7 text-xs text-slate-600"
-                                  onClick={() => {
-                                    setDeliveryProofDrafts((prev) => ({ ...prev, [item.id]: "" }))
-                                    setDeliveryProofFiles((prev) => ({ ...prev, [item.id]: null }))
-                                  }}
-                                >
-                                  <X className="mr-1 h-3 w-3" />
-                                  Remove from draft
-                                </Button>
+
+                            {deliveryProofUploadingItemId === item.id ? (
+                               <div className="flex flex-col items-center gap-4">
+                                  <Loader2 className="h-12 w-12 animate-spin text-amber-500" />
+                                  <p className="text-xs font-black uppercase tracking-widest text-amber-600">Encrypting Shipment Proof...</p>
+                               </div>
+                            ) : deliveryProofFiles[item.id] || deliveryProofDrafts[item.id] ? (
+                              <div className="group relative h-48 w-full px-10">
+                                <img
+                                  src={
+                                    deliveryProofFiles[item.id]
+                                      ? URL.createObjectURL(deliveryProofFiles[item.id]!)
+                                      : deliveryProofDrafts[item.id]
+                                  }
+                                  alt="Proof"
+                                  className="h-full w-full object-contain rounded-2xl shadow-lg ring-4 ring-emerald-500/20"
+                                />
+                                <div className="absolute inset-x-10 inset-y-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity group-hover:opacity-100 rounded-2xl">
+                                  <p className="text-xs font-black uppercase tracking-widest text-white flex items-center gap-2">
+                                     <RefreshCw className="w-4 h-4" /> Replace Asset
+                                  </p>
+                                </div>
                               </div>
-                            </div>
-                          )}
+                            ) : (
+                              <div className="flex flex-col items-center gap-4 px-6 text-center">
+                                <div className="p-5 bg-white rounded-full shadow-2xl transition-transform group-hover:scale-110">
+                                   <Upload className="h-10 w-10 text-amber-500/70" />
+                                </div>
+                                <div>
+                                   <p className="text-sm font-black text-foreground uppercase tracking-tight">Drop Shipment Evidence</p>
+                                   <p className="mt-1 text-[10px] font-bold text-muted-foreground uppercase opacity-60">High-resolution JPEG or PNG (Max 5MB)</p>
+                                </div>
+                              </div>
+                            )}
+                          </div>
                         </div>
                       )}
-
+                      
                       <Button
-                        className="bg-amber-400 text-black hover:bg-amber-500"
+                        className="h-16 w-full rounded-[2rem] bg-foreground text-background text-sm font-bold uppercase tracking-wider shadow-2xl hover:bg-primary hover:text-white transition-all active:scale-95 disabled:opacity-50"
                         onClick={() => handleUpdateItemStatus(item.id)}
-                        disabled={updateLoading || draftStatus === item.itemStatus || deliveryProofUploadingItemId === item.id}
+                        disabled={updateLoading || (itemStatusDrafts[item.id] ?? item.itemStatus) === item.itemStatus}
                       >
-                        {updateLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                        Save status update
+                        {updateLoading ? (
+                           <div className="flex items-center gap-3">
+                              <Loader2 className="h-5 w-5 animate-spin" />
+                              <span>Executing Update...</span>
+                           </div>
+                        ) : (
+                          "Commit Shipment Changes"
+                        )}
                       </Button>
                     </CardContent>
                   </Card>
@@ -1078,178 +1121,147 @@ export function ProductSellerOrderDetailClient({ orderId }: { orderId: string })
           })}
         </div>
 
-        {/* Right column ~40% */}
-        <div className="space-y-6 lg:col-span-2">
-          <Card className="border-slate-200 shadow-md lg:sticky lg:top-6">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <Receipt className="h-5 w-5 text-amber-600" aria-hidden />
-                Order summary
+        {/* Right column ~40% redesign */}
+        <div className="space-y-8 lg:col-span-2">
+          {/* Order Summary Premium Section */}
+          <Card className="border-none shadow-2xl rounded-[2.5rem] overflow-hidden bg-gradient-to-br from-background via-background to-muted/20 lg:sticky lg:top-8 animate-in fade-in slide-in-from-right-4 duration-700">
+            <CardHeader className="bg-primary/5 py-8 border-b border-primary/10">
+              <CardTitle className="flex items-center gap-4 text-xl font-black uppercase tracking-tight">
+                <div className="p-3 bg-primary/10 rounded-2xl shadow-inner">
+                  <Receipt className="h-6 w-6 text-primary" aria-hidden />
+                </div>
+                Order Analytics
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Order status</span>
-                <Badge className={cn("capitalize", orderStatusBadgeClass(order.status))}>
-                  {order.status.replace(/_/g, " ").toLowerCase()}
-                </Badge>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Order date</span>
-                <span>{formatDate(order.createdAt)}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Payment</span>
-                <span>
-                  {order.paymentMethod ?? "—"} · <span className="capitalize">{order.paymentStatus.toLowerCase()}</span>
-                </span>
-              </div>
-              <Separator />
-              <div className="space-y-3">
-                {orderedItems.map((item) => {
-                  const gst = item.hasGst ? item.gstAmount : 0
-                  const totalInclGst = item.subtotalInclGst ?? item.subtotal + gst
-                  const isExchangeReplacement = !!item.exchangeSourceOrderItemId
-                  return (
-                    <div key={`sum-${item.id}`} className="rounded-lg border border-slate-100 bg-slate-50/50 p-3 text-sm">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="font-medium text-slate-900">{itemName(item)}</p>
-                        {isExchangeReplacement && (
-                          <Badge variant="outline" className="border-indigo-200 bg-indigo-50 text-[10px] text-indigo-800">
-                            Exchange product
-                          </Badge>
-                        )}
-                      </div>
-                      <p className="text-muted-foreground">Qty {item.quantity}</p>
-                      <div className="mt-2 space-y-1 text-xs">
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Unit price</span>
-                          <span>{formatCurrency(item.price)}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Subtotal</span>
-                          <span>{formatCurrency(item.subtotal)}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">{item.hasGst ? "Taxes (GST)" : "Taxes"}</span>
-                          <span>{item.hasGst ? formatCurrency(gst) : "—"}</span>
-                        </div>
-                        <div className="flex justify-between font-medium text-slate-900">
-                          <span>Line total</span>
-                          <span>{formatCurrency(totalInclGst)}</span>
-                        </div>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-              {priceBreakdown.kind === "exchange" && (
-                <Alert className="border-amber-200 bg-amber-50/90 text-amber-950">
-                  <AlertTitle className="text-sm font-semibold">Exchange (simple view)</AlertTitle>
-                  <AlertDescription className="text-xs text-amber-950/90">
-                    Customer total = original order + exchange top-up (or wallet credit if cheaper). The replacement line
-                    shows the new item value — it is not added on top of the original as a second full charge.
-                    {priceBreakdown.topUp > 0.01 && (
-                      <span className="mt-1 block">
-                        {priceBreakdown.topUpStatus === "COMPLETED"
-                          ? `Top-up recorded: ${formatCurrency(priceBreakdown.topUp)} (paid).`
-                          : `Top-up due: ${formatCurrency(priceBreakdown.topUp)}.`}
-                      </span>
-                    )}
-                    {priceBreakdown.walletCredit > 0.01 && (
-                      <span className="mt-1 block">Wallet credit: {formatCurrency(priceBreakdown.walletCredit)}.</span>
-                    )}
-                  </AlertDescription>
-                </Alert>
-              )}
-              {order.shipping > 0 && (
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Shipping</span>
-                  <span>{formatCurrency(order.shipping)}</span>
+            <CardContent className="p-8 space-y-8">
+              <div className="grid gap-6">
+                <div className="flex justify-between items-center p-4 bg-muted/30 rounded-2xl border border-muted-foreground/10 hover:bg-muted/40 transition-colors">
+                  <span className="text-xs font-black uppercase tracking-widest text-muted-foreground/60">Checkout Method</span>
+                  <span className="font-extrabold text-sm uppercase tracking-tighter text-primary/80">{order.paymentMethod ?? "COD"}</span>
                 </div>
-              )}
-              <Separator />
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Subtotal ({order.items.length} item(s))</span>
-                <span>
-                  {formatCurrency(priceBreakdown.kind === "exchange" ? priceBreakdown.displaySubtotal : order.subtotal)}
-                </span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Total GST</span>
-                <span>
-                  {formatCurrency(priceBreakdown.kind === "exchange" ? priceBreakdown.displayTax : order.tax)}
-                </span>
-              </div>
-              {priceBreakdown.kind === "exchange" && priceBreakdown.topUp > 0.01 && (
-                <div
-                  className={cn(
-                    "flex justify-between text-sm font-medium",
-                    priceBreakdown.topUpStatus === "COMPLETED" ? "text-emerald-800" : "text-amber-900",
-                  )}
-                >
-                  <span>
-                    {priceBreakdown.topUpStatus === "COMPLETED"
-                      ? "Exchange top-up (paid)"
-                      : "Exchange top-up (extra to pay)"}
-                  </span>
-                  <span>{formatCurrency(priceBreakdown.topUp)}</span>
-                </div>
-              )}
-              {priceBreakdown.kind === "exchange" && priceBreakdown.walletCredit > 0.01 && (
-                <div className="flex justify-between text-sm font-medium text-sky-900">
-                  <span>Wallet credit (cheaper exchange)</span>
-                  <span>{formatCurrency(priceBreakdown.walletCredit)}</span>
-                </div>
-              )}
-              <div className="flex justify-between border-t border-slate-200 pt-3 text-lg font-bold text-slate-900">
-                <span>Grand total</span>
-                <span>
-                  {formatCurrency(
-                    priceBreakdown.kind === "exchange" ? priceBreakdown.effectiveGrandTotal : order.totalAmount,
-                  )}
-                </span>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-slate-200 shadow-md">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <User className="h-5 w-5 text-slate-700" aria-hidden />
-                Customer &amp; delivery
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4 text-sm">
-              <div>
-                <p className="text-xs font-semibold uppercase text-muted-foreground">Customer</p>
-                <p className="mt-1 font-medium text-slate-900">{order.customerName ?? order.customerEmail ?? "—"}</p>
-                {order.customerEmail && order.customerName && <p className="text-muted-foreground">{order.customerEmail}</p>}
-              </div>
-              <div>
-                <p className="text-xs font-semibold uppercase text-muted-foreground">Shipping address</p>
-                {order.shippingFullName ? (
-                  <div className="mt-2 flex gap-2 rounded-lg border border-slate-100 bg-slate-50/80 p-3">
-                    <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" aria-hidden />
-                    <div>
-                      <p className="font-medium text-slate-900">{order.shippingFullName}</p>
-                      {order.shippingPhone && <p className="text-slate-700">{order.shippingPhone}</p>}
-                      {order.shippingAddressLine1 && (
-                        <p className="mt-1 text-slate-700">
-                          {order.shippingAddressLine1}
-                          {order.shippingAddressLine2 ? `, ${order.shippingAddressLine2}` : ""}
-                          <br />
-                          {order.shippingCity}
-                          {order.shippingState && `, ${order.shippingState}`}
-                          {order.shippingPostalCode && ` ${order.shippingPostalCode}`}
-                          {order.shippingCountry && `, ${order.shippingCountry}`}
+                
+                {/* Customer Section */}
+                <div className="space-y-4">
+                  <h4 className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-foreground/70 px-1">
+                    <User className="w-3.5 h-3.5" /> Client Information
+                  </h4>
+                  <div className="rounded-3xl bg-background/50 backdrop-blur-md border border-muted/20 p-6 shadow-sm group hover:shadow-md transition-all">
+                     <p className="text-xl font-bold text-foreground group-hover:text-primary transition-colors">{order.customerName ?? "Guest Client"}</p>
+                     <div className="mt-2 space-y-1">
+                        <p className="text-xs font-semibold text-muted-foreground lowercase opacity-70">
+                           {order.customerEmail ?? "no email provided"}
                         </p>
-                      )}
+                        {order.customerPhone && (
+                          <p className="text-xs font-bold text-primary flex items-center gap-1.5 pt-1 border-t border-primary/5">
+                            <span className="text-[10px] font-medium opacity-50">OTP DEST:</span>
+                            {order.customerPhoneCountryCode ? `(+${order.customerPhoneCountryCode.replace(/\D/g, "")}) ` : ""}
+                            {order.customerPhone}
+                          </p>
+                        )}
+                     </div>
+                    <div className="flex gap-2 mt-4">
+                       <Button size="sm" variant="outline" className="h-8 rounded-full text-[10px] font-bold uppercase tracking-widest border-primary/20 hover:bg-primary/5 hover:text-primary shadow-none">
+                          View History
+                       </Button>
                     </div>
                   </div>
-                ) : (
-                  <p className="mt-1 text-muted-foreground">—</p>
-                )}
+                </div>
+
+                {/* Delivery Section */}
+                <div className="space-y-4">
+                  <h4 className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-foreground/70 px-1">
+                    <MapPin className="w-3.5 h-3.5" /> Shipping Destination
+                  </h4>
+                  <div className="rounded-3xl bg-muted/40 p-6 space-y-4 border border-muted/10 relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity translate-x-4 -translate-y-4">
+                       <MapPin className="w-24 h-24" />
+                    </div>
+                    {order.shippingFullName ? (
+                      <div className="relative space-y-2 text-sm leading-relaxed font-medium">
+                        <p className="text-foreground tracking-tight">{order.shippingFullName}</p>
+                        <p className="font-black text-primary/70 tabular-nums text-xs">{order.shippingPhone ?? "N/A"}</p>
+                        <div className="text-muted-foreground/80 space-y-0.5 text-xs">
+                          <p>{order.shippingAddressLine1}</p>
+                          {order.shippingAddressLine2 && <p>{order.shippingAddressLine2}</p>}
+                          <p>{order.shippingCity}, {order.shippingState} {order.shippingPostalCode}</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-muted-foreground/50 italic text-xs py-4 text-center">Unspecified address</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Billing Summary Redesign */}
+                <div className="space-y-5 pt-4 border-t border-muted/30">
+                  {priceBreakdown.kind === "exchange" && (
+                    <Alert className="border-amber-200 bg-amber-50/50 text-amber-950 rounded-2xl">
+                      <AlertCircle className="h-4 w-4 text-amber-600" />
+                      <AlertTitle className="text-xs font-bold uppercase tracking-wider">Exchange Settlement</AlertTitle>
+                      <AlertDescription className="text-[11px] leading-relaxed opacity-80 font-medium">
+                        Modified order values based on exchange delta.
+                        {priceBreakdown.kind === "exchange" && priceBreakdown.topUp > 0.01 && (
+                          <span className="mt-1 block font-bold text-amber-700">
+                            Top-up: {formatCurrency(priceBreakdown.topUp)} {priceBreakdown.topUpStatus ? `(${priceBreakdown.topUpStatus.toLowerCase()})` : ""}.
+                          </span>
+                        )}
+                        {priceBreakdown.kind === "exchange" && priceBreakdown.walletCredit > 0.01 && (
+                          <span className="mt-1 block font-bold">Wallet Credit: {formatCurrency(priceBreakdown.walletCredit)}.</span>
+                        )}
+                      </AlertDescription>
+                    </Alert>
+                  )}
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center px-1">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/40">Subtotal Gross</span>
+                      <span className="font-bold tabular-nums text-foreground/80">
+                         {formatCurrency(priceBreakdown.kind === "exchange" ? priceBreakdown.displaySubtotal : order.subtotal)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center px-1">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/40">Tax Contribution</span>
+                      <span className="font-bold tabular-nums text-emerald-600/80">
+                         {formatCurrency(priceBreakdown.kind === "exchange" ? priceBreakdown.displayTax : order.tax)}
+                      </span>
+                    </div>
+
+                    {priceBreakdown.kind === "exchange" && priceBreakdown.topUp > 0.01 && (
+                      <div className="flex justify-between items-center px-1">
+                        <span className="text-[10px] font-black uppercase tracking-widest text-amber-600/60">Exchange Top-up</span>
+                        <span className="font-bold tabular-nums text-amber-600/80">{formatCurrency(priceBreakdown.topUp)}</span>
+                      </div>
+                    )}
+                    
+                    {priceBreakdown.kind === "exchange" && priceBreakdown.walletCredit > 0.01 && (
+                      <div className="flex justify-between items-center px-1">
+                        <span className="text-[10px] font-black uppercase tracking-widest text-sky-600/60">Wallet Reimbursement</span>
+                        <span className="font-bold tabular-nums text-sky-600/80">{formatCurrency(priceBreakdown.walletCredit)}</span>
+                      </div>
+                    )}
+
+                    {order.shipping > 0 && (
+                      <div className="flex justify-between items-center px-1">
+                        <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/40 text-amber-600/60">Logistics Fee</span>
+                        <span className="font-bold tabular-nums text-amber-600/80">{formatCurrency(order.shipping)}</span>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="relative p-6 rounded-[2rem] bg-foreground text-background shadow-xl overflow-hidden group hover:scale-[1.02] transition-transform duration-500">
+                    <div className="absolute inset-0 bg-gradient-to-br from-primary/20 via-transparent to-transparent opacity-50"></div>
+                    <div className="relative flex justify-between items-center">
+                       <div className="space-y-1">
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-white/40">Settlement Total</p>
+                          <p className="text-3xl font-bold tabular-nums tracking-tight">
+                             {formatCurrency(priceBreakdown.kind === "exchange" ? priceBreakdown.effectiveGrandTotal : order.totalAmount)}
+                          </p>
+                       </div>
+                       <div className="h-12 w-12 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center">
+                          <Wallet className="w-6 h-6 text-white" />
+                       </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </CardContent>
           </Card>

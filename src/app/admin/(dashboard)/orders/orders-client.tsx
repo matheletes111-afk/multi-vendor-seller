@@ -18,8 +18,14 @@ import { formatCurrency, formatDate } from "@/lib/utils"
 import { PageLoader } from "@/components/ui/page-loader"
 import type { AdminOrderListItemApi } from "@/app/api/admin/orders/types"
 import { ADMIN_ORDER_STATUSES } from "@/app/api/admin/orders/types"
-import { ShoppingBag, User, Store, Search, Filter, X, ChevronRight } from "lucide-react"
+import { ShoppingBag, User, Store, Search, Filter, X, ChevronRight, Package } from "lucide-react"
 import { AdminPagination } from "@/components/admin/admin-pagination"
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/ui/tabs"
 import {
   Table,
   TableBody,
@@ -36,6 +42,7 @@ export function AdminOrdersClient() {
 
   const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10) || 1)
   const perPage = 10 
+  const activeTab = searchParams.get("type") || "PRODUCT"
 
   // Accordion state
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set())
@@ -103,6 +110,19 @@ export function AdminOrdersClient() {
     else params.delete("status")
     
     params.set("page", "1")
+    params.set("type", activeTab)
+    router.push(`${pathname}?${params.toString()}`)
+  }
+
+  const handleTabChange = (value: string) => {
+    const params = new URLSearchParams(searchParams.toString())
+    params.set("type", value)
+    params.set("page", "1")
+    // Keep internal filters? User said "separate search", so maybe clear them when switching?
+    // Actually, usually it's better to clear them if switching between products and services.
+    params.delete("seller")
+    params.delete("customer")
+    params.delete("status")
     router.push(`${pathname}?${params.toString()}`)
   }
 
@@ -110,7 +130,9 @@ export function AdminOrdersClient() {
     setSellerSearch("")
     setCustomerSearch("")
     setStatusSearch("")
-    router.push(pathname)
+    const params = new URLSearchParams()
+    params.set("type", activeTab)
+    router.push(`${pathname}?${params.toString()}`)
   }
 
   if (loading && !data) return <PageLoader variant="listing" message="Loading orders…" />
@@ -123,15 +145,28 @@ export function AdminOrdersClient() {
     <div className="container mx-auto p-6 space-y-8 animate-in fade-in duration-500">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-medium text-foreground">Order Management</h1>
+          <h1 className="text-2xl font-medium text-foreground tracking-tight">Order Management</h1>
           <p className="text-muted-foreground mt-1 text-sm font-medium">Monitor and process all customer orders</p>
         </div>
+      </div>
+
+      <Tabs defaultValue="PRODUCT" value={activeTab} onValueChange={handleTabChange} className="space-y-6">
+        <TabsList className="bg-muted/50 p-1.5 h-12 rounded-2xl border border-muted/20 w-full sm:w-auto">
+          <TabsTrigger value="PRODUCT" className="rounded-xl px-8 font-medium gap-2 data-[state=active]:bg-background data-[state=active]:shadow-lg active:scale-95 transition-all">
+            <Package className="w-4 h-4" />
+            Product Orders
+          </TabsTrigger>
+          <TabsTrigger value="SERVICE" className="rounded-xl px-8 font-medium gap-2 data-[state=active]:bg-background data-[state=active]:shadow-lg active:scale-95 transition-all">
+            <ShoppingBag className="w-4 h-4" />
+            Service Orders
+          </TabsTrigger>
+        </TabsList>
+
         <div className="flex items-center gap-2">
-          <Badge variant="outline" className="px-3 py-1 text-xs font-medium rounded-full shadow-sm bg-background">
-            {totalCount} Total Orders
+          <Badge variant="outline" className="px-4 py-1.5 text-xs font-semibold rounded-full shadow-sm bg-background border-primary/20 text-primary uppercase tracking-wider">
+            {totalCount} {activeTab === "PRODUCT" ? "Product" : "Service"} Orders
           </Badge>
         </div>
-      </div>
 
       <Card className="border-none shadow-xl bg-background">
         <CardHeader className="pb-4 border-b border-muted/20 bg-muted/5">
@@ -310,12 +345,19 @@ export function AdminOrdersClient() {
                           {order.status.toLowerCase().replace(/_/g, " ")}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-right pr-8">
-                        <Button variant="ghost" size="icon" asChild className="rounded-full hover:bg-primary hover:text-primary-foreground group-hover:scale-110 transition-all duration-300">
-                          <Link href={`/admin/orders/${order.id}`}>
-                            <ChevronRight className="w-5 h-5" />
-                          </Link>
-                        </Button>
+                      <TableCell className="text-right pr-4">
+                        <div className="flex items-center justify-end gap-2">
+                          <Button variant="outline" size="sm" asChild className="h-8 rounded-xl border-primary/20 hover:bg-primary/5 text-primary">
+                            <Link href={`/admin/orders/${order.id}/invoice`} target="_blank">
+                              Invoice
+                            </Link>
+                          </Button>
+                          <Button variant="ghost" size="icon" asChild className="h-8 w-8 rounded-full hover:bg-primary hover:text-primary-foreground group-hover:scale-110 transition-all duration-300">
+                            <Link href={`/admin/orders/${order.id}`}>
+                              <ChevronRight className="w-5 h-5" />
+                            </Link>
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>,
                     isExpanded && (
@@ -374,6 +416,7 @@ export function AdminOrdersClient() {
           />
         </div>
       </Card>
+      </Tabs>
     </div>
   )
 }

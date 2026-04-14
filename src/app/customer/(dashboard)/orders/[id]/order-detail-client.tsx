@@ -668,10 +668,15 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
                             </p>
                           </div>
                         )}
-                        <div className="flex flex-wrap gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
                           <Badge variant="outline" className="rounded-full border-gray-200 text-xs uppercase">
                             {item.itemStatus.replace(/_/g, " ")}
                           </Badge>
+                          <Button variant="outline" size="sm" asChild className="h-6 text-[10px] px-2 rounded-lg border-blue-200 bg-blue-50 text-blue-700 font-bold uppercase tracking-tighter">
+                            <Link href={`/customer/orders/${order.id}/invoice?sellerId=${item.sellerId}`} target="_blank">
+                              Invoice
+                            </Link>
+                          </Button>
                           {item.returnAvailable && (
                             <Badge
                               variant="outline"

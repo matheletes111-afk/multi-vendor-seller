@@ -1,10 +1,11 @@
 import { OrderStatus } from "@prisma/client"
 
-const STATUS_PRIORITY: Record<OrderStatus, number> = {
+const STATUS_PRIORITY: Record<string, number> = {
   PENDING: 10,
   CONFIRMED: 20,
   PROCESSING: 30,
   SHIPPED: 40,
+  OUT_FOR_DELIVERY: 45,
   DELIVERED: 50,
   CANCELLED: 60,
   REFUNDED: 70,

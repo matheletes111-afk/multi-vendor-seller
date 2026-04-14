@@ -45,6 +45,7 @@ enum OrderStatus {
   CONFIRMED
   PROCESSING
   SHIPPED
+  OUT_FOR_DELIVERY
   DELIVERED
   CANCELLED
   REFUNDED
@@ -852,6 +853,8 @@ model OrderItem {
   commissionRateSnapshot Float @default(0)
   deliveredAt         DateTime?
   deliveryProofImage  String?
+  deliveryOtp         String?
+  deliveryOtpExpires  DateTime?
   createdAt           DateTime @default(now())
   /// Points to the original line when this row is a Flipkart-style exchange replacement shipment.
   exchangeSourceOrderItemId String?

@@ -1,0 +1,134 @@
+# Mobile Seller Settings APIs - Comprehensive Part-by-Part Guide
+
+This document provides a granular breakdown of every field available in the settings APIs, categorized by section.
+
+---
+
+## 🔐 Authentication
+**Headers:**
+`Authorization: Bearer <access_token>`
+
+---
+
+## 📋 Part 1: User Profile Settings
+Primary account holder information.
+
+| Field Name | Format | Required | Description |
+| :--- | :--- | :--- | :--- |
+| `name` | JSON / Text | No | Full name of the seller. |
+| `phone` | JSON / Text | No | Primary contact number. |
+| `phoneCountryCode`| JSON / Text | No | Country prefix (e.g., +1, +91). |
+| `password` | JSON / Text | No | New password (min 6 characters). |
+| `profileImage` | Multipart File| No | User's profile photo. |
+
+---
+
+## 📊 Part 2: Store Information
+Public-facing store identity and location.
+
+| Field Name | Format | Required | Description |
+| :--- | :--- | :--- | :--- |
+| `store.name` | JSON | No | Name of the store. |
+| `storeName` | Text | No | Multipart alias for Store Name. |
+| `store.description`| JSON | No | Short bio or description. |
+| `storeDescription`| Text | No | Multipart alias for description. |
+| `store.phone` | JSON | No | Public customer service number. |
+| `store.website` | JSON | No | Official store URL. |
+| `store.address` | JSON / Text | No | Full street address. |
+| `store.city` | JSON | No | Store city. |
+| `store.state` | JSON | No | Store state/province. |
+| `store.zipCode` | JSON | No | Postal code. |
+| `store.country` | JSON | No | Country name. |
+| `store.lat` / `lng` | JSON (Float) | No | Map coordinates. |
+| `storeLat` / `lng` | Text (String) | No | Multipart coordinates. |
+| `storeLogo` | Multipart File| No | Upload store logo. |
+| `storeBanner` | Multipart File| No | Upload store banner. |
+
+---
+
+## 🏢 Part 3: Business & Tax Information
+Legal entity details and GST configuration.
+
+| Field Name | Format | Required | Description |
+| :--- | :--- | :--- | :--- |
+| `businessInfo.businessName` | JSON | No | Registered legal name. |
+| `businessInfo.businessType` | JSON | No | e.g., Proprietor, Partnership. |
+| `businessInfo.businessRegNumber`| JSON | No | Registration ID. |
+| `businessInfo.street` | JSON | No | Business registered street. |
+| `businessInfo.city` | JSON | No | Business registered city. |
+| `businessInfo.district` | JSON | No | Business district. |
+| `businessInfo.postalCode` | JSON | No | Business postal code. |
+| `businessInfo.yearsInOperation` | JSON (Int)| No | Total years active. |
+| `businessInfo.natureOfBusiness` | JSON | No | e.g., Manufacturing, Retail. |
+| `businessInfo.haveGst` | JSON (Bool)| No | If true, GST fields allowed. |
+| `businessInfo.taxIdNumber` | JSON | No | Tax Identification Number. |
+| `businessInfo.gstInvNo` | JSON | No | GST Invoice Number. |
+| `businessInfo.gstCustomerName` | JSON | No | Name registered with GST. |
+| `busRegCert` | Multipart File| No | Upload Registration Doc. |
+
+---
+
+## 🏦 Part 4: Bank & Payout Details
+Financial records for receiving payments.
+
+| Field Name | Format | Required | Description |
+| :--- | :--- | :--- | :--- |
+| `bankDetails.bankName` | JSON | No | Name of the bank. |
+| `bankDetails.accountHolderName` | JSON | No | Name on the account. |
+| `bankDetails.accountNumber` | JSON | No | Bank account number. |
+| `bankDetails.branchName` | JSON | No | Branch location/code. |
+| `bankDetails.mobileMoneyOption` | JSON | No | e.g., Orange Money, Africell. |
+| `bankDetails.preferredPayoutMethod`| JSON | No | 'Bank Transfer' / 'Mobile Wallet'. |
+| `bankPassbook` | Multipart File| No | Upload Passbook/Cheque. |
+
+---
+
+## 🆔 Part 5: KYC & Identity
+Seller verification documents.
+
+| Field Name | Format | Required | Description |
+| :--- | :--- | :--- | :--- |
+| `kyc.idType` | JSON | No | e.g., National ID, Passport. |
+| `kyc.idNumber` | JSON | No | ID document number. |
+| `idFront` | Multipart File| No | Upload ID Front. |
+| `idBack` | Multipart File| No | Upload ID Back. |
+| `selfie` | Multipart File| No | Upload Selfie with ID. |
+| `nationIdentityNumber` | JSON / Text | No | ID for Main Seller record. |
+
+---
+
+## 🏷️ Part 6: Categories
+| Field Name | Format | Required | Description |
+| :--- | :--- | :--- | :--- |
+| `categoryIds` | JSON (Array)| No | Array of strings for categories. |
+
+---
+
+## 🚀 Part 7: Example Request (Full JSON)
+
+```json
+{
+  "user": {
+    "name": "Jane Doe",
+    "phone": "1234567890",
+    "phoneCountryCode": "+1"
+  },
+  "store": {
+    "name": "Jane's Emporium",
+    "address": "123 Main St",
+    "lat": 10.123,
+    "lng": 11.456
+  },
+  "seller": {
+    "categoryIds": ["cat_1", "cat_2"],
+    "businessInfo": {
+      "haveGst": true,
+      "taxIdNumber": "GST-12345"
+    },
+    "bankDetails": {
+      "preferredPayoutMethod": "Bank Transfer",
+      "bankName": "Central Bank"
+    }
+  }
+}
+```

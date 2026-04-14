@@ -349,9 +349,16 @@ export function ServiceSellerOrderDetailClient({ orderId }: { orderId: string })
                 <div className="min-w-0 flex-1 space-y-1 text-sm">
                   <p className="font-medium text-slate-900">{itemName(item)}</p>
                   <div className="flex flex-wrap items-center gap-2">
-                    <Badge variant="outline" className="text-[10px] uppercase tracking-wide">
-                      {item.itemStatus.replace(/_/g, " ")}
-                    </Badge>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge variant="outline" className="text-[10px] uppercase tracking-wide">
+                        {item.itemStatus.replace(/_/g, " ")}
+                      </Badge>
+                      <Button variant="outline" size="sm" asChild className="h-6 text-[10px] px-2 rounded-lg border-primary/20 hover:bg-primary/5 text-primary font-bold uppercase tracking-tighter">
+                        <Link href={`/service-seller/orders/${order.id}/invoice`} target="_blank">
+                          Invoice
+                        </Link>
+                      </Button>
+                    </div>
                     {canUpdateStatus && item.itemStatus !== "DELIVERED" && (
                       <>
                         {(itemStatusDrafts[item.id] ?? item.itemStatus) === "DELIVERED" && (
@@ -427,15 +434,36 @@ export function ServiceSellerOrderDetailClient({ orderId }: { orderId: string })
                             <SelectValue placeholder="Change item status" />
                           </SelectTrigger>
                           <SelectContent>
-                            {lineItemStatusSelectValues(item.itemStatus).map((s) => (
-                              <SelectItem
-                                key={s}
-                                value={s}
-                                disabled={s === "CANCELLED" && order.orderHasDeliveredLine}
-                              >
-                                {s.charAt(0) + s.slice(1).toLowerCase()}
-                              </SelectItem>
-                            ))}
+                            {lineItemStatusSelectValues(item.itemStatus).map((s) => {
+                              const options = SERVICE_SELLER_LINE_ITEM_STATUS_OPTIONS
+                              // Logical rank for forward-only check
+                              const getRank = (status: string) => {
+                                if (status === "PENDING") return 0
+                                if (status === "CONFIRMED") return 1
+                                if (status === "PROCESSING") return 2
+                                if (status === "SHIPPED") return 3
+                                if (status === "DELIVERED") return 4
+                                if (status === "CANCELLED") return 5
+                                return -1
+                              }
+                              const currentRank = getRank(item.itemStatus)
+                              const sRank = getRank(s)
+                              
+                              const isDisabled =
+                                (sRank !== -1 && currentRank !== -1 && sRank <= currentRank) ||
+                                (s === item.itemStatus) ||
+                                (s === "CANCELLED" && (item.itemStatus !== "PENDING" || order.orderHasDeliveredLine))
+
+                              return (
+                                <SelectItem
+                                  key={s}
+                                  value={s}
+                                  disabled={isDisabled}
+                                >
+                                  {s.charAt(0) + s.slice(1).toLowerCase()}
+                                </SelectItem>
+                              )
+                            })}
                           </SelectContent>
                         </Select>
                         <Button

@@ -7,7 +7,7 @@ import { Button } from "@/ui/button"
 import { Alert, AlertDescription, AlertTitle } from "@/ui/alert"
 import { PageLoader } from "@/components/ui/page-loader"
 import { formatCurrency } from "@/lib/utils"
-import { Package, ShoppingCart, DollarSign, AlertCircle, ArrowRight, Wallet } from "lucide-react"
+import { Package, ShoppingCart, DollarSign, AlertCircle, ArrowRight, Wallet, MousePointerClick } from "lucide-react"
 
 type Overview = {
   subscription: { plan: { name: string } } | null
@@ -21,6 +21,7 @@ type Overview = {
   netBalanceFormatted: string
   balanceCreditsTotal: number
   balanceDebitsTotal: number
+  totalAdClicks: number
 }
 
 export function ProductSellerPageClient() {
@@ -87,6 +88,7 @@ export function ProductSellerPageClient() {
     netBalanceFormatted,
     balanceCreditsTotal,
     balanceDebitsTotal,
+    totalAdClicks,
   } = data
 
   return (
@@ -191,6 +193,23 @@ export function ProductSellerPageClient() {
             <div className="text-3xl font-bold tracking-tight text-amber-600">{commissionRate ?? 0}%</div>
             <p className="text-[10px] font-medium text-muted-foreground mt-2 uppercase tracking-wider opacity-60">
               {isGlobalRate ? "Platform Default Rate" : "Admin Set Custom Rate"}
+            </p>
+          </CardContent>
+        </Card>
+        <Card className="border-none shadow-xl bg-background rounded-3xl overflow-hidden relative group">
+          <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+            <MousePointerClick className="h-12 w-12 text-primary" />
+          </div>
+          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+            <CardTitle className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Ad Clicks</CardTitle>
+            <div className="p-2 bg-blue-500/10 rounded-xl">
+              <MousePointerClick className="h-4 w-4 text-blue-600" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold tracking-tight text-blue-600">{totalAdClicks}</div>
+            <p className="text-[10px] font-medium text-muted-foreground mt-2 uppercase tracking-wider opacity-60">
+              Total advertisement clicks
             </p>
           </CardContent>
         </Card>

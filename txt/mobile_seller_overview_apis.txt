@@ -1,0 +1,121 @@
+# Mobile Seller Dashboard Overview APIs
+
+This document outlines the dashboard overview APIs for Product and Service Sellers.
+
+## 1. Product Seller Overview
+**Endpoint:** `GET /mobileapi/product-seller/overview`
+**Headers:** 
+- `Authorization: Bearer <access_token>`
+
+### Request Payload:
+None (GET Request)
+
+### Success Response (200 OK):
+```json
+{
+  "success": true,
+  "data": {
+    "stats": {
+      "commissionRate": 10.0,
+      "isGlobalRate": true,
+      "totalProducts": 15,
+      "totalOrders": 45,
+      "totalRevenue": 1250.75,
+      "totalRevenueFormatted": "Nle 1,250.75",
+      "netBalance": 5000.00,
+      "netBalanceFormatted": "Nle 5,000.00",
+      "balanceCreditsTotal": 6000.00,
+      "balanceCreditsFormatted": "Nle 6,000.00",
+      "balanceDebitsTotal": 1000.00,
+      "balanceDebitsFormatted": "Nle 1,000.00",
+      "totalAdClicks": 124
+    },
+    "subscription": {
+      "id": "sub_123",
+      "status": "ACTIVE",
+      "plan": {
+        "name": "STANDARD",
+        "displayName": "Standard Plan"
+      }
+    },
+    "recentOrders": [
+      {
+        "id": "order_001",
+        "orderNumber": "MEEEM000001",
+        "status": "DELIVERED",
+        "totalAmount": 150.00,
+        "totalAmountFormatted": "Nle 150.00",
+        "customerName": "John Doe",
+        "createdAt": "2026-04-14T10:00:00.000Z"
+      }
+    ]
+  }
+}
+```
+
+---
+
+## 2. Service Seller Overview
+**Endpoint:** `GET /mobileapi/service-seller/overview`
+**Headers:** 
+- `Authorization: Bearer <access_token>`
+
+### Request Payload:
+None (GET Request)
+
+### Success Response (200 OK):
+```json
+{
+  "success": true,
+  "data": {
+    "stats": {
+      "commissionRate": 12.5,
+      "isGlobalRate": false,
+      "totalServices": 8,
+      "totalOrders": 30,
+      "sellerGrossTotal": 5200.00,
+      "sellerGrossFormatted": "Nle 5,200.00",
+      "platformCommissionTotal": 650.00,
+      "platformCommissionFormatted": "Nle 650.00",
+      "sellerNetTotal": 5200.00,
+      "sellerNetFormatted": "Nle 5,200.00",
+      "netBalance": 4550.00,
+      "netBalanceFormatted": "Nle 4,550.00",
+      "totalAdClicks": 89
+    },
+    "subscription": {
+      "id": "sub_456",
+      "status": "TRIALING",
+      "plan": {
+        "name": "PREMIUM",
+        "displayName": "Premium Plan"
+      }
+    },
+    "recentOrders": [
+      {
+        "id": "order_002",
+        "orderNumber": "MEEEM000002",
+        "status": "CONFIRMED",
+        "totalAmount": 500.00,
+        "totalAmountFormatted": "Nle 500.00",
+        "customerName": "Jane Smith",
+        "createdAt": "2026-04-14T11:00:00.000Z"
+      }
+    ]
+  }
+}
+```
+
+### Error Responses:
+- **401 Unauthorized:** Invalid or missing Bearer token.
+  ```json
+  { "success": false, "error": "Unauthorized" }
+  ```
+- **403 Forbidden:** Authenticated user is not the correct seller type (e.g., product seller trying to access service seller endpoint).
+  ```json
+  { "success": false, "error": "Forbidden" }
+  ```
+- **404 Not Found:** Seller profile not found for the authenticated user.
+  ```json
+  { "success": false, "error": "Seller not found" }
+  ```

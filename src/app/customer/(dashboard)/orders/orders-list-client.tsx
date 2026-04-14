@@ -362,22 +362,34 @@ export function OrdersListClient() {
                         </span>
                       </TableCell>
                       <TableCell className="text-right align-top">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => loadDetail(order.id)}
-                          disabled={loadingId !== null && loadingId !== order.id}
-                          className="gap-1.5 rounded-lg border-gray-300 font-medium shadow-sm transition-all duration-200 hover:border-gray-400 hover:bg-gray-50"
-                        >
-                          {loadingId === order.id ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <ChevronDown
-                              className={`h-4 w-4 transition-transform duration-200 ${expandedId === order.id ? "rotate-180" : ""}`}
-                            />
-                          )}
-                          {expandedId === order.id ? "Hide details" : "Track order"}
-                        </Button>
+                        <div className="flex flex-col sm:flex-row justify-end gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            asChild
+                            className="rounded-lg border-blue-200 bg-blue-50 text-blue-700 font-medium shadow-sm transition-all duration-200 hover:bg-blue-100"
+                          >
+                            <Link href={`/customer/orders/${order.id}/invoice`} target="_blank">
+                              Invoice
+                            </Link>
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => loadDetail(order.id)}
+                            disabled={loadingId !== null && loadingId !== order.id}
+                            className="gap-1.5 rounded-lg border-gray-300 font-medium shadow-sm transition-all duration-200 hover:border-gray-400 hover:bg-gray-50"
+                          >
+                            {loadingId === order.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <ChevronDown
+                                className={`h-4 w-4 transition-transform duration-200 ${expandedId === order.id ? "rotate-180" : ""}`}
+                              />
+                            )}
+                            {expandedId === order.id ? "Hide details" : "Track order"}
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                     {expandedId === order.id && (

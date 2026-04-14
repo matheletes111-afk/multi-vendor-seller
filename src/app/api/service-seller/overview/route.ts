@@ -13,7 +13,7 @@ export async function GET() {
     prisma.globalSetting.findFirst(),
   ])
   if (!seller) return NextResponse.json({ error: "Seller not found" }, { status: 404 })
-  const [subscription, totalServices, totalOrders, serviceLines] = await Promise.all([
+  const [subscription, totalServices, totalOrders, serviceLines, totalAdClicks] = await Promise.all([
     prisma.subscription.findFirst({ where: { sellerId: seller.id }, include: { plan: true } }),
     prisma.service.count({ where: { sellerId: seller.id, isActive: true } }),
     prisma.order.count({
@@ -44,6 +44,13 @@ export async function GET() {
       },
       orderBy: { createdAt: "desc" },
     }),
+    prisma.adClick.count({
+      where: {
+        ad: {
+          sellerId: seller.id
+        }
+      }
+    })
   ])
 
   // For now, platform fees are not deducted; all is credited to the seller.
@@ -77,5 +84,6 @@ export async function GET() {
     sellerNetTotal,
     sellerNetFormatted: formatCurrency(sellerNetTotal),
     creditList,
+    totalAdClicks,
   })
 }

@@ -30,6 +30,9 @@ export type SellerOrderDetailItemApi = {
   pickupStatus: "NOT_REQUESTED" | "PENDING" | "COMPLETED" | null
   refundStatus: "NOT_REQUESTED" | "PENDING" | "COMPLETED" | null
   deliveryProofImage: string | null
+  deliveredAt: string | null
+  deliveryOtp: string | null
+  deliveryOtpExpires: string | null
   statusHistory: {
     status: string
     location: string | null
@@ -44,13 +47,17 @@ export const SELLER_ORDER_STATUSES = [
   "CONFIRMED",
   "PROCESSING",
   "SHIPPED",
+  "OUT_FOR_DELIVERY",
   "DELIVERED",
   "CANCELLED",
 ] as const
 
 export type SellerOrderStatusValue = (typeof SELLER_ORDER_STATUSES)[number]
 
-export type PatchOrderStatusPayload = { status: SellerOrderStatusValue }
+export type PatchOrderStatusPayload = {
+  status: SellerOrderStatusValue
+  otp?: string
+}
 
 export type SellerOrderDetailApi = {
   id: string
@@ -77,5 +84,7 @@ export type SellerOrderDetailApi = {
   createdAt: string
   customerName: string | null
   customerEmail: string | null
+  customerPhone: string | null
+  customerPhoneCountryCode: string | null
   items: SellerOrderDetailItemApi[]
 }
