@@ -1,0 +1,127 @@
+# MOBILE SERVICE SELLER CRUD API DOCUMENTATION (Bulletproof & Unified)
+
+This document provides definitive details for the Service Seller management APIs under `/mobileapi/service-seller/service`.
+These APIs support both **JSON** (for existing URLs) and **FormData** (for integrated S3 file uploads) in a single call.
+
+---
+
+## 1. List Services
+**Endpoint**: `GET /mobileapi/service-seller/service`
+**Auth**: Bearer Token (Seller Service JWT)
+
+### Full Response Example (200 OK):
+```json
+{
+  "success": true,
+  "data": {
+    "services": [
+      {
+        "id": "cm5a9x...",
+        "name": "Expert Home Cleaning",
+        "slug": "expert-home-cleaning",
+        "description": "Professional cleaning.",
+        "serviceType": "FIXED_PRICE",
+        "basePrice": 100,
+        "discount": 10,
+        "images": ["https://s3.url/s1.jpg"],
+        "galleryImages": ["..."],
+        "serviceCategory": { "id": "cat1", "name": "Cleaning", "slug": "cleaning" },
+        "_count": { "orderItems": 10, "reviews": 4 }
+      }
+    ],
+    "pagination": { "totalCount": 1, "totalPages": 1, "page": 1, "perPage": 10 }
+  }
+}
+```
+
+---
+
+## 2. Create / Edit Service
+**Endpoint**:
+- `POST /mobileapi/service-seller/service` (Create)
+- `PUT /mobileapi/service-seller/service/{id}` (Edit)
+
+### OPTION A: application/json (URLs only)
+Use this if the images are already hosted (URLs only).
+**Payload Example**:
+```json
+{
+  "name": "Expert Home Cleaning",
+  "serviceCategoryId": "cm0c1x...",
+  "description": "Professional deep cleaning service.",
+  "serviceType": "FIXED_PRICE",
+  "basePrice": 150.0,
+  "discount": 10.0,
+  "hasGst": true,
+  "duration": 120,
+  "weeklyAvailability": [...],
+  "images": ["https://s3.url/cleaning-main.jpg"],
+  "galleryImages": ["https://s3.url/cleaning-1.jpg"]
+}
+```
+
+---
+
+### OPTION B: multipart/form-data (Integrated File Uploads)
+Use this if you want to upload raw images directly from the mobile device.
+
+**Fields**:
+1.  **`data`** (String/JSON): A JSON string containing the metadata (Name, Category, etc.).
+2.  **`file`** or **`images`** (Multiple Files): Principal images for the listing cover.
+3.  **`gallery_images`** or **`gallery_file`** (Multiple Files): Portfolio/Gallery images.
+
+**FormData Mapping Table**:
+| Field Name | Type | Target in DB |
+| :--- | :--- | :--- |
+| **`data`** | String (JSON) | Metadata (Base price, category, existing URLs, etc.) |
+| **`file`** | File (binary) | Added to the `images` array (Listing Hero) |
+| **`gallery_images`** | File (binary) | Added to the `galleryImages` array (Portfolio) |
+
+**Success Response (201 Created)**:
+```json
+{
+  "success": true,
+  "data": {
+    "id": "cm5z2y...",
+    "name": "New Service",
+    "slug": "new-service",
+    "images": ["https://s3.../uploaded-hero.jpg"],
+    "galleryImages": ["https://s3.../uploaded-gal1.jpg"],
+    "createdAt": "2026-04-16T12:00:00.000Z"
+  }
+}
+```
+
+---
+
+## 3. Operations & Responses Reference
+
+### [PUT] Edit Service
+- Note: Upgrades existing images and gallery. To keep old images, include their URLs in the `data` JSON.
+- Success Response (200 OK): Returns the fully updated object in `data`.
+
+### [DELETE] Remove Service
+- **Single**: `DELETE /mobileapi/service-seller/service/{id}`
+  - Response: `{"success": true, "message": "Service deleted successfully"}`
+- **Bulk**: `DELETE /mobileapi/service-seller/service`
+  - Body: `{"ids": ["ud1", "ud2"]}`
+  - Response: `{"success": true, "message": "Successfully deleted 2 service(s)", "data": {"count": 2}}`
+
+---
+
+## 4. Error Responses Reference
+
+### 400 Bad Request:
+```json
+{ "success": false, "error": "Category not in your allowed list" }
+```
+
+### 403 Forbidden (Service Limit):
+```json
+{ "success": false, "error": "Service limit reached. Plan allows 5. Upgrade to add more." }
+```
+
+### 404 Not Found:
+```json
+{ "success": false, "error": "Service not found" }
+```

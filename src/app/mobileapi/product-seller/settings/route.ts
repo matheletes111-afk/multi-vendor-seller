@@ -179,6 +179,49 @@ export async function PUT(request: NextRequest) {
         }
       }
 
+      // 5. KYC Uploads
+      const kycData: Prisma.SellerKYCUpdateWithoutSellerInput = {}
+      const idFront = fd.get("idFront") as File | null
+      const idBack = fd.get("idBack") as File | null
+      const selfie = fd.get("selfie") as File | null
+
+      if (idFront && idFront.size > 0) {
+        kycData.idFrontUrl = await uploadPublicFile({
+          folder: "onboarding/kyc",
+          ext: path.extname(idFront.name) || ".jpg",
+          contentType: idFront.type || "image/jpeg",
+          buffer: Buffer.from(await idFront.arrayBuffer()),
+          prefix: "id-front",
+        })
+      }
+      if (idBack && idBack.size > 0) {
+        kycData.idBackUrl = await uploadPublicFile({
+          folder: "onboarding/kyc",
+          ext: path.extname(idBack.name) || ".jpg",
+          contentType: idBack.type || "image/jpeg",
+          buffer: Buffer.from(await idBack.arrayBuffer()),
+          prefix: "id-back",
+        })
+      }
+      if (selfie && selfie.size > 0) {
+        kycData.selfieUrl = await uploadPublicFile({
+          folder: "onboarding/kyc",
+          ext: path.extname(selfie.name) || ".jpg",
+          contentType: selfie.type || "image/jpeg",
+          buffer: Buffer.from(await selfie.arrayBuffer()),
+          prefix: "selfie",
+        })
+      }
+
+      if (Object.keys(kycData).length > 0) {
+        sellerUpdateData.kyc = {
+          upsert: {
+            update: kycData,
+            create: kycData as any
+          }
+        }
+      }
+
       // Execute Multipart Updates
       if (userData.phone) {
         const existing = await prisma.user.findFirst({ where: { phone: userData.phone as string, NOT: { id: userId } } })

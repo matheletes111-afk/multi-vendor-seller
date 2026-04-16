@@ -1,110 +1,157 @@
-# Mobile Seller Settings APIs - Comprehensive Part-by-Part Guide
+# MOBILE SELLER SETTINGS API DOCUMENTATION
 
-This document provides a granular breakdown of every field available in the settings APIs, categorized by section.
-
----
-
-## 🔐 Authentication
-**Headers:**
-`Authorization: Bearer <access_token>`
+This document provides definitive details for the Seller Settings / Profile management APIs.
+Both Product and Service sellers follow the same pattern but under different base paths.
 
 ---
 
-## 📋 Part 1: User Profile Settings
+## 1. Base Paths & Endpoints
+Depending on the application, use the appropriate base path for the seller type:
+- **Product Seller**: `/mobileapi/product-seller/settings`
+- **Service Seller**: `/mobileapi/service-seller/settings`
+
+---
+
+## 2. GET: Fetch Seller Details (Profile / Store / KYC)
+**Endpoint**: `GET <Base_Path>`
+**Auth**: Bearer Token (JWT with appropriate Seller Role)
+
+### Full Response Example (200 OK):
+```json
+{
+  "success": true,
+  "data": {
+    "id": "cm4d9...",
+    "userId": "user123",
+    "type": "PRODUCT",
+    "onboardingCompleted": true,
+    "status": "APPROVED",
+    "user": {
+      "id": "user123",
+      "name": "Jeet Basak",
+      "email": "jeet@example.com",
+      "image": "https://s3.url/profile.jpg",
+      "phone": "+91 9876543210",
+      "phoneCountryCode": "IN"
+    },
+    "store": {
+      "name": "My Premium Store",
+      "logo": "https://s3.url/logo.jpg",
+      "banner": "https://s3.url/banner.jpg",
+      "address": "123 Street",
+      "city": "Kolkata",
+      "state": "West Bengal",
+      "zipCode": "700001",
+      "lat": 22.5726,
+      "lng": 88.3639
+    },
+    "businessInfo": {
+      "businessName": "Meeem Solutions",
+      "businessType": "Individual",
+      "haveGst": true,
+      "taxIdNumber": "GST12345",
+      "busRegCertUrl": "https://s3.url/cert.pdf"
+    },
+    "bankDetails": {
+      "bankName": "HDFC Bank",
+      "accountNumber": "50100...",
+      "branchName": "Salt Lake",
+      "preferredPayoutMethod": "Bank Transfer"
+    },
+    "kyc": {
+      "idType": "National ID",
+      "idNumber": "1234-5678",
+      "idFrontUrl": "...",
+      "idBackUrl": "...",
+      "selfieUrl": "..."
+    },
+    "selectedCategories": [
+      { "id": "cm0c1x...", "name": "Electronics" }
+    ]
+  }
+}
+```
+
+---
+
+## 3. PUT: Update Settings (Hybrid Payload)
+**Endpoint**: `PUT <Base_Path>`
+**Auth**: Bearer Token (JWT)
+
+You can send the payload as **application/json** or **multipart/form-data** depending on whether you need to upload files.
+
+### 📋 Part 1: User Profile Settings
 Primary account holder information.
 
 | Field Name | Format | Required | Description |
 | :--- | :--- | :--- | :--- |
-| `name` | JSON / Text | No | Full name of the seller. |
-| `phone` | JSON / Text | No | Primary contact number. |
-| `phoneCountryCode`| JSON / Text | No | Country prefix (e.g., +1, +91). |
-| `password` | JSON / Text | No | New password (min 6 characters). |
+| `user.name` (JSON) / `name` (Form) | Text | No | Full name of the seller. |
+| `user.phone` (JSON) / `phone` (Form) | Text | No | Primary contact number. |
+| `user.phoneCountryCode` / `phoneCountryCode`| Text | No | Country prefix (e.g., +1, +91). |
+| `user.password` / `password` | Text | No | New password (min 6 characters). |
 | `profileImage` | Multipart File| No | User's profile photo. |
 
----
-
-## 📊 Part 2: Store Information
+### 📊 Part 2: Store Information
 Public-facing store identity and location.
 
 | Field Name | Format | Required | Description |
 | :--- | :--- | :--- | :--- |
-| `store.name` | JSON | No | Name of the store. |
-| `storeName` | Text | No | Multipart alias for Store Name. |
-| `store.description`| JSON | No | Short bio or description. |
-| `storeDescription`| Text | No | Multipart alias for description. |
-| `store.phone` | JSON | No | Public customer service number. |
-| `store.website` | JSON | No | Official store URL. |
-| `store.address` | JSON / Text | No | Full street address. |
-| `store.city` | JSON | No | Store city. |
-| `store.state` | JSON | No | Store state/province. |
-| `store.zipCode` | JSON | No | Postal code. |
-| `store.country` | JSON | No | Country name. |
-| `store.lat` / `lng` | JSON (Float) | No | Map coordinates. |
-| `storeLat` / `lng` | Text (String) | No | Multipart coordinates. |
+| `store.name` (JSON) / `storeName` (Form) | Text | No | Name of the store. |
+| `store.description` / `storeDescription` | Text | No | Short bio or description. |
+| `store.phone` | Text | No | Public customer service number. |
+| `store.website` | Text | No | Official store URL. |
+| `store.address` / `storeAddress` | Text | No | Full street address. |
+| `store.city` | Text | No | Store city. |
+| `store.state` | Text | No | Store state/province. |
+| `store.zipCode` | Text | No | Postal code. |
+| `store.country` | Text | No | Country name. |
+| `store.lat` / `storeLat` | Float/Text | No | Map latitude. |
+| `store.lng` / `storeLng` | Float/Text | No | Map longitude. |
 | `storeLogo` | Multipart File| No | Upload store logo. |
 | `storeBanner` | Multipart File| No | Upload store banner. |
 
----
-
-## 🏢 Part 3: Business & Tax Information
+### 🏢 Part 3: Business & Tax Information
 Legal entity details and GST configuration.
 
 | Field Name | Format | Required | Description |
 | :--- | :--- | :--- | :--- |
-| `businessInfo.businessName` | JSON | No | Registered legal name. |
-| `businessInfo.businessType` | JSON | No | e.g., Proprietor, Partnership. |
-| `businessInfo.businessRegNumber`| JSON | No | Registration ID. |
-| `businessInfo.street` | JSON | No | Business registered street. |
-| `businessInfo.city` | JSON | No | Business registered city. |
-| `businessInfo.district` | JSON | No | Business district. |
-| `businessInfo.postalCode` | JSON | No | Business postal code. |
-| `businessInfo.yearsInOperation` | JSON (Int)| No | Total years active. |
-| `businessInfo.natureOfBusiness` | JSON | No | e.g., Manufacturing, Retail. |
-| `businessInfo.haveGst` | JSON (Bool)| No | If true, GST fields allowed. |
-| `businessInfo.taxIdNumber` | JSON | No | Tax Identification Number. |
-| `businessInfo.gstInvNo` | JSON | No | GST Invoice Number. |
-| `businessInfo.gstCustomerName` | JSON | No | Name registered with GST. |
+| `seller.businessInfo.businessName` | Text | No | Registered legal name. |
+| `seller.businessInfo.businessType` | Text | No | e.g., Proprietor, Partnership. |
+| `seller.businessInfo.businessRegNumber`| Text | No | Registration ID. |
+| `seller.businessInfo.haveGst` | Bool/Text | No | If true, GST fields allowed. |
+| `seller.businessInfo.taxIdNumber` | Text | No | Tax Identification Number. |
 | `busRegCert` | Multipart File| No | Upload Registration Doc. |
 
----
-
-## 🏦 Part 4: Bank & Payout Details
+### 🏦 Part 4: Bank & Payout Details
 Financial records for receiving payments.
 
 | Field Name | Format | Required | Description |
 | :--- | :--- | :--- | :--- |
-| `bankDetails.bankName` | JSON | No | Name of the bank. |
-| `bankDetails.accountHolderName` | JSON | No | Name on the account. |
-| `bankDetails.accountNumber` | JSON | No | Bank account number. |
-| `bankDetails.branchName` | JSON | No | Branch location/code. |
-| `bankDetails.mobileMoneyOption` | JSON | No | e.g., Orange Money, Africell. |
-| `bankDetails.preferredPayoutMethod`| JSON | No | 'Bank Transfer' / 'Mobile Wallet'. |
+| `seller.bankDetails.bankName` | Text | No | Name of the bank. |
+| `seller.bankDetails.accountHolderName` | Text | No | Name on the account. |
+| `seller.bankDetails.accountNumber` | Text | No | Bank account number. |
+| `seller.bankDetails.branchName` | Text | No | Branch location/code. |
+| `seller.bankDetails.preferredPayoutMethod`| Text | No | 'Bank Transfer' / 'Mobile Wallet'. |
 | `bankPassbook` | Multipart File| No | Upload Passbook/Cheque. |
 
----
-
-## 🆔 Part 5: KYC & Identity
+### 🆔 Part 5: KYC & Identity
 Seller verification documents.
 
 | Field Name | Format | Required | Description |
 | :--- | :--- | :--- | :--- |
-| `kyc.idType` | JSON | No | e.g., National ID, Passport. |
-| `kyc.idNumber` | JSON | No | ID document number. |
+| `seller.kyc.idType` | Text | No | e.g., National ID, Passport. |
+| `seller.kyc.idNumber` | Text | No | ID document number. |
 | `idFront` | Multipart File| No | Upload ID Front. |
 | `idBack` | Multipart File| No | Upload ID Back. |
 | `selfie` | Multipart File| No | Upload Selfie with ID. |
-| `nationIdentityNumber` | JSON / Text | No | ID for Main Seller record. |
+| `seller.nationIdentityNumber` / `nationIdentityNumber` | Text | No | ID for Main Seller record. |
 
----
-
-## 🏷️ Part 6: Categories
+### 🏷️ Part 6: Categories
 | Field Name | Format | Required | Description |
 | :--- | :--- | :--- | :--- |
-| `categoryIds` | JSON (Array)| No | Array of strings for categories. |
+| `seller.categoryIds` | Array | No | Array of strings for categories. |
 
----
-
-## 🚀 Part 7: Example Request (Full JSON)
+### 🚀 Part 7: Example Request (Full JSON)
 
 ```json
 {
@@ -131,4 +178,36 @@ Seller verification documents.
     }
   }
 }
+```
+
+### Full Success Response (200 OK) for PUT Request:
+```json
+{
+  "success": true,
+  "message": "Settings updated successfully"
+}
+```
+
+---
+
+## 4. Error Responses Reference
+
+### 400 Bad Request
+```json
+{ "success": false, "error": "Phone number already in use" }
+```
+
+### 401 Unauthorized
+```json
+{ "success": false, "error": "Unauthorized" }
+```
+
+### 403 Forbidden
+```json
+{ "success": false, "error": "Forbidden" }
+```
+
+### 404 Not Found
+```json
+{ "success": false, "error": "Seller not found" }
 ```

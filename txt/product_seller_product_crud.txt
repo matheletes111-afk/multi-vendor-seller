@@ -1,0 +1,120 @@
+# MOBILE PRODUCT SELLER CRUD API DOCUMENTATION (Unified)
+
+This document provides definitive details for the Product Seller management APIs under `/mobileapi/product-seller/product`.
+These APIs support both **JSON** (for existing S3 URLs) and **FormData** (for integrated S3 file uploads) in a single call.
+
+---
+
+## 1. List Products
+**Endpoint**: `GET /mobileapi/product-seller/product`
+**Headers**: `Authorization: Bearer <TOKEN>`
+
+### Query Parameters:
+- `page` (int): Current page (default: 1)
+- `perPage` (int): Items per page (default: 10)
+- `q` (string): Search by product name
+- `categoryId` (uuid): Category filter
+- `subcategoryId` (uuid): Subcategory filter
+- `minPrice` / `maxPrice` (float): Price range filter
+- `startDate` / `endDate` (string): Date filter (YYYY-MM-DD)
+
+---
+
+## 2. Create / Edit Product (The "Hybrid" Payload)
+The API logic automatically detects the `Content-Type`. You can choose either JSON or FormData.
+
+### OPTION A: application/json (URLs only)
+Use this if the images are already hosted (e.g., existing S3 URLs).
+
+**Endpoint**:
+- `POST /mobileapi/product-seller/product` (Create)
+- `PUT /mobileapi/product-seller/product/{id}` (Edit)
+
+**Payload Example**:
+```json
+{
+  "name": "Luxury Silk Scarf",
+  "categoryId": "cm0c1x...",
+  "subcategoryId": null,
+  "description": "100% pure silk scarf with floral patterns.",
+  "condition": "NEW",
+  "images": ["https://s3.url/scarf-1.jpg"],
+  "variants": [
+    {
+      "name": "Standard Size",
+      "sku": "SCARF-SILK-01",
+      "price": 45.0,
+      "discount": 0,
+      "stock": 50,
+      "hasGst": true,
+      "attributes": { "material": "Silk", "pattern": "Floral" },
+      "specification": "Dimensions: 50x50cm",
+      "details": "Dry clean only",
+      "returnType": "RETURNABLE",
+      "returnDays": 7,
+      "replacementAllowed": true,
+      "images": ["https://s3.url/variant-scarf.jpg"]
+    }
+  ]
+}
+```
+
+---
+
+### OPTION B: multipart/form-data (Integrated File Uploads)
+Use this if you want to upload raw image files from the mobile device directly in the same request.
+
+**Special Mapping Rules**:
+1.  **`data`** (String): A JSON string containing the same object structure as Option A (Product Name, Category, etc.).
+2.  **`file`** or **`images`** (Multiple Files): Principal images for the product. They will be added to the list of URLs found in the `data` JSON.
+3.  **`variant_file_{index}`** (Multiple Files): Images for a specific variant. `index` corresponds to the position in the `variants` array inside the `data` JSON.
+
+**Full FormData Example (Visualized)**:
+| Field Name | Type | Value (Example) |
+| :--- | :--- | :--- |
+| **`data`** | String (JSON) | `{"name":"T-Shirt", "variants":[{"name":"Blue S"},{"name":"Red M"}]}` |
+| **`file`** | File (binary) | `[Image for T-shirt main view]` |
+| **`variant_file_0`** | File (binary) | `[Image for the "Blue S" variant]` |
+| **`variant_file_1`** | File (binary) | `[Image for the "Red M" variant]` |
+
+---
+
+## 3. Operations & Responses
+
+### [POST] Create Product
+- **Success (201)**: Returns the created product object in `data`.
+- **Error (400)**: `{"success": false, "error": "Product with this name already exists"}`
+- **Error (403)**: `{"success": false, "error": "Product limit reached. Upgrade plan."}`
+
+### [PUT] Edit Product
+- Note: This operation **replaces all variants**. If you want to keep an existing variant, you must include its full data in the payload.
+- Note: If `FormData` is used, new files are uploaded to S3, and their URLs are appended to any URLs already provided in the JSON `data`.
+
+### [DELETE] Remove Product
+- **Single**: `DELETE /mobileapi/product-seller/product/{id}`
+- **Bulk**: `DELETE /mobileapi/product-seller/product` (Body: `{"ids": ["id1", "id2"]}`)
+
+---
+
+## 4. Global Data Types Reference
+
+### Product Fields:
+- `name` (required)
+- `categoryId` (required)
+- `description` (optional)
+- `condition`: `"NEW"` or `"USED"`
+- `isActive`: `true` or `false`
+- `images`: Array of Strings (URLs)
+
+### Variant Fields:
+- `name` (string)
+- `price` (float, required)
+- `stock` (int, required)
+- `discount` (float, default 0)
+- `hasGst` (boolean, default true)
+- `sku` (string, optional)
+- `attributes` (json object/map)
+- `returnType`: `"RETURNABLE"` or `"NON_RETURNABLE"`
+- `returnDays` (int, only if returnable)
+- `replacementAllowed` (boolean)
+- `specification` / `details` (string)
