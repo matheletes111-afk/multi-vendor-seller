@@ -40,36 +40,63 @@ This document outlines the APIs for managing advertisements for both Product and
 ---
 
 ## 2. Create Ad (POST)
-**Endpoints:**
-- Product Seller: `POST /mobileapi/product-seller/ads`
-- Service Seller: `POST /mobileapi/service-seller/ads`
-
 **Headers:**
 - `Authorization: Bearer <access_token>`
-- `Content-Type: multipart/form-data` (Recommended) OR `application/json`
+- `Content-Type: multipart/form-data` (Recommended for file uploads) OR `application/json`
+
+*(Note: If the OS fails to generate a MIME type for `.jpg` images, the API will now safely fallback to reading the `.jpg` / `.jpeg` extension itself.)*
+
+### 2A. Product Seller Create API
+**Endpoint:** `POST /mobileapi/product-seller/ads`
 
 **Multipart Form Data Fields:**
-- `adType`: "promote_product" | "promote_service" | "own_ad"
-- `productId` (for Product Sellers): Required if adType is promote_product
-- `serviceId` (for Service Sellers): Required if adType is promote_service
-- `title`: String (Required)
-- `description`: String (Optional)
-- `placements`: "WEB", "MOBILE" (Multiple allowed)
-- `totalBudget`: Float (Required)
-- `maxCpc`: Float (Required)
-- `startAt`: ISO Date String (Required)
-- `endAt`: ISO Date String (Required)
-- `creativeType`: "IMAGE" | "VIDEO"
-- `mobileCreativeType`: "IMAGE" | "VIDEO"
-- `creativeFile`: File (Optional, for Web creative)
-- `creativeUrl`: String (Optional, if no file)
-- `mobileCreativeFile`: File (Optional, for Mobile creative)
-- `mobileCreativeUrl`: String (Optional, if no file)
-- `targetCountries`: JSON string or Comma-separated (Optional)
-- `targetAgeMin`: Integer (Optional)
-- `targetAgeMax`: Integer (Optional)
+- `adType`: String ("promote_product" | "own_ad") - Required.
+- `productId`: String - Required if `adType` is "promote_product". Omit if "own_ad".
+- `title`: String - Required.
+- `description`: String - Optional.
+- `placements`: Array or comma-separated string (e.g., `["WEB", "MOBILE"]` or `"WEB,MOBILE"`) - Required.
+- `totalBudget`: Float - Required.
+- `targetAudience`: Integer (Desired number of clicks) - Optional but recommended.
+- `maxCpc`: Float - Required. (Auto-calculated via `totalBudget` / `targetAudience`).
+- `startAt`: ISO Date String - Required.
+- `endAt`: ISO Date String - Required.
+- `creativeType`: String ("IMAGE" | "VIDEO") - Required if WEB placement used.
+- `creativeFile`: File - Required if WEB placement used and uploading new file.
+- `creativeUrl`: String - Optional, if using an already uploaded file.
+- `mobileCreativeType`: String ("IMAGE" | "VIDEO") - Required if MOBILE placement used.
+- `mobileCreativeFile`: File - Required if MOBILE placement used and uploading new file.
+- `mobileCreativeUrl`: String - Optional, if using an already uploaded file.
+- `targetCountries`: JSON string or Comma-separated string (e.g. "US,IN") - Optional.
+- `targetAgeMin`: Integer - Optional.
+- `targetAgeMax`: Integer - Optional.
+- `expandAudience`: Boolean (`"true"` or `"on"`) - Optional.
 
-**Success Response (201 Created):**
+### 2B. Service Seller Create API
+**Endpoint:** `POST /mobileapi/service-seller/ads`
+
+**Multipart Form Data Fields:**
+- `adType`: String ("promote_service" | "own_ad") - Required.
+- `serviceId`: String - Required if `adType` is "promote_service". Omit if "own_ad".
+- `title`: String - Required.
+- `description`: String - Optional.
+- `placements`: Array or comma-separated string (e.g., `["WEB", "MOBILE"]` or `"WEB,MOBILE"`) - Required.
+- `totalBudget`: Float - Required.
+- `targetAudience`: Integer (Desired number of clicks) - Optional but recommended.
+- `maxCpc`: Float - Required. (Auto-calculated via `totalBudget` / `targetAudience`).
+- `startAt`: ISO Date String - Required.
+- `endAt`: ISO Date String - Required.
+- `creativeType`: String ("IMAGE" | "VIDEO") - Required if WEB placement used.
+- `creativeFile`: File - Required if WEB placement used and uploading new file.
+- `creativeUrl`: String - Optional, if using an already uploaded file.
+- `mobileCreativeType`: String ("IMAGE" | "VIDEO") - Required if MOBILE placement used.
+- `mobileCreativeFile`: File - Required if MOBILE placement used and uploading new file.
+- `mobileCreativeUrl`: String - Optional, if using an already uploaded file.
+- `targetCountries`: JSON string or Comma-separated string (e.g. "US,IN") - Optional.
+- `targetAgeMin`: Integer - Optional.
+- `targetAgeMax`: Integer - Optional.
+- `expandAudience`: Boolean (`"true"` or `"on"`) - Optional.
+
+**Success Response (201 Created) for both:**
 ```json
 {
   "success": true,

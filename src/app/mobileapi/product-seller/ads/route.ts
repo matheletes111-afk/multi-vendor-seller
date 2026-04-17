@@ -123,6 +123,8 @@ export async function POST(request: NextRequest) {
         targetCountries: formData.get("targetCountries") as string,
         targetAgeMin: formData.get("targetAgeMin") ? parseInt(formData.get("targetAgeMin") as string) : undefined,
         targetAgeMax: formData.get("targetAgeMax") ? parseInt(formData.get("targetAgeMax") as string) : undefined,
+        targetAudience: formData.get("targetAudience") ? parseInt(formData.get("targetAudience") as string) : undefined,
+        expandAudience: formData.get("expandAudience") === "on" || formData.get("expandAudience") === "true",
       }
     } else {
       body = await request.json()
@@ -196,6 +198,8 @@ export async function POST(request: NextRequest) {
         targetCountries: targetCountries?.length ? (targetCountries as any) : undefined,
         targetAgeMin: body.targetAgeMin,
         targetAgeMax: body.targetAgeMax,
+        targetAudience: body.targetAudience ? Number(body.targetAudience) : undefined,
+        expandAudience: Boolean(body.expandAudience),
       }
     })
 
