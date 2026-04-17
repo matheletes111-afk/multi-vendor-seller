@@ -3,7 +3,7 @@ import { uploadPublicFile } from "@/lib/upload-public-file"
 import path from "path"
 
 const MAX_BYTES = 10 * 1024 * 1024 // 10 MB
-const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/gif", "image/webp"]
+const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp", "image/pjpeg"]
 
 export type HybridProductPayload = {
   name?: string
@@ -116,7 +116,14 @@ export async function processHybridProductRequest(
 async function uploadAndGetUrl(file: File, folder: string, prefix: string): Promise<string> {
   if (file.size > MAX_BYTES) throw new Error("File too large (max 10MB)")
   const type = file.type?.toLowerCase()
-  if (!type || !ALLOWED_IMAGE_TYPES.includes(type)) throw new Error("Invalid image type")
+  if (!type || !ALLOWED_IMAGE_TYPES.includes(type)) {
+    const fileName = file.name || ""
+    const ext = fileName.split('.').pop()?.toLowerCase()
+    const allowedExts = ["jpg", "jpeg", "png", "gif", "webp"]
+    if (!ext || !allowedExts.includes(ext)) {
+      throw new Error("Invalid image type. Use JPEG, PNG, GIF, or WebP.")
+    }
+  }
 
   const bytes = await file.arrayBuffer()
   const buffer = Buffer.from(bytes)

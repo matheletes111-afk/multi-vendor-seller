@@ -133,7 +133,16 @@ export async function POST(request: NextRequest) {
     const isOwnAd = adType === "own_ad" || adType === "ownad"
     const productId = isOwnAd ? null : String(body.productId || "").trim()
     const title = String(body.title || "").trim()
-    const placements = Array.isArray(body.placements) ? body.placements : ["WEB"]
+    let placements: string[] = ["WEB"]
+    const rawPlacements = body.placements
+    if (Array.isArray(rawPlacements)) {
+      placements = rawPlacements.flatMap((p: any) => String(p).split(",")).map((p: string) => p.trim().toUpperCase())
+    } else if (typeof rawPlacements === "string" && rawPlacements.trim()) {
+      placements = rawPlacements.split(",").map((p: string) => p.trim().toUpperCase())
+    }
+    // Filter to only valid enum values
+    placements = placements.filter(p => p === "WEB" || p === "MOBILE")
+    if (placements.length === 0) placements = ["WEB"]
     const creativeUrl = String(body.creativeUrl || "").trim()
     const mobileCreativeUrl = String(body.mobileCreativeUrl || "").trim()
     const totalBudget = Number(body.totalBudget || 0)
