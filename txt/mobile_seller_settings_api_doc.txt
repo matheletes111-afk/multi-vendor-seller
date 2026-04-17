@@ -87,8 +87,8 @@ Primary account holder information.
 | :--- | :--- | :--- | :--- |
 | `user.name` (JSON) / `name` (Form) | Text | No | Full name of the seller. |
 | `user.phone` (JSON) / `phone` (Form) | Text | No | Primary contact number. |
-| `user.phoneCountryCode` / `phoneCountryCode`| Text | No | Country prefix (e.g., +1, +91). |
-| `user.password` / `password` | Text | No | New password (min 6 characters). |
+| `user.phoneCountryCode` (JSON) / `phoneCountryCode` (Form)| Text | No | Country prefix (e.g., +1, +91). |
+| `user.password` (JSON) / `password` (Form) | Text | No | New password (min 6 characters). |
 | `profileImage` | Multipart File| No | User's profile photo. |
 
 ### 📊 Part 2: Store Information
@@ -96,17 +96,17 @@ Public-facing store identity and location.
 
 | Field Name | Format | Required | Description |
 | :--- | :--- | :--- | :--- |
-| `store.name` (JSON) / `storeName` (Form) | Text | No | Name of the store. |
-| `store.description` / `storeDescription` | Text | No | Short bio or description. |
-| `store.phone` | Text | No | Public customer service number. |
-| `store.website` | Text | No | Official store URL. |
-| `store.address` / `storeAddress` | Text | No | Full street address. |
-| `store.city` | Text | No | Store city. |
-| `store.state` | Text | No | Store state/province. |
-| `store.zipCode` | Text | No | Postal code. |
-| `store.country` | Text | No | Country name. |
-| `store.lat` / `storeLat` | Float/Text | No | Map latitude. |
-| `store.lng` / `storeLng` | Float/Text | No | Map longitude. |
+| `store.name` (JSON only) | Text | No | Name of the store. |
+| `store.description` (JSON only) | Text | No | Short bio or description. |
+| `store.phone` (JSON only) | Text | No | Public customer service number. |
+| `store.website` (JSON only) | Text | No | Official store URL. |
+| `store.city` (JSON only) | Text | No | Store city. |
+| `store.state` (JSON only) | Text | No | Store state/province. |
+| `store.zipCode` (JSON only) | Text | No | Postal code. |
+| `store.country` (JSON only) | Text | No | Country name. |
+| `store.address` (JSON) / `storeAddress` (Form) | Text | No | Full street address. |
+| `store.lat` (JSON) / `storeLat` (Form) | Float/Text | No | Map latitude. |
+| `store.lng` (JSON) / `storeLng` (Form) | Float/Text | No | Map longitude. |
 | `storeLogo` | Multipart File| No | Upload store logo. |
 | `storeBanner` | Multipart File| No | Upload store banner. |
 
@@ -115,11 +115,11 @@ Legal entity details and GST configuration.
 
 | Field Name | Format | Required | Description |
 | :--- | :--- | :--- | :--- |
-| `seller.businessInfo.businessName` | Text | No | Registered legal name. |
-| `seller.businessInfo.businessType` | Text | No | e.g., Proprietor, Partnership. |
-| `seller.businessInfo.businessRegNumber`| Text | No | Registration ID. |
-| `seller.businessInfo.haveGst` | Bool/Text | No | If true, GST fields allowed. |
-| `seller.businessInfo.taxIdNumber` | Text | No | Tax Identification Number. |
+| `seller.businessInfo.businessName` (JSON only) | Text | No | Registered legal name. |
+| `seller.businessInfo.businessType` (JSON only) | Text | No | e.g., Proprietor, Partnership. |
+| `seller.businessInfo.businessRegNumber` (JSON only) | Text | No | Registration ID. |
+| `seller.businessInfo.haveGst` (JSON only) | Bool | No | If true, GST fields allowed. |
+| `seller.businessInfo.taxIdNumber` (JSON only) | Text | No | Tax Identification Number. |
 | `busRegCert` | Multipart File| No | Upload Registration Doc. |
 
 ### 🏦 Part 4: Bank & Payout Details
@@ -127,11 +127,11 @@ Financial records for receiving payments.
 
 | Field Name | Format | Required | Description |
 | :--- | :--- | :--- | :--- |
-| `seller.bankDetails.bankName` | Text | No | Name of the bank. |
-| `seller.bankDetails.accountHolderName` | Text | No | Name on the account. |
-| `seller.bankDetails.accountNumber` | Text | No | Bank account number. |
-| `seller.bankDetails.branchName` | Text | No | Branch location/code. |
-| `seller.bankDetails.preferredPayoutMethod`| Text | No | 'Bank Transfer' / 'Mobile Wallet'. |
+| `seller.bankDetails.bankName` (JSON only) | Text | No | Name of the bank. |
+| `seller.bankDetails.accountHolderName` (JSON only) | Text | No | Name on the account. |
+| `seller.bankDetails.accountNumber` (JSON only) | Text | No | Bank account number. |
+| `seller.bankDetails.branchName` (JSON only) | Text | No | Branch location/code. |
+| `seller.bankDetails.preferredPayoutMethod` (JSON only) | Text | No | 'Bank Transfer' / 'Mobile Wallet'. |
 | `bankPassbook` | Multipart File| No | Upload Passbook/Cheque. |
 
 ### 🆔 Part 5: KYC & Identity
@@ -139,17 +139,17 @@ Seller verification documents.
 
 | Field Name | Format | Required | Description |
 | :--- | :--- | :--- | :--- |
-| `seller.kyc.idType` | Text | No | e.g., National ID, Passport. |
-| `seller.kyc.idNumber` | Text | No | ID document number. |
+| `seller.kyc.idType` (JSON only) | Text | No | e.g., National ID, Passport. |
+| `seller.kyc.idNumber` (JSON only) | Text | No | ID document number. |
 | `idFront` | Multipart File| No | Upload ID Front. |
 | `idBack` | Multipart File| No | Upload ID Back. |
 | `selfie` | Multipart File| No | Upload Selfie with ID. |
-| `seller.nationIdentityNumber` / `nationIdentityNumber` | Text | No | ID for Main Seller record. |
+| `seller.nationIdentityNumber` (JSON) / `nationIdentityNumber` (Form) | Text | No | ID for Main Seller record. |
 
 ### 🏷️ Part 6: Categories
 | Field Name | Format | Required | Description |
 | :--- | :--- | :--- | :--- |
-| `seller.categoryIds` | Array | No | Array of strings for categories. |
+| `seller.categoryIds` (JSON only) | Array | No | Array of strings for categories. |
 
 ### 🚀 Part 7: Example Request (Full JSON)
 

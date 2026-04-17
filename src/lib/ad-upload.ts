@@ -2,15 +2,25 @@ import path from "path"
 import { uploadPublicFile } from "@/lib/upload-public-file"
 
 const MAX_BYTES = 5 * 1024 * 1024 // 5 MB
-const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/gif", "image/webp"]
+const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp", "image/pjpeg"]
 const ALLOWED_VIDEO_TYPES = ["video/mp4", "video/webm", "video/quicktime"]
 const ALLOWED = [...ALLOWED_IMAGE_TYPES, ...ALLOWED_VIDEO_TYPES]
 
 export function validateAdCreativeFile(file: File): { ok: true } | { ok: false; error: string } {
   if (!file || file.size === 0) return { ok: false, error: "No file provided" }
   if (file.size > MAX_BYTES) return { ok: false, error: "File too large. Maximum size is 5 MB." }
+  
   const type = file.type?.toLowerCase()
   if (!type || !ALLOWED.includes(type)) {
+    // Fallback: Check extension if type is missing or not in ALLOWED list
+    const fileName = (file as any).name || ""
+    const ext = fileName.split('.').pop()?.toLowerCase()
+    const allowedExts = ["jpg", "jpeg", "png", "gif", "webp", "mp4", "webm", "mov"]
+    
+    if (ext && allowedExts.includes(ext)) {
+      return { ok: true }
+    }
+
     return { ok: false, error: "Invalid file type. Use image (JPEG, PNG, GIF, WebP) or video (MP4, WebM)." }
   }
   return { ok: true }
@@ -26,6 +36,8 @@ function getExtAndContentType(file: File): { ext: string; contentType: string } 
   const ct = contentType.toLowerCase()
   const mimeToExt: Record<string, string> = {
     "image/jpeg": ".jpg",
+    "image/jpg": ".jpg",
+    "image/pjpeg": ".jpg",
     "image/png": ".png",
     "image/gif": ".gif",
     "image/webp": ".webp",
