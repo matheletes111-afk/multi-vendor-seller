@@ -132,7 +132,7 @@ export async function DELETE(
   if (!ad) return NextResponse.json({ success: false, error: "Ad not found" }, { status: 404 })
 
   try {
-    await prisma.sellerAd.delete({ where: { id } })
+    await prisma.sellerAd.update({ where: { id }, data: { status: "ENDED" } })
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error("Mobile delete ad error:", error)

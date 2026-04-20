@@ -191,6 +191,7 @@ export function ServiceSellerAdmanagementPageClient() {
                   <TableHead>Title</TableHead>
                   <TableHead className="hidden md:table-cell">Service</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead className="hidden xl:table-cell">Duration</TableHead>
                   <TableHead className="hidden lg:table-cell text-right">Spent / Budget</TableHead>
                   <TableHead className="hidden sm:table-cell text-right">Clicks</TableHead>
                   <TableHead className="hidden xl:table-cell text-right">Max CPC</TableHead>
@@ -200,6 +201,8 @@ export function ServiceSellerAdmanagementPageClient() {
               <TableBody>
                 {ads.map((ad) => {
                   const videoThumb = ad.creativeType === "VIDEO" ? getYoutubeThumbnailUrl(ad.creativeUrl) : null
+                  const isEnded = ad.status === "ENDED" || new Date(ad.endAt) < new Date()
+
                   return (
                     <TableRow key={ad.id}>
                       <TableCell className="align-middle">
@@ -229,6 +232,9 @@ export function ServiceSellerAdmanagementPageClient() {
                         {ad.service?.name ?? "Own business ad"}
                       </TableCell>
                       <TableCell>{statusBadge(ad)}</TableCell>
+                      <TableCell className="hidden xl:table-cell text-xs text-muted-foreground whitespace-nowrap">
+                        {new Date(ad.startAt).toLocaleDateString()} - {new Date(ad.endAt).toLocaleDateString()}
+                      </TableCell>
                       <TableCell className="hidden lg:table-cell text-right text-sm whitespace-nowrap">
                         {formatCurrency(ad.spentAmount)} / {formatCurrency(ad.totalBudget)}
                       </TableCell>
@@ -242,7 +248,7 @@ export function ServiceSellerAdmanagementPageClient() {
                               Details
                             </Link>
                           </Button>
-                          {ad.status === "ACTIVE" && (
+                          {!isEnded && ad.status === "ACTIVE" && (
                             <Button
                               variant="outline"
                               size="sm"
@@ -257,7 +263,7 @@ export function ServiceSellerAdmanagementPageClient() {
                               Pause
                             </Button>
                           )}
-                          {ad.status === "PAUSED" && (
+                          {!isEnded && ad.status === "PAUSED" && (
                             <Button
                               variant="outline"
                               size="sm"
@@ -272,7 +278,7 @@ export function ServiceSellerAdmanagementPageClient() {
                               Resume
                             </Button>
                           )}
-                          {ad.status !== "ENDED" && (
+                          {!isEnded && (
                             <DeleteAdButton adId={ad.id} adTitle={ad.title} onDelete={deleteAdForm} />
                           )}
                         </div>

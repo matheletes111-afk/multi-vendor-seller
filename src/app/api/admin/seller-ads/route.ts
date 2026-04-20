@@ -52,7 +52,6 @@ export async function GET(request: NextRequest) {
       }),
       prisma.sellerAd.count({ where }),
       prisma.sellerAd.aggregate({
-        where,
         _sum: { spentAmount: true },
         _count: { _all: true },
       }),

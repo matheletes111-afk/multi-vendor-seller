@@ -103,6 +103,6 @@ export async function DELETE(
   if (!seller) return NextResponse.json({ error: "Seller not found" }, { status: 404 })
   const ad = await prisma.sellerAd.findFirst({ where: { id, sellerId: seller.id } })
   if (!ad) return NextResponse.json({ error: "Ad not found" }, { status: 404 })
-  await prisma.sellerAd.delete({ where: { id } })
+  await prisma.sellerAd.update({ where: { id }, data: { status: "ENDED" } })
   return NextResponse.json({ success: true })
 }
