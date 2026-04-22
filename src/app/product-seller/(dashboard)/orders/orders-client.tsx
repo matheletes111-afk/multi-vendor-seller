@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
-import { useSearchParams } from "next/navigation"
+import { useSearchParams, useRouter } from "next/navigation"
 import { Card, CardContent } from "@/ui/card"
 import { Badge } from "@/ui/badge"
 import { Button } from "@/ui/button"
@@ -18,6 +18,16 @@ import {
   TableHeader,
   TableRow,
 } from "@/ui/table"
+import { Input } from "@/ui/input"
+import { Label } from "@/ui/label"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/ui/select"
+import { Search, RotateCcw, Calendar } from "lucide-react"
 
 type Order = {
   id: string
@@ -51,6 +61,7 @@ function itemSummary(order: Order): string {
 }
 
 export function OrdersClient() {
+  const router = useRouter()
   const searchParams = useSearchParams()
   const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10) || 1)
   const perPage = Math.min(50, Math.max(1, parseInt(searchParams.get("perPage") ?? "10", 10) || 10))
@@ -66,10 +77,33 @@ export function OrdersClient() {
   } | null>(null)
   const [loading, setLoading] = useState(true)
 
+  const [filters, setFilters] = useState({
+    orderNumber: "",
+    customerName: "",
+    email: "",
+    productName: "",
+    startDate: "",
+    endDate: "",
+    status: "ALL",
+  })
+  const [activeFilters, setActiveFilters] = useState(filters)
+
   useEffect(() => {
     let cancelled = false
     setLoading(true)
-    fetch(`/api/product-seller/orders?page=${page}&perPage=${perPage}`)
+    const queryParams = new URLSearchParams({
+      page: page.toString(),
+      perPage: perPage.toString(),
+      ...(activeFilters.orderNumber && { orderNumber: activeFilters.orderNumber }),
+      ...(activeFilters.customerName && { customerName: activeFilters.customerName }),
+      ...(activeFilters.email && { email: activeFilters.email }),
+      ...(activeFilters.productName && { productName: activeFilters.productName }),
+      ...(activeFilters.startDate && { startDate: activeFilters.startDate }),
+      ...(activeFilters.endDate && { endDate: activeFilters.endDate }),
+      ...(activeFilters.status !== "ALL" && { status: activeFilters.status }),
+    })
+
+    fetch(`/api/product-seller/orders?${queryParams.toString()}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((json) => {
         if (!cancelled && json) setData(json)
@@ -80,7 +114,27 @@ export function OrdersClient() {
     return () => {
       cancelled = true
     }
-  }, [page, perPage])
+  }, [page, perPage, activeFilters])
+
+  const handleSearch = () => {
+    setActiveFilters(filters)
+    router.push("/product-seller/orders?page=1")
+  }
+
+  const handleReset = () => {
+    const reset = {
+      orderNumber: "",
+      customerName: "",
+      email: "",
+      productName: "",
+      startDate: "",
+      endDate: "",
+      status: "ALL",
+    }
+    setFilters(reset)
+    setActiveFilters(reset)
+    router.push("/product-seller/orders?page=1")
+  }
 
   if (loading && !data) return <PageLoader variant="listing" message="Loading orders…" />
 
@@ -94,6 +148,113 @@ export function OrdersClient() {
         <h1 className="text-3xl font-bold tracking-tight">Orders</h1>
         <p className="text-muted-foreground mt-2">View and manage your orders</p>
       </div>
+
+      <Card className="p-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="orderNumber">Order Number</Label>
+            <div className="relative">
+              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                id="orderNumber"
+                placeholder="e.g. 0001"
+                className="pl-8"
+                value={filters.orderNumber}
+                onChange={(e) => setFilters({ ...filters, orderNumber: e.target.value })}
+                onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+              />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="customerName">Customer Name</Label>
+            <Input
+              id="customerName"
+              placeholder="Search by name"
+              value={filters.customerName}
+              onChange={(e) => setFilters({ ...filters, customerName: e.target.value })}
+              onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="email">Customer Email</Label>
+            <Input
+              id="email"
+              placeholder="Search by email"
+              value={filters.email}
+              onChange={(e) => setFilters({ ...filters, email: e.target.value })}
+              onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="productName">Product Name</Label>
+            <Input
+              id="productName"
+              placeholder="Search by product"
+              value={filters.productName}
+              onChange={(e) => setFilters({ ...filters, productName: e.target.value })}
+              onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="startDate">Start Date</Label>
+            <div className="relative">
+              <Calendar className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground pointer-events-none" />
+              <Input
+                id="startDate"
+                type="date"
+                className="pl-8"
+                value={filters.startDate}
+                onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
+              />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="endDate">End Date</Label>
+            <div className="relative">
+              <Calendar className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground pointer-events-none" />
+              <Input
+                id="endDate"
+                type="date"
+                className="pl-8"
+                value={filters.endDate}
+                onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
+              />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="status">Status</Label>
+            <Select
+              value={filters.status}
+              onValueChange={(val) => setFilters({ ...filters, status: val })}
+            >
+              <SelectTrigger id="status">
+                <SelectValue placeholder="Select Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">All Statuses</SelectItem>
+                <SelectItem value="PENDING">Pending</SelectItem>
+                <SelectItem value="CONFIRMED">Confirmed</SelectItem>
+                <SelectItem value="PROCESSING">Processing</SelectItem>
+                <SelectItem value="SHIPPED">Shipped</SelectItem>
+                <SelectItem value="OUT_FOR_DELIVERY">Out for Delivery</SelectItem>
+                <SelectItem value="DELIVERED">Delivered</SelectItem>
+                <SelectItem value="CANCELLED">Cancelled</SelectItem>
+                <SelectItem value="REFUNDED">Refunded</SelectItem>
+                <SelectItem value="EXCHANGED">Exchanged</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-end gap-2">
+            <Button className="flex-1" onClick={handleSearch}>
+              <Search className="mr-2 h-4 w-4" />
+              Search
+            </Button>
+            <Button variant="outline" onClick={handleReset} title="Reset Filters">
+              <RotateCcw className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      </Card>
 
       {orders.length === 0 ? (
         <Card>

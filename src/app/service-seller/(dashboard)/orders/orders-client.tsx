@@ -8,7 +8,10 @@ import { Badge } from "@/ui/badge"
 import { Button } from "@/ui/button"
 import { formatCurrency, formatDate } from "@/lib/utils"
 import { PageLoader } from "@/components/ui/page-loader"
-import { ShoppingCart, Package, User, TrendingUp } from "lucide-react"
+import { ShoppingCart, Package, User, TrendingUp, Search, RotateCcw } from "lucide-react"
+import { Input } from "@/ui/input"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/ui/select"
+import { useRouter } from "next/navigation"
 import { AdminPagination } from "@/components/admin/admin-pagination"
 import {
   Table,
@@ -55,10 +58,21 @@ export function ServiceOrdersClient() {
   const searchParams = useSearchParams()
   const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10) || 1)
   const perPage = Math.min(50, Math.max(1, parseInt(searchParams.get("perPage") ?? "10", 10) || 10))
+  const router = useRouter()
   const params = {
     error: searchParams.get("error") ?? undefined,
     success: searchParams.get("success") ?? undefined,
+    orderNumber: searchParams.get("orderNumber") ?? "",
+    customerName: searchParams.get("customerName") ?? "",
+    email: searchParams.get("email") ?? "",
+    serviceName: searchParams.get("serviceName") ?? "",
+    startDate: searchParams.get("startDate") ?? "",
+    endDate: searchParams.get("endDate") ?? "",
+    status: searchParams.get("status") ?? "ALL",
   }
+
+  const [activeFilters, setActiveFilters] = useState(params)
+  const [tempFilters, setTempFilters] = useState(params)
 
   const [data, setData] = useState<{
     orders: Order[]
@@ -70,7 +84,19 @@ export function ServiceOrdersClient() {
   useEffect(() => {
     let cancelled = false
     setLoading(true)
-    fetch(`/api/service-seller/orders?page=${page}&perPage=${perPage}`)
+    const query = new URLSearchParams({
+      page: page.toString(),
+      perPage: perPage.toString(),
+      ...(activeFilters.orderNumber && { orderNumber: activeFilters.orderNumber }),
+      ...(activeFilters.customerName && { customerName: activeFilters.customerName }),
+      ...(activeFilters.email && { email: activeFilters.email }),
+      ...(activeFilters.serviceName && { serviceName: activeFilters.serviceName }),
+      ...(activeFilters.startDate && { startDate: activeFilters.startDate }),
+      ...(activeFilters.endDate && { endDate: activeFilters.endDate }),
+      ...(activeFilters.status !== "ALL" && { status: activeFilters.status }),
+    }).toString()
+
+    fetch(`/api/service-seller/orders?${query}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((json) => {
         if (!cancelled && json) setData(json)
@@ -81,7 +107,33 @@ export function ServiceOrdersClient() {
     return () => {
       cancelled = true
     }
-  }, [page, perPage])
+  }, [page, perPage, activeFilters])
+
+  const handleSearch = () => {
+    setActiveFilters(tempFilters)
+    const newParams = new URLSearchParams(searchParams.toString())
+    newParams.set("page", "1")
+    Object.entries(tempFilters).forEach(([key, value]) => {
+      if (value && value !== "ALL") newParams.set(key, value)
+      else newParams.delete(key)
+    })
+    router.push(`/service-seller/orders?${newParams.toString()}`)
+  }
+
+  const handleReset = () => {
+    const reset = {
+      orderNumber: "",
+      customerName: "",
+      email: "",
+      serviceName: "",
+      startDate: "",
+      endDate: "",
+      status: "ALL",
+    }
+    setTempFilters(prev => ({ ...prev, ...reset }))
+    setActiveFilters(prev => ({ ...prev, ...reset }))
+    router.push(`/service-seller/orders?page=1&perPage=${perPage}`)
+  }
 
   if (loading && !data) return <PageLoader variant="listing" message="Loading orders…" />
 
@@ -91,10 +143,96 @@ export function ServiceOrdersClient() {
 
   return (
     <div className="container mx-auto p-6 space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Orders</h1>
-        <p className="text-muted-foreground mt-2">View and manage your orders</p>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Orders</h1>
+          <p className="text-muted-foreground mt-2">View and manage your service orders</p>
+        </div>
       </div>
+
+      <Card className="p-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="space-y-2">
+            <label className="text-xs font-medium uppercase text-muted-foreground">Order Search</label>
+            <div className="relative">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Order # or Customer"
+                className="pl-9"
+                value={tempFilters.orderNumber}
+                onChange={(e) => setTempFilters({ ...tempFilters, orderNumber: e.target.value })}
+                onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-xs font-medium uppercase text-muted-foreground">Customer / Email</label>
+            <Input
+              placeholder="Name or Email"
+              value={tempFilters.customerName}
+              onChange={(e) => setTempFilters({ ...tempFilters, customerName: e.target.value })}
+              onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-xs font-medium uppercase text-muted-foreground">Service Name</label>
+            <Input
+              placeholder="Service Name"
+              value={tempFilters.serviceName}
+              onChange={(e) => setTempFilters({ ...tempFilters, serviceName: e.target.value })}
+              onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-xs font-medium uppercase text-muted-foreground">Status</label>
+            <Select
+              value={tempFilters.status}
+              onValueChange={(v) => setTempFilters({ ...tempFilters, status: v })}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="All Statuses" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">All Statuses</SelectItem>
+                <SelectItem value="PENDING">Pending</SelectItem>
+                <SelectItem value="CONFIRMED">Confirmed</SelectItem>
+                <SelectItem value="DELIVERED">Delivered</SelectItem>
+                <SelectItem value="CANCELLED">Cancelled</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-xs font-medium uppercase text-muted-foreground">Start Date</label>
+            <Input
+              type="date"
+              value={tempFilters.startDate}
+              onChange={(e) => setTempFilters({ ...tempFilters, startDate: e.target.value })}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-xs font-medium uppercase text-muted-foreground">End Date</label>
+            <Input
+              type="date"
+              value={tempFilters.endDate}
+              onChange={(e) => setTempFilters({ ...tempFilters, endDate: e.target.value })}
+            />
+          </div>
+
+          <div className="lg:col-span-2 flex items-end gap-2">
+            <Button className="flex-1" onClick={handleSearch}>
+              Apply Filters
+            </Button>
+            <Button variant="outline" onClick={handleReset} title="Reset filters">
+              <RotateCcw className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      </Card>
 
       {orders.length === 0 ? (
         <Card>

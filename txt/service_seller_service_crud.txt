@@ -1,4 +1,4 @@
-# MOBILE SERVICE SELLER CRUD API DOCUMENTATION (Bulletproof & Unified)
+# MOBILE SERVICE SELLER CRUD API DOCUMENTATION (Unified)
 
 This document provides definitive details for the Service Seller management APIs under `/mobileapi/service-seller/service`.
 These APIs support both **JSON** (for existing URLs) and **FormData** (for integrated S3 file uploads) in a single call.
@@ -6,122 +6,409 @@ These APIs support both **JSON** (for existing URLs) and **FormData** (for integ
 ---
 
 ## 1. List Services
-**Endpoint**: `GET /mobileapi/service-seller/service`
-**Auth**: Bearer Token (Seller Service JWT)
 
-### Full Response Example (200 OK):
+**Endpoint**: `GET /mobileapi/service-seller/service`
+**Headers**: `Authorization: Bearer <TOKEN>`
+
+### Query Parameters:
+| Parameter     | Type   | Default | Description                              |
+| :------------ | :----- | :------ | :--------------------------------------- |
+| `page`        | int    | 1       | Current page number                      |
+| `perPage`     | int    | 10      | Items per page                           |
+| `q`           | string | —       | Search by service name                   |
+| `categoryId`  | uuid   | —       | Filter by service category               |
+| `serviceType` | string | —       | Filter by type: `FIXED_PRICE` / `APPOINTMENT` |
+
+### Success Response (200 OK):
 ```json
 {
   "success": true,
   "data": {
     "services": [
       {
-        "id": "cm5a9x...",
+        "id": "cm5a9xabc...",
+        "sellerId": "cm99v25w0abc...",
+        "serviceCategoryId": "cm0c1xabc...",
         "name": "Expert Home Cleaning",
         "slug": "expert-home-cleaning",
-        "description": "Professional cleaning.",
+        "description": "Professional deep cleaning service.",
         "serviceType": "FIXED_PRICE",
-        "basePrice": 100,
-        "discount": 10,
-        "images": ["https://s3.url/s1.jpg"],
-        "galleryImages": ["..."],
-        "serviceCategory": { "id": "cat1", "name": "Cleaning", "slug": "cleaning" },
-        "_count": { "orderItems": 10, "reviews": 4 }
+        "basePrice": 150.0,
+        "discount": 10.0,
+        "hasGst": true,
+        "duration": 120,
+        "weeklyAvailability": null,
+        "images": ["https://s3.url/cleaning-main.jpg"],
+        "galleryImages": ["https://s3.url/cleaning-1.jpg"],
+        "isActive": true,
+        "isDeleted": false,
+        "createdAt": "2026-04-21T07:11:47.000Z",
+        "updatedAt": "2026-04-21T07:11:47.000Z",
+        "serviceCategory": {
+          "id": "cm0c1xabc...",
+          "name": "Cleaning",
+          "slug": "cleaning"
+        },
+        "slots": [
+          {
+            "id": "slot001...",
+            "serviceId": "cm5a9xabc...",
+            "startTime": "2026-04-22T09:00:00.000Z",
+            "endTime": "2026-04-22T11:00:00.000Z",
+            "isBooked": false
+          }
+        ],
+        "packages": [
+          {
+            "id": "pkg001...",
+            "serviceId": "cm5a9xabc...",
+            "name": "Basic Package",
+            "price": 150.0,
+            "description": "Covers 1 bedroom and 1 bathroom."
+          }
+        ],
+        "_count": {
+          "orderItems": 10,
+          "reviews": 4
+        }
       }
     ],
-    "pagination": { "totalCount": 1, "totalPages": 1, "page": 1, "perPage": 10 }
+    "pagination": {
+      "totalCount": 25,
+      "totalPages": 3,
+      "page": 1,
+      "perPage": 10
+    }
   }
 }
 ```
 
+### Error Responses:
+- **401**: `{ "success": false, "error": "Unauthorized" }`
+- **403**: `{ "success": false, "error": "Forbidden" }`
+- **404**: `{ "success": false, "error": "Seller not found" }`
+- **500**: `{ "success": false, "error": "Internal server error" }`
+
 ---
 
-## 2. Create / Edit Service
-**Endpoint**:
-- `POST /mobileapi/service-seller/service` (Create)
-- `PUT /mobileapi/service-seller/service/{id}` (Edit)
+## 2. Get Single Service
 
-### OPTION A: application/json (URLs only)
-Use this if the images are already hosted (URLs only).
-**Payload Example**:
+**Endpoint**: `GET /mobileapi/service-seller/service/{id}`
+**Headers**: `Authorization: Bearer <TOKEN>`
+
+> Returns the service with `serviceCategory`, up to 10 `slots` (ordered by `startTime` asc), `packages`, and `_count`.
+
+### Success Response (200 OK):
+```json
+{
+  "success": true,
+  "data": {
+    "id": "cm5a9xabc...",
+    "sellerId": "cm99v25w0abc...",
+    "serviceCategoryId": "cm0c1xabc...",
+    "name": "Expert Home Cleaning",
+    "slug": "expert-home-cleaning",
+    "description": "Professional deep cleaning service.",
+    "serviceType": "FIXED_PRICE",
+    "basePrice": 150.0,
+    "discount": 10.0,
+    "hasGst": true,
+    "duration": 120,
+    "weeklyAvailability": null,
+    "images": ["https://s3.url/cleaning-main.jpg"],
+    "galleryImages": ["https://s3.url/cleaning-1.jpg"],
+    "isActive": true,
+    "isDeleted": false,
+    "createdAt": "2026-04-21T07:11:47.000Z",
+    "updatedAt": "2026-04-21T07:11:47.000Z",
+    "serviceCategory": {
+      "id": "cm0c1xabc...",
+      "name": "Cleaning",
+      "slug": "cleaning"
+    },
+    "slots": [
+      {
+        "id": "slot001...",
+        "serviceId": "cm5a9xabc...",
+        "startTime": "2026-04-22T09:00:00.000Z",
+        "endTime": "2026-04-22T11:00:00.000Z",
+        "isBooked": false
+      }
+    ],
+    "packages": [
+      {
+        "id": "pkg001...",
+        "serviceId": "cm5a9xabc...",
+        "name": "Basic Package",
+        "price": 150.0,
+        "description": "Covers 1 bedroom and 1 bathroom."
+      }
+    ],
+    "_count": {
+      "orderItems": 10,
+      "reviews": 4
+    }
+  }
+}
+```
+
+### Error Responses:
+- **401**: `{ "success": false, "error": "Unauthorized" }`
+- **403**: `{ "success": false, "error": "Forbidden" }`
+- **404**: `{ "success": false, "error": "Seller not found" }`
+- **404**: `{ "success": false, "error": "Service not found" }`
+- **500**: `{ "success": false, "error": "Internal server error" }`
+
+---
+
+## 3. Create Service
+
+**Endpoint**: `POST /mobileapi/service-seller/service`
+**Headers**: `Authorization: Bearer <TOKEN>`
+
+The API auto-detects `Content-Type`. Choose either JSON or FormData.
+
+---
+
+### OPTION A: application/json
+
+**Required Fields**: `name`, `serviceCategoryId`
+
 ```json
 {
   "name": "Expert Home Cleaning",
-  "serviceCategoryId": "cm0c1x...",
+  "serviceCategoryId": "cm0c1xabc...",
   "description": "Professional deep cleaning service.",
   "serviceType": "FIXED_PRICE",
   "basePrice": 150.0,
   "discount": 10.0,
   "hasGst": true,
   "duration": 120,
-  "weeklyAvailability": [...],
+  "weeklyAvailability": {
+    "monday": ["09:00", "17:00"],
+    "tuesday": ["09:00", "17:00"],
+    "wednesday": [],
+    "thursday": ["09:00", "17:00"],
+    "friday": ["09:00", "15:00"],
+    "saturday": [],
+    "sunday": []
+  },
   "images": ["https://s3.url/cleaning-main.jpg"],
-  "galleryImages": ["https://s3.url/cleaning-1.jpg"]
+  "galleryImages": ["https://s3.url/cleaning-gal1.jpg", "https://s3.url/cleaning-gal2.jpg"]
 }
 ```
 
 ---
 
-### OPTION B: multipart/form-data (Integrated File Uploads)
-Use this if you want to upload raw images directly from the mobile device.
+### OPTION B: multipart/form-data
 
-**Fields**:
-1.  **`data`** (String/JSON): A JSON string containing the metadata (Name, Category, etc.).
-2.  **`file`** or **`images`** (Multiple Files): Principal images for the listing cover.
-3.  **`gallery_images`** or **`gallery_file`** (Multiple Files): Portfolio/Gallery images.
+Use this to upload raw image files from the mobile device in the same request.
 
-**FormData Mapping Table**:
-| Field Name | Type | Target in DB |
-| :--- | :--- | :--- |
-| **`data`** | String (JSON) | Metadata (Base price, category, existing URLs, etc.) |
-| **`file`** | File (binary) | Added to the `images` array (Listing Hero) |
-| **`gallery_images`** | File (binary) | Added to the `galleryImages` array (Portfolio) |
+| Field Name       | Type          | Description                                                              |
+| :--------------- | :------------ | :----------------------------------------------------------------------- |
+| `data`           | String (JSON) | Full JSON object with the same structure as Option A                     |
+| `file` or `images` | File(s)     | Hero/cover images for the service. Added to `images` array in the DB.   |
+| `gallery_images` or `gallery_file` | File(s) | Portfolio images. Added to `galleryImages` array in the DB. |
 
-**Success Response (201 Created)**:
+**Example**:
+| Field Name       | Value |
+| :--------------- | :---- |
+| `data`           | `{"name":"Home Cleaning","serviceCategoryId":"...","serviceType":"FIXED_PRICE","basePrice":150}` |
+| `file`           | `[main cover image binary]` |
+| `gallery_images` | `[gallery image 1 binary]` |
+| `gallery_images` | `[gallery image 2 binary]` |
+
+---
+
+### Success Response (201 Created):
 ```json
 {
   "success": true,
   "data": {
-    "id": "cm5z2y...",
-    "name": "New Service",
-    "slug": "new-service",
-    "images": ["https://s3.../uploaded-hero.jpg"],
-    "galleryImages": ["https://s3.../uploaded-gal1.jpg"],
-    "createdAt": "2026-04-16T12:00:00.000Z"
+    "id": "cm5z2yabc...",
+    "sellerId": "cm99v25w0abc...",
+    "serviceCategoryId": "cm0c1xabc...",
+    "name": "Expert Home Cleaning",
+    "slug": "expert-home-cleaning",
+    "description": "Professional deep cleaning service.",
+    "serviceType": "FIXED_PRICE",
+    "basePrice": 150.0,
+    "discount": 10.0,
+    "hasGst": true,
+    "duration": 120,
+    "weeklyAvailability": null,
+    "images": ["https://s3.url/cleaning-main.jpg"],
+    "galleryImages": ["https://s3.url/cleaning-gal1.jpg"],
+    "isActive": true,
+    "isDeleted": false,
+    "createdAt": "2026-04-21T08:00:00.000Z",
+    "updatedAt": "2026-04-21T08:00:00.000Z",
+    "serviceCategory": {
+      "id": "cm0c1xabc...",
+      "name": "Cleaning",
+      "slug": "cleaning"
+    }
   }
 }
 ```
 
----
-
-## 3. Operations & Responses Reference
-
-### [PUT] Edit Service
-- Note: Upgrades existing images and gallery. To keep old images, include their URLs in the `data` JSON.
-- Success Response (200 OK): Returns the fully updated object in `data`.
-
-### [DELETE] Remove Service
-- **Single**: `DELETE /mobileapi/service-seller/service/{id}`
-  - Response: `{"success": true, "message": "Service deleted successfully"}`
-- **Bulk**: `DELETE /mobileapi/service-seller/service`
-  - Body: `{"ids": ["ud1", "ud2"]}`
-  - Response: `{"success": true, "message": "Successfully deleted 2 service(s)", "data": {"count": 2}}`
+### Error Responses:
+- **400**: `{ "success": false, "error": "Name and category are required" }`
+- **400**: `{ "success": false, "error": "Category not in your allowed list" }`
+- **400**: `{ "success": false, "error": "Service with this name already exists" }`
+- **401**: `{ "success": false, "error": "Unauthorized" }`
+- **403**: `{ "success": false, "error": "Your seller account is pending approval." }`
+- **403**: `{ "success": false, "error": "Your seller account has been suspended." }`
+- **403**: `{ "success": false, "error": "Service limit reached. Plan allows {N}. Upgrade to add more." }`
+- **404**: `{ "success": false, "error": "Seller not found" }`
+- **500**: `{ "success": false, "error": "Failed to create service" }`
 
 ---
 
-## 4. Error Responses Reference
+## 4. Edit Service
 
-### 400 Bad Request:
+**Endpoint**: `PUT /mobileapi/service-seller/service/{id}`
+**Headers**: `Authorization: Bearer <TOKEN>`
+
+> **All fields are optional.** Only the fields you send will be updated.
+> Unlike product editing, service editing does **NOT** recreate slots or packages. Include new image URLs in the payload to replace old ones.
+
+### Payload (JSON or FormData — same structure as Create):
+Send only the fields you want to update.
+
 ```json
-{ "success": false, "error": "Category not in your allowed list" }
+{
+  "name": "Expert Home Cleaning Pro",
+  "description": "Updated description.",
+  "serviceCategoryId": "cm0c1xabc...",
+  "serviceType": "APPOINTMENT",
+  "basePrice": 180.0,
+  "discount": 5.0,
+  "hasGst": false,
+  "duration": 90,
+  "isActive": false,
+  "weeklyAvailability": {
+    "monday": ["10:00", "18:00"],
+    "tuesday": [],
+    "wednesday": ["10:00", "18:00"],
+    "thursday": [],
+    "friday": ["10:00", "16:00"],
+    "saturday": [],
+    "sunday": []
+  },
+  "images": ["https://s3.url/new-hero.jpg"],
+  "galleryImages": ["https://s3.url/new-gal1.jpg"]
+}
 ```
 
-### 403 Forbidden (Service Limit):
+### Success Response (200 OK):
 ```json
-{ "success": false, "error": "Service limit reached. Plan allows 5. Upgrade to add more." }
+{
+  "success": true,
+  "data": {
+    "id": "cm5a9xabc...",
+    "name": "Expert Home Cleaning Pro",
+    "slug": "expert-home-cleaning-pro",
+    "description": "Updated description.",
+    "serviceType": "APPOINTMENT",
+    "basePrice": 180.0,
+    "discount": 5.0,
+    "hasGst": false,
+    "isActive": false,
+    "updatedAt": "2026-04-21T09:00:00.000Z",
+    "serviceCategory": {
+      "id": "cm0c1xabc...",
+      "name": "Cleaning",
+      "slug": "cleaning"
+    },
+    "slots": [],
+    "packages": []
+  }
+}
 ```
 
-### 404 Not Found:
+### Error Responses:
+- **400**: `{ "success": false, "error": "Service with this name already exists" }`
+- **401**: `{ "success": false, "error": "Unauthorized" }`
+- **403**: `{ "success": false, "error": "Forbidden" }`
+- **404**: `{ "success": false, "error": "Seller not found" }`
+- **404**: `{ "success": false, "error": "Service not found" }`
+- **500**: `{ "success": false, "error": "Failed to update service" }`
+
+---
+
+## 5. Delete Single Service (Soft Delete)
+
+**Endpoint**: `DELETE /mobileapi/service-seller/service/{id}`
+**Headers**: `Authorization: Bearer <TOKEN>`
+**Body**: None
+
+> This is a **soft delete**. Sets `isDeleted` to `true`, `isActive` to `false`, and appends a timestamp to the slug to free the service name for reuse.
+
+### Success Response (200 OK):
 ```json
-{ "success": false, "error": "Service not found" }
+{
+  "success": true,
+  "message": "Service deleted successfully"
+}
 ```
+
+### Error Responses:
+- **401**: `{ "success": false, "error": "Unauthorized" }`
+- **403**: `{ "success": false, "error": "Forbidden" }`
+- **404**: `{ "success": false, "error": "Seller not found" }`
+- **404**: `{ "success": false, "error": "Service not found" }`
+- **500**: `{ "success": false, "error": "Internal server error" }`
+
+---
+
+## 6. Bulk Delete Services (Soft Delete)
+
+**Endpoint**: `DELETE /mobileapi/service-seller/service`
+**Headers**: `Authorization: Bearer <TOKEN>`
+**Content-Type**: `application/json`
+
+### Payload:
+```json
+{
+  "ids": ["cm5a9xabc...", "cm5a9xdef...", "cm5a9xghi..."]
+}
+```
+
+### Success Response (200 OK):
+```json
+{
+  "success": true,
+  "message": "Successfully deleted 3 service(s)",
+  "data": {
+    "count": 3
+  }
+}
+```
+
+### Error Responses:
+- **400**: `{ "success": false, "error": "No service IDs provided" }`
+- **401**: `{ "success": false, "error": "Unauthorized" }`
+- **403**: `{ "success": false, "error": "Forbidden" }`
+- **404**: `{ "success": false, "error": "Seller not found" }`
+- **500**: `{ "success": false, "error": "Failed to delete services" }`
+
+---
+
+## 7. Global Data Types Reference
+
+### Service Fields:
+| Field               | Type                           | Required | Description                                    |
+| :------------------ | :----------------------------- | :------- | :--------------------------------------------- |
+| `name`              | string                         | ✅ Yes  | Must be unique per seller                       |
+| `serviceCategoryId` | uuid                           | ✅ Yes  | Must be in seller's allowed service categories  |
+| `description`       | string / null                  | No       | Service description                             |
+| `serviceType`       | `"FIXED_PRICE"` / `"APPOINTMENT"` | No    | Default: `"APPOINTMENT"`                        |
+| `basePrice`         | float / null                   | No       | Base price for the service                      |
+| `discount`          | float                          | No       | Discount percentage. Default: `0`               |
+| `hasGst`            | boolean                        | No       | Whether GST applies. Default: `true`            |
+| `duration`          | int / null                     | No       | Duration in minutes                             |
+| `weeklyAvailability`| object / null                  | No       | JSON map of day → `[startTime, endTime]` strings|
+| `isActive`          | boolean                        | No       | Default: `true`                                 |
+| `images`            | string[]                       | No       | Hero/cover image URLs                           |
+| `galleryImages`     | string[]                       | No       | Portfolio/gallery image URLs                    |

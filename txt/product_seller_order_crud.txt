@@ -1,0 +1,158 @@
+# Product Seller Mobile Order APIs
+
+## 1. Get Product Order List
+Retrieves a paginated and filterable list of orders for the authenticated product seller.
+
+- **Endpoint**: `GET /mobileapi/product-seller/orders`
+- **Authentication**: Required (Product Seller session)
+
+### Query Parameters:
+- `page` (number, default: 1): The page number.
+- `perPage` (number, default: 10): Items per page.
+- `orderNumber` (string, optional): Filter by order number (strips leading # automatically).
+- `customerName` (string, optional): Filter by customer name.
+- `email` (string, optional): Filter by customer email.
+- `productName` (string, optional): Filter by product name.
+- `startDate` (string, optional): ISO date string (YYYY-MM-DD).
+- `endDate` (string, optional): ISO date string (YYYY-MM-DD).
+- `status` (string, optional): Filter by order item status (PENDING, SHIPPED, DELIVERED, etc.).
+
+### Response Structure:
+```json
+{
+  "orders": [
+    {
+      "id": "order_id",
+      "orderNumber": "meeem00000008",
+      "status": "PENDING",
+      "totalAmount": 1265.00,
+      "createdAt": "2026-04-22T15:00:00Z",
+      "customer": {
+        "name": "Arijit",
+        "email": "arijit@example.com"
+      },
+      "items": [
+        {
+          "id": "item_id",
+          "productNameSnapshot": "Fashion - Men's Clothing Example",
+          "quantity": 1,
+          "price": 100.00,
+          "imageUrl": "https://...",
+          "status": "PENDING"
+        }
+      ]
+    }
+  ],
+  "totalCount": 1,
+  "totalPages": 1,
+  "page": 1,
+  "perPage": 10
+}
+```
+
+---
+
+## 2. Get Product Order Details
+Retrieves detailed information for a specific order.
+
+- **Endpoint**: `GET /mobileapi/product-seller/orders/[id]`
+- **Authentication**: Required (Product Seller session)
+
+### Response Structure:
+```json
+{
+  "id": "order_id",
+  "orderNumber": "meeem00000008",
+  "orderHasDeliveredLine": false,
+  "status": "PENDING",
+  "totalAmount": 1265.00,
+  "subtotal": 1100.00,
+  "tax": 165.00,
+  "shipping": 0.00,
+  "commission": 110.00,
+  "commissionRate": 10.0,
+  "paymentMethod": "COD",
+  "paymentStatus": "PENDING",
+  "shippingFullName": "Jeet Basak",
+  "shippingPhone": "+918420883808",
+  "shippingAddressLine1": "Address 1",
+  "shippingAddressLine2": null,
+  "shippingCity": "Kolkata",
+  "shippingState": "West Bengal",
+  "shippingPostalCode": "700001",
+  "shippingCountry": "India",
+  "createdAt": "2026-04-22T15:00:00.000Z",
+  "customer": {
+    "name": "Arijit",
+    "email": "arijit@example.com",
+    "phone": "8420883808"
+  },
+  "items": [
+    {
+      "id": "item_id_1",
+      "itemStatus": "PENDING",
+      "productNameSnapshot": "Fashion - Men's Clothing Example",
+      "quantity": 1,
+      "price": 100.00,
+      "subtotal": 100.00,
+      "hasGst": true,
+      "gstAmount": 15.00,
+      "subtotalInclGst": 115.00,
+      "imageUrl": "https://...",
+      "returnAvailable": true,
+      "replacementAllowed": true,
+      "returnResolutionType": null,
+      "replacementOrderItemId": null,
+      "returnReason": null,
+      "returnImages": [],
+      "exchangeSourceOrderItemId": null,
+      "exchangeTopUpAmount": 0,
+      "exchangeTopUpStatus": null,
+      "exchangeRefundDifferenceAmount": 0,
+      "exchangeRefundDifferenceStatus": null,
+      "returnRequestStatus": null,
+      "pickupStatus": "NOT_REQUESTED",
+      "refundStatus": "NOT_REQUESTED",
+      "deliveryProofImage": null,
+      "deliveredAt": null,
+      "deliveryOtp": "123456",
+      "deliveryOtpExpires": "2026-04-22T16:00:00.000Z",
+      "statusHistory": [
+        {
+          "status": "PENDING",
+          "location": null,
+          "note": "Order placed",
+          "createdAt": "2026-04-22T15:00:00.000Z"
+        }
+      ]
+    }
+  ]
+}
+```
+
+---
+
+## 3. Update Product Item Status
+Updates the fulfillment status of a product item (Dispatcher Hub).
+
+- **Endpoint**: `PATCH /mobileapi/product-seller/orders/[id]`
+- **Authentication**: Required (Product Seller session)
+
+### Request Payload:
+```json
+{
+  "status": "SHIPPED", // PENDING, CONFIRMED, PROCESSING, SHIPPED, OUT_FOR_DELIVERY, DELIVERED, CANCELLED
+  "itemId": "item_id_1",
+  "itemIds": ["item_id_1", "item_id_2"],
+  "location": "Warehouse A",
+  "note": "Packed",
+  "otp": "123456", // Required for DELIVERED if previously OUT_FOR_DELIVERY
+  "deliveryProofImage": "https://..." // Required for DELIVERED
+}
+```
+
+### Business Logic & Guards:
+1.  **Backward Movement Protection**: Blocks moving to a past status.
+2.  **OTP Sending**: Moving to `OUT_FOR_DELIVERY` automatically sends OTP to customer.
+3.  **Delivery Verification**: `DELIVERED` requires valid `otp` and `deliveryProofImage`.
+4.  **Cancellations**: Only allowed from `PENDING` and if no other item in order is `DELIVERED`.

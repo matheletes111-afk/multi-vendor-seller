@@ -27,7 +27,68 @@ export async function GET(request: NextRequest) {
     perPage: searchParams.get("perPage") ?? undefined,
   })
 
-  const where = { items: { some: { sellerId: seller.id, productId: { not: null } } } }
+  const orderNumber = searchParams.get("orderNumber")
+  const customerName = searchParams.get("customerName")
+  const email = searchParams.get("email")
+  const productName = searchParams.get("productName")
+  const startDate = searchParams.get("startDate")
+  const endDate = searchParams.get("endDate")
+  const status = searchParams.get("status")
+
+  const where: any = {
+    items: {
+      some: {
+        sellerId: seller.id,
+        productId: { not: null },
+      },
+    },
+  }
+
+  if (orderNumber) {
+    const cleanOrderNumber = orderNumber.startsWith("#") ? orderNumber.slice(1) : orderNumber
+    where.orderNumber = { contains: cleanOrderNumber, mode: "insensitive" }
+  }
+
+  if (customerName || email) {
+    where.customer = {}
+    if (customerName) {
+      where.customer.name = { contains: customerName, mode: "insensitive" }
+    }
+    if (email) {
+      where.customer.email = { contains: email, mode: "insensitive" }
+    }
+  }
+
+  if (productName) {
+    where.items.some.OR = [
+      { productNameSnapshot: { contains: productName, mode: "insensitive" } },
+      { product: { name: { contains: productName, mode: "insensitive" } } },
+    ]
+  }
+
+  if (startDate || endDate) {
+    const dateFilter: any = {}
+    if (startDate) {
+      const start = new Date(startDate)
+      if (!isNaN(start.getTime())) {
+        dateFilter.gte = start
+      }
+    }
+    if (endDate) {
+      const end = new Date(endDate)
+      if (!isNaN(end.getTime())) {
+        end.setHours(23, 59, 59, 999)
+        dateFilter.lte = end
+      }
+    }
+    if (Object.keys(dateFilter).length > 0) {
+      where.createdAt = dateFilter
+    }
+  }
+
+  if (status) {
+    where.items.some.itemStatus = status
+  }
 
   const [orders, totalCount] = await Promise.all([
     prisma.order.findMany({

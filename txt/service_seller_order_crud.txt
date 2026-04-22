@@ -1,0 +1,143 @@
+# Service Seller Mobile Order APIs
+
+## 1. Get Service Order List
+Retrieves a paginated and filterable list of service orders for the authenticated service seller.
+
+- **Endpoint**: `GET /mobileapi/service-seller/orders`
+- **Authentication**: Required (Service Seller session)
+
+### Query Parameters:
+- `page` (number, default: 1): The page number.
+- `perPage` (number, default: 10): Items per page.
+- `orderNumber` (string, optional): Filter by order number (strips leading # automatically).
+- `customerName` (string, optional): Filter by customer name.
+- `email` (string, optional): Filter by customer email.
+- `serviceName` (string, optional): Filter by service name (checks snapshots and current names).
+- `startDate` (string, optional): ISO date string (YYYY-MM-DD).
+- `endDate` (string, optional): ISO date string (YYYY-MM-DD).
+- `status` (string, optional): Filter by order item status (PENDING, CONFIRMED, DELIVERED, CANCELLED).
+
+### Response Structure:
+```json
+{
+  "orders": [
+    {
+      "id": "order_id",
+      "orderNumber": "meeem00000008",
+      "status": "PENDING",
+      "totalAmount": 1100.00,
+      "createdAt": "2026-04-22T15:00:00Z",
+      "customer": {
+        "name": "Arijit",
+        "email": "arijit@example.com"
+      },
+      "items": [
+        {
+          "id": "item_id",
+          "serviceNameSnapshot": "Deep Cleaning Service",
+          "quantity": 1,
+          "price": 1000.00,
+          "imageUrl": "https://...",
+          "status": "PENDING"
+        }
+      ]
+    }
+  ],
+  "totalCount": 1,
+  "totalPages": 1,
+  "page": 1,
+  "perPage": 10
+}
+```
+
+---
+
+## 2. Get Service Order Details
+Retrieves detailed information for a specific service order.
+
+- **Endpoint**: `GET /mobileapi/service-seller/orders/[id]`
+- **Authentication**: Required (Service Seller session)
+
+### Response Structure:
+```json
+{
+  "id": "order_id",
+  "orderNumber": "meeem00000008",
+  "orderHasDeliveredLine": false,
+  "status": "PENDING",
+  "totalAmount": 1100.00,
+  "subtotal": 1000.00,
+  "tax": 100.00,
+  "shipping": 0.00,
+  "commission": 100.00,
+  "commissionRate": 10.0,
+  "sellerNet": 1000.00,
+  "paymentMethod": "ONLINE",
+  "paymentStatus": "COMPLETED",
+  "shippingFullName": "Jeet Basak",
+  "shippingPhone": "+918420883808",
+  "shippingAddressLine1": "Address 1",
+  "shippingAddressLine2": null,
+  "shippingCity": "Kolkata",
+  "shippingState": "West Bengal",
+  "shippingPostalCode": "700001",
+  "shippingCountry": "India",
+  "createdAt": "2026-04-22T15:00:00.000Z",
+  "customer": {
+    "name": "Arijit",
+    "email": "arijit@example.com",
+    "phone": "8420883808"
+  },
+  "items": [
+    {
+      "id": "item_id_1",
+      "itemStatus": "PENDING",
+      "serviceNameSnapshot": "Deep Cleaning Service",
+      "quantity": 1,
+      "price": 1000.00,
+      "subtotal": 1000.00,
+      "hasGst": true,
+      "gstAmount": 100.00,
+      "subtotalInclGst": 1100.00,
+      "imageUrl": "https://...",
+      "serviceSlotStartTime": "2026-04-25T10:00:00.000Z",
+      "serviceSlotEndTime": "2026-04-25T12:00:00.000Z",
+      "deliveryProofImage": null,
+      "statusHistory": [
+        {
+          "status": "PENDING",
+          "location": null,
+          "note": "Service booked",
+          "createdAt": "2026-04-22T15:00:00.000Z"
+        }
+      ]
+    }
+  ]
+}
+```
+
+---
+
+## 3. Update Service Item Status
+Updates the fulfillment status of a service item (Dispatcher Hub).
+
+- **Endpoint**: `PATCH /mobileapi/service-seller/orders/[id]`
+- **Authentication**: Required (Service Seller session)
+
+### Request Payload:
+```json
+{
+  "status": "CONFIRMED", // PENDING, CONFIRMED, DELIVERED, CANCELLED
+  "itemId": "item_id_1", // Use either itemId OR itemIds
+  "itemIds": ["item_id_1", "item_id_2"],
+  "location": "Client Site", // Optional
+  "note": "Service started", // Optional
+  "deliveryProofImage": "https://..." // Required ONLY for DELIVERED status
+}
+```
+
+### Business Logic & Guards:
+1.  **Backward Movement Protection**: The API blocks moving to a previous status (e.g., DELIVERED -> CONFIRMED is blocked).
+2.  **Slot Release**: Marking a service as `CANCELLED` automatically releases the booked service slot in the database.
+3.  **Settlement**: Automatically triggers seller credit/settlement logic upon `DELIVERED`.
+4.  **Security**: Only allowed if the item is `PENDING` and no other items in the entire order have been `DELIVERED`.
