@@ -1,19 +1,20 @@
 import { NextRequest, NextResponse } from "next/server"
-import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
-import { isProductSeller } from "@/lib/rbac"
+import { UserRole } from "@prisma/client"
+import { getMobileSellerAuth } from "../../_helpers/seller-auth"
 import { getPaginationFromSearchParams } from "@/lib/admin-pagination"
 import { deriveOrderStatus } from "@/lib/order-status"
 
 /** GET orders for current product seller (mobile). */
 export async function GET(request: NextRequest) {
-  const session = await auth()
-  if (!session?.user || !isProductSeller(session.user)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const authStatus = getMobileSellerAuth(request, UserRole.SELLER_PRODUCT)
+  if (!authStatus.ok) {
+    if (authStatus.error === "unauthorized") return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
 
   const seller = await prisma.seller.findUnique({
-    where: { userId: session.user.id },
+    where: { userId: authStatus.userId },
     select: { id: true },
   })
 

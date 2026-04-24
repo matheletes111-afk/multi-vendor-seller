@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
-import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
-import { isServiceSeller } from "@/lib/rbac"
+import { UserRole } from "@prisma/client"
+import { getMobileSellerAuth } from "../../../_helpers/seller-auth"
 import { deriveOrderStatus } from "@/lib/order-status"
 import { SERVICE_SELLER_LINE_ITEM_STATUS_OPTIONS } from "@/app/api/service-seller/orders/types"
 import { releaseServiceSlotsForOrderItems } from "@/lib/release-service-slot"
@@ -20,15 +20,16 @@ function isValidServiceSellerItemStatus(s: string): boolean {
 
 /** GET /mobileapi/service-seller/orders/[id] — get one service order for mobile. */
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth()
-  if (!session?.user || !isServiceSeller(session.user)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const authStatus = getMobileSellerAuth(request, UserRole.SELLER_SERVICE)
+  if (!authStatus.ok) {
+    if (authStatus.error === "unauthorized") return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
   const seller = await prisma.seller.findUnique({
-    where: { userId: session.user.id },
+    where: { userId: authStatus.userId },
     select: { id: true },
   })
   if (!seller) return NextResponse.json({ error: "Seller not found" }, { status: 404 })
@@ -141,12 +142,13 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth()
-  if (!session?.user || !isServiceSeller(session.user)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const authStatus = getMobileSellerAuth(request, UserRole.SELLER_SERVICE)
+  if (!authStatus.ok) {
+    if (authStatus.error === "unauthorized") return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
   const seller = await prisma.seller.findUnique({
-    where: { userId: session.user.id },
+    where: { userId: authStatus.userId },
     select: { id: true },
   })
   if (!seller) return NextResponse.json({ error: "Seller not found" }, { status: 404 })

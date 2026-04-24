@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
-import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
-import { isProductSeller } from "@/lib/rbac"
+import { UserRole } from "@prisma/client"
+import { getMobileSellerAuth } from "../../../_helpers/seller-auth"
 import { deriveOrderStatus } from "@/lib/order-status"
 import { parseReturnImagesJson } from "@/lib/return-request-validation"
 import { 
@@ -27,16 +27,17 @@ function isValidSellerStatus(s: string): s is PatchOrderStatusPayload["status"] 
 
 /** GET /mobileapi/product-seller/orders/[id] — get one order details for mobile. */
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth()
-  if (!session?.user || !isProductSeller(session.user)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const authStatus = getMobileSellerAuth(request, UserRole.SELLER_PRODUCT)
+  if (!authStatus.ok) {
+    if (authStatus.error === "unauthorized") return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
 
   const seller = await prisma.seller.findUnique({
-    where: { userId: session.user.id },
+    where: { userId: authStatus.userId },
     select: { id: true },
   })
 
@@ -191,12 +192,13 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth()
-  if (!session?.user || !isProductSeller(session.user)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const authStatus = getMobileSellerAuth(request, UserRole.SELLER_PRODUCT)
+  if (!authStatus.ok) {
+    if (authStatus.error === "unauthorized") return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
   const seller = await prisma.seller.findUnique({
-    where: { userId: session.user.id },
+    where: { userId: authStatus.userId },
     select: { id: true },
   })
   if (!seller) return NextResponse.json({ error: "Seller not found" }, { status: 404 })
