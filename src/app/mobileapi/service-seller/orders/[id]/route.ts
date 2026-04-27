@@ -13,6 +13,9 @@ import {
 } from "@/lib/order-cancel-guard"
 import { applySellerCreditForOrderLineDelivered } from "@/lib/seller-order-line-settlement"
 import { OrderStatus } from "@prisma/client"
+import path from "path"
+import { uploadPublicFile } from "@/lib/upload-public-file"
+
 
 function isValidServiceSellerItemStatus(s: string): boolean {
   return (SERVICE_SELLER_LINE_ITEM_STATUS_OPTIONS as readonly string[]).includes(s)
@@ -159,28 +162,73 @@ export async function PATCH(
   })
   if (!order) return NextResponse.json({ error: "Order not found" }, { status: 404 })
 
-  let body: unknown
-  try {
-    body = await request.json()
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 })
+  const contentType = request.headers.get("content-type") || ""
+  let payload: any = {}
+
+  if (contentType.includes("multipart/form-data")) {
+    const formData = await request.formData()
+    payload.status = formData.get("status")
+    payload.location = formData.get("location")
+    payload.note = formData.get("note")
+    payload.itemId = formData.get("itemId")
+
+    const itemIdsRaw = formData.getAll("itemIds")
+    if (itemIdsRaw.length > 0) {
+      payload.itemIds = itemIdsRaw.map((v) => v.toString())
+    } else {
+      const itemIdsJson = formData.get("itemIds")
+      if (typeof itemIdsJson === "string") {
+        try {
+          payload.itemIds = JSON.parse(itemIdsJson)
+        } catch {
+          payload.itemIds = itemIdsJson.split(",").map((s) => s.trim())
+        }
+      }
+    }
+
+    const file = formData.get("deliveryProofImage")
+    if (file instanceof File) {
+      payload.deliveryProofImageFile = file
+    } else if (typeof file === "string") {
+      payload.deliveryProofImage = file
+    }
+  } else {
+    try {
+      payload = await request.json()
+    } catch {
+      return NextResponse.json({ error: "Invalid JSON" }, { status: 400 })
+    }
   }
-  const payload = body as {
-    status: string
-    deliveryProofImage?: string
-    location?: string
-    note?: string
-    itemId?: string
-    itemIds?: string[]
-  }
+
   const status = typeof payload.status === "string" ? payload.status.trim().toUpperCase() : null
-  const deliveryProofImage =
+  let deliveryProofImage =
     typeof payload.deliveryProofImage === "string" ? payload.deliveryProofImage.trim() : ""
+
+  if (status === "DELIVERED" && payload.deliveryProofImageFile instanceof File) {
+    try {
+      const file = payload.deliveryProofImageFile
+      const bytes = await file.arrayBuffer()
+      const buffer = Buffer.from(bytes)
+      const fileContentType = file.type || "image/jpeg"
+      const ext = path.extname(file.name) || ".jpg"
+
+      deliveryProofImage = await uploadPublicFile({
+        folder: "orders/delivery-proof",
+        ext,
+        contentType: fileContentType,
+        buffer,
+        prefix: "delivery-proof",
+      })
+    } catch (err) {
+      console.error("Delivery proof upload error:", err)
+      return NextResponse.json({ error: "Failed to upload delivery proof image" }, { status: 500 })
+    }
+  }
   const location = typeof payload.location === "string" ? payload.location.trim() : ""
   const note = typeof payload.note === "string" ? payload.note.trim() : ""
   const itemId = typeof payload.itemId === "string" ? payload.itemId : null
   const itemIds = Array.isArray(payload.itemIds)
-    ? payload.itemIds.filter((v): v is string => typeof v === "string")
+    ? (payload.itemIds as any[]).filter((v: any): v is string => typeof v === "string")
     : []
 
   if (!status || !isValidServiceSellerItemStatus(status)) {
