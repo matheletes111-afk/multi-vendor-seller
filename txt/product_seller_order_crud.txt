@@ -156,3 +156,191 @@ Updates the fulfillment status of a product item (Dispatcher Hub).
 2.  **OTP Sending**: Moving to `OUT_FOR_DELIVERY` automatically sends OTP to customer.
 3.  **Delivery Verification**: `DELIVERED` requires valid `otp` and `deliveryProofImage`.
 4.  **Cancellations**: Only allowed from `PENDING` and if no other item in order is `DELIVERED`.
+
+---
+
+
+
+
+
+
+
+# Return & Exchange Mobile APIs
+
+### 💡 Frontend Integration Note: Checking Return Eligibility
+Before calling any of the return/exchange APIs below, the mobile app must determine if the "Return/Exchange" button should be visible. 
+You do **NOT** need a new API for this. This data is already provided in the existing **Customer Order Details API** (`GET /mobileapi/customer/orders/[id]`).
+
+Inside the order details response, every item contains the following fields:
+```json
+{
+  "returnAvailable": true,
+  "replacementAllowed": true,
+  "returnPolicyType": "RETURNABLE",
+  "returnPolicyDays": 7,
+  "statusHistory": [ ... ]
+}
+```
+**Logic to show the Return button:**
+Show the button ONLY IF:
+1. `returnAvailable` is `true`.
+2. The item's current status is `DELIVERED`.
+3. The current date is before the deadline (Calculate deadline by finding the `createdAt` timestamp of the `DELIVERED` status in `statusHistory`, and adding `returnPolicyDays`).
+If any of these are false, hide the button entirely.
+
+---
+
+## 4. Get Exchange Options (Customer)
+Retrieves a list of eligible product variants for exchange and calculates exact price differences (top-up or wallet credit).
+
+- **Endpoint**: `GET /mobileapi/customer/orders/products/details/[id]/items/[orderItemId]/exchange-options`
+- **Authentication**: Required (Customer Bearer Token)
+
+### Response Payload:
+```json
+{
+  "success": true,
+  "message": "Exchange options fetched",
+  "data": {
+    "originalLineTotalInclGst": 115.00,
+    "productName": "Fashion - Men's Clothing Example",
+    "currentVariant": {
+      "id": "var_1",
+      "name": "Red - Large",
+      "imageUrl": "https://example.com/red.jpg",
+      "attributes": { "Color": "Red", "Size": "L" }
+    },
+    "variants": [
+      {
+        "id": "var_2",
+        "name": "Blue - Large",
+        "price": 120.00,
+        "discount": 0,
+        "stock": 10,
+        "attributes": { "Color": "Blue", "Size": "L" },
+        "imageUrl": "https://example.com/blue.jpg",
+        "eligible": true,
+        "replacementLineTotalInclGst": 138.00,
+        "priceDifferenceTopUp": 23.00,
+        "priceDifferenceWalletCredit": 0.00
+      }
+    ]
+  }
+}
+```
+
+---
+
+## 5. Submit Return/Exchange Request (Customer)
+Allows a customer to request a refund or an exchange for a delivered item within the return window.
+
+- **Endpoint**: `POST /mobileapi/customer/orders/products/details/[id]/items/[orderItemId]/return-request`
+- **Authentication**: Required (Customer Bearer Token)
+
+### Request Payload (Supports multipart/form-data & JSON):
+
+**Option A: Direct Image Upload (Recommended for Mobile)**
+Send as `multipart/form-data`:
+- `reason` (text): "Item is defective"
+- `returnImages` (files): Multiple image files appended to the same key.
+- `resolutionType` (text): "EXCHANGE" or "REFUND"
+- `replacementVariantId` (text): "var_2" (Required if EXCHANGE)
+
+*Example Mobile Request (React Native / Fetch):*
+```javascript
+const formData = new FormData();
+formData.append("reason", "Item arrived broken");
+formData.append("resolutionType", "REFUND");
+// Append multiple files
+formData.append("returnImages", { uri: "file://...", name: "photo1.jpg", type: "image/jpeg" });
+formData.append("returnImages", { uri: "file://...", name: "photo2.jpg", type: "image/jpeg" });
+
+fetch("https://api.../return-request", {
+  method: "POST",
+  headers: { "Authorization": "Bearer YOUR_TOKEN" },
+  body: formData
+});
+```
+
+**Option B: Existing URLs (JSON)**
+If the images are already uploaded, send as `application/json`:
+```json
+{
+  "reason": "Item is defective",
+  "returnImages": ["https://image1.jpg", "https://image2.jpg"],
+  "resolutionType": "EXCHANGE",
+  "replacementVariantId": "var_2"
+}
+```
+
+### Business Logic & Validations:
+When this API is called, the backend automatically checks:
+1. **Delivery Status**: Item must be `DELIVERED`.
+2. **Returnable Status**: The item's variant must be `RETURNABLE`.
+3. **Return Window**: The current date must be within `deliveredAt + returnDays`.
+4. **Stock Check (Exchange)**: If requesting an exchange, the selected `replacementVariantId` must have sufficient stock.
+If any check fails, it returns a `400 Bad Request` with an appropriate error message.
+
+### Response Payload:
+```json
+{
+  "success": true,
+  "message": "Return request created",
+  "data": {
+    "id": "req_1",
+    "status": "REQUESTED",
+    "pickupStatus": "NOT_REQUESTED",
+    "refundStatus": "NOT_REQUESTED",
+    "resolutionType": "EXCHANGE"
+  }
+}
+```
+
+---
+
+## 6. Manage Return/Exchange Request (Product Seller)
+Allows the seller to accept/reject a return request and manage its lifecycle (pickup, refund, top-up). 
+
+- **Endpoint**: `PATCH /mobileapi/product-seller/orders/[id]/items/[orderItemId]/return-request`
+- **Authentication**: Required (Product Seller Bearer Token)
+
+### Request Payload:
+```json
+{
+  "action": "ACCEPT" // Allowed: "ACCEPT", "REJECT", "PICKUP_COMPLETED", "REFUND_COMPLETED", "EXCHANGE_TOP_UP_RECEIVED"
+}
+```
+
+### Response Payload (Example: ACCEPT on an Exchange):
+```json
+{
+  "success": true,
+  "message": "Exchange accepted",
+  "data": {
+    "id": "req_1",
+    "status": "ACCEPTED",
+    "pickupStatus": "PENDING",
+    "refundStatus": "NOT_REQUESTED",
+    "resolutionType": "EXCHANGE",
+    "replacementOrderItemId": "new_item_id_2",
+    "exchangeTopUpAmount": 23.00,
+    "exchangeTopUpStatus": "PENDING",
+    "exchangeRefundDifferenceAmount": 0,
+    "exchangeRefundDifferenceStatus": "NOT_REQUESTED"
+  }
+}
+```
+
+### Business Logic Notes on Actions:
+- **`ACCEPT` (Exchange)**: Automatically generates the new replacement order item line (`replacementOrderItemId` will be populated).
+- **`ACCEPT` (Refund)**: Updates status to `ACCEPTED`.
+- **`PICKUP_COMPLETED` (Refund)**: Automatically triggers full financial credit to the customer's wallet and debits the seller balance.
+- **`PICKUP_COMPLETED` (Exchange)**: Just marks the pickup as complete (the exchange completion logic waits until the replacement item is delivered).
+- **`EXCHANGE_TOP_UP_RECEIVED`**: Marks top-up as paid and credits seller wallet.
+- **`REFUND_COMPLETED`**: Re-stocks the inventory and leaves an audit trail in `statusHistory`.
+
+### Lifecycle Example (Customer Requests Refund):
+1. Customer `POST`s return-request with `resolutionType: "REFUND"`.
+2. Seller `PATCH`es action `ACCEPT`. `pickupStatus` and `refundStatus` become `PENDING`.
+3. Seller `PATCH`es action `PICKUP_COMPLETED`. `pickupStatus` becomes `COMPLETED` and `refundStatus` becomes `COMPLETED` automatically (funds transfer).
+4. Seller `PATCH`es action `REFUND_COMPLETED`. Inventory is restocked, history updated to `REFUNDED`.
