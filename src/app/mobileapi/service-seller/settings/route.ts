@@ -303,7 +303,7 @@ export async function PUT(request: NextRequest) {
         finalSellerUpdate.businessInfo = {
           upsert: {
             update: bInfo,
-            create: { ...bInfo, sellerId: seller.id }
+            create: { ...bInfo }
           }
         }
       }
@@ -312,7 +312,7 @@ export async function PUT(request: NextRequest) {
         finalSellerUpdate.bankDetails = {
           upsert: {
             update: sData.bankDetails,
-            create: { ...sData.bankDetails, sellerId: seller.id }
+            create: { ...sData.bankDetails }
           }
         }
       }
@@ -321,7 +321,7 @@ export async function PUT(request: NextRequest) {
         finalSellerUpdate.kyc = {
           upsert: {
             update: sData.kyc,
-            create: { ...sData.kyc, sellerId: seller.id }
+            create: { ...sData.kyc }
           }
         }
       }
