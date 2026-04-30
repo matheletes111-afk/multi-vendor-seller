@@ -40,6 +40,44 @@ export async function GET(
   }
 }
 
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const session = await auth();
+    if (!session?.user || !isAdmin(session.user)) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { id } = await params;
+    const body = await request.json();
+    const isActive = body?.isActive;
+
+    if (isActive === undefined) {
+      return NextResponse.json({ error: "isActive field required" }, { status: 400 });
+    }
+
+    const existing = await prisma.serviceCategory.findUnique({ where: { id } });
+    if (!existing) {
+      return NextResponse.json({ error: "Service category not found" }, { status: 404 });
+    }
+
+    const updated = await prisma.serviceCategory.update({
+      where: { id },
+      data: { isActive },
+    });
+
+    return NextResponse.json({ category: updated });
+  } catch (error: any) {
+    console.error("Error patching service category:", error);
+    return NextResponse.json(
+      { error: error.message || "Failed to update" },
+      { status: 500 }
+    );
+  }
+}
+
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }

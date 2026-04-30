@@ -65,28 +65,41 @@ export async function PATCH(
 
     const { id } = await params;
     const body = await request.json();
-    const isFeatured = body?.isFeatured === true;
+    const isFeatured = body?.isFeatured;
+    const isActive = body?.isActive;
 
     const existing = await prisma.category.findUnique({ where: { id } });
     if (!existing) {
       return NextResponse.json({ error: "Category not found" }, { status: 404 });
     }
 
-    if (isFeatured) {
-      const featuredCount = await prisma.category.count({
-        where: { isFeatured: true, id: { not: id } },
-      });
-      if (featuredCount >= 4) {
-        return NextResponse.json(
-          { error: "Maximum 4 categories can be featured for mobile" },
-          { status: 400 }
-        );
+    const data: any = {};
+    if (isFeatured !== undefined) {
+      if (isFeatured === true) {
+        const featuredCount = await prisma.category.count({
+          where: { isFeatured: true, id: { not: id } },
+        });
+        if (featuredCount >= 4) {
+          return NextResponse.json(
+            { error: "Maximum 4 categories can be featured for mobile" },
+            { status: 400 }
+          );
+        }
       }
+      data.isFeatured = isFeatured;
+    }
+
+    if (isActive !== undefined) {
+      data.isActive = isActive;
+    }
+
+    if (Object.keys(data).length === 0) {
+      return NextResponse.json({ error: "No fields provided" }, { status: 400 });
     }
 
     const updated = await prisma.category.update({
       where: { id },
-      data: { isFeatured },
+      data,
     });
 
     return NextResponse.json({ category: updated });

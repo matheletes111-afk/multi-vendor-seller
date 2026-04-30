@@ -201,7 +201,18 @@ export function SellerDetailsView({
               <span className="text-[10px] font-medium uppercase text-muted-foreground/60 tracking-[0.2em]">{seller.type === "PRODUCT" ? "Authorized Categories" : "Authorized Services"}</span>
               <div className="flex flex-wrap gap-1.5">
                 {(seller.type === "PRODUCT" ? seller.selectedCategories : seller.selectedServiceCategories)?.map((c: any) => (
-                  <Badge key={c.id} variant="outline" className="rounded-full text-[9px] font-medium uppercase tracking-tighter bg-primary/5 border-primary/20 text-primary">{c.name}</Badge>
+                  <Badge 
+                    key={c.id} 
+                    variant={c.isActive ? "outline" : "secondary"} 
+                    className={cn(
+                      "rounded-full text-[9px] font-medium uppercase tracking-tighter",
+                      c.isActive 
+                        ? "bg-primary/5 border-primary/20 text-primary" 
+                        : "bg-amber-100 text-amber-700 border-amber-200 flex items-center gap-1"
+                    )}
+                  >
+                    {c.name} {!c.isActive && <span className="text-[7px] opacity-70">(Suggested)</span>}
+                  </Badge>
                 )) || <span className="text-xs text-muted-foreground font-medium">Undefined</span>}
               </div>
             </div>

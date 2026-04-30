@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma"
 import { isProductSeller } from "@/lib/rbac"
 import { uploadPublicFile } from "@/lib/upload-public-file"
 import path from "path"
+import { generateSlug } from "@/lib/utils"
 
 export async function GET() {
   const session = await auth()
@@ -62,7 +63,7 @@ export async function POST(request: NextRequest) {
         businessName: formData.get("businessName") as string,
         businessType: formData.get("businessType") as string,
         businessRegNumber: formData.get("businessRegNumber") as string,
-        taxIdNumber: haveGst ? (formData.get("taxIdNumber") as string) : null,
+        taxIdNumber: formData.get("taxIdNumber") as string,
         street: formData.get("street") as string,
         city: formData.get("city") as string,
         district: formData.get("district") as string,
@@ -74,12 +75,10 @@ export async function POST(request: NextRequest) {
       } : {
         ...jsonBody.data,
         haveGst: haveGst,
-        taxIdNumber: haveGst ? jsonBody.data.taxIdNumber : null,
+        taxIdNumber: jsonBody.data.taxIdNumber,
         gstInvNo: haveGst ? jsonBody.data.gstInvNo : null,
         gstCustomerName: haveGst ? jsonBody.data.gstCustomerName : null,
       }
-
-      const nationIdentityNumber = formData ? (formData.get("nationIdentityNumber") as string) : jsonBody.data.nationIdentityNumber
 
       if (formData) {
         const profileImageFile = formData.get("profileImage") as File | null
@@ -118,6 +117,14 @@ export async function POST(request: NextRequest) {
         update: { ...data, busRegCertUrl } as any,
         create: { ...data, busRegCertUrl, sellerId: seller.id } as any,
       })
+    } else if (step === 3) {
+      // Step 3: KYC
+      const nationIdentityNumber = formData ? (formData.get("nationIdentityNumber") as string) : jsonBody.data.nationIdentityNumber
+
+      const data = formData ? {
+        idType: formData.get("idType") as string,
+        idNumber: formData.get("idNumber") as string,
+      } : jsonBody.data
 
       if (nationIdentityNumber) {
         await prisma.seller.update({
@@ -125,12 +132,6 @@ export async function POST(request: NextRequest) {
           data: { nationIdentityNumber },
         })
       }
-    } else if (step === 3) {
-      // Step 3: KYC
-      const data = formData ? {
-        idType: formData.get("idType") as string,
-        idNumber: formData.get("idNumber") as string,
-      } : jsonBody.data
 
       let idFrontUrl = seller.kyc?.idFrontUrl
       let idBackUrl = seller.kyc?.idBackUrl
@@ -207,7 +208,120 @@ export async function POST(request: NextRequest) {
       })
     } else if (step === 5) {
       // Step 5: Store Setup & Categories
-      const categoryIds = formData ? formData.getAll("categoryIds") : jsonBody.data.categoryIds
+      let categoryIds = formData ? formData.getAll("categoryIds") : (jsonBody.data.categoryIds || [])
+      
+      const suggestionCountRaw = formData ? formData.get("suggestionCount") : jsonBody.data.suggestionCount
+      const suggestionCount = parseInt(suggestionCountRaw as string) || 0
+
+      for (let i = 0; i < suggestionCount; i++) {
+        const suggestedId = formData ? formData.get(`suggestion_id_${i}`) as string : jsonBody.data[`suggestion_id_${i}`]
+        const suggestedName = formData ? formData.get(`suggestion_name_${i}`) as string : jsonBody.data[`suggestion_name_${i}`]
+        const suggestedDesc = formData ? formData.get(`suggestion_description_${i}`) as string : jsonBody.data[`suggestion_description_${i}`]
+
+        if (suggestedName || suggestedId) {
+          // Check if category already exists
+          let existing = null
+          if (suggestedId) {
+            existing = await prisma.category.findUnique({ where: { id: suggestedId } })
+          }
+
+          if (!existing && suggestedName) {
+            existing = await prisma.category.findFirst({
+              where: {
+                OR: [
+                  { name: { equals: suggestedName, mode: 'insensitive' } },
+                  { slug: generateSlug(suggestedName) }
+                ]
+              }
+            })
+          }
+
+          if (existing) {
+            if (existing.isActive === false) {
+              // Update existing suggestion if it's still pending
+              let imageUrl = existing.image
+              let mobileIconUrl = existing.mobileIcon
+
+              if (formData) {
+                const img = formData.get(`suggestion_image_${i}`) as File | null
+                const icon = formData.get(`suggestion_mobile_icon_${i}`) as File | null
+                if (img && img.size > 0) {
+                  imageUrl = await uploadPublicFile({
+                    folder: "categories",
+                    ext: path.extname(img.name) || ".jpg",
+                    contentType: img.type || "image/jpeg",
+                    buffer: Buffer.from(await img.arrayBuffer()),
+                    prefix: "category",
+                  })
+                }
+                if (icon && icon.size > 0) {
+                  mobileIconUrl = await uploadPublicFile({
+                    folder: "categories",
+                    ext: path.extname(icon.name) || ".png",
+                    contentType: icon.type || "image/png",
+                    buffer: Buffer.from(await icon.arrayBuffer()),
+                    prefix: "mobile",
+                  })
+                }
+              }
+
+              await prisma.category.update({
+                where: { id: existing.id },
+                data: {
+                  name: suggestedName || existing.name,
+                  slug: suggestedName ? generateSlug(suggestedName) : existing.slug,
+                  description: suggestedDesc,
+                  image: imageUrl,
+                  mobileIcon: mobileIconUrl,
+                }
+              })
+            }
+            if (!categoryIds.includes(existing.id)) {
+              categoryIds.push(existing.id)
+            }
+          } else {
+            let imageUrl = ""
+            let mobileIconUrl = ""
+
+            if (formData) {
+              const img = formData.get(`suggestion_image_${i}`) as File | null
+              const icon = formData.get(`suggestion_mobile_icon_${i}`) as File | null
+              if (img && img.size > 0) {
+                imageUrl = await uploadPublicFile({
+                  folder: "categories",
+                  ext: path.extname(img.name) || ".jpg",
+                  contentType: img.type || "image/jpeg",
+                  buffer: Buffer.from(await img.arrayBuffer()),
+                  prefix: "category",
+                })
+              }
+              if (icon && icon.size > 0) {
+                mobileIconUrl = await uploadPublicFile({
+                  folder: "categories",
+                  ext: path.extname(icon.name) || ".png",
+                  contentType: icon.type || "image/png",
+                  buffer: Buffer.from(await icon.arrayBuffer()),
+                  prefix: "mobile",
+                })
+              }
+            }
+
+            const newCat = await prisma.category.create({
+              data: {
+                name: suggestedName,
+                slug: generateSlug(suggestedName),
+                description: suggestedDesc,
+                image: imageUrl,
+                mobileIcon: mobileIconUrl,
+                isActive: false,
+                isFeatured: false,
+              }
+            })
+            categoryIds.push(newCat.id)
+          }
+        }
+      }
+
       const storeData: any = formData ? {
         name: formData.get("storeName") as string,
         description: formData.get("description") as string,

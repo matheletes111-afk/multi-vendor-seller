@@ -15,11 +15,21 @@ import { Badge } from "@/ui/badge"
 import { PageLoader } from "@/components/ui/page-loader"
 import { ProfilePictureInput } from "@/components/profile-picture-input"
 import { StoreLocationPicker } from "@/components/store-location-picker"
-import { FileText, Image as ImageIcon, CheckCircle2, ChevronLeft, ChevronRight, Upload, AlertCircle, Check, User, LogOut } from "lucide-react"
+import { FileText, Image as ImageIcon, CheckCircle2, ChevronLeft, ChevronRight, Upload, AlertCircle, Check, User, LogOut, Plus, X, Pencil } from "lucide-react"
 import Image from "next/image"
 import { cn } from "@/lib/utils"
 
 type Step = 2 | 3 | 4 | 5 | 6 | 7
+
+interface ServiceCategorySuggestion {
+  id?: string;
+  name: string;
+  description: string;
+  image: File | null;
+  icon: File | null;
+  imagePreview: string;
+  iconPreview: string;
+}
 
 export function ServiceOnboardingClient() {
   const router = useRouter()
@@ -29,6 +39,16 @@ export function ServiceOnboardingClient() {
   const [seller, setSeller] = useState<any>(null)
   const [serviceCategories, setServiceCategories] = useState<any[]>([])
   const [currentStep, setCurrentStep] = useState<Step>(2)
+  const [showSuggestionForm, setShowSuggestionForm] = useState(false)
+  const [suggestionsList, setSuggestionsList] = useState<ServiceCategorySuggestion[]>([])
+  const [tempSuggestion, setTempSuggestion] = useState<Partial<ServiceCategorySuggestion>>({
+    name: '',
+    description: '',
+    image: null,
+    icon: null,
+    imagePreview: '',
+    iconPreview: ''
+  })
   const [error, setError] = useState<string | null>(null)
   const [previews, setPreviews] = useState<Record<string, { file: File, url: string }>>({})
   const [selectedCats, setSelectedCats] = useState<string[]>([])
@@ -83,6 +103,24 @@ export function ServiceOnboardingClient() {
 
         setCurrentStep(sellerData.onboardingStep as Step)
 
+        if (sellerData.selectedServiceCategories) {
+          setSelectedCats(sellerData.selectedServiceCategories.map((c: any) => c.id))
+
+          // Populate suggestions list from inactive service categories
+          const suggestions = sellerData.selectedServiceCategories
+            .filter((c: any) => !c.isActive)
+            .map((c: any) => ({
+              id: c.id, // Keep track of ID for updates
+              name: c.name,
+              description: c.description || '',
+              image: null,
+              icon: null,
+              imagePreview: c.image || '',
+              iconPreview: c.mobileIcon || ''
+            }))
+          setSuggestionsList(suggestions)
+        }
+
         if (catsRes.ok) {
           const catsData = await catsRes.json()
           setServiceCategories(catsData.categories || [])
@@ -105,34 +143,35 @@ export function ServiceOnboardingClient() {
     formData.append("step", currentStep.toString())
 
     try {
-        let res: Response
-        if (currentStep === 5 || currentStep === 6) {
-          const data: any = {}
-          if (currentStep === 5) {
-            // If Step 5 has files, we'll fall through to FormData submission below
-            const logo = formData.get("storeLogo") as File | null
-            const banner = formData.get("storeBanner") as File | null
-            if ((logo && logo.size > 0) || (banner && banner.size > 0)) {
-              res = await fetch("/api/service-seller/onboarding", {
-                method: "POST",
-                body: formData
-              })
-            } else {
-              data.name = formData.get("storeName")
-              data.description = formData.get("description")
-              data.categoryIds = formData.getAll("categoryIds")
-              res = await fetch("/api/service-seller/onboarding", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ step: currentStep, data })
-              })
-            }
+      let res: Response
+      if (currentStep === 5 || currentStep === 6) {
+        const data: any = {}
+        if (currentStep === 5) {
+          // If Step 5 has files or suggestions, we use FormData
+          const logo = formData.get("storeLogo") as File | null
+          const banner = formData.get("storeBanner") as File | null
+          
+          const hasFiles = (logo && logo.size > 0) || (banner && banner.size > 0) || suggestionsList.length > 0
+
+          if (hasFiles) {
+            // Append suggestions to formData
+            formData.append("suggestionCount", suggestionsList.length.toString())
+            suggestionsList.forEach((sug, i) => {
+              if (sug.id) formData.append(`suggestion_id_${i}`, sug.id)
+              formData.append(`suggestion_name_${i}`, sug.name)
+              formData.append(`suggestion_description_${i}`, sug.description)
+              if (sug.image) formData.append(`suggestion_image_${i}`, sug.image)
+              if (sug.icon) formData.append(`suggestion_mobile_icon_${i}`, sug.icon)
+            })
+
+            res = await fetch("/api/service-seller/onboarding", {
+              method: "POST",
+              body: formData
+            })
           } else {
-            // Step 6
-            data.agreedToTerms = formData.get("agreedToTerms") === "on"
-            data.agreedToCommission = formData.get("agreedToCommission") === "on"
-            data.agreedToReturnPolicy = formData.get("agreedToReturnPolicy") === "on"
-            data.agreedToPrivacy = formData.get("agreedToPrivacy") === "on"
+            data.name = formData.get("storeName")
+            data.description = formData.get("description")
+            data.categoryIds = formData.getAll("categoryIds")
             res = await fetch("/api/service-seller/onboarding", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -140,11 +179,23 @@ export function ServiceOnboardingClient() {
             })
           }
         } else {
+          // Step 6
+          data.agreedToTerms = formData.get("agreedToTerms") === "on"
+          data.agreedToCommission = formData.get("agreedToCommission") === "on"
+          data.agreedToReturnPolicy = formData.get("agreedToReturnPolicy") === "on"
+          data.agreedToPrivacy = formData.get("agreedToPrivacy") === "on"
           res = await fetch("/api/service-seller/onboarding", {
             method: "POST",
-            body: formData
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ step: currentStep, data })
           })
         }
+      } else {
+        res = await fetch("/api/service-seller/onboarding", {
+          method: "POST",
+          body: formData
+        })
+      }
 
       const result = await res.json()
       if (!res.ok) throw new Error(result.error || "Failed to save step")
@@ -266,7 +317,7 @@ export function ServiceOnboardingClient() {
                     "w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm transition-all duration-300",
                     currentStep > step.id ? "bg-emerald-500 text-white shadow-lg shadow-emerald-200" :
                       currentStep === step.id ? "bg-white text-emerald-600 border-2 border-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.2)]" :
-                         "bg-slate-100 text-slate-400 border-2 border-transparent"
+                        "bg-slate-100 text-slate-400 border-2 border-transparent"
                   )}>
                     {currentStep > step.id ? <Check className="w-4 h-4" /> : idx + 1}
                   </div>
@@ -333,14 +384,10 @@ export function ServiceOnboardingClient() {
                     <ProfilePictureInput currentImage={seller.user?.image} fileInputName="profileImage" urlInputName="image" />
                     <p className="text-[10px] text-slate-400 mt-2 italic">This photo will be visible to customers on your service profile.</p>
                   </div>
-                  
+
                   <div className="space-y-2">
                     <Label htmlFor="businessName">Business Name *</Label>
                     <Input id="businessName" name="businessName" defaultValue={seller.businessInfo?.businessName || ""} placeholder="Your licensed business name" required className="h-12 rounded-xl focus:ring-purple-500" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="nationIdentityNumber">National Identity Number (NIN) *</Label>
-                    <Input id="nationIdentityNumber" name="nationIdentityNumber" defaultValue={seller.nationIdentityNumber || ""} required placeholder="Enter your 11-digit NIN" className="h-12 rounded-xl" />
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
@@ -364,11 +411,11 @@ export function ServiceOnboardingClient() {
                     <h2 className="text-xl font-bold text-slate-800">GST Info</h2>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor="haveGst">Do you have GST? *</Label>
-                        <Select 
-                          name="haveGst" 
+                        <Label htmlFor="haveGst">Do you sell with GST? *</Label>
+                        <Select
+                          name="haveGst"
                           key={haveGst ? "yes" : "no"}
-                          defaultValue={haveGst ? "true" : "false"} 
+                          defaultValue={haveGst ? "true" : "false"}
                           onValueChange={(val) => setHaveGst(val === "true")}
                         >
                           <SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Select" /></SelectTrigger>
@@ -384,15 +431,9 @@ export function ServiceOnboardingClient() {
                       <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div className="space-y-2">
-                            <Label htmlFor="taxIdNumber">Tin no *</Label>
-                            <Input id="taxIdNumber" name="taxIdNumber" defaultValue={seller.businessInfo?.taxIdNumber || ""} required={haveGst} className="h-12 rounded-xl" />
-                          </div>
-                          <div className="space-y-2">
                             <Label htmlFor="gstCustomerName">Customer GST Name *</Label>
                             <Input id="gstCustomerName" name="gstCustomerName" defaultValue={seller.businessInfo?.gstCustomerName || ""} required={haveGst} className="h-12 rounded-xl" />
                           </div>
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div className="space-y-2">
                             <Label htmlFor="gstInvNo">Inv No *</Label>
                             <Input id="gstInvNo" name="gstInvNo" defaultValue={seller.businessInfo?.gstInvNo || ""} required={haveGst} className="h-12 rounded-xl" />
@@ -400,6 +441,10 @@ export function ServiceOnboardingClient() {
                         </div>
                       </div>
                     )}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="taxIdNumber">TIN No *</Label>
+                    <Input id="taxIdNumber" name="taxIdNumber" defaultValue={seller.businessInfo?.taxIdNumber || ""} required className="h-12 rounded-xl" />
                   </div>
                   <div className="space-y-2 pt-2">
                     <Label htmlFor="busRegCert" className="text-sm font-semibold">Business Registration Certificate / Trade License</Label>
@@ -424,7 +469,7 @@ export function ServiceOnboardingClient() {
                         <Label htmlFor="district">District *</Label>
                         <Input id="district" name="district" defaultValue={seller.businessInfo?.district || ""} required className="h-12 rounded-xl" />
                       </div>
-                      <div className="space-y-2">
+                      <div className="space-y-2" style={{ "display": "none" }}>
                         <Label htmlFor="postalCode">Postal Code</Label>
                         <Input id="postalCode" name="postalCode" defaultValue={seller.businessInfo?.postalCode || ""} className="h-12 rounded-xl" />
                       </div>
@@ -448,6 +493,10 @@ export function ServiceOnboardingClient() {
                   <p className="text-slate-500 mt-2">Verified identity helps build trust with customers.</p>
                 </div>
                 <div className="space-y-6">
+                  <div className="space-y-2">
+                    <Label htmlFor="nationIdentityNumber">National Identity Number (NIN) *</Label>
+                    <Input id="nationIdentityNumber" name="nationIdentityNumber" defaultValue={seller.nationIdentityNumber || ""} required placeholder="Enter your 11-digit NIN" className="h-12 rounded-xl" />
+                  </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="idType">ID Type *</Label>
@@ -559,13 +608,13 @@ export function ServiceOnboardingClient() {
                           <input type="radio" name="preferredPayoutMethod" value="Bank Transfer" className="h-4 w-4 accent-teal-600" defaultChecked={seller.bankDetails?.preferredPayoutMethod === "Bank Transfer"} />
                           <span className={cn("text-sm font-medium", seller.bankDetails?.preferredPayoutMethod === "Bank Transfer" ? "text-teal-700" : "text-slate-600")}>Bank Transfer</span>
                         </label>
-                        <label className={cn(
+                        {/* <label className={cn(
                           "flex items-center gap-3 p-4 border rounded-xl cursor-pointer transition-all hover:bg-slate-50",
                           seller.bankDetails?.preferredPayoutMethod === "Mobile Wallet" ? "bg-teal-50 border-teal-500 ring-1 ring-teal-500" : "bg-white"
                         )}>
                           <input type="radio" name="preferredPayoutMethod" value="Mobile Wallet" className="h-4 w-4 accent-teal-600" defaultChecked={seller.bankDetails?.preferredPayoutMethod === "Mobile Wallet"} />
                           <span className={cn("text-sm font-medium", seller.bankDetails?.preferredPayoutMethod === "Mobile Wallet" ? "text-teal-700" : "text-slate-600")}>Mobile Wallet</span>
-                        </label>
+                        </label> */}
                       </div>
                     </div>
                   </div>
@@ -589,19 +638,19 @@ export function ServiceOnboardingClient() {
                 <div className="space-y-6">
                   <div className="space-y-4">
                     <div className="space-y-2">
-                        <Label htmlFor="storeName">Service Center / Store Name *</Label>
-                        <Input id="storeName" name="storeName" defaultValue={seller.store?.name || ""} required className="h-12 rounded-xl" />
+                      <Label htmlFor="storeName">Service Center / Store Name *</Label>
+                      <Input id="storeName" name="storeName" defaultValue={seller.store?.name || ""} required className="h-12 rounded-xl" />
                     </div>
                     <div className="space-y-2">
-                        <Label htmlFor="description">About Your Services</Label>
-                        <Textarea id="description" name="description" defaultValue={seller.store?.description || ""} placeholder="Describe your experience, expertise and services offered..." rows={4} className="rounded-xl" />
+                      <Label htmlFor="description">About Your Services</Label>
+                      <Textarea id="description" name="description" defaultValue={seller.store?.description || ""} placeholder="Describe your experience, expertise and services offered..." rows={4} className="rounded-xl" />
                     </div>
                   </div>
 
                   <div className="space-y-4 pt-4 border-t border-slate-100">
                     <h2 className="text-xl font-bold text-slate-800">Store Visuals</h2>
                     <p className="text-xs text-slate-500 mb-4">Upload your service store logo and banner.</p>
-                    
+
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div className="space-y-2">
                         <Label htmlFor="storeLogo" className="flex items-center gap-2"><ImageIcon className="h-4 w-4" /> Store Logo *</Label>
@@ -631,8 +680,176 @@ export function ServiceOnboardingClient() {
                   </div>
 
                   <div className="space-y-4 pt-4 border-t border-slate-100">
-                    <Label className="text-base font-semibold">Service Categories *</Label>
+                    <div className="flex items-center justify-between">
+                      <Label className="text-base font-semibold">Service Categories *</Label>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className={cn(
+                          "rounded-full border-teal-200 text-teal-600 hover:bg-teal-50 transition-all gap-1.5",
+                          showSuggestionForm && "bg-teal-100 border-teal-300"
+                        )}
+                        onClick={() => setShowSuggestionForm(!showSuggestionForm)}
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                        Suggest New
+                      </Button>
+                    </div>
                     <p className="text-xs text-slate-500 mb-4">Select categories that match your skills. Your services will be listable in these categories.</p>
+
+                    {showSuggestionForm && (
+                      <div className="p-6 border-2 border-dashed rounded-3xl bg-teal-50/30 border-teal-100 animate-in fade-in slide-in-from-top-4 duration-300 space-y-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 rounded-full bg-teal-600 flex items-center justify-center text-white">
+                              <Plus className="h-4 w-4" />
+                            </div>
+                            <h3 className="text-sm font-bold text-slate-800">Suggest New Service Category</h3>
+                          </div>
+                          <Button type="button" variant="ghost" size="sm" onClick={() => setShowSuggestionForm(false)} className="h-8 w-8 p-0 rounded-full hover:bg-teal-100 text-teal-600">
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+
+                        <div className="space-y-4">
+                          <div className="space-y-2">
+                            <Label>Category Name *</Label>
+                            <Input
+                              value={tempSuggestion.name}
+                              onChange={(e) => setTempSuggestion(prev => ({ ...prev, name: e.target.value }))}
+                              placeholder="e.g., Specialized Home Repair"
+                              className="h-11 rounded-xl border-teal-100 focus:ring-teal-500 bg-white"
+                            />
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label>Description</Label>
+                            <Textarea
+                              value={tempSuggestion.description}
+                              onChange={(e) => setTempSuggestion(prev => ({ ...prev, description: e.target.value }))}
+                              placeholder="Briefly describe the skills required for this category..."
+                              rows={2}
+                              className="rounded-xl border-teal-100 focus:ring-teal-500 bg-white"
+                            />
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <Label className="text-xs font-semibold">Category Banner *</Label>
+                              <div className="relative">
+                                <Input
+                                  type="file"
+                                  accept="image/*"
+                                  className="h-11 rounded-xl border-teal-100 bg-white cursor-pointer"
+                                  onChange={(e) => {
+                                    const file = e.target.files?.[0]
+                                    if (file) {
+                                      setTempSuggestion(prev => ({ 
+                                        ...prev, 
+                                        image: file, 
+                                        imagePreview: URL.createObjectURL(file) 
+                                      }))
+                                    }
+                                  }}
+                                />
+                                {tempSuggestion.imagePreview && (
+                                  <div className="mt-2 flex items-center gap-2 p-2 bg-white rounded-lg border border-teal-100 animate-in fade-in">
+                                    <img src={tempSuggestion.imagePreview} className="w-8 h-8 rounded object-cover" />
+                                    <span className="text-[10px] truncate max-w-[100px]">
+                                      {tempSuggestion.image ? tempSuggestion.image.name : "Existing Image"}
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                            <div className="space-y-2">
+                              <Label className="text-xs font-semibold">Mobile Icon (PNG) *</Label>
+                              <div className="relative">
+                                <Input
+                                  type="file"
+                                  accept="image/*"
+                                  className="h-11 rounded-xl border-teal-100 bg-white cursor-pointer"
+                                  onChange={(e) => {
+                                    const file = e.target.files?.[0]
+                                    if (file) {
+                                      setTempSuggestion(prev => ({ 
+                                        ...prev, 
+                                        icon: file, 
+                                        iconPreview: URL.createObjectURL(file) 
+                                      }))
+                                    }
+                                  }}
+                                />
+                                {tempSuggestion.iconPreview && (
+                                  <div className="mt-2 flex items-center gap-2 p-2 bg-white rounded-lg border border-teal-100 animate-in fade-in">
+                                    <img src={tempSuggestion.iconPreview} className="w-8 h-8 rounded object-cover" />
+                                    <span className="text-[10px] truncate max-w-[100px]">
+                                      {tempSuggestion.icon ? tempSuggestion.icon.name : "Existing Icon"}
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                          <Button 
+                            type="button" 
+                            disabled={!tempSuggestion.name || (!tempSuggestion.image && !tempSuggestion.imagePreview) || (!tempSuggestion.icon && !tempSuggestion.iconPreview)}
+                            onClick={() => {
+                              setSuggestionsList(prev => [...prev, tempSuggestion as ServiceCategorySuggestion])
+                              setTempSuggestion({ name: '', description: '', image: null, icon: null, imagePreview: '', iconPreview: '' })
+                              setShowSuggestionForm(false)
+                            }}
+                            className="w-full bg-teal-600 hover:bg-teal-700 text-white rounded-xl h-11 transition-all flex items-center gap-2"
+                          >
+                            <Plus className="h-4 w-4" /> Add to List
+                          </Button>
+                        </div>
+                        <p className="text-[10px] text-teal-400 italic bg-teal-50/50 p-2 rounded-lg border border-teal-100/50">
+                          Note: Your suggestion will be reviewed by admin. You can select other existing categories for now.
+                        </p>
+                      </div>
+                    )}
+
+                    {/* List of current suggestions */}
+                    {suggestionsList.length > 0 && (
+                      <div className="space-y-3 mt-4 mb-6">
+                         <Label className="text-xs uppercase tracking-wider text-teal-500 font-bold flex items-center gap-2">
+                           <CheckCircle2 className="h-4 w-4" /> Added Suggestions ({suggestionsList.length})
+                         </Label>
+                         <div className="flex flex-wrap gap-3">
+                           {suggestionsList.map((sug, idx) => (
+                             <div key={idx} className="flex items-center gap-3 px-4 py-2 bg-teal-50 border border-teal-200 rounded-xl text-sm font-medium text-teal-800 shadow-sm animate-in zoom-in-95">
+                               {sug.iconPreview && <img src={sug.iconPreview} className="w-5 h-5 rounded-full object-cover border border-teal-200 bg-white" />}
+                               <span className="truncate max-w-[200px]">{sug.name}</span>
+                               <div className="flex items-center gap-1 pl-2 border-l border-teal-200">
+                                 <button 
+                                   type="button" 
+                                   onClick={() => {
+                                     setTempSuggestion(sug)
+                                     setShowSuggestionForm(true)
+                                     setSuggestionsList(prev => prev.filter((_, i) => i !== idx))
+                                   }}
+                                   className="p-1 hover:bg-white rounded-md text-teal-500 hover:text-teal-700 transition-colors"
+                                   title="Edit Suggestion"
+                                 >
+                                   <Pencil className="h-3.5 w-3.5" />
+                                 </button>
+                                 <button 
+                                   type="button" 
+                                   onClick={() => setSuggestionsList(prev => prev.filter((_, i) => i !== idx))}
+                                   className="p-1 hover:bg-white rounded-md text-teal-500 hover:text-red-600 transition-colors"
+                                   title="Remove Suggestion"
+                                 >
+                                   <X className="h-3.5 w-3.5" />
+                                 </button>
+                               </div>
+                             </div>
+                           ))}
+                         </div>
+                      </div>
+                    )}
+
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {serviceCategories.map((cat: any) => {
                         const isSelected = selectedCats.includes(cat.id);

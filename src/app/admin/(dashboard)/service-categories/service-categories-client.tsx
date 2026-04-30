@@ -91,6 +91,8 @@ export function ServiceCategoriesClient() {
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [togglingActiveId, setTogglingActiveId] = useState<string | null>(null);
+  const [toggleError, setToggleError] = useState<string | null>(null);
 
   useEffect(() => setMounted(true), []);
 
@@ -116,6 +118,39 @@ export function ServiceCategoriesClient() {
       cancelled = true;
     };
   }, [page, perPage]);
+
+  const handleToggleActive = async (category: ServiceCategory) => {
+    const next = !category.isActive;
+    setTogglingActiveId(category.id);
+    setToggleError(null);
+    try {
+      const res = await fetch(`/api/admin/service-categories/${category.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isActive: next }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setToggleError(data.error || "Failed to update");
+        return;
+      }
+      setData((prev) =>
+        prev
+          ? {
+              ...prev,
+              categories: prev.categories.map((c) =>
+                c.id === category.id ? { ...c, isActive: next } : c
+              ),
+            }
+          : null
+      );
+      router.refresh();
+    } catch (e: any) {
+      setToggleError(e.message || "Failed to update");
+    } finally {
+      setTogglingActiveId(null);
+    }
+  };
 
   const handleDelete = async (categoryId: string) => {
     setDeletingId(categoryId);
@@ -160,6 +195,11 @@ export function ServiceCategoriesClient() {
       {params.success && (
         <Alert className="border-none shadow-xl bg-green-500/10 text-green-600 animate-in slide-in-from-top-4 duration-500">
           <AlertDescription className="font-medium text-xs">Action completed: {decodeURIComponent(params.success)}</AlertDescription>
+        </Alert>
+      )}
+      {toggleError && (
+        <Alert variant="destructive" className="border-none shadow-xl bg-destructive/10 text-destructive animate-in slide-in-from-top-4 duration-500">
+          <AlertDescription className="font-medium">{toggleError}</AlertDescription>
         </Alert>
       )}
 
@@ -226,11 +266,14 @@ export function ServiceCategoriesClient() {
                             </div>
                           </TableCell>
                           <TableCell>
-                            <Badge className={cn(
-                              "rounded-full text-[9px] font-medium uppercase tracking-widest px-3 py-0.5 border-none shadow-sm shadow-black/5",
-                              category.isActive ? "bg-green-500 text-white" : "bg-muted text-muted-foreground"
-                            )}>
-                              {category.isActive ? "Live" : "Inactive"}
+                            <Badge 
+                              className={cn(
+                                "rounded-full text-[9px] font-medium uppercase tracking-widest px-3 py-0.5 border-none shadow-sm shadow-black/5 cursor-pointer hover:opacity-80 transition-opacity",
+                                category.isActive ? "bg-green-500 text-white" : "bg-muted text-muted-foreground"
+                              )}
+                              onClick={() => !togglingActiveId && handleToggleActive(category)}
+                            >
+                              {togglingActiveId === category.id ? "..." : category.isActive ? "Live" : "Inactive"}
                             </Badge>
                           </TableCell>
                           <TableCell className="text-right pr-8">

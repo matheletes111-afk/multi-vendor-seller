@@ -17,8 +17,8 @@ This document is the official guide for implementing the step-by-step onboarding
 
 - **Auth**: `Authorization: Bearer <token>` (Required for ALL endpoints)
 - **Step Mapping**: 
-  - Mobile Step 1 -> DB Onboarding Step 2/3 (Business Info & NIN)
-  - Mobile Step 2 -> DB Onboarding Step 4 (KYC)
+  - Mobile Step 1 -> DB Onboarding Step 3 (Business Info)
+  - Mobile Step 2 -> DB Onboarding Step 4 (KYC & NIN)
   - Mobile Step 3 -> DB Onboarding Step 5 (Bank & Payouts)
   - Mobile Step 4 -> DB Onboarding Step 6 (Store Setup & Categories)
   - Mobile Step 5 -> DB Onboarding Completion (Agreement)
@@ -102,8 +102,8 @@ Fetch the available categories for the checklist in Step 4.
 
 ## 4. STEP-BY-STEP SUBMISSION (POST)
 
-### STEP 1: BUSINESS INFORMATION & IDENTITY
-**Action**: Save business details, registration docs, and NIN.
+### STEP 1: BUSINESS INFORMATION
+**Action**: Save business details and registration docs.
 - **Content-Type**: `multipart/form-data`
 
 | Field | Type | Description | Required |
@@ -112,14 +112,13 @@ Fetch the available categories for the checklist in Step 4.
 | `businessName` | string | Legal business name | Yes |
 | `businessType` | string | "Individual", "Partnership", "Company", etc. | Yes |
 | `businessRegNumber`| string | Registration number | No |
-| `nationIdentityNumber`| string | 11-digit identification number | Yes |
 | `street` | string | Physical street | Yes |
 | `city` | string | City | Yes |
 | `district` | string | District | Yes |
 | `postalCode` | string | Postal Code | Yes |
 | `natureOfBusiness` | string | Business operations summary | No |
 | `haveGst` | string | "true" or "false" | Yes |
-| `taxIdNumber` | string | TIN (Required if `haveGst` is "true") | Cond. |
+| `taxIdNumber` | string | Tax Identification Number (TIN) | Yes |
 | `gstCustomerName` | string | Customer Name (Required if `haveGst` is "true") | Cond. |
 | `gstInvNo` | string | Invoice Number (Required if `haveGst` is "true") | Cond. |
 | **Files** | | | |
@@ -129,12 +128,13 @@ Fetch the available categories for the checklist in Step 4.
 ---
 
 ### STEP 2: KYC VERIFICATION
-**Action**: Upload official identity documents and selfie.
+**Action**: Upload official identity documents, NIN, and selfie.
 - **Content-Type**: `multipart/form-data`
 
 | Field | Type | Description | Required |
 | :--- | :--- | :--- | :--- |
 | `step` | string | Constant "2" | Yes |
+| `nationIdentityNumber`| string | 11-digit National Identity Number | Yes |
 | `idType` | string | "National ID", "Voter Card", "Passport", etc. | Yes |
 | `idNumber` | string | Document ID Number | Yes |
 | **Files** | | | |
@@ -176,9 +176,15 @@ Fetch the available categories for the checklist in Step 4.
 | `storeAddress` | string | Public shop address | No |
 | `storeLat` | string | Latitude (decimal) | No |
 | `storeLng` | string | Longitude (decimal) | No |
+| `suggestionCount` | string/int | Total number of suggestions | No |
+| `suggestion_id_{i}` | string | ID of suggestion `i` (Required if editing an existing suggestion) | Cond. |
+| `suggestion_name_{i}` | string | Name for suggestion at index `i` | No |
+| `suggestion_description_{i}`| string | Description for suggestion at index `i` | No |
 | **Files** | | | |
 | `storeLogo` | File | Store logo icon | No |
 | `storeBanner` | File | Store header image | No |
+| `suggestion_image_{i}` | File | Main banner for suggestion `i` | No |
+| `suggestion_mobile_icon_{i}` | File | PNG icon for suggestion `i` | No |
 
 ---
 
