@@ -29,7 +29,7 @@ This document is the official guide for implementing the step-by-step onboarding
 Fetch the available categories for the checklist in Step 4.
 
 **Endpoint**: `GET /mobileapi/[seller-type]/categories`
-**Response**: Array of category objects with `id`, `name`, and optionally `image`.
+**Response**: Array of category objects with `id`, `name`, `isActive`, and optionally `image`.
 
 ---
 

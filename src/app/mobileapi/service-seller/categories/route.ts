@@ -13,12 +13,18 @@ export async function GET(request: NextRequest) {
 
   try {
     const serviceCategories = await prisma.serviceCategory.findMany({
-      where: { isActive: true },
+      where: {
+        OR: [
+          { isActive: true },
+          { sellers: { some: { id: auth.seller.id } } }
+        ]
+      },
       select: {
         id: true,
         name: true,
         description: true,
         image: true,
+        isActive: true,
       },
       orderBy: { name: "asc" },
     });

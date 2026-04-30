@@ -26,6 +26,9 @@ Depending on the application, use the appropriate base path for the seller type:
     "type": "PRODUCT",
     "onboardingCompleted": true,
     "status": "APPROVED",
+    "adminFeedback": null,
+    "isApproved": true,
+    "isSuspended": false,
     "user": {
       "id": "user123",
       "name": "Jeet Basak",
@@ -66,8 +69,9 @@ Depending on the application, use the appropriate base path for the seller type:
       "selfieUrl": "..."
     },
     "selectedCategories": [
-      { "id": "cm0c1x...", "name": "Electronics" }
-    ]
+      { "id": "cm0c1x...", "name": "Electronics", "isActive": true }
+    ],
+    "// Note": "Service Sellers will see 'selectedServiceCategories' instead of 'selectedCategories'"
   }
 }
 ```
@@ -89,6 +93,7 @@ Primary account holder information.
 | `user.phone` (JSON) / `phone` (Form) | Text | No | Primary contact number. |
 | `user.phoneCountryCode` (JSON) / `phoneCountryCode` (Form)| Text | No | Country prefix (e.g., +1, +91). |
 | `user.password` (JSON) / `password` (Form) | Text | No | New password (min 6 characters). |
+| `seller.nationIdentityNumber` (JSON) / `nationIdentityNumber` (Form) | Text | **Yes** | 11-digit National Identity Number (NIN). Required. |
 | `profileImage` | Multipart File| No | User's profile photo. |
 
 ### 📊 Part 2: Store Information
@@ -109,17 +114,20 @@ Public-facing store identity and location.
 | `store.lng` (JSON) / `storeLng` (Form) | Float/Text | No | Map longitude. |
 | `storeLogo` | Multipart File| No | Upload store logo. |
 | `storeBanner` | Multipart File| No | Upload store banner. |
+| `categoryIds` | Array (JSON) / Multiple (Form) | No | List of selected category IDs. |
 
 ### 🏢 Part 3: Business & Tax Information
 Legal entity details and GST configuration.
 
 | Field Name | Format | Required | Description |
 | :--- | :--- | :--- | :--- |
-| `seller.businessInfo.businessName` (JSON only) | Text | No | Registered legal name. |
-| `seller.businessInfo.businessType` (JSON only) | Text | No | e.g., Proprietor, Partnership. |
-| `seller.businessInfo.businessRegNumber` (JSON only) | Text | No | Registration ID. |
-| `seller.businessInfo.haveGst` (JSON only) | Bool | No | If true, GST fields allowed. |
-| `seller.businessInfo.taxIdNumber` (JSON only) | Text | No | Tax Identification Number. |
+| `seller.businessInfo.businessName` (JSON) / `businessName` (Form) | Text | No | Registered legal name. |
+| `seller.businessInfo.businessType` (JSON) / `businessType` (Form) | Text | No | e.g., Proprietor, Partnership. |
+| `seller.businessInfo.businessRegNumber` (JSON) / `businessRegNumber` (Form) | Text | No | Registration ID. |
+| `seller.businessInfo.haveGst` (JSON) / `haveGst` (Form) | Bool/Text | No | "true" or "false". Label: "Do you sell with GST?" |
+| `seller.businessInfo.taxIdNumber` (JSON) / `taxIdNumber` (Form) | Text | Yes | Tax Identification Number (TIN). Always required. |
+| `seller.businessInfo.gstCustomerName` (JSON) / `gstCustomerName` (Form) | Text | No | Customer Name for GST. |
+| `seller.businessInfo.gstInvNo` (JSON) / `gstInvNo` (Form) | Text | No | Invoice Number for GST. |
 | `busRegCert` | Multipart File| No | Upload Registration Doc. |
 
 ### 🏦 Part 4: Bank & Payout Details
@@ -131,7 +139,7 @@ Financial records for receiving payments.
 | `seller.bankDetails.accountHolderName` (JSON only) | Text | No | Name on the account. |
 | `seller.bankDetails.accountNumber` (JSON only) | Text | No | Bank account number. |
 | `seller.bankDetails.branchName` (JSON only) | Text | No | Branch location/code. |
-| `seller.bankDetails.preferredPayoutMethod` (JSON only) | Text | No | 'Bank Transfer' / 'Mobile Wallet'. |
+| `seller.bankDetails.preferredPayoutMethod` (JSON only) | Text | No | Currently only 'Bank Transfer' is supported. |
 | `bankPassbook` | Multipart File| No | Upload Passbook/Cheque. |
 
 ### 🆔 Part 5: KYC & Identity
@@ -144,12 +152,11 @@ Seller verification documents.
 | `idFront` | Multipart File| No | Upload ID Front. |
 | `idBack` | Multipart File| No | Upload ID Back. |
 | `selfie` | Multipart File| No | Upload Selfie with ID. |
-| `seller.nationIdentityNumber` (JSON) / `nationIdentityNumber` (Form) | Text | No | ID for Main Seller record. |
 
 ### 🏷️ Part 6: Categories
 | Field Name | Format | Required | Description |
 | :--- | :--- | :--- | :--- |
-| `seller.categoryIds` (JSON only) | Array | No | Array of strings for categories. |
+| `seller.categoryIds` (JSON) / `categoryIds` (Form) | Array / Multi | No | Array of category IDs. |
 
 ### 🚀 Part 7: Example Request (Full JSON)
 

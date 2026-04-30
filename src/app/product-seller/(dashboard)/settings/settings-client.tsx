@@ -49,11 +49,21 @@ export function SettingsClient() {
           fetch("/api/product-seller/settings"),
           fetch("/api/categories/list")
         ])
-        if (catsRes.ok) setCategories(await catsRes.json())
-        if (sellerRes.ok) {
+        if (catsRes.ok && sellerRes.ok) {
+          const globalCats = await catsRes.json()
           const s = await sellerRes.json()
           setSeller(s)
           if (s.businessInfo) setHaveGst(!!s.businessInfo.haveGst)
+
+          // Merge seller's selected categories that might be inactive
+          const selected = s.selectedCategories || []
+          const merged = [...globalCats]
+          selected.forEach((sel: any) => {
+            if (!merged.find(c => c.id === sel.id)) {
+              merged.push(sel)
+            }
+          })
+          setCategories(merged)
         }
       } finally {
         setLoading(false)
@@ -194,8 +204,8 @@ export function SettingsClient() {
                </div>
                <div className="grid md:grid-cols-1 gap-4">
                   <div className="space-y-2">
-                    <Label>National Identity Number (NIN)</Label>
-                    <Input name="nationIdentityNumber" defaultValue={seller.nationIdentityNumber || ""} placeholder="Enter 11-digit NIN" />
+                    <Label className="font-semibold">National Identity Number (NIN) *</Label>
+                    <Input name="nationIdentityNumber" defaultValue={seller.nationIdentityNumber || ""} placeholder="Enter 11-digit NIN" required />
                   </div>
                </div>
                <div className="grid md:grid-cols-2 gap-4 border-t pt-4">
@@ -247,7 +257,7 @@ export function SettingsClient() {
                <div className="grid md:grid-cols-2 gap-4">
                  <div className="space-y-2"><Label>Registration Number</Label><Input name="businessRegNumber" defaultValue={seller.businessInfo?.businessRegNumber || ""} /></div>
                  <div className="space-y-2">
-                   <Label>Do you have GST? *</Label>
+                   <Label>Do you sell with GST? *</Label>
                    <Select 
                      name="haveGst" 
                      key={haveGst ? "yes" : "no"}
@@ -263,18 +273,16 @@ export function SettingsClient() {
                  </div>
                </div>
                <div className="grid md:grid-cols-2 gap-4">
-                 {haveGst && (
-                   <div className="space-y-2 animate-in fade-in slide-in-from-top-1 duration-300">
-                     <Label>Tin no (Tax ID) *</Label>
-                     <Input name="taxIdNumber" defaultValue={seller.businessInfo?.taxIdNumber || ""} required={haveGst} />
-                   </div>
-                 )}
-                 {haveGst && (
-                   <div className="space-y-2 animate-in fade-in slide-in-from-top-1 duration-300">
-                     <Label>Customer GST Name *</Label>
-                     <Input name="gstCustomerName" defaultValue={seller.businessInfo?.gstCustomerName || ""} required={haveGst} />
-                   </div>
-                 )}
+                  <div className="space-y-2">
+                    <Label>Tin no (Tax ID) *</Label>
+                    <Input name="taxIdNumber" defaultValue={seller.businessInfo?.taxIdNumber || ""} required />
+                  </div>
+                  {haveGst && (
+                    <div className="space-y-2 animate-in fade-in slide-in-from-top-1 duration-300">
+                      <Label>Customer GST Name *</Label>
+                      <Input name="gstCustomerName" defaultValue={seller.businessInfo?.gstCustomerName || ""} required={haveGst} />
+                    </div>
+                  )}
                </div>
                {haveGst && (
                  <div className="grid md:grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-1 duration-300">
@@ -326,7 +334,10 @@ export function SettingsClient() {
                       <Label>Payout Method</Label>
                       <Select name="preferredPayoutMethod" defaultValue={seller.bankDetails?.preferredPayoutMethod || "Bank Transfer"}>
                         <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent><SelectItem value="Bank Transfer">Bank Transfer</SelectItem><SelectItem value="Mobile Wallet">Mobile Wallet</SelectItem></SelectContent>
+                        <SelectContent>
+                          <SelectItem value="Bank Transfer">Bank Transfer</SelectItem>
+                          {/* <SelectItem value="Mobile Wallet">Mobile Wallet</SelectItem> */}
+                        </SelectContent>
                       </Select>
                    </div>
                 </div>
@@ -364,7 +375,9 @@ export function SettingsClient() {
                                  value={cat.id} 
                                  defaultChecked={isCategorySelected(cat.id)} 
                                />
-                               <span className="text-sm font-medium">{cat.name}</span>
+                               <span className="text-sm font-medium">
+                                 {cat.name} {!cat.isActive && <span className="text-[10px] text-amber-600 font-bold ml-1">(Pending)</span>}
+                               </span>
                             </label>
                         ))}
                     </div>

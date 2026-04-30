@@ -116,20 +116,53 @@ export async function PUT(request: NextRequest) {
       await prisma.seller.update({ where: { id: seller.id }, data: sellerData })
     }
 
-    // Handle new onboarding files
+    // Handle Business Info (text fields + optional file)
+    const businessName = fd.get("businessName") as string | null
+    const businessType = fd.get("businessType") as string | null
+    const businessRegNumber = fd.get("businessRegNumber") as string | null
+    const haveGstRaw = fd.get("haveGst") as string | null
+    const taxIdNumber = fd.get("taxIdNumber") as string | null
+    const gstCustomerName = fd.get("gstCustomerName") as string | null
+    const gstInvNo = fd.get("gstInvNo") as string | null
+
+    const busInfoData: any = {}
+    if (businessName !== null) busInfoData.businessName = businessName.trim()
+    if (businessType !== null) busInfoData.businessType = businessType.trim()
+    if (businessRegNumber !== null) busInfoData.businessRegNumber = businessRegNumber.trim()
+    if (haveGstRaw !== null) {
+        const h = haveGstRaw === "true"
+        busInfoData.haveGst = h
+        if (!h) {
+            // TIN is always required, do NOT clear it
+            busInfoData.gstInvNo = null
+            busInfoData.gstCustomerName = null
+        }
+    }
+    // TIN is always required regardless of GST status
+    if (taxIdNumber !== null) busInfoData.taxIdNumber = taxIdNumber.trim()
+    if (gstCustomerName !== null && (busInfoData.haveGst ?? seller.businessInfo?.haveGst)) {
+        busInfoData.gstCustomerName = gstCustomerName.trim()
+    }
+    if (gstInvNo !== null && (busInfoData.haveGst ?? seller.businessInfo?.haveGst)) {
+        busInfoData.gstInvNo = gstInvNo.trim()
+    }
+
     const busRegCert = fd.get("busRegCert") as File | null
     if (busRegCert && busRegCert.size > 0) {
-        const url = await uploadPublicFile({
+        busInfoData.busRegCertUrl = await uploadPublicFile({
             folder: "onboarding/business",
             ext: path.extname(busRegCert.name) || ".pdf",
             contentType: busRegCert.type || "application/pdf",
             buffer: Buffer.from(await busRegCert.arrayBuffer()),
             prefix: "bus-reg",
         })
+    }
+
+    if (Object.keys(busInfoData).length > 0) {
         await (prisma as any).sellerBusinessInfo.upsert({
             where: { sellerId: seller.id },
-            update: { busRegCertUrl: url },
-            create: { sellerId: seller.id, busRegCertUrl: url }
+            update: busInfoData,
+            create: { ...busInfoData, sellerId: seller.id }
         })
     }
 
@@ -200,6 +233,17 @@ export async function PUT(request: NextRequest) {
             })
         }
     }
+    const categoryIds = fd.getAll("categoryIds") as string[]
+    if (categoryIds.length > 0) {
+      await prisma.seller.update({
+        where: { id: seller.id },
+        data: {
+          selectedServiceCategories: {
+            set: categoryIds.map(id => ({ id }))
+          }
+        }
+      })
+    }
 
     return NextResponse.json({ success: true })
   }
@@ -250,7 +294,7 @@ export async function PUT(request: NextRequest) {
             const h = s.businessInfo.haveGst === "true" || s.businessInfo.haveGst === true;
             s.businessInfo.haveGst = h;
             if (!h) {
-                s.businessInfo.taxIdNumber = null;
+                // TIN is always required, do NOT clear it when GST is off
                 s.businessInfo.gstInvNo = null;
                 s.businessInfo.gstCustomerName = null;
             }
