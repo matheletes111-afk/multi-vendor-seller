@@ -1,0 +1,264 @@
+========================================================
+  HOTEL & RESTAURANT PLATFORM — FEATURE PLAN
+  Multi-Vendor Seller Platform — New Vertical
+========================================================
+
+OVERVIEW
+--------
+A brand-new Hotel & Restaurant vertical is being added to the
+existing marketplace platform. This is completely separate from
+the current Product Seller and Service Seller flows — it will
+not affect any existing functionality.
+
+Customers will be able to:
+  - Browse and book hotel rooms (like Booking.com)
+  - Order food for delivery (like Swiggy / Zomato)
+  - Reserve restaurant tables (with seller confirmation)
+
+Sellers can register under one of three types:
+  1. Hotel Only
+  2. Restaurant Only
+  3. Hotel + Restaurant (hotel with in-house dining)
+
+
+========================================================
+  SELLER REGISTRATION — 3 TYPES
+========================================================
+
+TYPE 1 — HOTEL ONLY
+  Panel:    /hotel-seller
+  Can do:   Add rooms, set availability calendar, manage bookings
+
+TYPE 2 — RESTAURANT ONLY
+  Panel:    /restaurant-seller
+  Can do:   Add menu items, manage food orders, manage table bookings
+
+TYPE 3 — HOTEL + RESTAURANT (Combined)
+  Panel:    /hotel-seller (unified dashboard)
+  Can do:   Everything from Type 1 + Type 2 in one place
+            (Hotel with its own in-house restaurant)
+
+All three types go through a multi-step onboarding:
+  Step 1 — Seller Type Selection
+  Step 2 — Business Information (name, address, GST, registration)
+  Step 3 — KYC Documents (ID proof front/back + selfie)
+  Step 4 — Property Setup (hotel rooms / restaurant profile / both)
+  Step 5 — Bank Details (for payouts)
+  Step 6 — Agreement & Submit
+
+After submission, Admin reviews and approves the seller account.
+
+
+========================================================
+  SELLER PANELS — WHAT EACH CAN DO
+========================================================
+
+HOTEL SELLER DASHBOARD (/hotel-seller)
+  - Overview       : Today's bookings, revenue, occupancy rate
+  - Rooms          : Add/edit room types, upload photos, set price per night
+  - Availability   : Calendar view — block or unblock specific dates per room
+  - Bookings       : View all reservations
+                     Statuses: Pending → Confirmed → Checked-In → Completed → Cancelled
+                     Actions: Confirm / Check-In / Complete / Cancel
+  - Restaurant     : Visible only if seller type is "Hotel + Restaurant"
+                     (same menu, orders, table sections as restaurant panel)
+  - Settings       : Profile, bank details, notifications
+
+RESTAURANT SELLER DASHBOARD (/restaurant-seller)
+  - Overview       : Orders today, revenue, pending orders
+  - Menu           : Add/edit food categories (Starters, Mains, etc.)
+                     Add/edit items: name, price, veg/non-veg, image, availability toggle
+  - Orders         : Incoming food orders with full lifecycle management
+                     Statuses: Pending → Confirmed → Preparing → Out for Delivery → Delivered
+                     Seller can mark each stage
+                     OTP is generated when order goes "Out for Delivery"
+                     Delivery person enters OTP + uploads proof photo to mark Delivered
+  - Tables         : Add/edit tables (table number + seating capacity)
+  - Availability   : Block time slots per table per date (for reservation management)
+  - Table Bookings : Incoming reservation requests (status = Pending)
+                     Seller clicks Accept or Reject
+                     Customer is notified automatically
+                     Seller receives SMS + Email alert for every new booking request
+  - Settings       : Profile, bank details
+
+
+========================================================
+  CUSTOMER EXPERIENCE
+========================================================
+
+HOME PAGE
+  A new switcher link/button will appear on the existing home page:
+  "🏨 Explore Hotels & Restaurants"
+  Clicking it takes the customer to the Hospitality Portal.
+
+HOSPITALITY PORTAL (/hospitality)
+  Two tabs: Hotels | Restaurants
+  Search by city or name.
+
+  HOTELS TAB
+    - Browse hotel cards (name, city, price/night, photo)
+    - Click a hotel → see photos, amenities, room types
+    - Select check-in / check-out dates → system shows available rooms
+    - Select a room → booking summary → pay via Razorpay
+    - Booking confirmed → booking ID + details shown
+
+  RESTAURANTS TAB
+    - Browse restaurant cards (name, cuisine, city, delivery badge)
+    - Click a restaurant → see menu organized by category
+    - Add items to cart → go to checkout
+    - Choose: Delivery / Takeaway / Dine-In
+    - If Delivery: enter delivery address
+    - Pay via Razorpay → order placed
+    - Track order status live (Pending → Confirmed → Preparing → Out for Delivery → Delivered)
+
+  TABLE BOOKING
+    - On any restaurant page: "Book a Table" button
+    - Choose date, time slot, party size
+    - Submit booking request
+    - Status: "Pending — awaiting restaurant confirmation"
+    - Seller receives SMS + email → Accepts or Rejects from dashboard
+    - Customer notified of outcome
+
+  MY BOOKINGS (/hospitality/my-bookings)
+    - Hotel Bookings history
+    - Food Orders history
+    - Table Booking history
+
+
+========================================================
+  FOOD DELIVERY — OTP + PROOF FLOW
+========================================================
+
+When a food order is dispatched:
+  1. Seller marks order "Out for Delivery"
+  2. System generates a 4-digit OTP
+  3. OTP is shown to the seller (passed to delivery person)
+  4. At the customer's doorstep:
+       - Delivery person confirms OTP with customer
+       - Delivery person uploads a proof photo
+  5. System validates OTP → order marked as Delivered
+  6. Commission settlement happens automatically
+
+This is the same secure delivery flow used for product orders
+on the existing platform.
+
+
+========================================================
+  TABLE BOOKING — NOTIFICATION FLOW
+========================================================
+
+  1. Customer submits table booking → status = PENDING
+  2. System instantly sends:
+       - Email to restaurant seller (with booking details)
+       - SMS to seller's registered mobile number
+  3. Seller logs into dashboard → Accepts or Rejects the booking
+  4. Customer sees updated status (Confirmed / Rejected)
+
+No automatic confirmation — every table booking requires
+explicit seller approval.
+
+
+========================================================
+  HOTEL ROOM AVAILABILITY
+========================================================
+
+  - Seller uses a calendar view in the dashboard
+  - Clicks on dates to block them (e.g. already booked offline, maintenance)
+  - Unblocked dates = available for customer booking
+  - When customer selects check-in/check-out dates, system checks:
+       * No blocked dates in the range for that room
+       * No existing confirmed bookings in the range
+  - Room pricing is fixed: one price per night per room type
+    (e.g. Deluxe Room = $80/night — same rate all year)
+
+
+========================================================
+  COMMISSION MODEL
+========================================================
+
+  Hotel Bookings:
+    Platform takes a commission on each confirmed room booking.
+    Formula: Total Booking Amount × Commission Rate
+    Commission rate: global default (set in Admin) or per-seller override
+
+  Food Orders:
+    Platform takes a commission on each food order.
+    Same formula as hotel bookings.
+
+  Table Bookings:
+    No commission — table reservations are free to process.
+    (Revenue comes from food orders placed at the restaurant)
+
+
+========================================================
+  ADMIN PANEL — NEW SECTIONS
+========================================================
+
+The existing admin panel gets 5 new management sections:
+
+  1. Hotel Sellers
+       View all hotel seller registrations
+       Approve / Suspend accounts
+       View property details and KYC documents
+
+  2. Restaurant Sellers
+       View all restaurant seller registrations
+       Approve / Suspend accounts
+
+  3. Hotel Bookings
+       Platform-wide view of all room reservations
+       Filter by date, status, hotel
+
+  4. Food Orders
+       Platform-wide view of all food orders
+       Filter by status, restaurant, date
+
+  5. Table Bookings
+       Platform-wide view of all table reservations
+       Filter by status, restaurant, date
+
+
+========================================================
+  TECHNICAL NOTES (for developers)
+========================================================
+
+  - New seller roles added:   SELLER_HOTEL, SELLER_RESTAURANT
+  - New database models:      ~15 new tables (100% additive — no existing tables changed)
+  - New frontend folders:     /hospitality, /hotel-seller, /restaurant-seller
+  - New API folders:          /api/hotel, /api/restaurant
+  - Payment:                  Razorpay (already integrated in the platform)
+  - File uploads:             AWS S3 (existing setup reused for room/food photos, delivery proof)
+  - Notifications:            Email (nodemailer) + SMS for table booking alerts
+  - Existing platform:        ZERO changes to Product Seller / Service Seller / existing APIs
+
+  Files modified (only 4):
+    1. prisma/schema.prisma       — new models added
+    2. src/middleware.ts          — new route guards added
+    3. src/app/home-client.tsx    — switcher link added
+    4. Admin sidebar layout       — 5 new nav links added
+
+
+========================================================
+  SUMMARY OF WHAT'S NEW
+========================================================
+
+  New seller panels:
+    /hotel-seller            Hotel (and Hotel+Restaurant) seller dashboard
+    /restaurant-seller       Restaurant-only seller dashboard
+
+  New customer pages:
+    /hospitality             Browse hotels & restaurants
+    /hospitality/hotel/[id]  Hotel detail + room booking
+    /hospitality/restaurant/[id]  Restaurant detail + food order
+    /hospitality/my-bookings      Customer booking history
+
+  New admin sections:
+    /admin/hotel-sellers
+    /admin/restaurant-sellers
+    /admin/hotel-bookings
+    /admin/food-orders
+    /admin/table-bookings
+
+========================================================
+  END OF PLAN
+========================================================
