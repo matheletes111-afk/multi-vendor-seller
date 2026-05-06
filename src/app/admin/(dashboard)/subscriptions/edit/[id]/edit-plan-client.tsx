@@ -181,7 +181,7 @@ export function EditPlanClient({ planId }: { planId: string }) {
 
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="maxProducts">Max Products</Label>
+                <Label htmlFor="maxProducts">Max Products / Services</Label>
                 <Input
                   id="maxProducts"
                   name="maxProducts"
@@ -192,7 +192,7 @@ export function EditPlanClient({ planId }: { planId: string }) {
                   placeholder="unlimited or number"
                 />
                 <p className="text-xs text-muted-foreground">
-                  Enter a number or "unlimited" for no limit
+                  Limit applies to Physical Products for product sellers and Services for service sellers. Enter a number or "unlimited".
                 </p>
               </div>
 

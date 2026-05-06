@@ -4,6 +4,7 @@ import { UserRole } from "@prisma/client"
 import { getMobileSellerAuth } from "../../_helpers/seller-auth"
 import { formatCurrency } from "@/lib/utils"
 import { deriveOrderStatus } from "@/lib/order-status"
+import { getValidSubscription } from "@/lib/subscriptions"
 
 export const dynamic = 'force-dynamic'
 
@@ -30,10 +31,7 @@ export async function GET(request: NextRequest) {
     }
 
     const [subscription, totalProducts, totalOrders, totalRevenue, creditsAgg, debitsAgg, totalAdClicks] = await Promise.all([
-      prisma.subscription.findFirst({
-        where: { sellerId: seller.id },
-        include: { plan: { select: { name: true, displayName: true } } },
-      }),
+      getValidSubscription(seller.id),
       prisma.product.count({ where: { sellerId: seller.id, isActive: true, isDeleted: false } }),
       prisma.order.count({
         where: {

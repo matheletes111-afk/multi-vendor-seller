@@ -1,0 +1,139 @@
+# Seller Subscription Mobile APIs
+
+These APIs allow product and service sellers to manage their subscription plans via the mobile app.
+
+## 1. Get Subscription and Plans
+Retrieves the current active subscription and all available plans for the authenticated seller.
+
+### Product Seller
+- **Endpoint**: `GET /mobileapi/product-seller/subscription`
+- **Authentication**: Required (Bearer Token - Product Seller)
+
+### Service Seller
+- **Endpoint**: `GET /mobileapi/service-seller/subscription`
+- **Authentication**: Required (Bearer Token - Service Seller)
+
+### Response Structure:
+```json
+{
+  "currentSubscription": {
+    "id": "cmjmsddwj000o13d1snev0i7p",
+    "sellerId": "cmjmsddwj000o13d1snev0i7p",
+    "planId": "cmjmsddwj000o13d1snev0i7p",
+    "status": "ACTIVE",
+    "currentPeriodStart": "2026-05-06T11:51:40.000Z",
+    "currentPeriodEnd": "2026-06-05T11:51:40.000Z",
+    "cancelAtPeriodEnd": false,
+    "createdAt": "2026-05-06T11:51:40.000Z",
+    "updatedAt": "2026-05-06T11:51:40.000Z",
+    "plan": {
+      "id": "plan_id_1",
+      "name": "STANDARD",
+      "displayName": "Standard Plan",
+      "description": "Medium limits for growing sellers",
+      "price": 499,
+      "maxProducts": 50,
+      "maxOrders": null,
+      "features": {
+        "canReceiveReviews": true,
+        "hasAdvancedAnalytics": false
+      }
+    }
+  },
+  "availablePlans": [
+    {
+      "id": "plan_id_0",
+      "name": "FREE",
+      "displayName": "Free Plan",
+      "price": 0,
+      "maxProducts": 5,
+      "maxOrders": 10,
+      "features": { ... }
+    },
+    {
+      "id": "plan_id_1",
+      "name": "STANDARD",
+      "displayName": "Standard Plan",
+      "price": 499,
+      "maxProducts": 50,
+      "maxOrders": null,
+      "features": { ... }
+    },
+    {
+      "id": "plan_id_2",
+      "name": "PREMIUM",
+      "displayName": "Premium Plan",
+      "price": 999,
+      "maxProducts": null,
+      "maxOrders": null,
+      "features": { ... }
+    }
+  ]
+}
+```
+
+---
+
+## 2. Update Subscription Plan
+Updates or switches the seller's current subscription plan. 
+
+### Product Seller
+- **Endpoint**: `POST /mobileapi/product-seller/subscription`
+- **Authentication**: Required (Bearer Token - Product Seller)
+
+### Service Seller
+- **Endpoint**: `POST /mobileapi/service-seller/subscription`
+- **Authentication**: Required (Bearer Token - Service Seller)
+
+### Request Body:
+```json
+{
+  "planName": "PREMIUM"
+}
+```
+
+### Response Structure:
+```json
+{
+  "success": true,
+  "message": "Subscription updated successfully",
+  "subscription": {
+    "id": "...",
+    "planId": "...",
+    "status": "ACTIVE",
+    "currentPeriodEnd": "2026-06-05T11:51:40.000Z",
+    "plan": {
+      "name": "PREMIUM",
+      "displayName": "Premium Plan",
+      ...
+    }
+  },
+  "url": null
+}
+```
+**Note**: `url: null` indicates that the subscription was updated directly in the database (Syncing with the web panel's current "test/direct" update behavior).
+
+---
+
+## 3. Auto-Renewal & Expiration Logic
+The subscription system includes automated logic that ensures sellers are always in sync with their plan's lifecycle.
+
+### Free Plan (3-Month Limit)
+- **Initial Registration**: When a seller registers, they are automatically placed on the **FREE** plan.
+- **Duration**: The free plan is valid for **3 months** total from the registration date.
+- **Auto-Renewal**: The system auto-renews the free plan monthly (1 month at a time) for up to 3 months.
+- **Automatic Block**: After 3 months, the `status` will change to `CANCELED`, and the seller will be blocked from listing new products or services.
+
+### Paid Plans
+- **Monthly Auto-Renew**: Paid plans auto-renew every month (1 month at a time).
+- **Graceful Checking**: The system checks for expiration every time a seller views their subscription or performs a dashboard action. If a month has passed, the `currentPeriodEnd` date will automatically update to the next month in the API response.
+
+### Important Fields for Frontend
+- **`status`**: If this is `CANCELED`, the seller should be prompted to upgrade/subscribe.
+- **`currentPeriodEnd`**: Use this date to show the seller when their next renewal happens.
+
+---
+
+## Headers (Global for Mobile APIs)
+All requests must include the following header for authentication:
+- `Authorization`: `Bearer <MOBILE_ACCESS_TOKEN>`

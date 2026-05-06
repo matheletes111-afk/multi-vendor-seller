@@ -36,11 +36,6 @@ export async function POST(request: NextRequest) {
   const currentPeriodEnd = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000)
 
   if (testMode) {
-    const existing = seller.subscription
-    const stripeCustomerId = existing?.stripeCustomerId ?? null
-    const stripeSubscriptionId = existing?.stripeSubscriptionId ?? null
-    const stripePriceId = existing?.stripePriceId ?? null
-
     await prisma.subscription.upsert({
       where: { sellerId: seller.id },
       update: {
@@ -49,9 +44,6 @@ export async function POST(request: NextRequest) {
         currentPeriodStart: now,
         currentPeriodEnd,
         cancelAtPeriodEnd: false,
-        stripeCustomerId,
-        stripeSubscriptionId,
-        stripePriceId,
       },
       create: {
         sellerId: seller.id,
@@ -60,9 +52,6 @@ export async function POST(request: NextRequest) {
         currentPeriodStart: now,
         currentPeriodEnd,
         cancelAtPeriodEnd: false,
-        stripeCustomerId,
-        stripeSubscriptionId,
-        stripePriceId,
       },
     })
 

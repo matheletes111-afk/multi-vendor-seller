@@ -365,7 +365,7 @@ export function SubscriptionsClient() {
 
                   <div className="space-y-2 pt-2 border-t text-sm">
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Products</span>
+                      <span className="text-muted-foreground">Products / Services</span>
                       <span className="font-medium">{plan.maxProducts === null ? "Unlimited" : plan.maxProducts}</span>
                     </div>
                     <div className="flex justify-between">
@@ -402,6 +402,7 @@ export function SubscriptionsClient() {
             <TableHeader>
               <TableRow className="hover:bg-transparent bg-muted/20">
                 <TableHead className="py-4 pl-6">Seller / Store</TableHead>
+                <TableHead>Type</TableHead>
                 <TableHead>Plan</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Price</TableHead>
@@ -430,6 +431,11 @@ export function SubscriptionsClient() {
                       <div className="text-xs text-muted-foreground font-medium">
                         {subscription.seller?.user?.email}
                       </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className="font-medium whitespace-nowrap">
+                        {subscription.seller?.type === "PRODUCT" ? "Product Seller" : "Service Seller"}
+                      </Badge>
                     </TableCell>
                     <TableCell>
                       <span className="font-medium text-primary">

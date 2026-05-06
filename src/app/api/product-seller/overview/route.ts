@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { isProductSeller } from "@/lib/rbac"
 import { formatCurrency } from "@/lib/utils"
+import { getValidSubscription } from "@/lib/subscriptions"
 
 /** GET dashboard overview. */
 export async function GET() {
@@ -24,10 +25,7 @@ export async function GET() {
   }
 
   const [subscription, totalProducts, totalOrders, totalRevenue, creditsAgg, debitsAgg, totalAdClicks] = await Promise.all([
-    prisma.subscription.findFirst({
-      where: { sellerId: seller.id },
-      include: { plan: true },
-    }),
+    getValidSubscription(seller.id),
     prisma.product.count({ where: { sellerId: seller.id, isActive: true } }),
     prisma.order.count({
       where: {

@@ -42,9 +42,78 @@ export const PLAN_LIMITS: Record<SubscriptionPlan, SubscriptionLimits> = {
 }
 
 export async function getSellerSubscription(sellerId: string) {
-  return await prisma.subscription.findUnique({
+  return await getValidSubscription(sellerId)
+}
+
+/**
+ * Core logic to retrieve a subscription, handling auto-renewals and 3-month free plan limits.
+ * Synchronizes behavior across web and mobile.
+ */
+export async function getValidSubscription(sellerId: string) {
+  const subscription = await prisma.subscription.findUnique({
     where: { sellerId },
     include: { plan: true },
+  })
+
+  if (!subscription) return null
+
+  const now = new Date()
+  
+  // 1. Handle Initialization: If no period end is set, initialize for 1 month
+  if (!subscription.currentPeriodEnd) {
+    return await applyRenewal(subscription.id, subscription.createdAt, 1)
+  }
+
+  // 2. Handle Expiration / Auto-renewal
+  if (now > subscription.currentPeriodEnd) {
+    if (subscription.plan.price === 0) {
+      // FREE PLAN logic: Max 3 months from creation
+      const threeMonthsAfterStart = new Date(subscription.createdAt)
+      threeMonthsAfterStart.setMonth(threeMonthsAfterStart.getMonth() + 3)
+      
+      if (now < threeMonthsAfterStart) {
+        // Still within 3-month window, auto-renew for 1 month
+        return await applyRenewal(subscription.id, subscription.currentPeriodEnd, 1)
+      } else {
+        // Expired (over 3 months total)
+        if (subscription.status !== "CANCELED") {
+          return await prisma.subscription.update({
+            where: { id: subscription.id },
+            data: { status: "CANCELED" },
+            include: { plan: true }
+          })
+        }
+        return subscription
+      }
+    } else {
+      // PAID PLAN logic (Test/Auto mode): Auto-renew monthly indefinitely for now
+      // This will be replaced by payment-success checks later.
+      return await applyRenewal(subscription.id, subscription.currentPeriodEnd, 1)
+    }
+  }
+
+  return subscription
+}
+
+/** Helper to extend subscription period */
+async function applyRenewal(id: string, fromDate: Date, months: number) {
+  const newEnd = new Date(fromDate)
+  newEnd.setMonth(newEnd.getMonth() + months)
+  
+  // If we are renewing from a date far in the past, ensure the new end is in the future
+  const now = new Date()
+  while (newEnd < now) {
+    newEnd.setMonth(newEnd.getMonth() + 1)
+  }
+
+  return await prisma.subscription.update({
+    where: { id },
+    data: {
+      currentPeriodStart: fromDate < now ? now : fromDate,
+      currentPeriodEnd: newEnd,
+      status: "ACTIVE"
+    },
+    include: { plan: true }
   })
 }
 
@@ -159,17 +228,25 @@ export async function activateFreePlan(sellerId: string) {
       return null
     }
 
-    // 2. Create the subscription
+    // 2. Create the subscription with 1-month initial period
+    const now = new Date()
+    const oneMonthLater = new Date(now)
+    oneMonthLater.setMonth(oneMonthLater.getMonth() + 1)
+
     const subscription = await prisma.subscription.upsert({
       where: { sellerId },
       create: {
         sellerId,
         planId: freePlan.id,
         status: "ACTIVE",
+        currentPeriodStart: now,
+        currentPeriodEnd: oneMonthLater,
       },
       update: {
         planId: freePlan.id,
         status: "ACTIVE",
+        currentPeriodStart: now,
+        currentPeriodEnd: oneMonthLater,
       },
     })
 

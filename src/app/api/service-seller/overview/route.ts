@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma"
 import { isServiceSeller } from "@/lib/rbac"
 import { formatCurrency } from "@/lib/utils"
 import { serviceSellerItemsNet, serviceSellerLineGross } from "@/lib/service-seller-order-money"
+import { getValidSubscription } from "@/lib/subscriptions"
 
 export async function GET() {
   const session = await auth()
@@ -14,7 +15,7 @@ export async function GET() {
   ])
   if (!seller) return NextResponse.json({ error: "Seller not found" }, { status: 404 })
   const [subscription, totalServices, totalOrders, serviceLines, totalAdClicks] = await Promise.all([
-    prisma.subscription.findFirst({ where: { sellerId: seller.id }, include: { plan: true } }),
+    getValidSubscription(seller.id),
     prisma.service.count({ where: { sellerId: seller.id, isActive: true } }),
     prisma.order.count({
       where: {
