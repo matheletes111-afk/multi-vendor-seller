@@ -1,0 +1,78 @@
+MOBILE API DOCUMENTATION - PRODUCT & SERVICE REVIEWS
+
+The following APIs provide comprehensive review and rating data to match the product detail UI (Summary, Gallery, and Detailed Review Cards).
+
+-------------------------------------------------------------------------------
+1. PRODUCT REVIEWS API
+-------------------------------------------------------------------------------
+Endpoint: POST /mobileapi/product-seller/product/reviews
+Auth: Required (Seller Token)
+
+Request Payload (JSON):
+{
+  "productId": "string (the unique ID of the product)"
+}
+
+Response Data (JSON):
+{
+  "success": true,
+  "data": {
+    "averageRating": "3.8",                // Summary star score
+    "totalRatings": 132,                   // Total count of all star ratings
+    "totalReviewsWithComments": 25,        // Count of reviews that have text comments
+    "reviewGallery": ["url1", "url2"],     // All unique images from all reviews combined
+    "detailedReviews": [
+      {
+        "id": "...",
+        "rating": 5,                       // Rating for this specific review
+        "comment": "Great product!",       // Review text
+        "images": ["url1"],                // Images attached to this specific review
+        "createdAt": "2023-07-17T...",     // Review date (ISO string)
+        "isVerified": true,                // Shows "Verified Buyer" checkmark
+        "reviewerName": "John Doe",        // Reviewer full name
+        "reviewerImage": "url",            // Reviewer profile picture (optional)
+        "variantInfo": "size: 30, color: red" // Combined string of purchased variant attributes
+      }
+    ]
+  }
+}
+
+-------------------------------------------------------------------------------
+2. SERVICE REVIEWS API
+-------------------------------------------------------------------------------
+Endpoint: POST /mobileapi/service-seller/service/reviews
+Auth: Required (Seller Token)
+
+Request Payload (JSON):
+{
+  "serviceId": "string (the unique ID of the service)"
+}
+
+Response Data (JSON):
+{
+  "success": true,
+  "data": {
+    "averageRating": "4.5",
+    "totalRatings": 80,
+    "totalReviewsWithComments": 12,
+    "reviewGallery": [...],
+    "detailedReviews": [
+      {
+        "id": "...",
+        "rating": 4,
+        "comment": "Nice service",
+        "images": [...],
+        "createdAt": "...",
+        "isVerified": true,
+        "reviewerName": "...",
+        "reviewerImage": "...",
+        "variantInfo": "Standard Package"  // The name of the purchased service package
+      }
+    ]
+  }
+}
+-------------------------------------------------------------------------------
+NOTES:
+- The APIs use POST methods as they expect a JSON payload containing the item ID.
+- detailedReviews[].variantInfo is pre-formatted as a human-readable string for direct display in the mobile UI badge (e.g. "size: 30").
+- averageRating is returned as a string rounded to one decimal place.

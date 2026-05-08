@@ -29,8 +29,8 @@ export async function GET(
 
     const service = await prisma.service.findFirst({
       where: { id, sellerId: seller.id, isDeleted: false },
-      include: { 
-        serviceCategory: { select: { id: true, name: true, slug: true } }, 
+      include: {
+        serviceCategory: { select: { id: true, name: true, slug: true } },
         slots: { take: 10, orderBy: { startTime: 'asc' } },
         packages: true,
         _count: { select: { orderItems: true, reviews: true } }
@@ -78,7 +78,7 @@ export async function PUT(
       return NextResponse.json({ success: false, error: result.error }, { status: 400 })
     }
     const body = result.data
-    
+
     const updateData: Record<string, any> = {}
     if (body.name !== undefined) {
       updateData.name = body.name.trim()
@@ -137,13 +137,13 @@ export async function DELETE(
     if (!service) return NextResponse.json({ success: false, error: "Service not found" }, { status: 404 })
 
     const deletedSlug = `${service.slug}-deleted-${Date.now()}`
-    await prisma.service.update({ 
+    await prisma.service.update({
       where: { id },
-      data: { 
+      data: {
         isDeleted: true,
         isActive: false,
         slug: deletedSlug
-      } 
+      }
     })
 
     return NextResponse.json({ success: true, message: "Service deleted successfully" })

@@ -43,8 +43,22 @@ export async function GET(request: NextRequest) {
           orderBy: { createdAt: "asc" },
           select: { price: true, discount: true },
         },
+        _count: { select: { reviews: true } },
       },
     });
+
+    const productIds = products.map((p) => p.id);
+    const ratingRows = productIds.length > 0
+      ? await prisma.review.groupBy({
+          by: ["productId"],
+          where: { productId: { in: productIds } },
+          _avg: { rating: true },
+        })
+      : [];
+
+    const ratingByProduct = Object.fromEntries(
+      ratingRows.map((r) => [r.productId, Number(r._avg.rating ?? 0)])
+    ) as Record<string, number>;
 
     const serialized = products.map((p) => {
       const first = p.variants[0];
@@ -57,6 +71,8 @@ export async function GET(request: NextRequest) {
         seller: p.seller,
         basePrice: first?.price ?? 0,
         discount: first?.discount ?? 0,
+        _count: p._count,
+        averageRating: ratingByProduct[p.id] ?? 0,
       };
     });
 

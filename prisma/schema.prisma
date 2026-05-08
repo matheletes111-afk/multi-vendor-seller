@@ -613,6 +613,7 @@ model Product {
   isDeleted      Boolean  @default(false)
   isFeatured    Boolean  @default(false)
   condition      ProductCondition @default(NEW)
+  deliveryChargePerKm Float @default(0)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 

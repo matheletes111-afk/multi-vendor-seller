@@ -11,7 +11,7 @@ import { PublicLayout } from "@/components/site-layout"
 import { useCart } from "@/app/cart/cart-context"
 import { WishlistButton } from "@/components/product/WishlistButton"
 import { ShareButton } from "@/components/share-button"
-import { PublicReviewsSection, type PublicReviewItem } from "@/components/reviews/public-reviews-section"
+import { PublicReviewsSection, StarRow, type PublicReviewItem } from "@/components/reviews/public-reviews-section"
 import { UserRole } from "@prisma/client"
 import { PageLoader } from "@/components/ui/page-loader"
 import { ChevronRight, ShoppingCart, Truck } from "lucide-react"
@@ -238,10 +238,11 @@ export function ProductDetailClient({ productId }: { productId: string }) {
                 <ShareButton title={product.name} className="shrink-0" />
               </div>
               {product._count.reviews > 0 && (
-                <p className="mt-2 text-sm text-slate-600">
-                  {product.averageRating.toFixed(1)} rating from {product._count.reviews} review
-                  {product._count.reviews === 1 ? "" : "s"}
-                </p>
+                <div className="mt-2 flex items-center gap-2">
+                  <StarRow rating={product.averageRating} size="h-4 w-4" />
+                  <span className="text-sm font-medium text-slate-700">{product.averageRating.toFixed(1)}</span>
+                  <span className="text-sm text-slate-500">({product._count.reviews} review{product._count.reviews === 1 ? "" : "s"})</span>
+                </div>
               )}
 
               {/* Amazon/Flipkart style: choose options (Size, Color, etc.) then Add to Cart */}

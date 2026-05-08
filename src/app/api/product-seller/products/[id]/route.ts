@@ -66,6 +66,7 @@ export async function PUT(
     images?: string[]
     isActive?: boolean
     condition?: string
+    deliveryChargePerKm?: number
     variants?: Array<{
       name?: string
       sku?: string
@@ -108,6 +109,7 @@ export async function PUT(
     const c = body.condition.toUpperCase()
     updateData.condition = (c === "USED") ? "USED" : "NEW"
   }
+  if (body.deliveryChargePerKm !== undefined) updateData.deliveryChargePerKm = Number(body.deliveryChargePerKm || 0)
 
   if (body.name) {
     (updateData as { slug?: string }).slug = body.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "")

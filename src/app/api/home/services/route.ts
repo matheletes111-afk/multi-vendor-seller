@@ -25,10 +25,29 @@ export async function GET(request: Request) {
         images: true,
         serviceCategory: { select: { id: true, name: true, slug: true } },
         seller: { select: { store: { select: { name: true } } } },
+        _count: { select: { reviews: true } },
       },
     })
 
-    return NextResponse.json(services)
+    const serviceIds = services.map((s) => s.id)
+    const ratingRows = serviceIds.length > 0
+      ? await prisma.review.groupBy({
+          by: ["serviceId"],
+          where: { serviceId: { in: serviceIds } },
+          _avg: { rating: true },
+        })
+      : []
+
+    const ratingByService = Object.fromEntries(
+      ratingRows.map((r) => [r.serviceId, Number(r._avg.rating ?? 0)])
+    ) as Record<string, number>
+
+    const serialized = services.map((s) => ({
+      ...s,
+      averageRating: ratingByService[s.id] ?? 0,
+    }))
+
+    return NextResponse.json(serialized)
   } catch (error) {
     console.error("Home services API error:", error)
     return NextResponse.json([], { status: 500 })

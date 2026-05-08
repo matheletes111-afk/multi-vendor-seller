@@ -384,31 +384,48 @@ export async function GET(request: NextRequest) {
 
   const isProductCategoryFilter = Boolean(effectiveCategoryIds.length > 0 || subcategoryId)
   const resolvedServiceCategoryId = serviceCategoryId ?? undefined
-  const [services, serviceCategoryWithName] = await Promise.all([
-    isProductCategoryFilter
-      ? Promise.resolve([])
-      : prisma.service.findMany({
-          where: {
-            isActive: true,
-            isDeleted: false,
-            ...(resolvedServiceCategoryId && { serviceCategoryId: resolvedServiceCategoryId }),
-            ...(q && { name: { contains: q, mode: Prisma.QueryMode.insensitive } }),
-          },
-          include: {
-            serviceCategory: true,
-            seller: { include: { store: true } },
-            _count: { select: { reviews: true } },
-          },
-          take: 50,
-          orderBy: { createdAt: "desc" },
-        }),
-    resolvedServiceCategoryId && !isProductCategoryFilter
-      ? prisma.serviceCategory.findUnique({
-          where: { id: resolvedServiceCategoryId, isActive: true },
-          select: { name: true },
+    const [servicesRaw, serviceCategoryWithName] = await Promise.all([
+      isProductCategoryFilter
+        ? Promise.resolve([])
+        : prisma.service.findMany({
+            where: {
+              isActive: true,
+              isDeleted: false,
+              ...(resolvedServiceCategoryId && { serviceCategoryId: resolvedServiceCategoryId }),
+              ...(q && { name: { contains: q, mode: Prisma.QueryMode.insensitive } }),
+            },
+            include: {
+              serviceCategory: true,
+              seller: { include: { store: true } },
+              _count: { select: { reviews: true } },
+            },
+            take: 50,
+            orderBy: { createdAt: "desc" },
+          }),
+      resolvedServiceCategoryId && !isProductCategoryFilter
+        ? prisma.serviceCategory.findUnique({
+            where: { id: resolvedServiceCategoryId, isActive: true },
+            select: { name: true },
+          })
+        : Promise.resolve(null),
+    ])
+
+    const serviceIds = servicesRaw.map((s) => s.id)
+    const serviceRatingRows = serviceIds.length > 0
+      ? await prisma.review.groupBy({
+          by: ["serviceId"],
+          where: { serviceId: { in: serviceIds } },
+          _avg: { rating: true },
         })
-      : Promise.resolve(null),
-  ])
+      : []
+    const ratingByService = Object.fromEntries(
+      serviceRatingRows.map((r) => [r.serviceId, Number(r._avg.rating ?? 0)])
+    ) as Record<string, number>
+
+    const services = servicesRaw.map((s) => ({
+      ...s,
+      averageRating: ratingByService[s.id] ?? 0,
+    }))
 
   const serviceCategoryName = serviceCategoryWithName?.name ?? null
 

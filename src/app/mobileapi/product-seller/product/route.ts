@@ -187,6 +187,7 @@ export async function POST(request: NextRequest) {
         slug,
         description: body.description ?? null,
         condition: condition as any,
+        deliveryChargePerKm: Number(body.deliveryChargePerKm || 0),
         images: imagesData as object,
         variants: {
           create: variants.map((v) => ({

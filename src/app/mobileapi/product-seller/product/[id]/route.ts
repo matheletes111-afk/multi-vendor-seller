@@ -29,10 +29,10 @@ export async function GET(
 
     const product = await prisma.product.findFirst({
       where: { id, sellerId: seller.id, isDeleted: false },
-      include: { 
-        category: { select: { id: true, name: true, slug: true } }, 
-        subcategory: { select: { id: true, name: true, slug: true } }, 
-        variants: true 
+      include: {
+        category: { select: { id: true, name: true, slug: true } },
+        subcategory: { select: { id: true, name: true, slug: true } },
+        variants: true
       },
     })
 
@@ -77,7 +77,7 @@ export async function PUT(
       return NextResponse.json({ success: false, error: result.error }, { status: 400 })
     }
     const body = result.data
-    
+
     const updateData: Record<string, any> = {}
     if (body.name !== undefined) {
       updateData.name = body.name.trim()
@@ -101,26 +101,27 @@ export async function PUT(
       const c = body.condition.toUpperCase()
       updateData.condition = (c === "USED") ? "USED" : "NEW"
     }
+    if (body.deliveryChargePerKm !== undefined) updateData.deliveryChargePerKm = Number(body.deliveryChargePerKm || 0)
 
     // Handle Variants (Mirroring web logic: Recreate all)
     if (Array.isArray(body.variants)) {
       if (body.variants.length === 0) return NextResponse.json({ success: false, error: "At least one variant is required" }, { status: 400 })
-      
+
       await prisma.productVariant.deleteMany({ where: { productId: id } })
-      
+
       for (const v of body.variants) {
         const vName = typeof v?.name === "string" ? v.name.trim() : "Variant"
         const vPrice = Number(v?.price ?? 0)
         const vStock = Number(v?.stock ?? 0)
         const vDiscount = Math.round(Number(v?.discount ?? 0) * 100) / 100
-        
+
         if (isNaN(vPrice) || vPrice <= 0 || isNaN(vStock) || vStock < 0) {
           return NextResponse.json({ success: false, error: "Each variant must have valid price and stock" }, { status: 400 })
         }
-        
+
         const vReturnType = v?.returnType === "RETURNABLE" ? "RETURNABLE" : "NON_RETURNABLE"
         const vReturnDays = typeof v?.returnDays === "number" ? Math.floor(v.returnDays) : null
-        
+
         await prisma.productVariant.create({
           data: {
             productId: id,
@@ -182,13 +183,13 @@ export async function DELETE(
     if (!product) return NextResponse.json({ success: false, error: "Product not found" }, { status: 404 })
 
     const deletedSlug = `${product.slug}-deleted-${Date.now()}`
-    await prisma.product.update({ 
+    await prisma.product.update({
       where: { id },
-      data: { 
+      data: {
         isDeleted: true,
         isActive: false,
         slug: deletedSlug
-      } 
+      }
     })
 
     return NextResponse.json({ success: true, message: "Product deleted successfully" })

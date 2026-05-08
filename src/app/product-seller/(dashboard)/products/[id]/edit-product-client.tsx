@@ -58,6 +58,7 @@ type Product = {
   images: unknown
   isActive: boolean
   condition: "NEW" | "USED"
+  deliveryChargePerKm: number
   variants: Variant[]
 }
 
@@ -493,6 +494,7 @@ export function EditProductClient({ productId }: { productId: string }) {
         subcategoryId: subcategoryId || undefined,
         isActive,
         condition,
+        deliveryChargePerKm: parseFloat(formData.get("deliveryChargePerKm") as string) || 0,
         images,
         variants: variantsPayload,
       }),
@@ -573,6 +575,18 @@ export function EditProductClient({ productId }: { productId: string }) {
                 className="flex min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                 placeholder="Product description"
                 defaultValue={product.description || ""}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="deliveryChargePerKm">Add per KM Delivery Charge (default 0)</Label>
+              <Input 
+                id="deliveryChargePerKm" 
+                name="deliveryChargePerKm" 
+                type="number" 
+                step="0.01" 
+                min="0" 
+                defaultValue={product.deliveryChargePerKm || 0} 
+                placeholder="0.00" 
               />
             </div>
             <div className="space-y-2">

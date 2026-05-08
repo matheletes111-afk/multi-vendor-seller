@@ -11,6 +11,7 @@ export type HybridProductPayload = {
   subcategoryId?: string | null
   description?: string
   condition?: "NEW" | "USED"
+  deliveryChargePerKm?: number
   isActive?: boolean
   images?: string[] // Combined result (URLs)
   variants?: Array<{
@@ -67,6 +68,7 @@ export async function processHybridProductRequest(
           subcategoryId: formData.get("subcategoryId") as string,
           description: formData.get("description") as string,
           condition: formData.get("condition") as string,
+          deliveryChargePerKm: Number(formData.get("deliveryChargePerKm") || 0),
           isActive: formData.get("isActive") === "true",
           images: [],
           variants: []

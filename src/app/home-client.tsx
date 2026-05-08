@@ -33,6 +33,7 @@ const SUB_PLACEHOLDER_ICONS = [Package, Folder, LayoutGrid, Tag, BookOpen, Brief
 const PRODUCT_PLACEHOLDER_ICONS = [ShoppingBag, Box, Package, Gift, Sparkles, Tag];
 const SERVICE_PLACEHOLDER_ICONS = [Briefcase, Sparkles, Tag, Music, Dumbbell, Folder];
 import { PublicLayout } from "@/components/site-layout";
+import { PublicReviewsSection, StarRow } from "@/components/reviews/public-reviews-section";
 import {
   CategoryInterestModal,
   type CategoryPickItem,
@@ -71,6 +72,8 @@ type Product = {
   images: string[];
   category: { id: string; name: string; slug: string };
   seller: { store: { name: string } | null };
+  _count?: { reviews: number };
+  averageRating?: number;
 };
 
 type Service = {
@@ -81,6 +84,8 @@ type Service = {
   images: unknown;
   serviceCategory: { id: string; name: string; slug: string } | null;
   seller: { store: { name: string } | null } | null;
+  _count?: { reviews: number };
+  averageRating?: number;
 };
 
 type Ad = {
@@ -449,9 +454,17 @@ export function HomeClient() {
                       </div>
                       <div className="p-2">
                         <p className="line-clamp-2 text-xs font-medium text-slate-800">{p.name}</p>
-                        <p className="mt-1 text-sm font-bold text-blue-600">
-                          {formatCurrency(Math.max(0, (p.basePrice ?? 0) - (p.discount ?? 0)))}
-                        </p>
+                        <div className="flex items-center justify-between gap-1 mt-1">
+                          <p className="text-sm font-bold text-blue-600">
+                            {formatCurrency(Math.max(0, (p.basePrice ?? 0) - (p.discount ?? 0)))}
+                          </p>
+                          {(p._count?.reviews ?? 0) > 0 && (
+                            <div className="flex items-center gap-1">
+                              <StarRow rating={p.averageRating ?? 0} size="h-3 w-3" />
+                              <span className="text-[10px] font-medium text-slate-600">{(p.averageRating ?? 0).toFixed(1)}</span>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </Link>
                   );
@@ -543,9 +556,17 @@ export function HomeClient() {
                               </div>
                               <div className="p-2">
                                 <p className="line-clamp-2 text-xs font-medium text-slate-800">{p.name}</p>
-                                <p className="mt-1 text-sm font-bold text-blue-600">
-                                  {formatCurrency(Math.max(0, p.basePrice - p.discount))}
-                                </p>
+                                <div className="flex items-center justify-between gap-1 mt-1">
+                                  <p className="text-sm font-bold text-blue-600">
+                                    {formatCurrency(Math.max(0, p.basePrice - p.discount))}
+                                  </p>
+                                  {(p._count?.reviews ?? 0) > 0 && (
+                                    <div className="flex items-center gap-1">
+                                      <StarRow rating={p.averageRating ?? 0} size="h-3 w-3" />
+                                      <span className="text-[10px] font-medium text-slate-600">{(p.averageRating ?? 0).toFixed(1)}</span>
+                                    </div>
+                                  )}
+                                </div>
                               </div>
                             </Link>
                           );
@@ -725,7 +746,15 @@ export function HomeClient() {
                     <CardContent className="flex flex-1 flex-col p-3">
                       <p className="line-clamp-2 text-sm font-medium text-slate-800">{p.name}</p>
                       <p className="text-xs text-slate-500">{p.seller?.store?.name ?? "Store"}</p>
-                      <p className="mt-1 font-bold text-blue-600">{formatCurrency(Math.max(0, p.basePrice - p.discount))}</p>
+                      <div className="flex items-center justify-between gap-1 mt-1">
+                        <p className="font-bold text-blue-600">{formatCurrency(Math.max(0, p.basePrice - p.discount))}</p>
+                        {(p._count?.reviews ?? 0) > 0 && (
+                          <div className="flex items-center gap-1">
+                            <StarRow rating={p.averageRating ?? 0} size="h-3.5 w-3.5" />
+                            <span className="text-[11px] font-medium text-slate-700">{(p.averageRating ?? 0).toFixed(1)}</span>
+                          </div>
+                        )}
+                      </div>
                       <div className="mt-auto pt-3">
                         <AddToCartButton
                           productId={p.id}
@@ -821,9 +850,17 @@ export function HomeClient() {
                         <p className="line-clamp-2 text-sm font-semibold text-slate-900">{s.name}</p>
                         <p className="mt-1 text-xs text-slate-500">{s.seller?.store?.name ?? "Service seller"}</p>
                         <p className="text-xs text-slate-500">{s.serviceCategory?.name ?? "Service"}</p>
-                        <p className="mt-2 text-sm font-bold text-blue-600">
-                          {finalPrice == null ? "Contact for price" : formatCurrency(finalPrice)}
-                        </p>
+                        <div className="flex items-center justify-between gap-1 mt-2">
+                          <p className="text-sm font-bold text-blue-600">
+                            {finalPrice == null ? "Contact for price" : formatCurrency(finalPrice)}
+                          </p>
+                          {(s._count?.reviews ?? 0) > 0 && (
+                            <div className="flex items-center gap-1">
+                              <StarRow rating={s.averageRating ?? 0} size="h-3 w-3" />
+                              <span className="text-[10px] font-medium text-slate-600">{(s.averageRating ?? 0).toFixed(1)}</span>
+                            </div>
+                          )}
+                        </div>
                       </CardContent>
                     </Link>
                   );

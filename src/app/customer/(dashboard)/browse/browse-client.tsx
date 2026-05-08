@@ -14,6 +14,7 @@ import { Package, Briefcase, ChevronRight, ChevronDown, Filter, X, ArrowUp } fro
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/ui/sheet"
 import { BrowseProductCard, type BrowseProduct } from "./browse-product-card"
 import { getServiceFirstDisplayImageUrl } from "@/lib/service-images"
+import { StarRow } from "@/components/reviews/public-reviews-section"
 
 type Service = {
   id: string
@@ -24,6 +25,7 @@ type Service = {
   serviceCategory: { name: string }
   seller: { store: { name: string } | null } | null
   _count: { reviews: number }
+  averageRating: number
 }
 
 type Subcategory = { id: string; name: string; slug: string }
@@ -840,7 +842,14 @@ export function BrowseClient() {
                                 ) : (
                                   <p className="mt-2 text-sm text-muted-foreground">Price on request</p>
                                 )}
-                                <p className="text-sm text-muted-foreground">{service.seller?.store?.name || "Store"}</p>
+                                {service._count.reviews > 0 && (
+                                  <div className="mt-1 flex items-center gap-1.5">
+                                    <StarRow rating={service.averageRating} size="h-3.5 w-3.5" />
+                                    <span className="text-xs font-medium text-slate-700">{service.averageRating.toFixed(1)}</span>
+                                    <span className="text-[10px] text-slate-500">({service._count.reviews})</span>
+                                  </div>
+                                )}
+                                <p className="mt-1 text-xs text-muted-foreground">{service.seller?.store?.name || "Store"}</p>
                               </div>
                             </div>
                           </Link>
