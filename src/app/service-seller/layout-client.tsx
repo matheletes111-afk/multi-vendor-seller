@@ -52,7 +52,7 @@ const navContent = (
     <NavItem href="/service-seller/services" label="Services" icon={<Briefcase className="h-4 w-4" />} />
     <NavItem href="/service-seller/admanagement" label="Ads" icon={<Megaphone className="h-4 w-4" />} />
     <NavItem href="/service-seller/orders" label="Orders" icon={<ShoppingCart className="h-4 w-4" />} />
-    {/* <NavItem href="/service-seller/reviews" label="Reviews" icon={<Star className="h-4 w-4" />} /> */}
+    <NavItem href="/service-seller/reviews" label="Reviews" icon={<Star className="h-4 w-4" />} />
     {/* <NavItem href="/service-seller/net-worth" label="Net Worth" icon={<TrendingUp className="h-4 w-4" />} /> */}
     <NavItem href="/service-seller/subscription" label="Subscription" icon={<CreditCard className="h-4 w-4" />} />
     <NavItem href="/service-seller/settings" label="Settings" icon={<Settings className="h-4 w-4" />} />
@@ -76,7 +76,7 @@ export function ServiceSellerLayoutClient({
         if (res.status === 404) router.replace("/service-seller/registration")
         else if (res.status === 400) router.replace("/product-seller")
       })
-      .catch(() => {})
+      .catch(() => { })
   }, [mounted, router])
 
   const userInitials = user?.name?.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2) || user?.email?.[0].toUpperCase() || "U"

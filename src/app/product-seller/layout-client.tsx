@@ -53,7 +53,7 @@ const navContent = (
     <NavItem href="/product-seller/admanagement" label="Ads" icon={<Megaphone className="h-4 w-4" />} />
     <NavItem href="/product-seller/orders" label="Orders" icon={<ShoppingCart className="h-4 w-4" />} />
     {/* <NavItem href="/product-seller/balance" label="Net balance" icon={<Wallet className="h-4 w-4" />} /> */}
-    {/* <NavItem href="/product-seller/reviews" label="Reviews" icon={<Star className="h-4 w-4" />} /> */}
+    <NavItem href="/product-seller/reviews" label="Reviews" icon={<Star className="h-4 w-4" />} />
     <NavItem href="/product-seller/subscription" label="Subscription" icon={<CreditCard className="h-4 w-4" />} />
     <NavItem href="/product-seller/settings" label="Settings" icon={<Settings className="h-4 w-4" />} />
   </>
@@ -77,7 +77,7 @@ export function ProductSellerLayoutClient({
         if (res.status === 404) router.replace("/product-seller/registration")
         else if (res.status === 400) router.replace("/service-seller")
       })
-      .catch(() => {})
+      .catch(() => { })
   }, [mounted, router])
 
   const userInitials = user?.name?.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2) || user?.email?.[0].toUpperCase() || "U"
