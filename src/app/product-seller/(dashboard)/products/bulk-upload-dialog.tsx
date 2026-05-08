@@ -220,6 +220,7 @@ export function BulkUploadDialog({ onImported }: { onImported?: () => void }) {
             <ul className="list-disc pl-4 space-y-1 text-muted-foreground font-medium">
               <li>The template includes <strong className="text-foreground underline">dummy rows</strong> to guide you. Replace or delete them.</li>
               <li>Use the <code className="bg-background px-1 rounded border">condition</code> column to specify <strong className="text-foreground">NEW</strong> or <strong className="text-foreground">USED</strong>.</li>
+              <li>New: Use <code className="bg-background px-1 rounded border">delivery_charge_per_km</code> to set a per-KM delivery rate.</li>
               <li>Multiple variants? Use the same <code className="bg-background px-1 rounded border">product_key</code> for those rows.</li>
             </ul>
           </div>

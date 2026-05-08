@@ -1,51 +1,51 @@
 MOBILE API DOCUMENTATION - PRODUCT & SERVICE REVIEWS
 
-The following APIs provide comprehensive review and rating data to match the product detail UI (Summary, Gallery, and Detailed Review Cards).
+The following APIs provide comprehensive review and rating data for both customer (public) and seller (auth required) interfaces.
 
 -------------------------------------------------------------------------------
-1. PRODUCT REVIEWS API
+1. PUBLIC PRODUCT REVIEWS API (Product Detail Page)
 -------------------------------------------------------------------------------
-Endpoint: POST /mobileapi/product-seller/product/reviews
-Auth: Required (Seller Token)
+Endpoint: POST /mobileapi/product/reviews
+Auth: Not Required
 
 Request Payload (JSON):
 {
-  "productId": "string (the unique ID of the product)"
+  "productId": "string"
 }
 
 Response Data (JSON):
 {
   "success": true,
   "data": {
-    "averageRating": "3.8",                // Summary star score
-    "totalRatings": 132,                   // Total count of all star ratings
-    "totalReviewsWithComments": 25,        // Count of reviews that have text comments
-    "reviewGallery": ["url1", "url2"],     // All unique images from all reviews combined
+    "averageRating": "3.8",
+    "totalRatings": 132,
+    "totalReviewsWithComments": 25,
+    "reviewGallery": ["url1", "url2"],
     "detailedReviews": [
       {
         "id": "...",
-        "rating": 5,                       // Rating for this specific review
-        "comment": "Great product!",       // Review text
-        "images": ["url1"],                // Images attached to this specific review
-        "createdAt": "2023-07-17T...",     // Review date (ISO string)
-        "isVerified": true,                // Shows "Verified Buyer" checkmark
-        "reviewerName": "John Doe",        // Reviewer full name
-        "reviewerImage": "url",            // Reviewer profile picture (optional)
-        "variantInfo": "size: 30, color: red" // Combined string of purchased variant attributes
+        "rating": 5,
+        "comment": "Great product!",
+        "images": ["url1"],
+        "createdAt": "2023-07-17T...",
+        "isVerified": true,
+        "reviewerName": "John Doe",
+        "reviewerImage": "url",
+        "variantInfo": "size: 30, color: red"
       }
     ]
   }
 }
 
 -------------------------------------------------------------------------------
-2. SERVICE REVIEWS API
+2. PUBLIC SERVICE REVIEWS API (Service Detail Page)
 -------------------------------------------------------------------------------
-Endpoint: POST /mobileapi/service-seller/service/reviews
-Auth: Required (Seller Token)
+Endpoint: POST /mobileapi/services/reviews
+Auth: Not Required
 
 Request Payload (JSON):
 {
-  "serviceId": "string (the unique ID of the service)"
+  "serviceId": "string"
 }
 
 Response Data (JSON):
@@ -66,13 +66,129 @@ Response Data (JSON):
         "isVerified": true,
         "reviewerName": "...",
         "reviewerImage": "...",
-        "variantInfo": "Standard Package"  // The name of the purchased service package
+        "variantInfo": "Standard Package"
       }
     ]
   }
 }
+
+-------------------------------------------------------------------------------
+3. SELLER PRODUCT REVIEWS LIST API (Grouped by Product)
+-------------------------------------------------------------------------------
+Endpoint: GET /mobileapi/product-seller/reviews
+Auth: Required (Seller Product Token)
+Query Params: page, perPage
+
+Response Data (JSON):
+{
+  "success": true,
+  "data": [
+    {
+      "productId": "...",
+      "productName": "...",
+      "productImage": "...",
+      "avgRating": "4.2",
+      "reviewCount": 15,
+      "latestReviewAt": "2023-08-10T..."
+    }
+  ],
+  "pagination": { "totalCount": 100, "totalPages": 10, "page": 1, "perPage": 10 }
+}
+
+-------------------------------------------------------------------------------
+4. SELLER SERVICE REVIEWS LIST API (Grouped by Service)
+-------------------------------------------------------------------------------
+Endpoint: GET /mobileapi/service-seller/reviews
+Auth: Required (Seller Service Token)
+Query Params: page, perPage
+
+Response Data (JSON):
+{
+  "success": true,
+  "data": [
+    {
+      "serviceId": "...",
+      "serviceName": "...",
+      "serviceImage": "...",
+      "avgRating": "4.8",
+      "reviewCount": 8,
+      "latestReviewAt": "..."
+    }
+  ],
+  "pagination": { ... }
+}
+
+-------------------------------------------------------------------------------
+5. SELLER PRODUCT REVIEWS DETAILS API
+-------------------------------------------------------------------------------
+Endpoint: GET /mobileapi/product-seller/reviews/[id]
+Auth: Required (Seller Product Token)
+
+Response Data (JSON):
+{
+  "success": true,
+  "data": {
+    "productId": "...",
+    "productName": "...",
+    "productImage": "...",
+    "avgRating": "4.2",
+    "reviewCount": 15,
+    "reviews": [
+      {
+        "id": "...",
+        "rating": 5,
+        "comment": "...",
+        "images": [...],
+        "createdAt": "...",
+        "isVerified": true,
+        "customerName": "...",
+        "customerEmail": "...",
+        "customerImage": "...",
+        "orderNumber": "...",
+        "sellerStoreName": "...",
+        "variantInfo": "..."
+      }
+    ]
+  }
+}
+
+-------------------------------------------------------------------------------
+6. SELLER SERVICE REVIEWS DETAILS API
+-------------------------------------------------------------------------------
+Endpoint: GET /mobileapi/service-seller/reviews/[id]
+Auth: Required (Seller Service Token)
+
+Response Data (JSON):
+{
+  "success": true,
+  "data": {
+    "serviceId": "...",
+    "serviceName": "...",
+    "serviceImage": "...",
+    "avgRating": "4.8",
+    "reviewCount": 8,
+    "reviews": [
+      {
+        "id": "...",
+        "rating": 4,
+        "comment": "...",
+        "images": [...],
+        "createdAt": "...",
+        "isVerified": true,
+        "customerName": "...",
+        "customerEmail": "...",
+        "customerImage": "...",
+        "orderNumber": "...",
+        "sellerStoreName": "...",
+        "variantInfo": "..."
+      }
+    ]
+  }
+}
+
 -------------------------------------------------------------------------------
 NOTES:
-- The APIs use POST methods as they expect a JSON payload containing the item ID.
-- detailedReviews[].variantInfo is pre-formatted as a human-readable string for direct display in the mobile UI badge (e.g. "size: 30").
-- averageRating is returned as a string rounded to one decimal place.
+- Public APIs (1 & 2) use POST to accept JSON payloads for ID filtering.
+- Seller APIs (3-6) require standard Mobile Bearer Authentication.
+- variantInfo is pre-formatted as a human-readable string for direct display in UI badges.
+- averageRating/avgRating values are returned as strings rounded to one decimal place.

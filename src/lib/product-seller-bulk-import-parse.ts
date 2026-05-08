@@ -17,6 +17,7 @@ export const BULK_COLUMN_KEYS = [
   "product_images",
   "subcategory_id",
   "condition",
+  "delivery_charge_per_km",
   "variant_name",
   "price",
   "discount",
@@ -240,6 +241,7 @@ export function exampleDataRows(
       "https://example.com/sample-image.jpg", // product_images
       subId,                // subcategory_id
       "NEW",                // condition
+      "0",                  // delivery_charge_per_km
       "Default",            // variant_name
       "100.00",             // price
       "0",                  // discount

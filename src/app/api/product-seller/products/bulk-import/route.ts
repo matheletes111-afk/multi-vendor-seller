@@ -64,6 +64,7 @@ type PreparedProduct = {
   images: string[]
   subcategoryId: string | null
   condition: string
+  deliveryChargePerKm: number
   variants: NormalizedVariant[]
 }
 
@@ -173,6 +174,9 @@ export async function POST(request: NextRequest) {
       const rowSub = (c.subcategory_id ?? "").trim()
       if (rowSub) subIds.add(rowSub)
     }
+    
+    const firstValidCharge = sorted.find(r => (r.cells.delivery_charge_per_km ?? "").trim())?.cells.delivery_charge_per_km?.trim()
+    const deliveryChargePerKm = firstValidCharge ? parseFloat(firstValidCharge) || 0 : 0
 
     if (nameConflict) continue
 
@@ -295,6 +299,7 @@ export async function POST(request: NextRequest) {
       images: productImages,
       subcategoryId,
       condition,
+      deliveryChargePerKm,
       variants,
     })
   }
@@ -337,6 +342,7 @@ export async function POST(request: NextRequest) {
             slug: `${slugFromName(p.name)}-${uniqueSlugSuffix()}`,
             description: p.description,
             condition: p.condition as any,
+            deliveryChargePerKm: p.deliveryChargePerKm,
             images: (p.images.length ? p.images : []) as object,
             variants: {
               create: p.variants.map((v) => ({
