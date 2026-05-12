@@ -262,3 +262,62 @@ The existing admin panel gets 5 new management sections:
 ========================================================
   END OF PLAN
 ========================================================
+
+
+========================================================
+  CLARIFICATIONS & RECOMMENDATIONS FOR CLIENT
+========================================================
+
+1. Onboarding & Registration Form:
+   - Do you want to use the EXACT SAME registration form we currently use for Product/Service sellers, or should we create a NEW form specifically for Hotels and Restaurants? (If you want a new form, please give your preferred fields here).
+   - For sellers who have BOTH a Hotel and a Restaurant (Type 3), should they fill out one big form at the start, or register as one first and then add the other feature later?
+
+2. Registration vs. Property Setup:
+   - To keep registration fast, we recommend a two-phase approach:
+     
+     PHASE 1: 6-Step Onboarding Flow (Detailed)
+     
+     Step 1: Selection
+     - KEEP: Hotel / Restaurant / Both.
+     - REMOVE: Product / Service seller options.
+
+     Step 2: Business Info
+     - KEEP: Name, GST, PAN, Address.
+     - ADD: Landmark, Manager (POC) Name, and POC Contact.
+     - REMOVE: Pickup & Warehouse address fields.
+
+     Step 3: KYC Documents
+     - KEEP: ID Proof, Business Proof, and Selfie.
+     - ADD: Food License (FSSAI) placeholder for restaurants.
+
+     Step 4: Basic Property Setup
+     - FOR HOTELS: Estimate room count, Star Rating (1-5), and Category (Resort/Hotel/etc).
+     - FOR RESTAURANTS: Service types (Delivery/Dine-in) and Primary Cuisine.
+     - ADD: 
+       * Logo & Banner Image (for the property profile).
+       * Main Property Photo (Interior/Exterior).
+       * GPS Coordinates (Exact location for map navigation).
+     - REMOVE: All product-shipping settings like Shipping Partners, Return Policies, and Weight/Dimensions.
+
+     Step 5: Bank Details
+     - KEEP: Account Name, Number, Bank, and IFSC (standard for payouts).
+
+     Step 6: Agreement
+     - Use specific Hospitality Terms & Conditions instead of standard Product/Service terms.
+     
+     PHASE 2: Property Setup (Inside the Hotel/Restaurant CRUD)
+     - Once registered, the seller fills in their specific details.
+   
+   RECOMMENDED "SETUP" FIELDS (Moved to CRUD):
+   
+   FOR HOTELS:
+   - Star Rating, Amenities, Check-in/out Policies, Room Types, and GPS Coordinates.
+
+   FOR RESTAURANTS:
+   - Cuisine Type, Opening/Closing Hours, Food License (FSSAI), Delivery Radius, and Dietary Tags.
+
+3. KYC Documentation:
+   - Do Hotels and Restaurants require any additional legal documents beyond standard ID/Business proof? (e.g., Tourism Board certificates for hotels, Health/Fire safety permits for restaurants).
+
+4. Communication Preferences:
+   - For Table Bookings and Food Orders, should we prioritize SMS, WhatsApp, or App Notifications for the seller to ensure fast response times?
