@@ -14,6 +14,9 @@ export const dynamic = "force-dynamic"
  * Submit a return or exchange request. CUSTOMER only.
  * Auth: Bearer token.
  */
+const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
+const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"]
+
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string; orderItemId: string }> }
@@ -39,6 +42,19 @@ export async function POST(
       replacementVariantId = formData.get("replacementVariantId")?.toString().trim() || null
 
       const files = formData.getAll("returnImages")
+      
+      // Validation loop
+      for (const file of files) {
+        if (file instanceof File) {
+          if (file.size > MAX_FILE_SIZE) {
+            return NextResponse.json({ success: false, error: `File ${file.name} exceeds 5MB limit` }, { status: 400 })
+          }
+          if (!ALLOWED_TYPES.includes(file.type)) {
+            return NextResponse.json({ success: false, error: `Invalid file type for ${file.name}. Allowed: JPEG (jpg/jpeg), PNG, WebP, GIF` }, { status: 400 })
+          }
+        }
+      }
+
       for (const file of files) {
         if (file instanceof File) {
           const bytes = await file.arrayBuffer()
