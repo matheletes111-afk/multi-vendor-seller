@@ -1,7 +1,12 @@
+import path from "path"
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { verifyMobileAccessToken } from "@/lib/mobile-jwt"
 import { getSellerSubscription, canReceiveReviews } from "@/lib/subscriptions"
+import { uploadPublicFile } from "@/lib/upload-public-file"
+
+const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
+const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"]
 
 export const dynamic = "force-dynamic"
 
@@ -37,17 +42,22 @@ export async function POST(
       )
     }
 
-    let body: any
+    let formData: FormData
     try {
-      body = await request.json()
+      formData = await request.formData()
     } catch {
       return NextResponse.json(
-        { success: false, error: "Invalid JSON body" },
+        { success: false, error: "Invalid form data" },
         { status: 400 }
       )
     }
 
-    const { orderItemId, rating, comment, images } = body
+    const orderItemId = formData.get("orderItemId") as string
+    const rating = formData.get("rating")
+    const comment = formData.get("comment") as string
+    const imageData = formData.getAll("images")
+    const imageFiles = imageData.filter((f): f is File => f instanceof File)
+    const existingUrls = imageData.filter((f): f is string => typeof f === "string" && /^https?:\/\//.test(f)).slice(0, 5)
 
     if (!orderItemId || typeof orderItemId !== "string") {
       return NextResponse.json(
@@ -57,19 +67,53 @@ export async function POST(
     }
 
     const numRating = Number(rating)
-    if (!Number.isInteger(numRating) || numRating < 1 || numRating > 5) {
+    if (isNaN(numRating) || !Number.isInteger(numRating) || numRating < 1 || numRating > 5) {
       return NextResponse.json(
         { success: false, error: "Rating must be an integer between 1 and 5" },
         { status: 400 }
       )
     }
 
-    const safeComment = typeof comment === "string" ? comment.trim().slice(0, 2000) : ""
+    const safeComment = comment ? comment.trim().slice(0, 2000) : ""
     
-    // Validate images array
-    const safeImages = Array.isArray(images)
-      ? images.filter((img): img is string => typeof img === "string" && /^https?:\/\//.test(img)).slice(0, 5)
-      : []
+    // Process images
+    if (imageFiles.length + existingUrls.length > 5) {
+      return NextResponse.json(
+        { success: false, error: "Maximum 5 images allowed" },
+        { status: 400 }
+      )
+    }
+
+    for (const file of imageFiles) {
+      if (file.size > MAX_FILE_SIZE) {
+        return NextResponse.json(
+          { success: false, error: `File ${file.name} exceeds 5MB limit` },
+          { status: 400 }
+        )
+      }
+      if (!ALLOWED_TYPES.includes(file.type)) {
+        return NextResponse.json(
+          { success: false, error: `Invalid file type for ${file.name}. Allowed: JPEG, PNG, WebP, GIF` },
+          { status: 400 }
+        )
+      }
+    }
+
+    const uploadedUrls: string[] = []
+    for (const file of imageFiles) {
+      const bytes = await file.arrayBuffer()
+      const ext = path.extname(file.name) || ".jpg"
+      const url = await uploadPublicFile({
+        folder: "review-images",
+        ext,
+        contentType: file.type,
+        buffer: Buffer.from(bytes),
+        prefix: "review",
+      })
+      uploadedUrls.push(url)
+    }
+
+    const safeImages = [...existingUrls, ...uploadedUrls].slice(0, 5)
 
     const orderItem = await prisma.orderItem.findFirst({
       where: { 
@@ -166,17 +210,22 @@ export async function PATCH(
       )
     }
 
-    let body: any
+    let formData: FormData
     try {
-      body = await request.json()
+      formData = await request.formData()
     } catch {
       return NextResponse.json(
-        { success: false, error: "Invalid JSON body" },
+        { success: false, error: "Invalid form data" },
         { status: 400 }
       )
     }
 
-    const { orderItemId, rating, comment, images } = body
+    const orderItemId = formData.get("orderItemId") as string
+    const rating = formData.get("rating")
+    const comment = formData.get("comment") as string
+    const imageData = formData.getAll("images")
+    const imageFiles = imageData.filter((f): f is File => f instanceof File)
+    const existingUrls = imageData.filter((f): f is string => typeof f === "string" && /^https?:\/\//.test(f)).slice(0, 5)
 
     if (!orderItemId || typeof orderItemId !== "string") {
       return NextResponse.json(
@@ -186,19 +235,53 @@ export async function PATCH(
     }
 
     const numRating = Number(rating)
-    if (!Number.isInteger(numRating) || numRating < 1 || numRating > 5) {
+    if (isNaN(numRating) || !Number.isInteger(numRating) || numRating < 1 || numRating > 5) {
       return NextResponse.json(
         { success: false, error: "Rating must be an integer between 1 and 5" },
         { status: 400 }
       )
     }
 
-    const safeComment = typeof comment === "string" ? comment.trim().slice(0, 2000) : ""
+    const safeComment = comment ? comment.trim().slice(0, 2000) : ""
     
-    // Validate images array
-    const safeImages = Array.isArray(images)
-      ? images.filter((img): img is string => typeof img === "string" && /^https?:\/\//.test(img)).slice(0, 5)
-      : []
+    // Process images
+    if (imageFiles.length + existingUrls.length > 5) {
+      return NextResponse.json(
+        { success: false, error: "Maximum 5 images allowed" },
+        { status: 400 }
+      )
+    }
+
+    for (const file of imageFiles) {
+      if (file.size > MAX_FILE_SIZE) {
+        return NextResponse.json(
+          { success: false, error: `File ${file.name} exceeds 5MB limit` },
+          { status: 400 }
+        )
+      }
+      if (!ALLOWED_TYPES.includes(file.type)) {
+        return NextResponse.json(
+          { success: false, error: `Invalid file type for ${file.name}. Allowed: JPEG, PNG, WebP, GIF` },
+          { status: 400 }
+        )
+      }
+    }
+
+    const uploadedUrls: string[] = []
+    for (const file of imageFiles) {
+      const bytes = await file.arrayBuffer()
+      const ext = path.extname(file.name) || ".jpg"
+      const url = await uploadPublicFile({
+        folder: "review-images",
+        ext,
+        contentType: file.type,
+        buffer: Buffer.from(bytes),
+        prefix: "review",
+      })
+      uploadedUrls.push(url)
+    }
+
+    const safeImages = formData.has("images") ? [...existingUrls, ...uploadedUrls].slice(0, 5) : undefined
 
     const orderItem = await prisma.orderItem.findFirst({
       where: { 
@@ -240,14 +323,18 @@ export async function PATCH(
       )
     }
 
+    const updateData: any = {
+      rating: numRating,
+      comment: safeComment || null,
+      isVerified: true
+    }
+    if (safeImages !== undefined) {
+      updateData.images = safeImages
+    }
+
     const updated = await prisma.review.update({
       where: { orderItemId: orderItem.id },
-      data: {
-        rating: numRating,
-        comment: safeComment || null,
-        images: safeImages,
-        isVerified: true
-      },
+      data: updateData,
       select: { id: true }
     })
 

@@ -321,3 +321,132 @@ The existing admin panel gets 5 new management sections:
 
 4. Communication Preferences:
    - For Table Bookings and Food Orders, should we prioritize SMS, WhatsApp, or App Notifications for the seller to ensure fast response times?
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Hotel & Restaurant Seller Onboarding Implementation Plan
+This plan outlines the creation of the onboarding and registration flows for the new Hotel and Restaurant seller types. These flows will mirror the existing Product/Service seller flows while incorporating specific fields and steps required for the hospitality vertical.
+
+User Review Required
+IMPORTANT
+
+Strictly Separate Panels:
+
+Hotel Seller: Register via /hotel-seller/registration.
+Restaurant Seller: Register via /restaurant-seller/registration.
+The combined "Hotel + Restaurant" type is removed for this phase. Each vertical will have its own dedicated onboarding and dashboard.
+NOTE
+
+Field Differences: We are adding fields like "Manager POC", "Landmark", and "Food License" while removing shipping-specific fields used in product selling.
+
+Proposed Changes
+Folder Structure
+Frontend
+[NEW] src/app/hotel-seller/
+(auth)/registration/page.tsx
+(auth)/login/page.tsx
+(auth)/verify-otp/page.tsx
+onboarding/page.tsx
+onboarding/onboarding-client.tsx
+[NEW] src/app/restaurant-seller/
+(auth)/registration/page.tsx
+(auth)/login/page.tsx
+(auth)/verify-otp/page.tsx
+onboarding/page.tsx
+onboarding/onboarding-client.tsx
+API
+[NEW] src/app/api/hotel-seller/auth/
+[NEW] src/app/api/hotel-seller/onboarding/
+[NEW] src/app/api/restaurant-seller/auth/
+[NEW] src/app/api/restaurant-seller/onboarding/
+Step-by-Step Onboarding Plan
+Step 1: Registration (Standard Form)
+Route: /hotel-seller/registration or /restaurant-seller/registration
+
+Fields:
+Full Name
+Email
+Phone (Country Code + Number)
+Password
+Confirm Password
+Post-Registration: Redirect to verify-otp.
+Step 2: Business Information
+Common for both Hotel & Restaurant
+
+Fields:
+[KEEP] Profile Picture (Manager/POC)
+[KEEP] Business Name
+[KEEP] Business Type (Individual, Proprietor, Partnership, Company)
+[KEEP] Business Registration Number
+[KEEP] GST Info (Have GST?, GST Name, Inv No)
+[KEEP] TIN/PAN Number
+[KEEP] Business Address (Street, City, District, State)
+[ADD] Landmark (Specific to property location)
+[ADD] Manager (POC) Name
+[ADD] POC Contact Number
+[REMOVE] Pickup & Warehouse address fields.
+Step 3: Identity & Legal Documents
+Hotel Fields:
+[KEEP] NIN (National Identity Number)
+[KEEP] ID Type & Number
+[KEEP] ID Front & Back Upload
+[KEEP] Selfie Verification
+Restaurant Fields:
+[KEEP] All of the above.
+[ADD] Food License (FSSAI) Number
+[ADD] Food License Document Upload
+Step 4: Basic Property Setup
+This step collects essential info to create the initial property profile. Detailed management (adding multiple rooms/branches) and location/GPS setup will happen inside the dashboard CRUD.
+
+For Hotel Sellers:
+
+Estimate Hotel Count (Total properties owned)
+Estimate Room Count (Per property)
+Category (Multi-select: Hotel, Resort, Villa, Guest House, etc.)
+For Restaurant Sellers:
+
+Estimate Restaurant Count (Total branches/outlets)
+Service Types (Multi-select Checkboxes: Delivery, Dine-in, Takeaway)
+Primary Cuisine (Multi-select: e.g., Italian, Indian, Chinese)
+Common Fields (Required for both):
+
+Logo & Banner Image (for the property profile)
+Main Property Photo (Interior/Exterior)
+[REMOVE] All product-shipping settings, Star Rating, and GPS Coordinates.
+
+Step 5: Bank Details
+Standard for both
+
+Fields:
+Bank Name
+Account Holder Name
+Account Number
+IFSC Code / Branch Name
+Bank Proof (Passbook/Cancelled Check Upload)
+Mobile Money Options (if applicable to the region)
+Step 6: Agreement
+Fields:
+Hospitality Specific Terms & Conditions
+Commission Agreement
+Privacy Policy
+Verification Plan
+Automated Tests
+Mock registration and onboarding API calls for both seller types.
+Validate that SELLER_HOTEL and SELLER_RESTAURANT roles are correctly assigned.
+Manual Verification
+Complete a full registration and onboarding flow for a Hotel seller.
+Complete a full registration and onboarding flow for a Restaurant seller.
+Verify that the specific fields (Landmark, POC, Food License, etc.) appear correctly in the respective flows.
+Ensure that the files are uploaded to S3 correctly (as per existing setup).
+Verify the final "Pending Approval" state after onboarding completion.

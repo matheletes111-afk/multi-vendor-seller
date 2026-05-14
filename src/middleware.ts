@@ -41,6 +41,24 @@ export async function middleware(request: NextRequest) {
     "/service-seller/login/phone-otp/verify",
     "/service-seller/forgot-password",
     "/service-seller/reset-password",
+    "/hotel-seller/login",
+    "/hotel-seller/registration",
+    "/hotel-seller/verify-otp",
+    "/hotel-seller/login/email-otp",
+    "/hotel-seller/login/email-otp/verify",
+    "/hotel-seller/login/phone-otp",
+    "/hotel-seller/login/phone-otp/verify",
+    "/hotel-seller/forgot-password",
+    "/hotel-seller/reset-password",
+    "/restaurant-seller/login",
+    "/restaurant-seller/registration",
+    "/restaurant-seller/verify-otp",
+    "/restaurant-seller/login/email-otp",
+    "/restaurant-seller/login/email-otp/verify",
+    "/restaurant-seller/login/phone-otp",
+    "/restaurant-seller/login/phone-otp/verify",
+    "/restaurant-seller/forgot-password",
+    "/restaurant-seller/reset-password",
   ]
   if (allowedAuthPaths.some((p) => path === p || path.startsWith(p + "?"))) {
     return NextResponse.next()
@@ -67,6 +85,10 @@ export async function middleware(request: NextRequest) {
         return NextResponse.redirect(new URL("/product-seller", request.url))
       case UserRole.SELLER_SERVICE:
         return NextResponse.redirect(new URL("/service-seller", request.url))
+      case UserRole.SELLER_HOTEL:
+        return NextResponse.redirect(new URL("/hotel-seller", request.url))
+      case UserRole.SELLER_RESTAURANT:
+        return NextResponse.redirect(new URL("/restaurant-seller", request.url))
       case UserRole.CUSTOMER:
         return NextResponse.redirect(new URL("/customer", request.url))
       default:
@@ -130,11 +152,25 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // Seller routes (Product & Service)
-  if (path.startsWith("/product-seller") || path.startsWith("/service-seller")) {
+  // Seller routes (Product, Service, Hotel, Restaurant)
+  if (path.startsWith("/product-seller") || path.startsWith("/service-seller") || path.startsWith("/hotel-seller") || path.startsWith("/restaurant-seller")) {
     const isService = path.startsWith("/service-seller")
-    const prefix = isService ? "/service-seller" : "/product-seller"
-    const expectedRole = isService ? UserRole.SELLER_SERVICE : UserRole.SELLER_PRODUCT
+    const isHotel = path.startsWith("/hotel-seller")
+    const isRestaurant = path.startsWith("/restaurant-seller")
+    
+    let prefix = "/product-seller"
+    let expectedRole: UserRole = UserRole.SELLER_PRODUCT
+    
+    if (isService) {
+      prefix = "/service-seller"
+      expectedRole = UserRole.SELLER_SERVICE
+    } else if (isHotel) {
+      prefix = "/hotel-seller"
+      expectedRole = UserRole.SELLER_HOTEL
+    } else if (isRestaurant) {
+      prefix = "/restaurant-seller"
+      expectedRole = UserRole.SELLER_RESTAURANT
+    }
     
     // Public paths for sellers
     if (
@@ -199,6 +235,10 @@ export const config = {
     "/product-seller/:path*",
     "/service-seller",
     "/service-seller/:path*",
+    "/hotel-seller",
+    "/hotel-seller/:path*",
+    "/restaurant-seller",
+    "/restaurant-seller/:path*",
     "/api/protected/:path*",
   ],
 }

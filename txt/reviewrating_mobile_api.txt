@@ -14,15 +14,11 @@ All endpoints require a valid customer token passed via the Authorization header
 - **Path**: `/mobileapi/customer/reviewrating`
 - **Description**: Submits a brand-new review and rating for an order item. The item MUST be in the `"DELIVERED"` status.
 
-#### Request Body Payload (JSON)
-```json
-{
-  "orderItemId": "string", // REQUIRED. The ID of the specific order item.
-  "rating": 5,             // REQUIRED. An integer from 1 to 5.
-  "comment": "string",     // OPTIONAL. A text comment documenting the customer's experience (max 2000 characters).
-  "images": ["string"]     // OPTIONAL. Array of up to 5 image URLs. Must be HTTP/HTTPS strings.
-}
-```
+#### Request Body Payload (multipart/form-data)
+- `orderItemId`: (string) **REQUIRED**. The ID of the specific order item.
+- `rating`: (integer) **REQUIRED**. An integer from 1 to 5.
+- `comment`: (string) **OPTIONAL**. A text comment documenting the customer's experience (max 2000 characters).
+- `images`: (file or string) **OPTIONAL**. Up to 5 images. Can be direct file uploads or existing image URLs (as strings). Max 5MB per file.
 
 #### Success Response (HTTP 201)
 ```json
@@ -37,7 +33,7 @@ All endpoints require a valid customer token passed via the Authorization header
 
 #### Error Responses
 - **401 Unauthorized**: Missing or invalid token.
-- **400 Bad Request**: Invalid JSON body, missing/invalid fields, or item has not been marked DELIVERED yet.
+- **400 Bad Request**: Invalid form data, missing/invalid fields, file too large, invalid file type, or item has not been marked DELIVERED yet.
 - **404 Not Found**: The specified order item could not be found or does not belong to the user.
 - **409 Conflict**: A review has already been submitted for this order item.
 - **403 Forbidden**: The seller's subscription plan does not allow them to receive reviews.
@@ -49,15 +45,11 @@ All endpoints require a valid customer token passed via the Authorization header
 - **Path**: `/mobileapi/customer/reviewrating`
 - **Description**: Updates a review previously posted by the authenticated customer.
 
-#### Request Body Payload (JSON)
-```json
-{
-  "orderItemId": "string", // REQUIRED. The ID of the order item corresponding to your review.
-  "rating": 4,             // REQUIRED. New or existing integer rating (1 to 5).
-  "comment": "string",     // OPTIONAL. Updated text comment.
-  "images": ["string"]     // OPTIONAL. Entire new array of image URLs (replaces old one).
-}
-```
+#### Request Body Payload (multipart/form-data)
+- `orderItemId`: (string) **REQUIRED**.
+- `rating`: (integer) **REQUIRED**. New or existing integer rating (1 to 5).
+- `comment`: (string) **OPTIONAL**. Updated text comment.
+- `images`: (file) **OPTIONAL**. Entire new set of image files (replaces old ones).
 
 #### Success Response (HTTP 200)
 ```json

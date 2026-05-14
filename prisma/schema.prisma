@@ -14,6 +14,8 @@ enum UserRole {
   CUSTOMER
   SELLER_PRODUCT
   SELLER_SERVICE
+  SELLER_HOTEL
+  SELLER_RESTAURANT
   ADMIN
 }
 
@@ -113,6 +115,8 @@ model User {
   accounts      Account[]
   sessions      Session[]
   seller        Seller?
+  hotelSeller   HotelSeller?
+  restaurantSeller RestaurantSeller?
   orders        Order[]
   reviews       Review[]
   cartItems     CartItem[]
@@ -356,6 +360,264 @@ model SellerAgreement {
   @@map("seller_agreements")
 }
 
+// ==========================================
+// HOTEL SELLER MODELS
+// ==========================================
+
+model HotelSeller {
+  id                  String           @id @default(cuid())
+  userId              String           @unique
+  isApproved          Boolean          @default(false)
+  isSuspended         Boolean          @default(false)
+  
+  // Onboarding Status
+  onboardingStep      Int              @default(2)
+  onboardingCompleted Boolean          @default(false)
+  status              OnboardingStatus @default(PENDING)
+  adminFeedback       String?          @db.Text
+  commissionRate      Float?           // Custom override
+
+  // Step 4 fields
+  estimateHotelCount  Int              @default(0)
+  estimateRoomCount   Int              @default(0)
+  categories          Json             @default("[]") // Multi-select Categories
+  logo                String?
+  banner              String?
+  mainPhoto           String?
+  
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+
+  user                User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  businessInfo        HotelBusinessInfo?
+  kyc                 HotelKYC?
+  bankDetails         HotelBankDetails?
+  agreement           HotelAgreement?
+  subscription        HotelSubscription?
+
+  @@map("hotel_sellers")
+}
+
+model HotelBusinessInfo {
+  id                String      @id @default(cuid())
+  hotelSellerId     String      @unique
+  businessName      String?
+  businessType      String?     // Individual, Proprietor, Partnership, Company
+  businessRegNumber String?
+  taxIdNumber       String?     // TIN/PAN
+  busRegCertUrl     String?
+  landmark          String?
+  managerName       String?
+  pocContact        String?
+  street            String?
+  city              String?
+  district          String?
+  state             String?
+  haveGst           Boolean     @default(false)
+  gstInvNo          String?
+  gstCustomerName   String?
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  hotelSeller       HotelSeller @relation(fields: [hotelSellerId], references: [id], onDelete: Cascade)
+
+  @@map("hotel_business_info")
+}
+
+model HotelKYC {
+  id                String      @id @default(cuid())
+  hotelSellerId     String      @unique
+  idType            String?     // National ID, Passport, Driver's License
+  idNumber          String?
+  idFrontUrl        String?
+  idBackUrl         String?
+  selfieUrl         String?
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  hotelSeller       HotelSeller @relation(fields: [hotelSellerId], references: [id], onDelete: Cascade)
+
+  @@map("hotel_kyc")
+}
+
+model HotelBankDetails {
+  id                   String      @id @default(cuid())
+  hotelSellerId        String      @unique
+  bankName             String?
+  accountHolderName    String?
+  accountNumber        String?
+  branchName           String?     // Also used for IFSC
+  passbookUrl          String?
+  mobileMoneyOption    String?
+  preferredPayoutMethod String?
+  createdAt            DateTime    @default(now())
+  updatedAt            DateTime    @updatedAt
+
+  hotelSeller          HotelSeller @relation(fields: [hotelSellerId], references: [id], onDelete: Cascade)
+
+  @@map("hotel_bank_details")
+}
+
+model HotelAgreement {
+  id                   String      @id @default(cuid())
+  hotelSellerId        String      @unique
+  agreedToTerms        Boolean     @default(false)
+  agreedToCommission   Boolean     @default(false)
+  agreedToPrivacy      Boolean     @default(false)
+  createdAt            DateTime    @default(now())
+  updatedAt            DateTime    @updatedAt
+
+  hotelSeller          HotelSeller @relation(fields: [hotelSellerId], references: [id], onDelete: Cascade)
+
+  @@map("hotel_agreements")
+}
+
+model HotelSubscription {
+  id                String             @id @default(cuid())
+  hotelSellerId     String             @unique
+  planId            String
+  status            SubscriptionStatus @default(TRIALING)
+  currentPeriodStart DateTime?
+  currentPeriodEnd   DateTime?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  hotelSeller HotelSeller @relation(fields: [hotelSellerId], references: [id], onDelete: Cascade)
+  plan        Plan        @relation(fields: [planId], references: [id])
+
+  @@map("hotel_subscriptions")
+}
+
+// ==========================================
+// RESTAURANT SELLER MODELS
+// ==========================================
+
+model RestaurantSeller {
+  id                  String           @id @default(cuid())
+  userId              String           @unique
+  isApproved          Boolean          @default(false)
+  isSuspended         Boolean          @default(false)
+  
+  // Onboarding Status
+  onboardingStep      Int              @default(2)
+  onboardingCompleted Boolean          @default(false)
+  status              OnboardingStatus @default(PENDING)
+  adminFeedback       String?          @db.Text
+  commissionRate      Float?           // Custom override
+
+  // Step 4 fields
+  estimateRestaurantCount Int          @default(0)
+  serviceTypes        Json             @default("[]") // Delivery, Dine-in, Takeaway
+  primaryCuisine      Json             @default("[]") // Multi-select Cuisines
+  logo                String?
+  banner              String?
+  mainPhoto           String?
+  
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+
+  user                User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  businessInfo        RestaurantBusinessInfo?
+  kyc                 RestaurantKYC?
+  bankDetails         RestaurantBankDetails?
+  agreement           RestaurantAgreement?
+  subscription        RestaurantSubscription?
+
+  @@map("restaurant_sellers")
+}
+
+model RestaurantBusinessInfo {
+  id                String           @id @default(cuid())
+  restaurantSellerId String           @unique
+  businessName      String?
+  businessType      String?
+  businessRegNumber String?
+  taxIdNumber       String?
+  busRegCertUrl     String?
+  landmark          String?
+  managerName       String?
+  pocContact        String?
+  street            String?
+  city              String?
+  district          String?
+  state             String?
+  haveGst           Boolean          @default(false)
+  gstInvNo          String?
+  gstCustomerName   String?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  restaurantSeller  RestaurantSeller @relation(fields: [restaurantSellerId], references: [id], onDelete: Cascade)
+
+  @@map("restaurant_business_info")
+}
+
+model RestaurantKYC {
+  id                String           @id @default(cuid())
+  restaurantSellerId String           @unique
+  idType            String?
+  idNumber          String?
+  idFrontUrl        String?
+  idBackUrl         String?
+  selfieUrl         String?
+  foodLicenseNumber String?          // Added for restaurants
+  foodLicenseUrl    String?          // Added for restaurants
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  restaurantSeller  RestaurantSeller @relation(fields: [restaurantSellerId], references: [id], onDelete: Cascade)
+
+  @@map("restaurant_kyc")
+}
+
+model RestaurantBankDetails {
+  id                   String           @id @default(cuid())
+  restaurantSellerId   String           @unique
+  bankName             String?
+  accountHolderName    String?
+  accountNumber        String?
+  branchName           String?
+  passbookUrl          String?
+  mobileMoneyOption    String?
+  preferredPayoutMethod String?
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+
+  restaurantSeller     RestaurantSeller @relation(fields: [restaurantSellerId], references: [id], onDelete: Cascade)
+
+  @@map("restaurant_bank_details")
+}
+
+model RestaurantAgreement {
+  id                   String           @id @default(cuid())
+  restaurantSellerId   String           @unique
+  agreedToTerms        Boolean          @default(false)
+  agreedToCommission   Boolean          @default(false)
+  agreedToPrivacy      Boolean          @default(false)
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+
+  restaurantSeller     RestaurantSeller @relation(fields: [restaurantSellerId], references: [id], onDelete: Cascade)
+
+  @@map("restaurant_agreements")
+}
+
+model RestaurantSubscription {
+  id                String             @id @default(cuid())
+  restaurantSellerId String           @unique
+  planId            String
+  status            SubscriptionStatus @default(TRIALING)
+  currentPeriodStart DateTime?
+  currentPeriodEnd   DateTime?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  restaurantSeller RestaurantSeller @relation(fields: [restaurantSellerId], references: [id], onDelete: Cascade)
+  plan             Plan             @relation(fields: [planId], references: [id])
+
+  @@map("restaurant_subscriptions")
+}
+
 model SellerBalanceTransaction {
   id              String               @id @default(cuid())
   sellerId        String
@@ -475,6 +737,8 @@ model Plan {
   updatedAt   DateTime          @updatedAt
 
   subscriptions Subscription[]
+  hotelSubscriptions HotelSubscription[]
+  restaurantSubscriptions RestaurantSubscription[]
 
   @@map("subscription_plans")
 }

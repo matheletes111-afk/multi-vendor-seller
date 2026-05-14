@@ -1,0 +1,151 @@
+"use client"
+
+import { useState } from "react"
+import { signIn, signOut } from "next-auth/react"
+import { useRouter } from "next/navigation"
+import Link from "next/link"
+import Image from "next/image"
+import { Button } from "@/ui/button"
+import { Input } from "@/ui/input"
+import { Label } from "@/ui/label"
+import { Alert, AlertDescription } from "@/ui/alert"
+import { AlertCircle, Eye, EyeOff } from "lucide-react"
+
+export default function HotelSellerRegistrationPage() {
+  const router = useRouter()
+  const [name, setName] = useState("")
+  const [email, setEmail] = useState("")
+  const [phoneCountryCode, setPhoneCountryCode] = useState("")
+  const [phone, setPhone] = useState("")
+  const [password, setPassword] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
+  const [error, setError] = useState("")
+  const [loading, setLoading] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError("")
+    if (!phoneCountryCode.trim() || !phone.trim()) { setError("Country code and phone are required"); return }
+    if (password !== confirmPassword) { setError("Passwords do not match"); return }
+    if (password.length < 6) { setError("Password must be at least 6 characters"); return }
+    setLoading(true)
+    try {
+      const res = await fetch("/api/hotel-seller/auth/registration", { 
+        method: "POST", 
+        headers: { "Content-Type": "application/json" }, 
+        body: JSON.stringify({ name, email, phone: phone.trim(), phoneCountryCode: phoneCountryCode.trim(), password }) 
+      })
+      const data = await res.json()
+      if (!res.ok) { setError(data.error || "Registration failed"); return }
+      router.push(`/hotel-seller/verify-otp?email=${encodeURIComponent(email)}&from=registration`)
+    } catch { setError("An error occurred. Please try again.") } finally { setLoading(false) }
+  }
+
+  return (
+    <div className="flex min-h-screen min-w-0 items-start justify-center overflow-x-hidden bg-gray-50/90 px-4 py-6 sm:items-center sm:py-4">
+      <div className="w-full max-w-[440px] min-w-0 max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-2xl bg-white p-5 shadow-xl sm:rounded-3xl sm:p-6 md:p-8">
+        <div className="mb-5 flex justify-center sm:mb-6">
+          <a href="/">
+            <Image src="/images/logo.png" alt="Logo" width={180} height={48} className="h-10 w-auto object-contain sm:h-12" />
+          </a>
+        </div>
+        <div className="mb-6 sm:mb-8">
+          <h1 className="text-center text-xl font-semibold text-gray-900 sm:text-2xl">Hotel Seller Registration</h1>
+          <p className="mt-1 text-center text-sm text-gray-500">Register to manage your hotels</p>
+        </div>
+        <form onSubmit={handleSubmit}>
+          {error && <Alert variant="destructive" className="mb-5"><AlertCircle className="h-4 w-4" /><AlertDescription>{error}</AlertDescription></Alert>}
+          <div className="space-y-5">
+            <div>
+              <Label htmlFor="name" className="mb-1.5 block text-sm font-medium text-gray-700">Full Name</Label>
+              <Input id="name" type="text" placeholder="John Doe" value={name} onChange={(e) => setName(e.target.value)} required disabled={loading} className="rounded-xl border-gray-200" />
+            </div>
+            <div>
+              <Label htmlFor="email" className="mb-1.5 block text-sm font-medium text-gray-700">Email</Label>
+              <Input id="email" type="email" placeholder="example@gmail.com" value={email} onChange={(e) => setEmail(e.target.value)} required disabled={loading} className="rounded-xl border-gray-200" />
+            </div>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_2fr]">
+              <div>
+                <Label htmlFor="phoneCountryCode" className="mb-1.5 block text-sm font-medium text-gray-700">Country code</Label>
+                <Input id="phoneCountryCode" type="tel" inputMode="numeric" placeholder="+1" value={phoneCountryCode} onChange={(e) => setPhoneCountryCode(e.target.value)} required disabled={loading} className="rounded-xl border-gray-200" />
+              </div>
+              <div>
+                <Label htmlFor="phone" className="mb-1.5 block text-sm font-medium text-gray-700">Phone</Label>
+                <Input id="phone" type="tel" inputMode="numeric" placeholder="Phone number" value={phone} onChange={(e) => setPhone(e.target.value)} required disabled={loading} className="rounded-xl border-gray-200" />
+              </div>
+            </div>
+            <div>
+              <Label htmlFor="password" className="mb-1.5 block text-sm font-medium text-gray-700">Password</Label>
+              <div className="relative">
+                <Input id="password" type={showPassword ? "text" : "password"} placeholder="**********" value={password} onChange={(e) => setPassword(e.target.value)} required disabled={loading} className="rounded-xl border-gray-200 pr-10" />
+                <button type="button" tabIndex={-1} onClick={() => setShowPassword((p) => !p)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" aria-label={showPassword ? "Hide password" : "Show password"}>
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
+            </div>
+            <div>
+              <Label htmlFor="confirmPassword" className="mb-1.5 block text-sm font-medium text-gray-700">Confirm Password</Label>
+              <div className="relative">
+                <Input id="confirmPassword" type={showConfirmPassword ? "text" : "password"} placeholder="**********" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required disabled={loading} className="rounded-xl border-gray-200 pr-10" />
+                <button type="button" tabIndex={-1} onClick={() => setShowConfirmPassword((p) => !p)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" aria-label={showConfirmPassword ? "Hide password" : "Show password"}>
+                  {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
+            </div>
+            <div className="text-center">
+              <Button type="submit" disabled={loading} className="mx-auto w-full rounded-full sm:max-w-[200px]">
+                {loading ? "Creating account..." : "Create Account"}
+              </Button>
+            </div>
+          </div>
+          
+          <div className="relative my-6">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t border-gray-200" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-white px-2 text-gray-500">Or continue with</span>
+            </div>
+          </div>
+          <div className="flex flex-col gap-2 sm:flex-row sm:justify-center">
+            <Button
+              type="button"
+              variant="outline"
+              className="rounded-full"
+              disabled={loading}
+              onClick={async () => {
+                try {
+                  const callbackUrlWithRole = `/api/auth/oauth-postprocess?role=SELLER_HOTEL&next=/hotel-seller/onboarding`
+                  await signOut({ redirect: false })
+                  await signIn("google", { callbackUrl: callbackUrlWithRole, redirect: true })
+                } catch {}
+              }}
+            >
+              Google
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="rounded-full"
+              disabled={loading}
+              onClick={async () => {
+                try {
+                  const callbackUrlWithRole = `/api/auth/oauth-postprocess?role=SELLER_HOTEL&next=/hotel-seller/onboarding`
+                  await signOut({ redirect: false })
+                  await signIn("facebook", { callbackUrl: callbackUrlWithRole, redirect: true })
+                } catch {}
+              }}
+            >
+              Facebook
+            </Button>
+          </div>
+          <p className="mt-6 text-center text-sm text-gray-600">
+            Already have an account? <Link href="/hotel-seller/login" className="font-medium text-blue-600 hover:underline">Hotel Seller Sign In</Link>
+          </p>
+        </form>
+      </div>
+    </div>
+  )
+}

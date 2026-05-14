@@ -25,7 +25,7 @@ export async function POST(
     }
 
     const { id: orderId, orderItemId } = await params
-    
+
     let reasonRaw = ""
     let resolutionType: "EXCHANGE" | "REFUND" = "REFUND"
     let replacementVariantId: string | null = null
@@ -45,7 +45,7 @@ export async function POST(
           const buffer = Buffer.from(bytes)
           const ext = path.extname(file.name) || ".jpg"
           const url = await uploadPublicFile({
-            folder: "returns",
+            folder: "return-images",
             ext,
             contentType: file.type || "image/jpeg",
             buffer,

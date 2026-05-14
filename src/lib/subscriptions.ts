@@ -218,41 +218,57 @@ export function canReceiveReviews(sellerId: string, subscription: { plan: { name
  */
 export async function activateFreePlan(sellerId: string) {
   try {
-    // 1. Find the plan with price 0
-    const freePlan = await prisma.plan.findFirst({
-      where: { price: 0 },
-    })
-
-    if (!freePlan) {
-      console.error(`[activateFreePlan] No plan with 0 RS found in database. Cannot auto-activate for seller ${sellerId}`)
-      return null
-    }
-
-    // 2. Create the subscription with 1-month initial period
+    const freePlan = await prisma.plan.findFirst({ where: { price: 0 } })
+    if (!freePlan) return null
     const now = new Date()
     const oneMonthLater = new Date(now)
     oneMonthLater.setMonth(oneMonthLater.getMonth() + 1)
 
-    const subscription = await prisma.subscription.upsert({
+    return await prisma.subscription.upsert({
       where: { sellerId },
-      create: {
-        sellerId,
-        planId: freePlan.id,
-        status: "ACTIVE",
-        currentPeriodStart: now,
-        currentPeriodEnd: oneMonthLater,
-      },
-      update: {
-        planId: freePlan.id,
-        status: "ACTIVE",
-        currentPeriodStart: now,
-        currentPeriodEnd: oneMonthLater,
-      },
+      create: { sellerId, planId: freePlan.id, status: "ACTIVE", currentPeriodStart: now, currentPeriodEnd: oneMonthLater },
+      update: { planId: freePlan.id, status: "ACTIVE", currentPeriodStart: now, currentPeriodEnd: oneMonthLater },
     })
-
-    return subscription
   } catch (error) {
-    console.error(`[activateFreePlan] Error activating free plan for seller ${sellerId}:`, error)
+    console.error(`[activateFreePlan] Error:`, error)
+    return null
+  }
+}
+
+export async function activateHotelFreePlan(hotelSellerId: string) {
+  try {
+    const freePlan = await prisma.plan.findFirst({ where: { price: 0 } })
+    if (!freePlan) return null
+    const now = new Date()
+    const oneMonthLater = new Date(now)
+    oneMonthLater.setMonth(oneMonthLater.getMonth() + 1)
+
+    return await prisma.hotelSubscription.upsert({
+      where: { hotelSellerId },
+      create: { hotelSellerId, planId: freePlan.id, status: "ACTIVE", currentPeriodStart: now, currentPeriodEnd: oneMonthLater },
+      update: { planId: freePlan.id, status: "ACTIVE", currentPeriodStart: now, currentPeriodEnd: oneMonthLater },
+    })
+  } catch (error) {
+    console.error(`[activateHotelFreePlan] Error:`, error)
+    return null
+  }
+}
+
+export async function activateRestaurantFreePlan(restaurantSellerId: string) {
+  try {
+    const freePlan = await prisma.plan.findFirst({ where: { price: 0 } })
+    if (!freePlan) return null
+    const now = new Date()
+    const oneMonthLater = new Date(now)
+    oneMonthLater.setMonth(oneMonthLater.getMonth() + 1)
+
+    return await prisma.restaurantSubscription.upsert({
+      where: { restaurantSellerId },
+      create: { restaurantSellerId, planId: freePlan.id, status: "ACTIVE", currentPeriodStart: now, currentPeriodEnd: oneMonthLater },
+      update: { planId: freePlan.id, status: "ACTIVE", currentPeriodStart: now, currentPeriodEnd: oneMonthLater },
+    })
+  } catch (error) {
+    console.error(`[activateRestaurantFreePlan] Error:`, error)
     return null
   }
 }

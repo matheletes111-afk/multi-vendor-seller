@@ -1,0 +1,8 @@
+src/app/admin/layout-client.tsx(69,73): error TS2304: Cannot find name 'Building2'.
+src/app/api/auth/oauth-postprocess/route.ts(18,7): error TS2739: Type '{ CUSTOMER: string; SELLER_PRODUCT: string; SELLER_SERVICE: string; ADMIN: string; }' is missing the following properties from type 'Record<UserRole, string>': SELLER_HOTEL, SELLER_RESTAURANT
+src/app/restaurant-seller/(auth)/login/page.tsx(95,63): error TS2322: Type '{ children: string; href: string; size: string; className: string; }' is not assignable to type 'IntrinsicAttributes & Omit<AnchorHTMLAttributes<HTMLAnchorElement>, keyof LinkProps<any>> & LinkProps<...> & { ...; } & RefAttributes<...>'.
+  Property 'size' does not exist on type 'IntrinsicAttributes & Omit<AnchorHTMLAttributes<HTMLAnchorElement>, keyof LinkProps<any>> & LinkProps<...> & { ...; } & RefAttributes<...>'.
+src/app/restaurant-seller/(auth)/registration/page.tsx(10,26): error TS2307: Cannot find module '@/ui/checkbox' or its corresponding type declarations.
+src/middleware.ts(158,7): error TS2322: Type '"SELLER_SERVICE"' is not assignable to type '"SELLER_PRODUCT"'.
+src/middleware.ts(161,7): error TS2322: Type '"SELLER_HOTEL"' is not assignable to type '"SELLER_PRODUCT"'.
+src/middleware.ts(164,7): error TS2322: Type '"SELLER_RESTAURANT"' is not assignable to type '"SELLER_PRODUCT"'.

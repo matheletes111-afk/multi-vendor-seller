@@ -59,21 +59,29 @@ const providers: any[] = [
       // We also surface isApproved / isSuspended on the session so middleware can restrict access.
       if (
         user.role === UserRole.SELLER_PRODUCT ||
-        user.role === UserRole.SELLER_SERVICE
+        user.role === UserRole.SELLER_SERVICE ||
+        user.role === UserRole.SELLER_HOTEL ||
+        user.role === UserRole.SELLER_RESTAURANT
       ) {
-        const seller = await prisma.seller.findUnique({
-          where: { userId: user.id },
-          select: {
-            isApproved: true,
-            isSuspended: true,
-            onboardingCompleted: true,
-            onboardingStep: true,
-          } as any,
-        }) as any
-        if (
-          !seller ||
-          (seller.isSuspended ?? false)
-        ) {
+        let seller: any = null
+        if (user.role === UserRole.SELLER_HOTEL) {
+          seller = await prisma.hotelSeller.findUnique({
+            where: { userId: user.id },
+            select: { isApproved: true, isSuspended: true, onboardingCompleted: true, onboardingStep: true } as any
+          })
+        } else if (user.role === UserRole.SELLER_RESTAURANT) {
+          seller = await prisma.restaurantSeller.findUnique({
+            where: { userId: user.id },
+            select: { isApproved: true, isSuspended: true, onboardingCompleted: true, onboardingStep: true } as any
+          })
+        } else {
+          seller = await prisma.seller.findUnique({
+            where: { userId: user.id },
+            select: { isApproved: true, isSuspended: true, onboardingCompleted: true, onboardingStep: true } as any
+          })
+        }
+
+        if (!seller || (seller.isSuspended ?? false)) {
           return null
         }
         return {
@@ -168,18 +176,29 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         // doesn't include Seller-specific fields like onboardingCompleted.
         // We fetch them here if they are missing but the role is a SELLER.
         if (
-          (token.role === UserRole.SELLER_PRODUCT || token.role === UserRole.SELLER_SERVICE) &&
+          (token.role === UserRole.SELLER_PRODUCT ||
+            token.role === UserRole.SELLER_SERVICE ||
+            token.role === UserRole.SELLER_HOTEL ||
+            token.role === UserRole.SELLER_RESTAURANT) &&
           sellerInfo.onboardingCompleted === undefined
         ) {
-          const seller = await prisma.seller.findUnique({
-            where: { userId: user.id },
-            select: {
-              isApproved: true,
-              isSuspended: true,
-              onboardingCompleted: true,
-              onboardingStep: true,
-            } as any
-          })
+          let seller: any = null
+          if (token.role === UserRole.SELLER_HOTEL) {
+            seller = await prisma.hotelSeller.findUnique({
+              where: { userId: user.id },
+              select: { isApproved: true, isSuspended: true, onboardingCompleted: true, onboardingStep: true } as any
+            })
+          } else if (token.role === UserRole.SELLER_RESTAURANT) {
+            seller = await prisma.restaurantSeller.findUnique({
+              where: { userId: user.id },
+              select: { isApproved: true, isSuspended: true, onboardingCompleted: true, onboardingStep: true } as any
+            })
+          } else {
+            seller = await prisma.seller.findUnique({
+              where: { userId: user.id },
+              select: { isApproved: true, isSuspended: true, onboardingCompleted: true, onboardingStep: true } as any
+            })
+          }
           if (seller) {
             sellerInfo = { ...sellerInfo, ...seller }
           }
@@ -193,7 +212,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           token.onboardingStep = sellerInfo.onboardingStep
       } else if (
         token.role === UserRole.SELLER_PRODUCT ||
-        token.role === UserRole.SELLER_SERVICE
+        token.role === UserRole.SELLER_SERVICE ||
+        token.role === UserRole.SELLER_HOTEL ||
+        token.role === UserRole.SELLER_RESTAURANT
       ) {
         // Robustness: rely on the token's current state for the Edge runtime (middleware).
         // Real-time re-validation should happen in Node-safe layouts/pages, not in the JWT callback.

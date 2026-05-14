@@ -1,0 +1,356 @@
+"use client"
+
+import { useState, useEffect } from "react"
+import { useSearchParams } from "next/navigation"
+import { Eye, EyeOff, FileText, CheckCircle2, AlertCircle, Camera, User, LogOut, LayoutDashboard, Settings as SettingsIcon } from "lucide-react"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/ui/card"
+import { Button } from "@/ui/button"
+import { Input } from "@/ui/input"
+import { Label } from "@/ui/label"
+import { Textarea } from "@/ui/textarea"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/ui/select"
+import { Alert, AlertDescription, AlertTitle } from "@/ui/alert"
+import { Badge } from "@/ui/badge"
+import { Checkbox } from "@/ui/checkbox-v2"
+import { PageLoader } from "@/components/ui/page-loader"
+import { ProfilePictureInput } from "@/components/profile-picture-input"
+import { cn } from "@/lib/utils"
+
+const HOTEL_CATEGORIES = [
+  "Hotel", "Resort", "Villa", "Guest House", "Apartment", "Motel", "Hostel", "Lodge", "Cottage", "Other"
+]
+
+export default function HotelSettingsClient() {
+  const searchParams = useSearchParams()
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState<string | null>(null)
+  const [seller, setSeller] = useState<any>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
+  const [showPassword, setShowPassword] = useState(false)
+  const [haveGst, setHaveGst] = useState(false)
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([])
+  const [previews, setPreviews] = useState<Record<string, { file: File, url: string }>>({})
+
+  useEffect(() => {
+    async function loadData() {
+      try {
+        const res = await fetch("/api/hotel-seller/settings")
+        if (res.ok) {
+          const s = await res.json()
+          setSeller(s)
+          if (s.businessInfo) setHaveGst(!!s.businessInfo.haveGst)
+          if (s.categories) {
+              try {
+                  const c = JSON.parse(s.categories)
+                  if (Array.isArray(c)) setSelectedCategories(c)
+              } catch { /* ignore */ }
+          }
+        }
+      } finally {
+        setLoading(false)
+      }
+    }
+    loadData()
+  }, [])
+
+  const paramsError = searchParams.get("error")
+
+  const getErrorMessage = (err: string | null) => {
+    if (!err) return null
+    if (err === "AccountPendingApproval") {
+      return "Your account is currently pending approval by our administration team. You will be notified once your account has been verified and active."
+    }
+    return err
+  }
+
+  async function handleSave(e: React.FormEvent<HTMLFormElement>, section: string) {
+    e.preventDefault()
+    setSaving(section)
+    setError(null)
+    setSuccess(null)
+
+    const formData = new FormData(e.currentTarget)
+    formData.append("section", section)
+    
+    if (section === "property") {
+        selectedCategories.forEach(cat => formData.append("categories", cat))
+    }
+
+    try {
+        const res = await fetch("/api/hotel-seller/settings", { method: "PUT", body: formData })
+        if (!res.ok) {
+            const data = await res.json()
+            throw new Error(data.error || "Failed to update settings")
+        }
+        setSuccess(`${section.charAt(0).toUpperCase() + section.slice(1)} details updated successfully!`)
+        const refresh = await fetch("/api/hotel-seller/settings")
+        if (refresh.ok) setSeller(await refresh.json())
+    } catch (err: any) {
+        setError(err.message)
+    } finally {
+        setSaving(null)
+    }
+  }
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, key: string) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      const url = URL.createObjectURL(file)
+      setPreviews(prev => ({ ...prev, [key]: { file, url } }))
+    }
+  }
+
+  if (loading || !seller) return <PageLoader message="Loading hotel settings…" />
+
+  const isApproved = seller.isApproved
+  const isPending = seller.status === "PENDING"
+  const isCorrection = seller.status === "CORRECTION_NEEDED"
+  const isRejected = seller.status === "REJECTED"
+
+  return (
+    <div className="container mx-auto py-8 px-4 max-w-5xl">
+      <div className="flex justify-between items-center mb-8">
+        <h1 className="text-3xl font-bold">Hotel Settings</h1>
+        <div className="flex gap-2">
+            {!isApproved && isPending && <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-200">Pending Approval</Badge>}
+            {isCorrection && <Badge variant="destructive">Correction Needed</Badge>}
+            {isRejected && <Badge variant="destructive">Rejected</Badge>}
+            {isApproved && <Badge className="bg-green-100 text-green-800 border-green-200">Approved & Active</Badge>}
+        </div>
+      </div>
+
+      {(paramsError || error) && (
+        <Alert variant="destructive" className="mb-6">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{getErrorMessage(paramsError) || error}</AlertDescription>
+        </Alert>
+      )}
+
+      {success && (
+        <Alert className="mb-6 border-green-200 bg-green-50 text-green-800">
+          <CheckCircle2 className="h-4 w-4 text-green-600" />
+          <AlertTitle>Success</AlertTitle>
+          <AlertDescription>{success}</AlertDescription>
+        </Alert>
+      )}
+
+      {isCorrection && seller.adminFeedback && (
+          <Alert variant="destructive" className="mb-6 border-2">
+            <AlertTitle className="font-bold">Admin Feedback:</AlertTitle>
+            <AlertDescription className="text-lg italic">"{seller.adminFeedback}"</AlertDescription>
+          </Alert>
+      )}
+
+      <div className="grid gap-8">
+        {/* USER INFO */}
+        <Card>
+          <CardHeader><CardTitle>Account Profile</CardTitle><CardDescription>Primary login and contact info</CardDescription></CardHeader>
+          <CardContent>
+            <form onSubmit={(e) => handleSave(e, "user")} className="space-y-4">
+               <div className="grid md:grid-cols-2 gap-4">
+                  <div className="space-y-2"><Label>Email</Label><Input value={seller.user.email} disabled className="bg-muted" /></div>
+                  <div className="space-y-2"><Label>Full Name</Label><Input name="name" defaultValue={seller.user.name || ""} /></div>
+               </div>
+               <div className="grid md:grid-cols-2 gap-4">
+                  <div className="space-y-2"><Label>Country Code</Label><Input name="phoneCountryCode" defaultValue={seller.user.phoneCountryCode || ""} /></div>
+                  <div className="space-y-2"><Label>Phone Number</Label><Input name="phone" defaultValue={seller.user.phone || ""} /></div>
+               </div>
+               <div className="pt-2"><Label>Profile Picture</Label><ProfilePictureInput currentImage={seller.user.image} fileInputName="profileImage" urlInputName="image" /></div>
+               <Button type="submit" disabled={saving === "user"}>{saving === "user" ? "Saving..." : "Update Profile"}</Button>
+            </form>
+          </CardContent>
+        </Card>
+
+        {/* BUSINESS INFO */}
+        <Card>
+          <CardHeader><CardTitle>Business Details</CardTitle><CardDescription>Legal entity information</CardDescription></CardHeader>
+          <CardContent>
+            <form onSubmit={(e) => handleSave(e, "business")} className="space-y-4">
+               <div className="grid md:grid-cols-2 gap-4">
+                  <div className="space-y-2"><Label>Legal Business Name</Label><Input name="businessName" defaultValue={seller.businessInfo?.businessName || ""} /></div>
+                  <div className="space-y-2">
+                    <Label>Business Type</Label>
+                    <Select name="businessType" defaultValue={seller.businessInfo?.businessType || "Individual"}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Individual">Individual</SelectItem>
+                        <SelectItem value="Proprietor">Proprietor</SelectItem>
+                        <SelectItem value="Partnership">Partnership</SelectItem>
+                        <SelectItem value="Company">Company</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+               </div>
+               <div className="grid md:grid-cols-2 gap-4 pt-4 border-t">
+                  <div className="space-y-2"><Label>TIN / PAN Number</Label><Input name="taxIdNumber" defaultValue={seller.businessInfo?.taxIdNumber || ""} /></div>
+                  <div className="flex flex-col justify-end pb-1 space-y-2">
+                    <div className="flex items-center gap-2">
+                        <Checkbox id="haveGst" name="haveGst" value="true" checked={haveGst} onChange={(e: any) => setHaveGst(e.target.checked)} />
+                        <Label htmlFor="haveGst" className="cursor-pointer">Business has GST</Label>
+                    </div>
+                  </div>
+               </div>
+               <div className="grid md:grid-cols-2 gap-4 pt-4 border-t">
+                  <div className="space-y-2">
+                    <Label htmlFor="managerName">Manager (POC) Name *</Label>
+                    <Input id="managerName" name="managerName" defaultValue={seller.businessInfo?.managerName || ""} required />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="pocContact">POC Contact Number *</Label>
+                    <Input id="pocContact" name="pocContact" defaultValue={seller.businessInfo?.pocContact || ""} required />
+                  </div>
+               </div>
+               {haveGst && (
+                   <div className="grid md:grid-cols-2 gap-4 p-4 bg-slate-50 rounded-xl border animate-in fade-in zoom-in-95 duration-200">
+                      <div className="space-y-2"><Label>GST Number</Label><Input name="gstInvNo" defaultValue={seller.businessInfo?.gstInvNo || ""} /></div>
+                      <div className="space-y-2"><Label>GST Customer Name</Label><Input name="gstCustomerName" defaultValue={seller.businessInfo?.gstCustomerName || ""} /></div>
+                   </div>
+               )}
+               <div className="grid md:grid-cols-3 gap-4 pt-4 border-t">
+                  <div className="space-y-2"><Label>Landmark</Label><Input name="landmark" defaultValue={seller.businessInfo?.landmark || ""} /></div>
+                  <div className="space-y-2"><Label>City</Label><Input name="city" defaultValue={seller.businessInfo?.city || ""} /></div>
+                  <div className="space-y-2"><Label>State</Label><Input name="state" defaultValue={seller.businessInfo?.state || ""} /></div>
+               </div>
+               <div className="pt-2">
+                  <Label>Registration Certificate</Label>
+                  <div className="flex items-center gap-3 mt-1">
+                    <Input name="busRegCert" type="file" className="max-w-xs" />
+                    {seller.businessInfo?.busRegCertUrl && <a href={seller.businessInfo.busRegCertUrl} target="_blank" className="text-primary hover:underline text-sm flex items-center gap-1"><FileText className="h-4 w-4" /> View Current</a>}
+                  </div>
+               </div>
+               <Button type="submit" disabled={saving === "business"}>{saving === "business" ? "Saving..." : "Update Business Info"}</Button>
+            </form>
+          </CardContent>
+        </Card>
+
+         {/* KYC & LICENSE */}
+        <Card>
+          <CardHeader><CardTitle>KYC Documents</CardTitle></CardHeader>
+          <CardContent>
+            <form onSubmit={(e) => handleSave(e, "kyc")} className="space-y-4">
+               <div className="grid md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>ID Type</Label>
+                    <Select name="idType" defaultValue={seller.kyc?.idType || "National ID Card"}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="National ID Card">National ID Card</SelectItem>
+                        <SelectItem value="Passport">Passport</SelectItem>
+                        <SelectItem value="Driver's License">Driver's License</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2"><Label>ID Number</Label><Input name="idNumber" defaultValue={seller.kyc?.idNumber || ""} /></div>
+               </div>
+               <div className="grid md:grid-cols-3 gap-4 pt-4 border-t">
+                  <div className="space-y-2">
+                    <Label>ID Front</Label>
+                    <div className="mt-1">
+                      {seller.kyc?.idFrontUrl && <a href={seller.kyc.idFrontUrl} target="_blank" className="text-primary hover:underline text-xs flex items-center gap-1 mb-2"><FileText className="h-4 w-4" /> View Current</a>}
+                      <Input name="idFront" type="file" onChange={(e) => handleFileChange(e, "idFront")} />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>ID Back</Label>
+                    <div className="mt-1">
+                      {seller.kyc?.idBackUrl && <a href={seller.kyc.idBackUrl} target="_blank" className="text-primary hover:underline text-xs flex items-center gap-1 mb-2"><FileText className="h-4 w-4" /> View Current</a>}
+                      <Input name="idBack" type="file" onChange={(e) => handleFileChange(e, "idBack")} />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Selfie</Label>
+                    <div className="mt-1">
+                      {seller.kyc?.selfieUrl && <a href={seller.kyc.selfieUrl} target="_blank" className="text-primary hover:underline text-xs flex items-center gap-1 mb-2"><FileText className="h-4 w-4" /> View Current</a>}
+                      <Input name="selfie" type="file" onChange={(e) => handleFileChange(e, "selfie")} />
+                    </div>
+                  </div>
+               </div>
+               <Button type="submit" disabled={saving === "kyc"}>{saving === "kyc" ? "Saving..." : "Update KYC"}</Button>
+            </form>
+          </CardContent>
+        </Card>
+
+        {/* PROPERTY INFO */}
+        <Card>
+           <CardHeader><CardTitle>Property Visuals & Setup</CardTitle></CardHeader>
+           <CardContent>
+             <form onSubmit={(e) => handleSave(e, "property")} className="space-y-6">
+                <div className="grid md:grid-cols-2 gap-4">
+                   <div className="space-y-2"><Label>Estimate Hotel Count</Label><Input name="estimateHotelCount" type="number" defaultValue={seller.estimateHotelCount || ""} /></div>
+                   <div className="space-y-2"><Label>Estimate Room Count</Label><Input name="estimateRoomCount" type="number" defaultValue={seller.estimateRoomCount || ""} /></div>
+                </div>
+                <div className="space-y-3">
+                   <Label>Hotel Categories</Label>
+                   <div className="grid grid-cols-2 md:grid-cols-4 gap-2 p-4 bg-slate-50 rounded-xl border">
+                      {HOTEL_CATEGORIES.map(cat => (
+                          <label key={cat} className="flex items-center gap-2 cursor-pointer p-1">
+                             <input 
+                                type="checkbox" 
+                                checked={selectedCategories.includes(cat)}
+                                onChange={(e) => {
+                                    if (e.target.checked) setSelectedCategories([...selectedCategories, cat])
+                                    else setSelectedCategories(selectedCategories.filter(c => c !== cat))
+                                }}
+                             />
+                             <span className="text-xs font-medium">{cat}</span>
+                          </label>
+                      ))}
+                   </div>
+                </div>
+                <div className="grid md:grid-cols-3 gap-6 pt-4 border-t">
+                   <div className="space-y-2">
+                      <Label>Hotel Logo</Label>
+                      <div className="mt-1 flex flex-col items-center gap-2 p-4 border rounded-xl bg-slate-50">
+                        { (previews.logo || seller.logo) && <img src={previews.logo ? previews.logo.url : seller.logo} className="w-20 h-20 object-cover rounded-lg border shadow-sm" /> }
+                        <Input name="logo" type="file" accept="image/*" onChange={(e) => handleFileChange(e, "logo")} />
+                      </div>
+                   </div>
+                   <div className="space-y-2">
+                      <Label>Banner Image</Label>
+                      <div className="mt-1 flex flex-col items-center gap-2 p-4 border rounded-xl bg-slate-50">
+                        { (previews.banner || seller.banner) && <img src={previews.banner ? previews.banner.url : seller.banner} className="w-full aspect-video object-cover rounded-lg border shadow-sm" /> }
+                        <Input name="banner" type="file" accept="image/*" onChange={(e) => handleFileChange(e, "banner")} />
+                      </div>
+                   </div>
+                   <div className="space-y-2">
+                      <Label>Main Property Photo</Label>
+                      <div className="mt-1 flex flex-col items-center gap-2 p-4 border rounded-xl bg-slate-50">
+                        { (previews.mainPhoto || seller.mainPhoto) && <img src={previews.mainPhoto ? previews.mainPhoto.url : seller.mainPhoto} className="w-full aspect-video object-cover rounded-lg border shadow-sm" /> }
+                        <Input name="mainPhoto" type="file" accept="image/*" onChange={(e) => handleFileChange(e, "mainPhoto")} />
+                      </div>
+                   </div>
+                </div>
+                <Button type="submit" disabled={saving === "property"}>{saving === "property" ? "Saving..." : "Update Property Visuals"}</Button>
+             </form>
+           </CardContent>
+        </Card>
+
+        {/* BANK DETAILS */}
+        <Card>
+           <CardHeader><CardTitle>Payout Account</CardTitle></CardHeader>
+           <CardContent>
+             <form onSubmit={(e) => handleSave(e, "bank")} className="space-y-4">
+                <div className="grid md:grid-cols-2 gap-4">
+                   <div className="space-y-2"><Label>Bank Name</Label><Input name="bankName" defaultValue={seller.bankDetails?.bankName || ""} /></div>
+                   <div className="space-y-2"><Label>Account Holder</Label><Input name="accountHolderName" defaultValue={seller.bankDetails?.accountHolderName || ""} /></div>
+                </div>
+                <div className="grid md:grid-cols-2 gap-4">
+                   <div className="space-y-2"><Label>Account Number</Label><Input name="accountNumber" defaultValue={seller.bankDetails?.accountNumber || ""} /></div>
+                   <div className="space-y-2"><Label>Branch / IFSC</Label><Input name="branchName" defaultValue={seller.bankDetails?.branchName || ""} /></div>
+                </div>
+                <div className="pt-2">
+                   <Label>Passbook / Check Copy</Label>
+                   <div className="flex items-center gap-3 mt-1">
+                      <Input name="passbook" type="file" className="max-w-xs" />
+                      {seller.bankDetails?.passbookUrl && <a href={seller.bankDetails.passbookUrl} target="_blank" className="text-primary hover:underline text-sm flex items-center gap-1"><FileText className="h-4 w-4" /> View Current</a>}
+                   </div>
+                </div>
+                <Button type="submit" disabled={saving === "bank"}>{saving === "bank" ? "Saving..." : "Update Payout Details"}</Button>
+             </form>
+           </CardContent>
+        </Card>
+      </div>
+    </div>
+  )
+}
