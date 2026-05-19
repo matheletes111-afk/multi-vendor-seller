@@ -3,42 +3,61 @@ import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { isAdmin } from "@/lib/rbac"
 
-export async function POST(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+/** 
+ * POST /api/admin/restaurant-sellers/[id]/status
+ * Handles approval, suspension, and rejection of restaurant sellers.
+ */
+export async function POST(
+  request: NextRequest,
+  props: { params: Promise<{ id: string }> }
+) {
   try {
     const session = await auth()
     if (!session?.user || !isAdmin(session.user)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    const { id } = await props.params
     const { action, feedback } = await request.json()
-    const params = await props.params
-    const id = params.id
 
-    if (action === "approve") {
-      await prisma.restaurantSeller.update({
-        where: { id },
-        data: { isApproved: true, status: "APPROVED", onboardingCompleted: true }
-      })
-    } else if (action === "suspend") {
-      await prisma.restaurantSeller.update({
-        where: { id },
-        data: { isSuspended: true }
-      })
-    } else if (action === "unsuspend") {
-      await prisma.restaurantSeller.update({
-        where: { id },
-        data: { isSuspended: false }
-      })
-    } else if (action === "reject") {
-      await prisma.restaurantSeller.update({
-        where: { id },
-        data: { isApproved: false, status: "REJECTED", adminFeedback: feedback }
-      })
+    if (!id) {
+      return NextResponse.json({ error: "ID is required" }, { status: 400 })
     }
 
-    return NextResponse.json({ success: true })
-  } catch (error) {
+    const seller = await prisma.restaurantSeller.findUnique({ where: { id } })
+    if (!seller) {
+      return NextResponse.json({ error: "Seller not found" }, { status: 404 })
+    }
+
+    let updateData: any = { adminFeedback: feedback || null }
+
+    if (action === "approve") {
+      updateData.isApproved = true
+      updateData.status = "APPROVED"
+      updateData.onboardingCompleted = true
+      updateData.isSuspended = false
+    } else if (action === "suspend") {
+      updateData.isSuspended = true
+    } else if (action === "unsuspend") {
+      updateData.isSuspended = false
+    } else if (action === "reject") {
+      updateData.isApproved = false
+      updateData.status = "REJECTED"
+      updateData.adminFeedback = feedback
+    } else if (action === "correction") {
+      updateData.isApproved = false
+      updateData.status = "CORRECTION_NEEDED"
+      updateData.adminFeedback = feedback
+    }
+
+    const updatedSeller = await prisma.restaurantSeller.update({
+      where: { id },
+      data: updateData
+    })
+
+    return NextResponse.json({ success: true, seller: updatedSeller })
+  } catch (error: any) {
     console.error("Restaurant status update error:", error)
-    return NextResponse.json({ error: "Failed to update status" }, { status: 500 })
+    return NextResponse.json({ error: error.message || "Failed to update status" }, { status: 500 })
   }
 }

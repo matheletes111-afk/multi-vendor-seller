@@ -394,8 +394,73 @@ model HotelSeller {
   bankDetails         HotelBankDetails?
   agreement           HotelAgreement?
   subscription        HotelSubscription?
+  hotels              Hotel[]
 
   @@map("hotel_sellers")
+}
+
+model Hotel {
+  id                String      @id @default(cuid())
+  hotelSellerId     String
+  name              String
+  description       String?     @db.Text
+  starRating        Int         @default(0)
+  amenities         Json        @default("[]")
+  checkInPolicy     String?     @db.Text
+  checkOutPolicy    String?     @db.Text
+  address           String?
+  city              String?
+  state             String?
+  lat               Float?
+  lng               Float?
+  images            Json        @default("[]")
+  logo              String?
+  banner            String?
+  isActive          Boolean     @default(true)
+  isDeleted         Boolean     @default(false)
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  hotelSeller       HotelSeller @relation(fields: [hotelSellerId], references: [id], onDelete: Cascade)
+  rooms             Room[]
+
+  @@map("hotels")
+}
+
+model Room {
+  id                String      @id @default(cuid())
+  hotelId           String
+  name              String
+  description       String?     @db.Text
+  images            Json        @default("[]")
+  price             Float
+  capacityAdults    Int         @default(2)
+  capacityChildren  Int         @default(0)
+  amenities         Json        @default("[]")
+  totalRooms        Int         @default(1)
+  isActive          Boolean     @default(true)
+  isDeleted         Boolean     @default(false)
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  hotel             Hotel       @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  availability      RoomAvailability[]
+
+  @@map("rooms")
+}
+
+model RoomAvailability {
+  id                String      @id @default(cuid())
+  roomId            String
+  date              DateTime
+  isBlocked         Boolean     @default(false)
+  priceOverride     Float?
+  bookedCount       Int         @default(0)
+
+  room              Room        @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  @@unique([roomId, date])
+  @@map("room_availability")
 }
 
 model HotelBusinessInfo {

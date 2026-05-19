@@ -2,8 +2,6 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { isAdmin } from "@/lib/rbac"
-import { getPaginationFromSearchParams } from "@/lib/admin-pagination"
-import type { Prisma } from "@prisma/client"
 
 export async function GET(request: NextRequest) {
   try {
@@ -13,28 +11,16 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url)
-    const { skip, take, page, perPage } = getPaginationFromSearchParams({
-      page: searchParams.get("page") ?? undefined,
-      perPage: searchParams.get("perPage") ?? undefined,
-    })
-
+    const page = parseInt(searchParams.get("page") ?? "1")
+    const perPage = parseInt(searchParams.get("perPage") ?? "10")
+    const search = searchParams.get("search")
     const tab = searchParams.get("tab") ?? "all"
-    const search = searchParams.get("search")?.trim()
-    const startDate = searchParams.get("startDate")
-    const endDate = searchParams.get("endDate")
 
-    let where: Prisma.RestaurantSellerWhereInput = {}
+    const skip = (page - 1) * perPage
+    const take = perPage
 
-    if (startDate || endDate) {
-      where.createdAt = {}
-      if (startDate) where.createdAt.gte = new Date(startDate)
-      if (endDate) {
-        const end = new Date(endDate)
-        end.setHours(23, 59, 59, 999)
-        where.createdAt.lte = end
-      }
-    }
-    
+    let where: any = {}
+
     if (tab === "pending") {
        where = { ...where, isApproved: false, status: { not: "REJECTED" } }
     } else if (tab === "approved") {
@@ -65,9 +51,6 @@ export async function GET(request: NextRequest) {
           kyc: true,
           bankDetails: true,
           agreement: true,
-          subscription: {
-            include: { plan: true },
-          },
         },
         orderBy: { createdAt: "desc" },
       }),
@@ -83,7 +66,7 @@ export async function GET(request: NextRequest) {
       perPage,
     })
   } catch (error) {
-    console.error("Error fetching restaurant sellers:", error)
-    return NextResponse.json({ error: "Failed to fetch sellers" }, { status: 500 })
+    console.error("Restaurant sellers fetch error:", error)
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
   }
 }

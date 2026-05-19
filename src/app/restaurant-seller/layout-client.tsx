@@ -53,7 +53,7 @@ const navContent = (
     <NavItem href="/restaurant-seller/admanagement" label="Ads" icon={<Megaphone className="h-4 w-4" />} />
     <NavItem href="/restaurant-seller/orders" label="Orders" icon={<ShoppingCart className="h-4 w-4" />} />
     {/* <NavItem href="/restaurant-seller/reviews" label="Reviews" icon={<Star className="h-4 w-4" />} /> */}
-    <NavItem href="/restaurant-seller/subscription" label="Subscription" icon={<CreditCard className="h-4 w-4" />} />
+    {/* <NavItem href="/restaurant-seller/subscription" label="Subscription" icon={<CreditCard className="h-4 w-4" />} /> */}
     <NavItem href="/restaurant-seller/settings" label="Settings" icon={<Settings className="h-4 w-4" />} />
   </>
 )

@@ -98,24 +98,34 @@ export async function processHybridServiceRequest(
 
 async function uploadAndGetUrl(file: File, folder: string, prefix: string): Promise<string> {
   if (file.size > MAX_BYTES) throw new Error("File too large (max 10MB)")
+
+  const mimeMap: Record<string, string> = {
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".png": "image/png",
+    ".webp": "image/webp",
+    ".gif": "image/gif",
+  }
+
   const type = file.type?.toLowerCase()
+  const ext = path.extname(file.name).toLowerCase() || ".jpg"
+
   if (!type || !ALLOWED_IMAGE_TYPES.includes(type)) {
-    const fileName = file.name || ""
-    const ext = fileName.split('.').pop()?.toLowerCase()
     const allowedExts = ["jpg", "jpeg", "png", "gif", "webp"]
-    if (!ext || !allowedExts.includes(ext)) {
+    const baseExt = ext.replace(/^\./, "")
+    if (!baseExt || !allowedExts.includes(baseExt)) {
       throw new Error("Invalid image type. Use JPEG, PNG, GIF, or WebP.")
     }
   }
 
   const bytes = await file.arrayBuffer()
   const buffer = Buffer.from(bytes)
-  const ext = path.extname(file.name) || ".jpg"
+  const resolvedType = mimeMap[ext] || type || "image/jpeg"
 
   return await uploadPublicFile({
     folder,
     ext,
-    contentType: type,
+    contentType: resolvedType,
     buffer,
     prefix,
   })

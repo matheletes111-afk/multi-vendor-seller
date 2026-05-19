@@ -23,7 +23,10 @@ import {
   CheckCircle,
   ImageIcon,
   UtensilsCrossed,
-  ChefHat
+  ChefHat,
+  Landmark,
+  ShieldCheck,
+  UserCheck
 } from "lucide-react"
 
 interface RestaurantSellerDetailsViewProps {
@@ -102,8 +105,8 @@ export function RestaurantSellerDetailsView({
               <div className="space-y-3">
                 <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-1">Primary Cuisines</span>
                 <div className="flex flex-wrap gap-2">
-                  {cuisines.map((c: string) => (
-                    <Badge key={c} variant="secondary" className="rounded-full px-2.5 py-0.5 bg-slate-100 text-slate-700 border-none font-bold text-[9px] uppercase">
+                  {cuisines.map((c: string, idx: number) => (
+                    <Badge key={`${c}-${idx}`} variant="secondary" className="rounded-full px-2.5 py-0.5 bg-slate-100 text-slate-700 border-none font-bold text-[9px] uppercase">
                       {c}
                     </Badge>
                   ))}
@@ -112,13 +115,53 @@ export function RestaurantSellerDetailsView({
               <div className="space-y-3">
                 <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-1">Service Types</span>
                 <div className="flex flex-wrap gap-2">
-                  {services.map((s: string) => (
-                    <Badge key={s} variant="outline" className="rounded-full px-2.5 py-0.5 border-emerald-200 text-emerald-700 font-bold text-[9px] uppercase">
+                  {services.map((s: string, idx: number) => (
+                    <Badge key={`${s}-${idx}`} variant="outline" className="rounded-full px-2.5 py-0.5 border-emerald-200 text-emerald-700 font-bold text-[9px] uppercase">
                       {s}
                     </Badge>
                   ))}
                 </div>
               </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Business Info & POC */}
+        <Card className="border border-muted/50 shadow-xl bg-background rounded-3xl overflow-hidden flex flex-col border-l-4 border-l-indigo-500/40">
+          <CardHeader className="bg-muted/30 pb-4 border-b border-muted/20">
+            <CardTitle className="text-xs font-bold uppercase tracking-wider flex items-center gap-2 text-indigo-600">
+              <Scale className="h-4 w-4" /> Business Entity & POC
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-6 space-y-4 flex-1">
+            <div className="space-y-3">
+               <div className="flex items-center gap-3">
+                  <div className="p-2 bg-indigo-50 rounded-xl"><UserCheck className="h-4 w-4 text-indigo-600" /></div>
+                  <div className="flex flex-col">
+                    <span className="text-[10px] font-medium text-muted-foreground/60 uppercase tracking-widest">Manager / POC Name</span>
+                    <span className="text-sm font-bold">{seller.businessInfo?.pocName || seller.user?.name || "—"}</span>
+                  </div>
+               </div>
+               <div className="flex items-center gap-3">
+                  <div className="p-2 bg-indigo-50 rounded-xl"><Phone className="h-4 w-4 text-indigo-600" /></div>
+                  <div className="flex flex-col">
+                    <span className="text-[10px] font-medium text-muted-foreground/60 uppercase tracking-widest">POC Contact</span>
+                    <span className="text-sm font-bold">{seller.businessInfo?.pocContact || seller.user?.phone || "—"}</span>
+                  </div>
+               </div>
+               <div className="flex items-center gap-3">
+                  <div className="p-2 bg-indigo-50 rounded-xl"><Landmark className="h-4 w-4 text-indigo-600" /></div>
+                  <div className="flex flex-col">
+                    <span className="text-[10px] font-medium text-muted-foreground/60 uppercase tracking-widest">Business Landmark</span>
+                    <span className="text-sm font-bold">{seller.businessInfo?.landmark || "—"}</span>
+                  </div>
+               </div>
+            </div>
+            
+            <div className="pt-4 border-t space-y-2">
+                <div className="flex justify-between items-center"><span className="text-[10px] font-medium text-muted-foreground/60 uppercase tracking-tighter">Legal Business Name</span><span className="text-xs font-black">{seller.businessInfo?.businessName || "—"}</span></div>
+                <div className="flex justify-between items-center"><span className="text-[10px] font-medium text-muted-foreground/60 uppercase tracking-tighter">Business Type</span><span className="text-xs font-bold">{seller.businessInfo?.businessType || "—"}</span></div>
+                <div className="flex justify-between items-center"><span className="text-[10px] font-medium text-muted-foreground/60 uppercase tracking-tighter">Tax / GST ID</span><span className="text-xs font-bold">{seller.businessInfo?.taxIdNumber || "—"}</span></div>
             </div>
           </CardContent>
         </Card>
@@ -132,18 +175,79 @@ export function RestaurantSellerDetailsView({
           </CardHeader>
           <CardContent className="pt-6 space-y-4 flex-1">
             <div className="bg-amber-50 p-4 rounded-2xl border border-amber-100 space-y-2">
-                <div className="flex justify-between items-center"><span className="text-[10px] font-bold text-amber-600 uppercase">License Number</span><span className="text-xs font-black text-amber-900">{seller.kyc?.foodLicenseNumber || "—"}</span></div>
+                <div className="flex justify-between items-center"><span className="text-[10px] font-bold text-amber-600 uppercase">FSSAI License</span><span className="text-xs font-black text-amber-900">{seller.kyc?.foodLicenseNumber || "—"}</span></div>
                 <div className="pt-2">
                     <DocumentThumbnail url={seller.kyc?.foodLicenseUrl} title="Food License Copy" />
                 </div>
             </div>
-            <div className="pt-4 border-t space-y-3">
-                <div className="flex justify-between items-center"><span className="text-[10px] font-medium text-muted-foreground/60">ID Type</span><span className="text-xs font-bold">{seller.kyc?.idType || "—"}</span></div>
-                <div className="flex justify-between items-center"><span className="text-[10px] font-medium text-muted-foreground/60">ID Number</span><span className="text-xs font-bold">{seller.kyc?.idNumber || "—"}</span></div>
-                <div className="grid grid-cols-2 gap-2 mt-2">
+            <div className="pt-2 border-t mt-4 grid grid-cols-2 gap-2">
+                <div className="flex flex-col gap-2">
+                    <span className="text-[10px] font-bold text-muted-foreground uppercase ml-1">ID Front</span>
                     <DocumentThumbnail url={seller.kyc?.idFrontUrl} title="ID Front" />
+                </div>
+                <div className="flex flex-col gap-2">
+                    <span className="text-[10px] font-bold text-muted-foreground uppercase ml-1">Selfie</span>
                     <DocumentThumbnail url={seller.kyc?.selfieUrl} title="Selfie" />
                 </div>
+            </div>
+            <div className="pt-2 border-t space-y-2">
+                <div className="flex justify-between items-center"><span className="text-[10px] font-medium text-muted-foreground/60 uppercase tracking-tighter">ID Type</span><span className="text-xs font-bold">{seller.kyc?.idType || "—"}</span></div>
+                <div className="flex justify-between items-center"><span className="text-[10px] font-medium text-muted-foreground/60 uppercase tracking-tighter">ID Number</span><span className="text-xs font-black">{seller.kyc?.idNumber || "—"}</span></div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Payout / Bank Details */}
+        <Card className="border border-muted/50 shadow-xl bg-background rounded-3xl overflow-hidden flex flex-col border-l-4 border-l-emerald-500/40">
+          <CardHeader className="bg-muted/30 pb-4 border-b border-muted/20">
+            <CardTitle className="text-xs font-bold uppercase tracking-wider flex items-center gap-2 text-emerald-600">
+              <CreditCard className="h-4 w-4" /> Settlement & Bank Details
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-6 space-y-5 flex-1">
+            <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-100 flex flex-col gap-1">
+                <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest">Account Holder</span>
+                <span className="text-base font-black text-emerald-900">{seller.bankDetails?.accountHolderName || "—"}</span>
+            </div>
+            <div className="space-y-3">
+               <div className="flex justify-between items-center"><span className="text-[10px] font-medium text-muted-foreground/60 uppercase tracking-tighter">Bank Name</span><span className="text-sm font-bold">{seller.bankDetails?.bankName || "—"}</span></div>
+               <div className="flex justify-between items-center"><span className="text-[10px] font-medium text-muted-foreground/60 uppercase tracking-tighter">Account Number</span><span className="text-sm font-black tracking-wider">{seller.bankDetails?.accountNumber || "—"}</span></div>
+               <div className="flex justify-between items-center"><span className="text-[10px] font-medium text-muted-foreground/60 uppercase tracking-tighter">IFSC / Swift Code</span><span className="text-sm font-bold uppercase">{seller.bankDetails?.ifscCode || "—"}</span></div>
+            </div>
+            <div className="pt-4 border-t">
+               <span className="text-[10px] font-bold text-muted-foreground uppercase ml-1 mb-2 block">Bank Proof Document</span>
+               <DocumentThumbnail url={seller.bankDetails?.bankProofUrl} title="Bank Proof" />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Agreement Status */}
+        <Card className="border border-muted/50 shadow-xl bg-background rounded-3xl overflow-hidden flex flex-col border-l-4 border-l-slate-500/40">
+          <CardHeader className="bg-muted/30 pb-4 border-b border-muted/20">
+            <CardTitle className="text-xs font-bold uppercase tracking-wider flex items-center gap-2 text-slate-600">
+              <ShieldCheck className="h-4 w-4" /> Legal Agreement
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-6 space-y-4 flex-1">
+            <div className="flex flex-col gap-3">
+               <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                  {seller.agreement?.isAccepted ? (
+                    <CheckCircle className="h-6 w-6 text-emerald-500" />
+                  ) : (
+                    <AlertCircle className="h-6 w-6 text-amber-500" />
+                  )}
+                  <div>
+                    <span className="text-sm font-black block">{seller.agreement?.isAccepted ? "Agreement Accepted" : "Agreement Pending"}</span>
+                    <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-widest">
+                      {seller.agreement?.acceptedAt ? `Accepted on ${new Date(seller.agreement.acceptedAt).toLocaleDateString()}` : "Waiting for signature"}
+                    </span>
+                  </div>
+               </div>
+               
+               <div className="pt-2">
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase ml-1 mb-2 block">Signed Document</span>
+                  <DocumentThumbnail url={seller.agreement?.documentUrl} title="Signed Agreement" />
+               </div>
             </div>
           </CardContent>
         </Card>
@@ -159,17 +263,20 @@ export function RestaurantSellerDetailsView({
             </div>
           </div>
           <div className="flex items-center gap-3">
+            {seller.isSuspended && (
+               <Badge className="bg-red-100 text-red-700 border-red-200 px-4 py-2 rounded-2xl font-black uppercase tracking-widest text-[10px] animate-pulse">Account Suspended</Badge>
+            )}
             {!seller.isApproved && (
               <div className="flex items-center gap-3">
-                <Button className="rounded-full bg-blue-600 hover:bg-blue-700 font-bold px-6 uppercase tracking-widest text-[10px] h-10" disabled={actionLoading === seller.id} onClick={() => onOpenCorrection?.(seller.id)}>Send Correction</Button>
-                <Button className="rounded-full bg-green-500 hover:bg-green-600 font-bold px-8 uppercase tracking-widest text-[10px] h-10" disabled={actionLoading === seller.id} onClick={() => onApprove?.(seller.id)}>Approve Partner</Button>
-                <Button className="rounded-full bg-red-600 hover:bg-red-700 font-bold px-6 uppercase tracking-widest text-[10px] h-10" disabled={actionLoading === seller.id} onClick={() => onOpenReject?.(seller.id)}>Reject</Button>
+                <Button className="rounded-full bg-blue-600 hover:bg-blue-700 font-bold px-6 uppercase tracking-widest text-[10px] h-10" disabled={!!actionLoading} onClick={() => onOpenCorrection?.(seller.id)}>Send Correction</Button>
+                <Button className="rounded-full bg-green-500 hover:bg-green-600 font-bold px-8 uppercase tracking-widest text-[10px] h-10" disabled={!!actionLoading} onClick={() => onApprove?.(seller.id)}>Approve Partner</Button>
+                <Button className="rounded-full bg-red-600 hover:bg-red-700 font-bold px-6 uppercase tracking-widest text-[10px] h-10" disabled={!!actionLoading} onClick={() => onOpenReject?.(seller.id)}>Reject</Button>
               </div>
             )}
             {seller.isSuspended ? (
-              <Button className="rounded-full font-bold px-8 bg-indigo-500 hover:bg-indigo-600 uppercase tracking-widest text-[10px] h-10" disabled={actionLoading === seller.id} onClick={() => onUnsuspend?.(seller.id)}>Unsuspend</Button>
+              <Button className="rounded-full font-bold px-8 bg-emerald-600 hover:bg-emerald-700 text-white uppercase tracking-widest text-[10px] h-10 shadow-lg shadow-emerald-100" disabled={!!actionLoading} onClick={() => onUnsuspend?.(seller.id)}>Activate Partner</Button>
             ) : (
-              <Button variant="destructive" className="rounded-full font-bold px-8 uppercase tracking-widest text-[10px] h-10" disabled={actionLoading === seller.id} onClick={() => onSuspend?.(seller.id)}>Suspend</Button>
+              seller.isApproved && <Button variant="destructive" className="rounded-full font-bold px-8 uppercase tracking-widest text-[10px] h-10" disabled={!!actionLoading} onClick={() => onSuspend?.(seller.id)}>Suspend Partner</Button>
             )}
           </div>
       </div>

@@ -1,0 +1,292 @@
+================================================================================
+MOBILE CUSTOMER BROWSE AND DYNAMIC FILTERS APIS
+================================================================================
+
+This document details the two new endpoints implemented to support mobile customer search, browse, and filter capabilities. These APIs are fully synchronized with the web marketplace's dynamic search and sidebar logic.
+
+1. BROWSE API: GET /mobileapi/browse
+2. DYNAMIC FILTERS API: GET /mobileapi/browse/filters
+
+All APIs follow the standard mobile response structure:
+{
+  "success": true,
+  "message": "...",
+  "data": { ... }
+}
+
+--------------------------------------------------------------------------------
+1. BROWSE API (Search and Product Filters)
+--------------------------------------------------------------------------------
+Method: GET
+Path: /mobileapi/browse
+Description: Handles searching, sorting, paginating, and filtering products and services. Returns a complete, synchronized result set matching the marketplace inventory.
+
+Query Parameters:
+- q (string): Search query matching product or service names case-insensitively.
+- categoryId (string): Legacy single category ID filter.
+- cats (string): Comma-separated list of category IDs to filter.
+- subcategoryId (string): Filter products under a specific subcategory.
+- serviceCategoryId (string): Filter services under a specific category (applies only if no product categories are specified).
+- minPrice (number): Filter items with final price >= minPrice.
+- maxPrice (number): Filter items with final price <= maxPrice.
+- brands (string): Comma-separated list of brands to filter.
+- rating (string): Minimum average reviews rating. Allowed values: "1", "2", "3", "4" (corresponds to 1-4 stars & up).
+- disc (string): Comma-separated discount percents to filter. Matches discount percent >= specified discount. Allowed values: "10", "20", "30", "40", "50".
+- ret (string): Comma-separated return policy filter codes:
+    * "fr"   : Free returns (Returnable with returnDays >= 7)
+    * "7"    : 7 days return window
+    * "10"   : 10 days return window
+    * "30"   : 30 days return window
+    * "none" : Non-returnable
+- avail (string): Filter by product variant stock availability. Allowed values: "in" (in stock), "out" (out of stock).
+- seller (string): Filter by seller tier. Allowed values: "branded" (branded store or premium/standard plan), "regular" (standard free store).
+- condition (string): Comma-separated product conditions. Allowed values: "NEW", "USED".
+- page (number): Page number for pagination. Defaults to 1.
+- pageSize (number): Max items per page. Defaults to 12. Maximum is 100.
+- sort (string): Sorting order of products. Allowed values:
+    * "newest"     : Sorted by latest created (Default)
+    * "price_asc"  : Sorted by price: Low to High
+    * "price_desc" : Sorted by price: High to Low
+    * "featured"   : Featured items first
+    * "bestseller" : Highest sold quantities first
+    * "rating"     : Highest rated reviews first
+
+Response Format (Success):
+{
+  "success": true,
+  "message": "Search results loaded successfully",
+  "data": {
+    "page": 1,
+    "pageSize": 12,
+    "totalProducts": 1,
+    "totalPages": 1,
+    "sort": "newest",
+    "minPrice": null,
+    "maxPrice": null,
+    "categoryId": null,
+    "cats": [],
+    "subcategoryId": null,
+    "serviceCategoryId": null,
+    "resolvedCategoryId": null,
+    "categoryName": null,
+    "subcategoryName": null,
+    "serviceCategoryName": null,
+    "subcategories": [],
+    "sponsoredAds": [],
+    "products": [
+      {
+        "id": "prod_12345",
+        "name": "Sleek Leather Shoes",
+        "slug": "sleek-leather-shoes",
+        "description": "High-quality leather shoes for formal and casual occasions.",
+        "images": ["/uploads/products/shoes1.png"],
+        "isFeatured": false,
+        "createdAt": "2026-05-18T10:00:00.000Z",
+        "category": {
+          "id": "cat_1",
+          "name": "Fashion",
+          "slug": "fashion"
+        },
+        "seller": {
+          "store": {
+            "name": "Elegant Steps",
+            "logo": "/uploads/stores/logo1.png"
+          },
+          "subscription": {
+            "plan": {
+              "name": "PREMIUM"
+            }
+          }
+        },
+        "variants": [
+          {
+            "price": 120.0,
+            "discount": 20.0,
+            "stock": 15,
+            "returnType": "RETURNABLE",
+            "returnDays": 10,
+            "attributes": {
+              "size": "9",
+              "color": "black",
+              "brand": "Acorn Crafts"
+            }
+          }
+        ],
+        "_count": {
+          "reviews": 3
+        },
+        "basePrice": 120.0,
+        "discount": 20.0,
+        "finalPrice": 100.0,
+        "avgRating": 4.67,
+        "soldCount": 4,
+        "brand": "Acorn Crafts",
+        "stock": 15,
+        "returnType": "RETURNABLE",
+        "returnDays": 10,
+        "isBrandedSeller": true,
+        "discountPercent": 17,
+        "condition": "NEW"
+      }
+    ],
+    "services": []
+  }
+}
+
+--------------------------------------------------------------------------------
+2. DYNAMIC FILTERS API (Search Sidebar Parameters)
+--------------------------------------------------------------------------------
+Method: GET
+Path: /mobileapi/browse/filters
+Description: Dynamically calculates relevant sidebar filter options based on the active search keyword and category context. It compiles unique brands and price ranges (min/max finalPrice) from inventory matching the base search, and supplies static filter option lists.
+
+Query Parameters (Context Providers):
+- q (string): Current search text to narrow filter parameters dynamically.
+- categoryId (string): Legacy active category ID.
+- cats (string): Comma-separated list of active category IDs.
+- subcategoryId (string): Active subcategory filter.
+- condition (string): Comma-separated active condition.
+
+Response Format (Success):
+{
+  "success": true,
+  "message": "Filter parameters fetched successfully",
+  "data": {
+    "categories": [
+      {
+        "id": "cat_1",
+        "name": "Automotive",
+        "slug": "automotive"
+      },
+      {
+        "id": "cat_2",
+        "name": "Cosmetics",
+        "slug": "cosmetics"
+      },
+      {
+        "id": "cat_3",
+        "name": "Electronics",
+        "slug": "electronics"
+      },
+      {
+        "id": "cat_4",
+        "name": "Fashion",
+        "slug": "fashion"
+      }
+    ],
+    "brands": [
+      "Acorn Crafts",
+      "Amazon Brand - Symactive",
+      "AZRIEL",
+      "Elephant",
+      "FAMEXON",
+      "Other"
+    ],
+    "priceRange": {
+      "min": 45,
+      "max": 15999
+    },
+    "ratings": [
+      {
+        "value": "4",
+        "label": "4 stars & up"
+      },
+      {
+        "value": "3",
+        "label": "3 stars & up"
+      },
+      {
+        "value": "2",
+        "label": "2 stars & up"
+      },
+      {
+        "value": "1",
+        "label": "1 star & up"
+      }
+    ],
+    "discounts": [
+      {
+        "value": 10,
+        "label": "10% and above"
+      },
+      {
+        "value": 20,
+        "label": "20% and above"
+      },
+      {
+        "value": 30,
+        "label": "30% and above"
+      },
+      {
+        "value": 40,
+        "label": "40% and above"
+      },
+      {
+        "value": 50,
+        "label": "50% and above"
+      }
+    ],
+    "returnPolicies": [
+      {
+        "code": "fr",
+        "label": "Free Returns (7+ days)"
+      },
+      {
+        "code": "7",
+        "label": "7 Days Return"
+      },
+      {
+        "code": "10",
+        "label": "10 Days Return"
+      },
+      {
+        "code": "30",
+        "label": "30 Days Return"
+      },
+      {
+        "code": "none",
+        "label": "Non-returnable"
+      }
+    ],
+    "conditions": [
+      {
+        "code": "NEW",
+        "label": "New"
+      },
+      {
+        "code": "USED",
+        "label": "Used"
+      }
+    ],
+    "availability": [
+      {
+        "code": "in",
+        "label": "In Stock"
+      },
+      {
+        "code": "out",
+        "label": "Out of Stock"
+      }
+    ],
+    "sellerTypes": [
+      {
+        "code": "branded",
+        "label": "Branded Store"
+      },
+      {
+        "code": "regular",
+        "label": "Regular Seller"
+      }
+    ]
+  }
+}
+
+--------------------------------------------------------------------------------
+ERROR HANDLING (Standard for both APIs)
+--------------------------------------------------------------------------------
+If an error occurs, the server responds with a status code of 500 (or other 4xx/5xx code) and a JSON payload detailing the error:
+
+{
+  "success": false,
+  "error": "Detailed description of the error."
+}

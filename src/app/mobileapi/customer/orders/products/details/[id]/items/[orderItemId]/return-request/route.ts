@@ -42,6 +42,13 @@ export async function POST(
       replacementVariantId = formData.get("replacementVariantId")?.toString().trim() || null
 
       const files = formData.getAll("returnImages")
+      const mimeMap: Record<string, string> = {
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".png": "image/png",
+        ".webp": "image/webp",
+        ".gif": "image/gif",
+      }
 
       // Validation loop
       for (const file of files) {
@@ -49,7 +56,11 @@ export async function POST(
           if (file.size > MAX_FILE_SIZE) {
             return NextResponse.json({ success: false, error: `File ${file.name} exceeds 5MB limit` }, { status: 400 })
           }
-          if (!ALLOWED_TYPES.includes(file.type)) {
+          const fileType = file.type?.toLowerCase()
+          const ext = path.extname(file.name).toLowerCase()
+          const isAllowedType = ALLOWED_TYPES.includes(fileType)
+          const isAllowedExt = Object.keys(mimeMap).includes(ext)
+          if (!isAllowedType && !isAllowedExt) {
             return NextResponse.json({ success: false, error: `Invalid file type for ${file.name}. Allowed: JPEG (jpg/jpeg), PNG, WebP, GIF` }, { status: 400 })
           }
         }
@@ -59,11 +70,12 @@ export async function POST(
         if (file instanceof File) {
           const bytes = await file.arrayBuffer()
           const buffer = Buffer.from(bytes)
-          const ext = path.extname(file.name) || ".jpg"
+          const ext = path.extname(file.name).toLowerCase() || ".jpg"
+          const resolvedType = mimeMap[ext] || file.type || "image/jpeg"
           const url = await uploadPublicFile({
             folder: "return-images",
             ext,
-            contentType: file.type || "image/jpeg",
+            contentType: resolvedType,
             buffer,
             prefix: "return",
           })

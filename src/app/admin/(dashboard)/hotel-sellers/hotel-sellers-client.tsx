@@ -14,11 +14,26 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/ui/card"
 import { AdminPagination } from "@/components/admin/admin-pagination"
 import { PageLoader } from "@/components/ui/page-loader"
 import { Alert, AlertDescription } from "@/ui/alert"
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/ui/sheet"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/ui/dialog"
 import { Textarea } from "@/ui/textarea"
-import { Users, CheckCircle, AlertCircle, Ban, Eye, Building2, Search, X, Calendar, Filter, ChevronDown } from "lucide-react"
+import { 
+  Users, 
+  CheckCircle, 
+  AlertCircle, 
+  Ban, 
+  Eye, 
+  Building2, 
+  Search, 
+  X, 
+  Calendar, 
+  Filter, 
+  ChevronDown,
+  Mail,
+  Phone,
+  Briefcase
+} from "lucide-react"
 import { HotelSellerDetailsView } from "@/components/admin/sellers/hotel-seller-details-view"
+import Link from "next/link"
 
 export function HotelSellersClient() {
   const searchParams = useSearchParams()
@@ -39,8 +54,8 @@ export function HotelSellersClient() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
+  const [expandedSellerId, setExpandedSellerId] = useState<string | null>(null)
   
-  const [selectedSeller, setSelectedSeller] = useState<any>(null)
   const [rejectDialog, setRejectDialog] = useState<{ open: boolean; id: string; action: string }>({ open: false, id: "", action: "" })
   const [feedback, setFeedback] = useState("")
 
@@ -90,12 +105,10 @@ export function HotelSellersClient() {
       })
       if (!res.ok) throw new Error("Failed to update status")
       
-      if (selectedSeller?.id === id) {
-         setSelectedSeller(null)
-      }
       setRejectDialog({ open: false, id: "", action: "" })
       setFeedback("")
       loadSellers()
+      router.refresh()
     } catch (e: any) {
       setError(e.message)
     } finally {
@@ -109,105 +122,180 @@ export function HotelSellersClient() {
     <div className="container mx-auto p-6 space-y-8 animate-in fade-in duration-700">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold">Hotel Seller Management</h1>
-          <p className="text-muted-foreground">Manage and approve hotel partners.</p>
+          <h1 className="text-3xl font-black tracking-tight">Hotel Seller Management</h1>
+          <p className="text-muted-foreground mt-2 font-medium">Approve and monitor your hospitality partners.</p>
         </div>
-        <Badge variant="outline" className="px-3 py-1">{data?.totalCount || 0} Total Hotels</Badge>
+        <div className="flex items-center gap-3">
+          <Badge variant="outline" className="px-4 py-1.5 rounded-full border-primary/20 bg-primary/5 text-primary font-bold shadow-sm">
+            {data?.totalCount || 0} Total Partners
+          </Badge>
+        </div>
       </div>
 
-      <Card className="border-none shadow-xl rounded-3xl overflow-hidden">
-        <CardHeader className="pb-4">
-          <div className="flex flex-wrap items-end gap-4">
-            <div className="flex-1 min-w-[250px] space-y-1.5">
-              <Label className="text-xs uppercase tracking-wider">Search</Label>
-              <div className="relative">
-                <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input 
-                  placeholder="Name, email, business..." 
-                  className="pl-9 rounded-xl" 
-                  value={searchInput} 
-                  onChange={e => setSearchInput(e.target.value)}
-                  onKeyDown={e => e.key === "Enter" && handleSearch()}
-                />
+      <Card className="rounded-[2.5rem] border-none shadow-2xl overflow-hidden bg-gradient-to-br from-background via-background to-muted/20">
+        <CardHeader className="pb-6">
+          <div className="flex items-center gap-2 mb-6 px-4">
+            <Filter className="h-4 w-4 text-primary" />
+            <CardTitle className="text-sm font-semibold uppercase tracking-wider">Search & Filters</CardTitle>
+          </div>
+          <div className="px-4">
+            <div className="flex flex-wrap items-end gap-6">
+              <div className="flex-1 min-w-[300px] space-y-1.5">
+                <Label className="text-xs uppercase tracking-widest text-muted-foreground ml-1">Partner Search</Label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Input 
+                    placeholder="Name, email, business name..." 
+                    className="pl-9 rounded-2xl h-12 bg-background/50 border-muted focus-visible:ring-primary/20" 
+                    value={searchInput} 
+                    onChange={e => setSearchInput(e.target.value)}
+                    onKeyDown={e => e.key === "Enter" && handleSearch()}
+                  />
+                </div>
               </div>
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs uppercase tracking-wider">Status</Label>
-              <Select value={localTab} onValueChange={setLocalTab}>
-                <SelectTrigger className="w-[180px] rounded-xl">
-                  <SelectValue placeholder="All" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All</SelectItem>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="approved">Approved</SelectItem>
-                  <SelectItem value="suspended">Suspended</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex gap-2">
-              <Button onClick={handleSearch} className="rounded-xl px-6 h-10">Search</Button>
-              <Button variant="outline" onClick={handleClear} className="rounded-xl h-10">Reset</Button>
+              <div className="w-[200px] space-y-1.5">
+                <Label className="text-xs uppercase tracking-widest text-muted-foreground ml-1">Status View</Label>
+                <Select value={localTab} onValueChange={setLocalTab}>
+                  <SelectTrigger className="rounded-2xl h-12 bg-background/50 border-muted">
+                    <SelectValue placeholder="All Partners" />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-2xl border-none shadow-xl">
+                    <SelectItem value="all">All Partners</SelectItem>
+                    <SelectItem value="pending">Review Pending</SelectItem>
+                    <SelectItem value="approved">Fully Approved</SelectItem>
+                    <SelectItem value="suspended">Suspended</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex gap-2">
+                <Button onClick={handleSearch} className="rounded-2xl px-8 h-12 font-bold shadow-lg shadow-primary/20 transition-all active:scale-95">
+                  Apply Search
+                </Button>
+                <Button variant="outline" onClick={handleClear} className="rounded-2xl px-6 h-12 font-medium border-muted hover:bg-muted/50">
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
           </div>
         </CardHeader>
         <CardContent className="p-0">
           <Table>
-            <TableHeader className="bg-muted/50">
-              <TableRow>
-                <TableHead className="pl-8">Partner</TableHead>
-                <TableHead>Business Name</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Rooms (Est.)</TableHead>
-                <TableHead>Subscription</TableHead>
+            <TableHeader className="bg-muted/30">
+              <TableRow className="hover:bg-transparent border-none">
+                <TableHead className="pl-8 py-5">Identity</TableHead>
+                <TableHead>Venture</TableHead>
+                <TableHead>Standing</TableHead>
+                <TableHead>Portfolio</TableHead>
+
                 <TableHead className="text-right pr-8">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {data?.sellers.length === 0 ? (
-                <TableRow><TableCell colSpan={6} className="text-center py-20 text-muted-foreground">No hotel sellers found.</TableCell></TableRow>
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-32">
+                    <div className="flex flex-col items-center gap-2 opacity-20">
+                      <Users className="h-16 w-16" />
+                      <p className="font-black uppercase tracking-[0.3em] text-sm">No partners identified</p>
+                    </div>
+                  </TableCell>
+                </TableRow>
               ) : (
-                data?.sellers.map((seller: any) => (
-                  <TableRow key={seller.id} className="group hover:bg-muted/20 border-b cursor-pointer" onClick={() => setSelectedSeller(seller)}>
-                    <TableCell className="pl-8 py-4">
-                      <div className="font-medium">{seller.user?.name}</div>
-                      <div className="text-xs text-muted-foreground">{seller.user?.email}</div>
-                    </TableCell>
-                    <TableCell className="font-medium">{seller.businessInfo?.businessName || "—"}</TableCell>
-                    <TableCell>
-                      <Badge className={cn(
-                        "rounded-full uppercase tracking-tighter text-[10px] px-2.5",
-                        seller.isApproved ? "bg-green-500" : "bg-blue-500"
-                      )}>
-                        {seller.isApproved ? "Approved" : "Pending"}
-                      </Badge>
-                      {seller.isSuspended && <Badge className="ml-1 bg-red-500 rounded-full text-[10px] px-2.5 uppercase tracking-tighter">Suspended</Badge>}
-                    </TableCell>
-                    <TableCell>{seller.estimateRoomCount || 0}</TableCell>
-                    <TableCell>
-                      <span className="text-xs font-bold text-primary">{seller.subscription?.plan?.displayName || "None"}</span>
-                    </TableCell>
-                    <TableCell className="text-right pr-8">
-                      <div className="flex justify-end gap-2" onClick={e => e.stopPropagation()}>
-                        <Button size="icon" variant="ghost" className="h-8 w-8 rounded-full" onClick={() => setSelectedSeller(seller)}>
-                           <Eye className="h-4 w-4" />
-                        </Button>
-                        {!seller.isApproved && (
-                          <Button size="sm" className="h-8 rounded-full bg-green-600 hover:bg-green-700" onClick={() => handleStatusAction(seller.id, "approve")} disabled={actionLoading === seller.id}>Approve</Button>
-                        )}
-                        {!seller.isSuspended ? (
-                          <Button size="sm" variant="destructive" className="h-8 rounded-full" onClick={() => handleStatusAction(seller.id, "suspend")} disabled={actionLoading === seller.id}>Suspend</Button>
-                        ) : (
-                          <Button size="sm" variant="outline" className="h-8 rounded-full border-blue-500 text-blue-500" onClick={() => handleStatusAction(seller.id, "unsuspend")} disabled={actionLoading === seller.id}>Unsuspend</Button>
-                        )}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
+                data?.sellers.map((seller: any) => {
+                  const isExpanded = expandedSellerId === seller.id
+                  return (
+                    <Fragment key={seller.id}>
+                      <TableRow className={cn(
+                        "group transition-all hover:bg-muted/20 border-b border-muted/10 cursor-pointer",
+                        isExpanded && "bg-muted/10 shadow-inner"
+                      )} onClick={() => setExpandedSellerId(isExpanded ? null : seller.id)}>
+                        <TableCell className="pl-8 py-5">
+                          <div className="flex flex-col">
+                            <span className="font-bold text-base leading-tight">{seller.user?.name}</span>
+                            <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-tighter">{seller.user?.email}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Briefcase className="h-3.5 w-3.5 text-blue-500/50" />
+                            <span className="font-bold text-sm">{seller.businessInfo?.businessName || "—"}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge className={cn(
+                            "rounded-full uppercase tracking-widest text-[9px] font-black px-3 py-1 border-none shadow-sm",
+                            seller.isApproved ? "bg-green-500 text-white" : "bg-blue-500 text-white"
+                          )}>
+                            {seller.isApproved ? "Approved" : "Pending"}
+                          </Badge>
+                          {seller.isSuspended && <Badge className="ml-2 bg-destructive text-white rounded-full text-[9px] font-black px-3 py-1 border-none shadow-sm uppercase tracking-widest">Suspended</Badge>}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-col">
+                            <span className="text-xs font-black">{seller.estimateRoomCount || 0}</span>
+                            <span className="text-[9px] text-muted-foreground uppercase font-bold tracking-widest opacity-60">Est. Rooms</span>
+                          </div>
+                        </TableCell>
+
+                        <TableCell className="text-right pr-8" onClick={e => e.stopPropagation()}>
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              type="button"
+                              size="icon"
+                              variant="ghost"
+                              className={cn(
+                                "h-9 w-9 rounded-full transition-all duration-300 shadow-sm",
+                                isExpanded ? "bg-primary text-primary-foreground rotate-180" : "bg-muted/50 hover:bg-primary/10 hover:text-primary"
+                              )}
+                              onClick={() => setExpandedSellerId(isExpanded ? null : seller.id)}
+                            >
+                              <ChevronDown className="h-4 w-4" />
+                            </Button>
+                            
+                            <Button asChild size="icon" variant="outline" className="h-9 w-9 rounded-full border-muted hover:bg-blue-50 hover:text-blue-600 transition-all shadow-sm">
+                              <Link href={`/admin/hotel-sellers/${seller.id}`}>
+                                <Eye className="h-4 w-4" />
+                              </Link>
+                            </Button>
+
+                            <div className="flex gap-2">
+                              {!seller.isApproved && (
+                                <Button size="sm" className="h-9 rounded-full bg-green-600 hover:bg-green-700 font-bold px-4 uppercase tracking-widest text-[9px]" onClick={() => handleStatusAction(seller.id, "approve")} disabled={actionLoading === seller.id}>Approve</Button>
+                              )}
+                              {!seller.isSuspended ? (
+                                <Button size="sm" variant="destructive" className="h-9 rounded-full font-bold px-4 uppercase tracking-widest text-[9px] shadow-lg shadow-destructive/10" onClick={() => handleStatusAction(seller.id, "suspend")} disabled={actionLoading === seller.id}>Suspend</Button>
+                              ) : (
+                                <Button size="sm" variant="outline" className="h-9 rounded-full border-blue-500 text-blue-500 hover:bg-blue-50 font-bold px-4 uppercase tracking-widest text-[9px]" onClick={() => handleStatusAction(seller.id, "unsuspend")} disabled={actionLoading === seller.id}>Unsuspend</Button>
+                              )}
+                            </div>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                      
+                      {isExpanded && (
+                        <TableRow className="bg-muted/5 border-b border-muted/10">
+                          <TableCell colSpan={6} className="p-0">
+                            <div className="p-8 animate-in slide-in-from-top-2 duration-300">
+                               <HotelSellerDetailsView 
+                                  seller={seller}
+                                  actionLoading={actionLoading}
+                                  onApprove={id => handleStatusAction(id, "approve")}
+                                  onSuspend={id => handleStatusAction(id, "suspend")}
+                                  onUnsuspend={id => handleStatusAction(id, "unsuspend")}
+                                  onOpenCorrection={id => setRejectDialog({ open: true, id, action: "correction" })}
+                                  onOpenReject={id => setRejectDialog({ open: true, id, action: "reject" })}
+                               />
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </Fragment>
+                  )
+                })
               )}
             </TableBody>
           </Table>
-          <div className="p-6 border-t">
+          <div className="p-8 border-t border-muted/10 bg-muted/5">
             <AdminPagination 
               basePath="/admin/hotel-sellers" 
               currentPage={page} 
@@ -220,47 +308,25 @@ export function HotelSellersClient() {
         </CardContent>
       </Card>
 
-      {/* Detail Sheet */}
-      <Sheet open={!!selectedSeller} onOpenChange={val => !val && setSelectedSeller(null)}>
-        <SheetContent side="right" className="w-[95%] sm:w-[600px] md:w-[800px] xl:w-[1000px] p-0 border-l-0 shadow-2xl">
-          <SheetHeader className="p-6 border-b bg-muted/20">
-            <SheetTitle className="text-xl font-bold flex items-center gap-2">
-               <Building2 className="h-5 w-5 text-blue-600" /> Hotel Partner Details
-            </SheetTitle>
-          </SheetHeader>
-          <div className="h-[calc(100vh-80px)] overflow-y-auto p-8 bg-slate-50/50">
-             <HotelSellerDetailsView 
-                seller={selectedSeller}
-                actionLoading={actionLoading}
-                onApprove={id => handleStatusAction(id, "approve")}
-                onSuspend={id => handleStatusAction(id, "suspend")}
-                onUnsuspend={id => handleStatusAction(id, "unsuspend")}
-                onOpenCorrection={id => setRejectDialog({ open: true, id, action: "reject" })}
-                onOpenReject={id => setRejectDialog({ open: true, id, action: "reject" })}
-             />
-          </div>
-        </SheetContent>
-      </Sheet>
-
       {/* Feedback Dialog */}
       <Dialog open={rejectDialog.open} onOpenChange={val => !val && setRejectDialog({ open: false, id: "", action: "" })}>
-        <DialogContent className="rounded-[2rem]">
+        <DialogContent className="rounded-[2.5rem] border-none shadow-2xl">
           <DialogHeader>
-            <DialogTitle className="text-xl font-bold">Administrative Feedback</DialogTitle>
-            <DialogDescription>Provide details for the seller to correct or reason for rejection.</DialogDescription>
+            <DialogTitle className="text-2xl font-black">Administrative Feedback</DialogTitle>
+            <DialogDescription className="pt-2 font-medium">Provide details for the seller to correct or reason for rejection.</DialogDescription>
           </DialogHeader>
-          <div className="py-4">
-             <Label className="text-xs font-bold uppercase mb-2 block">Your Memo</Label>
+          <div className="py-6">
+             <Label className="text-xs font-black uppercase tracking-widest mb-3 block text-muted-foreground ml-1">Your Memo</Label>
              <Textarea 
                 placeholder="Type your message here..." 
-                className="rounded-2xl min-h-[120px]" 
+                className="rounded-3xl min-h-[150px] p-6 bg-muted/20 border-none shadow-inner focus-visible:ring-primary/20" 
                 value={feedback} 
                 onChange={e => setFeedback(e.target.value)}
              />
           </div>
-          <DialogFooter>
-             <Button variant="outline" className="rounded-full" onClick={() => setRejectDialog({ open: false, id: "", action: "" })}>Cancel</Button>
-             <Button className="rounded-full bg-red-600 hover:bg-red-700 font-bold" onClick={() => handleStatusAction(rejectDialog.id, rejectDialog.action, feedback)} disabled={!feedback || actionLoading === rejectDialog.id}>Send Feedback</Button>
+          <DialogFooter className="gap-2">
+             <Button variant="outline" className="rounded-full px-8 h-12 font-bold" onClick={() => setRejectDialog({ open: false, id: "", action: "" })}>Cancel</Button>
+             <Button className="rounded-full bg-red-600 hover:bg-red-700 font-bold px-10 h-12 shadow-lg shadow-red-500/20" onClick={() => handleStatusAction(rejectDialog.id, rejectDialog.action, feedback)} disabled={!feedback || actionLoading === rejectDialog.id}>Send Feedback</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

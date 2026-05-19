@@ -66,8 +66,8 @@ export function AdminLayoutClient({
       <NavItem href="/admin/orders" label="Orders" icon={<ShoppingCart className="h-4 w-4" />} />
       {/* <NavItem href="/admin/reviews" label="Reviews" icon={<Star className="h-4 w-4" />} /> */}
       <NavItem href="/admin/sellers" label="Product/Service Sellers" icon={<Users className="h-4 w-4" />} />
-      {/* <NavItem href="/admin/hotel-sellers" label="Hotel Sellers" icon={<Building2 className="h-4 w-4" />} /> */}
-      {/* <NavItem href="/admin/restaurant-sellers" label="Restaurant Sellers" icon={<Briefcase className="h-4 w-4" />} /> */}
+      <NavItem href="/admin/hotel-sellers" label="Hotel Sellers" icon={<Building2 className="h-4 w-4" />} />
+      <NavItem href="/admin/restaurant-sellers" label="Restaurant Sellers" icon={<Briefcase className="h-4 w-4" />} />
       <NavItem href="/admin/subscriptions" label="Subscriptions" icon={<CreditCard className="h-4 w-4" />} />
       <NavItem href="/admin/categories" label="Product Category" icon={<FolderTree className="h-4 w-4" />} />
       <NavItem href="/admin/service-categories" label="Service Category" icon={<Briefcase className="h-4 w-4" />} />

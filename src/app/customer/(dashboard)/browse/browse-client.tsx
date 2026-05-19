@@ -105,11 +105,11 @@ export function BrowseClient() {
   const sortParam = searchParams.get("sort")
   const sort =
     sortParam === "price_desc" ||
-    sortParam === "price_asc" ||
-    sortParam === "newest" ||
-    sortParam === "featured" ||
-    sortParam === "bestseller" ||
-    sortParam === "rating"
+      sortParam === "price_asc" ||
+      sortParam === "newest" ||
+      sortParam === "featured" ||
+      sortParam === "bestseller" ||
+      sortParam === "rating"
       ? sortParam
       : "newest"
 
@@ -297,7 +297,7 @@ export function BrowseClient() {
     else next.add(code)
     updateFilters({ ret: [...next].join(",") || null })
   }
-  
+
   function toggleCondition(condition: string) {
     const next = new Set(selectedCondition)
     if (next.has(condition)) next.delete(condition)
@@ -340,7 +340,7 @@ export function BrowseClient() {
 
   const filterSidebar = (
     <div className="space-y-0">
-      <CollapsibleSection title="Department" tooltip="Filter by product category">
+      <CollapsibleSection title="Category" tooltip="Filter by product category">
         <Input
           placeholder="Search categories"
           value={catSearch}

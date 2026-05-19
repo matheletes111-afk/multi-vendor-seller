@@ -17,8 +17,10 @@ import { Alert, AlertDescription } from "@/ui/alert"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/ui/sheet"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/ui/dialog"
 import { Textarea } from "@/ui/textarea"
-import { Users, CheckCircle, AlertCircle, Ban, Eye, Briefcase, Search, X, Calendar, Filter, Utensils } from "lucide-react"
+import { Users, CheckCircle, AlertCircle, Ban, Eye, Briefcase, Search, X, Calendar, Filter, Utensils, ChevronDown, ChevronUp } from "lucide-react"
 import { RestaurantSellerDetailsView } from "@/components/admin/sellers/restaurant-seller-details-view"
+import Link from "next/link"
+
 
 export function RestaurantSellersClient() {
   const searchParams = useSearchParams()
@@ -39,8 +41,8 @@ export function RestaurantSellersClient() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
-  
-  const [selectedSeller, setSelectedSeller] = useState<any>(null)
+
+  const [expandedRow, setExpandedRow] = useState<string | null>(null)
   const [rejectDialog, setRejectDialog] = useState<{ open: boolean; id: string; action: string }>({ open: false, id: "", action: "" })
   const [feedback, setFeedback] = useState("")
 
@@ -90,9 +92,6 @@ export function RestaurantSellersClient() {
       })
       if (!res.ok) throw new Error("Failed to update status")
       
-      if (selectedSeller?.id === id) {
-         setSelectedSeller(null)
-      }
       setRejectDialog({ open: false, id: "", action: "" })
       setFeedback("")
       loadSellers()
@@ -103,167 +102,271 @@ export function RestaurantSellersClient() {
     }
   }
 
+  const toggleRow = (id: string) => {
+    setExpandedRow(expandedRow === id ? null : id)
+  }
+
   if (loading && !data) return <PageLoader message="Loading restaurant sellers..." />
 
   return (
-    <div className="container mx-auto p-6 space-y-8 animate-in fade-in duration-700">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold">Restaurant Seller Management</h1>
-          <p className="text-muted-foreground">Manage and approve restaurant partners.</p>
+    <div className="container mx-auto p-8 space-y-8 animate-in fade-in duration-1000">
+      <div className="flex justify-between items-center bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100">
+        <div className="flex items-center gap-5">
+          <div className="p-4 bg-rose-50 rounded-3xl">
+            <Utensils className="h-8 w-8 text-rose-600" />
+          </div>
+          <div>
+            <h1 className="text-3xl font-black tracking-tight text-slate-900">Restaurant Partners</h1>
+            <p className="text-slate-500 font-medium tracking-tight">Review and manage culinary partner applications.</p>
+          </div>
         </div>
-        <Badge variant="outline" className="px-3 py-1">{data?.totalCount || 0} Total Restaurants</Badge>
+        <div className="flex items-center gap-3">
+          <div className="text-right">
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Global Network</p>
+            <p className="text-2xl font-black text-rose-600">{data?.totalCount || 0} Outlets</p>
+          </div>
+        </div>
       </div>
 
-      <Card className="border-none shadow-xl rounded-3xl overflow-hidden">
-        <CardHeader className="pb-4">
-          <div className="flex flex-wrap items-end gap-4">
-            <div className="flex-1 min-w-[250px] space-y-1.5">
-              <Label className="text-xs uppercase tracking-wider">Search</Label>
+      <Card className="border-none shadow-2xl rounded-[2.5rem] overflow-hidden bg-white/80 backdrop-blur-md">
+        <CardHeader className="pb-8 pt-10 px-10">
+          <div className="flex flex-wrap items-end gap-6">
+            <div className="flex-1 min-w-[300px] space-y-2">
+              <Label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 ml-1">Universal Search</Label>
               <div className="relative">
-                <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input 
-                  placeholder="Name, email, business..." 
-                  className="pl-9 rounded-xl" 
-                  value={searchInput} 
+                <Search className="absolute left-4 top-3.5 h-5 w-5 text-slate-300" />
+                <Input
+                  placeholder="Partner name, brand, or email..."
+                  className="pl-12 rounded-2xl h-12 bg-slate-50 border-slate-100 focus:ring-rose-500 text-sm font-medium"
+                  value={searchInput}
                   onChange={e => setSearchInput(e.target.value)}
                   onKeyDown={e => e.key === "Enter" && handleSearch()}
                 />
               </div>
             </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs uppercase tracking-wider">Status</Label>
+            <div className="w-[200px] space-y-2">
+              <Label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 ml-1">Lifecycle State</Label>
               <Select value={localTab} onValueChange={setLocalTab}>
-                <SelectTrigger className="w-[180px] rounded-xl">
-                  <SelectValue placeholder="All" />
+                <SelectTrigger className="rounded-2xl h-12 bg-slate-50 border-slate-100 font-bold text-slate-700">
+                  <SelectValue placeholder="All States" />
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All</SelectItem>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="approved">Approved</SelectItem>
+                <SelectContent className="rounded-2xl border-slate-100">
+                  <SelectItem value="all">All States</SelectItem>
+                  <SelectItem value="pending">Awaiting Review</SelectItem>
+                  <SelectItem value="approved">Active Partners</SelectItem>
                   <SelectItem value="suspended">Suspended</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-            <div className="flex gap-2">
-              <Button onClick={handleSearch} className="rounded-xl px-6 h-10">Search</Button>
-              <Button variant="outline" onClick={handleClear} className="rounded-xl h-10">Reset</Button>
+            <div className="flex gap-3 h-12">
+              <Button onClick={handleSearch} className="rounded-2xl px-8 h-full bg-rose-600 hover:bg-rose-700 font-bold text-xs uppercase tracking-widest transition-all hover:shadow-lg hover:shadow-rose-100">Apply Filter</Button>
+              <Button variant="outline" onClick={handleClear} className="rounded-2xl h-full border-slate-200 hover:bg-slate-50 font-bold text-xs uppercase tracking-widest">Reset</Button>
             </div>
           </div>
         </CardHeader>
         <CardContent className="p-0">
-          <Table>
-            <TableHeader className="bg-muted/50">
-              <TableRow>
-                <TableHead className="pl-8">Partner</TableHead>
-                <TableHead>Business Name</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Outlets (Est.)</TableHead>
-                <TableHead>Subscription</TableHead>
-                <TableHead className="text-right pr-8">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {data?.sellers.length === 0 ? (
-                <TableRow><TableCell colSpan={6} className="text-center py-20 text-muted-foreground">No restaurant sellers found.</TableCell></TableRow>
-              ) : (
-                data?.sellers.map((seller: any) => (
-                  <TableRow key={seller.id} className="group hover:bg-muted/20 border-b cursor-pointer" onClick={() => setSelectedSeller(seller)}>
-                    <TableCell className="pl-8 py-4">
-                      <div className="font-medium">{seller.user?.name}</div>
-                      <div className="text-xs text-muted-foreground">{seller.user?.email}</div>
-                    </TableCell>
-                    <TableCell className="font-medium">{seller.businessInfo?.businessName || "—"}</TableCell>
-                    <TableCell>
-                      <Badge className={cn(
-                        "rounded-full uppercase tracking-tighter text-[10px] px-2.5",
-                        seller.isApproved ? "bg-green-500" : "bg-blue-500"
-                      )}>
-                        {seller.isApproved ? "Approved" : "Pending"}
-                      </Badge>
-                      {seller.isSuspended && <Badge className="ml-1 bg-red-500 rounded-full text-[10px] px-2.5 uppercase tracking-tighter">Suspended</Badge>}
-                    </TableCell>
-                    <TableCell>{seller.estimateRestaurantCount || 0}</TableCell>
-                    <TableCell>
-                      <span className="text-xs font-bold text-primary">{seller.subscription?.plan?.displayName || "None"}</span>
-                    </TableCell>
-                    <TableCell className="text-right pr-8">
-                      <div className="flex justify-end gap-2" onClick={e => e.stopPropagation()}>
-                        <Button size="icon" variant="ghost" className="h-8 w-8 rounded-full" onClick={() => setSelectedSeller(seller)}>
-                           <Eye className="h-4 w-4" />
-                        </Button>
-                        {!seller.isApproved && (
-                          <Button size="sm" className="h-8 rounded-full bg-green-600 hover:bg-green-700" onClick={() => handleStatusAction(seller.id, "approve")} disabled={actionLoading === seller.id}>Approve</Button>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader className="bg-slate-50/50">
+                <TableRow className="border-b border-slate-100 hover:bg-transparent">
+                  <TableHead className="pl-10 h-14 text-[10px] font-black uppercase tracking-widest text-slate-500">Partner Details</TableHead>
+                  <TableHead className="h-14 text-[10px] font-black uppercase tracking-widest text-slate-500">Business Identity</TableHead>
+                  <TableHead className="h-14 text-[10px] font-black uppercase tracking-widest text-slate-500">Standing</TableHead>
+                  <TableHead className="h-14 text-[10px] font-black uppercase tracking-widest text-slate-500">Outlets (Est.)</TableHead>
+                  <TableHead className="text-right pr-10 h-14 text-[10px] font-black uppercase tracking-widest text-slate-500">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {data?.sellers.length === 0 ? (
+                  <TableRow><TableCell colSpan={6} className="text-center py-32 text-slate-400 font-medium">No restaurant partners found matching your criteria.</TableCell></TableRow>
+                ) : (
+                  data?.sellers.map((seller: any) => (
+                    <Fragment key={seller.id}>
+                      <TableRow
+                        className={cn(
+                          "group border-b border-slate-50 cursor-pointer transition-colors",
+                          expandedRow === seller.id ? "bg-rose-50/30" : "hover:bg-slate-50/50"
                         )}
-                        {!seller.isSuspended ? (
-                          <Button size="sm" variant="destructive" className="h-8 rounded-full" onClick={() => handleStatusAction(seller.id, "suspend")} disabled={actionLoading === seller.id}>Suspend</Button>
-                        ) : (
-                          <Button size="sm" variant="outline" className="h-8 rounded-full border-blue-500 text-blue-500" onClick={() => handleStatusAction(seller.id, "unsuspend")} disabled={actionLoading === seller.id}>Unsuspend</Button>
-                        )}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-          <div className="p-6 border-t">
-            <AdminPagination 
-              basePath="/admin/restaurant-sellers" 
-              currentPage={page} 
-              totalPages={data?.totalPages || 1} 
-              totalCount={data?.totalCount || 0} 
-              pageSize={perPage} 
+                        onClick={() => toggleRow(seller.id)}
+                      >
+                        <TableCell className="pl-10 py-5">
+                          <div className="flex items-center gap-4">
+                            <div className="h-10 w-10 rounded-2xl bg-rose-100 flex items-center justify-center text-rose-600 font-black text-sm">
+                              {seller.user?.name?.charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                              <div className="font-bold text-slate-900 leading-tight">{seller.user?.name}</div>
+                              <div className="text-[11px] text-slate-500 font-medium">{seller.user?.email}</div>
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="font-bold text-slate-700">{seller.businessInfo?.businessName || "—"}</div>
+                          <div className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">{seller.businessInfo?.businessType || "Retail Partner"}</div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge className={cn(
+                            "rounded-full uppercase tracking-widest text-[9px] font-black px-3 py-1 border-none",
+                            seller.isApproved ? "bg-emerald-500 text-white" : "bg-amber-500 text-white"
+                          )}>
+                            {seller.isApproved ? "Approved" : "Pending"}
+                          </Badge>
+                          {seller.isSuspended && <Badge className="ml-2 bg-rose-600 text-white rounded-full text-[9px] px-3 py-1 border-none font-black uppercase tracking-widest">Suspended</Badge>}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-black text-slate-700">{seller.estimateRestaurantCount || 0}</span>
+                            <span className="text-[9px] text-slate-400 uppercase font-bold tracking-widest opacity-60">Est. Outlets</span>
+                          </div>
+                        </TableCell>
+
+                        <TableCell className="text-right pr-10" onClick={e => e.stopPropagation()}>
+                          <div className="flex justify-end gap-2">
+                            {!seller.isApproved && (
+                              <>
+                                <Button 
+                                  size="sm" 
+                                  className="h-8 rounded-full bg-emerald-600 hover:bg-emerald-700 text-[9px] font-black uppercase tracking-widest px-4"
+                                  onClick={() => handleStatusAction(seller.id, "approve")}
+                                  disabled={actionLoading === seller.id}
+                                >
+                                  Approve
+                                </Button>
+                                <Button 
+                                  size="sm" 
+                                  variant="destructive"
+                                  className="h-8 rounded-full text-[9px] font-black uppercase tracking-widest px-4"
+                                  onClick={() => setRejectDialog({ open: true, id: seller.id, action: "reject" })}
+                                  disabled={actionLoading === seller.id}
+                                >
+                                  Reject
+                                </Button>
+                              </>
+                            )}
+                            {seller.isApproved && (
+                               <Badge variant="outline" className="h-8 rounded-full border-emerald-100 bg-emerald-50 text-emerald-700 text-[9px] font-black uppercase tracking-widest px-4 flex items-center gap-2 border-none">
+                                  <CheckCircle className="h-3 w-3" /> Verified
+                               </Badge>
+                            )}
+                            <div className="w-px h-8 bg-slate-100 mx-1" />
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-9 w-9 rounded-xl hover:bg-white hover:shadow-md transition-all text-slate-400 hover:text-rose-600"
+                              asChild
+                            >
+                              <Link href={`/admin/restaurant-sellers/${seller.id}`}>
+                                <Eye className="h-4 w-4" />
+                              </Link>
+                            </Button>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className={cn(
+                                "h-9 w-9 rounded-xl transition-all",
+                                expandedRow === seller.id ? "bg-rose-100 text-rose-600" : "text-slate-300 hover:text-rose-600"
+                              )}
+                              onClick={() => toggleRow(seller.id)}
+                            >
+                              {expandedRow === seller.id ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+
+                      {/* Accordion Content */}
+                      {expandedRow === seller.id && (
+                        <TableRow className="bg-rose-50/10 hover:bg-rose-50/10 border-none">
+                          <TableCell colSpan={6} className="p-0 border-none">
+                            <div className="px-10 py-10 animate-in slide-in-from-top-2 duration-300">
+                              <div className="bg-white rounded-[2rem] border border-rose-100/50 shadow-xl p-8">
+                                <div className="flex items-center justify-between mb-8">
+                                  <h3 className="text-lg font-black text-slate-800 flex items-center gap-3">
+                                    <Briefcase className="h-5 w-5 text-rose-500" /> Operational Overview
+                                  </h3>
+                                  <Link href={`/admin/restaurant-sellers/${seller.id}`}>
+                                    <Button variant="link" className="text-rose-600 font-bold text-xs uppercase tracking-widest">
+                                      Open Full Dossier <ExternalLink className="ml-2 h-3 w-3" />
+                                    </Button>
+                                  </Link>
+                                </div>
+                                <RestaurantSellerDetailsView
+                                  seller={seller}
+                                  actionLoading={actionLoading}
+                                  onApprove={id => handleStatusAction(id, "approve")}
+                                  onSuspend={id => handleStatusAction(id, "suspend")}
+                                  onUnsuspend={id => handleStatusAction(id, "unsuspend")}
+                                  onOpenCorrection={id => setRejectDialog({ open: true, id, action: "reject" })}
+                                  onOpenReject={id => setRejectDialog({ open: true, id, action: "reject" })}
+                                />
+                              </div>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </Fragment>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+
+          <div className="p-10 border-t border-slate-50 bg-slate-50/30">
+            <AdminPagination
+              basePath="/admin/restaurant-sellers"
+              currentPage={page}
+              totalPages={data?.totalPages || 1}
+              totalCount={data?.totalCount || 0}
+              pageSize={perPage}
               params={{ tab, search: searchQ, startDate: startParam, endDate: endParam }}
             />
           </div>
         </CardContent>
       </Card>
 
-      {/* Detail Sheet */}
-      <Sheet open={!!selectedSeller} onOpenChange={val => !val && setSelectedSeller(null)}>
-        <SheetContent side="right" className="w-[95%] sm:w-[600px] md:w-[800px] xl:w-[1000px] p-0 border-l-0 shadow-2xl">
-          <SheetHeader className="p-6 border-b bg-muted/20">
-            <SheetTitle className="text-xl font-bold flex items-center gap-2">
-               <Utensils className="h-5 w-5 text-emerald-600" /> Restaurant Partner Details
-            </SheetTitle>
-          </SheetHeader>
-          <div className="h-[calc(100vh-80px)] overflow-y-auto p-8 bg-slate-50/50">
-             <RestaurantSellerDetailsView 
-                seller={selectedSeller}
-                actionLoading={actionLoading}
-                onApprove={id => handleStatusAction(id, "approve")}
-                onSuspend={id => handleStatusAction(id, "suspend")}
-                onUnsuspend={id => handleStatusAction(id, "unsuspend")}
-                onOpenCorrection={id => setRejectDialog({ open: true, id, action: "reject" })}
-                onOpenReject={id => setRejectDialog({ open: true, id, action: "reject" })}
-             />
-          </div>
-        </SheetContent>
-      </Sheet>
-
       {/* Feedback Dialog */}
       <Dialog open={rejectDialog.open} onOpenChange={val => !val && setRejectDialog({ open: false, id: "", action: "" })}>
-        <DialogContent className="rounded-[2rem]">
+        <DialogContent className="rounded-[2.5rem] border-none shadow-2xl">
           <DialogHeader>
-            <DialogTitle className="text-xl font-bold">Administrative Feedback</DialogTitle>
-            <DialogDescription>Provide details for the seller to correct or reason for rejection.</DialogDescription>
+            <DialogTitle className="text-2xl font-black">Administrative Feedback</DialogTitle>
+            <DialogDescription className="font-medium text-slate-500">Provide details for the seller to correct or reason for rejection.</DialogDescription>
           </DialogHeader>
-          <div className="py-4">
-             <Label className="text-xs font-bold uppercase mb-2 block">Your Memo</Label>
-             <Textarea 
-                placeholder="Type your message here..." 
-                className="rounded-2xl min-h-[120px]" 
-                value={feedback} 
-                onChange={e => setFeedback(e.target.value)}
-             />
+          <div className="py-6">
+            <Label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 ml-1 mb-2 block">Your Memo</Label>
+            <Textarea
+              placeholder="Type your message here..."
+              className="rounded-2xl min-h-[150px] bg-slate-50 border-slate-100 focus:ring-rose-500"
+              value={feedback}
+              onChange={e => setFeedback(e.target.value)}
+            />
           </div>
-          <DialogFooter>
-             <Button variant="outline" className="rounded-full" onClick={() => setRejectDialog({ open: false, id: "", action: "" })}>Cancel</Button>
-             <Button className="rounded-full bg-red-600 hover:bg-red-700 font-bold" onClick={() => handleStatusAction(rejectDialog.id, rejectDialog.action, feedback)} disabled={!feedback || actionLoading === rejectDialog.id}>Send Feedback</Button>
+          <DialogFooter className="gap-2">
+            <Button variant="ghost" className="rounded-full font-bold px-6" onClick={() => setRejectDialog({ open: false, id: "", action: "" })}>Cancel</Button>
+            <Button className="rounded-full bg-rose-600 hover:bg-rose-700 font-bold px-8 uppercase tracking-widest text-[10px]" onClick={() => handleStatusAction(rejectDialog.id, rejectDialog.action, feedback)} disabled={!feedback || actionLoading === rejectDialog.id}>Send Feedback</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
+  )
+}
+
+function ExternalLink(props: any) {
+  return (
+    <svg
+      {...props}
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+      <polyline points="15 3 21 3 21 9" />
+      <line x1="10" x2="21" y1="14" y2="3" />
+    </svg>
   )
 }

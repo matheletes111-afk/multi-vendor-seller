@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma"
 import bcrypt from "bcryptjs"
 import { UserRole } from "@prisma/client"
 import { sendVerificationOtpEmail } from "@/lib/email"
-import { activateRestaurantFreePlan } from "@/lib/subscriptions"
+
 
 const OTP_EXPIRY_MS = 10 * 60 * 1000
 
@@ -46,7 +46,7 @@ export async function POST(request: Request) {
       data: { userId: user.id } 
     })
     
-    await activateRestaurantFreePlan(restaurantSeller.id)
+
 
     await sendVerificationOtpEmail({ to: email, otp: verifyEmailOtp, name: name ?? null })
 

@@ -84,6 +84,14 @@ export async function POST(
       )
     }
 
+    const mimeMap: Record<string, string> = {
+      ".jpg": "image/jpeg",
+      ".jpeg": "image/jpeg",
+      ".png": "image/png",
+      ".webp": "image/webp",
+      ".gif": "image/gif",
+    }
+
     for (const file of imageFiles) {
       if (file.size > MAX_FILE_SIZE) {
         return NextResponse.json(
@@ -91,7 +99,11 @@ export async function POST(
           { status: 400 }
         )
       }
-      if (!ALLOWED_TYPES.includes(file.type)) {
+      const fileType = file.type?.toLowerCase()
+      const ext = path.extname(file.name).toLowerCase()
+      const isAllowedType = ALLOWED_TYPES.includes(fileType)
+      const isAllowedExt = Object.keys(mimeMap).includes(ext)
+      if (!isAllowedType && !isAllowedExt) {
         return NextResponse.json(
           { success: false, error: `Invalid file type for ${file.name}. Allowed: JPEG, PNG, WebP, GIF` },
           { status: 400 }
@@ -102,11 +114,12 @@ export async function POST(
     const uploadedUrls: string[] = []
     for (const file of imageFiles) {
       const bytes = await file.arrayBuffer()
-      const ext = path.extname(file.name) || ".jpg"
+      const ext = path.extname(file.name).toLowerCase() || ".jpg"
+      const resolvedType = mimeMap[ext] || file.type || "image/jpeg"
       const url = await uploadPublicFile({
         folder: "review-images",
         ext,
-        contentType: file.type,
+        contentType: resolvedType,
         buffer: Buffer.from(bytes),
         prefix: "review",
       })
@@ -252,6 +265,14 @@ export async function PATCH(
       )
     }
 
+    const mimeMap: Record<string, string> = {
+      ".jpg": "image/jpeg",
+      ".jpeg": "image/jpeg",
+      ".png": "image/png",
+      ".webp": "image/webp",
+      ".gif": "image/gif",
+    }
+
     for (const file of imageFiles) {
       if (file.size > MAX_FILE_SIZE) {
         return NextResponse.json(
@@ -259,7 +280,11 @@ export async function PATCH(
           { status: 400 }
         )
       }
-      if (!ALLOWED_TYPES.includes(file.type)) {
+      const fileType = file.type?.toLowerCase()
+      const ext = path.extname(file.name).toLowerCase()
+      const isAllowedType = ALLOWED_TYPES.includes(fileType)
+      const isAllowedExt = Object.keys(mimeMap).includes(ext)
+      if (!isAllowedType && !isAllowedExt) {
         return NextResponse.json(
           { success: false, error: `Invalid file type for ${file.name}. Allowed: JPEG, PNG, WebP, GIF` },
           { status: 400 }
@@ -270,11 +295,12 @@ export async function PATCH(
     const uploadedUrls: string[] = []
     for (const file of imageFiles) {
       const bytes = await file.arrayBuffer()
-      const ext = path.extname(file.name) || ".jpg"
+      const ext = path.extname(file.name).toLowerCase() || ".jpg"
+      const resolvedType = mimeMap[ext] || file.type || "image/jpeg"
       const url = await uploadPublicFile({
         folder: "review-images",
         ext,
-        contentType: file.type,
+        contentType: resolvedType,
         buffer: Buffer.from(bytes),
         prefix: "review",
       })
