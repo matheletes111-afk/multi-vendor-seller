@@ -43,9 +43,13 @@ type Ad = {
     user: { email: string | null; name: string | null }
     store: { name: string | null } | null
   } | null
+  hotelSeller: {
+    user: { email: string | null; name: string | null }
+  } | null
   customer: { email: string | null; name: string | null } | null
   product: { id: string; name: string } | null
   service: { id: string; name: string } | null
+  hotel: { id: string; name: string } | null
   _count: { adClicks: number }
 }
 
@@ -315,6 +319,11 @@ export function AdminSellerAdsPageClient() {
                           <span className="text-sm font-medium text-foreground">{ad.seller.store?.name || ad.seller.user.name}</span>
                           <span className="text-[10px] font-medium text-muted-foreground tabular-nums">{ad.seller.user.email}</span>
                         </div>
+                      ) : ad.hotelSeller ? (
+                        <div className="flex flex-col gap-0.5">
+                          <span className="text-sm font-medium text-foreground">{ad.hotelSeller.user.name || "Hotel Seller"}</span>
+                          <span className="text-[10px] font-medium text-muted-foreground tabular-nums">{ad.hotelSeller.user.email}</span>
+                        </div>
                       ) : ad.customer ? (
                         <div className="flex flex-col gap-0.5">
                           <span className="text-sm font-medium text-foreground">Customer</span>
@@ -325,7 +334,7 @@ export function AdminSellerAdsPageClient() {
                       )}
                     </TableCell>
                     <TableCell className="text-muted-foreground font-medium text-xs">
-                      {ad.product ? ad.product.name : ad.service ? ad.service.name : "Direct Business"}
+                      {ad.product ? ad.product.name : ad.service ? ad.service.name : ad.hotel ? ad.hotel.name : "Direct Business"}
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline" className="font-medium uppercase text-[9px] tracking-tight bg-muted/5">{ad.creativeType}</Badge>

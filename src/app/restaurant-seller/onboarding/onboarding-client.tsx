@@ -213,34 +213,34 @@ export function RestaurantOnboardingClient() {
   ]
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-0 md:p-4">
-      <div className="bg-white md:rounded-3xl shadow-2xl w-full max-w-6xl flex flex-col md:flex-row overflow-hidden min-h-[700px]">
+    <div className="min-h-screen bg-gradient-to-b from-amber-200 via-amber-50 to-orange-100/50 flex items-center justify-center p-0 md:p-4">
+      <div className="bg-white md:rounded-3xl shadow-2xl w-full max-w-6xl flex flex-col md:flex-row overflow-hidden min-h-[700px] border border-amber-100/50">
         {/* Sidebar */}
-        <div className="w-full md:w-80 bg-slate-900 p-8 flex flex-col text-white">
+        <div className="w-full md:w-80 bg-gradient-to-b from-amber-950 to-slate-900 p-8 flex flex-col text-white">
           <div className="mb-12">
             <Image src="/images/logo.png" alt="Logo" width={150} height={50} className="h-10 w-auto invert" />
           </div>
           <div className="flex-1">
-            <h2 className="text-xl font-bold mb-8 text-slate-100">Restaurant Onboarding</h2>
+            <h2 className="text-xl font-bold mb-8 text-amber-50">Restaurant Onboarding</h2>
             <nav className="space-y-6">
               {steps.map((step, idx) => (
                 <div key={step.id} className="flex items-center gap-4">
                   <div className={cn(
-                    "w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm",
-                    currentStep > step.id ? "bg-emerald-500 text-white" :
-                      currentStep === step.id ? "bg-white text-slate-900" : "bg-slate-800 text-slate-500"
+                    "w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm transition-all",
+                    currentStep > step.id ? "bg-amber-500 text-white shadow-lg shadow-amber-500/20" :
+                      currentStep === step.id ? "bg-white text-amber-950 border-2 border-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.4)]" : "bg-amber-900/30 text-amber-300/60 border border-amber-800/30"
                   )}>
                     {currentStep > step.id ? <Check className="w-4 h-4" /> : idx + 1}
                   </div>
-                  <span className={cn("text-sm", currentStep === step.id ? "font-bold text-white" : "text-slate-500")}>
+                  <span className={cn("text-sm transition-colors", currentStep === step.id ? "font-bold text-white" : currentStep > step.id ? "text-amber-200" : "text-amber-300/60")}>
                     {step.title}
                   </span>
                 </div>
               ))}
             </nav>
           </div>
-          <div className="mt-auto pt-8 border-t border-slate-800">
-            <Button variant="ghost" className="w-full justify-start gap-3 text-slate-400 hover:text-white" onClick={() => signOut({ callbackUrl: "/" })}>
+          <div className="mt-auto pt-8 border-t border-amber-900/40">
+            <Button variant="ghost" className="w-full justify-start gap-3 text-amber-300 hover:text-white hover:bg-amber-900/30 rounded-xl" onClick={() => signOut({ callbackUrl: "/" })}>
               <LogOut className="h-5 w-5" /> Logout
             </Button>
           </div>
@@ -341,7 +341,7 @@ export function RestaurantOnboardingClient() {
                   </div>
                 </div>
                 <div className="mt-8 flex justify-end">
-                  <Button type="submit" disabled={saving} className="rounded-full px-8">{saving ? "Saving..." : "Next Step"}</Button>
+                  <Button type="submit" disabled={saving} className="rounded-full px-8 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-semibold shadow-lg shadow-amber-200/50 transition-all hover:scale-[1.02]">{saving ? "Saving..." : "Next Step"}</Button>
                 </div>
               </form>
             )}
@@ -403,8 +403,8 @@ export function RestaurantOnboardingClient() {
                   </div>
                 </div>
                 <div className="mt-8 flex justify-between">
-                  <Button type="button" variant="ghost" onClick={handleBack} disabled={saving}>Back</Button>
-                  <Button type="submit" disabled={saving} className="rounded-full px-8">{saving ? "Saving..." : "Next Step"}</Button>
+                  <Button type="button" variant="ghost" onClick={handleBack} disabled={saving} className="rounded-full px-6 hover:bg-slate-100">Back</Button>
+                  <Button type="submit" disabled={saving} className="rounded-full px-8 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-semibold shadow-lg shadow-amber-200/50 transition-all hover:scale-[1.02]">{saving ? "Saving..." : "Next Step"}</Button>
                 </div>
               </form>
             )}
@@ -477,8 +477,8 @@ export function RestaurantOnboardingClient() {
                   </div>
                 </div>
                 <div className="mt-8 flex justify-between">
-                  <Button type="button" variant="ghost" onClick={handleBack} disabled={saving}>Back</Button>
-                  <Button type="submit" disabled={saving || selectedCuisines.length === 0 || selectedServices.length === 0} className="rounded-full px-8">{saving ? "Saving..." : "Next Step"}</Button>
+                  <Button type="button" variant="ghost" onClick={handleBack} disabled={saving} className="rounded-full px-6 hover:bg-slate-100">Back</Button>
+                  <Button type="submit" disabled={saving || selectedCuisines.length === 0 || selectedServices.length === 0} className="rounded-full px-8 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-semibold shadow-lg shadow-amber-200/50 transition-all hover:scale-[1.02]">{saving ? "Saving..." : "Next Step"}</Button>
                 </div>
               </form>
             )}
@@ -515,8 +515,8 @@ export function RestaurantOnboardingClient() {
                   </div>
                 </div>
                 <div className="mt-8 flex justify-between">
-                  <Button type="button" variant="ghost" onClick={handleBack} disabled={saving}>Back</Button>
-                  <Button type="submit" disabled={saving} className="rounded-full px-8">{saving ? "Saving..." : "Next Step"}</Button>
+                  <Button type="button" variant="ghost" onClick={handleBack} disabled={saving} className="rounded-full px-6 hover:bg-slate-100">Back</Button>
+                  <Button type="submit" disabled={saving} className="rounded-full px-8 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-semibold shadow-lg shadow-amber-200/50 transition-all hover:scale-[1.02]">{saving ? "Saving..." : "Next Step"}</Button>
                 </div>
               </form>
             )}
@@ -546,8 +546,8 @@ export function RestaurantOnboardingClient() {
                   ))}
                 </div>
                 <div className="mt-8 flex justify-between">
-                  <Button type="button" variant="ghost" onClick={handleBack} disabled={saving}>Back</Button>
-                  <Button type="submit" className="rounded-full bg-green-600 hover:bg-green-700 text-white px-8" disabled={saving || !Object.values(agreements).every(v => v)}>
+                  <Button type="button" variant="ghost" onClick={handleBack} disabled={saving} className="rounded-full px-6 hover:bg-slate-100">Back</Button>
+                  <Button type="submit" className="rounded-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-semibold px-8 shadow-lg shadow-emerald-100 transition-all hover:scale-[1.02]" disabled={saving || !Object.values(agreements).every(v => v)}>
                     {saving ? "Submitting..." : "Finish Registration"}
                   </Button>
                 </div>
@@ -565,7 +565,7 @@ export function RestaurantOnboardingClient() {
                     Your restaurant account is pending review. We will notify you once approved.
                   </p>
                 </div>
-                <Button onClick={() => router.push("/restaurant-seller/settings")} className="rounded-full px-10">
+                <Button onClick={() => router.push("/restaurant-seller/settings")} className="rounded-full px-10 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-semibold shadow-lg shadow-amber-200/50 transition-all hover:scale-[1.02]">
                   Go to Dashboard
                 </Button>
               </div>

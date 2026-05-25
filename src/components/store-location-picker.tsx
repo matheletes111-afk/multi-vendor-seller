@@ -121,7 +121,7 @@ export function StoreLocationPicker({
   }, [lat, lng, onLocationSelect])
 
   useEffect(() => {
-    const apiKey = process.env.NEXT_PUBLIC_MAP_KEY
+    const apiKey = process.env.MAP_KEY
     if (!apiKey) {
       setError("Map API key is not configured.")
       return
@@ -138,7 +138,7 @@ export function StoreLocationPicker({
       return
     }
 
-    window._googleMapsLoading = true
+    window._googleMapsLoading = true;
     window.initGoogleMaps = () => {
       window._googleMapsLoading = false
       initMap()

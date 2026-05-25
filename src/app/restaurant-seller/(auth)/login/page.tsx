@@ -1,7 +1,7 @@
 "use client"
 
 import { Suspense, useState, useEffect } from "react"
-import { signIn, signOut } from "next-auth/react"
+import { getCsrfToken, signIn, signOut } from "next-auth/react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import Image from "next/image"
@@ -15,10 +15,17 @@ function RestaurantSellerLoginForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const callbackUrl = searchParams.get("callbackUrl") || "/restaurant-seller"
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
+  const [csrfToken, setCsrfToken] = useState<string | null>(null)
+
+  useEffect(() => {
+    getCsrfToken().then(setCsrfToken)
+  }, [])
 
   useEffect(() => {
     if (searchParams.get("verified") === "1") {
@@ -32,26 +39,43 @@ function RestaurantSellerLoginForm() {
     setSuccess("")
     setLoading(true)
 
-    const formData = new FormData(e.currentTarget)
-    const data = Object.fromEntries(formData.entries())
-
     try {
       const res = await fetch("/api/restaurant-seller/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        body: JSON.stringify({
+          email,
+          password,
+          callbackUrl,
+          csrfToken: csrfToken ?? undefined,
+        }),
+        credentials: "include",
+        redirect: "manual",
       })
 
-      const result = await res.json()
-      if (res.ok) {
-        router.push(result.url || "/restaurant-seller")
-        router.refresh()
-      } else {
-        if (result.needsVerification) {
-          router.push(result.verifyUrl)
-        } else {
-          setError(result.error || "Login failed. Please check your credentials.")
+      if (res.status === 302) {
+        const loc = res.headers.get("Location")
+        if (loc && !loc.includes("error=")) {
+          window.location.href = loc
+          return
         }
+      }
+
+      if (res.ok) {
+        const data = await res.json().catch(() => ({}))
+        if (data?.url && data.url.includes("error=")) {
+          setError("Invalid email or password.")
+          return
+        }
+        window.location.href = data?.url ?? callbackUrl
+        return
+      }
+
+      const result = await res.json().catch(() => ({}))
+      if (res.status === 403 && result.needsVerification && result.verifyUrl) {
+        router.push(result.verifyUrl)
+      } else {
+        setError(result.error || "Login failed. Please check your credentials.")
       }
     } catch {
       setError("Something went wrong. Please try again.")
@@ -88,7 +112,7 @@ function RestaurantSellerLoginForm() {
 
           <div className="space-y-2">
             <Label htmlFor="email">Work Email</Label>
-            <Input id="email" name="email" type="email" placeholder="john@restaurant.com" required className="rounded-xl" />
+            <Input id="email" name="email" type="email" placeholder="john@restaurant.com" value={email} onChange={(e) => setEmail(e.target.value)} required className="rounded-xl" />
           </div>
 
           <div className="space-y-2">
@@ -104,6 +128,8 @@ function RestaurantSellerLoginForm() {
                 name="password"
                 type={showPassword ? "text" : "password"}
                 placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
                 required
                 className="rounded-xl pr-10"
               />

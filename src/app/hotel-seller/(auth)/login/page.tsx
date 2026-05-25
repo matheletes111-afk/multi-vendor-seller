@@ -101,7 +101,12 @@ function HotelSellerLoginForm() {
               <Input id="email" type="email" placeholder="example@gmail.com" value={email} onChange={(e) => setEmail(e.target.value)} required disabled={loading} className="rounded-xl border-gray-200" />
             </div>
             <div>
-              <Label htmlFor="password" className="mb-1.5 block text-sm font-medium text-gray-700">Password</Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="password" className="mb-1.5 block text-sm font-medium text-gray-700">Password</Label>
+                <Link href="/hotel-seller/forgot-password" className="text-xs text-blue-600 hover:underline font-medium mb-1.5">
+                  Forgot password?
+                </Link>
+              </div>
               <div className="relative">
                 <Input id="password" type={showPassword ? "text" : "password"} placeholder="**********" value={password} onChange={(e) => setPassword(e.target.value)} required disabled={loading} className="rounded-xl border-gray-200 pr-10" />
                 <button type="button" tabIndex={-1} onClick={() => setShowPassword((p) => !p)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" aria-label={showPassword ? "Hide password" : "Show password"}>{showPassword ? <EyeOff size={18} /> : <Eye size={18} />}</button>

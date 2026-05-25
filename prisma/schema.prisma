@@ -395,6 +395,7 @@ model HotelSeller {
   agreement           HotelAgreement?
   subscription        HotelSubscription?
   hotels              Hotel[]
+  sellerAds           SellerAd[]
 
   @@map("hotel_sellers")
 }
@@ -423,6 +424,7 @@ model Hotel {
 
   hotelSeller       HotelSeller @relation(fields: [hotelSellerId], references: [id], onDelete: Cascade)
   rooms             Room[]
+  sellerAds         SellerAd[]
 
   @@map("hotels")
 }
@@ -712,10 +714,11 @@ model SellerAd {
   id              String         @id @default(cuid())
   /// Set for seller-created ads; null when the advertiser is a customer user.
   sellerId        String?
-  /// Set for customer-created “own business” ads; null when created by a seller.
+  hotelSellerId   String?
   customerUserId  String?
   productId       String?
   serviceId       String?
+  hotelId         String?
   title           String
   description     String?        @db.Text
   creativeType    CreativeType
@@ -738,13 +741,16 @@ model SellerAd {
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
 
-  seller    Seller?    @relation(fields: [sellerId], references: [id], onDelete: Cascade)
-  customer  User?      @relation("CustomerSellerAds", fields: [customerUserId], references: [id], onDelete: Cascade)
-  product   Product?   @relation(fields: [productId], references: [id], onDelete: SetNull)
-  service   Service?   @relation(fields: [serviceId], references: [id], onDelete: SetNull)
-  adClicks  AdClick[]
+  seller      Seller?      @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  hotelSeller HotelSeller? @relation(fields: [hotelSellerId], references: [id], onDelete: Cascade)
+  customer    User?        @relation("CustomerSellerAds", fields: [customerUserId], references: [id], onDelete: Cascade)
+  product     Product?     @relation(fields: [productId], references: [id], onDelete: SetNull)
+  service     Service?     @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+  hotel       Hotel?       @relation(fields: [hotelId], references: [id], onDelete: SetNull)
+  adClicks    AdClick[]
 
   @@index([sellerId])
+  @@index([hotelSellerId])
   @@index([customerUserId])
   @@index([status])
   @@index([startAt, endAt])

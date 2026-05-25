@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/ui/card"
@@ -15,15 +15,15 @@ import {
   SelectValue,
 } from "@/ui/select"
 import { Badge } from "@/ui/badge"
-import { 
-  Building2, 
-  Star, 
-  MapPin, 
-  Camera, 
-  X, 
-  Upload, 
-  ArrowLeft, 
-  CheckCircle2, 
+import {
+  Building2,
+  Star,
+  MapPin,
+  Camera,
+  X,
+  Upload,
+  ArrowLeft,
+  CheckCircle2,
   Image as ImageIcon,
   Wifi,
   Wind,
@@ -70,7 +70,7 @@ export function NewHotelClient() {
   })
 
   const [selectedAmenities, setSelectedAmenities] = useState<string[]>([])
-  
+
   // Image State
   const [images, setImages] = useState<{ file: File; preview: string }[]>([])
   const [logo, setLogo] = useState<{ file: File; preview: string } | null>(null)
@@ -80,13 +80,194 @@ export function NewHotelClient() {
   const logoInputRef = useRef<HTMLInputElement>(null)
   const bannerInputRef = useRef<HTMLInputElement>(null)
 
+  const addressInputRef = useRef<HTMLInputElement>(null)
+  const mapContainerRef = useRef<HTMLDivElement>(null)
+  const mapInstanceRef = useRef<any>(null)
+  const markerInstanceRef = useRef<any>(null)
+  const autocompleteRef = useRef<any>(null)
+  const [mapError, setMapError] = useState<string | null>(null)
+
+  const initMap = useCallback(() => {
+    if (!mapContainerRef.current || !(window as any).google) return
+
+    const initialLat = parseFloat(formData.lat) || 8.4657
+    const initialLng = parseFloat(formData.lng) || -13.2317
+    const defaultCenter = { lat: initialLat, lng: initialLng }
+
+    const map = new (window as any).google.maps.Map(mapContainerRef.current, {
+      center: defaultCenter,
+      zoom: formData.lat && formData.lng ? 16 : 8,
+      disableDefaultUI: false,
+      zoomControl: true,
+      mapTypeControl: false,
+      streetViewControl: false,
+      fullscreenControl: false,
+    })
+    mapInstanceRef.current = map
+
+    const marker = new (window as any).google.maps.Marker({
+      position: defaultCenter,
+      map,
+      draggable: true,
+      visible: true,
+      title: "Hotel Location",
+    })
+    markerInstanceRef.current = marker
+
+    // Map click - move marker and fetch address details
+    map.addListener("click", (e: any) => {
+      const clickLat = e.latLng.lat()
+      const clickLng = e.latLng.lng()
+      marker.setPosition({ lat: clickLat, lng: clickLng })
+      setFormData(prev => ({ ...prev, lat: clickLat.toString(), lng: clickLng.toString() }))
+
+      const geocoder = new (window as any).google.maps.Geocoder()
+      geocoder.geocode({ location: { lat: clickLat, lng: clickLng } }, (results: any, status: string) => {
+        if (status === "OK" && results[0]) {
+          const addr = results[0].formatted_address
+          setFormData(prev => ({ ...prev, address: addr }))
+          if (addressInputRef.current) addressInputRef.current.value = addr
+
+          let city = ""
+          let state = ""
+          for (const comp of results[0].address_components) {
+            if (comp.types.includes("locality")) city = comp.long_name
+            else if (comp.types.includes("administrative_area_level_1")) state = comp.long_name
+            else if (!city && comp.types.includes("administrative_area_level_2")) city = comp.long_name
+          }
+          if (city) setFormData(prev => ({ ...prev, city }))
+          if (state) setFormData(prev => ({ ...prev, state }))
+        }
+      })
+    })
+
+    // Drag marker - update coordinates and fetch address details
+    marker.addListener("dragend", () => {
+      const pos = marker.getPosition()
+      if (!pos) return
+      const dragLat = pos.lat()
+      const dragLng = pos.lng()
+      setFormData(prev => ({ ...prev, lat: dragLat.toString(), lng: dragLng.toString() }))
+
+      const geocoder = new (window as any).google.maps.Geocoder()
+      geocoder.geocode({ location: { lat: dragLat, lng: dragLng } }, (results: any, status: string) => {
+        if (status === "OK" && results[0]) {
+          const addr = results[0].formatted_address
+          setFormData(prev => ({ ...prev, address: addr }))
+          if (addressInputRef.current) addressInputRef.current.value = addr
+
+          let city = ""
+          let state = ""
+          for (const comp of results[0].address_components) {
+            if (comp.types.includes("locality")) city = comp.long_name
+            else if (comp.types.includes("administrative_area_level_1")) state = comp.long_name
+            else if (!city && comp.types.includes("administrative_area_level_2")) city = comp.long_name
+          }
+          if (city) setFormData(prev => ({ ...prev, city }))
+          if (state) setFormData(prev => ({ ...prev, state }))
+        }
+      })
+    })
+
+    // Autocomplete logic
+    if (addressInputRef.current) {
+      const autocomplete = new (window as any).google.maps.places.Autocomplete(addressInputRef.current, {
+        fields: ["geometry", "formatted_address", "address_components", "name"],
+      })
+      autocompleteRef.current = autocomplete
+
+      autocomplete.addListener("place_changed", () => {
+        const place = autocomplete.getPlace()
+        if (!place.geometry?.location) return
+
+        const newLat = place.geometry.location.lat()
+        const newLng = place.geometry.location.lng()
+        const addr = place.formatted_address || place.name || ""
+
+        let city = ""
+        let state = ""
+        if (place.address_components) {
+          for (const comp of place.address_components) {
+            if (comp.types.includes("locality")) city = comp.long_name
+            else if (comp.types.includes("administrative_area_level_1")) state = comp.long_name
+            else if (!city && comp.types.includes("administrative_area_level_2")) city = comp.long_name
+          }
+        }
+
+        setFormData(prev => ({
+          ...prev,
+          address: addr,
+          lat: newLat.toString(),
+          lng: newLng.toString(),
+          city: city || prev.city,
+          state: state || prev.state,
+        }))
+
+        map.setCenter({ lat: newLat, lng: newLng })
+        map.setZoom(16)
+        marker.setPosition({ lat: newLat, lng: newLng })
+      })
+    }
+  }, [formData.lat, formData.lng])
+
+  useEffect(() => {
+    const apiKey = process.env.MAP_KEY
+    if (!apiKey) {
+      setMapError("Google Maps API key not configured.")
+      return
+    }
+
+    if ((window as any).google?.maps) {
+      initMap()
+      return
+    }
+
+    if ((window as any)._googleMapsLoading) {
+      (window as any).initGoogleMaps = initMap
+      return
+    }
+
+    (window as any)._googleMapsLoading = true;
+    (window as any).initGoogleMaps = () => {
+      (window as any)._googleMapsLoading = false
+      initMap()
+    }
+
+    const script = document.createElement("script")
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&callback=initGoogleMaps`
+    script.async = true
+    script.defer = true
+    script.onerror = () => setMapError("Failed to load Google Maps.")
+    document.head.appendChild(script)
+
+    return () => {
+      // keep instance
+    }
+  }, [initMap])
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
     setFormData((prev) => ({ ...prev, [name]: value }))
   }
 
+  const handleLatLonChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target
+    setFormData((prev) => ({ ...prev, [name]: value }))
+
+    const val = parseFloat(value)
+    if (!isNaN(val) && mapInstanceRef.current && markerInstanceRef.current) {
+      const currentLat = name === "lat" ? val : parseFloat(formData.lat)
+      const currentLng = name === "lng" ? val : parseFloat(formData.lng)
+      if (!isNaN(currentLat) && !isNaN(currentLng)) {
+        const center = { lat: currentLat, lng: currentLng }
+        mapInstanceRef.current.setCenter(center)
+        markerInstanceRef.current.setPosition(center)
+      }
+    }
+  }
+
   const toggleAmenity = (id: string) => {
-    setSelectedAmenities((prev) => 
+    setSelectedAmenities((prev) =>
       prev.includes(id) ? prev.filter((a) => a !== id) : [...prev, id]
     )
   }
@@ -143,7 +324,7 @@ export function NewHotelClient() {
       const data = new FormData()
       Object.entries(formData).forEach(([key, value]) => data.append(key, value))
       data.append("amenities", JSON.stringify(selectedAmenities))
-      
+
       images.forEach((img) => data.append("images", img.file))
       if (logo) data.append("logo", logo.file)
       if (banner) data.append("banner", banner.file)
@@ -220,8 +401,8 @@ export function NewHotelClient() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div className="space-y-2">
                     <Label className="text-sm font-bold ml-1">Star Rating</Label>
-                    <Select 
-                      value={formData.starRating} 
+                    <Select
+                      value={formData.starRating}
                       onValueChange={(val) => setFormData(p => ({ ...p, starRating: val }))}
                     >
                       <SelectTrigger className="rounded-2xl h-12">
@@ -275,6 +456,7 @@ export function NewHotelClient() {
                     <Input
                       id="address"
                       name="address"
+                      ref={addressInputRef}
                       placeholder="Street name, landmark..."
                       className="rounded-2xl h-12 pl-11"
                       value={formData.address}
@@ -306,6 +488,17 @@ export function NewHotelClient() {
                     />
                   </div>
                 </div>
+                {/* Map Display */}
+                <div className="space-y-2">
+                  <Label className="text-sm font-bold ml-1">Locate on Map (Drag marker or click map to adjust location)</Label>
+                  {mapError ? (
+                    <div className="h-56 rounded-2xl bg-destructive/10 border border-destructive/20 text-destructive flex items-center justify-center text-xs font-bold">
+                      {mapError}
+                    </div>
+                  ) : (
+                    <div ref={mapContainerRef} className="h-60 w-full rounded-2xl border border-muted overflow-hidden bg-muted/10 shadow-inner" style={{ minHeight: 240 }} />
+                  )}
+                </div>
                 <div className="grid grid-cols-2 gap-6">
                   <div className="space-y-2">
                     <Label className="text-sm font-bold ml-1">Latitude (Optional)</Label>
@@ -316,7 +509,7 @@ export function NewHotelClient() {
                       placeholder="0.0000"
                       className="rounded-2xl h-12"
                       value={formData.lat}
-                      onChange={handleInputChange}
+                      onChange={handleLatLonChange}
                     />
                   </div>
                   <div className="space-y-2">
@@ -328,7 +521,7 @@ export function NewHotelClient() {
                       placeholder="0.0000"
                       className="rounded-2xl h-12"
                       value={formData.lng}
-                      onChange={handleInputChange}
+                      onChange={handleLatLonChange}
                     />
                   </div>
                 </div>
@@ -351,8 +544,8 @@ export function NewHotelClient() {
                         onClick={() => toggleAmenity(amenity.id)}
                         className={cn(
                           "flex flex-col items-center justify-center p-4 rounded-3xl border-2 transition-all gap-2 h-24",
-                          isSelected 
-                            ? "bg-primary/10 border-primary shadow-lg shadow-primary/5 text-primary scale-105" 
+                          isSelected
+                            ? "bg-primary/10 border-primary shadow-lg shadow-primary/5 text-primary scale-105"
                             : "bg-background border-muted text-muted-foreground hover:border-primary/40"
                         )}
                       >
@@ -377,7 +570,7 @@ export function NewHotelClient() {
                 <CardDescription>Upload property photos</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4 px-8 pb-8">
-                <div 
+                <div
                   onClick={() => imageInputRef.current?.click()}
                   className="group cursor-pointer border-2 border-dashed border-muted rounded-[2rem] p-8 text-center hover:border-primary/50 transition-all bg-muted/20 hover:bg-muted/30"
                 >
@@ -421,7 +614,7 @@ export function NewHotelClient() {
               <CardContent className="space-y-6 px-8 pb-8">
                 <div className="space-y-2">
                   <Label className="text-xs font-bold uppercase tracking-widest ml-1 text-muted-foreground">Hotel Logo</Label>
-                  <div 
+                  <div
                     onClick={() => logoInputRef.current?.click()}
                     className="relative group cursor-pointer border-2 border-dashed border-muted rounded-2xl p-4 text-center hover:border-primary/50 bg-muted/10 h-28 flex flex-col items-center justify-center overflow-hidden"
                   >
@@ -444,7 +637,7 @@ export function NewHotelClient() {
 
                 <div className="space-y-2">
                   <Label className="text-xs font-bold uppercase tracking-widest ml-1 text-muted-foreground">Main Banner</Label>
-                  <div 
+                  <div
                     onClick={() => bannerInputRef.current?.click()}
                     className="relative group cursor-pointer border-2 border-dashed border-muted rounded-2xl p-4 text-center hover:border-primary/50 bg-muted/10 h-32 flex flex-col items-center justify-center overflow-hidden"
                   >

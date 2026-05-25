@@ -17,6 +17,7 @@ export async function GET(
     include: {
       product: true,
       service: true,
+      hotel: true,
       _count: { select: { adClicks: true } },
     },
   })

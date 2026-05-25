@@ -5,7 +5,7 @@ const nextConfig = {
   },
   serverExternalPackages: ["xlsx"],
   env: {
-    NEXT_PUBLIC_MAP_KEY: process.env.MAP_KEY,
+    MAP_KEY: process.env.MAP_KEY,
   },
 }
 
