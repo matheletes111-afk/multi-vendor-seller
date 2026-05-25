@@ -4,6 +4,10 @@ http
 GET /mobileapi/wishlist
 Authorization: Bearer <your_jwt_token>
 Response (Success):
+
+
+
+
 json
 {
   "success": true,
