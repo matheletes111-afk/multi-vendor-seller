@@ -62,6 +62,7 @@ export function AdminLayoutClient({
 
   const navContent = (
     <>
+      <NavItem href="/admin" label="Dashboard" icon={<LayoutDashboard className="h-4 w-4" />} />
       <NavItem href="/admin/categories" label="Product Category" icon={<FolderTree className="h-4 w-4" />} />
       <NavItem href="/admin/service-categories" label="Service Category" icon={<Briefcase className="h-4 w-4" />} />
       <NavItem href="/admin/banners" label="Banners" icon={<ImageIcon className="h-4 w-4" />} />
@@ -74,9 +75,6 @@ export function AdminLayoutClient({
       <NavItem href="/admin/orders" label="Orders" icon={<ShoppingCart className="h-4 w-4" />} />
       <NavItem href="/admin/reviews" label="Reviews" icon={<Star className="h-4 w-4" />} />
       <NavItem href="/admin/settings" label="Settings" icon={<User className="h-4 w-4" />} />
-
-
-
     </>
   )
 
