@@ -4,8 +4,8 @@ frontend:
     preBuild:
       commands:
         - npm install -g pnpm
-        - echo "node-linker=hoisted" > .npmrc
-        - echo "ignore-scripts=false" >> .npmrc
+        - pnpm config set node-linker hoisted
+        - pnpm config set ignore-scripts false
         - pnpm install
         - npx prisma generate
     build:
