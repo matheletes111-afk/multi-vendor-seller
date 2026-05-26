@@ -8,8 +8,6 @@ frontend:
         - npx prisma generate
     build:
       commands:
-        - echo "Checking Environment Variables..."
-        - env | grep -E "DATABASE_URL|NEXTAUTH_SECRET" || echo "Warning: Critical env vars missing"
         - pnpm run build
   artifacts:
     baseDirectory: .next
