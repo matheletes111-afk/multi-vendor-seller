@@ -3,11 +3,19 @@ frontend:
   phases:
     preBuild:
       commands:
-        - npm install -g pnpm
-        - pnpm install --ignore-scripts=false
-        - npx prisma generate
+        - corepack enable
+        - corepack prepare pnpm@latest --activate
+        - echo "node-linker=hoisted" > .npmrc
+        - echo "ignore-scripts=false" >> .npmrc
+        - echo "only-built-dependencies[]=prisma" >> .npmrc
+        - echo "only-built-dependencies[]=@prisma/client" >> .npmrc
+        - echo "only-built-dependencies[]=@prisma/engines" >> .npmrc
+        - echo "only-built-dependencies[]=esbuild" >> .npmrc
+        - echo "only-built-dependencies[]=sharp" >> .npmrc
+        - pnpm install --no-frozen-lockfile
     build:
       commands:
+        - npx prisma generate
         - pnpm run build
   artifacts:
     baseDirectory: .next
