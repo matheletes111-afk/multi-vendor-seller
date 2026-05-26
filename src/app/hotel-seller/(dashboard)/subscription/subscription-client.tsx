@@ -6,7 +6,7 @@ import { Button } from "@/ui/button"
 import { formatCurrency } from "@/lib/utils"
 import { PageLoader } from "@/components/ui/page-loader"
 
-type Plan = { id: string; name: string; displayName: string; description: string | null; price: number; maxProducts: number | null; maxOrders: number | null }
+type Plan = { id: string; name: string; displayName: string; description: string | null; price: number; maxProducts: number | null; maxOrders: number | null; maxRooms: number | null }
 type Subscription = { id: string; planId: string; status: string; currentPeriodEnd: string | null; plan: { displayName: string } } | null
 
 export function HotelSubscriptionClient() {
@@ -77,6 +77,10 @@ export function HotelSubscriptionClient() {
                 <li className="text-sm flex justify-between">
                   <span>Listable Hotels:</span> 
                   <span className="font-bold text-slate-800">{plan.maxProducts === null ? "Unlimited" : plan.maxProducts}</span>
+                </li>
+                <li className="text-sm flex justify-between">
+                  <span>Total Rooms:</span> 
+                  <span className="font-bold text-slate-800">{plan.maxRooms === null || plan.maxRooms === undefined ? "Unlimited" : plan.maxRooms}</span>
                 </li>
                 <li className="text-sm flex justify-between">
                   <span>Monthly Bookings:</span> 

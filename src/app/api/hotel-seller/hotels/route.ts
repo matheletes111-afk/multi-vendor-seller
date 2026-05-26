@@ -5,6 +5,7 @@ import { uploadPublicFile } from "@/lib/upload-public-file"
 import path from "path"
 import { UserRole } from "@prisma/client"
 import { getPaginationFromSearchParams } from "@/lib/admin-pagination"
+import { checkHotelLimit } from "@/lib/subscriptions"
 
 export async function GET(request: NextRequest) {
   const session = await auth()
@@ -83,6 +84,14 @@ export async function POST(request: NextRequest) {
 
   if (!seller) {
     return NextResponse.json({ error: "Seller not found" }, { status: 404 })
+  }
+
+  const limitCheck = await checkHotelLimit(seller.id)
+  if (!limitCheck.allowed) {
+    return NextResponse.json(
+      { error: `Hotel listing limit reached (${limitCheck.limit}). Please upgrade your plan.` },
+      { status: 403 }
+    )
   }
 
   const formData = await request.formData()

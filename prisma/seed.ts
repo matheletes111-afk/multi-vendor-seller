@@ -83,6 +83,7 @@ async function main() {
       price: 0,
       maxProducts: 2, // Max 2 hotels
       maxOrders: 5,
+      maxRooms: 10,   // Max 10 rooms
       features: {
         hotels: 2,
         rooms: 10,
@@ -104,6 +105,7 @@ async function main() {
       price: 39.99,
       maxProducts: 10,
       maxOrders: null,
+      maxRooms: null, // Unlimited rooms
       features: {
         hotels: 10,
         rooms: "unlimited",
@@ -125,6 +127,7 @@ async function main() {
       price: 119.99,
       maxProducts: null,
       maxOrders: null,
+      maxRooms: null, // Unlimited rooms
       features: {
         hotels: "unlimited",
         rooms: "unlimited",

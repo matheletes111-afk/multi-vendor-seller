@@ -810,6 +810,7 @@ model Plan {
   price       Float
   maxProducts Int?              // null = unlimited
   maxOrders   Int?              // null = unlimited
+  maxRooms    Int?              // null = unlimited
   features    Json              // Store plan features as JSON
   createdAt   DateTime          @default(now())
   updatedAt   DateTime          @updatedAt

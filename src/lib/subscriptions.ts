@@ -124,10 +124,9 @@ export async function checkProductLimit(sellerId: string): Promise<{ allowed: bo
     return { allowed: false, current: 0, limit: 0 }
   }
 
-  const plan = subscription.plan.name
-  const limits = PLAN_LIMITS[plan]
+  const planMaxProducts = subscription.plan.maxProducts
   
-  if (limits.maxProducts === null) {
+  if (planMaxProducts === null) {
     return { allowed: true, current: 0, limit: null }
   }
 
@@ -136,9 +135,9 @@ export async function checkProductLimit(sellerId: string): Promise<{ allowed: bo
   })
 
   return {
-    allowed: currentCount < limits.maxProducts,
+    allowed: currentCount < planMaxProducts,
     current: currentCount,
-    limit: limits.maxProducts,
+    limit: planMaxProducts,
   }
 }
 
@@ -149,10 +148,9 @@ export async function checkServiceLimit(sellerId: string): Promise<{ allowed: bo
     return { allowed: false, current: 0, limit: 0 }
   }
 
-  const plan = subscription.plan.name
-  const limits = PLAN_LIMITS[plan]
+  const planMaxProducts = subscription.plan.maxProducts
   
-  if (limits.maxProducts === null) {
+  if (planMaxProducts === null) {
     return { allowed: true, current: 0, limit: null }
   }
 
@@ -161,9 +159,9 @@ export async function checkServiceLimit(sellerId: string): Promise<{ allowed: bo
   })
 
   return {
-    allowed: currentCount < limits.maxProducts,
+    allowed: currentCount < planMaxProducts,
     current: currentCount,
-    limit: limits.maxProducts,
+    limit: planMaxProducts,
   }
 }
 
@@ -174,10 +172,9 @@ export async function checkOrderLimit(sellerId: string, month?: Date): Promise<{
     return { allowed: false, current: 0, limit: 0 }
   }
 
-  const plan = subscription.plan.name
-  const limits = PLAN_LIMITS[plan]
+  const planMaxOrders = subscription.plan.maxOrders
   
-  if (limits.maxOrders === null) {
+  if (planMaxOrders === null) {
     return { allowed: true, current: 0, limit: null }
   }
 
@@ -196,9 +193,9 @@ export async function checkOrderLimit(sellerId: string, month?: Date): Promise<{
   })
 
   return {
-    allowed: currentCount < limits.maxOrders,
+    allowed: currentCount < planMaxOrders,
     current: currentCount,
-    limit: limits.maxOrders,
+    limit: planMaxOrders,
   }
 }
 
@@ -368,6 +365,58 @@ export async function getValidRestaurantSubscription(restaurantSellerId: string)
   }
 
   return subscription
+}
+
+export async function checkHotelLimit(hotelSellerId: string): Promise<{ allowed: boolean; current: number; limit: number | null }> {
+  const subscription = await getValidHotelSubscription(hotelSellerId)
+  
+  if (!subscription || subscription.status !== "ACTIVE") {
+    return { allowed: false, current: 0, limit: 0 }
+  }
+
+  const plan = subscription.plan
+  
+  if (plan.maxProducts === null) {
+    return { allowed: true, current: 0, limit: null }
+  }
+
+  const currentCount = await prisma.hotel.count({
+    where: { hotelSellerId, isDeleted: false, isActive: true },
+  })
+
+  return {
+    allowed: currentCount < plan.maxProducts,
+    current: currentCount,
+    limit: plan.maxProducts,
+  }
+}
+
+export async function checkHotelRoomLimit(hotelSellerId: string): Promise<{ allowed: boolean; current: number; limit: number | null }> {
+  const subscription = await getValidHotelSubscription(hotelSellerId)
+  
+  if (!subscription || subscription.status !== "ACTIVE") {
+    return { allowed: false, current: 0, limit: 0 }
+  }
+
+  const plan = subscription.plan
+  
+  if (plan.maxRooms === null) {
+    return { allowed: true, current: 0, limit: null }
+  }
+
+  const currentCount = await prisma.room.count({
+    where: {
+      hotel: { hotelSellerId },
+      isDeleted: false,
+      isActive: true,
+    },
+  })
+
+  return {
+    allowed: currentCount < plan.maxRooms,
+    current: currentCount,
+    limit: plan.maxRooms,
+  }
 }
 
 async function applyRestaurantRenewal(id: string, fromDate: Date, months: number) {

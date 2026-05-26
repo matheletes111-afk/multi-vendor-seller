@@ -60,6 +60,7 @@ export async function PUT(
       price,
       maxProducts,
       maxOrders,
+      maxRooms,
       features,
     } = body
 
@@ -105,6 +106,14 @@ export async function PUT(
     } else if (typeof maxOrders === "string") {
       const n = parseInt(maxOrders, 10)
       if (!isNaN(n)) updateData.maxOrders = n
+    }
+    if (maxRooms === null || maxRooms === "unlimited" || maxRooms === "") {
+      updateData.maxRooms = null
+    } else if (typeof maxRooms === "number") {
+      updateData.maxRooms = maxRooms
+    } else if (typeof maxRooms === "string") {
+      const n = parseInt(maxRooms, 10)
+      if (!isNaN(n)) updateData.maxRooms = n
     }
     if (features !== undefined) updateData.features = features
 

@@ -75,7 +75,7 @@ export function RestaurantSubscriptionClient() {
               <p className="text-4xl font-black text-slate-800 mb-6">{formatCurrency(plan.price)}{plan.price > 0 && <span className="text-base font-medium text-slate-400">/month</span>}</p>
               <ul className="space-y-3 mb-8 pt-4 border-t border-slate-50 font-medium text-slate-600">
                 <li className="text-sm flex justify-between">
-                  <span>Listable Outlets:</span> 
+                  <span>Max Menu Items:</span> 
                   <span className="font-bold text-slate-800">{plan.maxProducts === null ? "Unlimited" : plan.maxProducts}</span>
                 </li>
                 <li className="text-sm flex justify-between">

@@ -391,16 +391,44 @@ export function SubscriptionsClient() {
                     </div>
                   </div>
 
-                  <div className="space-y-2 pt-2 border-t text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Products / Services</span>
-                      <span className="font-medium">{plan.maxProducts === null ? "Unlimited" : plan.maxProducts}</span>
+                  {plan.type === "HOTEL" ? (
+                    <div className="space-y-2 pt-2 border-t text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Total Hotels</span>
+                        <span className="font-medium">{plan.maxProducts === null ? "Unlimited" : plan.maxProducts}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Total Rooms</span>
+                        <span className="font-medium">{plan.maxRooms === null || plan.maxRooms === undefined ? "Unlimited" : plan.maxRooms}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Orders / Bookings</span>
+                        <span className="font-medium">{plan.maxOrders === null ? "Unlimited" : `${plan.maxOrders}/mo`}</span>
+                      </div>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Orders</span>
-                      <span className="font-medium">{plan.maxOrders === null ? "Unlimited" : `${plan.maxOrders}/mo`}</span>
+                  ) : plan.type === "RESTAURANT" ? (
+                    <div className="space-y-2 pt-2 border-t text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Max Menu Items</span>
+                        <span className="font-medium">{plan.maxProducts === null ? "Unlimited" : plan.maxProducts}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Orders</span>
+                        <span className="font-medium">{plan.maxOrders === null ? "Unlimited" : `${plan.maxOrders}/mo`}</span>
+                      </div>
                     </div>
-                  </div>
+                  ) : (
+                    <div className="space-y-2 pt-2 border-t text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Products / Services</span>
+                        <span className="font-medium">{plan.maxProducts === null ? "Unlimited" : plan.maxProducts}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Orders</span>
+                        <span className="font-medium">{plan.maxOrders === null ? "Unlimited" : `${plan.maxOrders}/mo`}</span>
+                      </div>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             )
