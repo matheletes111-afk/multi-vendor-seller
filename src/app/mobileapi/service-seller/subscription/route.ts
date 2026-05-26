@@ -29,6 +29,7 @@ export async function GET(request: NextRequest) {
     }
 
     const plans = await prisma.plan.findMany({
+      where: { type: "PRODUCT_SERVICE" },
       orderBy: { price: "asc" },
     })
 
@@ -69,7 +70,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "planName is required" }, { status: 400 })
     }
 
-    const plan = await prisma.plan.findUnique({ where: { name: planName } })
+    const plan = await prisma.plan.findUnique({
+      where: {
+        name_type: {
+          name: planName,
+          type: "PRODUCT_SERVICE",
+        },
+      },
+    })
     if (!plan) {
       return NextResponse.json({ error: "Plan not found" }, { status: 404 })
     }

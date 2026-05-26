@@ -15,6 +15,7 @@ import {
   DollarSign,
   AlertCircle,
   ArrowRight,
+  Building2,
 } from "lucide-react"
 import { Button } from "@/ui/button"
 
@@ -29,6 +30,11 @@ type Overview = {
   adRevenue: number
   commissionRevenue: number
   pendingSellers: number
+  totalHotels: number
+  totalHotelSellers: number
+  totalRestaurantSellers: number
+  pendingHotelSellers: number
+  pendingRestaurantSellers: number
 }
 
 export function AdminDashboardClient() {
@@ -105,6 +111,11 @@ export function AdminDashboardClient() {
     adRevenue,
     commissionRevenue,
     pendingSellers,
+    totalHotels,
+    totalHotelSellers,
+    totalRestaurantSellers,
+    pendingHotelSellers,
+    pendingRestaurantSellers,
   } = data
 
   return (
@@ -149,16 +160,16 @@ export function AdminDashboardClient() {
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         {[
-          { label: "Sellers", value: totalSellers, icon: Users, color: "blue", desc: "Registered accounts" },
-          { label: "Customers", value: totalCustomers, icon: ShoppingBag, color: "green", desc: "Platform users" },
-          { label: "Products", value: totalProducts, icon: Package, color: "orange", desc: "Active listings" },
-          { label: "Services", value: totalServices, icon: Briefcase, color: "purple", desc: "Available services" },
+          { label: "Product/Service Sellers", value: totalSellers, icon: Users, color: "blue", desc: "Registered accounts" },
+          { label: "Hotel Partners", value: totalHotelSellers, icon: Building2, color: "indigo", desc: "Hotel seller accounts" },
+          { label: "Restaurant Partners", value: totalRestaurantSellers, icon: Briefcase, color: "rose", desc: "Culinary seller accounts" },
+          { label: "Total Hotels", value: totalHotels, icon: Building2, color: "orange", desc: "Active hotel listings" },
         ].map((stat) => (
           <Card key={stat.label} className="border-none shadow-lg bg-background hover:shadow-xl transition-all duration-300 group overflow-hidden">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-xs font-medium text-muted-foreground/80 lowercase tracking-widest">{stat.label}</CardTitle>
-              <div className={`p-1.5 bg-${stat.color}-500/10 rounded-lg group-hover:scale-110 transition-transform`}>
-                <stat.icon className={`h-4 w-4 text-${stat.color}-500`} />
+              <div className="p-1.5 bg-muted rounded-lg group-hover:scale-110 transition-transform">
+                <stat.icon className="h-4 w-4 text-primary" />
               </div>
             </CardHeader>
             <CardContent>
@@ -256,11 +267,12 @@ export function AdminDashboardClient() {
           <ArrowRight className="h-5 w-5 text-primary" />
           Quick Actions
         </h2>
-        <div className="grid gap-6 md:grid-cols-3">
+        <div className="grid gap-6 md:grid-cols-4">
           {[
-            { href: "/admin/sellers", title: "Manage Sellers", desc: "Review and moderate seller accounts", icon: Users },
-            { href: "/admin/subscriptions", title: "Subscription Controls", desc: "Manage billing plans and revenue", icon: DollarSign },
-            { href: "/admin/categories", title: "Catalog Hierarchy", desc: "Organize product & service categories", icon: Package },
+            { href: "/admin/sellers", title: "Product/Service Sellers", desc: "Moderate product & service seller accounts", icon: Users },
+            { href: "/admin/hotel-sellers", title: "Hotel Sellers", desc: "Moderate hotel seller accounts", icon: Building2 },
+            { href: "/admin/restaurant-sellers", title: "Restaurant Sellers", desc: "Moderate restaurant seller accounts", icon: Briefcase },
+            { href: "/admin/hotels", title: "Hotels & Properties", desc: "Monitor listed hotel properties & room types", icon: Building2 },
           ].map((action) => (
             <Link href={action.href} key={action.title}>
               <Card className="hover:shadow-lg hover:-translate-y-1 transition-all duration-300 border-none bg-muted/40 group h-full">

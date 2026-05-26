@@ -54,7 +54,7 @@ const navContent = (
     <NavItem href="/hotel-seller/admanagement" label="Ads" icon={<Megaphone className="h-4 w-4" />} />
     <NavItem href="/hotel-seller/bookings" label="Bookings" icon={<ShoppingCart className="h-4 w-4" />} />
     {/* <NavItem href="/hotel-seller/reviews" label="Reviews" icon={<Star className="h-4 w-4" />} /> */}
-    {/* <NavItem href="/hotel-seller/subscription" label="Subscription" icon={<CreditCard className="h-4 w-4" />} /> */}
+    <NavItem href="/hotel-seller/subscription" label="Subscription" icon={<CreditCard className="h-4 w-4" />} />
     <NavItem href="/hotel-seller/settings" label="Settings" icon={<Settings className="h-4 w-4" />} />
   </>
 )

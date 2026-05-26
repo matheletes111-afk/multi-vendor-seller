@@ -24,14 +24,14 @@ import {
 import { Input } from "@/ui/input"
 import { AdminPagination } from "@/components/admin/admin-pagination"
 import { PageLoader } from "@/components/ui/page-loader"
-import { formatCurrency, formatDate } from "@/lib/utils"
-import { 
-  TrendingUp, 
-  Users, 
-  CheckCircle, 
-  Layers, 
-  Filter, 
-  Calendar, 
+import { formatCurrency, formatDate, cn } from "@/lib/utils"
+import {
+  TrendingUp,
+  Users,
+  CheckCircle,
+  Layers,
+  Filter,
+  Calendar,
   X,
   ArrowRight
 } from "lucide-react"
@@ -43,7 +43,7 @@ export function SubscriptionsClient() {
 
   const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10) || 1)
   const perPage = Math.min(50, Math.max(1, parseInt(searchParams.get("perPage") ?? "10", 10) || 10))
-  
+
   // Filter states from URL
   const year = searchParams.get("year") || ""
   const month = searchParams.get("month") || ""
@@ -108,7 +108,7 @@ export function SubscriptionsClient() {
     router.push(pathname)
   }
 
-  if (loading && !data) {
+  if (loading) {
     return (
       <div className="container mx-auto p-6">
         <PageLoader message="Loading subscription data…" />
@@ -145,6 +145,8 @@ export function SubscriptionsClient() {
     { label: "December", value: "12" },
   ]
 
+  const currentTab = (searchParams.get("sellerType") || "PRODUCT_SERVICE").toUpperCase()
+
   return (
     <div className="container mx-auto p-6 space-y-8 animate-in fade-in duration-500">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -161,6 +163,28 @@ export function SubscriptionsClient() {
             {totalCount} Total Records
           </Badge>
         </div>
+      </div>
+
+      {/* Tabs Section */}
+      <div className="flex border-b border-muted gap-2">
+        {[
+          { id: "PRODUCT_SERVICE", label: "Product & Service" },
+          { id: "HOTEL", label: "Hotels" },
+          { id: "RESTAURANT", label: "Restaurants" },
+        ].map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => updateFilters({ sellerType: tab.id })}
+            className={cn(
+              "px-6 py-3 text-sm font-medium border-b-2 -mb-px transition-all duration-200",
+              currentTab === tab.id
+                ? "border-primary text-primary font-bold"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            )}
+          >
+            {tab.label}
+          </button>
+        ))}
       </div>
 
       {/* Stats Overview */}
@@ -244,9 +268,9 @@ export function SubscriptionsClient() {
             <CardTitle className="text-lg font-medium">Revenue Filters</CardTitle>
           </div>
           {(year || month || from || to) && (
-            <Button 
-              variant="outline" 
-              size="sm" 
+            <Button
+              variant="outline"
+              size="sm"
               onClick={clearFilters}
               className="h-8 text-xs font-medium bg-background hover:bg-destructive hover:text-destructive-foreground transition-all duration-300"
             >
@@ -261,8 +285,8 @@ export function SubscriptionsClient() {
               <label className="text-sm font-medium flex items-center gap-2">
                 <Calendar className="w-3.5 h-3.5" /> Yearly
               </label>
-              <Select 
-                value={year} 
+              <Select
+                value={year}
                 onValueChange={(val) => updateFilters({ year: val, from: null, to: null })}
               >
                 <SelectTrigger className="bg-background">
@@ -280,8 +304,8 @@ export function SubscriptionsClient() {
               <label className="text-sm font-medium flex items-center gap-2">
                 <Calendar className="w-3.5 h-3.5" /> Monthly
               </label>
-              <Select 
-                value={month} 
+              <Select
+                value={month}
                 onValueChange={(val) => updateFilters({ month: val, from: null, to: null })}
                 disabled={!year}
               >
@@ -301,16 +325,16 @@ export function SubscriptionsClient() {
                 <Calendar className="w-3.5 h-3.5" /> Custom Range
               </label>
               <div className="flex items-center gap-2">
-                <Input 
-                  type="date" 
-                  value={from} 
+                <Input
+                  type="date"
+                  value={from}
                   onChange={(e) => updateFilters({ from: e.target.value, year: null, month: null })}
                   className="bg-background"
                 />
                 <ArrowRight className="w-4 h-4 text-muted-foreground shrink-0" />
-                <Input 
-                  type="date" 
-                  value={to} 
+                <Input
+                  type="date"
+                  value={to}
                   onChange={(e) => updateFilters({ to: e.target.value, year: null, month: null })}
                   className="bg-background"
                 />
@@ -351,7 +375,7 @@ export function SubscriptionsClient() {
                     <span className="text-4xl font-medium">{formatCurrency(plan.price)}</span>
                     {plan.price > 0 && <span className="text-muted-foreground font-medium text-sm">/month</span>}
                   </div>
-                  
+
                   <div className="grid grid-cols-2 gap-2 text-sm">
                     <div className="bg-muted px-3 py-2 rounded-lg">
                       <p className="text-muted-foreground text-xs uppercase font-medium">Active</p>
@@ -360,6 +384,10 @@ export function SubscriptionsClient() {
                     <div className="bg-muted px-3 py-2 rounded-lg">
                       <p className="text-muted-foreground text-xs uppercase font-medium">Total</p>
                       <p className="text-lg font-medium">{planTotal}</p>
+                    </div>
+                    <div className="bg-muted px-3 py-2 rounded-lg col-span-2 flex items-center justify-between">
+                      <p className="text-muted-foreground text-xs uppercase font-medium">Est. Monthly Revenue</p>
+                      <p className="text-sm font-bold text-primary">{formatCurrency(planActive * plan.price)}</p>
                     </div>
                   </div>
 
@@ -434,7 +462,13 @@ export function SubscriptionsClient() {
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline" className="font-medium whitespace-nowrap">
-                        {subscription.seller?.type === "PRODUCT" ? "Product Seller" : "Service Seller"}
+                        {subscription.seller?.type === "PRODUCT"
+                          ? "Product Seller"
+                          : subscription.seller?.type === "SERVICE"
+                            ? "Service Seller"
+                            : subscription.seller?.type === "HOTEL"
+                              ? "Hotel Seller"
+                              : "Restaurant Seller"}
                       </Badge>
                     </TableCell>
                     <TableCell>
@@ -449,10 +483,10 @@ export function SubscriptionsClient() {
                           subscription.status === "ACTIVE"
                             ? "default"
                             : subscription.status === "CANCELED"
-                            ? "secondary"
-                            : subscription.status === "PAST_DUE"
-                            ? "destructive"
-                            : "outline"
+                              ? "secondary"
+                              : subscription.status === "PAST_DUE"
+                                ? "destructive"
+                                : "outline"
                         }
                       >
                         {subscription.status}

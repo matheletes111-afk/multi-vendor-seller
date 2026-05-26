@@ -1,0 +1,175 @@
+================================================================================
+MOBILE SUBSCRIPTION APIS DOCUMENTATION FOR MOBILE DEVELOPERS
+================================================================================
+
+This document details the request payloads, response payloads, headers, and endpoints
+for retrieving and switching subscription plans for all 4 types of sellers:
+1. Product Sellers (SELLER_PRODUCT)
+2. Service Sellers (SELLER_SERVICE)
+3. Hotel Sellers (SELLER_HOTEL)
+4. Restaurant Sellers (SELLER_RESTAURANT)
+
+--------------------------------------------------------------------------------
+1. AUTHENTICATION HEADERS
+--------------------------------------------------------------------------------
+All mobile subscription APIs require a Bearer token in the Authorization header.
+
+Header Format:
+Authorization: Bearer <MOBILE_JWT_TOKEN>
+
+Note: 
+- Product and Service sellers use their respective token.
+- Hotel and Restaurant sellers must use their respective token.
+- Role mismatch will result in a 403 Forbidden error.
+
+--------------------------------------------------------------------------------
+2. ENDPOINTS SUMMARY
+--------------------------------------------------------------------------------
+
+A. GET CURRENT SUBSCRIPTION & AVAILABLE PLANS
+   Retrieve the current active plan, duration, and list of all available plans.
+
+   - PRODUCT & SERVICE SELLER:
+     GET /mobileapi/product-seller/subscription
+
+   - HOTEL SELLER:
+     GET /mobileapi/hotel-seller/subscription
+
+   - RESTAURANT SELLER:
+     GET /mobileapi/restaurant-seller/subscription
+
+B. UPDATE / SWITCH SUBSCRIPTION PLAN
+   Switch or upgrade the plan using the plan's name.
+
+   - PRODUCT & SERVICE SELLER:
+     POST /mobileapi/product-seller/subscription
+
+   - HOTEL SELLER:
+     POST /mobileapi/hotel-seller/subscription
+
+   - RESTAURANT SELLER:
+     POST /mobileapi/restaurant-seller/subscription
+
+--------------------------------------------------------------------------------
+3. GET CURRENT SUBSCRIPTION & AVAILABLE PLANS (GET)
+--------------------------------------------------------------------------------
+
+RESPONSE PAYLOAD (JSON) - Status: 200 OK
+{
+  "currentSubscription": {
+    "id": "subscription_id_123",
+    "hotelSellerId": "hotel_seller_id_xyz", // or restaurantSellerId / sellerId
+    "planId": "plan_id_abc",
+    "status": "ACTIVE", // ACTIVE, CANCELED, PAST_DUE, TRIALING
+    "currentPeriodStart": "2026-05-26T13:00:00.000Z",
+    "currentPeriodEnd": "2026-06-26T13:00:00.000Z",
+    "createdAt": "2026-05-26T13:00:00.000Z",
+    "updatedAt": "2026-05-26T13:00:00.000Z",
+    "plan": {
+      "id": "plan_id_abc",
+      "name": "FREE", // FREE, STANDARD, PREMIUM
+      "type": "HOTEL", // PRODUCT_SERVICE, HOTEL, RESTAURANT
+      "displayName": "Free Hotel Plan",
+      "description": "Start with 0 cost",
+      "price": 0,
+      "maxProducts": null,
+      "maxOrders": null,
+      "features": ["Feature 1", "Feature 2"],
+      "createdAt": "2026-05-26T12:00:00.000Z",
+      "updatedAt": "2026-05-26T12:00:00.000Z"
+    }
+  } | null, // null if no subscription exists yet
+  "availablePlans": [
+    {
+      "id": "plan_id_abc",
+      "name": "FREE",
+      "type": "HOTEL",
+      "displayName": "Free Hotel Plan",
+      "description": "Start with 0 cost",
+      "price": 0,
+      "maxProducts": null,
+      "maxOrders": null,
+      "features": ["Feature 1"],
+      "createdAt": "2026-05-26T12:00:00.000Z",
+      "updatedAt": "2026-05-26T12:00:00.000Z"
+    },
+    {
+      "id": "plan_id_def",
+      "name": "STANDARD",
+      "type": "HOTEL",
+      "displayName": "Standard Hotel Plan",
+      "description": "Pro features",
+      "price": 499,
+      "maxProducts": null,
+      "maxOrders": null,
+      "features": ["Feature 1", "Feature 2"],
+      "createdAt": "2026-05-26T12:00:00.000Z",
+      "updatedAt": "2026-05-26T12:00:00.000Z"
+    }
+  ]
+}
+
+--------------------------------------------------------------------------------
+4. UPDATE / SWITCH SUBSCRIPTION PLAN (POST)
+--------------------------------------------------------------------------------
+
+REQUEST PAYLOAD (JSON)
+{
+  "planName": "STANDARD" // Enum values: "FREE", "STANDARD", "PREMIUM"
+}
+
+RESPONSE PAYLOAD (JSON) - Status: 200 OK
+{
+  "success": true,
+  "message": "Subscription updated successfully",
+  "subscription": {
+    "id": "subscription_id_123",
+    "hotelSellerId": "hotel_seller_id_xyz", // or restaurantSellerId / sellerId
+    "planId": "plan_id_def",
+    "status": "ACTIVE",
+    "currentPeriodStart": "2026-05-26T13:00:00.000Z",
+    "currentPeriodEnd": "2026-06-26T13:00:00.000Z",
+    "createdAt": "2026-05-26T13:00:00.000Z",
+    "updatedAt": "2026-05-26T13:10:00.000Z",
+    "plan": {
+      "id": "plan_id_def",
+      "name": "STANDARD",
+      "type": "HOTEL",
+      "displayName": "Standard Hotel Plan",
+      "description": "Pro features",
+      "price": 499,
+      "maxProducts": null,
+      "maxOrders": null,
+      "features": ["Feature 1", "Feature 2"],
+      "createdAt": "2026-05-26T12:00:00.000Z",
+      "updatedAt": "2026-05-26T12:00:00.000Z"
+    }
+  },
+  "url": null // null indicates direct update (no payment gateway redirect needed in test/free flow)
+}
+
+--------------------------------------------------------------------------------
+5. COMMON ERROR RESPONSES
+--------------------------------------------------------------------------------
+
+A. Unauthorized / Missing token (401 Unauthorized)
+{
+  "success": false,
+  "error": "Missing or invalid authorization header" // or "Unauthorized or expired token"
+}
+
+B. Forbidden / Role mismatch (403 Forbidden)
+{
+  "success": false,
+  "error": "Forbidden: Insufficient permissions"
+}
+
+C. Missing fields (400 Bad Request)
+{
+  "error": "planName is required"
+}
+
+D. Plan not found (404 Not Found)
+{
+  "error": "Plan not found"
+}

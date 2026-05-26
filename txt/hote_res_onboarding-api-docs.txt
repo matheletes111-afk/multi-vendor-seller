@@ -1,0 +1,263 @@
+========================================================================
+MEEEM MOBILE SELLER ONBOARDING API DOCUMENTATION
+========================================================================
+
+This document details the Mobile Onboarding API endpoints for Restaurant Sellers and Hotel Sellers. 
+These APIs sync directly with the web onboarding flows and validation logic.
+
+Authentication Header Required for All Endpoints:
+--------------------------------------------------
+Authorization: Bearer <mobile_access_token>
+
+
+========================================================================
+1. RESTAURANT SELLER ONBOARDING API
+========================================================================
+
+Base Endpoint: /mobileapi/restaurant-seller/onboarding
+
+------------------------------------------------------------------------
+GET /mobileapi/restaurant-seller/onboarding
+------------------------------------------------------------------------
+Retrieves current onboarding status, step details, and already filled info.
+
+Response JSON Format:
+{
+  "success": true,
+  "data": {
+    "user": {
+      "id": "string",
+      "email": "string",
+      "role": "SELLER_RESTAURANT",
+      "name": "string",
+      "phone": "string",
+      "image": "string"
+    },
+    "onboardingCompleted": false,
+    "onboardingStep": 2,
+    "status": "PENDING", // PENDING, APPROVED, CORRECTION_NEEDED, REJECTED
+    "adminFeedback": null,
+    "isApproved": false,
+    "isSuspended": false,
+    "mobileStep": 2,
+    "businessInfo": { ... },
+    "kyc": { ... },
+    "bankDetails": { ... },
+    "agreement": { ... },
+    "logo": "string",
+    "banner": "string",
+    "mainPhoto": "string",
+    "estimateRestaurantCount": 0,
+    "primaryCuisine": "[]", // Stringified JSON array of cuisines
+    "serviceTypes": "[]"   // Stringified JSON array of services
+  }
+}
+
+------------------------------------------------------------------------
+POST /mobileapi/restaurant-seller/onboarding
+------------------------------------------------------------------------
+Saves onboarding information for a specific step. Accepts both JSON payload (application/json) 
+and Multipart Form Data (multipart/form-data) if uploading files.
+
+Parameters:
+- step: (integer) The step number being submitted (2, 3, 4, 5, or 6)
+
+Step-Specific Fields:
+
+STEP 2: Business Information (Supports multipart/form-data for file uploads)
+- step: 2
+- businessName: Legal business name (string, required)
+- businessType: Business type (string, e.g. "Individual", "Proprietor", "Partnership", "Company", required)
+- taxIdNumber: TIN/PAN number (string, required)
+- managerName: Owner/Manager Name (string, required)
+- pocContact: POC Contact Number (string, required)
+- landmark: Landmark (string, required)
+- street: Street name (string, optional)
+- city: City (string, required)
+- district: District (string, optional)
+- state: State (string, required)
+- haveGst: "true" or "false" (string/boolean, required)
+- gstInvNo: GST number (string, required if haveGst is true)
+- gstCustomerName: GST Customer Name (string, required if haveGst is true)
+- profileImage: User profile picture (File, optional)
+- busRegCert: Business Registration Certificate (File, optional)
+
+STEP 3: Identity & License (Supports multipart/form-data for file uploads)
+- step: 3
+- idType: ID card type (string, e.g. "National ID Card", "Passport", "Driver's License", required)
+- idNumber: ID Number (string, required)
+- foodLicenseNumber: Food License Number (string, required)
+- idFront: ID Front side image (File, optional)
+- idBack: ID Back side image (File, optional)
+- selfie: Selfie image verification (File, optional)
+- foodLicense: Food license copy (File, optional)
+
+STEP 4: Outlet Setup (Supports multipart/form-data for file uploads)
+- step: 4
+- estimateRestaurantCount: Estimated restaurant count (integer, required)
+- cuisines: Primary cuisines list (Array of strings in JSON, or multiple multipart parameter entries, required)
+- services: Service types list (Array of strings in JSON, or multiple multipart parameter entries, required)
+- logo: Restaurant logo image (File, optional)
+- banner: Restaurant banner image (File, optional)
+- mainPhoto: Main restaurant property photo (File, optional)
+
+STEP 5: Bank Details (Supports multipart/form-data for file uploads)
+- step: 5
+- bankName: Bank Name (string, required)
+- accountHolderName: Account Holder Name (string, required)
+- accountNumber: Account Number (string, required)
+- branchName: Branch Name / IFSC (string, required)
+- mobileMoneyOption: Mobile money provider option (string, optional)
+- preferredPayoutMethod: Payout method (string, optional)
+- passbook: Bank passbook/cancelled check proof (File, optional)
+
+STEP 6: Agreement (application/json or multipart/form-data)
+- step: 6
+- agreedToTerms: true/false ("true"/"false" or "on" in form-data, required)
+- agreedToCommission: true/false ("true"/"false" or "on" in form-data, required)
+- agreedToPrivacy: true/false ("true"/"false" or "on" in form-data, required)
+
+Response JSON Format (Steps 2-5):
+{
+  "success": true,
+  "message": "Step X saved successfully",
+  "data": {
+    "nextStep": X + 1,
+    "onboardingCompleted": false
+  }
+}
+
+Response JSON Format (Step 6 completion):
+{
+  "success": true,
+  "message": "Registration completed successfully",
+  "data": {
+    "nextStep": null,
+    "onboardingCompleted": true
+  }
+}
+
+
+========================================================================
+2. HOTEL SELLER ONBOARDING API
+========================================================================
+
+Base Endpoint: /mobileapi/hotel-seller/onboarding
+
+------------------------------------------------------------------------
+GET /mobileapi/hotel-seller/onboarding
+------------------------------------------------------------------------
+Retrieves current onboarding status, step details, and already filled info.
+
+Response JSON Format:
+{
+  "success": true,
+  "data": {
+    "user": {
+      "id": "string",
+      "email": "string",
+      "role": "SELLER_HOTEL",
+      "name": "string",
+      "phone": "string",
+      "image": "string"
+    },
+    "onboardingCompleted": false,
+    "onboardingStep": 2,
+    "status": "PENDING",
+    "adminFeedback": null,
+    "isApproved": false,
+    "isSuspended": false,
+    "mobileStep": 2,
+    "businessInfo": { ... },
+    "kyc": { ... },
+    "bankDetails": { ... },
+    "agreement": { ... },
+    "logo": "string",
+    "banner": "string",
+    "mainPhoto": "string",
+    "estimateHotelCount": 0,
+    "estimateRoomCount": 0,
+    "categories": "[]" // Stringified JSON array of categories
+  }
+}
+
+------------------------------------------------------------------------
+POST /mobileapi/hotel-seller/onboarding
+------------------------------------------------------------------------
+Saves onboarding information for a specific step. Accepts both JSON payload and Multipart Form Data.
+
+Parameters:
+- step: (integer) The step number being submitted (2, 3, 4, 5, or 6)
+
+Step-Specific Fields:
+
+STEP 2: Business Information (Supports multipart/form-data for file uploads)
+- step: 2
+- businessName: Legal business name (string, required)
+- businessType: Business type (string, required)
+- taxIdNumber: TIN/PAN number (string, required)
+- managerName: Owner/Manager Name (string, required)
+- pocContact: POC Contact Number (string, required)
+- landmark: Landmark (string, required)
+- street: Street name (string, optional)
+- city: City (string, required)
+- district: District (string, optional)
+- state: State (string, required)
+- haveGst: "true" or "false" (string/boolean, required)
+- gstInvNo: GST number (string, required if haveGst is true)
+- gstCustomerName: GST Customer Name (string, required if haveGst is true)
+- profileImage: User profile picture (File, optional)
+- busRegCert: Business Registration Certificate (File, optional)
+
+STEP 3: Identity & KYC (Supports multipart/form-data for file uploads)
+- step: 3
+- idType: ID card type (string, required)
+- idNumber: ID Number (string, required)
+- idFront: ID Front side image (File, optional)
+- idBack: ID Back side image (File, optional)
+- selfie: Selfie image verification (File, optional)
+
+STEP 4: Property Setup (Supports multipart/form-data for file uploads)
+- step: 4
+- estimateHotelCount: Estimated hotel properties count (integer, required)
+- estimateRoomCount: Estimated rooms per property (integer, required)
+- categories: Hotel categories list (Array of strings in JSON, or multiple multipart parameter entries, required)
+- logo: Property logo image (File, optional)
+- banner: Property banner image (File, optional)
+- mainPhoto: Main property photo (File, optional)
+
+STEP 5: Bank Details (Supports multipart/form-data for file uploads)
+- step: 5
+- bankName: Bank Name (string, required)
+- accountHolderName: Account Holder Name (string, required)
+- accountNumber: Account Number (string, required)
+- branchName: Branch Name / IFSC (string, required)
+- mobileMoneyOption: Mobile money provider option (string, optional)
+- preferredPayoutMethod: Payout method (string, optional)
+- passbook: Bank passbook/cancelled check proof (File, optional)
+
+STEP 6: Agreement (application/json or multipart/form-data)
+- step: 6
+- agreedToTerms: true/false ("true"/"false" or "on" in form-data, required)
+- agreedToCommission: true/false ("true"/"false" or "on" in form-data, required)
+- agreedToPrivacy: true/false ("true"/"false" or "on" in form-data, required)
+
+Response JSON Format (Steps 2-5):
+{
+  "success": true,
+  "message": "Step X saved successfully",
+  "data": {
+    "nextStep": X + 1,
+    "onboardingCompleted": false
+  }
+}
+
+Response JSON Format (Step 6 completion):
+{
+  "success": true,
+  "message": "Registration completed successfully",
+  "data": {
+    "nextStep": null,
+    "onboardingCompleted": true
+  }
+}

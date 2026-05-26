@@ -62,18 +62,21 @@ export function AdminLayoutClient({
 
   const navContent = (
     <>
-      <NavItem href="/admin" label="Overview" icon={<LayoutDashboard className="h-4 w-4" />} />
-      <NavItem href="/admin/orders" label="Orders" icon={<ShoppingCart className="h-4 w-4" />} />
-      {/* <NavItem href="/admin/reviews" label="Reviews" icon={<Star className="h-4 w-4" />} /> */}
-      <NavItem href="/admin/sellers" label="Product/Service Sellers" icon={<Users className="h-4 w-4" />} />
-      <NavItem href="/admin/hotel-sellers" label="Hotel Sellers" icon={<Building2 className="h-4 w-4" />} />
-      <NavItem href="/admin/restaurant-sellers" label="Restaurant Sellers" icon={<Briefcase className="h-4 w-4" />} />
-      <NavItem href="/admin/subscriptions" label="Subscriptions" icon={<CreditCard className="h-4 w-4" />} />
       <NavItem href="/admin/categories" label="Product Category" icon={<FolderTree className="h-4 w-4" />} />
       <NavItem href="/admin/service-categories" label="Service Category" icon={<Briefcase className="h-4 w-4" />} />
       <NavItem href="/admin/banners" label="Banners" icon={<ImageIcon className="h-4 w-4" />} />
+      <NavItem href="/admin/subscriptions" label="Subscriptions" icon={<CreditCard className="h-4 w-4" />} />
       <NavItem href="/admin/seller-ads" label="Ads" icon={<BadgeDollarSign className="h-4 w-4" />} />
+      <NavItem href="/admin/sellers" label="Product/Service Sellers" icon={<Users className="h-4 w-4" />} />
+      <NavItem href="/admin/hotel-sellers" label="Hotel Sellers" icon={<Building2 className="h-4 w-4" />} />
+      <NavItem href="/admin/hotels" label="Hotels" icon={<Building2 className="h-4 w-4" />} />
+      <NavItem href="/admin/restaurant-sellers" label="Restaurant Sellers" icon={<Briefcase className="h-4 w-4" />} />
+      <NavItem href="/admin/orders" label="Orders" icon={<ShoppingCart className="h-4 w-4" />} />
+      <NavItem href="/admin/reviews" label="Reviews" icon={<Star className="h-4 w-4" />} />
       <NavItem href="/admin/settings" label="Settings" icon={<User className="h-4 w-4" />} />
+
+
+
     </>
   )
 

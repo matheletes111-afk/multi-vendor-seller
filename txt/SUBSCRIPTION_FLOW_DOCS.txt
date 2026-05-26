@@ -1,0 +1,484 @@
+================================================================================
+  SUBSCRIPTION FLOW DOCUMENTATION — WEB & MOBILE API
+  Project: Multi-Vendor Seller Platform
+  Last Updated: 2026-05-26
+================================================================================
+
+TABLE OF CONTENTS
+-----------------
+  1. Overview & Plan Architecture
+  2. Database Models
+  3. Plan Types & Seeded Data
+  4. Free Plan Auto-Activation Flow
+  5. Web API — Product & Service Seller
+  6. Web API — Hotel Seller
+  7. Web API — Restaurant Seller
+  8. Mobile API — Product Seller
+  9. Mobile API — Service Seller
+  10. Admin API — Subscriptions Dashboard
+  11. Admin API — Overview Revenue
+  12. Subscription Renewal & Expiry Logic
+  13. Seller Dashboard Subscription Alert
+  14. Key Rules & Constraints
+
+================================================================================
+1. OVERVIEW & PLAN ARCHITECTURE
+================================================================================
+
+  The platform supports THREE seller types, each with its own isolated set of
+  subscription plans and subscription records in the database:
+
+    - PRODUCT_SERVICE  →  Used by Product Sellers and Service Sellers
+    - HOTEL            →  Used by Hotel Sellers
+    - RESTAURANT       →  Used by Restaurant Sellers
+
+  Plans are stored in a single "Plan" table. The unique constraint is COMPOSITE:
+    @@unique([name, type])
+
+  This means FREE/STANDARD/PREMIUM plans exist independently per type, allowing
+  different pricing and limits per seller category without enum duplication.
+
+  Seller types share the same SubscriptionPlan enum values (FREE, STANDARD, PREMIUM)
+  but are differentiated by the PlanType column:
+
+    PlanType enum:
+      PRODUCT_SERVICE
+      HOTEL
+      RESTAURANT
+
+================================================================================
+2. DATABASE MODELS
+================================================================================
+
+  --- For Product & Service Sellers ---
+  Model: Subscription
+    Fields: id, sellerId (unique), planId, status, currentPeriodStart,
+            currentPeriodEnd, cancelAtPeriodEnd, stripeCustomerId,
+            stripeSubscriptionId, createdAt, updatedAt
+    Related: Seller → Plan
+
+  --- For Hotel Sellers ---
+  Model: HotelSubscription
+    Fields: id, hotelSellerId (unique), planId, status, currentPeriodStart,
+            currentPeriodEnd, createdAt, updatedAt
+    Related: HotelSeller → Plan
+
+  --- For Restaurant Sellers ---
+  Model: RestaurantSubscription
+    Fields: id, restaurantSellerId (unique), planId, status, currentPeriodStart,
+            currentPeriodEnd, createdAt, updatedAt
+    Related: RestaurantSeller → Plan
+
+  --- Plans Table ---
+  Model: Plan
+    Fields: id, name (SubscriptionPlan enum), type (PlanType enum), displayName,
+            description, price, maxProducts, maxOrders, features (Json),
+            createdAt, updatedAt
+    Unique: @@unique([name, type])
+    Relations: subscriptions[], hotelSubscriptions[], restaurantSubscriptions[]
+
+================================================================================
+3. PLAN TYPES & SEEDED DATA
+================================================================================
+
+  PRODUCT_SERVICE Plans (for Product & Service sellers):
+  -------------------------------------------------------
+    FREE      | price: 0    | maxProducts: 5  | maxOrders: 10
+    STANDARD  | price: 999  | maxProducts: 50 | maxOrders: null (unlimited)
+    PREMIUM   | price: 1999 | maxProducts: null (unlimited) | maxOrders: null
+
+  HOTEL Plans (for Hotel sellers):
+  ----------------------------------
+    FREE      | price: 0    | maxProducts: 1  | maxOrders: 10
+    STANDARD  | price: 1499 | maxProducts: 5  | maxOrders: null
+    PREMIUM   | price: 2999 | maxProducts: null | maxOrders: null
+
+  RESTAURANT Plans (for Restaurant sellers):
+  -------------------------------------------
+    FREE      | price: 0    | maxProducts: 1  | maxOrders: 20
+    STANDARD  | price: 999  | maxProducts: 3  | maxOrders: null
+    PREMIUM   | price: 1999 | maxProducts: null | maxOrders: null
+
+  Seeded via: prisma/seed.ts
+  Command: npx prisma db seed
+
+================================================================================
+4. FREE PLAN AUTO-ACTIVATION FLOW
+================================================================================
+
+  When a seller registers (web, mobile, or OAuth social login), the FREE plan
+  for their seller type is automatically activated.
+
+  Helper Functions in: src/lib/subscriptions.ts
+  -----------------------------------------------
+    activateFreePlan(sellerId)
+      → Finds FREE plan WHERE type = PRODUCT_SERVICE
+      → Upserts Subscription for sellerId (ACTIVE, 1 month period)
+      → Used for: Product Seller + Service Seller
+
+    activateHotelFreePlan(hotelSellerId)
+      → Finds FREE plan WHERE type = HOTEL
+      → Upserts HotelSubscription for hotelSellerId (ACTIVE, 1 month period)
+      → Used for: Hotel Seller
+
+    activateRestaurantFreePlan(restaurantSellerId)
+      → Finds FREE plan WHERE type = RESTAURANT
+      → Upserts RestaurantSubscription for restaurantSellerId (ACTIVE, 1 month)
+      → Used for: Restaurant Seller
+
+  WHERE is it called?
+  -------------------
+    Product Seller:
+      - Web registration:      src/app/api/product-seller/auth/registration/route.ts
+      - Mobile registration:   src/app/mobileapi/product-seller/auth/register/route.ts
+      - Mobile social login:   src/app/mobileapi/product-seller/auth/social/route.ts
+      - OAuth postprocess:     src/app/api/auth/oauth-postprocess/route.ts
+
+    Service Seller:
+      - Web registration:      src/app/api/service-seller/auth/registration/route.ts
+      - Mobile registration:   src/app/mobileapi/service-seller/auth/register/route.ts
+      - Mobile social login:   src/app/mobileapi/service-seller/auth/social/route.ts
+      - OAuth postprocess:     src/app/api/auth/oauth-postprocess/route.ts
+
+    Hotel Seller:
+      - Mobile registration:   src/app/mobileapi/hotel-seller/auth/register/route.ts
+      - Mobile social login:   src/app/mobileapi/hotel-seller/auth/social/route.ts
+      - Mobile onboarding step 6: src/app/mobileapi/hotel-seller/onboarding/route.ts
+      - Web onboarding step 6: src/app/api/hotel-seller/onboarding/route.ts
+      - OAuth postprocess:     src/app/api/auth/oauth-postprocess/route.ts
+
+    Restaurant Seller:
+      - Mobile registration:   src/app/mobileapi/restaurant-seller/auth/register/route.ts
+      - Mobile social login:   src/app/mobileapi/restaurant-seller/auth/social/route.ts
+      - Mobile onboarding step 6: src/app/mobileapi/restaurant-seller/onboarding/route.ts
+      - Web onboarding step 6: src/app/api/restaurant-seller/onboarding/route.ts
+      - OAuth postprocess:     src/app/api/auth/oauth-postprocess/route.ts
+
+  NOTE: For Hotel and Restaurant sellers, the free plan is activated at BOTH
+  registration AND onboarding completion (step 6). This uses an upsert, so
+  calling it twice is safe — it will not duplicate the subscription.
+
+================================================================================
+5. WEB API — PRODUCT & SERVICE SELLER
+================================================================================
+
+  GET Current Subscription
+  -------------------------
+    Endpoint:   GET /api/product-seller/subscription  (or /service-seller/)
+    Auth:       Session-based (NextAuth), role: SELLER_PRODUCT / SELLER_SERVICE
+    Response:   { id, planId, status, currentPeriodEnd, plan: { ... } } | null
+
+  Switch / Upgrade Plan (Checkout)
+  ----------------------------------
+    Endpoint:   POST /api/product-seller/subscription/checkout
+                POST /api/service-seller/subscription/checkout
+    Auth:       Session-based
+    Body:       { planName: "STANDARD" | "PREMIUM" | "FREE", test: true }
+    Plan Query: prisma.plan.findUnique({ where: { name_type: { name: planName, type: "PRODUCT_SERVICE" } } })
+
+    Test Mode (test: true):
+      → Directly upserts Subscription with ACTIVE status (30-day period)
+      → Returns: { url: null }
+
+    Production Mode (test: false):
+      → Creates Stripe checkout session
+      → Returns: { url: "https://checkout.stripe.com/..." }
+
+  Frontend Page:
+    URL:       /product-seller/subscription  (or /service-seller/subscription)
+    Fetches plans from: GET /api/plans?type=PRODUCT_SERVICE
+
+================================================================================
+6. WEB API — HOTEL SELLER
+================================================================================
+
+  Get Current Subscription
+  -------------------------
+    Endpoint:   GET /api/hotel-seller/subscription
+    Auth:       Session-based, role: SELLER_HOTEL
+    Response:   { id, planId, status, currentPeriodEnd, plan: { ... } } | null
+
+  Switch / Upgrade Plan (Checkout)
+  ----------------------------------
+    Endpoint:   POST /api/hotel-seller/subscription/checkout
+    Auth:       Session-based
+    Body:       { planName: "STANDARD" | "PREMIUM" | "FREE", test: true }
+    Plan Query: prisma.plan.findUnique({ where: { name_type: { name: planName, type: "HOTEL" } } })
+
+    Note: Currently runs in direct/test mode only (no Stripe for hotel yet).
+    → Upserts HotelSubscription with ACTIVE status (30-day period)
+    → Returns: { url: null }
+
+  Onboarding Step 6 (Agreement + Completion):
+    Endpoint:   POST /api/hotel-seller/onboarding  (with body: { step: 6, data: {...} })
+    On complete: Sets onboardingCompleted=true, onboardingStep=7, status="PENDING",
+                 adminFeedback=null, then calls activateHotelFreePlan(seller.id)
+
+  Frontend Page:
+    URL:       /hotel-seller/subscription
+    Fetches plans from: GET /api/plans?type=HOTEL
+    File:      src/app/hotel-seller/(dashboard)/subscription/subscription-client.tsx
+
+================================================================================
+7. WEB API — RESTAURANT SELLER
+================================================================================
+
+  Get Current Subscription
+  -------------------------
+    Endpoint:   GET /api/restaurant-seller/subscription
+    Auth:       Session-based, role: SELLER_RESTAURANT
+    Response:   { id, planId, status, currentPeriodEnd, plan: { ... } } | null
+
+  Switch / Upgrade Plan (Checkout)
+  ----------------------------------
+    Endpoint:   POST /api/restaurant-seller/subscription/checkout
+    Auth:       Session-based
+    Body:       { planName: "STANDARD" | "PREMIUM" | "FREE", test: true }
+    Plan Query: prisma.plan.findUnique({ where: { name_type: { name: planName, type: "RESTAURANT" } } })
+
+    Note: Currently runs in direct/test mode only.
+    → Upserts RestaurantSubscription with ACTIVE status (30-day period)
+    → Returns: { url: null }
+
+  Onboarding Step 6 (Agreement + Completion):
+    Endpoint:   POST /api/restaurant-seller/onboarding  (with body: { step: 6, data: {...} })
+    On complete: Sets onboardingCompleted=true, onboardingStep=7, status="PENDING",
+                 adminFeedback=null, then calls activateRestaurantFreePlan(seller.id)
+
+  Frontend Page:
+    URL:       /restaurant-seller/subscription
+    Fetches plans from: GET /api/plans?type=RESTAURANT
+    File:      src/app/restaurant-seller/(dashboard)/subscription/subscription-client.tsx
+
+================================================================================
+8. MOBILE API — PRODUCT SELLER
+================================================================================
+
+  Auth: Bearer JWT token via getMobileSellerAuth(request, UserRole.SELLER_PRODUCT)
+
+  GET Current Subscription + Available Plans
+  ------------------------------------------
+    Endpoint:   GET /mobileapi/product-seller/subscription
+    Response: {
+      currentSubscription: { id, planId, status, currentPeriodEnd, plan: {...} } | null,
+      availablePlans: [ { id, name, displayName, price, maxProducts, maxOrders, ... } ]
+    }
+    Plans filtered by: WHERE type = "PRODUCT_SERVICE"
+
+  Switch / Upgrade Plan
+  ----------------------
+    Endpoint:   POST /mobileapi/product-seller/subscription
+    Body:       { planName: "FREE" | "STANDARD" | "PREMIUM" }
+    Plan Query: prisma.plan.findUnique({ where: { name_type: { name: planName, type: "PRODUCT_SERVICE" } } })
+    Action:     Upserts Subscription with ACTIVE status, 1-month period
+    Response: {
+      success: true,
+      message: "Subscription updated successfully",
+      subscription: { id, planId, status, currentPeriodEnd, plan: {...} },
+      url: null
+    }
+
+  Free Plan Activation (at registration):
+    File:   src/app/mobileapi/product-seller/auth/register/route.ts
+    Calls:  activateFreePlan(seller.id)  — immediately after seller record creation
+
+================================================================================
+9. MOBILE API — SERVICE SELLER
+================================================================================
+
+  Auth: Bearer JWT token via getMobileSellerAuth(request, UserRole.SELLER_SERVICE)
+
+  GET Current Subscription + Available Plans
+  ------------------------------------------
+    Endpoint:   GET /mobileapi/service-seller/subscription
+    Response: {
+      currentSubscription: { id, planId, status, currentPeriodEnd, plan: {...} } | null,
+      availablePlans: [ { id, name, displayName, price, maxProducts, maxOrders, ... } ]
+    }
+    Plans filtered by: WHERE type = "PRODUCT_SERVICE"
+
+  Switch / Upgrade Plan
+  ----------------------
+    Endpoint:   POST /mobileapi/service-seller/subscription
+    Body:       { planName: "FREE" | "STANDARD" | "PREMIUM" }
+    Plan Query: prisma.plan.findUnique({ where: { name_type: { name: planName, type: "PRODUCT_SERVICE" } } })
+    Action:     Upserts Subscription with ACTIVE status, 1-month period
+    Response: {
+      success: true,
+      message: "Subscription updated successfully",
+      subscription: { id, planId, status, currentPeriodEnd, plan: {...} },
+      url: null
+    }
+
+  Free Plan Activation (at registration):
+    File:   src/app/mobileapi/service-seller/auth/register/route.ts
+    Calls:  activateFreePlan(seller.id)  — immediately after seller record creation
+
+  NOTE: Hotel & Restaurant sellers do NOT yet have dedicated mobile subscription
+  switch APIs (only registration activates their free plan automatically, and the
+  web panel handles plan upgrades). This can be added in future if needed.
+
+================================================================================
+10. ADMIN API — SUBSCRIPTIONS DASHBOARD
+================================================================================
+
+  Endpoint:   GET /api/admin/subscriptions?sellerType=PRODUCT_SERVICE&page=1&perPage=10
+  Auth:       Admin session (isAdmin check)
+  Query Params:
+    sellerType  — "PRODUCT_SERVICE" (default), "HOTEL", or "RESTAURANT"
+    page        — pagination page number
+    perPage     — results per page
+    year, month — filter by year/month
+    from, to    — filter by date range
+
+  Returns:
+  {
+    subscriptions: [...],    // List of subscriptions with seller + plan info
+    totalCount: number,
+    totalPages: number,
+    page: number,
+    perPage: number,
+    stats: {
+      totalCount: number,    // Total subscriptions for selected type
+      activeCount: number,   // Active subscriptions for selected type
+      totalRevenue: number,  // Revenue for selected type in date range
+      plansCount: number,    // Number of plans for selected type
+    },
+    plans: [...],            // All plans for selected type (for CRUD in admin)
+    planCountMap: {},        // { planId: totalSubscriberCount }
+    planActiveMap: {},       // { planId: activeSubscriberCount }
+  }
+
+  Admin Plan CRUD (PUT to update plan details):
+    Endpoint:  PUT /api/admin/subscriptions/[planId]
+    Body:      { displayName, description, price, maxProducts, maxOrders, features }
+    Note:      The plan type is preserved — admin cannot change type via this endpoint.
+
+  Admin Frontend Page:
+    URL:   /admin/subscriptions
+    File:  src/app/admin/(dashboard)/subscriptions/subscriptions-client.tsx
+    Tabs:
+      Tab 1: "Product & Service"  →  sellerType=PRODUCT_SERVICE
+      Tab 2: "Hotels"             →  sellerType=HOTEL
+      Tab 3: "Restaurants"        →  sellerType=RESTAURANT
+
+================================================================================
+11. ADMIN API — OVERVIEW REVENUE
+================================================================================
+
+  Endpoint:   GET /api/admin/overview
+  File:       src/app/api/admin/overview/route.ts
+
+  Revenue Calculation:
+    → Fetches all PAID plans (price > 0) with subscriber counts:
+        plan._count.subscriptions          (Product/Service sellers)
+        plan._count.hotelSubscriptions     (Hotel sellers)
+        plan._count.restaurantSubscriptions (Restaurant sellers)
+
+    subscriptionRevenue = SUM over all plans of:
+        plan.price × (subscriptions + hotelSubscriptions + restaurantSubscriptions)
+
+    totalPlatformRevenue = subscriptionRevenue + adRevenue
+
+  This ensures hotel and restaurant subscription fees are included in
+  the admin's total platform revenue figure.
+
+================================================================================
+12. SUBSCRIPTION RENEWAL & EXPIRY LOGIC
+================================================================================
+
+  Core helper: src/lib/subscriptions.ts
+
+  getValidSubscription(sellerId)          — for Product & Service sellers
+  getValidHotelSubscription(hotelSellerId) — for Hotel sellers
+  getValidRestaurantSubscription(restaurantSellerId) — for Restaurant sellers
+
+  Logic (same for all three, uses type-specific Prisma model):
+  ------------------------------------------------------------
+    1. If no subscription exists → return null
+
+    2. If currentPeriodEnd is null:
+         → Auto-initialize: set 1-month period from createdAt
+
+    3. If subscription has expired (now > currentPeriodEnd):
+
+       a. FREE plan (price == 0):
+            - Check if within 3-month limit from createdAt
+            - If YES: auto-renew for 1 more month → return updated
+            - If NO:  mark status = "CANCELED" → return canceled subscription
+
+       b. PAID plan (price > 0):
+            - Auto-renew indefinitely for 1 month (test/development mode)
+            - In production this will be replaced with Stripe webhook checks
+
+    4. If still active → return subscription as-is
+
+  Used by:
+    - Dashboard overview API  → to show subscription in dashboard
+    - Dashboard client        → to show/hide "Subscription Required" alert
+
+================================================================================
+13. SELLER DASHBOARD SUBSCRIPTION ALERT
+================================================================================
+
+  Hotel Seller Dashboard:
+    File:    src/app/hotel-seller/(dashboard)/hotel-dashboard-client.tsx
+    API:     GET /api/hotel-seller/overview
+    Logic:   Overview API calls getValidHotelSubscription() and returns it.
+             If null → shows red Alert banner: "Subscription Required"
+             with a button linking to /hotel-seller/subscription
+
+  Restaurant Seller Dashboard:
+    File:    src/app/restaurant-seller/(dashboard)/restaurant-dashboard-client.tsx
+    API:     GET /api/restaurant-seller/overview
+    Logic:   Overview API calls getValidRestaurantSubscription() and returns it.
+             If null → shows red Alert banner: "Subscription Required"
+             with a button linking to /restaurant-seller/subscription
+
+  Sidebar Navigation Links:
+    Hotel:       /hotel-seller/layout-client.tsx      → "/hotel-seller/subscription"
+    Restaurant:  /restaurant-seller/layout-client.tsx → "/restaurant-seller/subscription"
+
+================================================================================
+14. KEY RULES & CONSTRAINTS
+================================================================================
+
+  1. PLAN ISOLATION:
+       Each seller type ONLY sees and uses plans of its own PlanType.
+       A hotel seller CANNOT accidentally subscribe to a PRODUCT_SERVICE plan.
+       All plan queries use the composite key: { name_type: { name, type } }
+
+  2. FREE PLAN IS ALWAYS 0 PRICE:
+       No SubscriptionPlan enum suffix needed (e.g., FREE_HOTEL).
+       Plan type is identified by the PlanType column, not the name.
+
+  3. UPSERT SAFETY:
+       All free plan activations use upsert, so calling them multiple times
+       (e.g., at registration AND onboarding step 6) is safe — no duplicates.
+
+  4. ONBOARDING COMPLETION STATE (Hotel & Restaurant):
+       On step 6 (Agreement) completion, both web and mobile must set:
+         onboardingCompleted = true
+         onboardingStep      = 7
+         status              = "PENDING"
+         adminFeedback       = null
+       This ensures the admin approval queue works correctly.
+
+  5. EXISTING PRODUCT/SERVICE SELLER CODE IS NOT AFFECTED:
+       The Seller model (product/service) still uses the "Subscription" table.
+       Hotel uses "HotelSubscription". Restaurant uses "RestaurantSubscription".
+       These are completely separate tables with no overlap.
+
+  6. MOBILE vs WEB PARITY:
+       - Product/Service: Free plan activated at REGISTRATION (not onboarding).
+       - Hotel/Restaurant: Free plan activated at REGISTRATION + ONBOARDING step 6.
+       - All plan switch endpoints are mirrored (web checkout vs mobile POST).
+
+  7. ADMIN PLAN CRUD:
+       Admins can edit plan displayName, description, price, and limits.
+       Plans are separated into 3 tabs on /admin/subscriptions page.
+       Editing one type's plans does NOT affect another type's plans.
+
+================================================================================
+  END OF DOCUMENT
+================================================================================

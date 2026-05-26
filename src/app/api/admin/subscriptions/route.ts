@@ -57,48 +57,186 @@ export async function GET(request: NextRequest) {
       where.createdAt = dateFilter
     }
 
-    const [
-      subscriptions,
-      totalCount,
-      activeCount,
-      filteredForRevenue,
-      plans,
-      planCounts,
-      planActiveCounts,
-    ] = await Promise.all([
-      prisma.subscription.findMany({
-        where,
-        skip,
-        take,
-        include: {
-          seller: {
-            include: {
-              user: true,
-              store: true,
+    const sellerTypeParam = searchParams.get("sellerType") || "PRODUCT_SERVICE"
+    const sellerType = sellerTypeParam.toUpperCase()
+
+    let subscriptions: any[] = []
+    let totalCount = 0
+    let activeCount = 0
+    let filteredForRevenue: any[] = []
+    let planCounts: any[] = []
+    let planActiveCounts: any[] = []
+
+    const plans = await prisma.plan.findMany({
+      where: { type: sellerType as any },
+      orderBy: { price: "asc" },
+    })
+
+    if (sellerType === "HOTEL") {
+      const [
+        hotelSubs,
+        hotelTotalCount,
+        hotelActiveCount,
+        hotelFilteredForRevenue,
+        hotelPlanCounts,
+        hotelPlanActiveCounts,
+      ] = await Promise.all([
+        prisma.hotelSubscription.findMany({
+          where,
+          skip,
+          take,
+          include: {
+            hotelSeller: {
+              include: {
+                user: true,
+                businessInfo: true,
+              },
             },
+            plan: true,
           },
-          plan: true,
-        },
-        orderBy: { createdAt: "desc" },
-      }),
-      prisma.subscription.count({ where }),
-      prisma.subscription.count({ where: { ...where, status: "ACTIVE" } }),
-      prisma.subscription.findMany({
-        where,
-        select: { plan: { select: { price: true } } },
-      }),
-      prisma.plan.findMany({ orderBy: { price: "asc" } }),
-      prisma.subscription.groupBy({ 
-        by: ["planId"], 
-        where,
-        _count: true 
-      }),
-      prisma.subscription.groupBy({
-        by: ["planId"],
-        where: { ...where, status: "ACTIVE" },
-        _count: true,
-      }),
-    ])
+          orderBy: { createdAt: "desc" },
+        }),
+        prisma.hotelSubscription.count({ where }),
+        prisma.hotelSubscription.count({ where: { ...where, status: "ACTIVE" } }),
+        prisma.hotelSubscription.findMany({
+          where,
+          select: { plan: { select: { price: true } } },
+        }),
+        prisma.hotelSubscription.groupBy({ 
+          by: ["planId"], 
+          where,
+          _count: true 
+        }),
+        prisma.hotelSubscription.groupBy({
+          by: ["planId"],
+          where: { ...where, status: "ACTIVE" },
+          _count: true,
+        }),
+      ])
+
+      subscriptions = hotelSubs.map((s) => ({
+        ...s,
+        seller: {
+          ...s.hotelSeller,
+          store: {
+            name: s.hotelSeller.businessInfo?.businessName || "",
+          },
+          type: "HOTEL"
+        }
+      }))
+      totalCount = hotelTotalCount
+      activeCount = hotelActiveCount
+      filteredForRevenue = hotelFilteredForRevenue
+      planCounts = hotelPlanCounts
+      planActiveCounts = hotelPlanActiveCounts
+
+    } else if (sellerType === "RESTAURANT") {
+      const [
+        restaurantSubs,
+        restaurantTotalCount,
+        restaurantActiveCount,
+        restaurantFilteredForRevenue,
+        restaurantPlanCounts,
+        restaurantPlanActiveCounts,
+      ] = await Promise.all([
+        prisma.restaurantSubscription.findMany({
+          where,
+          skip,
+          take,
+          include: {
+            restaurantSeller: {
+              include: {
+                user: true,
+                businessInfo: true,
+              },
+            },
+            plan: true,
+          },
+          orderBy: { createdAt: "desc" },
+        }),
+        prisma.restaurantSubscription.count({ where }),
+        prisma.restaurantSubscription.count({ where: { ...where, status: "ACTIVE" } }),
+        prisma.restaurantSubscription.findMany({
+          where,
+          select: { plan: { select: { price: true } } },
+        }),
+        prisma.restaurantSubscription.groupBy({ 
+          by: ["planId"], 
+          where,
+          _count: true 
+        }),
+        prisma.restaurantSubscription.groupBy({
+          by: ["planId"],
+          where: { ...where, status: "ACTIVE" },
+          _count: true,
+        }),
+      ])
+
+      subscriptions = restaurantSubs.map((s) => ({
+        ...s,
+        seller: {
+          ...s.restaurantSeller,
+          store: {
+            name: s.restaurantSeller.businessInfo?.businessName || "",
+          },
+          type: "RESTAURANT"
+        }
+      }))
+      totalCount = restaurantTotalCount
+      activeCount = restaurantActiveCount
+      filteredForRevenue = restaurantFilteredForRevenue
+      planCounts = restaurantPlanCounts
+      planActiveCounts = restaurantPlanActiveCounts
+
+    } else {
+      const [
+        prodSubs,
+        prodTotalCount,
+        prodActiveCount,
+        prodFilteredForRevenue,
+        prodPlanCounts,
+        prodPlanActiveCounts,
+      ] = await Promise.all([
+        prisma.subscription.findMany({
+          where,
+          skip,
+          take,
+          include: {
+            seller: {
+              include: {
+                user: true,
+                store: true,
+              },
+            },
+            plan: true,
+          },
+          orderBy: { createdAt: "desc" },
+        }),
+        prisma.subscription.count({ where }),
+        prisma.subscription.count({ where: { ...where, status: "ACTIVE" } }),
+        prisma.subscription.findMany({
+          where,
+          select: { plan: { select: { price: true } } },
+        }),
+        prisma.subscription.groupBy({ 
+          by: ["planId"], 
+          where,
+          _count: true 
+        }),
+        prisma.subscription.groupBy({
+          by: ["planId"],
+          where: { ...where, status: "ACTIVE" },
+          _count: true,
+        }),
+      ])
+
+      subscriptions = prodSubs
+      totalCount = prodTotalCount
+      activeCount = prodActiveCount
+      filteredForRevenue = prodFilteredForRevenue
+      planCounts = prodPlanCounts
+      planActiveCounts = prodPlanActiveCounts
+    }
 
     const totalRevenue = filteredForRevenue.reduce((sum, s) => sum + s.plan.price, 0)
     const planCountMap = Object.fromEntries(planCounts.map((p: any) => [p.planId, p._count]))

@@ -26,3 +26,11 @@ export function isCustomer(user: SessionUser | null): boolean {
   return hasRole(user, UserRole.CUSTOMER)
 }
 
+export function isHotelSeller(user: SessionUser | null): boolean {
+  return hasRole(user, UserRole.SELLER_HOTEL)
+}
+
+export function isRestaurantSeller(user: SessionUser | null): boolean {
+  return hasRole(user, UserRole.SELLER_RESTAURANT)
+}
+

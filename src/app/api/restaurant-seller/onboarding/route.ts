@@ -4,6 +4,8 @@ import { prisma } from "@/lib/prisma"
 import { uploadPublicFile } from "@/lib/upload-public-file"
 import path from "path"
 import { UserRole } from "@prisma/client"
+import { activateRestaurantFreePlan } from "@/lib/subscriptions"
+
 
 export async function GET() {
   const session = await auth()
@@ -172,7 +174,9 @@ export async function POST(request: NextRequest) {
 
       await prisma.restaurantAgreement.upsert({ where: { restaurantSellerId: seller.id }, update: agreementData, create: { ...agreementData, restaurantSellerId: seller.id } })
 
-      await prisma.restaurantSeller.update({ where: { id: seller.id }, data: { onboardingCompleted: true, onboardingStep: 7 } })
+      await prisma.restaurantSeller.update({ where: { id: seller.id }, data: { onboardingCompleted: true, onboardingStep: 7, status: "PENDING", adminFeedback: null } })
+
+      await activateRestaurantFreePlan(seller.id)
 
       return NextResponse.json({ success: true, completed: true })
     }

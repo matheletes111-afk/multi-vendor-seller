@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma"
-import { SubscriptionPlan } from "@prisma/client"
+import { SubscriptionPlan, PlanType } from "@prisma/client"
 
 export interface SubscriptionLimits {
   maxProducts: number | null
@@ -218,7 +218,7 @@ export function canReceiveReviews(sellerId: string, subscription: { plan: { name
  */
 export async function activateFreePlan(sellerId: string) {
   try {
-    const freePlan = await prisma.plan.findFirst({ where: { price: 0 } })
+    const freePlan = await prisma.plan.findFirst({ where: { price: 0, type: PlanType.PRODUCT_SERVICE } })
     if (!freePlan) return null
     const now = new Date()
     const oneMonthLater = new Date(now)
@@ -237,7 +237,7 @@ export async function activateFreePlan(sellerId: string) {
 
 export async function activateHotelFreePlan(hotelSellerId: string) {
   try {
-    const freePlan = await prisma.plan.findFirst({ where: { price: 0 } })
+    const freePlan = await prisma.plan.findFirst({ where: { price: 0, type: PlanType.HOTEL } })
     if (!freePlan) return null
     const now = new Date()
     const oneMonthLater = new Date(now)
@@ -256,7 +256,7 @@ export async function activateHotelFreePlan(hotelSellerId: string) {
 
 export async function activateRestaurantFreePlan(restaurantSellerId: string) {
   try {
-    const freePlan = await prisma.plan.findFirst({ where: { price: 0 } })
+    const freePlan = await prisma.plan.findFirst({ where: { price: 0, type: PlanType.RESTAURANT } })
     if (!freePlan) return null
     const now = new Date()
     const oneMonthLater = new Date(now)
@@ -272,4 +272,121 @@ export async function activateRestaurantFreePlan(restaurantSellerId: string) {
     return null
   }
 }
+
+export async function getValidHotelSubscription(hotelSellerId: string) {
+  const subscription = await prisma.hotelSubscription.findUnique({
+    where: { hotelSellerId },
+    include: { plan: true },
+  })
+
+  if (!subscription) return null
+
+  const now = new Date()
+  
+  if (!subscription.currentPeriodEnd) {
+    return await applyHotelRenewal(subscription.id, subscription.createdAt, 1)
+  }
+
+  if (now > subscription.currentPeriodEnd) {
+    if (subscription.plan.price === 0) {
+      const threeMonthsAfterStart = new Date(subscription.createdAt)
+      threeMonthsAfterStart.setMonth(threeMonthsAfterStart.getMonth() + 3)
+      
+      if (now < threeMonthsAfterStart) {
+        return await applyHotelRenewal(subscription.id, subscription.currentPeriodEnd, 1)
+      } else {
+        if (subscription.status !== "CANCELED") {
+          return await prisma.hotelSubscription.update({
+            where: { id: subscription.id },
+            data: { status: "CANCELED" },
+            include: { plan: true }
+          })
+        }
+        return subscription
+      }
+    } else {
+      return await applyHotelRenewal(subscription.id, subscription.currentPeriodEnd, 1)
+    }
+  }
+
+  return subscription
+}
+
+async function applyHotelRenewal(id: string, fromDate: Date, months: number) {
+  const newEnd = new Date(fromDate)
+  newEnd.setMonth(newEnd.getMonth() + months)
+  const now = new Date()
+  while (newEnd < now) {
+    newEnd.setMonth(newEnd.getMonth() + 1)
+  }
+
+  return await prisma.hotelSubscription.update({
+    where: { id },
+    data: {
+      currentPeriodStart: fromDate < now ? now : fromDate,
+      currentPeriodEnd: newEnd,
+      status: "ACTIVE"
+    },
+    include: { plan: true }
+  })
+}
+
+export async function getValidRestaurantSubscription(restaurantSellerId: string) {
+  const subscription = await prisma.restaurantSubscription.findUnique({
+    where: { restaurantSellerId },
+    include: { plan: true },
+  })
+
+  if (!subscription) return null
+
+  const now = new Date()
+  
+  if (!subscription.currentPeriodEnd) {
+    return await applyRestaurantRenewal(subscription.id, subscription.createdAt, 1)
+  }
+
+  if (now > subscription.currentPeriodEnd) {
+    if (subscription.plan.price === 0) {
+      const threeMonthsAfterStart = new Date(subscription.createdAt)
+      threeMonthsAfterStart.setMonth(threeMonthsAfterStart.getMonth() + 3)
+      
+      if (now < threeMonthsAfterStart) {
+        return await applyRestaurantRenewal(subscription.id, subscription.currentPeriodEnd, 1)
+      } else {
+        if (subscription.status !== "CANCELED") {
+          return await prisma.restaurantSubscription.update({
+            where: { id: subscription.id },
+            data: { status: "CANCELED" },
+            include: { plan: true }
+          })
+        }
+        return subscription
+      }
+    } else {
+      return await applyRestaurantRenewal(subscription.id, subscription.currentPeriodEnd, 1)
+    }
+  }
+
+  return subscription
+}
+
+async function applyRestaurantRenewal(id: string, fromDate: Date, months: number) {
+  const newEnd = new Date(fromDate)
+  newEnd.setMonth(newEnd.getMonth() + months)
+  const now = new Date()
+  while (newEnd < now) {
+    newEnd.setMonth(newEnd.getMonth() + 1)
+  }
+
+  return await prisma.restaurantSubscription.update({
+    where: { id },
+    data: {
+      currentPeriodStart: fromDate < now ? now : fromDate,
+      currentPeriodEnd: newEnd,
+      status: "ACTIVE"
+    },
+    include: { plan: true }
+  })
+}
+
 
