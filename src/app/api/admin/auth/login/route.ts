@@ -88,10 +88,15 @@ export async function POST(request: Request) {
     const headers = new Headers()
     res.headers.getSetCookie?.().forEach((c) => headers.append("Set-Cookie", c))
     return NextResponse.json({ ...data, url }, { status: res.status, headers })
-  } catch (error) {
+  } catch (error: any) {
     console.error("Admin login error:", error)
     return NextResponse.json(
-      { error: "Internal server error", log: error },
+      { 
+        error: "Internal server error", 
+        log: error instanceof Error 
+          ? { message: error.message, name: error.name, stack: error.stack } 
+          : String(error) 
+      },
       { status: 500 }
     )
   }
