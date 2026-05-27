@@ -20,10 +20,10 @@ type UploadArgs = {
  * Uploads to AWS S3.
  *
  * Required env vars:
- * - AWS_REGION
- * - AWS_ACCESS_KEY_ID
- * - AWS_SECRET_ACCESS_KEY
- * - S3_BUCKET or AWS_S3_BUCKET_NAME
+ * - AMPLIFY_AWS_REGION
+ * - AMPLIFY_AWS_ACCESS_KEY_ID
+ * - AMPLIFY_AWS_SECRET_ACCESS_KEY
+ * - S3_BUCKET or AMPLIFY_AWS_S3_BUCKET_NAME
  *
  * Optional:
  * - S3_PUBLIC_BASE_URL (e.g. https://cdn.example.com or https://my-bucket.s3.region.amazonaws.com)
@@ -33,16 +33,25 @@ export async function uploadPublicFile(args: UploadArgs): Promise<string> {
   const safeExt = ext && ext.startsWith(".") ? ext : `.${String(ext || "").replace(/^\.+/, "") || "bin"}`
   const fileName = `${prefix}-${Date.now()}-${randomUUID()}${safeExt}`
 
-  const region = process.env.AWS_REGION
-  const bucket = process.env.S3_BUCKET || process.env.AWS_S3_BUCKET_NAME
-  if (!region || !bucket) {
+  const region = process.env.AMPLIFY_AWS_REGION
+  const bucket = process.env.S3_BUCKET || process.env.AMPLIFY_AWS_S3_BUCKET_NAME
+  const accessKeyId = process.env.AMPLIFY_AWS_ACCESS_KEY_ID
+  const secretAccessKey = process.env.AMPLIFY_AWS_SECRET_ACCESS_KEY
+
+  if (!region || !bucket || !accessKeyId || !secretAccessKey) {
     throw new Error(
-      `Missing S3 env vars. Set AWS_REGION and S3_BUCKET (or AWS_S3_BUCKET_NAME) and AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY on the server.`
+      `Missing S3 env vars. Set AMPLIFY_AWS_REGION, AMPLIFY_AWS_S3_BUCKET_NAME, AMPLIFY_AWS_ACCESS_KEY_ID, and AMPLIFY_AWS_SECRET_ACCESS_KEY on the server.`
     )
   }
 
   const key = `uploads/${folder}/${fileName}`
-  const client = new S3Client({ region })
+  const client = new S3Client({
+    region,
+    credentials: {
+      accessKeyId,
+      secretAccessKey,
+    },
+  })
 
   try {
     await client.send(
