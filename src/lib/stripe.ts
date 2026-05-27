@@ -1,10 +1,6 @@
 import Stripe from "stripe"
 
-if (!process.env.STRIPE_SECRET_KEY) {
-  throw new Error("STRIPE_SECRET_KEY is not set")
-}
-
-export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "dummy_key_for_build", {
   apiVersion: "2025-02-24.acacia",
   typescript: true,
 })
@@ -16,6 +12,9 @@ export async function createCheckoutSession(params: {
   cancelUrl: string
   metadata?: Record<string, string>
 }) {
+  if (!process.env.STRIPE_SECRET_KEY) {
+    throw new Error("STRIPE_SECRET_KEY is not set")
+  }
   return await stripe.checkout.sessions.create({
     mode: "payment",
     ...params,
@@ -30,10 +29,14 @@ export async function createSubscriptionSession(params: {
   cancelUrl: string
   metadata?: Record<string, string>
 }) {
+  if (!process.env.STRIPE_SECRET_KEY) {
+    throw new Error("STRIPE_SECRET_KEY is not set")
+  }
   return await stripe.checkout.sessions.create({
     mode: "subscription",
     ...params,
     payment_method_types: ["card"],
   })
 }
+
 

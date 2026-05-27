@@ -17,7 +17,7 @@ import { Alert, AlertDescription } from "@/ui/alert"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/ui/sheet"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/ui/dialog"
 import { Textarea } from "@/ui/textarea"
-import { Users, CheckCircle, AlertCircle, Ban, Eye, Briefcase, Search, X, Calendar, Filter, Utensils, ChevronDown, ChevronUp } from "lucide-react"
+import { Users, CheckCircle, AlertCircle, Ban, Eye, Briefcase, Search, X, Calendar, Filter, Utensils, ChevronDown, ChevronUp, Globe } from "lucide-react"
 import { RestaurantSellerDetailsView } from "@/components/admin/sellers/restaurant-seller-details-view"
 import Link from "next/link"
 
@@ -45,6 +45,28 @@ export function RestaurantSellersClient() {
   const [expandedRow, setExpandedRow] = useState<string | null>(null)
   const [rejectDialog, setRejectDialog] = useState<{ open: boolean; id: string; action: string }>({ open: false, id: "", action: "" })
   const [feedback, setFeedback] = useState("")
+  const [isCommissionDialogOpen, setIsCommissionDialogOpen] = useState(false)
+  const [commissionValue, setCommissionValue] = useState<number | "">("")
+  const [selectedSellerId, setSelectedSellerId] = useState<string | null>(null)
+
+  const handleUpdateCommission = async (sellerId: string, rate: number | null) => {
+    setActionLoading(sellerId)
+    try {
+      const res = await fetch(`/api/admin/restaurant-sellers/${sellerId}/commission`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ commissionRate: rate }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || "Failed")
+      loadSellers()
+      setIsCommissionDialogOpen(false)
+    } catch (e: any) {
+      setError(e.message)
+    } finally {
+      setActionLoading(null)
+    }
+  }
 
   const loadSellers = useCallback(() => {
     setLoading(true)
@@ -173,6 +195,7 @@ export function RestaurantSellersClient() {
                   <TableHead className="h-14 text-[10px] font-black uppercase tracking-widest text-slate-500">Business Identity</TableHead>
                   <TableHead className="h-14 text-[10px] font-black uppercase tracking-widest text-slate-500">Standing</TableHead>
                   <TableHead className="h-14 text-[10px] font-black uppercase tracking-widest text-slate-500">Outlets (Est.)</TableHead>
+                  <TableHead className="h-14 text-[10px] font-black uppercase tracking-widest text-slate-500">Commission</TableHead>
                   <TableHead className="text-right pr-10 h-14 text-[10px] font-black uppercase tracking-widest text-slate-500">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -218,6 +241,35 @@ export function RestaurantSellersClient() {
                             <span className="text-sm font-black text-slate-700">{seller.estimateRestaurantCount || 0}</span>
                             <span className="text-[9px] text-slate-400 uppercase font-bold tracking-widest opacity-60">Est. Outlets</span>
                           </div>
+                        </TableCell>
+                        <TableCell onClick={e => e.stopPropagation()}>
+                          {seller.commissionRate != null ? (
+                            <div
+                              className="flex items-center gap-2 cursor-pointer group/comm"
+                              onClick={() => {
+                                setSelectedSellerId(seller.id)
+                                setCommissionValue(seller.commissionRate)
+                                setIsCommissionDialogOpen(true)
+                              }}
+                            >
+                              <Badge className="bg-amber-500/10 text-amber-600 border-none rounded-full px-2.5 font-bold text-[10px] shadow-sm group-hover/comm:bg-amber-500 group-hover/comm:text-white transition-all">
+                                {seller.commissionRate}%
+                              </Badge>
+                            </div>
+                          ) : (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 px-3 text-[10px] font-bold uppercase tracking-widest text-primary hover:bg-primary/10 bg-primary/5 border border-primary/20 rounded-full transition-all"
+                              onClick={() => {
+                                setSelectedSellerId(seller.id)
+                                setCommissionValue(seller.commissionRate || "")
+                                setIsCommissionDialogOpen(true)
+                              }}
+                            >
+                              Assign
+                            </Button>
+                          )}
                         </TableCell>
 
                         <TableCell className="text-right pr-10" onClick={e => e.stopPropagation()}>
@@ -343,6 +395,54 @@ export function RestaurantSellersClient() {
           <DialogFooter className="gap-2">
             <Button variant="ghost" className="rounded-full font-bold px-6" onClick={() => setRejectDialog({ open: false, id: "", action: "" })}>Cancel</Button>
             <Button className="rounded-full bg-rose-600 hover:bg-rose-700 font-bold px-8 uppercase tracking-widest text-[10px]" onClick={() => handleStatusAction(rejectDialog.id, rejectDialog.action, feedback)} disabled={!feedback || actionLoading === rejectDialog.id}>Send Feedback</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {/* Commission Dialog */}
+      <Dialog open={isCommissionDialogOpen} onOpenChange={setIsCommissionDialogOpen}>
+        <DialogContent className="sm:max-w-[400px] border-none shadow-2xl rounded-[2rem]">
+          <DialogHeader>
+            <div className="flex items-center gap-3 mb-2">
+              <div className="p-2 bg-amber-500/10 rounded-xl">
+                <Globe className="h-5 w-5 text-amber-600" />
+              </div>
+              <DialogTitle className="text-xl font-medium">Assign Seller Commission</DialogTitle>
+            </div>
+            <DialogDescription className="text-sm font-medium opacity-60">
+              Set a custom commission rate for this specific seller. This will override the platform base rate.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-8 space-y-4">
+            <div className="space-y-3">
+              <Label htmlFor="commRate" className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground ml-1">Override Rate (%)</Label>
+              <div className="relative">
+                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground/40 font-bold">%</div>
+                <Input
+                  id="commRate"
+                  type="number"
+                  placeholder="e.g. 12.5"
+                  step="0.1"
+                  value={commissionValue}
+                  onChange={(e) => setCommissionValue(e.target.value ? parseFloat(e.target.value) : "")}
+                  className="pl-12 border-muted bg-muted/20 rounded-2xl h-14 focus-visible:ring-amber-500 font-bold text-lg shadow-inner"
+                />
+              </div>
+              <p className="text-[9px] text-muted-foreground/60 ml-1 italic">* Leave empty or set to 0 to use platform default.</p>
+            </div>
+          </div>
+          <DialogFooter className="gap-3">
+            <Button variant="ghost" className="rounded-full px-6 font-medium text-xs uppercase tracking-widest" onClick={() => setIsCommissionDialogOpen(false)}>Cancel</Button>
+            <Button
+              className="bg-amber-500 hover:bg-amber-600 rounded-full px-8 h-12 font-medium uppercase tracking-[0.1em] text-[10px] shadow-lg shadow-amber-500/20"
+              disabled={actionLoading === selectedSellerId}
+              onClick={() => {
+                if (selectedSellerId) {
+                  handleUpdateCommission(selectedSellerId, commissionValue === "" ? null : Number(commissionValue))
+                }
+              }}
+            >
+              {actionLoading === selectedSellerId ? "Synchronizing..." : "Update Commission"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

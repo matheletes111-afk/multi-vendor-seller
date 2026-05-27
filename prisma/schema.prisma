@@ -30,6 +30,12 @@ enum SubscriptionPlan {
   PREMIUM
 }
 
+enum PlanType {
+  PRODUCT_SERVICE
+  HOTEL
+  RESTAURANT
+}
+
 enum SubscriptionStatus {
   ACTIVE
   CANCELED
@@ -797,12 +803,14 @@ model Store {
 
 model Plan {
   id          String            @id @default(cuid())
-  name        SubscriptionPlan  @unique
+  name        SubscriptionPlan
+  type        PlanType          @default(PRODUCT_SERVICE)
   displayName String
   description String?           @db.Text
   price       Float
   maxProducts Int?              // null = unlimited
   maxOrders   Int?              // null = unlimited
+  maxRooms    Int?              // null = unlimited
   features    Json              // Store plan features as JSON
   createdAt   DateTime          @default(now())
   updatedAt   DateTime          @updatedAt
@@ -811,6 +819,7 @@ model Plan {
   hotelSubscriptions HotelSubscription[]
   restaurantSubscriptions RestaurantSubscription[]
 
+  @@unique([name, type])
   @@map("subscription_plans")
 }
 

@@ -50,10 +50,10 @@ export async function GET(request: NextRequest) {
     const productIds = products.map((p) => p.id);
     const ratingRows = productIds.length > 0
       ? await prisma.review.groupBy({
-          by: ["productId"],
-          where: { productId: { in: productIds } },
-          _avg: { rating: true },
-        })
+        by: ["productId"],
+        where: { productId: { in: productIds } },
+        _avg: { rating: true },
+      })
       : [];
 
     const ratingByProduct = Object.fromEntries(
@@ -80,7 +80,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error("Error fetching home products:", error);
     return NextResponse.json(
-      { error: "Failed to fetch products" },
+      { error: "Failed to fetch products", log: error },
       { status: 500 }
     );
   }

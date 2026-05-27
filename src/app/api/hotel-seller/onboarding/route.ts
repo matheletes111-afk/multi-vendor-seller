@@ -4,6 +4,8 @@ import { prisma } from "@/lib/prisma"
 import { uploadPublicFile } from "@/lib/upload-public-file"
 import path from "path"
 import { UserRole } from "@prisma/client"
+import { activateHotelFreePlan } from "@/lib/subscriptions"
+
 
 export async function GET() {
   const session = await auth()
@@ -270,8 +272,10 @@ export async function POST(request: NextRequest) {
       // Completion!
       await prisma.hotelSeller.update({
         where: { id: seller.id },
-        data: { onboardingCompleted: true, onboardingStep: 7 },
+        data: { onboardingCompleted: true, onboardingStep: 7, status: "PENDING", adminFeedback: null },
       })
+
+      await activateHotelFreePlan(seller.id)
 
       return NextResponse.json({ success: true, completed: true })
     }

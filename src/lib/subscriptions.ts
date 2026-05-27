@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma"
-import { SubscriptionPlan } from "@prisma/client"
+import { SubscriptionPlan, PlanType } from "@prisma/client"
 
 export interface SubscriptionLimits {
   maxProducts: number | null
@@ -124,10 +124,9 @@ export async function checkProductLimit(sellerId: string): Promise<{ allowed: bo
     return { allowed: false, current: 0, limit: 0 }
   }
 
-  const plan = subscription.plan.name
-  const limits = PLAN_LIMITS[plan]
+  const planMaxProducts = subscription.plan.maxProducts
   
-  if (limits.maxProducts === null) {
+  if (planMaxProducts === null) {
     return { allowed: true, current: 0, limit: null }
   }
 
@@ -136,9 +135,9 @@ export async function checkProductLimit(sellerId: string): Promise<{ allowed: bo
   })
 
   return {
-    allowed: currentCount < limits.maxProducts,
+    allowed: currentCount < planMaxProducts,
     current: currentCount,
-    limit: limits.maxProducts,
+    limit: planMaxProducts,
   }
 }
 
@@ -149,10 +148,9 @@ export async function checkServiceLimit(sellerId: string): Promise<{ allowed: bo
     return { allowed: false, current: 0, limit: 0 }
   }
 
-  const plan = subscription.plan.name
-  const limits = PLAN_LIMITS[plan]
+  const planMaxProducts = subscription.plan.maxProducts
   
-  if (limits.maxProducts === null) {
+  if (planMaxProducts === null) {
     return { allowed: true, current: 0, limit: null }
   }
 
@@ -161,9 +159,9 @@ export async function checkServiceLimit(sellerId: string): Promise<{ allowed: bo
   })
 
   return {
-    allowed: currentCount < limits.maxProducts,
+    allowed: currentCount < planMaxProducts,
     current: currentCount,
-    limit: limits.maxProducts,
+    limit: planMaxProducts,
   }
 }
 
@@ -174,10 +172,9 @@ export async function checkOrderLimit(sellerId: string, month?: Date): Promise<{
     return { allowed: false, current: 0, limit: 0 }
   }
 
-  const plan = subscription.plan.name
-  const limits = PLAN_LIMITS[plan]
+  const planMaxOrders = subscription.plan.maxOrders
   
-  if (limits.maxOrders === null) {
+  if (planMaxOrders === null) {
     return { allowed: true, current: 0, limit: null }
   }
 
@@ -196,9 +193,9 @@ export async function checkOrderLimit(sellerId: string, month?: Date): Promise<{
   })
 
   return {
-    allowed: currentCount < limits.maxOrders,
+    allowed: currentCount < planMaxOrders,
     current: currentCount,
-    limit: limits.maxOrders,
+    limit: planMaxOrders,
   }
 }
 
@@ -218,7 +215,7 @@ export function canReceiveReviews(sellerId: string, subscription: { plan: { name
  */
 export async function activateFreePlan(sellerId: string) {
   try {
-    const freePlan = await prisma.plan.findFirst({ where: { price: 0 } })
+    const freePlan = await prisma.plan.findFirst({ where: { price: 0, type: PlanType.PRODUCT_SERVICE } })
     if (!freePlan) return null
     const now = new Date()
     const oneMonthLater = new Date(now)
@@ -237,7 +234,7 @@ export async function activateFreePlan(sellerId: string) {
 
 export async function activateHotelFreePlan(hotelSellerId: string) {
   try {
-    const freePlan = await prisma.plan.findFirst({ where: { price: 0 } })
+    const freePlan = await prisma.plan.findFirst({ where: { price: 0, type: PlanType.HOTEL } })
     if (!freePlan) return null
     const now = new Date()
     const oneMonthLater = new Date(now)
@@ -256,7 +253,7 @@ export async function activateHotelFreePlan(hotelSellerId: string) {
 
 export async function activateRestaurantFreePlan(restaurantSellerId: string) {
   try {
-    const freePlan = await prisma.plan.findFirst({ where: { price: 0 } })
+    const freePlan = await prisma.plan.findFirst({ where: { price: 0, type: PlanType.RESTAURANT } })
     if (!freePlan) return null
     const now = new Date()
     const oneMonthLater = new Date(now)
@@ -272,4 +269,173 @@ export async function activateRestaurantFreePlan(restaurantSellerId: string) {
     return null
   }
 }
+
+export async function getValidHotelSubscription(hotelSellerId: string) {
+  const subscription = await prisma.hotelSubscription.findUnique({
+    where: { hotelSellerId },
+    include: { plan: true },
+  })
+
+  if (!subscription) return null
+
+  const now = new Date()
+  
+  if (!subscription.currentPeriodEnd) {
+    return await applyHotelRenewal(subscription.id, subscription.createdAt, 1)
+  }
+
+  if (now > subscription.currentPeriodEnd) {
+    if (subscription.plan.price === 0) {
+      const threeMonthsAfterStart = new Date(subscription.createdAt)
+      threeMonthsAfterStart.setMonth(threeMonthsAfterStart.getMonth() + 3)
+      
+      if (now < threeMonthsAfterStart) {
+        return await applyHotelRenewal(subscription.id, subscription.currentPeriodEnd, 1)
+      } else {
+        if (subscription.status !== "CANCELED") {
+          return await prisma.hotelSubscription.update({
+            where: { id: subscription.id },
+            data: { status: "CANCELED" },
+            include: { plan: true }
+          })
+        }
+        return subscription
+      }
+    } else {
+      return await applyHotelRenewal(subscription.id, subscription.currentPeriodEnd, 1)
+    }
+  }
+
+  return subscription
+}
+
+async function applyHotelRenewal(id: string, fromDate: Date, months: number) {
+  const newEnd = new Date(fromDate)
+  newEnd.setMonth(newEnd.getMonth() + months)
+  const now = new Date()
+  while (newEnd < now) {
+    newEnd.setMonth(newEnd.getMonth() + 1)
+  }
+
+  return await prisma.hotelSubscription.update({
+    where: { id },
+    data: {
+      currentPeriodStart: fromDate < now ? now : fromDate,
+      currentPeriodEnd: newEnd,
+      status: "ACTIVE"
+    },
+    include: { plan: true }
+  })
+}
+
+export async function getValidRestaurantSubscription(restaurantSellerId: string) {
+  const subscription = await prisma.restaurantSubscription.findUnique({
+    where: { restaurantSellerId },
+    include: { plan: true },
+  })
+
+  if (!subscription) return null
+
+  const now = new Date()
+  
+  if (!subscription.currentPeriodEnd) {
+    return await applyRestaurantRenewal(subscription.id, subscription.createdAt, 1)
+  }
+
+  if (now > subscription.currentPeriodEnd) {
+    if (subscription.plan.price === 0) {
+      const threeMonthsAfterStart = new Date(subscription.createdAt)
+      threeMonthsAfterStart.setMonth(threeMonthsAfterStart.getMonth() + 3)
+      
+      if (now < threeMonthsAfterStart) {
+        return await applyRestaurantRenewal(subscription.id, subscription.currentPeriodEnd, 1)
+      } else {
+        if (subscription.status !== "CANCELED") {
+          return await prisma.restaurantSubscription.update({
+            where: { id: subscription.id },
+            data: { status: "CANCELED" },
+            include: { plan: true }
+          })
+        }
+        return subscription
+      }
+    } else {
+      return await applyRestaurantRenewal(subscription.id, subscription.currentPeriodEnd, 1)
+    }
+  }
+
+  return subscription
+}
+
+export async function checkHotelLimit(hotelSellerId: string): Promise<{ allowed: boolean; current: number; limit: number | null }> {
+  const subscription = await getValidHotelSubscription(hotelSellerId)
+  
+  if (!subscription || subscription.status !== "ACTIVE") {
+    return { allowed: false, current: 0, limit: 0 }
+  }
+
+  const plan = subscription.plan
+  
+  if (plan.maxProducts === null) {
+    return { allowed: true, current: 0, limit: null }
+  }
+
+  const currentCount = await prisma.hotel.count({
+    where: { hotelSellerId, isDeleted: false, isActive: true },
+  })
+
+  return {
+    allowed: currentCount < plan.maxProducts,
+    current: currentCount,
+    limit: plan.maxProducts,
+  }
+}
+
+export async function checkHotelRoomLimit(hotelSellerId: string): Promise<{ allowed: boolean; current: number; limit: number | null }> {
+  const subscription = await getValidHotelSubscription(hotelSellerId)
+  
+  if (!subscription || subscription.status !== "ACTIVE") {
+    return { allowed: false, current: 0, limit: 0 }
+  }
+
+  const plan = subscription.plan
+  
+  if (plan.maxRooms === null) {
+    return { allowed: true, current: 0, limit: null }
+  }
+
+  const currentCount = await prisma.room.count({
+    where: {
+      hotel: { hotelSellerId },
+      isDeleted: false,
+      isActive: true,
+    },
+  })
+
+  return {
+    allowed: currentCount < plan.maxRooms,
+    current: currentCount,
+    limit: plan.maxRooms,
+  }
+}
+
+async function applyRestaurantRenewal(id: string, fromDate: Date, months: number) {
+  const newEnd = new Date(fromDate)
+  newEnd.setMonth(newEnd.getMonth() + months)
+  const now = new Date()
+  while (newEnd < now) {
+    newEnd.setMonth(newEnd.getMonth() + 1)
+  }
+
+  return await prisma.restaurantSubscription.update({
+    where: { id },
+    data: {
+      currentPeriodStart: fromDate < now ? now : fromDate,
+      currentPeriodEnd: newEnd,
+      status: "ACTIVE"
+    },
+    include: { plan: true }
+  })
+}
+
 

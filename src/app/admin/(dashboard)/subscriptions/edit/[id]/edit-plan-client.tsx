@@ -50,6 +50,7 @@ export function EditPlanClient({ planId }: { planId: string }) {
     const priceStr = formData.get("price") as string
     const maxProductsStr = formData.get("maxProducts") as string
     const maxOrdersStr = formData.get("maxOrders") as string
+    const maxRoomsStr = formData.get("maxRooms") as string
 
     const data: any = { displayName, description }
     const p = parseFloat(priceStr)
@@ -63,6 +64,13 @@ export function EditPlanClient({ planId }: { planId: string }) {
     else {
       const n = parseInt(maxOrdersStr, 10)
       if (!isNaN(n)) data.maxOrders = n
+    }
+    if (plan.type === "HOTEL") {
+      if (maxRoomsStr === "unlimited" || maxRoomsStr === "" || maxRoomsStr === undefined) data.maxRooms = null
+      else {
+        const n = parseInt(maxRoomsStr, 10)
+        if (!isNaN(n)) data.maxRooms = n
+      }
     }
 
     try {
@@ -181,7 +189,13 @@ export function EditPlanClient({ planId }: { planId: string }) {
 
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="maxProducts">Max Products / Services</Label>
+                <Label htmlFor="maxProducts">
+                  {plan.type === "HOTEL"
+                    ? "Max Hotels"
+                    : plan.type === "RESTAURANT"
+                      ? "Max Menu Items"
+                      : "Max Products / Services"}
+                </Label>
                 <Input
                   id="maxProducts"
                   name="maxProducts"
@@ -192,7 +206,11 @@ export function EditPlanClient({ planId }: { planId: string }) {
                   placeholder="unlimited or number"
                 />
                 <p className="text-xs text-muted-foreground">
-                  Limit applies to Physical Products for product sellers and Services for service sellers. Enter a number or "unlimited".
+                  {plan.type === "HOTEL"
+                    ? "Maximum number of hotels the seller can register. Enter a number or 'unlimited'."
+                    : plan.type === "RESTAURANT"
+                      ? "Maximum number of menu/food items the seller can add. Enter a number or 'unlimited'."
+                      : "Limit applies to Physical Products for product sellers and Services for service sellers. Enter a number or 'unlimited'."}
                 </p>
               </div>
 
@@ -211,6 +229,24 @@ export function EditPlanClient({ planId }: { planId: string }) {
                   Enter a number or "unlimited" for no limit
                 </p>
               </div>
+
+              {plan.type === "HOTEL" && (
+                <div className="space-y-2 col-span-2">
+                  <Label htmlFor="maxRooms">Max Rooms</Label>
+                  <Input
+                    id="maxRooms"
+                    name="maxRooms"
+                    type="text"
+                    defaultValue={
+                      plan.maxRooms === null || plan.maxRooms === undefined ? "unlimited" : plan.maxRooms.toString()
+                    }
+                    placeholder="unlimited or number"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Maximum number of rooms the hotel seller can add. Enter a number or "unlimited".
+                  </p>
+                </div>
+              )}
             </div>
 
             <div className="flex gap-4">

@@ -19,6 +19,11 @@ export async function GET() {
       adAgg,
       subscriptionPlans,
       pendingSellers,
+      totalHotels,
+      totalHotelSellers,
+      totalRestaurantSellers,
+      pendingHotelSellers,
+      pendingRestaurantSellers,
     ] = await Promise.all([
       prisma.seller.count(),
       prisma.user.count({ where: { role: "CUSTOMER" } }),
@@ -30,13 +35,30 @@ export async function GET() {
       }),
       prisma.plan.findMany({
         where: { price: { gt: 0 } },
-        include: { _count: { select: { subscriptions: true } } }
+        include: {
+          _count: {
+            select: {
+              subscriptions: true,
+              hotelSubscriptions: true,
+              restaurantSubscriptions: true,
+            }
+          }
+        }
       }),
       prisma.seller.count({ where: { isApproved: false } }),
+      prisma.hotel.count({ where: { isDeleted: false } }),
+      prisma.hotelSeller.count(),
+      prisma.restaurantSeller.count(),
+      prisma.hotelSeller.count({ where: { isApproved: false } }),
+      prisma.restaurantSeller.count({ where: { isApproved: false } }),
     ])
 
     const adRevenue = Number(adAgg._sum.spentAmount ?? 0)
-    const subscriptionRevenue = subscriptionPlans.reduce((sum, plan) => sum + (plan.price * plan._count.subscriptions), 0)
+    const subscriptionRevenue = subscriptionPlans.reduce((sum, plan) => {
+      const counts = plan._count as any
+      const totalSubs = (counts.subscriptions ?? 0) + (counts.hotelSubscriptions ?? 0) + (counts.restaurantSubscriptions ?? 0)
+      return sum + (plan.price * totalSubs)
+    }, 0)
     const commissionRevenue = 0 // Commission is handled separately for now
 
     // Total platform revenue is Subscription + Ad revenue
@@ -53,6 +75,11 @@ export async function GET() {
       adRevenue,
       commissionRevenue,
       pendingSellers,
+      totalHotels,
+      totalHotelSellers,
+      totalRestaurantSellers,
+      pendingHotelSellers,
+      pendingRestaurantSellers,
     })
   } catch (error) {
     console.error("Error fetching admin overview:", error)
