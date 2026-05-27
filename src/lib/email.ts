@@ -34,14 +34,19 @@ export async function sendEmail({
     const result = await sgMail.send(msg as any)
     return { success: true, data: result[0] }
   } catch (err: unknown) {
-    const error = err as { response?: { body?: unknown; statusCode?: number } }
+    const error = err as { response?: { body?: { errors?: Array<{ message: string }> }; statusCode?: number } }
     const body = error.response?.body
     const status = error.response?.statusCode
     console.error("Email send failed:", status ?? err, body ?? err)
-    if (status === 403 && body && typeof body === "object" && "errors" in body) {
-      console.error("SendGrid 403: Check that SENDGRID_FROM_EMAIL is a verified sender in your SendGrid account.")
+    let errMsg = "SendGrid failed to send email."
+    if (body && body.errors && body.errors.length > 0) {
+      errMsg = `SendGrid error (${status}): ${body.errors.map((e: any) => e.message).join(", ")}`
+    } else if (err instanceof Error) {
+      errMsg = err.message
+    } else {
+      errMsg = String(err)
     }
-    return { success: false, error: err instanceof Error ? err : new Error(String(err)) }
+    return { success: false, error: new Error(errMsg) }
   }
 }
 

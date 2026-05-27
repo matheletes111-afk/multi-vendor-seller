@@ -1,0 +1,46 @@
+version: 1
+frontend:
+  phases:
+    preBuild:
+      commands:
+        - npm install --legacy-peer-deps --include=dev
+        # Write environment variables to .env for Next.js runtime
+        - echo "DATABASE_URL=$DATABASE_URL" >> .env
+        - echo "NEXTAUTH_URL=$NEXTAUTH_URL" >> .env
+        - echo "AUTH_URL=$AUTH_URL" >> .env
+        - echo "NEXTAUTH_SECRET=$NEXTAUTH_SECRET" >> .env
+        - echo "AUTH_SECRET=$NEXTAUTH_SECRET" >> .env
+        - echo "STRIPE_SECRET_KEY=$STRIPE_SECRET_KEY" >> .env
+        - echo "STRIPE_PUBLISHABLE_KEY=$STRIPE_PUBLISHABLE_KEY" >> .env
+        - echo "STRIPE_WEBHOOK_SECRET=$STRIPE_WEBHOOK_SECRET" >> .env
+        - echo "NODE_ENV=$NODE_ENV" >> .env
+        - echo "SENDGRID_API_KEY=$SENDGRID_API_KEY" >> .env
+        - echo "EMAIL_SERVICE=$EMAIL_SERVICE" >> .env
+        - echo "SENDGRID_FROM_EMAIL=$SENDGRID_FROM_EMAIL" >> .env
+        - echo "MOBILE_JWT_SECRET_KEY=$MOBILE_JWT_SECRET_KEY" >> .env
+        - echo "MOBILE_REFRESH_SECRET_KEY=$MOBILE_REFRESH_SECRET_KEY" >> .env
+        - echo "AUTH_GOOGLE_ID=$AUTH_GOOGLE_ID" >> .env
+        - echo "AUTH_GOOGLE_SECRET=$AUTH_GOOGLE_SECRET" >> .env
+        - echo "AUTH_FACEBOOK_ID=$AUTH_FACEBOOK_ID" >> .env
+        - echo "AUTH_FACEBOOK_SECRET=$AUTH_FACEBOOK_SECRET" >> .env
+        - echo "AMPLIFY_AWS_ACCESS_KEY_ID=$AMPLIFY_AWS_ACCESS_KEY_ID" >> .env
+        - echo "AMPLIFY_AWS_SECRET_ACCESS_KEY=$AMPLIFY_AWS_SECRET_ACCESS_KEY" >> .env
+        - echo "AMPLIFY_AWS_REGION=$AMPLIFY_AWS_REGION" >> .env
+        - echo "AMPLIFY_AWS_S3_BUCKET_NAME=$AMPLIFY_AWS_S3_BUCKET_NAME" >> .env
+        - echo "NEXT_PUBLIC_LIVE_SITE_URL=$NEXT_PUBLIC_LIVE_SITE_URL" >> .env
+        - echo "ACC_SID_TWILIO=$ACC_SID_TWILIO" >> .env
+        - echo "AUTH_TOKEN_TWILIO=$AUTH_TOKEN_TWILIO" >> .env
+        - echo "MSG_SERVICESID=$MSG_SERVICESID" >> .env
+        - echo "MAP_KEY=$MAP_KEY" >> .env
+        - npx prisma generate
+    build:
+      commands:
+        - npm run build
+  artifacts:
+    baseDirectory: .next
+    files:
+      - '**/*'
+  cache:
+    paths:
+      - node_modules/**/*
+      - .next/cache/**/*

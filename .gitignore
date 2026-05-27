@@ -38,3 +38,5 @@ next-env.d.ts
 # prisma
 /prisma/migrations
 
+.env.prod
+meeemsl_prod_backup.dump

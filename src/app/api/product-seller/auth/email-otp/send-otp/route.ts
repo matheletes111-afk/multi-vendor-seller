@@ -41,10 +41,13 @@ export async function POST(request: Request) {
         emailOtpSentAt: now,
       },
     })
-    await sendLoginOtpEmail({ to: email, otp, name: user.name })
+    const mailResult = await sendLoginOtpEmail({ to: email, otp, name: user.name })
+    if (mailResult && mailResult.success === false) {
+      throw mailResult.error || new Error("SendGrid failed to dispatch email.")
+    }
     return NextResponse.json({ message: "OTP sent to your email." }, { status: 200 })
-  } catch (error) {
+  } catch (error: any) {
     console.error("Product seller email-otp send error:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    return NextResponse.json({ error: error.message || String(error) }, { status: 500 })
   }
 }

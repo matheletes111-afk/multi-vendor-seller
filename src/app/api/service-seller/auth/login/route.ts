@@ -47,6 +47,8 @@ export async function POST(request: Request) {
     }
 
     const origin = new URL(request.url).origin
+    const host = new URL(request.url).host
+    const localPort = process.env.PORT || 3000
     const form = new URLSearchParams({
       email,
       password: hasOtpLoginToken ? "__OTP_LOGIN__" : (password as string),
@@ -56,11 +58,12 @@ export async function POST(request: Request) {
       ...(csrfToken && { csrfToken }),
     })
     const cookie = request.headers.get("cookie") ?? ""
-    const res = await fetch(`${origin}/api/nextauth/callback/credentials`, {
+    const res = await fetch(`http://127.0.0.1:${localPort}/api/nextauth/callback/credentials`, {
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
         "X-Auth-Return-Redirect": "1",
+        "Host": host,
         ...(cookie && { Cookie: cookie }),
       },
       body: form.toString(),
