@@ -14,6 +14,8 @@ export async function POST(request: Request) {
       )
     }
     const origin = new URL(request.url).origin
+    const host = new URL(request.url).host
+    const localPort = process.env.PORT || 3000
     const form = new URLSearchParams({
       email,
       password,
@@ -22,11 +24,12 @@ export async function POST(request: Request) {
       ...(csrfToken && { csrfToken }),
     })
     const cookie = request.headers.get("cookie") ?? ""
-    const res = await fetch(`${origin}/api/nextauth/callback/credentials`, {
+    const res = await fetch(`http://127.0.0.1:${localPort}/api/nextauth/callback/credentials`, {
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
         "X-Auth-Return-Redirect": "1",
+        "Host": host,
         ...(cookie && { Cookie: cookie }),
       },
       body: form.toString(),
@@ -91,11 +94,11 @@ export async function POST(request: Request) {
   } catch (error: any) {
     console.error("Admin login error:", error)
     return NextResponse.json(
-      { 
-        error: "Internal server error", 
-        log: error instanceof Error 
-          ? { message: error.message, name: error.name, stack: error.stack } 
-          : String(error) 
+      {
+        error: "Internal server errors",
+        log: error instanceof Error
+          ? { message: error.message, name: error.name, stack: error.stack }
+          : String(error)
       },
       { status: 500 }
     )
