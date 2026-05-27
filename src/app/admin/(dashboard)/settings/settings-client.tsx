@@ -46,7 +46,7 @@ export function AdminSettingsClient() {
     setSuccess(null)
     const form = e.currentTarget
     const fd = new FormData(form)
-    
+
     // Ensure baseCommission is added to body for JSON or FormData
     const phone = ((fd.get("phone") as string | null) ?? "").trim()
     const phoneCountryCode = ((fd.get("phoneCountryCode") as string | null) ?? "").trim()
@@ -70,9 +70,9 @@ export function AdminSettingsClient() {
 
     setSaving(true)
     try {
-      const updateResponse = await fetch("/api/admin/settings", { 
-        method: "PUT", 
-        body: fd 
+      const updateResponse = await fetch("/api/admin/settings", {
+        method: "PUT",
+        body: fd
       })
       if (!updateResponse.ok) {
         const payload = await updateResponse.json().catch(() => null) as { error?: string } | null
@@ -107,7 +107,8 @@ export function AdminSettingsClient() {
         </div>
       </div>
 
-      <div className="grid gap-8 lg:grid-cols-3">
+      {/* Right Columns: Core Credentials & Platform Settings */}
+      <form onSubmit={saveProfile} className="lg:col-span-3 grid gap-8 lg:grid-cols-3">
         {/* Left Column: Visual Profile */}
         <Card className="border-none shadow-2xl overflow-hidden rounded-[2.5rem] bg-gradient-to-br from-background via-background to-muted/20 lg:h-fit">
           <CardHeader className="pb-6 border-b border-muted/30 bg-muted/10">
@@ -120,21 +121,20 @@ export function AdminSettingsClient() {
             <CardDescription className="pt-1 font-medium italic text-xs uppercase tracking-widest opacity-60">Authentication Avatar</CardDescription>
           </CardHeader>
           <CardContent className="pt-10 pb-12 flex flex-col items-center">
-             <div className="relative group cursor-pointer ring-8 ring-primary/5 rounded-full ring-offset-4 ring-offset-background p-1 bg-background shadow-2xl transition-all hover:scale-105 duration-500">
-                <ProfilePictureInput currentImage={user.image} fileInputName="profileImage" urlInputName="image" />
-             </div>
-             <div className="mt-8 text-center space-y-2">
-                <h3 className="text-2xl font-medium">{user.name || "System Operator"}</h3>
-                <div className="flex items-center justify-center gap-2 px-4 py-1.5 bg-muted/50 rounded-full border border-muted w-fit mx-auto">
-                    <ShieldCheck className="h-3.5 w-3.5 text-green-500" />
-                    <span className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">Identity Verified</span>
-                </div>
-             </div>
+            <div className="relative group cursor-pointer ring-8 ring-primary/5 rounded-full ring-offset-4 ring-offset-background p-1 bg-background shadow-2xl transition-all hover:scale-105 duration-500">
+              <ProfilePictureInput currentImage={user.image} fileInputName="profileImage" urlInputName="image" />
+            </div>
+            <div className="mt-8 text-center space-y-2">
+              <h3 className="text-2xl font-medium">{user.name || "System Operator"}</h3>
+              <div className="flex items-center justify-center gap-2 px-4 py-1.5 bg-muted/50 rounded-full border border-muted w-fit mx-auto">
+                <ShieldCheck className="h-3.5 w-3.5 text-green-500" />
+                <span className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">Identity Verified</span>
+              </div>
+            </div>
           </CardContent>
         </Card>
 
-        {/* Right Columns: Core Credentials & Platform Settings */}
-        <form onSubmit={saveProfile} className="lg:col-span-2 space-y-8">
+        <div className="lg:col-span-2 space-y-8">
           <Card className="border-none shadow-2xl overflow-hidden rounded-[2.5rem] bg-gradient-to-br from-background via-background to-muted/20">
             <CardHeader className="pb-6 border-b border-muted/30">
               <div className="flex items-center gap-4">
@@ -215,7 +215,7 @@ export function AdminSettingsClient() {
                   <ShieldCheck className="h-4 w-4 text-orange-500" />
                   <h4 className="text-[10px] font-medium uppercase tracking-[0.3em] text-muted-foreground/60">Cryptographic Update</h4>
                 </div>
-                
+
                 <div className="grid gap-8 md:grid-cols-2">
                   <div className="space-y-3">
                     <Label htmlFor="password" title="Leave empty to keep current password" className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground ml-1">New Hash Secret</Label>
@@ -301,8 +301,8 @@ export function AdminSettingsClient() {
               {saving ? "Synchronizing..." : "Synchronize System"}
             </Button>
           </div>
-        </form>
-      </div>
+        </div>
+      </form>
     </div>
   )
 }
