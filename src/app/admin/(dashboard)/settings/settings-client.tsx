@@ -68,29 +68,12 @@ export function AdminSettingsClient() {
       }
     }
 
-    const hasFile = fd.get("profileImage") instanceof File && (fd.get("profileImage") as File).size > 0
     setSaving(true)
     try {
-      let updateResponse: Response
-      if (hasFile) {
-        updateResponse = await fetch("/api/admin/settings", { method: "PUT", body: fd })
-      } else {
-        const body: any = {
-            name: fd.get("name") || undefined,
-            image: (fd.get("image") as string) || undefined,
-            phone: (fd.get("phone") as string) ?? "",
-            phoneCountryCode: (fd.get("phoneCountryCode") as string) ?? "",
-            password: password || undefined,
-        }
-        const baseCommission = fd.get("baseCommission")
-        if (baseCommission) body.baseCommission = parseFloat(baseCommission as string)
-
-        updateResponse = await fetch("/api/admin/settings", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        })
-      }
+      const updateResponse = await fetch("/api/admin/settings", { 
+        method: "PUT", 
+        body: fd 
+      })
       if (!updateResponse.ok) {
         const payload = await updateResponse.json().catch(() => null) as { error?: string } | null
         setError(payload?.error || "Failed to update profile.")
