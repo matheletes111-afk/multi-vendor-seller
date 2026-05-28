@@ -143,7 +143,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     }
 
     // Upload room images first (outside transaction to prevent timeout)
-    const processedRooms = []
+    const processedRooms: { action: string; roomData: any; roomImageUrls?: string[] }[] = []
     for (let i = 0; i < roomsList.length; i++) {
       const roomData = roomsList[i]
       if (roomData.id) {

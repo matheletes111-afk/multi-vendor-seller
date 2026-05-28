@@ -181,7 +181,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Upload room images first (outside transaction to prevent timeout)
-    const roomsWithUploadedImages = []
+    const roomsWithUploadedImages: { roomData: any; roomImageUrls: string[] }[] = []
     for (let i = 0; i < roomsList.length; i++) {
       const roomData = roomsList[i]
       const roomImages = formData.getAll(`room_${i}_images`) as File[]
