@@ -671,7 +671,7 @@ export function SiteFooter() {
               <div className="min-w-0 flex-1">
                 <div className="flex items-start gap-2 text-sm text-slate-700">
                   <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-slate-600" />
-                  <span className="break-words">Address : Freetown Sierra Leone</span>
+                  <span className="break-words">Freetown Sierra Leone</span>
                 </div>
               </div>
               <a href="/" className="mt-2 ml-14 shrink-0 sm:mt-3 sm:ml-14" aria-label="MEEEM home">
