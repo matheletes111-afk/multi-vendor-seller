@@ -671,7 +671,7 @@ export function SiteFooter() {
               <div className="min-w-0 flex-1">
                 <div className="flex items-start gap-2 text-sm text-slate-700">
                   <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-slate-600" />
-                  <span className="break-words">123 Market St, Suite 100, City, State 12345, USA</span>
+                  <span className="break-words">Address : Freetown Sierra Leone</span>
                 </div>
               </div>
               <a href="/" className="mt-2 ml-14 shrink-0 sm:mt-3 sm:ml-14" aria-label="MEEEM home">
@@ -679,13 +679,16 @@ export function SiteFooter() {
               </a>
             </div>
             <ul className="mt-3 flex flex-col gap-2 text-sm text-slate-700">
-              <li className="flex items-center gap-2">
-                <Mail className="h-4 w-4 shrink-0 text-slate-600" />
-                <a href="mailto:info@example.com" className="truncate hover:text-slate-900 hover:underline">info@example.com</a>
+              <li className="flex items-start gap-2">
+                <Mail className="mt-0.5 h-4 w-4 shrink-0 text-slate-600" />
+                <div className="flex flex-col">
+                  <a href="mailto:info@meeemsl.com" className="hover:text-slate-900 hover:underline">info@meeemsl.com</a>
+                  <a href="mailto:Support@meeemsl.com" className="hover:text-slate-900 hover:underline">Support@meeemsl.com</a>
+                </div>
               </li>
               <li className="flex items-center gap-2">
                 <Phone className="h-4 w-4 shrink-0 text-slate-600" />
-                <a href="tel:+13025550123" className="hover:text-slate-900 hover:underline">+1 (302) 555-0123</a>
+                <a href="tel:+23288300000" className="hover:text-slate-900 hover:underline">+232 88 300000</a>
               </li>
             </ul>
             <div className="mt-3 flex gap-2">

@@ -21,7 +21,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   }
 
   const hotel = await prisma.hotel.findUnique({
-    where: { 
+    where: {
       id: id,
       hotelSellerId: seller.id,
       isDeleted: false
@@ -81,9 +81,26 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
   const newImageFiles = formData.getAll("newImages") as File[]
   const existingImagesRaw = formData.get("existingImages") as string // JSON array of URLs to keep
-  
+
   const logoFile = formData.get("logo") as File | null
   const bannerFile = formData.get("banner") as File | null
+
+  const roomsRaw = formData.get("rooms") as string
+  const roomsList = roomsRaw ? JSON.parse(roomsRaw) : []
+  const newRooms = roomsList.filter((r: any) => !r.id && !r.isDeleted)
+
+  if (newRooms.length > 0) {
+    const { checkHotelRoomLimit } = await import("@/lib/subscriptions")
+    const roomLimitCheck = await checkHotelRoomLimit(seller.id)
+    const existingRoomsCount = roomLimitCheck.current
+    const newRoomsCount = newRooms.length
+    if (roomLimitCheck.limit !== null && (existingRoomsCount + newRoomsCount) > roomLimitCheck.limit) {
+      return NextResponse.json(
+        { error: `Room listing limit reached (Limit: ${roomLimitCheck.limit}, Current: ${existingRoomsCount}). Cannot add ${newRoomsCount} more rooms. Please upgrade your plan.` },
+        { status: 403 }
+      )
+    }
+  }
 
   try {
     const amenities = amenitiesRaw ? JSON.parse(amenitiesRaw) : undefined
@@ -125,24 +142,115 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       })
     }
 
-    const updatedHotel = await prisma.hotel.update({
-      where: { id: id },
-      data: {
-        name: name || undefined,
-        description: description || undefined,
-        starRating,
-        amenities: amenities as any,
-        checkInPolicy: checkInPolicy || undefined,
-        checkOutPolicy: checkOutPolicy || undefined,
-        address: address || undefined,
-        city: city || undefined,
-        state: state || undefined,
-        lat,
-        lng,
-        images: imageUrls as any,
-        logo: logoUrl,
-        banner: bannerUrl,
-      },
+    // Upload room images first (outside transaction to prevent timeout)
+    const processedRooms: { action: string; roomData: any; roomImageUrls?: string[] }[] = []
+    for (let i = 0; i < roomsList.length; i++) {
+      const roomData = roomsList[i]
+      if (roomData.id) {
+        if (roomData.isDeleted) {
+          processedRooms.push({ action: "delete", roomData })
+        } else {
+          const roomNewImages = formData.getAll(`room_${roomData.id}_newImages`) as File[]
+          const existingRoomImages = roomData.existingImages || []
+          const roomImageUrls: string[] = [...existingRoomImages]
+
+          for (const file of roomNewImages) {
+            if (file && file.size > 0) {
+              const url = await uploadPublicFile({
+                folder: "rooms/gallery",
+                ext: path.extname(file.name) || ".jpg",
+                contentType: file.type || "image/jpeg",
+                buffer: Buffer.from(await file.arrayBuffer()),
+                prefix: "room-img",
+              })
+              roomImageUrls.push(url)
+            }
+          }
+          processedRooms.push({ action: "update", roomData, roomImageUrls })
+        }
+      } else {
+        if (roomData.isDeleted) continue
+
+        const roomImages = formData.getAll(`room_new_${roomData.index}_images`) as File[]
+        const roomImageUrls: string[] = []
+
+        for (const file of roomImages) {
+          if (file && file.size > 0) {
+            const url = await uploadPublicFile({
+              folder: "rooms/gallery",
+              ext: path.extname(file.name) || ".jpg",
+              contentType: file.type || "image/jpeg",
+              buffer: Buffer.from(await file.arrayBuffer()),
+              prefix: "room-img",
+            })
+            roomImageUrls.push(url)
+          }
+        }
+        processedRooms.push({ action: "create", roomData, roomImageUrls })
+      }
+    }
+
+    const updatedHotel = await prisma.$transaction(async (tx) => {
+      const updated = await tx.hotel.update({
+        where: { id: id },
+        data: {
+          name: name || undefined,
+          description: description || undefined,
+          starRating,
+          amenities: amenities as any,
+          checkInPolicy: checkInPolicy || undefined,
+          checkOutPolicy: checkOutPolicy || undefined,
+          address: address || undefined,
+          city: city || undefined,
+          state: state || undefined,
+          lat,
+          lng,
+          images: imageUrls as any,
+          logo: logoUrl,
+          banner: bannerUrl,
+        },
+      })
+
+      // Sync rooms inside transaction (performing DB writes only)
+      for (const item of processedRooms) {
+        const { action, roomData, roomImageUrls } = item
+        if (action === "delete") {
+          await tx.room.update({
+            where: { id: roomData.id },
+            data: { isDeleted: true }
+          })
+        } else if (action === "update") {
+          await tx.room.update({
+            where: { id: roomData.id },
+            data: {
+              name: roomData.name,
+              description: roomData.description,
+              price: parseFloat(roomData.price) || 0,
+              capacityAdults: parseInt(roomData.capacityAdults, 10) || 2,
+              capacityChildren: parseInt(roomData.capacityChildren, 10) || 0,
+              totalRooms: parseInt(roomData.totalRooms, 10) || 1,
+              amenities: roomData.amenities || [],
+              images: roomImageUrls as any,
+            }
+          })
+        } else if (action === "create") {
+          await tx.room.create({
+            data: {
+              hotelId: id,
+              name: roomData.name,
+              description: roomData.description,
+              price: parseFloat(roomData.price) || 0,
+              capacityAdults: parseInt(roomData.capacityAdults, 10) || 2,
+              capacityChildren: parseInt(roomData.capacityChildren, 10) || 0,
+              totalRooms: parseInt(roomData.totalRooms, 10) || 1,
+              amenities: roomData.amenities || [],
+              images: roomImageUrls as any,
+            }
+          })
+        }
+      }
+
+      return updated
     })
 
     return NextResponse.json(updatedHotel)

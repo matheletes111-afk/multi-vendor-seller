@@ -22,6 +22,11 @@ export default async function EditHotelPage({ params }: { params: Promise<{ id: 
       id: id,
       hotelSellerId: seller.id,
       isDeleted: false
+    },
+    include: {
+      rooms: {
+        where: { isDeleted: false }
+      }
     }
   })
 

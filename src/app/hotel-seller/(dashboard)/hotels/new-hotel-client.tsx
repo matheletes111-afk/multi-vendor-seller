@@ -32,7 +32,9 @@ import {
   Car,
   Tv,
   Waves,
-  Dumbbell
+  Dumbbell,
+  Plus,
+  Trash2
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
@@ -54,6 +56,105 @@ export function NewHotelClient() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  interface RoomDraft {
+    name: string
+    description: string
+    price: string
+    capacityAdults: string
+    capacityChildren: string
+    totalRooms: string
+    amenities: string[]
+    images: { file: File; preview: string }[]
+  }
+
+  const [rooms, setRooms] = useState<RoomDraft[]>([
+    {
+      name: "",
+      description: "",
+      price: "",
+      capacityAdults: "2",
+      capacityChildren: "0",
+      totalRooms: "1",
+      amenities: [],
+      images: []
+    }
+  ])
+
+  const addRoom = () => {
+    setRooms(prev => [
+      ...prev,
+      {
+        name: "",
+        description: "",
+        price: "",
+        capacityAdults: "2",
+        capacityChildren: "0",
+        totalRooms: "1",
+        amenities: [],
+        images: []
+      }
+    ])
+  }
+
+  const removeRoom = (index: number) => {
+    setRooms(prev => prev.filter((_, idx) => idx !== index))
+  }
+
+  const updateRoomField = (index: number, field: keyof RoomDraft, value: any) => {
+    setRooms(prev => {
+      const updated = [...prev]
+      updated[index] = { ...updated[index], [field]: value }
+      return updated
+    })
+  }
+
+  const toggleRoomAmenity = (roomIndex: number, amenityId: string) => {
+    setRooms(prev => {
+      const updated = [...prev]
+      const targetRoom = { ...updated[roomIndex] }
+      const currentAmenities = Array.isArray(targetRoom.amenities) ? targetRoom.amenities : []
+      if (currentAmenities.includes(amenityId)) {
+        targetRoom.amenities = currentAmenities.filter(id => id !== amenityId)
+      } else {
+        targetRoom.amenities = [...currentAmenities, amenityId]
+      }
+      updated[roomIndex] = targetRoom
+      return updated
+    })
+  }
+
+  const handleRoomImageChange = (roomIndex: number, e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || [])
+    const imagesWithPreviews = files.map((file) => ({
+      file,
+      preview: URL.createObjectURL(file),
+    }))
+    setRooms(prev => {
+      const updated = [...prev]
+      const targetRoom = { ...updated[roomIndex] }
+      targetRoom.images = [...(targetRoom.images || []), ...imagesWithPreviews]
+      updated[roomIndex] = targetRoom
+      return updated
+    })
+    e.target.value = ""
+  }
+
+  const removeRoomImage = (roomIndex: number, imageIndex: number) => {
+    setRooms(prev => {
+      const updated = [...prev]
+      const targetRoom = { ...updated[roomIndex] }
+      const targetImages = [...(targetRoom.images || [])]
+      const img = targetImages[imageIndex]
+      if (img?.preview) {
+        URL.revokeObjectURL(img.preview)
+      }
+      targetImages.splice(imageIndex, 1)
+      targetRoom.images = targetImages
+      updated[roomIndex] = targetRoom
+      return updated
+    })
+  }
 
   // Form State
   const [formData, setFormData] = useState({
@@ -320,6 +421,15 @@ export function NewHotelClient() {
       return
     }
 
+    // Validate rooms
+    for (let i = 0; i < rooms.length; i++) {
+      if (!rooms[i].name || !rooms[i].price) {
+        setError(`Please fill in Name and Price for Room Type #${i + 1}`);
+        setLoading(false);
+        return;
+      }
+    }
+
     try {
       const data = new FormData()
       Object.entries(formData).forEach(([key, value]) => data.append(key, value))
@@ -328,6 +438,25 @@ export function NewHotelClient() {
       images.forEach((img) => data.append("images", img.file))
       if (logo) data.append("logo", logo.file)
       if (banner) data.append("banner", banner.file)
+
+      // Append rooms metadata
+      const roomsMetadata = rooms.map((r) => ({
+        name: r.name,
+        description: r.description,
+        price: r.price,
+        capacityAdults: r.capacityAdults,
+        capacityChildren: r.capacityChildren,
+        totalRooms: r.totalRooms,
+        amenities: r.amenities,
+      }))
+      data.append("rooms", JSON.stringify(roomsMetadata))
+
+      // Append room images
+      rooms.forEach((r, i) => {
+        r.images.forEach((img) => {
+          data.append(`room_${i}_images`, img.file)
+        })
+      })
 
       const res = await fetch("/api/hotel-seller/hotels", {
         method: "POST",
@@ -661,6 +790,158 @@ export function NewHotelClient() {
             </Card>
           </div>
         </div>
+
+        {/* Room Types Card */}
+        <Card className="rounded-[2.5rem] border-none shadow-2xl overflow-hidden bg-gradient-to-br from-background via-background to-primary/5">
+          <CardHeader className="pb-2 pt-8 px-8 flex flex-row items-center justify-between">
+            <div>
+              <CardTitle className="text-xl font-bold">Room Configurations</CardTitle>
+              <CardDescription>Define the types of rooms available in this hotel</CardDescription>
+            </div>
+            <Button type="button" onClick={addRoom} size="sm" className="rounded-xl flex items-center gap-1">
+              <Plus className="h-4 w-4" /> Add Room Type
+            </Button>
+          </CardHeader>
+          <CardContent className="p-8 space-y-8">
+            {rooms.map((room, index) => (
+              <div key={index} className="p-6 rounded-3xl border border-muted bg-background/50 relative space-y-6 animate-in fade-in duration-200">
+                <div className="flex items-center justify-between border-b pb-3">
+                  <h4 className="font-bold text-slate-800">Room Type #{index + 1}</h4>
+                  {rooms.length > 1 && (
+                    <Button type="button" variant="ghost" size="icon" className="text-destructive hover:bg-destructive/10 rounded-full" onClick={() => removeRoom(index)}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <Label className="text-sm font-bold">Room Name *</Label>
+                    <Input
+                      placeholder="e.g. Deluxe Suite"
+                      value={room.name}
+                      onChange={(e) => updateRoomField(index, "name", e.target.value)}
+                      className="rounded-2xl h-12"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm font-bold">Price per Night *</Label>
+                    <Input
+                      type="number"
+                      placeholder="0.00"
+                      value={room.price}
+                      onChange={(e) => updateRoomField(index, "price", e.target.value)}
+                      className="rounded-2xl h-12"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="space-y-2">
+                    <Label className="text-sm font-bold">Adult Capacity</Label>
+                    <Input
+                      type="number"
+                      value={room.capacityAdults}
+                      onChange={(e) => updateRoomField(index, "capacityAdults", e.target.value)}
+                      className="rounded-2xl h-12"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm font-bold">Child Capacity</Label>
+                    <Input
+                      type="number"
+                      value={room.capacityChildren}
+                      onChange={(e) => updateRoomField(index, "capacityChildren", e.target.value)}
+                      className="rounded-2xl h-12"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm font-bold">Total Rooms</Label>
+                    <Input
+                      type="number"
+                      value={room.totalRooms}
+                      onChange={(e) => updateRoomField(index, "totalRooms", e.target.value)}
+                      className="rounded-2xl h-12"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-sm font-bold">Description</Label>
+                  <Textarea
+                    placeholder="Room amenities, bed sizes, view..."
+                    value={room.description}
+                    onChange={(e) => updateRoomField(index, "description", e.target.value)}
+                    className="rounded-2xl min-h-[80px]"
+                  />
+                </div>
+
+                {/* Room Amenities */}
+                <div className="space-y-2">
+                  <Label className="text-sm font-bold">Room Amenities</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {HOTEL_AMENITIES.map((amenity) => {
+                      const isSelected = Array.isArray(room.amenities) ? room.amenities.includes(amenity.id) : false
+                      return (
+                        <button
+                          key={amenity.id}
+                          type="button"
+                          onClick={() => toggleRoomAmenity(index, amenity.id)}
+                          className={cn(
+                            "flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-bold transition-all",
+                            isSelected
+                              ? "bg-primary/10 border-primary text-primary"
+                              : "bg-background border-muted text-muted-foreground hover:border-primary/40"
+                          )}
+                        >
+                          {amenity.icon}
+                          <span>{amenity.label}</span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                {/* Room Images */}
+                <div className="space-y-2">
+                  <Label className="text-sm font-bold">Room Photos</Label>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div
+                      onClick={() => {
+                        const input = document.getElementById(`room-img-input-${index}`)
+                        if (input) (input as HTMLInputElement).click()
+                      }}
+                      className="cursor-pointer border-2 border-dashed border-muted rounded-2xl w-20 h-20 flex flex-col items-center justify-center hover:border-primary/50 bg-muted/15"
+                    >
+                      <Camera className="h-5 w-5 text-primary" />
+                      <span className="text-[8px] font-bold uppercase mt-1">Photos</span>
+                    </div>
+                    <input
+                      id={`room-img-input-${index}`}
+                      type="file"
+                      multiple
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => handleRoomImageChange(index, e)}
+                    />
+                    {room.images.map((img, imgIdx) => (
+                      <div key={imgIdx} className="relative w-20 h-20 rounded-2xl overflow-hidden shadow border">
+                        <img src={img.preview} className="w-full h-full object-cover" />
+                        <button
+                          type="button"
+                          onClick={() => removeRoomImage(index, imgIdx)}
+                          className="absolute top-1 right-1 p-0.5 bg-black/50 text-white rounded-full hover:bg-black/75"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
 
         {error && (
           <div className="p-4 bg-destructive/10 border border-destructive/20 text-destructive rounded-2xl text-sm font-bold flex items-center gap-3">

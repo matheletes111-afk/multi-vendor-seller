@@ -5,7 +5,7 @@ import { uploadPublicFile } from "@/lib/upload-public-file"
 import path from "path"
 import { UserRole } from "@prisma/client"
 import { getPaginationFromSearchParams } from "@/lib/admin-pagination"
-import { checkHotelLimit } from "@/lib/subscriptions"
+import { checkHotelLimit, checkHotelRoomLimit } from "@/lib/subscriptions"
 
 export async function GET(request: NextRequest) {
   const session = await auth()
@@ -27,9 +27,12 @@ export async function GET(request: NextRequest) {
     perPage: searchParams.get("perPage") ?? undefined,
   })
 
-  const q = searchParams.get("q") || ""
-  const city = searchParams.get("city") || ""
-  const rating = searchParams.get("rating") || ""
+  const minPrice = searchParams.get("minPrice")
+  const maxPrice = searchParams.get("maxPrice")
+  const capacity = searchParams.get("capacity")
+  const q = searchParams.get("q")
+  const city = searchParams.get("city")
+  const rating = searchParams.get("rating")
 
   const where: any = {
     hotelSellerId: seller.id,
@@ -44,6 +47,17 @@ export async function GET(request: NextRequest) {
   }
   if (rating) {
     where.starRating = parseInt(rating, 10)
+  }
+
+  if (minPrice || maxPrice || capacity) {
+    where.rooms = {
+      some: {
+        isDeleted: false,
+        ...(minPrice && { price: { gte: parseFloat(minPrice) } }),
+        ...(maxPrice && { price: { lte: parseFloat(maxPrice) } }),
+        ...(capacity && { capacityAdults: { gte: parseInt(capacity, 10) } }),
+      }
+    }
   }
 
   const [hotels, totalCount] = await Promise.all([
@@ -107,6 +121,22 @@ export async function POST(request: NextRequest) {
   const lat = parseFloat(formData.get("lat") as string) || null
   const lng = parseFloat(formData.get("lng") as string) || null
 
+  const roomsRaw = formData.get("rooms") as string
+  const roomsList = roomsRaw ? JSON.parse(roomsRaw) : []
+
+  // Check room limits if rooms are being created
+  if (roomsList.length > 0) {
+    const roomLimitCheck = await checkHotelRoomLimit(seller.id)
+    const existingRoomsCount = roomLimitCheck.current
+    const newRoomsCount = roomsList.length
+    if (roomLimitCheck.limit !== null && (existingRoomsCount + newRoomsCount) > roomLimitCheck.limit) {
+      return NextResponse.json(
+        { error: `Room listing limit reached (Limit: ${roomLimitCheck.limit}, Current: ${existingRoomsCount}). Cannot add ${newRoomsCount} more rooms. Please upgrade your plan.` },
+        { status: 403 }
+      )
+    }
+  }
+
   const imageFiles = formData.getAll("images") as File[]
   const logoFile = formData.get("logo") as File | null
   const bannerFile = formData.get("banner") as File | null
@@ -150,24 +180,71 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    const hotel = await prisma.hotel.create({
-      data: {
-        hotelSellerId: seller.id,
-        name,
-        description,
-        starRating,
-        amenities,
-        checkInPolicy,
-        checkOutPolicy,
-        address,
-        city,
-        state,
-        lat,
-        lng,
-        images: imageUrls as any,
-        logo: logoUrl,
-        banner: bannerUrl,
-      },
+    // Upload room images first (outside transaction to prevent timeout)
+    const roomsWithUploadedImages: { roomData: any; roomImageUrls: string[] }[] = []
+    for (let i = 0; i < roomsList.length; i++) {
+      const roomData = roomsList[i]
+      const roomImages = formData.getAll(`room_${i}_images`) as File[]
+      const roomImageUrls: string[] = []
+
+      for (const file of roomImages) {
+        if (file && file.size > 0) {
+          const url = await uploadPublicFile({
+            folder: "rooms/gallery",
+            ext: path.extname(file.name) || ".jpg",
+            contentType: file.type || "image/jpeg",
+            buffer: Buffer.from(await file.arrayBuffer()),
+            prefix: "room-img",
+          })
+          roomImageUrls.push(url)
+        }
+      }
+      roomsWithUploadedImages.push({
+        roomData,
+        roomImageUrls,
+      })
+    }
+
+    const hotel = await prisma.$transaction(async (tx) => {
+      const createdHotel = await tx.hotel.create({
+        data: {
+          hotelSellerId: seller.id,
+          name,
+          description,
+          starRating,
+          amenities,
+          checkInPolicy,
+          checkOutPolicy,
+          address,
+          city,
+          state,
+          lat,
+          lng,
+          images: imageUrls as any,
+          logo: logoUrl,
+          banner: bannerUrl,
+        },
+      })
+
+      // Create rooms
+      for (const item of roomsWithUploadedImages) {
+        const { roomData, roomImageUrls } = item
+        await tx.room.create({
+          data: {
+            hotelId: createdHotel.id,
+            name: roomData.name,
+            description: roomData.description,
+            price: parseFloat(roomData.price) || 0,
+            capacityAdults: parseInt(roomData.capacityAdults, 10) || 2,
+            capacityChildren: parseInt(roomData.capacityChildren, 10) || 0,
+            totalRooms: parseInt(roomData.totalRooms, 10) || 1,
+            amenities: roomData.amenities || [],
+            images: roomImageUrls as any,
+          }
+        })
+      }
+
+      return createdHotel
     })
 
     return NextResponse.json(hotel)

@@ -59,6 +59,9 @@ export function HotelsPageClient() {
   const qStr = searchParams.get("q") ?? ""
   const cityStr = searchParams.get("city") ?? ""
   const ratingStr = searchParams.get("rating") ?? ""
+  const minPriceStr = searchParams.get("minPrice") ?? ""
+  const maxPriceStr = searchParams.get("maxPrice") ?? ""
+  const capacityStr = searchParams.get("capacity") ?? ""
 
   const [hotels, setHotels] = useState<Hotel[]>([])
   const [loading, setLoading] = useState(true)
@@ -69,6 +72,9 @@ export function HotelsPageClient() {
   const [q, setQ] = useState(qStr)
   const [city, setCity] = useState(cityStr)
   const [rating, setRating] = useState(ratingStr)
+  const [minPrice, setMinPrice] = useState(minPriceStr)
+  const [maxPrice, setMaxPrice] = useState(maxPriceStr)
+  const [capacity, setCapacity] = useState(capacityStr)
 
   const loadHotels = useCallback(() => {
     setLoading(true)
@@ -78,6 +84,9 @@ export function HotelsPageClient() {
     if (qStr) params.set("q", qStr)
     if (cityStr) params.set("city", cityStr)
     if (ratingStr) params.set("rating", ratingStr)
+    if (minPriceStr) params.set("minPrice", minPriceStr)
+    if (maxPriceStr) params.set("maxPrice", maxPriceStr)
+    if (capacityStr) params.set("capacity", capacityStr)
 
     fetch(`/api/hotel-seller/hotels?${params.toString()}`)
       .then((r) => r.json())
@@ -90,7 +99,7 @@ export function HotelsPageClient() {
       })
       .catch(console.error)
       .finally(() => setLoading(false))
-  }, [page, perPage, qStr, cityStr, ratingStr])
+  }, [page, perPage, qStr, cityStr, ratingStr, minPriceStr, maxPriceStr, capacityStr])
 
   useEffect(() => {
     loadHotels()
@@ -101,6 +110,9 @@ export function HotelsPageClient() {
       q: q || undefined,
       city: city || undefined,
       rating: rating && rating !== "ALL" ? rating : undefined,
+      minPrice: minPrice || undefined,
+      maxPrice: maxPrice || undefined,
+      capacity: capacity || undefined,
     }
     router.push(buildAdminPageUrl("/hotel-seller/hotels", 1, p))
   }
@@ -109,6 +121,9 @@ export function HotelsPageClient() {
     setQ("")
     setCity("")
     setRating("")
+    setMinPrice("")
+    setMaxPrice("")
+    setCapacity("")
     router.push("/hotel-seller/hotels")
   }
 
@@ -151,7 +166,7 @@ export function HotelsPageClient() {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="space-y-1.5">
+            <div className="space-y-1.5 lg:col-span-2">
               <Label className="text-xs uppercase ml-1 opacity-70">Hotel Name</Label>
               <div className="relative">
                 <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -187,6 +202,39 @@ export function HotelsPageClient() {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs uppercase ml-1 opacity-70">Guest Capacity</Label>
+              <Input
+                type="number"
+                placeholder="Min adults..."
+                className="rounded-xl"
+                value={capacity}
+                onChange={(e) => setCapacity(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs uppercase ml-1 opacity-70">Min Price</Label>
+              <Input
+                type="number"
+                placeholder="Min price..."
+                className="rounded-xl"
+                value={minPrice}
+                onChange={(e) => setMinPrice(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs uppercase ml-1 opacity-70">Max Price</Label>
+              <Input
+                type="number"
+                placeholder="Max price..."
+                className="rounded-xl"
+                value={maxPrice}
+                onChange={(e) => setMaxPrice(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+              />
             </div>
             <div className="flex items-end gap-2">
               <Button variant="outline" onClick={handleClear} className="flex-1 rounded-xl">
@@ -291,7 +339,7 @@ export function HotelsPageClient() {
               totalPages={totalPages}
               totalCount={totalCount}
               pageSize={perPage}
-              params={{ q: qStr, city: cityStr, rating: ratingStr }}
+              params={{ q: qStr, city: cityStr, rating: ratingStr, minPrice: minPriceStr, maxPrice: maxPriceStr, capacity: capacityStr }}
             />
           </div>
         )}

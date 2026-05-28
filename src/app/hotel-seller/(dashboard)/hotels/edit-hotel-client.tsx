@@ -31,7 +31,9 @@ import {
   Car,
   Tv,
   Waves,
-  Dumbbell
+  Dumbbell,
+  Plus,
+  Trash2
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
@@ -65,12 +67,147 @@ interface Hotel {
   images: any
   logo: string | null
   banner: string | null
+  rooms?: any[]
 }
 
 export function EditHotelClient({ hotel }: { hotel: Hotel }) {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  interface RoomDraft {
+    id?: string
+    name: string
+    description: string
+    price: string
+    capacityAdults: string
+    capacityChildren: string
+    totalRooms: string
+    amenities: string[]
+    existingImages?: string[]
+    newImages: { file: File; preview: string }[]
+    isDeleted?: boolean
+  }
+
+  const [rooms, setRooms] = useState<RoomDraft[]>(
+    Array.isArray(hotel.rooms)
+      ? hotel.rooms.map((r) => ({
+          id: r.id,
+          name: r.name || "",
+          description: r.description || "",
+          price: r.price?.toString() || "",
+          capacityAdults: r.capacityAdults?.toString() || "2",
+          capacityChildren: r.capacityChildren?.toString() || "0",
+          totalRooms: r.totalRooms?.toString() || "1",
+          amenities: Array.isArray(r.amenities) ? r.amenities : [],
+          existingImages: Array.isArray(r.images) ? r.images : [],
+          newImages: [],
+          isDeleted: false
+        }))
+      : []
+  )
+
+  const addRoom = () => {
+    setRooms(prev => [
+      ...prev,
+      {
+        name: "",
+        description: "",
+        price: "",
+        capacityAdults: "2",
+        capacityChildren: "0",
+        totalRooms: "1",
+        amenities: [],
+        newImages: []
+      }
+    ])
+  }
+
+  const removeRoom = (index: number) => {
+    setRooms(prev => {
+      const updated = [...prev]
+      const room = updated[index]
+      if (room.id) {
+        room.isDeleted = true
+      } else {
+        updated.splice(index, 1)
+      }
+      return updated
+    })
+  }
+
+  const updateRoomField = (index: number, field: keyof RoomDraft, value: any) => {
+    setRooms(prev => {
+      const updated = [...prev]
+      updated[index] = { ...updated[index], [field]: value }
+      return updated
+    })
+  }
+
+  const toggleRoomAmenity = (roomIndex: number, amenityId: string) => {
+    setRooms(prev => {
+      const updated = [...prev]
+      const targetRoom = { ...updated[roomIndex] }
+      let currentAmenities = targetRoom.amenities
+      if (typeof currentAmenities === "string") {
+        try {
+          currentAmenities = JSON.parse(currentAmenities)
+        } catch {
+          currentAmenities = []
+        }
+      }
+      if (!Array.isArray(currentAmenities)) {
+        currentAmenities = []
+      }
+      if (currentAmenities.includes(amenityId)) {
+        targetRoom.amenities = currentAmenities.filter(id => id !== amenityId)
+      } else {
+        targetRoom.amenities = [...currentAmenities, amenityId]
+      }
+      updated[roomIndex] = targetRoom
+      return updated
+    })
+  }
+
+  const handleRoomImageChange = (roomIndex: number, e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || [])
+    const imagesWithPreviews = files.map((file) => ({
+      file,
+      preview: URL.createObjectURL(file),
+    }))
+    setRooms(prev => {
+      const updated = [...prev]
+      const targetRoom = { ...updated[roomIndex] }
+      targetRoom.newImages = [...(targetRoom.newImages || []), ...imagesWithPreviews]
+      updated[roomIndex] = targetRoom
+      return updated
+    })
+    e.target.value = ""
+  }
+
+  const removeRoomNewImage = (roomIndex: number, imageIndex: number) => {
+    setRooms(prev => {
+      const updated = [...prev]
+      const targetRoom = { ...updated[roomIndex] }
+      const targetImages = [...(targetRoom.newImages || [])]
+      const img = targetImages[imageIndex]
+      if (img?.preview) {
+        URL.revokeObjectURL(img.preview)
+      }
+      targetImages.splice(imageIndex, 1)
+      targetRoom.newImages = targetImages
+      updated[roomIndex] = targetRoom
+      return updated
+    })
+  }
+
+  const removeRoomExistingImage = (roomIndex: number, imageUrl: string) => {
+    setRooms(prev => {
+      const updated = [...prev]
+      updated[roomIndex].existingImages = updated[roomIndex].existingImages?.filter(url => url !== imageUrl)
+      return updated
+    })
+  }
 
   // Form State
   const [formData, setFormData] = useState({
@@ -348,6 +485,15 @@ export function EditHotelClient({ hotel }: { hotel: Hotel }) {
     setLoading(true)
     setError(null)
 
+    // Validate non-deleted rooms
+    for (let i = 0; i < rooms.length; i++) {
+      if (!rooms[i].isDeleted && (!rooms[i].name || !rooms[i].price)) {
+        setError(`Please fill in Name and Price for Room Type #${i + 1}`);
+        setLoading(false);
+        return;
+      }
+    }
+
     try {
       const data = new FormData()
       Object.entries(formData).forEach(([key, value]) => data.append(key, value))
@@ -357,6 +503,38 @@ export function EditHotelClient({ hotel }: { hotel: Hotel }) {
       newImages.forEach((img) => data.append("newImages", img.file))
       if (logo.file) data.append("logo", logo.file)
       if (banner.file) data.append("banner", banner.file)
+
+      // Append rooms metadata
+      const roomsMetadata = rooms.map((r, idx) => ({
+        id: r.id,
+        name: r.name,
+        description: r.description,
+        price: r.price,
+        capacityAdults: r.capacityAdults,
+        capacityChildren: r.capacityChildren,
+        totalRooms: r.totalRooms,
+        amenities: r.amenities,
+        existingImages: r.existingImages,
+        isDeleted: r.isDeleted,
+        index: idx // for identifying new room image mappings
+      }))
+      data.append("rooms", JSON.stringify(roomsMetadata))
+
+      // Append new room images
+      rooms.forEach((r, idx) => {
+        if (r.isDeleted) return
+        if (r.id) {
+          // Existing room additions
+          r.newImages.forEach((img) => {
+            data.append(`room_${r.id}_newImages`, img.file)
+          })
+        } else {
+          // New draft room additions
+          r.newImages.forEach((img) => {
+            data.append(`room_new_${idx}_images`, img.file)
+          })
+        }
+      })
 
       const res = await fetch(`/api/hotel-seller/hotels/${hotel.id}`, {
         method: "PATCH",
@@ -633,6 +811,186 @@ export function EditHotelClient({ hotel }: { hotel: Hotel }) {
             </Card>
           </div>
         </div>
+
+        {/* Room Types Card */}
+        <Card className="rounded-[2.5rem] border-none shadow-2xl overflow-hidden bg-gradient-to-br from-background via-background to-primary/5">
+          <CardHeader className="pb-2 pt-8 px-8 flex flex-row items-center justify-between">
+            <div>
+              <CardTitle className="text-xl font-bold">Room Configurations</CardTitle>
+              <CardDescription>Manage the types of rooms available in this hotel</CardDescription>
+            </div>
+            <Button type="button" onClick={addRoom} size="sm" className="rounded-xl flex items-center gap-1">
+              <Plus className="h-4 w-4" /> Add Room Type
+            </Button>
+          </CardHeader>
+          <CardContent className="p-8 space-y-8">
+            {rooms.map((room, originalIndex) => {
+              if (room.isDeleted) return null
+              const visibleIndex = rooms.filter((r, idx) => !r.isDeleted && idx < originalIndex).length + 1
+
+              return (
+                <div key={room.id || `new-room-${originalIndex}`} className="p-6 rounded-3xl border border-muted bg-background/50 relative space-y-6 animate-in fade-in duration-200">
+                  <div className="flex items-center justify-between border-b pb-3">
+                    <h4 className="font-bold text-slate-800">Room Type #{visibleIndex}</h4>
+                    {rooms.filter(r => !r.isDeleted).length > 1 && (
+                      <Button type="button" variant="ghost" size="icon" className="text-destructive hover:bg-destructive/10 rounded-full" onClick={() => removeRoom(originalIndex)}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <Label className="text-sm font-bold">Room Name *</Label>
+                      <Input
+                        placeholder="e.g. Deluxe Suite"
+                        value={room.name}
+                        onChange={(e) => updateRoomField(originalIndex, "name", e.target.value)}
+                        className="rounded-2xl h-12"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-sm font-bold">Price per Night *</Label>
+                      <Input
+                        type="number"
+                        placeholder="0.00"
+                        value={room.price}
+                        onChange={(e) => updateRoomField(originalIndex, "price", e.target.value)}
+                        className="rounded-2xl h-12"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="space-y-2">
+                      <Label className="text-sm font-bold">Adult Capacity</Label>
+                      <Input
+                        type="number"
+                        value={room.capacityAdults}
+                        onChange={(e) => updateRoomField(originalIndex, "capacityAdults", e.target.value)}
+                        className="rounded-2xl h-12"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-sm font-bold">Child Capacity</Label>
+                      <Input
+                        type="number"
+                        value={room.capacityChildren}
+                        onChange={(e) => updateRoomField(originalIndex, "capacityChildren", e.target.value)}
+                        className="rounded-2xl h-12"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-sm font-bold">Total Rooms</Label>
+                      <Input
+                        type="number"
+                        value={room.totalRooms}
+                        onChange={(e) => updateRoomField(originalIndex, "totalRooms", e.target.value)}
+                        className="rounded-2xl h-12"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-sm font-bold">Description</Label>
+                    <Textarea
+                      placeholder="Room amenities, bed sizes, view..."
+                      value={room.description}
+                      onChange={(e) => updateRoomField(originalIndex, "description", e.target.value)}
+                      className="rounded-2xl min-h-[80px]"
+                    />
+                  </div>
+
+                  {/* Room Amenities */}
+                  <div className="space-y-2">
+                    <Label className="text-sm font-bold">Room Amenities</Label>
+                    <div className="flex flex-wrap gap-2">
+                      {HOTEL_AMENITIES.map((amenity) => {
+                        let roomAmenitiesList = room.amenities
+                        if (typeof roomAmenitiesList === "string") {
+                          try {
+                            roomAmenitiesList = JSON.parse(roomAmenitiesList)
+                          } catch {
+                            roomAmenitiesList = []
+                          }
+                        }
+                        const isSelected = Array.isArray(roomAmenitiesList) ? roomAmenitiesList.includes(amenity.id) : false
+                        return (
+                          <button
+                            key={amenity.id}
+                            type="button"
+                            onClick={() => toggleRoomAmenity(originalIndex, amenity.id)}
+                            className={cn(
+                              "flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-bold transition-all",
+                              isSelected
+                                ? "bg-primary/10 border-primary text-primary"
+                                : "bg-background border-muted text-muted-foreground hover:border-primary/40"
+                            )}
+                          >
+                            {amenity.icon}
+                            <span>{amenity.label}</span>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Room Images */}
+                  <div className="space-y-2">
+                    <Label className="text-sm font-bold">Room Photos</Label>
+                    
+                    <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-2 mb-3">
+                      {room.existingImages?.map((url, imgIdx) => (
+                        <div key={`existing-${imgIdx}`} className="relative aspect-square rounded-2xl overflow-hidden shadow border group">
+                          <img src={url} className="w-full h-full object-cover" />
+                          <button
+                            type="button"
+                            onClick={() => removeRoomExistingImage(originalIndex, url)}
+                            className="absolute top-1 right-1 p-1 bg-black/50 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </div>
+                      ))}
+                      {room.newImages.map((img, imgIdx) => (
+                        <div key={`new-${imgIdx}`} className="relative aspect-square rounded-2xl overflow-hidden shadow border group border-primary/20">
+                          <img src={img.preview} className="w-full h-full object-cover" />
+                          <div className="absolute top-1 left-1 bg-primary text-white text-[8px] font-bold px-1 py-0.5 rounded-full uppercase">New</div>
+                          <button
+                            type="button"
+                            onClick={() => removeRoomNewImage(originalIndex, imgIdx)}
+                            className="absolute top-1 right-1 p-1 bg-black/50 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div
+                      onClick={() => {
+                        const input = document.getElementById(`room-img-input-${originalIndex}`)
+                        if (input) (input as HTMLInputElement).click()
+                      }}
+                      className="cursor-pointer border-2 border-dashed border-muted rounded-2xl p-4 text-center hover:border-primary/50 bg-muted/15 flex items-center justify-center gap-2 h-14"
+                    >
+                      <Camera className="h-5 w-5 text-primary" />
+                      <span className="text-xs font-bold uppercase text-muted-foreground">Upload Room Photos</span>
+                    </div>
+                    <input
+                      id={`room-img-input-${originalIndex}`}
+                      type="file"
+                      multiple
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => handleRoomImageChange(originalIndex, e)}
+                    />
+                  </div>
+                </div>
+              )
+            })}
+          </CardContent>
+        </Card>
 
         {error && <div className="p-4 bg-destructive/10 border border-destructive/20 text-destructive rounded-2xl font-bold flex items-center gap-3"><X className="h-5 w-5 bg-destructive text-white rounded-full" /> {error}</div>}
 
