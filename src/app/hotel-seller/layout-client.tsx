@@ -50,7 +50,6 @@ const navContent = (
   <>
     <NavItem href="/hotel-seller" label="Overview" icon={<LayoutDashboard className="h-4 w-4" />} />
     <NavItem href="/hotel-seller/hotels" label="My Hotels" icon={<Building2 className="h-4 w-4" />} />
-    <NavItem href="/hotel-seller/rooms" label="Rooms" icon={<Building2 className="h-4 w-4" />} />
     <NavItem href="/hotel-seller/admanagement" label="Ads" icon={<Megaphone className="h-4 w-4" />} />
     <NavItem href="/hotel-seller/bookings" label="Bookings" icon={<ShoppingCart className="h-4 w-4" />} />
     {/* <NavItem href="/hotel-seller/reviews" label="Reviews" icon={<Star className="h-4 w-4" />} /> */}

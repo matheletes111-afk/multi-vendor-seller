@@ -7,7 +7,7 @@ import { formatCurrency } from "@/lib/utils"
 import { PageLoader } from "@/components/ui/page-loader"
 
 type Plan = { id: string; name: string; displayName: string; description: string | null; price: number; maxProducts: number | null; maxOrders: number | null }
-type Subscription = { id: string; planId: string; status: string; currentPeriodEnd: string | null; plan: { displayName: string } } | null
+type Subscription = { id: string; planId: string; status: string; currentPeriodEnd: string | null; plan: { name: string; displayName: string } } | null
 
 export function RestaurantSubscriptionClient() {
   const [subscription, setSubscription] = useState<Subscription>(null)
@@ -66,7 +66,7 @@ export function RestaurantSubscriptionClient() {
 
       <div className="grid gap-6 md:grid-cols-3">
         {plans.map((plan) => (
-          <Card key={plan.id} className={`rounded-[2rem] border-2 shadow-xl overflow-hidden hover:shadow-2xl transition-all duration-300 ${subscription?.planId === plan.id ? "border-primary" : "border-slate-100"}`}>
+          <Card key={plan.id} className={`rounded-[2rem] border-2 shadow-xl overflow-hidden hover:shadow-2xl transition-all duration-300 ${subscription?.plan?.name === plan.name ? "border-primary" : "border-slate-100"}`}>
             <CardHeader className="pb-4">
               <CardTitle className="text-xl font-black text-slate-800">{plan.displayName}</CardTitle>
               <CardDescription className="font-medium text-slate-500 line-clamp-2 mt-1">{plan.description}</CardDescription>
@@ -83,12 +83,12 @@ export function RestaurantSubscriptionClient() {
                   <span className="font-bold text-slate-800">{plan.maxOrders === null ? "Unlimited" : `${plan.maxOrders}/month`}</span>
                 </li>
               </ul>
-              {subscription?.planId !== plan.id && (
-                <Button className="w-full h-12 rounded-2xl font-bold uppercase tracking-widest text-xs" variant={plan.name === "PREMIUM" ? "default" : "outline"} disabled={!!checkoutLoading} onClick={() => handleSubscribe(plan.name)}>
+              {subscription?.plan?.name !== plan.name && (
+                <Button className="w-full h-12 rounded-2xl font-bold uppercase tracking-widest text-xs bg-slate-900 text-white hover:bg-slate-800 hover:text-white" variant="default" disabled={!!checkoutLoading} onClick={() => handleSubscribe(plan.name)}>
                   {checkoutLoading === plan.name ? "Switching..." : subscription ? "Upgrade" : "Subscribe"}
                 </Button>
               )}
-              {subscription?.planId === plan.id && <Button disabled className="w-full h-12 rounded-2xl font-bold uppercase tracking-widest text-xs bg-slate-100 text-slate-400">Current Plan</Button>}
+              {subscription?.plan?.name === plan.name && <Button disabled className="w-full h-12 rounded-2xl font-bold uppercase tracking-widest text-xs bg-slate-100 text-slate-400">Current Plan</Button>}
             </CardContent>
           </Card>
         ))}
