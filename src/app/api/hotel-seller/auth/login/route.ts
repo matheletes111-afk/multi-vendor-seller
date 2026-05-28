@@ -1,7 +1,8 @@
-import { NextResponse } from "next/server"
+import { NextResponse, NextRequest } from "next/server"
 import { UserRole } from "@prisma/client"
 import { prisma } from "@/lib/prisma"
 import bcrypt from "bcryptjs"
+import { POST as nextAuthPost } from "@/app/api/nextauth/[...nextauth]/route"
 
 /** POST /api/hotel-seller/auth/login — Hotel seller panel login. */
 export async function POST(request: Request) {
@@ -44,7 +45,6 @@ export async function POST(request: Request) {
 
     const origin = new URL(request.url).origin
     const host = new URL(request.url).host
-    const localPort = process.env.PORT || 3000
     const form = new URLSearchParams({
       email,
       password: hasOtpLoginToken ? "__OTP_LOGIN__" : (password as string),
@@ -54,7 +54,7 @@ export async function POST(request: Request) {
       ...(csrfToken && { csrfToken }),
     })
     const cookie = request.headers.get("cookie") ?? ""
-    const res = await fetch(`http://127.0.0.1:${localPort}/api/nextauth/callback/credentials`, {
+    const nextauthRequest = new NextRequest(`${origin}/api/nextauth/callback/credentials`, {
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
@@ -63,8 +63,8 @@ export async function POST(request: Request) {
         ...(cookie && { Cookie: cookie }),
       },
       body: form.toString(),
-      redirect: "manual",
     })
+    const res = await nextAuthPost(nextauthRequest as any)
     
     const location = res.headers.get("Location") ?? ""
     if (res.status === 302 && (location.includes("error=") || location.includes("login"))) {
