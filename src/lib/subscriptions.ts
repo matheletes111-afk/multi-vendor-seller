@@ -59,9 +59,9 @@ export async function getValidSubscription(sellerId: string) {
 
   const now = new Date()
   
-  // 1. Handle Initialization: If no period end is set, initialize for 1 month
+  // 1. Handle Initialization: If no period end is set, initialize with the plan's duration
   if (!subscription.currentPeriodEnd) {
-    return await applyRenewal(subscription.id, subscription.createdAt, 1)
+    return await applyRenewal(subscription.id, subscription.createdAt, subscription.plan.duration || 30)
   }
 
   // 2. Handle Expiration / Auto-renewal
@@ -72,8 +72,8 @@ export async function getValidSubscription(sellerId: string) {
       threeMonthsAfterStart.setMonth(threeMonthsAfterStart.getMonth() + 3)
       
       if (now < threeMonthsAfterStart) {
-        // Still within 3-month window, auto-renew for 1 month
-        return await applyRenewal(subscription.id, subscription.currentPeriodEnd, 1)
+        // Still within 3-month window, auto-renew using plan's duration
+        return await applyRenewal(subscription.id, subscription.currentPeriodEnd, subscription.plan.duration || 30)
       } else {
         // Expired (over 3 months total)
         if (subscription.status !== "CANCELED") {
@@ -86,9 +86,8 @@ export async function getValidSubscription(sellerId: string) {
         return subscription
       }
     } else {
-      // PAID PLAN logic (Test/Auto mode): Auto-renew monthly indefinitely for now
-      // This will be replaced by payment-success checks later.
-      return await applyRenewal(subscription.id, subscription.currentPeriodEnd, 1)
+      // PAID PLAN logic (Test/Auto mode): Auto-renew based on plan's duration indefinitely for now
+      return await applyRenewal(subscription.id, subscription.currentPeriodEnd, subscription.plan.duration || 30)
     }
   }
 
@@ -96,14 +95,14 @@ export async function getValidSubscription(sellerId: string) {
 }
 
 /** Helper to extend subscription period */
-async function applyRenewal(id: string, fromDate: Date, months: number) {
+async function applyRenewal(id: string, fromDate: Date, durationDays: number) {
   const newEnd = new Date(fromDate)
-  newEnd.setMonth(newEnd.getMonth() + months)
+  newEnd.setDate(newEnd.getDate() + durationDays)
   
   // If we are renewing from a date far in the past, ensure the new end is in the future
   const now = new Date()
   while (newEnd < now) {
-    newEnd.setMonth(newEnd.getMonth() + 1)
+    newEnd.setDate(newEnd.getDate() + durationDays)
   }
 
   return await prisma.subscription.update({
@@ -281,7 +280,7 @@ export async function getValidHotelSubscription(hotelSellerId: string) {
   const now = new Date()
   
   if (!subscription.currentPeriodEnd) {
-    return await applyHotelRenewal(subscription.id, subscription.createdAt, 1)
+    return await applyHotelRenewal(subscription.id, subscription.createdAt, subscription.plan.duration || 30)
   }
 
   if (now > subscription.currentPeriodEnd) {
@@ -290,7 +289,7 @@ export async function getValidHotelSubscription(hotelSellerId: string) {
       threeMonthsAfterStart.setMonth(threeMonthsAfterStart.getMonth() + 3)
       
       if (now < threeMonthsAfterStart) {
-        return await applyHotelRenewal(subscription.id, subscription.currentPeriodEnd, 1)
+        return await applyHotelRenewal(subscription.id, subscription.currentPeriodEnd, subscription.plan.duration || 30)
       } else {
         if (subscription.status !== "CANCELED") {
           return await prisma.hotelSubscription.update({
@@ -302,19 +301,19 @@ export async function getValidHotelSubscription(hotelSellerId: string) {
         return subscription
       }
     } else {
-      return await applyHotelRenewal(subscription.id, subscription.currentPeriodEnd, 1)
+      return await applyHotelRenewal(subscription.id, subscription.currentPeriodEnd, subscription.plan.duration || 30)
     }
   }
 
   return subscription
 }
 
-async function applyHotelRenewal(id: string, fromDate: Date, months: number) {
+async function applyHotelRenewal(id: string, fromDate: Date, durationDays: number) {
   const newEnd = new Date(fromDate)
-  newEnd.setMonth(newEnd.getMonth() + months)
+  newEnd.setDate(newEnd.getDate() + durationDays)
   const now = new Date()
   while (newEnd < now) {
-    newEnd.setMonth(newEnd.getMonth() + 1)
+    newEnd.setDate(newEnd.getDate() + durationDays)
   }
 
   return await prisma.hotelSubscription.update({
@@ -339,7 +338,7 @@ export async function getValidRestaurantSubscription(restaurantSellerId: string)
   const now = new Date()
   
   if (!subscription.currentPeriodEnd) {
-    return await applyRestaurantRenewal(subscription.id, subscription.createdAt, 1)
+    return await applyRestaurantRenewal(subscription.id, subscription.createdAt, subscription.plan.duration || 30)
   }
 
   if (now > subscription.currentPeriodEnd) {
@@ -348,7 +347,7 @@ export async function getValidRestaurantSubscription(restaurantSellerId: string)
       threeMonthsAfterStart.setMonth(threeMonthsAfterStart.getMonth() + 3)
       
       if (now < threeMonthsAfterStart) {
-        return await applyRestaurantRenewal(subscription.id, subscription.currentPeriodEnd, 1)
+        return await applyRestaurantRenewal(subscription.id, subscription.currentPeriodEnd, subscription.plan.duration || 30)
       } else {
         if (subscription.status !== "CANCELED") {
           return await prisma.restaurantSubscription.update({
@@ -360,7 +359,7 @@ export async function getValidRestaurantSubscription(restaurantSellerId: string)
         return subscription
       }
     } else {
-      return await applyRestaurantRenewal(subscription.id, subscription.currentPeriodEnd, 1)
+      return await applyRestaurantRenewal(subscription.id, subscription.currentPeriodEnd, subscription.plan.duration || 30)
     }
   }
 
@@ -419,12 +418,12 @@ export async function checkHotelRoomLimit(hotelSellerId: string): Promise<{ allo
   }
 }
 
-async function applyRestaurantRenewal(id: string, fromDate: Date, months: number) {
+async function applyRestaurantRenewal(id: string, fromDate: Date, durationDays: number) {
   const newEnd = new Date(fromDate)
-  newEnd.setMonth(newEnd.getMonth() + months)
+  newEnd.setDate(newEnd.getDate() + durationDays)
   const now = new Date()
   while (newEnd < now) {
-    newEnd.setMonth(newEnd.getMonth() + 1)
+    newEnd.setDate(newEnd.getDate() + durationDays)
   }
 
   return await prisma.restaurantSubscription.update({

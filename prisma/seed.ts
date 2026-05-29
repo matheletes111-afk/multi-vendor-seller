@@ -7,7 +7,7 @@ async function main() {
 
   // Create subscription plans for PRODUCT_SERVICE
   const freePlan = await prisma.plan.upsert({
-    where: { name_type: { name: SubscriptionPlan.FREE, type: PlanType.PRODUCT_SERVICE } },
+    where: { name_type_duration: { name: SubscriptionPlan.FREE, type: PlanType.PRODUCT_SERVICE, duration: 30 } },
     update: {},
     create: {
       name: SubscriptionPlan.FREE,
@@ -28,7 +28,7 @@ async function main() {
   })
 
   const standardPlan = await prisma.plan.upsert({
-    where: { name_type: { name: SubscriptionPlan.STANDARD, type: PlanType.PRODUCT_SERVICE } },
+    where: { name_type_duration: { name: SubscriptionPlan.STANDARD, type: PlanType.PRODUCT_SERVICE, duration: 30 } },
     update: {},
     create: {
       name: SubscriptionPlan.STANDARD,
@@ -49,7 +49,7 @@ async function main() {
   })
 
   const premiumPlan = await prisma.plan.upsert({
-    where: { name_type: { name: SubscriptionPlan.PREMIUM, type: PlanType.PRODUCT_SERVICE } },
+    where: { name_type_duration: { name: SubscriptionPlan.PREMIUM, type: PlanType.PRODUCT_SERVICE, duration: 30 } },
     update: {},
     create: {
       name: SubscriptionPlan.PREMIUM,
@@ -73,7 +73,7 @@ async function main() {
 
   // Create subscription plans for HOTEL
   const hotelFreePlan = await prisma.plan.upsert({
-    where: { name_type: { name: SubscriptionPlan.FREE, type: PlanType.HOTEL } },
+    where: { name_type_duration: { name: SubscriptionPlan.FREE, type: PlanType.HOTEL, duration: 30 } },
     update: {},
     create: {
       name: SubscriptionPlan.FREE,
@@ -95,7 +95,7 @@ async function main() {
   })
 
   const hotelStandardPlan = await prisma.plan.upsert({
-    where: { name_type: { name: SubscriptionPlan.STANDARD, type: PlanType.HOTEL } },
+    where: { name_type_duration: { name: SubscriptionPlan.STANDARD, type: PlanType.HOTEL, duration: 30 } },
     update: {},
     create: {
       name: SubscriptionPlan.STANDARD,
@@ -117,7 +117,7 @@ async function main() {
   })
 
   const hotelPremiumPlan = await prisma.plan.upsert({
-    where: { name_type: { name: SubscriptionPlan.PREMIUM, type: PlanType.HOTEL } },
+    where: { name_type_duration: { name: SubscriptionPlan.PREMIUM, type: PlanType.HOTEL, duration: 30 } },
     update: {},
     create: {
       name: SubscriptionPlan.PREMIUM,
@@ -142,7 +142,7 @@ async function main() {
 
   // Create subscription plans for RESTAURANT
   const restaurantFreePlan = await prisma.plan.upsert({
-    where: { name_type: { name: SubscriptionPlan.FREE, type: PlanType.RESTAURANT } },
+    where: { name_type_duration: { name: SubscriptionPlan.FREE, type: PlanType.RESTAURANT, duration: 30 } },
     update: {},
     create: {
       name: SubscriptionPlan.FREE,
@@ -163,7 +163,7 @@ async function main() {
   })
 
   const restaurantStandardPlan = await prisma.plan.upsert({
-    where: { name_type: { name: SubscriptionPlan.STANDARD, type: PlanType.RESTAURANT } },
+    where: { name_type_duration: { name: SubscriptionPlan.STANDARD, type: PlanType.RESTAURANT, duration: 30 } },
     update: {},
     create: {
       name: SubscriptionPlan.STANDARD,
@@ -184,7 +184,7 @@ async function main() {
   })
 
   const restaurantPremiumPlan = await prisma.plan.upsert({
-    where: { name_type: { name: SubscriptionPlan.PREMIUM, type: PlanType.RESTAURANT } },
+    where: { name_type_duration: { name: SubscriptionPlan.PREMIUM, type: PlanType.RESTAURANT, duration: 30 } },
     update: {},
     create: {
       name: SubscriptionPlan.PREMIUM,

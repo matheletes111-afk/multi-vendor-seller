@@ -808,6 +808,7 @@ model Plan {
   displayName String
   description String?           @db.Text
   price       Float
+  duration    Int               @default(30) // duration in days
   maxProducts Int?              // null = unlimited
   maxOrders   Int?              // null = unlimited
   maxRooms    Int?              // null = unlimited
@@ -819,7 +820,7 @@ model Plan {
   hotelSubscriptions HotelSubscription[]
   restaurantSubscriptions RestaurantSubscription[]
 
-  @@unique([name, type])
+  @@unique([name, type, duration])
   @@map("subscription_plans")
 }
 

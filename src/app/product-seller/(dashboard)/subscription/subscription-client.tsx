@@ -6,8 +6,32 @@ import { Button } from "@/ui/button"
 import { formatCurrency } from "@/lib/utils"
 import { PageLoader } from "@/components/ui/page-loader"
 
-type Plan = { id: string; name: string; displayName: string; description: string | null; price: number; maxProducts: number | null; maxOrders: number | null }
-type Subscription = { id: string; planId: string; status: string; currentPeriodEnd: string | null; plan: { displayName: string } } | null
+type Plan = {
+  id: string
+  name: string
+  displayName: string
+  description: string | null
+  price: number
+  duration?: number
+  maxProducts: number | null
+  maxOrders: number | null
+}
+type Subscription = {
+  id: string
+  planId: string
+  status: string
+  currentPeriodEnd: string | null
+  plan: { displayName: string }
+} | null
+
+const formatPlanDuration = (durationDays?: number) => {
+  const days = durationDays || 30
+  if (days === 30) return "/month"
+  if (days === 90) return "/3 months"
+  if (days === 180) return "/6 months"
+  if (days === 365) return "/year"
+  return `/${days} days`
+}
 
 export function SubscriptionClient() {
   const [subscription, setSubscription] = useState<Subscription>(null)
@@ -18,22 +42,21 @@ export function SubscriptionClient() {
   useEffect(() => {
     Promise.all([
       fetch("/api/product-seller/subscription").then((r) => (r.ok ? r.json() : null)),
-      fetch("/api/plans").then((r) => (r.ok ? r.json() : [])),
+      fetch("/api/plans?type=PRODUCT_SERVICE").then((r) => (r.ok ? r.json() : [])),
     ]).then(([sub, p]) => { setSubscription(sub); setPlans(p) }).finally(() => setLoading(false))
   }, [])
 
-  async function handleSubscribe(planName: string) {
-    setCheckoutLoading(planName)
+  async function handleSubscribe(planId: string) {
+    setCheckoutLoading(planId)
     const res = await fetch("/api/product-seller/subscription/checkout", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ planName, test: true }),
+      body: JSON.stringify({ planId, test: true }),
     })
     const data = await res.json().catch(() => ({}))
     setCheckoutLoading(null)
     if (data.url) window.location.href = data.url
     if (!data.url) {
-      // Test mode (no payment) updates DB immediately; refresh current subscription.
       const subRes = await fetch("/api/product-seller/subscription")
       if (subRes.ok) setSubscription(await subRes.json())
     }
@@ -42,39 +65,50 @@ export function SubscriptionClient() {
   if (loading) return <PageLoader message="Loading subscription…" />
 
   return (
-    <div className="container mx-auto py-8">
-      <h1 className="text-3xl font-bold mb-8">Subscription Plans</h1>
+    <div className="container mx-auto p-8 space-y-8 animate-in fade-in duration-500">
+      <div>
+        <h1 className="text-3xl font-black text-slate-900 tracking-tight">Subscription Plans</h1>
+        <p className="text-slate-500 mt-2 font-medium">Select a plan to list products and services and handle orders.</p>
+      </div>
+
       {subscription && (
-        <Card className="mb-8">
+        <Card className="rounded-[2rem] border-none shadow-xl bg-gradient-to-br from-indigo-500/10 to-transparent">
           <CardHeader>
-            <CardTitle>Current Plan</CardTitle>
-            <CardDescription>{subscription.plan.displayName}</CardDescription>
+            <CardTitle className="text-lg font-bold text-indigo-900">Current Plan</CardTitle>
+            <CardDescription className="text-indigo-700 font-semibold">{subscription.plan.displayName}</CardDescription>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-muted-foreground">Status: {subscription.status}</p>
-            {subscription.currentPeriodEnd && <p className="text-sm text-muted-foreground">Renews: {new Date(subscription.currentPeriodEnd).toLocaleDateString()}</p>}
+            <p className="text-sm font-medium text-slate-600">Status: <span className="font-bold text-slate-800 uppercase tracking-wider">{subscription.status}</span></p>
+            {subscription.currentPeriodEnd && <p className="text-sm font-medium text-slate-600 mt-1">Renews: <span className="font-bold text-slate-800">{new Date(subscription.currentPeriodEnd).toLocaleDateString()}</span></p>}
           </CardContent>
         </Card>
       )}
+
       <div className="grid gap-6 md:grid-cols-3">
         {plans.map((plan) => (
-          <Card key={plan.id} className={subscription?.planId === plan.id ? "border-primary" : ""}>
-            <CardHeader>
-              <CardTitle>{plan.displayName}</CardTitle>
-              <CardDescription>{plan.description}</CardDescription>
+          <Card key={plan.id} className={`rounded-[2rem] border-2 shadow-xl overflow-hidden hover:shadow-2xl transition-all duration-300 ${subscription?.planId === plan.id ? "border-primary" : "border-slate-100"}`}>
+            <CardHeader className="pb-4">
+              <CardTitle className="text-xl font-black text-slate-800">{plan.displayName}</CardTitle>
+              <CardDescription className="font-medium text-slate-500 line-clamp-2 mt-1">{plan.description}</CardDescription>
             </CardHeader>
             <CardContent>
-              <p className="text-3xl font-bold mb-4">{formatCurrency(plan.price)}{plan.price > 0 && <span className="text-lg font-normal">/month</span>}</p>
-              <ul className="space-y-2 mb-6">
-                <li className="text-sm">Products: {plan.maxProducts === null ? "Unlimited" : plan.maxProducts}</li>
-                <li className="text-sm">Orders: {plan.maxOrders === null ? "Unlimited" : `${plan.maxOrders}/month`}</li>
+              <p className="text-4xl font-black text-slate-800 mb-6">{formatCurrency(plan.price)}{plan.price > 0 && <span className="text-base font-medium text-slate-400">{formatPlanDuration(plan.duration)}</span>}</p>
+              <ul className="space-y-3 mb-8 pt-4 border-t border-slate-50 font-medium text-slate-600">
+                <li className="text-sm flex justify-between">
+                  <span>Listable Products/Services:</span> 
+                  <span className="font-bold text-slate-800">{plan.maxProducts === null ? "Unlimited" : plan.maxProducts}</span>
+                </li>
+                <li className="text-sm flex justify-between">
+                  <span>Monthly Orders:</span> 
+                  <span className="font-bold text-slate-800">{plan.maxOrders === null ? "Unlimited" : `${plan.maxOrders}/month`}</span>
+                </li>
               </ul>
               {subscription?.planId !== plan.id && (
-                <Button className="w-full" variant={plan.name === "PREMIUM" ? "default" : "outline"} disabled={!!checkoutLoading} onClick={() => handleSubscribe(plan.name)}>
-                  {checkoutLoading === plan.name ? "Switching..." : subscription ? "Upgrade" : "Subscribe"}
+                <Button className="w-full h-12 rounded-2xl font-bold uppercase tracking-widest text-xs bg-slate-900 text-white hover:bg-slate-800 hover:text-white" variant="default" disabled={!!checkoutLoading} onClick={() => handleSubscribe(plan.id)}>
+                  {checkoutLoading === plan.id ? "Switching..." : subscription ? "Upgrade" : "Subscribe"}
                 </Button>
               )}
-              {subscription?.planId === plan.id && <Button disabled className="w-full">Current Plan</Button>}
+              {subscription?.planId === plan.id && <Button disabled className="w-full h-12 rounded-2xl font-bold uppercase tracking-widest text-xs bg-slate-100 text-slate-400">Current Plan</Button>}
             </CardContent>
           </Card>
         ))}

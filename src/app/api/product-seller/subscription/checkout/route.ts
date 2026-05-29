@@ -20,27 +20,35 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Seller not found" }, { status: 404 })
   }
 
-  const body = await request.json().catch(() => ({})) as { planName?: string; test?: boolean }
-  const planName = body.planName as SubscriptionPlan | undefined
-  if (!planName) {
-    return NextResponse.json({ error: "planName is required" }, { status: 400 })
+  const body = await request.json().catch(() => ({})) as { planId?: string; planName?: string; test?: boolean }
+  const { planId, planName } = body
+  if (!planId && !planName) {
+    return NextResponse.json({ error: "planId or planName is required" }, { status: 400 })
   }
 
-  const plan = await prisma.plan.findUnique({
-    where: {
-      name_type: {
-        name: planName,
+  let plan
+  if (planId) {
+    plan = await prisma.plan.findUnique({
+      where: { id: planId },
+    })
+  } else if (planName) {
+    plan = await prisma.plan.findFirst({
+      where: {
+        name: planName as SubscriptionPlan,
         type: "PRODUCT_SERVICE",
       },
-    },
-  })
+      orderBy: { price: "asc" }
+    })
+  }
+
   if (!plan) {
     return NextResponse.json({ error: "Plan not found" }, { status: 404 })
   }
 
   const testMode = body.test === true
   const now = new Date()
-  const currentPeriodEnd = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000)
+  const durationDays = plan.duration || 30
+  const currentPeriodEnd = new Date(now.getTime() + durationDays * 24 * 60 * 60 * 1000)
 
   if (testMode) {
     await prisma.subscription.upsert({

@@ -49,13 +49,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "planName is required" }, { status: 400 })
     }
 
-    const plan = await prisma.plan.findUnique({
+    const plan = await prisma.plan.findFirst({
       where: {
-        name_type: {
-          name: planName,
-          type: "HOTEL",
-        },
+        name: planName,
+        type: "HOTEL",
       },
+      orderBy: { price: "asc" },
     })
     if (!plan) {
       return NextResponse.json({ error: "Plan not found" }, { status: 404 })
@@ -63,8 +62,8 @@ export async function POST(request: NextRequest) {
 
     // Direct update logic
     const now = new Date()
-    const currentPeriodEnd = new Date(now)
-    currentPeriodEnd.setMonth(currentPeriodEnd.getMonth() + 1)
+    const durationDays = plan.duration || 30
+    const currentPeriodEnd = new Date(now.getTime() + durationDays * 24 * 60 * 60 * 1000)
 
     const updatedSubscription = await prisma.hotelSubscription.upsert({
       where: { hotelSellerId: auth.seller.id },

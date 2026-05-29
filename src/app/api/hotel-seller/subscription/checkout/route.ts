@@ -17,22 +17,32 @@ export async function POST(request: NextRequest) {
     })
     if (!seller) return NextResponse.json({ error: "Hotel Seller not found" }, { status: 404 })
 
-    const body = await request.json().catch(() => ({})) as { planName?: string; test?: boolean }
-    const planName = body.planName as SubscriptionPlan | undefined
-    if (!planName) return NextResponse.json({ error: "planName is required" }, { status: 400 })
+    const body = await request.json().catch(() => ({})) as { planId?: string; planName?: string; test?: boolean }
+    const { planId, planName } = body
+    if (!planId && !planName) {
+      return NextResponse.json({ error: "planId or planName is required" }, { status: 400 })
+    }
 
-    const plan = await prisma.plan.findUnique({
-      where: {
-        name_type: {
-          name: planName,
+    let plan
+    if (planId) {
+      plan = await prisma.plan.findUnique({
+        where: { id: planId },
+      })
+    } else if (planName) {
+      plan = await prisma.plan.findFirst({
+        where: {
+          name: planName as SubscriptionPlan,
           type: "HOTEL",
         },
-      },
-    })
+        orderBy: { price: "asc" }
+      })
+    }
+
     if (!plan) return NextResponse.json({ error: "Plan not found" }, { status: 404 })
 
     const now = new Date()
-    const currentPeriodEnd = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000)
+    const durationDays = plan.duration || 30
+    const currentPeriodEnd = new Date(now.getTime() + durationDays * 24 * 60 * 60 * 1000)
 
     // Local / Test mode upsert subscription directly
     await prisma.hotelSubscription.upsert({

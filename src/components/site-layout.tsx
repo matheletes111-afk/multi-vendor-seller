@@ -165,7 +165,7 @@ export function SiteHeader() {
                   {serviceCategories.length > 0 && (
                     <>
                       <DropdownMenuSeparator />
-                      <DropdownMenuLabel  className="font-medium">
+                      <DropdownMenuLabel className="font-medium">
                         Service Categories
                       </DropdownMenuLabel>
                       {serviceCategories.map((cat) => (
@@ -209,91 +209,91 @@ export function SiteHeader() {
           {/* Mobile menu – only render Sheet after mount to avoid Radix ID hydration mismatch */}
           <div className="flex items-center md:hidden">
             {mounted ? (
-            <Sheet>
-              <SheetTrigger asChild>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="h-9 w-9 text-white hover:bg-slate-600/50 hover:text-white sm:h-10 sm:w-10"
-                  aria-label="Open menu"
-                >
-                  <Menu className="h-5 w-5 sm:h-6 sm:w-6" />
-                </Button>
-              </SheetTrigger>
-              <SheetContent side="right" className="w-[min(320px,100vw)] overflow-y-auto bg-white p-0">
-                <SheetHeader className="border-b border-slate-200 p-4 text-left">
-                  <SheetTitle className="text-slate-800">Menu</SheetTitle>
-                </SheetHeader>
-                <div className="flex flex-col py-2">
-                  <Link href="/browse" className="flex items-center gap-3 px-4 py-3 text-sm font-medium text-slate-800 hover:bg-slate-100">
-                    <LayoutGrid className="h-4 w-4" />
-                    All Category
-                  </Link>
-                  {categories.map((cat) => (
-                    <div key={cat.id}>
-                      <Link href={`/browse?categoryId=${cat.id}`} className="flex px-4 py-2.5 pl-8 text-sm text-slate-700 hover:bg-slate-100">
-                        {cat.name}
-                      </Link>
-                      {cat.subcategories.map((sub) => (
-                        <Link href={`/browse?subcategoryId=${sub.id}`} key={sub.id} className="flex px-4 py-2 pl-12 text-sm text-slate-600 hover:bg-slate-100">
-                          {sub.name}
-                        </Link>
-                      ))}
-                    </div>
-                  ))}
-                  {serviceCategories.length > 0 && (
-                    <>
-                      <div className="my-2 border-t border-slate-200" />
-                      <p className="px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                        Service Categories
-                      </p>
-                      {serviceCategories.map((cat) => (
-                        <Link href={`/browse?serviceCategoryId=${cat.id}`} key={`mobile-service-${cat.id}`} className="flex px-4 py-2.5 pl-8 text-sm text-slate-700 hover:bg-slate-100">
+              <Sheet>
+                <SheetTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-9 w-9 text-white hover:bg-slate-600/50 hover:text-white sm:h-10 sm:w-10"
+                    aria-label="Open menu"
+                  >
+                    <Menu className="h-5 w-5 sm:h-6 sm:w-6" />
+                  </Button>
+                </SheetTrigger>
+                <SheetContent side="right" className="w-[min(320px,100vw)] overflow-y-auto bg-white p-0">
+                  <SheetHeader className="border-b border-slate-200 p-4 text-left">
+                    <SheetTitle className="text-slate-800">Menu</SheetTitle>
+                  </SheetHeader>
+                  <div className="flex flex-col py-2">
+                    <Link href="/browse" className="flex items-center gap-3 px-4 py-3 text-sm font-medium text-slate-800 hover:bg-slate-100">
+                      <LayoutGrid className="h-4 w-4" />
+                      All Category
+                    </Link>
+                    {categories.map((cat) => (
+                      <div key={cat.id}>
+                        <Link href={`/browse?categoryId=${cat.id}`} className="flex px-4 py-2.5 pl-8 text-sm text-slate-700 hover:bg-slate-100">
                           {cat.name}
                         </Link>
-                      ))}
-                    </>
-                  )}
-                  <div className="my-2 border-t border-slate-200" />
-                  {showBecomePartner && (
-                    <>
-                      <Link href="/product-seller/login" className="px-4 py-3 text-sm font-medium text-slate-800 hover:bg-slate-100">
-                        Product Seller Login
+                        {cat.subcategories.map((sub) => (
+                          <Link href={`/browse?subcategoryId=${sub.id}`} key={sub.id} className="flex px-4 py-2 pl-12 text-sm text-slate-600 hover:bg-slate-100">
+                            {sub.name}
+                          </Link>
+                        ))}
+                      </div>
+                    ))}
+                    {serviceCategories.length > 0 && (
+                      <>
+                        <div className="my-2 border-t border-slate-200" />
+                        <p className="px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                          Service Categories
+                        </p>
+                        {serviceCategories.map((cat) => (
+                          <Link href={`/browse?serviceCategoryId=${cat.id}`} key={`mobile-service-${cat.id}`} className="flex px-4 py-2.5 pl-8 text-sm text-slate-700 hover:bg-slate-100">
+                            {cat.name}
+                          </Link>
+                        ))}
+                      </>
+                    )}
+                    <div className="my-2 border-t border-slate-200" />
+                    {showBecomePartner && (
+                      <>
+                        <Link href="/product-seller/login" className="px-4 py-3 text-sm font-medium text-slate-800 hover:bg-slate-100">
+                          Product Seller Login
+                        </Link>
+                        <Link href="/service-seller/login" className="px-4 py-2 text-sm text-slate-700 hover:bg-slate-100">
+                          Service Seller Login
+                        </Link>
+                        <div className="my-2 border-t border-slate-200" />
+                      </>
+                    )}
+                    {isLoggedIn ? (
+                      <Link href="/dashboard" className="px-4 py-3 text-sm font-medium text-slate-800 hover:bg-slate-100">
+                        Dashboard
                       </Link>
-                      <Link href="/service-seller/login" className="px-4 py-2 text-sm text-slate-700 hover:bg-slate-100">
-                        Service Seller Login
+                    ) : (
+                      <>
+                        <Link href="/customer/login" className="px-4 py-3 text-sm font-medium text-slate-800 hover:bg-slate-100">
+                          Customer Login
+                        </Link>
+                        <Link href="/customer/registration" className="px-4 py-2 text-sm text-slate-700 hover:bg-slate-100">
+                          Customer Registration
+                        </Link>
+                      </>
+                    )}
+                    {showOrdersLink && (
+                      <Link href="/my-orders" className="px-4 py-3 text-sm text-slate-700 hover:bg-slate-100">
+                        Orders
                       </Link>
-                      <div className="my-2 border-t border-slate-200" />
-                    </>
-                  )}
-                  {isLoggedIn ? (
-                    <Link href="/dashboard" className="px-4 py-3 text-sm font-medium text-slate-800 hover:bg-slate-100">
-                      Dashboard
-                    </Link>
-                  ) : (
-                    <>
-                      <Link href="/customer/login" className="px-4 py-3 text-sm font-medium text-slate-800 hover:bg-slate-100">
-                        Customer Login
+                    )}
+                    {canUseWishlist && (
+                      <Link href="/browse" className="px-4 py-3 text-sm text-slate-700 hover:bg-slate-100">
+                        Wishlist ({wishlistCount})
                       </Link>
-                      <Link href="/customer/registration" className="px-4 py-2 text-sm text-slate-700 hover:bg-slate-100">
-                        Customer Registration
-                      </Link>
-                    </>
-                  )}
-                  {showOrdersLink && (
-                    <Link href="/my-orders" className="px-4 py-3 text-sm text-slate-700 hover:bg-slate-100">
-                      Orders
-                    </Link>
-                  )}
-                  {canUseWishlist && (
-                    <Link href="/browse" className="px-4 py-3 text-sm text-slate-700 hover:bg-slate-100">
-                      Wishlist ({wishlistCount})
-                    </Link>
-                  )}
-                </div>
-              </SheetContent>
-            </Sheet>
+                    )}
+                  </div>
+                </SheetContent>
+              </Sheet>
             ) : (
               <Button
                 type="button"
@@ -355,93 +355,93 @@ export function SiteHeader() {
 
           {/* Desktop nav - hidden on mobile (menu is in sheet) */}
           <div className="hidden md:flex md:items-center md:gap-2 lg:gap-3 order-50">
-          {mounted ? (
-            <>
-              {showBecomePartner && (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button type="button" className="flex items-center rounded px-2 py-1.5 text-left text-sm font-medium text-white hover:bg-slate-600/50 hover:outline-none focus:outline-none sm:px-3">
-                      Become a partner
-                      <ChevronDown className="ml-1 h-4 w-4 shrink-0" />
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-52">
-                    <DropdownMenuItem asChild>
-                      <Link href="/product-seller/login">Product Seller Login</Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link href="/service-seller/login">Service Seller Login</Link>
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )}
-              {isLoggedIn ? (
-                <Link
-                  href="/dashboard"
-                  className="flex flex-col items-start rounded px-1.5 py-1 text-left text-white hover:bg-slate-600/50 hover:outline-none focus:outline-none sm:px-2 sm:py-1.5"
-                >
-                  <span className="text-xs font-semibold leading-tight sm:text-sm">Dashboard</span>
-                </Link>
-              ) : (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button type="button" className="flex flex-col items-start rounded px-1.5 py-1 text-left text-white hover:outline-none focus:outline-none sm:px-2 sm:py-1.5">
-                      <span className="text-[10px] text-blue-100 sm:text-xs">Hello, sign in</span>
-                      <span className="flex items-center text-xs font-semibold leading-tight sm:text-sm">
-                        Customer
-                        <ChevronDown className="ml-0.5 h-3 w-3 shrink-0 sm:h-4 sm:w-4" />
-                      </span>
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-48">
-                    <DropdownMenuItem asChild>
-                      <Link href="/customer/login">Customer Login</Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link href="/customer/registration">Customer Registration</Link>
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )}
-          </>
-          ) : (
-            <>
-              {showBecomePartner && (
-                <Link href="/product-seller/login" className="rounded px-2 py-1.5 text-sm font-medium text-white hover:bg-slate-600/50 sm:px-3">
-                  Become a partner
-                </Link>
-              )}
-              {isLoggedIn ? (
-                <Link
-                  href="/dashboard"
-                  className="flex flex-col items-start rounded px-1.5 py-1 text-left text-white hover:opacity-90 sm:px-2 sm:py-1.5"
-                >
-                  <span className="text-xs font-semibold leading-tight sm:text-sm">Dashboard</span>
-                </Link>
-              ) : (
-                <Link
-                  href="/customer/login"
-                  className="flex flex-col items-start rounded px-1.5 py-1 text-left text-white hover:opacity-90 sm:px-2 sm:py-1.5"
-                >
-                  <span className="text-[10px] text-blue-100 sm:text-xs">Hello, sign in</span>
-                  <span className="flex items-center text-xs font-semibold leading-tight sm:text-sm">
-                    Customer
-                    <ChevronDown className="ml-0.5 h-3 w-3 shrink-0 sm:h-4 sm:w-4" />
-                  </span>
-                </Link>
-              )}
-            </>
-          )}
+            {mounted ? (
+              <>
+                {showBecomePartner && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button type="button" className="flex items-center rounded px-2 py-1.5 text-left text-sm font-medium text-white hover:bg-slate-600/50 hover:outline-none focus:outline-none sm:px-3">
+                        Become a partner
+                        <ChevronDown className="ml-1 h-4 w-4 shrink-0" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-52">
+                      <DropdownMenuItem asChild>
+                        <Link href="/product-seller/login">Product Seller Login</Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link href="/service-seller/login">Service Seller Login</Link>
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
+                {isLoggedIn ? (
+                  <Link
+                    href="/dashboard"
+                    className="flex flex-col items-start rounded px-1.5 py-1 text-left text-white hover:bg-slate-600/50 hover:outline-none focus:outline-none sm:px-2 sm:py-1.5"
+                  >
+                    <span className="text-xs font-semibold leading-tight sm:text-sm">Dashboard</span>
+                  </Link>
+                ) : (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button type="button" className="flex flex-col items-start rounded px-1.5 py-1 text-left text-white hover:outline-none focus:outline-none sm:px-2 sm:py-1.5">
+                        <span className="text-[10px] text-blue-100 sm:text-xs">Hello, sign in</span>
+                        <span className="flex items-center text-xs font-semibold leading-tight sm:text-sm">
+                          Customer
+                          <ChevronDown className="ml-0.5 h-3 w-3 shrink-0 sm:h-4 sm:w-4" />
+                        </span>
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-48">
+                      <DropdownMenuItem asChild>
+                        <Link href="/customer/login">Customer Login</Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link href="/customer/registration">Customer Registration</Link>
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
+              </>
+            ) : (
+              <>
+                {showBecomePartner && (
+                  <Link href="/product-seller/login" className="rounded px-2 py-1.5 text-sm font-medium text-white hover:bg-slate-600/50 sm:px-3">
+                    Become a partner
+                  </Link>
+                )}
+                {isLoggedIn ? (
+                  <Link
+                    href="/dashboard"
+                    className="flex flex-col items-start rounded px-1.5 py-1 text-left text-white hover:opacity-90 sm:px-2 sm:py-1.5"
+                  >
+                    <span className="text-xs font-semibold leading-tight sm:text-sm">Dashboard</span>
+                  </Link>
+                ) : (
+                  <Link
+                    href="/customer/login"
+                    className="flex flex-col items-start rounded px-1.5 py-1 text-left text-white hover:opacity-90 sm:px-2 sm:py-1.5"
+                  >
+                    <span className="text-[10px] text-blue-100 sm:text-xs">Hello, sign in</span>
+                    <span className="flex items-center text-xs font-semibold leading-tight sm:text-sm">
+                      Customer
+                      <ChevronDown className="ml-0.5 h-3 w-3 shrink-0 sm:h-4 sm:w-4" />
+                    </span>
+                  </Link>
+                )}
+              </>
+            )}
 
-          {showOrdersLink && (
-            <Link
-              href="/my-orders"
-              className="order-40 flex flex-col items-start rounded px-2 py-1.5 text-white hover:opacity-90"
-              aria-label="Orders"
-            >
-              <span className="font-semibold">Orders</span>
-            </Link>
-          )}
+            {showOrdersLink && (
+              <Link
+                href="/my-orders"
+                className="order-40 flex flex-col items-start rounded px-2 py-1.5 text-white hover:opacity-90"
+                aria-label="Orders"
+              >
+                <span className="font-semibold">Orders</span>
+              </Link>
+            )}
           </div>
 
           {canUseCart && (
@@ -686,10 +686,10 @@ export function SiteFooter() {
                   <a href="mailto:Support@meeemsl.com" className="hover:text-slate-900 hover:underline">Support@meeemsl.com</a>
                 </div>
               </li>
-              <li className="flex items-center gap-2">
+              {/* <li className="flex items-center gap-2">
                 <Phone className="h-4 w-4 shrink-0 text-slate-600" />
                 <a href="tel:+23288300000" className="hover:text-slate-900 hover:underline">+232 88 300000</a>
-              </li>
+              </li> */}
             </ul>
             <div className="mt-3 flex gap-2">
               <a href="#" aria-label="Facebook" className="flex h-8 w-8 items-center justify-center rounded-full bg-white/80 text-slate-700 shadow-sm transition-colors hover:bg-white hover:shadow sm:h-9 sm:w-9">
