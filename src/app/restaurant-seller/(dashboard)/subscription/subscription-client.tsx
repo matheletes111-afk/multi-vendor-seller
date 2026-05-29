@@ -6,8 +6,32 @@ import { Button } from "@/ui/button"
 import { formatCurrency } from "@/lib/utils"
 import { PageLoader } from "@/components/ui/page-loader"
 
-type Plan = { id: string; name: string; displayName: string; description: string | null; price: number; maxProducts: number | null; maxOrders: number | null }
-type Subscription = { id: string; planId: string; status: string; currentPeriodEnd: string | null; plan: { name: string; displayName: string } } | null
+type Plan = {
+  id: string
+  name: string
+  displayName: string
+  description: string | null
+  price: number
+  duration?: number
+  maxProducts: number | null
+  maxOrders: number | null
+}
+type Subscription = {
+  id: string
+  planId: string
+  status: string
+  currentPeriodEnd: string | null
+  plan: { id: string; name: string; displayName: string }
+} | null
+
+const formatPlanDuration = (durationDays?: number) => {
+  const days = durationDays || 30
+  if (days === 30) return "/month"
+  if (days === 90) return "/3 months"
+  if (days === 180) return "/6 months"
+  if (days === 365) return "/year"
+  return `/${days} days`
+}
 
 export function RestaurantSubscriptionClient() {
   const [subscription, setSubscription] = useState<Subscription>(null)
@@ -22,13 +46,13 @@ export function RestaurantSubscriptionClient() {
     ]).then(([sub, p]) => { setSubscription(sub); setPlans(p) }).finally(() => setLoading(false))
   }, [])
 
-  async function handleSubscribe(planName: string) {
-    setCheckoutLoading(planName)
+  async function handleSubscribe(planId: string) {
+    setCheckoutLoading(planId)
     try {
       const res = await fetch("/api/restaurant-seller/subscription/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ planName, test: true }),
+        body: JSON.stringify({ planId, test: true }),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(data.error || "Checkout failed")
@@ -66,13 +90,13 @@ export function RestaurantSubscriptionClient() {
 
       <div className="grid gap-6 md:grid-cols-3">
         {plans.map((plan) => (
-          <Card key={plan.id} className={`rounded-[2rem] border-2 shadow-xl overflow-hidden hover:shadow-2xl transition-all duration-300 ${subscription?.plan?.name === plan.name ? "border-primary" : "border-slate-100"}`}>
+          <Card key={plan.id} className={`rounded-[2rem] border-2 shadow-xl overflow-hidden hover:shadow-2xl transition-all duration-300 ${subscription?.planId === plan.id ? "border-primary" : "border-slate-100"}`}>
             <CardHeader className="pb-4">
               <CardTitle className="text-xl font-black text-slate-800">{plan.displayName}</CardTitle>
               <CardDescription className="font-medium text-slate-500 line-clamp-2 mt-1">{plan.description}</CardDescription>
             </CardHeader>
             <CardContent>
-              <p className="text-4xl font-black text-slate-800 mb-6">{formatCurrency(plan.price)}{plan.price > 0 && <span className="text-base font-medium text-slate-400">/month</span>}</p>
+              <p className="text-4xl font-black text-slate-800 mb-6">{formatCurrency(plan.price)}{plan.price > 0 && <span className="text-base font-medium text-slate-400">{formatPlanDuration(plan.duration)}</span>}</p>
               <ul className="space-y-3 mb-8 pt-4 border-t border-slate-50 font-medium text-slate-600">
                 <li className="text-sm flex justify-between">
                   <span>Max Menu Items:</span> 
@@ -83,12 +107,12 @@ export function RestaurantSubscriptionClient() {
                   <span className="font-bold text-slate-800">{plan.maxOrders === null ? "Unlimited" : `${plan.maxOrders}/month`}</span>
                 </li>
               </ul>
-              {subscription?.plan?.name !== plan.name && (
-                <Button className="w-full h-12 rounded-2xl font-bold uppercase tracking-widest text-xs bg-slate-900 text-white hover:bg-slate-800 hover:text-white" variant="default" disabled={!!checkoutLoading} onClick={() => handleSubscribe(plan.name)}>
-                  {checkoutLoading === plan.name ? "Switching..." : subscription ? "Upgrade" : "Subscribe"}
+              {subscription?.planId !== plan.id && (
+                <Button className="w-full h-12 rounded-2xl font-bold uppercase tracking-widest text-xs bg-slate-900 text-white hover:bg-slate-800 hover:text-white" variant="default" disabled={!!checkoutLoading} onClick={() => handleSubscribe(plan.id)}>
+                  {checkoutLoading === plan.id ? "Switching..." : subscription ? "Upgrade" : "Subscribe"}
                 </Button>
               )}
-              {subscription?.plan?.name === plan.name && <Button disabled className="w-full h-12 rounded-2xl font-bold uppercase tracking-widest text-xs bg-slate-100 text-slate-400">Current Plan</Button>}
+              {subscription?.planId === plan.id && <Button disabled className="w-full h-12 rounded-2xl font-bold uppercase tracking-widest text-xs bg-slate-100 text-slate-400">Current Plan</Button>}
             </CardContent>
           </Card>
         ))}

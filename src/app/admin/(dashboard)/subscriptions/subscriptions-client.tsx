@@ -36,6 +36,24 @@ import {
   ArrowRight
 } from "lucide-react"
 
+const formatPlanDuration = (durationDays?: number) => {
+  const days = durationDays || 30
+  if (days === 30) return "/month"
+  if (days === 90) return "/3 months"
+  if (days === 180) return "/6 months"
+  if (days === 365) return "/year"
+  return `/${days} days`
+}
+
+const formatPlanDurationShort = (durationDays?: number) => {
+  const days = durationDays || 30
+  if (days === 30) return " /mo"
+  if (days === 90) return " /3mo"
+  if (days === 180) return " /6mo"
+  if (days === 365) return " /yr"
+  return ` /${days}d`
+}
+
 export function SubscriptionsClient() {
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -350,6 +368,11 @@ export function SubscriptionsClient() {
             <Layers className="w-6 h-6 text-primary" />
             Subscription Plans
           </h2>
+          <Link href="/admin/subscriptions/new">
+            <Button className="font-semibold bg-primary hover:bg-primary/95">
+              + Create Plan
+            </Button>
+          </Link>
         </div>
         <div className="grid gap-6 md:grid-cols-3">
           {plans.map((plan: any) => {
@@ -373,7 +396,7 @@ export function SubscriptionsClient() {
                 <CardContent className="space-y-4">
                   <div className="flex items-baseline gap-1">
                     <span className="text-4xl font-medium">{formatCurrency(plan.price)}</span>
-                    {plan.price > 0 && <span className="text-muted-foreground font-medium text-sm">/month</span>}
+                    {plan.price > 0 && <span className="text-muted-foreground font-medium text-sm">{formatPlanDuration(plan.duration)}</span>}
                   </div>
 
                   <div className="grid grid-cols-2 gap-2 text-sm">
@@ -524,7 +547,9 @@ export function SubscriptionsClient() {
                       <div className="font-medium">
                         {formatCurrency(subscription.plan?.price ?? 0)}
                         {(subscription.plan?.price ?? 0) > 0 && (
-                          <span className="text-muted-foreground text-xs font-normal"> /mo</span>
+                          <span className="text-muted-foreground text-xs font-normal">
+                            {formatPlanDurationShort(subscription.plan?.duration)}
+                          </span>
                         )}
                       </div>
                     </TableCell>

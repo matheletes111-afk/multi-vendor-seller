@@ -58,6 +58,7 @@ export async function PUT(
       displayName,
       description,
       price,
+      duration,
       maxProducts,
       maxOrders,
       maxRooms,
@@ -77,20 +78,41 @@ export async function PUT(
         )
       }
       
-      // Rule: Only one 0 RS plan allowed
+      // Rule: Only one 0 RS plan allowed per type
       if (price === 0 && existing.price !== 0) {
         const otherFreePlan = await prisma.plan.findFirst({
-          where: { price: 0, id: { not: id } }
+          where: { price: 0, type: existing.type, id: { not: id } }
         })
         if (otherFreePlan) {
           return NextResponse.json(
-            { error: "Only one plan with 0 RS is allowed. A 0 RS plan already exists." }, 
+            { error: "Only one plan with 0 RS is allowed for this seller type. A 0 RS plan already exists." }, 
             { status: 400 }
           )
         }
       }
       updateData.price = price
     }
+
+    if (duration !== undefined) {
+      const planDuration = parseInt(duration, 10) || 30
+      // Check duplicate
+      const duplicate = await prisma.plan.findFirst({
+        where: {
+          name: existing.name,
+          type: existing.type,
+          duration: planDuration,
+          id: { not: id }
+        }
+      })
+      if (duplicate) {
+        return NextResponse.json(
+          { error: "A plan with this name, type, and duration already exists." },
+          { status: 400 }
+        )
+      }
+      updateData.duration = planDuration
+    }
+
     if (maxProducts === null || maxProducts === "unlimited" || maxProducts === "") {
       updateData.maxProducts = null
     } else if (typeof maxProducts === "number") {
