@@ -219,16 +219,40 @@ export default function RestaurantSettingsClient() {
                       <div className="space-y-2"><Label>GST Customer Name</Label><Input name="gstCustomerName" defaultValue={seller.businessInfo?.gstCustomerName || ""} /></div>
                    </div>
                )}
-               <div className="grid md:grid-cols-3 gap-4 pt-4 border-t">
+               <div className="grid md:grid-cols-2 gap-4 pt-4 border-t">
                   <div className="space-y-2"><Label>Landmark</Label><Input name="landmark" defaultValue={seller.businessInfo?.landmark || ""} /></div>
                   <div className="space-y-2"><Label>City</Label><Input name="city" defaultValue={seller.businessInfo?.city || ""} /></div>
+               </div>
+               <div className="grid md:grid-cols-2 gap-4 pt-4 border-t">
+                  <div className="space-y-2"><Label>Area</Label><Input name="district" defaultValue={seller.businessInfo?.district || ""} /></div>
                   <div className="space-y-2"><Label>State</Label><Input name="state" defaultValue={seller.businessInfo?.state || ""} /></div>
                </div>
                <div className="pt-2">
                   <Label>Registration Certificate</Label>
                   <div className="flex items-center gap-3 mt-1">
-                    <Input name="busRegCert" type="file" className="max-w-xs" />
-                    {seller.businessInfo?.busRegCertUrl && <a href={seller.businessInfo.busRegCertUrl} target="_blank" className="text-primary hover:underline text-sm flex items-center gap-1"><FileText className="h-4 w-4" /> View Current</a>}
+                     <Input name="busRegCert" type="file" className="max-w-xs" />
+                     {seller.businessInfo?.busRegCertUrl && <a href={seller.businessInfo.busRegCertUrl} target="_blank" className="text-primary hover:underline text-sm flex items-center gap-1"><FileText className="h-4 w-4" /> View Current</a>}
+                  </div>
+               </div>
+               <div className="pt-2">
+                  <Label>City Council Certificate</Label>
+                  <div className="flex items-center gap-3 mt-1">
+                     <Input name="cityCouncilCert" type="file" className="max-w-xs" />
+                     {seller.businessInfo?.cityCouncilCertUrl && <a href={seller.businessInfo.cityCouncilCertUrl} target="_blank" className="text-primary hover:underline text-sm flex items-center gap-1"><FileText className="h-4 w-4" /> View Current</a>}
+                  </div>
+               </div>
+               <div className="pt-2">
+                  <Label>GST TIN Certificate</Label>
+                  <div className="flex items-center gap-3 mt-1">
+                     <Input name="gstTinCert" type="file" className="max-w-xs" />
+                     {seller.businessInfo?.gstTinCertUrl && <a href={seller.businessInfo.gstTinCertUrl} target="_blank" className="text-primary hover:underline text-sm flex items-center gap-1"><FileText className="h-4 w-4" /> View Current</a>}
+                  </div>
+               </div>
+               <div className="pt-2">
+                  <Label>Proof of Address (Edsa, Guma, etc.)</Label>
+                  <div className="flex items-center gap-3 mt-1">
+                     <Input name="addressProof" type="file" className="max-w-xs" />
+                     {seller.businessInfo?.addressProofUrl && <a href={seller.businessInfo.addressProofUrl} target="_blank" className="text-primary hover:underline text-sm flex items-center gap-1"><FileText className="h-4 w-4" /> View Current</a>}
                   </div>
                </div>
                <Button type="submit" disabled={saving === "business"}>{saving === "business" ? "Saving..." : "Update Business Info"}</Button>
@@ -376,21 +400,56 @@ export default function RestaurantSettingsClient() {
            <CardContent>
              <form onSubmit={(e) => handleSave(e, "bank")} className="space-y-4">
                 <div className="grid md:grid-cols-2 gap-4">
-                   <div className="space-y-2"><Label>Bank Name</Label><Input name="bankName" defaultValue={seller.bankDetails?.bankName || ""} /></div>
-                   <div className="space-y-2"><Label>Account Holder</Label><Input name="accountHolderName" defaultValue={seller.bankDetails?.accountHolderName || ""} /></div>
-                </div>
-                <div className="grid md:grid-cols-2 gap-4">
-                   <div className="space-y-2"><Label>Account Number</Label><Input name="accountNumber" defaultValue={seller.bankDetails?.accountNumber || ""} /></div>
-                   <div className="space-y-2"><Label>Branch / IFSC</Label><Input name="branchName" defaultValue={seller.bankDetails?.branchName || ""} /></div>
-                </div>
-                <div className="pt-2">
-                   <Label>Passbook / Check Copy</Label>
-                   <div className="flex items-center gap-3 mt-1">
-                      <Input name="passbook" type="file" className="max-w-xs" />
-                      {seller.bankDetails?.passbookUrl && <a href={seller.bankDetails.passbookUrl} target="_blank" className="text-primary hover:underline text-sm flex items-center gap-1"><FileText className="h-4 w-4" /> View Current</a>}
-                   </div>
-                </div>
-                <Button type="submit" disabled={saving === "bank"}>{saving === "bank" ? "Saving..." : "Update Payout Details"}</Button>
+                    <div className="space-y-2"><Label>Bank Name</Label><Input name="bankName" defaultValue={seller.bankDetails?.bankName || ""} /></div>
+                    <div className="space-y-2"><Label>Bank Address</Label><Input name="bankAddress" defaultValue={seller.bankDetails?.bankAddress || ""} /></div>
+                 </div>
+                 <div className="grid md:grid-cols-2 gap-4">
+                    <div className="space-y-2"><Label>Account Holder</Label><Input name="accountHolderName" defaultValue={seller.bankDetails?.accountHolderName || ""} /></div>
+                    <div className="space-y-2"><Label>Account Number</Label><Input name="accountNumber" defaultValue={seller.bankDetails?.accountNumber || ""} /></div>
+                 </div>
+                 <div className="grid md:grid-cols-2 gap-4">
+                    <div className="space-y-2"><Label>BBAN Number</Label><Input name="bbanNumber" defaultValue={seller.bankDetails?.bbanNumber || ""} /></div>
+                    <div className="space-y-2"><Label>Branch / IFSC</Label><Input name="branchName" defaultValue={seller.bankDetails?.branchName || ""} /></div>
+                 </div>
+                 <div className="grid md:grid-cols-2 gap-4 pt-2">
+                    <div className="space-y-2">
+                       <Label>Mobile Money Option</Label>
+                       <Select name="mobileMoneyOption" defaultValue={seller.bankDetails?.mobileMoneyOption || "Orange Money"}>
+                         <SelectTrigger><SelectValue /></SelectTrigger>
+                         <SelectContent>
+                           <SelectItem value="Orange Money">Orange Money</SelectItem>
+                           <SelectItem value="Africell Money">Africell Money</SelectItem>
+                         </SelectContent>
+                       </Select>
+                    </div>
+                    <div className="space-y-2">
+                       <Label>Preferred Payout Method</Label>
+                       <Select name="preferredPayoutMethod" defaultValue={seller.bankDetails?.preferredPayoutMethod || "Bank Transfer"}>
+                         <SelectTrigger><SelectValue /></SelectTrigger>
+                         <SelectContent>
+                           <SelectItem value="Bank Transfer">Bank Transfer</SelectItem>
+                           <SelectItem value="Mobile Wallet">Mobile Money</SelectItem>
+                         </SelectContent>
+                       </Select>
+                    </div>
+                 </div>
+                 <div className="grid md:grid-cols-2 gap-4 pt-2">
+                    <div className="space-y-2">
+                       <Label>Passbook / Check Copy</Label>
+                       <div className="flex items-center gap-3 mt-1">
+                          <Input name="passbook" type="file" />
+                          {seller.bankDetails?.passbookUrl && <a href={seller.bankDetails.passbookUrl} target="_blank" className="text-primary hover:underline text-sm flex items-center gap-1"><FileText className="h-4 w-4" /> View Current</a>}
+                       </div>
+                    </div>
+                    <div className="space-y-2">
+                       <Label>Bank Letter with Account No.</Label>
+                       <div className="flex items-center gap-3 mt-1">
+                          <Input name="bankLetter" type="file" />
+                          {seller.bankDetails?.bankLetterUrl && <a href={seller.bankDetails.bankLetterUrl} target="_blank" className="text-primary hover:underline text-sm flex items-center gap-1"><FileText className="h-4 w-4" /> View Current</a>}
+                       </div>
+                    </div>
+                 </div>
+                 <Button type="submit" disabled={saving === "bank"}>{saving === "bank" ? "Saving..." : "Update Payout Details"}</Button>
              </form>
            </CardContent>
         </Card>

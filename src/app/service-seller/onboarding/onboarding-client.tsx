@@ -435,7 +435,7 @@ export function ServiceOnboardingClient() {
                             <Input id="gstCustomerName" name="gstCustomerName" defaultValue={seller.businessInfo?.gstCustomerName || ""} required={haveGst} className="h-12 rounded-xl" />
                           </div>
                           <div className="space-y-2">
-                            <Label htmlFor="gstInvNo">Inv No *</Label>
+                            <Label htmlFor="gstInvNo">GST Identification Number *</Label>
                             <Input id="gstInvNo" name="gstInvNo" defaultValue={seller.businessInfo?.gstInvNo || ""} required={haveGst} className="h-12 rounded-xl" />
                           </div>
                         </div>
@@ -447,10 +447,34 @@ export function ServiceOnboardingClient() {
                     <Input id="taxIdNumber" name="taxIdNumber" defaultValue={seller.businessInfo?.taxIdNumber || ""} required className="h-12 rounded-xl" />
                   </div>
                   <div className="space-y-2 pt-2">
-                    <Label htmlFor="busRegCert" className="text-sm font-semibold">Business Registration Certificate / Trade License</Label>
+                    <Label htmlFor="busRegCert" className="text-sm font-semibold">Business Registration Certificate / Trade License *</Label>
                     <div className="mt-2 p-6 border-2 border-dashed rounded-2xl bg-purple-50/30 border-purple-100 transition-colors hover:bg-purple-50/50 text-center">
-                      <Input id="busRegCert" name="busRegCert" type="file" accept=".pdf,.jpg,.jpeg,.png" className="cursor-pointer" onChange={(e) => handleFileChange(e, "busRegCert")} />
+                      <Input id="busRegCert" name="busRegCert" type="file" accept=".pdf,.jpg,.jpeg,.png" className="cursor-pointer" required={!seller.businessInfo?.busRegCertUrl} onChange={(e) => handleFileChange(e, "busRegCert")} />
                       {renderFilePreview("busRegCert", seller.businessInfo?.busRegCertUrl, "Registration Certificate")}
+                      <p className="text-[10px] text-slate-400 mt-2">Upload PDF or Image (Max 5MB)</p>
+                    </div>
+                  </div>
+                  <div className="space-y-2 pt-2">
+                    <Label htmlFor="cityCouncilCert" className="text-sm font-semibold">City Council Certificate *</Label>
+                    <div className="mt-2 p-6 border-2 border-dashed rounded-2xl bg-purple-50/30 border-purple-100 transition-colors hover:bg-purple-50/50 text-center">
+                      <Input id="cityCouncilCert" name="cityCouncilCert" type="file" accept=".pdf,.jpg,.jpeg,.png" className="cursor-pointer" required={!seller.businessInfo?.cityCouncilCertUrl} onChange={(e) => handleFileChange(e, "cityCouncilCert")} />
+                      {renderFilePreview("cityCouncilCert", seller.businessInfo?.cityCouncilCertUrl, "City Council Certificate")}
+                      <p className="text-[10px] text-slate-400 mt-2">Upload PDF or Image (Max 5MB)</p>
+                    </div>
+                  </div>
+                  <div className="space-y-2 pt-2">
+                    <Label htmlFor="gstTinCert" className="text-sm font-semibold">GST TIN Certificate *</Label>
+                    <div className="mt-2 p-6 border-2 border-dashed rounded-2xl bg-purple-50/30 border-purple-100 transition-colors hover:bg-purple-50/50 text-center">
+                      <Input id="gstTinCert" name="gstTinCert" type="file" accept=".pdf,.jpg,.jpeg,.png" className="cursor-pointer" required={!seller.businessInfo?.gstTinCertUrl} onChange={(e) => handleFileChange(e, "gstTinCert")} />
+                      {renderFilePreview("gstTinCert", seller.businessInfo?.gstTinCertUrl, "GST TIN Certificate")}
+                      <p className="text-[10px] text-slate-400 mt-2">Upload PDF or Image (Max 5MB)</p>
+                    </div>
+                  </div>
+                  <div className="space-y-2 pt-2">
+                    <Label htmlFor="addressProof" className="text-sm font-semibold">Proof of Address (Edsa, Guma, etc.) *</Label>
+                    <div className="mt-2 p-6 border-2 border-dashed rounded-2xl bg-purple-50/30 border-purple-100 transition-colors hover:bg-purple-50/50 text-center">
+                      <Input id="addressProof" name="addressProof" type="file" accept=".pdf,.jpg,.jpeg,.png" className="cursor-pointer" required={!seller.businessInfo?.addressProofUrl} onChange={(e) => handleFileChange(e, "addressProof")} />
+                      {renderFilePreview("addressProof", seller.businessInfo?.addressProofUrl, "Proof of Address")}
                       <p className="text-[10px] text-slate-400 mt-2">Upload PDF or Image (Max 5MB)</p>
                     </div>
                   </div>
@@ -466,7 +490,7 @@ export function ServiceOnboardingClient() {
                         <Input id="city" name="city" defaultValue={seller.businessInfo?.city || ""} required className="h-12 rounded-xl" />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="district">District *</Label>
+                        <Label htmlFor="district">Area *</Label>
                         <Input id="district" name="district" defaultValue={seller.businessInfo?.district || ""} required className="h-12 rounded-xl" />
                       </div>
                       <div className="space-y-2" style={{ "display": "none" }}>
@@ -576,14 +600,31 @@ export function ServiceOnboardingClient() {
                       <Input id="accountNumber" name="accountNumber" defaultValue={seller.bankDetails?.accountNumber || ""} required className="h-12 rounded-xl" />
                     </div>
                     <div className="space-y-2">
+                      <Label htmlFor="bbanNumber">BBAN Number *</Label>
+                      <Input id="bbanNumber" name="bbanNumber" defaultValue={seller.bankDetails?.bbanNumber || ""} required className="h-12 rounded-xl" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
                       <Label htmlFor="branchName">Branch Name *</Label>
                       <Input id="branchName" name="branchName" defaultValue={seller.bankDetails?.branchName || ""} required className="h-12 rounded-xl" />
                     </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="bankAddress">Bank Address *</Label>
+                      <Input id="bankAddress" name="bankAddress" defaultValue={seller.bankDetails?.bankAddress || ""} required className="h-12 rounded-xl" />
+                    </div>
                   </div>
-                  <div className="space-y-2 p-6 bg-slate-50 rounded-2xl border border-slate-100">
-                    <Label htmlFor="bankPassbook" className="text-sm font-semibold block mb-2">Cancelled Check or Passbook Photo *</Label>
-                    <Input id="bankPassbook" name="bankPassbook" type="file" accept="image/*,.pdf" className="cursor-pointer" onChange={(e) => handleFileChange(e, "bankPassbook")} />
-                    {renderFilePreview("bankPassbook", seller.bankDetails?.passbookUrl, "Bank Document")}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2 p-6 bg-slate-50 rounded-2xl border border-slate-100">
+                      <Label htmlFor="bankPassbook" className="text-sm font-semibold block mb-2">Cancelled Check or Passbook Photo *</Label>
+                      <Input id="bankPassbook" name="bankPassbook" type="file" accept="image/*,.pdf" className="cursor-pointer" onChange={(e) => handleFileChange(e, "bankPassbook")} />
+                      {renderFilePreview("bankPassbook", seller.bankDetails?.passbookUrl, "Bank Document")}
+                    </div>
+                    <div className="space-y-2 p-6 bg-slate-50 rounded-2xl border border-slate-100">
+                      <Label htmlFor="bankLetter" className="text-sm font-semibold block mb-2">Attach Bank Letter with Acc number *</Label>
+                      <Input id="bankLetter" name="bankLetter" type="file" accept="image/*,.pdf" className="cursor-pointer" onChange={(e) => handleFileChange(e, "bankLetter")} />
+                      {renderFilePreview("bankLetter", seller.bankDetails?.bankLetterUrl, "Bank Letter")}
+                    </div>
                   </div>
 
                   <div className="space-y-4 pt-4 border-t border-slate-100">
@@ -608,13 +649,13 @@ export function ServiceOnboardingClient() {
                           <input type="radio" name="preferredPayoutMethod" value="Bank Transfer" className="h-4 w-4 accent-teal-600" defaultChecked={seller.bankDetails?.preferredPayoutMethod === "Bank Transfer"} />
                           <span className={cn("text-sm font-medium", seller.bankDetails?.preferredPayoutMethod === "Bank Transfer" ? "text-teal-700" : "text-slate-600")}>Bank Transfer</span>
                         </label>
-                        {/* <label className={cn(
+                        <label className={cn(
                           "flex items-center gap-3 p-4 border rounded-xl cursor-pointer transition-all hover:bg-slate-50",
-                          seller.bankDetails?.preferredPayoutMethod === "Mobile Wallet" ? "bg-teal-50 border-teal-500 ring-1 ring-teal-500" : "bg-white"
+                          (seller.bankDetails?.preferredPayoutMethod === "Mobile Wallet" || seller.bankDetails?.preferredPayoutMethod === "Mobile Money") ? "bg-teal-50 border-teal-500 ring-1 ring-teal-500" : "bg-white"
                         )}>
-                          <input type="radio" name="preferredPayoutMethod" value="Mobile Wallet" className="h-4 w-4 accent-teal-600" defaultChecked={seller.bankDetails?.preferredPayoutMethod === "Mobile Wallet"} />
-                          <span className={cn("text-sm font-medium", seller.bankDetails?.preferredPayoutMethod === "Mobile Wallet" ? "text-teal-700" : "text-slate-600")}>Mobile Wallet</span>
-                        </label> */}
+                          <input type="radio" name="preferredPayoutMethod" value="Mobile Wallet" className="h-4 w-4 accent-teal-600" defaultChecked={seller.bankDetails?.preferredPayoutMethod === "Mobile Wallet" || seller.bankDetails?.preferredPayoutMethod === "Mobile Money"} />
+                          <span className={cn("text-sm font-medium", (seller.bankDetails?.preferredPayoutMethod === "Mobile Wallet" || seller.bankDetails?.preferredPayoutMethod === "Mobile Money") ? "text-teal-700" : "text-slate-600")}>Mobile Money</span>
+                        </label>
                       </div>
                     </div>
                   </div>

@@ -64,19 +64,30 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json().catch(() => ({}))
-    const planName = body.planName as SubscriptionPlan | undefined
+    const { planId, planName } = body as { planId?: string; planName?: SubscriptionPlan }
 
-    if (!planName) {
-      return NextResponse.json({ error: "planName is required" }, { status: 400 })
+    if (!planId && !planName) {
+      return NextResponse.json({ error: "planId or planName is required" }, { status: 400 })
     }
 
-    const plan = await prisma.plan.findFirst({
-      where: {
-        name: planName,
-        type: "PRODUCT_SERVICE",
-      },
-      orderBy: { price: "asc" },
-    })
+    let plan
+    if (planId) {
+      plan = await prisma.plan.findUnique({
+        where: { id: planId },
+      })
+      if (plan && plan.type !== "PRODUCT_SERVICE") {
+        plan = null
+      }
+    } else if (planName) {
+      plan = await prisma.plan.findFirst({
+        where: {
+          name: planName,
+          type: "PRODUCT_SERVICE",
+        },
+        orderBy: { price: "asc" },
+      })
+    }
+
     if (!plan) {
       return NextResponse.json({ error: "Plan not found" }, { status: 404 })
     }

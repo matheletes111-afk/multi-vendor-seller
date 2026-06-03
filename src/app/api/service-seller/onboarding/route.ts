@@ -98,6 +98,10 @@ export async function POST(request: NextRequest) {
       }
 
       let busRegCertUrl = seller.businessInfo?.busRegCertUrl
+      let cityCouncilCertUrl = seller.businessInfo?.cityCouncilCertUrl
+      let gstTinCertUrl = seller.businessInfo?.gstTinCertUrl
+      let addressProofUrl = seller.businessInfo?.addressProofUrl
+
       if (formData) {
         const file = formData.get("busRegCert") as File | null
         if (file && file.size > 0) {
@@ -109,12 +113,46 @@ export async function POST(request: NextRequest) {
             prefix: "bus-reg",
           })
         }
+        const fileCC = formData.get("cityCouncilCert") as File | null
+        if (fileCC && fileCC.size > 0) {
+          cityCouncilCertUrl = await uploadPublicFile({
+            folder: "onboarding/business",
+            ext: path.extname(fileCC.name) || ".pdf",
+            contentType: fileCC.type || "application/pdf",
+            buffer: Buffer.from(await fileCC.arrayBuffer()),
+            prefix: "city-council",
+          })
+        }
+        const fileGST = formData.get("gstTinCert") as File | null
+        if (fileGST && fileGST.size > 0) {
+          gstTinCertUrl = await uploadPublicFile({
+            folder: "onboarding/business",
+            ext: path.extname(fileGST.name) || ".pdf",
+            contentType: fileGST.type || "application/pdf",
+            buffer: Buffer.from(await fileGST.arrayBuffer()),
+            prefix: "gst-tin",
+          })
+        }
+        const fileAP = formData.get("addressProof") as File | null
+        if (fileAP && fileAP.size > 0) {
+          addressProofUrl = await uploadPublicFile({
+            folder: "onboarding/business",
+            ext: path.extname(fileAP.name) || ".pdf",
+            contentType: fileAP.type || "application/pdf",
+            buffer: Buffer.from(await fileAP.arrayBuffer()),
+            prefix: "address-proof",
+          })
+        }
+      } else if (jsonBody?.data) {
+        if (jsonBody.data.cityCouncilCertUrl) cityCouncilCertUrl = jsonBody.data.cityCouncilCertUrl
+        if (jsonBody.data.gstTinCertUrl) gstTinCertUrl = jsonBody.data.gstTinCertUrl
+        if (jsonBody.data.addressProofUrl) addressProofUrl = jsonBody.data.addressProofUrl
       }
 
       await (prisma as any).sellerBusinessInfo.upsert({
         where: { sellerId: seller.id },
-        update: { ...data, busRegCertUrl },
-        create: { ...data, busRegCertUrl, sellerId: seller.id },
+        update: { ...data, busRegCertUrl, cityCouncilCertUrl, gstTinCertUrl, addressProofUrl },
+        create: { ...data, busRegCertUrl, cityCouncilCertUrl, gstTinCertUrl, addressProofUrl, sellerId: seller.id },
       })
     } else if (step === 3) {
       // Step 3: KYC
@@ -179,14 +217,17 @@ export async function POST(request: NextRequest) {
       // Step 4: Bank Details
       const data = formData ? {
         bankName: formData.get("bankName") as string,
+        bankAddress: formData.get("bankAddress") as string,
         accountHolderName: formData.get("accountHolderName") as string,
         accountNumber: formData.get("accountNumber") as string,
+        bbanNumber: formData.get("bbanNumber") as string,
         branchName: formData.get("branchName") as string,
         mobileMoneyOption: formData.get("mobileMoneyOption") as string,
         preferredPayoutMethod: formData.get("preferredPayoutMethod") as string,
       } : jsonBody.data
 
       let passbookUrl = seller.bankDetails?.passbookUrl
+      let bankLetterUrl = seller.bankDetails?.bankLetterUrl
       if (formData) {
         const file = formData.get("bankPassbook") as File | null
         if (file && file.size > 0) {
@@ -198,12 +239,22 @@ export async function POST(request: NextRequest) {
             prefix: "bank-passbook",
           })
         }
+        const fileBL = formData.get("bankLetter") as File | null
+        if (fileBL && fileBL.size > 0) {
+          bankLetterUrl = await uploadPublicFile({
+            folder: "onboarding/bank",
+            ext: path.extname(fileBL.name) || ".pdf",
+            contentType: fileBL.type || "application/pdf",
+            buffer: Buffer.from(await fileBL.arrayBuffer()),
+            prefix: "bank-letter",
+          })
+        }
       }
 
       await (prisma as any).sellerBankDetails.upsert({
         where: { sellerId: seller.id },
-        update: { ...data, passbookUrl },
-        create: { ...data, passbookUrl, sellerId: seller.id },
+        update: { ...data, passbookUrl, bankLetterUrl },
+        create: { ...data, passbookUrl, bankLetterUrl, sellerId: seller.id },
       })
     } else if (step === 5) {
       // Step 5: Store Setup & Service Categories

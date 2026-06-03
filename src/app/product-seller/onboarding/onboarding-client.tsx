@@ -436,7 +436,7 @@ export function ProductOnboardingClient() {
                             <Input id="gstCustomerName" name="gstCustomerName" defaultValue={seller.businessInfo?.gstCustomerName || ""} required={haveGst} className="h-12 rounded-xl" />
                           </div>
                           <div className="space-y-2">
-                            <Label htmlFor="gstInvNo">Inv No *</Label>
+                            <Label htmlFor="gstInvNo">GST Identification Number *</Label>
                             <Input id="gstInvNo" name="gstInvNo" defaultValue={seller.businessInfo?.gstInvNo || ""} required={haveGst} className="h-12 rounded-xl" />
                           </div>
                         </div>
@@ -448,10 +448,31 @@ export function ProductOnboardingClient() {
                     <Input id="taxIdNumber" name="taxIdNumber" defaultValue={seller.businessInfo?.taxIdNumber || ""} required className="h-12 rounded-xl" />
                   </div>
                   <div className="space-y-2 pt-2">
-                    <Label htmlFor="busRegCert" className="text-sm font-semibold">Business Registration Certificate</Label>
+                    <Label htmlFor="busRegCert" className="text-sm font-semibold">Business Registration Certificate *</Label>
                     <div className="mt-2 p-6 border-2 border-dashed rounded-2xl bg-purple-50/30 border-purple-100 transition-colors hover:bg-purple-50/50">
-                      <Input id="busRegCert" name="busRegCert" type="file" accept=".pdf,.jpg,.jpeg,.png" className="cursor-pointer" onChange={(e) => handleFileChange(e, "busRegCert")} />
+                      <Input id="busRegCert" name="busRegCert" type="file" accept=".pdf,.jpg,.jpeg,.png" className="cursor-pointer" required={!seller.businessInfo?.busRegCertUrl} onChange={(e) => handleFileChange(e, "busRegCert")} />
                       {renderFilePreview("busRegCert", seller.businessInfo?.busRegCertUrl, "Registration Certificate")}
+                    </div>
+                  </div>
+                  <div className="space-y-2 pt-2">
+                    <Label htmlFor="cityCouncilCert" className="text-sm font-semibold">City Council Certificate *</Label>
+                    <div className="mt-2 p-6 border-2 border-dashed rounded-2xl bg-purple-50/30 border-purple-100 transition-colors hover:bg-purple-50/50">
+                      <Input id="cityCouncilCert" name="cityCouncilCert" type="file" accept=".pdf,.jpg,.jpeg,.png" className="cursor-pointer" required={!seller.businessInfo?.cityCouncilCertUrl} onChange={(e) => handleFileChange(e, "cityCouncilCert")} />
+                      {renderFilePreview("cityCouncilCert", seller.businessInfo?.cityCouncilCertUrl, "City Council Certificate")}
+                    </div>
+                  </div>
+                  <div className="space-y-2 pt-2">
+                    <Label htmlFor="gstTinCert" className="text-sm font-semibold">GST TIN Certificate *</Label>
+                    <div className="mt-2 p-6 border-2 border-dashed rounded-2xl bg-purple-50/30 border-purple-100 transition-colors hover:bg-purple-50/50">
+                      <Input id="gstTinCert" name="gstTinCert" type="file" accept=".pdf,.jpg,.jpeg,.png" className="cursor-pointer" required={!seller.businessInfo?.gstTinCertUrl} onChange={(e) => handleFileChange(e, "gstTinCert")} />
+                      {renderFilePreview("gstTinCert", seller.businessInfo?.gstTinCertUrl, "GST TIN Certificate")}
+                    </div>
+                  </div>
+                  <div className="space-y-2 pt-2">
+                    <Label htmlFor="addressProof" className="text-sm font-semibold">Proof of Address (Edsa, Guma, etc.) *</Label>
+                    <div className="mt-2 p-6 border-2 border-dashed rounded-2xl bg-purple-50/30 border-purple-100 transition-colors hover:bg-purple-50/50">
+                      <Input id="addressProof" name="addressProof" type="file" accept=".pdf,.jpg,.jpeg,.png" className="cursor-pointer" required={!seller.businessInfo?.addressProofUrl} onChange={(e) => handleFileChange(e, "addressProof")} />
+                      {renderFilePreview("addressProof", seller.businessInfo?.addressProofUrl, "Proof of Address")}
                     </div>
                   </div>
 
@@ -466,7 +487,7 @@ export function ProductOnboardingClient() {
                         <Input id="city" name="city" defaultValue={seller.businessInfo?.city || ""} required className="h-12 rounded-xl" />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="district">District *</Label>
+                        <Label htmlFor="district">Area *</Label>
                         <Input id="district" name="district" defaultValue={seller.businessInfo?.district || ""} required className="h-12 rounded-xl" />
                       </div>
                       <div className="space-y-2" style={{ "display": "none" }}>
@@ -574,15 +595,33 @@ export function ProductOnboardingClient() {
                       <Input id="accountNumber" name="accountNumber" defaultValue={seller.bankDetails?.accountNumber || ""} required className="h-12 rounded-xl" />
                     </div>
                     <div className="space-y-2">
+                      <Label htmlFor="bbanNumber">BBAN Number *</Label>
+                      <Input id="bbanNumber" name="bbanNumber" defaultValue={seller.bankDetails?.bbanNumber || ""} required className="h-12 rounded-xl" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
                       <Label htmlFor="branchName">Branch Name *</Label>
                       <Input id="branchName" name="branchName" defaultValue={seller.bankDetails?.branchName || ""} required className="h-12 rounded-xl" />
                     </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="bankAddress">Bank Address *</Label>
+                      <Input id="bankAddress" name="bankAddress" defaultValue={seller.bankDetails?.bankAddress || ""} required className="h-12 rounded-xl" />
+                    </div>
                   </div>
-                  <div className="space-y-2 p-6 bg-slate-50 rounded-2xl border border-slate-100">
-                    <Label htmlFor="bankPassbook" className="text-sm font-semibold mb-2 block">Bank Document Proof *</Label>
-                    <p className="text-xs text-slate-500 mb-3">Upload passbook front page or cancelled check</p>
-                    <Input id="bankPassbook" name="bankPassbook" type="file" accept="image/*,.pdf" onChange={(e) => handleFileChange(e, "bankPassbook")} />
-                    {renderFilePreview("bankPassbook", seller.bankDetails?.passbookUrl, "Bank Document")}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2 p-6 bg-slate-50 rounded-2xl border border-slate-100">
+                      <Label htmlFor="bankPassbook" className="text-sm font-semibold mb-2 block">Bank Document Proof *</Label>
+                      <p className="text-xs text-slate-500 mb-3">Upload passbook front page or cancelled check</p>
+                      <Input id="bankPassbook" name="bankPassbook" type="file" accept="image/*,.pdf" onChange={(e) => handleFileChange(e, "bankPassbook")} />
+                      {renderFilePreview("bankPassbook", seller.bankDetails?.passbookUrl, "Bank Document")}
+                    </div>
+                    <div className="space-y-2 p-6 bg-slate-50 rounded-2xl border border-slate-100">
+                      <Label htmlFor="bankLetter" className="text-sm font-semibold mb-2 block">Bank Letter with Account No. *</Label>
+                      <p className="text-xs text-slate-500 mb-3">Attach official bank letter showing account number</p>
+                      <Input id="bankLetter" name="bankLetter" type="file" accept="image/*,.pdf" onChange={(e) => handleFileChange(e, "bankLetter")} />
+                      {renderFilePreview("bankLetter", seller.bankDetails?.bankLetterUrl, "Bank Letter")}
+                    </div>
                   </div>
 
                   <div className="space-y-4 pt-4 border-t border-slate-100">
@@ -603,10 +642,10 @@ export function ProductOnboardingClient() {
                           <input type="radio" name="preferredPayoutMethod" value="Bank Transfer" className="w-4 h-4 accent-purple-600" defaultChecked={seller.bankDetails?.preferredPayoutMethod === "Bank Transfer"} />
                           <span className="text-sm font-medium text-slate-700">Bank Transfer</span>
                         </label>
-                        {/* <label className="flex items-center gap-3 p-4 border rounded-xl cursor-pointer hover:bg-slate-50 flex-1 transition-all">
-                          <input type="radio" name="preferredPayoutMethod" value="Mobile Wallet" className="w-4 h-4 accent-purple-600" defaultChecked={seller.bankDetails?.preferredPayoutMethod === "Mobile Wallet"} />
-                          <span className="text-sm font-medium text-slate-700">Mobile Wallet</span>
-                        </label> */}
+                        <label className="flex items-center gap-3 p-4 border rounded-xl cursor-pointer hover:bg-slate-50 flex-1 transition-all">
+                          <input type="radio" name="preferredPayoutMethod" value="Mobile Wallet" className="w-4 h-4 accent-purple-600" defaultChecked={seller.bankDetails?.preferredPayoutMethod === "Mobile Wallet" || seller.bankDetails?.preferredPayoutMethod === "Mobile Money"} />
+                          <span className="text-sm font-medium text-slate-700">Mobile Money</span>
+                        </label>
                       </div>
                     </div>
                   </div>

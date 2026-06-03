@@ -152,6 +152,12 @@ export async function PUT(request: NextRequest) {
       const taxIdNumber = fd.get("taxIdNumber") as string | null
       const gstCustomerName = fd.get("gstCustomerName") as string | null
       const gstInvNo = fd.get("gstInvNo") as string | null
+      const street = fd.get("street") as string | null
+      const city = fd.get("city") as string | null
+      const district = fd.get("district") as string | null
+      const state = fd.get("state") as string | null
+      const postalCode = fd.get("postalCode") as string | null
+      const natureOfBusiness = fd.get("natureOfBusiness") as string | null
 
       const busInfoData: any = {}
       if (businessName !== null) busInfoData.businessName = businessName.trim()
@@ -176,6 +182,12 @@ export async function PUT(request: NextRequest) {
       if (gstInvNo !== null && (busInfoData.haveGst ?? seller.businessInfo?.haveGst)) {
         busInfoData.gstInvNo = gstInvNo.trim()
       }
+      if (street !== null) busInfoData.street = street.trim()
+      if (city !== null) busInfoData.city = city.trim()
+      if (district !== null) busInfoData.district = district.trim()
+      if (state !== null) busInfoData.state = state.trim()
+      if (postalCode !== null) busInfoData.postalCode = postalCode.trim()
+      if (natureOfBusiness !== null) busInfoData.natureOfBusiness = natureOfBusiness.trim()
 
       const busRegCert = fd.get("busRegCert") as File | null
       if (busRegCert && busRegCert.size > 0) {
@@ -188,6 +200,39 @@ export async function PUT(request: NextRequest) {
         })
       }
 
+      const cityCouncilCert = fd.get("cityCouncilCert") as File | null
+      if (cityCouncilCert && cityCouncilCert.size > 0) {
+        busInfoData.cityCouncilCertUrl = await uploadPublicFile({
+          folder: "onboarding/business",
+          ext: path.extname(cityCouncilCert.name) || ".pdf",
+          contentType: cityCouncilCert.type || "application/pdf",
+          buffer: Buffer.from(await cityCouncilCert.arrayBuffer()),
+          prefix: "city-council",
+        })
+      }
+
+      const gstTinCert = fd.get("gstTinCert") as File | null
+      if (gstTinCert && gstTinCert.size > 0) {
+        busInfoData.gstTinCertUrl = await uploadPublicFile({
+          folder: "onboarding/business",
+          ext: path.extname(gstTinCert.name) || ".pdf",
+          contentType: gstTinCert.type || "application/pdf",
+          buffer: Buffer.from(await gstTinCert.arrayBuffer()),
+          prefix: "gst-tin",
+        })
+      }
+
+      const addressProof = fd.get("addressProof") as File | null
+      if (addressProof && addressProof.size > 0) {
+        busInfoData.addressProofUrl = await uploadPublicFile({
+          folder: "onboarding/business",
+          ext: path.extname(addressProof.name) || ".pdf",
+          contentType: addressProof.type || "application/pdf",
+          buffer: Buffer.from(await addressProof.arrayBuffer()),
+          prefix: "address-proof",
+        })
+      }
+
       if (Object.keys(busInfoData).length > 0) {
         sellerUpdateData.businessInfo = {
           upsert: {
@@ -196,6 +241,25 @@ export async function PUT(request: NextRequest) {
           }
         }
       }
+
+      const bankName = fd.get("bankName") as string | null
+      const bankAddress = fd.get("bankAddress") as string | null
+      const accountHolderName = fd.get("accountHolderName") as string | null
+      const accountNumber = fd.get("accountNumber") as string | null
+      const bbanNumber = fd.get("bbanNumber") as string | null
+      const branchName = fd.get("branchName") as string | null
+      const mobileMoneyOption = fd.get("mobileMoneyOption") as string | null
+      const preferredPayoutMethod = fd.get("preferredPayoutMethod") as string | null
+
+      const bankData: any = {}
+      if (bankName !== null) bankData.bankName = bankName.trim()
+      if (bankAddress !== null) bankData.bankAddress = bankAddress.trim()
+      if (accountHolderName !== null) bankData.accountHolderName = accountHolderName.trim()
+      if (accountNumber !== null) bankData.accountNumber = accountNumber.trim()
+      if (bbanNumber !== null) bankData.bbanNumber = bbanNumber.trim()
+      if (branchName !== null) bankData.branchName = branchName.trim()
+      if (mobileMoneyOption !== null) bankData.mobileMoneyOption = mobileMoneyOption.trim()
+      if (preferredPayoutMethod !== null) bankData.preferredPayoutMethod = preferredPayoutMethod.trim()
 
       const bankPassbook = fd.get("bankPassbook") as File | null
       if (bankPassbook && bankPassbook.size > 0) {
@@ -206,10 +270,26 @@ export async function PUT(request: NextRequest) {
           buffer: Buffer.from(await bankPassbook.arrayBuffer()),
           prefix: "bank-passbook",
         })
+        bankData.passbookUrl = url
+      }
+
+      const bankLetter = fd.get("bankLetter") as File | null
+      if (bankLetter && bankLetter.size > 0) {
+        const url = await uploadPublicFile({
+          folder: "onboarding/bank",
+          ext: path.extname(bankLetter.name) || ".pdf",
+          contentType: bankLetter.type || "application/pdf",
+          buffer: Buffer.from(await bankLetter.arrayBuffer()),
+          prefix: "bank-letter",
+        })
+        bankData.bankLetterUrl = url
+      }
+
+      if (Object.keys(bankData).length > 0) {
         sellerUpdateData.bankDetails = {
           upsert: {
-            update: { passbookUrl: url },
-            create: { passbookUrl: url }
+            update: bankData,
+            create: { ...bankData }
           }
         }
       }

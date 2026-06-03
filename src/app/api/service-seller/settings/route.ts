@@ -157,6 +157,36 @@ export async function PUT(request: NextRequest) {
             prefix: "bus-reg",
         })
     }
+    const cityCouncilCert = fd.get("cityCouncilCert") as File | null
+    if (cityCouncilCert && cityCouncilCert.size > 0) {
+        busInfoData.cityCouncilCertUrl = await uploadPublicFile({
+            folder: "onboarding/business",
+            ext: path.extname(cityCouncilCert.name) || ".pdf",
+            contentType: cityCouncilCert.type || "application/pdf",
+            buffer: Buffer.from(await cityCouncilCert.arrayBuffer()),
+            prefix: "city-council",
+        })
+    }
+    const gstTinCert = fd.get("gstTinCert") as File | null
+    if (gstTinCert && gstTinCert.size > 0) {
+        busInfoData.gstTinCertUrl = await uploadPublicFile({
+            folder: "onboarding/business",
+            ext: path.extname(gstTinCert.name) || ".pdf",
+            contentType: gstTinCert.type || "application/pdf",
+            buffer: Buffer.from(await gstTinCert.arrayBuffer()),
+            prefix: "gst-tin",
+        })
+    }
+    const addressProof = fd.get("addressProof") as File | null
+    if (addressProof && addressProof.size > 0) {
+        busInfoData.addressProofUrl = await uploadPublicFile({
+            folder: "onboarding/business",
+            ext: path.extname(addressProof.name) || ".pdf",
+            contentType: addressProof.type || "application/pdf",
+            buffer: Buffer.from(await addressProof.arrayBuffer()),
+            prefix: "address-proof",
+        })
+    }
 
     if (Object.keys(busInfoData).length > 0) {
         await (prisma as any).sellerBusinessInfo.upsert({
@@ -166,19 +196,52 @@ export async function PUT(request: NextRequest) {
         })
     }
 
+    const bankName = fd.get("bankName") as string | null
+    const bankAddress = fd.get("bankAddress") as string | null
+    const accountHolderName = fd.get("accountHolderName") as string | null
+    const accountNumber = fd.get("accountNumber") as string | null
+    const bbanNumber = fd.get("bbanNumber") as string | null
+    const branchName = fd.get("branchName") as string | null
+    const mobileMoneyOption = fd.get("mobileMoneyOption") as string | null
+    const preferredPayoutMethod = fd.get("preferredPayoutMethod") as string | null
+
     const bankPassbook = fd.get("bankPassbook") as File | null
+    const bankLetter = fd.get("bankLetter") as File | null
+
+    const bankData: any = {}
+    if (bankName !== null) bankData.bankName = bankName.trim()
+    if (bankAddress !== null) bankData.bankAddress = bankAddress.trim()
+    if (accountHolderName !== null) bankData.accountHolderName = accountHolderName.trim()
+    if (accountNumber !== null) bankData.accountNumber = accountNumber.trim()
+    if (bbanNumber !== null) bankData.bbanNumber = bbanNumber.trim()
+    if (branchName !== null) bankData.branchName = branchName.trim()
+    if (mobileMoneyOption !== null) bankData.mobileMoneyOption = mobileMoneyOption.trim()
+    if (preferredPayoutMethod !== null) bankData.preferredPayoutMethod = preferredPayoutMethod.trim()
+
     if (bankPassbook && bankPassbook.size > 0) {
-        const url = await uploadPublicFile({
+        bankData.passbookUrl = await uploadPublicFile({
             folder: "onboarding/bank",
             ext: path.extname(bankPassbook.name) || ".jpg",
             contentType: bankPassbook.type || "image/jpeg",
             buffer: Buffer.from(await bankPassbook.arrayBuffer()),
             prefix: "bank-passbook",
         })
+    }
+    if (bankLetter && bankLetter.size > 0) {
+        bankData.bankLetterUrl = await uploadPublicFile({
+            folder: "onboarding/bank",
+            ext: path.extname(bankLetter.name) || ".pdf",
+            contentType: bankLetter.type || "application/pdf",
+            buffer: Buffer.from(await bankLetter.arrayBuffer()),
+            prefix: "bank-letter",
+        })
+    }
+
+    if (Object.keys(bankData).length > 0) {
         await (prisma as any).sellerBankDetails.upsert({
             where: { sellerId: seller.id },
-            update: { passbookUrl: url },
-            create: { sellerId: seller.id, passbookUrl: url }
+            update: bankData,
+            create: { ...bankData, sellerId: seller.id }
         })
     }
 

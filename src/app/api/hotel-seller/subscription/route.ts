@@ -3,6 +3,8 @@ import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { isHotelSeller } from "@/lib/rbac"
 
+import { activateHotelFreePlan } from "@/lib/subscriptions"
+
 export async function GET() {
   try {
     const session = await auth()
@@ -21,7 +23,18 @@ export async function GET() {
       },
     })
 
-    const subscription = seller?.subscription || null
+    let subscription = seller?.subscription || null
+
+    if (!subscription && seller) {
+      const newSub = await activateHotelFreePlan(seller.id)
+      if (newSub) {
+        subscription = await prisma.hotelSubscription.findUnique({
+          where: { hotelSellerId: seller.id },
+          include: { plan: true },
+        })
+      }
+    }
+
     return NextResponse.json(subscription)
   } catch (error) {
     console.error("Error fetching hotel subscription:", error)

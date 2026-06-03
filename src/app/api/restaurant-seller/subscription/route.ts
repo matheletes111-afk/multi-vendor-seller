@@ -3,6 +3,8 @@ import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { isRestaurantSeller } from "@/lib/rbac"
 
+import { activateRestaurantFreePlan } from "@/lib/subscriptions"
+
 export async function GET() {
   try {
     const session = await auth()
@@ -21,7 +23,18 @@ export async function GET() {
       },
     })
 
-    const subscription = seller?.subscription || null
+    let subscription = seller?.subscription || null
+
+    if (!subscription && seller) {
+      const newSub = await activateRestaurantFreePlan(seller.id)
+      if (newSub) {
+        subscription = await prisma.restaurantSubscription.findUnique({
+          where: { restaurantSellerId: seller.id },
+          include: { plan: true },
+        })
+      }
+    }
+
     return NextResponse.json(subscription)
   } catch (error) {
     console.error("Error fetching restaurant subscription:", error)
