@@ -1,0 +1,80 @@
+# NEW CHANGES & FIELDS ONLY: PRODUCT & SERVICE SELLER ONBOARDING & SETTINGS API
+
+This document details only the new fields and document uploads added to the Product and Service Seller onboarding and settings APIs.
+
+---
+
+## 1. ENDPOINTS AFFECTED
+
+### PRODUCT SELLER
+- **Onboarding GET (Pre-fetch)**: `/mobileapi/product-seller/onboarding`
+- **Onboarding POST**: `/mobileapi/product-seller/onboarding`
+- **Settings GET (Pre-fetch)**: `/mobileapi/product-seller/settings`
+- **Settings PUT**: `/mobileapi/product-seller/settings`
+
+### SERVICE SELLER
+- **Onboarding GET (Pre-fetch)**: `/mobileapi/service-seller/onboarding`
+- **Onboarding POST**: `/mobileapi/service-seller/onboarding`
+- **Settings GET (Pre-fetch)**: `/mobileapi/service-seller/settings`
+- **Settings PUT**: `/mobileapi/service-seller/settings`
+
+---
+
+## 2. NEW FIELDS ADDED (BY STEP / SECTION)
+
+### A. Business Information (Step 1 / Business Info)
+The following new fields and file uploads (type `File`) must be submitted/handled:
+
+- **district** (string) - Label changed from "District" to **"Area"**
+- **cityCouncilCert** (File) - City Council Certificate (PDF/Image)
+- **gstTinCert** (File) - GST TIN Certificate (PDF/Image)
+- **addressProof** (File) - Proof of Address (Edsa, Guma, etc.) (PDF/Image)
+
+*Returned in responses/GET settings as:*
+- `cityCouncilCertUrl` (string)
+- `gstTinCertUrl` (string)
+- `addressProofUrl` (string)
+
+---
+
+### B. Bank Details (Step 3 / Bank Details)
+The following new bank, mobile money, and payout file fields must be submitted/handled:
+
+- **bankAddress** (string) - Bank Branch Address
+- **bbanNumber** (string) - BBAN number
+- **mobileMoneyOption** (string) - "Orange Money" or "Africell Money" (Required if preferredPayoutMethod is "Mobile Wallet")
+- **preferredPayoutMethod** (string) - Updated to accept **"Mobile Wallet"** in addition to "Bank Transfer"
+- **bankLetter** (File) - Bank letter with account number (PDF/Image)
+
+*Returned in responses/GET settings as:*
+- `bankAddress` (string)
+- `bbanNumber` (string)
+- `mobileMoneyOption` (string)
+- `preferredPayoutMethod` (string)
+- `bankLetterUrl` (string)
+
+---
+
+## 3. GET / PRE-FETCH API RESPONSE STRUCTURE
+When calling `GET` on onboarding or settings endpoints, the response data contains these new fields nested inside `businessInfo` and `bankDetails`:
+
+```json
+{
+  "success": true,
+  "data": {
+    "businessInfo": {
+      "district": "Western Area", // Renamed in UI to Area
+      "cityCouncilCertUrl": "https://s3.url/city_council.pdf", // NEW URL
+      "gstTinCertUrl": "https://s3.url/gst_tin.pdf", // NEW URL
+      "addressProofUrl": "https://s3.url/address_proof.pdf" // NEW URL
+    },
+    "bankDetails": {
+      "bankAddress": "45 Charlotte St, Freetown", // NEW
+      "bbanNumber": "SL001002003004005", // NEW
+      "preferredPayoutMethod": "Mobile Wallet", // Accept "Mobile Wallet" or "Bank Transfer"
+      "mobileMoneyOption": "Orange Money", // "Orange Money" or "Africell Money"
+      "bankLetterUrl": "https://s3.url/bank_letter.jpg" // NEW URL
+    }
+  }
+}
+```

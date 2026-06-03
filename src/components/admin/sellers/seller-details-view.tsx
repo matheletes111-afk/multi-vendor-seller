@@ -134,7 +134,7 @@ export function SellerDetailsView({
                     <span className="text-sm font-medium">{seller.businessInfo?.gstCustomerName || "—"}</span>
                   </div>
                   <div className="flex flex-col gap-1">
-                    <span className="text-[10px] font-medium text-muted-foreground/60">GST Inv No</span>
+                    <span className="text-[10px] font-medium text-muted-foreground/60">GST Identification Number</span>
                     <span className="text-sm font-medium">{seller.businessInfo?.gstInvNo || "—"}</span>
                   </div>
                 </>
@@ -281,7 +281,11 @@ export function SellerDetailsView({
               <DocumentThumbnail url={seller.kyc?.idBackUrl} title="ID Back Image" />
               <DocumentThumbnail url={seller.kyc?.selfieUrl} title="Live Selfie" />
               <DocumentThumbnail url={seller.businessInfo?.busRegCertUrl} title="Business Reg Document" mimeType="application/pdf" />
+              <DocumentThumbnail url={seller.businessInfo?.cityCouncilCertUrl} title="City Council Cert" mimeType="application/pdf" />
+              <DocumentThumbnail url={seller.businessInfo?.gstTinCertUrl} title="GST TIN Cert" mimeType="application/pdf" />
+              <DocumentThumbnail url={seller.businessInfo?.addressProofUrl} title="Proof of Address" mimeType="application/pdf" />
               <DocumentThumbnail url={seller.bankDetails?.passbookUrl} title="Bank Passbook" />
+              <DocumentThumbnail url={seller.bankDetails?.bankLetterUrl} title="Bank Letter" mimeType="application/pdf" />
             </div>
           </CardContent>
         </Card>

@@ -86,6 +86,10 @@ export async function POST(request: NextRequest) {
         haveGst,
         gstInvNo: haveGst ? (formData.get("gstInvNo") as string) : null,
         gstCustomerName: haveGst ? (formData.get("gstCustomerName") as string) : null,
+        busRegCertUrl: seller.businessInfo?.busRegCertUrl || null,
+        cityCouncilCertUrl: seller.businessInfo?.cityCouncilCertUrl || null,
+        gstTinCertUrl: seller.businessInfo?.gstTinCertUrl || null,
+        addressProofUrl: seller.businessInfo?.addressProofUrl || null,
       } : {
         ...jsonBody.data,
         haveGst,
@@ -109,7 +113,7 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // Handle Business Reg Cert if present
+      // Handle Business Reg Cert and other certs if present
       if (formData) {
         const certFile = formData.get("busRegCert") as File | null;
         if (certFile && certFile.size > 0) {
@@ -121,6 +125,42 @@ export async function POST(request: NextRequest) {
             prefix: "bus-reg",
           });
           (businessData as any).busRegCertUrl = url;
+        }
+
+        const fileCC = formData.get("cityCouncilCert") as File | null;
+        if (fileCC && fileCC.size > 0) {
+          const url = await uploadPublicFile({
+            folder: "onboarding/business",
+            ext: path.extname(fileCC.name) || ".pdf",
+            contentType: fileCC.type || "application/pdf",
+            buffer: Buffer.from(await fileCC.arrayBuffer()),
+            prefix: "city-council",
+          });
+          (businessData as any).cityCouncilCertUrl = url;
+        }
+
+        const fileGST = formData.get("gstTinCert") as File | null;
+        if (fileGST && fileGST.size > 0) {
+          const url = await uploadPublicFile({
+            folder: "onboarding/business",
+            ext: path.extname(fileGST.name) || ".pdf",
+            contentType: fileGST.type || "application/pdf",
+            buffer: Buffer.from(await fileGST.arrayBuffer()),
+            prefix: "gst-tin",
+          });
+          (businessData as any).gstTinCertUrl = url;
+        }
+
+        const fileAP = formData.get("addressProof") as File | null;
+        if (fileAP && fileAP.size > 0) {
+          const url = await uploadPublicFile({
+            folder: "onboarding/business",
+            ext: path.extname(fileAP.name) || ".pdf",
+            contentType: fileAP.type || "application/pdf",
+            buffer: Buffer.from(await fileAP.arrayBuffer()),
+            prefix: "address-proof",
+          });
+          (businessData as any).addressProofUrl = url;
         }
       }
 
@@ -188,11 +228,15 @@ export async function POST(request: NextRequest) {
       // Step 3: Bank Details
       const bankData: any = formData ? {
         bankName: formData.get("bankName") as string,
+        bankAddress: formData.get("bankAddress") as string,
         accountHolderName: formData.get("accountHolderName") as string,
         accountNumber: formData.get("accountNumber") as string,
+        bbanNumber: formData.get("bbanNumber") as string,
         branchName: formData.get("branchName") as string,
         preferredPayoutMethod: formData.get("preferredPayoutMethod") as string,
         mobileMoneyOption: formData.get("mobileMoneyOption") as string,
+        passbookUrl: seller.bankDetails?.passbookUrl || null,
+        bankLetterUrl: seller.bankDetails?.bankLetterUrl || null,
       } : { ...jsonBody.data };
 
       if (formData) {
@@ -204,6 +248,16 @@ export async function POST(request: NextRequest) {
             contentType: passbook.type || "image/jpeg",
             buffer: Buffer.from(await passbook.arrayBuffer()),
             prefix: "bank-passbook",
+          });
+        }
+        const bankLetter = formData.get("bankLetter") as File | null;
+        if (bankLetter && bankLetter.size > 0) {
+          bankData.bankLetterUrl = await uploadPublicFile({
+            folder: "onboarding/bank",
+            ext: path.extname(bankLetter.name) || ".pdf",
+            contentType: bankLetter.type || "application/pdf",
+            buffer: Buffer.from(await bankLetter.arrayBuffer()),
+            prefix: "bank-letter",
           });
         }
       }

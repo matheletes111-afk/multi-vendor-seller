@@ -103,14 +103,18 @@ export async function PUT(request: NextRequest) {
         const gstCustomerName = (fd.get("gstCustomerName") as string)?.trim()
         const landmark = (fd.get("landmark") as string)?.trim()
         const city = (fd.get("city") as string)?.trim()
+        const district = (fd.get("district") as string)?.trim()
         const state = (fd.get("state") as string)?.trim()
         const busRegCert = fd.get("busRegCert") as File | null
+        const cityCouncilCert = fd.get("cityCouncilCert") as File | null
+        const gstTinCert = fd.get("gstTinCert") as File | null
+        const addressProof = fd.get("addressProof") as File | null
 
         const managerName = (fd.get("managerName") as string)?.trim()
         const pocContact = (fd.get("pocContact") as string)?.trim()
 
         const busData: any = {
-            businessName, businessType, taxIdNumber, landmark, city, state, managerName, pocContact
+            businessName, businessType, taxIdNumber, landmark, city, district, state, managerName, pocContact
         }
         if (haveGstRaw !== null) {
             const h = haveGstRaw === "true"
@@ -126,6 +130,33 @@ export async function PUT(request: NextRequest) {
                 contentType: busRegCert.type,
                 buffer: Buffer.from(await busRegCert.arrayBuffer()),
                 prefix: "restaurant-bus-reg",
+            })
+        }
+        if (cityCouncilCert && cityCouncilCert.size > 0) {
+            busData.cityCouncilCertUrl = await uploadPublicFile({
+                folder: "restaurant-onboarding/business",
+                ext: path.extname(cityCouncilCert.name) || ".pdf",
+                contentType: cityCouncilCert.type,
+                buffer: Buffer.from(await cityCouncilCert.arrayBuffer()),
+                prefix: "restaurant-city-council",
+            })
+        }
+        if (gstTinCert && gstTinCert.size > 0) {
+            busData.gstTinCertUrl = await uploadPublicFile({
+                folder: "restaurant-onboarding/business",
+                ext: path.extname(gstTinCert.name) || ".pdf",
+                contentType: gstTinCert.type,
+                buffer: Buffer.from(await gstTinCert.arrayBuffer()),
+                prefix: "restaurant-gst-tin",
+            })
+        }
+        if (addressProof && addressProof.size > 0) {
+            busData.addressProofUrl = await uploadPublicFile({
+                folder: "restaurant-onboarding/business",
+                ext: path.extname(addressProof.name) || ".pdf",
+                contentType: addressProof.type,
+                buffer: Buffer.from(await addressProof.arrayBuffer()),
+                prefix: "restaurant-address-proof",
             })
         }
 
@@ -163,12 +194,17 @@ export async function PUT(request: NextRequest) {
     // 4. Handle Bank
     if (section === "bank") {
         const bankName = (fd.get("bankName") as string)?.trim()
+        const bankAddress = (fd.get("bankAddress") as string)?.trim()
         const accountHolderName = (fd.get("accountHolderName") as string)?.trim()
         const accountNumber = (fd.get("accountNumber") as string)?.trim()
+        const bbanNumber = (fd.get("bbanNumber") as string)?.trim()
         const branchName = (fd.get("branchName") as string)?.trim()
+        const mobileMoneyOption = (fd.get("mobileMoneyOption") as string)?.trim()
+        const preferredPayoutMethod = (fd.get("preferredPayoutMethod") as string)?.trim()
         const passbook = fd.get("passbook") as File | null
+        const bankLetter = fd.get("bankLetter") as File | null
 
-        const bankData: any = { bankName, accountHolderName, accountNumber, branchName }
+        const bankData: any = { bankName, bankAddress, accountHolderName, accountNumber, bbanNumber, branchName, mobileMoneyOption, preferredPayoutMethod }
 
         if (passbook && passbook.size > 0) {
             bankData.passbookUrl = await uploadPublicFile({
@@ -177,6 +213,15 @@ export async function PUT(request: NextRequest) {
                 contentType: passbook.type,
                 buffer: Buffer.from(await passbook.arrayBuffer()),
                 prefix: "restaurant-bank-passbook",
+            })
+        }
+        if (bankLetter && bankLetter.size > 0) {
+            bankData.bankLetterUrl = await uploadPublicFile({
+                folder: "restaurant-onboarding/bank",
+                ext: path.extname(bankLetter.name) || ".pdf",
+                contentType: bankLetter.type || "application/pdf",
+                buffer: Buffer.from(await bankLetter.arrayBuffer()),
+                prefix: "restaurant-bank-letter",
             })
         }
 

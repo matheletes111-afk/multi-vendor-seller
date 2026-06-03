@@ -124,6 +124,7 @@ model User {
   hotelSeller   HotelSeller?
   restaurantSeller RestaurantSeller?
   orders        Order[]
+  hotelBookings HotelBooking[]
   reviews       Review[]
   cartItems     CartItem[]
   wishlistItems WishlistItem[]
@@ -300,6 +301,9 @@ model SellerBusinessInfo {
   businessRegNumber String?
   taxIdNumber       String?
   busRegCertUrl     String?
+  cityCouncilCertUrl String?
+  gstTinCertUrl      String?
+  addressProofUrl    String?
   street            String?
   city              String?
   district          String?
@@ -337,10 +341,13 @@ model SellerBankDetails {
   id                   String   @id @default(cuid())
   sellerId             String   @unique
   bankName             String?
+  bankAddress          String?
   accountHolderName    String?
   accountNumber        String?
+  bbanNumber           String?
   branchName           String?
   passbookUrl          String?
+  bankLetterUrl        String?
   mobileMoneyOption    String?  // Orange Money, Africell Money
   preferredPayoutMethod String? // Bank Transfer, Mobile Wallet
   createdAt            DateTime @default(now())
@@ -431,6 +438,7 @@ model Hotel {
   hotelSeller       HotelSeller @relation(fields: [hotelSellerId], references: [id], onDelete: Cascade)
   rooms             Room[]
   sellerAds         SellerAd[]
+  bookings          HotelBooking[]
 
   @@map("hotels")
 }
@@ -453,6 +461,7 @@ model Room {
 
   hotel             Hotel       @relation(fields: [hotelId], references: [id], onDelete: Cascade)
   availability      RoomAvailability[]
+  bookings          HotelBooking[]
 
   @@map("rooms")
 }
@@ -471,6 +480,30 @@ model RoomAvailability {
   @@map("room_availability")
 }
 
+model HotelBooking {
+  id             String   @id @default(cuid())
+  userId         String
+  roomId         String
+  hotelId        String
+  guestName      String
+  guestPhone     String
+  checkIn        DateTime
+  checkOut       DateTime
+  numberOfRooms  Int      @default(1)
+  adults         Int      @default(2)
+  children       Int      @default(0)
+  totalPrice     Float
+  status         String   @default("CONFIRMED") // PENDING, CONFIRMED, CANCELLED
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  room           Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  hotel          Hotel    @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+
+  @@map("hotel_bookings")
+}
+
 model HotelBusinessInfo {
   id                String      @id @default(cuid())
   hotelSellerId     String      @unique
@@ -479,6 +512,9 @@ model HotelBusinessInfo {
   businessRegNumber String?
   taxIdNumber       String?     // TIN/PAN
   busRegCertUrl     String?
+  cityCouncilCertUrl String?
+  gstTinCertUrl      String?
+  addressProofUrl    String?
   landmark          String?
   managerName       String?
   pocContact        String?
@@ -517,10 +553,13 @@ model HotelBankDetails {
   id                   String      @id @default(cuid())
   hotelSellerId        String      @unique
   bankName             String?
+  bankAddress          String?
   accountHolderName    String?
   accountNumber        String?
+  bbanNumber           String?
   branchName           String?     // Also used for IFSC
   passbookUrl          String?
+  bankLetterUrl        String?
   mobileMoneyOption    String?
   preferredPayoutMethod String?
   createdAt            DateTime    @default(now())
@@ -607,6 +646,9 @@ model RestaurantBusinessInfo {
   businessRegNumber String?
   taxIdNumber       String?
   busRegCertUrl     String?
+  cityCouncilCertUrl String?
+  gstTinCertUrl      String?
+  addressProofUrl    String?
   landmark          String?
   managerName       String?
   pocContact        String?
@@ -647,10 +689,13 @@ model RestaurantBankDetails {
   id                   String           @id @default(cuid())
   restaurantSellerId   String           @unique
   bankName             String?
+  bankAddress          String?
   accountHolderName    String?
   accountNumber        String?
+  bbanNumber           String?
   branchName           String?
   passbookUrl          String?
+  bankLetterUrl        String?
   mobileMoneyOption    String?
   preferredPayoutMethod String?
   createdAt            DateTime         @default(now())

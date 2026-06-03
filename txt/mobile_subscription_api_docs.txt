@@ -72,6 +72,7 @@ RESPONSE PAYLOAD (JSON) - Status: 200 OK
       "displayName": "Free Hotel Plan",
       "description": "Start with 0 cost",
       "price": 0,
+      "duration": 30, // duration in days (e.g. 30, 90, 180, 365)
       "maxProducts": null,
       "maxOrders": null,
       "features": ["Feature 1", "Feature 2"],
@@ -87,6 +88,7 @@ RESPONSE PAYLOAD (JSON) - Status: 200 OK
       "displayName": "Free Hotel Plan",
       "description": "Start with 0 cost",
       "price": 0,
+      "duration": 30, // duration in days
       "maxProducts": null,
       "maxOrders": null,
       "features": ["Feature 1"],
@@ -100,6 +102,7 @@ RESPONSE PAYLOAD (JSON) - Status: 200 OK
       "displayName": "Standard Hotel Plan",
       "description": "Pro features",
       "price": 499,
+      "duration": 30,
       "maxProducts": null,
       "maxOrders": null,
       "features": ["Feature 1", "Feature 2"],
@@ -115,8 +118,11 @@ RESPONSE PAYLOAD (JSON) - Status: 200 OK
 
 REQUEST PAYLOAD (JSON)
 {
-  "planName": "STANDARD" // Enum values: "FREE", "STANDARD", "PREMIUM"
+  "planId": "plan_id_def", // Preferred: Unique ID of the plan
+  "planName": "STANDARD" // Fallback: Enum values: "FREE", "STANDARD", "PREMIUM"
 }
+
+Note: Either planId or planName is required.
 
 RESPONSE PAYLOAD (JSON) - Status: 200 OK
 {
@@ -138,6 +144,7 @@ RESPONSE PAYLOAD (JSON) - Status: 200 OK
       "displayName": "Standard Hotel Plan",
       "description": "Pro features",
       "price": 499,
+      "duration": 30, // duration in days
       "maxProducts": null,
       "maxOrders": null,
       "features": ["Feature 1", "Feature 2"],
@@ -166,7 +173,7 @@ B. Forbidden / Role mismatch (403 Forbidden)
 
 C. Missing fields (400 Bad Request)
 {
-  "error": "planName is required"
+  "error": "planId or planName is required"
 }
 
 D. Plan not found (404 Not Found)

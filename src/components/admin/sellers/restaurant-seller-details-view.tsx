@@ -189,6 +189,22 @@ export function RestaurantSellerDetailsView({
                     <span className="text-[10px] font-bold text-muted-foreground uppercase ml-1">Selfie</span>
                     <DocumentThumbnail url={seller.kyc?.selfieUrl} title="Selfie" />
                 </div>
+                <div className="flex flex-col gap-2">
+                    <span className="text-[10px] font-bold text-muted-foreground uppercase ml-1">Business Reg</span>
+                    <DocumentThumbnail url={seller.businessInfo?.busRegCertUrl} title="Business Registration" mimeType="application/pdf" />
+                </div>
+                <div className="flex flex-col gap-2">
+                    <span className="text-[10px] font-bold text-muted-foreground uppercase ml-1">City Council</span>
+                    <DocumentThumbnail url={seller.businessInfo?.cityCouncilCertUrl} title="City Council Cert" mimeType="application/pdf" />
+                </div>
+                <div className="flex flex-col gap-2">
+                    <span className="text-[10px] font-bold text-muted-foreground uppercase ml-1">GST TIN Cert</span>
+                    <DocumentThumbnail url={seller.businessInfo?.gstTinCertUrl} title="GST TIN Cert" mimeType="application/pdf" />
+                </div>
+                <div className="flex flex-col gap-2">
+                    <span className="text-[10px] font-bold text-muted-foreground uppercase ml-1">Proof of Address</span>
+                    <DocumentThumbnail url={seller.businessInfo?.addressProofUrl} title="Proof of Address" mimeType="application/pdf" />
+                </div>
             </div>
             <div className="pt-2 border-t space-y-2">
                 <div className="flex justify-between items-center"><span className="text-[10px] font-medium text-muted-foreground/60 uppercase tracking-tighter">ID Type</span><span className="text-xs font-bold">{seller.kyc?.idType || "—"}</span></div>
@@ -212,11 +228,22 @@ export function RestaurantSellerDetailsView({
             <div className="space-y-3">
                <div className="flex justify-between items-center"><span className="text-[10px] font-medium text-muted-foreground/60 uppercase tracking-tighter">Bank Name</span><span className="text-sm font-bold">{seller.bankDetails?.bankName || "—"}</span></div>
                <div className="flex justify-between items-center"><span className="text-[10px] font-medium text-muted-foreground/60 uppercase tracking-tighter">Account Number</span><span className="text-sm font-black tracking-wider">{seller.bankDetails?.accountNumber || "—"}</span></div>
-               <div className="flex justify-between items-center"><span className="text-[10px] font-medium text-muted-foreground/60 uppercase tracking-tighter">IFSC / Swift Code</span><span className="text-sm font-bold uppercase">{seller.bankDetails?.ifscCode || "—"}</span></div>
+               <div className="flex justify-between items-center"><span className="text-[10px] font-medium text-muted-foreground/60 uppercase tracking-tighter">Branch Name</span><span className="text-sm font-bold">{seller.bankDetails?.branchName || "—"}</span></div>
+               <div className="flex justify-between items-center"><span className="text-[10px] font-medium text-muted-foreground/60 uppercase tracking-tighter">BBAN Number</span><span className="text-sm font-black">{seller.bankDetails?.bbanNumber || "—"}</span></div>
+               <div className="flex justify-between items-center"><span className="text-[10px] font-medium text-muted-foreground/60 uppercase tracking-tighter">Payout Channel</span><Badge className="bg-emerald-500/10 text-emerald-700 border-none rounded-full font-medium text-[9px] uppercase tracking-widest">{seller.bankDetails?.preferredPayoutMethod || "Bank Transfer"}</Badge></div>
+               {seller.bankDetails?.preferredPayoutMethod === "Mobile Wallet" && (
+                 <div className="flex justify-between items-center"><span className="text-[10px] font-medium text-muted-foreground/60 uppercase tracking-tighter">Mobile Money Option</span><span className="text-sm font-bold">{seller.bankDetails?.mobileMoneyOption || "—"}</span></div>
+               )}
             </div>
-            <div className="pt-4 border-t">
-               <span className="text-[10px] font-bold text-muted-foreground uppercase ml-1 mb-2 block">Bank Proof Document</span>
-               <DocumentThumbnail url={seller.bankDetails?.bankProofUrl} title="Bank Proof" />
+            <div className="pt-4 border-t grid grid-cols-2 gap-3">
+               <div>
+                 <span className="text-[10px] font-bold text-muted-foreground uppercase ml-1 mb-2 block">Bank Passbook</span>
+                 <DocumentThumbnail url={seller.bankDetails?.passbookUrl || seller.bankDetails?.bankProofUrl} title="Bank Passbook" />
+               </div>
+               <div>
+                 <span className="text-[10px] font-bold text-muted-foreground uppercase ml-1 mb-2 block">Bank Letter</span>
+                 <DocumentThumbnail url={seller.bankDetails?.bankLetterUrl} title="Bank Letter" mimeType="application/pdf" />
+               </div>
             </div>
           </CardContent>
         </Card>

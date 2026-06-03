@@ -308,10 +308,14 @@ export function HotelOnboardingClient() {
                     <Label htmlFor="landmark">Landmark *</Label>
                     <Input id="landmark" name="landmark" defaultValue={seller.businessInfo?.landmark || ""} required />
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="city">City *</Label>
                       <Input id="city" name="city" defaultValue={seller.businessInfo?.city || ""} required />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="district">Area *</Label>
+                      <Input id="district" name="district" defaultValue={seller.businessInfo?.district || ""} required />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="state">State *</Label>
@@ -319,9 +323,24 @@ export function HotelOnboardingClient() {
                     </div>
                   </div>
                   <div className="space-y-2 pt-4 border-t">
-                    <Label htmlFor="busRegCert">Business Registration Certificate</Label>
-                    <Input id="busRegCert" name="busRegCert" type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={(e) => handleFileChange(e, "busRegCert")} />
+                    <Label htmlFor="busRegCert">Business Registration Certificate *</Label>
+                    <Input id="busRegCert" name="busRegCert" type="file" accept=".pdf,.jpg,.jpeg,.png" required={!seller.businessInfo?.busRegCertUrl} onChange={(e) => handleFileChange(e, "busRegCert")} />
                     {renderFilePreview("busRegCert", seller.businessInfo?.busRegCertUrl, "Reg Certificate")}
+                  </div>
+                  <div className="space-y-2 pt-4 border-t">
+                    <Label htmlFor="cityCouncilCert">City Council Certificate *</Label>
+                    <Input id="cityCouncilCert" name="cityCouncilCert" type="file" accept=".pdf,.jpg,.jpeg,.png" required={!seller.businessInfo?.cityCouncilCertUrl} onChange={(e) => handleFileChange(e, "cityCouncilCert")} />
+                    {renderFilePreview("cityCouncilCert", seller.businessInfo?.cityCouncilCertUrl, "City Council Certificate")}
+                  </div>
+                  <div className="space-y-2 pt-4 border-t">
+                    <Label htmlFor="gstTinCert">GST TIN Certificate *</Label>
+                    <Input id="gstTinCert" name="gstTinCert" type="file" accept=".pdf,.jpg,.jpeg,.png" required={!seller.businessInfo?.gstTinCertUrl} onChange={(e) => handleFileChange(e, "gstTinCert")} />
+                    {renderFilePreview("gstTinCert", seller.businessInfo?.gstTinCertUrl, "GST TIN Certificate")}
+                  </div>
+                  <div className="space-y-2 pt-4 border-t">
+                    <Label htmlFor="addressProof">Proof of Address (Edsa, Guma, etc.) *</Label>
+                    <Input id="addressProof" name="addressProof" type="file" accept=".pdf,.jpg,.jpeg,.png" required={!seller.businessInfo?.addressProofUrl} onChange={(e) => handleFileChange(e, "addressProof")} />
+                    {renderFilePreview("addressProof", seller.businessInfo?.addressProofUrl, "Proof of Address")}
                   </div>
                 </div>
                 <div className="mt-8 flex justify-end">
@@ -462,14 +481,53 @@ export function HotelOnboardingClient() {
                       <Input id="accountNumber" name="accountNumber" defaultValue={seller.bankDetails?.accountNumber || ""} required />
                     </div>
                     <div className="space-y-2">
+                      <Label htmlFor="bbanNumber">BBAN Number *</Label>
+                      <Input id="bbanNumber" name="bbanNumber" defaultValue={seller.bankDetails?.bbanNumber || ""} required />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
                       <Label htmlFor="branchName">Branch Name / IFSC *</Label>
                       <Input id="branchName" name="branchName" defaultValue={seller.bankDetails?.branchName || ""} required />
                     </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="bankAddress">Bank Address *</Label>
+                      <Input id="bankAddress" name="bankAddress" defaultValue={seller.bankDetails?.bankAddress || ""} required />
+                    </div>
                   </div>
-                  <div className="space-y-2 pt-4 border-t">
-                    <Label>Passbook / Cancelled Check Proof *</Label>
-                    <Input name="passbook" type="file" accept="image/*,.pdf" onChange={(e) => handleFileChange(e, "passbook")} />
-                    {renderFilePreview("passbook", seller.bankDetails?.passbookUrl, "Bank Proof")}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2 pt-4 border-t">
+                      <Label>Passbook / Cancelled Check Proof *</Label>
+                      <Input name="passbook" type="file" accept="image/*,.pdf" onChange={(e) => handleFileChange(e, "passbook")} />
+                      {renderFilePreview("passbook", seller.bankDetails?.passbookUrl, "Bank Proof")}
+                    </div>
+                    <div className="space-y-2 pt-4 border-t">
+                      <Label>Attach Bank Letter with Acc number *</Label>
+                      <Input name="bankLetter" type="file" accept="image/*,.pdf" onChange={(e) => handleFileChange(e, "bankLetter")} />
+                      {renderFilePreview("bankLetter", seller.bankDetails?.bankLetterUrl, "Bank Letter")}
+                    </div>
+                  </div>
+                  <div className="space-y-4 pt-4 border-t">
+                    <div className="space-y-2">
+                      <Label>Mobile Money Option *</Label>
+                      <select name="mobileMoneyOption" defaultValue={seller.bankDetails?.mobileMoneyOption || "Orange Money"} className="w-full h-10 px-3 border rounded-md">
+                        <option value="Orange Money">Orange Money</option>
+                        <option value="Africell Money">Africell Money</option>
+                      </select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="font-semibold block">Preferred Payout Method *</Label>
+                      <div className="flex gap-4">
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input type="radio" name="preferredPayoutMethod" value="Bank Transfer" defaultChecked={seller.bankDetails?.preferredPayoutMethod === "Bank Transfer"} />
+                          <span>Bank Transfer</span>
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input type="radio" name="preferredPayoutMethod" value="Mobile Wallet" defaultChecked={seller.bankDetails?.preferredPayoutMethod === "Mobile Wallet" || seller.bankDetails?.preferredPayoutMethod === "Mobile Money"} />
+                          <span>Mobile Money</span>
+                        </label>
+                      </div>
+                    </div>
                   </div>
                 </div>
                 <div className="mt-8 flex justify-between">

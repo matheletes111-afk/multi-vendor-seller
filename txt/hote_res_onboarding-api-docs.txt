@@ -81,6 +81,9 @@ STEP 2: Business Information (Supports multipart/form-data for file uploads)
 - gstCustomerName: GST Customer Name (string, required if haveGst is true)
 - profileImage: User profile picture (File, optional)
 - busRegCert: Business Registration Certificate (File, optional)
+- cityCouncilCert: City Council certificate (File, optional)
+- gstTinCert: GST TIN Certificate (File, optional)
+- addressProof: Proof of Address (File, optional)
 
 STEP 3: Identity & License (Supports multipart/form-data for file uploads)
 - step: 3
@@ -104,12 +107,15 @@ STEP 4: Outlet Setup (Supports multipart/form-data for file uploads)
 STEP 5: Bank Details (Supports multipart/form-data for file uploads)
 - step: 5
 - bankName: Bank Name (string, required)
+- bankAddress: Bank Address (string, required)
 - accountHolderName: Account Holder Name (string, required)
 - accountNumber: Account Number (string, required)
+- bbanNumber: BBAN number (string, required)
 - branchName: Branch Name / IFSC (string, required)
 - mobileMoneyOption: Mobile money provider option (string, optional)
 - preferredPayoutMethod: Payout method (string, optional)
 - passbook: Bank passbook/cancelled check proof (File, optional)
+- bankLetter: Bank letter with account number (File, optional)
 
 STEP 6: Agreement (application/json or multipart/form-data)
 - step: 6
@@ -208,6 +214,9 @@ STEP 2: Business Information (Supports multipart/form-data for file uploads)
 - gstCustomerName: GST Customer Name (string, required if haveGst is true)
 - profileImage: User profile picture (File, optional)
 - busRegCert: Business Registration Certificate (File, optional)
+- cityCouncilCert: City Council certificate (File, optional)
+- gstTinCert: GST TIN Certificate (File, optional)
+- addressProof: Proof of Address (File, optional)
 
 STEP 3: Identity & KYC (Supports multipart/form-data for file uploads)
 - step: 3
@@ -229,12 +238,15 @@ STEP 4: Property Setup (Supports multipart/form-data for file uploads)
 STEP 5: Bank Details (Supports multipart/form-data for file uploads)
 - step: 5
 - bankName: Bank Name (string, required)
+- bankAddress: Bank Address (string, required)
 - accountHolderName: Account Holder Name (string, required)
 - accountNumber: Account Number (string, required)
+- bbanNumber: BBAN number (string, required)
 - branchName: Branch Name / IFSC (string, required)
 - mobileMoneyOption: Mobile money provider option (string, optional)
 - preferredPayoutMethod: Payout method (string, optional)
 - passbook: Bank passbook/cancelled check proof (File, optional)
+- bankLetter: Bank letter with account number (File, optional)
 
 STEP 6: Agreement (application/json or multipart/form-data)
 - step: 6
