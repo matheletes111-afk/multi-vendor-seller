@@ -13,6 +13,10 @@ export async function GET(request: NextRequest) {
     const whereCondition: any = {
       isActive: true,
       isDeleted: false,
+      hotelSeller: {
+        isApproved: true,
+        isSuspended: false,
+      },
       city: city ? { contains: city, mode: "insensitive" } : undefined,
       starRating: rating ? { gte: rating } : undefined,
       OR: query ? [
@@ -55,7 +59,14 @@ export async function GET(request: NextRequest) {
         orderBy: { createdAt: "desc" }
       }),
       prisma.hotel.findMany({
-        where: { isActive: true, isDeleted: false },
+        where: {
+          isActive: true,
+          isDeleted: false,
+          hotelSeller: {
+            isApproved: true,
+            isSuspended: false,
+          }
+        },
         select: { city: true },
         distinct: ["city"]
       })

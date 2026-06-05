@@ -18,7 +18,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/ui/avatar"
 import { Button } from "@/ui/button"
 import { Separator } from "@/ui/separator"
 import { Sheet, SheetContent, SheetTrigger } from "@/ui/sheet"
-import { LogOut, User, LayoutDashboard, Users, CreditCard, FolderTree, Briefcase, Megaphone, Menu, BadgeDollarSign, ImageIcon, ShoppingCart, Star, Building2, Calendar } from "lucide-react"
+import { LogOut, User, LayoutDashboard, Users, CreditCard, FolderTree, Briefcase, Megaphone, Menu, BadgeDollarSign, ImageIcon, ShoppingCart, Star, Building2, Calendar, Package } from "lucide-react"
 
 function NavItem({ href, label, icon }: { href: string; label: string; icon?: ReactNode }) {
   const pathname = usePathname()
@@ -61,22 +61,61 @@ export function AdminLayoutClient({
   const userInitials = user?.name?.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2) || user?.email?.[0].toUpperCase() || "U"
 
   const navContent = (
-    <>
-      <NavItem href="/admin" label="Dashboard" icon={<LayoutDashboard className="h-4 w-4" />} />
-      <NavItem href="/admin/categories" label="Product Category" icon={<FolderTree className="h-4 w-4" />} />
-      <NavItem href="/admin/service-categories" label="Service Category" icon={<Briefcase className="h-4 w-4" />} />
-      <NavItem href="/admin/banners" label="Banners" icon={<ImageIcon className="h-4 w-4" />} />
-      <NavItem href="/admin/subscriptions" label="Subscriptions" icon={<CreditCard className="h-4 w-4" />} />
-      <NavItem href="/admin/seller-ads" label="Ads" icon={<BadgeDollarSign className="h-4 w-4" />} />
-      <NavItem href="/admin/sellers" label="Product/Service Sellers" icon={<Users className="h-4 w-4" />} />
-      <NavItem href="/admin/hotel-sellers" label="Hotel Sellers" icon={<Building2 className="h-4 w-4" />} />
-      <NavItem href="/admin/hotels" label="Hotels" icon={<Building2 className="h-4 w-4" />} />
-      <NavItem href="/admin/bookings" label="Hotel Bookings" icon={<Calendar className="h-4 w-4" />} />
-      <NavItem href="/admin/restaurant-sellers" label="Restaurant Sellers" icon={<Briefcase className="h-4 w-4" />} />
-      <NavItem href="/admin/orders" label="Orders" icon={<ShoppingCart className="h-4 w-4" />} />
-      <NavItem href="/admin/reviews" label="Reviews" icon={<Star className="h-4 w-4" />} />
-      <NavItem href="/admin/settings" label="Settings" icon={<User className="h-4 w-4" />} />
-    </>
+    <div className="space-y-4">
+      <div>
+        <div className="px-3 mb-1.5 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+          Master
+        </div>
+        <div className="space-y-0.5">
+          <NavItem href="/admin" label="Dashboard" icon={<LayoutDashboard className="h-4 w-4" />} />
+          <NavItem href="/admin/banners" label="Banners" icon={<ImageIcon className="h-4 w-4" />} />
+          <NavItem href="/admin/subscriptions" label="Subscriptions" icon={<CreditCard className="h-4 w-4" />} />
+          <NavItem href="/admin/seller-ads" label="Ads" icon={<BadgeDollarSign className="h-4 w-4" />} />
+          <NavItem href="/admin/reviews" label="Reviews" icon={<Star className="h-4 w-4" />} />
+          <NavItem href="/admin/settings" label="Settings" icon={<User className="h-4 w-4" />} />
+        </div>
+      </div>
+
+      <Separator className="bg-slate-200 dark:bg-slate-800 my-1" />
+
+      <div>
+        <div className="px-3 mb-1.5 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+          Products & Services
+        </div>
+        <div className="space-y-0.5">
+          <NavItem href="/admin/categories" label="Product Category" icon={<FolderTree className="h-4 w-4" />} />
+          <NavItem href="/admin/products" label="Products" icon={<Package className="h-4 w-4" />} />
+          <NavItem href="/admin/service-categories" label="Service Category" icon={<Briefcase className="h-4 w-4" />} />
+          <NavItem href="/admin/services" label="Services" icon={<Briefcase className="h-4 w-4" />} />
+          <NavItem href="/admin/sellers" label="Product/Service Sellers" icon={<Users className="h-4 w-4" />} />
+          <NavItem href="/admin/orders" label="Product/Service Orders" icon={<ShoppingCart className="h-4 w-4" />} />
+        </div>
+      </div>
+
+      <Separator className="bg-slate-200 dark:bg-slate-800 my-1" />
+
+      <div>
+        <div className="px-3 mb-1.5 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+          Hotels
+        </div>
+        <div className="space-y-0.5">
+          <NavItem href="/admin/hotel-sellers" label="Hotel Sellers" icon={<Building2 className="h-4 w-4" />} />
+          <NavItem href="/admin/hotels" label="Hotels" icon={<Building2 className="h-4 w-4" />} />
+          <NavItem href="/admin/bookings" label="Hotel Bookings" icon={<Calendar className="h-4 w-4" />} />
+        </div>
+      </div>
+
+      <Separator className="bg-slate-200 dark:bg-slate-800 my-1" />
+
+      <div>
+        <div className="px-3 mb-1.5 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+          Restaurants
+        </div>
+        <div className="space-y-0.5">
+          <NavItem href="/admin/restaurant-sellers" label="Restaurant Sellers" icon={<Briefcase className="h-4 w-4" />} />
+        </div>
+      </div>
+    </div>
   )
 
   return (

@@ -45,6 +45,10 @@ export async function GET(request: NextRequest): Promise<NextResponse<SuccessRes
       isDeleted: false,
       ...(activeOnly ? { isActive: true } : {}),
       ...(featuredOnly ? { isFeatured: true } : {}),
+      seller: {
+        isApproved: true,
+        isSuspended: false,
+      }
     }
 
     const services = await prisma.service.findMany({

@@ -457,13 +457,13 @@ export function SellersClient() {
                 <Table>
                   <TableHeader className="bg-muted/30 border-none transition-none">
                     <TableRow className="hover:bg-transparent border-none">
-                      <TableHead className="py-4 pl-8 text-xs font-medium text-muted-foreground/80">Identity</TableHead>
-                      <TableHead className="text-xs font-medium text-muted-foreground/80">Venture</TableHead>
-                      <TableHead className="text-xs font-medium text-muted-foreground/80">Classification</TableHead>
-                      <TableHead className="text-xs font-medium text-muted-foreground/80">Standing</TableHead>
-                      <TableHead className="text-xs font-medium text-muted-foreground/80">Subscription</TableHead>
-                      <TableHead className="text-xs font-medium text-muted-foreground/80">Commission</TableHead>
-                      <TableHead className="text-right pr-8 text-xs font-medium text-muted-foreground/80">Control</TableHead>
+                      <TableHead className="py-4 pl-8 text-xs font-semibold text-muted-foreground/80">Name / Email</TableHead>
+                      <TableHead className="text-xs font-semibold text-muted-foreground/80">Store Name</TableHead>
+                      <TableHead className="text-xs font-semibold text-muted-foreground/80">Seller Type</TableHead>
+                      <TableHead className="text-xs font-semibold text-muted-foreground/80">Status</TableHead>
+                      <TableHead className="text-xs font-semibold text-muted-foreground/80">Subscription Plan</TableHead>
+                      <TableHead className="text-xs font-semibold text-muted-foreground/80">Commission Rate</TableHead>
+                      <TableHead className="text-right pr-8 text-xs font-semibold text-muted-foreground/80">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>

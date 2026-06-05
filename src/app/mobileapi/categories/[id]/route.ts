@@ -153,7 +153,11 @@ export async function GET(request: Request): Promise<NextResponse<SuccessRespons
       where: { 
         categoryId: id,
         isActive: true,
-        isDeleted: false
+        isDeleted: false,
+        seller: {
+          isApproved: true,
+          isSuspended: false,
+        }
       },
       take: limit,
       orderBy: [{ isFeatured: "desc" }, { createdAt: "desc" }],
@@ -195,7 +199,11 @@ export async function GET(request: Request): Promise<NextResponse<SuccessRespons
       where: { 
         categoryId: id,
         isActive: true,
-        isDeleted: false
+        isDeleted: false,
+        seller: {
+          isApproved: true,
+          isSuspended: false,
+        }
       }
     })
 
