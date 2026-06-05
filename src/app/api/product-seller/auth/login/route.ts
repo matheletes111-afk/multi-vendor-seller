@@ -3,6 +3,8 @@ import { UserRole } from "@prisma/client"
 import { prisma } from "@/lib/prisma"
 import bcrypt from "bcryptjs"
 import { POST as nextAuthPost } from "@/app/api/nextauth/[...nextauth]/route"
+import { getSafeRedirectUrl } from "@/lib/safe-redirect"
+
 
 /** POST /api/product-seller/auth/login — Product seller panel login. Proxies to NextAuth with role SELLER_PRODUCT. */
 export async function POST(request: Request) {
@@ -46,11 +48,12 @@ export async function POST(request: Request) {
 
     const origin = new URL(request.url).origin
     const host = new URL(request.url).host
+    const validatedCallbackUrl = getSafeRedirectUrl(callbackUrl, "/product-seller", origin)
     const form = new URLSearchParams({
       email,
       password: hasOtpLoginToken ? "__OTP_LOGIN__" : (password as string),
       role: UserRole.SELLER_PRODUCT,
-      callbackUrl: callbackUrl || "/product-seller",
+      callbackUrl: validatedCallbackUrl,
       ...(hasOtpLoginToken ? { otpLoginToken: otpLoginToken!.trim() } : {}),
       ...(csrfToken && { csrfToken }),
     })
@@ -97,7 +100,7 @@ export async function POST(request: Request) {
     }
     if (res.status === 302) {
       const headers = new Headers()
-      headers.set("Location", location || "/product-seller")
+      headers.set("Location", getSafeRedirectUrl(location, "/product-seller", origin))
       res.headers.getSetCookie?.().forEach((c) => headers.append("Set-Cookie", c))
       return new NextResponse(null, { status: 302, headers })
     }
@@ -131,7 +134,7 @@ export async function POST(request: Request) {
       }
       return NextResponse.json({ error: msg }, { status: 401 })
     }
-    let url = data?.url || callbackUrl || "/product-seller"
+    let url = getSafeRedirectUrl(data?.url || callbackUrl, "/product-seller", origin)
     
     // Final safety: check if onboarding is needed and force URL if so.
     // This ensures that even if callbackUrl was /product-seller, we send them to /onboarding.

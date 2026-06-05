@@ -13,21 +13,39 @@ export function ImageUpload({ onImageSelect, currentImage }: ImageUploadProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [fileName, setFileName] = useState<string>("")
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
-      if (file.size > 5 * 1024 * 1024) {
-        alert("File size must be less than 5MB")
-        return
-      }
-
       if (!file.type.startsWith("image/")) {
         alert("Please upload an image file")
         return
       }
 
-      setFileName(file.name)
-      onImageSelect(file)
+      try {
+        const { compressImage } = await import("@/lib/image-compressor")
+        const compressed = await compressImage(file)
+        
+        if (compressed.size > 5 * 1024 * 1024) {
+          alert("File size must be less than 5MB")
+          return
+        }
+
+        if (fileInputRef.current) {
+          const dataTransfer = new DataTransfer()
+          dataTransfer.items.add(compressed)
+          fileInputRef.current.files = dataTransfer.files
+        }
+
+        setFileName(compressed.name)
+        onImageSelect(compressed)
+      } catch {
+        if (file.size > 5 * 1024 * 1024) {
+          alert("File size must be less than 5MB")
+          return
+        }
+        setFileName(file.name)
+        onImageSelect(file)
+      }
     }
   }
 

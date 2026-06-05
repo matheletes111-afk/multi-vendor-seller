@@ -6,9 +6,9 @@ import { UserRole } from "@prisma/client"
 import type { PlaceOrderResponse } from "../types"
 
 const CHECKOUT_CART_INCLUDE = {
-  product: { select: { sellerId: true, name: true } },
+  product: { select: { sellerId: true, name: true, isActive: true, isDeleted: true } },
   productVariant: { select: { name: true } },
-  service: { select: { sellerId: true, name: true } },
+  service: { select: { sellerId: true, name: true, isActive: true, isDeleted: true } },
   servicePackage: { select: { name: true } },
 } as const
 
@@ -113,6 +113,22 @@ export async function POST(request: NextRequest) {
 
   if (items.length === 0) {
     return NextResponse.json({ error: "Cart is empty" }, { status: 400 })
+  }
+
+  // Double check that no products/services in cart were recently deleted or made inactive
+  for (const item of items) {
+    if (item.productId && (!item.product || item.product.isDeleted || !item.product.isActive)) {
+      return NextResponse.json(
+        { error: `Product "${item.product?.name || "Unknown"}" is no longer available.` },
+        { status: 400 }
+      )
+    }
+    if (item.serviceId && (!item.service || item.service.isDeleted || !item.service.isActive)) {
+      return NextResponse.json(
+        { error: `Service "${item.service?.name || "Unknown"}" is no longer available.` },
+        { status: 400 }
+      )
+    }
   }
 
   // ── Stock Validation ────────────────────────────────────────────────────────

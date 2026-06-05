@@ -222,9 +222,15 @@ function AddAdForm() {
   const [imageFile, setImageFile] = useState<File | null>(null)
   const router = useRouter()
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
+  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    let file = e.target.files?.[0]
     if (file?.type.startsWith("image/")) {
+      try {
+        const { compressImage } = await import("@/lib/image-compressor")
+        file = await compressImage(file)
+      } catch (err) {
+        console.error("Compression error:", err)
+      }
       setImageFile(file)
       const reader = new FileReader()
       reader.onloadend = () => setImagePreview(reader.result as string)
@@ -332,9 +338,15 @@ function EditAdForm({ ad }: { ad: Ad }) {
   const [imageFile, setImageFile] = useState<File | null>(null)
   const router = useRouter()
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
+  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    let file = e.target.files?.[0]
     if (file?.type.startsWith("image/")) {
+      try {
+        const { compressImage } = await import("@/lib/image-compressor")
+        file = await compressImage(file)
+      } catch (err) {
+        console.error("Compression error:", err)
+      }
       setImageFile(file)
       const reader = new FileReader()
       reader.onloadend = () => setImagePreview(reader.result as string)

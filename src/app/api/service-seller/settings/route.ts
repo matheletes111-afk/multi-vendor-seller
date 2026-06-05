@@ -5,6 +5,8 @@ import { isServiceSeller } from "@/lib/rbac"
 import path from "path"
 import bcrypt from "bcryptjs"
 import { uploadPublicFile } from "@/lib/upload-public-file"
+import { validatePassword } from "@/lib/password-validation"
+import { sanitizeInput } from "@/lib/html-sanitization"
 
 function getImageExtFromContentType(contentType?: string | null) {
   const ct = (contentType || "").toLowerCase()
@@ -53,12 +55,13 @@ export async function PUT(request: NextRequest) {
     const fd = await request.formData()
     const profileImageFile = fd.get("profileImage") as File | null
     const imageUrl = (fd.get("image") as string)?.trim()
-    const name = (fd.get("name") as string)?.trim()
+    const name = fd.get("name") !== null ? sanitizeInput(fd.get("name") as string) : undefined
     const phone = (fd.get("phone") as string) ?? ""
     const phoneCountryCode = (fd.get("phoneCountryCode") as string) ?? ""
     const nationIdentityNumberRaw = fd.get("nationIdentityNumber") as string | null
     const nationIdentityNumber = (nationIdentityNumberRaw ?? "").trim()
     const password = ((fd.get("password") as string | null) ?? "").trim()
+    const currentPassword = ((fd.get("currentPassword") as string | null) ?? "").trim()
 
     const userData: { name?: string; image?: string | null; phone?: string | null; phoneCountryCode?: string | null; password?: string } = {}
     if (name !== undefined) userData.name = name
@@ -67,8 +70,22 @@ export async function PUT(request: NextRequest) {
     const phoneError = getRequiredPhoneFieldsError(userData.phone, userData.phoneCountryCode)
     if (phoneError) return NextResponse.json({ error: phoneError }, { status: 400 })
     if (password) {
-      if (password.length < 6) {
-        return NextResponse.json({ error: "Password must be at least 6 characters long" }, { status: 400 })
+      const passwordValidation = validatePassword(password)
+      if (!passwordValidation.isValid) {
+        return NextResponse.json({ error: passwordValidation.error }, { status: 400 })
+      }
+      const dbUser = await prisma.user.findUnique({
+        where: { id: session.user.id },
+        select: { password: true }
+      })
+      if (dbUser?.password) {
+        if (!currentPassword) {
+          return NextResponse.json({ error: "Current password is required to change password" }, { status: 400 })
+        }
+        const isPasswordCorrect = await bcrypt.compare(currentPassword, dbUser.password)
+        if (!isPasswordCorrect) {
+          return NextResponse.json({ error: "Incorrect current password" }, { status: 400 })
+        }
       }
       userData.password = await bcrypt.hash(password, 10)
     }
@@ -313,7 +330,7 @@ export async function PUT(request: NextRequest) {
 
   const body = await request.json().catch(() => ({})) as {
     store?: Record<string, unknown>
-    user?: { name?: string; image?: string; phone?: string; phoneCountryCode?: string; password?: string }
+    user?: { name?: string; image?: string; phone?: string; phoneCountryCode?: string; password?: string; currentPassword?: string }
     seller?: Record<string, any>
   }
   if (body.store && Object.keys(body.store).length > 0) {
@@ -326,17 +343,37 @@ export async function PUT(request: NextRequest) {
   }
   if (body.user && Object.keys(body.user).length > 0) {
     const userData: { name?: string; image?: string; phone?: string | null; phoneCountryCode?: string | null; password?: string } = {}
-    if (body.user.name !== undefined) userData.name = body.user.name
+    if (body.user.name !== undefined) {
+      userData.name = typeof body.user.name === "string" ? sanitizeInput(body.user.name) : undefined
+    }
     if (body.user.image !== undefined) userData.image = body.user.image
     if (body.user.phone !== undefined) userData.phone = body.user.phone || null
     if (body.user.phoneCountryCode !== undefined) userData.phoneCountryCode = body.user.phoneCountryCode || null
     const phoneError = getRequiredPhoneFieldsError(userData.phone, userData.phoneCountryCode)
     if (phoneError) return NextResponse.json({ error: phoneError }, { status: 400 })
     if (body.user.password !== undefined) {
+      if (typeof body.user.password !== "string") {
+        return NextResponse.json({ error: "Password must be a string" }, { status: 400 })
+      }
       const password = body.user.password.trim()
+      const currentPassword = (body.user.currentPassword ?? "").trim()
       if (password) {
-        if (password.length < 6) {
-          return NextResponse.json({ error: "Password must be at least 6 characters long" }, { status: 400 })
+        const passwordValidation = validatePassword(password)
+        if (!passwordValidation.isValid) {
+          return NextResponse.json({ error: passwordValidation.error }, { status: 400 })
+        }
+        const dbUser = await prisma.user.findUnique({
+          where: { id: session.user.id },
+          select: { password: true }
+        })
+        if (dbUser?.password) {
+          if (!currentPassword) {
+            return NextResponse.json({ error: "Current password is required to change password" }, { status: 400 })
+          }
+          const isPasswordCorrect = await bcrypt.compare(currentPassword, dbUser.password)
+          if (!isPasswordCorrect) {
+            return NextResponse.json({ error: "Incorrect current password" }, { status: 400 })
+          }
         }
         userData.password = await bcrypt.hash(password, 10)
       }

@@ -1,0 +1,294 @@
+# MULTI-VENDOR SELLER SECURITY ISSUES TODO LIST
+=============================================
+Instructions: Mark [ ] Pending as [x] Done as you fix each issue.
+
+---
+
+[x] Issue #1 - Privilege Escalation via Unauthorized Admin Account Creation
+    - Severity: Critical
+    - Affected Endpoint: POST /api/admin/auth/registration
+    - Affected Parameters: email, phone
+    - Description: Admin accounts can potentially be created without proper authorization checks.
+    - Status: Done
+    - Developer Fix Details: Blocked the admin registration endpoint completely by returning a 403 Forbidden response.
+
+---
+
+[x] Issue #2 - Missing Rate Limiting on OTP Verification
+    - Severity: High
+    - Affected Endpoints:
+      * POST /api/product-seller/auth/email-otp/verify-otp
+      * POST /api/service-seller/auth/email-otp/verify-otp
+      * POST /api/customer/auth/email-otp/verify-otp
+      * POST /api/customer/auth/phone-otp/verify-otp
+      * POST /api/product/auth/phone-otp/verify-otp
+      * POST /api/service-seller/auth/phone-otp/verify-otp
+      * POST /api/admin/auth/forgot-password/reset
+    - Affected Parameter: otp
+    - Description: OTP verification endpoints allow brute-force attempts.
+    - Status: Done
+    - Developer Fix Details:
+      * Created a new PostgreSQL model/table `OtpAttempt` to persistently track failed OTP inputs.
+      * Every time a user fails verification on any of these routes, the count will increment.
+      * If they fail 5 times consecutively, they will be blocked for 15 minutes across all
+        instances persistently via the PostgreSQL database (returning 429 Too Many Requests).
+      * Developed checking, recording, and resetting utilities in `src/lib/rate-limit.ts`.
+      * Integrated this protection into all 22 verify-otp and password reset endpoints
+        across all 4 seller panels, customer panel, and admin panel, rendering brute-force
+        attacks impossible.
+
+---
+
+[x] Issue #3 - Missing Reauthentication for Password Change
+    - Severity: High
+    - Affected Endpoints:
+      * PUT /api/customer/settings
+      * PUT /api/product-seller/settings
+      * PUT /api/service-seller/settings
+      * PUT /api/hotel-seller/settings
+      * PUT /api/restaurant-seller/settings
+    - Affected Parameter: password
+    - Description: Users can change passwords without confirming current password.
+    - Status: Done
+    - Developer Fix Details:
+      * Modified profile/settings update routes across the customer panel and all four
+        seller panels (product-seller, service-seller, hotel-seller, restaurant-seller)
+        to require verification of the user's current password.
+      * For any request attempting to update the `password` field, the system fetches
+        the user's existing hashed password from PostgreSQL. If a current password
+        exists, the incoming `currentPassword` is required and verified via `bcrypt.compare`.
+      * Rejects the request with a `400 Bad Request` and descriptive error if the
+        current password is missing or incorrect.
+
+---
+
+[x] Issue #4 - Stored XSS via File Upload
+    - Severity: High
+    - Affected Endpoints:
+      * PUT  /api/customer/settings
+      * PUT  /api/product-seller/settings
+      * POST /api/product-seller/products
+      * POST /api/product-seller/admanagement
+      * POST /api/service-seller/admanagement
+      * PUT  /api/service-seller/settings
+      * PUT  /api/admin/banners
+      * PUT  /api/admin/settings
+    - Affected Parameters: filename, images, creativeUrl, bannerImageUrl
+    - Description: Uploaded files may contain malicious content leading to Stored XSS.
+    - Status: Done
+    - Developer Fix Details:
+      * Implemented a centralized secure file signature and type validation guard inside the S3 upload utility `uploadPublicFile`.
+      * Established a strict whitelist of allowed file extensions (.jpg, .jpeg, .png, .gif, .webp, .mp4, .webm, .mov, .pdf) and MIME types.
+      * Explicitly disabled SVG file uploads (`image/svg+xml`) to eliminate the vector of executable scripts inside SVG vectors.
+      * Added magic bytes checking to verify the file's true binary headers match the allowed extensions, preventing attackers from renaming malicious HTML/JS payloads.
+      * This inner-work fix secures all affected endpoints and mobile APIs without changing any external behavior or existing route files.
+
+---
+
+[ ] Issue #5 - Outdated Next.js Version
+    - Severity: High
+    - Description: Application uses an outdated Next.js version with known security issues.
+    - Status: Pending
+    - Developer Fix Details: Next js version change? doubt.
+
+---
+
+[ ] Issue #6 - Content Security Policy (CSP) Not Implemented
+    - Severity: Medium
+    - Description: Missing CSP headers increase XSS impact.
+    - Status: Pending
+    - Developer Fix Details: doubt.
+
+---
+
+[x] Issue #7 - Insufficient Input Validation
+    - Severity: Medium
+    - Affected Endpoints:
+      * /api/customer/auth/registration
+      * /api/product-seller/auth/registration
+      * /api/service-seller/auth/registration
+    - Affected Parameters: phone, phoneCountryCode
+    - Description: User input validation is insufficient.
+    - Status: Done
+    - Developer Fix Details:
+      * Implemented reusable validation helper `src/lib/phone-validation.ts`.
+      * Enforced that `phoneCountryCode` must start with an optional `+` followed by 1 to 4 digits.
+      * Enforced that `phone` must contain between 7 and 15 digits (after stripping formatting characters like spaces, hyphens, and brackets).
+      * Integrated input validation and phone number uniqueness checks across all 5 web registration API routes.
+      * Integrated input validation and phone number uniqueness checks across all 5 mobile register API routes (validating only if provided).
+
+---
+
+[ ] Issue #8 - HSTS Not Implemented
+    - Severity: Medium
+    - Description: Missing Strict Transport Security header.
+    - Status: Pending
+    - Developer Fix Details: doubt
+
+---
+
+[x] Issue #9 - Weak Password Policy
+    - Severity: Medium
+    - Affected Endpoints:
+      * /api/customer/auth/registration
+      * /api/product-seller/auth/registration
+      * /api/service-seller/auth/registration
+    - Affected Parameter: password
+    - Description: Weak passwords are accepted.
+    - Status: Done
+    - Developer Fix Details:
+      * Implemented password validation helper `src/lib/password-validation.ts`.
+      * Requires password to be at least 8 characters, with 1+ uppercase, 1+ lowercase, 1+ number, and 1+ special character.
+      * Integrated verification into all 10 registration endpoints (web + mobile_api) and settings/profile update routes for customer and all sellers (web + mobile_api).
+      * Integrated client-side password strength validation checks across registration pages and customer settings view.
+
+---
+
+[x] Issue #10 - HTML Injection
+    - Severity: Medium
+    - Affected Parameter: name, title, description, checkInPolicy, checkOutPolicy, address, city, state, bannerHeading, bannerDescription
+    - Description: HTML tags can be submitted through registration forms and item creation forms.
+    - Status: Done
+    - Developer Fix Details: Created a custom sanitizer helper to strip HTML tags and encode angle brackets. Integrated this utility across:
+        * All registration & profile settings update routes (10 web + 8 mobile_api routes).
+        * Ad creation routes (`POST /api/product-seller/admanagement`).
+        * Banners creation & update routes (`POST /api/admin/banners`, `PUT /api/admin/banners/[id]`).
+        * Category & Subcategory routes (`POST /api/admin/categories`, `PUT /api/admin/categories/[id]`).
+        * Service Category routes (`POST /api/admin/service-categories`, `PUT /api/admin/service-categories/[id]`).
+        * Product creation & update routes (`POST /api/product-seller/products`, `PUT /api/product-seller/products/[id]`, including variant details).
+        * Service creation & update routes (Web creation/update actions and Mobile API `POST`/`PUT` routes).
+        * Hotel & Room creation & update routes (`POST /api/hotel-seller/hotels`, `PATCH /api/hotel-seller/hotels/[id]`, including room amenities and names).
+
+
+---
+
+[x] Issue #11 - Open Redirect
+    - Severity: Medium
+    - Affected Endpoint: GET /customer/login
+    - Affected Parameter: callbackUrl
+    - Description: Application redirects users to arbitrary URLs.
+    - Status: Done
+    - Developer Fix Details:
+      * Implemented validation helpers `isSafeRedirectUrl` and `getSafeRedirectUrl` in `src/lib/safe-redirect.ts`.
+      * Validates that redirection targets are either relative paths (starting with `/` but not double slashes/backslashes) or match the application's origin/baseUrl.
+      * Integrated redirect validation across all 5 login API routes, all 5 client-side login page files, and NextAuth's `redirect` callback in `src/lib/auth.ts`.
+
+
+---
+
+[x] Issue #12 - Client-Side DoS via Large Image Upload
+    - Severity: Medium
+    - Affected Endpoint: /service-seller/services
+    - Affected Parameters: masterImageUrl, galleryImageUrls
+    - Description: Large images may cause performance issues.
+    - Status: Done
+    - Developer Fix Details:
+      * Implemented a client-side `compressImage` utility in `src/lib/image-compressor.ts` using the HTML5 Canvas API.
+      * Resizes user-selected images to a maximum of 1200px width/height and compresses them to 80% JPEG/WebP quality.
+      
+
+---
+
+[x] Issue #13 - Deleted Products Can Still Be Added To Cart
+    - Severity: Medium
+    - Description: Deleted products remain purchasable.
+    - Status: Done
+    - Developer Fix Details:
+      * Modified the cart resolution utility in `src/app/api/customer/cart/resolve.ts` to include `isDeleted: false` in both product and service queries.
+      * Modified the direct service checkout route in `src/app/api/customer/checkout/place-service-order/route.ts` to query services with `isDeleted: false`.
+      * Modified the wishlist route in `src/app/api/customer/wishlist/route.ts` to restrict adding deleted products or services by enforcing `isDeleted: false` in queries.
+      * Modified the web customer checkout endpoint (`POST /api/customer/checkout/place-order` in `src/app/api/customer/checkout/place-order/route.ts`) to validate all items in the cart and reject the checkout if any of the products or services have been deleted (`isDeleted: true`) or disabled (`isActive: false`) after they were added.
+
+---
+
+[x] Issue #14 - Google Maps API Key Exposure
+    - Severity: Medium
+    - Affected Parameter: key
+    - Description: Google Maps API key is exposed in client-side bundles.
+    - Status: Done
+    - Developer Fix Details:
+      * Created a protected API route `/api/utils/maps-key` that retrieves the server-side environment variable `process.env.MAP_KEY` and returns it ONLY to authenticated users.
+      * Removed the `MAP_KEY` property from `next.config.js` environment configuration so that the API key is never baked into static JS bundles at build time.
+      * Updated location pickers (`src/components/store-location-picker.tsx`, `new-hotel-client.tsx`, and `edit-hotel-client.tsx`) to fetch the key dynamically at runtime.
+      * Updated `src/components/admin/sellers/seller-details-view.tsx` to dynamically fetch the maps API key at runtime before loading the static map image, avoiding the use of `NEXT_PUBLIC_MAP_KEY`.
+
+---
+
+[x] Issue #15 - Missing X-Content-Type-Options Header
+    - Severity: Medium
+    - Description: MIME type sniffing protection is not enabled.
+    - Status: Done
+    - Developer Fix Details:
+      * Added custom security headers in `next.config.js` to return `X-Content-Type-Options: nosniff` for all routes (`/:path*`), effectively mitigating MIME sniffing vulnerabilities across the application.
+
+---
+
+[x] Issue #16 - User Enumeration
+    - Severity: Medium
+    - Affected Parameter: email
+    - Description: Application reveals whether an email already exists.
+    - Status: Done
+    - Developer Fix Details:
+      * Registration routes (web + mobile): Replaced specific messages like "User with this email already exists" and "User with this phone number already exists" with a generic neutral message: "This information could not be registered. Please try again or contact support."
+      * OTP send / resend routes (web + mobile): Replaced specific 404 errors like "No account found with this email" and "Seller not found with this email" with a generic 200 response: "If an account with this email exists, OTP has been sent." — so attackers cannot distinguish between a registered and unregistered email.
+      * Resend verification route: Replaced "No account found with this email" with "If an account with this email exists, a verification email has been sent."
+      * Applied across all panels: customer, product-seller, service-seller, hotel-seller, restaurant-seller (both web API and mobile API routes).
+
+---
+
+[x] Issue #17 - EXIF Metadata Disclosure
+    - Severity: Medium
+    - Description: Uploaded images may expose metadata.
+    - Status: Done
+    - Developer Fix Details:
+      * Added a pure Node.js `stripImageMetadata(buffer, ext)` function inside `src/lib/upload-public-file.ts`.
+      * For JPEG (.jpg/.jpeg): parses the JPEG marker stream and silently drops APP1 (EXIF/XMP), APP2 (ICC/Flashpix extended), and APP13 (IPTC/Photoshop) segments before the buffer is uploaded to S3.
+      * For PNG (.png): walks the PNG chunk list and removes tEXt, zTXt, iTXt, and eXIf ancillary chunks.
+      * All other file types (video, PDF, GIF, WebP) are passed through unchanged.
+      * The stripping runs inside `uploadPublicFile` — after signature validation but before the S3 PutObject call — so ALL upload endpoints across the entire application are covered automatically without touching any route or component code.
+      * Zero new dependencies. No existing logic changed.
+
+---
+
+[ ] Issue #18 - Referrer Policy Missing
+    - Severity: Medium
+    - Description: Missing Referrer-Policy header.
+    - Status: Pending
+
+---
+
+[ ] Issue #19 - SPF Record Missing
+    - Severity: Low
+    - Description: Email spoofing protection not configured.
+    - Owner: DevOps / DNS Team
+    - Status: Pending
+
+---
+
+[ ] Issue #20 - DNSSEC Missing
+    - Severity: Low
+    - Description: DNSSEC not configured.
+    - Owner: DevOps / DNS Team
+    - Status: Pending
+
+---
+
+[ ] Issue #21 - Session Not Invalidated After Password Change
+    - Severity: Low
+    - Description: Existing sessions remain active after password changes.
+    - Status: Pending
+
+---
+
+[ ] Issue #22 - MTA-STS Missing
+    - Severity: Low
+    - Description: Mail transport security policy missing.
+    - Owner: Infrastructure Team
+    - Status: Pending
+
+---
+
+[ ] Issue #23 - Clickjacking Vulnerability
+    - Severity: Low
+    - Description: Site can potentially be embedded in external frames.
+    - Status: Pending

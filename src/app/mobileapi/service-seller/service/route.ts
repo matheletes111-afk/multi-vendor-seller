@@ -4,6 +4,7 @@ import { UserRole } from "@prisma/client"
 import { getMobileSellerAuth } from "../../_helpers/seller-auth"
 import { checkServiceLimit } from "@/lib/subscriptions"
 import { processHybridServiceRequest } from "../../_helpers/service-upload"
+import { sanitizeInput } from "@/lib/html-sanitization"
 
 export const dynamic = 'force-dynamic'
 
@@ -123,28 +124,30 @@ export async function POST(request: NextRequest) {
     }
     const body = result.data
 
-    const name = typeof body.name === "string" ? body.name.trim() : ""
+    const nameRaw = typeof body.name === "string" ? body.name.trim() : ""
+    const name = sanitizeInput(nameRaw)
     const categoryId = typeof body.serviceCategoryId === "string" ? body.serviceCategoryId : ""
     const serviceType = body.serviceType === "FIXED_PRICE" ? "FIXED_PRICE" : "APPOINTMENT"
-
+ 
     if (!name || !categoryId) return NextResponse.json({ success: false, error: "Name and category are required" }, { status: 400 })
-
+ 
     // Check category ownership
     const hasCategory = seller.selectedServiceCategories.some(c => c.id === categoryId)
     if (!hasCategory) return NextResponse.json({ success: false, error: "Category not in your allowed list" }, { status: 400 })
-
+ 
     const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "")
     const basePrice = typeof body.basePrice === "number" ? body.basePrice : null
     const discount = Math.round((Number(body.discount) || 0) * 100) / 100
     const duration = typeof body.duration === "number" ? body.duration : null
-
+    const sanitizedDescription = typeof body.description === "string" ? sanitizeInput(body.description) : null
+ 
     const service = await prisma.service.create({
       data: {
         sellerId: seller.id,
         serviceCategoryId: categoryId,
         name,
         slug,
-        description: body.description ?? null,
+        description: sanitizedDescription,
         serviceType,
         basePrice,
         discount,

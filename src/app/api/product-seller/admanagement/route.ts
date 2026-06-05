@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma"
 import { isProductSeller } from "@/lib/rbac"
 import { saveAdCreativeFile, validateAdCreativeFile } from "@/lib/ad-upload"
 import { getPaginationFromSearchParams } from "@/lib/admin-pagination"
+import { sanitizeInput } from "@/lib/html-sanitization"
 
 export async function GET(request: NextRequest) {
   const session = await auth()
@@ -141,8 +142,8 @@ export async function POST(request: NextRequest) {
   const adTypeRaw = String(body.adType ?? "promote_product").trim().toLowerCase().replace(/-/g, "_")
   const isOwnAd = adTypeRaw === "own_ad" || adTypeRaw === "ownad"
   const productIdRaw = String(body.productId ?? "").trim()
-  const resolvedProductId = isOwnAd ? null : productIdRaw
-  const title = String(body.title ?? "").trim()
+  const titleRaw = String(body.title ?? "").trim()
+  const title = sanitizeInput(titleRaw)
   const placements = (body.placements as unknown as string[]) || ["WEB"]
   const creativeUrl = String(body.creativeUrl ?? "").trim()
   const creativeType = body.creativeType === "VIDEO" ? "VIDEO" : "IMAGE"
@@ -176,6 +177,8 @@ export async function POST(request: NextRequest) {
   }
   if (endAt <= startAt) return NextResponse.json({ error: "End date must be after start date" }, { status: 400 })
 
+  const resolvedProductId = isOwnAd ? null : productIdRaw
+
   if (!isOwnAd && resolvedProductId) {
     const product = await prisma.product.findFirst({
       where: { id: resolvedProductId, sellerId: seller.id },
@@ -197,7 +200,8 @@ export async function POST(request: NextRequest) {
   const targetAgeMin = body.targetAgeMin != null && !isNaN(Number(body.targetAgeMin)) ? Number(body.targetAgeMin) : null
   const targetAgeMax = body.targetAgeMax != null && !isNaN(Number(body.targetAgeMax)) ? Number(body.targetAgeMax) : null
   const targetAudience = body.targetAudience != null && Number(body.targetAudience) >= 1 ? Number(body.targetAudience) : null
-
+  const sanitizedDescription = typeof body.description === "string" ? sanitizeInput(body.description) : null
+ 
   try {
     await prisma.sellerAd.create({
       data: {
@@ -205,7 +209,7 @@ export async function POST(request: NextRequest) {
         customerUserId: null,
         productId: resolvedProductId,
         title,
-        description: (body.description as string) || null,
+        description: sanitizedDescription,
         // @ts-ignore
         placements: placements as any,
         creativeType: creativeType,

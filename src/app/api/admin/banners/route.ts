@@ -5,6 +5,7 @@ import { isAdmin } from "@/lib/rbac";
 
 import { getPaginationFromSearchParams } from "@/lib/admin-pagination";
 import { uploadPublicFile } from "@/lib/upload-public-file";
+import { sanitizeInput } from "@/lib/html-sanitization";
 
 // GET banners with pagination
 export async function GET(request: NextRequest) {
@@ -81,8 +82,9 @@ export async function POST(request: NextRequest) {
 
     const formData = await request.formData();
     
-    const bannerHeading = formData.get("bannerHeading") as string;
-    const bannerDescription = formData.get("bannerDescription") as string || null;
+    const bannerHeadingRaw = formData.get("bannerHeading") as string;
+    const bannerHeading = sanitizeInput(bannerHeadingRaw);
+    const bannerDescription = typeof formData.get("bannerDescription") === "string" ? sanitizeInput(formData.get("bannerDescription") as string) : null;
     const isActive = formData.get("isActive") === "true";
     const targetType = (formData.get("targetType") as string) || "product";
     const categoryId = (formData.get("categoryId") as string)?.trim() || null;

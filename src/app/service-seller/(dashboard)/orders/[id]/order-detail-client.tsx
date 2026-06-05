@@ -368,15 +368,22 @@ export function ServiceSellerOrderDetailClient({ orderId }: { orderId: string })
                               accept="image/jpeg,image/png,image/gif,image/webp"
                               className="sr-only"
                               id={`delivery-proof-file-${item.id}`}
-                              onChange={(e) => {
-                                const f = e.target.files?.[0]
+                              onChange={async (e) => {
+                                let f = e.target.files?.[0]
                                 if (f) {
+                                  try {
+                                    const { compressImage } = await import("@/lib/image-compressor")
+                                    f = await compressImage(f)
+                                  } catch (err) {
+                                    console.error("Compression error:", err)
+                                  }
+                                  
                                   setDeliveryProofFilePreview((prev) => {
                                     const old = prev[item.id]
                                     if (old) URL.revokeObjectURL(old)
-                                    return { ...prev, [item.id]: URL.createObjectURL(f) }
+                                    return { ...prev, [item.id]: URL.createObjectURL(f!) }
                                   })
-                                  setDeliveryProofFiles((prev) => ({ ...prev, [item.id]: f }))
+                                  setDeliveryProofFiles((prev) => ({ ...prev, [item.id]: f! }))
                                   setDeliveryProofDrafts((prev) => ({ ...prev, [item.id]: "" }))
                                 }
                                 e.target.value = ""

@@ -6,6 +6,7 @@ import { uploadMasterServiceImage, uploadServiceGalleryImages } from "@/lib/uplo
 import { parseServiceImagesForSellerForm } from "@/lib/service-images"
 import { redirect } from "next/navigation"
 import { revalidatePath } from "next/cache"
+import { sanitizeInput } from "@/lib/html-sanitization"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/ui/card"
 import { Button } from "@/ui/button"
 import { Input } from "@/ui/input"
@@ -47,7 +48,12 @@ async function updateService(serviceId: string, data: unknown) {
   if (!validated.success) return { error: "Validation failed", details: validated.error.errors }
   let updateData: any = { ...validated.data }
   if (validated.data.name && validated.data.name !== service.name) {
-    updateData.slug = validated.data.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "")
+    const cleanName = sanitizeInput(validated.data.name)
+    updateData.name = cleanName
+    updateData.slug = cleanName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "")
+  }
+  if (typeof validated.data.description === "string") {
+    updateData.description = sanitizeInput(validated.data.description)
   }
   if (validated.data.discount !== undefined) updateData.discount = Math.round(validated.data.discount * 100) / 100
   updateData.hasGst = validated.data.hasGst ?? service.hasGst

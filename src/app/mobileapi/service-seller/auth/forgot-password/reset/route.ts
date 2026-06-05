@@ -25,10 +25,14 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
       where: { email, role: UserRole.SELLER_SERVICE },
       select: { id: true, isEmailVerified: true, verifyEmailOtp: true, emailVerificationExpires: true },
     })
-    if (!user || !user.isEmailVerified) return NextResponse.json({ success: false, error: "Invalid email or OTP" }, { status: 400 })
-    if (user.verifyEmailOtp !== otp) return NextResponse.json({ success: false, error: "Invalid OTP" }, { status: 400 })
-    if (!user.emailVerificationExpires || user.emailVerificationExpires < new Date()) {
-      return NextResponse.json({ success: false, error: "OTP has expired. Please request a new one.", expired: true }, { status: 400 })
+    if (
+      !user ||
+      !user.isEmailVerified ||
+      user.verifyEmailOtp !== otp ||
+      !user.emailVerificationExpires ||
+      user.emailVerificationExpires < new Date()
+    ) {
+      return NextResponse.json({ success: false, error: "Invalid email or OTP" }, { status: 400 })
     }
 
     const hashedPassword = await bcrypt.hash(newPassword, 10)

@@ -28,6 +28,7 @@ export default function HotelSettingsClient() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [showPassword, setShowPassword] = useState(false)
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false)
   const [haveGst, setHaveGst] = useState(false)
   const [selectedCategories, setSelectedCategories] = useState<string[]>([])
   const [previews, setPreviews] = useState<Record<string, { file: File, url: string }>>({})
@@ -93,9 +94,23 @@ export default function HotelSettingsClient() {
     }
   }
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, key: string) => {
-    const file = e.target.files?.[0]
-    if (file) {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, key: string) => {
+    const rawFile = e.target.files?.[0]
+    if (rawFile) {
+      let file: File = rawFile
+      if (["logo", "banner", "mainPhoto"].includes(key)) {
+        try {
+          const { compressImage } = await import("@/lib/image-compressor")
+          const compressed = await compressImage(rawFile)
+          file = compressed
+          
+          const dataTransfer = new DataTransfer()
+          dataTransfer.items.add(compressed)
+          e.target.files = dataTransfer.files
+        } catch (err) {
+          console.error("Compression error:", err)
+        }
+      }
       const url = URL.createObjectURL(file)
       setPreviews(prev => ({ ...prev, [key]: { file, url } }))
     }
@@ -156,8 +171,47 @@ export default function HotelSettingsClient() {
                   <div className="space-y-2"><Label>Country Code</Label><Input name="phoneCountryCode" defaultValue={seller.user.phoneCountryCode || ""} /></div>
                   <div className="space-y-2"><Label>Phone Number</Label><Input name="phone" defaultValue={seller.user.phone || ""} /></div>
                </div>
-               <div className="pt-2"><Label>Profile Picture</Label><ProfilePictureInput currentImage={seller.user.image} fileInputName="profileImage" urlInputName="image" /></div>
-               <Button type="submit" disabled={saving === "user"}>{saving === "user" ? "Saving..." : "Update Profile"}</Button>
+                <div className="grid md:grid-cols-2 gap-4 border-t pt-4">
+                  <div className="space-y-2">
+                    <Label>Current Password (Required for password change)</Label>
+                    <div className="relative">
+                      <Input 
+                        name="currentPassword" 
+                        type={showCurrentPassword ? "text" : "password"} 
+                        placeholder="Enter current password" 
+                        className="pr-10"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                      >
+                        {showCurrentPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>New Password (Optional)</Label>
+                    <div className="relative">
+                      <Input 
+                        name="password" 
+                        type={showPassword ? "text" : "password"} 
+                        placeholder="Leave blank to keep current" 
+                        className="pr-10"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                      >
+                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
+                    <p className="mt-1 text-xs text-muted-foreground">Must be at least 8 characters and contain uppercase, lowercase, a number, and a special character.</p>
+                  </div>
+                </div>
+                <div className="pt-2"><Label>Profile Picture</Label><ProfilePictureInput currentImage={seller.user.image} fileInputName="profileImage" urlInputName="image" /></div>
+                <Button type="submit" disabled={saving === "user"}>{saving === "user" ? "Saving..." : "Update Profile"}</Button>
             </form>
           </CardContent>
         </Card>

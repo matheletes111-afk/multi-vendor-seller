@@ -152,8 +152,14 @@ export function NewProductClient() {
     const files = e.target.files
     if (!files?.length) return
     setVariantUploadingFor(variantIndex)
-    const selected = Array.from(files).filter((f) => f.type.startsWith("image/"))
+    let selected = Array.from(files).filter((f) => f.type.startsWith("image/"))
     if (selected.length > 0) {
+      try {
+        const { compressImage } = await import("@/lib/image-compressor")
+        selected = await Promise.all(selected.map((f) => compressImage(f)))
+      } catch {
+        // Fallback
+      }
       ;(variantPreviewUrlsRef.current[variantIndex] ?? []).forEach((u) => URL.revokeObjectURL(u))
       const previewUrls = selected.map((f) => URL.createObjectURL(f))
       variantPreviewUrlsRef.current[variantIndex] = previewUrls
@@ -394,8 +400,14 @@ export function NewProductClient() {
     const files = e.target.files
     if (!files?.length) return
     setUploading(true)
-    const selected = Array.from(files).filter((f) => f.type.startsWith("image/"))
+    let selected = Array.from(files).filter((f) => f.type.startsWith("image/"))
     if (selected.length > 0) {
+      try {
+        const { compressImage } = await import("@/lib/image-compressor")
+        selected = await Promise.all(selected.map((f) => compressImage(f)))
+      } catch {
+        // Fallback
+      }
       productPreviewUrlsRef.current.forEach((u) => URL.revokeObjectURL(u))
       const previewUrls = selected.map((f) => URL.createObjectURL(f))
       productPreviewUrlsRef.current = previewUrls

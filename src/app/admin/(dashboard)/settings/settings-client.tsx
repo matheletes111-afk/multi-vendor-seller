@@ -32,6 +32,7 @@ export function AdminSettingsClient() {
   const [success, setSuccess] = useState<string | null>(null)
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false)
 
   useEffect(() => {
     fetch("/api/admin/settings")
@@ -216,47 +217,70 @@ export function AdminSettingsClient() {
                   <h4 className="text-[10px] font-medium uppercase tracking-[0.3em] text-muted-foreground/60">Cryptographic Update</h4>
                 </div>
 
-                <div className="grid gap-8 md:grid-cols-2">
+                <div className="space-y-4">
                   <div className="space-y-3">
-                    <Label htmlFor="password" title="Leave empty to keep current password" className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground ml-1">New Hash Secret</Label>
-                    <div className="relative">
+                    <Label htmlFor="currentPassword" className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground ml-1">Current Password (Required for password change)</Label>
+                    <div className="relative max-w-md">
                       <Input
-                        id="password"
-                        name="password"
-                        type={showPassword ? "text" : "password"}
-                        placeholder="Min 6 characters required"
+                        id="currentPassword"
+                        name="currentPassword"
+                        type={showCurrentPassword ? "text" : "password"}
+                        placeholder="Enter current password"
                         className="pr-12 pl-4 border-muted bg-muted/20 rounded-2xl h-12 focus-visible:ring-primary font-medium shadow-inner"
                       />
                       <button
                         type="button"
                         tabIndex={-1}
-                        onClick={() => setShowPassword((value) => !value)}
+                        onClick={() => setShowCurrentPassword((value) => !value)}
                         className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground/40 hover:text-primary transition-colors"
-                        aria-label={showPassword ? "Hide new password" : "Show new password"}
+                        aria-label={showCurrentPassword ? "Hide current password" : "Show current password"}
                       >
-                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        {showCurrentPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                       </button>
                     </div>
                   </div>
-                  <div className="space-y-3">
-                    <Label htmlFor="confirmPassword" title="Leave empty to keep current password" className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground ml-1">Verify Hash</Label>
-                    <div className="relative">
-                      <Input
-                        id="confirmPassword"
-                        name="confirmPassword"
-                        type={showConfirmPassword ? "text" : "password"}
-                        placeholder="Repeat secret for parity"
-                        className="pr-12 pl-4 border-muted bg-muted/20 rounded-2xl h-12 focus-visible:ring-primary font-medium shadow-inner"
-                      />
-                      <button
-                        type="button"
-                        tabIndex={-1}
-                        onClick={() => setShowConfirmPassword((value) => !value)}
-                        className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground/40 hover:text-primary transition-colors"
-                        aria-label={showConfirmPassword ? "Hide confirm password" : "Show confirm password"}
-                      >
-                        {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      </button>
+                  <div className="grid gap-8 md:grid-cols-2">
+                    <div className="space-y-3">
+                      <Label htmlFor="password" title="Leave empty to keep current password" className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground ml-1">New Hash Secret</Label>
+                      <div className="relative">
+                        <Input
+                          id="password"
+                          name="password"
+                          type={showPassword ? "text" : "password"}
+                          placeholder="Min 6 characters required"
+                          className="pr-12 pl-4 border-muted bg-muted/20 rounded-2xl h-12 focus-visible:ring-primary font-medium shadow-inner"
+                        />
+                        <button
+                          type="button"
+                          tabIndex={-1}
+                          onClick={() => setShowPassword((value) => !value)}
+                          className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground/40 hover:text-primary transition-colors"
+                          aria-label={showPassword ? "Hide new password" : "Show new password"}
+                        >
+                          {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </button>
+                      </div>
+                    </div>
+                    <div className="space-y-3">
+                      <Label htmlFor="confirmPassword" title="Leave empty to keep current password" className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground ml-1">Verify Hash</Label>
+                      <div className="relative">
+                        <Input
+                          id="confirmPassword"
+                          name="confirmPassword"
+                          type={showConfirmPassword ? "text" : "password"}
+                          placeholder="Repeat secret for parity"
+                          className="pr-12 pl-4 border-muted bg-muted/20 rounded-2xl h-12 focus-visible:ring-primary font-medium shadow-inner"
+                        />
+                        <button
+                          type="button"
+                          tabIndex={-1}
+                          onClick={() => setShowConfirmPassword((value) => !value)}
+                          className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground/40 hover:text-primary transition-colors"
+                          aria-label={showConfirmPassword ? "Hide confirm password" : "Show confirm password"}
+                        >
+                          {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>

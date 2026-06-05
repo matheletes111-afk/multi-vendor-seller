@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
   }
 
   const service = await prisma.service.findUnique({
-    where: { id: serviceId, isActive: true },
+    where: { id: serviceId, isActive: true, isDeleted: false },
     select: { id: true, name: true, sellerId: true, basePrice: true, discount: true, hasGst: true },
   })
   if (!service) {

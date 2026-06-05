@@ -7,6 +7,7 @@ import { unlink } from "fs/promises";
 import path from "path";
 import { existsSync } from "fs";
 import { uploadPublicFile } from "@/lib/upload-public-file";
+import { sanitizeInput } from "@/lib/html-sanitization";
 
 // GET single category with subcategories
 export async function GET(
@@ -128,8 +129,9 @@ export async function PUT(
     // Parse form data
     const formData = await request.formData();
     
-    const name = formData.get("name") as string;
-    const description = formData.get("description") as string || null;
+    const nameRaw = formData.get("name") as string;
+    const name = nameRaw !== null ? sanitizeInput(nameRaw) : undefined;
+    const description = typeof formData.get("description") === "string" ? sanitizeInput(formData.get("description") as string) : null;
     const commissionRate = 0.0; // Fixed to 0 per system requirements
     const isActive = formData.get("isActive") === "true";
     const isFeatured = formData.get("isFeatured") === "true";
@@ -142,7 +144,12 @@ export async function PUT(
     const categoryMobileIconUrl = (formData.get("categoryMobileIconUrl") as string)?.trim() || null;
     
     // Handle subcategories
-    const subcategoriesData = JSON.parse(formData.get("subcategories") as string || "[]");
+    const subcategoriesRaw = formData.get("subcategories") as string || "[]";
+    const subcategoriesData = JSON.parse(subcategoriesRaw);
+    for (const sub of subcategoriesData) {
+      if (typeof sub.name === "string") sub.name = sanitizeInput(sub.name);
+      if (typeof sub.description === "string") sub.description = sanitizeInput(sub.description);
+    }
     const subcategoryImages = new Map();
     const subcategoryMobileIcons = new Map();
     const deletedSubcategoryImages = JSON.parse(formData.get("deletedSubcategoryImages") as string || "[]");

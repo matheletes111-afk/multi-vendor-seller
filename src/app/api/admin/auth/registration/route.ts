@@ -9,6 +9,7 @@ const OTP_EXPIRY_MS = 10 * 60 * 1000 // 10 min
 
 /** POST /api/admin/auth/registration — Admin panel registration. */
 export async function POST(request: Request) {
+  return NextResponse.json({ error: "Admin registration is disabled" }, { status: 403 })
   try {
     const body = await request.json()
     const { name, email, password, phone, phoneCountryCode } = body

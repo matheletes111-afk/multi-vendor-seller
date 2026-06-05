@@ -30,7 +30,7 @@ export function ServiceGalleryImageInput({
     }
   }, [])
 
-  function onFilesChange(e: React.ChangeEvent<HTMLInputElement>) {
+  async function onFilesChange(e: React.ChangeEvent<HTMLInputElement>) {
     blobUrls.current.forEach((u) => URL.revokeObjectURL(u))
     blobUrls.current = []
     const files = e.target.files
@@ -38,13 +38,37 @@ export function ServiceGalleryImageInput({
       setNewPreviews([])
       return
     }
-    const next: string[] = []
-    for (let i = 0; i < files.length; i++) {
-      const u = URL.createObjectURL(files[i])
-      blobUrls.current.push(u)
-      next.push(u)
+    try {
+      const { compressImage } = await import("@/lib/image-compressor")
+      
+      const fileList = Array.from(files)
+      const compressedFiles = await Promise.all(
+        fileList.map((file) => compressImage(file))
+      )
+
+      if (fileInputRef.current) {
+        const dataTransfer = new DataTransfer()
+        compressedFiles.forEach((file) => dataTransfer.items.add(file))
+        fileInputRef.current.files = dataTransfer.files
+      }
+
+      const next: string[] = []
+      for (const compressedFile of compressedFiles) {
+        const u = URL.createObjectURL(compressedFile)
+        blobUrls.current.push(u)
+        next.push(u)
+      }
+      setNewPreviews(next)
+    } catch {
+      // Fallback
+      const next: string[] = []
+      for (let i = 0; i < files.length; i++) {
+        const u = URL.createObjectURL(files[i])
+        blobUrls.current.push(u)
+        next.push(u)
+      }
+      setNewPreviews(next)
     }
-    setNewPreviews(next)
   }
 
   function removeKeptAt(index: number) {

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { isProductSeller } from "@/lib/rbac"
+import { sanitizeInput } from "@/lib/html-sanitization"
 
 export async function GET(
   _request: NextRequest,
@@ -85,8 +86,8 @@ export async function PUT(
   }
 
   const updateData: Record<string, unknown> = {}
-  if (body.name !== undefined) updateData.name = body.name.trim()
-  if (body.description !== undefined) updateData.description = body.description
+  if (body.name !== undefined) updateData.name = sanitizeInput(body.name)
+  if (body.description !== undefined) updateData.description = typeof body.description === "string" ? sanitizeInput(body.description) : body.description
   if (body.categoryId !== undefined) updateData.categoryId = body.categoryId
   if (body.subcategoryId !== undefined) {
     if (body.subcategoryId) {
@@ -112,7 +113,7 @@ export async function PUT(
   if (body.deliveryChargePerKm !== undefined) updateData.deliveryChargePerKm = Number(body.deliveryChargePerKm || 0)
 
   if (body.name) {
-    (updateData as { slug?: string }).slug = body.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "")
+    (updateData as { slug?: string }).slug = sanitizeInput(body.name).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "")
   }
 
   if (Array.isArray(body.variants) && body.variants.length === 0) {
@@ -124,7 +125,7 @@ export async function PUT(
       await prisma.productVariant.deleteMany({ where: { productId: id } })
       type V = (typeof body.variants)[number]
       for (const v of body.variants as V[]) {
-        const vName = typeof v?.name === "string" ? v.name.trim() : "Variant"
+        const vName = typeof v?.name === "string" ? sanitizeInput(v.name) : "Variant"
         const vPrice = Number(v?.price ?? 0)
         const vStock = Number(v?.stock ?? 0)
         const vDiscount = Math.round(Number(v?.discount ?? 0) * 100) / 100
@@ -150,7 +151,7 @@ export async function PUT(
             images: Array.isArray(v?.images) ? (v.images as object) : [],
             attributes: (v?.attributes && typeof v.attributes === "object" && !Array.isArray(v.attributes)) ? v.attributes as object : {},
             specification: typeof v?.specification === "string" ? v.specification : null,
-            details: typeof v?.details === "string" ? v.details : null,
+            details: typeof v?.details === "string" ? sanitizeInput(v.details) : null,
             returnType: vReturnType,
             returnDays: vReturnDays ?? undefined,
             replacementAllowed,

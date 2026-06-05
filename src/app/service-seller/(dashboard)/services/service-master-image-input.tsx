@@ -30,7 +30,7 @@ export function ServiceMasterImageInput({
     }
   }, [])
 
-  function onFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+  async function onFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0]
     if (blobRef.current) {
       URL.revokeObjectURL(blobRef.current)
@@ -40,9 +40,26 @@ export function ServiceMasterImageInput({
       setFilePreview(null)
       return
     }
-    const u = URL.createObjectURL(f)
-    blobRef.current = u
-    setFilePreview(u)
+    try {
+      const { compressImage } = await import("@/lib/image-compressor")
+      const compressed = await compressImage(f)
+      
+      // Update the file input files with the compressed file
+      if (fileInputRef.current) {
+        const dataTransfer = new DataTransfer()
+        dataTransfer.items.add(compressed)
+        fileInputRef.current.files = dataTransfer.files
+      }
+
+      const u = URL.createObjectURL(compressed)
+      blobRef.current = u
+      setFilePreview(u)
+    } catch {
+      // Fallback to original file if compression fails
+      const u = URL.createObjectURL(f)
+      blobRef.current = u
+      setFilePreview(u)
+    }
   }
 
   function clearAll() {

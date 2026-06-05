@@ -102,12 +102,13 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
     }) as UserWithOtpInfo | null
 
     if (!user) {
+      // Generic response to prevent account enumeration
       return NextResponse.json<ErrorResponse>(
         { 
           success: false,
-          error: "Seller not found with this email" 
+          error: "If a pending verification exists for this email, a new OTP has been sent." 
         },
-        { status: 404 }
+        { status: 200 }
       )
     }
 

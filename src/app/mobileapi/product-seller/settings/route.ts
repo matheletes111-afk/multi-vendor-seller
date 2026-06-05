@@ -5,6 +5,8 @@ import { getMobileSellerAuth } from "../../_helpers/seller-auth"
 import { uploadPublicFile } from "@/lib/upload-public-file"
 import path from "path"
 import bcrypt from "bcryptjs"
+import { validatePassword } from "@/lib/password-validation"
+import { sanitizeInput } from "@/lib/html-sanitization"
 
 export const dynamic = "force-dynamic"
 
@@ -77,17 +79,37 @@ export async function PUT(request: NextRequest) {
       const storeUpdates: Prisma.StoreUpdateInput = {}
 
       // 1. User Profile Update
-      const name = fd.get("name") as string | null
+      const nameRaw = fd.get("name") as string | null
+      const name = nameRaw !== null ? sanitizeInput(nameRaw) : null
       const phone = fd.get("phone") as string | null
       const phoneCountryCode = fd.get("phoneCountryCode") as string | null
       const password = fd.get("password") as string | null
+      const currentPassword = fd.get("currentPassword") as string | null
       const profileImage = fd.get("profileImage") as File | null
-
-      if (name !== null) userData.name = name.trim()
+ 
+      if (name !== null) userData.name = name
       if (phone !== null) userData.phone = phone.trim() || null
       if (phoneCountryCode !== null) userData.phoneCountryCode = phoneCountryCode.trim() || null
 
-      if (password && password.trim().length >= 6) {
+      if (password) {
+        const passwordValidation = validatePassword(password.trim())
+        if (!passwordValidation.isValid) {
+          return NextResponse.json({ success: false, error: passwordValidation.error }, { status: 400 })
+        }
+        const dbUser = await prisma.user.findUnique({
+          where: { id: userId },
+          select: { password: true }
+        })
+        if (dbUser?.password) {
+          const curPass = (currentPassword || "").trim()
+          if (!curPass) {
+            return NextResponse.json({ success: false, error: "Current password is required to change password" }, { status: 400 })
+          }
+          const isPasswordCorrect = await bcrypt.compare(curPass, dbUser.password)
+          if (!isPasswordCorrect) {
+            return NextResponse.json({ success: false, error: "Incorrect current password" }, { status: 400 })
+          }
+        }
         userData.password = await bcrypt.hash(password.trim(), 10)
       }
 
@@ -381,7 +403,9 @@ export async function PUT(request: NextRequest) {
 
     if (user) {
       const userData: Prisma.UserUpdateInput = {}
-      if (user.name !== undefined) userData.name = user.name
+      if (user.name !== undefined) {
+        userData.name = typeof user.name === "string" ? sanitizeInput(user.name) : undefined
+      }
       if (user.image !== undefined) userData.image = user.image
       if (user.phone !== undefined) {
         userData.phone = user.phone || null
@@ -391,7 +415,25 @@ export async function PUT(request: NextRequest) {
         }
       }
       if (user.phoneCountryCode !== undefined) userData.phoneCountryCode = user.phoneCountryCode || null
-      if (user.password && user.password.trim().length >= 6) {
+      if (user.password !== undefined && user.password !== null) {
+        const passwordValidation = validatePassword(user.password.trim())
+        if (!passwordValidation.isValid) {
+          return NextResponse.json({ success: false, error: passwordValidation.error }, { status: 400 })
+        }
+        const dbUser = await prisma.user.findUnique({
+          where: { id: userId },
+          select: { password: true }
+        })
+        if (dbUser?.password) {
+          const curPass = (user.currentPassword || "").trim()
+          if (!curPass) {
+            return NextResponse.json({ success: false, error: "Current password is required to change password" }, { status: 400 })
+          }
+          const isPasswordCorrect = await bcrypt.compare(curPass, dbUser.password)
+          if (!isPasswordCorrect) {
+            return NextResponse.json({ success: false, error: "Incorrect current password" }, { status: 400 })
+          }
+        }
         userData.password = await bcrypt.hash(user.password.trim(), 10)
       }
       if (Object.keys(userData).length > 0) {

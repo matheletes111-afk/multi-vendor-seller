@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import bcrypt from "bcryptjs"
 import { UserRole } from "@prisma/client"
 import { prisma } from "@/lib/prisma"
+import { checkOtpRateLimit, recordOtpFailure, resetOtpRateLimit } from "@/lib/rate-limit"
 
 /** POST /api/hotel-seller/auth/forgot-password/reset — Body: { email, otp, newPassword } */
 export async function POST(request: Request) {
@@ -18,16 +19,29 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Password must be at least 6 characters." }, { status: 400 })
     }
 
+    const rateLimitKey = `${email}:forgot-password-reset`
+    const rateCheck = await checkOtpRateLimit(rateLimitKey)
+    if (!rateCheck.allowed) {
+      const minutesLeft = Math.ceil(rateCheck.blockTimeLeftMs / 60000)
+      return NextResponse.json({ error: `Too many failed attempts. Try again in ${minutesLeft} minute(s).` }, { status: 429 })
+    }
+
     const user = await prisma.user.findFirst({
       where: { email, role: UserRole.SELLER_HOTEL },
       select: { id: true, isEmailVerified: true, verifyEmailOtp: true, emailVerificationExpires: true },
     })
-    if (!user || !user.isEmailVerified) return NextResponse.json({ error: "Invalid email or OTP." }, { status: 400 })
-    if (user.verifyEmailOtp !== otp) return NextResponse.json({ error: "Invalid OTP." }, { status: 400 })
-
+    if (!user || !user.isEmailVerified) {
+      await recordOtpFailure(rateLimitKey)
+      return NextResponse.json({ error: "Invalid email or OTP." }, { status: 400 })
+    }
     const now = new Date()
-    if (!user.emailVerificationExpires || user.emailVerificationExpires < now) {
-      return NextResponse.json({ error: "OTP has expired. Please request a new one." }, { status: 400 })
+    if (
+      user.verifyEmailOtp !== otp ||
+      !user.emailVerificationExpires ||
+      user.emailVerificationExpires < now
+    ) {
+      await recordOtpFailure(rateLimitKey)
+      return NextResponse.json({ error: "Invalid email or OTP." }, { status: 400 })
     }
 
     const hashedPassword = await bcrypt.hash(newPassword, 10)
@@ -35,6 +49,8 @@ export async function POST(request: Request) {
       where: { id: user.id },
       data: { password: hashedPassword, verifyEmailOtp: null, emailVerificationExpires: null, emailOtpSentAt: null },
     })
+
+    await resetOtpRateLimit(rateLimitKey)
 
     return NextResponse.json({ message: "Password reset successful.", loginUrl: "/hotel-seller/login?reset=1" }, { status: 200 })
   } catch (error) {

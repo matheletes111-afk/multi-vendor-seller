@@ -11,12 +11,15 @@ import { Label } from "@/ui/label"
 import { Alert, AlertDescription } from "@/ui/alert"
 import { AlertCircle, Eye, EyeOff } from "lucide-react"
 import { getCartFromStorage, setCartInStorage } from "@/app/cart/cart-types"
+import { getSafeRedirectUrl } from "@/lib/safe-redirect"
+
 
 function CustomerLoginForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const rawCallbackUrl = searchParams.get("callbackUrl")
-  const callbackUrl = rawCallbackUrl === "/customer" ? "/" : rawCallbackUrl || "/"
+  const validatedCallbackUrl = getSafeRedirectUrl(rawCallbackUrl, "/")
+  const callbackUrl = validatedCallbackUrl === "/customer" ? "/" : validatedCallbackUrl
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
@@ -76,7 +79,7 @@ function CustomerLoginForm() {
         const loc = res.headers.get("Location")
         if (loc && !loc.includes("error=")) {
           setCartInStorage([])
-          window.location.href = loc
+          window.location.href = getSafeRedirectUrl(loc, "/")
           return
         }
       }
@@ -97,7 +100,7 @@ function CustomerLoginForm() {
           return
         }
         setCartInStorage([])
-        window.location.href = data?.url ?? callbackUrl
+        window.location.href = getSafeRedirectUrl(data?.url || callbackUrl, "/")
         return
       }
       const data = await res.json().catch(() => ({}))

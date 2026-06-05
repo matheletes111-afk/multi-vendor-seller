@@ -3,6 +3,8 @@ import { UserRole } from "@prisma/client"
 import { prisma } from "@/lib/prisma"
 import bcrypt from "bcryptjs"
 import { POST as nextAuthPost } from "@/app/api/nextauth/[...nextauth]/route"
+import { getSafeRedirectUrl } from "@/lib/safe-redirect"
+
 
 export async function POST(request: Request) {
   try {
@@ -27,11 +29,12 @@ export async function POST(request: Request) {
 
     const origin = new URL(request.url).origin
     const host = new URL(request.url).host
+    const validatedCallbackUrl = getSafeRedirectUrl(callbackUrl, "/restaurant-seller", origin)
     const form = new URLSearchParams({
       email,
       password: hasOtpLoginToken ? "__OTP_LOGIN__" : password,
       role: UserRole.SELLER_RESTAURANT,
-      callbackUrl: callbackUrl || "/restaurant-seller",
+      callbackUrl: validatedCallbackUrl,
       ...(hasOtpLoginToken ? { otpLoginToken: otpLoginToken.trim() } : {}),
       ...(csrfToken && { csrfToken }),
     })
@@ -62,13 +65,13 @@ export async function POST(request: Request) {
 
     if (res.status === 302) {
       const headers = new Headers()
-      headers.set("Location", location || "/restaurant-seller")
+      headers.set("Location", getSafeRedirectUrl(location, "/restaurant-seller", origin))
       res.headers.getSetCookie?.().forEach((c) => headers.append("Set-Cookie", c))
       return new NextResponse(null, { status: 302, headers })
     }
 
     const data = await res.json().catch(() => ({}))
-    let url = data?.url || callbackUrl || "/restaurant-seller"
+    let url = getSafeRedirectUrl(data?.url || callbackUrl, "/restaurant-seller", origin)
     const u = await prisma.user.findUnique({ where: { email }, select: { id: true, role: true } })
     if (u?.role === UserRole.SELLER_RESTAURANT) {
       const s = await prisma.restaurantSeller.findUnique({ where: { userId: u.id }, select: { onboardingCompleted: true } })

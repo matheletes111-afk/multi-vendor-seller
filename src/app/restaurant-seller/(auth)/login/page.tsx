@@ -10,11 +10,13 @@ import { Input } from "@/ui/input"
 import { Label } from "@/ui/label"
 import { Alert, AlertDescription } from "@/ui/alert"
 import { AlertCircle, Eye, EyeOff, CheckCircle2 } from "lucide-react"
+import { getSafeRedirectUrl } from "@/lib/safe-redirect"
+
 
 function RestaurantSellerLoginForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const callbackUrl = searchParams.get("callbackUrl") || "/restaurant-seller"
+  const callbackUrl = getSafeRedirectUrl(searchParams.get("callbackUrl"), "/restaurant-seller")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
@@ -56,7 +58,7 @@ function RestaurantSellerLoginForm() {
       if (res.status === 302) {
         const loc = res.headers.get("Location")
         if (loc && !loc.includes("error=")) {
-          window.location.href = loc
+          window.location.href = getSafeRedirectUrl(loc, "/restaurant-seller")
           return
         }
       }
@@ -67,7 +69,7 @@ function RestaurantSellerLoginForm() {
           setError("Invalid email or password.")
           return
         }
-        window.location.href = data?.url ?? callbackUrl
+        window.location.href = getSafeRedirectUrl(data?.url || callbackUrl, "/restaurant-seller")
         return
       }
 

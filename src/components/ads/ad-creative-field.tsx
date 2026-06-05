@@ -60,8 +60,8 @@ export function AdCreativeField({ label = "Creative (image or video) *", require
     }
   }, [creativeType, imagePreview, videoPreview, onCreativeChange])
 
-  function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>, type: "IMAGE" | "VIDEO") {
-    const file = e.target.files?.[0]
+  async function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>, type: "IMAGE" | "VIDEO") {
+    let file = e.target.files?.[0]
     setUploadError(null)
     if (type === "IMAGE") {
       if (imagePreviewBlob) URL.revokeObjectURL(imagePreviewBlob)
@@ -71,6 +71,21 @@ export function AdCreativeField({ label = "Creative (image or video) *", require
       setVideoPreviewBlob(null)
     }
     if (!file) return
+
+    if (type === "IMAGE") {
+      try {
+        const { compressImage } = await import("@/lib/image-compressor")
+        file = await compressImage(file)
+        if (imageFileRef.current) {
+          const dataTransfer = new DataTransfer()
+          dataTransfer.items.add(file)
+          imageFileRef.current.files = dataTransfer.files
+        }
+      } catch {
+        // Fallback
+      }
+    }
+
     if (file.size > MAX_BYTES) {
       setUploadError(`File must be under ${MAX_MB} MB.`)
       e.target.value = ""

@@ -124,9 +124,24 @@ export function NewHotelClient() {
     })
   }
 
-  const handleRoomImageChange = (roomIndex: number, e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleRoomImageChange = async (roomIndex: number, e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || [])
-    const imagesWithPreviews = files.map((file) => ({
+    let compressedFiles = files;
+    try {
+      const { compressImage } = await import("@/lib/image-compressor");
+      compressedFiles = await Promise.all(
+        files.map(async (file) => {
+          if (file.type.startsWith("image/")) {
+            return await compressImage(file).catch(() => file);
+          }
+          return file;
+        })
+      );
+    } catch (err) {
+      console.error("Compression error:", err);
+    }
+
+    const imagesWithPreviews = compressedFiles.map((file) => ({
       file,
       preview: URL.createObjectURL(file),
     }))
@@ -312,37 +327,51 @@ export function NewHotelClient() {
   }, [formData.lat, formData.lng])
 
   useEffect(() => {
-    const apiKey = process.env.MAP_KEY
-    if (!apiKey) {
-      setMapError("Google Maps API key not configured.")
-      return
-    }
+    let active = true
+    fetch("/api/utils/maps-key")
+      .then((res) => {
+        if (!res.ok) throw new Error("Unauthorized or not configured")
+        return res.json()
+      })
+      .then((data) => {
+        if (!active) return
+        const apiKey = data.key
+        if (!apiKey) {
+          setMapError("Google Maps API key not configured.")
+          return
+        }
 
-    if ((window as any).google?.maps) {
-      initMap()
-      return
-    }
+        if ((window as any).google?.maps) {
+          initMap()
+          return
+        }
 
-    if ((window as any)._googleMapsLoading) {
-      (window as any).initGoogleMaps = initMap
-      return
-    }
+        if ((window as any)._googleMapsLoading) {
+          (window as any).initGoogleMaps = initMap
+          return
+        }
 
-    (window as any)._googleMapsLoading = true;
-    (window as any).initGoogleMaps = () => {
-      (window as any)._googleMapsLoading = false
-      initMap()
-    }
+        (window as any)._googleMapsLoading = true;
+        (window as any).initGoogleMaps = () => {
+          (window as any)._googleMapsLoading = false
+          initMap()
+        }
 
-    const script = document.createElement("script")
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&callback=initGoogleMaps`
-    script.async = true
-    script.defer = true
-    script.onerror = () => setMapError("Failed to load Google Maps.")
-    document.head.appendChild(script)
+        const script = document.createElement("script")
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&callback=initGoogleMaps`
+        script.async = true
+        script.defer = true
+        script.onerror = () => setMapError("Failed to load Google Maps.")
+        document.head.appendChild(script)
+      })
+      .catch((err) => {
+        if (active) {
+          setMapError(err.message || "Failed to configure map API key.")
+        }
+      })
 
     return () => {
-      // keep instance
+      active = false
     }
   }, [initMap])
 
@@ -373,9 +402,24 @@ export function NewHotelClient() {
     )
   }
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || [])
-    const newImages = files.map((file) => ({
+    let compressedFiles = files;
+    try {
+      const { compressImage } = await import("@/lib/image-compressor");
+      compressedFiles = await Promise.all(
+        files.map(async (file) => {
+          if (file.type.startsWith("image/")) {
+            return await compressImage(file).catch(() => file);
+          }
+          return file;
+        })
+      );
+    } catch (err) {
+      console.error("Compression error:", err);
+    }
+
+    const newImages = compressedFiles.map((file) => ({
       file,
       preview: URL.createObjectURL(file),
     }))
@@ -392,18 +436,36 @@ export function NewHotelClient() {
     })
   }
 
-  const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) {
+  const handleLogoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const rawFile = e.target.files?.[0]
+    if (rawFile) {
+      let file: File = rawFile
+      if (rawFile.type.startsWith("image/")) {
+        try {
+          const { compressImage } = await import("@/lib/image-compressor");
+          file = await compressImage(rawFile).catch(() => rawFile);
+        } catch (err) {
+          console.error("Compression error:", err);
+        }
+      }
       if (logo) URL.revokeObjectURL(logo.preview)
       setLogo({ file, preview: URL.createObjectURL(file) })
     }
     if (logoInputRef.current) logoInputRef.current.value = ""
   }
 
-  const handleBannerChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) {
+  const handleBannerChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const rawFile = e.target.files?.[0]
+    if (rawFile) {
+      let file: File = rawFile
+      if (rawFile.type.startsWith("image/")) {
+        try {
+          const { compressImage } = await import("@/lib/image-compressor");
+          file = await compressImage(rawFile).catch(() => rawFile);
+        } catch (err) {
+          console.error("Compression error:", err);
+        }
+      }
       if (banner) URL.revokeObjectURL(banner.preview)
       setBanner({ file, preview: URL.createObjectURL(file) })
     }

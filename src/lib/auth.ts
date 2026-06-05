@@ -7,6 +7,8 @@ import { prisma } from "@/lib/prisma"
 import bcrypt from "bcryptjs"
 import { UserRole } from "@prisma/client"
 import { verifyOtpLoginToken } from "@/lib/web-otp-login"
+import { isSafeRedirectUrl } from "./safe-redirect"
+
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const providers: any[] = [
@@ -251,7 +253,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
         const parsed = url.startsWith("/") ? new URL(url, baseUrl) : new URL(url)
         const callbackUrl = parsed.searchParams.get("callbackUrl") ?? parsed.searchParams.get("redirect")
-        if (callbackUrl && typeof callbackUrl === "string" && callbackUrl.startsWith("/") && !callbackUrl.startsWith("//")) {
+        if (callbackUrl && typeof callbackUrl === "string" && isSafeRedirectUrl(callbackUrl, baseUrl)) {
           const allowed = ["/customer", "/product-seller", "/service-seller", "/admin", "/dashboard"]
           if (allowed.some((p) => callbackUrl === p || callbackUrl.startsWith(p + "/"))) {
             return `${baseUrl.replace(/\/$/, "")}${callbackUrl}`
@@ -260,11 +262,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       } catch {
         /* ignore */
       }
-      if (url.startsWith("/")) return `${baseUrl.replace(/\/$/, "")}${url}`
-      try {
-        if (new URL(url).origin === new URL(baseUrl).origin) return url
-      } catch {
-        /* ignore */
+      if (typeof url === "string" && isSafeRedirectUrl(url, baseUrl)) {
+        if (url.startsWith("/")) return `${baseUrl.replace(/\/$/, "")}${url}`
+        return url
       }
       return baseUrl
     },

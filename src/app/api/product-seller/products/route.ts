@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma"
 import { isProductSeller } from "@/lib/rbac"
 import { checkProductLimit } from "@/lib/subscriptions"
 import { getPaginationFromSearchParams } from "@/lib/admin-pagination"
+import { sanitizeInput } from "@/lib/html-sanitization"
 import {
   parseVariantInput,
   sellerHasSelectedCategory,
@@ -131,7 +132,8 @@ export async function POST(request: NextRequest) {
     }, { status: 403 })
   }
   const body = await request.json().catch(() => ({})) as Record<string, unknown>
-  const name = typeof body.name === "string" ? body.name.trim() : ""
+  const nameRaw = typeof body.name === "string" ? body.name.trim() : ""
+  const name = sanitizeInput(nameRaw)
   const categoryId = typeof body.categoryId === "string" ? body.categoryId : ""
   if (!name || !categoryId) return NextResponse.json({ error: "Name and category are required" }, { status: 400 })
   const allowedCat = await sellerHasSelectedCategory(seller.id, categoryId)
@@ -151,10 +153,18 @@ export async function POST(request: NextRequest) {
   for (let i = 0; i < variantsRaw.length; i++) {
     const parsed = parseVariantInput(variantsRaw[i] as VariantInput, i)
     if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: 400 })
+    // Sanitize variant name if present
+    if (parsed.variant.name) {
+      parsed.variant.name = sanitizeInput(parsed.variant.name)
+    }
+    if (parsed.variant.details) {
+      parsed.variant.details = sanitizeInput(parsed.variant.details)
+    }
     variants.push(parsed.variant)
   }
   const conditionInput = typeof body.condition === "string" ? body.condition.toUpperCase() : "NEW"
   const condition = (conditionInput === "USED") ? "USED" : "NEW"
+  const sanitizedDescription = typeof body.description === "string" ? sanitizeInput(body.description) : null
 
   try {
     const product = await prisma.product.create({
@@ -164,7 +174,7 @@ export async function POST(request: NextRequest) {
         subcategoryId,
         name,
         slug,
-        description: (body.description as string) ?? null,
+        description: sanitizedDescription,
         condition: condition as any,
         deliveryChargePerKm: Number(body.deliveryChargePerKm || 0),
         images: imagesData as object,

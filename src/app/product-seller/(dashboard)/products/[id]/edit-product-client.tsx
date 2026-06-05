@@ -249,8 +249,14 @@ export function EditProductClient({ productId }: { productId: string }) {
     const files = e.target.files
     if (!files?.length) return
     setVariantUploadingFor(variantIndex)
-    const selected = Array.from(files).filter((f) => f.type.startsWith("image/"))
+    let selected = Array.from(files).filter((f) => f.type.startsWith("image/"))
     if (selected.length > 0) {
+      try {
+        const { compressImage } = await import("@/lib/image-compressor")
+        selected = await Promise.all(selected.map((f) => compressImage(f)))
+      } catch {
+        // Fallback
+      }
       ;(variantPreviewUrlsRef.current[variantIndex] ?? []).forEach((u) => URL.revokeObjectURL(u))
       const previewUrls = selected.map((f) => URL.createObjectURL(f))
       variantPreviewUrlsRef.current[variantIndex] = previewUrls
@@ -509,12 +515,18 @@ export function EditProductClient({ productId }: { productId: string }) {
   }
 
   async function handleMasterFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
+    let file = e.target.files?.[0]
     if (!file || !file.type.startsWith("image/")) {
       e.target.value = ""
       return
     }
     setUploading(true)
+    try {
+      const { compressImage } = await import("@/lib/image-compressor")
+      file = await compressImage(file)
+    } catch {
+      // Fallback
+    }
     if (masterImagePreviewUrl) URL.revokeObjectURL(masterImagePreviewUrl)
     setMasterImageFile(file)
     const previewUrl = URL.createObjectURL(file)

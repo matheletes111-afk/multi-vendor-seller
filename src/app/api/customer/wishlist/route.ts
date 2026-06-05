@@ -179,7 +179,7 @@ export async function POST(request: NextRequest) {
 
   if (productId) {
     const product = await prisma.product.findFirst({
-      where: { id: productId, isActive: true },
+      where: { id: productId, isActive: true, isDeleted: false },
       select: { id: true },
     })
     if (!product) {
@@ -187,7 +187,7 @@ export async function POST(request: NextRequest) {
     }
   } else if (serviceId) {
     const service = await prisma.service.findFirst({
-      where: { id: serviceId, isActive: true },
+      where: { id: serviceId, isActive: true, isDeleted: false },
       select: { id: true },
     })
     if (!service) {

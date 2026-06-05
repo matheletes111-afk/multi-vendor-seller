@@ -39,22 +39,42 @@ export function ProfilePictureInput({
 
   const displayUrl = previewUrl || currentImage || null;
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (previewUrl) URL.revokeObjectURL(previewUrl);
     setPreviewUrl(null);
     if (!file) return;
-    if (file.size > MAX_BYTES) {
-      alert(`Image must be under ${MAX_MB} MB`);
-      e.target.value = "";
-      return;
-    }
+
     if (!file.type.startsWith("image/")) {
       alert("Please select an image file (e.g. JPG, PNG)");
       e.target.value = "";
       return;
     }
-    setPreviewUrl(URL.createObjectURL(file));
+
+    try {
+      const { compressImage } = await import("@/lib/image-compressor");
+      const compressed = await compressImage(file, 500, 500, 0.85);
+      
+      if (compressed.size > MAX_BYTES) {
+        alert(`Image must be under ${MAX_MB} MB`);
+        e.target.value = "";
+        return;
+      }
+
+      if (fileInputRef.current) {
+        const dataTransfer = new DataTransfer();
+        dataTransfer.items.add(compressed);
+        fileInputRef.current.files = dataTransfer.files;
+      }
+      setPreviewUrl(URL.createObjectURL(compressed));
+    } catch {
+      if (file.size > MAX_BYTES) {
+        alert(`Image must be under ${MAX_MB} MB`);
+        e.target.value = "";
+        return;
+      }
+      setPreviewUrl(URL.createObjectURL(file));
+    }
   };
 
   const avatarSize = sizeClasses[size];

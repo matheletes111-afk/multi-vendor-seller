@@ -68,6 +68,7 @@ export async function PUT(request: NextRequest) {
     const phone = (formData.get("phone") as string | null) ?? ""
     const phoneCountryCode = (formData.get("phoneCountryCode") as string | null) ?? ""
     const password = ((formData.get("password") as string | null) ?? "").trim()
+    const currentPassword = ((formData.get("currentPassword") as string | null) ?? "").trim()
     const baseCommissionStr = (formData.get("baseCommission") as string | null)
     if (baseCommissionStr !== null) baseCommission = parseFloat(baseCommissionStr)
     const profileImageFile = formData.get("profileImage") as File | null
@@ -82,6 +83,19 @@ export async function PUT(request: NextRequest) {
     if (password) {
       if (password.length < 6) {
         return NextResponse.json({ error: "Password must be at least 6 characters long" }, { status: 400 })
+      }
+      const dbUser = await prisma.user.findUnique({
+        where: { id: session.user.id },
+        select: { password: true }
+      })
+      if (dbUser?.password) {
+        if (!currentPassword) {
+          return NextResponse.json({ error: "Current password is required to change password" }, { status: 400 })
+        }
+        const isPasswordCorrect = await bcrypt.compare(currentPassword, dbUser.password)
+        if (!isPasswordCorrect) {
+          return NextResponse.json({ error: "Incorrect current password" }, { status: 400 })
+        }
       }
       userData.password = await bcrypt.hash(password, 10)
     }
@@ -118,6 +132,7 @@ export async function PUT(request: NextRequest) {
       phone?: string
       phoneCountryCode?: string
       password?: string
+      currentPassword?: string
       baseCommission?: number
     }
     if (body.name !== undefined) userData.name = body.name
@@ -131,9 +146,23 @@ export async function PUT(request: NextRequest) {
 
     if (body.password !== undefined) {
       const password = body.password.trim()
+      const currentPassword = (body.currentPassword ?? "").trim()
       if (password) {
         if (password.length < 6) {
           return NextResponse.json({ error: "Password must be at least 6 characters long" }, { status: 400 })
+        }
+        const dbUser = await prisma.user.findUnique({
+          where: { id: session.user.id },
+          select: { password: true }
+        })
+        if (dbUser?.password) {
+          if (!currentPassword) {
+            return NextResponse.json({ error: "Current password is required to change password" }, { status: 400 })
+          }
+          const isPasswordCorrect = await bcrypt.compare(currentPassword, dbUser.password)
+          if (!isPasswordCorrect) {
+            return NextResponse.json({ error: "Incorrect current password" }, { status: 400 })
+          }
         }
         userData.password = await bcrypt.hash(password, 10)
       }
