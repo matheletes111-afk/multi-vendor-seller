@@ -8,7 +8,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       where: {
         id,
         isActive: true,
-        isDeleted: false
+        isDeleted: false,
+        hotelSeller: {
+          isApproved: true,
+          isSuspended: false,
+        }
       },
       include: {
         rooms: {

@@ -78,6 +78,10 @@ export async function GET(
       where: {
         serviceCategoryId: id,
         ...(activeOnly ? { isActive: true } : {}),
+        seller: {
+          isApproved: true,
+          isSuspended: false,
+        }
       },
       take: limit,
       orderBy: [{ isFeatured: "desc" }, { createdAt: "desc" }],
@@ -108,7 +112,14 @@ export async function GET(
     }))
 
     const totalServices = await prisma.service.count({
-      where: { serviceCategoryId: id, ...(activeOnly ? { isActive: true } : {}) },
+      where: { 
+        serviceCategoryId: id, 
+        ...(activeOnly ? { isActive: true } : {}),
+        seller: {
+          isApproved: true,
+          isSuspended: false,
+        }
+      },
     })
 
     return NextResponse.json({

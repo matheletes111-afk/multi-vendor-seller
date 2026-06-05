@@ -1,0 +1,1755 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Product Seller Catalog & Bulk Upload Guide</title>
+  
+  <!-- Modern Premium Typography -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  
+  <style>
+    :root {
+      --bg-gradient: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #020617 100%);
+      --card-bg: rgba(30, 41, 59, 0.7);
+      --card-border: rgba(99, 102, 241, 0.15);
+      --card-border-hover: rgba(99, 102, 241, 0.4);
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --primary: #6366f1;
+      --primary-hover: #4f46e5;
+      --accent-emerald: #10b981;
+      --accent-amber: #f59e0b;
+      --accent-rose: #f43f5e;
+      --radius-lg: 20px;
+      --radius-md: 12px;
+      --font-sans: 'Plus Jakarta Sans', sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+      --transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background: var(--bg-gradient);
+      color: var(--text-main);
+      line-height: 1.6;
+      min-height: 100vh;
+      padding: 40px 20px;
+    }
+
+    /* Container */
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    /* Header Glassmorphic Box */
+    header {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-lg);
+      padding: 40px;
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+      margin-bottom: 30px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    header::before {
+      content: "";
+      position: absolute;
+      top: -50%;
+      right: -20%;
+      width: 400px;
+      height: 400px;
+      background: radial-gradient(circle, rgba(99, 102, 241, 0.2) 0%, transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .header-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 16px;
+      background: rgba(99, 102, 241, 0.15);
+      border: 1px solid rgba(99, 102, 241, 0.3);
+      border-radius: 999px;
+      color: #a5b4fc;
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 20px;
+      letter-spacing: 0.5px;
+    }
+
+    h1 {
+      font-size: 38px;
+      font-weight: 800;
+      line-height: 1.2;
+      margin-bottom: 12px;
+      background: linear-gradient(120deg, #ffffff, #a5b4fc, #818cf8);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    header p {
+      color: var(--text-muted);
+      font-size: 16px;
+      max-width: 75ch;
+      font-weight: 400;
+    }
+
+    /* Quick Search & Controls */
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 30px;
+    }
+
+    .search-wrapper {
+      position: relative;
+      flex: 1;
+      min-width: 300px;
+    }
+
+    .search-input {
+      width: 100%;
+      padding: 14px 20px 14px 45px;
+      background: rgba(30, 41, 59, 0.5);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-md);
+      color: var(--text-main);
+      font-family: var(--font-sans);
+      font-size: 14px;
+      outline: none;
+      transition: var(--transition);
+    }
+
+    .search-input:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25);
+      background: rgba(30, 41, 59, 0.8);
+    }
+
+    .search-icon {
+      position: absolute;
+      left: 18px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-muted);
+      pointer-events: none;
+    }
+
+    /* Navigation Tabs */
+    .tabs {
+      display: flex;
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid var(--card-border);
+      padding: 6px;
+      border-radius: var(--radius-md);
+      gap: 4px;
+    }
+
+    .tab-btn {
+      padding: 10px 24px;
+      background: transparent;
+      border: none;
+      border-radius: 8px;
+      color: var(--text-muted);
+      font-family: var(--font-sans);
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: var(--transition);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .tab-btn:hover {
+      color: var(--text-main);
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .tab-btn.active {
+      color: var(--text-main);
+      background: var(--primary);
+      box-shadow: 0 4px 12px rgba(99, 102, 241, 0.35);
+    }
+
+    /* Layout Grid */
+    .layout {
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      gap: 30px;
+      align-items: start;
+    }
+
+    @media (max-width: 900px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Sidebar Navigation */
+    .sidebar {
+      position: sticky;
+      top: 30px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .sidebar-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-md);
+      padding: 20px;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+    }
+
+    .sidebar-title {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: var(--text-muted);
+      margin-bottom: 12px;
+    }
+
+    .toc-link {
+      display: flex;
+      align-items: center;
+      padding: 8px 12px;
+      border-radius: 8px;
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 500;
+      transition: var(--transition);
+      border-left: 2px solid transparent;
+    }
+
+    .toc-link:hover {
+      color: var(--text-main);
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .toc-link.active {
+      color: #a5b4fc;
+      background: rgba(99, 102, 241, 0.1);
+      border-left-color: var(--primary);
+    }
+
+    /* Main Sections */
+    .guide-panel {
+      display: none;
+      animation: fadeIn 0.4s ease;
+    }
+
+    .guide-panel.active {
+      display: block;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Cards */
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-lg);
+      padding: 30px;
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+      margin-bottom: 30px;
+      transition: var(--transition);
+    }
+
+    .card:hover {
+      border-color: var(--card-border-hover);
+    }
+
+    .card-title-group {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      padding-bottom: 16px;
+      margin-bottom: 24px;
+    }
+
+    .card h2 {
+      font-size: 22px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .card h2 svg {
+      color: var(--primary);
+    }
+
+    /* Grid of Fields */
+    .fields-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    /* Field Detail Row */
+    .field-card {
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      background: rgba(15, 23, 42, 0.3);
+      border-radius: var(--radius-md);
+      padding: 20px;
+      transition: var(--transition);
+      position: relative;
+    }
+
+    .field-card:hover {
+      background: rgba(15, 23, 42, 0.5);
+      border-color: rgba(99, 102, 241, 0.25);
+      transform: translateX(4px);
+    }
+
+    .field-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .field-title-badge {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .field-name {
+      font-family: var(--font-mono);
+      font-size: 15px;
+      font-weight: 600;
+      color: #a5b4fc;
+      background: rgba(99, 102, 241, 0.1);
+      padding: 2px 8px;
+      border-radius: 4px;
+      border: 1px solid rgba(99, 102, 241, 0.2);
+    }
+
+    .field-label {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+
+    .badge {
+      font-size: 10px;
+      text-transform: uppercase;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 999px;
+      letter-spacing: 0.5px;
+    }
+
+    .badge.required {
+      background: rgba(244, 63, 94, 0.15);
+      color: var(--accent-rose);
+      border: 1px solid rgba(244, 63, 94, 0.3);
+    }
+
+    .badge.optional {
+      background: rgba(148, 163, 184, 0.1);
+      color: var(--text-muted);
+      border: 1px solid rgba(148, 163, 184, 0.2);
+    }
+
+    .field-desc {
+      font-size: 13.5px;
+      color: var(--text-muted);
+      margin-bottom: 12px;
+    }
+
+    .field-meta-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 12px;
+      font-size: 12.5px;
+      border-top: 1px dashed rgba(255, 255, 255, 0.05);
+      padding-top: 12px;
+    }
+
+    .meta-box b {
+      color: var(--text-main);
+      display: block;
+      margin-bottom: 2px;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
+    }
+
+    .meta-box span {
+      font-family: var(--font-mono);
+      color: #cbd5e1;
+    }
+
+    .meta-box.highlight span {
+      color: var(--accent-emerald);
+    }
+
+    .meta-box.warning span {
+      color: var(--accent-amber);
+    }
+
+    /* Pro Tip Boxes */
+    .pro-tip {
+      background: rgba(16, 185, 129, 0.05);
+      border: 1px solid rgba(16, 185, 129, 0.15);
+      border-radius: var(--radius-md);
+      padding: 20px;
+      margin-bottom: 24px;
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+    }
+
+    .pro-tip-icon {
+      color: var(--accent-emerald);
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    .pro-tip-text h4 {
+      font-size: 14px;
+      font-weight: 700;
+      color: #e2e8f0;
+      margin-bottom: 4px;
+    }
+
+    .pro-tip-text p {
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    /* Steps Layout */
+    .workflow-steps {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 20px;
+      margin-bottom: 30px;
+    }
+
+    .workflow-step-card {
+      background: rgba(30, 41, 59, 0.4);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: var(--radius-md);
+      padding: 24px;
+      position: relative;
+    }
+
+    .step-number {
+      position: absolute;
+      top: -12px;
+      left: 20px;
+      width: 28px;
+      height: 28px;
+      background: var(--primary);
+      color: white;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 13px;
+      box-shadow: 0 4px 10px rgba(99, 102, 241, 0.4);
+    }
+
+    .workflow-step-card h3 {
+      font-size: 16px;
+      font-weight: 700;
+      margin: 8px 0;
+    }
+
+    .workflow-step-card p {
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    /* Template Columns Layout (Interactive Spreadsheet) */
+    .sheet-scroller {
+      overflow-x: auto;
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-md);
+      background: rgba(15, 23, 42, 0.5);
+      margin-bottom: 20px;
+    }
+
+    .sheet-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-family: var(--font-sans);
+      font-size: 13px;
+      min-width: 1000px;
+    }
+
+    .sheet-table th {
+      background: rgba(30, 41, 59, 0.9);
+      color: #a5b4fc;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      padding: 12px 16px;
+      text-align: left;
+      border-bottom: 2px solid var(--card-border);
+      border-right: 1px solid rgba(255, 255, 255, 0.05);
+      white-space: nowrap;
+    }
+
+    .sheet-table td {
+      padding: 12px 16px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      border-right: 1px solid rgba(255, 255, 255, 0.03);
+      color: #cbd5e1;
+      vertical-align: top;
+    }
+
+    .sheet-table tr:hover td {
+      background: rgba(99, 102, 241, 0.05);
+    }
+
+    .interactive-row {
+      cursor: pointer;
+    }
+
+    /* Legend colors */
+    .col-group-product {
+      border-left: 3px solid var(--primary) !important;
+    }
+    .col-group-variant {
+      border-left: 3px solid var(--accent-emerald) !important;
+    }
+    .col-group-policy {
+      border-left: 3px solid var(--accent-amber) !important;
+    }
+
+    .dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      margin-right: 6px;
+    }
+    .dot.primary { background: var(--primary); }
+    .dot.emerald { background: var(--accent-emerald); }
+    .dot.amber { background: var(--accent-amber); }
+
+    /* Info Banner */
+    .alert-banner {
+      background: rgba(245, 158, 11, 0.08);
+      border: 1px solid rgba(245, 158, 11, 0.2);
+      border-radius: var(--radius-md);
+      padding: 16px 20px;
+      color: #ffedd5;
+      font-size: 13.5px;
+      display: flex;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .alert-banner svg {
+      color: var(--accent-amber);
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    /* FAQ Accordion */
+    .faq-item {
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      background: rgba(30, 41, 59, 0.3);
+      border-radius: var(--radius-md);
+      margin-bottom: 12px;
+      overflow: hidden;
+    }
+
+    .faq-summary {
+      padding: 16px 20px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 14.5px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      user-select: none;
+    }
+
+    .faq-summary:hover {
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .faq-content {
+      padding: 0 20px 16px;
+      font-size: 13.5px;
+      color: var(--text-muted);
+      border-top: 1px solid rgba(255, 255, 255, 0.04);
+      background: rgba(15, 23, 42, 0.2);
+    }
+
+    .faq-item[open] .faq-summary {
+      color: #a5b4fc;
+    }
+
+    /* Footer */
+    footer {
+      text-align: center;
+      margin-top: 60px;
+      padding: 30px;
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+      color: var(--text-muted);
+      font-size: 13px;
+    }
+
+    .footer-links {
+      margin-bottom: 8px;
+    }
+
+    .footer-links a {
+      color: var(--primary);
+      text-decoration: none;
+      font-weight: 500;
+    }
+
+    .footer-links a:hover {
+      text-decoration: underline;
+    }
+
+    /* SVG Icons */
+    .icon {
+      width: 18px;
+      height: 18px;
+      stroke-width: 2.2;
+      stroke: currentColor;
+      fill: none;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      display: inline-block;
+      vertical-align: middle;
+    }
+
+    .highlight-match {
+      background: rgba(99, 102, 241, 0.4);
+      color: white;
+      border-radius: 2px;
+      padding: 0 2px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    
+    <!-- Premium Header -->
+    <header>
+      <div class="header-badge">
+        <svg class="icon" viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+        Seller Portal Documentation
+      </div>
+      <h1>Product Catalog &amp; Bulk Upload Guide</h1>
+      <p>
+        Welcome! This guide provides a simple, interactive field-by-field manual for adding products to the marketplace.
+        Use it to quickly learn what each field means, configure variant attributes, and master the CSV/Excel bulk upload template.
+      </p>
+    </header>
+
+    <!-- Controls & Tab Selectors -->
+    <div class="controls">
+      <!-- Search Input -->
+      <div class="search-wrapper">
+        <svg class="icon search-icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+        <input type="text" id="searchInput" class="search-input" placeholder="Search fields, rules, or columns... (e.g. GST, Price, Stock)" />
+      </div>
+
+      <!-- Navigation Tabs -->
+      <div class="tabs">
+        <button class="tab-btn active" data-target="single-form-panel">
+          <svg class="icon" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+          Single Form (UI CRUD)
+        </button>
+        <button class="tab-btn" data-target="bulk-upload-panel">
+          <svg class="icon" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="12" y1="18" x2="12" y2="12"></line><polyline points="9 15 12 12 15 15"></polyline></svg>
+          Bulk Upload (Excel/CSV)
+        </button>
+        <button class="tab-btn" data-target="faq-panel">
+          <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+          FAQ &amp; Troubleshooting
+        </button>
+      </div>
+    </div>
+
+    <!-- Layout Grid -->
+    <div class="layout">
+      
+      <!-- Side Navigation -->
+      <aside class="sidebar">
+        <div class="sidebar-card">
+          <div class="sidebar-title">Sections</div>
+          
+          <!-- Single Form Navigation links -->
+          <div id="single-form-toc">
+            <a href="#form-parent-section" class="toc-link active">1. Product Core Details</a>
+            <a href="#form-variant-section" class="toc-link">2. Product Variations</a>
+            <a href="#pricing-rule-section" class="toc-link">3. Pricing &amp; Tax Rules</a>
+          </div>
+
+          <!-- Bulk Upload Navigation links (Hidden initially, shown when tab switches) -->
+          <div id="bulk-upload-toc" style="display: none;">
+            <a href="#bulk-workflow-section" class="toc-link">1. Bulk Workflow Steps</a>
+            <a href="#bulk-spreadsheet-section" class="toc-link">2. Spreadsheet Dictionary</a>
+            <a href="#bulk-variant-grouping" class="toc-link">3. Creating Multi-Variants</a>
+          </div>
+
+          <!-- FAQ links -->
+          <div id="faq-toc" style="display: none;">
+            <a href="#faq-section-title" class="toc-link">Common Questions</a>
+          </div>
+        </div>
+
+        <div class="sidebar-card" style="background: rgba(99, 102, 241, 0.05); border-color: rgba(99, 102, 241, 0.2);">
+          <div class="sidebar-title" style="color: #a5b4fc;">Quick Highlight</div>
+          <p style="font-size: 12px; color: var(--text-muted); line-height: 1.4;">
+            Hover over any field row or column header to see detailed validation requirements and tips.
+          </p>
+        </div>
+      </aside>
+
+      <!-- Main Contents Area -->
+      <main class="content-area">
+        
+        <!-- ==================== TAB 1: SINGLE FORM PANEL ==================== -->
+        <div id="single-form-panel" class="guide-panel active">
+          
+          <!-- Pro Tip -->
+          <div class="pro-tip">
+            <div class="pro-tip-icon">
+              <svg class="icon" viewBox="0 0 24 24"><path d="M9.663 17h4.673M12 3v1m6.364.364l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 113.536 0V21h2v-2.757z"/></svg>
+            </div>
+            <div class="pro-tip-text">
+              <h4>Create Multi-Variant Listings Simply</h4>
+              <p>
+                In the single product form, you can configure options like <strong>Size</strong> or <strong>Color</strong> under "Generate variants from options".
+                The system automatically generates a grid of all combinations, allowing you to fill in prices and stock counts instantly.
+              </p>
+            </div>
+          </div>
+
+          <!-- SECTION: Product Core Details -->
+          <section id="form-parent-section" class="card">
+            <div class="card-title-group">
+              <h2>
+                <svg class="icon" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                1. Product Core Details (General Information)
+              </h2>
+              <span class="badge optional" style="background: rgba(99,102,241,0.1); color:#a5b4fc;">Applies to all variants</span>
+            </div>
+            <p style="color: var(--text-muted); font-size: 14px; margin-bottom: 20px;">
+              These fields define the parent listing. Every variation of this product (e.g. Red Shirt, Blue Shirt) will share these core characteristics.
+            </p>
+
+            <div class="fields-grid">
+              
+              <!-- Product Name -->
+              <div class="field-card" data-search="product name core title required text">
+                <div class="field-header">
+                  <div class="field-title-badge">
+                    <span class="field-label">Product Name</span>
+                    <span class="field-name">name</span>
+                  </div>
+                  <span class="badge required">Required</span>
+                </div>
+                <div class="field-desc">
+                  The primary title of your product listing. Keep it clear and search-friendly (e.g., <em>Premium Cotton Summer Polo Shirt</em>).
+                </div>
+                <div class="field-meta-grid">
+                  <div class="meta-box"><b>Field Type</b><span>Text Input</span></div>
+                  <div class="meta-box"><b>Example Value</b><span>Wireless Bluetooth Headset v5.3</span></div>
+                  <div class="meta-box warning"><b>Limits</b><span>Keep under 100 characters</span></div>
+                </div>
+              </div>
+
+              <!-- Description -->
+              <div class="field-card" data-search="description core details optional markdown text">
+                <div class="field-header">
+                  <div class="field-title-badge">
+                    <span class="field-label">Product Description</span>
+                    <span class="field-name">description</span>
+                  </div>
+                  <span class="badge optional">Optional</span>
+                </div>
+                <div class="field-desc">
+                  A detailed paragraph explaining your product's features, benefits, material, and how to use it.
+                </div>
+                <div class="field-meta-grid">
+                  <div class="meta-box"><b>Field Type</b><span>Multi-line Text Area</span></div>
+                  <div class="meta-box"><b>Example Value</b><span>High-fidelity audio with active noise cancellation...</span></div>
+                  <div class="meta-box"><b>Tips</b><span>Explain sizing, material, and benefits</span></div>
+                </div>
+              </div>
+
+              <!-- Delivery Charge -->
+              <div class="field-card" data-search="delivery charge per km shipping distance cost">
+                <div class="field-header">
+                  <div class="field-title-badge">
+                    <span class="field-label">Per-KM Delivery Charge</span>
+                    <span class="field-name">deliveryChargePerKm</span>
+                  </div>
+                  <span class="badge optional">Defaults to 0</span>
+                </div>
+                <div class="field-desc">
+                  If your store fulfills delivery directly, set a charge rate per kilometer from your store coordinates. Setting this to <code>0</code> makes delivery free.
+                </div>
+                <div class="field-meta-grid">
+                  <div class="meta-box"><b>Field Type</b><span>Number / Decimal</span></div>
+                  <div class="meta-box highlight"><b>Example Value</b><span>1.50 (charge $1.50 per KM)</span></div>
+                  <div class="meta-box"><b>Database Rule</b><span>Must be a positive number</span></div>
+                </div>
+              </div>
+
+              <!-- Condition -->
+              <div class="field-card" data-search="condition product type new used type status">
+                <div class="field-header">
+                  <div class="field-title-badge">
+                    <span class="field-label">Product Condition</span>
+                    <span class="field-name">condition</span>
+                  </div>
+                  <span class="badge required">Required</span>
+                </div>
+                <div class="field-desc">
+                  Tells customers whether this product is brand new or pre-owned/used.
+                </div>
+                <div class="field-meta-grid">
+                  <div class="meta-box"><b>Field Type</b><span>Select Dropdown</span></div>
+                  <div class="meta-box"><b>Options Allowed</b><span>NEW, USED</span></div>
+                  <div class="meta-box highlight"><b>Default</b><span>NEW</span></div>
+                </div>
+              </div>
+
+              <!-- Category -->
+              <div class="field-card" data-search="category selector marketplace catalog required">
+                <div class="field-header">
+                  <div class="field-title-badge">
+                    <span class="field-label">Main Category</span>
+                    <span class="field-name">categoryId</span>
+                  </div>
+                  <span class="badge required">Required</span>
+                </div>
+                <div class="field-desc">
+                  The primary category under which the product is listed in the marketplace directory. You can only choose categories approved for your seller account.
+                </div>
+                <div class="field-meta-grid">
+                  <div class="meta-box"><b>Field Type</b><span>Dropdown Selector</span></div>
+                  <div class="meta-box"><b>Example</b><span>Electronics, Apparel, Groceries</span></div>
+                  <div class="meta-box warning"><b>Note</b><span>Controls fee/commission structures</span></div>
+                </div>
+              </div>
+
+              <!-- Subcategory -->
+              <div class="field-card" data-search="subcategory optional types filter category">
+                <div class="field-header">
+                  <div class="field-title-badge">
+                    <span class="field-label">Subcategory</span>
+                    <span class="field-name">subcategoryId</span>
+                  </div>
+                  <span class="badge optional">Optional</span>
+                </div>
+                <div class="field-desc">
+                  Refines the classification of your product (e.g., main category: <em>Apparel</em> &rarr; subcategory: <em>Mens T-Shirts</em>).
+                </div>
+                <div class="field-meta-grid">
+                  <div class="meta-box"><b>Field Type</b><span>Dropdown Selector (Dynamic)</span></div>
+                  <div class="meta-box"><b>Behavior</b><span>Populates only after choosing Main Category</span></div>
+                  <div class="meta-box"><b>Example</b><span>Men's Shoes, Mobile Cases</span></div>
+                </div>
+              </div>
+
+              <!-- Product Images -->
+              <div class="field-card" data-search="product image listing gallery upload link urls">
+                <div class="field-header">
+                  <div class="field-title-badge">
+                    <span class="field-label">Product Image (Listing Thumbnail)</span>
+                    <span class="field-name">images</span>
+                  </div>
+                  <span class="badge optional">Optional</span>
+                </div>
+                <div class="field-desc">
+                  This serves as the main image shown on the browse/search pages. It is also used as a fallback image for any variants that do not have their own unique pictures.
+                </div>
+                <div class="field-meta-grid">
+                  <div class="meta-box"><b>Field Input Modes</b><span>File Upload OR Web URL List</span></div>
+                  <div class="meta-box"><b>Max File Size</b><span>5 MB per image file</span></div>
+                  <div class="meta-box warning"><b>URL Format</b><span>One full http/https link per line</span></div>
+                </div>
+              </div>
+
+            </div>
+          </section>
+
+          <!-- SECTION: Product Variations -->
+          <section id="form-variant-section" class="card">
+            <div class="card-title-group">
+              <h2>
+                <svg class="icon" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9"></rect><rect x="14" y="3" width="7" height="5"></rect><rect x="14" y="12" width="7" height="9"></rect><rect x="3" y="16" width="7" height="5"></rect></svg>
+                2. Product Variations (Variant Details)
+              </h2>
+              <span class="badge required" style="background: rgba(16,185,129,0.15); color:var(--accent-emerald);">At least 1 required</span>
+            </div>
+            <p style="color: var(--text-muted); font-size: 14px; margin-bottom: 20px;">
+              Every product has at least one variant. If your item doesn't have options (like size or color), create a single default variant named "Default".
+            </p>
+
+            <div class="fields-grid">
+              
+              <!-- Variant Name -->
+              <div class="field-card" data-search="variant name size color combination default required text">
+                <div class="field-header">
+                  <div class="field-title-badge">
+                    <span class="field-label">Variant Name</span>
+                    <span class="field-name">name</span>
+                  </div>
+                  <span class="badge required">Required</span>
+                </div>
+                <div class="field-desc">
+                  The specific name of this model or combination (e.g. <em>Large - Crimson Red</em>). If no variation exists, label this <code>Default</code>.
+                </div>
+                <div class="field-meta-grid">
+                  <div class="meta-box"><b>Field Type</b><span>Text Input</span></div>
+                  <div class="meta-box highlight"><b>Example Value</b><span>Red / XL</span></div>
+                  <div class="meta-box"><b>Visual Impact</b><span>Shows up in customer checkout dropdowns</span></div>
+                </div>
+              </div>
+
+              <!-- Price -->
+              <div class="field-card" data-search="price base price cost decimal float required number">
+                <div class="field-header">
+                  <div class="field-title-badge">
+                    <span class="field-label">Price (Base Price)</span>
+                    <span class="field-name">price</span>
+                  </div>
+                  <span class="badge required">Required</span>
+                </div>
+                <div class="field-desc">
+                  The standard selling price for this specific variant before any discounts are applied.
+                </div>
+                <div class="field-meta-grid">
+                  <div class="meta-box"><b>Field Type</b><span>Number (Decimal)</span></div>
+                  <div class="meta-box highlight"><b>Example Value</b><span>59.99</span></div>
+                  <div class="meta-box warning"><b>Rule</b><span>Must be greater than 0</span></div>
+                </div>
+              </div>
+
+              <!-- Discount -->
+              <div class="field-card" data-search="discount price deduction reduction amount float optional">
+                <div class="field-header">
+                  <div class="field-title-badge">
+                    <span class="field-label">Discount Amount</span>
+                    <span class="field-name">discount</span>
+                  </div>
+                  <span class="badge optional">Defaults to 0</span>
+                </div>
+                <div class="field-desc">
+                  A flat currency amount deducted from the base price. (E.g. Base Price: <code>50.00</code>, Discount: <code>5.00</code> means customer pays <code>45.00</code>).
+                </div>
+                <div class="field-meta-grid">
+                  <div class="meta-box"><b>Field Type</b><span>Number (Decimal)</span></div>
+                  <div class="meta-box highlight"><b>Example Value</b><span>10.00 (saves $10.00 per item)</span></div>
+                  <div class="meta-box warning"><b>Rule</b><span>Must be less than the base Price</span></div>
+                </div>
+              </div>
+
+              <!-- Stock -->
+              <div class="field-card" data-search="stock inventory quantity count required integer number">
+                <div class="field-header">
+                  <div class="field-title-badge">
+                    <span class="field-label">Stock Quantity</span>
+                    <span class="field-name">stock</span>
+                  </div>
+                  <span class="badge required">Required</span>
+                </div>
+                <div class="field-desc">
+                  The physical inventory level currently on-hand. This count drops automatically when customers order.
+                </div>
+                <div class="field-meta-grid">
+                  <div class="meta-box"><b>Field Type</b><span>Integer (Whole Number)</span></div>
+                  <div class="meta-box highlight"><b>Example Value</b><span>120</span></div>
+                  <div class="meta-box warning"><b>Auto-Out-Of-Stock</b><span>If set to 0, item shows as out of stock</span></div>
+                </div>
+              </div>
+
+              <!-- SKU -->
+              <div class="field-card" data-search="sku stock keeping unit catalog code tracking barcode optional text">
+                <div class="field-header">
+                  <div class="field-title-badge">
+                    <span class="field-label">SKU (Stock Keeping Unit)</span>
+                    <span class="field-name">sku</span>
+                  </div>
+                  <span class="badge optional">Optional</span>
+                </div>
+                <div class="field-desc">
+                  A unique code used to track items internally in your shop. E.g. <code>APP-SHRT-RED-XL</code>.
+                </div>
+                <div class="field-meta-grid">
+                  <div class="meta-box"><b>Field Type</b><span>Text Input</span></div>
+                  <div class="meta-box"><b>Example Value</b><span>WTCH-SMART-BLK</span></div>
+                  <div class="meta-box"><b>Constraint</b><span>Unique alphanumeric code is best</span></div>
+                </div>
+              </div>
+
+              <!-- Variant Images -->
+              <div class="field-card" data-search="variant images gallery specific url upload">
+                <div class="field-header">
+                  <div class="field-title-badge">
+                    <span class="field-label">Variant Images</span>
+                    <span class="field-name">images</span>
+                  </div>
+                  <span class="badge optional">Optional</span>
+                </div>
+                <div class="field-desc">
+                  Specific images that display on the product page only when this variant is selected by a shopper.
+                </div>
+                <div class="field-meta-grid">
+                  <div class="meta-box"><b>Field Type</b><span>File type / URL list</span></div>
+                  <div class="meta-box"><b>Behavior</b><span>Overrides parent listing images on selection</span></div>
+                  <div class="meta-box"><b>Tip</b><span>Use this to show color variations</span></div>
+                </div>
+              </div>
+
+              <!-- Attributes -->
+              <div class="field-card" data-search="attributes key value size color fabric material key-value">
+                <div class="field-header">
+                  <div class="field-title-badge">
+                    <span class="field-label">Attributes (Key-Value Pairs)</span>
+                    <span class="field-name">attributes</span>
+                  </div>
+                  <span class="badge optional">Optional</span>
+                </div>
+                <div class="field-desc">
+                  Defines the searchable properties of this variant. (E.g. Key: <code>Size</code>, Value: <code>Medium</code>; Key: <code>Material</code>, Value: <code>Silk</code>).
+                </div>
+                <div class="field-meta-grid">
+                  <div class="meta-box"><b>Field Type</b><span>Key-Value Row Grid</span></div>
+                  <div class="meta-box highlight"><b>Example Pair</b><span>Color &rarr; Deep Blue</span></div>
+                  <div class="meta-box"><b>System Action</b><span>Used to power filters in search</span></div>
+                </div>
+              </div>
+
+              <!-- Return Type -->
+              <div class="field-card" data-search="return type policy returnable non_returnable options">
+                <div class="field-header">
+                  <div class="field-title-badge">
+                    <span class="field-label">Return Policy Type</span>
+                    <span class="field-name">returnType</span>
+                  </div>
+                  <span class="badge required">Required</span>
+                </div>
+                <div class="field-desc">
+                  Dictates whether the customer is allowed to request a return and refund for this specific variant after delivery.
+                </div>
+                <div class="field-meta-grid">
+                  <div class="meta-box"><b>Field Type</b><span>Dropdown Selector</span></div>
+                  <div class="meta-box"><b>Options</b><span>NON_RETURNABLE, RETURNABLE</span></div>
+                  <div class="meta-box highlight"><b>Default</b><span>NON_RETURNABLE</span></div>
+                </div>
+              </div>
+
+              <!-- Return Days -->
+              <div class="field-card" data-search="return days returnable window limit integer number optional">
+                <div class="field-header">
+                  <div class="field-title-badge">
+                    <span class="field-label">Return Window (Days)</span>
+                    <span class="field-name">returnDays</span>
+                  </div>
+                  <span class="badge optional">Required if Returnable</span>
+                </div>
+                <div class="field-desc">
+                  The number of calendar days after delivery during which a return request remains valid.
+                </div>
+                <div class="field-meta-grid">
+                  <div class="meta-box"><b>Field Type</b><span>Number / Integer</span></div>
+                  <div class="meta-box highlight"><b>Example Value</b><span>14 (allows returns up to 14 days)</span></div>
+                  <div class="meta-box warning"><b>Dependency</b><span>Ignored if Return Policy Type is NON_RETURNABLE</span></div>
+                </div>
+              </div>
+
+              <!-- Replacement Allowed -->
+              <div class="field-card" data-search="replacement allowed exchange replacement customer swap boolean">
+                <div class="field-header">
+                  <div class="field-title-badge">
+                    <span class="field-label">Allow Exchanges (Replacement)</span>
+                    <span class="field-name">replacementAllowed</span>
+                  </div>
+                  <span class="badge optional">Optional</span>
+                </div>
+                <div class="field-desc">
+                  If Yes, customers can choose to request an exchange for another size/color instead of a refund when initiating a return.
+                </div>
+                <div class="field-meta-grid">
+                  <div class="meta-box"><b>Field Type</b><span>Checkbox (Yes/No)</span></div>
+                  <div class="meta-box"><b>Options</b><span>True (Checked), False (Unchecked)</span></div>
+                  <div class="meta-box warning"><b>Rule</b><span>Only works if Return Policy Type is RETURNABLE</span></div>
+                </div>
+              </div>
+
+            </div>
+          </section>
+
+          <!-- SECTION: Pricing & Tax Rules -->
+          <section id="pricing-rule-section" class="card" style="border-color: rgba(245, 158, 11, 0.2);">
+            <div class="card-title-group">
+              <h2>
+                <svg class="icon" viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+                3. How Pricing &amp; GST Work at Checkout
+              </h2>
+              <span class="badge optional" style="background: rgba(245, 158, 11, 0.15); color: var(--accent-amber);">Crucial Financial Info</span>
+            </div>
+            
+            <div style="font-size: 14px; color: #cbd5e1;">
+              <p style="margin-bottom: 12px;">
+                Our marketplace handles pricing calculations transparently. When a customer adds items to their cart, the system calculates the price step-by-step:
+              </p>
+              
+              <div class="workflow-steps" style="margin-top: 20px;">
+                <div class="workflow-step-card">
+                  <div class="step-number">$</div>
+                  <h3>Base minus Discount</h3>
+                  <p>
+                    If base price is <code>100</code> and discount is <code>10</code>, the final listing price is <strong>90.00</strong>. This is what is shown on the shop pages.
+                  </p>
+                </div>
+                
+                <div class="workflow-step-card">
+                  <div class="step-number">%</div>
+                  <h3>GST Flag Check</h3>
+                  <p>
+                    Each variant has a <strong>"Has GST"</strong> toggle. If checked, a <strong>15% GST tax rate</strong> is calculated and added to this item at checkout.
+                  </p>
+                </div>
+
+                <div class="workflow-step-card">
+                  <div class="step-number">+</div>
+                  <h3>Total Math Formula</h3>
+                  <p>
+                    Total Cost = <code>(90.00 × Quantity)</code>. <br>
+                    If GST is checked: <code>+ (13.50 × Quantity)</code>. <br>
+                    <strong>Grand Total: 103.50</strong>
+                  </p>
+                </div>
+              </div>
+
+              <div class="alert-banner" style="margin-top: 20px;">
+                <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                <div>
+                  <strong>Important Note on Financials:</strong> Base prices and discounts are stored excluding GST. The 15% GST is computed dynamically on top of the discounted price at checkout, depending on whether the "Has GST" flag is active.
+                </div>
+              </div>
+            </div>
+          </section>
+
+        </div>
+
+
+        <!-- ==================== TAB 2: BULK UPLOAD PANEL ==================== -->
+        <div id="bulk-upload-panel" class="guide-panel">
+          
+          <!-- Workflow Introduction -->
+          <section id="bulk-workflow-section" class="card">
+            <div class="card-title-group">
+              <h2>
+                <svg class="icon" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+                1. Bulk Upload Workflow Steps
+              </h2>
+            </div>
+            
+            <div class="workflow-steps">
+              <div class="workflow-step-card">
+                <div class="step-number">1</div>
+                <h3>Configure Category</h3>
+                <p>
+                  Open the <strong>Bulk Upload</strong> dialog in your seller panel. Pick your main category. This generates a template with valid ID headers.
+                </p>
+              </div>
+
+              <div class="workflow-step-card">
+                <div class="step-number">2</div>
+                <h3>Download Template</h3>
+                <p>
+                  Download the template as a <strong>CSV</strong> or <strong>Excel (.xlsx)</strong> file. It comes pre-filled with example dummy items.
+                </p>
+              </div>
+
+              <div class="workflow-step-card">
+                <div class="step-number">3</div>
+                <h3>Populate & Upload</h3>
+                <p>
+                  Add your rows (delete/replace dummy ones) following the column rules below. Upload the completed sheet in Step 2.
+                </p>
+              </div>
+            </div>
+
+            <div class="alert-banner" style="background: rgba(16, 185, 129, 0.08); border-color: rgba(16, 185, 129, 0.2); color: #ecfdf5;">
+              <svg class="icon" style="color: var(--accent-emerald);" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+              <div>
+                <strong>Atomic Imports:</strong> The upload operates as a single transaction. If a validation error is found in even a single row, the entire upload is canceled so you don't end up with duplicate listings.
+              </div>
+            </div>
+          </section>
+
+          <!-- Interactive Spreadsheet Dictionary -->
+          <section id="bulk-spreadsheet-section" class="card">
+            <div class="card-title-group">
+              <h2>
+                <svg class="icon" viewBox="0 0 24 24"><path d="M14 3v4a1 1 0 0 0 1 1h4"></path><path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z"></path><path d="M9 9h1"></path><path d="M9 13h6"></path><path d="M9 17h6"></path></svg>
+                2. Spreadsheet Columns Reference
+              </h2>
+              <div style="font-size: 12px; color: var(--text-muted);">
+                <span class="dot primary"></span>Core Product Field &nbsp;&nbsp;
+                <span class="dot emerald"></span>Required Variant &nbsp;&nbsp;
+                <span class="dot amber"></span>Return Policy
+              </div>
+            </div>
+            <p style="color: var(--text-muted); font-size: 14px; margin-bottom: 20px;">
+              These are the exact column headers required in row 1 of your spreadsheet. Clicking on any column header highlights its details.
+            </p>
+
+            <div class="sheet-scroller">
+              <table class="sheet-table">
+                <thead>
+                  <tr>
+                    <th>Column Name</th>
+                    <th>Req?</th>
+                    <th>Value Guidelines &amp; Formats</th>
+                    <th>Sample Value</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  
+                  <!-- product_key -->
+                  <tr class="col-group-product interactive-row" data-search="product_key group bulk variant primary">
+                    <td><strong>product_key</strong></td>
+                    <td><span class="badge required">Yes</span></td>
+                    <td>A unique code (like <code>SHIRT-001</code>) used to bundle multiple rows together into a single product listing with variants.</td>
+                    <td><code>PROD_GRP_A</code></td>
+                  </tr>
+
+                  <!-- category_id -->
+                  <tr class="col-group-product interactive-row" data-search="category_id code uuid bulk required">
+                    <td><strong>category_id</strong></td>
+                    <td><span class="badge required">Yes</span></td>
+                    <td>Copy the Category ID from your seller dashboard. Must be identical for all variant rows of the same product.</td>
+                    <td><code>cjx8...uid</code></td>
+                  </tr>
+
+                  <!-- product_name -->
+                  <tr class="col-group-product interactive-row" data-search="product_name title required text">
+                    <td><strong>product_name</strong></td>
+                    <td><span class="badge required">Yes</span></td>
+                    <td>Main listing title. Shared across all variants with the same <code>product_key</code>.</td>
+                    <td><code>Classic Denim Jacket</code></td>
+                  </tr>
+
+                  <!-- description -->
+                  <tr class="col-group-product interactive-row" data-search="description details optional text">
+                    <td><strong>description</strong></td>
+                    <td><span class="badge optional">No</span></td>
+                    <td>Core description details of the product.</td>
+                    <td><code>Made with 100% durable cotton denim...</code></td>
+                  </tr>
+
+                  <!-- product_images -->
+                  <tr class="col-group-product interactive-row" data-search="product_images links pipe separator urls">
+                    <td><strong>product_images</strong></td>
+                    <td><span class="badge optional">No</span></td>
+                    <td>Public web URLs of product photos. Separate multiple URLs using a vertical pipe character (<code>|</code>).</td>
+                    <td><code>url1.jpg|url2.jpg</code></td>
+                  </tr>
+
+                  <!-- condition -->
+                  <tr class="col-group-product interactive-row" data-search="condition new used bulk option">
+                    <td><strong>condition</strong></td>
+                    <td><span class="badge optional">No</span></td>
+                    <td>Input <code>NEW</code> or <code>USED</code>. Case-insensitive; defaults to <code>NEW</code> if blank.</td>
+                    <td><code>NEW</code></td>
+                  </tr>
+
+                  <!-- delivery_charge_per_km -->
+                  <tr class="col-group-product interactive-row" data-search="delivery_charge_per_km per km shipping distance">
+                    <td><strong>delivery_charge_per_km</strong></td>
+                    <td><span class="badge optional">No</span></td>
+                    <td>Per-kilometer shipping cost. Defaults to <code>0</code> (free delivery).</td>
+                    <td><code>1.50</code></td>
+                  </tr>
+
+                  <!-- variant_name -->
+                  <tr class="col-group-emerald interactive-row" data-search="variant_name size color combo key required">
+                    <td style="border-left: 3px solid var(--accent-emerald) !important;"><strong>variant_name</strong></td>
+                    <td><span class="badge required">Yes</span></td>
+                    <td>Name for this row's variation (e.g. <code>Medium - Indigo Blue</code>). If none, write <code>Default</code>.</td>
+                    <td><code>Blue / M</code></td>
+                  </tr>
+
+                  <!-- price -->
+                  <tr class="col-group-emerald interactive-row" data-search="price variant cost value decimal required">
+                    <td style="border-left: 3px solid var(--accent-emerald) !important;"><strong>price</strong></td>
+                    <td><span class="badge required">Yes</span></td>
+                    <td>Base unit price. Must be a positive decimal number.</td>
+                    <td><code>49.99</code></td>
+                  </tr>
+
+                  <!-- stock -->
+                  <tr class="col-group-emerald interactive-row" data-search="stock inventory quantity count required">
+                    <td style="border-left: 3px solid var(--accent-emerald) !important;"><strong>stock</strong></td>
+                    <td><span class="badge required">Yes</span></td>
+                    <td>Starting inventory level (whole number).</td>
+                    <td><code>50</code></td>
+                  </tr>
+
+                  <!-- discount -->
+                  <tr class="col-group-emerald interactive-row" data-search="discount flat rate amount optional">
+                    <td style="border-left: 3px solid var(--accent-emerald) !important;"><strong>discount</strong></td>
+                    <td><span class="badge optional">No</span></td>
+                    <td>Flat price deduction. Must be smaller than price. Defaults to <code>0</code>.</td>
+                    <td><code>5.00</code></td>
+                  </tr>
+
+                  <!-- has_gst -->
+                  <tr class="col-group-emerald interactive-row" data-search="has_gst tax checkout flag bool">
+                    <td style="border-left: 3px solid var(--accent-emerald) !important;"><strong>has_gst</strong></td>
+                    <td><span class="badge optional">No</span></td>
+                    <td>Apply 15% GST? Write <code>Y</code>, <code>Yes</code>, or <code>True</code>. Or <code>N</code>, <code>No</code>, or <code>False</code> to skip. Defaults to <code>Y</code>.</td>
+                    <td><code>Y</code></td>
+                  </tr>
+
+                  <!-- sku -->
+                  <tr class="col-group-emerald interactive-row" data-search="sku stock barcode internal code optional">
+                    <td style="border-left: 3px solid var(--accent-emerald) !important;"><strong>sku</strong></td>
+                    <td><span class="badge optional">No</span></td>
+                    <td>Internal store tracking SKU. Must be unique.</td>
+                    <td><code>DNM-JKT-BLU-M</code></td>
+                  </tr>
+
+                  <!-- variant_images -->
+                  <tr class="col-group-emerald interactive-row" data-search="variant_images pipe separated links urls">
+                    <td style="border-left: 3px solid var(--accent-emerald) !important;"><strong>variant_images</strong></td>
+                    <td><span class="badge optional">No</span></td>
+                    <td>URLs of photos specific to this variant. Split multiple using a pipe (<code>|</code>).</td>
+                    <td><code>url-blue.jpg</code></td>
+                  </tr>
+
+                  <!-- attributes_json -->
+                  <tr class="col-group-emerald interactive-row" data-search="attributes_json size color tags filter format json">
+                    <td style="border-left: 3px solid var(--accent-emerald) !important;"><strong>attributes_json</strong></td>
+                    <td><span class="badge optional">No</span></td>
+                    <td>Key-value pairs in valid JSON format. (E.g. <code>{"Size":"M","Color":"Blue"}</code>). Note: quote the entire field if using CSV!</td>
+                    <td><code>{"Color":"Blue","Size":"M"}</code></td>
+                  </tr>
+
+                  <!-- return_type -->
+                  <tr class="col-group-amber interactive-row" data-search="return_type policy options returnable non_returnable">
+                    <td style="border-left: 3px solid var(--accent-amber) !important;"><strong>return_type</strong></td>
+                    <td><span class="badge optional">No</span></td>
+                    <td>Return policy classification. Enter <code>RETURNABLE</code> or <code>NON_RETURNABLE</code> (default).</td>
+                    <td><code>RETURNABLE</code></td>
+                  </tr>
+
+                  <!-- return_days -->
+                  <tr class="col-group-amber interactive-row" data-search="return_days period window policy required if returnable">
+                    <td style="border-left: 3px solid var(--accent-amber) !important;"><strong>return_days</strong></td>
+                    <td><span class="badge optional">No</span></td>
+                    <td>Days allowed for returns. Required if <code>return_type</code> is <code>RETURNABLE</code>.</td>
+                    <td><code>15</code></td>
+                  </tr>
+
+                  <!-- replacement_allowed -->
+                  <tr class="col-group-amber interactive-row" data-search="replacement_allowed exchange boolean flag">
+                    <td style="border-left: 3px solid var(--accent-amber) !important;"><strong>replacement_allowed</strong></td>
+                    <td><span class="badge optional">No</span></td>
+                    <td>Allow exchanges? Write <code>Y</code>, <code>Yes</code>, or <code>True</code> to enable. Only works for Returnable items.</td>
+                    <td><code>Y</code></td>
+                  </tr>
+
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <!-- SECTION: Multi Variant Grouping explanation -->
+          <section id="bulk-variant-grouping" class="card">
+            <div class="card-title-group">
+              <h2>
+                <svg class="icon" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                3. Bundling Multiple Variant Rows (e.g., 2 Variants)
+              </h2>
+            </div>
+            
+            <p style="font-size: 14.5px; color: #cbd5e1; margin-bottom: 20px;">
+              To group multiple rows into a single product listing (with variant select buttons on the product page), keep the <strong>parent columns identical</strong> across those rows while changing the <strong>variant columns</strong>.
+            </p>
+
+            <!-- Step by Step Guide for 2 Variants -->
+            <div style="margin-bottom: 25px;">
+              <h4 style="font-size: 15px; color: var(--text-main); margin-bottom: 12px; font-weight: 600;">How to Upload 2 Variants Under One Product:</h4>
+              <ol style="padding-left: 20px; font-size: 13.5px; color: var(--text-muted); display: flex; flex-direction: column; gap: 8px;">
+                <li>Identify your product with a unique <strong>product_key</strong> (e.g. <code>T-SHIRT-M1</code>). Use this exact key for both rows.</li>
+                <li>Enter matching parent values in both rows: <strong>category_id</strong>, <strong>product_name</strong>, <strong>description</strong>, and <strong>product_images</strong>.</li>
+                <li>Differentiate the variants using <strong>variant_name</strong> (e.g. <code>Blue / M</code> and <code>Red / L</code>) and distinct <strong>sku</strong> values.</li>
+                <li>Define variant-specific details such as <strong>price</strong>, <strong>stock</strong>, and filter configurations inside <strong>attributes_json</strong>.</li>
+              </ol>
+            </div>
+
+            <!-- Spreadsheet Visual Representation -->
+            <div class="sheet-scroller" style="margin-bottom: 20px; border-color: rgba(16, 185, 129, 0.25);">
+              <table class="sheet-table" style="min-width: 1100px;">
+                <thead>
+                  <tr style="background: rgba(16, 185, 129, 0.15);">
+                    <th colspan="4" style="text-align: center; color: var(--primary); border-bottom: 1px solid rgba(255,255,255,0.1);">SHARED PARENT FIELDS (Must match exactly)</th>
+                    <th colspan="4" style="text-align: center; color: var(--accent-emerald); border-bottom: 1px solid rgba(255,255,255,0.1);">UNIQUE VARIANT FIELDS (Can be different)</th>
+                  </tr>
+                  <tr>
+                    <th style="font-size: 11px;">product_key</th>
+                    <th style="font-size: 11px;">product_name</th>
+                    <th style="font-size: 11px;">category_id</th>
+                    <th style="font-size: 11px;">description</th>
+                    <th style="font-size: 11px; background: rgba(16, 185, 129, 0.1);">variant_name</th>
+                    <th style="font-size: 11px; background: rgba(16, 185, 129, 0.1);">price</th>
+                    <th style="font-size: 11px; background: rgba(16, 185, 129, 0.1);">stock</th>
+                    <th style="font-size: 11px; background: rgba(16, 185, 129, 0.1);">sku</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><strong>T-SHIRT-M1</strong></td>
+                    <td>Premium Cotton Tee</td>
+                    <td><code>cat-102</code></td>
+                    <td>Soft combed organic cotton tshirt...</td>
+                    <td style="color: var(--accent-emerald); background: rgba(16, 185, 129, 0.03);"><strong>Blue / M</strong></td>
+                    <td style="background: rgba(16, 185, 129, 0.03);">19.99</td>
+                    <td style="background: rgba(16, 185, 129, 0.03);">50</td>
+                    <td style="background: rgba(16, 185, 129, 0.03);"><code>TEE-BLU-M</code></td>
+                  </tr>
+                  <tr>
+                    <td><strong>T-SHIRT-M1</strong></td>
+                    <td>Premium Cotton Tee</td>
+                    <td><code>cat-102</code></td>
+                    <td>Soft combed organic cotton tshirt...</td>
+                    <td style="color: var(--accent-emerald); background: rgba(16, 185, 129, 0.03);"><strong>Red / L</strong></td>
+                    <td style="background: rgba(16, 185, 129, 0.03);">21.99</td>
+                    <td style="background: rgba(16, 185, 129, 0.03);">75</td>
+                    <td style="background: rgba(16, 185, 129, 0.03);"><code>TEE-RED-L</code></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div style="background: rgba(99, 102, 241, 0.05); padding: 20px; border-radius: var(--radius-md); border: 1px dashed rgba(99, 102, 241, 0.25); font-family: var(--font-mono); font-size: 12px; color: #a5b4fc; line-height: 1.5; overflow-x: auto;">
+              <!-- Visual Mock Representation of variant grouping -->
+              Row 1 (Variant A): [product_key: <strong>T-SHIRT-M1</strong>] | [product_name: <strong>Premium Cotton Tee</strong>] | [variant_name: <strong>Blue / M</strong>] | [price: <strong>19.99</strong>] <br>
+              Row 2 (Variant B): [product_key: <strong>T-SHIRT-M1</strong>] | [product_name: <strong>Premium Cotton Tee</strong>] | [variant_name: <strong>Red / L</strong>] | [price: <strong>21.99</strong>] <br>
+              <span style="color: var(--accent-emerald);">Result &rarr; One product listing titled "Premium Cotton Tee" with two selectable options: Blue / M ($19.99) and Red / L ($21.99).</span>
+            </div>
+          </section>
+
+        </div>
+
+
+        <!-- ==================== TAB 3: FAQ PANEL ==================== -->
+        <div id="faq-panel" class="guide-panel">
+          
+          <section id="faq-section-title" class="card">
+            <div class="card-title-group">
+              <h2>
+                <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                Frequently Asked Questions (Troubleshooting)
+              </h2>
+            </div>
+
+            <div class="faq-item">
+              <details>
+                <summary class="faq-summary">
+                  What does the "A product slug conflict occurred" error mean during bulk import?
+                  <svg class="icon" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                </summary>
+                <div class="faq-content">
+                  Every product has a unique URL slug based on its name. If you attempt to upload products with names that match existing listings in your inventory, a conflict might occur. Try renaming your product slightly or delete old items before re-uploading.
+                </div>
+              </details>
+            </div>
+
+            <div class="faq-item">
+              <details>
+                <summary class="faq-summary">
+                  How do I write attributes_json in Excel or CSV without getting errors?
+                  <svg class="icon" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                </summary>
+                <div class="faq-content">
+                  In Excel, simply write valid JSON like <code>{"Color": "Blue", "Size": "L"}</code>. In CSV, you must surround the entire JSON block in double quotes and escape internal quotes: <code>"{""Color"":""Blue"",""Size"":""L""}"</code>. Keep it blank if you don't need custom filters.
+                </div>
+              </details>
+            </div>
+
+            <div class="faq-item">
+              <details>
+                <summary class="faq-summary">
+                  Why is my upload showing "Import validation failed: subcategory_id does not belong to category"?
+                  <svg class="icon" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                </summary>
+                <div class="faq-content">
+                  Ensure the <code>subcategory_id</code> you entered exists and is mapped to the main <code>category_id</code> in the system. If you aren't sure, download a fresh template after configuring categories in Step 1 of the upload modal — it will contain valid IDs in the dummy rows.
+                </div>
+              </details>
+            </div>
+
+            <div class="faq-item">
+              <details>
+                <summary class="faq-summary">
+                  How many rows can I upload in a single file?
+                  <svg class="icon" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                </summary>
+                <div class="faq-content">
+                  The maximum limit is <strong>500 data rows</strong> per spreadsheet file. File size must be under <strong>8 MB</strong>.
+                </div>
+              </details>
+            </div>
+
+            <div class="faq-item">
+              <details>
+                <summary class="faq-summary">
+                  Can I edit existing products using Bulk Upload?
+                  <svg class="icon" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                </summary>
+                <div class="faq-content">
+                  No, the bulk upload feature currently only supports <strong>importing new products</strong>. To edit existing products, please use the Edit form in the seller dashboard interface.
+                </div>
+              </details>
+            </div>
+
+          </section>
+
+        </div>
+
+      </main>
+
+    </div>
+
+    <!-- Premium Interactive JavaScript -->
+    <script>
+      // Tab switching logic
+      const tabs = document.querySelectorAll('.tab-btn');
+      const panels = document.querySelectorAll('.guide-panel');
+      
+      const singleToc = document.getElementById('single-form-toc');
+      const bulkToc = document.getElementById('bulk-upload-toc');
+      const faqToc = document.getElementById('faq-toc');
+
+      tabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+          // Toggle active tab button
+          tabs.forEach(t => t.classList.remove('active'));
+          tab.classList.add('active');
+
+          // Toggle active panel
+          const target = tab.dataset.target;
+          panels.forEach(p => {
+            if (p.id === target) {
+              p.classList.add('active');
+            } else {
+              p.classList.remove('active');
+            }
+          });
+
+          // Toggle table of contents sections based on active panel
+          if (target === 'single-form-panel') {
+            singleToc.style.display = 'block';
+            bulkToc.style.display = 'none';
+            faqToc.style.display = 'none';
+            // Set first link active
+            updateActiveLink('#form-parent-section');
+          } else if (target === 'bulk-upload-panel') {
+            singleToc.style.display = 'none';
+            bulkToc.style.display = 'block';
+            faqToc.style.display = 'none';
+            updateActiveLink('#bulk-workflow-section');
+          } else {
+            singleToc.style.display = 'none';
+            bulkToc.style.display = 'none';
+            faqToc.style.display = 'block';
+            updateActiveLink('#faq-section-title');
+          }
+        });
+      });
+
+      function updateActiveLink(hash) {
+        document.querySelectorAll('.toc-link').forEach(link => {
+          if (link.getAttribute('href') === hash) {
+            link.classList.add('active');
+          } else {
+            link.classList.remove('active');
+          }
+        });
+      }
+
+      // Sidebar scroll highlight handler
+      const tocLinks = document.querySelectorAll('.toc-link');
+      tocLinks.forEach(link => {
+        link.addEventListener('click', (e) => {
+          e.preventDefault();
+          const targetId = link.getAttribute('href');
+          const targetEl = document.querySelector(targetId);
+          if (targetEl) {
+            targetEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            tocLinks.forEach(l => l.classList.remove('active'));
+            link.classList.add('active');
+          }
+        });
+      });
+
+      // Quick Filter/Search Logic
+      const searchInput = document.getElementById('searchInput');
+      searchInput.addEventListener('input', (e) => {
+        const query = e.target.value.toLowerCase().trim();
+        
+        // Find all searchable items: field cards & table rows
+        const fieldCards = document.querySelectorAll('.field-card');
+        const tableRows = document.querySelectorAll('.sheet-table tbody tr');
+        const faqItems = document.querySelectorAll('.faq-item');
+
+        // Fields filtering
+        fieldCards.forEach(card => {
+          const content = card.dataset.search.toLowerCase() + ' ' + card.innerText.toLowerCase();
+          if (content.includes(query)) {
+            card.style.display = 'block';
+            highlightMatches(card, query);
+          } else {
+            card.style.display = 'none';
+          }
+        });
+
+        // Spreadsheet rows filtering
+        tableRows.forEach(row => {
+          const content = row.dataset.search.toLowerCase() + ' ' + row.innerText.toLowerCase();
+          if (content.includes(query)) {
+            row.style.display = 'table-row';
+          } else {
+            row.style.display = 'none';
+          }
+        });
+
+        // FAQ items filtering
+        faqItems.forEach(item => {
+          const content = item.innerText.toLowerCase();
+          if (content.includes(query)) {
+            item.style.display = 'block';
+            if (query.length > 2) {
+              item.setAttribute('open', 'true');
+            }
+          } else {
+            item.style.display = 'none';
+            item.removeAttribute('open');
+          }
+        });
+      });
+
+      // Simple regex highlighting for visual search feedback
+      function highlightMatches(element, query) {
+        // Clear previous highlights
+        removeHighlights(element);
+        if (!query) return;
+
+        const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT, null, false);
+        const nodesToReplace = [];
+
+        while (walker.nextNode()) {
+          const node = walker.currentNode;
+          if (node.parentNode.classList.contains('highlight-match') || 
+              node.parentNode.tagName === 'SCRIPT' || 
+              node.parentNode.tagName === 'STYLE') {
+            continue;
+          }
+          const index = node.nodeValue.toLowerCase().indexOf(query);
+          if (index >= 0) {
+            nodesToReplace.push(node);
+          }
+        }
+
+        nodesToReplace.forEach(node => {
+          const value = node.nodeValue;
+          const index = value.toLowerCase().indexOf(query);
+          const before = value.substring(0, index);
+          const match = value.substring(index, index + query.length);
+          const after = value.substring(index + query.length);
+
+          const wrapper = document.createElement('span');
+          wrapper.className = 'temp-highlight-wrapper';
+          wrapper.innerHTML = `${escapeHTML(before)}<span class="highlight-match">${escapeHTML(match)}</span>${escapeHTML(after)}`;
+          node.parentNode.replaceChild(wrapper, node);
+        });
+      }
+
+      function removeHighlights(element) {
+        const highlights = element.querySelectorAll('.highlight-match');
+        highlights.forEach(hl => {
+          const parent = hl.parentNode; // .temp-highlight-wrapper
+          if (parent && parent.className === 'temp-highlight-wrapper') {
+            const grandParent = parent.parentNode;
+            const textNode = document.createTextNode(parent.textContent);
+            grandParent.replaceChild(textNode, parent);
+          }
+        });
+      }
+
+      function escapeHTML(str) {
+        return str.replace(/[&<>'"]/g, 
+          tag => ({
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            "'": '&#39;',
+            '"': '&quot;'
+          }[tag] || tag)
+        );
+      }
+
+      // Add click feedback for interactive spreadsheet rows
+      document.querySelectorAll('.interactive-row').forEach(row => {
+        row.addEventListener('click', () => {
+          const colName = row.querySelector('strong').innerText;
+          alert(`Field Info: "${colName}"\n\n${row.querySelector('td:nth-child(3)').innerText}`);
+        });
+      });
+    </script>
+  </div>
+
+  <footer>
+    <div class="footer-links">
+      Generated for Sellers &amp; Clients | <a href="/product-seller/products">Seller Catalog Dashboard</a>
+    </div>
+    &copy; 2026 MEEEM Multi-Vendor Platform. All rights reserved.
+  </footer>
+</body>
+</html>

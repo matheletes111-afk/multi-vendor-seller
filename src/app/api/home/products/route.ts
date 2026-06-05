@@ -10,7 +10,14 @@ export async function GET(request: NextRequest) {
     const categoryId = searchParams.get("categoryId");
     const limit = Math.min(Number(searchParams.get("limit")) || 12, 24);
 
-    const where: { isActive: boolean; isDeleted: boolean; categoryId?: string | { in: string[] } } = { isActive: true, isDeleted: false };
+    const where: any = {
+      isActive: true,
+      isDeleted: false,
+      seller: {
+        isApproved: true,
+        isSuspended: false,
+      }
+    };
     if (categoryId) {
       where.categoryId = categoryId;
     } else {

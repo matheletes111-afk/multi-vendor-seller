@@ -13,6 +13,10 @@ export async function GET(request: Request) {
       where: {
         isActive: true,
         isDeleted: false,
+        seller: {
+          isApproved: true,
+          isSuspended: false,
+        },
         ...(serviceCategoryId ? { serviceCategoryId } : {}),
       },
       take: limit,

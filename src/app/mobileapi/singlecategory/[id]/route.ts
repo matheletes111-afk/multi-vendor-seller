@@ -127,7 +127,11 @@ export async function GET(
       where: { 
         categoryId: id,
         isActive: true,
-        isDeleted: false
+        isDeleted: false,
+        seller: {
+          isApproved: true,
+          isSuspended: false,
+        }
       },
       take: limit,
       orderBy: [{ isFeatured: "desc" }, { createdAt: "desc" }],
@@ -176,7 +180,11 @@ export async function GET(
       where: { 
         categoryId: id,
         isActive: true,
-        isDeleted: false
+        isDeleted: false,
+        seller: {
+          isApproved: true,
+          isSuspended: false,
+        }
       }
     })
 
