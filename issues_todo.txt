@@ -85,11 +85,11 @@ Instructions: Mark [ ] Pending as [x] Done as you fix each issue.
 
 ---
 
-[ ] Issue #5 - Outdated Next.js Version
+[x] Issue #5 - Outdated Next.js Version
     - Severity: High
     - Description: Application uses an outdated Next.js version with known security issues.
-    - Status: Pending
-    - Developer Fix Details: Next js version change? doubt.
+    - Status: Done
+    - Developer Fix Details: Upgraded Next.js to the latest stable minor/patch version 16.2.7 in a safe branch. Verified that production compilation compiles successfully without errors.
 
 ---
 
