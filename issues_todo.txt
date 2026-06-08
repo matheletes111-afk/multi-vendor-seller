@@ -273,10 +273,23 @@ Instructions: Mark [ ] Pending as [x] Done as you fix each issue.
 
 ---
 
-[ ] Issue #21 - Session Not Invalidated After Password Change
+[x] Issue #21 - Session Not Invalidated After Password Change
     - Severity: Low
     - Description: Existing sessions remain active after password changes.
-    - Status: Pending
+    - Status: Done
+    - Developer Fix Details: Old Workflow (Before Fix):
+          A user is logged in on multiple devices (e.g., their Laptop and their Phone).
+          The user changes their password on their Laptop.
+          The Phone remains logged in and can continue accessing the account indefinitely using the old session, which is a security risk.
+          New Workflow (After Fix):
+          A user is logged in on multiple devices (e.g., Laptop and Phone).
+          The user changes their password on their Laptop.
+          The next time the Phone tries to load a page or make an API request, the server detects that the password has changed in the database:
+          The Phone session is immediately invalidated.
+          The user on the Phone is logged out and redirected to the Login page.
+          The Laptop (current device) is also logged out, prompting the user to log in again with their new password (this is the standard, secure practice for password changes).
+      
+
 
 ---
 
