@@ -12,6 +12,9 @@ import { Checkbox } from "@/ui/checkbox-v2"
 import { Alert, AlertDescription } from "@/ui/alert"
 import { AlertCircle, Eye, EyeOff } from "lucide-react"
 
+import { validatePhoneAndCountryCode } from "@/lib/phone-validation"
+import { validatePassword } from "@/lib/password-validation"
+
 export default function RestaurantSellerRegistrationPage() {
   const router = useRouter()
   const [showPassword, setShowPassword] = useState(false)
@@ -21,10 +24,40 @@ export default function RestaurantSellerRegistrationPage() {
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setError("")
-    setLoading(true)
 
     const formData = new FormData(e.currentTarget)
     const data = Object.fromEntries(formData.entries())
+
+    const phone = data.phone as string
+    const phoneCountryCode = data.phoneCountryCode as string
+
+    if (!phone || !phoneCountryCode) {
+      setError("Country code and phone are required")
+      return
+    }
+
+    const phoneValidation = validatePhoneAndCountryCode(phone, phoneCountryCode)
+    if (!phoneValidation.isValid) {
+      setError(phoneValidation.error || "Invalid phone number or country code")
+      return
+    }
+
+    const password = data.password as string
+    if (!password) {
+      setError("Password is required")
+      return
+    }
+    const passwordValidation = validatePassword(password)
+    if (!passwordValidation.isValid) {
+      setError(passwordValidation.error || "Weak password")
+      return
+    }
+
+    // Update with cleaned values
+    data.phone = phoneValidation.cleanedPhone!
+    data.phoneCountryCode = phoneValidation.cleanedCountryCode!
+
+    setLoading(true)
 
     try {
       const res = await fetch("/api/restaurant-seller/auth/registration", {
@@ -105,6 +138,7 @@ export default function RestaurantSellerRegistrationPage() {
                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
             </div>
+            <p className="mt-1 text-xs text-gray-500">Must be at least 8 characters and contain uppercase, lowercase, a number, and a special character.</p>
           </div>
 
           <div className="flex items-start space-x-2 pt-2">

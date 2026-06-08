@@ -4,6 +4,8 @@ import { prisma } from "@/lib/prisma"
 import { mergeGuestCartForUser } from "@/app/api/customer/cart/merge-logic"
 import type { GuestCartItemForMerge } from "@/app/api/customer/cart/types"
 import { POST as nextAuthPost } from "@/app/api/nextauth/[...nextauth]/route"
+import { getSafeRedirectUrl } from "@/lib/safe-redirect"
+
 
 /** POST /api/customer/auth/login — Customer panel login. Proxies to NextAuth with role CUSTOMER. */
 export async function POST(request: Request) {
@@ -17,8 +19,11 @@ export async function POST(request: Request) {
       csrfToken?: string
       guestCart?: unknown
     }
+    const origin = new URL(request.url).origin
     const rawCallbackUrl = typeof callbackUrl === "string" ? callbackUrl : "/"
-    const normalizedCallbackUrl = rawCallbackUrl === "/customer" ? "/" : rawCallbackUrl || "/"
+    const validatedCallbackUrl = getSafeRedirectUrl(rawCallbackUrl, "/", origin)
+    const normalizedCallbackUrl = validatedCallbackUrl === "/customer" ? "/" : validatedCallbackUrl
+
     const hasOtpLoginToken = typeof otpLoginToken === "string" && otpLoginToken.trim().length > 0
     if (!email || (!password && !hasOtpLoginToken)) {
       return NextResponse.json(
@@ -26,7 +31,6 @@ export async function POST(request: Request) {
         { status: 400 }
       )
     }
-    const origin = new URL(request.url).origin
     const host = new URL(request.url).host
     const form = new URLSearchParams({
       email,
@@ -87,7 +91,8 @@ export async function POST(request: Request) {
     }
     if (res.status === 302) {
       const headers = new Headers()
-      const normalizedLocation = location && location !== "/customer" ? location : normalizedCallbackUrl
+      const safeLocation = location ? getSafeRedirectUrl(location, "/", origin) : "/"
+      const normalizedLocation = safeLocation !== "/customer" ? safeLocation : normalizedCallbackUrl
       headers.set("Location", normalizedLocation)
       res.headers.getSetCookie?.().forEach((c) => headers.append("Set-Cookie", c))
       return new NextResponse(null, { status: 302, headers })

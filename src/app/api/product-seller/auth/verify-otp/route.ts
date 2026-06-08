@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { UserRole } from "@prisma/client"
+import { checkOtpRateLimit, recordOtpFailure, resetOtpRateLimit } from "@/lib/rate-limit"
 
 /** POST /api/product-seller/auth/verify-otp — Body: { email, otp } */
 export async function POST(request: Request) {
@@ -9,21 +10,39 @@ export async function POST(request: Request) {
     const email = typeof body.email === "string" ? body.email.trim() : ""
     const otp = typeof body.otp === "string" ? body.otp.trim() : ""
     if (!email || !otp) return NextResponse.json({ error: "Email and OTP are required" }, { status: 400 })
+
+    const rateLimitKey = `${email}:reg-verify-otp`
+    const rateCheck = await checkOtpRateLimit(rateLimitKey)
+    if (!rateCheck.allowed) {
+      const minutesLeft = Math.ceil(rateCheck.blockTimeLeftMs / 60000)
+      return NextResponse.json({ error: `Too many failed attempts. Try again in ${minutesLeft} minute(s).` }, { status: 429 })
+    }
+
     const user = await prisma.user.findFirst({
       where: { email, role: UserRole.SELLER_PRODUCT },
       select: { id: true, verifyEmailOtp: true, emailVerificationExpires: true, isEmailVerified: true },
     })
-    if (!user) return NextResponse.json({ error: "Invalid email or OTP." }, { status: 400 })
+    if (!user) {
+      await recordOtpFailure(rateLimitKey)
+      return NextResponse.json({ error: "Invalid email or OTP." }, { status: 400 })
+    }
     if (user.isEmailVerified) return NextResponse.json({ message: "Already verified.", loginUrl: "/product-seller/login" }, { status: 200 })
-    if (user.verifyEmailOtp !== otp) return NextResponse.json({ error: "Invalid OTP." }, { status: 400 })
+    if (user.verifyEmailOtp !== otp) {
+      await recordOtpFailure(rateLimitKey)
+      return NextResponse.json({ error: "Invalid OTP." }, { status: 400 })
+    }
     const now = new Date()
     if (!user.emailVerificationExpires || user.emailVerificationExpires < now) {
+      await recordOtpFailure(rateLimitKey)
       return NextResponse.json({ error: "OTP has expired. Please request a new one." }, { status: 400 })
     }
     await prisma.user.update({
       where: { id: user.id },
       data: { isEmailVerified: true, verifyEmailOtp: null, emailVerificationExpires: null, emailOtpSentAt: null },
     })
+
+    await resetOtpRateLimit(rateLimitKey)
+
     return NextResponse.json({ message: "Email verified.", loginUrl: "/product-seller/login?verified=1" }, { status: 200 })
   } catch (error) {
     console.error("Product seller verify-otp error:", error)

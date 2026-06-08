@@ -22,7 +22,7 @@ export async function resolveProductCartLine(
 ): Promise<ResolvedCartLine | null> {
   const variantId = productVariantId ?? null
   const product = await prisma.product.findUnique({
-    where: { id: productId, isActive: true },
+    where: { id: productId, isActive: true, isDeleted: false },
     select: {
       name: true,
       images: true,
@@ -55,7 +55,7 @@ export async function resolveServiceCartLine(
   quantity: number
 ): Promise<ResolvedCartLine | null> {
   const service = await prisma.service.findUnique({
-    where: { id: serviceId, isActive: true },
+    where: { id: serviceId, isActive: true, isDeleted: false },
     include: {
       packages: servicePackageId ? { where: { id: servicePackageId }, take: 1 } : { take: 0 },
     },

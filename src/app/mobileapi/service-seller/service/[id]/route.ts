@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { UserRole } from "@prisma/client"
 import { getMobileSellerAuth } from "../../../_helpers/seller-auth"
 import { processHybridServiceRequest } from "../../../_helpers/service-upload"
+import { sanitizeInput } from "@/lib/html-sanitization"
 
 export const dynamic = 'force-dynamic'
 
@@ -81,10 +82,11 @@ export async function PUT(
 
     const updateData: Record<string, any> = {}
     if (body.name !== undefined) {
-      updateData.name = body.name.trim()
-      updateData.slug = body.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "")
+      const cleanName = sanitizeInput(body.name)
+      updateData.name = cleanName
+      updateData.slug = cleanName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "")
     }
-    if (body.description !== undefined) updateData.description = body.description
+    if (body.description !== undefined) updateData.description = typeof body.description === "string" ? sanitizeInput(body.description) : body.description
     if (body.serviceCategoryId !== undefined) updateData.serviceCategoryId = body.serviceCategoryId
     if (body.serviceType !== undefined) updateData.serviceType = body.serviceType
     if (body.basePrice !== undefined) updateData.basePrice = body.basePrice

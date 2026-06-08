@@ -4,6 +4,8 @@ import bcrypt from "bcryptjs"
 import { prisma } from "@/lib/prisma"
 import { uploadPublicFile } from "@/lib/upload-public-file"
 import { getMobileCustomerAuth } from "@/app/mobileapi/_helpers/customer-auth"
+import { validatePassword } from "@/lib/password-validation"
+import { sanitizeInput } from "@/lib/html-sanitization"
 
 export const dynamic = "force-dynamic"
 
@@ -81,26 +83,42 @@ export async function PUT(request: NextRequest) {
     }
 
     // Support both flat keys and nested client keys from mobile forms.
-    const name = getString("name", "user[name]")?.trim()
+    const nameRaw = getString("name", "user[name]")
+    const name = nameRaw !== undefined ? sanitizeInput(nameRaw) : undefined
     const imageUrl = getString("image", "imageUrl", "user[image]")?.trim()
     const phone = getString("phone", "user[phone]")
     const phoneCountryCode = getString("phoneCountryCode", "phone_country_code", "user[phoneCountryCode]")
     const password = getString("password", "user[password]")
+    const currentPassword = getString("currentPassword", "user[currentPassword]")
     const profileImageFile = getFile("profileImage", "profile_image", "image")
-
+ 
     if (name !== undefined) userData.name = name
     if (phone !== undefined) userData.phone = phone || null
     if (phoneCountryCode !== undefined) userData.phoneCountryCode = phoneCountryCode || null
     if (password !== undefined) {
       const trimmedPassword = password.trim()
       if (trimmedPassword) {
-        if (trimmedPassword.length < 6) {
-          return NextResponse.json({ success: false, error: "Password must be at least 6 characters long" }, { status: 400 })
+        const passwordValidation = validatePassword(trimmedPassword)
+        if (!passwordValidation.isValid) {
+          return NextResponse.json({ success: false, error: passwordValidation.error }, { status: 400 })
+        }
+        const dbUser = await prisma.user.findUnique({
+          where: { id: auth.userId },
+          select: { password: true }
+        })
+        if (dbUser?.password) {
+          if (!currentPassword || !currentPassword.trim()) {
+            return NextResponse.json({ success: false, error: "Current password is required to change password" }, { status: 400 })
+          }
+          const isPasswordCorrect = await bcrypt.compare(currentPassword.trim(), dbUser.password)
+          if (!isPasswordCorrect) {
+            return NextResponse.json({ success: false, error: "Incorrect current password" }, { status: 400 })
+          }
         }
         userData.password = await bcrypt.hash(trimmedPassword, 10)
       }
     }
-
+ 
     if (profileImageFile && profileImageFile.size > 0) {
       try {
         const type = profileImageFile.type?.toLowerCase() ?? ""
@@ -133,16 +151,37 @@ export async function PUT(request: NextRequest) {
       phone?: string
       phoneCountryCode?: string
       password?: string
+      currentPassword?: string
     }
-    if (body.name !== undefined) userData.name = body.name
+    if (body.name !== undefined) {
+      userData.name = typeof body.name === "string" ? sanitizeInput(body.name) : undefined
+    }
     if (body.image !== undefined) userData.image = body.image
     if (body.phone !== undefined) userData.phone = body.phone || null
     if (body.phoneCountryCode !== undefined) userData.phoneCountryCode = body.phoneCountryCode || null
     if (body.password !== undefined) {
+      if (typeof body.password !== "string") {
+        return NextResponse.json({ success: false, error: "Password must be a string" }, { status: 400 })
+      }
       const trimmedPassword = body.password.trim()
+      const currentPassword = (body.currentPassword ?? "").trim()
       if (trimmedPassword) {
-        if (trimmedPassword.length < 6) {
-          return NextResponse.json({ success: false, error: "Password must be at least 6 characters long" }, { status: 400 })
+        const passwordValidation = validatePassword(trimmedPassword)
+        if (!passwordValidation.isValid) {
+          return NextResponse.json({ success: false, error: passwordValidation.error }, { status: 400 })
+        }
+        const dbUser = await prisma.user.findUnique({
+          where: { id: auth.userId },
+          select: { password: true }
+        })
+        if (dbUser?.password) {
+          if (!currentPassword) {
+            return NextResponse.json({ success: false, error: "Current password is required to change password" }, { status: 400 })
+          }
+          const isPasswordCorrect = await bcrypt.compare(currentPassword, dbUser.password)
+          if (!isPasswordCorrect) {
+            return NextResponse.json({ success: false, error: "Incorrect current password" }, { status: 400 })
+          }
         }
         userData.password = await bcrypt.hash(trimmedPassword, 10)
       }

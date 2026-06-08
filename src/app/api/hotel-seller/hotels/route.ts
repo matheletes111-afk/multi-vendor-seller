@@ -6,6 +6,7 @@ import path from "path"
 import { UserRole } from "@prisma/client"
 import { getPaginationFromSearchParams } from "@/lib/admin-pagination"
 import { checkHotelLimit, checkHotelRoomLimit } from "@/lib/subscriptions"
+import { sanitizeInput } from "@/lib/html-sanitization"
 
 export async function GET(request: NextRequest) {
   const session = await auth()
@@ -109,20 +110,29 @@ export async function POST(request: NextRequest) {
   }
 
   const formData = await request.formData()
-  const name = formData.get("name") as string
-  const description = formData.get("description") as string
+  const name = sanitizeInput(formData.get("name") as string)
+  const description = typeof formData.get("description") === "string" ? sanitizeInput(formData.get("description") as string) : ""
   const starRating = parseInt(formData.get("starRating") as string, 10) || 0
   const amenitiesRaw = formData.get("amenities") as string
-  const checkInPolicy = formData.get("checkInPolicy") as string
-  const checkOutPolicy = formData.get("checkOutPolicy") as string
-  const address = formData.get("address") as string
-  const city = formData.get("city") as string
-  const state = formData.get("state") as string
+  const checkInPolicy = typeof formData.get("checkInPolicy") === "string" ? sanitizeInput(formData.get("checkInPolicy") as string) : ""
+  const checkOutPolicy = typeof formData.get("checkOutPolicy") === "string" ? sanitizeInput(formData.get("checkOutPolicy") as string) : ""
+  const address = typeof formData.get("address") === "string" ? sanitizeInput(formData.get("address") as string) : ""
+  const city = typeof formData.get("city") === "string" ? sanitizeInput(formData.get("city") as string) : ""
+  const state = typeof formData.get("state") === "string" ? sanitizeInput(formData.get("state") as string) : ""
   const lat = parseFloat(formData.get("lat") as string) || null
   const lng = parseFloat(formData.get("lng") as string) || null
-
+ 
   const roomsRaw = formData.get("rooms") as string
   const roomsList = roomsRaw ? JSON.parse(roomsRaw) : []
+ 
+  // Sanitize rooms items
+  for (const r of roomsList) {
+    if (typeof r.name === "string") r.name = sanitizeInput(r.name)
+    if (typeof r.description === "string") r.description = sanitizeInput(r.description)
+    if (Array.isArray(r.amenities)) {
+      r.amenities = r.amenities.map((a: string) => sanitizeInput(a))
+    }
+  }
 
   // Check room limits if rooms are being created
   if (roomsList.length > 0) {

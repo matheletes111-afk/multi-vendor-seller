@@ -4,6 +4,9 @@ import { prisma } from "@/lib/prisma"
 import bcrypt from "bcryptjs"
 import { UserRole } from "@prisma/client"
 import { sendVerificationOtpEmail } from "@/lib/email"
+import { validatePhoneAndCountryCode } from "@/lib/phone-validation"
+import { validatePassword } from "@/lib/password-validation"
+import { sanitizeInput } from "@/lib/html-sanitization"
 
 
 const OTP_EXPIRY_MS = 10 * 60 * 1000 // 10 min
@@ -13,21 +16,29 @@ export async function POST(request: Request) {
   try {
     const body = await request.json()
     const { name, email, password, phone, phoneCountryCode } = body
-    const normalizedPhone = typeof phone === "string" ? phone.trim() : ""
-    const normalizedPhoneCountryCode = typeof phoneCountryCode === "string" ? phoneCountryCode.trim() : ""
-    
-    if (!email || !password || !normalizedPhone || !normalizedPhoneCountryCode) {
-      return NextResponse.json({ error: "Email, password, phone, and country code are required" }, { status: 400 })
+    const sanitizedName = name ? sanitizeInput(name) : null
+    if (!email || !password) {
+      return NextResponse.json({ error: "Email and password are required" }, { status: 400 })
     }
+    const passwordValidation = validatePassword(password)
+    if (!passwordValidation.isValid) {
+      return NextResponse.json({ error: passwordValidation.error }, { status: 400 })
+    }
+    const validation = validatePhoneAndCountryCode(phone, phoneCountryCode)
+    if (!validation.isValid) {
+      return NextResponse.json({ error: validation.error }, { status: 400 })
+    }
+    const normalizedPhone = validation.cleanedPhone!
+    const normalizedPhoneCountryCode = validation.cleanedCountryCode!
     
     const existingUser = await prisma.user.findUnique({ where: { email } })
     if (existingUser) {
-      return NextResponse.json({ error: "User with this email already exists" }, { status: 400 })
+      return NextResponse.json({ error: "This information could not be registered. Please try again or contact support." }, { status: 400 })
     }
     
     const existingPhone = await prisma.user.findFirst({ where: { phone: normalizedPhone } })
     if (existingPhone) {
-      return NextResponse.json({ error: "User with this phone number already exists" }, { status: 400 })
+      return NextResponse.json({ error: "This information could not be registered. Please try again or contact support." }, { status: 400 })
     }
     
     const hashedPassword = await bcrypt.hash(password, 10)
@@ -38,7 +49,7 @@ export async function POST(request: Request) {
     const user = await prisma.user.create({
       data: {
         email,
-        name: name ?? null,
+        name: sanitizedName,
         password: hashedPassword,
         role: UserRole.SELLER_HOTEL,
         phone: normalizedPhone,
@@ -59,7 +70,7 @@ export async function POST(request: Request) {
     await sendVerificationOtpEmail({
       to: email,
       otp: verifyEmailOtp,
-      name: name ?? null,
+      name: sanitizedName,
     })
 
     return NextResponse.json({ 

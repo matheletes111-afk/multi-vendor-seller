@@ -4,8 +4,18 @@ const nextConfig = {
     domains: ['localhost', 'images.unsplash.com'],
   },
   serverExternalPackages: ["xlsx"],
-  env: {
-    MAP_KEY: process.env.MAP_KEY,
+  async headers() {
+    return [
+      {
+        source: '/:path*',
+        headers: [
+          {
+            key: 'X-Content-Type-Options',
+            value: 'nosniff',
+          },
+        ],
+      },
+    ]
   },
 }
 

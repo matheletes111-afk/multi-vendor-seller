@@ -147,9 +147,23 @@ export function HotelOnboardingClient() {
     }
   }
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, key: string) => {
-    const file = e.target.files?.[0]
-    if (file) {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, key: string) => {
+    const rawFile = e.target.files?.[0]
+    if (rawFile) {
+      let file: File = rawFile
+      if (["logo", "banner", "mainPhoto"].includes(key)) {
+        try {
+          const { compressImage } = await import("@/lib/image-compressor")
+          const compressed = await compressImage(rawFile)
+          file = compressed
+          
+          const dataTransfer = new DataTransfer()
+          dataTransfer.items.add(compressed)
+          e.target.files = dataTransfer.files
+        } catch (err) {
+          console.error("Compression error:", err)
+        }
+      }
       const url = URL.createObjectURL(file)
       setPreviews(prev => {
         if (prev[key]) URL.revokeObjectURL(prev[key].url)

@@ -4,6 +4,9 @@ import { prisma } from "@/lib/prisma"
 import bcrypt from "bcryptjs"
 import { UserRole } from "@prisma/client"
 import { sendVerificationOtpEmail } from "@/lib/email"
+import { validatePhoneAndCountryCode } from "@/lib/phone-validation"
+import { validatePassword } from "@/lib/password-validation"
+import { sanitizeInput } from "@/lib/html-sanitization"
 
 // Constants
 const OTP_EXPIRY_MS = 10 * 60 * 1000 // 10 minutes
@@ -53,6 +56,7 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
     // Parse and validate request body
     const body: RegisterRequest = await request.json()
     const { name, email, password, phone, phoneCountryCode } = body
+    const sanitizedName = name ? sanitizeInput(name) : null
 
     // Validate required fields
     if (!email || !password) {
@@ -77,15 +81,47 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
       )
     }
 
-    // Validate password strength (optional - adjust as needed)
-    if (password.length < 6) {
+    // Validate password strength
+    const passwordValidation = validatePassword(password)
+    if (!passwordValidation.isValid) {
       return NextResponse.json<ErrorResponse>(
         { 
           success: false,
-          error: "Password must be at least 6 characters long" 
+          error: passwordValidation.error!
         },
         { status: 400 }
       )
+    }
+
+    let normalizedPhone: string | null = null
+    let normalizedPhoneCountryCode: string | null = null
+
+    if (phone || phoneCountryCode) {
+      const validation = validatePhoneAndCountryCode(phone || "", phoneCountryCode || "")
+      if (!validation.isValid) {
+        return NextResponse.json<ErrorResponse>(
+          {
+            success: false,
+            error: validation.error!
+          },
+          { status: 400 }
+        )
+      }
+      normalizedPhone = validation.cleanedPhone!
+      normalizedPhoneCountryCode = validation.cleanedCountryCode!
+
+      const existingPhone = await prisma.user.findFirst({
+        where: { phone: normalizedPhone }
+      })
+      if (existingPhone) {
+        return NextResponse.json<ErrorResponse>(
+          {
+            success: false,
+            error: "This information could not be registered. Please try again or contact support."
+          },
+          { status: 400 }
+        )
+      }
     }
 
     // Check if user already exists
@@ -97,10 +133,7 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
       return NextResponse.json<ErrorResponse>(
         { 
           success: false,
-          error: "User with this email already exists",
-          data: {
-            email: email
-          }
+          error: "This information could not be registered. Please try again or contact support."
         },
         { status: 400 }
       )
@@ -118,11 +151,11 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
     const user = await prisma.user.create({
       data: {
         email: email.toLowerCase().trim(),
-        name: name?.trim() ?? null,
+        name: sanitizedName,
         password: hashedPassword,
         role: UserRole.CUSTOMER,
-        phone: phone?.trim() ?? null,
-        phoneCountryCode: phoneCountryCode?.trim() ?? null,
+        phone: normalizedPhone,
+        phoneCountryCode: normalizedPhoneCountryCode,
         isEmailVerified: false,
         verifyEmailOtp,
         emailVerificationExpires,
@@ -140,7 +173,7 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
       await sendVerificationOtpEmail({
         to: email,
         otp: verifyEmailOtp,
-        name: name ?? null,
+        name: sanitizedName,
       })
     } catch (emailError) {
       console.error("Failed to send verification email:", emailError)

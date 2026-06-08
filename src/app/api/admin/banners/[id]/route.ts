@@ -6,6 +6,7 @@ import { unlink } from "fs/promises";
 import path from "path";
 import { existsSync } from "fs";
 import { uploadPublicFile } from "@/lib/upload-public-file";
+import { sanitizeInput } from "@/lib/html-sanitization";
 
 // GET single banner
 export async function GET(
@@ -93,8 +94,9 @@ export async function PUT(
     const { id } = await params;
     const formData = await request.formData();
     
-    const bannerHeading = formData.get("bannerHeading") as string;
-    const bannerDescription = formData.get("bannerDescription") as string || null;
+    const bannerHeadingRaw = formData.get("bannerHeading") as string;
+    const bannerHeading = sanitizeInput(bannerHeadingRaw);
+    const bannerDescription = typeof formData.get("bannerDescription") === "string" ? sanitizeInput(formData.get("bannerDescription") as string) : null;
     const isActive = formData.get("isActive") === "true";
     const targetType = (formData.get("targetType") as string) || "product";
     const categoryId = (formData.get("categoryId") as string)?.trim() || null;

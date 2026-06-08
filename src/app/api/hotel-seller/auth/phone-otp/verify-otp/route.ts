@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma"
 import { createOtpLoginToken } from "@/lib/web-otp-login"
 import { getCandidateCountryCodePhonePairs } from "@/lib/phone-otp-lookup"
 import { isValidE164, normalizePhoneNumber } from "@/lib/twilio-sms"
+import { checkOtpRateLimit, recordOtpFailure, resetOtpRateLimit } from "@/lib/rate-limit"
 
 /** POST /api/hotel-seller/auth/phone-otp/verify-otp — Body: { phone, otp } */
 export async function POST(request: Request) {
@@ -18,6 +19,13 @@ export async function POST(request: Request) {
         { error: "Phone number and OTP are required." },
         { status: 400 }
       )
+    }
+
+    const rateLimitKey = `${normalizedPhone}:verify-otp`
+    const rateCheck = await checkOtpRateLimit(rateLimitKey)
+    if (!rateCheck.allowed) {
+      const minutesLeft = Math.ceil(rateCheck.blockTimeLeftMs / 60000)
+      return NextResponse.json({ error: `Too many failed attempts. Try again in ${minutesLeft} minute(s).` }, { status: 429 })
     }
 
     const phoneDigits = normalizedPhone.replace(/^\+/, "")
@@ -38,10 +46,15 @@ export async function POST(request: Request) {
     })
 
     if (!user || !user.isEmailVerified) {
+      await recordOtpFailure(rateLimitKey)
       return NextResponse.json({ error: "Invalid phone number or OTP." }, { status: 400 })
     }
-    if (user.verifyEmailOtp !== otp) return NextResponse.json({ error: "Invalid OTP." }, { status: 400 })
+    if (user.verifyEmailOtp !== otp) {
+      await recordOtpFailure(rateLimitKey)
+      return NextResponse.json({ error: "Invalid OTP." }, { status: 400 })
+    }
     if (!user.emailVerificationExpires || user.emailVerificationExpires < new Date()) {
+      await recordOtpFailure(rateLimitKey)
       return NextResponse.json({ error: "OTP has expired. Please request a new one." }, { status: 400 })
     }
 
@@ -49,6 +62,8 @@ export async function POST(request: Request) {
       where: { id: user.id },
       data: { verifyEmailOtp: null, emailVerificationExpires: null, emailOtpSentAt: null },
     })
+
+    await resetOtpRateLimit(rateLimitKey)
 
     const otpLoginToken = createOtpLoginToken(user.email, UserRole.SELLER_HOTEL)
     return NextResponse.json(

@@ -10,6 +10,9 @@ import { Label } from "@/ui/label"
 import { Alert, AlertDescription } from "@/ui/alert"
 import { AlertCircle, Eye, EyeOff } from "lucide-react"
 
+import { validatePhoneAndCountryCode } from "@/lib/phone-validation"
+import { validatePassword } from "@/lib/password-validation"
+
 export default function CustomerRegistrationPage() {
   const router = useRouter()
   const [name, setName] = useState("")
@@ -27,11 +30,14 @@ export default function CustomerRegistrationPage() {
     e.preventDefault()
     setError("")
     if (!phoneCountryCode.trim() || !phone.trim()) { setError("Country code and phone are required"); return }
+    const phoneValidation = validatePhoneAndCountryCode(phone, phoneCountryCode)
+    if (!phoneValidation.isValid) { setError(phoneValidation.error || "Invalid phone number or country code"); return }
     if (password !== confirmPassword) { setError("Passwords do not match"); return }
-    if (password.length < 6) { setError("Password must be at least 6 characters"); return }
+    const passwordValidation = validatePassword(password)
+    if (!passwordValidation.isValid) { setError(passwordValidation.error || "Weak password"); return }
     setLoading(true)
     try {
-      const res = await fetch("/api/customer/auth/registration", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, email, phone: phone.trim(), phoneCountryCode: phoneCountryCode.trim(), password }) })
+      const res = await fetch("/api/customer/auth/registration", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, email, phone: phoneValidation.cleanedPhone, phoneCountryCode: phoneValidation.cleanedCountryCode, password }) })
       const data = await res.json()
       if (!res.ok) { setError(data.error || "Registration failed"); return }
       router.push(`/customer/verify-otp?email=${encodeURIComponent(email)}&from=registration`)
@@ -59,7 +65,7 @@ export default function CustomerRegistrationPage() {
               <div><Label htmlFor="phoneCountryCode" className="mb-1.5 block text-sm font-medium text-gray-700">Country code</Label><Input id="phoneCountryCode" type="tel" inputMode="numeric" placeholder="+1" value={phoneCountryCode} onChange={(e) => setPhoneCountryCode(e.target.value)} required disabled={loading} className="rounded-xl border-gray-200" /></div>
               <div><Label htmlFor="phone" className="mb-1.5 block text-sm font-medium text-gray-700">Phone</Label><Input id="phone" type="tel" inputMode="numeric" placeholder="Phone number" value={phone} onChange={(e) => setPhone(e.target.value)} required disabled={loading} className="rounded-xl border-gray-200" /></div>
             </div>
-            <div><Label htmlFor="password" className="mb-1.5 block text-sm font-medium text-gray-700">Password</Label><div className="relative"><Input id="password" type={showPassword ? "text" : "password"} placeholder="**********" value={password} onChange={(e) => setPassword(e.target.value)} required disabled={loading} className="rounded-xl border-gray-200 pr-10" /><button type="button" tabIndex={-1} onClick={() => setShowPassword((p) => !p)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" aria-label={showPassword ? "Hide password" : "Show password"}>{showPassword ? <EyeOff size={18} /> : <Eye size={18} />}</button></div></div>
+            <div><Label htmlFor="password" className="mb-1.5 block text-sm font-medium text-gray-700">Password</Label><div className="relative"><Input id="password" type={showPassword ? "text" : "password"} placeholder="**********" value={password} onChange={(e) => setPassword(e.target.value)} required disabled={loading} className="rounded-xl border-gray-200 pr-10" /><button type="button" tabIndex={-1} onClick={() => setShowPassword((p) => !p)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" aria-label={showPassword ? "Hide password" : "Show password"}>{showPassword ? <EyeOff size={18} /> : <Eye size={18} />}</button></div><p className="mt-1 text-xs text-gray-500">Must be at least 8 characters and contain uppercase, lowercase, a number, and a special character.</p></div>
             <div><Label htmlFor="confirmPassword" className="mb-1.5 block text-sm font-medium text-gray-700">Confirm Password</Label><div className="relative"><Input id="confirmPassword" type={showConfirmPassword ? "text" : "password"} placeholder="**********" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required disabled={loading} className="rounded-xl border-gray-200 pr-10" /><button type="button" tabIndex={-1} onClick={() => setShowConfirmPassword((p) => !p)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" aria-label={showConfirmPassword ? "Hide password" : "Show password"}>{showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}</button></div></div>
             <div className="text-center"><Button type="submit" disabled={loading} className="mx-auto w-full rounded-full sm:max-w-[200px]">{loading ? "Creating account..." : "Create Account"}</Button></div>
           </div>

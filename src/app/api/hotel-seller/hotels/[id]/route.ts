@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma"
 import { uploadPublicFile } from "@/lib/upload-public-file"
 import path from "path"
 import { UserRole } from "@prisma/client"
+import { sanitizeInput } from "@/lib/html-sanitization"
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -64,29 +65,38 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   }
 
   const formData = await request.formData()
-  const name = formData.get("name") as string
-  const description = formData.get("description") as string
+  const name = typeof formData.get("name") === "string" ? sanitizeInput(formData.get("name") as string) : ""
+  const description = typeof formData.get("description") === "string" ? sanitizeInput(formData.get("description") as string) : ""
   const starRatingRaw = formData.get("starRating") as string
   const starRating = starRatingRaw ? parseInt(starRatingRaw, 10) : undefined
   const amenitiesRaw = formData.get("amenities") as string
-  const checkInPolicy = formData.get("checkInPolicy") as string
-  const checkOutPolicy = formData.get("checkOutPolicy") as string
-  const address = formData.get("address") as string
-  const city = formData.get("city") as string
-  const state = formData.get("state") as string
+  const checkInPolicy = typeof formData.get("checkInPolicy") === "string" ? sanitizeInput(formData.get("checkInPolicy") as string) : ""
+  const checkOutPolicy = typeof formData.get("checkOutPolicy") === "string" ? sanitizeInput(formData.get("checkOutPolicy") as string) : ""
+  const address = typeof formData.get("address") === "string" ? sanitizeInput(formData.get("address") as string) : ""
+  const city = typeof formData.get("city") === "string" ? sanitizeInput(formData.get("city") as string) : ""
+  const state = typeof formData.get("state") === "string" ? sanitizeInput(formData.get("state") as string) : ""
   const latRaw = formData.get("lat") as string
   const lat = latRaw ? parseFloat(latRaw) : undefined
   const lngRaw = formData.get("lng") as string
   const lng = lngRaw ? parseFloat(lngRaw) : undefined
-
+ 
   const newImageFiles = formData.getAll("newImages") as File[]
   const existingImagesRaw = formData.get("existingImages") as string // JSON array of URLs to keep
-
+ 
   const logoFile = formData.get("logo") as File | null
   const bannerFile = formData.get("banner") as File | null
-
+ 
   const roomsRaw = formData.get("rooms") as string
   const roomsList = roomsRaw ? JSON.parse(roomsRaw) : []
+ 
+  // Sanitize rooms items
+  for (const r of roomsList) {
+    if (typeof r.name === "string") r.name = sanitizeInput(r.name)
+    if (typeof r.description === "string") r.description = sanitizeInput(r.description)
+    if (Array.isArray(r.amenities)) {
+      r.amenities = r.amenities.map((a: string) => sanitizeInput(a))
+    }
+  }
   const newRooms = roomsList.filter((r: any) => !r.id && !r.isDeleted)
 
   if (newRooms.length > 0) {

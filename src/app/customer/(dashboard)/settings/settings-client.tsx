@@ -8,6 +8,7 @@ import { Input } from "@/ui/input"
 import { Label } from "@/ui/label"
 import { PageLoader } from "@/components/ui/page-loader"
 import { ProfilePictureInput } from "@/components/profile-picture-input"
+import { validatePassword } from "@/lib/password-validation"
 
 type UserProfile = {
   id: string
@@ -26,6 +27,7 @@ export function CustomerSettingsClient() {
   const [success, setSuccess] = useState<string | null>(null)
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false)
 
   useEffect(() => {
     fetch("/api/customer/settings")
@@ -53,8 +55,9 @@ export function CustomerSettingsClient() {
         setError("New password and confirm password do not match.")
         return
       }
-      if (password.length < 6) {
-        setError("Password must be at least 6 characters long.")
+      const passwordValidation = validatePassword(password)
+      if (!passwordValidation.isValid) {
+        setError(passwordValidation.error || "Weak password")
         return
       }
     }
@@ -74,6 +77,7 @@ export function CustomerSettingsClient() {
             phone: (fd.get("phone") as string) ?? "",
             phoneCountryCode: (fd.get("phoneCountryCode") as string) ?? "",
             password: password || undefined,
+            currentPassword: (fd.get("currentPassword") as string) || undefined,
           }),
         })
       }
@@ -157,7 +161,28 @@ export function CustomerSettingsClient() {
                 />
               </div>
             </div>
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-4 md:grid-cols-3">
+              <div className="space-y-2">
+                <Label htmlFor="currentPassword">Current password</Label>
+                <div className="relative">
+                  <Input
+                    id="currentPassword"
+                    name="currentPassword"
+                    type={showCurrentPassword ? "text" : "password"}
+                    placeholder="Enter current password"
+                    className="pr-10"
+                  />
+                  <button
+                    type="button"
+                    tabIndex={-1}
+                    onClick={() => setShowCurrentPassword((value) => !value)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+                    aria-label={showCurrentPassword ? "Hide current password" : "Show current password"}
+                  >
+                    {showCurrentPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
               <div className="space-y-2">
                 <Label htmlFor="password">New password</Label>
                 <div className="relative">
@@ -165,7 +190,7 @@ export function CustomerSettingsClient() {
                     id="password"
                     name="password"
                     type={showPassword ? "text" : "password"}
-                    placeholder="At least 6 characters"
+                    placeholder="At least 8 characters"
                     className="pr-10"
                   />
                   <button
@@ -178,6 +203,7 @@ export function CustomerSettingsClient() {
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
+                <p className="mt-1 text-xs text-gray-500">Must contain uppercase, lowercase, a number, and a special character.</p>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="confirmPassword">Confirm new password</Label>

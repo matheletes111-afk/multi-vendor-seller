@@ -5,6 +5,8 @@ import { UserRole } from "@prisma/client"
 import path from "path"
 import bcrypt from "bcryptjs"
 import { uploadPublicFile } from "@/lib/upload-public-file"
+import { validatePassword } from "@/lib/password-validation"
+import { sanitizeInput } from "@/lib/html-sanitization"
 
 function getImageExtFromContentType(contentType?: string | null) {
   const ct = (contentType || "").toLowerCase()
@@ -62,10 +64,11 @@ export async function PUT(request: NextRequest) {
 
     // 1. Handle User Profile
     if (section === "user") {
-        const name = (fd.get("name") as string)?.trim()
+        const name = fd.get("name") !== null ? sanitizeInput(fd.get("name") as string) : undefined
         const phone = (fd.get("phone") as string)?.trim()
         const phoneCountryCode = (fd.get("phoneCountryCode") as string)?.trim()
         const password = (fd.get("password") as string)?.trim()
+        const currentPassword = (fd.get("currentPassword") as string)?.trim() || ""
         const profileImageFile = fd.get("profileImage") as File | null
 
         const userData: any = {}
@@ -73,7 +76,23 @@ export async function PUT(request: NextRequest) {
         if (phone) userData.phone = phone
         if (phoneCountryCode) userData.phoneCountryCode = phoneCountryCode
         if (password) {
-            if (password.length < 6) return NextResponse.json({ error: "Password too short" }, { status: 400 })
+            const passwordValidation = validatePassword(password)
+            if (!passwordValidation.isValid) {
+                return NextResponse.json({ error: passwordValidation.error }, { status: 400 })
+            }
+            const dbUser = await prisma.user.findUnique({
+                where: { id: session.user.id },
+                select: { password: true }
+            })
+            if (dbUser?.password) {
+                if (!currentPassword) {
+                    return NextResponse.json({ error: "Current password is required to change password" }, { status: 400 })
+                }
+                const isPasswordCorrect = await bcrypt.compare(currentPassword, dbUser.password)
+                if (!isPasswordCorrect) {
+                    return NextResponse.json({ error: "Incorrect current password" }, { status: 400 })
+                }
+            }
             userData.password = await bcrypt.hash(password, 10)
         }
 

@@ -20,7 +20,8 @@ export async function POST(request: Request) {
       select: { id: true, name: true, isEmailVerified: true, emailOtpSentAt: true },
     })
     if (!user) {
-      return NextResponse.json({ error: "No account found with this email." }, { status: 404 })
+      // Generic response to prevent account enumeration
+      return NextResponse.json({ message: "If an account with this email exists, OTP has been sent." }, { status: 200 })
     }
     if (user.isEmailVerified) {
       return NextResponse.json({ message: "Email is already verified.", loginUrl: "/customer/login" }, { status: 200 })

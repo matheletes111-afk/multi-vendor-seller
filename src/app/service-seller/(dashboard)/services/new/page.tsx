@@ -6,6 +6,7 @@ import { checkServiceLimit } from "@/lib/subscriptions"
 import { uploadMasterServiceImage, uploadServiceGalleryImages } from "@/lib/upload-service-form-images"
 import { redirect } from "next/navigation"
 import { revalidatePath } from "next/cache"
+import { sanitizeInput } from "@/lib/html-sanitization"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/ui/card"
 import { Button } from "@/ui/button"
 import { Input } from "@/ui/input"
@@ -50,21 +51,23 @@ async function createService(data: unknown) {
   if (seller.isSuspended) return { error: "Your seller account has been suspended." }
   const limitCheck = await checkServiceLimit(seller.id)
   if (!limitCheck.allowed) return { error: `Service limit reached. You have ${limitCheck.current} and your plan allows ${limitCheck.limit === null ? "unlimited" : limitCheck.limit}. Please upgrade.` }
-  const slug = validated.data.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "")
+  const name = sanitizeInput(validated.data.name)
+  const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "")
   const imagesData = validated.data.images && Array.isArray(validated.data.images) ? validated.data.images : []
   const galleryData =
     validated.data.galleryImages && Array.isArray(validated.data.galleryImages) ? validated.data.galleryImages : []
   const basePrice = validated.data.basePrice ?? null
   const discount = Math.round((validated.data.discount ?? 0) * 100) / 100
   const weeklyAvailability = validated.data.weeklyAvailability ?? undefined
+  const sanitizedDescription = typeof validated.data.description === "string" ? sanitizeInput(validated.data.description) : null
   try {
     await prisma.service.create({
       data: {
         sellerId: seller.id,
         serviceCategoryId: validated.data.serviceCategoryId,
-        name: validated.data.name,
+        name,
         slug,
-        description: validated.data.description,
+        description: sanitizedDescription,
         serviceType: validated.data.serviceType,
         basePrice,
         discount,

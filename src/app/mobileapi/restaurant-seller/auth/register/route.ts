@@ -5,6 +5,9 @@ import bcrypt from "bcryptjs"
 import { UserRole } from "@prisma/client"
 import { sendVerificationOtpEmail } from "@/lib/email"
 import { activateRestaurantFreePlan } from "@/lib/subscriptions"
+import { validatePhoneAndCountryCode } from "@/lib/phone-validation"
+import { validatePassword } from "@/lib/password-validation"
+import { sanitizeInput } from "@/lib/html-sanitization"
 
 const OTP_EXPIRY_MS = 10 * 60 * 1000 // 10 minutes
 
@@ -92,23 +95,42 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
       )
     }
 
-    if (password.length < 6) {
+    const passwordValidation = validatePassword(password)
+    if (!passwordValidation.isValid) {
       return NextResponse.json<ErrorResponse>(
         { 
           success: false,
-          error: "Password must be at least 6 characters long" 
+          error: passwordValidation.error!
         },
         { status: 400 }
       )
     }
 
-    if (phone) {
-      const phoneRegex = /^[0-9]{10}$/
-      if (!phoneRegex.test(phone)) {
+    let normalizedPhone: string | null = null
+    let normalizedPhoneCountryCode: string | null = null
+
+    if (phone || phoneCountryCode) {
+      const validation = validatePhoneAndCountryCode(phone || "", phoneCountryCode || "")
+      if (!validation.isValid) {
+        return NextResponse.json<ErrorResponse>(
+          {
+            success: false,
+            error: validation.error!
+          },
+          { status: 400 }
+        )
+      }
+      normalizedPhone = validation.cleanedPhone!
+      normalizedPhoneCountryCode = validation.cleanedCountryCode!
+
+      const existingPhone = await prisma.user.findFirst({
+        where: { phone: normalizedPhone }
+      })
+      if (existingPhone) {
         return NextResponse.json<ErrorResponse>(
           { 
             success: false,
-            error: "Invalid phone number format. Must be 10 digits." 
+            error: "This information could not be registered. Please try again or contact support."
           },
           { status: 400 }
         )
@@ -123,28 +145,10 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
       return NextResponse.json<ErrorResponse>(
         { 
           success: false,
-          error: "User with this email already exists",
-          data: {
-            email: email
-          }
+          error: "This information could not be registered. Please try again or contact support."
         },
         { status: 400 }
       )
-    }
-
-    if (phone) {
-      const existingPhone = await prisma.user.findFirst({
-        where: { phone: phone.trim() }
-      })
-      if (existingPhone) {
-        return NextResponse.json<ErrorResponse>(
-          { 
-            success: false,
-            error: "User with this phone number already exists"
-          },
-          { status: 400 }
-        )
-      }
     }
 
     const hashedPassword = await bcrypt.hash(password, 10)
@@ -153,14 +157,16 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
     const emailVerificationExpires = new Date(Date.now() + OTP_EXPIRY_MS)
     const now = new Date()
 
+    const sanitizedName = name ? sanitizeInput(name) : null
+
     const user = await prisma.user.create({
       data: {
         email: email.toLowerCase().trim(),
-        name: name?.trim() ?? null,
+        name: sanitizedName,
         password: hashedPassword,
         role: UserRole.SELLER_RESTAURANT,
-        phone: phone?.trim() ?? null,
-        phoneCountryCode: phoneCountryCode?.trim() ?? null,
+        phone: normalizedPhone,
+        phoneCountryCode: normalizedPhoneCountryCode,
         isEmailVerified: false,
         verifyEmailOtp,
         emailVerificationExpires,
@@ -197,7 +203,7 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
       await sendVerificationOtpEmail({
         to: email,
         otp: verifyEmailOtp,
-        name: name ?? null,
+        name: sanitizedName,
       })
     } catch (emailError) {
       console.error("Failed to send verification email:", emailError)

@@ -10,6 +10,9 @@ import { Label } from "@/ui/label"
 import { Alert, AlertDescription } from "@/ui/alert"
 import { AlertCircle, Eye, EyeOff } from "lucide-react"
 
+import { validatePhoneAndCountryCode } from "@/lib/phone-validation"
+import { validatePassword } from "@/lib/password-validation"
+
 export default function ServiceSellerRegistrationPage() {
   const router = useRouter()
   const [name, setName] = useState("")
@@ -30,12 +33,18 @@ export default function ServiceSellerRegistrationPage() {
       setError("Country code and phone are required")
       return
     }
+    const phoneValidation = validatePhoneAndCountryCode(phone, phoneCountryCode)
+    if (!phoneValidation.isValid) {
+      setError(phoneValidation.error || "Invalid phone number or country code")
+      return
+    }
     if (password !== confirmPassword) {
       setError("Passwords do not match")
       return
     }
-    if (password.length < 6) {
-      setError("Password must be at least 6 characters")
+    const passwordValidation = validatePassword(password)
+    if (!passwordValidation.isValid) {
+      setError(passwordValidation.error || "Weak password")
       return
     }
     setLoading(true)
@@ -43,7 +52,7 @@ export default function ServiceSellerRegistrationPage() {
       const res = await fetch("/api/service-seller/auth/registration", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, phone: phone.trim(), phoneCountryCode: phoneCountryCode.trim(), password }),
+        body: JSON.stringify({ name, email, phone: phoneValidation.cleanedPhone, phoneCountryCode: phoneValidation.cleanedCountryCode, password }),
       })
       const data = await res.json()
       if (!res.ok) {
@@ -157,6 +166,7 @@ export default function ServiceSellerRegistrationPage() {
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
               </div>
+              <p className="mt-1 text-xs text-gray-500">Must be at least 8 characters and contain uppercase, lowercase, a number, and a special character.</p>
             </div>
             <div>
               <Label htmlFor="confirmPassword" className="mb-1.5 block text-sm font-medium text-gray-700">Confirm Password</Label>

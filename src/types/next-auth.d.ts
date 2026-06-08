@@ -40,5 +40,7 @@ declare module "next-auth/jwt" {
     isSuspended?: boolean
     onboardingCompleted?: boolean
     onboardingStep?: number
+    passwordHash?: string | null
+    error?: string
   }
 }

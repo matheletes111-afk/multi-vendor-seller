@@ -7,6 +7,8 @@ import { prisma } from "@/lib/prisma"
 import bcrypt from "bcryptjs"
 import { UserRole } from "@prisma/client"
 import { verifyOtpLoginToken } from "@/lib/web-otp-login"
+import { isSafeRedirectUrl } from "./safe-redirect"
+
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const providers: any[] = [
@@ -90,6 +92,7 @@ const providers: any[] = [
           name: user.name,
           role: user.role,
           image: user.image,
+          passwordHash: user.password,
           isApproved: seller.isApproved,
           isSuspended: seller.isSuspended ?? false,
           onboardingCompleted: seller.onboardingCompleted,
@@ -103,6 +106,7 @@ const providers: any[] = [
         name: user.name,
         role: user.role,
         image: user.image,
+        passwordHash: user.password,
       }
     },
   }),
@@ -169,6 +173,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         token.id = user.id
         token.email = user.email
         token.role = (user as any).role
+        token.passwordHash = (user as any).passwordHash
 
         let sellerInfo = user as any
 
@@ -210,22 +215,53 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           token.onboardingCompleted = sellerInfo.onboardingCompleted
         if (sellerInfo.onboardingStep !== undefined)
           token.onboardingStep = sellerInfo.onboardingStep
-      } else if (
-        token.role === UserRole.SELLER_PRODUCT ||
-        token.role === UserRole.SELLER_SERVICE ||
-        token.role === UserRole.SELLER_HOTEL ||
-        token.role === UserRole.SELLER_RESTAURANT
-      ) {
-        // Robustness: rely on the token's current state for the Edge runtime (middleware).
-        // Real-time re-validation should happen in Node-safe layouts/pages, not in the JWT callback.
-        if (token.onboardingCompleted === undefined) {
-          token.onboardingCompleted = false
+      } else if (token?.id) {
+        // If not Edge runtime, verify password hash against database to invalidate outdated sessions
+        if (process.env.NEXT_RUNTIME !== "edge") {
+          try {
+            const dbUser = await prisma.user.findUnique({
+              where: { id: token.id as string },
+              select: { password: true }
+            })
+            // Only check password hash for credential-based logins (not OAuth).
+            // OAuth users have no password (null in DB), so token.passwordHash is also undefined.
+            // We skip the check when neither the token nor the DB has a password hash.
+            const tokenHasPassword = token.passwordHash != null
+            const dbHasPassword = dbUser?.password != null
+            if (
+              !dbUser ||
+              (tokenHasPassword && dbUser.password !== token.passwordHash) ||
+              (dbHasPassword && dbUser.password !== token.passwordHash)
+            ) {
+              token.id = ""
+              token.error = "SessionInvalidated"
+              return token
+            }
+          } catch (error) {
+            console.error("Error verifying password in jwt callback:", error)
+          }
+        }
+
+        if (
+          token.role === UserRole.SELLER_PRODUCT ||
+          token.role === UserRole.SELLER_SERVICE ||
+          token.role === UserRole.SELLER_HOTEL ||
+          token.role === UserRole.SELLER_RESTAURANT
+        ) {
+          // Robustness: rely on the token's current state for the Edge runtime (middleware).
+          // Real-time re-validation should happen in Node-safe layouts/pages, not in the JWT callback.
+          if (token.onboardingCompleted === undefined) {
+            token.onboardingCompleted = false
+          }
         }
       }
 
       return token
     },
     async session({ session, token }) {
+      if (token && (token.error === "SessionInvalidated" || !token.id)) {
+        return null as any
+      }
       if (session.user && token) {
         session.user.id = token.id as string
         if (token.email) session.user.email = token.email as string
@@ -251,7 +287,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
         const parsed = url.startsWith("/") ? new URL(url, baseUrl) : new URL(url)
         const callbackUrl = parsed.searchParams.get("callbackUrl") ?? parsed.searchParams.get("redirect")
-        if (callbackUrl && typeof callbackUrl === "string" && callbackUrl.startsWith("/") && !callbackUrl.startsWith("//")) {
+        if (callbackUrl && typeof callbackUrl === "string" && isSafeRedirectUrl(callbackUrl, baseUrl)) {
           const allowed = ["/customer", "/product-seller", "/service-seller", "/admin", "/dashboard"]
           if (allowed.some((p) => callbackUrl === p || callbackUrl.startsWith(p + "/"))) {
             return `${baseUrl.replace(/\/$/, "")}${callbackUrl}`
@@ -260,11 +296,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       } catch {
         /* ignore */
       }
-      if (url.startsWith("/")) return `${baseUrl.replace(/\/$/, "")}${url}`
-      try {
-        if (new URL(url).origin === new URL(baseUrl).origin) return url
-      } catch {
-        /* ignore */
+      if (typeof url === "string" && isSafeRedirectUrl(url, baseUrl)) {
+        if (url.startsWith("/")) return `${baseUrl.replace(/\/$/, "")}${url}`
+        return url
       }
       return baseUrl
     },

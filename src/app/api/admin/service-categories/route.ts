@@ -5,6 +5,7 @@ import { isAdmin } from "@/lib/rbac";
 import { generateSlug } from "@/lib/utils";
 import { getPaginationFromSearchParams } from "@/lib/admin-pagination";
 import { uploadPublicFile } from "@/lib/upload-public-file";
+import { sanitizeInput } from "@/lib/html-sanitization";
 
 export async function GET(request: NextRequest) {
   try {
@@ -56,8 +57,9 @@ export async function POST(request: NextRequest) {
     }
 
     const formData = await request.formData();
-    const name = formData.get("name") as string;
-    const description = (formData.get("description") as string) || null;
+    const nameRaw = formData.get("name") as string;
+    const name = sanitizeInput(nameRaw);
+    const description = typeof formData.get("description") === "string" ? sanitizeInput(formData.get("description") as string) : null;
     const commissionRate = 0.0; // Commission is being disabled project-wide
     const isActive = formData.get("isActive") === "true";
     const categoryImageFile = formData.get("categoryImage") as File | null;

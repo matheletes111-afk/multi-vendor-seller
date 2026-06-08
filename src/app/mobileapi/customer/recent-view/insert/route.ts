@@ -68,7 +68,7 @@ export async function POST(
     }
 
     const product = await prisma.product.findUnique({
-      where: { id: productId, isActive: true },
+      where: { id: productId, isActive: true, isDeleted: false },
       select: { id: true },
     })
     if (!product) {

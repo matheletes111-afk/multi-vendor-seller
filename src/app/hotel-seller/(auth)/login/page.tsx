@@ -10,11 +10,13 @@ import { Input } from "@/ui/input"
 import { Label } from "@/ui/label"
 import { Alert, AlertDescription } from "@/ui/alert"
 import { AlertCircle, Eye, EyeOff } from "lucide-react"
+import { getSafeRedirectUrl } from "@/lib/safe-redirect"
+
 
 function HotelSellerLoginForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const callbackUrl = searchParams.get("callbackUrl") || "/hotel-seller"
+  const callbackUrl = getSafeRedirectUrl(searchParams.get("callbackUrl"), "/hotel-seller")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
@@ -50,7 +52,7 @@ function HotelSellerLoginForm() {
       if (res.status === 302) {
         const loc = res.headers.get("Location")
         if (loc && !loc.includes("error=")) {
-          window.location.href = loc
+          window.location.href = getSafeRedirectUrl(loc, "/hotel-seller")
           return
         }
       }
@@ -60,7 +62,7 @@ function HotelSellerLoginForm() {
           setError("Invalid email or password.")
           return
         }
-        window.location.href = data?.url ?? callbackUrl
+        window.location.href = getSafeRedirectUrl(data?.url || callbackUrl, "/hotel-seller")
         return
       }
       const data = await res.json().catch(() => ({}))

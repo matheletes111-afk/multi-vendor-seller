@@ -37,7 +37,7 @@ export function NewProductClient() {
   const [selectedCategoryId, setSelectedCategoryId] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [imageMode, setImageMode] = useState<"link" | "upload">("link")
+  const [imageMode, setImageMode] = useState<"link" | "upload">("upload")
   const [imageUrlsText, setImageUrlsText] = useState("")
   const [uploadedImageUrls, setUploadedImageUrls] = useState<string[]>([])
   const [uploadedImageFiles, setUploadedImageFiles] = useState<File[]>([])
@@ -54,7 +54,7 @@ export function NewProductClient() {
       stock: "0",
       sku: "",
       images: [],
-      imageMode: "link",
+      imageMode: "upload",
       attributes: [],
       details: "",
       returnType: "NON_RETURNABLE",
@@ -91,7 +91,7 @@ export function NewProductClient() {
         stock: "0",
         sku: "",
         images: [],
-        imageMode: "link",
+        imageMode: "upload",
         attributes: [],
         details: "",
         returnType: "NON_RETURNABLE",
@@ -152,8 +152,14 @@ export function NewProductClient() {
     const files = e.target.files
     if (!files?.length) return
     setVariantUploadingFor(variantIndex)
-    const selected = Array.from(files).filter((f) => f.type.startsWith("image/"))
+    let selected = Array.from(files).filter((f) => f.type.startsWith("image/"))
     if (selected.length > 0) {
+      try {
+        const { compressImage } = await import("@/lib/image-compressor")
+        selected = await Promise.all(selected.map((f) => compressImage(f)))
+      } catch {
+        // Fallback
+      }
       ;(variantPreviewUrlsRef.current[variantIndex] ?? []).forEach((u) => URL.revokeObjectURL(u))
       const previewUrls = selected.map((f) => URL.createObjectURL(f))
       variantPreviewUrlsRef.current[variantIndex] = previewUrls
@@ -222,7 +228,7 @@ export function NewProductClient() {
       stock: "0",
       sku: "",
       images: [],
-      imageMode: "link",
+      imageMode: "upload",
       attributes: options.map((opt, idx) => ({ key: (opt.optionName ?? "").trim(), value: combo[idx] ?? "" })),
       details: "",
       returnType: "NON_RETURNABLE",
@@ -394,8 +400,14 @@ export function NewProductClient() {
     const files = e.target.files
     if (!files?.length) return
     setUploading(true)
-    const selected = Array.from(files).filter((f) => f.type.startsWith("image/"))
+    let selected = Array.from(files).filter((f) => f.type.startsWith("image/"))
     if (selected.length > 0) {
+      try {
+        const { compressImage } = await import("@/lib/image-compressor")
+        selected = await Promise.all(selected.map((f) => compressImage(f)))
+      } catch {
+        // Fallback
+      }
       productPreviewUrlsRef.current.forEach((u) => URL.revokeObjectURL(u))
       const previewUrls = selected.map((f) => URL.createObjectURL(f))
       productPreviewUrlsRef.current = previewUrls
@@ -438,141 +450,153 @@ export function NewProductClient() {
   }
 
   return (
-    <div className="container mx-auto py-8">
-      <div className="flex justify-between items-center mb-6">
+    <div className="container mx-auto py-8 px-4 md:px-6 lg:px-8 w-full max-w-[1400px]">
+      <div className="flex justify-between items-center mb-8">
         <div>
-          <h1 className="text-3xl font-bold">Add New Product</h1>
-          <p className="text-muted-foreground">Create a new product listing</p>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">Add New Product</h1>
+          <p className="text-muted-foreground text-sm mt-1">Fill in the fields to create a new product listing.</p>
         </div>
         <Link href="/product-seller/products">
-          <Button variant="outline">Back to Products</Button>
+          <Button variant="outline" size="sm">Back to Products</Button>
         </Link>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Product Details</CardTitle>
-          <CardDescription>Fill in the information for your product</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {(error || paramsError) && (
-            <div className="mb-4 rounded-md bg-destructive/15 p-3 text-sm text-destructive">
-              <p className="font-semibold mb-1">Error creating product:</p>
-              <p>{error || (paramsError ? decodeURIComponent(paramsError) : "")}</p>
-              {(error || paramsError || "").includes("limit") && (
-                <Link href="/product-seller/subscription" className="mt-2 inline-block text-sm underline">
-                  Upgrade your subscription →
-                </Link>
-              )}
-            </div>
+      {(error || paramsError) && (
+        <div className="mb-6 rounded-lg bg-destructive/10 border border-destructive/20 p-4 text-sm text-destructive">
+          <p className="font-semibold mb-1 flex items-center gap-2">
+            <span>⚠️</span> Error creating product:
+          </p>
+          <p>{error || (paramsError ? decodeURIComponent(paramsError) : "")}</p>
+          {(error || paramsError || "").includes("limit") && (
+            <Link href="/product-seller/subscription" className="mt-2 inline-block text-sm font-medium underline">
+              Upgrade your subscription →
+            </Link>
           )}
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="name">Product Name *</Label>
-              <Input id="name" name="name" required placeholder="Enter product name" />
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit} className="space-y-8">
+        {/* STEP 1: Basic Information */}
+        <Card className="shadow-2xl border-2 border-neutral-400 dark:border-neutral-600">
+          <CardHeader className="border-b bg-muted/10">
+            <div className="flex items-center gap-3">
+              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground font-semibold text-sm">1</span>
+              <div>
+                <CardTitle className="text-xl">Basic Product Information</CardTitle>
+                <CardDescription className="text-xs mt-0.5">Define the parent product settings. These details apply to all variations.</CardDescription>
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="description">Description</Label>
-              <textarea
-                id="description"
-                name="description"
-                className="flex min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                placeholder="Product description"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="deliveryChargePerKm">Add per KM Delivery Charge (default 0)</Label>
-              <Input 
-                id="deliveryChargePerKm" 
-                name="deliveryChargePerKm" 
-                type="number" 
-                step="0.01" 
-                min="0" 
-                defaultValue="0" 
-                placeholder="0.00" 
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="condition">Product Type *</Label>
-              <select
-                id="condition"
-                name="condition"
-                required
-                value={condition}
-                onChange={(e) => setCondition(e.target.value as "NEW" | "USED")}
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-              >
-                <option value="NEW">New</option>
-                <option value="USED">Used</option>
-              </select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="categoryId">Category *</Label>
-              <select
-                id="categoryId"
-                name="categoryId"
-                required
-                value={selectedCategoryId}
-                onChange={(e) => setSelectedCategoryId(e.target.value)}
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-              >
-                <option value="">Select a category</option>
-                {categories.map((cat) => (
-                  <option key={cat.id} value={cat.id}>{cat.name}</option>
-                ))}
-              </select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="subcategoryId">Subcategory (optional)</Label>
-              <select
-                id="subcategoryId"
-                name="subcategoryId"
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-              >
-                <option value="">None</option>
-                {subcategories.map((sub) => (
-                  <option key={sub.id} value={sub.id}>{sub.name}</option>
-                ))}
-              </select>
-              <p className="text-xs text-muted-foreground">Select a category first to see subcategories</p>
+          </CardHeader>
+          <CardContent className="pt-6 space-y-6">
+            <div className="grid gap-6 md:grid-cols-2">
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="name">Product Name <span className="text-destructive">*</span></Label>
+                <Input id="name" name="name" required placeholder="Enter descriptive product name (e.g. Premium Cotton T-Shirt)" />
+              </div>
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="description">Description</Label>
+                <textarea
+                  id="description"
+                  name="description"
+                  className="flex min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  placeholder="Provide a detailed description of the product features, specifications, and benefits..."
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="categoryId">Category <span className="text-destructive">*</span></Label>
+                <select
+                  id="categoryId"
+                  name="categoryId"
+                  required
+                  value={selectedCategoryId}
+                  onChange={(e) => setSelectedCategoryId(e.target.value)}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                >
+                  <option value="">Select a category</option>
+                  {categories.map((cat) => (
+                    <option key={cat.id} value={cat.id}>{cat.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="subcategoryId">Subcategory (optional)</Label>
+                <select
+                  id="subcategoryId"
+                  name="subcategoryId"
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                >
+                  <option value="">None</option>
+                  {subcategories.map((sub) => (
+                    <option key={sub.id} value={sub.id}>{sub.name}</option>
+                  ))}
+                </select>
+                <p className="text-xs text-muted-foreground">Select a category first to load subcategories.</p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="condition">Product Type / Condition <span className="text-destructive">*</span></Label>
+                <select
+                  id="condition"
+                  name="condition"
+                  required
+                  value={condition}
+                  onChange={(e) => setCondition(e.target.value as "NEW" | "USED")}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                >
+                  <option value="NEW">New</option>
+                  <option value="USED">Used</option>
+                </select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="deliveryChargePerKm">Add per KM Delivery Charge (default 0)</Label>
+                <Input 
+                  id="deliveryChargePerKm" 
+                  name="deliveryChargePerKm" 
+                  type="number" 
+                  step="0.01" 
+                  min="0" 
+                  defaultValue="0" 
+                  placeholder="0.00" 
+                />
+              </div>
             </div>
 
-            <div className="space-y-3">
-              <Label>Product image (listing)</Label>
-              <p className="text-xs text-muted-foreground">Main image for this product. Shown on category/browse pages and as fallback on the product page.</p>
-              <div className="flex gap-2 p-2 rounded-lg border bg-muted/30">
+            <div className="border-t pt-6 space-y-3">
+              <Label className="text-base font-semibold">Product Image (Listing Thumbnail)</Label>
+              <p className="text-xs text-muted-foreground">This is the main fallback image shown on browse pages and searches.</p>
+              <div className="flex gap-2 p-1 bg-muted/40 rounded-lg max-w-xs">
                 <button
                   type="button"
                   onClick={() => setImageMode("link")}
-                  className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${imageMode === "link" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
+                  className={`flex-1 flex items-center justify-center gap-2 py-1.5 rounded-md text-xs font-medium transition-all ${imageMode === "link" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
                 >
-                  <LinkIcon className="h-4 w-4" />
-                  Via link
+                  <LinkIcon className="h-3 w-3" />
+                  Via Link
                 </button>
                 <button
                   type="button"
                   onClick={() => setImageMode("upload")}
-                  className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${imageMode === "upload" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
+                  className={`flex-1 flex items-center justify-center gap-2 py-1.5 rounded-md text-xs font-medium transition-all ${imageMode === "upload" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
                 >
-                  <Upload className="h-4 w-4" />
-                  File upload
+                  <Upload className="h-3 w-3" />
+                  File Upload
                 </button>
               </div>
+
               {imageMode === "link" ? (
-                <div className="space-y-2">
+                <div className="space-y-2 pt-2">
                   <textarea
                     value={imageUrlsText}
                     onChange={(e) => setImageUrlsText(e.target.value)}
                     className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                     placeholder="https://example.com/image1.jpg&#10;https://example.com/image2.jpg"
                   />
-                  <p className="text-sm text-muted-foreground">Enter image URLs, one per line</p>
+                  <p className="text-xs text-muted-foreground">Enter image URLs, one per line.</p>
                   {(imageUrlsText || "").trim().split(/\n/).map((u) => u.trim()).filter(Boolean).length > 0 && (
                     <div className="mt-2">
                       <p className="text-xs font-medium text-muted-foreground mb-1">Preview</p>
                       <div className="flex flex-wrap gap-2">
                         {(imageUrlsText || "").trim().split(/\n/).map((u) => u.trim()).filter(Boolean).map((url) => (
-                          <div key={url} className="relative w-20 h-20 rounded overflow-hidden border bg-muted shrink-0">
+                          <div key={url} className="relative w-20 h-20 rounded-md overflow-hidden border bg-muted shrink-0 shadow-sm">
                             <img src={url} alt="" className="w-full h-full object-cover" />
                           </div>
                         ))}
@@ -581,7 +605,7 @@ export function NewProductClient() {
                   )}
                 </div>
               ) : (
-                <div className="space-y-2">
+                <div className="space-y-2 pt-2">
                   <input
                     ref={fileInputRef}
                     type="file"
@@ -593,6 +617,7 @@ export function NewProductClient() {
                   <Button
                     type="button"
                     variant="outline"
+                    size="sm"
                     onClick={() => fileInputRef.current?.click()}
                     disabled={uploading}
                   >
@@ -603,12 +628,12 @@ export function NewProductClient() {
                       <p className="text-xs font-medium text-muted-foreground mb-1">Preview</p>
                       <div className="flex flex-wrap gap-2">
                         {uploadedImageUrls.map((url) => (
-                          <div key={url} className="relative w-20 h-20 rounded overflow-hidden border bg-muted">
+                          <div key={url} className="relative w-20 h-20 rounded-md overflow-hidden border bg-muted shadow-sm">
                             <img src={url} alt="" className="w-full h-full object-cover" />
                             <button
                               type="button"
                               onClick={() => removeUploadedUrl(url)}
-                              className="absolute top-0 right-0 bg-destructive/90 text-destructive-foreground text-xs px-1 rounded-bl"
+                              className="absolute top-0 right-0 bg-destructive/90 text-destructive-foreground hover:bg-destructive text-xs px-1 rounded-bl"
                             >
                               ×
                             </button>
@@ -620,250 +645,316 @@ export function NewProductClient() {
                 </div>
               )}
             </div>
+          </CardContent>
+        </Card>
 
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <Label className="text-base font-medium">Variations *</Label>
-                <Button type="button" variant="outline" size="sm" onClick={addVariant}>
-                  <Plus className="h-4 w-4 mr-1" /> Add variation
-                </Button>
-              </div>
-              <p className="text-sm text-muted-foreground">At least one variation (price, stock, SKU per variant)</p>
-
-              <Card className="p-4 border-dashed bg-muted/20">
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <Zap className="h-4 w-4 text-primary" />
-                    <span className="font-medium text-sm">Generate variants from options</span>
-                  </div>
-                  <p className="text-xs text-blue-700 bg-blue-50 rounded-md px-2.5 py-1.5 border border-blue-100">
-                    Add option name (e.g. Size, Color, Storage) and comma-separated values. One variant is created per combination; variants update automatically when you add, remove or edit options.
-                  </p>
-                  {generatorOptions.map((opt, idx) => (
-                    <div key={idx} className="flex gap-2 items-center flex-wrap">
-                      <Input
-                        placeholder="Option name (e.g. Size)"
-                        value={opt.optionName}
-                        onChange={(e) => updateGeneratorOption(idx, "optionName", e.target.value)}
-                        className="w-[140px]"
-                      />
-                      <Input
-                        placeholder="Values: M, L, XL"
-                        value={opt.valuesText}
-                        onChange={(e) => updateGeneratorOption(idx, "valuesText", e.target.value)}
-                        className="flex-1 min-w-[160px]"
-                      />
-                      <Button type="button" variant="ghost" size="icon" onClick={() => removeGeneratorOption(idx)} className="shrink-0 text-destructive">
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ))}
-                  <div className="flex gap-2">
-                    <Button type="button" variant="secondary" size="sm" onClick={addGeneratorOption}>
-                      <Plus className="h-4 w-4 mr-1" /> Add option
-                    </Button>
-                    <Button type="button" size="sm" onClick={() => generateVariantsFromOptions()}>
-                      <Zap className="h-4 w-4 mr-1" /> Generate variants
-                    </Button>
-                  </div>
+        {/* STEP 2: Variant Generator Setup */}
+        <Card className="shadow-2xl border-2 border-neutral-400 dark:border-neutral-600">
+          <CardHeader className="border-b bg-muted/10">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground font-semibold text-sm">2</span>
+                <div>
+                  <CardTitle className="text-xl flex items-center gap-1.5">
+                    <span>Variant Generator</span>
+                    <span className="text-xs font-normal text-muted-foreground bg-secondary px-2 py-0.5 rounded-full">Optional Shortcut</span>
+                  </CardTitle>
+                  <CardDescription className="text-xs mt-0.5">Quickly generate variant combinations based on option groups like Size, Color, or Material.</CardDescription>
                 </div>
-              </Card>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="pt-6 space-y-4">
+            <div className="text-xs text-blue-700 bg-blue-50 dark:bg-blue-950/20 dark:text-blue-300 rounded-lg p-3 border border-blue-100 dark:border-blue-900/40">
+              <p className="font-semibold mb-1 flex items-center gap-1.5">
+                <Zap className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" /> How it works:
+              </p>
+              Add option names and enter values separated by commas. One variant will be automatically generated for every unique combination.
+            </div>
 
+            {generatorOptions.map((opt, idx) => (
+              <div key={idx} className="flex gap-2 items-center flex-wrap p-3 rounded-lg border bg-muted/20">
+                <div className="w-[180px] space-y-1">
+                  <Label className="text-xs text-muted-foreground">Option Name</Label>
+                  <Input
+                    placeholder="e.g. Size or Color"
+                    value={opt.optionName}
+                    onChange={(e) => updateGeneratorOption(idx, "optionName", e.target.value)}
+                    className="h-9"
+                  />
+                </div>
+                <div className="flex-1 min-w-[200px] space-y-1">
+                  <Label className="text-xs text-muted-foreground">Values (comma separated)</Label>
+                  <Input
+                    placeholder="e.g. S, M, L or Red, Green"
+                    value={opt.valuesText}
+                    onChange={(e) => updateGeneratorOption(idx, "valuesText", e.target.value)}
+                    className="h-9"
+                  />
+                </div>
+                <div className="pt-5">
+                  <Button type="button" variant="ghost" size="icon" onClick={() => removeGeneratorOption(idx)} className="text-destructive hover:bg-destructive/10 h-9 w-9">
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+
+            <div className="flex gap-2 pt-2">
+              <Button type="button" variant="outline" size="sm" onClick={addGeneratorOption}>
+                <Plus className="h-4 w-4 mr-1" /> Add Option Group
+              </Button>
+              <Button type="button" size="sm" variant="secondary" onClick={() => generateVariantsFromOptions()}>
+                <Zap className="h-4 w-4 mr-1" /> Generate Variant Rows
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* STEP 3: Variants Pricing & Configuration */}
+        <Card className="shadow-2xl border-2 border-neutral-400 dark:border-neutral-600">
+          <CardHeader className="border-b bg-muted/10">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground font-semibold text-sm">3</span>
+                <div>
+                  <CardTitle className="text-xl">Define Variants & Pricing</CardTitle>
+                  <CardDescription className="text-xs mt-0.5">Provide stock, price, images, SKU, and specifications for each unique variant row.</CardDescription>
+                </div>
+              </div>
+              <Button type="button" variant="outline" size="sm" onClick={addVariant}>
+                <Plus className="h-4 w-4 mr-1" /> Add Custom Variant
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="pt-6 space-y-6">
+            <div className="space-y-4">
               {variants.map((v, i) => (
-                <Card key={i} className="p-4 space-y-3">
-                  <div className="flex justify-between items-center">
-                    <span className="font-medium text-sm">Variant {i + 1}</span>
-                    <Button type="button" variant="ghost" size="sm" onClick={() => removeVariant(i)} disabled={variants.length <= 1}>
-                      <Trash2 className="h-4 w-4 text-destructive" />
+                <div key={i} className="rounded-lg border-2 border-neutral-400 dark:border-neutral-600 bg-card text-card-foreground shadow-2xl overflow-hidden">
+                  <div className="flex justify-between items-center bg-muted/30 px-4 py-3 border-b">
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-sm text-foreground">Variant #{i + 1}</span>
+                      {v.name && (
+                        <span className="text-xs bg-secondary text-secondary-foreground font-medium px-2 py-0.5 rounded-md">
+                          {v.name}
+                        </span>
+                      )}
+                    </div>
+                    <Button type="button" variant="ghost" size="sm" onClick={() => removeVariant(i)} disabled={variants.length <= 1} className="text-destructive hover:bg-destructive/10 h-8 px-2.5">
+                      <Trash2 className="h-3.5 w-3.5 mr-1" /> Remove
                     </Button>
                   </div>
-                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                    <div className="space-y-1">
-                      <Label>Name</Label>
-                      <Input placeholder="e.g. Default, Red – M" value={v.name} onChange={(e) => updateVariant(i, "name", e.target.value)} />
+                  
+                  <div className="p-4 space-y-4">
+                    {/* Primary Variant Fields */}
+                    <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-semibold">Variant Name <span className="text-destructive">*</span></Label>
+                        <Input placeholder="e.g. Standard, Red / M" value={v.name} onChange={(e) => updateVariant(i, "name", e.target.value)} required />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-semibold">Price (INR) <span className="text-destructive">*</span></Label>
+                        <Input type="number" step="0.01" min="0" placeholder="0.00" value={v.price} onChange={(e) => updateVariant(i, "price", e.target.value)} required />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-semibold">Discount (INR)</Label>
+                        <Input type="number" step="0.01" min="0" placeholder="0" value={v.discount} onChange={(e) => updateVariant(i, "discount", e.target.value)} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-semibold">Stock / Inventory <span className="text-destructive">*</span></Label>
+                        <Input type="number" min="0" placeholder="0" value={v.stock} onChange={(e) => updateVariant(i, "stock", e.target.value)} required />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-semibold">SKU Code</Label>
+                        <Input placeholder="Optional SKU code" value={v.sku} onChange={(e) => updateVariant(i, "sku", e.target.value)} />
+                      </div>
+                      <div className="space-y-1.5 flex items-center pt-5">
+                        <label className="flex items-center gap-2 cursor-pointer select-none">
+                          <input type="checkbox" checked={v.hasGst} onChange={(e) => updateVariant(i, "hasGst", e.target.checked)} className="h-4 w-4 rounded border-input text-primary focus:ring-primary" />
+                          <span className="text-xs font-medium">Inclusive of GST</span>
+                        </label>
+                      </div>
                     </div>
-                    <div className="space-y-1">
-                      <Label>Price *</Label>
-                      <Input type="number" step="0.01" min="0" placeholder="0.00" value={v.price} onChange={(e) => updateVariant(i, "price", e.target.value)} required />
-                    </div>
-                    <div className="space-y-1">
-                      <Label>Discount</Label>
-                      <Input type="number" step="0.01" min="0" placeholder="0" value={v.discount} onChange={(e) => updateVariant(i, "discount", e.target.value)} />
-                    </div>
-                    <div className="space-y-1">
-                      <Label>Stock *</Label>
-                      <Input type="number" min="0" placeholder="0" value={v.stock} onChange={(e) => updateVariant(i, "stock", e.target.value)} required />
-                    </div>
-                    <div className="space-y-1">
-                      <Label>SKU</Label>
-                      <Input placeholder="Optional" value={v.sku} onChange={(e) => updateVariant(i, "sku", e.target.value)} />
-                    </div>
-                    <div className="space-y-1 flex items-end">
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <input type="checkbox" checked={v.hasGst} onChange={(e) => updateVariant(i, "hasGst", e.target.checked)} className="h-4 w-4 rounded border-input" />
-                        <span className="text-sm">Has GST</span>
-                      </label>
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Variant images (optional)</Label>
-                    <p className="text-xs text-muted-foreground">Shown on product page when this variant is selected.</p>
-                    <div className="flex gap-2 p-2 rounded-lg border bg-muted/30">
-                      <button
-                        type="button"
-                        onClick={() => updateVariant(i, "imageMode", "link")}
-                        className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${v.imageMode === "link" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
-                      >
-                        <LinkIcon className="h-4 w-4" />
-                        Via link
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => updateVariant(i, "imageMode", "upload")}
-                        className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${v.imageMode === "upload" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
-                      >
-                        <Upload className="h-4 w-4" />
-                        File upload
-                      </button>
-                    </div>
-                    {v.imageMode === "link" ? (
-                      <>
-                        <textarea
-                          className="flex min-h-[72px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                          placeholder="https://example.com/image1.jpg, https://example.com/image2.jpg"
-                          value={Array.isArray(v.images) ? v.images.join(", ") : ""}
-                          onChange={(e) => updateVariant(i, "images", parseVariantImageLinks(e.target.value))}
-                        />
-                        <p className="text-xs text-muted-foreground">Enter URLs separated by comma or new line.</p>
-                      </>
-                    ) : (
-                      <div className="space-y-2">
-                        <input
-                          ref={(el) => { variantFileInputRefs.current[i] = el }}
-                          type="file"
-                          accept="image/jpeg,image/png,image/gif,image/webp"
-                          multiple
-                          className="hidden"
-                          onChange={(e) => handleVariantFileSelect(e, i)}
-                        />
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => variantFileInputRefs.current[i]?.click()}
-                          disabled={variantUploadingFor === i}
-                        >
-                          {variantUploadingFor === i ? "Uploading..." : "Choose images (multi select)"}
-                        </Button>
-                        {(v.images?.length ?? 0) > 0 && (
-                          <div className="flex flex-wrap gap-2 mt-2">
-                            {v.images.map((url) => (
-                              <div key={url} className="relative w-20 h-20 rounded overflow-hidden border bg-muted">
-                                <img src={url} alt="" className="w-full h-full object-cover" />
-                                <button
-                                  type="button"
-                                  onClick={() => removeVariantImage(i, url)}
-                                  className="absolute top-0 right-0 bg-destructive/90 text-destructive-foreground text-xs px-1 rounded-bl"
-                                >
-                                  ×
-                                </button>
+
+                    {/* Advanced Fields */}
+                    <div className="border-t pt-4 grid gap-6 md:grid-cols-2">
+                      {/* Left: Images & Details */}
+                      <div className="space-y-3">
+                        <div className="space-y-1.5">
+                          <Label className="text-xs font-semibold">Variant Images (Optional)</Label>
+                          <p className="text-[11px] text-muted-foreground">Shown specifically when this variant is selected.</p>
+                          <div className="flex gap-2 p-1 bg-muted/40 rounded-lg max-w-xs">
+                            <button
+                              type="button"
+                              onClick={() => updateVariant(i, "imageMode", "link")}
+                              className={`flex-1 flex items-center justify-center gap-1.5 py-1 rounded-md text-[11px] font-medium transition-all ${v.imageMode === "link" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                            >
+                              <LinkIcon className="h-3 w-3" />
+                              Link
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => updateVariant(i, "imageMode", "upload")}
+                              className={`flex-1 flex items-center justify-center gap-1.5 py-1 rounded-md text-[11px] font-medium transition-all ${v.imageMode === "upload" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                            >
+                              <Upload className="h-3 w-3" />
+                              Upload
+                            </button>
+                          </div>
+                        </div>
+
+                        {v.imageMode === "link" ? (
+                          <div className="space-y-1.5">
+                            <textarea
+                              className="flex min-h-[60px] w-full rounded-md border border-input bg-background px-3 py-2 text-xs ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                              placeholder="https://example.com/image1.jpg, https://example.com/image2.jpg"
+                              value={Array.isArray(v.images) ? v.images.join(", ") : ""}
+                              onChange={(e) => updateVariant(i, "images", parseVariantImageLinks(e.target.value))}
+                            />
+                            <p className="text-[10px] text-muted-foreground">Comma-separated image URLs.</p>
+                          </div>
+                        ) : (
+                          <div className="space-y-1.5">
+                            <input
+                              ref={(el) => { variantFileInputRefs.current[i] = el }}
+                              type="file"
+                              accept="image/jpeg,image/png,image/gif,image/webp"
+                              multiple
+                              className="hidden"
+                              onChange={(e) => handleVariantFileSelect(e, i)}
+                            />
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => variantFileInputRefs.current[i]?.click()}
+                              disabled={variantUploadingFor === i}
+                              className="text-xs"
+                            >
+                              {variantUploadingFor === i ? "Uploading..." : "Choose Files"}
+                            </Button>
+                            {(v.images?.length ?? 0) > 0 && (
+                              <div className="flex flex-wrap gap-1.5 mt-1.5">
+                                {v.images.map((url) => (
+                                  <div key={url} className="relative w-12 h-12 rounded overflow-hidden border bg-muted shadow-sm">
+                                    <img src={url} alt="" className="w-full h-full object-cover" />
+                                    <button
+                                      type="button"
+                                      onClick={() => removeVariantImage(i, url)}
+                                      className="absolute top-0 right-0 bg-destructive/90 text-destructive-foreground text-[10px] px-1 rounded-bl"
+                                    >
+                                      ×
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        <div className="space-y-1.5 pt-2">
+                          <Label className="text-xs font-semibold">Variant-Specific Details (Optional)</Label>
+                          <textarea
+                            className="flex min-h-[60px] w-full rounded-md border border-input bg-background px-3 py-2 text-xs ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                            placeholder="Specifications or description unique to this variant"
+                            value={v.details ?? ""}
+                            onChange={(e) => updateVariant(i, "details", e.target.value)}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Right: Attributes & Return Policy */}
+                      <div className="space-y-4">
+                        <div className="space-y-2">
+                          <Label className="text-xs font-semibold">Attributes (Specifications)</Label>
+                          <p className="text-[11px] text-muted-foreground">Define attributes specific to this variant.</p>
+                          
+                          <div className="space-y-2 max-h-[160px] overflow-y-auto pr-1">
+                            {(v.attributes ?? []).map((attr, attrIdx) => (
+                              <div key={attrIdx} className="flex gap-2 items-center">
+                                <Input
+                                  placeholder="e.g. Size"
+                                  value={attr.key}
+                                  onChange={(e) => updateVariantAttribute(i, attrIdx, "key", e.target.value)}
+                                  className="h-8 text-xs flex-1"
+                                />
+                                <Input
+                                  placeholder="e.g. Medium"
+                                  value={attr.value}
+                                  onChange={(e) => updateVariantAttribute(i, attrIdx, "value", e.target.value)}
+                                  className="h-8 text-xs flex-1"
+                                />
+                                <Button type="button" variant="ghost" size="icon" onClick={() => removeVariantAttribute(i, attrIdx)} className="text-destructive h-8 w-8 hover:bg-destructive/10 shrink-0">
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
                               </div>
                             ))}
                           </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Attributes (key-value)</Label>
-                    <p className="text-xs text-muted-foreground">e.g. Size: M, Color: Red. Used for variant selection on product page.</p>
-                    {(v.attributes ?? []).map((attr, attrIdx) => (
-                      <div key={attrIdx} className="flex gap-2 items-center">
-                        <Input
-                          placeholder="Key (e.g. Size)"
-                          value={attr.key}
-                          onChange={(e) => updateVariantAttribute(i, attrIdx, "key", e.target.value)}
-                          className="flex-1 max-w-[140px]"
-                        />
-                        <Input
-                          placeholder="Value (e.g. M)"
-                          value={attr.value}
-                          onChange={(e) => updateVariantAttribute(i, attrIdx, "value", e.target.value)}
-                          className="flex-1 max-w-[140px]"
-                        />
-                        <Button type="button" variant="ghost" size="icon" onClick={() => removeVariantAttribute(i, attrIdx)} className="shrink-0 text-destructive">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    ))}
-                    <Button type="button" variant="outline" size="sm" onClick={() => addVariantAttribute(i)}>
-                      <Plus className="h-4 w-4 mr-1" /> Add attribute
-                    </Button>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Details (optional)</Label>
-                    <textarea
-                      className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                      placeholder="Variant-specific details or description"
-                      value={v.details ?? ""}
-                      onChange={(e) => updateVariant(i, "details", e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Return policy</Label>
-                    <p className="text-xs text-muted-foreground">
-                      Choose whether this variant is returnable. By default, items are non-returnable.
-                    </p>
-                    <div className="flex flex-wrap items-center gap-3">
-                      <select
-                        className="h-9 rounded-md border border-input bg-background px-2 text-sm"
-                        value={v.returnType}
-                        onChange={(e) =>
-                          updateVariant(i, "returnType", e.target.value as VariantRow["returnType"])
-                        }
-                      >
-                        <option value="NON_RETURNABLE">Non-returnable</option>
-                        <option value="RETURNABLE">Returnable</option>
-                      </select>
-                      {v.returnType === "RETURNABLE" && (
-                        <div className="flex items-center gap-2">
-                          <Input
-                            type="number"
-                            min="1"
-                            className="w-24"
-                            placeholder="Days"
-                            value={v.returnDays}
-                            onChange={(e) => updateVariant(i, "returnDays", e.target.value)}
-                          />
-                          <span className="text-xs text-muted-foreground">day return window</span>
+
+                          <Button type="button" variant="outline" size="sm" onClick={() => addVariantAttribute(i)} className="text-xs">
+                            <Plus className="h-3 w-3 mr-1" /> Add Attribute
+                          </Button>
                         </div>
-                      )}
+
+                        <div className="space-y-2 pt-2 border-t">
+                          <Label className="text-xs font-semibold">Return & Exchange Policy</Label>
+                          <div className="flex flex-wrap items-center gap-3">
+                            <select
+                              className="h-8 rounded-md border border-input bg-background px-2 text-xs"
+                              value={v.returnType}
+                              onChange={(e) =>
+                                updateVariant(i, "returnType", e.target.value as VariantRow["returnType"])
+                              }
+                            >
+                              <option value="NON_RETURNABLE">Non-returnable</option>
+                              <option value="RETURNABLE">Returnable</option>
+                            </select>
+                            {v.returnType === "RETURNABLE" && (
+                              <div className="flex items-center gap-1.5">
+                                <Input
+                                  type="number"
+                                  min="1"
+                                  className="w-16 h-8 text-xs"
+                                  placeholder="Days"
+                                  value={v.returnDays}
+                                  onChange={(e) => updateVariant(i, "returnDays", e.target.value)}
+                                />
+                                <span className="text-xs text-muted-foreground">days</span>
+                              </div>
+                            )}
+                          </div>
+                          {v.returnType === "RETURNABLE" && (
+                            <label className="flex items-center gap-2 text-xs cursor-pointer select-none mt-1">
+                              <input
+                                type="checkbox"
+                                checked={v.replacementAllowed}
+                                onChange={(e) => updateVariant(i, "replacementAllowed", e.target.checked)}
+                                className="rounded border-input text-primary focus:ring-primary"
+                              />
+                              <span>Allow customer to exchange for replacement variant</span>
+                            </label>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                    {v.returnType === "RETURNABLE" && (
-                      <label className="flex items-center gap-2 text-sm cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={v.replacementAllowed}
-                          onChange={(e) => updateVariant(i, "replacementAllowed", e.target.checked)}
-                          className="rounded border-input"
-                        />
-                        <span>Allow exchange (customer can request replacement variant)</span>
-                      </label>
-                    )}
+
                   </div>
-                </Card>
+                </div>
               ))}
             </div>
+          </CardContent>
+        </Card>
 
-            <div className="flex gap-4">
-              <Button type="submit" disabled={loading}>{loading ? "Creating..." : "Create Product"}</Button>
-              <Link href="/product-seller/products">
-                <Button type="button" variant="outline">Cancel</Button>
-              </Link>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
+        {/* SUBMIT BUTTONS */}
+        <div className="flex items-center justify-between border-t pt-6">
+          <Link href="/product-seller/products">
+            <Button type="button" variant="ghost">Cancel</Button>
+          </Link>
+          <Button type="submit" size="lg" disabled={loading} className="px-8 font-semibold">
+            {loading ? "Creating..." : "Create Product"}
+          </Button>
+        </div>
+      </form>
     </div>
   )
 }

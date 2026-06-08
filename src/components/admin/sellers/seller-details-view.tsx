@@ -46,6 +46,23 @@ export function SellerDetailsView({
   onOpenCorrection,
   onOpenReject
 }: SellerDetailsViewProps) {
+  const [mapUrl, setMapUrl] = React.useState<string | null>(null)
+
+  React.useEffect(() => {
+    if (seller?.store?.lat && seller?.store?.lng) {
+      fetch("/api/utils/maps-key")
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.key) {
+            setMapUrl(
+              `https://maps.googleapis.com/maps/api/staticmap?center=${seller.store.lat},${seller.store.lng}&zoom=15&size=400x150&markers=color:red%7C${seller.store.lat},${seller.store.lng}&key=${data.key}`
+            )
+          }
+        })
+        .catch((err) => console.error("Error loading map key:", err))
+    }
+  }, [seller?.store?.lat, seller?.store?.lng])
+
   if (!seller) return null
 
   return (
@@ -178,13 +195,17 @@ export function SellerDetailsView({
               )}
 
               {seller.store?.lat && seller.store?.lng ? (
-                <div className="flex flex-col gap-1.5 mt-2 rounded-xl border border-muted/50 p-2 relative h-28 overflow-hidden group">
-                  <img
-                    src={`https://maps.googleapis.com/maps/api/staticmap?center=${seller.store.lat},${seller.store.lng}&zoom=15&size=400x150&markers=color:red%7C${seller.store.lat},${seller.store.lng}&key=${process.env.NEXT_PUBLIC_MAP_KEY}`}
-                    className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-all duration-700"
-                    alt="Map static"
-                  />
-                  <div className="absolute inset-x-0 bottom-0 bg-background/80 backdrop-blur-sm px-3 py-1 flex justify-between items-center text-[10px] font-medium border-t border-muted/50">
+                <div className="flex flex-col gap-1.5 mt-2 rounded-xl border border-muted/50 p-2 relative h-28 overflow-hidden group bg-slate-100 flex items-center justify-center">
+                  {mapUrl ? (
+                    <img
+                      src={mapUrl}
+                      className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-all duration-700"
+                      alt="Map static"
+                    />
+                  ) : (
+                    <span className="text-xs text-muted-foreground animate-pulse">Loading Map…</span>
+                  )}
+                  <div className="absolute inset-x-0 bottom-0 bg-background/80 backdrop-blur-sm px-3 py-1 flex justify-between items-center text-[10px] font-medium border-t border-muted/50 z-10">
                     <span className="text-primary flex items-center gap-1.5"><MapPinned className="h-3 w-3" /> Pinpoint Location</span>
                     <span>{seller.store.lat.toFixed(5)}, {seller.store.lng.toFixed(5)}</span>
                   </div>

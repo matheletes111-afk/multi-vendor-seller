@@ -6,6 +6,7 @@ import { generateSlug } from "@/lib/utils";
 import path from "path";
 import { uploadPublicFile } from "@/lib/upload-public-file";
 import { getPaginationFromSearchParams } from "@/lib/admin-pagination";
+import { sanitizeInput } from "@/lib/html-sanitization";
 
 // GET categories with pagination and subcategory counts
 export async function GET(request: NextRequest) {
@@ -116,21 +117,28 @@ export async function POST(request: NextRequest) {
     // Parse form data instead of JSON for file uploads
     const formData = await request.formData();
     
-    const name = formData.get("name") as string;
-    const description = formData.get("description") as string || null;
+    const nameRaw = formData.get("name") as string;
+    const name = sanitizeInput(nameRaw);
+    const description = typeof formData.get("description") === "string" ? sanitizeInput(formData.get("description") as string) : null;
     const commissionRate = 0.0; // Commission is being disabled project-wide
     const isActive = formData.get("isActive") === "true";
     const isFeatured = formData.get("isFeatured") === "true";
-
+ 
     const categoryImageFile = formData.get("categoryImage") as File | null;
     const categoryImageUrl = (formData.get("categoryImageUrl") as string)?.trim() || null;
     let categoryImagePath = categoryImageUrl;
     const categoryMobileIconFile = formData.get("categoryMobileIcon") as File | null;
     const categoryMobileIconUrl = (formData.get("categoryMobileIconUrl") as string)?.trim() || null;
     let categoryMobileIconPath = categoryMobileIconUrl;
-
+ 
     // Handle subcategories
-    const subcategoriesData = JSON.parse(formData.get("subcategories") as string || "[]");
+    const subcategoriesRaw = formData.get("subcategories") as string || "[]";
+    const subcategoriesData = JSON.parse(subcategoriesRaw);
+    // Sanitize subcategory details
+    for (const sub of subcategoriesData) {
+      if (typeof sub.name === "string") sub.name = sanitizeInput(sub.name);
+      if (typeof sub.description === "string") sub.description = sanitizeInput(sub.description);
+    }
     const subcategoryImages = new Map();
     const subcategoryMobileIcons = new Map();
 

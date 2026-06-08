@@ -121,38 +121,51 @@ export function StoreLocationPicker({
   }, [lat, lng, onLocationSelect])
 
   useEffect(() => {
-    const apiKey = process.env.MAP_KEY
-    if (!apiKey) {
-      setError("Map API key is not configured.")
-      return
-    }
+    let active = true
+    fetch("/api/utils/maps-key")
+      .then((res) => {
+        if (!res.ok) throw new Error("Unauthorized or not configured")
+        return res.json()
+      })
+      .then((data) => {
+        if (!active) return
+        const apiKey = data.key
+        if (!apiKey) {
+          setError("Map API key is not configured.")
+          return
+        }
 
-    if (window.google?.maps) {
-      initMap()
-      return
-    }
+        if (window.google?.maps) {
+          initMap()
+          return
+        }
 
-    if (window._googleMapsLoading) {
-      // Wait for it to load
-      window.initGoogleMaps = initMap
-      return
-    }
+        if (window._googleMapsLoading) {
+          window.initGoogleMaps = initMap
+          return
+        }
 
-    window._googleMapsLoading = true;
-    window.initGoogleMaps = () => {
-      window._googleMapsLoading = false
-      initMap()
-    }
+        window._googleMapsLoading = true
+        window.initGoogleMaps = () => {
+          window._googleMapsLoading = false
+          initMap()
+        }
 
-    const script = document.createElement("script")
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&callback=initGoogleMaps`
-    script.async = true
-    script.defer = true
-    script.onerror = () => setError("Failed to load Google Maps.")
-    document.head.appendChild(script)
+        const script = document.createElement("script")
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&callback=initGoogleMaps`
+        script.async = true
+        script.defer = true
+        script.onerror = () => setError("Failed to load Google Maps.")
+        document.head.appendChild(script)
+      })
+      .catch((err) => {
+        if (active) {
+          setError(err.message || "Failed to configure map API key.")
+        }
+      })
 
     return () => {
-      // cleanup is left to google
+      active = false
     }
   }, [initMap])
 
