@@ -93,11 +93,11 @@ Instructions: Mark [ ] Pending as [x] Done as you fix each issue.
 
 ---
 
-[ ] Issue #6 - Content Security Policy (CSP) Not Implemented
+[x] Issue #6 - Content Security Policy (CSP) Not Implemented
     - Severity: Medium
     - Description: Missing CSP headers increase XSS impact.
-    - Status: Pending
-    - Developer Fix Details: doubt.
+    - Status: Done
+    - Developer Fix Details: Implemented robust Content-Security-Policy (CSP) headers in next.config.js to allow only self-hosted resources, Google Maps (maps.googleapis.com), Stripe (js.stripe.com/api.stripe.com), Unsplash, and AWS S3 uploads. Added frame-ancestors 'self' and restricted object-src/base-uri to secure the app against unauthorized scripts, frame injection, and data leaks.
 
 ---
 
@@ -119,11 +119,11 @@ Instructions: Mark [ ] Pending as [x] Done as you fix each issue.
 
 ---
 
-[ ] Issue #8 - HSTS Not Implemented
+[x] Issue #8 - HSTS Not Implemented
     - Severity: Medium
     - Description: Missing Strict Transport Security header.
-    - Status: Pending
-    - Developer Fix Details: doubt
+    - Status: Done
+    - Developer Fix Details: Added the Strict-Transport-Security (HSTS) header ('max-age=31536000; includeSubDomains; preload') in next.config.js to force modern browsers to interact with the site only over HTTPS connections.
 
 ---
 
@@ -250,10 +250,11 @@ Instructions: Mark [ ] Pending as [x] Done as you fix each issue.
 
 ---
 
-[ ] Issue #18 - Referrer Policy Missing
+[x] Issue #18 - Referrer Policy Missing
     - Severity: Medium
     - Description: Missing Referrer-Policy header.
-    - Status: Pending
+    - Status: Done
+    - Developer Fix Details: Added 'Referrer-Policy: strict-origin-when-cross-origin' in next.config.js to control how much referrer information is shared when navigating to other origins.
 
 ---
 
@@ -301,7 +302,8 @@ Instructions: Mark [ ] Pending as [x] Done as you fix each issue.
 
 ---
 
-[ ] Issue #23 - Clickjacking Vulnerability
+[x] Issue #23 - Clickjacking Vulnerability
     - Severity: Low
     - Description: Site can potentially be embedded in external frames.
-    - Status: Pending
+    - Status: Done
+    - Developer Fix Details: Added 'X-Frame-Options: SAMEORIGIN' header in next.config.js and 'frame-ancestors 'self'' directive in the CSP to prevent malicious sites from framing the application.
