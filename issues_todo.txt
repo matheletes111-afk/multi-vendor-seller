@@ -266,6 +266,8 @@ Instructions: Mark [ ] Pending as [x] Done as you fix each issue.
 
 ---
 
+
+
 [ ] Issue #20 - DNSSEC Missing
     - Severity: Low
     - Description: DNSSEC not configured.
