@@ -18,6 +18,7 @@ export async function GET(request: NextRequest) {
     })
 
     const hotelId = searchParams.get("hotelId") || undefined
+    const hotelSellerId = searchParams.get("hotelSellerId") || undefined
     const status = searchParams.get("status") || undefined
     const query = searchParams.get("q") || undefined
     const checkIn = searchParams.get("checkIn") || undefined
@@ -28,6 +29,7 @@ export async function GET(request: NextRequest) {
       status: status || undefined,
       checkIn: checkIn ? { gte: new Date(checkIn) } : undefined,
       checkOut: checkOut ? { lte: new Date(checkOut) } : undefined,
+      hotel: hotelSellerId ? { hotelSellerId } : undefined,
       OR: query ? [
         { guestName: { contains: query, mode: "insensitive" as const } },
         { guestPhone: { contains: query, mode: "insensitive" as const } },

@@ -51,6 +51,7 @@ export function AdminBookingsClient() {
 
   const qParam = searchParams.get("q") ?? ""
   const hotelIdParam = searchParams.get("hotelId") ?? ""
+  const hotelSellerIdParam = searchParams.get("hotelSellerId") ?? ""
   const statusParam = searchParams.get("status") ?? ""
   const checkInParam = searchParams.get("checkIn") ?? ""
   const checkOutParam = searchParams.get("checkOut") ?? ""
@@ -60,9 +61,11 @@ export function AdminBookingsClient() {
   const [totalCount, setTotalCount] = useState(0)
   const [loading, setLoading] = useState(true)
   const [hotelsList, setHotelsList] = useState<HotelOption[]>([])
+  const [sellersList, setSellersList] = useState<any[]>([])
 
   const [searchQuery, setSearchQuery] = useState(qParam)
   const [selectedHotel, setSelectedHotel] = useState(hotelIdParam)
+  const [selectedSeller, setSelectedSeller] = useState(hotelSellerIdParam)
   const [selectedStatus, setSelectedStatus] = useState(statusParam)
   const [checkInDate, setCheckInDate] = useState(checkInParam)
   const [checkOutDate, setCheckOutDate] = useState(checkOutParam)
@@ -72,10 +75,11 @@ export function AdminBookingsClient() {
   useEffect(() => {
     setSearchQuery(qParam)
     setSelectedHotel(hotelIdParam)
+    setSelectedSeller(hotelSellerIdParam)
     setSelectedStatus(statusParam)
     setCheckInDate(checkInParam)
     setCheckOutDate(checkOutParam)
-  }, [qParam, hotelIdParam, statusParam, checkInParam, checkOutParam])
+  }, [qParam, hotelIdParam, hotelSellerIdParam, statusParam, checkInParam, checkOutParam])
 
   // Load hotels for the dropdown list
   useEffect(() => {
@@ -89,12 +93,25 @@ export function AdminBookingsClient() {
       .catch((err) => console.error("Failed to load hotels list:", err))
   }, [])
 
+  // Load hotel sellers for the dropdown list
+  useEffect(() => {
+    fetch("/api/admin/hotel-sellers?perPage=100")
+      .then((res) => res.json())
+      .then((json) => {
+        if (json?.sellers) {
+          setSellersList(json.sellers)
+        }
+      })
+      .catch((err) => console.error("Failed to load sellers list:", err))
+  }, [])
+
   const fetchBookings = useCallback(async () => {
     setLoading(true)
     try {
       let url = `/api/admin/bookings?page=${page}&perPage=${perPage}&`
       if (qParam) url += `q=${encodeURIComponent(qParam)}&`
       if (hotelIdParam) url += `hotelId=${hotelIdParam}&`
+      if (hotelSellerIdParam) url += `hotelSellerId=${hotelSellerIdParam}&`
       if (statusParam) url += `status=${statusParam}&`
       if (checkInParam) url += `checkIn=${checkInParam}&`
       if (checkOutParam) url += `checkOut=${checkOutParam}&`
@@ -111,7 +128,7 @@ export function AdminBookingsClient() {
     } finally {
       setLoading(false)
     }
-  }, [page, perPage, qParam, hotelIdParam, statusParam, checkInParam, checkOutParam])
+  }, [page, perPage, qParam, hotelIdParam, hotelSellerIdParam, statusParam, checkInParam, checkOutParam])
 
   useEffect(() => {
     fetchBookings()
@@ -122,6 +139,7 @@ export function AdminBookingsClient() {
     const params = {
       q: searchQuery || undefined,
       hotelId: selectedHotel || undefined,
+      hotelSellerId: selectedSeller || undefined,
       status: selectedStatus || undefined,
       checkIn: checkInDate || undefined,
       checkOut: checkOutDate || undefined,
@@ -145,6 +163,7 @@ export function AdminBookingsClient() {
   const clearFilters = () => {
     setSearchQuery("")
     setSelectedHotel("")
+    setSelectedSeller("")
     setSelectedStatus("")
     setCheckInDate("")
     setCheckOutDate("")
@@ -160,7 +179,7 @@ export function AdminBookingsClient() {
           </h1>
           <p className="text-slate-500 text-sm font-medium mt-1">Monitor, filter, and inspect all hotel room bookings across the entire platform.</p>
         </div>
-        {(qParam || hotelIdParam || statusParam || checkInParam || checkOutParam) && (
+        {(qParam || hotelIdParam || hotelSellerIdParam || statusParam || checkInParam || checkOutParam) && (
           <Button variant="outline" size="sm" onClick={clearFilters} className="rounded-xl font-bold text-xs uppercase tracking-wider h-10 px-4">
             Reset Filters
           </Button>
@@ -183,6 +202,20 @@ export function AdminBookingsClient() {
             </div>
 
             <div className="flex flex-wrap md:flex-nowrap gap-3">
+              <select
+                value={selectedSeller}
+                onChange={(e) => setSelectedSeller(e.target.value)}
+                className="h-10 border border-slate-200 rounded-xl px-3 text-slate-700 bg-slate-50/50 text-xs font-semibold focus:outline-none min-w-[150px]"
+              >
+                <option value="">All Hotel Sellers</option>
+                {sellersList.map((s) => {
+                  const name = s.businessInfo?.businessName || s.user?.name || "Seller"
+                  return (
+                    <option key={s.id} value={s.id}>{name}</option>
+                  )
+                })}
+              </select>
+
               <select
                 value={selectedHotel}
                 onChange={(e) => setSelectedHotel(e.target.value)}

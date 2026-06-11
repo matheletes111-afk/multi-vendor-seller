@@ -18,10 +18,16 @@ export async function GET(request: NextRequest) {
 
     const status = searchParams.get("status") || undefined
     const query = searchParams.get("q") || undefined
+    const hotelId = searchParams.get("hotelId") || undefined
+    const checkIn = searchParams.get("checkIn") || undefined
+    const checkOut = searchParams.get("checkOut") || undefined
 
     const whereCondition = {
       userId: session.user.id,
       status: status || undefined,
+      hotelId: hotelId || undefined,
+      checkIn: checkIn ? { gte: new Date(checkIn) } : undefined,
+      checkOut: checkOut ? { lte: new Date(checkOut) } : undefined,
       OR: query ? [
         { hotel: { name: { contains: query, mode: "insensitive" as const } } },
         { room: { name: { contains: query, mode: "insensitive" as const } } }

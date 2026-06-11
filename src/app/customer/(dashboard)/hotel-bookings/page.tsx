@@ -41,21 +41,82 @@ function CustomerHotelBookingsClient() {
 
   const qParam = searchParams.get("q") ?? ""
   const statusParam = searchParams.get("status") ?? ""
+  const hotelIdParam = searchParams.get("hotelId") ?? ""
+  const checkInParam = searchParams.get("checkIn") ?? ""
+  const checkOutParam = searchParams.get("checkOut") ?? ""
 
   const [bookings, setBookings] = useState<Booking[]>([])
   const [totalPages, setTotalPages] = useState(1)
   const [totalCount, setTotalCount] = useState(0)
   const [loading, setLoading] = useState(true)
+  const [hotelsList, setHotelsList] = useState<{ id: string; name: string }[]>([])
 
   const [searchQuery, setSearchQuery] = useState(qParam)
   const [selectedStatus, setSelectedStatus] = useState(statusParam)
+  const [selectedHotel, setSelectedHotel] = useState(hotelIdParam)
+  const [checkInDate, setCheckInDate] = useState(checkInParam)
+  const [checkOutDate, setCheckOutDate] = useState(checkOutParam)
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null)
+  const [cancellingId, setCancellingId] = useState<string | null>(null)
+
+  const canCancel = (booking: Booking) => {
+    if (booking.status !== "CONFIRMED") return false
+    const now = new Date()
+    const checkIn = new Date(booking.checkIn)
+    const diffInMs = checkIn.getTime() - now.getTime()
+    const diffInHours = diffInMs / (1000 * 60 * 60)
+    return diffInHours >= 24
+  }
+
+  const handleCancelBooking = async (id: string) => {
+    if (!confirm("Are you sure you want to cancel this booking? You will receive a 100% refund in your wallet.")) return
+    setCancellingId(id)
+    try {
+      const res = await fetch(`/api/customer/hotel-bookings/${id}/cancel`, {
+        method: "POST",
+      })
+      const data = await res.json()
+      if (data.success) {
+        alert(data.message || "Booking cancelled successfully.")
+        setSelectedBooking(null)
+        fetchBookings()
+      } else {
+        alert(data.error || "Failed to cancel booking.")
+      }
+    } catch (e) {
+      console.error(e)
+      alert("An error occurred while cancelling the booking.")
+    } finally {
+      setCancellingId(null)
+    }
+  }
 
   // Sync local states from URL
   useEffect(() => {
     setSearchQuery(qParam)
     setSelectedStatus(statusParam)
-  }, [qParam, statusParam])
+    setSelectedHotel(hotelIdParam)
+    setCheckInDate(checkInParam)
+    setCheckOutDate(checkOutParam)
+  }, [qParam, statusParam, hotelIdParam, checkInParam, checkOutParam])
+
+  // Load customer's unique booked hotels for filter list
+  useEffect(() => {
+    fetch("/api/customer/hotel-bookings?perPage=100")
+      .then((res) => res.json())
+      .then((json) => {
+        if (json?.data) {
+          const uniqueHotelsMap = new Map<string, string>()
+          json.data.forEach((b: any) => {
+            if (b.hotel) {
+              uniqueHotelsMap.set(b.hotel.id, b.hotel.name)
+            }
+          })
+          setHotelsList(Array.from(uniqueHotelsMap.entries()).map(([id, name]) => ({ id, name })))
+        }
+      })
+      .catch((err) => console.error("Failed to load unique hotels list:", err))
+  }, [])
 
   const fetchBookings = useCallback(async () => {
     setLoading(true)
@@ -63,6 +124,9 @@ function CustomerHotelBookingsClient() {
       let url = `/api/customer/hotel-bookings?page=${page}&perPage=${perPage}&`
       if (qParam) url += `q=${encodeURIComponent(qParam)}&`
       if (statusParam) url += `status=${statusParam}&`
+      if (hotelIdParam) url += `hotelId=${hotelIdParam}&`
+      if (checkInParam) url += `checkIn=${checkInParam}&`
+      if (checkOutParam) url += `checkOut=${checkOutParam}&`
 
       const res = await fetch(url)
       const data = await res.json()
@@ -76,7 +140,7 @@ function CustomerHotelBookingsClient() {
     } finally {
       setLoading(false)
     }
-  }, [page, perPage, qParam, statusParam])
+  }, [page, perPage, qParam, statusParam, hotelIdParam, checkInParam, checkOutParam])
 
   useEffect(() => {
     fetchBookings()
@@ -87,6 +151,9 @@ function CustomerHotelBookingsClient() {
     const params = {
       q: searchQuery || undefined,
       status: selectedStatus || undefined,
+      hotelId: selectedHotel || undefined,
+      checkIn: checkInDate || undefined,
+      checkOut: checkOutDate || undefined,
     }
     router.push(buildAdminPageUrl("/customer/hotel-bookings", 1, params))
   }
@@ -94,6 +161,9 @@ function CustomerHotelBookingsClient() {
   const clearFilters = () => {
     setSearchQuery("")
     setSelectedStatus("")
+    setSelectedHotel("")
+    setCheckInDate("")
+    setCheckOutDate("")
     router.push("/customer/hotel-bookings")
   }
 
@@ -108,43 +178,77 @@ function CustomerHotelBookingsClient() {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="relative w-full max-w-md">
-          <form onSubmit={handleSearchSubmit} className="relative w-full">
-            <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" aria-hidden />
-            <Input
-              type="text"
-              placeholder="Search hotel name or room..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="h-11 w-full rounded-lg border border-gray-200 bg-white pl-10 pr-3 text-sm text-gray-900 shadow-sm outline-none ring-blue-500/20 transition-all duration-200 placeholder:text-gray-400 focus:border-blue-500 focus:ring-2"
-            />
-          </form>
-        </div>
+      {/* Filter Toolbar */}
+      <div className="bg-white border border-slate-100 rounded-3xl p-5 shadow-sm">
+        <form onSubmit={handleSearchSubmit} className="space-y-4">
+          <div className="flex flex-col md:flex-row gap-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-3.5 top-3 h-4 w-4 text-slate-400" />
+              <Input
+                type="text"
+                placeholder="Search hotel name or room..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 h-10 rounded-xl border-slate-200 bg-slate-50/50 text-slate-800 placeholder-slate-400 text-sm focus-visible:ring-emerald-500/20"
+              />
+            </div>
 
-        <div className="flex items-center gap-3">
-          <select
-            value={selectedStatus}
-            onChange={(e) => {
-              const val = e.target.value
-              setSelectedStatus(val)
-              const params = { q: searchQuery || undefined, status: val || undefined }
-              router.push(buildAdminPageUrl("/customer/hotel-bookings", 1, params))
-            }}
-            className="h-10 border border-slate-200 rounded-xl px-3 text-slate-700 bg-white text-xs font-semibold focus:outline-none min-w-[130px]"
-          >
-            <option value="">All Statuses</option>
-            <option value="CONFIRMED">Confirmed</option>
-            <option value="PENDING">Pending</option>
-            <option value="CANCELLED">Cancelled</option>
-          </select>
+            <div className="flex flex-wrap md:flex-nowrap gap-3">
+              <select
+                value={selectedHotel}
+                onChange={(e) => setSelectedHotel(e.target.value)}
+                className="h-10 border border-slate-200 rounded-xl px-3 text-slate-700 bg-slate-50/50 text-xs font-semibold focus:outline-none min-w-[150px]"
+              >
+                <option value="">All Booked Hotels</option>
+                {hotelsList.map((h) => (
+                  <option key={h.id} value={h.id}>{h.name}</option>
+                ))}
+              </select>
 
-          {(qParam || statusParam) && (
-            <Button variant="outline" size="sm" onClick={clearFilters} className="rounded-xl font-bold text-xs uppercase tracking-wider h-10 px-4">
-              Reset
-            </Button>
-          )}
-        </div>
+              <select
+                value={selectedStatus}
+                onChange={(e) => setSelectedStatus(e.target.value)}
+                className="h-10 border border-slate-200 rounded-xl px-3 text-slate-700 bg-slate-50/50 text-xs font-semibold focus:outline-none min-w-[130px]"
+              >
+                <option value="">All Statuses</option>
+                <option value="CONFIRMED">Confirmed</option>
+                <option value="PENDING">Pending</option>
+                <option value="CANCELLED">Cancelled</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-4 items-center pt-2 border-t border-slate-50">
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider shrink-0">Check-in After:</span>
+              <Input
+                type="date"
+                value={checkInDate}
+                onChange={(e) => setCheckInDate(e.target.value)}
+                className="h-9 rounded-xl border-slate-200 text-xs font-semibold bg-slate-50/50 text-slate-800"
+              />
+            </div>
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider shrink-0">Check-out Before:</span>
+              <Input
+                type="date"
+                value={checkOutDate}
+                onChange={(e) => setCheckOutDate(e.target.value)}
+                className="h-9 rounded-xl border-slate-200 text-xs font-semibold bg-slate-50/50 text-slate-800"
+              />
+            </div>
+            <div className="sm:ml-auto w-full sm:w-auto flex gap-2 justify-end">
+              {(qParam || statusParam || hotelIdParam || checkInParam || checkOutParam) && (
+                <Button type="button" variant="outline" size="sm" onClick={clearFilters} className="rounded-xl font-bold text-xs uppercase tracking-wider h-10 px-4">
+                  Reset
+                </Button>
+              )}
+              <Button type="submit" size="sm" className="bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold text-xs uppercase tracking-wider h-10 px-6 w-full sm:w-auto">
+                Search
+              </Button>
+            </div>
+          </div>
+        </form>
       </div>
 
       {loading ? (
@@ -306,8 +410,18 @@ function CustomerHotelBookingsClient() {
               </div>
             </div>
 
-            <div className="pt-2 flex justify-end">
-              <Button onClick={() => setSelectedBooking(null)} className="bg-slate-950 hover:bg-slate-900 text-white rounded-xl h-10 px-5">
+            <div className="pt-2 flex justify-between items-center">
+              {canCancel(selectedBooking) && (
+                <Button
+                  onClick={() => handleCancelBooking(selectedBooking.id)}
+                  disabled={cancellingId === selectedBooking.id}
+                  variant="destructive"
+                  className="rounded-xl h-10 px-5"
+                >
+                  {cancellingId === selectedBooking.id ? "Cancelling..." : "Cancel Booking"}
+                </Button>
+              )}
+              <Button onClick={() => setSelectedBooking(null)} className="bg-slate-950 hover:bg-slate-900 text-white rounded-xl h-10 px-5 ml-auto">
                 Close Details
               </Button>
             </div>

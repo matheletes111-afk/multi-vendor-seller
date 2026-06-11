@@ -420,6 +420,15 @@ export default function RoomBookingPage() {
                       </div>
                     )}
 
+                    <div className="bg-emerald-50/50 border border-emerald-100/50 rounded-2xl p-4 text-xs font-semibold text-slate-600 space-y-1">
+                      <p className="font-extrabold text-emerald-900 flex items-center gap-1.5">
+                        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" /> Cancellation Policy
+                      </p>
+                      <p className="mt-1 text-[11px] text-slate-500 font-medium leading-normal">
+                        Free cancellation with 100% wallet refund is available up to 24 hours before your check-in date. Bookings are non-refundable after this window.
+                      </p>
+                    </div>
+
                     <Button
                       type="submit"
                       disabled={bookingLoading}
