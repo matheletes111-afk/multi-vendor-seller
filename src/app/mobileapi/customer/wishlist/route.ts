@@ -111,7 +111,7 @@ function unauthorized() {
 }
 
 export async function GET(request: NextRequest) {
-  const auth = getMobileCustomerAuth(request)
+  const auth = await getMobileCustomerAuth(request)
   if (!auth.ok) return unauthorized()
 
   const rows = await wishlistItem.findMany({
@@ -155,7 +155,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const auth = getMobileCustomerAuth(request)
+  const auth = await getMobileCustomerAuth(request)
   if (!auth.ok) return unauthorized()
 
   let body: unknown
@@ -255,7 +255,7 @@ export async function POST(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
-  const auth = getMobileCustomerAuth(request)
+  const auth = await getMobileCustomerAuth(request)
   if (!auth.ok) return unauthorized()
 
   let body: unknown

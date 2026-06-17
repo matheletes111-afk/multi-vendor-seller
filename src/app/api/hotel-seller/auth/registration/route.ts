@@ -20,6 +20,10 @@ export async function POST(request: Request) {
     if (!email || !password) {
       return NextResponse.json({ error: "Email and password are required" }, { status: 400 })
     }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(email)) {
+      return NextResponse.json({ error: "Invalid email format" }, { status: 400 })
+    }
     const passwordValidation = validatePassword(password)
     if (!passwordValidation.isValid) {
       return NextResponse.json({ error: passwordValidation.error }, { status: 400 })
@@ -33,12 +37,12 @@ export async function POST(request: Request) {
     
     const existingUser = await prisma.user.findUnique({ where: { email } })
     if (existingUser) {
-      return NextResponse.json({ error: "This information could not be registered. Please try again or contact support." }, { status: 400 })
+      return NextResponse.json({ error: "Email or mobile number is already registered" }, { status: 400 })
     }
     
     const existingPhone = await prisma.user.findFirst({ where: { phone: normalizedPhone } })
     if (existingPhone) {
-      return NextResponse.json({ error: "This information could not be registered. Please try again or contact support." }, { status: 400 })
+      return NextResponse.json({ error: "Email or mobile number is already registered" }, { status: 400 })
     }
     
     const hashedPassword = await bcrypt.hash(password, 10)

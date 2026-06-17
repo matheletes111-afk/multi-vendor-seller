@@ -26,7 +26,6 @@ interface SuccessResponse {
     email: string
     expiresIn: number
     resendCooldown: number
-    otp?: string // Added for testing
   }
 }
 
@@ -164,8 +163,7 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
         data: {
           email: user.email,
           expiresIn: OTP_EXPIRY_MS / 1000,
-          resendCooldown: RESEND_COOLDOWN_MS / 1000,
-          otp: newOtp
+          resendCooldown: RESEND_COOLDOWN_MS / 1000
         }
       },
       { status: 200 }

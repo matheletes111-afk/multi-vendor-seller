@@ -7,7 +7,7 @@ import { UserRole, SubscriptionPlan, SubscriptionStatus } from "@prisma/client"
  * GET current subscription and available plans for service seller.
  */
 export async function GET(request: NextRequest) {
-  const auth = getMobileSellerAuth(request, UserRole.SELLER_SERVICE)
+  const auth = await getMobileSellerAuth(request, UserRole.SELLER_SERVICE)
   if (!auth.ok) {
     return NextResponse.json({ error: auth.error }, { status: auth.error === "unauthorized" ? 401 : 403 })
   }
@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
  * Uses direct update (test mode) for now.
  */
 export async function POST(request: NextRequest) {
-  const auth = getMobileSellerAuth(request, UserRole.SELLER_SERVICE)
+  const auth = await getMobileSellerAuth(request, UserRole.SELLER_SERVICE)
   if (!auth.ok) {
     return NextResponse.json({ error: auth.error }, { status: auth.error === "unauthorized" ? 401 : 403 })
   }

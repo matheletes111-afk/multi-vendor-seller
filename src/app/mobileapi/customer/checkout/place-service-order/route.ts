@@ -25,7 +25,7 @@ function unauthorized() {
 
 /** POST /mobileapi/customer/checkout/place-service-order — direct service booking (same as web). Auth: Bearer (customer). */
 export async function POST(request: NextRequest) {
-  const auth = getMobileCustomerAuth(request)
+  const auth = await getMobileCustomerAuth(request)
   if (!auth.ok) return unauthorized()
 
   let body: unknown

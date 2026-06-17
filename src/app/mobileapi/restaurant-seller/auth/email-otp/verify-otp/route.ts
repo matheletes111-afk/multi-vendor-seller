@@ -38,6 +38,7 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
     const user = await prisma.user.findFirst({
       where: { email, role: UserRole.SELLER_RESTAURANT },
       select: {
+        password: true,
         id: true,
         email: true,
         name: true,
@@ -80,7 +81,7 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
       data: { verifyEmailOtp: null, emailVerificationExpires: null, emailOtpSentAt: null },
     })
 
-    const tokens = generateMobileTokens({ userId: user.id, email: user.email, role: user.role })
+    const tokens = generateMobileTokens({ userId: user.id, email: user.email, role: user.role, passwordHash: user.password })
     return NextResponse.json({
       success: true,
       message: "OTP login successful",

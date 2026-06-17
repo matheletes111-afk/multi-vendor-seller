@@ -26,7 +26,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string; orderItemId: string }> }
 ) {
   try {
-    const authStatus = getMobileSellerAuth(request, UserRole.SELLER_PRODUCT)
+    const authStatus = await getMobileSellerAuth(request, UserRole.SELLER_PRODUCT)
     if (!authStatus.ok) {
       if (authStatus.error === "unauthorized") {
         return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 })

@@ -31,7 +31,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ): Promise<NextResponse<SuccessResponse | ErrorResponse>> {
   try {
-    const auth = getMobileCustomerAuth(request)
+    const auth = await getMobileCustomerAuth(request)
     if (!auth.ok) return unauthorized()
 
     const { id: orderId } = await params

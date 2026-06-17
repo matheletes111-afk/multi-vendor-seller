@@ -95,6 +95,7 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
       include: {
         user: {
           select: {
+            password: true,
             id: true,
             email: true,
             name: true,
@@ -149,6 +150,7 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
         userId: u.id,
         email: u.email,
         role: u.role,
+        passwordHash: u.password,
       })
       return NextResponse.json<SuccessResponse>(
         {
@@ -230,6 +232,7 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
         userId: existingUser.id,
         email: existingUser.email,
         role: existingUser.role,
+        passwordHash: existingUser.password,
       })
       return NextResponse.json<SuccessResponse>(
         {
@@ -269,6 +272,7 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
         isEmailVerified: true,
       },
       select: {
+        password: true,
         id: true,
         email: true,
         name: true,

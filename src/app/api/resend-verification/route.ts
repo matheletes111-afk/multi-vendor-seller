@@ -16,8 +16,7 @@ export async function POST(request: Request) {
       select: { id: true, name: true, isEmailVerified: true },
     })
     if (!user) {
-      // Generic response to prevent account enumeration
-      return NextResponse.json({ message: "If an account with this email exists, a verification email has been sent." }, { status: 200 })
+      return NextResponse.json({ error: "No account found with this email." }, { status: 404 })
     }
     if (user.isEmailVerified) {
       return NextResponse.json({ message: "Email is already verified. You can sign in." }, { status: 200 })

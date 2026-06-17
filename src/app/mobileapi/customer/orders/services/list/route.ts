@@ -23,7 +23,7 @@ function unauthorized() {
 /** GET /mobileapi/customer/orders/services/list — customer service orders list. Auth: Bearer token. */
 export async function GET(request: NextRequest): Promise<NextResponse<SuccessResponse | ErrorResponse>> {
   try {
-    const auth = getMobileCustomerAuth(request)
+    const auth = await getMobileCustomerAuth(request)
     if (!auth.ok) return unauthorized()
 
     const url = new URL(request.url)

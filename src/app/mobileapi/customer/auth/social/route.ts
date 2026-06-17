@@ -84,13 +84,29 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
       createdAt: Date
       updatedAt: Date
     } | null = null
+    let passwordHash: string | null = null
 
     const existingAccount = await prisma.account.findFirst({
       where: {
         provider,
         providerAccountId: profile.providerAccountId,
       },
-      include: { user: true },
+      include: {
+        user: {
+          select: {
+            password: true,
+            id: true,
+            email: true,
+            name: true,
+            role: true,
+            phone: true,
+            phoneCountryCode: true,
+            isEmailVerified: true,
+            createdAt: true,
+            updatedAt: true,
+          },
+        },
+      },
     })
 
     if (existingAccount) {
@@ -100,6 +116,7 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
           { status: 403 }
         )
       }
+      passwordHash = existingAccount.user.password
       user = {
         id: existingAccount.user.id,
         email: existingAccount.user.email,
@@ -131,6 +148,7 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
             access_token: accessToken ?? null,
           },
         })
+        passwordHash = existingUser.password
         user = {
           id: existingUser.id,
           email: existingUser.email,
@@ -153,6 +171,7 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
             isEmailVerified: true,
           },
           select: {
+            password: true,
             id: true,
             email: true,
             name: true,
@@ -173,7 +192,9 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
             access_token: accessToken ?? null,
           },
         })
-        user = newUser
+        passwordHash = newUser.password
+        const { password: _, ...newUserWithoutPassword } = newUser
+        user = newUserWithoutPassword
       }
     }
 
@@ -181,6 +202,7 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
       userId: user.id,
       email: user.email,
       role: user.role,
+      passwordHash,
     })
 
     return NextResponse.json<SuccessResponse>(

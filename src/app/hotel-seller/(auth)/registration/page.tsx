@@ -75,11 +75,11 @@ export default function HotelSellerRegistrationPage() {
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_2fr]">
               <div>
                 <Label htmlFor="phoneCountryCode" className="mb-1.5 block text-sm font-medium text-gray-700">Country code</Label>
-                <Input id="phoneCountryCode" type="tel" inputMode="numeric" placeholder="+1" value={phoneCountryCode} onChange={(e) => setPhoneCountryCode(e.target.value)} required disabled={loading} className="rounded-xl border-gray-200" />
+                <Input id="phoneCountryCode" type="tel" inputMode="numeric" placeholder="+1" value={phoneCountryCode} onChange={(e) => setPhoneCountryCode(e.target.value.replace(/(?!^\+)[^\d]/g, ""))} pattern="^\+?[0-9]+$" title="Country code must contain only numbers (optionally starting with +)." required disabled={loading} className="rounded-xl border-gray-200" />
               </div>
               <div>
                 <Label htmlFor="phone" className="mb-1.5 block text-sm font-medium text-gray-700">Phone</Label>
-                <Input id="phone" type="tel" inputMode="numeric" placeholder="Phone number" value={phone} onChange={(e) => setPhone(e.target.value)} required disabled={loading} className="rounded-xl border-gray-200" />
+                <Input id="phone" type="tel" inputMode="numeric" placeholder="Phone number" value={phone} onChange={(e) => setPhone(e.target.value.replace(/[^\d]/g, ""))} pattern="^[0-9]+$" title="Phone number must contain only numbers." required disabled={loading} className="rounded-xl border-gray-200" />
               </div>
             </div>
             <div>

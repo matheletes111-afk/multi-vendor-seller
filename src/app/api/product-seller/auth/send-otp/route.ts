@@ -17,7 +17,7 @@ export async function POST(request: Request) {
       where: { email, role: UserRole.SELLER_PRODUCT },
       select: { id: true, name: true, isEmailVerified: true, emailOtpSentAt: true },
     })
-    if (!user) return NextResponse.json({ message: "If an account with this email exists, OTP has been sent." }, { status: 200 })
+    if (!user) return NextResponse.json({ error: "No account found with this email." }, { status: 404 })
     if (user.isEmailVerified) return NextResponse.json({ message: "Email is already verified.", loginUrl: "/product-seller/login" }, { status: 200 })
     const now = new Date()
     if (user.emailOtpSentAt && now.getTime() - user.emailOtpSentAt.getTime() < COOLDOWN_MS) {

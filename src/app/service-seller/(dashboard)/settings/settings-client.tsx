@@ -105,6 +105,27 @@ export function ServiceSettingsClient() {
     setSuccess(null)
 
     const formData = new FormData(e.currentTarget)
+    if (section === "user") {
+        const phone = (formData.get("phone") as string | null)?.trim()
+        const phoneCountryCode = (formData.get("phoneCountryCode") as string | null)?.trim()
+        if (!phone || !phoneCountryCode) {
+            setError("Phone and country code are required.")
+            setSaving(null)
+            return
+        }
+        if (!/^\+?[0-9]+$/.test(phoneCountryCode)) {
+            setError("Country code must contain only numbers (optionally starting with +).")
+            setSaving(null)
+            return
+        }
+        if (!/^[0-9]+$/.test(phone)) {
+            setError("Phone number must contain only numbers.")
+            setSaving(null)
+            return
+        }
+    }
+
+    let isReloading = false
     try {
         let res: Response
         const hasFiles = Array.from(formData.values()).some(v => v instanceof File && v.size > 0)
@@ -143,13 +164,24 @@ export function ServiceSettingsClient() {
             throw new Error(data.error || "Failed to update settings")
         }
 
-        setSuccess(`${section.charAt(0).toUpperCase() + section.slice(1)} info updated!`)
-        const refresh = await fetch("/api/service-seller/settings")
-        if (refresh.ok) setSeller(await refresh.json())
+        isReloading = false
+        if (section === "user") {
+            setSuccess("Profile details updated successfully! Reloading...")
+            isReloading = true
+            setTimeout(() => {
+                window.location.reload()
+            }, 1500)
+        } else {
+            setSuccess(`${section.charAt(0).toUpperCase() + section.slice(1)} info updated!`)
+            const refresh = await fetch("/api/service-seller/settings")
+            if (refresh.ok) setSeller(await refresh.json())
+        }
     } catch (err: any) {
         setError(err.message)
     } finally {
-        setSaving(null)
+        if (!isReloading) {
+            setSaving(null)
+        }
     }
   }
 

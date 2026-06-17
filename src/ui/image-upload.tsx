@@ -38,7 +38,14 @@ export function ImageUpload({ onImageSelect, currentImage }: ImageUploadProps) {
 
         setFileName(compressed.name)
         onImageSelect(compressed)
-      } catch {
+      } catch (error) {
+        if (error instanceof Error && error.message.includes("dimensions exceed")) {
+          alert(error.message)
+          if (fileInputRef.current) {
+            fileInputRef.current.value = ""
+          }
+          return
+        }
         if (file.size > 5 * 1024 * 1024) {
           alert("File size must be less than 5MB")
           return

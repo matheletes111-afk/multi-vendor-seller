@@ -122,7 +122,9 @@ export default function ServiceSellerRegistrationPage() {
                   inputMode="numeric"
                   placeholder="+1"
                   value={phoneCountryCode}
-                  onChange={(e) => setPhoneCountryCode(e.target.value)}
+                  onChange={(e) => setPhoneCountryCode(e.target.value.replace(/(?!^\+)[^\d]/g, ""))}
+                  pattern="^\+?[0-9]+$"
+                  title="Country code must contain only numbers (optionally starting with +)."
                   required
                   disabled={loading}
                   className="rounded-xl border-gray-200"
@@ -136,7 +138,9 @@ export default function ServiceSellerRegistrationPage() {
                   inputMode="numeric"
                   placeholder="Phone number"
                   value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
+                  onChange={(e) => setPhone(e.target.value.replace(/[^\d]/g, ""))}
+                  pattern="^[0-9]+$"
+                  title="Phone number must contain only numbers."
                   required
                   disabled={loading}
                   className="rounded-xl border-gray-200"

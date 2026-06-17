@@ -36,7 +36,7 @@ function getImageExtFromContentType(contentType?: string | null) {
 
 /** GET /mobileapi/customer/settings — fetch customer profile. */
 export async function GET(request: NextRequest) {
-  const auth = getMobileCustomerAuth(request)
+  const auth = await getMobileCustomerAuth(request)
   if (!auth.ok) return unauthorized()
 
   const user = await prisma.user.findUnique({
@@ -53,7 +53,7 @@ export async function GET(request: NextRequest) {
 
 /** PUT /mobileapi/customer/settings — update customer profile with JSON or multipart/form-data. */
 export async function PUT(request: NextRequest) {
-  const auth = getMobileCustomerAuth(request)
+  const auth = await getMobileCustomerAuth(request)
   if (!auth.ok) return unauthorized()
 
   const contentType = request.headers.get("content-type") ?? ""

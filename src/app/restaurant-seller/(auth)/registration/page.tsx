@@ -111,11 +111,11 @@ export default function RestaurantSellerRegistrationPage() {
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_2fr]">
             <div className="space-y-2">
               <Label htmlFor="phoneCountryCode">Country Code</Label>
-              <Input id="phoneCountryCode" name="phoneCountryCode" type="tel" placeholder="+1" defaultValue="+91" required className="rounded-xl" />
+              <Input id="phoneCountryCode" name="phoneCountryCode" type="tel" placeholder="+1" defaultValue="+91" pattern="^\+?[0-9]+$" title="Country code must contain only numbers (optionally starting with +)." required className="rounded-xl" />
             </div>
             <div className="space-y-2">
               <Label htmlFor="phone">Phone Number</Label>
-              <Input id="phone" name="phone" type="tel" placeholder="9876543210" required className="rounded-xl" />
+              <Input id="phone" name="phone" type="tel" placeholder="9876543210" pattern="^[0-9]+$" title="Phone number must contain only numbers." required className="rounded-xl" />
             </div>
           </div>
 

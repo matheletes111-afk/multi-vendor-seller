@@ -78,7 +78,7 @@ function unauthorized() {
 
 /** GET /mobileapi/customer/cart — return current user's cart items. Auth: Bearer token (customer). */
 export async function GET(request: NextRequest) {
-  const auth = getMobileCustomerAuth(request)
+  const auth = await getMobileCustomerAuth(request)
   if (!auth.ok) return unauthorized()
 
   const items = await prisma.cartItem.findMany({
@@ -92,7 +92,7 @@ export async function GET(request: NextRequest) {
 
 /** POST /mobileapi/customer/cart — add or update item (product or service). Auth: Bearer token (customer). */
 export async function POST(request: NextRequest) {
-  const auth = getMobileCustomerAuth(request)
+  const auth = await getMobileCustomerAuth(request)
   if (!auth.ok) return unauthorized()
 
   let body: unknown
@@ -220,7 +220,7 @@ export async function POST(request: NextRequest) {
 
 /** PATCH /mobileapi/customer/cart — update quantity or remove item. Auth: Bearer token (customer). */
 export async function PATCH(request: NextRequest) {
-  const auth = getMobileCustomerAuth(request)
+  const auth = await getMobileCustomerAuth(request)
   if (!auth.ok) return unauthorized()
 
   let body: unknown

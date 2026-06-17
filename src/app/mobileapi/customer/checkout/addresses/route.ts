@@ -39,7 +39,7 @@ function toAddressApi(row: {
 
 /** GET /mobileapi/customer/checkout/addresses — list current user's addresses. Auth: Bearer token (customer). */
 export async function GET(request: NextRequest) {
-  const auth = getMobileCustomerAuth(request)
+  const auth = await getMobileCustomerAuth(request)
   if (!auth.ok) return unauthorized()
 
   const addresses = await prisma.userAddress.findMany({
@@ -52,7 +52,7 @@ export async function GET(request: NextRequest) {
 
 /** POST /mobileapi/customer/checkout/addresses — add address. Auth: Bearer token (customer). */
 export async function POST(request: NextRequest) {
-  const auth = getMobileCustomerAuth(request)
+  const auth = await getMobileCustomerAuth(request)
   if (!auth.ok) return unauthorized()
 
   let body: unknown

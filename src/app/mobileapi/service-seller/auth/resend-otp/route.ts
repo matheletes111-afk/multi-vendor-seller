@@ -30,7 +30,6 @@ interface SuccessResponse {
     email: string
     expiresIn: number
     resendCooldown: number
-    otp?: string // Added for testing
   }
 }
 
@@ -102,13 +101,12 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
     }) as UserWithOtpInfo | null
 
     if (!user) {
-      // Generic response to prevent account enumeration
       return NextResponse.json<ErrorResponse>(
         { 
           success: false,
-          error: "If a pending verification exists for this email, a new OTP has been sent." 
+          error: "Seller not found with this email" 
         },
-        { status: 200 }
+        { status: 404 }
       )
     }
 
@@ -181,8 +179,7 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
         data: {
           email: user.email,
           expiresIn: OTP_EXPIRY_MS / 1000, // in seconds
-          resendCooldown: RESEND_COOLDOWN_MS / 1000, // in seconds
-          otp: newOtp
+          resendCooldown: RESEND_COOLDOWN_MS / 1000 // in seconds
         }
       },
       { status: 200 }

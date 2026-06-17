@@ -19,7 +19,7 @@ export const dynamic = 'force-dynamic'
  * List products with filters and pagination.
  */
 export async function GET(request: NextRequest) {
-  const authStatus = getMobileSellerAuth(request, UserRole.SELLER_PRODUCT)
+  const authStatus = await getMobileSellerAuth(request, UserRole.SELLER_PRODUCT)
   if (!authStatus.ok) {
     if (authStatus.error === "unauthorized") return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 })
     return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 })
@@ -117,7 +117,7 @@ export async function GET(request: NextRequest) {
  * Create a new product. Supports JSON or FormData (for files).
  */
 export async function POST(request: NextRequest) {
-  const authStatus = getMobileSellerAuth(request, UserRole.SELLER_PRODUCT)
+  const authStatus = await getMobileSellerAuth(request, UserRole.SELLER_PRODUCT)
   if (!authStatus.ok) {
     if (authStatus.error === "unauthorized") return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 })
     return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 })
@@ -223,7 +223,7 @@ export async function POST(request: NextRequest) {
  * Bulk soft-delete products.
  */
 export async function DELETE(request: NextRequest) {
-  const authStatus = getMobileSellerAuth(request, UserRole.SELLER_PRODUCT)
+  const authStatus = await getMobileSellerAuth(request, UserRole.SELLER_PRODUCT)
   if (!authStatus.ok) {
     if (authStatus.error === "unauthorized") return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 })
     return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 })

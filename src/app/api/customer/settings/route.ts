@@ -45,6 +45,12 @@ export async function PUT(request: NextRequest) {
     if (!normalizedPhone || !normalizedCountryCode) {
       return "Phone and country code are required."
     }
+    if (!/^\+?[0-9]+$/.test(normalizedCountryCode)) {
+      return "Country code must contain only numbers (optionally starting with +)."
+    }
+    if (!/^[0-9]+$/.test(normalizedPhone)) {
+      return "Phone number must contain only numbers."
+    }
     return null
   }
   let userData: {

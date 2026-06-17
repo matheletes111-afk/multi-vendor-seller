@@ -90,19 +90,51 @@ export default function RestaurantSettingsClient() {
         selectedServices.forEach(s => formData.append("services", s))
     }
 
+    if (section === "user") {
+        const phone = (formData.get("phone") as string | null)?.trim()
+        const phoneCountryCode = (formData.get("phoneCountryCode") as string | null)?.trim()
+        if (!phone || !phoneCountryCode) {
+            setError("Phone and country code are required.")
+            setSaving(null)
+            return
+        }
+        if (!/^\+?[0-9]+$/.test(phoneCountryCode)) {
+            setError("Country code must contain only numbers (optionally starting with +).")
+            setSaving(null)
+            return
+        }
+        if (!/^[0-9]+$/.test(phone)) {
+            setError("Phone number must contain only numbers.")
+            setSaving(null)
+            return
+        }
+    }
+
+    let isReloading = false
     try {
         const res = await fetch("/api/restaurant-seller/settings", { method: "PUT", body: formData })
         if (!res.ok) {
             const data = await res.json()
             throw new Error(data.error || "Failed to update settings")
         }
-        setSuccess(`${section.charAt(0).toUpperCase() + section.slice(1)} details updated successfully!`)
-        const refresh = await fetch("/api/restaurant-seller/settings")
-        if (refresh.ok) setSeller(await refresh.json())
+        isReloading = false
+        if (section === "user") {
+            setSuccess("Profile details updated successfully! Reloading...")
+            isReloading = true
+            setTimeout(() => {
+                window.location.reload()
+            }, 1500)
+        } else {
+            setSuccess(`${section.charAt(0).toUpperCase() + section.slice(1)} details updated successfully!`)
+            const refresh = await fetch("/api/restaurant-seller/settings")
+            if (refresh.ok) setSeller(await refresh.json())
+        }
     } catch (err: any) {
         setError(err.message)
     } finally {
-        setSaving(null)
+        if (!isReloading) {
+            setSaving(null)
+        }
     }
   }
 
