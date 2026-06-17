@@ -11,7 +11,7 @@ function unauthorized() {
 
 /** POST /mobileapi/customer/cart/merge — merge guest cart items into DB. Auth: Bearer token (customer). */
 export async function POST(request: NextRequest) {
-  const auth = getMobileCustomerAuth(request)
+  const auth = await getMobileCustomerAuth(request)
   if (!auth.ok) return unauthorized()
 
   let body: unknown

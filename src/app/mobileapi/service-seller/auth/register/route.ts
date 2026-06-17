@@ -48,7 +48,6 @@ interface SuccessResponse {
     requiresVerification: true
     verificationDetails: VerificationDetails
     verifyUrl: string
-    otp?: string // Added for testing
   }
 }
 
@@ -142,7 +141,7 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
         return NextResponse.json<ErrorResponse>(
           { 
             success: false,
-            error: "This information could not be registered. Please try again or contact support."
+            error: "Email or mobile number is already registered"
           },
           { status: 400 }
         )
@@ -158,7 +157,7 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
       return NextResponse.json<ErrorResponse>(
         { 
           success: false,
-          error: "This information could not be registered. Please try again or contact support."
+          error: "Email or mobile number is already registered"
         },
         { status: 400 }
       )
@@ -242,8 +241,7 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
               expiresIn: OTP_EXPIRY_MS / 1000,
               resendCooldown: 60,
             },
-            verifyUrl: "/mobileapi/service-seller/verify-otp",
-            otp: verifyEmailOtp
+            verifyUrl: "/mobileapi/service-seller/verify-otp"
           }
         },
         { status: 201 }
@@ -266,8 +264,7 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
             expiresIn: OTP_EXPIRY_MS / 1000, // in seconds
             resendCooldown: 60, // 60 seconds cooldown for resend
           },
-          verifyUrl: "/mobileapi/service-seller/verify-otp",
-          otp: verifyEmailOtp
+          verifyUrl: "/mobileapi/service-seller/verify-otp"
         }
       },
       { status: 201 }

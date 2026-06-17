@@ -15,7 +15,7 @@ export const dynamic = "force-dynamic"
  * Retrieve current settings for the authenticated service seller.
  */
 export async function GET(request: NextRequest) {
-  const authStatus = getMobileSellerAuth(request, UserRole.SELLER_SERVICE)
+  const authStatus = await getMobileSellerAuth(request, UserRole.SELLER_SERVICE)
   if (!authStatus.ok) {
     if (authStatus.error === "unauthorized") return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 })
     return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 })
@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
  * Full parity with web settings logic.
  */
 export async function PUT(request: NextRequest) {
-  const authStatus = getMobileSellerAuth(request, UserRole.SELLER_SERVICE)
+  const authStatus = await getMobileSellerAuth(request, UserRole.SELLER_SERVICE)
   if (!authStatus.ok) {
     if (authStatus.error === "unauthorized") return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 })
     return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 })

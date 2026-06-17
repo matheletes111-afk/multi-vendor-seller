@@ -34,7 +34,7 @@ interface PostBody {
 export async function POST(request: NextRequest): Promise<NextResponse<CategoryInterestResponse>> {
   try {
     // Authenticate user
-    const auth = getMobileCustomerAuth(request)
+    const auth = await getMobileCustomerAuth(request)
     if (!auth.ok) {
       return NextResponse.json(
         { success: false, error: auth.error },
@@ -162,7 +162,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<CategoryI
 export async function GET(request: NextRequest): Promise<NextResponse<CategoryInterestResponse>> {
   try {
     // Authenticate user
-    const auth = getMobileCustomerAuth(request)
+    const auth = await getMobileCustomerAuth(request)
     if (!auth.ok) {
       return NextResponse.json(
         { success: false, error: auth.error },

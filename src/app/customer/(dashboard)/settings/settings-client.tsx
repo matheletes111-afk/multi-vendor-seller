@@ -48,6 +48,14 @@ export function CustomerSettingsClient() {
       setError("Phone and country code are required.")
       return
     }
+    if (!/^\+?[0-9]+$/.test(phoneCountryCode)) {
+      setError("Country code must contain only numbers (optionally starting with +).")
+      return
+    }
+    if (!/^[0-9]+$/.test(phone)) {
+      setError("Phone number must contain only numbers.")
+      return
+    }
     const password = ((fd.get("password") as string) ?? "").trim()
     const confirmPassword = ((fd.get("confirmPassword") as string) ?? "").trim()
     if (password || confirmPassword) {
@@ -63,6 +71,7 @@ export function CustomerSettingsClient() {
     }
     const hasFile = fd.get("profileImage") instanceof File && (fd.get("profileImage") as File).size > 0
     setSaving(true)
+    let isReloading = false
     try {
       let updateResponse: Response
       if (hasFile) {
@@ -89,12 +98,18 @@ export function CustomerSettingsClient() {
       const res = await fetch("/api/customer/settings")
       if (res.ok) {
         setUser(await res.json())
-        setSuccess("Profile updated")
+        setSuccess("Profile updated successfully! Reloading...")
+        isReloading = true
+        setTimeout(() => {
+          window.location.reload()
+        }, 1500)
       }
       setShowPassword(false)
       setShowConfirmPassword(false)
     } finally {
-      setSaving(false)
+      if (!isReloading) {
+        setSaving(false)
+      }
     }
   }
 
@@ -145,6 +160,8 @@ export function CustomerSettingsClient() {
                   inputMode="numeric"
                   defaultValue={user.phoneCountryCode || ""}
                   placeholder="+1"
+                  pattern="^\+?[0-9]+$"
+                  title="Country code must contain only numbers (optionally starting with +)."
                   required
                 />
               </div>
@@ -157,6 +174,8 @@ export function CustomerSettingsClient() {
                   inputMode="numeric"
                   defaultValue={user.phone || ""}
                   placeholder="Phone number"
+                  pattern="^[0-9]+$"
+                  title="Phone number must contain only numbers."
                   required
                 />
               </div>

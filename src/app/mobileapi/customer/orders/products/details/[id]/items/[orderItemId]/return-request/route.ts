@@ -22,7 +22,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string; orderItemId: string }> }
 ) {
   try {
-    const auth = getMobileCustomerAuth(request)
+    const auth = await getMobileCustomerAuth(request)
     if (!auth.ok) {
       return NextResponse.json({ success: false, error: "Unauthorized. Valid customer token required." }, { status: 401 })
     }

@@ -20,8 +20,7 @@ export async function POST(request: Request) {
     })
 
     if (!user) {
-      // Generic response to prevent account enumeration
-      return NextResponse.json({ message: "If an account with this email exists, OTP has been sent." }, { status: 200 })
+      return NextResponse.json({ error: "No account found with this email." }, { status: 404 })
     }
     if (!user.isEmailVerified) {
       return NextResponse.json({ error: "Please verify your email first before OTP login." }, { status: 400 })

@@ -162,11 +162,7 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
     }
 
     // Generate JWT tokens - removed deviceId and platform
-    const tokens = generateMobileTokens({
-      userId: user.id,
-      email: user.email,
-      role: user.role
-    })
+    const tokens = generateMobileTokens({ userId: user.id, email: user.email, role: user.role, passwordHash: user.password })
 
     // Remove password from user object
     const { password: _, ...userWithoutPassword } = user
@@ -174,6 +170,7 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
     const UserDetails = await prisma.user.findUniqueOrThrow({
       where: { id: user.id },
       select: {
+        password: true,
         id: true,
         name: true,
         email: true,

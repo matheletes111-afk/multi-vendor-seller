@@ -129,7 +129,7 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
         isEmailVerified: true,
         createdAt: true,
         updatedAt: true,
-        password: true // Include password for token generation if needed
+        password: true // Include password for token generation
       },
     })
 
@@ -150,6 +150,7 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
         userId: user.id,
         email: user.email,
         role: user.role,
+        passwordHash: user.password,
       })
 
       // Remove sensitive data
@@ -214,6 +215,7 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
         emailOtpSentAt: null,
       },
       select: {
+        password: true,
         id: true,
         email: true,
         name: true,
@@ -235,6 +237,7 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
       role: updatedUser.role,
       deviceId: deviceId || undefined,
       platform: normalizedPlatform,
+      passwordHash: updatedUser.password,
     })
 
     // Return success with user details and tokens

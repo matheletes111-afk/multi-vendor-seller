@@ -56,6 +56,7 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
         ],
       },
       select: {
+        password: true,
         id: true,
         email: true,
         role: true,
@@ -75,11 +76,12 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
       data: { verifyEmailOtp: null, emailVerificationExpires: null, emailOtpSentAt: null },
     })
 
-    const tokens = generateMobileTokens({ userId: user.id, email: user.email, role: user.role })
+    const tokens = generateMobileTokens({ userId: user.id, email: user.email, role: user.role, passwordHash: user.password })
 
     const UserDetails = await prisma.user.findUniqueOrThrow({
       where: { id: user.id },
       select: {
+        password: true,
         id: true,
         name: true,
         email: true,

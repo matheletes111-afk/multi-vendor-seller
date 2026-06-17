@@ -105,6 +105,21 @@ export async function verifyMobileHotelRestaurantAuth(
     };
   }
 
+  const tokenHasPassword = decoded.passwordHash != null;
+  const dbHasPassword = user.password != null;
+  if (
+    (tokenHasPassword && user.password !== decoded.passwordHash) ||
+    (dbHasPassword && user.password !== decoded.passwordHash)
+  ) {
+    return {
+      success: false,
+      errorResponse: NextResponse.json(
+        { success: false, error: "Session expired due to password change. Please login again." },
+        { status: 401 }
+      ),
+    };
+  }
+
   let sellerRecord = null;
   if (targetRole === UserRole.SELLER_RESTAURANT) {
     sellerRecord = user.restaurantSeller;

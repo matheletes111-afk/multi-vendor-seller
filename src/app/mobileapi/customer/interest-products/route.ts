@@ -118,7 +118,7 @@ function formatProductResponse(product: any): ProductResponse {
 export async function GET(request: NextRequest): Promise<NextResponse<InterestProductsResponse>> {
   try {
     // Authenticate user
-    const auth = getMobileCustomerAuth(request)
+    const auth = await getMobileCustomerAuth(request)
     if (!auth.ok) {
       return NextResponse.json(
         { success: false, error: auth.error },

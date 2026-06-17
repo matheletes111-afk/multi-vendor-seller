@@ -51,7 +51,7 @@ const COMMISSION_RATE = 10
 
 /** POST /mobileapi/customer/checkout/place-order — create one order with item-level seller ownership. Auth: Bearer token (customer). */
 export async function POST(request: NextRequest) {
-  const auth = getMobileCustomerAuth(request)
+  const auth = await getMobileCustomerAuth(request)
   if (!auth.ok) return unauthorized()
 
   let body: unknown

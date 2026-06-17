@@ -37,7 +37,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<ClickRespo
       return NextResponse.json({ success: false, error: "adId is required" }, { status: 400 })
     }
 
-    const auth = getMobileCustomerAuth(request)
+    const auth = await getMobileCustomerAuth(request)
     const userId = auth.ok ? auth.userId : null
     const { sessionId, hadCookie } = getOrCreateSessionId(request)
 
@@ -90,7 +90,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<ClickResp
       return NextResponse.json({ success: false, error: "adId is required" }, { status: 400 })
     }
 
-    const auth = getMobileCustomerAuth(request)
+    const auth = await getMobileCustomerAuth(request)
     const userId = auth.ok ? auth.userId : null
     const { sessionId, hadCookie } = getOrCreateSessionId(request)
 

@@ -67,7 +67,12 @@ export function ProfilePictureInput({
         fileInputRef.current.files = dataTransfer.files;
       }
       setPreviewUrl(URL.createObjectURL(compressed));
-    } catch {
+    } catch (error) {
+      if (error instanceof Error && error.message.includes("dimensions exceed")) {
+        alert(error.message);
+        e.target.value = "";
+        return;
+      }
       if (file.size > MAX_BYTES) {
         alert(`Image must be under ${MAX_MB} MB`);
         e.target.value = "";

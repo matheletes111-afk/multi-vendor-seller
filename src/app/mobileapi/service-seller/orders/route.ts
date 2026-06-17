@@ -7,7 +7,7 @@ import { deriveOrderStatus } from "@/lib/order-status"
 
 /** GET orders for current service seller (mobile). */
 export async function GET(request: NextRequest) {
-  const authStatus = getMobileSellerAuth(request, UserRole.SELLER_SERVICE)
+  const authStatus = await getMobileSellerAuth(request, UserRole.SELLER_SERVICE)
   if (!authStatus.ok) {
     if (authStatus.error === "unauthorized") return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })

@@ -117,7 +117,7 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
         return NextResponse.json<ErrorResponse>(
           {
             success: false,
-            error: "This information could not be registered. Please try again or contact support."
+            error: "Email or mobile number is already registered"
           },
           { status: 400 }
         )
@@ -133,7 +133,7 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
       return NextResponse.json<ErrorResponse>(
         { 
           success: false,
-          error: "This information could not be registered. Please try again or contact support."
+          error: "Email or mobile number is already registered"
         },
         { status: 400 }
       )

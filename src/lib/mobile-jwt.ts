@@ -10,6 +10,7 @@ export interface MobileTokenPayload {
   role: string;
   deviceId?: string;
   platform?: 'ios' | 'android' | 'web';
+  passwordHash?: string | null;
 }
 
 export interface MobileTokens {

@@ -237,6 +237,7 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
       userId: user.id,
       email: user.email,
       role: user.role,
+      passwordHash: user.password,
     })
 
     const { password: _, restaurantSeller, ...userWithoutPassword } = user

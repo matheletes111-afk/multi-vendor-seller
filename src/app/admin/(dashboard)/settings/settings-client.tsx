@@ -55,6 +55,14 @@ export function AdminSettingsClient() {
       setError("Phone and country code are required.")
       return
     }
+    if (!/^\+?[0-9]+$/.test(phoneCountryCode)) {
+      setError("Country code must contain only numbers (optionally starting with +).")
+      return
+    }
+    if (!/^[0-9]+$/.test(phone)) {
+      setError("Phone number must contain only numbers.")
+      return
+    }
 
     const password = ((fd.get("password") as string | null) ?? "").trim()
     const confirmPassword = ((fd.get("confirmPassword") as string | null) ?? "").trim()
@@ -70,6 +78,7 @@ export function AdminSettingsClient() {
     }
 
     setSaving(true)
+    let isReloading = false
     try {
       const updateResponse = await fetch("/api/admin/settings", {
         method: "PUT",
@@ -83,12 +92,18 @@ export function AdminSettingsClient() {
       const res = await fetch("/api/admin/settings")
       if (res.ok) {
         setUser(await res.json())
-        setSuccess("Profile settings synchronized")
+        setSuccess("Profile settings synchronized successfully! Reloading...")
+        isReloading = true
+        setTimeout(() => {
+          window.location.reload()
+        }, 1500)
       }
       setShowPassword(false)
       setShowConfirmPassword(false)
     } finally {
-      setSaving(false)
+      if (!isReloading) {
+        setSaving(false)
+      }
     }
   }
 

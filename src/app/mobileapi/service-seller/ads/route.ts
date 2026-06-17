@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic"
  * List ads for the authenticated service seller.
  */
 export async function GET(request: NextRequest) {
-  const authStatus = getMobileSellerAuth(request, UserRole.SELLER_SERVICE)
+  const authStatus = await getMobileSellerAuth(request, UserRole.SELLER_SERVICE)
   if (!authStatus.ok) {
     if (authStatus.error === "unauthorized") return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 })
     return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 })
@@ -76,7 +76,7 @@ export async function GET(request: NextRequest) {
  * Supports multipart/form-data for file uploads.
  */
 export async function POST(request: NextRequest) {
-  const authStatus = getMobileSellerAuth(request, UserRole.SELLER_SERVICE)
+  const authStatus = await getMobileSellerAuth(request, UserRole.SELLER_SERVICE)
   if (!authStatus.ok) {
     if (authStatus.error === "unauthorized") return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 })
     return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 })

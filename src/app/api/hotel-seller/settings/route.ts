@@ -73,8 +73,18 @@ export async function PUT(request: NextRequest) {
 
         const userData: any = {}
         if (name) userData.name = name
-        if (phone) userData.phone = phone
-        if (phoneCountryCode) userData.phoneCountryCode = phoneCountryCode
+        if (phone) {
+            if (!/^[0-9]+$/.test(phone)) {
+                return NextResponse.json({ error: "Phone number must contain only numbers." }, { status: 400 })
+            }
+            userData.phone = phone
+        }
+        if (phoneCountryCode) {
+            if (!/^\+?[0-9]+$/.test(phoneCountryCode)) {
+                return NextResponse.json({ error: "Country code must contain only numbers (optionally starting with +)." }, { status: 400 })
+            }
+            userData.phoneCountryCode = phoneCountryCode
+        }
         if (password) {
             const passwordValidation = validatePassword(password)
             if (!passwordValidation.isValid) {

@@ -13,7 +13,7 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const authStatus = getMobileSellerAuth(request, UserRole.SELLER_PRODUCT)
+  const authStatus = await getMobileSellerAuth(request, UserRole.SELLER_PRODUCT)
   if (!authStatus.ok) {
     if (authStatus.error === "unauthorized") return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 })
     return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 })
@@ -60,7 +60,7 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const authStatus = getMobileSellerAuth(request, UserRole.SELLER_PRODUCT)
+  const authStatus = await getMobileSellerAuth(request, UserRole.SELLER_PRODUCT)
   if (!authStatus.ok) {
     if (authStatus.error === "unauthorized") return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 })
     return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 })
@@ -117,7 +117,7 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const authStatus = getMobileSellerAuth(request, UserRole.SELLER_PRODUCT)
+  const authStatus = await getMobileSellerAuth(request, UserRole.SELLER_PRODUCT)
   if (!authStatus.ok) {
     if (authStatus.error === "unauthorized") return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 })
     return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 })

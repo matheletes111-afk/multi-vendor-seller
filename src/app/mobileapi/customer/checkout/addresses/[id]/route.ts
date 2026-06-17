@@ -39,7 +39,7 @@ function toAddressApi(row: {
 
 /** PATCH /mobileapi/customer/checkout/addresses/[id] — update address. Auth: Bearer token (customer). */
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const auth = getMobileCustomerAuth(request)
+  const auth = await getMobileCustomerAuth(request)
   if (!auth.ok) return unauthorized()
 
   const { id: addressId } = await params
@@ -122,7 +122,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
 /** DELETE /mobileapi/customer/checkout/addresses/[id] — delete address. Auth: Bearer token (customer). */
 export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const auth = getMobileCustomerAuth(request)
+  const auth = await getMobileCustomerAuth(request)
   if (!auth.ok) return unauthorized()
 
   const { id: addressId } = await params

@@ -91,11 +91,31 @@ export function SettingsClient() {
     setSuccess(null)
 
     const formData = new FormData(e.currentTarget)
+    if (section === "user") {
+        const phone = (formData.get("phone") as string | null)?.trim()
+        const phoneCountryCode = (formData.get("phoneCountryCode") as string | null)?.trim()
+        if (!phone || !phoneCountryCode) {
+            setError("Phone and country code are required.")
+            setSaving(null)
+            return
+        }
+        if (!/^\+?[0-9]+$/.test(phoneCountryCode)) {
+            setError("Country code must contain only numbers (optionally starting with +).")
+            setSaving(null)
+            return
+        }
+        if (!/^[0-9]+$/.test(phone)) {
+            setError("Phone number must contain only numbers.")
+            setSaving(null)
+            return
+        }
+    }
     
     // Convert checkbox/radio values for JSON update if applicable
     // Note: The /onboarding API can handle these, but here we update the main settings API
     // We might need to update the settings PUT handler to handle all these sections.
 
+    let isReloading = false
     try {
         let res: Response
         const hasFiles = Array.from(formData.values()).some(v => v instanceof File && v.size > 0)
@@ -135,14 +155,25 @@ export function SettingsClient() {
             throw new Error(data.error || "Failed to update settings")
         }
 
-        setSuccess(`${section.charAt(0).toUpperCase() + section.slice(1)} details updated successfully!`)
-        // Refresh seller data
-        const refresh = await fetch("/api/product-seller/settings")
-        if (refresh.ok) setSeller(await refresh.json())
+        isReloading = false
+        if (section === "user") {
+            setSuccess("Profile details updated successfully! Reloading...")
+            isReloading = true
+            setTimeout(() => {
+                window.location.reload()
+            }, 1500)
+        } else {
+            setSuccess(`${section.charAt(0).toUpperCase() + section.slice(1)} details updated successfully!`)
+            // Refresh seller data
+            const refresh = await fetch("/api/product-seller/settings")
+            if (refresh.ok) setSeller(await refresh.json())
+        }
     } catch (err: any) {
         setError(err.message)
     } finally {
-        setSaving(null)
+        if (!isReloading) {
+            setSaving(null)
+        }
     }
   }
 

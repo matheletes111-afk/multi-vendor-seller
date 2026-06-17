@@ -5,6 +5,7 @@ import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { isAdmin } from "@/lib/rbac"
 import { uploadPublicFile } from "@/lib/upload-public-file"
+import { sanitizeInput } from "@/lib/html-sanitization"
 
 function getImageExtFromContentType(contentType?: string | null) {
   const ct = (contentType || "").toLowerCase()
@@ -49,6 +50,12 @@ export async function PUT(request: NextRequest) {
     if (!normalizedPhone || !normalizedCountryCode) {
       return "Phone and country code are required."
     }
+    if (!/^\+?[0-9]+$/.test(normalizedCountryCode)) {
+      return "Country code must contain only numbers (optionally starting with +)."
+    }
+    if (!/^[0-9]+$/.test(normalizedPhone)) {
+      return "Phone number must contain only numbers."
+    }
     return null
   }
 
@@ -63,7 +70,7 @@ export async function PUT(request: NextRequest) {
 
   if (contentType.includes("multipart/form-data")) {
     const formData = await request.formData()
-    const name = (formData.get("name") as string | null)?.trim() || undefined
+    const name = formData.get("name") !== null ? sanitizeInput(formData.get("name") as string) : undefined
     const imageUrl = (formData.get("image") as string | null)?.trim() || undefined
     const phone = (formData.get("phone") as string | null) ?? ""
     const phoneCountryCode = (formData.get("phoneCountryCode") as string | null) ?? ""
@@ -135,7 +142,9 @@ export async function PUT(request: NextRequest) {
       currentPassword?: string
       baseCommission?: number
     }
-    if (body.name !== undefined) userData.name = body.name
+    if (body.name !== undefined) {
+      userData.name = typeof body.name === "string" ? sanitizeInput(body.name) : undefined
+    }
     if (body.image !== undefined) userData.image = body.image
     if (body.phone !== undefined) userData.phone = body.phone || null
     if (body.phoneCountryCode !== undefined) userData.phoneCountryCode = body.phoneCountryCode || null
