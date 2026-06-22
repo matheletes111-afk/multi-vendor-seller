@@ -355,8 +355,29 @@ export async function uploadPublicFile(args: UploadArgs): Promise<string> {
   let { buffer } = args
   const safeExt = ext && ext.startsWith(".") ? ext : `.${String(ext || "").replace(/^\.+/, "") || "bin"}`
 
+  // Map generic content type (e.g. application/octet-stream) to standard content type based on extension
+  let finalContentType = contentType
+  const cleanType = (contentType || "").toLowerCase().trim()
+  if (!cleanType || cleanType === "application/octet-stream") {
+    const extensionToContentType: Record<string, string> = {
+      ".jpg": "image/jpeg",
+      ".jpeg": "image/jpeg",
+      ".png": "image/png",
+      ".gif": "image/gif",
+      ".webp": "image/webp",
+      ".mp4": "video/mp4",
+      ".webm": "video/webm",
+      ".mov": "video/quicktime",
+      ".pdf": "application/pdf",
+    }
+    const mappedType = extensionToContentType[safeExt.toLowerCase().trim()]
+    if (mappedType) {
+      finalContentType = mappedType
+    }
+  }
+
   // Centralized security guard for file validation
-  validateFileSignature(buffer, safeExt, contentType)
+  validateFileSignature(buffer, safeExt, finalContentType)
 
   // Strip EXIF / IPTC / XMP metadata from image buffers before storage (Issue #17)
   buffer = stripImageMetadata(buffer, safeExt)
@@ -389,7 +410,7 @@ export async function uploadPublicFile(args: UploadArgs): Promise<string> {
         Bucket: bucket,
         Key: key,
         Body: buffer,
-        ContentType: contentType,
+        ContentType: finalContentType,
       })
     )
   } catch (err) {
