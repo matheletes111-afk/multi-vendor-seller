@@ -28,6 +28,7 @@ interface SuccessResponse {
       email: string
       name: string | null
       role: UserRole
+      sellerType: string
       phone: string | null
       phoneCountryCode: string | null
       isEmailVerified: boolean
@@ -161,6 +162,7 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
               email: u.email,
               name: u.name,
               role: u.role,
+              sellerType: "restaurant",
               phone: u.phone,
               phoneCountryCode: u.phoneCountryCode,
               isEmailVerified: u.isEmailVerified ?? false,
@@ -243,6 +245,7 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
               email: existingUser.email,
               name: existingUser.name,
               role: existingUser.role,
+              sellerType: "restaurant",
               phone: existingUser.phone,
               phoneCountryCode: existingUser.phoneCountryCode,
               isEmailVerified: existingUser.isEmailVerified ?? false,

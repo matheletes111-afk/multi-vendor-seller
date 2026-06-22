@@ -45,6 +45,7 @@ interface SuccessResponse {
     email: string
     name: string | null
     role: UserRole
+    sellerType: string
     requiresVerification: true
     verificationDetails: VerificationDetails
     verifyUrl: string
@@ -235,6 +236,7 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
             email: user.email,
             name: user.name,
             role: user.role,
+            sellerType: "service",
             requiresVerification: true,
             verificationDetails: {
               method: "OTP",
@@ -258,6 +260,7 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
           email: user.email,
           name: user.name,
           role: user.role,
+          sellerType: "service",
           requiresVerification: true,
           verificationDetails: {
             method: "OTP",

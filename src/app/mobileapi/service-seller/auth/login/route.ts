@@ -49,7 +49,7 @@ interface SuccessResponse {
   success: true
   message: string
   data: {
-    user: Omit<UserWithSeller, 'password' | 'seller'> & { sellerInfo: SellerInfo | null }
+    user: Omit<UserWithSeller, 'password' | 'seller'> & { sellerInfo: SellerInfo | null; sellerType: string }
     tokens: TokenResponse
     sessionInfo: {
       expiresIn: number
@@ -264,6 +264,7 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
         data: {
           user: {
             ...userWithoutPassword,
+            sellerType: "service",
             sellerInfo: {
               ...seller,
               mobileStep: Math.max(1, seller.onboardingStep - 1)
