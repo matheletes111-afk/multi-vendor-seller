@@ -27,6 +27,7 @@ interface AlreadyVerifiedResponse {
     isEmailVerified: true
     approvalStatus: "PENDING"
     loginAvailable: true
+    sellerType: string
   }
 }
 
@@ -40,6 +41,7 @@ interface NewlyVerifiedResponse {
     approvalStatus: "PENDING"
     loginAvailable: true
     nextSteps: string
+    sellerType: string
   }
 }
 
@@ -143,7 +145,8 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
             email: user.email,
             isEmailVerified: true,
             approvalStatus: "PENDING",
-            loginAvailable: true
+            loginAvailable: true,
+            sellerType: "product"
           }
         },
         { status: 200 }
@@ -207,7 +210,8 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
           isEmailVerified: true,
           approvalStatus: "PENDING",
           loginAvailable: true,
-          nextSteps: "Please login to complete your onboarding process."
+          nextSteps: "Please login to complete your onboarding process.",
+          sellerType: "product"
         }
       },
       { status: 200 }

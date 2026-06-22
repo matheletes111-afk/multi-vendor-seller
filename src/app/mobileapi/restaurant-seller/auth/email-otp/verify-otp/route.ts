@@ -13,6 +13,7 @@ type ApiResponse =
           email: string
           name: string | null
           role: UserRole
+          sellerType: string
           phone: string | null
           phoneCountryCode: string | null
           isEmailVerified: boolean
@@ -91,6 +92,7 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
           email: user.email,
           name: user.name,
           role: user.role,
+          sellerType: "restaurant",
           phone: user.phone,
           phoneCountryCode: user.phoneCountryCode,
           isEmailVerified: user.isEmailVerified,

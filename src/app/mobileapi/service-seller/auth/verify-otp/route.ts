@@ -24,6 +24,7 @@ interface VerifiedResponseData {
   isEmailVerified: true
   approvalStatus: "PENDING"
   loginAvailable: true
+  sellerType: string
 }
 
 // Define success response for already verified
@@ -138,7 +139,8 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
         email: user.email,
         isEmailVerified: true,
         approvalStatus: "PENDING",
-        loginAvailable: true
+        loginAvailable: true,
+        sellerType: "service"
       }
 
       return NextResponse.json<AlreadyVerifiedResponse>(
@@ -204,7 +206,8 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
       isEmailVerified: true,
       approvalStatus: "PENDING",
       loginAvailable: true,
-      nextSteps: "Please login to complete your onboarding process."
+      nextSteps: "Please login to complete your onboarding process.",
+      sellerType: "service"
     }
 
     return NextResponse.json<NewlyVerifiedResponse>(

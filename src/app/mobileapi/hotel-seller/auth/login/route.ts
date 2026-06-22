@@ -43,7 +43,7 @@ interface SuccessResponse {
   success: true
   message: string
   data: {
-    user: Omit<UserWithHotelSeller, 'password' | 'hotelSeller'> & { sellerInfo: HotelSellerInfo | null }
+    user: Omit<UserWithHotelSeller, 'password' | 'hotelSeller'> & { sellerInfo: HotelSellerInfo | null; sellerType: string }
     tokens: TokenResponse
     sessionInfo: {
       expiresIn: number
@@ -249,6 +249,7 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
         data: {
           user: {
             ...userWithoutPassword,
+            sellerType: "hotel",
             sellerInfo: {
               ...hotelSeller,
               mobileStep: Math.max(1, hotelSeller.onboardingStep - 1)

@@ -39,7 +39,7 @@ interface SuccessResponse {
   success: true
   message: string
   data: {
-    user: UserWithoutPassword
+    user: any
     tokens: TokenResponse
     sessionInfo: {
       expiresIn: number
@@ -192,7 +192,10 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
         message: "Login successful",
         data: {
           // user: userWithoutPassword,
-          user: UserDetails,
+          user: {
+            ...UserDetails,
+            sellerType: null
+          },
           tokens,
           sessionInfo: {
             expiresIn: tokens.expiresIn,
