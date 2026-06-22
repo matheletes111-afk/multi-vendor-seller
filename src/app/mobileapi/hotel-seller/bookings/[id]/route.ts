@@ -11,8 +11,9 @@ export const dynamic = 'force-dynamic'
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id: bookingId } = await params
   const authStatus = getMobileHotelRestaurantSellerAuth(request, UserRole.SELLER_HOTEL)
   if (!authStatus.ok) {
     if (authStatus.error === "unauthorized") {
@@ -22,8 +23,7 @@ export async function GET(
   }
 
   const userId = authStatus.userId
-  const bookingId = params.id
-
+  
   try {
     const seller = await prisma.hotelSeller.findUnique({
       where: { userId }
