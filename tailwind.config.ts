@@ -3,7 +3,11 @@ import type { Config } from "tailwindcss"
 const config = {
   darkMode: ["class"],
   // Single src tree — avoids stale per-path tracking after moves/deletes (see Tailwind content resolution).
-  content: ["./src/**/*.{js,ts,jsx,tsx,mdx}"],
+  content: [
+    "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
+    "./src/app/**/*.{js,ts,jsx,tsx,mdx}",
+    "!./src/app/api/**/*"
+  ],
   prefix: "",
   theme: {
     container: {

@@ -1,0 +1,298 @@
+================================================================================
+HOTEL SELLER MOBILE API DOCUMENTATION: BOOKINGS & SETTINGS
+================================================================================
+
+--------------------------------------------------------------------------------
+1. BOOKINGS ENDPOINTS
+--------------------------------------------------------------------------------
+
+Note: Bookings in the Hotel Seller panel are READ-ONLY. The seller can view details
+and filter/search bookings, but status updates (e.g., PENDING, CONFIRMED, CANCELLED)
+are NOT managed or changed by the seller directly via the seller panel (matching 
+the current web seller panel behavior).
+
+### 1.1 GET LIST OF BOOKINGS
+--------------------------------------------------------------------------------
+Endpoint: GET /mobileapi/hotel-seller/bookings
+Headers:
+  Authorization: Bearer <token>
+
+Query Parameters (All optional):
+  - page: Page number (default: 1)
+  - perPage: Items per page (default: 10)
+  - hotelId: Filter by specific hotel ID
+  - status: Filter by booking status (e.g. "PENDING", "CONFIRMED", "CANCELLED")
+  - q: Search string matching guestName or guestPhone
+  - checkIn: Filter checkIn date (Greater than or equal to this date, format: YYYY-MM-DD)
+  - checkOut: Filter checkOut date (Less than or equal to this date, format: YYYY-MM-DD)
+
+Response (Success - 200 OK):
+{
+  "success": true,
+  "data": [
+    {
+      "id": "booking_id_123",
+      "bookingCode": "BK-100234",
+      "hotelId": "hotel_id_abc",
+      "roomId": "room_id_xyz",
+      "userId": "user_id_customer",
+      "guestName": "John Doe",
+      "guestEmail": "john@example.com",
+      "guestPhone": "1234567890",
+      "checkIn": "2026-06-20T00:00:00.000Z",
+      "checkOut": "2026-06-25T00:00:00.000Z",
+      "totalPrice": 500,
+      "status": "CONFIRMED",
+      "createdAt": "2026-06-18T10:00:00.000Z",
+      "room": {
+        "id": "room_id_xyz",
+        "name": "Deluxe Suite"
+      },
+      "hotel": {
+        "id": "hotel_id_abc",
+        "name": "Grand Palace Hotel",
+        "city": "Mumbai"
+      },
+      "user": {
+        "name": "John Doe",
+        "email": "john@example.com"
+      }
+    }
+  ],
+  "totalCount": 1,
+  "totalPages": 1,
+  "page": 1,
+  "perPage": 10
+}
+
+Response (Unauthorized - 401):
+{
+  "success": false,
+  "error": "Unauthorized"
+}
+
+
+### 1.2 GET SINGLE BOOKING DETAIL
+--------------------------------------------------------------------------------
+Endpoint: GET /mobileapi/hotel-seller/bookings/[id]
+Headers:
+  Authorization: Bearer <token>
+
+Response (Success - 200 OK):
+{
+  "success": true,
+  "data": {
+    "id": "booking_id_123",
+    "bookingCode": "BK-100234",
+    "hotelId": "hotel_id_abc",
+    "roomId": "room_id_xyz",
+    "userId": "user_id_customer",
+    "guestName": "John Doe",
+    "guestEmail": "john@example.com",
+    "guestPhone": "1234567890",
+    "checkIn": "2026-06-20T00:00:00.000Z",
+    "checkOut": "2026-06-25T00:00:00.000Z",
+    "totalPrice": 500,
+    "status": "CONFIRMED",
+    "createdAt": "2026-06-18T10:00:00.000Z",
+    "room": {
+      "id": "room_id_xyz",
+      "name": "Deluxe Suite",
+      "price": 100,
+      "roomType": "DELUXE"
+    },
+    "hotel": {
+      "id": "hotel_id_abc",
+      "name": "Grand Palace Hotel",
+      "city": "Mumbai",
+      "address": "123 Marine Drive"
+    },
+    "user": {
+      "id": "user_id_customer",
+      "name": "John Doe",
+      "email": "john@example.com",
+      "phone": "1234567890"
+    }
+  }
+}
+
+Response (Not Found - 404):
+{
+  "success": false,
+  "error": "Booking not found"
+}
+
+
+--------------------------------------------------------------------------------
+2. SETTINGS ENDPOINTS
+--------------------------------------------------------------------------------
+
+### 2.1 GET SELLER SETTINGS PROFILE
+--------------------------------------------------------------------------------
+Endpoint: GET /mobileapi/hotel-seller/settings
+Headers:
+  Authorization: Bearer <token>
+
+Response (Success - 200 OK):
+{
+  "success": true,
+  "data": {
+    "id": "seller_id_xyz",
+    "userId": "user_id_123",
+    "commissionRate": 12.5,
+    "estimateHotelCount": 2,
+    "estimateRoomCount": 10,
+    "categories": "[\"Luxury\",\"Business\"]",
+    "logo": "https://s3.../logo.png",
+    "banner": "https://s3.../banner.png",
+    "mainPhoto": "https://s3.../photo.png",
+    "user": {
+      "id": "user_id_123",
+      "name": "John Seller",
+      "email": "seller@example.com",
+      "image": "https://s3.../profile.png",
+      "phone": "9876543210",
+      "phoneCountryCode": "+91"
+    },
+    "businessInfo": {
+      "id": "bus_info_id",
+      "businessName": "XYZ Hotels Group",
+      "businessType": "Private Limited",
+      "taxIdNumber": "TAX12345",
+      "haveGst": true,
+      "gstInvNo": "GSTIN9988",
+      "gstCustomerName": "XYZ Hotels GST",
+      "landmark": "Near Central Park",
+      "city": "Mumbai",
+      "district": "Mumbai",
+      "state": "Maharashtra",
+      "managerName": "Jane Manager",
+      "pocContact": "9999888877",
+      "busRegCertUrl": "https://s3.../busReg.pdf",
+      "cityCouncilCertUrl": "https://s3.../cityCert.pdf",
+      "gstTinCertUrl": "https://s3.../gstCert.pdf",
+      "addressProofUrl": "https://s3.../address.pdf"
+    },
+    "kyc": {
+      "id": "kyc_id",
+      "idType": "PASSPORT",
+      "idNumber": "PP123456",
+      "idFrontUrl": "https://s3.../idfront.jpg",
+      "idBackUrl": "https://s3.../idback.jpg",
+      "selfieUrl": "https://s3.../selfie.jpg"
+    },
+    "bankDetails": {
+      "id": "bank_id",
+      "bankName": "National Bank",
+      "bankAddress": "Downtown Branch",
+      "accountHolderName": "John Seller",
+      "accountNumber": "999988887777",
+      "bbanNumber": "BBAN12345",
+      "branchName": "Downtown",
+      "mobileMoneyOption": "None",
+      "preferredPayoutMethod": "BANK_TRANSFER",
+      "passbookUrl": "https://s3.../passbook.jpg",
+      "bankLetterUrl": "https://s3.../letter.pdf"
+    },
+    "agreement": {
+      "id": "agree_id",
+      "signedAt": "2026-06-15T09:00:00.000Z"
+    }
+  }
+}
+
+
+### 2.2 UPDATE SELLER SETTINGS BY SECTION
+--------------------------------------------------------------------------------
+Endpoint: PUT /mobileapi/hotel-seller/settings
+Headers:
+  Authorization: Bearer <token>
+  Content-Type: multipart/form-data
+
+This endpoint is section-based. You must submit the form field `section` to determine
+what fields are updated.
+
+--------------------
+A) Section: "user"
+--------------------
+Form-Data parameters:
+  - section: "user" (required)
+  - name: String (optional)
+  - phone: String containing digits only (optional)
+  - phoneCountryCode: String containing numbers only, optionally starting with + (optional)
+  - password: New password string (optional)
+  - currentPassword: Required if updating `password`
+  - profileImage: File (image upload, optional)
+
+--------------------
+B) Section: "business"
+--------------------
+Form-Data parameters:
+  - section: "business" (required)
+  - businessName: String (optional)
+  - businessType: String (optional)
+  - taxIdNumber: String (optional)
+  - haveGst: "true" | "false" (optional)
+  - gstInvNo: String (optional, active only if haveGst is "true")
+  - gstCustomerName: String (optional, active only if haveGst is "true")
+  - landmark: String (optional)
+  - city: String (optional)
+  - district: String (optional)
+  - state: String (optional)
+  - managerName: String (optional)
+  - pocContact: String (optional)
+  - busRegCert: File (.pdf / image, optional)
+  - cityCouncilCert: File (.pdf / image, optional)
+  - gstTinCert: File (.pdf / image, optional)
+  - addressProof: File (.pdf / image, optional)
+
+--------------------
+C) Section: "kyc"
+--------------------
+Form-Data parameters:
+  - section: "kyc" (required)
+  - idType: String (optional)
+  - idNumber: String (optional)
+  - idFront: File (image, optional)
+  - idBack: File (image, optional)
+  - selfie: File (image, optional)
+
+--------------------
+D) Section: "bank"
+--------------------
+Form-Data parameters:
+  - section: "bank" (required)
+  - bankName: String (optional)
+  - bankAddress: String (optional)
+  - accountHolderName: String (optional)
+  - accountNumber: String (optional)
+  - bbanNumber: String (optional)
+  - branchName: String (optional)
+  - mobileMoneyOption: String (optional)
+  - preferredPayoutMethod: String (optional)
+  - passbook: File (image, optional)
+  - bankLetter: File (.pdf / image, optional)
+
+--------------------
+E) Section: "property"
+--------------------
+Form-Data parameters:
+  - section: "property" (required)
+  - estimateHotelCount: Integer string (optional)
+  - estimateRoomCount: Integer string (optional)
+  - categories: Multiple string fields (optional, e.g. categories="Luxury", categories="Budget")
+  - logo: File (image, optional)
+  - banner: File (image, optional)
+  - mainPhoto: File (image, optional)
+
+Response (Success - 200 OK):
+{
+  "success": true
+}
+
+Response (Error - 400 Bad Request):
+{
+  "success": false,
+  "error": "Error details, e.g. Incorrect current password"
+}
+================================================================================
