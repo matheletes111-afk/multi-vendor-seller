@@ -1,0 +1,456 @@
+========================================================================
+Meeem - Hotel Seller Mobile API Documentation
+========================================================================
+
+Base URL: http://<your-server-domain>/mobileapi/hotel-seller
+
+Authentication:
+  All endpoints require a Bearer token in the Authorization header:
+  Authorization: Bearer <mobile_access_token>
+
+Response Format:
+  All responses return a JSON object with:
+  - success: boolean
+  - data: (object or array) returned only when success is true
+  - error: string error message, returned only when success is false
+
+========================================================================
+HOW TO INTEGRATE: UNIFIED VS STANDALONE CRUD
+========================================================================
+Mobile developers have two options to manage Hotels and Rooms:
+
+OPTION A: Unified CRUD (Recommended - Same as Web Panel)
+  Manage both Hotels and Rooms in a single page flow using ONLY the "1. HOTEL ENDPOINTS".
+  - To Create Hotel + Rooms at once: Use "POST /hotels" with the "rooms" JSON field.
+  - To Update Hotel + Sync/Add/Delete Rooms: Use "PUT /hotels/[id]" with the "rooms" JSON field.
+  - If you choose this option, you can completely IGNORE "2. ROOM ENDPOINTS".
+
+OPTION B: Standalone CRUD
+  Manage Hotels and Rooms separately.
+  - Create/Update/Delete Hotel info using the "/hotels" endpoints.
+  - Create/Update/Delete Rooms independently using the "/rooms" endpoints.
+========================================================================
+
+
+------------------------------------------------------------------------
+1. HOTEL ENDPOINTS
+------------------------------------------------------------------------
+
+A. List Hotels
+   Endpoint: GET /hotels
+   Query Parameters:
+     - page: (optional, default: 1) Page number
+     - perPage: (optional, default: 10) Items per page
+     - q: (optional) Search string for hotel name
+     - city: (optional) Filter by city
+     - rating: (optional) Filter by star rating (1-5)
+     - minPrice: (optional) Filter hotels having rooms >= minPrice
+     - maxPrice: (optional) Filter hotels having rooms <= maxPrice
+     - capacity: (optional) Filter hotels having rooms with capacity >= adults
+
+   Example Request:
+     GET /mobileapi/hotel-seller/hotels?page=1&perPage=5&q=Grand
+
+   Example Response (Success):
+     {
+       "success": true,
+       "data": {
+         "hotels": [
+           {
+             "id": "clxb932p80001uzd5nklk098a",
+             "hotelSellerId": "clxb821a30000uzd5abcdefgh",
+             "name": "Grand Palace Hotel",
+             "description": "Luxurious stay in the city center.",
+             "starRating": 5,
+             "amenities": ["Wifi", "Pool", "Gym", "Spa"],
+             "address": "123 Main Street",
+             "city": "Mumbai",
+             "state": "Maharashtra",
+             "lat": 18.922,
+             "lng": 72.834,
+             "logo": "https://bucket.s3.amazonaws.com/uploads/hotels/logos/logo.jpg",
+             "banner": "https://bucket.s3.amazonaws.com/uploads/hotels/banners/banner.jpg",
+             "images": ["https://bucket.s3.amazonaws.com/uploads/hotels/gallery/img1.jpg"],
+             "isActive": true,
+             "isDeleted": false,
+             "createdAt": "2026-06-18T00:00:00.000Z",
+             "updatedAt": "2026-06-18T00:00:00.000Z",
+             "_count": {
+               "rooms": 4
+             }
+           }
+         ],
+         "pagination": {
+           "totalCount": 1,
+           "totalPages": 1,
+           "page": 1,
+           "perPage": 5
+         }
+       }
+     }
+
+B. Create Hotel (Supports S3 Image Upload & Optional Embedded Rooms Creation)
+   Endpoint: POST /hotels
+   Content-Type: multipart/form-data
+   Body Fields:
+     - name: (string, required) Hotel name
+     - description: (string) Description
+     - starRating: (number/string) Star rating (e.g. "4")
+     - amenities: (JSON string, e.g. '["Wifi", "Pool"]')
+     - checkInPolicy: (string) Check-in policy
+     - checkOutPolicy: (string) Check-out policy
+     - address: (string) Address
+     - city: (string) City
+     - state: (string) State
+     - lat: (string/number) Latitude
+     - lng: (string/number) Longitude
+     - logo: (binary file) Hotel logo image file
+     - banner: (binary file) Hotel banner image file
+     - images: (binary files) Array of hotel gallery images (use key "images" multiple times)
+     - rooms: (JSON string, optional) Array of rooms to create inline. E.g.:
+       '[
+         {
+           "name": "Deluxe Room",
+           "description": "Spacious deluxe room",
+           "price": 120.50,
+           "capacityAdults": 2,
+           "capacityChildren": 1,
+           "totalRooms": 5,
+           "amenities": ["Air Conditioning", "TV"]
+         }
+       ]'
+     - room_0_images: (binary files) Gallery images for the room at index 0 of the inline rooms array (key "room_0_images" multiple times)
+
+   Example Response (Success):
+     {
+       "success": true,
+       "data": {
+         "id": "clxb932p80001uzd5nklk098a",
+         "name": "Grand Palace Hotel",
+         ...
+       }
+     }
+
+C. Get Hotel Details
+   Endpoint: GET /hotels/[id]
+   Example Request:
+     GET /mobileapi/hotel-seller/hotels/clxb932p80001uzd5nklk098a
+
+   Example Response (Success):
+     {
+       "success": true,
+       "data": {
+         "id": "clxb932p80001uzd5nklk098a",
+         "name": "Grand Palace Hotel",
+         ...
+         "rooms": [
+           {
+             "id": "clxbc78a80002uzd5xyz98765",
+             "name": "Deluxe Room",
+             "price": 120.5,
+             ...
+           }
+         ]
+       }
+     }
+
+D. Update Hotel (Supports S3 Image Upload & Optional Embedded Rooms Sync)
+   Endpoint: PUT /hotels/[id]
+   Content-Type: multipart/form-data
+   Body Fields:
+     - name: (string) Hotel name
+     - description: (string) Description
+     - starRating: (number/string) Star rating
+     - amenities: (JSON string, e.g. '["Wifi", "Pool"]')
+     - checkInPolicy: (string) Check-in policy
+     - checkOutPolicy: (string) Check-out policy
+     - address: (string) Address
+     - city: (string) City
+     - state: (string) State
+     - lat: (string/number) Latitude
+     - lng: (string/number) Longitude
+     - existingImages: (JSON string, required) Array of existing hotel gallery image URLs to retain, e.g. '["https://url1.jpg"]'
+     - newImages: (binary files) Array of new hotel gallery images to add (key "newImages" multiple times)
+     - logo: (binary file, optional) New hotel logo image file
+     - banner: (binary file, optional) New hotel banner image file
+     - rooms: (JSON string, optional) Array of rooms to create, update, or delete.
+       - To update: include "id" and details.
+       - To delete: include "id" and "isDeleted": true.
+       - To create: do NOT include "id". E.g.:
+       '[
+         { "id": "room_id_1", "name": "Updated Room Name", "price": 130.00 },
+         { "id": "room_id_2", "isDeleted": true },
+         { "index": 0, "name": "New Added Room", "price": 95.00 }
+       ]'
+     - room_<room_id>_newImages: (binary files) New images for an existing room being updated (key "room_<room_id>_newImages" multiple times)
+     - room_new_<index>_images: (binary files) Images for a new room being created inline (key "room_new_<index>_images" multiple times)
+
+   Example Response (Success):
+     {
+       "success": true,
+       "data": {
+         "id": "clxb932p80001uzd5nklk098a",
+         "name": "Updated Grand Palace Hotel",
+         ...
+       }
+     }
+
+E. Delete Hotel
+   Endpoint: DELETE /hotels/[id]
+   Example Response (Success):
+     {
+       "success": true,
+       "message": "Hotel deleted successfully"
+     }
+
+
+------------------------------------------------------------------------
+2. ROOM ENDPOINTS
+------------------------------------------------------------------------
+
+A. List Rooms for a Hotel
+   Endpoint: GET /rooms?hotelId=[hotelId]
+   Query Parameters:
+     - hotelId: (string, required) The ID of the hotel to get rooms for.
+     - page: (optional, default: 1) Page number
+     - perPage: (optional, default: 10) Items per page
+
+   Example Response (Success):
+     {
+       "success": true,
+       "data": {
+         "rooms": [
+           {
+             "id": "clxbc78a80002uzd5xyz98765",
+             "hotelId": "clxb932p80001uzd5nklk098a",
+             "name": "Deluxe Room",
+             "description": "Double bed, sea view",
+             "price": 120.5,
+             "capacityAdults": 2,
+             "capacityChildren": 1,
+             "totalRooms": 5,
+             "amenities": ["Air Conditioning", "TV"],
+             "images": ["https://bucket.s3.amazonaws.com/uploads/rooms/gallery/room1.jpg"],
+             "isActive": true,
+             "isDeleted": false,
+             "createdAt": "2026-06-18T00:00:00.000Z",
+             "updatedAt": "2026-06-18T00:00:00.000Z"
+           }
+         ],
+         "pagination": {
+           "totalCount": 1,
+           "totalPages": 1,
+           "page": 1,
+           "perPage": 10
+         }
+       }
+     }
+
+B. Create Room
+   Endpoint: POST /rooms
+   Content-Type: multipart/form-data
+   Body Fields:
+     - hotelId: (string, required) ID of the hotel
+     - name: (string, required) Room type name
+     - description: (string) Description
+     - price: (number/string, required) Price per night
+     - capacityAdults: (number/string, default: 2) Max adults
+     - capacityChildren: (number/string, default: 0) Max children
+     - totalRooms: (number/string, default: 1) Total available rooms of this type
+     - amenities: (JSON string, e.g. '["TV", "AC"]')
+     - images: (binary files) Array of room gallery images (key "images" multiple times)
+
+   Example Response (Success):
+     {
+       "success": true,
+       "data": {
+         "id": "clxbc78a80002uzd5xyz98765",
+         "name": "Deluxe Room",
+         ...
+       }
+     }
+
+C. Get Room Details
+   Endpoint: GET /rooms/[id]
+   Example Response (Success):
+     {
+       "success": true,
+       "data": {
+         "id": "clxbc78a80002uzd5xyz98765",
+         "hotelId": "clxb932p80001uzd5nklk098a",
+         "name": "Deluxe Room",
+         ...
+       }
+     }
+
+D. Update Room (Supports S3 Image Upload)
+   Endpoint: PUT /rooms/[id]
+   Content-Type: multipart/form-data
+   Body Fields:
+     - name: (string) Room type name
+     - description: (string) Description
+     - price: (number/string) Price per night
+     - capacityAdults: (number/string) Max adults
+     - capacityChildren: (number/string) Max children
+     - totalRooms: (number/string) Total available rooms
+     - amenities: (JSON string, e.g. '["TV", "AC"]')
+     - existingImages: (JSON string, required) Array of existing room gallery image URLs to retain, e.g. '["https://url1.jpg"]'
+     - newImages: (binary files) Array of new room gallery images to add (key "newImages" multiple times)
+
+   Example Response (Success):
+     {
+       "success": true,
+       "data": {
+         "id": "clxbc78a80002uzd5xyz98765",
+         "name": "Super Deluxe Room",
+         ...
+       }
+     }
+
+E. Delete Room
+   Endpoint: DELETE /rooms/[id]
+   Example Response (Success):
+     {
+       "success": true,
+       "message": "Room deleted successfully"
+     }
+
+------------------------------------------------------------------------
+3. DASHBOARD OVERVIEW ENDPOINT
+------------------------------------------------------------------------
+
+A. Get Dashboard Overview
+   Endpoint: GET /overview
+   Example Response (Success):
+     {
+       "success": true,
+       "data": {
+         "subscription": {
+           "id": "sub_123",
+           "status": "ACTIVE",
+           "currentPeriodEnd": "2026-07-18T12:00:00.000Z",
+           "plan": {
+             "id": "plan_gold",
+             "name": "Gold Hotel Plan"
+           }
+         },
+         "commissionRate": 10.0,
+         "isGlobalRate": true,
+         "totalHotels": 1,
+         "totalRooms": 2,
+         "totalAdClicks": 45,
+         "estimateHotelCount": 20,
+         "estimateRoomCount": 100
+       }
+     }
+
+------------------------------------------------------------------------
+4. AD MANAGEMENT ENDPOINTS
+------------------------------------------------------------------------
+
+A. List Ads
+   Endpoint: GET /admanagement
+   Query Parameters:
+     - page: (optional, default: 1)
+     - perPage: (optional, default: 10)
+
+   Example Response (Success):
+     {
+       "success": true,
+       "data": {
+         "ads": [
+           {
+             "id": "ad_1",
+             "hotelSellerId": "seller_1",
+             "hotelId": "hotel_1",
+             "title": "Summer Sale",
+             "description": "50% off deluxe suites",
+             "creativeType": "IMAGE",
+             "creativeUrl": "https://bucket.s3.amazonaws.com/uploads/seller-ads/ad1.jpg",
+             "placements": ["WEB", "MOBILE"],
+             "status": "ACTIVE",
+             "totalBudget": 500,
+             "spentAmount": 12.5,
+             "maxCpc": 0.5,
+             "startAt": "2026-06-18T00:00:00.000Z",
+             "endAt": "2026-07-18T00:00:00.000Z",
+             "_count": { "adClicks": 25 }
+           }
+         ],
+         "pagination": {
+           "totalCount": 1,
+           "totalPages": 1,
+           "page": 1,
+           "perPage": 10
+         }
+       }
+     }
+
+B. Create Ad (Supports Multipart Upload)
+   Endpoint: POST /admanagement
+   Content-Type: multipart/form-data or application/json
+   Body Fields:
+     - adType: (string, default: "promote_product" or "own_ad")
+     - hotelId: (string, required if promoting hotel) ID of the hotel
+     - title: (string, required) Ad title
+     - description: (string) Ad description
+     - placements: (array/strings, e.g. "WEB" and "MOBILE") placements (use key multiple times in form-data)
+     - creativeType: (string, "IMAGE" or "VIDEO") Web creative type
+     - creativeFile: (binary file) Web creative image/video file
+     - creativeUrl: (string) Web creative URL if not uploading file
+     - mobilecreativeType: (string, "IMAGE" or "VIDEO") Mobile creative type
+     - mobilecreativeFile: (binary file) Mobile creative image/video file
+     - mobilecreativeUrl: (string) Mobile creative URL if not uploading file
+     - totalBudget: (number/string, required) Budget amount
+     - maxCpc: (number/string, optional) Max CPC (calculated if targetAudience is supplied)
+     - targetAudience: (number/string, optional) Target audience size
+     - startAt: (string, required) Start date ISO string
+     - endAt: (string, required) End date ISO string
+     - targetCountries: (JSON string or comma-separated string) e.g. '["US", "IN"]'
+     - targetAgeMin: (number) Min age
+     - targetAgeMax: (number) Max age
+     - expandAudience: (boolean/string) "true" or "on" to expand target audience
+
+   Example Response (Success):
+     {
+       "success": true,
+       "data": {
+         "id": "ad_2",
+         "title": "Summer Sale",
+         ...
+       }
+     }
+
+C. Get Ad Details
+   Endpoint: GET /admanagement/[id]
+   Example Response (Success):
+     {
+       "success": true,
+       "data": {
+         "id": "ad_1",
+         ...
+       }
+     }
+
+D. Pause or Resume Ad
+   Endpoint: PATCH /admanagement/[id]
+   Body Fields:
+     - status: (string, "PAUSED" or "ACTIVE") Status change requested.
+
+   Example Response (Success):
+     {
+       "success": true,
+       "data": {
+         "status": "PAUSED"
+       }
+     }
+
+E. End Ad
+   Endpoint: DELETE /admanagement/[id]
+   Example Response (Success):
+     {
+       "success": true,
+       "message": "Ad ended successfully"
+     }
+========================================================================
+

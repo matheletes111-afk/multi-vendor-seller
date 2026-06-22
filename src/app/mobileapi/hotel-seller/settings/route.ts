@@ -1,0 +1,328 @@
+import { NextRequest, NextResponse } from "next/server"
+import { prisma } from "@/lib/prisma"
+import { UserRole } from "@prisma/client"
+import path from "path"
+import bcrypt from "bcryptjs"
+import { getMobileHotelRestaurantSellerAuth } from "../../_helpers/hotel-restaurant-seller-auth"
+import { uploadPublicFile } from "@/lib/upload-public-file"
+import { validatePassword } from "@/lib/password-validation"
+import { sanitizeInput } from "@/lib/html-sanitization"
+
+export const dynamic = 'force-dynamic'
+
+function getImageExtFromContentType(contentType?: string | null) {
+  const ct = (contentType || "").toLowerCase()
+  if (ct.includes("png")) return ".png"
+  if (ct.includes("jpeg") || ct.includes("jpg")) return ".jpg"
+  if (ct.includes("webp")) return ".webp"
+  if (ct.includes("gif")) return ".gif"
+  return ".jpg"
+}
+
+/**
+ * GET /mobileapi/hotel-seller/settings
+ * Fetch full profile of the hotel seller.
+ */
+export async function GET(request: NextRequest) {
+  const authStatus = getMobileHotelRestaurantSellerAuth(request, UserRole.SELLER_HOTEL)
+  if (!authStatus.ok) {
+    if (authStatus.error === "unauthorized") {
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 })
+    }
+    return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 })
+  }
+
+  const userId = authStatus.userId
+
+  try {
+    const seller = await prisma.hotelSeller.findUnique({
+      where: { userId },
+      include: {
+        businessInfo: true,
+        kyc: true,
+        bankDetails: true,
+        agreement: true,
+        user: {
+          select: { id: true, name: true, email: true, image: true, phone: true, phoneCountryCode: true },
+        },
+      },
+    })
+
+    if (!seller) {
+      return NextResponse.json({ success: false, error: "Seller profile not found" }, { status: 404 })
+    }
+
+    return NextResponse.json({ success: true, data: seller })
+  } catch (error) {
+    console.error("Error in mobile settings GET API:", error)
+    return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 })
+  }
+}
+
+/**
+ * PUT /mobileapi/hotel-seller/settings
+ * Update settings by section (user, business, kyc, bank, property) via multipart/form-data.
+ */
+export async function PUT(request: NextRequest) {
+  const authStatus = getMobileHotelRestaurantSellerAuth(request, UserRole.SELLER_HOTEL)
+  if (!authStatus.ok) {
+    if (authStatus.error === "unauthorized") {
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 })
+    }
+    return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 })
+  }
+
+  const userId = authStatus.userId
+
+  try {
+    const seller = await prisma.hotelSeller.findUnique({
+      where: { userId },
+      include: { businessInfo: true, kyc: true, bankDetails: true }
+    })
+
+    if (!seller) {
+      return NextResponse.json({ success: false, error: "Seller profile not found" }, { status: 404 })
+    }
+
+    const contentType = request.headers.get("content-type") ?? ""
+    if (!contentType.includes("multipart/form-data")) {
+      return NextResponse.json({ success: false, error: "Content-Type must be multipart/form-data" }, { status: 400 })
+    }
+
+    const fd = await request.formData()
+    const section = fd.get("section") as string
+
+    if (!section) {
+      return NextResponse.json({ success: false, error: "section parameter is required" }, { status: 400 })
+    }
+
+    // 1. Handle User Profile
+    if (section === "user") {
+      const name = fd.get("name") !== null ? sanitizeInput(fd.get("name") as string) : undefined
+      const phone = (fd.get("phone") as string)?.trim()
+      const phoneCountryCode = (fd.get("phoneCountryCode") as string)?.trim()
+      const password = (fd.get("password") as string)?.trim()
+      const currentPassword = (fd.get("currentPassword") as string)?.trim() || ""
+      const profileImageFile = fd.get("profileImage") as File | null
+
+      const userData: any = {}
+      if (name) userData.name = name
+      if (phone) {
+        if (!/^[0-9]+$/.test(phone)) {
+          return NextResponse.json({ success: false, error: "Phone number must contain only numbers." }, { status: 400 })
+        }
+        userData.phone = phone
+      }
+      if (phoneCountryCode) {
+        if (!/^\+?[0-9]+$/.test(phoneCountryCode)) {
+          return NextResponse.json({ success: false, error: "Country code must contain only numbers (optionally starting with +)." }, { status: 400 })
+        }
+        userData.phoneCountryCode = phoneCountryCode
+      }
+      if (password) {
+        const passwordValidation = validatePassword(password)
+        if (!passwordValidation.isValid) {
+          return NextResponse.json({ success: false, error: passwordValidation.error }, { status: 400 })
+        }
+        const dbUser = await prisma.user.findUnique({
+          where: { id: userId },
+          select: { password: true }
+        })
+        if (dbUser?.password) {
+          if (!currentPassword) {
+            return NextResponse.json({ success: false, error: "Current password is required to change password" }, { status: 400 })
+          }
+          const isPasswordCorrect = await bcrypt.compare(currentPassword, dbUser.password)
+          if (!isPasswordCorrect) {
+            return NextResponse.json({ success: false, error: "Incorrect current password" }, { status: 400 })
+          }
+        }
+        userData.password = await bcrypt.hash(password, 10)
+      }
+
+      if (profileImageFile && profileImageFile.size > 0) {
+        const ext = path.extname(profileImageFile.name) || getImageExtFromContentType(profileImageFile.type)
+        userData.image = await uploadPublicFile({
+          folder: "profile",
+          ext,
+          contentType: profileImageFile.type,
+          buffer: Buffer.from(await profileImageFile.arrayBuffer()),
+          prefix: "profile",
+        })
+      }
+
+      if (Object.keys(userData).length > 0) {
+        await prisma.user.update({ where: { id: userId }, data: userData })
+      }
+    }
+
+    // 2. Handle Business Info
+    else if (section === "business") {
+      const businessName = (fd.get("businessName") as string)?.trim()
+      const businessType = (fd.get("businessType") as string)?.trim()
+      const taxIdNumber = (fd.get("taxIdNumber") as string)?.trim()
+      const haveGstRaw = fd.get("haveGst") as string
+      const gstInvNo = (fd.get("gstInvNo") as string)?.trim()
+      const gstCustomerName = (fd.get("gstCustomerName") as string)?.trim()
+      const landmark = (fd.get("landmark") as string)?.trim()
+      const city = (fd.get("city") as string)?.trim()
+      const district = (fd.get("district") as string)?.trim()
+      const state = (fd.get("state") as string)?.trim()
+      const busRegCert = fd.get("busRegCert") as File | null
+      const cityCouncilCert = fd.get("cityCouncilCert") as File | null
+      const gstTinCert = fd.get("gstTinCert") as File | null
+      const addressProof = fd.get("addressProof") as File | null
+
+      const managerName = (fd.get("managerName") as string)?.trim()
+      const pocContact = (fd.get("pocContact") as string)?.trim()
+
+      const busData: any = {
+        businessName, businessType, taxIdNumber, landmark, city, district, state, managerName, pocContact
+      }
+      if (haveGstRaw !== null) {
+        const h = haveGstRaw === "true"
+        busData.haveGst = h
+        busData.gstInvNo = h ? gstInvNo : null
+        busData.gstCustomerName = h ? gstCustomerName : null
+      }
+
+      if (busRegCert && busRegCert.size > 0) {
+        busData.busRegCertUrl = await uploadPublicFile({
+          folder: "hotel-onboarding/business",
+          ext: path.extname(busRegCert.name) || ".pdf",
+          contentType: busRegCert.type,
+          buffer: Buffer.from(await busRegCert.arrayBuffer()),
+          prefix: "hotel-bus-reg",
+        })
+      }
+      if (cityCouncilCert && cityCouncilCert.size > 0) {
+        busData.cityCouncilCertUrl = await uploadPublicFile({
+          folder: "hotel-onboarding/business",
+          ext: path.extname(cityCouncilCert.name) || ".pdf",
+          contentType: cityCouncilCert.type,
+          buffer: Buffer.from(await cityCouncilCert.arrayBuffer()),
+          prefix: "hotel-city-council",
+        })
+      }
+      if (gstTinCert && gstTinCert.size > 0) {
+        busData.gstTinCertUrl = await uploadPublicFile({
+          folder: "hotel-onboarding/business",
+          ext: path.extname(gstTinCert.name) || ".pdf",
+          contentType: gstTinCert.type,
+          buffer: Buffer.from(await gstTinCert.arrayBuffer()),
+          prefix: "hotel-gst-tin",
+        })
+      }
+      if (addressProof && addressProof.size > 0) {
+        busData.addressProofUrl = await uploadPublicFile({
+          folder: "hotel-onboarding/business",
+          ext: path.extname(addressProof.name) || ".pdf",
+          contentType: addressProof.type,
+          buffer: Buffer.from(await addressProof.arrayBuffer()),
+          prefix: "hotel-address-proof",
+        })
+      }
+
+      await prisma.hotelBusinessInfo.upsert({
+        where: { hotelSellerId: seller.id },
+        update: busData,
+        create: { ...busData, hotelSellerId: seller.id }
+      })
+    }
+
+    // 3. Handle KYC
+    else if (section === "kyc") {
+      const idType = (fd.get("idType") as string)?.trim()
+      const idNumber = (fd.get("idNumber") as string)?.trim()
+      const idFront = fd.get("idFront") as File | null
+      const idBack = fd.get("idBack") as File | null
+      const selfie = fd.get("selfie") as File | null
+
+      const kycData: any = { idType, idNumber }
+
+      if (idFront && idFront.size > 0) kycData.idFrontUrl = await uploadPublicFile({ folder: "hotel-onboarding/kyc", ext: path.extname(idFront.name), contentType: idFront.type, buffer: Buffer.from(await idFront.arrayBuffer()), prefix: "hotel-id-front" })
+      if (idBack && idBack.size > 0) kycData.idBackUrl = await uploadPublicFile({ folder: "hotel-onboarding/kyc", ext: path.extname(idBack.name), contentType: idBack.type, buffer: Buffer.from(await idBack.arrayBuffer()), prefix: "hotel-id-back" })
+      if (selfie && selfie.size > 0) kycData.selfieUrl = await uploadPublicFile({ folder: "hotel-onboarding/kyc", ext: path.extname(selfie.name), contentType: selfie.type, buffer: Buffer.from(await selfie.arrayBuffer()), prefix: "hotel-selfie" })
+
+      await prisma.hotelKYC.upsert({
+        where: { hotelSellerId: seller.id },
+        update: kycData,
+        create: { ...kycData, hotelSellerId: seller.id }
+      })
+    }
+
+    // 4. Handle Bank
+    else if (section === "bank") {
+      const bankName = (fd.get("bankName") as string)?.trim()
+      const bankAddress = (fd.get("bankAddress") as string)?.trim()
+      const accountHolderName = (fd.get("accountHolderName") as string)?.trim()
+      const accountNumber = (fd.get("accountNumber") as string)?.trim()
+      const bbanNumber = (fd.get("bbanNumber") as string)?.trim()
+      const branchName = (fd.get("branchName") as string)?.trim()
+      const mobileMoneyOption = (fd.get("mobileMoneyOption") as string)?.trim()
+      const preferredPayoutMethod = (fd.get("preferredPayoutMethod") as string)?.trim()
+      const passbook = fd.get("passbook") as File | null
+      const bankLetter = fd.get("bankLetter") as File | null
+
+      const bankData: any = { bankName, bankAddress, accountHolderName, accountNumber, bbanNumber, branchName, mobileMoneyOption, preferredPayoutMethod }
+
+      if (passbook && passbook.size > 0) {
+        bankData.passbookUrl = await uploadPublicFile({
+          folder: "hotel-onboarding/bank",
+          ext: path.extname(passbook.name),
+          contentType: passbook.type,
+          buffer: Buffer.from(await passbook.arrayBuffer()),
+          prefix: "hotel-bank-passbook",
+        })
+      }
+      if (bankLetter && bankLetter.size > 0) {
+        bankData.bankLetterUrl = await uploadPublicFile({
+          folder: "hotel-onboarding/bank",
+          ext: path.extname(bankLetter.name) || ".pdf",
+          contentType: bankLetter.type || "application/pdf",
+          buffer: Buffer.from(await bankLetter.arrayBuffer()),
+          prefix: "hotel-bank-letter",
+        })
+      }
+
+      await prisma.hotelBankDetails.upsert({
+        where: { hotelSellerId: seller.id },
+        update: bankData,
+        create: { ...bankData, hotelSellerId: seller.id }
+      })
+    }
+
+    // 5. Handle Property Visuals
+    else if (section === "property") {
+      const estimateHotelCount = parseInt(fd.get("estimateHotelCount") as string)
+      const estimateRoomCount = parseInt(fd.get("estimateRoomCount") as string)
+      const categories = fd.getAll("categories")
+      const logo = fd.get("logo") as File | null
+      const banner = fd.get("banner") as File | null
+      const mainPhoto = fd.get("mainPhoto") as File | null
+
+      const propData: any = {}
+      if (!isNaN(estimateHotelCount)) propData.estimateHotelCount = estimateHotelCount
+      if (!isNaN(estimateRoomCount)) propData.estimateRoomCount = estimateRoomCount
+      if (categories.length > 0) propData.categories = JSON.stringify(categories)
+
+      if (logo && logo.size > 0) propData.logo = await uploadPublicFile({ folder: "hotel-onboarding/property", ext: path.extname(logo.name), contentType: logo.type, buffer: Buffer.from(await logo.arrayBuffer()), prefix: "hotel-logo" })
+      if (banner && banner.size > 0) propData.banner = await uploadPublicFile({ folder: "hotel-onboarding/property", ext: path.extname(banner.name), contentType: banner.type, buffer: Buffer.from(await banner.arrayBuffer()), prefix: "hotel-banner" })
+      if (mainPhoto && mainPhoto.size > 0) propData.mainPhoto = await uploadPublicFile({ folder: "hotel-onboarding/property", ext: path.extname(mainPhoto.name), contentType: mainPhoto.type, buffer: Buffer.from(await mainPhoto.arrayBuffer()), prefix: "hotel-main-photo" })
+
+      if (Object.keys(propData).length > 0) {
+        await prisma.hotelSeller.update({
+          where: { id: seller.id },
+          data: propData
+        })
+      }
+    } else {
+      return NextResponse.json({ success: false, error: "Invalid section specified" }, { status: 400 })
+    }
+
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    console.error("Error in mobile settings PUT API:", error)
+    return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 })
+  }
+}
