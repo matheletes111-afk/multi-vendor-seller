@@ -336,6 +336,85 @@ function stripImageMetadata(buffer: Buffer, ext: string): Buffer {
   return buffer
 }
 
+function detectFileTypeFromBuffer(buffer: Buffer): { ext: string; contentType: string } | null {
+  if (buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) {
+    return { ext: ".jpg", contentType: "image/jpeg" }
+  }
+  if (
+    buffer.length >= 8 &&
+    buffer[0] === 0x89 &&
+    buffer[1] === 0x50 &&
+    buffer[2] === 0x4e &&
+    buffer[3] === 0x47 &&
+    buffer[4] === 0x0d &&
+    buffer[5] === 0x0a &&
+    buffer[6] === 0x1a &&
+    buffer[7] === 0x0a
+  ) {
+    return { ext: ".png", contentType: "image/png" }
+  }
+  if (
+    buffer.length >= 4 &&
+    buffer[0] === 0x47 &&
+    buffer[1] === 0x49 &&
+    buffer[2] === 0x46 &&
+    buffer[3] === 0x38
+  ) {
+    return { ext: ".gif", contentType: "image/gif" }
+  }
+  if (
+    buffer.length >= 12 &&
+    buffer[0] === 0x52 &&
+    buffer[1] === 0x49 &&
+    buffer[2] === 0x46 &&
+    buffer[3] === 0x46 &&
+    buffer[8] === 0x57 &&
+    buffer[9] === 0x45 &&
+    buffer[10] === 0x42 &&
+    buffer[11] === 0x50
+  ) {
+    return { ext: ".webp", contentType: "image/webp" }
+  }
+  if (
+    buffer.length >= 4 &&
+    buffer[0] === 0x25 &&
+    buffer[1] === 0x50 &&
+    buffer[2] === 0x44 &&
+    buffer[3] === 0x46
+  ) {
+    return { ext: ".pdf", contentType: "application/pdf" }
+  }
+  if (
+    buffer.length >= 8 &&
+    buffer[4] === 0x66 &&
+    buffer[5] === 0x74 &&
+    buffer[6] === 0x79 &&
+    buffer[7] === 0x70
+  ) {
+    return { ext: ".mp4", contentType: "video/mp4" }
+  }
+  if (
+    buffer.length >= 4 &&
+    buffer[0] === 0x1a &&
+    buffer[1] === 0x45 &&
+    buffer[2] === 0xdf &&
+    buffer[3] === 0xa3
+  ) {
+    return { ext: ".webm", contentType: "video/webm" }
+  }
+  if (buffer.length >= 8) {
+    const isFtyp = buffer[4] === 0x66 && buffer[5] === 0x74 && buffer[6] === 0x79 && buffer[7] === 0x70
+    const isMoov = buffer[4] === 0x6d && buffer[5] === 0x6f && buffer[6] === 0x6f && buffer[7] === 0x76
+    const isMdat = buffer[4] === 0x6d && buffer[5] === 0x64 && buffer[6] === 0x61 && buffer[7] === 0x74
+    const isWide = buffer[4] === 0x77 && buffer[5] === 0x69 && buffer[6] === 0x64 && buffer[7] === 0x76
+    const isFree = buffer[4] === 0x66 && buffer[5] === 0x72 && buffer[6] === 0x65 && buffer[7] === 0x65
+    if (isFtyp || isMoov || isMdat || isWide || isFree) {
+      return { ext: ".mov", contentType: "video/quicktime" }
+    }
+  }
+  return null
+}
+
 /**
  * Upload a file to a public URL.
  *
@@ -353,26 +432,34 @@ function stripImageMetadata(buffer: Buffer, ext: string): Buffer {
 export async function uploadPublicFile(args: UploadArgs): Promise<string> {
   const { folder, ext, contentType, prefix } = args
   let { buffer } = args
-  const safeExt = ext && ext.startsWith(".") ? ext : `.${String(ext || "").replace(/^\.+/, "") || "bin"}`
+  let safeExt = ext && ext.startsWith(".") ? ext : `.${String(ext || "").replace(/^\.+/, "") || "bin"}`
 
-  // Map generic content type (e.g. application/octet-stream) to standard content type based on extension
+  // Detect correct extension and content type from magic bytes if possible,
+  // to support clients sending mismatched metadata (e.g. image sent with .pdf extension)
+  const detected = detectFileTypeFromBuffer(buffer)
   let finalContentType = contentType
-  const cleanType = (contentType || "").toLowerCase().trim()
-  if (!cleanType || cleanType === "application/octet-stream") {
-    const extensionToContentType: Record<string, string> = {
-      ".jpg": "image/jpeg",
-      ".jpeg": "image/jpeg",
-      ".png": "image/png",
-      ".gif": "image/gif",
-      ".webp": "image/webp",
-      ".mp4": "video/mp4",
-      ".webm": "video/webm",
-      ".mov": "video/quicktime",
-      ".pdf": "application/pdf",
-    }
-    const mappedType = extensionToContentType[safeExt.toLowerCase().trim()]
-    if (mappedType) {
-      finalContentType = mappedType
+  if (detected) {
+    safeExt = detected.ext
+    finalContentType = detected.contentType
+  } else {
+    // Map generic content type (e.g. application/octet-stream) to standard content type based on extension
+    const cleanType = (contentType || "").toLowerCase().trim()
+    if (!cleanType || cleanType === "application/octet-stream") {
+      const extensionToContentType: Record<string, string> = {
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".png": "image/png",
+        ".gif": "image/gif",
+        ".webp": "image/webp",
+        ".mp4": "video/mp4",
+        ".webm": "video/webm",
+        ".mov": "video/quicktime",
+        ".pdf": "application/pdf",
+      }
+      const mappedType = extensionToContentType[safeExt.toLowerCase().trim()]
+      if (mappedType) {
+        finalContentType = mappedType
+      }
     }
   }
 
