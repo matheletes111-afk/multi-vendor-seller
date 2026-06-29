@@ -230,6 +230,14 @@ export function SiteHeader() {
                       <LayoutGrid className="h-4 w-4" />
                       All Category
                     </Link>
+                    <Link href="/foods" className="flex items-center gap-3 px-4 py-3 text-sm font-medium text-slate-800 hover:bg-slate-100">
+                      <span className="text-base">🍔</span>
+                      Order Food / Restaurants
+                    </Link>
+                    <Link href="/hotels" className="flex items-center gap-3 px-4 py-3 text-sm font-medium text-slate-800 hover:bg-slate-100">
+                      <span className="text-base">🏨</span>
+                      Book Hotels
+                    </Link>
                     {categories.map((cat) => (
                       <div key={cat.id}>
                         <Link href={`/browse?categoryId=${cat.id}`} className="flex px-4 py-2.5 pl-8 text-sm text-slate-700 hover:bg-slate-100">
@@ -263,6 +271,12 @@ export function SiteHeader() {
                         </Link>
                         <Link href="/service-seller/login" className="px-4 py-2 text-sm text-slate-700 hover:bg-slate-100">
                           Service Seller Login
+                        </Link>
+                        <Link href="/hotel-seller/login" className="px-4 py-2 text-sm text-slate-700 hover:bg-slate-100">
+                          Hotel Seller Login
+                        </Link>
+                        <Link href="/restaurant-seller/login" className="px-4 py-2 text-sm text-slate-700 hover:bg-slate-100">
+                          Restaurant Seller Login
                         </Link>
                         <div className="my-2 border-t border-slate-200" />
                       </>
@@ -357,6 +371,12 @@ export function SiteHeader() {
           <div className="hidden md:flex md:items-center md:gap-2 lg:gap-3 order-50">
             {mounted ? (
               <>
+                <Link href="/foods" className="flex items-center rounded px-2 py-1.5 text-sm font-medium text-white hover:bg-slate-600/50 sm:px-3">
+                  Restaurants
+                </Link>
+                <Link href="/hotels" className="flex items-center rounded px-2 py-1.5 text-sm font-medium text-white hover:bg-slate-600/50 sm:px-3">
+                  Hotels
+                </Link>
                 {showBecomePartner && (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -371,6 +391,12 @@ export function SiteHeader() {
                       </DropdownMenuItem>
                       <DropdownMenuItem asChild>
                         <Link href="/service-seller/login">Service Seller Login</Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link href="/hotel-seller/login">Hotel Seller Login</Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link href="/restaurant-seller/login">Restaurant Seller Login</Link>
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
@@ -406,6 +432,12 @@ export function SiteHeader() {
               </>
             ) : (
               <>
+                <Link href="/foods" className="flex items-center rounded px-2 py-1.5 text-sm font-medium text-white hover:bg-slate-600/50 sm:px-3">
+                  Restaurants
+                </Link>
+                <Link href="/hotels" className="flex items-center rounded px-2 py-1.5 text-sm font-medium text-white hover:bg-slate-600/50 sm:px-3">
+                  Hotels
+                </Link>
                 {showBecomePartner && (
                   <Link href="/product-seller/login" className="rounded px-2 py-1.5 text-sm font-medium text-white hover:bg-slate-600/50 sm:px-3">
                     Become a partner
@@ -623,6 +655,8 @@ export function SiteFooter() {
             <ul className="flex flex-col gap-1.5">
               <li><Link href="/" className={linkClass}>Home</Link></li>
               <li><Link href="/browse" className={linkClass}>Browse</Link></li>
+              <li><Link href="/foods" className={linkClass}>Order Food / Restaurants</Link></li>
+              <li><Link href="/hotels" className={linkClass}>Book Hotels</Link></li>
               {canUseCart && <li><Link href="/cart" className={linkClass}>Cart</Link></li>}
               {isLoggedIn ? (
                 <>
@@ -638,6 +672,8 @@ export function SiteFooter() {
                   <li><Link href="/customer/login" className={linkClass}>Customer Login</Link></li>
                   <li><Link href="/product-seller/login" className={linkClass}>Product Seller Login</Link></li>
                   <li><Link href="/service-seller/login" className={linkClass}>Service Seller Login</Link></li>
+                  <li><Link href="/hotel-seller/login" className={linkClass}>Hotel Seller Login</Link></li>
+                  <li><Link href="/restaurant-seller/login" className={linkClass}>Restaurant Seller Login</Link></li>
                 </>
               )}
             </ul>

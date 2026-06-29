@@ -98,3 +98,28 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 })
   }
 }
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const session = await auth()
+    if (!session || !session.user || session.user.role !== "ADMIN") {
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 })
+    }
+
+    const { searchParams } = new URL(request.url)
+    const id = searchParams.get("id")
+    if (!id) {
+      return NextResponse.json({ success: false, error: "Missing food item ID" }, { status: 400 })
+    }
+
+    await prisma.foodItem.update({
+      where: { id },
+      data: { isDeleted: true }
+    })
+
+    return NextResponse.json({ success: true, message: "Food item deleted successfully" })
+  } catch (error) {
+    console.error("Admin delete food item error:", error)
+    return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 })
+  }
+}

@@ -114,6 +114,7 @@ export function AdminLayoutClient({
         <div className="space-y-0.5">
           <NavItem href="/admin/restaurant-sellers" label="Restaurant Sellers" icon={<Briefcase className="h-4 w-4" />} />
           <NavItem href="/admin/restaurant-foods" label="Food Items" icon={<Utensils className="h-4 w-4" />} />
+          <NavItem href="/admin/restaurant-orders" label="Restaurant Orders" icon={<ShoppingCart className="h-4 w-4" />} />
         </div>
       </div>
     </div>
