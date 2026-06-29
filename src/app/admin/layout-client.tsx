@@ -18,7 +18,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/ui/avatar"
 import { Button } from "@/ui/button"
 import { Separator } from "@/ui/separator"
 import { Sheet, SheetContent, SheetTrigger } from "@/ui/sheet"
-import { LogOut, User, LayoutDashboard, Users, CreditCard, FolderTree, Briefcase, Megaphone, Menu, BadgeDollarSign, ImageIcon, ShoppingCart, Star, Building2, Calendar, Package } from "lucide-react"
+import { LogOut, User, LayoutDashboard, Users, CreditCard, FolderTree, Briefcase, Megaphone, Menu, BadgeDollarSign, ImageIcon, ShoppingCart, Star, Building2, Calendar, Package, Utensils } from "lucide-react"
 
 function NavItem({ href, label, icon }: { href: string; label: string; icon?: ReactNode }) {
   const pathname = usePathname()
@@ -113,6 +113,7 @@ export function AdminLayoutClient({
         </div>
         <div className="space-y-0.5">
           <NavItem href="/admin/restaurant-sellers" label="Restaurant Sellers" icon={<Briefcase className="h-4 w-4" />} />
+          <NavItem href="/admin/restaurant-foods" label="Food Items" icon={<Utensils className="h-4 w-4" />} />
         </div>
       </div>
     </div>

@@ -131,200 +131,188 @@ export function RestaurantSellersClient() {
   if (loading && !data) return <PageLoader message="Loading restaurant sellers..." />
 
   return (
-    <div className="container mx-auto p-8 space-y-8 animate-in fade-in duration-1000">
-      <div className="flex justify-between items-center bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100">
-        <div className="flex items-center gap-5">
-          <div className="p-4 bg-rose-50 rounded-3xl">
-            <Utensils className="h-8 w-8 text-rose-600" />
-          </div>
-          <div>
-            <h1 className="text-3xl font-black tracking-tight text-slate-900">Restaurant Partners</h1>
-            <p className="text-slate-500 font-medium tracking-tight">Review and manage culinary partner applications.</p>
-          </div>
+    <div className="container mx-auto p-6 space-y-8 animate-in fade-in duration-700">
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-black tracking-tight">Restaurant Seller Management</h1>
+          <p className="text-muted-foreground mt-2 font-medium">Approve and monitor your culinary partners.</p>
         </div>
         <div className="flex items-center gap-3">
-          <div className="text-right">
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Global Network</p>
-            <p className="text-2xl font-black text-rose-600">{data?.totalCount || 0} Outlets</p>
-          </div>
+          <Badge variant="outline" className="px-4 py-1.5 rounded-full border-primary/20 bg-primary/5 text-primary font-bold shadow-sm">
+            {data?.totalCount || 0} Total Partners
+          </Badge>
         </div>
       </div>
 
-      <Card className="border-none shadow-2xl rounded-[2.5rem] overflow-hidden bg-white/80 backdrop-blur-md">
-        <CardHeader className="pb-8 pt-10 px-10">
-          <div className="flex flex-wrap items-end gap-6">
-            <div className="flex-1 min-w-[300px] space-y-2">
-              <Label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 ml-1">Universal Search</Label>
-              <div className="relative">
-                <Search className="absolute left-4 top-3.5 h-5 w-5 text-slate-300" />
-                <Input
-                  placeholder="Partner name, brand, or email..."
-                  className="pl-12 rounded-2xl h-12 bg-slate-50 border-slate-100 focus:ring-rose-500 text-sm font-medium"
-                  value={searchInput}
-                  onChange={e => setSearchInput(e.target.value)}
-                  onKeyDown={e => e.key === "Enter" && handleSearch()}
-                />
+      <Card className="rounded-[2.5rem] border-none shadow-2xl overflow-hidden bg-gradient-to-br from-background via-background to-muted/20">
+        <CardHeader className="pb-6">
+          <div className="flex items-center gap-2 mb-6 px-4">
+            <Filter className="h-4 w-4 text-primary" />
+            <CardTitle className="text-sm font-semibold uppercase tracking-wider">Search & Filters</CardTitle>
+          </div>
+          <div className="px-4">
+            <div className="flex flex-wrap items-end gap-6">
+              <div className="flex-1 min-w-[300px] space-y-1.5">
+                <Label className="text-xs uppercase tracking-widest text-muted-foreground ml-1">Partner Search</Label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Input 
+                    placeholder="Name, email, business name..." 
+                    className="pl-9 rounded-2xl h-12 bg-background/50 border-muted focus-visible:ring-primary/20" 
+                    value={searchInput} 
+                    onChange={e => setSearchInput(e.target.value)}
+                    onKeyDown={e => e.key === "Enter" && handleSearch()}
+                  />
+                </div>
               </div>
-            </div>
-            <div className="w-[200px] space-y-2">
-              <Label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 ml-1">Lifecycle State</Label>
-              <Select value={localTab} onValueChange={setLocalTab}>
-                <SelectTrigger className="rounded-2xl h-12 bg-slate-50 border-slate-100 font-bold text-slate-700">
-                  <SelectValue placeholder="All States" />
-                </SelectTrigger>
-                <SelectContent className="rounded-2xl border-slate-100">
-                  <SelectItem value="all">All States</SelectItem>
-                  <SelectItem value="pending">Awaiting Review</SelectItem>
-                  <SelectItem value="approved">Active Partners</SelectItem>
-                  <SelectItem value="suspended">Suspended</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex gap-3 h-12">
-              <Button onClick={handleSearch} className="rounded-2xl px-8 h-full bg-rose-600 hover:bg-rose-700 font-bold text-xs uppercase tracking-widest transition-all hover:shadow-lg hover:shadow-rose-100">Apply Filter</Button>
-              <Button variant="outline" onClick={handleClear} className="rounded-2xl h-full border-slate-200 hover:bg-slate-50 font-bold text-xs uppercase tracking-widest">Reset</Button>
+              <div className="w-[200px] space-y-1.5">
+                <Label className="text-xs uppercase tracking-widest text-muted-foreground ml-1">Status View</Label>
+                <Select value={localTab} onValueChange={setLocalTab}>
+                  <SelectTrigger className="rounded-2xl h-12 bg-background/50 border-muted">
+                    <SelectValue placeholder="All Partners" />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-2xl border-none shadow-xl">
+                    <SelectItem value="all">All Partners</SelectItem>
+                    <SelectItem value="pending">Review Pending</SelectItem>
+                    <SelectItem value="approved">Fully Approved</SelectItem>
+                    <SelectItem value="suspended">Suspended</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex gap-2">
+                <Button onClick={handleSearch} className="rounded-2xl px-8 h-12 font-bold shadow-lg shadow-primary/20 transition-all active:scale-95">
+                  Apply Search
+                </Button>
+                <Button variant="outline" onClick={handleClear} className="rounded-2xl px-6 h-12 font-medium border-muted hover:bg-muted/50">
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
           </div>
         </CardHeader>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
             <Table>
-              <TableHeader className="bg-slate-50/50">
-                <TableRow className="border-b border-slate-100 hover:bg-transparent">
-                  <TableHead className="pl-10 h-14 text-[10px] font-black uppercase tracking-widest text-slate-500">Partner Details</TableHead>
-                  <TableHead className="h-14 text-[10px] font-black uppercase tracking-widest text-slate-500">Business Identity</TableHead>
-                  <TableHead className="h-14 text-[10px] font-black uppercase tracking-widest text-slate-500">Standing</TableHead>
-                  <TableHead className="h-14 text-[10px] font-black uppercase tracking-widest text-slate-500">Outlets (Est.)</TableHead>
-                  <TableHead className="h-14 text-[10px] font-black uppercase tracking-widest text-slate-500">Commission</TableHead>
-                  <TableHead className="text-right pr-10 h-14 text-[10px] font-black uppercase tracking-widest text-slate-500">Actions</TableHead>
+              <TableHeader className="bg-muted/30">
+                <TableRow className="hover:bg-transparent border-none">
+                  <TableHead className="pl-8 py-5">Identity</TableHead>
+                  <TableHead>Venture</TableHead>
+                  <TableHead>Standing</TableHead>
+                  <TableHead>Portfolio</TableHead>
+                  <TableHead>Commission</TableHead>
+                  <TableHead className="text-right pr-8">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {data?.sellers.length === 0 ? (
-                  <TableRow><TableCell colSpan={6} className="text-center py-32 text-slate-400 font-medium">No restaurant partners found matching your criteria.</TableCell></TableRow>
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center py-32">
+                      <div className="flex flex-col items-center gap-2 opacity-20">
+                        <Users className="h-16 w-16" />
+                        <p className="font-black uppercase tracking-[0.3em] text-sm">No partners identified</p>
+                      </div>
+                    </TableCell>
+                  </TableRow>
                 ) : (
-                  data?.sellers.map((seller: any) => (
-                    <Fragment key={seller.id}>
-                      <TableRow
-                        className={cn(
-                          "group border-b border-slate-50 cursor-pointer transition-colors",
-                          expandedRow === seller.id ? "bg-rose-50/30" : "hover:bg-slate-50/50"
-                        )}
-                        onClick={() => toggleRow(seller.id)}
-                      >
-                        <TableCell className="pl-10 py-5">
-                          <div className="flex items-center gap-4">
-                            <div className="h-10 w-10 rounded-2xl bg-rose-100 flex items-center justify-center text-rose-600 font-black text-sm">
-                              {seller.user?.name?.charAt(0).toUpperCase()}
+                  data?.sellers.map((seller: any) => {
+                    const isExpanded = expandedRow === seller.id
+                    return (
+                      <Fragment key={seller.id}>
+                        <TableRow className={cn(
+                          "group transition-all hover:bg-muted/20 border-b border-muted/10 cursor-pointer",
+                          isExpanded && "bg-muted/10 shadow-inner"
+                        )} onClick={() => toggleRow(seller.id)}>
+                          <TableCell className="pl-8 py-5">
+                            <div className="flex flex-col">
+                              <span className="font-bold text-base leading-tight">{seller.user?.name}</span>
+                              <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-tighter">{seller.user?.email}</span>
                             </div>
-                            <div>
-                              <div className="font-bold text-slate-900 leading-tight">{seller.user?.name}</div>
-                              <div className="text-[11px] text-slate-500 font-medium">{seller.user?.email}</div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <Briefcase className="h-3.5 w-3.5 text-blue-500/50" />
+                              <span className="font-bold text-sm">{seller.businessInfo?.businessName || "—"}</span>
                             </div>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="font-bold text-slate-700">{seller.businessInfo?.businessName || "—"}</div>
-                          <div className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">{seller.businessInfo?.businessType || "Retail Partner"}</div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge className={cn(
-                            "rounded-full uppercase tracking-widest text-[9px] font-black px-3 py-1 border-none",
-                            seller.isApproved ? "bg-emerald-500 text-white" : "bg-amber-500 text-white"
-                          )}>
-                            {seller.isApproved ? "Approved" : "Pending"}
-                          </Badge>
-                          {seller.isSuspended && <Badge className="ml-2 bg-rose-600 text-white rounded-full text-[9px] px-3 py-1 border-none font-black uppercase tracking-widest">Suspended</Badge>}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-black text-slate-700">{seller.estimateRestaurantCount || 0}</span>
-                            <span className="text-[9px] text-slate-400 uppercase font-bold tracking-widest opacity-60">Est. Outlets</span>
-                          </div>
-                        </TableCell>
-                        <TableCell onClick={e => e.stopPropagation()}>
-                          {seller.commissionRate != null ? (
-                            <div
-                              className="flex items-center gap-2 cursor-pointer group/comm"
-                              onClick={() => {
-                                setSelectedSellerId(seller.id)
-                                setCommissionValue(seller.commissionRate)
-                                setIsCommissionDialogOpen(true)
-                              }}
-                            >
-                              <Badge className="bg-amber-500/10 text-amber-600 border-none rounded-full px-2.5 font-bold text-[10px] shadow-sm group-hover/comm:bg-amber-500 group-hover/comm:text-white transition-all">
-                                {seller.commissionRate}%
-                              </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Badge className={cn(
+                              "rounded-full uppercase tracking-widest text-[9px] font-black px-3 py-1 border-none shadow-sm",
+                              seller.isApproved ? "bg-green-500 text-white" : "bg-blue-500 text-white"
+                            )}>
+                              {seller.isApproved ? "Approved" : "Pending"}
+                            </Badge>
+                            {seller.isSuspended && <Badge className="ml-2 bg-destructive text-white rounded-full text-[9px] font-black px-3 py-1 border-none shadow-sm uppercase tracking-widest">Suspended</Badge>}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex flex-col">
+                              <span className="text-xs font-black">{seller.estimateRestaurantCount || 0}</span>
+                              <span className="text-[9px] text-muted-foreground uppercase font-bold tracking-widest opacity-60">Est. Outlets</span>
                             </div>
-                          ) : (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-7 px-3 text-[10px] font-bold uppercase tracking-widest text-primary hover:bg-primary/10 bg-primary/5 border border-primary/20 rounded-full transition-all"
-                              onClick={() => {
-                                setSelectedSellerId(seller.id)
-                                setCommissionValue(seller.commissionRate || "")
-                                setIsCommissionDialogOpen(true)
-                              }}
-                            >
-                              Assign
-                            </Button>
-                          )}
-                        </TableCell>
+                          </TableCell>
+                          <TableCell onClick={e => e.stopPropagation()}>
+                            {seller.commissionRate != null ? (
+                              <div
+                                className="flex items-center gap-2 cursor-pointer group/comm"
+                                onClick={() => {
+                                  setSelectedSellerId(seller.id)
+                                  setCommissionValue(seller.commissionRate)
+                                  setIsCommissionDialogOpen(true)
+                                }}
+                              >
+                                <Badge className="bg-amber-500/10 text-amber-600 border-none rounded-full px-2.5 font-bold text-[10px] shadow-sm group-hover/comm:bg-amber-500 group-hover/comm:text-white transition-all">
+                                  {seller.commissionRate}%
+                                </Badge>
+                              </div>
+                            ) : (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 px-3 text-[10px] font-bold uppercase tracking-widest text-primary hover:bg-primary/10 bg-primary/5 border border-primary/20 rounded-full transition-all"
+                                onClick={() => {
+                                  setSelectedSellerId(seller.id)
+                                  setCommissionValue(seller.commissionRate || "")
+                                  setIsCommissionDialogOpen(true)
+                                }}
+                              >
+                                Assign
+                              </Button>
+                            )}
+                          </TableCell>
 
-                        <TableCell className="text-right pr-10" onClick={e => e.stopPropagation()}>
-                          <div className="flex justify-end gap-2">
-                            {!seller.isApproved && (
-                              <>
-                                <Button 
-                                  size="sm" 
-                                  className="h-8 rounded-full bg-emerald-600 hover:bg-emerald-700 text-[9px] font-black uppercase tracking-widest px-4"
-                                  onClick={() => handleStatusAction(seller.id, "approve")}
-                                  disabled={actionLoading === seller.id}
-                                >
-                                  Approve
-                                </Button>
-                                <Button 
-                                  size="sm" 
-                                  variant="destructive"
-                                  className="h-8 rounded-full text-[9px] font-black uppercase tracking-widest px-4"
-                                  onClick={() => setRejectDialog({ open: true, id: seller.id, action: "reject" })}
-                                  disabled={actionLoading === seller.id}
-                                >
-                                  Reject
-                                </Button>
-                              </>
-                            )}
-                            {seller.isApproved && (
-                               <Badge variant="outline" className="h-8 rounded-full border-emerald-100 bg-emerald-50 text-emerald-700 text-[9px] font-black uppercase tracking-widest px-4 flex items-center gap-2 border-none">
-                                  <CheckCircle className="h-3 w-3" /> Verified
-                               </Badge>
-                            )}
-                            <div className="w-px h-8 bg-slate-100 mx-1" />
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              className="h-9 w-9 rounded-xl hover:bg-white hover:shadow-md transition-all text-slate-400 hover:text-rose-600"
-                              asChild
-                            >
-                              <Link href={`/admin/restaurant-sellers/${seller.id}`}>
-                                <Eye className="h-4 w-4" />
-                              </Link>
-                            </Button>
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              className={cn(
-                                "h-9 w-9 rounded-xl transition-all",
-                                expandedRow === seller.id ? "bg-rose-100 text-rose-600" : "text-slate-300 hover:text-rose-600"
-                              )}
-                              onClick={() => toggleRow(seller.id)}
-                            >
-                              {expandedRow === seller.id ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
+                          <TableCell className="text-right pr-8" onClick={e => e.stopPropagation()}>
+                            <div className="flex justify-end gap-2">
+                              <Button
+                                type="button"
+                                size="icon"
+                                variant="ghost"
+                                className={cn(
+                                  "h-9 w-9 rounded-full transition-all duration-300 shadow-sm",
+                                  isExpanded ? "bg-primary text-primary-foreground rotate-180" : "bg-muted/50 hover:bg-primary/10 hover:text-primary"
+                                )}
+                                onClick={() => toggleRow(seller.id)}
+                              >
+                                <ChevronDown className="h-4 w-4" />
+                              </Button>
+                              
+                              <Button asChild size="icon" variant="outline" className="h-9 w-9 rounded-full border-muted hover:bg-blue-50 hover:text-blue-600 transition-all shadow-sm">
+                                <Link href={`/admin/restaurant-sellers/${seller.id}`}>
+                                  <Eye className="h-4 w-4" />
+                                </Link>
+                              </Button>
+
+                              <div className="flex gap-2">
+                                {!seller.isApproved && (
+                                  <Button size="sm" className="h-9 rounded-full bg-green-600 hover:bg-green-700 font-bold px-4 uppercase tracking-widest text-[9px]" onClick={() => handleStatusAction(seller.id, "approve")} disabled={actionLoading === seller.id}>Approve</Button>
+                                )}
+                                {!seller.isSuspended ? (
+                                  <Button size="sm" variant="destructive" className="h-9 rounded-full font-bold px-4 uppercase tracking-widest text-[9px] shadow-lg shadow-destructive/10" onClick={() => handleStatusAction(seller.id, "suspend")} disabled={actionLoading === seller.id}>Suspend</Button>
+                                ) : (
+                                  <Button size="sm" variant="outline" className="h-9 rounded-full border-blue-500 text-blue-500 hover:bg-blue-50 font-bold px-4 uppercase tracking-widest text-[9px]" onClick={() => handleStatusAction(seller.id, "unsuspend")} disabled={actionLoading === seller.id}>Unsuspend</Button>
+                                )}
+                              </div>
+                            </div>
+                          </TableCell>
+                        </TableRow>
 
                       {/* Accordion Content */}
                       {expandedRow === seller.id && (
@@ -357,8 +345,9 @@ export function RestaurantSellersClient() {
                         </TableRow>
                       )}
                     </Fragment>
-                  ))
-                )}
+                  )
+                })
+              )}
               </TableBody>
             </Table>
           </div>

@@ -3,10 +3,11 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { useParams } from "next/navigation"
-import { Star, MapPin, Building2, CheckCircle2, ChevronRight, User, Users, Coffee, ShieldAlert, ArrowLeft } from "lucide-react"
+import { Star, MapPin, Building2, CheckCircle2, ChevronRight, User, Users, Coffee, ShieldAlert, ArrowLeft, MessageSquare } from "lucide-react"
 import { Button } from "@/ui/button"
 import { Card, CardContent } from "@/ui/card"
 import { formatCurrency } from "@/lib/utils"
+import { useSession } from "next-auth/react"
 
 type Room = {
   id: string
@@ -20,11 +21,22 @@ type Room = {
   totalRooms: number
 }
 
+type HotelReviewItem = {
+  id: string
+  userId: string
+  userName: string
+  rating: number
+  comment: string | null
+  createdAt: string
+}
+
 type Hotel = {
   id: string
   name: string
   description: string | null
   starRating: number
+  averageRating?: number
+  totalReviews?: number
   address: string | null
   city: string | null
   state: string | null
@@ -33,29 +45,74 @@ type Hotel = {
   amenities: any
   images: any
   rooms: Room[]
+  reviews?: HotelReviewItem[]
 }
 
 export default function HotelDetailsPage() {
   const { id } = useParams()
+  const { data: session } = useSession()
   const [hotel, setHotel] = useState<Hotel | null>(null)
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    const fetchHotelDetails = async () => {
-      try {
-        const res = await fetch(`/api/hotels/${id}`)
-        const data = await res.json()
-        if (data.success) {
-          setHotel(data.data)
+  // Review form state
+  const [rating, setRating] = useState(5)
+  const [comment, setComment] = useState("")
+  const [submitting, setSubmitting] = useState(false)
+  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
+
+  const fetchHotelDetails = async () => {
+    try {
+      const res = await fetch(`/api/hotels/${id}`)
+      const data = await res.json()
+      if (data.success) {
+        setHotel(data.data)
+        // If logged in customer has an existing review, pre-fill it
+        if (session?.user?.id && data.data.reviews) {
+          const userReview = data.data.reviews.find((r: HotelReviewItem) => r.userId === session.user.id)
+          if (userReview) {
+            setRating(userReview.rating)
+            setComment(userReview.comment || "")
+          }
         }
-      } catch (error) {
-        console.error("Failed to load hotel details:", error)
-      } finally {
-        setLoading(false)
       }
+    } catch (error) {
+      console.error("Failed to load hotel details:", error)
+    } finally {
+      setLoading(false)
     }
+  }
+
+  useEffect(() => {
     if (id) fetchHotelDetails()
-  }, [id])
+  }, [id, session?.user?.id])
+
+  const handleSubmitReview = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setSubmitting(true)
+    setMessage(null)
+
+    const existingReview = hotel?.reviews?.find(r => r.userId === session?.user?.id)
+    const method = existingReview ? "PUT" : "POST"
+
+    try {
+      const res = await fetch(`/api/hotels/${id}/reviews`, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rating, comment })
+      })
+      const data = await res.json()
+      if (data.success) {
+        setMessage({ type: "success", text: existingReview ? "Review updated successfully!" : "Review submitted successfully!" })
+        fetchHotelDetails()
+      } else {
+        setMessage({ type: "error", text: data.error || "Failed to submit review." })
+      }
+    } catch (err) {
+      setMessage({ type: "error", text: "Something went wrong. Please try again." })
+    } finally {
+      setSubmitting(false)
+    }
+  }
 
   if (loading) {
     return (
@@ -82,6 +139,9 @@ export default function HotelDetailsPage() {
   const images = Array.isArray(hotel.images) ? hotel.images : []
   const mainImage = images[0] || "/images/placeholder-hotel.jpg"
   const amenitiesList = Array.isArray(hotel.amenities) ? hotel.amenities : []
+
+  const reviewsList = hotel.reviews || []
+  const hasUserReview = reviewsList.some(r => r.userId === session?.user?.id)
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-7xl space-y-8 animate-in fade-in duration-500">
@@ -222,6 +282,119 @@ export default function HotelDetailsPage() {
               </Card>
             )
           })}
+        </div>
+      </div>
+
+      {/* Ratings & Reviews Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 pt-8 border-t border-slate-100">
+        {/* Reviews List */}
+        <div className="lg:col-span-2 space-y-6">
+          <div>
+            <h2 className="text-2xl font-black text-slate-900 tracking-tight">Guest Reviews</h2>
+            <p className="text-slate-500 font-medium text-sm mt-1">Real feedback shared by guests who stayed here.</p>
+          </div>
+
+          {reviewsList.length === 0 ? (
+            <div className="bg-slate-50 border border-dashed border-slate-200 rounded-3xl p-8 text-center">
+              <MessageSquare className="h-8 w-8 text-slate-400 mx-auto mb-2" />
+              <p className="text-slate-500 text-sm font-semibold">No reviews yet for this hotel.</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {reviewsList.map((review) => (
+                <div key={review.id} className="bg-white border border-slate-100 rounded-3xl p-6 shadow-sm space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="h-10 w-10 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-700 font-bold text-sm shrink-0">
+                        {review.userName.charAt(0).toUpperCase()}
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-bold text-slate-900">{review.userName}</h4>
+                        <div className="flex items-center gap-0.5 mt-0.5">
+                          {Array.from({ length: 5 }).map((_, idx) => (
+                            <Star
+                              key={idx}
+                              className={`h-3 w-3 ${idx < review.rating ? "fill-amber-400 text-amber-400" : "text-slate-200"}`}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                    <span className="text-xs text-slate-400 font-semibold">
+                      {new Date(review.createdAt).toLocaleDateString()}
+                    </span>
+                  </div>
+                  {review.comment && (
+                    <p className="text-slate-600 text-sm font-medium leading-relaxed pl-12">{review.comment}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Write a Review Block */}
+        <div className="lg:col-span-1">
+          {session?.user?.role === "CUSTOMER" ? (
+            <div className="bg-white border border-slate-100 rounded-3xl p-6 shadow-sm space-y-4 sticky top-24">
+              <h3 className="text-lg font-black text-slate-900 pb-2 border-b border-slate-50">
+                {hasUserReview ? "Edit Your Review" : "Write a Review"}
+              </h3>
+
+              <form onSubmit={handleSubmitReview} className="space-y-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Rating</label>
+                  <div className="flex items-center gap-1.5">
+                    {[1, 2, 3, 4, 5].map((val) => (
+                      <button
+                        key={val}
+                        type="button"
+                        onClick={() => setRating(val)}
+                        className="p-1 hover:scale-110 transition-transform"
+                      >
+                        <Star
+                          className={`h-7 w-7 ${val <= rating ? "fill-amber-400 text-amber-400" : "text-slate-200"}`}
+                        />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Your Experience</label>
+                  <textarea
+                    value={comment}
+                    onChange={(e) => setComment(e.target.value)}
+                    rows={4}
+                    placeholder="Describe your stay, rooms, cleanliness..."
+                    className="w-full border border-slate-200 rounded-2xl p-4 text-sm font-semibold placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent resize-none"
+                  />
+                </div>
+
+                {message && (
+                  <p className={`text-xs font-bold ${message.type === "success" ? "text-emerald-600" : "text-rose-600"}`}>
+                    {message.text}
+                  </p>
+                )}
+
+                <Button
+                  type="submit"
+                  disabled={submitting}
+                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-bold uppercase tracking-wider py-3"
+                >
+                  {submitting ? "Submitting..." : hasUserReview ? "Update Review" : "Submit Review"}
+                </Button>
+              </form>
+            </div>
+          ) : (
+            <div className="bg-slate-50 border border-slate-100 rounded-3xl p-6 text-center sticky top-24 space-y-3">
+              <Building2 className="h-6 w-6 text-emerald-600 mx-auto" />
+              <h4 className="text-sm font-bold text-slate-800">Want to review this stay?</h4>
+              <p className="text-slate-500 text-xs font-medium leading-relaxed">
+                Log in as a customer with a confirmed booking to share your experience.
+              </p>
+            </div>
+          )}
         </div>
       </div>
     </div>

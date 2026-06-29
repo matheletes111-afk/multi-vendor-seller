@@ -1,0 +1,76 @@
+============================================================
+HOTEL & RESTAURANT SELLER REVENUE MOBILE API DOCUMENTATION
+============================================================
+
+This document specifies the mobile APIs for fetching the revenue ledger transactions, net balances, and details for both Hotel and Restaurant sellers.
+
+1. HOTEL SELLER REVENUE
+-----------------------
+Endpoint: GET /mobileapi/hotel-seller/revenue
+Headers: Authorization: Bearer <Token>
+Response:
+{
+  "success": true,
+  "netBalance": 450.00,
+  "balanceCreditsTotal": 500.00,
+  "balanceDebitsTotal": 50.00,
+  "transactions": [
+    {
+      "id": "cm12345...",
+      "amount": 500.00,
+      "kind": "CREDIT",
+      "reason": "BOOKING_CONFIRMED",
+      "note": "Credited for room booking: Deluxe Suite at hotel: Grand Plaza",
+      "createdAt": "2026-06-24T11:00:00.000Z",
+      "bookingId": "bk123...",
+      "guestName": "John Doe",
+      "hotelName": "Grand Plaza",
+      "roomName": "Deluxe Suite"
+    },
+    {
+      "id": "cm12346...",
+      "amount": 50.00,
+      "kind": "DEBIT",
+      "reason": "BOOKING_CANCELLED",
+      "note": "Debited due to cancellation of booking ID: bk124...",
+      "createdAt": "2026-06-24T11:15:00.000Z",
+      "bookingId": "bk124...",
+      "guestName": "Jane Smith",
+      "hotelName": "Grand Plaza",
+      "roomName": "Standard Room"
+    }
+  ]
+}
+
+Trigger Rules:
+- Credit (+): Triggered automatically when a room booking is created with status "CONFIRMED".
+- Debit (-): Triggered automatically when a room booking is cancelled by customer (refunded).
+
+
+2. RESTAURANT SELLER REVENUE
+----------------------------
+Endpoint: GET /mobileapi/restaurant-seller/revenue
+Headers: Authorization: Bearer <Token>
+Response:
+{
+  "success": true,
+  "netBalance": 120.50,
+  "balanceCreditsTotal": 120.50,
+  "balanceDebitsTotal": 0.00,
+  "transactions": [
+    {
+      "id": "cm56789...",
+      "amount": 120.50,
+      "kind": "CREDIT",
+      "reason": "ORDER_DELIVERED",
+      "note": "Credited for order delivery: #ORD-9988",
+      "createdAt": "2026-06-24T10:30:00.000Z",
+      "foodOrderId": "fo123...",
+      "orderNumber": "ORD-9988",
+      "customerName": "Alice Johnson"
+    }
+  ]
+}
+
+Trigger Rules:
+- Credit (+): Triggered automatically when a food order status is updated to "DELIVERED".

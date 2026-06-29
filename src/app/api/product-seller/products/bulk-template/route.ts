@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
       selectedCategories: {
         where: { isActive: true },
         orderBy: { name: "asc" },
-        select: { id: true },
+        select: { id: true, name: true },
       },
     },
   })
@@ -31,31 +31,14 @@ export async function GET(request: NextRequest) {
   }
 
   const { searchParams } = new URL(request.url)
-  const format = searchParams.get("format")?.toLowerCase() ?? "csv"
-  const categoryId = searchParams.get("categoryId")
-  const subcategoryIds = searchParams.get("subcategoryIds")?.split(",").filter(Boolean) ?? []
+  const format = searchParams.get("format")?.toLowerCase() ?? "xlsx"
+  const dummy = searchParams.get("dummy") !== "false"
 
-  if (!categoryId) {
-    return NextResponse.json({ error: "Category ID is required" }, { status: 400 })
-  }
-
-  // Fetch category and subcategory names for dummy data
-  const category = await prisma.category.findUnique({
-    where: { id: categoryId },
-    select: { name: true, subcategories: { where: { id: { in: subcategoryIds } }, select: { id: true, name: true } } }
-  })
-
-  if (!category) {
-    return NextResponse.json({ error: "Category not found" }, { status: 404 })
-  }
-
-  const subcategoryNames: Record<string, string> = {}
-  category.subcategories.forEach(s => {
-    subcategoryNames[s.id] = s.name
-  })
+  // Fetch category names for the seller
+  const categoryNames = seller.selectedCategories.map((c) => c.name)
 
   if (format === "xlsx") {
-    const buf = buildTemplateXlsx(categoryId, subcategoryIds, category.name, subcategoryNames)
+    const buf = buildTemplateXlsx(categoryNames, dummy)
     return new NextResponse(new Uint8Array(buf), {
       headers: {
         "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -64,7 +47,7 @@ export async function GET(request: NextRequest) {
     })
   }
 
-  const buf = buildTemplateCsv(categoryId, subcategoryIds, category.name, subcategoryNames)
+  const buf = buildTemplateCsv(categoryNames, dummy)
   return new NextResponse(new Uint8Array(buf), {
     headers: {
       "Content-Type": "text/csv; charset=utf-8",

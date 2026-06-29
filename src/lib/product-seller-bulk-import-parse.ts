@@ -10,26 +10,24 @@ export const BULK_SHEET_NAME = "Products"
  * Column order. category_id = which marketplace category this product belongs to (same for all rows in a product_key group).
  */
 export const BULK_COLUMN_KEYS = [
-  "product_key",
-  "category_id",
+  "category",
   "product_name",
-  "description",
+  "product_description",
   "product_images",
-  "subcategory_id",
   "condition",
   "delivery_charge_per_km",
   "variant_name",
   "price",
   "discount",
-  "has_gst",
+  "gst_applicable",
   "stock",
-  "sku",
+  "sku_code",
   "variant_images",
-  "attributes_json",
-  "specification",
-  "details",
-  "return_type",
-  "return_days",
+  "variant_details",
+  "specifications",
+  "additional_details",
+  "return_policy",
+  "return_limit_days",
   "replacement_allowed",
 ] as const
 
@@ -132,7 +130,7 @@ function mapGridToRows(aoa: unknown[][], sheetErrors: string[]): { rows: BulkDat
       rows: [],
       sheetErrors: [
         ...sheetErrors,
-        "No recognized headers. Use the downloaded template (row 1 must list columns such as category_id, product_name, variant_name, price, stock).",
+        "No recognized headers. Use the downloaded template (row 1 must list columns such as category, product_name, variant_name, price, stock).",
       ],
     }
   }
@@ -144,8 +142,8 @@ function mapGridToRows(aoa: unknown[][], sheetErrors: string[]): { rows: BulkDat
       missingCols.push(`Missing required column for variants: "${req}".`)
     }
   }
-  if (!present.has("category_id")) {
-    missingCols.push(`Missing required column: "category_id" (use your allowed category id per product group).`)
+  if (!present.has("category")) {
+    missingCols.push(`Missing required column: "category" (use one of the available categories).`)
   }
   if (missingCols.length > 0) {
     return { rows: [], sheetErrors: [...sheetErrors, ...missingCols] }
@@ -217,87 +215,97 @@ export function parseBulkFile(buffer: Buffer, fileName: string): { rows: BulkDat
 }
 
 /**
- * Returns dummy data rows based on selected category/subcategories.
- * One example product per selected subcategory.
+ * Returns dummy data rows based on selected categories.
+ * One example product per category (up to 3 categories).
  */
-export function exampleDataRows(
-  categoryId: string,
-  subcategoryIds: string[],
-  categoryName: string,
-  subcategoryNames: Record<string, string>
-): string[][] {
-  const finalCategoryName = categoryName || "My Category"
-  const finalSubIds = subcategoryIds.length > 0 ? subcategoryIds : [""]
+export function exampleDataRows(categories: string[]): string[][] {
+  const finalCategories = categories.length > 0 ? categories.slice(0, 3) : ["Example Category"]
 
-  return finalSubIds.map((subId, idx) => {
-    const subName = subcategoryNames[subId] || ""
-    const prodName = subName ? `${finalCategoryName} - ${subName} Example` : `${finalCategoryName} Example Product`
+  return finalCategories.flatMap((catName, idx) => {
+    const prodName = `${catName} Example Product`
     
+    // We can generate 2 variants for each product to show how variant grouping works!
     return [
-      `GROUP_${idx + 1}`,   // product_key
-      categoryId,           // category_id
-      prodName,             // product_name
-      "This is a dummy product generated for your template. Replace or delete before import.", // description
-      "https://example.com/sample-image.jpg", // product_images
-      subId,                // subcategory_id
-      "NEW",                // condition
-      "0",                  // delivery_charge_per_km
-      "Default",            // variant_name
-      "100.00",             // price
-      "0",                  // discount
-      "Y",                  // has_gst
-      "50",                 // stock
-      `SKU-${idx + 1}`,     // sku
-      "",                   // variant_images
-      '{"color":"blue"}',   // attributes_json
-      "Sample specs",       // specification
-      "Sample details",     // details
-      "NON_RETURNABLE",     // return_type
-      "",                   // return_days
-      "N",                  // replacement_allowed
+      [
+        catName,              // category
+        prodName,             // product_name
+        "This is an example product description. Replace or delete before import.", // product_description
+        "https://example.com/sample-image-1.jpg", // product_images
+        "NEW",                // condition
+        "0",                  // delivery_charge_per_km
+        "Standard Version",   // variant_name
+        "99.99",              // price
+        "10",                 // discount
+        "Yes",                // gst_applicable
+        "100",                // stock
+        `SKU-${idx + 1}-STD`, // sku_code
+        "https://example.com/variant-std.jpg", // variant_images
+        '{"color":"Black","size":"Regular"}', // variant_details
+        "Standard specification", // specifications
+        "Standard details",   // additional_details
+        "Returnable",         // return_policy
+        "7",                  // return_limit_days
+        "Yes",                // replacement_allowed
+      ],
+      [
+        catName,              // category
+        prodName,             // product_name
+        "This is an example product description. Replace or delete before import.", // product_description
+        "https://example.com/sample-image-1.jpg", // product_images
+        "NEW",                // condition
+        "0",                  // delivery_charge_per_km
+        "Premium Version",    // variant_name
+        "149.99",             // price
+        "15",                 // discount
+        "Yes",                // gst_applicable
+        "50",                 // stock
+        `SKU-${idx + 1}-PREM`,// sku_code
+        "https://example.com/variant-prem.jpg", // variant_images
+        '{"color":"Gold","size":"Premium"}', // variant_details
+        "Premium specification", // specifications
+        "Premium details",    // additional_details
+        "Returnable",         // return_policy
+        "7",                  // return_limit_days
+        "Yes",                // replacement_allowed
+      ]
     ]
   })
 }
 
 export function buildTemplateCsv(
-  categoryId: string,
-  subcategoryIds: string[],
-  categoryName: string,
-  subcategoryNames: Record<string, string>
+  categories: string[],
+  dummy: boolean
 ): Buffer {
   const headers = [...BULK_COLUMN_KEYS]
   const headerLine = headers.map(escapeCsvField).join(",")
-  const rows = exampleDataRows(categoryId, subcategoryIds, categoryName, subcategoryNames).map((r) =>
+  const rows = dummy ? exampleDataRows(categories).map((r) =>
     r.map(escapeCsvField).join(",")
-  )
+  ) : []
   const bom = "\uFEFF"
-  const body = `${bom}${headerLine}\r\n${rows.join("\r\n")}\r\n`
+  const body = `${bom}${headerLine}\r\n${rows.join("\r\n")}${rows.length ? "\r\n" : ""}`
   return Buffer.from(body, "utf8")
 }
 
 export function buildTemplateXlsx(
-  categoryId: string,
-  subcategoryIds: string[],
-  categoryName: string,
-  subcategoryNames: Record<string, string>
+  categories: string[],
+  dummy: boolean
 ): Buffer {
   const headers = [...BULK_COLUMN_KEYS]
   const wb = XLSX.utils.book_new()
-  const data = exampleDataRows(categoryId, subcategoryIds, categoryName, subcategoryNames)
+  const data = dummy ? exampleDataRows(categories) : []
   const ws = XLSX.utils.aoa_to_sheet([headers, ...data])
   XLSX.utils.book_append_sheet(wb, ws, BULK_SHEET_NAME)
 
   const instr: string[][] = [
     ["Bulk import — read me"],
     [""],
-    ["• The Products sheet has 5 example rows. Replace them with your real products or delete them before import."],
-    ["• One row = one variant. Same product_key + category_id on multiple rows = multiple variants for one product."],
-    ["• category_id must be your allowed category id (copy from the seller panel list)."],
-    ["• subcategory_id is optional; must belong to that category. Wrong codes: import is cancelled; nothing is saved until you fix the file."],
-    ["• variant_name, price, stock are required per row."],
-    ["• attributes_json (optional): per-variant key/value pairs, same as the product form. Example: {\"Size\":\"M\",\"Color\":\"Blue\"}"],
-    ["• In CSV, quote the JSON if it contains commas. Leave empty if no attributes."],
-    ["• Images: public URLs only; use | between URLs."],
+    ["• The Products sheet contains example rows demonstrating variant grouping. Replace or delete them before import."],
+    ["• One row = one variant. Rows with the same product_name are grouped together as a single product with multiple variants."],
+    ["• category: Write the exact or closest matching category name (e.g. 'Electronics' or 'electro')."],
+    ["• variant_name, price, and stock are required for each row."],
+    ["• variant_details (optional): attributes for the variant in JSON format. E.g. {\"color\":\"Black\",\"size\":\"L\"}"],
+    ["• In CSV, wrap the JSON in double quotes. Leave blank if not using attributes."],
+    ["• Images: public URLs only; separate multiple URLs with a vertical bar (|)."],
     ["• Max 500 data rows per upload."],
   ]
   const ws2 = XLSX.utils.aoa_to_sheet(instr)

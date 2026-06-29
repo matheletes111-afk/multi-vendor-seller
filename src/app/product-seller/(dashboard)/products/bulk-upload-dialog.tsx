@@ -14,15 +14,6 @@ import {
 import { Label } from "@/ui/label"
 import { Upload } from "lucide-react"
 
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/ui/select"
-import CheckboxV2 from "@/ui/checkbox-v2"
-
 type Subcategory = { id: string; name: string; slug: string }
 type CategoryWithSub = { id: string; name: string; slug: string; subcategories: Subcategory[] }
 
@@ -36,12 +27,6 @@ export function BulkUploadDialog({ onImported }: { onImported?: () => void }) {
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<string | null>(null)
   const [importErrors, setImportErrors] = useState<string[]>([])
-
-  // Template states
-  const [selectedCategoryId, setSelectedCategoryId] = useState<string>("")
-  const [selectedSubIds, setSelectedSubIds] = useState<string[]>([])
-
-  const selectedCategory = categories.find((c) => c.id === selectedCategoryId)
 
   const loadCategories = useCallback(() => {
     setLoadingCats(true)
@@ -58,22 +43,15 @@ export function BulkUploadDialog({ onImported }: { onImported?: () => void }) {
       setResult(null)
       setImportErrors([])
       setFile(null)
-      setSelectedCategoryId("")
-      setSelectedSubIds([])
       loadCategories()
     }
   }, [open, loadCategories])
 
-  async function handleDownloadTemplate(format: "csv" | "xlsx") {
-    if (!selectedCategoryId) {
-      setError("Please select a category first.")
-      return
-    }
+  async function handleDownloadTemplate(format: "csv" | "xlsx", dummy: boolean = true) {
     setError(null)
     setDownloading(format)
     try {
-      const subParam = selectedSubIds.length > 0 ? `&subcategoryIds=${selectedSubIds.join(",")}` : ""
-      const url = `/api/product-seller/products/bulk-template?format=${format}&categoryId=${selectedCategoryId}${subParam}`
+      const url = `/api/product-seller/products/bulk-template?format=${format}&dummy=${dummy}`
       const res = await fetch(url, { credentials: "include" })
       if (!res.ok) {
         const j = await res.json().catch(() => ({}))
@@ -84,7 +62,9 @@ export function BulkUploadDialog({ onImported }: { onImported?: () => void }) {
       const dUrl = URL.createObjectURL(blob)
       const a = document.createElement("a")
       a.href = dUrl
-      a.download = format === "xlsx" ? "product-bulk-template.xlsx" : "product-bulk-template.csv"
+      a.download = dummy
+        ? (format === "xlsx" ? "product-bulk-example.xlsx" : "product-bulk-example.csv")
+        : (format === "xlsx" ? "product-bulk-template.xlsx" : "product-bulk-template.csv")
       a.click()
       URL.revokeObjectURL(dUrl)
     } finally {
@@ -136,92 +116,90 @@ export function BulkUploadDialog({ onImported }: { onImported?: () => void }) {
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Bulk Upload Products</DialogTitle>
-          <DialogDescription className="text-left font-medium">
-            Generate a custom template and add multiple products to your catalog at once.
+          <DialogDescription className="text-left font-medium text-muted-foreground">
+            Simplify adding products. Use category names in your sheet and group variants by using the exact same product name.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6 py-2">
-          {/* Step 1: Selection */}
-          <section className="space-y-4 rounded-xl border bg-muted/30 p-5">
-            <h3 className="text-sm font-semibold flex items-center gap-2">
-              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] text-primary-foreground">1</span>
-              Configure Your Template
-            </h3>
-            
-            <div className="space-y-2">
-              <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Select Main Category</Label>
-              <Select value={selectedCategoryId} onValueChange={(val) => { setSelectedCategoryId(val); setSelectedSubIds([]) }}>
-                <SelectTrigger className="bg-background">
-                  <SelectValue placeholder={loadingCats ? "Loading categories..." : "Choose a category"} />
-                </SelectTrigger>
-                <SelectContent>
-                  {categories.map(c => (
-                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+          {/* Available Categories Badges */}
+          <div className="space-y-3 rounded-xl border bg-muted/20 p-5 shadow-sm">
+            <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Your Available Categories
+            </Label>
 
-            {selectedCategory && selectedCategory.subcategories?.length > 0 && (
-              <div className="space-y-2">
-                <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Select Sub-Categories (Optional)</Label>
-                <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto p-3 border rounded-lg bg-background">
-                  {selectedCategory.subcategories.map(sub => (
-                    <div key={sub.id} className="flex items-center space-x-2 p-1 hover:bg-muted/50 rounded transition-colors">
-                      <CheckboxV2 
-                        id={sub.id} 
-                        checked={selectedSubIds.includes(sub.id)} 
-                        onChange={(e) => {
-                          const isChecked = e.target.checked
-                          if (isChecked) setSelectedSubIds(prev => [...prev, sub.id])
-                          else setSelectedSubIds(prev => prev.filter(id => id !== sub.id))
-                        }}
-                      />
-                      <Label htmlFor={sub.id} className="text-xs font-medium cursor-pointer leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                        {sub.name}
-                      </Label>
-                    </div>
-                  ))}
-                </div>
+            {loadingCats ? (
+              <div className="text-xs text-muted-foreground animate-pulse">Loading categories...</div>
+            ) : categories.length === 0 ? (
+              <div className="text-xs text-destructive">No active categories assigned. Complete onboarding first.</div>
+            ) : (
+              <div className="flex flex-wrap gap-2 pt-1">
+                {categories.map((c) => (
+                  <span
+                    key={c.id}
+                    className="inline-flex items-center rounded-full bg-gradient-to-r from-blue-500/10 to-indigo-500/10 px-3 py-1 text-xs font-medium text-blue-700 dark:text-blue-300 border border-blue-500/20 hover:scale-105 transition-all shadow-sm"
+                  >
+                    {c.name}
+                  </span>
+                ))}
               </div>
             )}
+            <p className="text-[11px] font-medium text-muted-foreground/80 italic mt-2">
+              💡 Use these exact category names in the Excel sheet under the <strong>category</strong> column. The system will match them automatically (even with minor typos!).
+            </p>
+          </div>
 
-            <div className="flex flex-wrap gap-2 pt-2">
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                className="font-medium text-xs rounded-full"
-                disabled={!selectedCategoryId || downloading !== null}
-                onClick={() => handleDownloadTemplate("csv")}
-              >
-                {downloading === "csv" ? "Downloading..." : "Download CSV Template"}
-              </Button>
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                className="font-medium text-xs rounded-full"
-                disabled={!selectedCategoryId || downloading !== null}
-                onClick={() => handleDownloadTemplate("xlsx")}
-              >
-                {downloading === "xlsx" ? "Downloading..." : "Download Excel Template"}
-              </Button>
+          {/* Download Templates Section */}
+          <section className="space-y-4 rounded-xl border bg-muted/30 p-5 shadow-sm">
+            <h3 className="text-sm font-semibold flex items-center gap-2">
+              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] text-primary-foreground">1</span>
+              Get the Excel Template
+            </h3>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="flex flex-col justify-between p-4 border rounded-xl bg-background shadow-xs hover:border-primary/50 transition-all">
+                <div>
+                  <h4 className="font-semibold text-xs text-foreground mb-1">Example Excel Sheet</h4>
+                  <p className="text-[11px] text-muted-foreground mb-4">Includes sample dummy products to show how variants and details are formatted.</p>
+                </div>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  className="w-full font-semibold text-xs rounded-full bg-secondary hover:bg-secondary/80"
+                  disabled={downloading !== null}
+                  onClick={() => handleDownloadTemplate("xlsx", true)}
+                >
+                  {downloading === "xlsx" ? "Downloading..." : "Download Example Sheet"}
+                </Button>
+              </div>
+
+              <div className="flex flex-col justify-between p-4 border rounded-xl bg-background shadow-xs hover:border-primary/50 transition-all">
+                <div>
+                  <h4 className="font-semibold text-xs text-foreground mb-1">Fresh Excel Sheet</h4>
+                  <p className="text-[11px] text-muted-foreground mb-4">A clean template containing only headers so you can start adding your own data immediately.</p>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="w-full font-semibold text-xs rounded-full"
+                  disabled={downloading !== null}
+                  onClick={() => handleDownloadTemplate("xlsx", false)}
+                >
+                  {downloading === "xlsx" ? "Downloading..." : "Download Fresh Sheet"}
+                </Button>
+              </div>
             </div>
-            {!selectedCategoryId && (
-              <p className="text-[10px] text-muted-foreground italic">* Select a category to enable template downloads with dummy products.</p>
-            )}
           </section>
 
           {/* Tips Section */}
           <div className="rounded-lg border bg-blue-500/5 p-4 text-xs space-y-2">
-            <p className="font-semibold text-blue-600 dark:text-blue-400">Pro Tips:</p>
+            <p className="font-semibold text-blue-600 dark:text-blue-400">Pro Tips & Format Guidelines:</p>
             <ul className="list-disc pl-4 space-y-1 text-muted-foreground font-medium">
-              <li>The template includes <strong className="text-foreground underline">dummy rows</strong> to guide you. Replace or delete them.</li>
-              <li>Use the <code className="bg-background px-1 rounded border">condition</code> column to specify <strong className="text-foreground">NEW</strong> or <strong className="text-foreground">USED</strong>.</li>
-              <li>New: Use <code className="bg-background px-1 rounded border">delivery_charge_per_km</code> to set a per-KM delivery rate.</li>
-              <li>Multiple variants? Use the same <code className="bg-background px-1 rounded border">product_key</code> for those rows.</li>
+              <li><strong>Variants</strong>: If you have multiple items for the same product, give them the <strong>exact same product name</strong> (e.g. "T-Shirt") in consecutive rows, and differentiate them using the <code>variant_name</code> column.</li>
+              <li><strong>GST & Policy</strong>: Write <strong>Yes</strong> or <strong>No</strong> in <code>gst_applicable</code> and <code>replacement_allowed</code> columns. Use <strong>Returnable</strong> or <strong>Non-Returnable</strong> in <code>return_policy</code>.</li>
+              <li><strong>Details & Specs</strong>: Input key-value JSON in <code>variant_details</code> (e.g. <code>{"{\"color\": \"red\"}"}</code>) for custom options.</li>
             </ul>
           </div>
 
@@ -256,10 +234,10 @@ export function BulkUploadDialog({ onImported }: { onImported?: () => void }) {
           <Button type="button" variant="outline" className="rounded-full font-medium" onClick={() => setOpen(false)}>
             Cancel
           </Button>
-          <Button 
-            type="button" 
+          <Button
+            type="button"
             className="rounded-full font-medium bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20"
-            disabled={!file || importing} 
+            disabled={!file || importing}
             onClick={handleImport}
           >
             {importing ? "Importing Products..." : "Start Import"}

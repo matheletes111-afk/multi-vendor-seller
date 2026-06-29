@@ -126,6 +126,9 @@ model User {
   orders        Order[]
   hotelBookings HotelBooking[]
   reviews       Review[]
+  hotelReviews  HotelReview[]
+  foodReviews   FoodReview[]
+  foodOrders    FoodOrder[]
   cartItems     CartItem[]
   wishlistItems WishlistItem[]
   addresses     UserAddress[]
@@ -397,6 +400,8 @@ model HotelSeller {
   logo                String?
   banner              String?
   mainPhoto           String?
+  netBalance          Decimal                  @default(0) @db.Decimal(14, 2)
+  balanceTransactions HotelBalanceTransaction[]
   
   createdAt           DateTime         @default(now())
   updatedAt           DateTime         @updatedAt
@@ -439,6 +444,7 @@ model Hotel {
   rooms             Room[]
   sellerAds         SellerAd[]
   bookings          HotelBooking[]
+  reviews           HotelReview[]
 
   @@map("hotels")
 }
@@ -500,6 +506,7 @@ model HotelBooking {
   user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   room           Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
   hotel          Hotel    @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  balanceTransactions HotelBalanceTransaction[]
 
   @@map("hotel_bookings")
 }
@@ -624,6 +631,8 @@ model RestaurantSeller {
   logo                String?
   banner              String?
   mainPhoto           String?
+  netBalance          Decimal                        @default(0) @db.Decimal(14, 2)
+  balanceTransactions RestaurantBalanceTransaction[]
   
   createdAt           DateTime         @default(now())
   updatedAt           DateTime         @updatedAt
@@ -634,6 +643,9 @@ model RestaurantSeller {
   bankDetails         RestaurantBankDetails?
   agreement           RestaurantAgreement?
   subscription        RestaurantSubscription?
+  foods               FoodItem[]
+  foodOrders          FoodOrder[]
+  sellerAds           SellerAd[]
 
   @@map("restaurant_sellers")
 }
@@ -770,6 +782,8 @@ model SellerAd {
   productId       String?
   serviceId       String?
   hotelId         String?
+  restaurantSellerId String?
+  foodItemId      String?
   title           String
   description     String?        @db.Text
   creativeType    CreativeType
@@ -798,10 +812,14 @@ model SellerAd {
   product     Product?     @relation(fields: [productId], references: [id], onDelete: SetNull)
   service     Service?     @relation(fields: [serviceId], references: [id], onDelete: SetNull)
   hotel       Hotel?       @relation(fields: [hotelId], references: [id], onDelete: SetNull)
+  restaurantSeller RestaurantSeller? @relation(fields: [restaurantSellerId], references: [id], onDelete: Cascade)
+  foodItem    FoodItem?    @relation(fields: [foodItemId], references: [id], onDelete: SetNull)
   adClicks    AdClick[]
 
   @@index([sellerId])
   @@index([hotelSellerId])
+  @@index([restaurantSellerId])
+  @@index([foodItemId])
   @@index([customerUserId])
   @@index([status])
   @@index([startAt, endAt])
@@ -1442,4 +1460,130 @@ model OtpAttempt {
   updatedAt    DateTime  @updatedAt
 
   @@map("otp_attempts")
+}
+
+model FoodItem {
+  id                 String           @id @default(cuid())
+  restaurantSellerId String
+  name               String
+  description        String?          @db.Text
+  price              Float
+  images             Json             @default("[]")
+  category           String           // e.g. "Starters", "Mains"
+  isVeg              Boolean          @default(true)
+  isActive           Boolean          @default(true)
+  isDeleted          Boolean          @default(false)
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  restaurantSeller   RestaurantSeller @relation(fields: [restaurantSellerId], references: [id], onDelete: Cascade)
+  reviews            FoodReview[]
+  orderItems         FoodOrderItem[]
+  sellerAds          SellerAd[]
+
+  @@map("food_items")
+}
+
+model HotelReview {
+  id        String   @id @default(cuid())
+  userId    String
+  hotelId   String
+  rating    Int      // 1-5
+  comment   String?  @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  hotel     Hotel    @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+
+  @@map("hotel_reviews")
+}
+
+model FoodReview {
+  id         String   @id @default(cuid())
+  userId     String
+  foodItemId String
+  rating     Int      // 1-5
+  comment    String?  @db.Text
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  foodItem   FoodItem @relation(fields: [foodItemId], references: [id], onDelete: Cascade)
+
+  @@map("food_reviews")
+}
+
+model FoodOrder {
+  id                  String          @id @default(cuid())
+  orderNumber         String          @unique
+  customerId          String
+  restaurantSellerId  String
+  status              OrderStatus     @default(PENDING) // uses the standard OrderStatus enum
+  totalAmount         Float
+  deliveryFullName    String
+  deliveryPhone       String
+  deliveryAddressLine1 String
+  deliveryAddressLine2 String?
+  deliveryCity        String
+  deliveryState       String
+  deliveryPostalCode  String
+  deliveryCountry     String
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+
+  customer            User            @relation(fields: [customerId], references: [id])
+  restaurantSeller    RestaurantSeller @relation(fields: [restaurantSellerId], references: [id])
+  items               FoodOrderItem[]
+  balanceTransactions RestaurantBalanceTransaction[]
+
+  @@map("food_orders")
+}
+
+model FoodOrderItem {
+  id          String    @id @default(cuid())
+  orderId     String
+  foodItemId  String
+  quantity    Int
+  price       Float
+  subtotal    Float
+
+  order       FoodOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  foodItem    FoodItem  @relation(fields: [foodItemId], references: [id])
+
+  @@map("food_order_items")
+}
+
+model HotelBalanceTransaction {
+  id              String               @id @default(cuid())
+  hotelSellerId   String
+  amount          Decimal              @db.Decimal(14, 2)
+  kind            SellerBalanceTxnKind @default(DEBIT)
+  reason          String
+  bookingId       String?
+  note            String?
+  createdAt       DateTime             @default(now())
+
+  hotelSeller     HotelSeller          @relation(fields: [hotelSellerId], references: [id], onDelete: Cascade)
+  booking         HotelBooking?        @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([hotelSellerId, createdAt])
+  @@map("hotel_balance_transactions")
+}
+
+model RestaurantBalanceTransaction {
+  id                  String               @id @default(cuid())
+  restaurantSellerId  String
+  amount              Decimal              @db.Decimal(14, 2)
+  kind                SellerBalanceTxnKind @default(DEBIT)
+  reason              String
+  foodOrderId         String?
+  note                String?
+  createdAt           DateTime             @default(now())
+
+  restaurantSeller    RestaurantSeller     @relation(fields: [restaurantSellerId], references: [id], onDelete: Cascade)
+  foodOrder           FoodOrder?           @relation(fields: [foodOrderId], references: [id], onDelete: Cascade)
+
+  @@index([restaurantSellerId, createdAt])
+  @@map("restaurant_balance_transactions")
 }

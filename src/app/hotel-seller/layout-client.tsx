@@ -17,7 +17,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/ui/avatar"
 import { Button } from "@/ui/button"
 import { Sheet, SheetContent, SheetTrigger } from "@/ui/sheet"
-import { LogOut, User, LayoutDashboard, Building2, ShoppingCart, CreditCard, Settings, Menu, Megaphone, Star } from "lucide-react"
+import { LogOut, User, LayoutDashboard, Building2, ShoppingCart, CreditCard, Settings, Menu, Megaphone, Star, Wallet } from "lucide-react"
 
 function NavItem({ href, label, icon }: { href: string; label: string; icon?: ReactNode }) {
   const pathname = usePathname()
@@ -52,7 +52,8 @@ const navContent = (
     <NavItem href="/hotel-seller/hotels" label="My Hotels" icon={<Building2 className="h-4 w-4" />} />
     <NavItem href="/hotel-seller/admanagement" label="Ads" icon={<Megaphone className="h-4 w-4" />} />
     <NavItem href="/hotel-seller/bookings" label="Bookings" icon={<ShoppingCart className="h-4 w-4" />} />
-    {/* <NavItem href="/hotel-seller/reviews" label="Reviews" icon={<Star className="h-4 w-4" />} /> */}
+    <NavItem href="/hotel-seller/revenue" label="My Revenue" icon={<Wallet className="h-4 w-4" />} />
+    <NavItem href="/hotel-seller/reviews" label="Reviews" icon={<Star className="h-4 w-4" />} />
     <NavItem href="/hotel-seller/subscription" label="Subscription" icon={<CreditCard className="h-4 w-4" />} />
     <NavItem href="/hotel-seller/settings" label="Settings" icon={<Settings className="h-4 w-4" />} />
   </>

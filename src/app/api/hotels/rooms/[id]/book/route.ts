@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { creditHotelSellerForBooking } from "@/lib/hotel-ledger"
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -115,6 +116,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         },
         include: { room: { include: { hotel: true } } }
       })
+
+      // Credit the hotel seller balance & create ledger transaction
+      await creditHotelSellerForBooking(tx, newBooking.id)
 
       // Increment bookedCount for each date
       for (const date of stayDates) {

@@ -16,7 +16,7 @@ import { getYoutubeEmbedUrl } from "@/lib/youtube"
 
 type Product = { id: string; name: string }
 
-export type NewAdFormMode = "product-seller" | "customer" | "hotel-seller"
+export type NewAdFormMode = "product-seller" | "customer" | "hotel-seller" | "restaurant-seller"
 
 type CreativeState = { type: "IMAGE" | "VIDEO", url: string | null }
 
@@ -50,7 +50,8 @@ export function NewAdForm({
   const [mobileCreative, setMobileCreative] = useState<CreativeState>({ type: "IMAGE", url: null })
 
   const isHotelSeller = mode === "hotel-seller"
-  const isSeller = mode === "product-seller" || isHotelSeller
+  const isRestaurantSeller = mode === "restaurant-seller"
+  const isSeller = mode === "product-seller" || isHotelSeller || isRestaurantSeller
   const showProduct = isSeller && adType === "promote_product"
   const hasWeb = placements.includes("WEB")
   const hasMobile = placements.includes("MOBILE")
@@ -73,18 +74,32 @@ export function NewAdForm({
 
   useEffect(() => {
     if (!isSeller) return
-    const endpoint = isHotelSeller
-      ? "/api/hotel-seller/hotels?page=1&perPage=100"
-      : "/api/product-seller/products?page=1&perPage=100"
+    let endpoint = "/api/product-seller/products?page=1&perPage=100"
+    if (isHotelSeller) {
+      endpoint = "/api/hotel-seller/hotels?page=1&perPage=100"
+    } else if (isRestaurantSeller) {
+      endpoint = "/api/restaurant-seller/foods"
+    }
 
     fetch(endpoint)
       .then((r) => (r.ok ? r.json() : null))
       .then((json) => {
-        const list = isHotelSeller ? (json?.hotels ?? []) : (json?.products ?? [])
+        let list = []
+        if (isHotelSeller) {
+          list = json?.hotels ?? []
+        } else if (isRestaurantSeller) {
+          list = json?.data ?? []
+        } else {
+          list = json?.products ?? []
+        }
         setProducts(list.map((p: { id: string; name: string }) => ({ id: p.id, name: p.name })))
         
         // Check for ID in URL
-        const urlId = isHotelSeller ? searchParams.get("hotelId") : searchParams.get("productId")
+        const urlId = isHotelSeller
+          ? searchParams.get("hotelId")
+          : isRestaurantSeller
+          ? searchParams.get("foodId")
+          : searchParams.get("productId")
         if (urlId) {
           setAdType("promote_product")
           setSelectedProductId(urlId)
@@ -97,7 +112,7 @@ export function NewAdForm({
         }
       })
       .catch(() => setProducts([]))
-  }, [isSeller, isHotelSeller, searchParams])
+  }, [isSeller, isHotelSeller, isRestaurantSeller, searchParams])
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -112,15 +127,16 @@ export function NewAdForm({
     formData.delete("placements") // clear any existing from hidden inputs if needed
     placements.forEach(p => formData.append("placements", p))
     if (showProduct) {
-      const fieldName = isHotelSeller ? "hotelId" : "productId"
+      const fieldName = isHotelSeller ? "hotelId" : isRestaurantSeller ? "foodItemId" : "productId"
       const pid = formData.get(fieldName)
       if (!pid || String(pid).trim() === "") {
-        setError(`Select a ${isHotelSeller ? "hotel" : "product"} to promote.`)
+        setError(`Select a ${isHotelSeller ? "hotel" : isRestaurantSeller ? "food item" : "product"} to promote.`)
         return
       }
     } else if (isSeller) {
       formData.delete("productId")
       formData.delete("hotelId")
+      formData.delete("foodItemId")
     }
     setLoading(true)
     const res = await fetch(submitUrl, {
@@ -304,22 +320,22 @@ export function NewAdForm({
 
                 {showProduct && (
                   <div className="space-y-3">
-                    <Label htmlFor={isHotelSeller ? "hotelId" : "productId"} className="font-semibold text-slate-700">Linked {isHotelSeller ? "Hotel" : "Product"} *</Label>
+                    <Label htmlFor={isHotelSeller ? "hotelId" : isRestaurantSeller ? "foodItemId" : "productId"} className="font-semibold text-slate-700">Linked {isHotelSeller ? "Hotel" : isRestaurantSeller ? "Food Item" : "Product"} *</Label>
                     <select
-                      id={isHotelSeller ? "hotelId" : "productId"}
-                      name={isHotelSeller ? "hotelId" : "productId"}
+                      id={isHotelSeller ? "hotelId" : isRestaurantSeller ? "foodItemId" : "productId"}
+                      name={isHotelSeller ? "hotelId" : isRestaurantSeller ? "foodItemId" : "productId"}
                       required
                       value={selectedProductId}
                       onChange={(e) => setSelectedProductId(e.target.value)}
                       className="flex h-12 w-full rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm transition-focus focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary shadow-sm"
                     >
-                      <option value="">Select a {isHotelSeller ? "hotel" : "product"} to link</option>
+                      <option value="">Select a {isHotelSeller ? "hotel" : isRestaurantSeller ? "food item" : "product"} to link</option>
                       {products.map((p) => (
                         <option key={p.id} value={p.id}>{p.name}</option>
                       ))}
                     </select>
                     {products.length === 0 && (
-                      <p className="text-xs text-amber-600 bg-amber-50 p-2 rounded border border-amber-100">You haven't created any {isHotelSeller ? "hotels" : "products"} yet. Go to {isHotelSeller ? "Hotels" : "Products"} to add one.</p>
+                      <p className="text-xs text-amber-600 bg-amber-50 p-2 rounded border border-amber-100">You haven't created any {isHotelSeller ? "hotels" : isRestaurantSeller ? "food items" : "products"} yet. Go to {isHotelSeller ? "Hotels" : isRestaurantSeller ? "Foods" : "Products"} to add one.</p>
                     )}
                   </div>
                 )}
