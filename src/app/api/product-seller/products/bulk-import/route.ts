@@ -51,9 +51,69 @@ function parseAttributesJson(s: string, excelRow: number): { ok: true; attrs: Re
   }
 }
 
+function levenshteinDistance(a: string, b: string): number {
+  const matrix = Array.from({ length: a.length + 1 }, () =>
+    Array.from({ length: b.length + 1 }, () => 0)
+  )
+  for (let i = 0; i <= a.length; i++) matrix[i][0] = i
+  for (let j = 0; j <= b.length; j++) matrix[0][j] = j
+
+  for (let i = 1; i <= a.length; i++) {
+    for (let j = 1; j <= b.length; j++) {
+      if (a[i - 1] === b[j - 1]) {
+        matrix[i][j] = matrix[i - 1][j - 1]
+      } else {
+        matrix[i][j] = Math.min(
+          matrix[i - 1][j - 1] + 1, // substitution
+          matrix[i][j - 1] + 1,     // insertion
+          matrix[i - 1][j] + 1      // deletion
+        )
+      }
+    }
+  }
+  return matrix[a.length][b.length]
+}
+
+function findBestCategoryMatch(input: string, categories: { id: string; name: string }[]) {
+  const cleanInput = input.trim().toLowerCase()
+  if (!cleanInput) return null
+
+  // 1. Exact match (case-insensitive)
+  const bestMatch = categories.find((c) => c.name.toLowerCase() === cleanInput)
+  if (bestMatch) return bestMatch
+
+  // 2. Starts-with or includes match
+  const matches = categories.filter((c) => {
+    const name = c.name.toLowerCase()
+    return name.includes(cleanInput) || cleanInput.includes(name)
+  })
+  if (matches.length === 1) return matches[0]
+  if (matches.length > 1) {
+    const startsWithMatch = matches.find((c) => c.name.toLowerCase().startsWith(cleanInput))
+    if (startsWithMatch) return startsWithMatch
+    return matches[0]
+  }
+
+  // 3. Levenshtein distance
+  let minDistance = Infinity
+  let closest: { id: string; name: string } | null = null
+  for (const cat of categories) {
+    const dist = levenshteinDistance(cleanInput, cat.name.toLowerCase())
+    if (dist < minDistance) {
+      minDistance = dist
+      closest = cat
+    }
+  }
+  if (closest && minDistance < Math.max(cleanInput.length, closest.name.length) * 0.6) {
+    return closest
+  }
+
+  return null
+}
+
 function groupKey(row: BulkDataRow): string {
-  const pk = row.cells.product_key?.trim()
-  if (pk) return `k:${pk}`
+  const pn = row.cells.product_name?.trim().toLowerCase()
+  if (pn) return `name:${pn}`
   return `single:${row.excelRow}`
 }
 
@@ -74,7 +134,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  const seller = await prisma.seller.findUnique({ where: { userId: session.user.id } })
+  const seller = await prisma.seller.findUnique({
+    where: { userId: session.user.id },
+    include: {
+      selectedCategories: {
+        where: { isActive: true },
+        select: { id: true, name: true },
+      },
+    },
+  })
   if (!seller) return NextResponse.json({ error: "Seller not found" }, { status: 404 })
   if (!seller.isApproved) {
     return NextResponse.json({ error: "Your seller account is pending approval." }, { status: 403 })
@@ -120,7 +188,7 @@ export async function POST(request: NextRequest) {
 
   if (rows.length === 0) {
     if (errors.length === 0) {
-      errors.push("No data rows found. Add at least one product row below the header, with category_id and variant fields.")
+      errors.push("No data rows found. Add at least one product row below the header, with category and variant fields.")
     }
     return NextResponse.json({ error: "Import failed", errors }, { status: 400 })
   }
@@ -147,8 +215,7 @@ export async function POST(request: NextRequest) {
     let productName = ""
     let description: string | null = null
     let productImages: string[] = []
-    const subIds = new Set<string>()
-    const catIds = new Set<string>()
+    const categoryStrings = new Set<string>()
     let nameConflict = false
 
     for (const r of sorted) {
@@ -156,23 +223,20 @@ export async function POST(request: NextRequest) {
       const pn = (c.product_name ?? "").trim()
       if (pn) {
         if (!productName) productName = pn
-        else if (pn !== productName) {
-          errors.push(`Rows ${rowNums}: conflicting product_name for the same product_key`)
+        else if (pn.toLowerCase() !== productName.toLowerCase()) {
+          errors.push(`Rows ${rowNums}: conflicting product_name for the same product group`)
           nameConflict = true
         }
       }
 
-      const cid = (c.category_id ?? "").trim()
-      if (cid) catIds.add(cid)
+      const catText = (c.category ?? "").trim()
+      if (catText) categoryStrings.add(catText)
 
-      const desc = (c.description ?? "").trim()
+      const desc = (c.product_description ?? "").trim()
       if (desc && !description) description = desc
 
       const pImg = parseImageList(c.product_images ?? "")
       if (pImg.length && productImages.length === 0) productImages = pImg
-
-      const rowSub = (c.subcategory_id ?? "").trim()
-      if (rowSub) subIds.add(rowSub)
     }
     
     const firstValidCharge = sorted.find(r => (r.cells.delivery_charge_per_km ?? "").trim())?.cells.delivery_charge_per_km?.trim()
@@ -185,46 +249,67 @@ export async function POST(request: NextRequest) {
       continue
     }
 
-    if (catIds.size === 0) {
-      errors.push(`Product "${productName}" (rows ${rowNums}): category_id is required for each product group`)
+    if (categoryStrings.size === 0) {
+      errors.push(`Product "${productName}" (rows ${rowNums}): category is required for each product group`)
       continue
     }
-    if (catIds.size > 1) {
+    if (categoryStrings.size > 1) {
       errors.push(
-        `Product "${productName}" (rows ${rowNums}): all rows with the same product key must use the same category_id. Found: ${[...catIds].join(", ")}`
+        `Product "${productName}" (rows ${rowNums}): all rows with the same product name must use the same category. Found: ${[...categoryStrings].join(", ")}`
       )
       continue
     }
 
-    const groupCategoryId = [...catIds][0]
-    const allowedCat = await sellerHasSelectedCategory(seller.id, groupCategoryId)
-    if (!allowedCat) {
-      errors.push(
-        `Product "${productName}" (rows ${rowNums}): category_id "${groupCategoryId}" is not allowed for your shop — copy a category code from the bulk upload list (or fix a typo).`
-      )
-      continue
-    }
+    const inputCategoryText = [...categoryStrings][0]
+    let matchedCategory = findBestCategoryMatch(inputCategoryText, seller.selectedCategories)
 
-    if (subIds.size > 1) {
-      errors.push(
-        `Product "${productName}" (rows ${rowNums}): all rows with the same product key must use the same subcategory_id (or all leave it empty). Found: ${[...subIds].join(", ")}`
-      )
-      continue
-    }
-
-    let subcategoryId: string | null = null
-    if (subIds.size === 1) {
-      subcategoryId = [...subIds][0]
-      const sub = await prisma.subcategory.findFirst({
-        where: { id: subcategoryId, categoryId: groupCategoryId, isActive: true },
+    if (!matchedCategory) {
+      // 1. Try to match globally from all active categories in the database
+      const allActiveCategories = await prisma.category.findMany({
+        where: { isActive: true },
+        select: { id: true, name: true }
       })
-      if (!sub) {
-        errors.push(
-          `Product "${productName}" (rows ${rowNums}): subcategory_id "${subcategoryId}" does not belong to category "${groupCategoryId}", is inactive, or is wrong — use a type code listed under that category in the panel.`
-        )
-        continue
+      const globalMatchedCategory = findBestCategoryMatch(inputCategoryText, allActiveCategories)
+
+      if (globalMatchedCategory) {
+        // Connect the existing global category to this seller
+        await prisma.seller.update({
+          where: { id: seller.id },
+          data: {
+            selectedCategories: {
+              connect: { id: globalMatchedCategory.id }
+            }
+          }
+        })
+        // Add to seller's local selectedCategories list so we don't connect it again
+        seller.selectedCategories.push(globalMatchedCategory)
+        matchedCategory = globalMatchedCategory
+      } else {
+        // 2. Create a brand new category!
+        const cleanName = inputCategoryText.trim().replace(/\b\w/g, c => c.toUpperCase())
+        const cleanSlug = `${slugFromName(cleanName)}-${uniqueSlugSuffix()}`
+        
+        const newCategory = await prisma.category.create({
+          data: {
+            name: cleanName,
+            slug: cleanSlug,
+            description: `Auto-created category via bulk upload.`,
+            isActive: true,
+            sellers: {
+              connect: { id: seller.id }
+            }
+          },
+          select: { id: true, name: true }
+        })
+        
+        // Add to seller's local list to prevent duplicate create calls
+        seller.selectedCategories.push(newCategory)
+        matchedCategory = newCategory
       }
     }
+
+    const groupCategoryId = matchedCategory.id
+    const subcategoryId: string | null = null // subcategories are removed from bulk upload
 
     const firstValidCondition = sorted.find(r => (r.cells.condition ?? "").trim())?.cells.condition?.trim().toUpperCase()
     const condition = (firstValidCondition === "USED") ? "USED" : "NEW"
@@ -242,12 +327,12 @@ export async function POST(request: NextRequest) {
       const stock = Number(c.stock)
       const discount = c.discount !== undefined && String(c.discount).trim() !== "" ? Number(c.discount) : 0
 
-      const gstTri = parseBoolTri(c.has_gst ?? "")
+      const gstTri = parseBoolTri(c.gst_applicable ?? "")
       const hasGst = gstTri === undefined ? true : gstTri
 
       const returnType =
-        (c.return_type ?? "").trim().toUpperCase() === "RETURNABLE" ? "RETURNABLE" : "NON_RETURNABLE"
-      const returnDaysRaw = String(c.return_days ?? "").trim() ? Number(c.return_days) : undefined
+        (c.return_policy ?? "").trim().toUpperCase() === "RETURNABLE" ? "RETURNABLE" : "NON_RETURNABLE"
+      const returnDaysRaw = String(c.return_limit_days ?? "").trim() ? Number(c.return_limit_days) : undefined
       const returnDays =
         returnType === "RETURNABLE" && typeof returnDaysRaw === "number" && returnDaysRaw > 0
           ? Math.floor(returnDaysRaw)
@@ -255,7 +340,7 @@ export async function POST(request: NextRequest) {
 
       const replacementAllowed = returnType === "RETURNABLE" && parseReplacementTrue(c.replacement_allowed ?? "")
 
-      const attrParsed = parseAttributesJson(c.attributes_json ?? "", r.excelRow)
+      const attrParsed = parseAttributesJson(c.variant_details ?? "", r.excelRow)
       if (!attrParsed.ok) {
         errors.push(attrParsed.error)
         continue
@@ -266,12 +351,12 @@ export async function POST(request: NextRequest) {
         price,
         stock,
         discount,
-        sku: (c.sku ?? "").trim() || undefined,
+        sku: (c.sku_code ?? "").trim() || undefined,
         hasGst,
         images: parseImageList(c.variant_images ?? ""),
         attributes: Object.keys(attrParsed.attrs).length ? attrParsed.attrs : undefined,
-        specification: (c.specification ?? "").trim() || undefined,
-        details: (c.details ?? "").trim() || undefined,
+        specification: (c.specifications ?? "").trim() || undefined,
+        details: (c.additional_details ?? "").trim() || undefined,
         returnType,
         returnDays,
         replacementAllowed,

@@ -18,6 +18,12 @@ export async function GET(
       product: true,
       service: true,
       hotel: true,
+      restaurantSeller: {
+        include: {
+          user: { select: { email: true, name: true } }
+        }
+      },
+      foodItem: true,
       _count: { select: { adClicks: true } },
     },
   })

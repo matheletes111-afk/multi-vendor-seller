@@ -52,7 +52,7 @@ const navContent = (
     <NavItem href="/product-seller/products" label="Products" icon={<Package className="h-4 w-4" />} />
     <NavItem href="/product-seller/admanagement" label="Ads" icon={<Megaphone className="h-4 w-4" />} />
     <NavItem href="/product-seller/orders" label="Orders" icon={<ShoppingCart className="h-4 w-4" />} />
-    {/* <NavItem href="/product-seller/balance" label="Net balance" icon={<Wallet className="h-4 w-4" />} /> */}
+    <NavItem href="/product-seller/balance" label="My Revenue" icon={<Wallet className="h-4 w-4" />} />
     <NavItem href="/product-seller/reviews" label="Reviews" icon={<Star className="h-4 w-4" />} />
     <NavItem href="/product-seller/subscription" label="Subscription" icon={<CreditCard className="h-4 w-4" />} />
     <NavItem href="/product-seller/settings" label="Settings" icon={<Settings className="h-4 w-4" />} />

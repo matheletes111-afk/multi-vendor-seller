@@ -17,7 +17,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/ui/avatar"
 import { Button } from "@/ui/button"
 import { Sheet, SheetContent, SheetTrigger } from "@/ui/sheet"
-import { LogOut, User, LayoutDashboard, Utensils, ShoppingCart, CreditCard, Settings, Menu, Megaphone, Star } from "lucide-react"
+import { LogOut, User, LayoutDashboard, Utensils, ShoppingCart, CreditCard, Settings, Menu, Megaphone, Star, Wallet } from "lucide-react"
 
 function NavItem({ href, label, icon }: { href: string; label: string; icon?: ReactNode }) {
   const pathname = usePathname()
@@ -49,10 +49,11 @@ function Sidebar({ children, className }: { children: ReactNode; className?: str
 const navContent = (
   <>
     <NavItem href="/restaurant-seller" label="Overview" icon={<LayoutDashboard className="h-4 w-4" />} />
-    <NavItem href="/restaurant-seller/outlets" label="My Outlets" icon={<Utensils className="h-4 w-4" />} />
+    <NavItem href="/restaurant-seller/foods" label="Food Menu" icon={<Utensils className="h-4 w-4" />} />
     <NavItem href="/restaurant-seller/admanagement" label="Ads" icon={<Megaphone className="h-4 w-4" />} />
     <NavItem href="/restaurant-seller/orders" label="Orders" icon={<ShoppingCart className="h-4 w-4" />} />
-    {/* <NavItem href="/restaurant-seller/reviews" label="Reviews" icon={<Star className="h-4 w-4" />} /> */}
+    <NavItem href="/restaurant-seller/revenue" label="My Revenue" icon={<Wallet className="h-4 w-4" />} />
+    <NavItem href="/restaurant-seller/reviews" label="Reviews" icon={<Star className="h-4 w-4" />} />
     <NavItem href="/restaurant-seller/subscription" label="Subscription" icon={<CreditCard className="h-4 w-4" />} />
     <NavItem href="/restaurant-seller/settings" label="Settings" icon={<Settings className="h-4 w-4" />} />
   </>

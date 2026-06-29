@@ -1,0 +1,124 @@
+========================================================================
+Meeem - Restaurant Seller Mobile Ads API Documentation
+========================================================================
+
+Base URL: http://<your-server-domain>/mobileapi/restaurant-seller
+
+Authentication:
+  All endpoints require a Bearer token in the Authorization header:
+  Authorization: Bearer <mobile_access_token>
+
+Response Format:
+  All responses return a JSON object with:
+  - success: boolean
+  - data: (object or array) returned only when success is true
+  - error: string error message, returned only when success is false
+
+------------------------------------------------------------------------
+AD MANAGEMENT ENDPOINTS
+------------------------------------------------------------------------
+
+A. List Ads
+   Endpoint: GET /admanagement
+   Query Parameters:
+     - page: (optional, default: 1)
+     - perPage: (optional, default: 10)
+
+   Example Response (Success):
+     {
+       "success": true,
+       "data": {
+         "ads": [
+           {
+             "id": "ad_restaurant_1",
+             "restaurantSellerId": "seller_res_123",
+             "foodItemId": "food_item_abc",
+             "title": "Summer Pizza Deal",
+             "description": "Buy 1 Get 1 Free on all Large Pizzas!",
+             "creativeType": "IMAGE",
+             "creativeUrl": "https://bucket.s3.amazonaws.com/uploads/seller-ads/pizza_ad.jpg",
+             "placements": ["WEB", "MOBILE"],
+             "status": "ACTIVE",
+             "totalBudget": 300,
+             "spentAmount": 15.0,
+             "maxCpc": 0.3,
+             "startAt": "2026-06-24T00:00:00.000Z",
+             "endAt": "2026-07-24T00:00:00.000Z",
+             "_count": { "adClicks": 50 }
+           }
+         ],
+         "pagination": {
+           "totalCount": 1,
+           "totalPages": 1,
+           "page": 1,
+           "perPage": 10
+         }
+       }
+     }
+
+B. Create Ad (Supports Multipart Upload)
+   Endpoint: POST /admanagement
+   Content-Type: multipart/form-data or application/json
+   Body Fields:
+     - adType: (string, default: "promote_product" or "own_ad")
+     - foodItemId: (string, required if promoting a food item) ID of the food item to promote
+     - title: (string, required) Ad title
+     - description: (string) Ad description
+     - placements: (array/strings, e.g. "WEB" and "MOBILE") placements (use key multiple times in form-data)
+     - creativeType: (string, "IMAGE" or "VIDEO") Web creative type
+     - creativeFile: (binary file) Web creative image/video file
+     - creativeUrl: (string) Web creative URL if not uploading file
+     - mobilecreativeType: (string, "IMAGE" or "VIDEO") Mobile creative type
+     - mobilecreativeFile: (binary file) Mobile creative image/video file
+     - mobilecreativeUrl: (string) Mobile creative URL if not uploading file
+     - totalBudget: (number/string, required) Budget amount
+     - maxCpc: (number/string, optional) Max CPC (calculated if targetAudience is supplied)
+     - targetAudience: (number/string, optional) Target audience size
+     - startAt: (string, required) Start date ISO string
+     - endAt: (string, required) End date ISO string
+     - targetCountries: (JSON string or comma-separated string) e.g. '["US", "IN"]'
+     - targetAgeMin: (number) Min age
+     - targetAgeMax: (number) Max age
+     - expandAudience: (boolean/string) "true" or "on" to expand target audience
+
+   Example Response (Success):
+     {
+       "success": true,
+       "data": {
+         "id": "ad_restaurant_2",
+         "title": "Summer Pizza Deal",
+         ...
+       }
+     }
+
+C. Get Ad Details
+   Endpoint: GET /admanagement/[id]
+   Example Response (Success):
+     {
+       "success": true,
+       "data": {
+         "id": "ad_restaurant_1",
+         ...
+       }
+     }
+
+D. Pause or Resume Ad
+   Endpoint: PATCH /admanagement/[id]
+   Body Fields:
+     - status: (string, "PAUSED" or "ACTIVE") Status change requested.
+
+   Example Response (Success):
+     {
+       "success": true,
+       "data": {
+         "status": "PAUSED"
+       }
+     }
+
+E. End Ad
+   Endpoint: DELETE /admanagement/[id]
+   Example Response (Success):
+     {
+       "success": true,
+       "message": "Ad ended successfully"
+     }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { debitHotelSellerForCancellation } from "@/lib/hotel-ledger"
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -58,6 +59,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         where: { id: bookingId },
         data: { status: "CANCELLED" }
       })
+
+      // Debit the hotel seller balance & create ledger transaction
+      await debitHotelSellerForCancellation(tx, bookingId)
 
       // 2. Decrement bookedCount in room availability for each stay date
       for (const date of stayDates) {

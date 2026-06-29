@@ -452,5 +452,43 @@ E. End Ad
        "success": true,
        "message": "Ad ended successfully"
      }
+
+------------------------------------------------------------------------
+5. REVIEW INSPECTOR ENDPOINT
+------------------------------------------------------------------------
+
+A. List Hotel Reviews (Grouped by Hotel or Detailed List)
+   Endpoint: GET /reviews
+   Query Parameters:
+     - hotelId: (optional) Filter reviews for a specific hotel ID
+     - page: (optional, default: 1) Page number
+     - perPage: (optional, default: 10) Items per page
+
+   Example Request:
+     GET /mobileapi/hotel-seller/reviews?hotelId=clxb932p80001uzd5nklk098a
+
+   Example Response (Success):
+     {
+       "success": true,
+       "data": {
+         "reviews": [
+           {
+             "id": "rvw_12345",
+             "hotelId": "clxb932p80001uzd5nklk098a",
+             "hotelName": "Grand Palace Hotel",
+             "userName": "John Doe",
+             "rating": 5,
+             "comment": "Amazing experience!",
+             "createdAt": "2026-06-20T10:00:00.000Z"
+           }
+         ],
+         "pagination": {
+           "totalCount": 1,
+           "totalPages": 1,
+           "page": 1,
+           "perPage": 10
+         }
+       }
+     }
 ========================================================================
 

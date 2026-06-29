@@ -1,0 +1,373 @@
+========================================================================
+Meeem - Customer & Guest Hotel Mobile API Documentation
+========================================================================
+
+Base URL: http://<your-server-domain>/mobileapi/customer
+
+Authentication:
+  - Guest APIs: Do not require authentication headers.
+  - Customer APIs: Require a Bearer token in the Authorization header:
+    Authorization: Bearer <mobile_access_token>
+
+Response Format:
+  All responses return a JSON object with:
+  - success: boolean
+  - data: (object or array) returned only when success is true
+  - error: string error message, returned only when success is false
+
+========================================================================
+1. GUEST & CUSTOMER PUBLIC ENDPOINTS
+========================================================================
+
+A. Browse & Search Hotels (Guest Accessible)
+   Endpoint: GET /hotels
+   Query Parameters:
+     - city: (optional) Filter hotels by city name (case-insensitive contains)
+     - rating: (optional) Filter hotels by minimum star rating (1-5)
+     - q: (optional) Search string matching hotel name, description, or city
+     - minPrice: (optional) Exclude hotels where any room is priced below minPrice
+     - maxPrice: (optional) Filter hotels having rooms priced <= maxPrice
+
+   Example Request:
+     GET /mobileapi/customer/hotels?city=Freetown&rating=4&maxPrice=150
+
+   Example Response (Success):
+     {
+       "success": true,
+       "data": [
+         {
+           "id": "clxb932p80001uzd5nklk098a",
+           "hotelSellerId": "clxb821a30000uzd5abcdefgh",
+           "name": "Grand Palace Hotel",
+           "description": "Luxurious stay in the city center.",
+           "starRating": 5,
+           "amenities": ["Wifi", "Pool", "Gym", "Spa"],
+           "address": "123 Main Street",
+           "city": "Freetown",
+           "state": "Western Area",
+           "lat": 8.484,
+           "lng": -13.234,
+           "logo": "https://bucket.s3.amazonaws.com/uploads/hotels/logos/logo.jpg",
+           "banner": "https://bucket.s3.amazonaws.com/uploads/hotels/banners/banner.jpg",
+           "images": ["https://bucket.s3.amazonaws.com/uploads/hotels/gallery/img1.jpg"],
+           "isActive": true,
+           "isDeleted": false,
+           "createdAt": "2026-06-18T00:00:00.000Z",
+           "updatedAt": "2026-06-18T00:00:00.000Z",
+           "rooms": [
+             {
+               "id": "clxbc78a80002uzd5xyz98765",
+               "hotelId": "clxb932p80001uzd5nklk098a",
+               "name": "Deluxe Room",
+               "description": "Double bed, sea view",
+               "price": 120.5,
+               "capacityAdults": 2,
+               "capacityChildren": 1,
+               "totalRooms": 5,
+               "amenities": ["Air Conditioning", "TV"],
+               "images": ["https://bucket.s3.amazonaws.com/uploads/rooms/gallery/room1.jpg"]
+             }
+           ]
+         }
+       ],
+       "cities": ["Freetown", "Bo", "Kenema"]
+     }
+
+B. Get Hotel Details (Guest Accessible)
+   Endpoint: GET /hotels/[id]
+   Example Request:
+     GET /mobileapi/customer/hotels/clxb932p80001uzd5nklk098a
+
+   Example Response (Success):
+     {
+       "success": true,
+       "data": {
+         "id": "clxb932p80001uzd5nklk098a",
+         "hotelSellerId": "clxb821a30000uzd5abcdefgh",
+         "name": "Grand Palace Hotel",
+         "description": "Luxurious stay in the city center.",
+         "starRating": 5,
+         "averageRating": 4.7,
+         "totalReviews": 12,
+         "amenities": ["Wifi", "Pool", "Gym", "Spa"],
+         "address": "123 Main Street",
+         "city": "Freetown",
+         "state": "Western Area",
+         "rooms": [
+           {
+             "id": "clxbc78a80002uzd5xyz98765",
+             "name": "Deluxe Room",
+             "price": 120.5,
+             "capacityAdults": 2,
+             "capacityChildren": 1,
+             "totalRooms": 5,
+             "amenities": ["Air Conditioning", "TV"],
+             "images": ["https://bucket.s3.amazonaws.com/uploads/rooms/gallery/room1.jpg"],
+             "isActive": true,
+             "isDeleted": false
+           }
+         ],
+         "reviews": [
+           {
+             "id": "rvw_12345",
+             "userId": "usr_clxb9876",
+             "userName": "John Doe",
+             "rating": 5,
+             "comment": "Amazing experience, very clean room!",
+             "createdAt": "2026-06-20T10:00:00.000Z"
+           }
+         ]
+       }
+     }
+
+C. Get Room Details (Guest Accessible)
+   Endpoint: GET /hotels/rooms/[id]
+   Example Request:
+     GET /mobileapi/customer/hotels/rooms/clxbc78a80002uzd5xyz98765
+
+   Example Response (Success):
+     {
+       "success": true,
+       "data": {
+         "id": "clxbc78a80002uzd5xyz98765",
+         "hotelId": "clxb932p80001uzd5nklk098a",
+         "name": "Deluxe Room",
+         "description": "Double bed, sea view",
+         "price": 120.5,
+         "capacityAdults": 2,
+         "capacityChildren": 1,
+         "totalRooms": 5,
+         "amenities": ["Air Conditioning", "TV"],
+         "images": ["https://bucket.s3.amazonaws.com/uploads/rooms/gallery/room1.jpg"],
+         "isActive": true,
+         "isDeleted": false,
+         "hotel": {
+           "id": "clxb932p80001uzd5nklk098a",
+           "name": "Grand Palace Hotel",
+           "city": "Freetown"
+         }
+       }
+     }
+
+
+========================================================================
+2. CUSTOMER AUTHENTICATED ENDPOINTS (Requires Bearer Token)
+========================================================================
+
+A. Book a Room
+   Endpoint: POST /hotels/rooms/[id]/book
+   Body (JSON):
+     - checkIn: (string, required) Check-in date (YYYY-MM-DD)
+     - checkOut: (string, required) Check-out date (YYYY-MM-DD)
+     - numberOfRooms: (number, optional, default: 1) Number of rooms to book
+     - guestName: (string, required) Name of the staying guest
+     - guestPhone: (string, required) Phone number of the guest
+     - adults: (number, optional, default: 2) Number of adults
+     - children: (number, optional, default: 0) Number of children
+
+   Example Request:
+     POST /mobileapi/customer/hotels/rooms/clxbc78a80002uzd5xyz98765/book
+     Headers:
+       Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+       Content-Type: application/json
+     Body:
+       {
+         "checkIn": "2026-07-01",
+         "checkOut": "2026-07-05",
+         "numberOfRooms": 1,
+         "guestName": "John Doe",
+         "guestPhone": "+1234567890",
+         "adults": 2,
+         "children": 0
+       }
+
+   Example Response (Success):
+     {
+       "success": true,
+       "message": "Booking confirmed successfully",
+       "data": {
+         "id": "bk_clxbd1234abcd",
+         "userId": "usr_clxb9876",
+         "roomId": "clxbc78a80002uzd5xyz98765",
+         "hotelId": "clxb932p80001uzd5nklk098a",
+         "guestName": "John Doe",
+         "guestPhone": "+1234567890",
+         "checkIn": "2026-07-01T00:00:00.000Z",
+         "checkOut": "2026-07-05T00:00:00.000Z",
+         "numberOfRooms": 1,
+         "adults": 2,
+         "children": 0,
+         "totalPrice": 482.00,
+         "status": "CONFIRMED",
+         "createdAt": "2026-06-23T15:00:00.000Z"
+       }
+     }
+
+B. List Customer Bookings
+   Endpoint: GET /hotel-bookings
+   Query Parameters:
+     - page: (optional, default: 1) Page number
+     - perPage: (optional, default: 10) Items per page
+     - q: (optional) Search string matching hotel name or room name
+     - status: (optional) Filter by status (e.g., CONFIRMED, CANCELLED, PENDING)
+     - hotelId: (optional) Filter bookings by hotel ID
+     - checkIn: (optional) Filter bookings checking in on/after date (YYYY-MM-DD)
+     - checkOut: (optional) Filter bookings checking out on/before date (YYYY-MM-DD)
+
+   Example Request:
+     GET /mobileapi/customer/hotel-bookings?page=1&perPage=10&status=CONFIRMED
+
+   Example Response (Success):
+     {
+       "success": true,
+       "data": [
+         {
+           "id": "bk_clxbd1234abcd",
+           "guestName": "John Doe",
+           "guestPhone": "+1234567890",
+           "checkIn": "2026-07-01T00:00:00.000Z",
+           "checkOut": "2026-07-05T00:00:00.000Z",
+           "numberOfRooms": 1,
+           "adults": 2,
+           "children": 0,
+           "totalPrice": 482,
+           "status": "CONFIRMED",
+           "createdAt": "2026-06-23T15:00:00.000Z",
+           "room": {
+             "id": "clxbc78a80002uzd5xyz98765",
+             "name": "Deluxe Room"
+           },
+           "hotel": {
+             "id": "clxb932p80001uzd5nklk098a",
+             "name": "Grand Palace Hotel",
+             "city": "Freetown"
+           }
+         }
+       ],
+       "totalCount": 1,
+       "totalPages": 1,
+       "page": 1,
+       "perPage": 10
+     }
+
+C. Get Booking Details
+   Endpoint: GET /hotel-bookings/[id]
+   Example Request:
+     GET /mobileapi/customer/hotel-bookings/bk_clxbd1234abcd
+
+   Example Response (Success):
+     {
+       "success": true,
+       "data": {
+         "id": "bk_clxbd1234abcd",
+         "userId": "usr_clxb9876",
+         "roomId": "clxbc78a80002uzd5xyz98765",
+         "hotelId": "clxb932p80001uzd5nklk098a",
+         "guestName": "John Doe",
+         "guestPhone": "+1234567890",
+         "checkIn": "2026-07-01T00:00:00.000Z",
+         "checkOut": "2026-07-05T00:00:00.000Z",
+         "numberOfRooms": 1,
+         "adults": 2,
+         "children": 0,
+         "totalPrice": 482,
+         "status": "CONFIRMED",
+         "createdAt": "2026-06-23T15:00:00.000Z",
+         "room": {
+           "id": "clxbc78a80002uzd5xyz98765",
+           "name": "Deluxe Room",
+           "price": 120.5
+         },
+         "hotel": {
+           "id": "clxb932p80001uzd5nklk098a",
+           "name": "Grand Palace Hotel",
+           "city": "Freetown"
+         }
+       }
+     }
+
+D. Cancel Booking
+   Endpoint: POST /hotel-bookings/[id]/cancel
+   Notes: Can only be called at least 24 hours before the scheduled checkIn date.
+          Automatically processes a 100% refund to the customer's wallet balance
+          and logs a WalletTransaction.
+
+   Example Request:
+     POST /mobileapi/customer/hotel-bookings/bk_clxbd1234abcd/cancel
+
+   Example Response (Success):
+     {
+       "success": true,
+       "message": "Booking cancelled and refund processed successfully."
+     }
+
+E. Add Hotel Review
+   Endpoint: POST /hotels/[id]/reviews
+   Headers:
+     Authorization: Bearer <mobile_access_token>
+     Content-Type: application/json
+   Body (JSON):
+     - rating: (number, required) Rating (1-5)
+     - comment: (string, optional) Text comment/feedback
+
+   Example Request:
+     POST /mobileapi/customer/hotels/clxb932p80001uzd5nklk098a/reviews
+     Body:
+       {
+         "rating": 5,
+         "comment": "Had a fantastic stay!"
+       }
+
+   Example Response (Success):
+     {
+       "success": true,
+       "message": "Review submitted successfully",
+       "data": {
+         "id": "rvw_12345"
+       }
+     }
+
+F. Edit Hotel Review
+   Endpoint: PUT /hotels/[id]/reviews
+   Headers:
+     Authorization: Bearer <mobile_access_token>
+     Content-Type: application/json
+   Body (JSON):
+     - rating: (number, required) Rating (1-5)
+     - comment: (string, optional) Text comment/feedback
+
+   Example Request:
+     PUT /mobileapi/customer/hotels/clxb932p80001uzd5nklk098a/reviews
+     Body:
+       {
+         "rating": 4,
+         "comment": "Had an okay stay, changing from 5 to 4."
+       }
+
+   Example Response (Success):
+     {
+       "success": true,
+       "message": "Review updated successfully",
+       "data": {
+         "id": "rvw_12345"
+       }
+     }
+
+========================================================================
+3. KEY BUSINESS LOGIC & CONSTRAINTS (Synced with Web Panel)
+========================================================================
+
+A. Room Booking Validation & Overbooking Protection:
+   - Stay Dates: Parsed from the requested range (excluding the checkout night). All dates are normalized to 00:00:00 to prevent timezone mismatches.
+   - Inventory Check: The API verifies room availability for every night of the stay. If the current bookedCount + requested rooms exceeds the total rooms of that category on any of the stay dates, the booking is rejected with a 400 error.
+   - Blocked Slots: Any date-specific blockages set by the hotel seller are checked. If any night is blocked, the booking is rejected.
+   - Pricing Override: Custom pricing overrides set by the hotel seller for specific dates are dynamically fetched and factored into the total price calculation.
+   - Atomic Booking: The booking and inventory update operate within a secure database transaction, preventing race-condition overbookings.
+
+B. Booking Cancellation:
+   - 24-Hour Lock: Cancellations are strictly rejected if the check-in time is less than 24 hours away from the current time.
+   - Inventory Release: Upon successful cancellation, room slots booked are instantly decremented from the RoomAvailability ledger.
+   - Wallet Refunds: 100% of the total booking price is immediately refunded to the customer's wallet balance.
+   - Ledger Logging: A WalletTransaction log is created automatically for auditing.
+========================================================================
+

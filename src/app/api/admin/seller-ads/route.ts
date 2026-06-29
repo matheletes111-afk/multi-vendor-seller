@@ -52,6 +52,12 @@ export async function GET(request: NextRequest) {
           product: { select: { id: true, name: true } },
           service: { select: { id: true, name: true } },
           hotel: { select: { id: true, name: true } },
+          restaurantSeller: {
+            include: {
+              user: { select: { email: true, name: true } },
+            },
+          },
+          foodItem: { select: { id: true, name: true } },
           _count: { select: { adClicks: true } },
         },
         orderBy: { createdAt: "desc" },

@@ -1,0 +1,369 @@
+========================================================================
+Meeem - Customer & Restaurant Seller Food Mobile API Documentation
+========================================================================
+
+1. CUSTOMER & GUEST PUBLIC FOOD ENDPOINTS
+========================================================================
+
+A. Browse & Search Food Items (Guest Accessible)
+   Endpoint: GET /mobileapi/customer/foods
+   Query Parameters:
+     - q: (optional) Search keyword matching food name or description
+     - category: (optional) Filter by category (e.g. Starters, Mains, Desserts)
+     - minPrice: (optional) Minimum price filter
+     - maxPrice: (optional) Maximum price filter
+     - rating: (optional) Minimum average rating (1-5)
+     - isVeg: (optional) Boolean filter ("true" or "false")
+     - restaurantSellerId: (optional) Filter food items by a specific restaurant seller
+
+   Example Request:
+     GET /mobileapi/customer/foods?category=Mains&isVeg=true&maxPrice=50
+
+   Example Response (Success):
+     {
+       "success": true,
+       "data": [
+         {
+           "id": "food_clxbf1234",
+           "restaurantSellerId": "seller_clxbr1234",
+           "name": "Paneer Butter Masala",
+           "description": "Cottage cheese cubes in rich creamy tomato gravy.",
+           "price": 12.5,
+           "image": "https://bucket.s3.amazonaws.com/uploads/foods/paneer.jpg",
+           "category": "Mains",
+           "isVeg": true,
+           "averageRating": 4.5,
+           "totalReviews": 8
+         }
+       ]
+     }
+
+B. Get Food Item Details (Guest Accessible)
+   Endpoint: GET /mobileapi/customer/foods/[id]
+   Example Request:
+     GET /mobileapi/customer/foods/food_clxbf1234
+
+   Example Response (Success):
+     {
+       "success": true,
+       "data": {
+         "id": "food_clxbf1234",
+         "restaurantSellerId": "seller_clxbr1234",
+         "name": "Paneer Butter Masala",
+         "description": "Cottage cheese cubes in rich creamy tomato gravy.",
+         "price": 12.5,
+         "image": "https://bucket.s3.amazonaws.com/uploads/foods/paneer.jpg",
+         "category": "Mains",
+         "isVeg": true,
+         "averageRating": 4.5,
+         "totalReviews": 8,
+         "reviews": [
+           {
+             "id": "frvw_12345",
+             "userId": "usr_clxb9876",
+             "userName": "John Doe",
+             "rating": 5,
+             "comment": "Tasted absolutely delicious!",
+             "createdAt": "2026-06-23T10:00:00.000Z"
+           }
+         ]
+       }
+     }
+
+
+2. CUSTOMER AUTHENTICATED FOOD ENDPOINTS (Requires Bearer Token)
+========================================================================
+
+A. Place a Food Order
+   Endpoint: POST /mobileapi/customer/foods/orders
+   Headers:
+     Authorization: Bearer <mobile_access_token>
+     Content-Type: application/json
+   Body (JSON):
+     - restaurantSellerId: (string, required) The restaurant seller ID
+     - items: (array, required) Array of items ordered:
+       - foodItemId: (string, required)
+       - quantity: (number, required)
+     - deliveryFullName: (string, required)
+     - deliveryPhone: (string, required)
+     - deliveryAddressLine1: (string, required)
+     - deliveryAddressLine2: (string, optional)
+     - deliveryCity: (string, required)
+     - deliveryState: (string, required)
+     - deliveryPostalCode: (string, required)
+     - deliveryCountry: (string, required)
+
+   Example Request:
+     POST /mobileapi/customer/foods/orders
+     Body:
+       {
+         "restaurantSellerId": "seller_clxbr1234",
+         "items": [
+           { "foodItemId": "food_clxbf1234", "quantity": 2 }
+         ],
+         "deliveryFullName": "Jane Doe",
+         "deliveryPhone": "+1234567890",
+         "deliveryAddressLine1": "456 Oak Street",
+         "deliveryCity": "Freetown",
+         "deliveryState": "Western Area",
+         "deliveryPostalCode": "00232",
+         "deliveryCountry": "Sierra Leone"
+       }
+
+   Example Response (Success):
+     {
+       "success": true,
+       "message": "Order placed successfully",
+       "data": {
+         "id": "ford_clxbo12345",
+         "orderNumber": "F-20260623-0001",
+         "totalAmount": 25.0,
+         "status": "PENDING"
+       }
+     }
+
+B. Get Customer Food Orders List
+   Endpoint: GET /mobileapi/customer/foods/orders
+   Example Response (Success):
+     {
+       "success": true,
+       "data": [
+         {
+           "id": "ford_clxbo12345",
+           "orderNumber": "F-20260623-0001",
+           "totalAmount": 25.0,
+           "status": "PENDING",
+           "createdAt": "2026-06-23T15:00:00.000Z",
+           "restaurantName": "Tasty Palace"
+         }
+       ]
+     }
+
+C. Get Food Order Details
+   Endpoint: GET /mobileapi/customer/foods/orders/[id]
+   Example Response (Success):
+     {
+       "success": true,
+       "data": {
+         "id": "ford_clxbo12345",
+         "orderNumber": "F-20260623-0001",
+         "totalAmount": 25.0,
+         "status": "PENDING",
+         "createdAt": "2026-06-23T15:00:00.000Z",
+         "deliveryFullName": "Jane Doe",
+         "deliveryPhone": "+1234567890",
+         "deliveryAddressLine1": "456 Oak Street",
+         "deliveryCity": "Freetown",
+         "deliveryState": "Western Area",
+         "items": [
+           {
+             "id": "foi_123",
+             "foodItemId": "food_clxbf1234",
+             "foodName": "Paneer Butter Masala",
+             "quantity": 2,
+             "price": 12.5,
+             "subtotal": 25.0
+           }
+         ]
+       }
+     }
+
+D. Add Food Item Review
+   Endpoint: POST /mobileapi/customer/foods/[id]/reviews
+   Headers:
+     Authorization: Bearer <mobile_access_token>
+     Content-Type: application/json
+   Body (JSON):
+     - rating: (number, required) Rating (1-5)
+     - comment: (string, optional) Text feedback
+
+   Example Request:
+     POST /mobileapi/customer/foods/food_clxbf1234/reviews
+     Body:
+       {
+         "rating": 5,
+         "comment": "Absolutely tasty!"
+       }
+
+   Example Response (Success):
+     {
+       "success": true,
+       "message": "Food review submitted successfully",
+       "data": {
+         "id": "frvw_12345"
+       }
+     }
+
+E. Edit Food Item Review
+   Endpoint: PUT /mobileapi/customer/foods/[id]/reviews
+   Headers:
+     Authorization: Bearer <mobile_access_token>
+     Content-Type: application/json
+   Body (JSON):
+     - rating: (number, required) Rating (1-5)
+     - comment: (string, optional) Text feedback
+
+   Example Request:
+     PUT /mobileapi/customer/foods/food_clxbf1234/reviews
+     Body:
+       {
+         "rating": 4,
+         "comment": "Still good, but not as amazing as first time."
+       }
+
+   Example Response (Success):
+     {
+       "success": true,
+       "message": "Food review updated successfully",
+       "data": {
+         "id": "frvw_12345"
+       }
+     }
+
+
+
+3. RESTAURANT SELLER AUTHENTICATED ENDPOINTS (Requires Bearer Token)
+========================================================================
+
+A. Get Food Items List
+   Endpoint: GET /mobileapi/restaurant-seller/foods
+   Example Response (Success):
+     {
+       "success": true,
+       "data": [
+         {
+           "id": "food_clxbf1234",
+           "name": "Paneer Butter Masala",
+           "price": 12.5,
+           "category": "Mains",
+           "isVeg": true,
+           "isActive": true
+         }
+       ]
+     }
+
+B. Add Food Item
+   Endpoint: POST /mobileapi/restaurant-seller/foods
+   Headers:
+     Authorization: Bearer <mobile_access_token>
+     Content-Type: multipart/form-data
+   Body (FormData):
+     - name: (string, required)
+     - description: (string, optional)
+     - price: (number, required)
+     - category: (string, required)
+     - isVeg: (string/boolean, optional, default: true)
+     - images: (file[], optional) Multiple food image files
+     - image: (file, optional) Legacy single food image file
+
+   Example Response (Success):
+     {
+       "success": true,
+       "message": "Food item created successfully",
+       "data": { "id": "food_clxbf1234" }
+     }
+
+C. Update Food Item
+   Endpoint: PUT /mobileapi/restaurant-seller/foods/[id]
+   Headers:
+     Authorization: Bearer <mobile_access_token>
+     Content-Type: multipart/form-data
+   Body (FormData):
+     - name: (string, required)
+     - description: (string, optional)
+     - price: (number, required)
+     - category: (string, required)
+     - isVeg: (string/boolean, optional)
+     - newImages: (file[], optional) New food image files to upload
+     - existingImages: (string/JSON array of URLs, optional) Existing image URLs to keep, e.g. '["url1", "url2"]'
+     - image: (file, optional) Legacy single food image file to replace all
+
+   Example Response (Success):
+     {
+       "success": true,
+       "message": "Food item updated successfully"
+     }
+
+D. Delete Food Item
+   Endpoint: DELETE /mobileapi/restaurant-seller/foods/[id]
+   Example Response (Success):
+     {
+       "success": true,
+       "message": "Food item deleted successfully"
+     }
+
+E. Get Restaurant Orders List
+   Endpoint: GET /mobileapi/restaurant-seller/orders
+   Query Parameters:
+     - status: (optional) Filter by order status
+
+   Example Response (Success):
+     {
+       "success": true,
+       "data": [
+         {
+           "id": "ford_clxbo12345",
+           "orderNumber": "F-20260623-0001",
+           "totalAmount": 25.0,
+           "status": "PENDING",
+           "createdAt": "2026-06-23T15:00:00.000Z",
+           "customerName": "Jane Doe"
+         }
+       ]
+     }
+
+F. Update Order Status
+   Endpoint: PUT /mobileapi/restaurant-seller/orders/[id]/status
+   Headers:
+     Authorization: Bearer <mobile_access_token>
+     Content-Type: application/json
+   Body (JSON):
+     - status: (string, required) One of: PENDING, CONFIRMED, PROCESSING, SHIPPED, DELIVERED, CANCELLED
+       (Note: maps internally to simple delivery phases: Pending -> Confirmed -> Preparing -> Out for Delivery -> Delivered)
+
+   Example Request:
+     PUT /mobileapi/restaurant-seller/orders/ford_clxbo12345/status
+     Body:
+       {
+         "status": "PROCESSING"
+       }
+
+   Example Response (Success):
+     {
+       "success": true,
+       "message": "Order status updated successfully"
+     }
+
+G. Get Food Reviews List
+   Endpoint: GET /mobileapi/restaurant-seller/reviews
+   Query Parameters:
+     - foodItemId: (optional) Filter reviews for a specific food item ID
+     - page: (optional, default: 1) Page number
+     - perPage: (optional, default: 10) Items per page
+
+   Example Request:
+     GET /mobileapi/restaurant-seller/reviews?foodItemId=food_clxbf1234
+
+   Example Response (Success):
+     {
+       "success": true,
+       "data": {
+         "reviews": [
+           {
+             "id": "frvw_12345",
+             "foodItemId": "food_clxbf1234",
+             "foodName": "Paneer Butter Masala",
+             "userName": "John Doe",
+             "rating": 5,
+             "comment": "Absolutely delicious and hot!",
+             "createdAt": "2026-06-23T16:00:00.000Z"
+           }
+         ],
+         "pagination": {
+           "totalCount": 1,
+           "totalPages": 1,
+           "page": 1,
+           "perPage": 10
+         }
+       }
+     }

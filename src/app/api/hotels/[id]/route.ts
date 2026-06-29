@@ -18,6 +18,17 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         rooms: {
           where: { isActive: true, isDeleted: false },
           orderBy: { price: "asc" }
+        },
+        reviews: {
+          orderBy: { createdAt: "desc" },
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+              }
+            }
+          }
         }
       }
     })
@@ -26,7 +37,26 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json({ success: false, error: "Hotel not found" }, { status: 404 })
     }
 
-    return NextResponse.json({ success: true, data: hotel })
+    const reviewCount = hotel.reviews.length
+    const totalRating = hotel.reviews.reduce((acc, r) => acc + r.rating, 0)
+    const averageRating = reviewCount > 0 ? parseFloat((totalRating / reviewCount).toFixed(1)) : 0
+
+    const { reviews, ...restHotel } = hotel
+    const hotelData = {
+      ...restHotel,
+      averageRating,
+      totalReviews: reviewCount,
+      reviews: reviews.map(r => ({
+        id: r.id,
+        userId: r.userId,
+        userName: r.user.name || "Customer",
+        rating: r.rating,
+        comment: r.comment,
+        createdAt: r.createdAt
+      }))
+    }
+
+    return NextResponse.json({ success: true, data: hotelData })
   } catch (error) {
     console.error("Error fetching hotel details:", error)
     return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 })
