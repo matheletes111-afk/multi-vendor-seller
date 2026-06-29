@@ -27,6 +27,14 @@ import { PageLoader } from "@/components/ui/page-loader"
 import { AdminPagination } from "@/components/admin/admin-pagination"
 import { buildAdminPageUrl } from "@/lib/admin-pagination"
 import { formatCurrency } from "@/lib/utils"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/ui/dialog"
 
 type FoodItem = {
   id: string
@@ -34,6 +42,7 @@ type FoodItem = {
   description: string | null
   price: number
   image: string | null
+  images?: any
   category: string
   isVeg: boolean
   isActive: boolean
@@ -61,6 +70,31 @@ export function AdminRestaurantFoodsClient() {
   const [totalPages, setTotalPages] = useState(1)
 
   const [q, setQ] = useState(qStr)
+
+  const [selectedFood, setSelectedFood] = useState<FoodItem | null>(null)
+  const [foodToDelete, setFoodToDelete] = useState<FoodItem | null>(null)
+  const [deleting, setDeleting] = useState(false)
+
+  const handleDelete = async () => {
+    if (!foodToDelete) return
+    setDeleting(true)
+    try {
+      const res = await fetch(`/api/admin/restaurant-foods?id=${foodToDelete.id}`, {
+        method: "DELETE",
+      })
+      if (res.ok) {
+        setFoods((prev) => prev.filter((f) => f.id !== foodToDelete.id))
+        setFoodToDelete(null)
+      } else {
+        alert("Failed to delete food item")
+      }
+    } catch (err) {
+      console.error(err)
+      alert("Error deleting food item")
+    } finally {
+      setDeleting(false)
+    }
+  }
 
   // Fetch restaurant sellers for the filter dropdown
   useEffect(() => {
@@ -194,12 +228,13 @@ export function AdminRestaurantFoodsClient() {
                 <TableHead>Category</TableHead>
                 <TableHead>Type</TableHead>
                 <TableHead className="pr-6 text-right">Price</TableHead>
+                <TableHead className="pr-6 text-center">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {foods.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="h-80 text-center">
+                  <TableCell colSpan={7} className="h-80 text-center">
                     <div className="flex flex-col items-center justify-center text-muted-foreground">
                       <Utensils className="h-16 w-16 mb-4 opacity-10" />
                       <p className="font-semibold text-xl">No food items found</p>
@@ -241,6 +276,14 @@ export function AdminRestaurantFoodsClient() {
                     <TableCell className="font-black text-slate-900 text-sm text-right pr-6">
                       {formatCurrency(food.price)}
                     </TableCell>
+                    <TableCell className="text-center pr-6 space-x-2">
+                      <Button variant="outline" size="sm" onClick={() => setSelectedFood(food)} className="rounded-lg text-xs font-semibold">
+                        View Details
+                      </Button>
+                      <Button variant="destructive" size="sm" onClick={() => setFoodToDelete(food)} className="rounded-lg text-xs font-semibold">
+                        Delete
+                      </Button>
+                    </TableCell>
                   </TableRow>
                 ))
               )}
@@ -260,6 +303,67 @@ export function AdminRestaurantFoodsClient() {
           </div>
         )}
       </Card>
+
+      {/* Details Dialog */}
+      <Dialog open={!!selectedFood} onOpenChange={(open) => !open && setSelectedFood(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold">{selectedFood?.name}</DialogTitle>
+            <DialogDescription className="text-xs uppercase tracking-wider font-semibold text-primary">{selectedFood?.category}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            {selectedFood?.image && (
+              <div className="relative w-full h-48 rounded-2xl overflow-hidden border">
+                <img src={selectedFood.image} alt={selectedFood.name} className="w-full h-full object-cover" />
+              </div>
+            )}
+            <div className="space-y-1">
+              <Label className="text-xs uppercase opacity-75">Description</Label>
+              <p className="text-sm font-medium text-slate-700 bg-muted/20 p-3 rounded-xl border">{selectedFood?.description || "No description provided."}</p>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <Label className="text-xs uppercase opacity-75">Price</Label>
+                <p className="font-bold text-slate-950 text-sm bg-muted/20 p-3 rounded-xl border">{selectedFood && formatCurrency(selectedFood.price)}</p>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs uppercase opacity-75">Type</Label>
+                <div className="p-3 rounded-xl border bg-muted/20 flex items-center justify-between">
+                  <span className="text-sm font-semibold">{selectedFood?.isVeg ? "Vegetarian" : "Non-Vegetarian"}</span>
+                  <Badge className={`rounded-lg px-2 py-0.5 ${selectedFood?.isVeg ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-rose-50 text-rose-700 border border-rose-200"}`}>
+                    {selectedFood?.isVeg ? "Veg" : "Non-Veg"}
+                  </Badge>
+                </div>
+              </div>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs uppercase opacity-75">Restaurant Seller</Label>
+              <p className="text-sm font-semibold text-slate-800 bg-muted/20 p-3 rounded-xl border">{selectedFood?.restaurantName}</p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setSelectedFood(null)} className="rounded-full w-full">Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Dialog */}
+      <Dialog open={!!foodToDelete} onOpenChange={(open) => !open && setFoodToDelete(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-bold">Confirm Delete</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete <strong className="text-slate-900">&quot;{foodToDelete?.name}&quot;</strong>? This action cannot be undone and will soft-delete the food item from this restaurant's menu.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0 mt-4">
+            <Button variant="outline" onClick={() => setFoodToDelete(null)} disabled={deleting} className="rounded-full">Cancel</Button>
+            <Button variant="destructive" onClick={handleDelete} disabled={deleting} className="rounded-full">
+              {deleting ? "Deleting..." : "Yes, Delete"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
