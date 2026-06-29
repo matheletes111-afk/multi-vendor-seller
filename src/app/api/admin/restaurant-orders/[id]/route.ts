@@ -71,7 +71,7 @@ export async function GET(
     const items = order.items.map(item => {
       let imageUrl: string | null = null
       if (Array.isArray(item.foodItem.images) && item.foodItem.images.length > 0) {
-        imageUrl = item.foodItem.images[0]
+        imageUrl = item.foodItem.images[0] as string
       } else if (item.foodItem.images && typeof item.foodItem.images === 'string') {
         try {
           const parsed = JSON.parse(item.foodItem.images)
