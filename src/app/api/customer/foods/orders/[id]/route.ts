@@ -21,7 +21,7 @@ export async function GET(
             foodItem: {
               select: {
                 name: true,
-                image: true
+                images: true
               }
             }
           }
@@ -62,15 +62,26 @@ export async function GET(
       deliveryPostalCode: order.deliveryPostalCode,
       deliveryCountry: order.deliveryCountry,
       restaurantName: order.restaurantSeller.businessInfo?.businessName || order.restaurantSeller.user.name || "Restaurant",
-      items: order.items.map(i => ({
-        id: i.id,
-        foodItemId: i.foodItemId,
-        foodName: i.foodItem.name,
-        foodImage: i.foodItem.image,
-        quantity: i.quantity,
-        price: i.price,
-        subtotal: i.subtotal
-      }))
+      items: order.items.map(i => {
+        let imageUrl: string | null = null
+        if (Array.isArray(i.foodItem.images) && i.foodItem.images.length > 0) {
+          imageUrl = i.foodItem.images[0] as string
+        } else if (i.foodItem.images && typeof i.foodItem.images === 'string') {
+          try {
+            const parsed = JSON.parse(i.foodItem.images)
+            if (Array.isArray(parsed) && parsed.length > 0) imageUrl = parsed[0]
+          } catch {}
+        }
+        return {
+          id: i.id,
+          foodItemId: i.foodItemId,
+          foodName: i.foodItem.name,
+          foodImage: imageUrl,
+          quantity: i.quantity,
+          price: i.price,
+          subtotal: i.subtotal
+        }
+      })
     }
 
     return NextResponse.json({ success: true, data: formatted })

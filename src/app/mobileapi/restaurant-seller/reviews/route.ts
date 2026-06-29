@@ -44,27 +44,38 @@ export async function GET(request: NextRequest) {
           select: {
             id: true,
             name: true,
-            image: true,
+            images: true,
             category: true
           }
         }
       }
     })
 
-    const formatted = reviews.map(r => ({
-      id: r.id,
-      rating: r.rating,
-      comment: r.comment,
-      createdAt: r.createdAt,
-      customerName: r.user.name || "Customer",
-      customerEmail: r.user.email,
-      foodItem: {
-        id: r.foodItem.id,
-        name: r.foodItem.name,
-        image: r.foodItem.image,
-        category: r.foodItem.category
+    const formatted = reviews.map(r => {
+      let imageUrl: string | null = null
+      if (Array.isArray(r.foodItem.images) && r.foodItem.images.length > 0) {
+        imageUrl = r.foodItem.images[0] as string
+      } else if (r.foodItem.images && typeof r.foodItem.images === 'string') {
+        try {
+          const parsed = JSON.parse(r.foodItem.images)
+          if (Array.isArray(parsed) && parsed.length > 0) imageUrl = parsed[0]
+        } catch {}
       }
-    }))
+      return {
+        id: r.id,
+        rating: r.rating,
+        comment: r.comment,
+        createdAt: r.createdAt,
+        customerName: r.user.name || "Customer",
+        customerEmail: r.user.email,
+        foodItem: {
+          id: r.foodItem.id,
+          name: r.foodItem.name,
+          image: imageUrl,
+          category: r.foodItem.category
+        }
+      }
+    })
 
     return NextResponse.json({
       success: true,

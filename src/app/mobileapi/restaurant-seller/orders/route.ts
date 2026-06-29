@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
             foodItem: {
               select: {
                 name: true,
-                image: true
+                images: true
               }
             }
           }
@@ -66,14 +66,25 @@ export async function GET(request: NextRequest) {
       deliveryCountry: o.deliveryCountry,
       customerName: o.customer.name || "Customer",
       customerEmail: o.customer.email,
-      items: o.items.map(i => ({
-        id: i.id,
-        foodName: i.foodItem.name,
-        foodImage: i.foodItem.image,
-        quantity: i.quantity,
-        price: i.price,
-        subtotal: i.subtotal
-      }))
+      items: o.items.map(i => {
+        let imageUrl: string | null = null
+        if (Array.isArray(i.foodItem.images) && i.foodItem.images.length > 0) {
+          imageUrl = i.foodItem.images[0] as string
+        } else if (i.foodItem.images && typeof i.foodItem.images === 'string') {
+          try {
+            const parsed = JSON.parse(i.foodItem.images)
+            if (Array.isArray(parsed) && parsed.length > 0) imageUrl = parsed[0]
+          } catch {}
+        }
+        return {
+          id: i.id,
+          foodName: i.foodItem.name,
+          foodImage: imageUrl,
+          quantity: i.quantity,
+          price: i.price,
+          subtotal: i.subtotal
+        }
+      })
     }))
 
     return NextResponse.json({
