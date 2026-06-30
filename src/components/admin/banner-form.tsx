@@ -78,9 +78,9 @@ export function BannerForm({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // Toggle: "product" (product category + subcategory) or "service" (service category)
-  const [targetType, setTargetType] = useState<"product" | "service">(
-    banner?.targetType === "service" ? "service" : banner?.serviceCategoryId ? "service" : "product"
+  // Toggle: targetType (product, service, hotel, restaurant)
+  const [targetType, setTargetType] = useState<string>(
+    banner?.targetType || (banner?.serviceCategoryId ? "service" : "product")
   );
 
   const [formData, setFormData] = useState({
@@ -141,9 +141,9 @@ export function BannerForm({
       formDataObj.append("bannerDescription", formData.bannerDescription);
       formDataObj.append("isActive", formData.isActive.toString());
       formDataObj.append("targetType", targetType);
-      formDataObj.append("categoryId", targetType === TARGET_PRODUCT && formData.categoryId !== NONE_CATEGORY ? formData.categoryId : "");
-      formDataObj.append("subcategoryId", targetType === TARGET_PRODUCT && formData.subcategoryId !== NONE_SUBCATEGORY ? formData.subcategoryId : "");
-      formDataObj.append("serviceCategoryId", targetType === TARGET_SERVICE && formData.serviceCategoryId !== NONE_SERVICE_CATEGORY ? formData.serviceCategoryId : "");
+      formDataObj.append("categoryId", targetType === "product" && formData.categoryId !== NONE_CATEGORY ? formData.categoryId : "");
+      formDataObj.append("subcategoryId", targetType === "product" && formData.subcategoryId !== NONE_SUBCATEGORY ? formData.subcategoryId : "");
+      formDataObj.append("serviceCategoryId", targetType === "service" && formData.serviceCategoryId !== NONE_SERVICE_CATEGORY ? formData.serviceCategoryId : "");
 
       if (bannerImageValue?.type === "file") {
         formDataObj.append("bannerImage", bannerImageValue.file);
@@ -284,18 +284,18 @@ export function BannerForm({
           <CardHeader>
             <CardTitle>Banner Targeting</CardTitle>
             <CardDescription>
-              Choose product category/subcategory or service category (optional)
+              Choose targeting zone for this banner
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label>Target type</Label>
-              <div className="flex gap-4 p-3 rounded-lg border bg-muted/30">
+              <div className="grid grid-cols-2 gap-2 p-3 rounded-lg border bg-muted/30">
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
                     type="radio"
                     name="targetType"
-                    value={TARGET_PRODUCT}
+                    value="product"
                     checked={targetType === "product"}
                     onChange={() => setTargetType("product")}
                     className="h-4 w-4 rounded border-input"
@@ -306,12 +306,34 @@ export function BannerForm({
                   <input
                     type="radio"
                     name="targetType"
-                    value={TARGET_SERVICE}
+                    value="service"
                     checked={targetType === "service"}
                     onChange={() => setTargetType("service")}
                     className="h-4 w-4 rounded border-input"
                   />
                   <span className="text-sm font-medium">Service category</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="targetType"
+                    value="hotel"
+                    checked={targetType === "hotel"}
+                    onChange={() => setTargetType("hotel")}
+                    className="h-4 w-4 rounded border-input"
+                  />
+                  <span className="text-sm font-medium">Hotels</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="targetType"
+                    value="restaurant"
+                    checked={targetType === "restaurant"}
+                    onChange={() => setTargetType("restaurant")}
+                    className="h-4 w-4 rounded border-input"
+                  />
+                  <span className="text-sm font-medium">Foods & Restaurants</span>
                 </label>
               </div>
             </div>
@@ -404,6 +426,12 @@ export function BannerForm({
                 )}
                 {targetType === "service" && formData.serviceCategoryId !== NONE_SERVICE_CATEGORY && formData.serviceCategoryId && (
                   `Service category: ${serviceCategories.find(sc => sc.id === formData.serviceCategoryId)?.name}`
+                )}
+                {targetType === "hotel" && (
+                  "This banner will show on hotel booking pages"
+                )}
+                {targetType === "restaurant" && (
+                  "This banner will show on food and restaurant pages"
                 )}
               </p>
             </div>

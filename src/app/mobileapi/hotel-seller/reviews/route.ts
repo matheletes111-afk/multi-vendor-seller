@@ -2,10 +2,10 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { UserRole } from "@prisma/client"
 import { getMobileHotelRestaurantSellerAuth } from "../../_helpers/hotel-restaurant-seller-auth"
-import { getPaginationFromSearchParams } from "@/lib/admin-pagination"
 
 export const dynamic = "force-dynamic"
 
+// GET: List hotel seller's hotels that have reviews, with averages via mobile api
 export async function GET(request: NextRequest) {
   const authStatus = getMobileHotelRestaurantSellerAuth(request, UserRole.SELLER_HOTEL)
   if (!authStatus.ok) {
@@ -21,77 +21,61 @@ export async function GET(request: NextRequest) {
     const seller = await prisma.hotelSeller.findUnique({
       where: { userId },
     })
-
     if (!seller) {
       return NextResponse.json({ success: false, error: "Seller profile not found" }, { status: 404 })
     }
 
-    const { searchParams } = new URL(request.url)
-    const { skip, take, page, perPage } = getPaginationFromSearchParams({
-      page: searchParams.get("page") ?? undefined,
-      perPage: searchParams.get("perPage") ?? undefined,
-    })
-
-    const hotelId = searchParams.get("hotelId")
-
-    const where: any = {
-      hotel: {
+    const hotels = await prisma.hotel.findMany({
+      where: {
         hotelSellerId: seller.id,
-        isDeleted: false
-      }
-    }
-
-    if (hotelId) {
-      where.hotelId = hotelId
-    }
-
-    const [reviews, totalCount] = await Promise.all([
-      prisma.hotelReview.findMany({
-        where,
-        skip,
-        take,
-        orderBy: { createdAt: "desc" },
-        include: {
-          user: {
-            select: {
-              name: true
-            }
-          },
-          hotel: {
-            select: {
-              id: true,
-              name: true
-            }
+        isDeleted: false,
+        reviews: {
+          some: {}
+        }
+      },
+      select: {
+        id: true,
+        name: true,
+        images: true,
+        reviews: {
+          select: {
+            rating: true,
+            createdAt: true
           }
         }
-      }),
-      prisma.hotelReview.count({ where }),
-    ])
-
-    const totalPages = Math.ceil(totalCount / perPage) || 1
-
-    const formattedReviews = reviews.map(r => ({
-      id: r.id,
-      hotelId: r.hotel.id,
-      hotelName: r.hotel.name,
-      userName: r.user.name || "Customer",
-      rating: r.rating,
-      comment: r.comment,
-      createdAt: r.createdAt
-    }))
-
-    return NextResponse.json({
-      success: true,
-      data: {
-        reviews: formattedReviews,
-        pagination: {
-          totalCount,
-          totalPages,
-          page,
-          perPage,
-        }
       }
     })
+
+    const formatted = hotels.map(h => {
+      const reviewCount = h.reviews.length
+      const avgRating = reviewCount > 0
+        ? (h.reviews.reduce((sum, r) => sum + r.rating, 0) / reviewCount).toFixed(1)
+        : "0.0"
+      const latestReviewAt = reviewCount > 0
+        ? new Date(Math.max(...h.reviews.map(r => r.createdAt.getTime()))).toISOString()
+        : null
+
+      let imageUrl: string | null = null
+      if (Array.isArray(h.images) && h.images.length > 0) {
+        imageUrl = h.images[0] as string
+      } else if (typeof h.images === 'string') {
+        try {
+          const parsed = JSON.parse(h.images)
+          if (Array.isArray(parsed) && parsed.length > 0) imageUrl = parsed[0]
+        } catch {}
+      }
+
+      return {
+        hotelId: h.id,
+        hotelName: h.name,
+        hotelImage: imageUrl,
+        avgRating,
+        reviewCount,
+        latestReviewAt
+      }
+    })
+
+    return NextResponse.json({ success: true, data: formatted })
   } catch (error: any) {
     console.error("Mobile hotel seller reviews list error:", error)
     return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 })

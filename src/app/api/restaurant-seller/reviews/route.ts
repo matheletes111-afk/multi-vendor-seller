@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { auth } from "@/lib/auth"
 
+export const dynamic = "force-dynamic"
+
+// GET: List restaurant seller's food items that have reviews, with averages
 export async function GET(request: NextRequest) {
   try {
     const session = await auth()
@@ -16,54 +19,54 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: false, error: "Seller profile not found" }, { status: 404 })
     }
 
-    const reviews = await prisma.foodReview.findMany({
+    const foodItems = await prisma.foodItem.findMany({
       where: {
-        foodItem: {
-          restaurantSellerId: seller.id
+        restaurantSellerId: seller.id,
+        reviews: {
+          some: {}
         }
       },
-      orderBy: { createdAt: "desc" },
-      include: {
-        user: {
+      select: {
+        id: true,
+        name: true,
+        images: true,
+        category: true,
+        reviews: {
           select: {
-            name: true,
-            email: true
-          }
-        },
-        foodItem: {
-          select: {
-            id: true,
-            name: true,
-            images: true,
-            category: true
+            rating: true,
+            createdAt: true
           }
         }
       }
     })
 
-    const formatted = reviews.map(r => {
+    const formatted = foodItems.map(item => {
+      const reviewCount = item.reviews.length
+      const avgRating = reviewCount > 0
+        ? (item.reviews.reduce((sum, r) => sum + r.rating, 0) / reviewCount).toFixed(1)
+        : "0.0"
+      const latestReviewAt = reviewCount > 0
+        ? new Date(Math.max(...item.reviews.map(r => r.createdAt.getTime()))).toISOString()
+        : null
+
       let imageUrl: string | null = null
-      if (Array.isArray(r.foodItem.images) && r.foodItem.images.length > 0) {
-        imageUrl = r.foodItem.images[0] as string
-      } else if (r.foodItem.images && typeof r.foodItem.images === 'string') {
+      if (Array.isArray(item.images) && item.images.length > 0) {
+        imageUrl = item.images[0] as string
+      } else if (typeof item.images === 'string') {
         try {
-          const parsed = JSON.parse(r.foodItem.images)
+          const parsed = JSON.parse(item.images)
           if (Array.isArray(parsed) && parsed.length > 0) imageUrl = parsed[0]
         } catch {}
       }
+
       return {
-        id: r.id,
-        rating: r.rating,
-        comment: r.comment,
-        createdAt: r.createdAt,
-        customerName: r.user.name || "Customer",
-        customerEmail: r.user.email,
-        foodItem: {
-          id: r.foodItem.id,
-          name: r.foodItem.name,
-          image: imageUrl,
-          category: r.foodItem.category
-        }
+        foodItemId: item.id,
+        foodItemName: item.name,
+        foodItemImage: imageUrl,
+        foodItemCategory: item.category,
+        avgRating,
+        reviewCount,
+        latestReviewAt
       }
     })
 

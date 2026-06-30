@@ -1,8 +1,8 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
-import { Search, Star, MapPin, SlidersHorizontal, Eye, RefreshCw } from "lucide-react"
+import { Search, Star, MapPin, SlidersHorizontal, Eye, RefreshCw, ChevronLeft, ChevronRight } from "lucide-react"
 import { Input } from "@/ui/input"
 import { Button } from "@/ui/button"
 import { Card, CardContent } from "@/ui/card"
@@ -36,6 +36,79 @@ export default function HotelsBrowsePage() {
   const [selectedRating, setSelectedRating] = useState<number | null>(null)
   const [minPrice, setMinPrice] = useState("")
   const [maxPrice, setMaxPrice] = useState("")
+  const [banners, setBanners] = useState<any[]>([])
+  const [currentBannerIdx, setCurrentBannerIdx] = useState(0)
+
+  // Load hotel banners
+  useEffect(() => {
+    fetch("/api/home/banners")
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) {
+          const hotelBanners = data.filter((b: any) => b.targetType === "hotel")
+          setBanners(hotelBanners)
+        }
+      })
+      .catch(err => console.error("Error loading hotel banners:", err))
+  }, [])
+
+  // Auto scroll banners
+  useEffect(() => {
+    if (banners.length <= 1) return
+    const timer = setInterval(() => {
+      setCurrentBannerIdx(prev => (prev + 1) % banners.length)
+    }, 5000)
+    return () => clearInterval(timer)
+  }, [banners])
+
+  const [ads, setAds] = useState<any[]>([])
+  const [sponsoredCarouselPaused, setSponsoredCarouselPaused] = useState(false)
+  const [sponsoredIndex, setSponsoredIndex] = useState(0)
+  const sponsoredScrollRef = useRef<HTMLDivElement>(null)
+
+  // Fetch hotel ads
+  useEffect(() => {
+    fetch("/api/home/ads?type=hotel")
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) setAds(data)
+      })
+      .catch(err => console.error("Error loading hotel ads:", err))
+  }, [])
+
+  // Auto advance sponsored ads
+  useEffect(() => {
+    if (ads.length <= 1 || sponsoredCarouselPaused) return
+    const timer = setInterval(() => {
+      setSponsoredIndex(prev => (prev + 1) % ads.length)
+    }, 3000)
+    return () => clearInterval(timer)
+  }, [ads.length, sponsoredCarouselPaused])
+
+  // Scroll sponsored carousel to active index
+  useEffect(() => {
+    const el = sponsoredScrollRef.current
+    if (!el || ads.length === 0) return
+    const card = el.querySelector("[data-sponsored-card]")
+    const gap = 16
+    const cardWidth = (card?.getBoundingClientRect().width ?? 280) + gap
+    el.scrollLeft = Math.min(sponsoredIndex * cardWidth, el.scrollWidth - el.clientWidth)
+  }, [sponsoredIndex, ads.length])
+
+  // Sync sponsored index on manual scroll
+  useEffect(() => {
+    const el = sponsoredScrollRef.current
+    if (!el || ads.length <= 1) return
+    const onScroll = () => {
+      const card = el.querySelector("[data-sponsored-card]")
+      const gap = 16
+      const cardWidth = (card?.getBoundingClientRect().width ?? 280) + gap
+      const index = Math.round(el.scrollLeft / cardWidth)
+      setSponsoredIndex(Math.min(index, ads.length - 1))
+    }
+    el.addEventListener("scroll", onScroll, { passive: true })
+    return () => el.removeEventListener("scroll", onScroll)
+  }, [ads.length])
 
   const fetchHotels = async () => {
     setLoading(true)
@@ -72,9 +145,59 @@ export default function HotelsBrowsePage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-7xl animate-in fade-in duration-500">
+    <div className="container mx-auto px-4 py-8 max-w-7xl animate-in fade-in duration-500 space-y-10">
+      
+      {/* Banners Carousel / Fallback Hero Search Section */}
+      {banners.length > 0 ? (
+        <div className="relative rounded-[2.5rem] h-[340px] sm:h-[420px] overflow-hidden shadow-lg border border-slate-100 bg-white group">
+          <div className="absolute inset-0 flex transition-transform duration-700 ease-in-out" style={{ transform: `translateX(-${currentBannerIdx * 100}%)` }}>
+            {banners.map((banner) => (
+              <div key={banner.id} className="min-w-full h-full relative flex items-center px-8 sm:px-16">
+                <div className="absolute inset-0 z-0">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={banner.bannerImage} alt={banner.bannerHeading} className="w-full h-full object-cover" />
+                </div>
+                <div className="relative z-20 max-w-md space-y-4 bg-white/95 backdrop-blur-md p-6 sm:p-8 rounded-[2rem] border border-slate-100/50 shadow-lg ml-2 sm:ml-4">
+                  <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-slate-900 leading-none">{banner.bannerHeading}</h1>
+                  <p className="text-slate-700 font-medium text-xs sm:text-sm leading-relaxed">{banner.bannerDescription}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+          
+          {/* Slider controls */}
+          {banners.length > 1 && (
+            <>
+              <button 
+                onClick={() => setCurrentBannerIdx(prev => (prev - 1 + banners.length) % banners.length)}
+                className="absolute left-4 top-1/2 -translate-y-1/2 z-30 p-2 rounded-full bg-white/80 hover:bg-white text-slate-900 shadow hover:scale-105 transition-all"
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </button>
+              <button 
+                onClick={() => setCurrentBannerIdx(prev => (prev + 1) % banners.length)}
+                className="absolute right-4 top-1/2 -translate-y-1/2 z-30 p-2 rounded-full bg-white/80 hover:bg-white text-slate-900 shadow hover:scale-105 transition-all"
+              >
+                <ChevronRight className="h-5 w-5" />
+              </button>
+              
+              {/* Indicator dots */}
+              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30 flex gap-2">
+                {banners.map((_, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setCurrentBannerIdx(i)}
+                    className={`h-2 rounded-full transition-all ${currentBannerIdx === i ? "w-6 bg-emerald-600" : "w-2 bg-emerald-250"}`}
+                  />
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      ) : null}
+
       {/* Hero Search Section */}
-      <div className="mb-10 text-center space-y-4">
+      <div className="text-center space-y-4">
         <h1 className="text-4xl sm:text-5xl font-black tracking-tight text-slate-900">
           Find Your Perfect <span className="text-emerald-600">Hotel Stay</span>
         </h1>
@@ -260,6 +383,94 @@ export default function HotelsBrowsePage() {
           )}
         </div>
       </div>
+
+      {/* Sponsored Ads Section */}
+      {ads.length > 0 && (
+        <section className="bg-white border border-slate-100 rounded-[2.5rem] p-8 shadow-sm space-y-6">
+          <div className="flex items-center gap-2">
+            <h2 className="text-xl font-black text-slate-900">Sponsored Stays</h2>
+            <span className="rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-bold text-emerald-900 border border-emerald-500/20">
+              {ads.length} {ads.length === 1 ? "ad" : "ads"}
+            </span>
+            {sponsoredCarouselPaused && (
+              <span className="text-xs text-slate-500 font-semibold">(paused)</span>
+            )}
+          </div>
+          <div className="relative">
+            {ads.length > 1 && (
+              <>
+                <button
+                  onClick={() => {
+                    setSponsoredCarouselPaused(true)
+                    setSponsoredIndex(prev => (prev <= 0 ? ads.length - 1 : prev - 1))
+                  }}
+                  className="absolute left-0 top-1/2 -translate-y-1/2 z-15 p-2 rounded-full bg-white/90 hover:bg-white text-slate-900 shadow-md border border-slate-100 transition-all hover:scale-105"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={() => {
+                    setSponsoredCarouselPaused(true)
+                    setSponsoredIndex(prev => (prev >= ads.length - 1 ? 0 : prev + 1))
+                  }}
+                  className="absolute right-0 top-1/2 -translate-y-1/2 z-15 p-2 rounded-full bg-white/90 hover:bg-white text-slate-900 shadow-md border border-slate-100 transition-all hover:scale-105"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </>
+            )}
+            <div
+              ref={sponsoredScrollRef}
+              className="flex gap-4 overflow-x-auto overflow-y-hidden scroll-smooth py-2 snap-x snap-mandatory [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+              style={{ scrollBehavior: sponsoredCarouselPaused ? "auto" : "smooth" }}
+            >
+              {ads.map((ad) => {
+                const adPageHref = `/api/ads/click?adId=${ad.id}&redirect_to_ad=true`
+                return (
+                  <Link
+                    key={ad.id}
+                    href={adPageHref}
+                    data-sponsored-card
+                    onClick={() => setSponsoredCarouselPaused(true)}
+                    className="group flex w-[80vw] min-w-[260px] max-w-[290px] shrink-0 snap-start flex-col overflow-hidden rounded-[1.5rem] border border-slate-100 bg-slate-50/50 shadow-sm hover:shadow-md transition-all"
+                  >
+                    <div className="relative aspect-video w-full overflow-hidden bg-slate-100">
+                      {ad.creativeUrl ? (
+                        <img
+                          src={ad.creativeUrl}
+                          alt={ad.title}
+                          className="h-full w-full object-cover transition-transform group-hover:scale-102"
+                        />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center text-slate-400 font-bold text-xs bg-slate-100">Ad Design</div>
+                      )}
+                      <div className="absolute bottom-2 left-2">
+                        <span className="rounded bg-slate-900/80 px-2 py-0.5 text-[10px] font-black text-white uppercase tracking-widest">
+                          Sponsored
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex flex-1 flex-col p-4 space-y-1 bg-white">
+                      <span className="font-black text-slate-900 line-clamp-1 group-hover:text-emerald-600 transition-colors text-sm">
+                        {ad.title}
+                      </span>
+                      {ad.description?.trim() && (
+                        <p className="line-clamp-2 text-[11px] text-slate-500 leading-normal font-medium">
+                          {ad.description}
+                        </p>
+                      )}
+                      <span className="mt-2 inline-flex text-xs font-bold text-emerald-600 group-hover:underline">
+                        Book Now →
+                      </span>
+                    </div>
+                  </Link>
+                )
+              })}
+            </div>
+          </div>
+        </section>
+      )}
+
     </div>
   )
 }

@@ -1,0 +1,179 @@
+# MOBILE API DOCUMENTATION - HOTEL & RESTAURANT REVIEWS
+
+The following APIs provide comprehensive review and rating data for both customer (public) and seller (auth required) interfaces in the Restaurant and Hotel panels.
+
+-------------------------------------------------------------------------------
+1. GENERAL CUSTOMER REVIEW IMAGE UPLOAD API
+-------------------------------------------------------------------------------
+Endpoint: POST /api/customer/review-upload
+Auth: Required (Customer Token)
+Headers: Content-Type: multipart/form-data
+
+Request Body (Form-Data):
+- file: Binary image file (JPEG, PNG, etc.)
+
+Response Data (JSON):
+{
+  "url": "https://meeem-bucket.s3.amazonaws.com/uploads/product-reviews/unique-file-name.jpg"
+}
+
+-------------------------------------------------------------------------------
+2. CUSTOMER FOOD / DISH REVIEWS API
+-------------------------------------------------------------------------------
+POST Endpoint: POST /mobileapi/customer/foods/[id]/reviews
+PUT Endpoint: PUT /mobileapi/customer/foods/[id]/reviews
+Auth: Required (Customer Token)
+
+Request Payload (JSON):
+{
+  "rating": 5,
+  "comment": "Incredible organic salad!",
+  "imageUrls": [
+    "https://meeem-bucket.s3.amazonaws.com/uploads/product-reviews/salad1.jpg"
+  ]
+}
+
+Response Data (JSON):
+{
+  "success": true,
+  "data": {
+    "id": "cmr0b3mdf00085lq6f5j0ra2r",
+    "userId": "usr_1234",
+    "foodItemId": "food_5678",
+    "rating": 5,
+    "comment": "Incredible organic salad!",
+    "images": ["https://meeem-bucket.s3.amazonaws.com/uploads/product-reviews/salad1.jpg"],
+    "createdAt": "2026-06-30T10:00:00.000Z",
+    "updatedAt": "2026-06-30T10:00:00.000Z"
+  }
+}
+
+-------------------------------------------------------------------------------
+3. CUSTOMER HOTEL STAY REVIEWS API
+-------------------------------------------------------------------------------
+POST Endpoint: POST /mobileapi/customer/hotels/[id]/reviews
+PUT Endpoint: PUT /mobileapi/customer/hotels/[id]/reviews
+Auth: Required (Customer Token)
+
+Request Payload (JSON):
+{
+  "rating": 4,
+  "comment": "Spacious rooms and friendly staff.",
+  "imageUrls": [
+    "https://meeem-bucket.s3.amazonaws.com/uploads/product-reviews/room1.jpg"
+  ]
+}
+
+Response Data (JSON):
+{
+  "success": true,
+  "message": "Review submitted successfully",
+  "data": {
+    "id": "hotel_rev_123"
+  }
+}
+
+-------------------------------------------------------------------------------
+4. SELLER RESTAURANT REVIEWS LIST API (Grouped by Food Item)
+-------------------------------------------------------------------------------
+Endpoint: GET /mobileapi/restaurant-seller/reviews
+Auth: Required (Seller Restaurant Token)
+
+Response Data (JSON):
+{
+  "success": true,
+  "data": [
+    {
+      "foodItemId": "cmr0avneo000e5lq6f5j0ra2r",
+      "foodItemName": "Organic Garden Salad",
+      "foodItemImage": "https://meeem-bucket.s3.amazonaws.com/uploads/property/salad.jpg",
+      "foodItemCategory": "Starters",
+      "avgRating": "4.8",
+      "reviewCount": 12,
+      "latestReviewAt": "2026-06-30T10:00:00.000Z"
+    }
+  ]
+}
+
+-------------------------------------------------------------------------------
+5. SELLER RESTAURANT REVIEWS DETAILS API
+-------------------------------------------------------------------------------
+Endpoint: GET /mobileapi/restaurant-seller/reviews/[id]
+Auth: Required (Seller Restaurant Token)
+
+Response Data (JSON):
+{
+  "success": true,
+  "data": {
+    "foodItemId": "cmr0avneo000e5lq6f5j0ra2r",
+    "foodItemName": "Organic Garden Salad",
+    "foodItemImage": "https://meeem-bucket.s3.amazonaws.com/uploads/property/salad.jpg",
+    "avgRating": "4.8",
+    "reviewCount": 12,
+    "reviews": [
+      {
+        "id": "review_9988",
+        "rating": 5,
+        "comment": "Absolutely fresh and tasty!",
+        "images": [
+          "https://meeem-bucket.s3.amazonaws.com/uploads/product-reviews/salad1.jpg"
+        ],
+        "createdAt": "2026-06-30T10:00:00.000Z",
+        "customerName": "John Doe",
+        "customerEmail": "john@doe.com"
+      }
+    ]
+  }
+}
+
+-------------------------------------------------------------------------------
+6. SELLER HOTEL REVIEWS LIST API (Grouped by Hotel)
+-------------------------------------------------------------------------------
+Endpoint: GET /mobileapi/hotel-seller/reviews
+Auth: Required (Seller Hotel Token)
+
+Response Data (JSON):
+{
+  "success": true,
+  "data": [
+    {
+      "hotelId": "cmr0axneo000e5lq6f5j0ra2b",
+      "hotelName": "Grand Oasis Resort",
+      "hotelImage": "https://meeem-bucket.s3.amazonaws.com/uploads/property/resort.jpg",
+      "avgRating": "4.5",
+      "reviewCount": 8,
+      "latestReviewAt": "2026-06-30T10:30:00.000Z"
+    }
+  ]
+}
+
+-------------------------------------------------------------------------------
+7. SELLER HOTEL REVIEWS DETAILS API
+-------------------------------------------------------------------------------
+Endpoint: GET /mobileapi/hotel-seller/reviews/[id]
+Auth: Required (Seller Hotel Token)
+
+Response Data (JSON):
+{
+  "success": true,
+  "data": {
+    "hotelId": "cmr0axneo000e5lq6f5j0ra2b",
+    "hotelName": "Grand Oasis Resort",
+    "hotelImage": "https://meeem-bucket.s3.amazonaws.com/uploads/property/resort.jpg",
+    "avgRating": "4.5",
+    "reviewCount": 8,
+    "reviews": [
+      {
+        "id": "review_3344",
+        "rating": 4,
+        "comment": "Had a wonderful stay!",
+        "images": [
+          "https://meeem-bucket.s3.amazonaws.com/uploads/product-reviews/beach.jpg"
+        ],
+        "createdAt": "2026-06-30T10:30:00.000Z",
+        "userName": "Alice Smith",
+        "userEmail": "alice@gmail.com"
+      }
+    ]
+  }
+}

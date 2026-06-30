@@ -17,6 +17,7 @@ type FoodReviewItem = {
   userName: string
   rating: number
   comment: string | null
+  images?: any
   createdAt: string
 }
 
@@ -47,6 +48,8 @@ export default function FoodDetailsPage() {
   // Review Form States
   const [rating, setRating] = useState(5)
   const [comment, setComment] = useState("")
+  const [reviewFiles, setReviewFiles] = useState<File[]>([])
+  const [reviewPreviews, setReviewPreviews] = useState<string[]>([])
   const [submittingReview, setSubmittingReview] = useState(false)
   const [reviewMessage, setReviewMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
 
@@ -62,6 +65,17 @@ export default function FoodDetailsPage() {
           if (userReview) {
             setRating(userReview.rating)
             setComment(userReview.comment || "")
+            if (userReview.images) {
+              let rImages: string[] = []
+              if (Array.isArray(userReview.images)) {
+                rImages = userReview.images
+              } else if (typeof userReview.images === "string") {
+                try {
+                  rImages = JSON.parse(userReview.images)
+                } catch {}
+              }
+              setReviewPreviews(rImages)
+            }
           }
         }
       }
@@ -96,6 +110,15 @@ export default function FoodDetailsPage() {
     router.push(`/foods/checkout?foodItemId=${food?.id}&quantity=${quantity}`)
   }
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      const selected = Array.from(e.target.files).slice(0, 5)
+      setReviewFiles(selected)
+      const previews = selected.map(file => URL.createObjectURL(file))
+      setReviewPreviews(previews)
+    }
+  }
+
   const handleSubmitReview = async (e: React.FormEvent) => {
     e.preventDefault()
     setSubmittingReview(true)
@@ -105,10 +128,33 @@ export default function FoodDetailsPage() {
     const method = existingReview ? "PUT" : "POST"
 
     try {
+      const uploadedUrls: string[] = []
+      if (reviewFiles.length > 0) {
+        for (const file of reviewFiles) {
+          const fd = new FormData()
+          fd.append("file", file)
+          const uploadRes = await fetch("/api/customer/review-upload", {
+            method: "POST",
+            body: fd
+          })
+          const uploadJson = await uploadRes.json().catch(() => ({}))
+          if (uploadJson?.url) {
+            uploadedUrls.push(uploadJson.url)
+          } else {
+            throw new Error(uploadJson?.error || "Failed to upload image")
+          }
+        }
+      }
+
+      const finalImageUrls = [
+        ...reviewPreviews.filter(url => !url.startsWith("blob:")),
+        ...uploadedUrls
+      ].slice(0, 5)
+
       const res = await fetch(`/api/customer/foods/${id}/reviews`, {
         method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rating, comment })
+        body: JSON.stringify({ rating, comment, imageUrls: finalImageUrls })
       })
 
       const data = await res.json()
@@ -117,12 +163,13 @@ export default function FoodDetailsPage() {
           type: "success",
           text: existingReview ? "Review updated successfully!" : "Review submitted successfully!"
         })
+        setReviewFiles([])
         fetchFoodDetails()
       } else {
         setReviewMessage({ type: "error", text: data.error || "Something went wrong." })
       }
-    } catch (err) {
-      setReviewMessage({ type: "error", text: "Failed to connect to the server." })
+    } catch (err: any) {
+      setReviewMessage({ type: "error", text: err.message || "Failed to connect to the server." })
     } finally {
       setSubmittingReview(false)
     }
@@ -334,6 +381,16 @@ export default function FoodDetailsPage() {
                     <p className="text-slate-600 text-xs font-semibold leading-relaxed">
                       {review.comment || "No comment left."}
                     </p>
+
+                    {review.images && (
+                      <div className="flex flex-wrap gap-1.5 mt-2">
+                        {(Array.isArray(review.images) ? review.images : JSON.parse(review.images || "[]")).map((img: string, idx: number) => (
+                          <div key={idx} className="relative w-12 h-12 rounded-lg overflow-hidden border border-slate-100 shadow-sm shrink-0">
+                            <img src={img} alt="Review attachment" className="w-full h-full object-cover" />
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </Card>
                 ))}
               </div>
@@ -374,6 +431,26 @@ export default function FoodDetailsPage() {
                     onChange={(e) => setComment(e.target.value)}
                     className="rounded-xl border-slate-200 text-xs h-24"
                   />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Attach Photos (Max 5)</label>
+                  <input
+                    type="file"
+                    multiple
+                    accept="image/*"
+                    onChange={handleFileChange}
+                    className="block w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-slate-50 file:text-slate-700 hover:file:bg-slate-100"
+                  />
+                  {reviewPreviews.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mt-2">
+                      {reviewPreviews.map((url, index) => (
+                        <div key={index} className="relative w-12 h-12 rounded-lg overflow-hidden border border-slate-100 shadow-sm shrink-0">
+                          <img src={url} alt="Preview" className="w-full h-full object-cover" />
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 {reviewMessage && (

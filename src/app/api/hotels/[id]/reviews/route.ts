@@ -48,18 +48,23 @@ export async function POST(
       )
     }
 
-    const { rating, comment } = await request.json()
+    const { rating, comment, imageUrls } = await request.json()
     const numRating = Number(rating)
     if (isNaN(numRating) || numRating < 1 || numRating > 5 || !Number.isInteger(numRating)) {
       return NextResponse.json({ success: false, error: "Rating must be an integer 1-5" }, { status: 400 })
     }
+
+    const finalImages = Array.isArray(imageUrls)
+      ? imageUrls.filter((url): url is string => typeof url === "string" && /^https?:\/\//.test(url))
+      : []
 
     const newReview = await prisma.hotelReview.create({
       data: {
         userId,
         hotelId,
         rating: numRating,
-        comment: comment ? String(comment).trim().slice(0, 1000) : null
+        comment: comment ? String(comment).trim().slice(0, 1000) : null,
+        images: finalImages
       }
     })
 
@@ -89,17 +94,22 @@ export async function PUT(
       return NextResponse.json({ success: false, error: "Review not found" }, { status: 404 })
     }
 
-    const { rating, comment } = await request.json()
+    const { rating, comment, imageUrls } = await request.json()
     const numRating = Number(rating)
     if (isNaN(numRating) || numRating < 1 || numRating > 5 || !Number.isInteger(numRating)) {
       return NextResponse.json({ success: false, error: "Rating must be an integer 1-5" }, { status: 400 })
     }
 
+    const finalImages = Array.isArray(imageUrls)
+      ? imageUrls.filter((url): url is string => typeof url === "string" && /^https?:\/\//.test(url))
+      : []
+
     const updated = await prisma.hotelReview.update({
       where: { id: existingReview.id },
       data: {
         rating: numRating,
-        comment: comment ? String(comment).trim().slice(0, 1000) : null
+        comment: comment ? String(comment).trim().slice(0, 1000) : null,
+        images: imageUrls !== undefined ? finalImages : existingReview.images as any
       }
     })
 

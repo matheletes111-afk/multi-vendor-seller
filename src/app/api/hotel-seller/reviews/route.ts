@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { auth } from "@/lib/auth"
-import { getPaginationFromSearchParams } from "@/lib/admin-pagination"
 
+export const dynamic = "force-dynamic"
+
+// GET: List hotel seller's hotels that have reviews, with averages
 export async function GET(request: NextRequest) {
   try {
     const session = await auth()
@@ -17,72 +19,57 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: false, error: "Seller profile not found" }, { status: 404 })
     }
 
-    const { searchParams } = new URL(request.url)
-    const { skip, take, page, perPage } = getPaginationFromSearchParams({
-      page: searchParams.get("page") ?? undefined,
-      perPage: searchParams.get("perPage") ?? undefined,
-    })
-
-    const hotelId = searchParams.get("hotelId")
-
-    const where: any = {
-      hotel: {
+    const hotels = await prisma.hotel.findMany({
+      where: {
         hotelSellerId: seller.id,
-        isDeleted: false
-      }
-    }
-
-    if (hotelId) {
-      where.hotelId = hotelId
-    }
-
-    const [reviews, totalCount] = await Promise.all([
-      prisma.hotelReview.findMany({
-        where,
-        skip,
-        take,
-        orderBy: { createdAt: "desc" },
-        include: {
-          user: {
-            select: {
-              name: true,
-              email: true
-            }
-          },
-          hotel: {
-            select: {
-              id: true,
-              name: true
-            }
+        isDeleted: false,
+        reviews: {
+          some: {}
+        }
+      },
+      select: {
+        id: true,
+        name: true,
+        images: true,
+        reviews: {
+          select: {
+            rating: true,
+            createdAt: true
           }
         }
-      }),
-      prisma.hotelReview.count({ where })
-    ])
-
-    const totalPages = Math.ceil(totalCount / perPage) || 1
-
-    return NextResponse.json({
-      success: true,
-      data: {
-        reviews: reviews.map(r => ({
-          id: r.id,
-          hotelId: r.hotel.id,
-          hotelName: r.hotel.name,
-          userName: r.user.name || "Customer",
-          userEmail: r.user.email,
-          rating: r.rating,
-          comment: r.comment,
-          createdAt: r.createdAt
-        })),
-        pagination: {
-          totalCount,
-          totalPages,
-          page,
-          perPage
-        }
       }
     })
+
+    const formatted = hotels.map(h => {
+      const reviewCount = h.reviews.length
+      const avgRating = reviewCount > 0
+        ? (h.reviews.reduce((sum, r) => sum + r.rating, 0) / reviewCount).toFixed(1)
+        : "0.0"
+      const latestReviewAt = reviewCount > 0
+        ? new Date(Math.max(...h.reviews.map(r => r.createdAt.getTime()))).toISOString()
+        : null
+
+      let imageUrl: string | null = null
+      if (Array.isArray(h.images) && h.images.length > 0) {
+        imageUrl = h.images[0] as string
+      } else if (typeof h.images === 'string') {
+        try {
+          const parsed = JSON.parse(h.images)
+          if (Array.isArray(parsed) && parsed.length > 0) imageUrl = parsed[0]
+        } catch {}
+      }
+
+      return {
+        hotelId: h.id,
+        hotelName: h.name,
+        hotelImage: imageUrl,
+        avgRating,
+        reviewCount,
+        latestReviewAt
+      }
+    })
+
+    return NextResponse.json({ success: true, data: formatted })
   } catch (error) {
     console.error("Web seller hotel reviews error:", error)
     return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 })

@@ -140,7 +140,7 @@ export async function PUT(
       bannerHeading,
       bannerDescription,
       isActive,
-      targetType: targetType === "product" || targetType === "service" ? targetType : null,
+      targetType: targetType === "product" || targetType === "service" || targetType === "hotel" || targetType === "restaurant" ? targetType : null,
       category: targetType === "product" && categoryId ? { connect: { id: categoryId } } : { disconnect: true },
       subcategory: targetType === "product" && subcategoryId ? { connect: { id: subcategoryId } } : { disconnect: true },
       serviceCategory: targetType === "service" && serviceCategoryId ? { connect: { id: serviceCategoryId } } : { disconnect: true },
