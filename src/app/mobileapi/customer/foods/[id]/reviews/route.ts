@@ -26,11 +26,15 @@ export async function POST(
 
     const { id: foodItemId } = await params
     const body = await request.json()
-    const { rating, comment } = body
+    const { rating, comment, imageUrls } = body
 
     if (!rating || rating < 1 || rating > 5) {
       return NextResponse.json({ success: false, error: "Rating must be between 1 and 5" }, { status: 400 })
     }
+
+    const finalImages = Array.isArray(imageUrls)
+      ? imageUrls.filter((url): url is string => typeof url === "string" && /^https?:\/\//.test(url))
+      : []
 
     const food = await prisma.foodItem.findUnique({
       where: { id: foodItemId }
@@ -54,7 +58,8 @@ export async function POST(
         userId,
         foodItemId,
         rating: parseInt(String(rating)),
-        comment: comment || null
+        comment: comment || null,
+        images: finalImages
       }
     })
 
@@ -78,11 +83,15 @@ export async function PUT(
 
     const { id: foodItemId } = await params
     const body = await request.json()
-    const { rating, comment } = body
+    const { rating, comment, imageUrls } = body
 
     if (!rating || rating < 1 || rating > 5) {
       return NextResponse.json({ success: false, error: "Rating must be between 1 and 5" }, { status: 400 })
     }
+
+    const finalImages = Array.isArray(imageUrls)
+      ? imageUrls.filter((url): url is string => typeof url === "string" && /^https?:\/\//.test(url))
+      : []
 
     const existingReview = await prisma.foodReview.findFirst({
       where: {
@@ -98,7 +107,8 @@ export async function PUT(
       where: { id: existingReview.id },
       data: {
         rating: parseInt(String(rating)),
-        comment: comment !== undefined ? comment : existingReview.comment
+        comment: comment !== undefined ? comment : existingReview.comment,
+        images: imageUrls !== undefined ? finalImages : existingReview.images as any
       }
     })
 

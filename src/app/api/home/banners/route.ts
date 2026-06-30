@@ -14,6 +14,7 @@ export async function GET() {
         categoryId: true,
         subcategoryId: true,
         serviceCategoryId: true,
+        targetType: true,
       },
       orderBy: { createdAt: "desc" },
     });

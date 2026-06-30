@@ -9,26 +9,61 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 })
     }
 
-    const orders = await prisma.foodOrder.findMany({
-      where: { customerId: session.user.id },
-      orderBy: { createdAt: "desc" },
-      include: {
-        restaurantSeller: {
-          include: {
+    const { searchParams } = new URL(request.url)
+    const page = parseInt(searchParams.get("page") || "1")
+    const perPage = parseInt(searchParams.get("perPage") || "10")
+    const q = searchParams.get("q") || ""
+    const status = searchParams.get("status") || ""
+
+    const skip = (page - 1) * perPage
+    const take = perPage
+
+    const baseWhere: any = { customerId: session.user.id }
+
+    if (status && status !== "ALL") {
+      baseWhere.status = status
+    }
+
+    if (q) {
+      baseWhere.OR = [
+        { orderNumber: { contains: q, mode: "insensitive" } },
+        {
+          restaurantSeller: {
             businessInfo: {
-              select: {
-                businessName: true
-              }
-            },
-            user: {
-              select: {
-                name: true
+              businessName: { contains: q, mode: "insensitive" }
+            }
+          }
+        }
+      ]
+    }
+
+    const [orders, totalCount] = await Promise.all([
+      prisma.foodOrder.findMany({
+        where: baseWhere,
+        skip,
+        take,
+        orderBy: { createdAt: "desc" },
+        include: {
+          restaurantSeller: {
+            include: {
+              businessInfo: {
+                select: {
+                  businessName: true
+                }
+              },
+              user: {
+                select: {
+                  name: true
+                }
               }
             }
           }
         }
-      }
-    })
+      }),
+      prisma.foodOrder.count({ where: baseWhere })
+    ])
+
+    const totalPages = Math.ceil(totalCount / perPage) || 1
 
     const formatted = orders.map(o => ({
       id: o.id,
@@ -39,7 +74,16 @@ export async function GET(request: NextRequest) {
       restaurantName: o.restaurantSeller.businessInfo?.businessName || o.restaurantSeller.user.name || "Restaurant"
     }))
 
-    return NextResponse.json({ success: true, data: formatted })
+    return NextResponse.json({
+      success: true,
+      data: formatted,
+      pagination: {
+        totalCount,
+        totalPages,
+        page,
+        perPage
+      }
+    })
   } catch (error) {
     console.error("Web get customer food orders error:", error)
     return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 })

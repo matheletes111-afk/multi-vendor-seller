@@ -115,7 +115,23 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({ success: true, data: result })
+    // Fetch unique active categories dynamically to keep sidebar options complete
+    const allActiveCategories = await prisma.foodItem.findMany({
+      where: {
+        isDeleted: false,
+        isActive: true,
+        restaurantSeller: {
+          isApproved: true,
+          isSuspended: false
+        }
+      },
+      select: {
+        category: true
+      }
+    })
+    const uniqueCategories = Array.from(new Set(allActiveCategories.map(c => c.category)))
+
+    return NextResponse.json({ success: true, data: result, categories: uniqueCategories })
   } catch (error) {
     console.error("Web get customer foods error:", error)
     return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 })

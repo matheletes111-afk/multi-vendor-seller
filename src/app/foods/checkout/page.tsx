@@ -38,7 +38,7 @@ type FoodItem = {
 function CheckoutContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { data: session } = useSession()
+  const { data: session, status } = useSession()
 
   const foodItemId = searchParams.get("foodItemId")
   const quantityRaw = searchParams.get("quantity")
@@ -101,13 +101,14 @@ function CheckoutContent() {
   }
 
   useEffect(() => {
+    if (status === "loading") return
     if (!session) {
       router.push(`/customer/login?callbackUrl=/foods/checkout?foodItemId=${foodItemId}&quantity=${quantity}`)
       return
     }
     fetchFood()
     fetchAddresses()
-  }, [session, foodItemId])
+  }, [session, status, foodItemId])
 
   const handlePlaceOrder = async () => {
     setErrorMessage("")
@@ -176,7 +177,7 @@ function CheckoutContent() {
 
       const orderData = await orderRes.json()
       if (orderData.success) {
-        router.push("/foods/orders")
+        router.push("/customer/food-orders")
       } else {
         setErrorMessage(orderData.error || "Failed to place order. Please try again.")
       }

@@ -3,9 +3,9 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import Image from "next/image"
-import { useRouter } from "next/navigation"
+import { useRouter, usePathname } from "next/navigation"
 import { signOut, useSession } from "next-auth/react"
-import { formatCurrency } from "@/lib/utils"
+import { formatCurrency, cn } from "@/lib/utils"
 import { Button } from "@/ui/button"
 import { Input } from "@/ui/input"
 import {
@@ -38,6 +38,9 @@ type ServiceCategory = { id: string; name: string; slug: string }
 
 export function SiteHeader() {
   const router = useRouter()
+  const pathname = usePathname()
+  const isFoodSection = pathname?.startsWith("/foods")
+  const isCustomNav = pathname?.startsWith("/foods") || pathname?.startsWith("/hotels")
   const { data: session, status } = useSession()
   const { totalItems } = useCart()
   const { count: wishlistCount, items: wishlistItems, canUseWishlist, removeWishlist } = useWishlist()
@@ -109,7 +112,7 @@ export function SiteHeader() {
   }
 
   return (
-    <header className="sticky top-0 z-50 border-b border-blue-900/20 bg-gradient-to-r from-blue-50 via-blue-200 to-cyan-600 shadow-md">
+    <header className={isFoodSection ? "sticky top-0 z-50 border-b border-[#F5EFE6] bg-[#FDFBF7] text-amber-950 shadow-sm" : "sticky top-0 z-50 border-b border-blue-900/20 bg-gradient-to-r from-blue-50 via-blue-200 to-cyan-600 shadow-md"}>
       <div className="container mx-auto flex min-h-14 items-center gap-2 px-3 py-2 sm:min-h-[3.5rem] sm:gap-4 sm:px-4 sm:py-0">
         <a href="/" className="flex shrink-0 items-center">
           <Image
@@ -122,88 +125,90 @@ export function SiteHeader() {
           />
         </a>
 
-        <form onSubmit={handleSearch} className="flex min-w-0 flex-1 max-w-xl items-center">
-          <div className="relative flex w-full min-w-0 items-center">
-            {/* All dropdown - hidden on very small screens to save space */}
-            {mounted ? (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="hidden h-9 shrink-0 rounded-r-none border-amber-400 bg-slate-50 px-2 text-xs font-medium text-slate-700 hover:bg-slate-100 focus-visible:ring-amber-500 sm:flex sm:h-10 sm:px-3 sm:text-sm"
-                  >
-                    <LayoutGrid className="mr-1 h-3.5 w-3.5 sm:mr-1.5 sm:h-4 sm:w-4" />
-                    All
-                    <ChevronDown className="ml-0.5 h-3.5 w-3.5 sm:ml-1 sm:h-4 sm:w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="max-h-[70vh] w-56 overflow-y-auto p-0">
-                  <DropdownMenuItem asChild>
-                    <Link href="/browse" className="flex items-center gap-2 font-medium">
-                      <LayoutGrid className="h-4 w-4" />
-                      All Category
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  {categories.map((cat) => (
-                    <div key={cat.id}>
-                      <DropdownMenuItem asChild>
-                        <Link href={`/browse?categoryId=${cat.id}`} className="font-medium">
-                          {cat.name}
-                        </Link>
-                      </DropdownMenuItem>
-                      {cat.subcategories.map((sub) => (
-                        <DropdownMenuItem asChild key={sub.id}>
-                          <Link href={`/browse?subcategoryId=${sub.id}`} className="pl-6 text-sm text-slate-600">
-                            {sub.name}
-                          </Link>
-                        </DropdownMenuItem>
-                      ))}
-                    </div>
-                  ))}
-                  {serviceCategories.length > 0 && (
-                    <>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuLabel className="font-medium">
-                        Service Categories
-                      </DropdownMenuLabel>
-                      {serviceCategories.map((cat) => (
-                        <DropdownMenuItem asChild key={`service-${cat.id}`}>
-                          <Link href={`/browse?serviceCategoryId=${cat.id}`} className="pl-6 text-sm text-slate-600">
+        {!isCustomNav && (
+          <form onSubmit={handleSearch} className="flex min-w-0 flex-1 max-w-xl items-center">
+            <div className="relative flex w-full min-w-0 items-center">
+              {/* All dropdown - hidden on very small screens to save space */}
+              {mounted ? (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="hidden h-9 shrink-0 rounded-r-none border-amber-400 bg-slate-50 px-2 text-xs font-medium text-slate-700 hover:bg-slate-100 focus-visible:ring-amber-500 sm:flex sm:h-10 sm:px-3 sm:text-sm"
+                    >
+                      <LayoutGrid className="mr-1 h-3.5 w-3.5 sm:mr-1.5 sm:h-4 sm:w-4" />
+                      All
+                      <ChevronDown className="ml-0.5 h-3.5 w-3.5 sm:ml-1 sm:h-4 sm:w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="max-h-[70vh] w-56 overflow-y-auto p-0">
+                    <DropdownMenuItem asChild>
+                      <Link href="/browse" className="flex items-center gap-2 font-medium">
+                        <LayoutGrid className="h-4 w-4" />
+                        All Category
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    {categories.map((cat) => (
+                      <div key={cat.id}>
+                        <DropdownMenuItem asChild>
+                          <Link href={`/browse?categoryId=${cat.id}`} className="font-medium">
                             {cat.name}
                           </Link>
                         </DropdownMenuItem>
-                      ))}
-                    </>
-                  )}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            ) : (
-              <Button
-                type="button"
-                variant="outline"
-                className="h-10 shrink-0 rounded-r-none border-amber-400 bg-slate-50 px-3 text-sm font-medium text-slate-700 hover:bg-slate-100 focus-visible:ring-amber-500"
-                aria-hidden
-              >
-                <LayoutGrid className="mr-1.5 h-4 w-4" />
-                All
-                <ChevronDown className="ml-1 h-4 w-4" />
+                        {cat.subcategories.map((sub) => (
+                          <DropdownMenuItem asChild key={sub.id}>
+                            <Link href={`/browse?subcategoryId=${sub.id}`} className="pl-6 text-sm text-slate-600">
+                              {sub.name}
+                            </Link>
+                          </DropdownMenuItem>
+                        ))}
+                      </div>
+                    ))}
+                    {serviceCategories.length > 0 && (
+                      <>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuLabel className="font-medium">
+                          Service Categories
+                        </DropdownMenuLabel>
+                        {serviceCategories.map((cat) => (
+                          <DropdownMenuItem asChild key={`service-${cat.id}`}>
+                            <Link href={`/browse?serviceCategoryId=${cat.id}`} className="pl-6 text-sm text-slate-600">
+                              {cat.name}
+                            </Link>
+                          </DropdownMenuItem>
+                        ))}
+                      </>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              ) : (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-10 shrink-0 rounded-r-none border-amber-400 bg-slate-50 px-3 text-sm font-medium text-slate-700 hover:bg-slate-100 focus-visible:ring-amber-500"
+                  aria-hidden
+                >
+                  <LayoutGrid className="mr-1.5 h-4 w-4" />
+                  All
+                  <ChevronDown className="ml-1 h-4 w-4" />
+                </Button>
+              )}
+              <Input
+                type="search"
+                placeholder="Search products..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="h-9 min-w-0 rounded-l-md border-l border-amber-400 border-r-0 bg-white py-2 text-sm focus-visible:ring-amber-500 sm:h-10 sm:rounded-l-none sm:border-l-0 sm:text-base"
+              />
+              <Button type="submit" size="icon" className="h-9 w-9 shrink-0 rounded-l-none border border-l-0 border-amber-400 bg-amber-400 text-black hover:bg-amber-500 sm:h-10 sm:w-10">
+                <Search className="h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4" />
+                <span className="sr-only">Search</span>
               </Button>
-            )}
-            <Input
-              type="search"
-              placeholder="Search products..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="h-9 min-w-0 rounded-l-md border-l border-amber-400 border-r-0 bg-white py-2 text-sm focus-visible:ring-amber-500 sm:h-10 sm:rounded-l-none sm:border-l-0 sm:text-base"
-            />
-            <Button type="submit" size="icon" className="h-9 w-9 shrink-0 rounded-l-none border border-l-0 border-amber-400 bg-amber-400 text-black hover:bg-amber-500 sm:h-10 sm:w-10">
-              <Search className="h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4" />
-              <span className="sr-only">Search</span>
-            </Button>
-          </div>
-        </form>
+            </div>
+          </form>
+        )}
 
         <nav className="ml-1 flex shrink-0 items-center gap-0 sm:ml-auto sm:gap-1 md:gap-3">
           {/* Mobile menu – only render Sheet after mount to avoid Radix ID hydration mismatch */}
@@ -215,7 +220,7 @@ export function SiteHeader() {
                     type="button"
                     variant="ghost"
                     size="icon"
-                    className="h-9 w-9 text-white hover:bg-slate-600/50 hover:text-white sm:h-10 sm:w-10"
+                    className={cn("h-9 w-9 sm:h-10 sm:w-10", isFoodSection ? "text-amber-950 hover:bg-amber-100/50 hover:text-amber-950" : "text-white hover:bg-slate-600/50 hover:text-white")}
                     aria-label="Open menu"
                   >
                     <Menu className="h-5 w-5 sm:h-6 sm:w-6" />
@@ -296,8 +301,17 @@ export function SiteHeader() {
                       </>
                     )}
                     {showOrdersLink && (
-                      <Link href="/my-orders" className="px-4 py-3 text-sm text-slate-700 hover:bg-slate-100">
-                        Orders
+                      <Link
+                        href={
+                          isFoodSection
+                            ? "/customer/food-orders"
+                            : pathname?.startsWith("/hotels")
+                            ? "/customer/hotel-bookings"
+                            : "/my-orders"
+                        }
+                        className="px-4 py-3 text-sm text-slate-700 hover:bg-slate-100"
+                      >
+                        {pathname?.startsWith("/hotels") ? "Bookings" : "Orders"}
                       </Link>
                     )}
                     {canUseWishlist && (
@@ -313,7 +327,7 @@ export function SiteHeader() {
                 type="button"
                 variant="ghost"
                 size="icon"
-                className="h-9 w-9 text-white hover:bg-slate-600/50 hover:text-white sm:h-10 sm:w-10"
+                className={cn("h-9 w-9 sm:h-10 sm:w-10", isFoodSection ? "text-amber-950 hover:bg-amber-100/50 hover:text-amber-950" : "text-white hover:bg-slate-600/50 hover:text-white")}
                 aria-label="Open menu"
                 aria-hidden
               >
@@ -329,7 +343,7 @@ export function SiteHeader() {
                 <DropdownMenuTrigger asChild>
                   <Button
                     variant="ghost"
-                    className="relative h-9 w-9 rounded-full p-0 text-white hover:bg-slate-600/50 hover:text-white"
+                    className={cn("relative h-9 w-9 rounded-full p-0", isFoodSection ? "text-amber-950 hover:bg-amber-100/50" : "text-white hover:bg-slate-600/50 hover:text-white")}
                     aria-label="Open profile"
                   >
                     <Avatar className="h-8 w-8">
@@ -371,74 +385,160 @@ export function SiteHeader() {
           <div className="hidden md:flex md:items-center md:gap-2 lg:gap-3 order-50">
             {mounted ? (
               <>
-                <Link href="/foods" className="flex items-center rounded px-2 py-1.5 text-sm font-medium text-white hover:bg-slate-600/50 sm:px-3">
-                  Restaurants
-                </Link>
-                <Link href="/hotels" className="flex items-center rounded px-2 py-1.5 text-sm font-medium text-white hover:bg-slate-600/50 sm:px-3">
-                  Hotels
-                </Link>
-                {showBecomePartner && (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <button type="button" className="flex items-center rounded px-2 py-1.5 text-left text-sm font-medium text-white hover:bg-slate-600/50 hover:outline-none focus:outline-none sm:px-3">
-                        Become a partner
-                        <ChevronDown className="ml-1 h-4 w-4 shrink-0" />
-                      </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-52">
-                      <DropdownMenuItem asChild>
-                        <Link href="/product-seller/login">Product Seller Login</Link>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem asChild>
-                        <Link href="/service-seller/login">Service Seller Login</Link>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem asChild>
-                        <Link href="/hotel-seller/login">Hotel Seller Login</Link>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem asChild>
-                        <Link href="/restaurant-seller/login">Restaurant Seller Login</Link>
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                )}
-                {isLoggedIn ? (
-                  <Link
-                    href="/dashboard"
-                    className="flex flex-col items-start rounded px-1.5 py-1 text-left text-white hover:bg-slate-600/50 hover:outline-none focus:outline-none sm:px-2 sm:py-1.5"
-                  >
-                    <span className="text-xs font-semibold leading-tight sm:text-sm">Dashboard</span>
-                  </Link>
+                {isCustomNav ? (
+                  <>
+                    <Link
+                      href="/"
+                      className={cn(
+                        "flex items-center rounded px-2 py-1.5 text-sm font-bold sm:px-3 transition-colors",
+                        isFoodSection
+                          ? (pathname === "/" ? "text-[#D97706] bg-amber-500/10" : "text-amber-950 hover:bg-amber-100/50")
+                          : (pathname === "/" ? "text-amber-300 bg-white/10" : "text-white hover:bg-slate-600/50")
+                      )}
+                    >
+                      Market
+                    </Link>
+                    <Link
+                      href="/foods"
+                      className={cn(
+                        "flex items-center rounded px-2 py-1.5 text-sm font-bold sm:px-3 transition-colors",
+                        isFoodSection
+                          ? (pathname?.startsWith("/foods") ? "text-[#D97706] bg-amber-500/10" : "text-amber-950 hover:bg-amber-100/50")
+                          : (pathname?.startsWith("/foods") ? "text-amber-300 bg-white/10" : "text-white hover:bg-slate-600/50")
+                      )}
+                    >
+                      Restaurants
+                    </Link>
+                    <Link
+                      href="/hotels"
+                      className={cn(
+                        "flex items-center rounded px-2 py-1.5 text-sm font-bold sm:px-3 transition-colors",
+                        isFoodSection
+                          ? (pathname?.startsWith("/hotels") ? "text-[#D97706] bg-[#EAB308]/10" : "text-amber-950 hover:bg-amber-100/50")
+                          : (pathname?.startsWith("/hotels") ? "text-amber-300 bg-white/10" : "text-white hover:bg-slate-600/50")
+                      )}
+                    >
+                      Hotels
+                    </Link>
+                    {isLoggedIn ? (
+                      <Link
+                        href="/dashboard"
+                        className={cn(
+                          "flex flex-col items-start rounded px-1.5 py-1 text-left hover:outline-none focus:outline-none sm:px-2 sm:py-1.5",
+                          isFoodSection ? "text-amber-950 hover:bg-amber-100/50" : "text-white hover:bg-slate-600/50"
+                        )}
+                      >
+                        <span className="text-xs font-semibold leading-tight sm:text-sm">Dashboard</span>
+                      </Link>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <Link href="/customer/login">
+                          <Button
+                            variant="ghost"
+                            className={cn(
+                              "font-bold text-sm rounded-xl h-10 px-3",
+                              isFoodSection ? "text-amber-950 hover:bg-amber-100/50" : "text-white hover:bg-white/10"
+                            )}
+                          >
+                            Sign In
+                          </Button>
+                        </Link>
+                        <Link href="/customer/registration">
+                          <Button
+                            className={cn(
+                              "font-bold text-sm rounded-xl h-10 px-3 shadow-sm",
+                              isFoodSection ? "bg-[#EAB308] hover:bg-[#CA8A04] text-amber-950" : "bg-amber-400 hover:bg-amber-500 text-black"
+                            )}
+                          >
+                            Sign Up
+                          </Button>
+                        </Link>
+                      </div>
+                    )}
+                  </>
                 ) : (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <button type="button" className="flex flex-col items-start rounded px-1.5 py-1 text-left text-white hover:outline-none focus:outline-none sm:px-2 sm:py-1.5">
-                        <span className="text-[10px] text-blue-100 sm:text-xs">Hello, sign in</span>
-                        <span className="flex items-center text-xs font-semibold leading-tight sm:text-sm">
-                          Customer
-                          <ChevronDown className="ml-0.5 h-3 w-3 shrink-0 sm:h-4 sm:w-4" />
-                        </span>
-                      </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-48">
-                      <DropdownMenuItem asChild>
-                        <Link href="/customer/login">Customer Login</Link>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem asChild>
-                        <Link href="/customer/registration">Customer Registration</Link>
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                  <>
+                    <Link href="/foods" className="flex items-center rounded px-2 py-1.5 text-sm font-medium text-white hover:bg-slate-600/50 sm:px-3">
+                      Restaurants
+                    </Link>
+                    <Link href="/hotels" className="flex items-center rounded px-2 py-1.5 text-sm font-medium text-white hover:bg-slate-600/50 sm:px-3">
+                      Hotels
+                    </Link>
+                    {showBecomePartner && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button type="button" className="flex items-center rounded px-2 py-1.5 text-left text-sm font-medium text-white hover:bg-slate-600/50 hover:outline-none focus:outline-none sm:px-3">
+                            Become a partner
+                            <ChevronDown className="ml-1 h-4 w-4 shrink-0" />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-52">
+                          <DropdownMenuItem asChild>
+                            <Link href="/product-seller/login">Product Seller Login</Link>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem asChild>
+                            <Link href="/service-seller/login">Service Seller Login</Link>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem asChild>
+                            <Link href="/hotel-seller/login">Hotel Seller Login</Link>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem asChild>
+                            <Link href="/restaurant-seller/login">Restaurant Seller Login</Link>
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
+                    {isLoggedIn ? (
+                      <Link
+                        href="/dashboard"
+                        className="flex flex-col items-start rounded px-1.5 py-1 text-left text-white hover:bg-slate-600/50 hover:outline-none focus:outline-none sm:px-2 sm:py-1.5"
+                      >
+                        <span className="text-xs font-semibold leading-tight sm:text-sm">Dashboard</span>
+                      </Link>
+                    ) : (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button type="button" className="flex flex-col items-start rounded px-1.5 py-1 text-left text-white hover:outline-none focus:outline-none sm:px-2 sm:py-1.5">
+                            <span className="text-[10px] text-blue-100 sm:text-xs">Hello, sign in</span>
+                            <span className="flex items-center text-xs font-semibold leading-tight sm:text-sm">
+                              Customer
+                              <ChevronDown className="ml-0.5 h-3 w-3 shrink-0 sm:h-4 sm:w-4" />
+                            </span>
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-48">
+                          <DropdownMenuItem asChild>
+                            <Link href="/customer/login">Customer Login</Link>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem asChild>
+                            <Link href="/customer/registration">Customer Registration</Link>
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
+                  </>
                 )}
               </>
             ) : (
               <>
-                <Link href="/foods" className="flex items-center rounded px-2 py-1.5 text-sm font-medium text-white hover:bg-slate-600/50 sm:px-3">
+                {isCustomNav && (
+                  <Link
+                    href="/"
+                    className={cn(
+                      "flex items-center rounded px-2 py-1.5 text-sm font-medium sm:px-3",
+                      isFoodSection ? "text-amber-950" : "text-white"
+                    )}
+                  >
+                    Market
+                  </Link>
+                )}
+                <Link href="/foods" className={cn("flex items-center rounded px-2 py-1.5 text-sm font-medium sm:px-3", isFoodSection ? "text-amber-950" : "text-white")}>
                   Restaurants
                 </Link>
-                <Link href="/hotels" className="flex items-center rounded px-2 py-1.5 text-sm font-medium text-white hover:bg-slate-600/50 sm:px-3">
+                <Link href="/hotels" className={cn("flex items-center rounded px-2 py-1.5 text-sm font-medium sm:px-3", isFoodSection ? "text-amber-950" : "text-white")}>
                   Hotels
                 </Link>
-                {showBecomePartner && (
+                {showBecomePartner && !isCustomNav && (
                   <Link href="/product-seller/login" className="rounded px-2 py-1.5 text-sm font-medium text-white hover:bg-slate-600/50 sm:px-3">
                     Become a partner
                   </Link>
@@ -446,16 +546,16 @@ export function SiteHeader() {
                 {isLoggedIn ? (
                   <Link
                     href="/dashboard"
-                    className="flex flex-col items-start rounded px-1.5 py-1 text-left text-white hover:opacity-90 sm:px-2 sm:py-1.5"
+                    className={cn("flex flex-col items-start rounded px-1.5 py-1 text-left sm:px-2 sm:py-1.5", isFoodSection ? "text-amber-950" : "text-white")}
                   >
                     <span className="text-xs font-semibold leading-tight sm:text-sm">Dashboard</span>
                   </Link>
                 ) : (
                   <Link
                     href="/customer/login"
-                    className="flex flex-col items-start rounded px-1.5 py-1 text-left text-white hover:opacity-90 sm:px-2 sm:py-1.5"
+                    className={cn("flex flex-col items-start rounded px-1.5 py-1 text-left sm:px-2 sm:py-1.5", isFoodSection ? "text-amber-950" : "text-white")}
                   >
-                    <span className="text-[10px] text-blue-100 sm:text-xs">Hello, sign in</span>
+                    <span className={cn("text-[10px] sm:text-xs", isFoodSection ? "text-amber-800" : "text-blue-100")}>Hello, sign in</span>
                     <span className="flex items-center text-xs font-semibold leading-tight sm:text-sm">
                       Customer
                       <ChevronDown className="ml-0.5 h-3 w-3 shrink-0 sm:h-4 sm:w-4" />
@@ -464,22 +564,27 @@ export function SiteHeader() {
                 )}
               </>
             )}
-
             {showOrdersLink && (
               <Link
-                href="/my-orders"
-                className="order-40 flex flex-col items-start rounded px-2 py-1.5 text-white hover:opacity-90"
+                href={
+                  isFoodSection
+                    ? "/customer/food-orders"
+                    : pathname?.startsWith("/hotels")
+                    ? "/customer/hotel-bookings"
+                    : "/my-orders"
+                }
+                className={cn("order-40 flex flex-col items-start rounded px-2 py-1.5", isFoodSection ? "text-amber-950 hover:bg-amber-100/50" : "text-white hover:opacity-90")}
                 aria-label="Orders"
               >
-                <span className="font-semibold">Orders</span>
+                <span className="font-semibold">{pathname?.startsWith("/hotels") ? "Bookings" : "Orders"}</span>
               </Link>
             )}
           </div>
 
-          {canUseCart && (
+          {canUseCart && !isCustomNav && (
             <Link
               href="/cart"
-              className="order-30 relative flex items-center gap-0.5 rounded p-1.5 text-white hover:opacity-90 sm:gap-1 sm:px-2 sm:py-1.5"
+              className={cn("order-30 relative flex items-center gap-0.5 rounded p-1.5 sm:gap-1 sm:px-2 sm:py-1.5", isFoodSection ? "text-amber-950 hover:bg-amber-100/50" : "text-white hover:opacity-90")}
               aria-label={`Cart, ${totalItems} items`}
             >
               <span className="relative">
@@ -492,13 +597,13 @@ export function SiteHeader() {
             </Link>
           )}
 
-          {canUseWishlist && (
+          {canUseWishlist && !isCustomNav && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
                   type="button"
                   variant="ghost"
-                  className="order-35 relative inline-flex h-9 items-center justify-center gap-1 rounded px-1.5 text-white hover:bg-slate-600/50 hover:text-white sm:h-10 sm:px-2"
+                  className={cn("order-35 relative inline-flex h-9 items-center justify-center gap-1 rounded px-1.5 sm:h-10 sm:px-2", isFoodSection ? "text-amber-950 hover:bg-amber-100/50 hover:text-amber-950" : "text-white hover:bg-slate-600/50 hover:text-white")}
                   aria-label={`Wishlist, ${wishlistCount} items`}
                 >
                   <span className="relative">
@@ -574,14 +679,13 @@ export function SiteHeader() {
             </DropdownMenu>
           )}
 
-          {/* Desktop-only profile avatar (right of cart) */}
           {mounted && isLoggedIn && (
             <div className="hidden md:block order-50">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
                     variant="ghost"
-                    className="relative h-9 w-9 rounded-full p-0 text-white hover:bg-slate-600/50 hover:text-white"
+                    className={cn("relative h-9 w-9 rounded-full p-0", isFoodSection ? "text-amber-950 hover:bg-amber-100/50" : "text-white hover:bg-slate-600/50 hover:text-white")}
                     aria-label="Open profile"
                   >
                     <Avatar className="h-8 w-8">
@@ -627,6 +731,8 @@ export function SiteHeader() {
 type FooterCategory = { id: string; name: string; slug: string }
 
 export function SiteFooter() {
+  const pathname = usePathname()
+  const isFoodSection = pathname?.startsWith("/foods")
   const { data: session, status } = useSession()
   const isLoggedIn = status === "authenticated" && !!session?.user
   const canUseCart = status !== "authenticated" || session?.user?.role === UserRole.CUSTOMER
@@ -642,11 +748,20 @@ export function SiteFooter() {
   const categoriesCol1 = categories.slice(0, 5)
   const categoriesCol2 = categories.slice(5, 10)
 
-  const linkClass = "text-sm text-slate-700 transition-colors hover:text-slate-900 hover:underline"
-  const headingClass = "mb-3 text-sm font-semibold uppercase tracking-wider text-slate-800 sm:mb-4"
+  const linkClass = isFoodSection
+    ? "text-sm text-amber-800 transition-colors hover:text-amber-950 hover:underline"
+    : "text-sm text-slate-700 transition-colors hover:text-slate-900 hover:underline"
+  const headingClass = isFoodSection
+    ? "mb-3 text-sm font-bold uppercase tracking-wider text-amber-950 sm:mb-4"
+    : "mb-3 text-sm font-semibold uppercase tracking-wider text-slate-800 sm:mb-4"
 
   return (
-    <footer className="border-t border-blue-900/20 bg-gradient-to-r from-blue-50 via-blue-200 to-cyan-600 shadow-[0_-2px_10px_rgba(0,0,0,0.06)]">
+    <footer className={cn(
+      "border-t shadow-[0_-2px_10px_rgba(0,0,0,0.06)]",
+      isFoodSection
+        ? "border-[#E8DFD8] bg-[#F5EFE6] text-amber-950"
+        : "border-blue-900/20 bg-gradient-to-r from-blue-50 via-blue-200 to-cyan-600"
+    )}>
       <div className="container mx-auto px-4 py-6 sm:px-6 sm:py-7 lg:px-8 lg:py-8">
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-6 lg:grid-cols-[1fr_1fr_1fr_auto] lg:gap-8 lg:items-start">
           {/* Quick Links */}
@@ -748,8 +863,11 @@ export function SiteFooter() {
         </div>
 
         {/* Copyright row */}
-        <div className="mt-6 flex justify-center border-t border-blue-900/20 pt-4 sm:mt-7 sm:pt-5">
-          <p className="text-center text-xs text-slate-600">
+        <div className={cn(
+          "mt-6 flex justify-center border-t pt-4 sm:mt-7 sm:pt-5",
+          isFoodSection ? "border-[#E8DFD8]" : "border-blue-900/20"
+        )}>
+          <p className={cn("text-center text-xs", isFoodSection ? "text-amber-800" : "text-slate-600")}>
             © {new Date().getFullYear()} MEEEM Marketplace. All rights reserved.
           </p>
         </div>
@@ -759,8 +877,13 @@ export function SiteFooter() {
 }
 
 export function PublicLayout({ children }: { children: ReactNode }) {
+  const pathname = usePathname()
+  const isFoodSection = pathname?.startsWith("/foods")
   return (
-    <div className={`flex min-h-screen flex-col text-foreground ${PAGE_BACKGROUND}`}>
+    <div className={cn(
+      "flex min-h-screen flex-col text-foreground",
+      isFoodSection ? "bg-[#FAF8F5]" : PAGE_BACKGROUND
+    )}>
       <SiteHeader />
       <main className="flex-1">{children}</main>
       <SiteFooter />

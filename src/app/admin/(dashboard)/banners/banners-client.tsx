@@ -248,16 +248,30 @@ export function BannersClient() {
                           </TableCell>
                           <TableCell>
                             <div className="flex items-center gap-2">
-                              <div className="p-1.5 bg-indigo-500/10 rounded-lg">
-                                <Tag className={cn("h-3.5 w-3.5", banner.serviceCategory || banner.targetType === "service" ? "text-indigo-600" : "text-emerald-600")} />
+                              <div className={cn(
+                                "p-1.5 rounded-lg",
+                                banner.targetType === "service" ? "bg-indigo-500/10" :
+                                banner.targetType === "hotel" ? "bg-sky-500/10" :
+                                banner.targetType === "restaurant" ? "bg-rose-500/10" :
+                                "bg-emerald-500/10"
+                              )}>
+                                <Tag className={cn(
+                                  "h-3.5 w-3.5",
+                                  banner.targetType === "service" ? "text-indigo-600" :
+                                  banner.targetType === "hotel" ? "text-sky-600" :
+                                  banner.targetType === "restaurant" ? "text-rose-600" :
+                                  "text-emerald-600"
+                                )} />
                               </div>
-                              <span className="text-xs font-medium text-foreground/80 lowercase italic whitespace-nowrap">
+                              <span className="text-xs font-semibold text-foreground/80 lowercase italic whitespace-nowrap">
                                 {banner.serviceCategory
                                   ? banner.serviceCategory.name
                                   : banner.category
                                   ? banner.category.name
                                   : banner.subcategory
                                   ? banner.subcategory.name
+                                  : banner.targetType === "restaurant"
+                                  ? "foods & restaurants"
                                   : banner.targetType || "global"}
                               </span>
                             </div>

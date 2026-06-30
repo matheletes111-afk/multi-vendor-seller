@@ -67,7 +67,7 @@ export async function POST(
     }
 
     const body = await request.json()
-    const { rating, comment } = body
+    const { rating, comment, imageUrls } = body
 
     const numRating = Number(rating)
     if (isNaN(numRating) || numRating < 1 || numRating > 5 || !Number.isInteger(numRating)) {
@@ -77,6 +77,10 @@ export async function POST(
       )
     }
 
+    const finalImages = Array.isArray(imageUrls)
+      ? imageUrls.filter((url): url is string => typeof url === "string" && /^https?:\/\//.test(url))
+      : []
+
     const safeComment = comment ? String(comment).trim().slice(0, 1000) : null
 
     const newReview = await prisma.hotelReview.create({
@@ -84,7 +88,8 @@ export async function POST(
         userId,
         hotelId,
         rating: numRating,
-        comment: safeComment
+        comment: safeComment,
+        images: finalImages
       }
     })
 
@@ -132,7 +137,7 @@ export async function PUT(
     }
 
     const body = await request.json()
-    const { rating, comment } = body
+    const { rating, comment, imageUrls } = body
 
     const numRating = Number(rating)
     if (isNaN(numRating) || numRating < 1 || numRating > 5 || !Number.isInteger(numRating)) {
@@ -142,13 +147,20 @@ export async function PUT(
       )
     }
 
-    const safeComment = comment ? String(comment).trim().slice(0, 1000) : null
+    const finalImages = Array.isArray(imageUrls)
+      ? imageUrls.filter((url): url is string => typeof url === "string" && /^https?:\/\//.test(url))
+      : []
+
+    const safeComment = comment !== undefined
+      ? (comment === null ? null : String(comment).trim().slice(0, 1000))
+      : existingReview.comment
 
     const updatedReview = await prisma.hotelReview.update({
       where: { id: existingReview.id },
       data: {
         rating: numRating,
-        comment: safeComment
+        comment: safeComment,
+        images: imageUrls !== undefined ? finalImages : existingReview.images as any
       }
     })
 

@@ -133,7 +133,14 @@ export function HomeClient() {
   useEffect(() => {
     fetch("/api/home/banners")
       .then((r) => r.json())
-      .then((data: unknown) => setBanners(Array.isArray(data) ? data : []))
+      .then((data: any) => {
+        if (Array.isArray(data)) {
+          const homeBanners = data.filter((b) => b.targetType !== "restaurant" && b.targetType !== "hotel");
+          setBanners(homeBanners);
+        } else {
+          setBanners([]);
+        }
+      })
       .catch(() => setBanners([]));
   }, []);
 
