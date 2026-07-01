@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
     const revenueAggregate = await prisma.foodOrder.aggregate({
       where: {
         restaurantSellerId: seller.id,
-        status: { notIn: ["CANCELLED", "REJECTED"] }
+        status: { notIn: ["CANCELLED"] }
       },
       _sum: {
         totalAmount: true
