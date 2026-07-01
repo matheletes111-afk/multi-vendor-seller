@@ -176,6 +176,8 @@ export async function POST(request: NextRequest) {
       body = await request.json().catch(() => ({}))
     }
 
+
+
     const adTypeRaw = String(body.adType ?? "promote_product").trim().toLowerCase().replace(/-/g, "_")
     const isOwnAd = adTypeRaw === "own_ad" || adTypeRaw === "ownad"
     const foodItemIdRaw = String(body.foodItemId ?? "").trim()
