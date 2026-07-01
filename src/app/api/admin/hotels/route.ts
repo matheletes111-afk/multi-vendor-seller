@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { isAdmin } from "@/lib/rbac";
 import { getPaginationFromSearchParams } from "@/lib/admin-pagination";
 import type { Prisma } from "@prisma/client";
+import { getPresignedUrlOrOriginal } from "@/lib/s3-presigned";
 
 export async function GET(request: NextRequest) {
   try {
@@ -84,10 +85,26 @@ export async function GET(request: NextRequest) {
       }),
     ]);
 
+    // Pre-sign URLs for each hotel
+    const preSignedHotels = await Promise.all(
+      hotels.map(async (hotel) => {
+        hotel.logo = await getPresignedUrlOrOriginal(hotel.logo);
+        hotel.banner = await getPresignedUrlOrOriginal(hotel.banner);
+        let parsedImages = [];
+        try {
+          parsedImages = typeof hotel.images === 'string' ? JSON.parse(hotel.images) : hotel.images;
+        } catch (e) {}
+        if (Array.isArray(parsedImages)) {
+          hotel.images = await Promise.all(parsedImages.map(img => getPresignedUrlOrOriginal(img)));
+        }
+        return hotel;
+      })
+    );
+
     const totalPages = Math.ceil(totalCount / perPage);
 
     return NextResponse.json({
-      hotels,
+      hotels: preSignedHotels,
       hotelSellers,
       totalCount,
       totalPages,

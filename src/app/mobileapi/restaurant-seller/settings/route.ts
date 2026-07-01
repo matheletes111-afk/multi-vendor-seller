@@ -20,11 +20,11 @@ function getImageExtFromContentType(contentType?: string | null) {
 }
 
 /**
- * GET /mobileapi/hotel-seller/settings
- * Fetch full profile of the hotel seller.
+ * GET /mobileapi/restaurant-seller/settings
+ * Fetch full profile of the restaurant seller.
  */
 export async function GET(request: NextRequest) {
-  const authStatus = getMobileHotelRestaurantSellerAuth(request, UserRole.SELLER_HOTEL)
+  const authStatus = getMobileHotelRestaurantSellerAuth(request, UserRole.SELLER_RESTAURANT)
   if (!authStatus.ok) {
     if (authStatus.error === "unauthorized") {
       return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 })
@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
   const userId = authStatus.userId
 
   try {
-    const seller = await prisma.hotelSeller.findUnique({
+    const seller = await prisma.restaurantSeller.findUnique({
       where: { userId },
       include: {
         businessInfo: true,
@@ -71,14 +71,16 @@ export async function GET(request: NextRequest) {
     }
 
     if (seller.kyc) {
-      const [front, back, selfie] = await Promise.all([
+      const [front, back, selfie, license] = await Promise.all([
         getPresignedUrlOrOriginal(seller.kyc.idFrontUrl),
         getPresignedUrlOrOriginal(seller.kyc.idBackUrl),
-        getPresignedUrlOrOriginal(seller.kyc.selfieUrl)
+        getPresignedUrlOrOriginal(seller.kyc.selfieUrl),
+        getPresignedUrlOrOriginal(seller.kyc.foodLicenseUrl)
       ])
       seller.kyc.idFrontUrl = front
       seller.kyc.idBackUrl = back
       seller.kyc.selfieUrl = selfie
+      seller.kyc.foodLicenseUrl = license
     }
 
     if (seller.bankDetails) {
@@ -98,11 +100,11 @@ export async function GET(request: NextRequest) {
 }
 
 /**
- * PUT /mobileapi/hotel-seller/settings
- * Update settings by section (user, business, kyc, bank, property) via multipart/form-data.
+ * PUT /mobileapi/restaurant-seller/settings
+ * Update settings by section (user, business, kyc, bank, restaurant) via multipart/form-data.
  */
 export async function PUT(request: NextRequest) {
-  const authStatus = getMobileHotelRestaurantSellerAuth(request, UserRole.SELLER_HOTEL)
+  const authStatus = getMobileHotelRestaurantSellerAuth(request, UserRole.SELLER_RESTAURANT)
   if (!authStatus.ok) {
     if (authStatus.error === "unauthorized") {
       return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 })
@@ -113,7 +115,7 @@ export async function PUT(request: NextRequest) {
   const userId = authStatus.userId
 
   try {
-    const seller = await prisma.hotelSeller.findUnique({
+    const seller = await prisma.restaurantSeller.findUnique({
       where: { userId },
       include: { businessInfo: true, kyc: true, bankDetails: true }
     })
@@ -226,45 +228,45 @@ export async function PUT(request: NextRequest) {
 
       if (busRegCert && busRegCert.size > 0) {
         busData.busRegCertUrl = await uploadPublicFile({
-          folder: "hotel-onboarding/business",
+          folder: "restaurant-onboarding/business",
           ext: path.extname(busRegCert.name) || ".pdf",
           contentType: busRegCert.type,
           buffer: Buffer.from(await busRegCert.arrayBuffer()),
-          prefix: "hotel-bus-reg",
+          prefix: "restaurant-bus-reg",
         })
       }
       if (cityCouncilCert && cityCouncilCert.size > 0) {
         busData.cityCouncilCertUrl = await uploadPublicFile({
-          folder: "hotel-onboarding/business",
+          folder: "restaurant-onboarding/business",
           ext: path.extname(cityCouncilCert.name) || ".pdf",
           contentType: cityCouncilCert.type,
           buffer: Buffer.from(await cityCouncilCert.arrayBuffer()),
-          prefix: "hotel-city-council",
+          prefix: "restaurant-city-council",
         })
       }
       if (gstTinCert && gstTinCert.size > 0) {
         busData.gstTinCertUrl = await uploadPublicFile({
-          folder: "hotel-onboarding/business",
+          folder: "restaurant-onboarding/business",
           ext: path.extname(gstTinCert.name) || ".pdf",
           contentType: gstTinCert.type,
           buffer: Buffer.from(await gstTinCert.arrayBuffer()),
-          prefix: "hotel-gst-tin",
+          prefix: "restaurant-gst-tin",
         })
       }
       if (addressProof && addressProof.size > 0) {
         busData.addressProofUrl = await uploadPublicFile({
-          folder: "hotel-onboarding/business",
+          folder: "restaurant-onboarding/business",
           ext: path.extname(addressProof.name) || ".pdf",
           contentType: addressProof.type,
           buffer: Buffer.from(await addressProof.arrayBuffer()),
-          prefix: "hotel-address-proof",
+          prefix: "restaurant-address-proof",
         })
       }
 
-      await prisma.hotelBusinessInfo.upsert({
-        where: { hotelSellerId: seller.id },
+      await prisma.restaurantBusinessInfo.upsert({
+        where: { restaurantSellerId: seller.id },
         update: busData,
-        create: { ...busData, hotelSellerId: seller.id }
+        create: { ...busData, restaurantSellerId: seller.id }
       })
     }
 
@@ -278,14 +280,14 @@ export async function PUT(request: NextRequest) {
 
       const kycData: any = { idType, idNumber }
 
-      if (idFront && idFront.size > 0) kycData.idFrontUrl = await uploadPublicFile({ folder: "hotel-onboarding/kyc", ext: path.extname(idFront.name), contentType: idFront.type, buffer: Buffer.from(await idFront.arrayBuffer()), prefix: "hotel-id-front" })
-      if (idBack && idBack.size > 0) kycData.idBackUrl = await uploadPublicFile({ folder: "hotel-onboarding/kyc", ext: path.extname(idBack.name), contentType: idBack.type, buffer: Buffer.from(await idBack.arrayBuffer()), prefix: "hotel-id-back" })
-      if (selfie && selfie.size > 0) kycData.selfieUrl = await uploadPublicFile({ folder: "hotel-onboarding/kyc", ext: path.extname(selfie.name), contentType: selfie.type, buffer: Buffer.from(await selfie.arrayBuffer()), prefix: "hotel-selfie" })
+      if (idFront && idFront.size > 0) kycData.idFrontUrl = await uploadPublicFile({ folder: "restaurant-onboarding/kyc", ext: path.extname(idFront.name), contentType: idFront.type, buffer: Buffer.from(await idFront.arrayBuffer()), prefix: "restaurant-id-front" })
+      if (idBack && idBack.size > 0) kycData.idBackUrl = await uploadPublicFile({ folder: "restaurant-onboarding/kyc", ext: path.extname(idBack.name), contentType: idBack.type, buffer: Buffer.from(await idBack.arrayBuffer()), prefix: "restaurant-id-back" })
+      if (selfie && selfie.size > 0) kycData.selfieUrl = await uploadPublicFile({ folder: "restaurant-onboarding/kyc", ext: path.extname(selfie.name), contentType: selfie.type, buffer: Buffer.from(await selfie.arrayBuffer()), prefix: "restaurant-selfie" })
 
-      await prisma.hotelKYC.upsert({
-        where: { hotelSellerId: seller.id },
+      await prisma.restaurantKYC.upsert({
+        where: { restaurantSellerId: seller.id },
         update: kycData,
-        create: { ...kycData, hotelSellerId: seller.id }
+        create: { ...kycData, restaurantSellerId: seller.id }
       })
     }
 
@@ -306,52 +308,52 @@ export async function PUT(request: NextRequest) {
 
       if (passbook && passbook.size > 0) {
         bankData.passbookUrl = await uploadPublicFile({
-          folder: "hotel-onboarding/bank",
+          folder: "restaurant-onboarding/bank",
           ext: path.extname(passbook.name),
           contentType: passbook.type,
           buffer: Buffer.from(await passbook.arrayBuffer()),
-          prefix: "hotel-bank-passbook",
+          prefix: "restaurant-bank-passbook",
         })
       }
       if (bankLetter && bankLetter.size > 0) {
         bankData.bankLetterUrl = await uploadPublicFile({
-          folder: "hotel-onboarding/bank",
+          folder: "restaurant-onboarding/bank",
           ext: path.extname(bankLetter.name) || ".pdf",
           contentType: bankLetter.type || "application/pdf",
           buffer: Buffer.from(await bankLetter.arrayBuffer()),
-          prefix: "hotel-bank-letter",
+          prefix: "restaurant-bank-letter",
         })
       }
 
-      await prisma.hotelBankDetails.upsert({
-        where: { hotelSellerId: seller.id },
+      await prisma.restaurantBankDetails.upsert({
+        where: { restaurantSellerId: seller.id },
         update: bankData,
-        create: { ...bankData, hotelSellerId: seller.id }
+        create: { ...bankData, restaurantSellerId: seller.id }
       })
     }
 
-    // 5. Handle Property Visuals
-    else if (section === "property") {
-      const estimateHotelCount = parseInt(fd.get("estimateHotelCount") as string)
-      const estimateRoomCount = parseInt(fd.get("estimateRoomCount") as string)
-      const categories = fd.getAll("categories")
+    // 5. Handle Restaurant Visuals & Scale Metrics
+    else if (section === "restaurant") {
+      const estimateRestaurantCount = parseInt(fd.get("estimateRestaurantCount") as string)
+      const cuisines = fd.getAll("cuisines")
+      const services = fd.getAll("services")
       const logo = fd.get("logo") as File | null
       const banner = fd.get("banner") as File | null
       const mainPhoto = fd.get("mainPhoto") as File | null
 
-      const propData: any = {}
-      if (!isNaN(estimateHotelCount)) propData.estimateHotelCount = estimateHotelCount
-      if (!isNaN(estimateRoomCount)) propData.estimateRoomCount = estimateRoomCount
-      if (categories.length > 0) propData.categories = JSON.stringify(categories)
+      const resData: any = {}
+      if (!isNaN(estimateRestaurantCount)) resData.estimateRestaurantCount = estimateRestaurantCount
+      if (cuisines.length > 0) resData.primaryCuisine = JSON.stringify(cuisines)
+      if (services.length > 0) resData.serviceTypes = JSON.stringify(services)
 
-      if (logo && logo.size > 0) propData.logo = await uploadPublicFile({ folder: "hotel-onboarding/property", ext: path.extname(logo.name), contentType: logo.type, buffer: Buffer.from(await logo.arrayBuffer()), prefix: "hotel-logo" })
-      if (banner && banner.size > 0) propData.banner = await uploadPublicFile({ folder: "hotel-onboarding/property", ext: path.extname(banner.name), contentType: banner.type, buffer: Buffer.from(await banner.arrayBuffer()), prefix: "hotel-banner" })
-      if (mainPhoto && mainPhoto.size > 0) propData.mainPhoto = await uploadPublicFile({ folder: "hotel-onboarding/property", ext: path.extname(mainPhoto.name), contentType: mainPhoto.type, buffer: Buffer.from(await mainPhoto.arrayBuffer()), prefix: "hotel-main-photo" })
+      if (logo && logo.size > 0) resData.logo = await uploadPublicFile({ folder: "restaurant-onboarding/property", ext: path.extname(logo.name), contentType: logo.type, buffer: Buffer.from(await logo.arrayBuffer()), prefix: "restaurant-logo" })
+      if (banner && banner.size > 0) resData.banner = await uploadPublicFile({ folder: "restaurant-onboarding/property", ext: path.extname(banner.name), contentType: banner.type, buffer: Buffer.from(await banner.arrayBuffer()), prefix: "restaurant-banner" })
+      if (mainPhoto && mainPhoto.size > 0) resData.mainPhoto = await uploadPublicFile({ folder: "restaurant-onboarding/property", ext: path.extname(mainPhoto.name), contentType: mainPhoto.type, buffer: Buffer.from(await mainPhoto.arrayBuffer()), prefix: "restaurant-main-photo" })
 
-      if (Object.keys(propData).length > 0) {
-        await prisma.hotelSeller.update({
+      if (Object.keys(resData).length > 0) {
+        await prisma.restaurantSeller.update({
           where: { id: seller.id },
-          data: propData
+          data: resData
         })
       }
     } else {

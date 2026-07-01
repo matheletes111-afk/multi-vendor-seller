@@ -181,7 +181,13 @@ export async function POST(request: NextRequest) {
     const foodItemIdRaw = String(body.foodItemId ?? "").trim()
     const resolvedFoodItemId = isOwnAd ? null : foodItemIdRaw
     const title = String(body.title ?? "").trim()
-    const placements = (body.placements as unknown as string[]) || ["WEB"]
+    let rawPlacements = (body.placements as unknown as string[]) || ["WEB"]
+    if (typeof rawPlacements === 'string') {
+      rawPlacements = (rawPlacements as string).split(",")
+    }
+    const placements = Array.isArray(rawPlacements)
+      ? rawPlacements.flatMap(p => String(p).split(",")).map(p => p.trim().toUpperCase()).filter(Boolean)
+      : ["WEB"]
     const creativeUrl = String(body.creativeUrl ?? "").trim()
     const creativeType = body.creativeType === "VIDEO" ? "VIDEO" : "IMAGE"
     const mobileCreativeUrl = String(body.mobileCreativeUrl ?? "").trim()

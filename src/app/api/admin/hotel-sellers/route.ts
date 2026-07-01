@@ -71,9 +71,51 @@ export async function GET(request: NextRequest) {
       prisma.hotelSeller.count({ where }),
     ])
 
+    const { getPresignedUrlOrOriginal } = await import("@/lib/s3-presigned")
+    const signedSellers = await Promise.all(sellers.map(async (seller) => {
+      seller.logo = await getPresignedUrlOrOriginal(seller.logo)
+      seller.banner = await getPresignedUrlOrOriginal(seller.banner)
+      seller.mainPhoto = await getPresignedUrlOrOriginal(seller.mainPhoto)
+
+      if (seller.businessInfo) {
+        const [busReg, cityCouncil, gstTin, addrProof] = await Promise.all([
+          getPresignedUrlOrOriginal(seller.businessInfo.busRegCertUrl),
+          getPresignedUrlOrOriginal(seller.businessInfo.cityCouncilCertUrl),
+          getPresignedUrlOrOriginal(seller.businessInfo.gstTinCertUrl),
+          getPresignedUrlOrOriginal(seller.businessInfo.addressProofUrl)
+        ])
+        seller.businessInfo.busRegCertUrl = busReg
+        seller.businessInfo.cityCouncilCertUrl = cityCouncil
+        seller.businessInfo.gstTinCertUrl = gstTin
+        seller.businessInfo.addressProofUrl = addrProof
+      }
+
+      if (seller.kyc) {
+        const [front, back, selfie] = await Promise.all([
+          getPresignedUrlOrOriginal(seller.kyc.idFrontUrl),
+          getPresignedUrlOrOriginal(seller.kyc.idBackUrl),
+          getPresignedUrlOrOriginal(seller.kyc.selfieUrl)
+        ])
+        seller.kyc.idFrontUrl = front
+        seller.kyc.idBackUrl = back
+        seller.kyc.selfieUrl = selfie
+      }
+
+      if (seller.bankDetails) {
+        const [passbook, bankLetter] = await Promise.all([
+          getPresignedUrlOrOriginal(seller.bankDetails.passbookUrl),
+          getPresignedUrlOrOriginal(seller.bankDetails.bankLetterUrl)
+        ])
+        seller.bankDetails.passbookUrl = passbook
+        seller.bankDetails.bankLetterUrl = bankLetter
+      }
+
+      return seller
+    }))
+
     const totalPages = Math.ceil(totalCount / perPage)
     return NextResponse.json({
-      sellers,
+      sellers: signedSellers,
       totalCount,
       totalPages,
       page,

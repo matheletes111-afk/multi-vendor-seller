@@ -1,0 +1,227 @@
+========================================================================
+Meeem - Restaurant Seller Mobile Overview & Settings API Documentation
+========================================================================
+
+Base URL: http://<your-server-domain>/mobileapi/restaurant-seller
+
+Authentication:
+  All endpoints require a Bearer token in the Authorization header:
+  Authorization: Bearer <mobile_access_token>
+
+Response Format:
+  All responses return a JSON object with:
+  - success: boolean
+  - data: (object) returned only when success is true
+  - error: string error message, returned only when success is false
+
+========================================================================
+1. DASHBOARD OVERVIEW ENDPOINT
+========================================================================
+
+A. Get Dashboard Overview
+   Endpoint: GET /overview
+   Headers: 
+     - Authorization: Bearer <mobile_access_token>
+
+   Example Response (Success - 200 OK):
+     {
+       "success": true,
+       "data": {
+         "subscription": {
+           "id": "sub_456",
+           "status": "ACTIVE",
+           "currentPeriodEnd": "2026-07-18T12:00:00.000Z",
+           "plan": {
+             "id": "plan_platinum_food",
+             "name": "Platinum Food Plan"
+           }
+         },
+         "commissionRate": 12.5,
+         "isGlobalRate": true,
+         "totalFoods": 14,
+         "totalOrders": 85,
+         "totalRevenue": 2450.50,
+         "totalRevenueFormatted": "Nle 2,450.50",
+         "netBalance": 2144.18,
+         "netBalanceFormatted": "Nle 2,144.18",
+         "totalAdClicks": 112,
+         "estimateFoodCount": 50
+       }
+     }
+
+   Error Responses:
+     - 401 Unauthorized: Invalid or missing token
+     - 403 Forbidden: Authenticated user is not a Restaurant Seller
+     - 404 Not Found: Seller profile not found
+
+========================================================================
+2. SETTINGS & PROFILE ENDPOINTS
+========================================================================
+
+A. Fetch Full Profile
+   Endpoint: GET /settings
+   Headers:
+     - Authorization: Bearer <mobile_access_token>
+
+   Example Response (Success - 200 OK):
+     {
+       "success": true,
+       "data": {
+         "id": "clxb821a30000uzd5restaurant",
+         "userId": "user_id_456",
+         "estimateFoodCount": 50,
+         "primaryCuisine": "[\"Chinese\", \"Italian\"]",
+         "serviceTypes": "[\"Delivery\", \"Dine-In\"]",
+         "logo": "https://bucket.s3.amazonaws.com/uploads/restaurant-onboarding/property/logo.jpg",
+         "banner": "https://bucket.s3.amazonaws.com/uploads/restaurant-onboarding/property/banner.jpg",
+         "mainPhoto": "https://bucket.s3.amazonaws.com/uploads/restaurant-onboarding/property/main.jpg",
+         "user": {
+           "id": "user_id_456",
+           "name": "Jane Chef",
+           "email": "janechef@example.com",
+           "image": "https://bucket.s3.amazonaws.com/uploads/profile/profile.jpg",
+           "phone": "9876543220",
+           "phoneCountryCode": "+91"
+         },
+         "businessInfo": {
+           "id": "bus_info_2",
+           "businessName": "Tasty Palace Restaurant",
+           "businessType": "Individual",
+           "taxIdNumber": "TAX67890",
+           "haveGst": true,
+           "gstInvNo": "GST-INV-888",
+           "gstCustomerName": "Tasty Palace Food Group",
+           "landmark": "Opposite Food Court",
+           "city": "Freetown",
+           "district": "Western Area",
+           "state": "Western Region",
+           "busRegCertUrl": "https://bucket.s3.amazonaws.com/uploads/restaurant-onboarding/business/reg.pdf",
+           "cityCouncilCertUrl": "https://bucket.s3.amazonaws.com/uploads/restaurant-onboarding/business/council.pdf",
+           "gstTinCertUrl": "https://bucket.s3.amazonaws.com/uploads/restaurant-onboarding/business/gst.pdf",
+           "addressProofUrl": "https://bucket.s3.amazonaws.com/uploads/restaurant-onboarding/business/address.pdf",
+           "managerName": "Mark Baker",
+           "pocContact": "9876543221"
+         },
+         "kyc": {
+           "id": "kyc_2",
+           "idType": "National ID",
+           "idNumber": "NID9876543",
+           "foodLicenseNumber": "FL12345",
+           "idFrontUrl": "https://bucket.s3.amazonaws.com/uploads/restaurant-onboarding/kyc/front.jpg",
+           "idBackUrl": "https://bucket.s3.amazonaws.com/uploads/restaurant-onboarding/kyc/back.jpg",
+           "selfieUrl": "https://bucket.s3.amazonaws.com/uploads/restaurant-onboarding/kyc/selfie.jpg",
+           "foodLicenseUrl": "https://bucket.s3.amazonaws.com/uploads/restaurant-onboarding/kyc/license.pdf"
+         },
+         "bankDetails": {
+           "id": "bank_2",
+           "bankName": "Rokupr Commercial Bank",
+           "bankAddress": "Freetown Main St",
+           "accountHolderName": "Tasty Palace Food Group Ltd",
+           "accountNumber": "98765432101",
+           "bbanNumber": "ROKB0000456",
+           "branchName": "Freetown Main",
+           "mobileMoneyOption": "Orange Money",
+           "preferredPayoutMethod": "Mobile Wallet",
+           "passbookUrl": "https://bucket.s3.amazonaws.com/uploads/restaurant-onboarding/bank/passbook.jpg",
+           "bankLetterUrl": "https://bucket.s3.amazonaws.com/uploads/restaurant-onboarding/bank/letter.pdf"
+         },
+         "agreement": null
+       }
+     }
+
+B. Update Profile / Settings (By Section)
+   Endpoint: PUT /settings
+   Content-Type: multipart/form-data
+   Headers:
+     - Authorization: Bearer <mobile_access_token>
+
+   Request Payload structure:
+     The update request is split into "sections" using a required `section` parameter. Depending on the `section` value, send the corresponding parameters below.
+
+   ---------------------------------------------------------------------
+   Section 1: "user" (Update Personal Info / Password / Profile Image)
+   ---------------------------------------------------------------------
+   Parameters:
+     - section: (string, required) "user"
+     - name: (string, optional) User's name
+     - phone: (string, optional) Numeric-only phone number
+     - phoneCountryCode: (string, optional) Numeric/plus-prefixed country code
+     - password: (string, optional) New password (must meet strength requirements)
+     - currentPassword: (string, required only if updating password) Current password
+     - profileImage: (binary file, optional) User's profile photo
+
+   ---------------------------------------------------------------------
+   Section 2: "business" (Update Business Details & Certificates)
+   ---------------------------------------------------------------------
+   Parameters:
+     - section: (string, required) "business"
+     - businessName: (string, optional) Legal business name
+     - businessType: (string, optional) Entity type (e.g. Individual, Corporate)
+     - taxIdNumber: (string, optional) Tax/TIN ID
+     - haveGst: (string, optional) "true" or "false"
+     - gstInvNo: (string, required if haveGst is "true") GST Invoice Number
+     - gstCustomerName: (string, required if haveGst is "true") Customer Name for GST
+     - landmark: (string, optional) Landmark
+     - city: (string, optional) City
+     - district: (string, optional) District
+     - state: (string, optional) State
+     - managerName: (string, optional) Restaurant/Store Manager's Name
+     - pocContact: (string, optional) Point of Contact phone number
+     - busRegCert: (binary file, optional) Business Registration document
+     - cityCouncilCert: (binary file, optional) City Council Certificate document
+     - gstTinCert: (binary file, optional) GST/TIN Certificate document
+     - addressProof: (binary file, optional) Address Proof document
+
+   ---------------------------------------------------------------------
+   Section 3: "kyc" (Update KYC / Verification Documents)
+   ---------------------------------------------------------------------
+    Parameters:
+      - section: (string, required) "kyc"
+      - idType: (string, optional) Document type (e.g. Passport, National ID)
+      - idNumber: (string, optional) Document identification number
+      - foodLicenseNumber: (string, optional) Food safety license identifier number
+      - idFront: (binary file, optional) ID card front photo
+      - idBack: (binary file, optional) ID card back photo
+      - selfie: (binary file, optional) Selfie with ID card photo
+      - foodLicense: (binary file, optional) Food establishment safety certificate document
+
+   ---------------------------------------------------------------------
+   Section 4: "bank" (Update Payout / Bank Account Info)
+   ---------------------------------------------------------------------
+   Parameters:
+     - section: (string, required) "bank"
+     - bankName: (string, optional) Name of the bank
+     - bankAddress: (string, optional) Address of the bank branch
+     - accountHolderName: (string, optional) Holder's legal name
+     - accountNumber: (string, optional) Bank account / wallet number
+     - bbanNumber: (string, optional) BBAN / IBAN / IFSC number
+     - branchName: (string, optional) Branch name
+     - mobileMoneyOption: (string, optional) Mobile money carrier/option (e.g. Orange Money)
+     - preferredPayoutMethod: (string, optional) Preferred method (e.g., Mobile Wallet)
+     - passbook: (binary file, optional) Passbook cover photo / MM screenshot
+     - bankLetter: (binary file, optional) Verification letter from bank
+
+   ---------------------------------------------------------------------
+   Section 5: "restaurant" (Update Restaurant Category & Scale Metrics)
+   ---------------------------------------------------------------------
+    Parameters:
+      - section: (string, required) "restaurant"
+      - estimateFoodCount: (number/string, optional) Estimate of food items managed
+      - cuisines: (multiple form fields, optional) Cuisine types, e.g. key "cuisines" sent multiple times (e.g. "Chinese", "Italian")
+      - services: (multiple form fields, optional) Service types, e.g. key "services" sent multiple times (e.g. "Delivery", "Dine-In")
+      - logo: (binary file, optional) Restaurant logo image
+      - banner: (binary file, optional) Restaurant banner image
+      - mainPhoto: (binary file, optional) Main marketing/restaurant storefront image
+
+   Example Response (Success - 200 OK):
+     {
+       "success": true
+     }
+
+   Error Responses:
+     - 400 Bad Request: Missing section, invalid input formats, or incorrect current password
+     - 401 Unauthorized: Invalid or missing token
+     - 403 Forbidden: Authenticated user is not a Restaurant Seller
+     - 404 Not Found: Seller profile not found
+     - 500 Internal Server Error: Database or file storage upload failure
+========================================================================

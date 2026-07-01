@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   images: {
-    domains: ['localhost', 'images.unsplash.com', 'm.media-amazon.com', 'www.shutterstock.com', 'media.istockphoto.com'],
+    domains: ['localhost', 'images.unsplash.com', 'm.media-amazon.com', 'www.shutterstock.com', 'media.istockphoto.com', 'meeemsl-bucket.s3.us-east-1.amazonaws.com'],
   },
   serverExternalPackages: ["xlsx"],
   async headers() {
