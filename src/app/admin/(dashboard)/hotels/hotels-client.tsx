@@ -184,12 +184,29 @@ export function HotelsClient() {
                 data?.hotels?.map((hotel: any) => (
                   <TableRow key={hotel.id} className="group transition-all hover:bg-muted/20 border-b border-muted/10">
                     <TableCell className="pl-8 py-5">
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-4">
+                        {/* 1st Hotel Image */}
+                        {(() => {
+                          let hotelImages = [];
+                          try {
+                            hotelImages = typeof hotel.images === 'string' ? JSON.parse(hotel.images) : hotel.images;
+                          } catch (e) {}
+                          const firstImg = Array.isArray(hotelImages) && hotelImages.length > 0 ? hotelImages[0] : null;
+                          return firstImg ? (
+                            <img src={firstImg} alt={hotel.name} className="w-16 h-10 rounded-lg object-cover border shadow-sm shrink-0" />
+                          ) : (
+                            <div className="w-16 h-10 rounded-lg bg-muted flex items-center justify-center border text-muted-foreground/30 shrink-0">
+                              <Building2 className="h-4 w-4" />
+                            </div>
+                          );
+                        })()}
+
+                        {/* Hotel Logo */}
                         {hotel.logo ? (
-                          <img src={hotel.logo} alt={hotel.name} className="w-10 h-10 rounded-full object-cover border" />
+                          <img src={hotel.logo} alt={hotel.name} className="w-8 h-8 rounded-full object-cover border shadow-sm shrink-0" />
                         ) : (
-                          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary border">
-                            <Building2 className="h-5 w-5" />
+                          <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary border shrink-0">
+                            <Building2 className="h-4 w-4" />
                           </div>
                         )}
                         <div className="flex flex-col">

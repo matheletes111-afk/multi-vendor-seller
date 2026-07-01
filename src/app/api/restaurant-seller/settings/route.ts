@@ -40,6 +40,46 @@ export async function GET() {
     return NextResponse.json({ error: "Seller not found" }, { status: 404 })
   }
 
+  const { getPresignedUrlOrOriginal } = await import("@/lib/s3-presigned")
+  seller.logo = await getPresignedUrlOrOriginal(seller.logo)
+  seller.banner = await getPresignedUrlOrOriginal(seller.banner)
+  seller.mainPhoto = await getPresignedUrlOrOriginal(seller.mainPhoto)
+
+  if (seller.businessInfo) {
+    const [busReg, cityCouncil, gstTin, addrProof] = await Promise.all([
+      getPresignedUrlOrOriginal(seller.businessInfo.busRegCertUrl),
+      getPresignedUrlOrOriginal(seller.businessInfo.cityCouncilCertUrl),
+      getPresignedUrlOrOriginal(seller.businessInfo.gstTinCertUrl),
+      getPresignedUrlOrOriginal(seller.businessInfo.addressProofUrl)
+    ])
+    seller.businessInfo.busRegCertUrl = busReg
+    seller.businessInfo.cityCouncilCertUrl = cityCouncil
+    seller.businessInfo.gstTinCertUrl = gstTin
+    seller.businessInfo.addressProofUrl = addrProof
+  }
+
+  if (seller.kyc) {
+    const [front, back, selfie, license] = await Promise.all([
+      getPresignedUrlOrOriginal(seller.kyc.idFrontUrl),
+      getPresignedUrlOrOriginal(seller.kyc.idBackUrl),
+      getPresignedUrlOrOriginal(seller.kyc.selfieUrl),
+      getPresignedUrlOrOriginal(seller.kyc.foodLicenseUrl)
+    ])
+    seller.kyc.idFrontUrl = front
+    seller.kyc.idBackUrl = back
+    seller.kyc.selfieUrl = selfie
+    seller.kyc.foodLicenseUrl = license
+  }
+
+  if (seller.bankDetails) {
+    const [passbook, bankLetter] = await Promise.all([
+      getPresignedUrlOrOriginal(seller.bankDetails.passbookUrl),
+      getPresignedUrlOrOriginal(seller.bankDetails.bankLetterUrl)
+    ])
+    seller.bankDetails.passbookUrl = passbook
+    seller.bankDetails.bankLetterUrl = bankLetter
+  }
+
   return NextResponse.json(seller)
 }
 

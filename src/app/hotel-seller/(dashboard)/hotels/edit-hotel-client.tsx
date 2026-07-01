@@ -760,9 +760,10 @@ export function EditHotelClient({ hotel }: { hotel: Hotel }) {
                       type="number"
                       step="any"
                       placeholder="0.0000"
-                      className="rounded-2xl h-12"
+                      className="rounded-2xl h-12 bg-muted/30 cursor-not-allowed"
                       value={formData.lat}
                       onChange={handleLatLonChange}
+                      readOnly
                     />
                   </div>
                   <div className="space-y-2">
@@ -772,9 +773,10 @@ export function EditHotelClient({ hotel }: { hotel: Hotel }) {
                       type="number"
                       step="any"
                       placeholder="0.0000"
-                      className="rounded-2xl h-12"
+                      className="rounded-2xl h-12 bg-muted/30 cursor-not-allowed"
                       value={formData.lng}
                       onChange={handleLatLonChange}
+                      readOnly
                     />
                   </div>
                 </div>

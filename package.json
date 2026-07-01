@@ -17,6 +17,7 @@
   "dependencies": {
     "@auth/prisma-adapter": "^2.7.0",
     "@aws-sdk/client-s3": "^3.890.0",
+    "@aws-sdk/s3-request-presigner": "3.890.0",
     "@hookform/resolvers": "^3.9.1",
     "@prisma/client": "^5.19.1",
     "@radix-ui/react-avatar": "^1.1.1",

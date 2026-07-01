@@ -61,6 +61,15 @@ export function HotelDetailsClient({ id }: { id: string }) {
     console.error("Failed to parse amenities:", e)
   }
 
+  let hotelImages: string[] = []
+  try {
+    if (hotel.images) {
+      hotelImages = typeof hotel.images === "string" ? JSON.parse(hotel.images) : hotel.images
+    }
+  } catch (e) {
+    console.error("Failed to parse hotel images:", e)
+  }
+
   return (
     <div className="container mx-auto p-6 space-y-8 animate-in fade-in duration-700">
       {/* Header / Back navigation */}
@@ -164,6 +173,26 @@ export function HotelDetailsClient({ id }: { id: string }) {
               </div>
             </CardContent>
           </Card>
+
+          {/* Hotel Gallery Card */}
+          {hotelImages.length > 0 && (
+            <Card className="rounded-[2.5rem] border-none shadow-xl overflow-hidden bg-gradient-to-br from-background to-muted/10">
+              <CardHeader className="pb-4">
+                <CardTitle className="text-lg font-black uppercase tracking-wider">
+                  Hotel Gallery ({hotelImages.length} Photos)
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {hotelImages.map((img, i) => (
+                    <div key={i} className="relative aspect-[4/3] rounded-2xl overflow-hidden border shadow-sm group hover:scale-[1.02] transition-transform duration-300">
+                      <img src={img} alt={`${hotel.name} gallery ${i + 1}`} className="w-full h-full object-cover" />
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Policies */}
           <Card className="rounded-[2.5rem] border-none shadow-xl">
@@ -299,17 +328,22 @@ export function HotelDetailsClient({ id }: { id: string }) {
                   return (
                     <TableRow key={room.id} className="hover:bg-muted/10 border-b border-muted/5">
                       <TableCell className="pl-8 py-5">
-                        <div className="flex items-center gap-3">
-                          {room.images && Array.isArray(room.images) && room.images.length > 0 ? (
-                            <img src={room.images[0]} alt={room.name} className="w-12 h-12 rounded-xl object-cover border" />
-                          ) : (
-                            <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center border text-muted-foreground">
-                              <BedDouble className="h-5 w-5" />
-                            </div>
-                          )}
+                        <div className="flex items-start gap-4">
+                          {/* Room Images Strip */}
+                          <div className="flex items-center gap-1.5 flex-wrap max-w-[200px] shrink-0">
+                            {room.images && Array.isArray(room.images) && room.images.length > 0 ? (
+                              room.images.map((img: string, i: number) => (
+                                <img key={i} src={img} alt={`${room.name} ${i + 1}`} className="w-10 h-10 rounded-lg object-cover border shadow-sm hover:scale-105 transition-transform" />
+                              ))
+                            ) : (
+                              <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center border text-muted-foreground">
+                                <BedDouble className="h-4 w-4" />
+                              </div>
+                            )}
+                          </div>
                           <div className="flex flex-col">
                             <span className="font-bold text-sm">{room.name}</span>
-                            <span className="text-[10px] text-muted-foreground truncate max-w-xs">{room.description || "No description"}</span>
+                            <span className="text-[10px] text-muted-foreground line-clamp-2 max-w-xs">{room.description || "No description"}</span>
                           </div>
                         </div>
                       </TableCell>
