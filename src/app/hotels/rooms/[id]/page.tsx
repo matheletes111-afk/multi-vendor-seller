@@ -279,7 +279,17 @@ export default function RoomBookingPage() {
                   <p className="text-slate-500 font-medium text-xs mt-1">Check availability and calculate price dynamically.</p>
                 </div>
 
-                {!isLoggedIn ? (
+                {isLoggedIn && session?.user?.role !== "CUSTOMER" ? (
+                  <div className="space-y-6">
+                    <div className="bg-slate-100 border border-slate-200 text-slate-800 p-5 rounded-2xl flex items-start gap-3 text-sm font-semibold leading-relaxed">
+                      <Lock className="h-5 w-5 shrink-0 text-slate-500 mt-0.5" />
+                      <div>
+                        <p className="font-extrabold text-slate-900">Customer Account Required</p>
+                        <p className="mt-1 text-xs text-slate-600 font-medium">Only customer accounts can book stays. Sign in as a customer or sign out to book.</p>
+                      </div>
+                    </div>
+                  </div>
+                ) : !isLoggedIn ? (
                   /* Guest User Form Block Warning */
                   <div className="space-y-6">
                     <div className="bg-amber-50 border border-amber-100 text-amber-800 p-5 rounded-2xl flex items-start gap-3 text-sm font-semibold leading-relaxed">

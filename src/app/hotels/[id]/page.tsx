@@ -319,11 +319,13 @@ export default function HotelDetailsPage() {
                       <p className="text-xl font-black text-emerald-600">{formatCurrency(room.price)}</p>
                     </div>
 
-                    <Link href={`/hotels/rooms/${room.id}`}>
-                      <Button className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs uppercase tracking-widest h-11 px-5 shadow-md shadow-emerald-500/10 flex items-center gap-1">
-                        Book Room <ChevronRight className="h-4 w-4" />
-                      </Button>
-                    </Link>
+                    {(!session || session?.user?.role === "CUSTOMER") && (
+                      <Link href={`/hotels/rooms/${room.id}`}>
+                        <Button className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs uppercase tracking-widest h-11 px-5 shadow-md shadow-emerald-500/10 flex items-center gap-1">
+                          Book Room <ChevronRight className="h-4 w-4" />
+                        </Button>
+                      </Link>
+                    )}
                   </div>
                 </CardContent>
               </Card>

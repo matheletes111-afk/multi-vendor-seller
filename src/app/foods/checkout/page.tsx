@@ -106,6 +106,10 @@ function CheckoutContent() {
       router.push(`/customer/login?callbackUrl=/foods/checkout?foodItemId=${foodItemId}&quantity=${quantity}`)
       return
     }
+    if (session.user.role !== "CUSTOMER") {
+      router.push("/")
+      return
+    }
     fetchFood()
     fetchAddresses()
   }, [session, status, foodItemId])

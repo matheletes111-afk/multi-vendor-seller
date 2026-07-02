@@ -336,12 +336,18 @@ export default function FoodDetailsPage() {
                   <p className="text-xl font-black text-slate-950 mt-0.5">{formatCurrency(food.price * quantity)}</p>
                 </div>
 
-                <Button
-                  onClick={handleOrderNow}
-                  className="bg-rose-500 hover:bg-rose-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest px-6 h-12 flex items-center gap-2 shadow-lg shadow-rose-500/20"
-                >
-                  <ShoppingBag className="h-4 w-4" /> Order Now
-                </Button>
+                {!session || session?.user?.role === "CUSTOMER" ? (
+                  <Button
+                    onClick={handleOrderNow}
+                    className="bg-rose-500 hover:bg-rose-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest px-6 h-12 flex items-center gap-2 shadow-lg shadow-rose-500/20"
+                  >
+                    <ShoppingBag className="h-4 w-4" /> Order Now
+                  </Button>
+                ) : (
+                  <p className="rounded-lg bg-slate-100 px-4 py-2.5 text-xs text-slate-700 ring-1 ring-slate-200">
+                    Only guests and customers can order food. Sign in as a customer or sign out to order.
+                  </p>
+                )}
               </div>
             </div>
           </div>
