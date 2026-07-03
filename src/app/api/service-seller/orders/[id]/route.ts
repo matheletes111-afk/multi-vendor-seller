@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { isServiceSeller } from "@/lib/rbac"
+import { sendOrderItemStatusUpdateEmail } from "@/lib/email"
+
 import type {
   PatchOrderStatusPayload,
   SellerOrderDetailApi,
@@ -251,5 +253,30 @@ export async function PATCH(
       await releaseServiceSlotsForOrderItems(tx, targetItemIds)
     }
   })
+
+  // ── Send Email Notifications ───────────────────────────────────────────────
+  try {
+    const fullOrder = await prisma.order.findUnique({
+      where: { id: orderId },
+      include: {
+        customer: { select: { email: true, name: true } },
+        items: { where: { id: { in: targetItemIds } } },
+      },
+    })
+    if (fullOrder && fullOrder.customer) {
+      for (const item of fullOrder.items) {
+        await sendOrderItemStatusUpdateEmail({
+          to: fullOrder.customer.email,
+          name: fullOrder.customer.name ?? "Customer",
+          orderNumber: fullOrder.orderNumber,
+          itemName: item.productNameSnapshot ?? item.serviceNameSnapshot ?? "Item",
+          status,
+        })
+      }
+    }
+  } catch (emailErr) {
+    console.error("Failed to send status update email:", emailErr)
+  }
+
   return NextResponse.json({ success: true, status, updatedItemIds: targetItemIds })
 }

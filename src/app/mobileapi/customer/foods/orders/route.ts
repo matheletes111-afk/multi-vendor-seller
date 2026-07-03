@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { verifyMobileAccessToken } from "@/lib/mobile-jwt"
+import { sendFoodOrderConfirmationEmail, sendRestaurantNewOrderEmail, sendAdminNewOrderEmail } from "@/lib/email"
 
 export const dynamic = "force-dynamic"
 
@@ -154,6 +155,90 @@ export async function POST(request: NextRequest) {
 
       return order
     })
+
+    // ── Send Email Notifications ───────────────────────────────────────────────
+    try {
+      const fullFoodOrder = await prisma.foodOrder.findUnique({
+        where: { id: result.id },
+        include: {
+          customer: { select: { email: true, name: true } },
+          restaurantSeller: {
+            include: {
+              user: { select: { email: true, name: true } },
+              businessInfo: { select: { businessName: true } }
+            }
+          },
+          items: {
+            include: {
+              foodItem: { select: { name: true } }
+            }
+          }
+        }
+      })
+
+      if (fullFoodOrder && fullFoodOrder.customer) {
+        const deliveryAddress = [
+          fullFoodOrder.deliveryFullName,
+          fullFoodOrder.deliveryPhone,
+          fullFoodOrder.deliveryAddressLine1,
+          fullFoodOrder.deliveryAddressLine2,
+          `${fullFoodOrder.deliveryCity}, ${fullFoodOrder.deliveryState} ${fullFoodOrder.deliveryPostalCode}`,
+          fullFoodOrder.deliveryCountry
+        ].filter(Boolean).join(", ")
+
+        const emailItems = fullFoodOrder.items.map(item => ({
+          name: item.foodItem.name,
+          quantity: item.quantity,
+          price: item.price,
+          subtotal: item.subtotal
+        }))
+
+        await sendFoodOrderConfirmationEmail({
+          to: fullFoodOrder.customer.email,
+          name: fullFoodOrder.customer.name ?? "Customer",
+          orderNumber: fullFoodOrder.orderNumber,
+          items: emailItems,
+          totalAmount: fullFoodOrder.totalAmount,
+          deliveryAddress,
+          paymentMethod: "COD"
+        })
+
+        if (fullFoodOrder.restaurantSeller?.user?.email) {
+          await sendRestaurantNewOrderEmail({
+            to: fullFoodOrder.restaurantSeller.user.email,
+            restaurantName: fullFoodOrder.restaurantSeller.businessInfo?.businessName ?? fullFoodOrder.restaurantSeller.user.name ?? "Restaurant",
+            orderNumber: fullFoodOrder.orderNumber,
+            items: emailItems.map(i => ({ name: i.name, quantity: i.quantity })),
+            customerName: fullFoodOrder.customer.name ?? "Customer",
+            deliveryAddress,
+            deliveryPhone: fullFoodOrder.deliveryPhone
+          })
+        }
+
+        const admins = await prisma.user.findMany({
+          where: { role: "ADMIN" },
+          select: { email: true }
+        })
+        const adminItems = emailItems.map(i => ({
+          name: i.name,
+          quantity: i.quantity,
+          sellerStoreName: fullFoodOrder.restaurantSeller.businessInfo?.businessName ?? fullFoodOrder.restaurantSeller.user.name ?? "Restaurant",
+          subtotal: i.subtotal
+        }))
+        for (const admin of admins) {
+          await sendAdminNewOrderEmail({
+            to: admin.email,
+            orderNumber: fullFoodOrder.orderNumber,
+            customerName: fullFoodOrder.customer.name ?? "Customer",
+            items: adminItems,
+            totalAmount: fullFoodOrder.totalAmount,
+            commissionAmount: 0
+          })
+        }
+      }
+    } catch (emailErr) {
+      console.error("Failed to send food order placement emails:", emailErr)
+    }
 
     return NextResponse.json({
       success: true,

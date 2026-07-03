@@ -5,6 +5,8 @@ import { uploadPublicFile } from "@/lib/upload-public-file"
 import path from "path"
 import { UserRole } from "@prisma/client"
 import { activateHotelFreePlan } from "@/lib/subscriptions"
+import { sendSellerWelcomeEmail, sendAdminNewSellerAlertEmail } from "@/lib/email"
+
 
 
 export async function GET() {
@@ -367,6 +369,33 @@ export async function POST(request: NextRequest) {
       })
 
       await activateHotelFreePlan(seller.id)
+
+      try {
+        const fullSeller = await prisma.hotelSeller.findUnique({
+          where: { id: seller.id },
+          include: { user: { select: { email: true, name: true, role: true } } }
+        })
+        if (fullSeller && fullSeller.user?.email) {
+          await sendSellerWelcomeEmail({
+            to: fullSeller.user.email,
+            name: fullSeller.user.name ?? "Seller",
+          })
+          const admins = await prisma.user.findMany({
+            where: { role: "ADMIN" },
+            select: { email: true }
+          })
+          for (const admin of admins) {
+            await sendAdminNewSellerAlertEmail({
+              to: admin.email,
+              sellerName: fullSeller.user.name ?? "Seller",
+              sellerEmail: fullSeller.user.email,
+              sellerRole: fullSeller.user.role,
+            })
+          }
+        }
+      } catch (emailErr) {
+        console.error("Failed to send seller onboarding completion emails:", emailErr)
+      }
 
       return NextResponse.json({ success: true, completed: true })
     }
