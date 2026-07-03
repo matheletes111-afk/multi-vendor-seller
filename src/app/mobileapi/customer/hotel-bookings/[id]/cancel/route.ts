@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { getMobileCustomerAuth } from "@/app/mobileapi/_helpers/customer-auth"
 import { prisma } from "@/lib/prisma"
 import { debitHotelSellerForCancellation } from "@/lib/hotel-ledger"
+import { sendHotelBookingStatusUpdateEmail } from "@/lib/email"
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -19,7 +20,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         userId,
       },
       include: {
-        room: true,
+        room: { include: { hotel: true } },
       }
     })
 
@@ -110,8 +111,42 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       })
     })
 
-    return NextResponse.json({ success: true, message: "Booking cancelled and refund processed successfully." })
+    // ── Send Email Notifications ───────────────────────────────────────────────
+    try {
+      const customerUser = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { email: true, name: true }
+      })
 
+      if (customerUser) {
+        // Send Customer Email
+        await sendHotelBookingStatusUpdateEmail({
+          to: customerUser.email,
+          name: customerUser.name ?? "Customer",
+          hotelName: booking.room.hotel.name,
+          status: "CANCELLED",
+        })
+
+        // Send Hotel Seller Email
+        const hotelSeller = await prisma.hotelSeller.findUnique({
+          where: { id: booking.room.hotel.hotelSellerId },
+          include: { user: { select: { email: true, name: true } } }
+        })
+
+        if (hotelSeller?.user?.email) {
+          await sendHotelBookingStatusUpdateEmail({
+            to: hotelSeller.user.email,
+            name: hotelSeller.user.name ?? "Hotel Partner",
+            hotelName: booking.room.hotel.name,
+            status: `CANCELLED BY CUSTOMER (Booking ID: ${bookingId})`,
+          })
+        }
+      }
+    } catch (emailErr) {
+      console.error("Failed to send booking cancellation emails:", emailErr)
+    }
+
+    return NextResponse.json({ success: true, message: "Booking cancelled and refund processed successfully." })
   } catch (error) {
     console.error("Cancellation error:", error)
     return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 })

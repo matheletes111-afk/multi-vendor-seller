@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { UserRole, OrderStatus } from "@prisma/client"
 import { getMobileHotelRestaurantSellerAuth } from "../../../../_helpers/hotel-restaurant-seller-auth"
 import { creditRestaurantSellerForDelivery } from "@/lib/restaurant-ledger"
+import { sendFoodOrderStatusUpdateEmail } from "@/lib/email"
 
 export const dynamic = "force-dynamic"
 
@@ -56,6 +57,24 @@ export async function PUT(
       }
       return up
     })
+
+    // ── Send Email Notifications ───────────────────────────────────────────────
+    try {
+      const fullFoodOrder = await prisma.foodOrder.findUnique({
+        where: { id },
+        include: { customer: { select: { email: true, name: true } } }
+      })
+      if (fullFoodOrder && fullFoodOrder.customer) {
+        await sendFoodOrderStatusUpdateEmail({
+          to: fullFoodOrder.customer.email,
+          name: fullFoodOrder.customer.name ?? "Customer",
+          orderNumber: fullFoodOrder.orderNumber,
+          status,
+        })
+      }
+    } catch (emailErr) {
+      console.error("Failed to send food order status email:", emailErr)
+    }
 
     return NextResponse.json({
       success: true,

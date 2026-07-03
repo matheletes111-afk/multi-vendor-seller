@@ -4,6 +4,8 @@ import { prisma } from "@/lib/prisma"
 import { allocateNextOrderNumberTx } from "@/lib/order-number"
 import { UserRole } from "@prisma/client"
 import type { PlaceOrderResponse } from "../types"
+import { sendOrderConfirmationEmail, sendSellerNewOrderEmail, sendAdminNewOrderEmail } from "@/lib/email"
+
 
 const CHECKOUT_CART_INCLUDE = {
   product: { select: { sellerId: true, name: true, isActive: true, isDeleted: true } },
@@ -307,6 +309,104 @@ export async function POST(request: NextRequest) {
   await prisma.cartItem.deleteMany({
     where: { userId: session.user.id },
   })
+
+  // ── Send Email Notifications ───────────────────────────────────────────────
+  try {
+    const customerUser = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { email: true, name: true },
+    })
+
+    if (customerUser) {
+      const emailItems = normalizedItems.map((row) => {
+        const { productName, serviceName } = getItemName(row.item)
+        const name = productName ?? serviceName ?? "Item"
+        return {
+          name,
+          quantity: row.item.quantity,
+          price: row.item.unitPrice,
+          subtotal: row.item.totalPrice,
+          sellerId: row.sellerId,
+        }
+      })
+
+      const fullAddressString = [
+        address.fullName,
+        address.phone,
+        address.addressLine1,
+        address.addressLine2,
+        `${address.city}, ${address.state} ${address.postalCode}`,
+        address.country,
+      ].filter(Boolean).join(", ")
+
+      // Send Customer Email
+      await sendOrderConfirmationEmail({
+        to: customerUser.email,
+        name: customerUser.name ?? "Customer",
+        orderNumber: order.orderNumber,
+        items: emailItems.map(i => ({ name: i.name, quantity: i.quantity, price: i.price, subtotal: i.subtotal })),
+        subtotal,
+        tax,
+        shipping,
+        totalAmount,
+        shippingAddress: fullAddressString,
+        paymentMethod: order.paymentMethod ?? "COD",
+      })
+
+      // Send Seller Emails
+      const sellers = await prisma.seller.findMany({
+        where: { id: { in: uniqueSellerIds } },
+        include: {
+          user: { select: { email: true, name: true } },
+          store: { select: { name: true } },
+        },
+      })
+
+      for (const seller of sellers) {
+        if (seller.user?.email) {
+          const sellerItems = emailItems.filter((i) => i.sellerId === seller.id)
+          await sendSellerNewOrderEmail({
+            to: seller.user.email,
+            sellerName: seller.store?.name ?? seller.user.name ?? "Seller",
+            orderNumber: order.orderNumber,
+            items: sellerItems.map(i => ({ name: i.name, quantity: i.quantity, subtotal: i.subtotal })),
+            customerName: customerUser.name ?? "Customer",
+            shippingAddress: fullAddressString,
+            shippingPhone: address.phone,
+          })
+        }
+      }
+
+      // Send Admin Emails
+      const admins = await prisma.user.findMany({
+        where: { role: UserRole.ADMIN },
+        select: { email: true },
+      })
+
+      const adminItems = emailItems.map((i) => {
+        const seller = sellers.find((s) => s.id === i.sellerId)
+        return {
+          name: i.name,
+          quantity: i.quantity,
+          sellerStoreName: seller?.store?.name ?? seller?.user?.name ?? "Unknown Seller",
+          subtotal: i.subtotal,
+        }
+      })
+
+      for (const admin of admins) {
+        await sendAdminNewOrderEmail({
+          to: admin.email,
+          orderNumber: order.orderNumber,
+          customerName: customerUser.name ?? "Customer",
+          items: adminItems,
+          totalAmount,
+          commissionAmount: totalOrderCommission,
+        })
+      }
+    }
+  } catch (emailErr) {
+    console.error("Failed to send order placement emails:", emailErr)
+  }
 
   // ── Response (customer-facing — NO commission data exposed) ─────────────────
   const response: PlaceOrderResponse = {

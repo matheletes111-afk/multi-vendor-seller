@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { creditHotelSellerForBooking } from "@/lib/hotel-ledger"
+import { sendHotelBookingConfirmationEmail, sendHotelNewBookingEmail, sendAdminNewOrderEmail } from "@/lib/email"
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -143,6 +144,77 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
       return newBooking
     })
+
+    // ── Send Email Notifications ───────────────────────────────────────────────
+    try {
+      const customerUser = await prisma.user.findUnique({
+        where: { id: session.user.id! },
+        select: { email: true, name: true }
+      })
+
+      if (customerUser) {
+        // Send Customer Email
+        await sendHotelBookingConfirmationEmail({
+          to: customerUser.email,
+          name: customerUser.name ?? "Customer",
+          hotelName: room.hotel.name,
+          roomName: room.name,
+          guestName: booking.guestName,
+          guestPhone: booking.guestPhone,
+          checkInDate: checkInDate.toLocaleDateString(),
+          checkOutDate: checkOutDate.toLocaleDateString(),
+          numberOfRooms: roomsToBook,
+          totalPrice,
+        })
+
+        // Send Hotel Seller Email
+        const hotelSeller = await prisma.hotelSeller.findUnique({
+          where: { id: room.hotel.hotelSellerId },
+          include: { user: { select: { email: true, name: true } } }
+        })
+
+        if (hotelSeller?.user?.email) {
+          await sendHotelNewBookingEmail({
+            to: hotelSeller.user.email,
+            hotelSellerName: hotelSeller.user.name ?? "Hotel Partner",
+            hotelName: room.hotel.name,
+            roomName: room.name,
+            guestName: booking.guestName,
+            guestPhone: booking.guestPhone,
+            checkInDate: checkInDate.toLocaleDateString(),
+            checkOutDate: checkOutDate.toLocaleDateString(),
+            numberOfRooms: roomsToBook,
+            totalPrice,
+          })
+        }
+
+        // Send Admin Emails
+        const admins = await prisma.user.findMany({
+          where: { role: "ADMIN" },
+          select: { email: true }
+        })
+
+        const adminItems = [{
+          name: `Booking - Room: ${room.name} at ${room.hotel.name}`,
+          quantity: roomsToBook,
+          sellerStoreName: room.hotel.name,
+          subtotal: totalPrice,
+        }]
+
+        for (const admin of admins) {
+          await sendAdminNewOrderEmail({
+            to: admin.email,
+            orderNumber: booking.id,
+            customerName: customerUser.name ?? "Customer",
+            items: adminItems,
+            totalAmount: totalPrice,
+            commissionAmount: 0
+          })
+        }
+      }
+    } catch (emailErr) {
+      console.error("Failed to send hotel booking confirmation emails:", emailErr)
+    }
 
     return NextResponse.json({ success: true, message: "Booking confirmed successfully", data: booking })
   } catch (error) {
