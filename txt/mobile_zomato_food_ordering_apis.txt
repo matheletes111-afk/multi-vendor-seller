@@ -1,0 +1,406 @@
+========================================================================
+Meeem Multi-Vendor Platform: Mobile APIs for Zomato-style Restaurant Flow
+========================================================================
+
+This document details the request payloads, headers, query parameters, and JSON response formats for the Mobile Zomato-style Food Ordering and Restaurant management flow.
+
+Authentication:
+All authenticated endpoints require a Bearer token in the Authorization header:
+Header: Authorization: Bearer <jwt_access_token>
+
+
+------------------------------------------------------------------------
+1. Food Order Placement (Customer Checkout)
+------------------------------------------------------------------------
+URL: POST /mobileapi/customer/foods/orders
+Access: Authenticated Customer (role: CUSTOMER)
+Content-Type: application/json
+
+Request Payload Example:
+{
+  "restaurantSellerId": "cjx1234567890abcdef",
+  "items": [
+    {
+      "foodItemId": "cjx234567890abcdefg",
+      "quantity": 2
+    },
+    {
+      "foodItemId": "cjx34567890abcdefgh",
+      "quantity": 1
+    }
+  ],
+  "deliveryFullName": "Jeet Basak",
+  "deliveryPhone": "+232 88 123456",
+  "deliveryAddressLine1": "100 Wilkinson Road",
+  "deliveryAddressLine2": "Apt 2B, Block C",
+  "deliveryCity": "Freetown",
+  "deliveryState": "Western Area",
+  "deliveryPostalCode": "00232",
+  "deliveryCountry": "Sierra Leone"
+}
+
+Response (201 Created):
+{
+  "success": true,
+  "message": "Order placed successfully",
+  "data": {
+    "id": "clzorder1234567890",
+    "orderNumber": "F-20260703-4927",
+    "customerId": "clzcustomer123456",
+    "restaurantSellerId": "cjx1234567890abcdef",
+    "status": "PENDING",
+    "totalAmount": 135.00,
+    "deliveryFullName": "Jeet Basak",
+    "deliveryPhone": "+232 88 123456",
+    "deliveryAddressLine1": "100 Wilkinson Road",
+    "deliveryAddressLine2": "Apt 2B, Block C",
+    "deliveryCity": "Freetown",
+    "deliveryState": "Western Area",
+    "deliveryPostalCode": "00232",
+    "deliveryCountry": "Sierra Leone",
+    "createdAt": "2026-07-03T12:54:19.000Z",
+    "updatedAt": "2026-07-03T12:54:19.000Z"
+  }
+}
+
+
+------------------------------------------------------------------------
+2. Customer Food Orders List
+------------------------------------------------------------------------
+URL: GET /mobileapi/customer/foods/orders
+Access: Authenticated Customer (role: CUSTOMER)
+
+Response (200 OK):
+{
+  "success": true,
+  "data": [
+    {
+      "id": "clzorder1234567890",
+      "orderNumber": "F-20260703-4927",
+      "totalAmount": 135.00,
+      "status": "PENDING",
+      "createdAt": "2026-07-03T12:54:19.000Z",
+      "restaurantName": "Bella Italia Ristorante"
+    }
+  ]
+}
+
+
+------------------------------------------------------------------------
+3. Customer Single Food Order Detail
+------------------------------------------------------------------------
+URL: GET /mobileapi/customer/foods/orders/[id]
+Access: Authenticated Customer (role: CUSTOMER)
+
+Response (200 OK):
+{
+  "success": true,
+  "data": {
+    "id": "clzorder1234567890",
+    "orderNumber": "F-20260703-4927",
+    "totalAmount": 135.00,
+    "status": "CONFIRMED",
+    "createdAt": "2026-07-03T12:54:19.000Z",
+    "deliveryFullName": "Jeet Basak",
+    "deliveryPhone": "+232 88 123456",
+    "deliveryAddressLine1": "100 Wilkinson Road",
+    "deliveryAddressLine2": "Apt 2B, Block C",
+    "deliveryCity": "Freetown",
+    "deliveryState": "Western Area",
+    "deliveryPostalCode": "00232",
+    "deliveryCountry": "Sierra Leone",
+    "restaurantName": "Bella Italia Ristorante",
+    "items": [
+      {
+        "id": "clzorderitem111",
+        "foodItemId": "cjx234567890abcdefg",
+        "foodName": "Margherita Pizza Basilico",
+        "quantity": 2,
+        "price": 55.00,
+        "subtotal": 110.00
+      },
+      {
+        "id": "clzorderitem222",
+        "foodItemId": "cjx34567890abcdefgh",
+        "foodName": "Cinnamon Churros & Caramel",
+        "quantity": 1,
+        "price": 25.00,
+        "subtotal": 25.00
+      }
+    ]
+  }
+}
+
+
+------------------------------------------------------------------------
+4. Restaurant Seller Orders List
+------------------------------------------------------------------------
+URL: GET /mobileapi/restaurant-seller/orders
+Access: Authenticated Restaurant Seller (role: SELLER_RESTAURANT)
+
+Response (200 OK):
+{
+  "success": true,
+  "data": [
+    {
+      "id": "clzorder1234567890",
+      "orderNumber": "F-20260703-4927",
+      "totalAmount": 135.00,
+      "status": "PENDING",
+      "createdAt": "2026-07-03T12:54:19.000Z",
+      "deliveryFullName": "Jeet Basak",
+      "deliveryPhone": "+232 88 123456",
+      "deliveryAddressLine1": "100 Wilkinson Road",
+      "deliveryAddressLine2": "Apt 2B, Block C",
+      "deliveryCity": "Freetown",
+      "deliveryState": "Western Area",
+      "deliveryPostalCode": "00232",
+      "deliveryCountry": "Sierra Leone",
+      "customerName": "Jeet Basak",
+      "customerEmail": "customer@meeem.com",
+      "items": [
+        {
+          "id": "clzorderitem111",
+          "foodName": "Margherita Pizza Basilico",
+          "foodImage": "https://images.unsplash.com/photo-1513104890138-7c749659a591?w=500",
+          "quantity": 2,
+          "price": 55.00,
+          "subtotal": 110.00
+        },
+        {
+          "id": "clzorderitem222",
+          "foodName": "Cinnamon Churros & Caramel",
+          "foodImage": "https://images.unsplash.com/photo-1578985545062-69928b1d9587?w=500",
+          "quantity": 1,
+          "price": 25.00,
+          "subtotal": 25.00
+        }
+      ]
+    }
+  ]
+}
+
+
+------------------------------------------------------------------------
+5. Update Restaurant Seller Order Status
+------------------------------------------------------------------------
+URL: PUT /mobileapi/restaurant-seller/orders/[id]/status
+Access: Authenticated Restaurant Seller (role: SELLER_RESTAURANT)
+Content-Type: application/json
+
+Request Payload Example:
+{
+  "status": "CONFIRMED"
+}
+* Valid values: "PENDING", "CONFIRMED", "PROCESSING", "OUT_FOR_DELIVERY", "DELIVERED", "CANCELLED"
+
+Response (200 OK):
+{
+  "success": true,
+  "message": "Order status updated successfully",
+  "data": {
+    "id": "clzorder1234567890",
+    "orderNumber": "F-20260703-4927",
+    "customerId": "clzcustomer123456",
+    "restaurantSellerId": "cjx1234567890abcdef",
+    "status": "CONFIRMED",
+    "totalAmount": 135.00,
+    "createdAt": "2026-07-03T12:54:19.000Z",
+    "updatedAt": "2026-07-03T12:56:15.000Z"
+  }
+}
+
+
+------------------------------------------------------------------------
+5. Restaurant Listing (Directory & Filters)
+------------------------------------------------------------------------
+URL: GET /mobileapi/restaurants
+Access: Public / Guest
+Query Parameters:
+- q: search keyword by restaurant name (optional)
+- cuisine: filter by primary cuisine tag e.g. "Italian" (optional)
+- category: filter by food category e.g. "Pizza" (optional)
+
+Response (200 OK):
+{
+  "success": true,
+  "data": [
+    {
+      "id": "cjx1234567890abcdef",
+      "businessName": "Bella Italia Ristorante",
+      "cuisines": ["Italian", "Pasta", "Pizza"],
+      "logo": "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=500",
+      "banner": null,
+      "mainPhoto": null,
+      "street": "100 Culinary Avenue",
+      "city": "Freetown",
+      "state": "Western Area",
+      "averageRating": 4.7,
+      "totalReviews": 5,
+      "hasVeg": true,
+      "hasNonVeg": true
+    }
+  ],
+  "cuisines": ["Italian", "Pasta", "Pizza", "Indian", "Sushi", "American", "Burgers", "Mexican", "Tacos"]
+}
+
+
+------------------------------------------------------------------------
+6. Restaurant Detail & Menu
+------------------------------------------------------------------------
+URL: GET /mobileapi/restaurants/[id]
+Access: Public / Guest
+
+Response (200 OK):
+{
+  "success": true,
+  "data": {
+    "id": "cjx1234567890abcdef",
+    "businessName": "Bella Italia Ristorante",
+    "cuisines": ["Italian", "Pasta", "Pizza"],
+    "logo": "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=500",
+    "banner": null,
+    "mainPhoto": null,
+    "street": "100 Culinary Avenue",
+    "city": "Freetown",
+    "state": "Western Area",
+    "landmark": "Gourmet Square",
+    "averageRating": 4.7,
+    "totalReviews": 5,
+    "foods": [
+      {
+        "id": "cjx234567890abcdefg",
+        "name": "Margherita Pizza Basilico",
+        "description": "Neapolitan style crust with San Marzano tomatoes, fresh mozzarella, and fresh basil.",
+        "price": 55.00,
+        "image": "https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=500",
+        "category": "Pizza",
+        "isVeg": true,
+        "averageRating": 4.7,
+        "totalReviews": 5,
+        "reviews": [
+          {
+            "id": "clzreview999",
+            "userName": "Alice",
+            "rating": 5,
+            "comment": "Absolutely perfect crust and fresh cheese!",
+            "createdAt": "2026-07-03T12:54:19.000Z"
+          }
+        ]
+      }
+    ]
+  }
+}
+
+
+------------------------------------------------------------------------
+7. Unique Food Categories List
+------------------------------------------------------------------------
+URL: GET /mobileapi/foods/categories
+Access: Public / Guest
+
+Response (200 OK):
+{
+  "success": true,
+  "categories": [
+    "Pizza",
+    "Pasta",
+    "Starters",
+    "Dessert",
+    "Biryani",
+    "Sushi",
+    "Burgers",
+    "Sides",
+    "Beverages"
+  ]
+}
+
+
+
+
+------------------------------------------------------------------------
+8. Category to Foods Listing (with Restaurant details)
+------------------------------------------------------------------------
+URL: GET /mobileapi/customer/foods
+Access: Public / Guest
+Query Parameters:
+- category: name of the category to filter by e.g. "Pizza" (required)
+- q: search keyword by food name/description (optional)
+- isVeg: "true" or "false" (optional)
+- minPrice / maxPrice: price range bounds (optional)
+- rating: filter foods with average rating >= value (optional)
+
+Response (200 OK):
+{
+  "success": true,
+  "data": [
+    {
+      "id": "cjx234567890abcdefg",
+      "restaurantSellerId": "cjx1234567890abcdef",
+      "name": "Margherita Pizza Basilico",
+      "description": "Neapolitan style crust with San Marzano tomatoes, fresh mozzarella, and fresh basil.",
+      "price": 55.0,
+      "images": "[\"https://...\"]",
+      "category": "Pizza",
+      "isVeg": true,
+      "isActive": true,
+      "isDeleted": false,
+      "createdAt": "2026-07-03T12:54:19.000Z",
+      "updatedAt": "2026-07-03T12:54:19.000Z",
+      "image": "https://...",
+      "averageRating": 4.7,
+      "totalReviews": 5,
+      "restaurantId": "cjx1234567890abcdef",
+      "restaurantName": "Bella Italia Ristorante",
+      "restaurantCity": "Freetown"
+    }
+  ]
+}
+
+
+------------------------------------------------------------------------
+9. Food and Restaurant Banners List
+------------------------------------------------------------------------
+URL: GET /mobileapi/foods/banners
+Access: Public / Guest
+
+Response (200 OK):
+{
+  "success": true,
+  "data": [
+    {
+      "id": "clzbanners111",
+      "bannerHeading": "Fresh Organic Harvest",
+      "bannerDescription": "20% off all salads, desserts, and fresh juices this week at Green Harvest.",
+      "bannerImage": "https://images.unsplash.com/photo-1498837167922-ddd27525d352?w=1000",
+      "categoryId": null,
+      "subcategoryId": null,
+      "serviceCategoryId": null,
+      "targetType": "restaurant"
+    }
+  ]
+}
+
+
+------------------------------------------------------------------------
+10. Hotel Banners List
+------------------------------------------------------------------------
+URL: GET /mobileapi/customer/hotels/banners
+Access: Public / Guest
+
+Response (200 OK):
+{
+  "success": true,
+  "data": [
+    {
+      "id": "clzbanners222",
+      "bannerHeading": "Luxury Hotel Stays",
+      "bannerDescription": "Book premium suites at 30% off for the summer holiday season.",
+      "bannerImage": "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=1000",
+      "categoryId": null,
+      "subcategoryId": null,
+      "serviceCategoryId": null,
+      "targetType": "hotel"
+    }
+  ]
+}

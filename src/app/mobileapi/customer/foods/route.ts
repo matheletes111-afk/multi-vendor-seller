@@ -65,6 +65,22 @@ export async function GET(request: NextRequest) {
           select: {
             rating: true
           }
+        },
+        restaurantSeller: {
+          include: {
+            businessInfo: {
+              select: {
+                businessName: true,
+                street: true,
+                city: true
+              }
+            },
+            user: {
+              select: {
+                name: true
+              }
+            }
+          }
         }
       }
     })
@@ -75,7 +91,7 @@ export async function GET(request: NextRequest) {
         ? parseFloat((f.reviews.reduce((acc, r) => acc + r.rating, 0) / totalReviews).toFixed(1))
         : 0
 
-      const { reviews, ...restFood } = f
+      const { reviews, restaurantSeller, ...restFood } = f
       let firstImage: string | null = null
       if (Array.isArray(f.images) && f.images.length > 0) {
         firstImage = f.images[0] as string
@@ -84,7 +100,10 @@ export async function GET(request: NextRequest) {
         ...restFood,
         image: firstImage,
         averageRating,
-        totalReviews
+        totalReviews,
+        restaurantId: restaurantSeller.id,
+        restaurantName: restaurantSeller.businessInfo?.businessName || restaurantSeller.user.name || "Restaurant",
+        restaurantCity: restaurantSeller.businessInfo?.city || ""
       }
     })
 

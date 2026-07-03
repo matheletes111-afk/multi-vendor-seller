@@ -3,7 +3,7 @@
 import { useState, useEffect, Suspense } from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
-import { ShieldCheck, Plus, MapPin, User, Phone, Check, CreditCard, ShieldAlert } from "lucide-react"
+import { ShieldCheck, Plus, MapPin, Check, CreditCard, ShieldAlert } from "lucide-react"
 import { Button } from "@/ui/button"
 import { Input } from "@/ui/input"
 import { Card, CardContent } from "@/ui/card"
@@ -35,6 +35,22 @@ type FoodItem = {
   image: string | null
 }
 
+type CartItem = {
+  foodItemId: string
+  name: string
+  price: number
+  quantity: number
+  image: string | null
+  isVeg: boolean
+  category: string
+}
+
+type LocalFoodCart = {
+  restaurantId: string
+  restaurantName: string
+  items: CartItem[]
+}
+
 function CheckoutContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -44,9 +60,12 @@ function CheckoutContent() {
   const quantityRaw = searchParams.get("quantity")
   const quantity = parseInt(quantityRaw || "1")
 
-  const [food, setFood] = useState<FoodItem | null>(null)
+  // Checkout source state
+  const [isSingleItem, setIsSingleItem] = useState(true)
+  const [singleFood, setSingleFood] = useState<FoodItem | null>(null)
+  const [cartData, setCartData] = useState<LocalFoodCart | null>(null)
+  
   const [loadingFood, setLoadingFood] = useState(true)
-
   const [addresses, setAddresses] = useState<Address[]>([])
   const [loadingAddresses, setLoadingAddresses] = useState(true)
   const [selectedAddressId, setSelectedAddressId] = useState<string>("")
@@ -73,7 +92,7 @@ function CheckoutContent() {
       const res = await fetch(`/api/customer/foods/${foodItemId}`)
       const data = await res.json()
       if (data.success) {
-        setFood(data.data)
+        setSingleFood(data.data)
       }
     } catch (err) {
       console.error("Failed to load food item:", err)
@@ -102,15 +121,38 @@ function CheckoutContent() {
 
   useEffect(() => {
     if (status === "loading") return
+    
+    // Auth guard redirect
     if (!session) {
-      router.push(`/customer/login?callbackUrl=/foods/checkout?foodItemId=${foodItemId}&quantity=${quantity}`)
+      const currentPath = window.location.pathname + window.location.search
+      router.push(`/customer/login?callbackUrl=${encodeURIComponent(currentPath)}`)
       return
     }
     if (session.user.role !== "CUSTOMER") {
       router.push("/")
       return
     }
-    fetchFood()
+
+    // Determine checkout source (Query parameter OR LocalStorage cart)
+    if (foodItemId) {
+      setIsSingleItem(true)
+      fetchFood()
+    } else {
+      setIsSingleItem(false)
+      const stored = localStorage.getItem("meeem-food-cart")
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored) as LocalFoodCart
+          if (parsed && parsed.items && parsed.items.length > 0) {
+            setCartData(parsed)
+          }
+        } catch (e) {
+          console.error("Error reading food cart from localStorage", e)
+        }
+      }
+      setLoadingFood(false)
+    }
+
     fetchAddresses()
   }, [session, status, foodItemId])
 
@@ -161,13 +203,38 @@ function CheckoutContent() {
         deliveryDetails = addr
       }
 
+      // Gather items and restaurant details based on source
+      let restaurantSellerId = ""
+      let orderItems: Array<{ foodItemId: string; quantity: number }> = []
+
+      if (isSingleItem) {
+        if (!singleFood) {
+          setErrorMessage("Single food item details not loaded.")
+          setSubmittingOrder(false)
+          return
+        }
+        restaurantSellerId = singleFood.restaurantSellerId
+        orderItems = [{ foodItemId: singleFood.id, quantity }]
+      } else {
+        if (!cartData || cartData.items.length === 0) {
+          setErrorMessage("Your cart is empty.")
+          setSubmittingOrder(false)
+          return
+        }
+        restaurantSellerId = cartData.restaurantId
+        orderItems = cartData.items.map(i => ({
+          foodItemId: i.foodItemId,
+          quantity: i.quantity
+        }))
+      }
+
       // Submit checkout
       const orderRes = await fetch("/api/customer/foods/orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          restaurantSellerId: food?.restaurantSellerId,
-          items: [{ foodItemId: food?.id, quantity }],
+          restaurantSellerId,
+          items: orderItems,
           deliveryFullName: deliveryDetails.fullName,
           deliveryPhone: deliveryDetails.phone,
           deliveryAddressLine1: deliveryDetails.addressLine1,
@@ -181,6 +248,10 @@ function CheckoutContent() {
 
       const orderData = await orderRes.json()
       if (orderData.success) {
+        // Clear local food cart if checking out from cart
+        if (!isSingleItem) {
+          localStorage.removeItem("meeem-food-cart")
+        }
         router.push("/customer/food-orders")
       } else {
         setErrorMessage(orderData.error || "Failed to place order. Please try again.")
@@ -196,24 +267,32 @@ function CheckoutContent() {
   if (loadingFood || loadingAddresses) {
     return (
       <div className="container mx-auto px-4 py-16 text-center space-y-4 max-w-lg">
-        <div className="h-12 w-12 border-4 border-rose-500 border-t-transparent rounded-full animate-spin mx-auto" />
+        <div className="h-12 w-12 border-4 border-amber-500 border-t-transparent rounded-full animate-spin mx-auto" />
         <p className="text-slate-500 font-bold">Setting up checkout...</p>
       </div>
     )
   }
 
-  if (!food) {
+  // Calculate order items representation
+  const hasItems = isSingleItem ? !!singleFood : (cartData && cartData.items.length > 0)
+
+  if (!hasItems) {
     return (
       <div className="container mx-auto px-4 py-16 text-center space-y-6 max-w-md">
-        <ShieldAlert className="h-16 w-16 text-rose-500 mx-auto" />
+        <ShieldAlert className="h-16 w-16 text-amber-600 mx-auto" />
         <h2 className="text-xl font-black text-slate-800">Checkout Error</h2>
-        <p className="text-slate-500">Could not find details of the food item to place order.</p>
+        <p className="text-slate-500">Your basket is empty or the selected item is unavailable.</p>
         <Link href="/foods">
-          <Button className="bg-rose-500 text-white rounded-2xl font-bold px-6">Return to Menu</Button>
+          <Button className="bg-amber-500 text-amber-950 rounded-full font-bold px-6">Return to Menu</Button>
         </Link>
       </div>
     )
   }
+
+  const restaurantName = isSingleItem ? singleFood?.restaurantName : cartData?.restaurantName
+  const orderSubtotal = isSingleItem 
+    ? (singleFood ? singleFood.price * quantity : 0)
+    : (cartData ? cartData.items.reduce((acc, i) => acc + i.price * i.quantity, 0) : 0)
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-5xl space-y-8 animate-in fade-in duration-500">
@@ -228,7 +307,7 @@ function CheckoutContent() {
           {/* Address Selector */}
           <div className="bg-white rounded-3xl border border-slate-100 p-6 shadow-sm space-y-4">
             <h2 className="text-lg font-black text-slate-950 flex items-center gap-2">
-              <MapPin className="h-5 w-5 text-rose-500" /> Delivery Address
+              <MapPin className="h-5 w-5 text-amber-600" /> Delivery Address
             </h2>
 
             {!showNewForm && addresses.length > 0 ? (
@@ -240,13 +319,13 @@ function CheckoutContent() {
                       onClick={() => setSelectedAddressId(addr.id)}
                       className={`border rounded-2xl p-4 flex items-start gap-3 cursor-pointer transition-all ${
                         selectedAddressId === addr.id
-                          ? "border-rose-500 bg-rose-50/10 shadow-sm"
+                          ? "border-amber-500 bg-amber-50/10 shadow-sm"
                           : "border-slate-100 bg-slate-50 hover:bg-slate-100"
                       }`}
                     >
                       <div className={`h-5 w-5 rounded-full border flex items-center justify-center shrink-0 mt-0.5 ${
                         selectedAddressId === addr.id
-                          ? "border-rose-500 bg-rose-500 text-white"
+                          ? "border-amber-500 bg-amber-500 text-white"
                           : "border-slate-300 bg-white"
                       }`}>
                         {selectedAddressId === addr.id && <Check className="h-3 w-3" />}
@@ -259,7 +338,7 @@ function CheckoutContent() {
                             {addr.addressType}
                           </span>
                           {addr.isDefault && (
-                            <span className="bg-rose-50 text-rose-600 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider">
+                            <span className="bg-amber-50 text-amber-700 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border border-amber-200">
                               Default
                             </span>
                           )}
@@ -396,7 +475,7 @@ function CheckoutContent() {
                     id="save_addr"
                     checked={saveToProfile}
                     onChange={(e) => setSaveToProfile(e.target.checked)}
-                    className="h-4 w-4 rounded border-slate-300 text-rose-500 focus:ring-rose-500"
+                    className="h-4 w-4 rounded border-slate-300 text-amber-500 focus:ring-amber-500"
                   />
                   <label htmlFor="save_addr" className="text-xs font-bold text-slate-600 cursor-pointer">
                     Save address to my address book for future orders
@@ -407,7 +486,7 @@ function CheckoutContent() {
                   <Button
                     variant="ghost"
                     onClick={() => setShowNewForm(false)}
-                    className="text-xs font-bold text-rose-500 hover:text-rose-600"
+                    className="text-xs font-bold text-amber-500 hover:text-amber-600"
                   >
                     Cancel &amp; select saved address
                   </Button>
@@ -419,12 +498,12 @@ function CheckoutContent() {
           {/* Payment Method */}
           <div className="bg-white rounded-3xl border border-slate-100 p-6 shadow-sm space-y-4">
             <h2 className="text-lg font-black text-slate-950 flex items-center gap-2">
-              <CreditCard className="h-5 w-5 text-rose-500" /> Payment Mode
+              <CreditCard className="h-5 w-5 text-amber-600" /> Payment Mode
             </h2>
 
-            <div className="border border-rose-500 bg-rose-50/10 rounded-2xl p-4 flex items-center justify-between gap-4">
+            <div className="border border-amber-500 bg-amber-50/10 rounded-2xl p-4 flex items-center justify-between gap-4">
               <div className="flex items-center gap-3">
-                <div className="h-5 w-5 rounded-full bg-rose-500 flex items-center justify-center text-white shrink-0">
+                <div className="h-5 w-5 rounded-full bg-amber-500 flex items-center justify-center text-amber-950 shrink-0">
                   <Check className="h-3.5 w-3.5" />
                 </div>
                 <div>
@@ -441,48 +520,66 @@ function CheckoutContent() {
           <div className="bg-white border border-slate-100 rounded-[2rem] p-6 shadow-lg space-y-6">
             <h3 className="font-black text-slate-900 text-base">Order Summary</h3>
 
+            {/* Display list of dishes */}
             <div className="space-y-4">
-              <div className="flex items-start justify-between gap-3 text-sm">
-                <div className="flex items-center gap-3">
-                  {(() => {
-                    let imageUrl: string | null = null;
-                    if (Array.isArray(food.images) && food.images.length > 0) {
-                      imageUrl = food.images[0];
-                    } else if (food.images && typeof food.images === 'string') {
-                      try {
-                        const parsed = JSON.parse(food.images);
-                        if (Array.isArray(parsed) && parsed.length > 0) imageUrl = parsed[0];
-                      } catch {}
-                    }
-                    if (!imageUrl && food.image) {
-                      imageUrl = food.image;
-                    }
-                    return imageUrl ? (
-                      <div className="relative w-16 h-16 rounded-xl overflow-hidden border border-slate-100 shadow-sm shrink-0">
-                        <img src={imageUrl} alt={food.name} className="w-full h-full object-cover" />
-                      </div>
-                    ) : (
-                      <div className="w-16 h-16 rounded-xl bg-slate-100 flex items-center justify-center text-[10px] text-muted-foreground font-bold shrink-0">No Image</div>
-                    );
-                  })()}
-                  <div>
-                    <p className="font-bold text-slate-800 line-clamp-2">{food.name}</p>
-                    <p className="text-slate-400 text-xs font-bold mt-0.5">By {food.restaurantName}</p>
+              {isSingleItem && singleFood ? (
+                <div className="flex items-start justify-between gap-3 text-sm">
+                  <div className="flex items-center gap-3">
+                    {(() => {
+                      let imageUrl: string | null = null;
+                      if (Array.isArray(singleFood.images) && singleFood.images.length > 0) {
+                        imageUrl = singleFood.images[0];
+                      } else if (singleFood.images && typeof singleFood.images === 'string') {
+                        try {
+                          const parsed = JSON.parse(singleFood.images);
+                          if (Array.isArray(parsed) && parsed.length > 0) imageUrl = parsed[0];
+                        } catch {}
+                      }
+                      if (!imageUrl && singleFood.image) {
+                        imageUrl = singleFood.image;
+                      }
+                      return imageUrl ? (
+                        <div className="relative w-14 h-14 rounded-xl overflow-hidden border border-slate-100 shadow-sm shrink-0">
+                          <img src={imageUrl} alt={singleFood.name} className="w-full h-full object-cover" />
+                        </div>
+                      ) : (
+                        <div className="w-14 h-14 rounded-xl bg-slate-100 flex items-center justify-center text-[10px] text-muted-foreground font-bold shrink-0">No Image</div>
+                      );
+                    })()}
+                    <div>
+                      <p className="font-bold text-slate-800 line-clamp-2">{singleFood.name}</p>
+                      <p className="text-slate-400 text-xs font-bold mt-0.5">By {restaurantName}</p>
+                    </div>
                   </div>
+                  <span className="font-bold text-slate-600 shrink-0">x {quantity}</span>
                 </div>
-                <span className="font-bold text-slate-600 shrink-0">x {quantity}</span>
-              </div>
+              ) : (
+                cartData?.items.map(item => (
+                  <div key={item.foodItemId} className="flex items-start justify-between gap-3 text-sm">
+                    <div className="flex items-center gap-3">
+                      {item.image ? (
+                        <div className="relative w-14 h-14 rounded-xl overflow-hidden border border-slate-100 shadow-sm shrink-0">
+                          <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
+                        </div>
+                      ) : (
+                        <div className="w-14 h-14 rounded-xl bg-slate-150 flex items-center justify-center text-[10px] text-muted-foreground font-bold shrink-0">No Image</div>
+                      )}
+                      <div>
+                        <p className="font-bold text-slate-800 line-clamp-2">{item.name}</p>
+                        <p className="text-slate-400 text-[10px] font-bold mt-0.5">{formatCurrency(item.price)} each</p>
+                      </div>
+                    </div>
+                    <span className="font-bold text-slate-600 shrink-0">x {item.quantity}</span>
+                  </div>
+                ))
+              )}
 
               <hr className="border-slate-100" />
 
               <div className="space-y-2">
                 <div className="flex justify-between text-xs font-bold text-slate-500">
-                  <span>Price per item</span>
-                  <span>{formatCurrency(food.price)}</span>
-                </div>
-                <div className="flex justify-between text-xs font-bold text-slate-500">
-                  <span>Quantity</span>
-                  <span>{quantity}</span>
+                  <span>Subtotal</span>
+                  <span>{formatCurrency(orderSubtotal)}</span>
                 </div>
                 <div className="flex justify-between text-xs font-bold text-slate-500">
                   <span>Delivery Charge</span>
@@ -494,7 +591,7 @@ function CheckoutContent() {
 
               <div className="flex justify-between items-end">
                 <span className="font-black text-slate-800 text-sm uppercase">Total Amount</span>
-                <span className="text-2xl font-black text-rose-600 leading-none">{formatCurrency(food.price * quantity)}</span>
+                <span className="text-2xl font-black text-amber-700 leading-none">{formatCurrency(orderSubtotal)}</span>
               </div>
             </div>
 
@@ -508,7 +605,7 @@ function CheckoutContent() {
             <Button
               onClick={handlePlaceOrder}
               disabled={submittingOrder}
-              className="bg-rose-500 hover:bg-rose-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest w-full h-12 flex items-center justify-center gap-2 shadow-lg shadow-rose-500/25"
+              className="bg-amber-500 hover:bg-amber-600 text-amber-950 rounded-2xl font-black text-xs uppercase tracking-widest w-full h-12 flex items-center justify-center gap-2 shadow-lg shadow-amber-500/25 border border-amber-600/10"
             >
               <ShieldCheck className="h-4.5 w-4.5" />
               {submittingOrder ? "Placing Order..." : "Confirm &amp; Place Order"}
@@ -525,7 +622,7 @@ export default function CheckoutPage() {
     <PublicLayout>
       <Suspense fallback={
         <div className="container mx-auto px-4 py-16 text-center space-y-4 max-w-lg">
-          <div className="h-12 w-12 border-4 border-rose-500 border-t-transparent rounded-full animate-spin mx-auto" />
+          <div className="h-12 w-12 border-4 border-amber-500 border-t-transparent rounded-full animate-spin mx-auto" />
           <p className="text-slate-500 font-bold">Setting up checkout...</p>
         </div>
       }>
