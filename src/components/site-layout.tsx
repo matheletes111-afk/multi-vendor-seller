@@ -111,8 +111,16 @@ export function SiteHeader() {
     }
   }
 
+  const isHotelSection = pathname === "/hotels"
+
   return (
-    <header className={isFoodSection ? "sticky top-0 z-50 border-b border-[#F5EFE6] bg-[#FDFBF7] text-amber-950 shadow-sm" : "sticky top-0 z-50 border-b border-blue-900/20 bg-gradient-to-r from-blue-50 via-blue-200 to-cyan-600 shadow-md"}>
+    <header className={
+      isFoodSection 
+        ? "sticky top-0 z-50 border-b border-[#F5EFE6] bg-[#FDFBF7] text-amber-950 shadow-sm" 
+        : isHotelSection
+          ? "sticky top-0 z-50 border-b border-emerald-900/20 bg-gradient-to-r from-emerald-600 via-emerald-700 to-teal-800 shadow-md"
+          : "sticky top-0 z-50 border-b border-blue-900/20 bg-gradient-to-r from-blue-50 via-blue-200 to-cyan-600 shadow-md"
+    }>
       <div className="container mx-auto flex min-h-14 items-center gap-2 px-3 py-2 sm:min-h-[3.5rem] sm:gap-4 sm:px-4 sm:py-0">
         <a href="/" className="flex shrink-0 items-center">
           <Image
@@ -755,12 +763,16 @@ export function SiteFooter() {
     ? "mb-3 text-sm font-bold uppercase tracking-wider text-amber-950 sm:mb-4"
     : "mb-3 text-sm font-semibold uppercase tracking-wider text-slate-800 sm:mb-4"
 
+  const isHotelSection = pathname === "/hotels"
+
   return (
     <footer className={cn(
       "border-t shadow-[0_-2px_10px_rgba(0,0,0,0.06)]",
       isFoodSection
         ? "border-[#E8DFD8] bg-[#F5EFE6] text-amber-950"
-        : "border-blue-900/20 bg-gradient-to-r from-blue-50 via-blue-200 to-cyan-600"
+        : isHotelSection
+          ? "border-emerald-900/20 bg-gradient-to-r from-emerald-50 via-emerald-100 to-emerald-200 text-slate-800"
+          : "border-blue-900/20 bg-gradient-to-r from-blue-50 via-blue-200 to-cyan-600"
     )}>
       <div className="container mx-auto px-4 py-6 sm:px-6 sm:py-7 lg:px-8 lg:py-8">
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-6 lg:grid-cols-[1fr_1fr_1fr_auto] lg:gap-8 lg:items-start">
@@ -879,10 +891,11 @@ export function SiteFooter() {
 export function PublicLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname()
   const isFoodSection = pathname?.startsWith("/foods")
+  const isHotelSection = pathname === "/hotels"
   return (
     <div className={cn(
       "flex min-h-screen flex-col text-foreground",
-      isFoodSection ? "bg-[#FAF8F5]" : PAGE_BACKGROUND
+      isFoodSection ? "bg-[#FAF8F5]" : isHotelSection ? "bg-[#F4F9F5]" : PAGE_BACKGROUND
     )}>
       <SiteHeader />
       <main className="flex-1">{children}</main>

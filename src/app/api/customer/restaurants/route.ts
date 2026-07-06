@@ -1,6 +1,39 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 
+function parseCuisines(primaryCuisine: any): string[] {
+  if (!primaryCuisine) return []
+  let rawList: any[] = []
+  try {
+    rawList = typeof primaryCuisine === "string"
+      ? JSON.parse(primaryCuisine)
+      : (primaryCuisine as any[])
+  } catch {
+    return []
+  }
+  if (!Array.isArray(rawList)) return []
+  
+  const result: string[] = []
+  rawList.forEach(item => {
+    if (typeof item === "string") {
+      const trimmed = item.trim()
+      if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+        try {
+          const nested = JSON.parse(trimmed)
+          if (Array.isArray(nested)) {
+            nested.forEach(n => {
+              if (typeof n === "string") result.push(n)
+            })
+            return
+          }
+        } catch {}
+      }
+      result.push(item)
+    }
+  })
+  return result
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
@@ -58,16 +91,7 @@ export async function GET(request: NextRequest) {
     // Calculate ratings, cuisines list, and format
     const formatted = restaurants.map(r => {
       // Collect cuisines
-      let cuisines: string[] = []
-      if (r.primaryCuisine) {
-        try {
-          cuisines = typeof r.primaryCuisine === "string" 
-            ? JSON.parse(r.primaryCuisine) 
-            : (r.primaryCuisine as string[])
-        } catch {
-          cuisines = []
-        }
-      }
+      const cuisines = parseCuisines(r.primaryCuisine)
 
       // Filter by cuisine if requested
       if (cuisine && cuisine !== "ALL" && !cuisines.some(c => c.toLowerCase() === cuisine.toLowerCase())) {
@@ -136,16 +160,8 @@ export async function GET(request: NextRequest) {
     // Dynamic list of unique cuisines across all active restaurants
     const allCuisinesSet = new Set<string>()
     restaurants.forEach(r => {
-      if (r.primaryCuisine) {
-        try {
-          const parsed = typeof r.primaryCuisine === "string" 
-            ? JSON.parse(r.primaryCuisine) 
-            : (r.primaryCuisine as string[])
-          if (Array.isArray(parsed)) {
-            parsed.forEach(c => allCuisinesSet.add(c))
-          }
-        } catch {}
-      }
+      const cuisines = parseCuisines(r.primaryCuisine)
+      cuisines.forEach(c => allCuisinesSet.add(c))
     })
 
     return NextResponse.json({

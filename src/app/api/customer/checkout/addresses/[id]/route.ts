@@ -106,3 +106,29 @@ export async function PATCH(
   })
   return NextResponse.json(toAddressApi(updated))
 }
+
+/** DELETE /api/customer/checkout/addresses/[id] — delete address. CUSTOMER only. */
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const session = await auth()
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+  if (session.user.role !== UserRole.CUSTOMER) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  }
+  const { id: addressId } = await params
+  const existing = await prisma.userAddress.findFirst({
+    where: { id: addressId, userId: session.user.id },
+  })
+  if (!existing) {
+    return NextResponse.json({ error: "Address not found" }, { status: 404 })
+  }
+  await prisma.userAddress.delete({
+    where: { id: addressId },
+  })
+  return NextResponse.json({ success: true })
+}
+

@@ -49,7 +49,7 @@ export function PricingFields({
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
-        Customer will see: base price, discount, then price per item (base − discount). At checkout, 15% GST is added only if &quot;Has GST&quot; is Yes.
+        Customer will see: base price, discount, then price per item (base − discount).
       </p>
       {showBasePrice && (
         <div className="space-y-2">
@@ -86,7 +86,7 @@ export function PricingFields({
           <span>{formatCurrency(pricePerItem)}</span>
         </div>
       </div>
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 hidden">
         <label className="text-sm font-medium">Has GST?</label>
         <div className="flex items-center gap-2">
           <input
@@ -104,7 +104,7 @@ export function PricingFields({
         </div>
       </div>
       <p className="text-xs text-muted-foreground">
-        Stored in DB as: base price, discount, has GST (Y/N). Customer pays: (price per item × quantity), then +15% GST only if Has GST = Yes.
+        Stored in DB as: base price, discount. Customer pays: (price per item × quantity).
       </p>
     </div>
   )

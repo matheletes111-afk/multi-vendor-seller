@@ -145,7 +145,7 @@ export default function HotelsBrowsePage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-7xl animate-in fade-in duration-500 space-y-10">
+    <div className="container mx-auto px-4 sm:px-8 py-8 max-w-7xl animate-in fade-in duration-500 space-y-10 bg-[#F4F9F5] text-slate-900 rounded-[2.5rem] border border-[#E5EFE7] my-4 shadow-sm">
       
       {/* Banners Carousel / Fallback Hero Search Section */}
       {banners.length > 0 ? (
