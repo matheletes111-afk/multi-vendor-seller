@@ -768,7 +768,7 @@ export function NewProductClient() {
                         <Label className="text-xs font-semibold">SKU Code</Label>
                         <Input placeholder="Optional SKU code" value={v.sku} onChange={(e) => updateVariant(i, "sku", e.target.value)} />
                       </div>
-                      <div className="space-y-1.5 flex items-center pt-5">
+                      <div className="space-y-1.5 flex items-center pt-5 hidden">
                         <label className="flex items-center gap-2 cursor-pointer select-none">
                           <input type="checkbox" checked={v.hasGst} onChange={(e) => updateVariant(i, "hasGst", e.target.checked)} className="h-4 w-4 rounded border-input text-primary focus:ring-primary" />
                           <span className="text-xs font-medium">Inclusive of GST</span>

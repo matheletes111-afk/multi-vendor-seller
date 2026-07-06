@@ -1,10 +1,10 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
-import Link from "next/link"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { Search, Star, MapPin, Utensils, Sparkles, ChevronLeft, ChevronRight, Leaf, Drumstick } from "lucide-react"
+import { Search, Star, MapPin, Utensils, Sparkles, ChevronLeft, ChevronRight, Leaf, Drumstick, ChevronDown } from "lucide-react"
 import { Input } from "@/ui/input"
+import { Button } from "@/ui/button"
 import { PublicLayout } from "@/components/site-layout"
 import { formatCurrency } from "@/lib/utils"
 
@@ -223,6 +223,11 @@ export default function RestaurantsDirectoryPage() {
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedCuisine, setSelectedCuisine] = useState("ALL")
   const [selectedRating, setSelectedRating] = useState<number | null>(null)
+  const [pureVeg, setPureVeg] = useState(false)
+  const [nonVeg, setNonVeg] = useState(false)
+  const [sortBy, setSortBy] = useState<"rating" | "items" | "default">("default")
+
+  const [visibleCount, setVisibleCount] = useState(20)
 
   const [banners, setBanners] = useState<Banner[]>([])
   const [currentBannerIdx, setCurrentBannerIdx] = useState(0)
@@ -240,6 +245,17 @@ export default function RestaurantsDirectoryPage() {
         let list = data.data as Restaurant[]
         if (selectedRating !== null) {
           list = list.filter(r => r.averageRating >= selectedRating)
+        }
+        if (pureVeg) {
+          list = list.filter(r => r.hasVeg)
+        }
+        if (nonVeg) {
+          list = list.filter(r => r.hasNonVeg)
+        }
+        if (sortBy === "rating") {
+          list = [...list].sort((a, b) => b.averageRating - a.averageRating)
+        } else if (sortBy === "items") {
+          list = [...list].sort((a, b) => b.totalFoods - a.totalFoods)
         }
         setRestaurants(list)
         if (data.cuisines) setCuisines(data.cuisines)
@@ -275,11 +291,12 @@ export default function RestaurantsDirectoryPage() {
 
   useEffect(() => {
     fetchRestaurants()
-  }, [searchQuery, selectedCuisine, selectedRating])
+    setVisibleCount(20)
+  }, [searchQuery, selectedCuisine, selectedRating, pureVeg, nonVeg, sortBy])
 
   return (
     <PublicLayout>
-      <div className="container mx-auto px-4 py-8 max-w-7xl space-y-10 animate-in fade-in duration-500 bg-[#FAF8F5] text-amber-950">
+      <div className="container mx-auto px-4 py-8 max-w-7xl space-y-8 animate-in fade-in duration-500 bg-[#FAF8F5] text-amber-950">
 
         {/* ── Dynamic Banners Carousel or Fallback Hero ── */}
         {banners.length > 0 ? (
@@ -334,87 +351,103 @@ export default function RestaurantsDirectoryPage() {
           </div>
         )}
 
-        {/* ── Cuisines Filter Scroll ── */}
+        {/* ── Search and Filter Controls ── */}
         <div className="space-y-4">
-          <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-amber-950">In the Mood for?</h2>
-          
-          <div className="relative group/cuisines">
-            {/* Scroll Left Button */}
-            <button
-              onClick={() => {
-                const container = document.getElementById("cuisines-scroll-container")
-                if (container) container.scrollBy({ left: -200, behavior: "smooth" })
-              }}
-              className="absolute -left-2 top-1/2 -translate-y-1/2 z-10 p-1.5 rounded-full bg-white border border-amber-200 text-amber-950 shadow-md opacity-0 group-hover/cuisines:opacity-100 transition-opacity hover:bg-amber-50"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </button>
-
-            {/* Scroll Container */}
-            <div
-              id="cuisines-scroll-container"
-              className="flex gap-3 overflow-x-auto scrollbar-hide pb-2 px-1 scroll-smooth"
-            >
-              {/* ALL */}
-              <button
-                onClick={() => setSelectedCuisine("ALL")}
-                className={`flex flex-col items-center gap-2 shrink-0 focus:outline-none transition-all group`}
-              >
-                <div className={`h-16 w-16 rounded-full flex items-center justify-center border-2 transition-all ${selectedCuisine === "ALL" ? "border-amber-500 bg-amber-50 shadow-md scale-105" : "border-[#F5EFE6] bg-white group-hover:border-amber-200"}`}>
-                  <span className="text-2xl">🍲</span>
-                </div>
-                <span className={`text-xs font-bold tracking-tight whitespace-nowrap ${selectedCuisine === "ALL" ? "text-amber-900" : "text-amber-800/70"}`}>All</span>
-              </button>
-
-              {cuisines.map((c) => (
-                <button
-                  key={c}
-                  onClick={() => setSelectedCuisine(c)}
-                  className="flex flex-col items-center gap-2 shrink-0 focus:outline-none group"
-                >
-                  <div className={`h-16 w-16 rounded-full flex items-center justify-center border-2 transition-all ${selectedCuisine === c ? "border-amber-500 bg-amber-50 shadow-md scale-105" : "border-[#F5EFE6] bg-white group-hover:border-amber-200"}`}>
-                    <span className="text-2xl">{getCuisineEmoji(c)}</span>
-                  </div>
-                  <span className={`text-xs font-bold tracking-tight whitespace-nowrap ${selectedCuisine === c ? "text-amber-900" : "text-amber-800/70"}`}>{c}</span>
-                </button>
-              ))}
-            </div>
-
-            {/* Scroll Right Button */}
-            <button
-              onClick={() => {
-                const container = document.getElementById("cuisines-scroll-container")
-                if (container) container.scrollBy({ left: 200, behavior: "smooth" })
-              }}
-              className="absolute -right-2 top-1/2 -translate-y-1/2 z-10 p-1.5 rounded-full bg-white border border-amber-200 text-amber-950 shadow-md opacity-0 group-hover/cuisines:opacity-100 transition-opacity hover:bg-amber-50"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </button>
-          </div>
-        </div>
-
-        {/* ── Search & Rating Filters ── */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-center">
-          <div className="md:col-span-3 relative">
+          <div className="relative">
             <Search className="absolute left-4 top-3.5 h-5 w-5 text-amber-700/60" />
             <Input
-              placeholder="Search restaurants, cafes, food joints..."
+              placeholder="Search restaurants, cuisines, cafes, food joints..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-12 rounded-[1.5rem] border-[#F5EFE6] bg-white shadow-sm text-base h-12 focus-visible:ring-amber-500 text-amber-950 placeholder-amber-900/40"
             />
           </div>
-          <div className="flex gap-2">
-            {[4, 3].map((rating) => (
-              <button
-                key={rating}
-                onClick={() => setSelectedRating(selectedRating === rating ? null : rating)}
-                className={`flex-1 py-3 text-xs font-bold rounded-2xl border transition-all flex items-center justify-center gap-1.5 ${selectedRating === rating ? "bg-amber-500 border-amber-500 text-amber-950 shadow-md" : "border-[#F5EFE6] bg-white text-amber-850 hover:bg-[#F5EFE6]"}`}
+
+          {/* Toggle Filter Pills Row */}
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Custom Cuisines Dropdown Select */}
+            <div className="relative shrink-0">
+              <select
+                value={selectedCuisine}
+                onChange={(e) => setSelectedCuisine(e.target.value)}
+                className="px-4 py-2 pr-8 rounded-xl text-xs font-bold transition-all border bg-white border-slate-200 text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-1 focus:ring-amber-500 appearance-none cursor-pointer h-9"
               >
-                <Star className="h-3.5 w-3.5 fill-current" />
-                <span>{rating}.0+</span>
-              </button>
-            ))}
+                <option value="ALL">Cuisine: All Cuisines 🍲</option>
+                {cuisines.map((c) => (
+                  <option key={c} value={c}>
+                    {c} {getCuisineEmoji(c)}
+                  </option>
+                ))}
+              </select>
+              <div className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-slate-400">
+                <ChevronDown className="h-3.5 w-3.5" />
+              </div>
+            </div>
+
+            {/* Pure Veg Pill */}
+            <button
+              onClick={() => setPureVeg(!pureVeg)}
+              className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all border ${
+                pureVeg
+                  ? "bg-emerald-50 border-emerald-500 text-emerald-800 shadow-sm"
+                  : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
+              }`}
+            >
+              <Leaf className={`h-3.5 w-3.5 ${pureVeg ? "fill-emerald-600 text-emerald-600" : "text-slate-400"}`} />
+              <span>Pure Veg</span>
+            </button>
+
+            {/* Non-Veg Pill */}
+            <button
+              onClick={() => setNonVeg(!nonVeg)}
+              className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all border ${
+                nonVeg
+                  ? "bg-rose-50 border-rose-500 text-rose-800 shadow-sm"
+                  : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
+              }`}
+            >
+              <Drumstick className={`h-3.5 w-3.5 ${nonVeg ? "fill-rose-600 text-rose-600" : "text-slate-400"}`} />
+              <span>Non-Veg</span>
+            </button>
+
+            {/* Rating Pill */}
+            <button
+              onClick={() => setSelectedRating(selectedRating === 4 ? null : 4)}
+              className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all border ${
+                selectedRating === 4
+                  ? "bg-amber-500 border-amber-500 text-amber-950 shadow-sm"
+                  : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
+              }`}
+            >
+              <Star className={`h-3.5 w-3.5 ${selectedRating === 4 ? "fill-amber-950 text-amber-950" : "text-slate-400"}`} />
+              <span>Ratings 4.0+</span>
+            </button>
+
+            <div className="h-6 w-px bg-slate-200 mx-2 hidden sm:block" />
+
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest hidden sm:inline">Sort By</span>
+
+            <button
+              onClick={() => setSortBy(sortBy === "rating" ? "default" : "rating")}
+              className={`px-3 py-2 rounded-xl text-xs font-bold transition-all border ${
+                sortBy === "rating"
+                  ? "bg-slate-900 border-slate-900 text-white shadow-sm"
+                  : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
+              }`}
+            >
+              Rating (High to Low)
+            </button>
+
+            <button
+              onClick={() => setSortBy(sortBy === "items" ? "default" : "items")}
+              className={`px-3 py-2 rounded-xl text-xs font-bold transition-all border ${
+                sortBy === "items"
+                  ? "bg-slate-900 border-slate-900 text-white shadow-sm"
+                  : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
+              }`}
+            >
+              Menu Size
+            </button>
           </div>
         </div>
 
@@ -422,7 +455,7 @@ export default function RestaurantsDirectoryPage() {
         <div className="space-y-5">
           <div className="flex items-center justify-between">
             <h3 className="text-xl font-black text-amber-950 tracking-tight">
-              {loading ? "Loading..." : `${restaurants.length} Restaurant${restaurants.length !== 1 ? "s" : ""} Near You`}
+              Restaurants Near You
             </h3>
           </div>
 
@@ -454,9 +487,21 @@ export default function RestaurantsDirectoryPage() {
             </div>
           ) : (
             <div className="space-y-5">
-              {restaurants.map((resto, idx) => (
+              {restaurants.slice(0, visibleCount).map((resto, idx) => (
                 <RestaurantCard key={resto.id} resto={resto} idx={idx} />
               ))}
+              
+              {/* Pagination Loader */}
+              {visibleCount < restaurants.length && (
+                <div className="flex justify-center pt-6">
+                  <Button
+                    onClick={() => setVisibleCount(prev => prev + 20)}
+                    className="bg-amber-500 hover:bg-amber-600 text-amber-950 rounded-full font-bold px-8 py-2.5 border border-amber-600/10 shadow-md transition-all h-11"
+                  >
+                    Load More Restaurants
+                  </Button>
+                </div>
+              )}
             </div>
           )}
         </div>

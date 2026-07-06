@@ -3,7 +3,7 @@
 import { useState, useEffect, Suspense } from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
-import { ShieldCheck, Plus, MapPin, Check, CreditCard, ShieldAlert } from "lucide-react"
+import { ShieldCheck, Plus, MapPin, Check, CreditCard, ShieldAlert, Pencil } from "lucide-react"
 import { Button } from "@/ui/button"
 import { Input } from "@/ui/input"
 import { Card, CardContent } from "@/ui/card"
@@ -72,6 +72,7 @@ function CheckoutContent() {
 
   // New Address Form State
   const [showNewForm, setShowNewForm] = useState(false)
+  const [editingAddressId, setEditingAddressId] = useState<string | null>(null)
   const [fullName, setFullName] = useState("")
   const [phone, setPhone] = useState("")
   const [addressLine1, setAddressLine1] = useState("")
@@ -82,6 +83,21 @@ function CheckoutContent() {
   const [country, setCountry] = useState("Sierra Leone")
   const [addressType, setAddressType] = useState<"HOME" | "OFFICE" | "OTHER">("HOME")
   const [saveToProfile, setSaveToProfile] = useState(true)
+
+  const handleOpenEdit = (addr: Address) => {
+    setEditingAddressId(addr.id)
+    setFullName(addr.fullName)
+    setPhone(addr.phone)
+    setAddressLine1(addr.addressLine1)
+    setAddressLine2(addr.addressLine2 || "")
+    setCity(addr.city)
+    setState(addr.state)
+    setPostalCode(addr.postalCode)
+    setCountry(addr.country)
+    setAddressType(addr.addressType)
+    setSaveToProfile(true)
+    setShowNewForm(true)
+  }
 
   const [submittingOrder, setSubmittingOrder] = useState(false)
   const [errorMessage, setErrorMessage] = useState("")
@@ -184,10 +200,15 @@ function CheckoutContent() {
 
         // Save to address book if selected
         if (saveToProfile) {
-          const res = await fetch("/api/customer/checkout/addresses", {
-            method: "POST",
+          const url = editingAddressId
+            ? `/api/customer/checkout/addresses/${editingAddressId}`
+            : "/api/customer/checkout/addresses"
+          const method = editingAddressId ? "PATCH" : "POST"
+
+          const res = await fetch(url, {
+            method,
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ ...deliveryDetails, isDefault: addresses.length === 0 })
+            body: JSON.stringify({ ...deliveryDetails, isDefault: !editingAddressId && addresses.length === 0 })
           })
           if (!res.ok) {
             console.warn("Failed to save address to address book, continuing with order placement")
@@ -331,22 +352,38 @@ function CheckoutContent() {
                         {selectedAddressId === addr.id && <Check className="h-3 w-3" />}
                       </div>
 
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-bold text-slate-800 text-sm">{addr.fullName}</span>
-                          <span className="bg-slate-200/60 text-slate-600 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider">
-                            {addr.addressType}
-                          </span>
-                          {addr.isDefault && (
-                            <span className="bg-amber-50 text-amber-700 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border border-amber-200">
-                              Default
+                      <div className="flex-1 min-w-0 flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-bold text-slate-800 text-sm">{addr.fullName}</span>
+                            <span className="bg-slate-200/60 text-slate-600 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider">
+                              {addr.addressType}
                             </span>
-                          )}
+                            {addr.isDefault && (
+                              <span className="bg-amber-50 text-amber-700 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border border-amber-200">
+                                Default
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-slate-600 text-xs mt-1.5 leading-relaxed font-semibold">
+                            {addr.addressLine1}, {addr.addressLine2 ? `${addr.addressLine2}, ` : ""}{addr.city}, {addr.state} - {addr.postalCode}, {addr.country}
+                          </p>
+                          <p className="text-slate-500 text-[11px] font-bold mt-1">Phone: {addr.phone}</p>
                         </div>
-                        <p className="text-slate-600 text-xs mt-1.5 leading-relaxed font-semibold">
-                          {addr.addressLine1}, {addr.addressLine2 ? `${addr.addressLine2}, ` : ""}{addr.city}, {addr.state} - {addr.postalCode}, {addr.country}
-                        </p>
-                        <p className="text-slate-500 text-[11px] font-bold mt-1">Phone: {addr.phone}</p>
+                        
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 shrink-0 p-0 text-slate-400 hover:text-slate-900 rounded-lg hover:bg-slate-200/50"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleOpenEdit(addr)
+                          }}
+                          aria-label="Edit address"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
                       </div>
                     </div>
                   ))}
@@ -485,7 +522,10 @@ function CheckoutContent() {
                 {addresses.length > 0 && (
                   <Button
                     variant="ghost"
-                    onClick={() => setShowNewForm(false)}
+                    onClick={() => {
+                      setShowNewForm(false)
+                      setEditingAddressId(null)
+                    }}
                     className="text-xs font-bold text-amber-500 hover:text-amber-600"
                   >
                     Cancel &amp; select saved address

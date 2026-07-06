@@ -49,7 +49,7 @@ export function PricingFields({
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
-        Customer will see: base price, discount, then price per item. At checkout, 15% GST is added only if &quot;Has GST&quot; is Yes.
+        Customer will see: base price, discount, then price per item.
       </p>
       {showBasePrice && (
         <div className="space-y-2">
@@ -67,7 +67,7 @@ export function PricingFields({
           <span>{formatCurrency(pricePerItem)}</span>
         </div>
       </div>
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 hidden">
         <label className="text-sm font-medium">Has GST?</label>
         <div className="flex items-center gap-2">
           <input type="checkbox" id={hasGstName} name={hasGstName} value="true" defaultChecked={defaultHasGst} onChange={(e) => setHasGst(e.target.checked)} className="h-4 w-4 rounded border-input" />

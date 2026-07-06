@@ -1,0 +1,125 @@
+================================================================================
+   INTEGRATION PLAN: JISNOR4U DELIVERY PARTNERSHIP
+   Merging with Product & Food Delivery Systems (Multi-Vendor Marketplace)
+================================================================================
+
+Currently, all delivery logistics, costs, and statuses are handled manually by the individual sellers (Product Sellers & Restaurant/Food Sellers) under a "Self-Delivery" model. 
+
+This document outlines a simple, progressive plan to integrate Jisnor4U as our official tech-enabled, standard delivery partner for both product and food orders.
+
+---
+
+1. ARCHITECTURAL OVERVIEW & INTEGRATION OPTIONS
+--------------------------------------------------------------------------------
+Jisnor4U offers two ways to calculate delivery fees and handle fulfillment:
+
+Option A: Redirect-Based Integration (Frictionless / App-to-App)
+  - At checkout, if the customer chooses "Jisnor4U Delivery", they are redirected to the Jisnor4U Web/App during the checkout flow.
+  - The customer enters their address inside the Jisnor4U UI, which calculates the distance-based delivery fee.
+  - The customer confirms, pays (or returns to our platform to pay), and is redirected back to us with the tracking details.
+  - *Pros:* Simple UI work on our end; address autocomplete and routing are outsourced to Jisnor4U.
+  - *Cons:* Disrupted customer experience (switching between platforms); harder to handle combined orders.
+
+Option B: API-Ready Server-to-Server Integration (Recommended for Premium Experience)
+  - Our platform queries the Jisnor4U API in the background.
+  - We fetch the real-time, distance-based delivery price by sending the shop's geolocation/address and the customer's delivery address.
+  - We show the delivery price directly on our native checkout pages (no redirect).
+  - Once the customer places the order, we automatically book the delivery dispatch via Jisnor4U's API.
+  - We pull real-time tracking status and rider information to display in the customer's order history.
+
+
+2. STEP-BY-STEP IMPLEMENTATION PLAN
+--------------------------------------------------------------------------------
+
+STEP 1: DATABASE & SCHEMA UPDATES
+We need to update our database models (Prisma) to store delivery fees, delivery options, and integration identifiers.
+- Order / FoodOrder Table Updates:
+  * deliveryType: Enum ('SELLER_SELF_DELIVERY', 'JISNOR4U') - allows a transition period or seller choice.
+  * deliveryFee: Decimal/Float - to store the computed delivery charge (now no longer hardcoded to FREE or 0).
+  * deliveryTrackingId: String (optional) - to store Jisnor4U's unique tracking identifier.
+  * deliveryStatus: Enum ('PENDING', 'ASSIGNED', 'PICKED_UP', 'DELIVERED', 'CANCELLED').
+  * deliveryRiderInfo: JSON (optional) - stores rider name, phone, and coordinates for live tracking.
+- Seller / Restaurant Profile Updates:
+  * longitude & latitude (or exact address coordinates) - necessary to calculate the distance-based pricing from the merchant's physical shop.
+
+STEP 2: RETAIL PRODUCT CHECKOUT INTEGRATION
+- Modify `src/app/checkout/checkout-client.tsx` and `/api/customer/checkout/place-order/route.ts`:
+  * Add a "Select Delivery Method" section with:
+    1. Standard Seller Delivery (seller handles it)
+    2. Jisnor4U Express (calculated in real time)
+  * When Jisnor4U is selected, make an API call to a new helper endpoint `/api/delivery/calculate-fee` passing the cart items (to group by merchant locations) and the customer's selected address.
+  * Dynamically add the computed `deliveryFee` to the Grand Total before placing the order.
+
+STEP 3: FOOD/RESTAURANT CHECKOUT INTEGRATION
+- Modify `src/app/foods/checkout/page.tsx` and `/api/customer/foods/orders/route.ts`:
+  * Replace the static "FREE" delivery charge label.
+  * Query the delivery fee calculator. Since food delivery is typically single-restaurant per order, this is straightforward:
+    * Fetch coordinates of the restaurant (RestaurantSeller).
+    * Fetch coordinates of the selected customer address.
+    * Call the pricing helper to get the fee.
+  * Display the calculated delivery fee dynamically and include it in the checkout total.
+
+STEP 4: AUTOMATING DISPATCH (BACKEND TRIGGERS)
+- When a payment is successful or COD is confirmed:
+  * If `deliveryType === 'JISNOR4U'`, automatically make a POST request to Jisnor4U's booking API:
+    ```json
+    {
+      "pickup_address": "Seller Store Address / Coordinates",
+      "pickup_phone": "Seller Phone",
+      "delivery_address": "Customer Address / Coordinates",
+      "delivery_phone": "Customer Phone",
+      "order_id": "ORD-12345",
+      "callback_url": "https://our-marketplace.com/api/webhooks/jisnor4u"
+    }
+    ```
+  * Save the returned tracking ID and initial status to the database.
+
+STEP 5: REAL-TIME TRACKING & WEBHOOK HANDLER
+- Create `/api/webhooks/jisnor4u/route.ts` to receive status updates from Jisnor4U:
+  * When a rider is assigned → Update order `deliveryStatus` and save rider details.
+  * When rider picks up the order → Automatically transition OrderItem status to `SHIPPED`.
+  * When rider marks delivery complete → Automatically transition OrderItem status to `DELIVERED` (and trigger any related wallet credits/payout releases).
+- Customer Portal:
+  * Update the customer order tracking pages (`/customer/orders` and `/foods/orders`) to show a live tracking card (e.g., Map with rider coordinates, rider name, rider phone) if the delivery is managed by Jisnor4U.
+
+STEP 6: SELLER PANEL UPDATES (PRODUCT & RESTAURANT)
+- Currently, sellers manually update status from PENDING -> CONFIRMED -> PROCESSING -> SHIPPED -> DELIVERED.
+- With Jisnor4U:
+  * The seller only needs to accept the order and mark it "READY FOR PICKUP".
+  * Marking it "READY FOR PICKUP" triggers the Jisnor4U dispatch call.
+  * Subsequent statuses (SHIPPED, DELIVERED) are automated via the Jisnor4U webhook, reducing manual overhead for sellers.
+
+---
+
+3. REVENUE & PAYMENT SPLITTING MODEL
+--------------------------------------------------------------------------------
+- As per the proposal, the customer pays the delivery fee at checkout via our marketplace.
+- The marketplace must settle this delivery fee with Jisnor4U.
+- **Sellers/Restaurants Ledger:** 
+  * Update the ledger calculations (e.g., `src/lib/restaurant-ledger.ts`) to deduct the `deliveryFee` from the seller's payout if the marketplace collects and forwards it, or ensure it is accounted for in admin commissions.
+
+
+4. CRITICAL BUSINESS & TECHNICAL CONSIDERATIONS FOR THE CLIENT
+--------------------------------------------------------------------------------
+
+Before finalizing the integration, the following operational logic needs to be agreed upon with the client:
+
+A. Multi-Vendor Cart Splitting (Multi-pickup orders)
+  * Problem: If a customer checks out with items from Seller A (Wilkinson Road) and Seller B (Charlotte Street) in the same order, a single rider cannot easily do both pickups unless charged extra.
+  * Solution options:
+    1. Calculate two separate delivery fees based on pickup locations and charge the customer the sum.
+    2. Split the checkout into separate orders per seller, each with its own delivery fee (standard industry practice).
+
+B. Fallback & Serviceability Bounds
+  * Problem: If a customer's address is outside Jisnor4U's 10 designated zones, or if the API is down.
+  * Solution: Detect unserviceable zones at address input and fall back automatically to "Seller Self-Delivery" or show "Not Serviceable" to the customer.
+
+C. Cancellation and Refund Workflow
+  * Problem: If a customer cancels their order.
+  * Solution:
+    * If cancelled BEFORE dispatch -> Issue a full refund. Send an API call to Jisnor4U to cancel rider request.
+    * If cancelled AFTER dispatch -> Charge a partial fee (as per Jisnor4U terms). Deduct this fee from the customer's refund amount.
+
+D. Staging / Sandbox Environment
+  * We will request sandbox API credentials and mock endpoints from Jisnor4U to test rider dispatch, status webhooks, and fee calculation before going live.
+

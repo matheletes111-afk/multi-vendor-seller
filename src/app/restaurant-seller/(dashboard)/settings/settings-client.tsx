@@ -17,7 +17,7 @@ import { ProfilePictureInput } from "@/components/profile-picture-input"
 import { cn } from "@/lib/utils"
 
 const CUISINES = [
-  "Italian", "Indian", "Chinese", "Japanese", "Mexican", "Thai", "French", "American", "Mediterranean", "Other"
+  "Italian", "Indian", "Chinese", "Japanese", "Mexican", "Thai", "French", "American", "Mediterranean", "Continental", "Pizza", "Pasta", "Biryani", "Burgers", "Fast Food", "Salads", "Desserts", "Bakeries", "Beverages", "Arabic", "Turkish", "Lebanese", "Greek", "Spanish", "Korean", "Vietnamese", "African", "Caribbean", "Brazilian", "Steakhouse", "Seafood", "Sushi", "BBQ", "Sandwiches", "Healthy", "Vegan", "Ice Cream", "Coffee & Tea", "Juices", "Other"
 ]
 
 const SERVICE_TYPES = [
