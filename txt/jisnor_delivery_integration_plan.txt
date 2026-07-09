@@ -1,125 +1,156 @@
 ================================================================================
-   INTEGRATION PLAN: JISNOR4U DELIVERY PARTNERSHIP
+   INTEGRATION PLAN: MULTI-PARTNER & SELF-DELIVERY LOGISTICS
    Merging with Product & Food Delivery Systems (Multi-Vendor Marketplace)
 ================================================================================
 
 Currently, all delivery logistics, costs, and statuses are handled manually by the individual sellers (Product Sellers & Restaurant/Food Sellers) under a "Self-Delivery" model. 
 
-This document outlines a simple, progressive plan to integrate Jisnor4U as our official tech-enabled, standard delivery partner for both product and food orders.
+This document outlines a modular, extensible integration plan to support:
+1. Seller Self-Delivery (Existing manual model, customizable by seller)
+2. Jisnor4U Delivery (Tech-enabled, standard delivery partner)
+3. Extensible Multi-Partner Framework (To easily onboard other carriers like FedEx, DHL, or local courier services in the future)
 
 ---
 
-1. ARCHITECTURAL OVERVIEW & INTEGRATION OPTIONS
+1. ARCHITECTURAL OVERVIEW: MODULAR ADAPTER PATTERN
 --------------------------------------------------------------------------------
-Jisnor4U offers two ways to calculate delivery fees and handle fulfillment:
+To support multiple delivery providers (including self-delivery) without cluttering our checkout or booking business logic, we will implement a Strategy/Adapter pattern.
 
-Option A: Redirect-Based Integration (Frictionless / App-to-App)
-  - At checkout, if the customer chooses "Jisnor4U Delivery", they are redirected to the Jisnor4U Web/App during the checkout flow.
-  - The customer enters their address inside the Jisnor4U UI, which calculates the distance-based delivery fee.
-  - The customer confirms, pays (or returns to our platform to pay), and is redirected back to us with the tracking details.
-  - *Pros:* Simple UI work on our end; address autocomplete and routing are outsourced to Jisnor4U.
-  - *Cons:* Disrupted customer experience (switching between platforms); harder to handle combined orders.
+A unified Delivery Service Interface will be defined in our backend (`src/lib/delivery/types.ts`):
 
-Option B: API-Ready Server-to-Server Integration (Recommended for Premium Experience)
-  - Our platform queries the Jisnor4U API in the background.
-  - We fetch the real-time, distance-based delivery price by sending the shop's geolocation/address and the customer's delivery address.
-  - We show the delivery price directly on our native checkout pages (no redirect).
-  - Once the customer places the order, we automatically book the delivery dispatch via Jisnor4U's API.
-  - We pull real-time tracking status and rider information to display in the customer's order history.
+```typescript
+export interface DeliveryProviderAdapter {
+  providerId: string; // e.g., 'SELF', 'JISNOR4U', 'PARTNER_X'
+  
+  // Calculates delivery fee based on pickup location, customer location, and items
+  calculateFee(params: {
+    origin: { lat: number; lng: number; address: string };
+    destination: { lat: number; lng: number; address: string };
+    items: Array<{ weight?: number; dimensions?: any; price: number }>;
+  }): Promise<{ fee: number; estimatedDeliveryTime: string; isServiceable: boolean }>;
+
+  // Triggers dispatch request to the partner
+  bookDelivery(order: any): Promise<{
+    trackingId: string;
+    status: string;
+    rawResponse: any;
+  }>;
+
+  // Cancels active dispatch request
+  cancelDelivery(trackingId: string): Promise<{ success: boolean }>;
+
+  // Optional: Gets real-time tracking coordinates / status
+  trackDelivery(trackingId: string): Promise<{
+    status: string;
+    riderInfo?: { name: string; phone: string; lat?: number; lng?: number };
+  }>;
+}
+```
+
+We will implement:
+- `SelfDeliveryAdapter`: Returns configured seller flat fees or per-km rates. Booking is a no-op (status marked as PENDING for the seller to fulfill).
+- `Jisnor4uAdapter`: Queries Jisnor4U's APIs for real-time rates and handles API bookings.
+- `FuturePartnerAdapter`: Plugs into this interface to call other third-party shipping APIs.
 
 
 2. STEP-BY-STEP IMPLEMENTATION PLAN
 --------------------------------------------------------------------------------
 
 STEP 1: DATABASE & SCHEMA UPDATES
-We need to update our database models (Prisma) to store delivery fees, delivery options, and integration identifiers.
+We need to update our database models (Prisma) to store delivery providers, delivery fees, and tracking info.
 - Order / FoodOrder Table Updates:
-  * deliveryType: Enum ('SELLER_SELF_DELIVERY', 'JISNOR4U') - allows a transition period or seller choice.
-  * deliveryFee: Decimal/Float - to store the computed delivery charge (now no longer hardcoded to FREE or 0).
-  * deliveryTrackingId: String (optional) - to store Jisnor4U's unique tracking identifier.
-  * deliveryStatus: Enum ('PENDING', 'ASSIGNED', 'PICKED_UP', 'DELIVERED', 'CANCELLED').
-  * deliveryRiderInfo: JSON (optional) - stores rider name, phone, and coordinates for live tracking.
+  * deliveryProvider: String @default("SELF") - Stores 'SELF', 'JISNOR4U', etc.
+  * deliveryFee: Decimal/Float - The computed delivery charge.
+  * deliveryTrackingId: String (optional) - The unique tracking identifier from the carrier.
+  * deliveryStatus: Enum ('PENDING', 'ASSIGNED', 'PICKED_UP', 'SHIPPED', 'DELIVERED', 'CANCELLED').
+  * deliveryRiderInfo: JSON (optional) - Stores rider name, phone, and current coordinates.
 - Seller / Restaurant Profile Updates:
-  * longitude & latitude (or exact address coordinates) - necessary to calculate the distance-based pricing from the merchant's physical shop.
+  * longitude & latitude (or exact address coordinates) - Necessary for distance calculation.
+  * supportedDeliveryProviders: String[] @default(["SELF"]) - Array of providers enabled by this seller (e.g., ['SELF', 'JISNOR4U']).
+  * selfDeliveryFlatRate: Float @default(0) - Flat rate the seller charges if 'SELF' delivery is selected.
+  * selfDeliveryPerKmRate: Float @default(0) - Per-kilometer rate if the seller uses distance-based self-delivery.
 
-STEP 2: RETAIL PRODUCT CHECKOUT INTEGRATION
+STEP 2: MODULAR DELIVERY UTILITY (THE DISPATCHER)
+- Create a registry utility `src/lib/delivery/dispatcher.ts`:
+  * Dynamically resolves the active adapter based on the chosen `deliveryProvider`.
+  * Exposes simple wrapper functions: `getDeliveryOptions(sellerId, origin, destination, items)`, `bookDelivery(orderId)`, and `cancelDelivery(orderId)`.
+
+STEP 3: RETAIL PRODUCT CHECKOUT INTEGRATION
 - Modify `src/app/checkout/checkout-client.tsx` and `/api/customer/checkout/place-order/route.ts`:
-  * Add a "Select Delivery Method" section with:
-    1. Standard Seller Delivery (seller handles it)
-    2. Jisnor4U Express (calculated in real time)
-  * When Jisnor4U is selected, make an API call to a new helper endpoint `/api/delivery/calculate-fee` passing the cart items (to group by merchant locations) and the customer's selected address.
-  * Dynamically add the computed `deliveryFee` to the Grand Total before placing the order.
+  * Fetch available delivery options for the items in the cart:
+    1. Query `/api/delivery/options` passing checkout addresses.
+    2. The API looks up the seller's `supportedDeliveryProviders`.
+    3. For each supported provider, it calls the corresponding adapter's `calculateFee`.
+  * Display a radio selection list to the user:
+    - [ ] Seller Self-Delivery (Fee: $X.XX)
+    - [ ] Jisnor4U Express Delivery (Fee: $Y.YY)
+    - [ ] [Other Partner] Express (Fee: $Z.ZZ)
+  * Add the selected provider's `deliveryFee` to the checkout Grand Total.
 
-STEP 3: FOOD/RESTAURANT CHECKOUT INTEGRATION
+STEP 4: FOOD/RESTAURANT CHECKOUT INTEGRATION
 - Modify `src/app/foods/checkout/page.tsx` and `/api/customer/foods/orders/route.ts`:
-  * Replace the static "FREE" delivery charge label.
-  * Query the delivery fee calculator. Since food delivery is typically single-restaurant per order, this is straightforward:
-    * Fetch coordinates of the restaurant (RestaurantSeller).
-    * Fetch coordinates of the selected customer address.
-    * Call the pricing helper to get the fee.
-  * Display the calculated delivery fee dynamically and include it in the checkout total.
+  * Fetch active delivery options using the restaurant's location coordinates and the customer's delivery address coordinates.
+  * Display available options (e.g. Restaurant's own self-delivery vs. Jisnor4U instant rider).
+  * Dynamically calculate and update the total amount.
 
-STEP 4: AUTOMATING DISPATCH (BACKEND TRIGGERS)
-- When a payment is successful or COD is confirmed:
-  * If `deliveryType === 'JISNOR4U'`, automatically make a POST request to Jisnor4U's booking API:
-    ```json
-    {
-      "pickup_address": "Seller Store Address / Coordinates",
-      "pickup_phone": "Seller Phone",
-      "delivery_address": "Customer Address / Coordinates",
-      "delivery_phone": "Customer Phone",
-      "order_id": "ORD-12345",
-      "callback_url": "https://our-marketplace.com/api/webhooks/jisnor4u"
-    }
-    ```
-  * Save the returned tracking ID and initial status to the database.
+STEP 5: AUTOMATING DISPATCH (BACKEND TRIGGERS)
+- Upon successful payment / Cash on Delivery (COD) confirmation:
+  * Retrieve the selected `deliveryProvider`.
+  * Invoke `DeliveryDispatcher.bookDelivery(order)`.
+  * If provider is `SELF`:
+    * Mark order `deliveryStatus` as `PENDING` and notify the seller. No external API call is made.
+  * If provider is a partner (e.g., `JISNOR4U`):
+    * Make the API dispatch call via the adapter.
+    * Save tracking ID and initial delivery status to the database.
 
-STEP 5: REAL-TIME TRACKING & WEBHOOK HANDLER
-- Create `/api/webhooks/jisnor4u/route.ts` to receive status updates from Jisnor4U:
-  * When a rider is assigned → Update order `deliveryStatus` and save rider details.
-  * When rider picks up the order → Automatically transition OrderItem status to `SHIPPED`.
-  * When rider marks delivery complete → Automatically transition OrderItem status to `DELIVERED` (and trigger any related wallet credits/payout releases).
+STEP 6: REAL-TIME TRACKING & WEBHOOK HANDLERS
+- Create modular webhook endpoints:
+  * `/api/webhooks/delivery/jisnor4u/route.ts` - Handles Jisnor4U updates.
+  * `/api/webhooks/delivery/[provider]/route.ts` - Catch-all or individual routes for other partners.
+- In each webhook:
+  * Parse status updates and map them to our internal `deliveryStatus` (e.g. `ASSIGNED`, `PICKED_UP`, `DELIVERED`).
+  * If status transitions to `DELIVERED`:
+    * Trigger OrderItem completion and seller wallet payouts.
 - Customer Portal:
-  * Update the customer order tracking pages (`/customer/orders` and `/foods/orders`) to show a live tracking card (e.g., Map with rider coordinates, rider name, rider phone) if the delivery is managed by Jisnor4U.
+  * Update tracking UI (`/customer/orders` and `/foods/orders`):
+    * For `SELF` delivery, show simple text-based status tracking (e.g., "Seller is preparing/delivering your order").
+    * For `JISNOR4U` or third-party partners, render a live tracking card with rider info and a map if coordinates are available.
 
-STEP 6: SELLER PANEL UPDATES (PRODUCT & RESTAURANT)
-- Currently, sellers manually update status from PENDING -> CONFIRMED -> PROCESSING -> SHIPPED -> DELIVERED.
-- With Jisnor4U:
-  * The seller only needs to accept the order and mark it "READY FOR PICKUP".
-  * Marking it "READY FOR PICKUP" triggers the Jisnor4U dispatch call.
-  * Subsequent statuses (SHIPPED, DELIVERED) are automated via the Jisnor4U webhook, reducing manual overhead for sellers.
+STEP 7: SELLER PANEL UPDATES
+- For Seller Self-Delivery (`SELF`):
+  * The seller has full manual control in their dashboard.
+  * Buttons are provided to transition order states: "Mark Packaged" → "Mark Dispatched" → "Mark Delivered" (with optional delivery OTP verification).
+- For Partner Deliveries:
+  * The seller only needs to click "Ready for Pickup".
+  * This action triggers the third-party driver dispatch. All subsequent status transitions (SHIPPED, DELIVERED) are handled automatically via webhooks.
 
 ---
 
 3. REVENUE & PAYMENT SPLITTING MODEL
 --------------------------------------------------------------------------------
-- As per the proposal, the customer pays the delivery fee at checkout via our marketplace.
-- The marketplace must settle this delivery fee with Jisnor4U.
-- **Sellers/Restaurants Ledger:** 
-  * Update the ledger calculations (e.g., `src/lib/restaurant-ledger.ts`) to deduct the `deliveryFee` from the seller's payout if the marketplace collects and forwards it, or ensure it is accounted for in admin commissions.
+- **For Partner Delivery (e.g., Jisnor4U):**
+  * The customer pays the delivery fee to the platform.
+  * The platform retains the delivery fee to settle bills with the partner.
+  * The seller ledger (`src/lib/restaurant-ledger.ts`) only credits the seller for product/food value (minus commission), excluding the delivery fee.
+- **For Seller Self-Delivery:**
+  * The customer pays the delivery fee to the platform.
+  * The platform credits the delivery fee directly to the seller's net balance (possibly minus a minor platform handling fee), as the seller is handling the transit costs.
 
 
-4. CRITICAL BUSINESS & TECHNICAL CONSIDERATIONS FOR THE CLIENT
+4. CRITICAL BUSINESS & TECHNICAL CONSIDERATIONS
 --------------------------------------------------------------------------------
 
-Before finalizing the integration, the following operational logic needs to be agreed upon with the client:
+A. Multi-Vendor Cart Splitting
+  * If a customer checks out with products from multiple sellers, we must either:
+    1. Split the cart into sub-orders at checkout, allowing the customer to select a delivery provider per seller.
+    2. Default all items to their respective sellers' Self-Delivery configurations.
 
-A. Multi-Vendor Cart Splitting (Multi-pickup orders)
-  * Problem: If a customer checks out with items from Seller A (Wilkinson Road) and Seller B (Charlotte Street) in the same order, a single rider cannot easily do both pickups unless charged extra.
-  * Solution options:
-    1. Calculate two separate delivery fees based on pickup locations and charge the customer the sum.
-    2. Split the checkout into separate orders per seller, each with its own delivery fee (standard industry practice).
+B. Fallback & Out-of-Service Zones
+  * If a partner API is down or returns "not serviceable" for the target address:
+    * The system should automatically fall back to "Seller Self-Delivery" as the primary option, ensuring checkouts are not blocked.
 
-B. Fallback & Serviceability Bounds
-  * Problem: If a customer's address is outside Jisnor4U's 10 designated zones, or if the API is down.
-  * Solution: Detect unserviceable zones at address input and fall back automatically to "Seller Self-Delivery" or show "Not Serviceable" to the customer.
-
-C. Cancellation and Refund Workflow
-  * Problem: If a customer cancels their order.
-  * Solution:
-    * If cancelled BEFORE dispatch -> Issue a full refund. Send an API call to Jisnor4U to cancel rider request.
-    * If cancelled AFTER dispatch -> Charge a partial fee (as per Jisnor4U terms). Deduct this fee from the customer's refund amount.
-
-D. Staging / Sandbox Environment
-  * We will request sandbox API credentials and mock endpoints from Jisnor4U to test rider dispatch, status webhooks, and fee calculation before going live.
+C. Cancellation & Partial Refunds
+  * If an order is cancelled:
+    * Check if a partner delivery was dispatched. If yes, issue a cancellation request via the adapter.
+    * If the carrier charges a cancellation fee, deduct that from the customer's refund and record it in the platform logistics ledger.
 

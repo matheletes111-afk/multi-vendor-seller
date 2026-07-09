@@ -60,6 +60,7 @@ type ServiceDetailData = {
     isVerified: boolean
     reviewerName: string
   }>
+  sellerAds?: any[]
 }
 
 type SuccessResponse = { success: true; message: string; data: { service: ServiceDetailData } }
@@ -134,6 +135,7 @@ export async function GET(
             },
           },
           _count: { select: { reviews: true } },
+          sellerAds: true,
           reviews: {
             orderBy: { createdAt: "desc" },
             take: 20,
@@ -209,6 +211,7 @@ export async function GET(
       reviewCount: service._count.reviews,
       averageRating: Number(ratingAgg._avg.rating ?? 0),
       reviews,
+      sellerAds: (service as any).sellerAds,
     }
 
     return NextResponse.json({

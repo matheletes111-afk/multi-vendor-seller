@@ -29,6 +29,7 @@ export async function GET(
           } 
         },
         variants: true,
+        sellerAds: true,
         _count: { 
           select: { 
             reviews: true 
@@ -47,7 +48,7 @@ export async function GET(
     return NextResponse.json({
       success: true,
       data: product
-    })
+    } as any)
 
   } catch (error) {
     console.error("Product API error:", error)
