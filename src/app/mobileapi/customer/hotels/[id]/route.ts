@@ -19,6 +19,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
           where: { isActive: true, isDeleted: false },
           orderBy: { price: "asc" }
         },
+        sellerAds: true,
         reviews: {
           orderBy: { createdAt: "desc" },
           include: {

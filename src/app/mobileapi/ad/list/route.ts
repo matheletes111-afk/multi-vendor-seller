@@ -77,6 +77,32 @@ export async function GET(request: Request) {
             }
           }
         },
+        hotelSeller: {
+          include: {
+            businessInfo: true,
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                image: true
+              }
+            }
+          }
+        },
+        restaurantSeller: {
+          include: {
+            businessInfo: true,
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                image: true
+              }
+            }
+          }
+        },
         customer: {
           select: {
             id: true,
@@ -94,6 +120,8 @@ export async function GET(request: Request) {
           }
         },
         service: true,
+        hotel: true,
+        foodItem: true,
         adClicks: {
           select: {
             id: true
@@ -106,7 +134,7 @@ export async function GET(request: Request) {
     const groupedAdvertisers = new Map<string, any>()
 
     for (const ad of ads) {
-      const advertiserId = ad.sellerId || ad.customerUserId || "anonymous"
+      const advertiserId = ad.sellerId || ad.hotelSellerId || ad.restaurantSellerId || ad.customerUserId || "anonymous"
       
       if (!groupedAdvertisers.has(advertiserId)) {
         groupedAdvertisers.set(advertiserId, {
@@ -119,20 +147,38 @@ export async function GET(request: Request) {
               avatar: ad.seller.store?.logo || ad.seller.user?.image || null,
               sellerType: ad.seller.type // PRODUCT or SERVICE
             }
-            : ad.customer
+            : ad.hotelSeller
               ? {
-                type: "CUSTOMER",
-                id: ad.customer.id,
-                name: ad.customer.name || null,
-                avatar: ad.customer.image || null,
-                email: ad.customer.email || null
+                type: "HOTEL_SELLER",
+                id: ad.hotelSeller.id,
+                storeName: ad.hotelSeller.businessInfo?.businessName || null,
+                name: ad.hotelSeller.user?.name || null,
+                avatar: ad.hotelSeller.logo || ad.hotelSeller.user?.image || null,
+                sellerType: "HOTEL"
               }
-              : null,
+              : ad.restaurantSeller
+                ? {
+                  type: "RESTAURANT_SELLER",
+                  id: ad.restaurantSeller.id,
+                  storeName: ad.restaurantSeller.businessInfo?.businessName || null,
+                  name: ad.restaurantSeller.user?.name || null,
+                  avatar: ad.restaurantSeller.logo || ad.restaurantSeller.user?.image || null,
+                  sellerType: "RESTAURANT"
+                }
+                : ad.customer
+                  ? {
+                    type: "CUSTOMER",
+                    id: ad.customer.id,
+                    name: ad.customer.name || null,
+                    avatar: ad.customer.image || null,
+                    email: ad.customer.email || null
+                  }
+                  : null,
           ads: []
         })
       }
 
-      // @ts-ignore - Prisma needs generation
+      // @ts-ignore - Prisma needs regeneration
       const mobileType = ad.mobileCreativeType
       // @ts-ignore
       const mobileUrl = ad.mobileCreativeUrl
@@ -160,12 +206,21 @@ export async function GET(request: Request) {
         createdAt: ad.createdAt,
         productId: ad.productId || null,
         serviceId: ad.serviceId || null,
+        hotelId: ad.hotelId || null,
+        foodItemId: ad.foodItemId || null,
+        restaurantSellerId: ad.restaurantSellerId || null,
         target: {
           product: ad.product
             ? { ...ad.product, type: "PRODUCT" as const }
             : null,
           service: ad.service
             ? { ...ad.service, type: "SERVICE" as const }
+            : null,
+          hotel: ad.hotel
+            ? { ...ad.hotel, type: "HOTEL" as const }
+            : null,
+          foodItem: ad.foodItem
+            ? { ...ad.foodItem, type: "FOOD" as const }
             : null
         },
         targeting: {

@@ -1,0 +1,502 @@
+================================================================================
+MEEEM - MOBILE API SEARCH & FILTER ENDPOINTS DOCUMENTATION
+================================================================================
+
+This document details all customer-facing Search, Browse, and Filter APIs implemented under the mobile endpoints. All APIs utilize GET query parameters for filtering and follow standard JSON response formats.
+
+--------------------------------------------------------------------------------
+TABLE OF CONTENTS
+--------------------------------------------------------------------------------
+1. Unified Marketplace Browse & Search API: GET /mobileapi/browse
+2. Dynamic Marketplace Filters API: GET /mobileapi/browse/filters
+3. Hotel Search & Browse API: GET /mobileapi/customer/hotels
+4. Food Search & Browse API: GET /mobileapi/customer/foods
+5. Restaurants Search & Filter API: GET /mobileapi/restaurants
+6. Customer Ads List API: GET /mobileapi/ad/list
+7. Customer Ad Click API: POST /mobileapi/ad/click
+
+
+================================================================================
+1. UNIFIED MARKETPLACE BROWSE & SEARCH API
+================================================================================
+Endpoint: GET /mobileapi/browse
+Description: Handles core searching, sorting, pagination, and multi-facet filtering of products and services.
+
+Query Parameters:
+- q (string, optional): Case-insensitive search keyword matching product or service names.
+- categoryId (string, optional): Legacy single category ID filter.
+- cats (string, optional): Comma-separated list of category IDs to filter.
+- subcategoryId (string, optional): Filter products under a specific subcategory.
+- serviceCategoryId (string, optional): Filter services under a specific category (applied only if no product categories are specified).
+- minPrice (number, optional): Minimum final price (basePrice - discount) >= minPrice.
+- maxPrice (number, optional): Maximum final price <= maxPrice.
+- brands (string, optional): Comma-separated list of brand names to filter.
+- rating (string, optional): Minimum average review rating. Allowed values: "1", "2", "3", "4" (corresponds to 1-4 stars & up).
+- disc (string, optional): Comma-separated discount percent thresholds to filter (>= specified). Allowed values: "10", "20", "30", "40", "50".
+- ret (string, optional): Comma-separated return policy filter codes:
+    * "fr"   : Free returns (Returnable with returnDays >= 7)
+    * "7"    : 7 days return window
+    * "10"   : 10 days return window
+    * "30"   : 30 days return window
+    * "none" : Non-returnable
+- avail (string, optional): Filter by stock availability. Allowed values: "in" (in stock), "out" (out of stock).
+- seller (string, optional): Filter by seller tier. Allowed values: "branded" (branded store or paid plan), "regular" (standard free store).
+- condition (string, optional): Comma-separated product conditions. Allowed values: "NEW", "USED".
+- page (number, optional): Page number for pagination. Defaults to 1.
+- pageSize (number, optional): Max items per page. Defaults to 12. Maximum is 100.
+- sort (string, optional): Sorting order. Allowed values:
+    * "newest"     : Sorted by latest created (Default)
+    * "price_asc"  : Sorted by price: Low to High
+    * "price_desc" : Sorted by price: High to Low
+    * "featured"   : Featured items first
+    * "bestseller" : Highest sold quantities first
+    * "rating"     : Highest rated reviews first
+
+Request Payload:
+- None (GET request)
+
+Example Request:
+GET /mobileapi/browse?q=shoes&brands=Acorn%20Crafts&minPrice=50&maxPrice=200&sort=price_asc&page=1&pageSize=12
+
+Example Response (Success):
+{
+  "success": true,
+  "message": "Search results loaded successfully",
+  "data": {
+    "page": 1,
+    "pageSize": 12,
+    "totalProducts": 1,
+    "totalPages": 1,
+    "sort": "price_asc",
+    "minPrice": 50,
+    "maxPrice": 200,
+    "categoryId": null,
+    "cats": [],
+    "subcategoryId": null,
+    "serviceCategoryId": null,
+    "resolvedCategoryId": null,
+    "categoryName": null,
+    "subcategoryName": null,
+    "serviceCategoryName": null,
+    "subcategories": [],
+    "sponsoredAds": [],
+    "products": [
+      {
+        "id": "prod_12345",
+        "name": "Sleek Leather Shoes",
+        "slug": "sleek-leather-shoes",
+        "description": "High-quality leather shoes for formal and casual occasions.",
+        "images": ["/uploads/products/shoes1.png"],
+        "isFeatured": false,
+        "createdAt": "2026-05-18T10:00:00.000Z",
+        "category": {
+          "id": "cat_1",
+          "name": "Fashion",
+          "slug": "fashion"
+        },
+        "seller": {
+          "store": {
+            "name": "Elegant Steps",
+            "logo": "/uploads/stores/logo1.png"
+          },
+          "subscription": {
+            "plan": {
+              "name": "PREMIUM"
+            }
+          }
+        },
+        "variants": [
+          {
+            "price": 120.0,
+            "discount": 20.0,
+            "stock": 15,
+            "returnType": "RETURNABLE",
+            "returnDays": 10,
+            "attributes": {
+              "size": "9",
+              "color": "black",
+              "brand": "Acorn Crafts"
+            }
+          }
+        ],
+        "_count": {
+          "reviews": 3
+        },
+        "basePrice": 120.0,
+        "discount": 20.0,
+        "finalPrice": 100.0,
+        "avgRating": 4.67,
+        "soldCount": 4,
+        "brand": "Acorn Crafts",
+        "stock": 15,
+        "returnType": "RETURNABLE",
+        "returnDays": 10,
+        "isBrandedSeller": true,
+        "discountPercent": 17,
+        "condition": "NEW"
+      }
+    ],
+    "services": []
+  }
+}
+
+================================================================================
+2. DYNAMIC MARKETPLACE FILTERS API
+================================================================================
+Endpoint: GET /mobileapi/browse/filters
+Description: Dynamically calculates matching categories, unique brands, price range extremes, and provides predefined filter criteria (ratings, discounts, return options) based on the active search keyword and category context.
+
+Query Parameters:
+- q (string, optional): Filter matching brand and price ranges to items containing the search text.
+- categoryId (string, optional): Filter options within a specific category ID.
+- cats (string, optional): Comma-separated list of category IDs.
+- subcategoryId (string, optional): Filter options within a subcategory.
+- condition (string, optional): Filter options restricted by condition ("NEW" or "USED").
+
+Request Payload:
+- None (GET request)
+
+Example Request:
+GET /mobileapi/browse/filters?q=shoes&cats=cat_1
+
+Example Response (Success):
+{
+  "success": true,
+  "message": "Filter parameters fetched successfully",
+  "data": {
+    "categories": [
+      {
+        "id": "cat_1",
+        "name": "Fashion",
+        "slug": "fashion"
+      }
+    ],
+    "brands": [
+      "Acorn Crafts",
+      "Nike",
+      "Adidas",
+      "Other"
+    ],
+    "priceRange": {
+      "min": 45,
+      "max": 1500
+    },
+    "ratings": [
+      { "value": "4", "label": "4 stars & up" },
+      { "value": "3", "label": "3 stars & up" },
+      { "value": "2", "label": "2 stars & up" },
+      { "value": "1", "label": "1 star & up" }
+    ],
+    "discounts": [
+      { "value": 10, "label": "10% and above" },
+      { "value": 20, "label": "20% and above" },
+      { "value": 30, "label": "30% and above" },
+      { "value": 40, "label": "40% and above" },
+      { "value": 50, "label": "50% and above" }
+    ],
+    "returnPolicies": [
+      { "code": "fr", "label": "Free Returns (7+ days)" },
+      { "code": "7", "label": "7 Days Return" },
+      { "code": "10", "label": "10 Days Return" },
+      { "code": "30", "label": "30 Days Return" },
+      { "code": "none", "label": "Non-returnable" }
+    ],
+    "conditions": [
+      { "code": "NEW", "label": "New" },
+      { "code": "USED", "label": "Used" }
+    ],
+    "availability": [
+      { "code": "in", "label": "In Stock" },
+      { "code": "out", "label": "Out of Stock" }
+    ],
+    "sellerTypes": [
+      { "code": "branded", "label": "Branded Store" },
+      { "code": "regular", "label": "Regular Seller" }
+    ]
+  }
+}
+
+================================================================================
+3. HOTEL SEARCH & BROWSE API
+================================================================================
+Endpoint: GET /mobileapi/customer/hotels
+Description: Searches and filters active hotel list, returning available properties and room details alongside matching cities.
+
+Query Parameters:
+- city (string, optional): Case-insensitive contains search on hotel city.
+- rating (number, optional): Minimum hotel starRating (1 to 5).
+- q (string, optional): Keyword search matching hotel name, description, or city.
+- minPrice (number, optional): Exclude hotels where any room is priced below minPrice.
+- maxPrice (number, optional): Exclude hotels where any room is priced above maxPrice.
+
+Request Payload:
+- None (GET request)
+
+Example Request:
+GET /mobileapi/customer/hotels?city=Freetown&rating=4&maxPrice=150
+
+Example Response (Success):
+{
+  "success": true,
+  "data": [
+    {
+      "id": "clxb932p80001uzd5nklk098a",
+      "hotelSellerId": "clxb821a30000uzd5abcdefgh",
+      "name": "Grand Palace Hotel",
+      "description": "Luxurious stay in the city center.",
+      "starRating": 5,
+      "amenities": ["Wifi", "Pool", "Gym", "Spa"],
+      "address": "123 Main Street",
+      "city": "Freetown",
+      "state": "Western Area",
+      "lat": 8.484,
+      "lng": -13.234,
+      "logo": "https://bucket.s3.amazonaws.com/uploads/hotels/logos/logo.jpg",
+      "banner": "https://bucket.s3.amazonaws.com/uploads/hotels/banners/banner.jpg",
+      "images": ["https://bucket.s3.amazonaws.com/uploads/hotels/gallery/img1.jpg"],
+      "isActive": true,
+      "isDeleted": false,
+      "createdAt": "2026-06-18T00:00:00.000Z",
+      "updatedAt": "2026-06-18T00:00:00.000Z",
+      "rooms": [
+        {
+          "id": "clxbc78a80002uzd5xyz98765",
+          "hotelId": "clxb932p80001uzd5nklk098a",
+          "name": "Deluxe Room",
+          "description": "Double bed, sea view",
+          "price": 120.5,
+          "capacityAdults": 2,
+          "capacityChildren": 1,
+          "totalRooms": 5,
+          "amenities": ["Air Conditioning", "TV"],
+          "images": ["https://bucket.s3.amazonaws.com/uploads/rooms/gallery/room1.jpg"]
+        }
+      ]
+    }
+  ],
+  "cities": ["Freetown", "Bo", "Kenema"]
+}
+
+================================================================================
+4. FOOD SEARCH & BROWSE API
+================================================================================
+Endpoint: GET /mobileapi/customer/foods
+Description: Browse, search, and filter food items available from approved restaurants.
+
+Query Parameters:
+- q (string, optional): Search keyword matching food name or description.
+- category (string, optional): Case-insensitive category match (e.g. Starters, Mains, Desserts).
+- minPrice (number, optional): Minimum price of food item.
+- maxPrice (number, optional): Maximum price of food item.
+- rating (number, optional): Minimum average customer review rating.
+- isVeg (string/boolean, optional): Set to "true" (or "1") for vegetarian only, "false" for non-vegetarian.
+- restaurantSellerId (string, optional): Limit items to a specific restaurant.
+
+Request Payload:
+- None (GET request)
+
+Example Request:
+GET /mobileapi/customer/foods?category=Mains&isVeg=true&maxPrice=50
+
+Example Response (Success):
+{
+  "success": true,
+  "data": [
+    {
+      "id": "food_clxbf1234",
+      "restaurantSellerId": "seller_clxbr1234",
+      "name": "Paneer Butter Masala",
+      "description": "Cottage cheese cubes in rich creamy tomato gravy.",
+      "price": 12.5,
+      "image": "https://bucket.s3.amazonaws.com/uploads/foods/paneer.jpg",
+      "category": "Mains",
+      "isVeg": true,
+      "averageRating": 4.5,
+      "totalReviews": 8,
+      "restaurantId": "seller_clxbr1234",
+      "restaurantName": "Tasty Palace",
+      "restaurantCity": "Freetown"
+    }
+  ]
+}
+
+================================================================================
+5. RESTAURANTS SEARCH & FILTER API
+================================================================================
+Endpoint: GET /mobileapi/restaurants
+Description: List and filter approved restaurant sellers, returning business details and cuisine offerings.
+
+Query Parameters:
+- q (string, optional): Matches restaurant business name or user name.
+- cuisine (string, optional): Filter restaurant by cuisine type (e.g. Italian, Chinese). Use "ALL" or omit to disable filter.
+- category (string, optional): Filter restaurants serving a specific food category (e.g. Mains, Sides). Use "ALL" or omit to disable.
+
+Request Payload:
+- None (GET request)
+
+Example Request:
+GET /mobileapi/restaurants?cuisine=Indian&q=Palace
+
+Example Response (Success):
+{
+  "success": true,
+  "data": [
+    {
+      "id": "seller_clxbr1234",
+      "businessName": "Tasty Palace",
+      "cuisines": ["Indian", "Chinese"],
+      "logo": "https://bucket.s3.amazonaws.com/uploads/logos/tasty.jpg",
+      "banner": null,
+      "mainPhoto": null,
+      "street": "12 High Ave",
+      "city": "Freetown",
+      "state": "Western Area",
+      "averageRating": 4.5,
+      "totalReviews": 8,
+      "hasVeg": true,
+      "hasNonVeg": true
+    }
+  ],
+  "cuisines": ["Italian", "Indian", "Chinese", "Fast Food"]
+}
+
+================================================================================
+6. CUSTOMER ADS LIST API
+================================================================================
+Endpoint: GET /mobileapi/ad/list
+Description: Retrieves active advertisements targetable for mobile devices, grouped by advertiser (similar to WhatsApp status/stories).
+Authentication: Optional (Guest Accessible)
+
+Query Parameters:
+- page (number, optional): Page number for pagination. Defaults to 1.
+- limit (number, optional): Max ads groups per page. Defaults to 10.
+- status (string, optional): Filter by status ("ACTIVE", "PAUSED", "PENDING_APPROVAL", "ENDED"). Defaults to "ACTIVE".
+- creativeType (string, optional): Filter by creative type ("IMAGE", "VIDEO").
+- sellerId (string, optional): Filter ads owned by a specific seller.
+- customerUserId (string, optional): Filter ads owned by a specific customer.
+
+Request Payload:
+- None (GET request)
+
+Example Request:
+GET /mobileapi/ad/list?page=1&limit=10
+
+Example Response (Success):
+{
+  "success": true,
+  "data": [
+    {
+      "advertiser": {
+        "type": "SELLER",
+        "id": "seller_123",
+        "storeName": "TechZone Electronics",
+        "name": "Rajesh Kumar",
+        "avatar": "https://cdn.meeem.com/stores/techzone-logo.png",
+        "sellerType": "PRODUCT"
+      },
+      "ads": [
+        {
+          "id": "cm7xyz123456",
+          "title": "Summer Sale - 50% Off on Electronics",
+          "description": "Get amazing discounts on all electronic items.",
+          "creativeType": "IMAGE",
+          "creativeUrl": "https://cdn.meeem.com/ads/mobile-summer-sale.jpg",
+          "placements": ["WEB", "MOBILE"],
+          "webCreativeType": "IMAGE",
+          "webCreativeUrl": "https://cdn.meeem.com/ads/summer-sale-banner.jpg",
+          "mobileCreativeType": "IMAGE",
+          "mobileCreativeUrl": "https://cdn.meeem.com/ads/mobile-summer-sale.jpg",
+          "status": "ACTIVE",
+          "totalBudget": 5000,
+          "spentAmount": 1250.5,
+          "maxCpc": 2.5,
+          "clicks": 502,
+          "startAt": "2026-04-01T00:00:00.000Z",
+          "endAt": "2026-04-30T23:59:59.000Z",
+          "createdAt": "2026-03-15T10:30:00.000Z",
+          "productId": "prod_789",
+          "serviceId": null,
+          "hotelId": null,
+          "foodItemId": null,
+          "restaurantSellerId": null,
+          "target": {
+            "product": {
+              "id": "prod_789",
+              "name": "Smartphone X Pro",
+              "type": "PRODUCT",
+              "images": ["https://cdn.meeem.com/products/smartphone-x-pro.jpg"]
+            },
+            "service": null,
+            "hotel": null,
+            "foodItem": null
+          },
+          "targeting": {
+            "targetCountries": ["IN", "US"],
+            "targetAgeMin": 18,
+            "targetAgeMax": 45,
+            "expandAudience": true
+          }
+        }
+      ]
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "limit": 10,
+    "total": 1,
+    "totalPages": 1,
+    "hasNext": false,
+    "hasPrev": false,
+    "totalAds": 1,
+    "totalGroups": 1
+  }
+}
+
+================================================================================
+7. CUSTOMER AD CLICK API
+================================================================================
+Endpoints: 
+- POST /mobileapi/ad/click (Returns JSON redirect payload - Recommended)
+- GET /mobileapi/ad/click (Logs click and returns redirect path)
+Description: Records a click on a specific advertisement by a customer/visitor. Tracks clicks persistently per user or session ID to prevent click fraud.
+Authentication: Optional (Tracks visitor session ID if user is not authenticated)
+
+Headers (for tracking):
+- x-ad-session-id (string, optional): Session identifier to map multiple clicks to the same device.
+
+Request Parameters (GET):
+- adId (string, required): The ID of the clicked ad.
+
+Request Payload (POST):
+{
+  "adId": "cm7xyz123456"
+}
+
+Example Request (POST):
+POST /mobileapi/ad/click
+Body:
+{
+  "adId": "cm7xyz123456"
+}
+
+Example Response (Success):
+{
+  "success": true,
+  "data": {
+    "adId": "cm7xyz123456",
+    "redirectUrl": "/product/prod_789",
+    "isClickRecorded": true,
+    "message": "Click recorded"
+  }
+}
+
+--------------------------------------------------------------------------------
+STANDARD ERROR RESPONSE (ALL APIS)
+--------------------------------------------------------------------------------
+If an error occurs due to invalid inputs or internal server issues, the APIs return an appropriate HTTP status code (e.g., 400 or 500) and a standardized JSON structure:
+
+{
+  "success": false,
+  "error": "Detailed description of the error."
+}
+================================================================================

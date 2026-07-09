@@ -22,6 +22,7 @@ export async function GET(
         }
       },
       include: {
+        sellerAds: true,
         reviews: {
           orderBy: { createdAt: "desc" },
           include: {

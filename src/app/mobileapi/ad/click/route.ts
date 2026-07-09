@@ -44,7 +44,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<ClickRespo
     // Fetch ad details for redirect URL
     const ad = await prisma.sellerAd.findUnique({
       where: { id: adId },
-      select: { productId: true, serviceId: true, product: { select: { slug: true } }, service: { select: { slug: true } } }
+      select: { productId: true, serviceId: true, hotelId: true, foodItemId: true, product: { select: { slug: true } }, service: { select: { slug: true } } }
     })
 
     if (!ad) {
@@ -56,6 +56,10 @@ export async function GET(request: NextRequest): Promise<NextResponse<ClickRespo
       redirectUrl = `/product/${ad.productId}`
     } else if (ad.serviceId && ad.service?.slug) {
       redirectUrl = `/service/${ad.serviceId}`
+    } else if (ad.hotelId) {
+      redirectUrl = `/hotel/${ad.hotelId}`
+    } else if (ad.foodItemId) {
+      redirectUrl = `/food/${ad.foodItemId}`
     }
 
     const result = await recordAdClick({ adId, userId, sessionId })
@@ -96,7 +100,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<ClickResp
 
     const ad = await prisma.sellerAd.findUnique({
       where: { id: adId },
-      select: { productId: true, serviceId: true, product: { select: { slug: true } }, service: { select: { slug: true } } }
+      select: { productId: true, serviceId: true, hotelId: true, foodItemId: true, product: { select: { slug: true } }, service: { select: { slug: true } } }
     })
 
     if (!ad) {
@@ -108,6 +112,10 @@ export async function POST(request: NextRequest): Promise<NextResponse<ClickResp
       redirectUrl = `/product/${ad.productId}`
     } else if (ad.serviceId && ad.service?.slug) {
       redirectUrl = `/service/${ad.serviceId}`
+    } else if (ad.hotelId) {
+      redirectUrl = `/hotel/${ad.hotelId}`
+    } else if (ad.foodItemId) {
+      redirectUrl = `/food/${ad.foodItemId}`
     }
 
     const result = await recordAdClick({ adId, userId, sessionId })
