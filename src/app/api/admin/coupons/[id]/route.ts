@@ -7,16 +7,17 @@ import { sanitizeInput } from "@/lib/html-sanitization"
 // GET a specific coupon
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const session = await auth()
     if (!session?.user || !isAdmin(session.user)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
     const coupon = await prisma.coupon.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         usages: {
           include: {
@@ -49,9 +50,10 @@ export async function GET(
 // PUT update a coupon
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const session = await auth()
     if (!session?.user || !isAdmin(session.user)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
@@ -87,7 +89,7 @@ export async function PUT(
 
     // Check if coupon exists
     const existing = await prisma.coupon.findUnique({
-      where: { id: params.id }
+      where: { id }
     })
     if (!existing) {
       return NextResponse.json({ error: "Coupon not found" }, { status: 404 })
@@ -95,7 +97,7 @@ export async function PUT(
 
     // Code editing is typically disabled, or we can allow updating other fields. We do not update 'code' here.
     const coupon = await prisma.coupon.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         discountType,
         discountValue,
@@ -123,23 +125,24 @@ export async function PUT(
 // DELETE a coupon
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const session = await auth()
     if (!session?.user || !isAdmin(session.user)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
     const existing = await prisma.coupon.findUnique({
-      where: { id: params.id }
+      where: { id }
     })
     if (!existing) {
       return NextResponse.json({ error: "Coupon not found" }, { status: 404 })
     }
 
     await prisma.coupon.delete({
-      where: { id: params.id }
+      where: { id }
     })
 
     return NextResponse.json({ message: "Coupon deleted successfully" })
