@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Plus, Edit, Trash2, Calendar, Search, CheckCircle, XCircle, Tag, Ticket, Percent, DollarSign } from "lucide-react"
+import { Plus, Edit, Trash2, Calendar, Search, CheckCircle, XCircle, Tag, Ticket, Percent } from "lucide-react"
 import { Button } from "@/ui/button"
 import { Input } from "@/ui/input"
 import { Separator } from "@/ui/separator"
@@ -249,10 +249,10 @@ export default function AdminCouponsPage() {
                         {coupon.discountType === "PERCENTAGE" ? (
                           <span className="flex items-center gap-0.5"><Percent className="h-3.5 w-3.5" />{coupon.discountValue}%</span>
                         ) : (
-                          <span className="flex items-center gap-0.5"><DollarSign className="h-3.5 w-3.5" />{coupon.discountValue}</span>
+                          <span className="flex items-center gap-0.5">Nle {coupon.discountValue}</span>
                         )}
                       </td>
-                      <td className="px-6 py-4 font-medium">${coupon.minOrderValue}</td>
+                      <td className="px-6 py-4 font-medium">Nle {coupon.minOrderValue}</td>
                       <td className="px-6 py-4">
                         <div className="flex flex-col text-xs text-slate-500">
                           <span>Start: {new Date(coupon.startDate).toLocaleDateString()}</span>
@@ -307,7 +307,7 @@ export default function AdminCouponsPage() {
           </div>
         )}
       </div>
-
+ 
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-y-auto">
           <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-lg shadow-xl border border-slate-100 dark:border-slate-800 overflow-hidden my-8">
@@ -331,7 +331,7 @@ export default function AdminCouponsPage() {
                   />
                 </div>
               )}
-
+ 
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Domain Type</label>
@@ -349,7 +349,7 @@ export default function AdminCouponsPage() {
                     <option value="FOOD">Foods</option>
                   </select>
                 </div>
-
+ 
                 <div>
                   <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Discount Type</label>
                   <select
@@ -358,7 +358,7 @@ export default function AdminCouponsPage() {
                     className="w-full bg-background border border-input rounded-xl px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-ring"
                   >
                     <option value="PERCENTAGE">Percentage (%)</option>
-                    <option value="FIXED">Fixed Amount ($)</option>
+                    <option value="FIXED">Fixed Amount (Nle)</option>
                   </select>
                 </div>
               </div>
