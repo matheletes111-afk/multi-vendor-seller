@@ -5,6 +5,7 @@ import type { PlaceOrderResponse } from "@/app/api/customer/checkout/types"
 import { getMobileCustomerAuth } from "@/app/mobileapi/_helpers/customer-auth"
 import { UserRole } from "@prisma/client"
 import { sendOrderConfirmationEmail, sendSellerNewOrderEmail, sendAdminNewOrderEmail } from "@/lib/email"
+import { validateCoupon } from "@/lib/coupons"
 
 export const dynamic = "force-dynamic"
 
@@ -63,8 +64,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: false, error: "Invalid JSON" }, { status: 400 })
   }
 
-  const payload = body as { addressId?: string }
+  const payload = body as { addressId?: string; couponCode?: string }
   const addressId = typeof payload.addressId === "string" ? payload.addressId.trim() : null
+  const couponCode = typeof payload.couponCode === "string" ? payload.couponCode.trim().toUpperCase() : null
   if (!addressId) {
     return NextResponse.json({ success: false, error: "addressId required" }, { status: 400 })
   }
@@ -145,7 +147,34 @@ export async function POST(request: NextRequest) {
   const subtotal = normalizedItems.reduce((sum, row) => sum + row.item.totalPrice, 0)
   const tax = normalizedItems.reduce((sum, row) => sum + row.item.totalGst, 0)
   const shipping = 0
-  const totalAmount = subtotal + tax + shipping
+
+  const hasService = normalizedItems.some((row) => row.item.serviceId != null)
+  const orderType = hasService ? "SERVICE" : "PRODUCT"
+
+  // Coupon validation
+  let coupon = null
+  let couponDiscount = 0
+  if (couponCode) {
+    const validationResult = await validateCoupon({
+      code: couponCode,
+      type: orderType,
+      subtotal,
+      items: normalizedItems.map((row) => ({
+        productId: row.item.productId ?? undefined,
+        serviceId: row.item.serviceId ?? undefined,
+        price: row.item.unitPrice,
+        quantity: row.item.quantity,
+      })),
+      userId: auth.userId,
+    })
+    if (!validationResult.valid) {
+      return NextResponse.json({ success: false, error: validationResult.error }, { status: 400 })
+    }
+    coupon = validationResult.coupon
+    couponDiscount = validationResult.discountAmount || 0
+  }
+
+  const totalAmount = Math.max(0, subtotal + tax + shipping - couponDiscount)
   const commission = totalAmount * (COMMISSION_RATE / 100)
 
   const sellerSubtotal = new Map<string, number>()
@@ -165,7 +194,7 @@ export async function POST(request: NextRequest) {
 
   const order = await prisma.$transaction(async (tx) => {
     const orderNumber = await allocateNextOrderNumberTx(tx)
-    return tx.order.create({
+    const newOrder = await tx.order.create({
       data: {
         orderNumber,
         customerId: auth.userId,
@@ -187,8 +216,21 @@ export async function POST(request: NextRequest) {
         shippingState: address.state,
         shippingPostalCode: address.postalCode,
         shippingCountry: address.country,
+        couponId: coupon ? (coupon as any).id : null,
+        couponCode: coupon ? (coupon as any).code : null,
+        couponDiscount,
       },
     })
+    if (coupon) {
+      await tx.couponUsage.create({
+        data: {
+          couponId: (coupon as any).id,
+          userId: auth.userId,
+          orderId: newOrder.id,
+        },
+      })
+    }
+    return newOrder
   })
 
   for (const row of normalizedItems) {
@@ -345,6 +387,8 @@ export async function POST(request: NextRequest) {
         sellerId: "MULTI",
         totalAmount,
         itemCount: normalizedItems.length,
+        couponCode: order.couponCode ?? undefined,
+        couponDiscount: order.couponDiscount,
       },
     ],
   }

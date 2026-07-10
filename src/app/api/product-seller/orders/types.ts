@@ -87,4 +87,6 @@ export type SellerOrderDetailApi = {
   customerPhone: string | null
   customerPhoneCountryCode: string | null
   items: SellerOrderDetailItemApi[]
+  couponCode?: string | null
+  couponDiscount?: number
 }

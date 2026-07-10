@@ -77,4 +77,6 @@ export type SellerOrderDetailApi = {
   customerName: string | null
   customerEmail: string | null
   items: SellerOrderDetailItemApi[]
+  couponCode?: string | null
+  couponDiscount?: number | null
 }

@@ -22,6 +22,8 @@ type Booking = {
   totalPrice: number
   status: string
   createdAt: string
+  couponCode?: string | null
+  couponDiscount?: number | null
   room: {
     id: string
     name: string
@@ -425,6 +427,18 @@ export function AdminBookingsClient() {
                   {selectedBooking.adults} Adults {selectedBooking.children > 0 ? `, ${selectedBooking.children} Children` : ""}
                 </span>
               </div>
+              {selectedBooking.couponDiscount && selectedBooking.couponDiscount > 0 ? (
+                <>
+                  <div className="flex justify-between border-b border-slate-100 pb-2.5">
+                    <span>Base Fare:</span>
+                    <span className="font-bold text-slate-900">{formatCurrency(selectedBooking.totalPrice + selectedBooking.couponDiscount)}</span>
+                  </div>
+                  <div className="flex justify-between border-b border-slate-100 pb-2.5 text-emerald-600 font-bold">
+                    <span>Coupon Discount ({selectedBooking.couponCode}):</span>
+                    <span>-{formatCurrency(selectedBooking.couponDiscount)}</span>
+                  </div>
+                </>
+              ) : null}
               <div className="flex justify-between">
                 <span>Total Cost Paid:</span>
                 <span className="font-black text-emerald-600 text-base">{formatCurrency(selectedBooking.totalPrice)}</span>

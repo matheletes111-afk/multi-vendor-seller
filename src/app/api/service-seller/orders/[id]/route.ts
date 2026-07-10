@@ -146,6 +146,8 @@ export async function GET(
     customerName: order.customer?.name ?? null,
     customerEmail: order.customer?.email ?? null,
     items,
+    couponCode: order.couponCode,
+    couponDiscount: order.couponDiscount,
   }
   return NextResponse.json(body)
 }

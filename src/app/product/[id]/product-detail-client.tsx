@@ -48,6 +48,40 @@ type ProductAd = {
   creativeUrl: string
 }
 
+const colorMap: Record<string, string> = {
+  red: "#EF4444",
+  blue: "#3B82F6",
+  black: "#000000",
+  green: "#22C55E",
+  white: "#FFFFFF",
+  yellow: "#EAB308",
+  gray: "#94A3B8",
+  grey: "#94A3B8",
+  orange: "#F97316",
+  pink: "#EC4899",
+  purple: "#A855F7",
+  brown: "#78350F",
+  navy: "#1E3A8A",
+  maroon: "#800000",
+  burgundy: "#800020",
+  gold: "#D4AF37",
+  silver: "#C0C0C0",
+}
+
+const isColorKey = (key: string) => {
+  const k = key.toLowerCase().trim();
+  return /^(color|colour|colr|colore|clr|colors|colours|colrs|clrs)$/i.test(k);
+}
+
+const getColorHex = (colorName: string): string => {
+  const cleaned = colorName.toLowerCase().trim();
+  if (colorMap[cleaned]) return colorMap[cleaned];
+  for (const [key, hex] of Object.entries(colorMap)) {
+    if (cleaned.includes(key)) return hex;
+  }
+  return colorName; // fallback
+}
+
 export function ProductDetailClient({ productId }: { productId: string }) {
   const router = useRouter()
   const { data: session, status } = useSession()
@@ -253,25 +287,55 @@ export function ProductDetailClient({ productId }: { productId: string }) {
                       <p className="text-sm font-medium text-slate-700 mb-1.5">
                         {label}: {selectedOptions[key] ? <span className="font-semibold text-slate-900">{selectedOptions[key]}</span> : <span className="text-slate-500">Select {label}</span>}
                       </p>
-                      <div className="flex flex-wrap gap-2">
-                        {values.map((val) => (
-                          <button
-                            key={val}
-                            type="button"
-                            onClick={() => {
-                              setSelectedOptions((prev) => ({ ...prev, [key]: val }))
-                              setSelectedVariantId(null)
-                              setSelectedImageIndex(0)
-                            }}
-                            className={`min-w-[3rem] rounded-md border px-3 py-2 text-sm font-medium transition-colors ${
-                              selectedOptions[key] === val
-                                ? "border-amber-500 bg-amber-50 text-amber-800 ring-1 ring-amber-500"
-                                : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50"
-                            }`}
-                          >
-                            {val}
-                          </button>
-                        ))}
+                      <div className="flex flex-wrap gap-2.5 items-center">
+                        {isColorKey(key) ? (
+                          values.map((val) => {
+                            const hexColor = getColorHex(val);
+                            const isSelected = selectedOptions[key] === val;
+                            const isWhite = val.toLowerCase().trim() === "white";
+                            return (
+                              <button
+                                key={val}
+                                type="button"
+                                title={val}
+                                onClick={() => {
+                                  setSelectedOptions((prev) => ({ ...prev, [key]: val }))
+                                  setSelectedVariantId(null)
+                                  setSelectedImageIndex(0)
+                                }}
+                                className={`h-8 w-8 rounded-full border transition-all ${
+                                  isSelected 
+                                    ? "ring-2 ring-offset-2 ring-amber-500 border-transparent scale-110 shadow-md" 
+                                    : isWhite 
+                                      ? "border-slate-300 hover:scale-110 hover:shadow-sm" 
+                                      : "border-transparent hover:scale-110 hover:shadow-sm"
+                                }`}
+                                style={{ backgroundColor: hexColor }}
+                              >
+                                <span className="sr-only">{val}</span>
+                              </button>
+                            );
+                          })
+                        ) : (
+                          values.map((val) => (
+                            <button
+                              key={val}
+                              type="button"
+                              onClick={() => {
+                                setSelectedOptions((prev) => ({ ...prev, [key]: val }))
+                                setSelectedVariantId(null)
+                                setSelectedImageIndex(0)
+                              }}
+                              className={`min-w-[3rem] rounded-md border px-3 py-1.5 text-sm font-medium transition-colors ${
+                                selectedOptions[key] === val
+                                  ? "border-amber-500 bg-amber-50 text-amber-800 ring-1 ring-amber-500"
+                                  : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50"
+                              }`}
+                            >
+                              {val}
+                            </button>
+                          ))
+                        )}
                       </div>
                     </div>
                   ))}

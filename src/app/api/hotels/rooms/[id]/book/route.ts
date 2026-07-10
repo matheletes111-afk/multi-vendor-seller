@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { creditHotelSellerForBooking } from "@/lib/hotel-ledger"
 import { sendHotelBookingConfirmationEmail, sendHotelNewBookingEmail, sendAdminNewOrderEmail } from "@/lib/email"
+import { validateCoupon } from "@/lib/coupons"
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -17,7 +18,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     const { id: roomId } = await params
     const body = await request.json().catch(() => ({}))
-    const { checkIn, checkOut, numberOfRooms = 1, guestName, guestPhone, adults = 2, children = 0 } = body
+    const { checkIn, checkOut, numberOfRooms = 1, guestName, guestPhone, adults = 2, children = 0, couponCode } = body
 
     if (!checkIn || !checkOut || !guestName || !guestPhone) {
       return NextResponse.json({ success: false, error: "Missing required booking details (check-in, check-out, guest name/phone)" }, { status: 400 })
@@ -97,6 +98,27 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     totalPrice *= roomsToBook
 
+    // Validate coupon
+    let coupon = null
+    let couponDiscount = 0
+    if (couponCode) {
+      const validationResult = await validateCoupon({
+        code: couponCode.trim().toUpperCase(),
+        type: "HOTEL",
+        subtotal: totalPrice,
+        items: [],
+        userId: session.user.id!
+      })
+
+      if (!validationResult.valid) {
+        return NextResponse.json({ success: false, error: validationResult.error }, { status: 400 })
+      }
+      coupon = validationResult.coupon
+      couponDiscount = validationResult.discountAmount || 0
+    }
+
+    const finalPrice = Math.max(0, totalPrice - couponDiscount)
+
     // Perform transaction to create booking and update/upsert RoomAvailability records
     const booking = await prisma.$transaction(async (tx) => {
       // Create the HotelBooking record
@@ -112,11 +134,24 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           numberOfRooms: roomsToBook,
           adults,
           children,
-          totalPrice,
+          totalPrice: finalPrice,
+          couponId: coupon ? coupon.id : null,
+          couponCode: coupon ? coupon.code : null,
+          couponDiscount,
           status: "CONFIRMED"
         },
         include: { room: { include: { hotel: true } } }
       })
+
+      if (coupon) {
+        await tx.couponUsage.create({
+          data: {
+            couponId: coupon.id,
+            userId: session.user.id!,
+            hotelBookingId: newBooking.id
+          }
+        })
+      }
 
       // Credit the hotel seller balance & create ledger transaction
       await creditHotelSellerForBooking(tx, newBooking.id)
@@ -164,7 +199,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           checkInDate: checkInDate.toLocaleDateString(),
           checkOutDate: checkOutDate.toLocaleDateString(),
           numberOfRooms: roomsToBook,
-          totalPrice,
+          totalPrice: finalPrice,
         })
 
         // Send Hotel Seller Email
@@ -184,7 +219,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
             checkInDate: checkInDate.toLocaleDateString(),
             checkOutDate: checkOutDate.toLocaleDateString(),
             numberOfRooms: roomsToBook,
-            totalPrice,
+            totalPrice: finalPrice,
           })
         }
 
@@ -198,7 +233,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           name: `Booking - Room: ${room.name} at ${room.hotel.name}`,
           quantity: roomsToBook,
           sellerStoreName: room.hotel.name,
-          subtotal: totalPrice,
+          subtotal: finalPrice,
         }]
 
         for (const admin of admins) {
@@ -207,7 +242,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
             orderNumber: booking.id,
             customerName: customerUser.name ?? "Customer",
             items: adminItems,
-            totalAmount: totalPrice,
+            totalAmount: finalPrice,
             commissionAmount: 0
           })
         }

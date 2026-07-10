@@ -95,4 +95,6 @@ export type OrderDetailApi = {
   sellerStoreName: string | null
   sellerGroups: CustomerOrderSellerGroupApi[]
   items: OrderDetailItemApi[]
+  couponCode?: string | null
+  couponDiscount?: number
 }

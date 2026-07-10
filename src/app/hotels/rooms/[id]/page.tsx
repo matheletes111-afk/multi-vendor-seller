@@ -53,6 +53,11 @@ export default function RoomBookingPage() {
   const [bookingError, setBookingError] = useState<string | null>(null)
   const [bookingSuccess, setBookingSuccess] = useState<any>(null)
 
+  const [couponCode, setCouponCode] = useState("")
+  const [appliedCoupon, setAppliedCoupon] = useState<any | null>(null)
+  const [couponLoading, setCouponLoading] = useState(false)
+  const [couponError, setCouponError] = useState<string | null>(null)
+
   const isLoggedIn = status === "authenticated" && !!session?.user
 
   useEffect(() => {
@@ -108,6 +113,8 @@ export default function RoomBookingPage() {
   // Dynamic price calculations
   let totalNights = 0
   let calculatedTotalPrice = 0
+  let couponDiscount = 0
+  let finalPrice = 0
 
   if (checkIn && checkOut) {
     const d1 = new Date(checkIn)
@@ -118,7 +125,48 @@ export default function RoomBookingPage() {
     if (diffTime > 0) {
       totalNights = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
       calculatedTotalPrice = totalNights * room.price * numberOfRooms
+      if (appliedCoupon) {
+        couponDiscount = appliedCoupon.discountAmount
+      }
+      finalPrice = Math.max(0, calculatedTotalPrice - couponDiscount)
     }
+  }
+
+  const handleApplyCoupon = async () => {
+    if (!couponCode.trim()) return
+    setCouponLoading(true)
+    setCouponError(null)
+    try {
+      const res = await fetch("/api/customer/coupons/apply", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          code: couponCode,
+          type: "HOTEL",
+          subtotal: calculatedTotalPrice,
+          items: []
+        })
+      })
+      const data = await res.json()
+      if (res.ok && data.success) {
+        setAppliedCoupon(data.data)
+        setCouponError(null)
+      } else {
+        setCouponError(data.error || "Failed to apply coupon")
+        setAppliedCoupon(null)
+      }
+    } catch (e) {
+      setCouponError("Network error applying coupon")
+      setAppliedCoupon(null)
+    } finally {
+      setCouponLoading(false)
+    }
+  }
+
+  const handleRemoveCoupon = () => {
+    setAppliedCoupon(null)
+    setCouponCode("")
+    setCouponError(null)
   }
 
   const handleBookingSubmit = async (e: React.FormEvent) => {
@@ -139,7 +187,8 @@ export default function RoomBookingPage() {
           guestName,
           guestPhone,
           adults,
-          children
+          children,
+          couponCode: appliedCoupon ? appliedCoupon.code : undefined
         })
       })
 
@@ -410,22 +459,61 @@ export default function RoomBookingPage() {
                     </div>
 
                     {totalNights > 0 && (
-                      <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 text-xs font-semibold text-slate-600 space-y-2">
-                        <div className="flex justify-between">
-                          <span>Price Per Night:</span>
-                          <span className="font-bold text-slate-900">{formatCurrency(room.price)}</span>
+                      <div className="space-y-4">
+                        {/* Coupon Promo Block */}
+                        <div className="border-t border-slate-100 pt-3">
+                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Promo Code</label>
+                          <div className="flex gap-2">
+                            <Input
+                              placeholder="Enter coupon"
+                              value={couponCode}
+                              onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                              disabled={couponLoading || !!appliedCoupon}
+                              className="h-9 text-xs rounded-xl bg-slate-50 border-slate-200"
+                            />
+                            {appliedCoupon ? (
+                              <Button type="button" variant="outline" onClick={handleRemoveCoupon} className="h-9 text-xs rounded-xl text-rose-600 border-rose-200 hover:bg-rose-50">
+                                Remove
+                              </Button>
+                            ) : (
+                              <Button type="button" disabled={couponLoading || !couponCode.trim()} onClick={handleApplyCoupon} className="h-9 text-xs rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white">
+                                {couponLoading ? "..." : "Apply"}
+                              </Button>
+                            )}
+                          </div>
+                          {couponError && (
+                            <p className="mt-1 text-[11px] text-rose-600 font-semibold">{couponError}</p>
+                          )}
+                          {appliedCoupon && (
+                            <p className="mt-1 text-[11px] text-emerald-600 font-bold">
+                              Saved {formatCurrency(appliedCoupon.discountAmount)}!
+                            </p>
+                          )}
                         </div>
-                        <div className="flex justify-between">
-                          <span>Nights of Stay:</span>
-                          <span className="font-bold text-slate-900">{totalNights} Night{totalNights > 1 ? "s" : ""}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>Number of Rooms:</span>
-                          <span className="font-bold text-slate-900">{numberOfRooms} Room{numberOfRooms > 1 ? "s" : ""}</span>
-                        </div>
-                        <div className="flex justify-between border-t border-slate-100 pt-2 text-sm">
-                          <span>Total Price:</span>
-                          <span className="font-black text-emerald-600 text-base">{formatCurrency(calculatedTotalPrice)}</span>
+
+                        <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 text-xs font-semibold text-slate-600 space-y-2">
+                          <div className="flex justify-between">
+                            <span>Price Per Night:</span>
+                            <span className="font-bold text-slate-900">{formatCurrency(room.price)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Nights of Stay:</span>
+                            <span className="font-bold text-slate-900">{totalNights} Night{totalNights > 1 ? "s" : ""}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Number of Rooms:</span>
+                            <span className="font-bold text-slate-900">{numberOfRooms} Room{numberOfRooms > 1 ? "s" : ""}</span>
+                          </div>
+                          {appliedCoupon && (
+                            <div className="flex justify-between text-emerald-600 font-bold">
+                              <span>Coupon Discount ({appliedCoupon.code}):</span>
+                              <span>-{formatCurrency(couponDiscount)}</span>
+                            </div>
+                          )}
+                          <div className="flex justify-between border-t border-slate-100 pt-2 text-sm">
+                            <span>Total Price:</span>
+                            <span className="font-black text-emerald-600 text-base">{formatCurrency(finalPrice)}</span>
+                          </div>
                         </div>
                       </div>
                     )}

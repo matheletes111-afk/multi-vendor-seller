@@ -81,7 +81,9 @@ export async function GET(
           price: i.price,
           subtotal: i.subtotal
         }
-      })
+      }),
+      couponCode: order.couponCode,
+      couponDiscount: order.couponDiscount,
     }
 
     return NextResponse.json({ success: true, data: formatted })

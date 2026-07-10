@@ -102,6 +102,11 @@ function CheckoutContent() {
   const [submittingOrder, setSubmittingOrder] = useState(false)
   const [errorMessage, setErrorMessage] = useState("")
 
+  const [couponCode, setCouponCode] = useState("")
+  const [appliedCoupon, setAppliedCoupon] = useState<any | null>(null)
+  const [couponLoading, setCouponLoading] = useState(false)
+  const [couponError, setCouponError] = useState<string | null>(null)
+
   const fetchFood = async () => {
     if (!foodItemId) return
     try {
@@ -263,7 +268,8 @@ function CheckoutContent() {
           deliveryCity: deliveryDetails.city,
           deliveryState: deliveryDetails.state,
           deliveryPostalCode: deliveryDetails.postalCode,
-          deliveryCountry: deliveryDetails.country
+          deliveryCountry: deliveryDetails.country,
+          couponCode: appliedCoupon ? appliedCoupon.code : undefined
         })
       })
 
@@ -283,6 +289,47 @@ function CheckoutContent() {
     } finally {
       setSubmittingOrder(false)
     }
+  }
+
+  const handleApplyCoupon = async () => {
+    if (!couponCode.trim()) return
+    setCouponLoading(true)
+    setCouponError(null)
+    try {
+      const itemsPayload = isSingleItem && singleFood
+        ? [{ foodItemId: singleFood.id, price: singleFood.price, quantity }]
+        : (cartData ? cartData.items.map(i => ({ foodItemId: i.foodItemId, price: i.price, quantity: i.quantity })) : [])
+
+      const res = await fetch("/api/customer/coupons/apply", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          code: couponCode,
+          type: "FOOD",
+          subtotal: orderSubtotal,
+          items: itemsPayload
+        })
+      })
+      const data = await res.json()
+      if (res.ok && data.success) {
+        setAppliedCoupon(data.data)
+        setCouponError(null)
+      } else {
+        setCouponError(data.error || "Failed to apply coupon")
+        setAppliedCoupon(null)
+      }
+    } catch (e) {
+      setCouponError("Network error applying coupon")
+      setAppliedCoupon(null)
+    } finally {
+      setCouponLoading(false)
+    }
+  }
+
+  const handleRemoveCoupon = () => {
+    setAppliedCoupon(null)
+    setCouponCode("")
+    setCouponError(null)
   }
 
   if (loadingFood || loadingAddresses) {
@@ -314,6 +361,7 @@ function CheckoutContent() {
   const orderSubtotal = isSingleItem 
     ? (singleFood ? singleFood.price * quantity : 0)
     : (cartData ? cartData.items.reduce((acc, i) => acc + i.price * i.quantity, 0) : 0)
+  const couponDiscount = appliedCoupon ? appliedCoupon.discountAmount : 0
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-5xl space-y-8 animate-in fade-in duration-500">
@@ -614,6 +662,37 @@ function CheckoutContent() {
                 ))
               )}
 
+              {/* Coupon Section */}
+              <div className="mt-4 border-t border-slate-100 pt-3">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Promo Code</label>
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Enter coupon code"
+                    value={couponCode}
+                    onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                    disabled={couponLoading || !!appliedCoupon}
+                    className="h-9 text-xs rounded-xl bg-slate-50 border-slate-200"
+                  />
+                  {appliedCoupon ? (
+                    <Button type="button" variant="outline" onClick={handleRemoveCoupon} className="h-9 text-xs rounded-xl text-rose-600 border-rose-200 hover:bg-rose-50">
+                      Remove
+                    </Button>
+                  ) : (
+                    <Button type="button" disabled={couponLoading || !couponCode.trim()} onClick={handleApplyCoupon} className="h-9 text-xs rounded-xl bg-amber-500 hover:bg-amber-600 text-amber-950 font-bold">
+                      Apply
+                    </Button>
+                  )}
+                </div>
+                {couponError && (
+                  <p className="mt-1 text-[11px] text-rose-600 font-semibold">{couponError}</p>
+                )}
+                {appliedCoupon && (
+                  <p className="mt-1 text-[11px] text-emerald-600 font-bold">
+                    Saved {formatCurrency(appliedCoupon.discountAmount)}!
+                  </p>
+                )}
+              </div>
+
               <hr className="border-slate-100" />
 
               <div className="space-y-2">
@@ -625,13 +704,19 @@ function CheckoutContent() {
                   <span>Delivery Charge</span>
                   <span className="text-emerald-600 font-black">FREE</span>
                 </div>
+                {appliedCoupon && (
+                  <div className="flex justify-between text-xs font-bold text-emerald-600">
+                    <span>Coupon Discount ({appliedCoupon.code})</span>
+                    <span>-{formatCurrency(couponDiscount)}</span>
+                  </div>
+                )}
               </div>
 
               <hr className="border-slate-100" />
 
               <div className="flex justify-between items-end">
                 <span className="font-black text-slate-800 text-sm uppercase">Total Amount</span>
-                <span className="text-2xl font-black text-amber-700 leading-none">{formatCurrency(orderSubtotal)}</span>
+                <span className="text-2xl font-black text-amber-700 leading-none">{formatCurrency(Math.max(0, orderSubtotal - couponDiscount))}</span>
               </div>
             </div>
 

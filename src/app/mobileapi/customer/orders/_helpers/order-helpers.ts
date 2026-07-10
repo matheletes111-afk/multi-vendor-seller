@@ -220,6 +220,8 @@ export async function listCustomerOrders({
       sellerStoreName: order.seller?.store?.name ?? null,
       sellerGroups,
       items,
+      couponCode: order.couponCode,
+      couponDiscount: order.couponDiscount,
     }
   })
 
@@ -468,6 +470,8 @@ export async function getCustomerOrderDetail({
     sellerStoreName: order.seller?.store?.name ?? null,
     sellerGroups,
     items,
+    couponCode: order.couponCode,
+    couponDiscount: order.couponDiscount,
   }
 }
 

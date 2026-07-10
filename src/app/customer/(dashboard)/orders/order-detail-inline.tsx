@@ -796,6 +796,12 @@ export function OrderDetailInline({
               <span className="font-medium text-gray-900">{formatCurrency(order.shipping)}</span>
             </div>
           )}
+          {order.couponDiscount && order.couponDiscount > 0 && (
+            <div className="flex justify-between pt-1 text-emerald-600 font-bold">
+              <span>Coupon Discount ({order.couponCode})</span>
+              <span>-{formatCurrency(order.couponDiscount)}</span>
+            </div>
+          )}
           <Separator className="my-3 bg-gray-200" />
           <div className="flex justify-between text-lg font-bold text-gray-900">
             <span>Grand total</span>

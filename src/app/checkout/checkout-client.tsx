@@ -52,6 +52,10 @@ export function CheckoutClient() {
   const [editingAddressId, setEditingAddressId] = useState<string | null>(null)
   const [addressForm, setAddressForm] = useState<AddressFormState>(emptyAddressForm)
   const [formSubmitting, setFormSubmitting] = useState(false)
+  const [couponCode, setCouponCode] = useState("")
+  const [appliedCoupon, setAppliedCoupon] = useState<any | null>(null)
+  const [couponLoading, setCouponLoading] = useState(false)
+  const [couponError, setCouponError] = useState<string | null>(null)
 
   const fetchAddresses = useCallback(async () => {
     setAddressesLoading(true)
@@ -100,7 +104,10 @@ export function CheckoutClient() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ addressId: selectedAddressId }),
+        body: JSON.stringify({
+          addressId: selectedAddressId,
+          couponCode: appliedCoupon ? appliedCoupon.code : undefined
+        }),
       })
       const data = (await res.json()) as PlaceOrderResponse | { error?: string }
       if (!res.ok) {
@@ -117,6 +124,47 @@ export function CheckoutClient() {
     } finally {
       setPlacing(false)
     }
+  }
+
+  const handleApplyCoupon = async () => {
+    if (!couponCode.trim()) return
+    setCouponLoading(true)
+    setCouponError(null)
+    try {
+      const res = await fetch("/api/customer/coupons/apply", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          code: couponCode,
+          type: "PRODUCT",
+          subtotal: cartSubtotal,
+          items: productItems.map(i => ({
+            productId: i.productId,
+            price: i.price,
+            quantity: i.quantity
+          }))
+        })
+      })
+      const data = await res.json()
+      if (res.ok && data.success) {
+        setAppliedCoupon(data.data)
+        setCouponError(null)
+      } else {
+        setCouponError(data.error || "Failed to apply coupon")
+        setAppliedCoupon(null)
+      }
+    } catch (e) {
+      setCouponError("Network error applying coupon")
+      setAppliedCoupon(null)
+    } finally {
+      setCouponLoading(false)
+    }
+  }
+
+  const handleRemoveCoupon = () => {
+    setAppliedCoupon(null)
+    setCouponCode("")
+    setCouponError(null)
   }
 
   const openEditForm = (addr: AddressApi) => {
@@ -214,10 +262,8 @@ export function CheckoutClient() {
   const productItems = items.filter((i) => i.productId)
   const cartSubtotal = productItems.reduce((sum, i) => sum + i.price * i.quantity, 0)
   const cartTax = productItems.reduce((sum, i) => sum + (i.gstAmount ?? 0), 0)
-  const cartGrandTotal = productItems.reduce(
-    (sum, i) => sum + (i.lineTotal ?? i.price * i.quantity + (i.gstAmount ?? 0)),
-    0
-  )
+  const couponDiscount = appliedCoupon ? appliedCoupon.discountAmount : 0
+  const cartGrandTotal = Math.max(0, cartSubtotal + cartTax - couponDiscount)
 
   if (cartLoading) {
     return (
@@ -513,6 +559,37 @@ export function CheckoutClient() {
                   )
                 })}
               </ul>
+              {/* Coupon Section */}
+              <div className="mt-4 border-t border-slate-200 pt-4">
+                <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider block mb-1.5">Apply Promo Code</label>
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Enter coupon code"
+                    value={couponCode}
+                    onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                    disabled={couponLoading || !!appliedCoupon}
+                    className="h-9 text-xs rounded-xl"
+                  />
+                  {appliedCoupon ? (
+                    <Button type="button" variant="outline" onClick={handleRemoveCoupon} className="h-9 text-xs rounded-xl hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200">
+                      Remove
+                    </Button>
+                  ) : (
+                    <Button type="button" disabled={couponLoading || !couponCode.trim()} onClick={handleApplyCoupon} className="h-9 text-xs rounded-xl bg-blue-600 hover:bg-blue-700 text-white">
+                      {couponLoading ? "Checking..." : "Apply"}
+                    </Button>
+                  )}
+                </div>
+                {couponError && (
+                  <p className="mt-1 text-xs text-rose-600" role="alert">{couponError}</p>
+                )}
+                {appliedCoupon && (
+                  <p className="mt-1 text-xs text-emerald-600 font-medium">
+                    Coupon "{appliedCoupon.code}" applied! Saved {formatCurrency(appliedCoupon.discountAmount)}
+                  </p>
+                )}
+              </div>
+
               <div className="mt-4 space-y-2 border-t border-slate-200 pt-4">
                 <div className="flex justify-between text-xs text-slate-700 sm:text-sm">
                   <span>Subtotal ({productItems.length} item(s))</span>
@@ -522,6 +599,12 @@ export function CheckoutClient() {
                   <span>Total GST (Tax)</span>
                   <span>{formatCurrency(cartTax)}</span>
                 </div>
+                {appliedCoupon && (
+                  <div className="flex justify-between text-xs text-emerald-600 sm:text-sm font-medium">
+                    <span>Coupon Discount ({appliedCoupon.code})</span>
+                    <span>-{formatCurrency(couponDiscount)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between border-t border-slate-200 pt-2 text-sm font-semibold text-slate-900 sm:text-base">
                   <span>Grand total</span>
                   <span>{formatCurrency(cartGrandTotal)}</span>
