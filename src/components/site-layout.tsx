@@ -803,6 +803,12 @@ export function SiteFooter() {
                   <li><Link href="/restaurant-seller/login" className={linkClass}>Restaurant Seller Login</Link></li>
                 </>
               )}
+              <li className="mt-1 border-t border-slate-200/50 pt-1.5 dark:border-slate-700/50">
+                <Link href="/terms-and-conditions" className={linkClass}>Terms & Conditions</Link>
+              </li>
+              <li>
+                <Link href="/privacy-policy" className={linkClass}>Privacy Policy</Link>
+              </li>
             </ul>
           </nav>
 
@@ -876,12 +882,20 @@ export function SiteFooter() {
 
         {/* Copyright row */}
         <div className={cn(
-          "mt-6 flex justify-center border-t pt-4 sm:mt-7 sm:pt-5",
+          "mt-6 flex flex-col items-center justify-between gap-4 border-t pt-4 sm:flex-row sm:mt-7 sm:pt-5",
           isFoodSection ? "border-[#E8DFD8]" : "border-blue-900/20"
         )}>
-          <p className={cn("text-center text-xs", isFoodSection ? "text-amber-800" : "text-slate-600")}>
+          <p className={cn("text-center text-xs sm:text-left", isFoodSection ? "text-amber-800" : "text-slate-600")}>
             © {new Date().getFullYear()} MEEEM Marketplace. All rights reserved.
           </p>
+          <div className="flex gap-4 text-xs font-medium">
+            <Link href="/terms-and-conditions" className={isFoodSection ? "text-amber-800 hover:text-amber-950 hover:underline" : "text-slate-600 hover:text-slate-900 hover:underline"}>
+              Terms & Conditions
+            </Link>
+            <Link href="/privacy-policy" className={isFoodSection ? "text-amber-800 hover:text-amber-950 hover:underline" : "text-slate-600 hover:text-slate-900 hover:underline"}>
+              Privacy Policy
+            </Link>
+          </div>
         </div>
       </div>
     </footer>
