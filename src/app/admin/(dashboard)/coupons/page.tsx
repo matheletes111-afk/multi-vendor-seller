@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Plus, Edit, Trash2, Calendar, Search, CheckCircle, XCircle, Tag, Ticket, Percent, DollarSign } from "lucide-react"
+import { Plus, Edit, Trash2, Calendar, Search, CheckCircle, XCircle, Tag, Ticket, Percent } from "lucide-react"
 import { Button } from "@/ui/button"
 import { Input } from "@/ui/input"
 import { Separator } from "@/ui/separator"
@@ -249,10 +249,12 @@ export default function AdminCouponsPage() {
                         {coupon.discountType === "PERCENTAGE" ? (
                           <span className="flex items-center gap-0.5"><Percent className="h-3.5 w-3.5" />{coupon.discountValue}%</span>
                         ) : (
-                          <span className="flex items-center gap-0.5"><DollarSign className="h-3.5 w-3.5" />{coupon.discountValue}</span>
+                          <span className="flex items-center gap-0.5">Nle {coupon.discountValue}</span>
                         )}
                       </td>
-                      <td className="px-6 py-4 font-medium">${coupon.minOrderValue}</td>
+
+
+                      <td className="px-6 py-4 font-medium">Nle {coupon.minOrderValue}</td>
                       <td className="px-6 py-4">
                         <div className="flex flex-col text-xs text-slate-500">
                           <span>Start: {new Date(coupon.startDate).toLocaleDateString()}</span>
@@ -269,13 +271,12 @@ export default function AdminCouponsPage() {
                         )}
                       </td>
                       <td className="px-6 py-4">
-                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${
-                          isFullyActive
+                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${isFullyActive
                             ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400"
                             : limitReached
                               ? "bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400"
                               : "bg-rose-50 text-rose-700 dark:bg-rose-950/30 dark:text-rose-400"
-                        }`}>
+                          }`}>
                           {isFullyActive ? (
                             <>
                               <CheckCircle className="h-3.5 w-3.5" />
@@ -358,7 +359,7 @@ export default function AdminCouponsPage() {
                     className="w-full bg-background border border-input rounded-xl px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-ring"
                   >
                     <option value="PERCENTAGE">Percentage (%)</option>
-                    <option value="FIXED">Fixed Amount ($)</option>
+                    <option value="FIXED">Fixed Amount (Nle)</option>
                   </select>
                 </div>
               </div>
