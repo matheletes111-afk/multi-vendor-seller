@@ -252,6 +252,8 @@ export default function AdminCouponsPage() {
                           <span className="flex items-center gap-0.5">Nle {coupon.discountValue}</span>
                         )}
                       </td>
+
+
                       <td className="px-6 py-4 font-medium">Nle {coupon.minOrderValue}</td>
                       <td className="px-6 py-4">
                         <div className="flex flex-col text-xs text-slate-500">
@@ -269,13 +271,12 @@ export default function AdminCouponsPage() {
                         )}
                       </td>
                       <td className="px-6 py-4">
-                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${
-                          isFullyActive
+                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${isFullyActive
                             ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400"
                             : limitReached
                               ? "bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400"
                               : "bg-rose-50 text-rose-700 dark:bg-rose-950/30 dark:text-rose-400"
-                        }`}>
+                          }`}>
                           {isFullyActive ? (
                             <>
                               <CheckCircle className="h-3.5 w-3.5" />
@@ -307,7 +308,7 @@ export default function AdminCouponsPage() {
           </div>
         )}
       </div>
- 
+
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-y-auto">
           <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-lg shadow-xl border border-slate-100 dark:border-slate-800 overflow-hidden my-8">
@@ -331,7 +332,7 @@ export default function AdminCouponsPage() {
                   />
                 </div>
               )}
- 
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Domain Type</label>
@@ -349,7 +350,7 @@ export default function AdminCouponsPage() {
                     <option value="FOOD">Foods</option>
                   </select>
                 </div>
- 
+
                 <div>
                   <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Discount Type</label>
                   <select
