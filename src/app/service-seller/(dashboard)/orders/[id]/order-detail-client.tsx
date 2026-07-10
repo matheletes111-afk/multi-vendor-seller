@@ -590,6 +590,12 @@ export function ServiceSellerOrderDetailClient({ orderId }: { orderId: string })
               <span>{formatCurrency(order.shipping)}</span>
             </div>
           )}
+          {order.couponDiscount && order.couponDiscount > 0 && (
+            <div className="flex justify-between text-sm text-emerald-600 font-bold">
+              <span>Coupon Discount ({order.couponCode})</span>
+              <span>-{formatCurrency(order.couponDiscount)}</span>
+            </div>
+          )}
           <Separator className="my-2" />
           <div className="flex justify-between font-semibold text-base pt-1">
             <span>Grand total (your lines)</span>

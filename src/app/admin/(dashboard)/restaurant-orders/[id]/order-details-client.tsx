@@ -39,6 +39,8 @@ type OrderDetails = {
   deliveryState: string
   deliveryPostalCode: string
   deliveryCountry: string
+  couponCode?: string | null
+  couponDiscount?: number | null
   customer: {
     name: string
     email: string
@@ -141,8 +143,23 @@ export function AdminRestaurantOrderDetailsClient({ orderId }: { orderId: string
                 </div>
               </div>
               <div className="space-y-1 col-span-2">
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Amount</p>
-                <p className="text-2xl font-black text-rose-600 leading-none mt-1">{formatCurrency(order.totalAmount)}</p>
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Payment Breakdown</p>
+                <div className="text-sm font-semibold space-y-1 text-slate-600 mt-1">
+                  <div className="flex justify-between">
+                    <span>Subtotal:</span>
+                    <span className="font-bold text-slate-800">{formatCurrency(order.items.reduce((s, i) => s + i.subtotal, 0))}</span>
+                  </div>
+                  {order.couponDiscount && order.couponDiscount > 0 && (
+                    <div className="flex justify-between text-emerald-600">
+                      <span>Discount ({order.couponCode}):</span>
+                      <span className="font-bold">-{formatCurrency(order.couponDiscount)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between text-rose-600 pt-1 border-t border-dashed border-slate-200 text-base">
+                    <span>Grand Total:</span>
+                    <span className="font-black">{formatCurrency(order.totalAmount)}</span>
+                  </div>
+                </div>
               </div>
             </CardContent>
           </Card>

@@ -148,4 +148,6 @@ export type AdminOrderDetailApi = {
   sellerStoreName: string | null
   sellerGroups: AdminOrderSellerGroupApi[]
   items: AdminOrderDetailItemApi[]
+  couponCode?: string | null
+  couponDiscount?: number | null
 }

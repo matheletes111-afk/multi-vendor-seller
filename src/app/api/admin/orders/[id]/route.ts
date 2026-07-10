@@ -233,6 +233,8 @@ export async function GET(
     sellerStoreName: order.seller?.store?.name ?? null,
     sellerGroups,
     items,
+    couponCode: order.couponCode,
+    couponDiscount: order.couponDiscount,
   }
   return NextResponse.json(body)
 }

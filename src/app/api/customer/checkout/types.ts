@@ -26,6 +26,8 @@ export type PlaceOrderOrderSummary = {
   sellerId: string
   totalAmount: number
   itemCount: number
+  couponCode?: string
+  couponDiscount?: number
 }
 
 export type PlaceOrderResponse = {

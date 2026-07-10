@@ -1,0 +1,262 @@
+============================================================
+MOBILE API CONTRACT: COUPON INTEGRATION
+============================================================
+Project: multi-vendor-seller
+Audience: Flutter app integration
+Auth: Bearer token required for all customer routes below
+
+This document outlines the API endpoints, payload contracts, and response contracts for:
+1) Coupon validation and application during checkout
+2) Order checkout changes when applying coupons (Products, Services, Food, Hotels)
+3) Showing coupon discounts in order history/details responses
+
+============================================================
+1) APPLY/VALIDATE COUPON
+============================================================
+Endpoint:
+POST /mobileapi/customer/coupons/apply
+
+Headers:
+Authorization: Bearer <customer_token>
+Content-Type: application/json
+
+Payload:
+{
+  "code": "SAVE20",
+  "type": "PRODUCT",           // "PRODUCT" | "SERVICE" | "HOTEL" | "FOOD"
+  "subtotal": 150.00,
+  "items": [                  // Optional: required if category-specific coupon is used
+    {
+      "categoryId": "cat_123", 
+      "price": 50.00, 
+      "quantity": 3
+    }
+  ]
+}
+
+Response 200 (Success):
+{
+  "success": true,
+  "message": "Coupon applied successfully",
+  "data": {
+    "couponId": "coup_123",
+    "code": "SAVE20",
+    "discountType": "PERCENTAGE", // "PERCENTAGE" | "FIXED"
+    "discountValue": 20.0,
+    "discountAmount": 30.00      // Calculated discount to apply to subtotal
+  }
+}
+
+Error Response (400):
+{
+  "success": false,
+  "error": "Minimum order value of $200 not met."
+}
+
+Error Response (404/400):
+{
+  "success": false,
+  "error": "Coupon code is invalid, expired, or has reached its usage limit."
+}
+
+
+============================================================
+2) PLACE ORDER PAYLOAD CHANGES
+============================================================
+To apply a coupon during checkout, clients pass the couponCode in the order placement request.
+
+------------------------------------------------------------
+A) Products / Services Checkout:
+------------------------------------------------------------
+Endpoint:
+POST /mobileapi/customer/checkout/place-order
+
+Payload:
+{
+  "addressId": "addr_123",
+  "couponCode": "SAVE20" // [NEW] Optional field
+}
+
+Response 200:
+{
+  "success": true,
+  "orderIds": ["ord_123"],
+  "orders": [
+    {
+      "orderId": "ord_123",
+      "orderNumber": "ORD-...",
+      "sellerId": "MULTI",
+      "totalAmount": 120.00,   // [UPDATED] Subtotal + Tax + Shipping - couponDiscount
+      "itemCount": 3,
+      "couponCode": "SAVE20",  // [NEW]
+      "couponDiscount": 30.00  // [NEW] Applied discount
+    }
+  ]
+}
+
+NOTE: couponCode type PRODUCT applies to product cart items.
+      couponCode type SERVICE applies to service cart items.
+      The cart can contain only products OR only services.
+      Mixed product+service carts are not allowed.
+
+------------------------------------------------------------
+B) Service-Only Direct Checkout (place-service-order):
+------------------------------------------------------------
+Endpoint:
+POST /mobileapi/customer/checkout/place-service-order
+
+Payload:
+{
+  "serviceId": "svc_123",
+  "addressId": "addr_123",
+  "slotStartTime": "2026-08-10T09:00:00Z",  // Optional
+  "slotEndTime": "2026-08-10T10:00:00Z",    // Optional
+  "serviceSlotId": "slot_123",               // Optional: use existing slot
+  "couponCode": "SERVICE20"                  // [NEW] Optional field, must be type SERVICE
+}
+
+Response 200:
+{
+  "success": true,
+  "message": "Order placed",
+  "data": {
+    "orderId": "ord_456",
+    "orderNumber": "ORD-..."
+  }
+}
+
+NOTE: To see couponDiscount in service order details, use the GET order details endpoint.
+
+------------------------------------------------------------
+C) Food Order Checkout:
+------------------------------------------------------------
+Endpoint:
+POST /mobileapi/customer/foods/orders
+
+Payload:
+{
+  "restaurantSellerId": "rseller_456",
+  "items": [
+    { "foodItemId": "food_1", "quantity": 2 }
+  ],
+  "deliveryFullName": "John Doe",
+  "deliveryPhone": "1234567890",
+  "deliveryAddressLine1": "123 Main St",
+  "deliveryAddressLine2": null,
+  "deliveryCity": "Freetown",
+  "deliveryState": "Western Area",
+  "deliveryPostalCode": "00000",
+  "deliveryCountry": "Sierra Leone",
+  "couponCode": "FOOD20"   // [NEW] Optional field, must be type FOOD
+}
+
+Response 201:
+{
+  "success": true,
+  "message": "Order placed successfully",
+  "data": {
+    "id": "food_ord_789",
+    "orderNumber": "F-20260710-1234",
+    "totalAmount": 80.00,       // [UPDATED] discounted total (subtotal - couponDiscount)
+    "couponCode": "FOOD20",     // Stored in order (visible in GET detail)
+    "couponDiscount": 20.00     // Stored in order (visible in GET detail)
+  }
+}
+
+------------------------------------------------------------
+D) Hotel Room Booking Checkout:
+------------------------------------------------------------
+Endpoint:
+POST /mobileapi/customer/hotels/rooms/{roomId}/book
+
+Payload:
+{
+  "checkIn": "2026-08-10",
+  "checkOut": "2026-08-15",
+  "numberOfRooms": 1,
+  "guestName": "John Doe",
+  "guestPhone": "1234567890",
+  "adults": 2,
+  "children": 0,
+  "couponCode": "HOTEL50"   // [NEW] Optional field, must be type HOTEL
+}
+
+Response 200:
+{
+  "success": true,
+  "message": "Booking confirmed successfully",
+  "data": {
+    "id": "book_123",
+    "totalPrice": 450.00,     // [UPDATED] discounted price (baseFare - couponDiscount)
+    "couponCode": "HOTEL50",  // Stored on booking (visible in GET detail)
+    "couponDiscount": 50.00,  // Stored on booking (visible in GET detail)
+    "status": "CONFIRMED"
+  }
+}
+
+
+============================================================
+3) SHOWING COUPONS IN GET ORDER DETAILS / BOOKINGS DETAILS
+============================================================
+The responses for fetching orders or booking details will include the coupon code and coupon discount if applied.
+
+------------------------------------------------------------
+A) Product / Service Orders:
+------------------------------------------------------------
+Endpoints:
+GET /mobileapi/customer/orders/products/details/{orderId}
+GET /mobileapi/customer/orders/services/details/{orderId}
+
+Response 200 includes:
+{
+  "success": true,
+  "data": {
+    "id": "ord_123",
+    "orderNumber": "ORD-...",
+    "subtotal": 150.00,
+    "tax": 15.00,
+    "shipping": 0.00,
+    "couponCode": "SAVE20",       // [NEW] Nullable
+    "couponDiscount": 30.00,     // [NEW] Applied discount
+    "totalAmount": 135.00,       // [UPDATED] subtotal + tax + shipping - couponDiscount
+    "items": [...]
+  }
+}
+
+------------------------------------------------------------
+B) Food Orders:
+------------------------------------------------------------
+Endpoint:
+GET /mobileapi/customer/foods/orders/details/{orderId}
+
+Response 200 includes:
+{
+  "success": true,
+  "data": {
+    "id": "food_ord_789",
+    "orderNumber": "FOOD-...",
+    "totalAmount": 80.00,
+    "couponCode": "SAVE20",       // [NEW] Nullable
+    "couponDiscount": 20.00,     // [NEW]
+    "items": [...]
+  }
+}
+
+------------------------------------------------------------
+C) Hotel Booking Details:
+------------------------------------------------------------
+Endpoint:
+GET /mobileapi/customer/hotels/bookings/details/{bookingId}
+
+Response 200 includes:
+{
+  "success": true,
+  "data": {
+    "id": "book_123",
+    "totalPrice": 450.00,
+    "couponCode": "HOTEL50",      // [NEW] Nullable
+    "couponDiscount": 50.00,     // [NEW]
+    "checkIn": "...",
+    "checkOut": "..."
+  }
+}

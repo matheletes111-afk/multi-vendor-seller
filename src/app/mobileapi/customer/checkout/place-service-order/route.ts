@@ -5,6 +5,7 @@ import { createServiceSlotIfAllowed } from "@/lib/service-slots"
 import { getMobileCustomerAuth } from "@/app/mobileapi/_helpers/customer-auth"
 import { UserRole } from "@prisma/client"
 import { sendOrderConfirmationEmail, sendSellerNewOrderEmail, sendAdminNewOrderEmail } from "@/lib/email"
+import { validateCoupon } from "@/lib/coupons"
 
 export const dynamic = "force-dynamic"
 
@@ -42,6 +43,7 @@ export async function POST(request: NextRequest) {
     slotEndTime?: string
     addressId?: string
     serviceSlotId?: string
+    couponCode?: string
   }
   const serviceId = typeof payload.serviceId === "string" ? payload.serviceId.trim() : null
   const addressId = typeof payload.addressId === "string" ? payload.addressId.trim() : null
@@ -117,12 +119,32 @@ export async function POST(request: NextRequest) {
   const quantity = 1
   const subtotal = unitPrice * quantity
   const totalGst = hasGst ? subtotal * GST_RATE : 0
-  const totalAmount = subtotal + totalGst
+
+  // Coupon validation
+  const rawCouponCode = typeof payload.couponCode === "string" ? payload.couponCode.trim().toUpperCase() : null
+  let coupon = null
+  let couponDiscount = 0
+  if (rawCouponCode) {
+    const validationResult = await validateCoupon({
+      code: rawCouponCode,
+      type: "SERVICE",
+      subtotal,
+      items: [{ serviceId: service.id, price: unitPrice, quantity: 1 }],
+      userId: auth.userId,
+    })
+    if (!validationResult.valid) {
+      return NextResponse.json({ success: false, error: validationResult.error }, { status: 400 })
+    }
+    coupon = validationResult.coupon
+    couponDiscount = validationResult.discountAmount || 0
+  }
+
+  const totalAmount = Math.max(0, subtotal + totalGst - couponDiscount)
   const commission = totalAmount * (COMMISSION_RATE / 100)
 
   const order = await prisma.$transaction(async (tx) => {
     const orderNumber = await allocateNextOrderNumberTx(tx)
-    return tx.order.create({
+    const newOrder = await tx.order.create({
       data: {
         orderNumber,
         customerId: auth.userId,
@@ -144,8 +166,21 @@ export async function POST(request: NextRequest) {
         shippingState: address.state,
         shippingPostalCode: address.postalCode,
         shippingCountry: address.country,
+        couponId: coupon ? (coupon as any).id : null,
+        couponCode: coupon ? (coupon as any).code : null,
+        couponDiscount,
       },
     })
+    if (coupon) {
+      await tx.couponUsage.create({
+        data: {
+          couponId: (coupon as any).id,
+          userId: auth.userId,
+          orderId: newOrder.id,
+        },
+      })
+    }
+    return newOrder
   })
 
   await prisma.orderItem.create({

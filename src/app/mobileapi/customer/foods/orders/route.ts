@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { verifyMobileAccessToken } from "@/lib/mobile-jwt"
 import { sendFoodOrderConfirmationEmail, sendRestaurantNewOrderEmail, sendAdminNewOrderEmail } from "@/lib/email"
+import { validateCoupon } from "@/lib/coupons"
 
 export const dynamic = "force-dynamic"
 
@@ -81,7 +82,8 @@ export async function POST(request: NextRequest) {
       deliveryCity,
       deliveryState,
       deliveryPostalCode,
-      deliveryCountry
+      deliveryCountry,
+      couponCode
     } = body
 
     if (!restaurantSellerId || !items || !Array.isArray(items) || items.length === 0 || !deliveryFullName || !deliveryPhone || !deliveryAddressLine1 || !deliveryCity || !deliveryState || !deliveryPostalCode || !deliveryCountry) {
@@ -98,8 +100,9 @@ export async function POST(request: NextRequest) {
 
     // Process items in a Prisma Transaction
     const result = await prisma.$transaction(async (tx) => {
-      let totalAmount = 0
+      let subtotalAmount = 0
       const orderItemsToCreate = []
+      const couponItemsForValidation = []
 
       for (const item of items) {
         const food = await tx.foodItem.findFirst({
@@ -116,7 +119,7 @@ export async function POST(request: NextRequest) {
 
         const price = food.price
         const subtotal = price * quantity
-        totalAmount += subtotal
+        subtotalAmount += subtotal
 
         orderItemsToCreate.push({
           foodItemId: food.id,
@@ -124,7 +127,36 @@ export async function POST(request: NextRequest) {
           price,
           subtotal
         })
+
+        couponItemsForValidation.push({
+          foodItemId: food.id,
+          price,
+          quantity
+        })
       }
+
+      // Validate coupon if provided
+      let couponId = null
+      let couponCodeDb = null
+      let couponDiscount = 0
+      if (couponCode) {
+        const validationResult = await validateCoupon({
+          code: couponCode.trim().toUpperCase(),
+          type: "FOOD",
+          subtotal: subtotalAmount,
+          items: couponItemsForValidation,
+          userId
+        })
+
+        if (!validationResult.valid) {
+          throw new Error(validationResult.error)
+        }
+        couponId = validationResult.coupon?.id || null
+        couponCodeDb = validationResult.coupon?.code || null
+        couponDiscount = validationResult.discountAmount || 0
+      }
+
+      const finalAmount = Math.max(0, subtotalAmount - couponDiscount)
 
       // Generate unique order number
       const now = new Date()
@@ -137,7 +169,7 @@ export async function POST(request: NextRequest) {
           orderNumber,
           customerId: userId,
           restaurantSellerId,
-          totalAmount,
+          totalAmount: finalAmount,
           deliveryFullName,
           deliveryPhone,
           deliveryAddressLine1,
@@ -146,12 +178,25 @@ export async function POST(request: NextRequest) {
           deliveryState,
           deliveryPostalCode,
           deliveryCountry,
+          couponId,
+          couponCode: couponCodeDb,
+          couponDiscount,
           status: "PENDING",
           items: {
             create: orderItemsToCreate
           }
         }
       })
+
+      if (couponId) {
+        await tx.couponUsage.create({
+          data: {
+            couponId,
+            userId,
+            foodOrderId: order.id
+          }
+        })
+      }
 
       return order
     })

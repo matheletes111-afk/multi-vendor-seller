@@ -138,6 +138,7 @@ model User {
   /// CPC ads created by customers (own business / creative-only; no linked product).
   customerSellerAds SellerAd[] @relation("CustomerSellerAds")
   categoryInterests UserCategoryInterest[]
+  couponUsages      CouponUsage[]
 
   @@map("users")
 }
@@ -500,6 +501,9 @@ model HotelBooking {
   children       Int      @default(0)
   totalPrice     Float
   status         String   @default("CONFIRMED") // PENDING, CONFIRMED, CANCELLED
+  couponId       String?
+  couponCode     String?
+  couponDiscount Float    @default(0)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
@@ -1224,6 +1228,9 @@ model Order {
   shippingState  String?
   shippingPostalCode String?
   shippingCountry String?
+  couponId        String?
+  couponCode      String?
+  couponDiscount  Float         @default(0)
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
 
@@ -1531,6 +1538,9 @@ model FoodOrder {
   deliveryState       String
   deliveryPostalCode  String
   deliveryCountry     String
+  couponId            String?
+  couponCode          String?
+  couponDiscount      Float           @default(0)
   createdAt           DateTime        @default(now())
   updatedAt           DateTime        @updatedAt
 
@@ -1588,4 +1598,41 @@ model RestaurantBalanceTransaction {
 
   @@index([restaurantSellerId, createdAt])
   @@map("restaurant_balance_transactions")
+}
+
+model Coupon {
+  id                 String        @id @default(cuid())
+  code               String        @unique
+  discountType       String        // "PERCENTAGE" | "FIXED"
+  discountValue      Float
+  type               String        // "PRODUCT" | "SERVICE" | "HOTEL" | "FOOD"
+  categoryId         String?       // Restricts to a specific category
+  customerCount      Int?          // Total global usage limit (max customers/orders)
+  maxUsesPerCustomer Int           @default(1) // Limit per customer
+  minOrderValue      Float         @default(0)
+  startDate          DateTime
+  endDate            DateTime
+  isActive           Boolean       @default(true)
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+  usages             CouponUsage[]
+
+  @@map("coupons")
+}
+
+model CouponUsage {
+  id             String   @id @default(cuid())
+  couponId       String
+  userId         String
+  orderId        String?
+  hotelBookingId String?
+  foodOrderId    String?
+  createdAt      DateTime @default(now())
+
+  coupon Coupon @relation(fields: [couponId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([couponId])
+  @@index([userId])
+  @@map("coupon_usages")
 }

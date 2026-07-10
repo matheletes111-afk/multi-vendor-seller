@@ -1262,6 +1262,13 @@ export function ProductSellerOrderDetailClient({ orderId }: { orderId: string })
                         <span className="font-bold tabular-nums text-amber-600/80">{formatCurrency(order.shipping)}</span>
                       </div>
                     )}
+
+                    {order.couponDiscount && order.couponDiscount > 0 && (
+                      <div className="flex justify-between items-center px-1 text-emerald-600 font-bold">
+                        <span className="text-[10px] font-black uppercase tracking-widest">Coupon Discount ({order.couponCode})</span>
+                        <span className="tabular-nums">-{formatCurrency(order.couponDiscount)}</span>
+                      </div>
+                    )}
                   </div>
                   
                   <div className="relative p-6 rounded-[2rem] bg-foreground text-background shadow-xl overflow-hidden group hover:scale-[1.02] transition-transform duration-500">

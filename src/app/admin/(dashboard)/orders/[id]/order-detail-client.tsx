@@ -736,6 +736,12 @@ export function AdminOrderDetailClient({ orderId }: { orderId: string }) {
                       <span className="font-semibold tabular-nums">{formatCurrency(order.shipping)}</span>
                     </div>
                   )}
+                  {order.couponDiscount && order.couponDiscount > 0 && (
+                    <div className="flex justify-between text-sm font-medium text-emerald-600">
+                      <span>Coupon Discount ({order.couponCode})</span>
+                      <span className="font-semibold tabular-nums">-{formatCurrency(order.couponDiscount)}</span>
+                    </div>
+                  )}
                   <div className="pt-3 border-t border-dashed border-muted-foreground/20">
                     <div className="flex justify-between items-center">
                       <span className="text-base font-bold uppercase tracking-tight text-primary">Grand Total</span>

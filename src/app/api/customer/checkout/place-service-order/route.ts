@@ -5,6 +5,7 @@ import { allocateNextOrderNumberTx } from "@/lib/order-number"
 import { createServiceSlotIfAllowed } from "@/lib/service-slots"
 import { UserRole } from "@prisma/client"
 import { sendOrderConfirmationEmail, sendSellerNewOrderEmail, sendAdminNewOrderEmail } from "@/lib/email"
+import { validateCoupon } from "@/lib/coupons"
 
 const GST_RATE = 0.15
 
@@ -44,6 +45,7 @@ export async function POST(request: NextRequest) {
     slotStartTime?: string
     slotEndTime?: string
     addressId?: string
+    couponCode?: string
   }
   const serviceId = typeof payload.serviceId === "string" ? payload.serviceId.trim() : null
   const addressId = typeof payload.addressId === "string" ? payload.addressId.trim() : null
@@ -99,7 +101,27 @@ export async function POST(request: NextRequest) {
   const quantity = 1
   const subtotal = unitPrice * quantity
   const totalGst = hasGst ? subtotal * GST_RATE : 0
-  const totalAmount = subtotal + totalGst
+
+  // Coupon validation
+  const rawCouponCode = typeof payload.couponCode === "string" ? payload.couponCode.trim().toUpperCase() : null
+  let coupon = null
+  let couponDiscount = 0
+  if (rawCouponCode) {
+    const validationResult = await validateCoupon({
+      code: rawCouponCode,
+      type: "SERVICE",
+      subtotal,
+      items: [{ serviceId: service.id, price: unitPrice, quantity: 1 }],
+      userId: session.user.id,
+    })
+    if (!validationResult.valid) {
+      return NextResponse.json({ error: validationResult.error }, { status: 400 })
+    }
+    coupon = validationResult.coupon
+    couponDiscount = validationResult.discountAmount || 0
+  }
+
+  const totalAmount = Math.max(0, subtotal + totalGst - couponDiscount)
 
   // ── Commission (server-side only, never returned to customer) ───────────────
   const commissionRate = await resolveSellerCommissionRate(service.sellerId)
@@ -107,7 +129,7 @@ export async function POST(request: NextRequest) {
 
   const order = await prisma.$transaction(async (tx) => {
     const orderNumber = await allocateNextOrderNumberTx(tx)
-    return tx.order.create({
+    const newOrder = await tx.order.create({
       data: {
         orderNumber,
         customerId: session.user.id,
@@ -129,8 +151,21 @@ export async function POST(request: NextRequest) {
         shippingState: address.state,
         shippingPostalCode: address.postalCode,
         shippingCountry: address.country,
+        couponId: coupon ? (coupon as any).id : null,
+        couponCode: coupon ? (coupon as any).code : null,
+        couponDiscount,
       },
     })
+    if (coupon) {
+      await tx.couponUsage.create({
+        data: {
+          couponId: (coupon as any).id,
+          userId: session.user.id,
+          orderId: newOrder.id,
+        },
+      })
+    }
+    return newOrder
   })
 
   await prisma.orderItem.create({

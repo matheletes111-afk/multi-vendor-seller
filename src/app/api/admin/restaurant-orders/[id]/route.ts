@@ -105,6 +105,8 @@ export async function GET(
       deliveryState: order.deliveryState,
       deliveryPostalCode: order.deliveryPostalCode,
       deliveryCountry: order.deliveryCountry,
+      couponCode: order.couponCode,
+      couponDiscount: order.couponDiscount,
       customer: {
         name: order.customer.name || "Customer",
         email: order.customer.email,

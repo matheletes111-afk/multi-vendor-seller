@@ -174,6 +174,8 @@ export async function GET(
     customerPhone: order.customer?.phone ?? null,
     customerPhoneCountryCode: order.customer?.phoneCountryCode ?? null,
     items,
+    couponCode: order.couponCode,
+    couponDiscount: order.couponDiscount,
   }
   return NextResponse.json(body)
 }
