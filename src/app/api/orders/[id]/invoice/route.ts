@@ -99,7 +99,13 @@ export async function GET(
     const subtotal = items.reduce((sum, it) => sum + (it.price * it.quantity), 0)
     const gstTotal = items.reduce((sum, it) => sum + it.gstAmount, 0)
     const shippingCharge = group.items.reduce((sum: number, it: any) => sum + it.shippingAmount, 0)
-    const grandTotal = items.reduce((sum, it) => sum + it.total, 0) + shippingCharge
+
+    let groupCouponDiscount = 0
+    if (order.couponDiscount && order.subtotal > 0) {
+      groupCouponDiscount = Number(((order.couponDiscount * subtotal) / order.subtotal).toFixed(2))
+    }
+
+    const grandTotal = Math.max(0, items.reduce((sum, it) => sum + it.total, 0) + shippingCharge - groupCouponDiscount)
 
     invoices.push({
       orderNumber: order.orderNumber,
@@ -119,6 +125,8 @@ export async function GET(
       gstTotal,
       shippingCharge,
       grandTotal,
+      couponCode: order.couponCode,
+      couponDiscount: groupCouponDiscount,
     })
   }
 

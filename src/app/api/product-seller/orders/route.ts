@@ -114,20 +114,28 @@ export async function GET(request: NextRequest) {
 
   const totalPages = Math.ceil(totalCount / perPage) || 1
 
-  const serialized = orders.map((order) => ({
-    ...order,
-    status: deriveOrderStatus(order.items.map((item) => item.itemStatus)),
-    totalAmount: order.items.reduce((sum, item) => sum + (item.subtotalInclGst ?? item.subtotal + item.gstAmount) + item.shippingAmount, 0),
-    subtotal: order.items.reduce((sum, item) => sum + item.subtotal, 0),
-    tax: order.items.reduce((sum, item) => sum + item.gstAmount, 0),
-    shipping: order.items.reduce((sum, item) => sum + item.shippingAmount, 0),
-    commission: order.items.reduce((sum, item) => sum + item.commissionAmount, 0),
-    hasReturnFlag: order.items.some(
-      (item) =>
-        item.productVariant?.returnType === "RETURNABLE" &&
-        (item.returnRequest?.status === "REQUESTED" || item.returnRequest?.status === "ACCEPTED")
-    ),
-  }))
+  const serialized = orders.map((order) => {
+    const sellerSubtotal = order.items.reduce((sum, item) => sum + item.subtotal, 0)
+    let sellerCouponDiscount = 0
+    if (order.couponDiscount && order.subtotal > 0) {
+      sellerCouponDiscount = Number(((order.couponDiscount * sellerSubtotal) / order.subtotal).toFixed(2))
+    }
+    return {
+      ...order,
+      status: deriveOrderStatus(order.items.map((item) => item.itemStatus)),
+      totalAmount: Math.max(0, order.items.reduce((sum, item) => sum + (item.subtotalInclGst ?? item.subtotal + item.gstAmount) + item.shippingAmount, 0) - sellerCouponDiscount),
+      subtotal: sellerSubtotal,
+      tax: order.items.reduce((sum, item) => sum + item.gstAmount, 0),
+      shipping: order.items.reduce((sum, item) => sum + item.shippingAmount, 0),
+      commission: order.items.reduce((sum, item) => sum + item.commissionAmount, 0),
+      couponDiscount: sellerCouponDiscount,
+      hasReturnFlag: order.items.some(
+        (item) =>
+          item.productVariant?.returnType === "RETURNABLE" &&
+          (item.returnRequest?.status === "REQUESTED" || item.returnRequest?.status === "ACCEPTED")
+      ),
+    }
+  })
 
   return NextResponse.json({
     orders: serialized,

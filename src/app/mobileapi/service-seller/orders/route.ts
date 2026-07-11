@@ -124,16 +124,23 @@ export async function GET(request: NextRequest) {
 
   const serialized = orders.map((order) => {
     const sellerItems = order.items
+    const sellerSubtotal = sellerItems.reduce((sum, item) => sum + item.subtotal, 0)
+    let sellerCouponDiscount = 0
+    if (order.couponDiscount && order.subtotal > 0) {
+      sellerCouponDiscount = Number(((order.couponDiscount * sellerSubtotal) / order.subtotal).toFixed(2))
+    }
     return {
       id: order.id,
       orderNumber: order.orderNumber,
       status: deriveOrderStatus(sellerItems.map((item) => item.itemStatus)),
-      totalAmount: sellerItems.reduce((sum, item) => sum + (item.subtotalInclGst ?? item.subtotal + item.gstAmount) + item.shippingAmount, 0),
+      totalAmount: Math.max(0, sellerItems.reduce((sum, item) => sum + (item.subtotalInclGst ?? item.subtotal + item.gstAmount) + item.shippingAmount, 0) - sellerCouponDiscount),
       createdAt: order.createdAt,
       customer: {
         name: order.customer?.name ?? null,
         email: order.customer?.email ?? null,
       },
+      couponCode: order.couponCode,
+      couponDiscount: sellerCouponDiscount,
       items: sellerItems.map(item => {
         const imageUrl = firstImageUrl(item.service?.images) ?? null
         return {

@@ -111,10 +111,16 @@ export async function GET(
   })
 
   const sellerItems = order.items
-  const totalAmount = sellerItems.reduce(
+  const sellerSubtotal = sellerItems.reduce((sum, item) => sum + item.subtotal, 0)
+  let sellerCouponDiscount = 0
+  if (order.couponDiscount && order.subtotal > 0) {
+    sellerCouponDiscount = Number(((order.couponDiscount * sellerSubtotal) / order.subtotal).toFixed(2))
+  }
+
+  const totalAmount = Math.max(0, sellerItems.reduce(
     (sum, item) => sum + (item.subtotalInclGst ?? item.subtotal + item.gstAmount) + item.shippingAmount,
     0
-  )
+  ) - sellerCouponDiscount)
   const commission = sellerItems.reduce((sum, item) => sum + item.commissionAmount, 0)
   const sellerNet = serviceSellerItemsNet(sellerItems)
 
@@ -126,7 +132,7 @@ export async function GET(
     orderHasDeliveredLine,
     status: deriveOrderStatus(order.items.map((item) => item.itemStatus)),
     totalAmount,
-    subtotal: order.items.reduce((sum, item) => sum + item.subtotal, 0),
+    subtotal: sellerSubtotal,
     tax: order.items.reduce((sum, item) => sum + item.gstAmount, 0),
     shipping: order.items.reduce((sum, item) => sum + item.shippingAmount, 0),
     commission,
@@ -147,7 +153,7 @@ export async function GET(
     customerEmail: order.customer?.email ?? null,
     items,
     couponCode: order.couponCode,
-    couponDiscount: order.couponDiscount,
+    couponDiscount: sellerCouponDiscount,
   }
   return NextResponse.json(body)
 }

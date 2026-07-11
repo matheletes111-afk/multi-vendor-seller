@@ -33,6 +33,8 @@ export interface InvoiceData {
   gstTotal: number
   shippingCharge: number
   grandTotal: number
+  couponCode?: string | null
+  couponDiscount?: number
 }
 
 interface OrderInvoiceProps {
@@ -137,6 +139,12 @@ export function OrderInvoice({ data, isLast }: OrderInvoiceProps) {
               <span>{formatCurrency(data.shippingCharge)}</span>
             </div>
           )}
+          {data.couponDiscount && data.couponDiscount > 0 ? (
+            <div className="flex justify-between text-xs font-bold text-emerald-600 uppercase tracking-widest">
+              <span>Coupon Discount {data.couponCode ? `(${data.couponCode})` : ""}</span>
+              <span>-{formatCurrency(data.couponDiscount)}</span>
+            </div>
+          ) : null}
           <div className="pt-3 border-t-2 border-dashed border-slate-300">
             <div className="flex justify-between items-center">
               <span className="text-sm font-black text-slate-900 uppercase">Grand Total</span>

@@ -147,13 +147,19 @@ export async function GET(
 
   const orderHasDeliveredLine = await getOrderHasDeliveredLine(prisma, order.id)
 
+  const sellerSubtotal = order.items.reduce((sum, item) => sum + item.subtotal, 0)
+  let sellerCouponDiscount = 0
+  if (order.couponDiscount && order.subtotal > 0) {
+    sellerCouponDiscount = Number(((order.couponDiscount * sellerSubtotal) / order.subtotal).toFixed(2))
+  }
+
   const body: SellerOrderDetailApi = {
     id: order.id,
     orderNumber: order.orderNumber,
     orderHasDeliveredLine,
     status: deriveOrderStatus(order.items.map((item) => item.itemStatus)),
-    totalAmount: order.items.reduce((sum, item) => sum + (item.subtotalInclGst ?? item.subtotal + item.gstAmount) + item.shippingAmount, 0),
-    subtotal: order.items.reduce((sum, item) => sum + item.subtotal, 0),
+    totalAmount: Math.max(0, order.items.reduce((sum, item) => sum + (item.subtotalInclGst ?? item.subtotal + item.gstAmount) + item.shippingAmount, 0) - sellerCouponDiscount),
+    subtotal: sellerSubtotal,
     tax: order.items.reduce((sum, item) => sum + item.gstAmount, 0),
     shipping: order.items.reduce((sum, item) => sum + item.shippingAmount, 0),
     commission: order.items.reduce((sum, item) => sum + item.commissionAmount, 0),
@@ -175,7 +181,7 @@ export async function GET(
     customerPhoneCountryCode: order.customer?.phoneCountryCode ?? null,
     items,
     couponCode: order.couponCode,
-    couponDiscount: order.couponDiscount,
+    couponDiscount: sellerCouponDiscount,
   }
   return NextResponse.json(body)
 }
