@@ -99,7 +99,7 @@ export async function GET(request: NextRequest) {
     id: o.id,
     orderNumber: o.orderNumber,
     status: deriveOrderStatus(o.items.map((item) => item.itemStatus)),
-    totalAmount: o.items.reduce((sum, item) => sum + (item.subtotalInclGst ?? item.subtotal + item.gstAmount) + item.shippingAmount, 0),
+    totalAmount: o.totalAmount,
     commission: o.items.reduce((sum, item) => sum + item.commissionAmount, 0),
     commissionRate: o.commissionRate,
     paymentMethod: o.paymentMethod,

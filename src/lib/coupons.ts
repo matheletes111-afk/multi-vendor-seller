@@ -79,7 +79,7 @@ export async function validateCoupon(params: {
   }
 
   if (applicableSubtotal < coupon.minOrderValue) {
-    return { valid: false, error: `Minimum order value of $${coupon.minOrderValue.toFixed(2)} not met for this coupon` }
+    return { valid: false, error: `Minimum order value of NLe ${coupon.minOrderValue.toFixed(2)} not met for this coupon` }
   }
 
   // Global usage limit check

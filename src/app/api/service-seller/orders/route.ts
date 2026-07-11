@@ -102,21 +102,27 @@ export async function GET(request: NextRequest) {
 
   const serialized = orders.map((order) => {
     const items = order.items
-    const totalAmount = items.reduce(
+    const sellerSubtotal = items.reduce((sum, item) => sum + item.subtotal, 0)
+    let sellerCouponDiscount = 0
+    if (order.couponDiscount && order.subtotal > 0) {
+      sellerCouponDiscount = Number(((order.couponDiscount * sellerSubtotal) / order.subtotal).toFixed(2))
+    }
+    const totalAmount = Math.max(0, items.reduce(
       (sum, item) => sum + (item.subtotalInclGst ?? item.subtotal + item.gstAmount) + item.shippingAmount,
       0
-    )
+    ) - sellerCouponDiscount)
     const commission = items.reduce((sum, item) => sum + item.commissionAmount, 0)
     const sellerNet = serviceSellerItemsNet(items)
     return {
       ...order,
       status: deriveOrderStatus(order.items.map((item) => item.itemStatus)),
       totalAmount,
-      subtotal: order.items.reduce((sum, item) => sum + item.subtotal, 0),
+      subtotal: sellerSubtotal,
       tax: order.items.reduce((sum, item) => sum + item.gstAmount, 0),
       shipping: order.items.reduce((sum, item) => sum + item.shippingAmount, 0),
       commission,
       sellerNet,
+      couponDiscount: sellerCouponDiscount,
     }
   })
 

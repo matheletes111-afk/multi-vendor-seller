@@ -96,7 +96,7 @@ export function AdminOrderDetailClient({ orderId }: { orderId: string }) {
   }
 
   const fetchOrder = useCallback(() => {
-    return fetch(`/api/admin/orders/${orderId}`, { credentials: "include" })
+    return fetch(`/api/admin/orders/${orderId}`, { credentials: "include", cache: "no-store" })
       .then((res) => {
         if (res.status === 404) {
           setNotFound(true)
