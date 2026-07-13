@@ -921,6 +921,7 @@ model Category {
   commissionRate Float   @default(10.0)
   isActive      Boolean  @default(true)
   isFeatured    Boolean  @default(false) // Max 4 can be featured (for mobile home)
+  weightMandatory Boolean  @default(true)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
@@ -1098,6 +1099,7 @@ model ProductVariant {
   discount      Float    @default(0)   // Discount amount per item
   hasGst        Boolean  @default(true)
   stock         Int      @default(0)
+  weight        Float?
   attributes    Json     // e.g., {"size": "S", "color": "Red"}
   images        Json?    // Array of image URLs per variant
   specification String? @db.Text

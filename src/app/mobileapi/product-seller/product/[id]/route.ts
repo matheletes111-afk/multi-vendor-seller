@@ -107,6 +107,12 @@ export async function PUT(
     if (Array.isArray(body.variants)) {
       if (body.variants.length === 0) return NextResponse.json({ success: false, error: "At least one variant is required" }, { status: 400 })
 
+      const categoryIdForCheck = (body.categoryId ?? existing.categoryId) as string
+      const categoryObj = await prisma.category.findUnique({
+        where: { id: categoryIdForCheck }
+      })
+      const isWeightMandatory = categoryObj?.weightMandatory ?? false
+
       await prisma.productVariant.deleteMany({ where: { productId: id } })
 
       for (const v of body.variants) {
@@ -114,9 +120,14 @@ export async function PUT(
         const vPrice = Number(v?.price ?? 0)
         const vStock = Number(v?.stock ?? 0)
         const vDiscount = Math.round(Number(v?.discount ?? 0) * 100) / 100
+        const vWeight = v?.weight !== undefined && v?.weight !== null ? Number(v.weight) : null
 
         if (isNaN(vPrice) || vPrice <= 0 || isNaN(vStock) || vStock < 0) {
           return NextResponse.json({ success: false, error: "Each variant must have valid price and stock" }, { status: 400 })
+        }
+
+        if (isWeightMandatory && (vWeight === null || isNaN(vWeight) || vWeight <= 0)) {
+          return NextResponse.json({ success: false, error: `Each variant must have a valid weight for category ${categoryObj?.name || ""}` }, { status: 400 })
         }
 
         const vReturnType = v?.returnType === "RETURNABLE" ? "RETURNABLE" : "NON_RETURNABLE"
@@ -131,6 +142,7 @@ export async function PUT(
             discount: vDiscount,
             hasGst: v?.hasGst !== false,
             stock: Math.floor(vStock),
+            weight: vWeight !== null && !isNaN(vWeight) ? vWeight : null,
             images: Array.isArray(v?.images) ? (v.images as object) : [],
             attributes: (v?.attributes && typeof v.attributes === "object") ? v.attributes : {},
             specification: typeof v?.specification === "string" ? v.specification : null,

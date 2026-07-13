@@ -135,6 +135,7 @@ export async function PUT(
     const commissionRate = 0.0; // Fixed to 0 per system requirements
     const isActive = formData.get("isActive") === "true";
     const isFeatured = formData.get("isFeatured") === "true";
+    const weightMandatory = formData.get("weightMandatory") !== "false";
 
     const categoryImageFile = formData.get("categoryImage") as File | null;
     const categoryImageUrl = (formData.get("categoryImageUrl") as string)?.trim() || null;
@@ -218,6 +219,7 @@ export async function PUT(
     if (description !== undefined) updateData.description = description;
     if (commissionRate !== undefined) updateData.commissionRate = commissionRate;
     if (isActive !== undefined) updateData.isActive = isActive;
+    if (weightMandatory !== undefined) updateData.weightMandatory = weightMandatory;
     if (isFeatured !== undefined) {
       if (isFeatured) {
         const featuredCount = await prisma.category.count({

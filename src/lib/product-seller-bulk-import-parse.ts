@@ -22,6 +22,7 @@ export const BULK_COLUMN_KEYS = [
   "gst_applicable",
   "stock",
   "sku_code",
+  "weight",
   "variant_images",
   "variant_details",
   "specifications",
@@ -239,6 +240,7 @@ export function exampleDataRows(categories: string[]): string[][] {
         "Yes",                // gst_applicable
         "100",                // stock
         `SKU-${idx + 1}-STD`, // sku_code
+        "0.5",                // weight (kg)
         "https://example.com/variant-std.jpg", // variant_images
         '{"color":"Black","size":"Regular"}', // variant_details
         "Standard specification", // specifications
@@ -260,6 +262,7 @@ export function exampleDataRows(categories: string[]): string[][] {
         "Yes",                // gst_applicable
         "50",                 // stock
         `SKU-${idx + 1}-PREM`,// sku_code
+        "1.2",                // weight (kg)
         "https://example.com/variant-prem.jpg", // variant_images
         '{"color":"Gold","size":"Premium"}', // variant_details
         "Premium specification", // specifications

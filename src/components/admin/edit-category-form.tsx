@@ -38,6 +38,7 @@ interface Category {
   commissionRate: number;
   isActive: boolean;
   isFeatured?: boolean;
+  weightMandatory?: boolean;
   subcategories: Subcategory[];
 }
 
@@ -58,6 +59,7 @@ export function EditCategoryForm({ category }: { category: Category }) {
     commissionRate: category.commissionRate,
     isActive: category.isActive,
     isFeatured: category.isFeatured ?? false,
+    weightMandatory: category.weightMandatory ?? true,
   });
 
   // Category image (link or file)
@@ -289,6 +291,7 @@ export function EditCategoryForm({ category }: { category: Category }) {
       formData.append("commissionRate", categoryData.commissionRate.toString());
       formData.append("isActive", categoryData.isActive.toString());
       formData.append("isFeatured", categoryData.isFeatured.toString());
+      formData.append("weightMandatory", categoryData.weightMandatory.toString());
 
       if (categoryImageValue?.type === "file") {
         formData.append("categoryImage", categoryImageValue.file);
@@ -461,6 +464,17 @@ export function EditCategoryForm({ category }: { category: Category }) {
                   className="h-4 w-4 rounded border-input bg-background accent-primary"
                 />
                 <Label htmlFor="isFeatured" className="text-sm font-medium cursor-pointer">Featured (mobile, max 4)</Label>
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  id="weightMandatory"
+                  name="weightMandatory"
+                  type="checkbox"
+                  checked={categoryData.weightMandatory}
+                  onChange={(e) => setCategoryData(prev => ({ ...prev, weightMandatory: e.target.checked }))}
+                  className="h-4 w-4 rounded border-input bg-background accent-primary"
+                />
+                <Label htmlFor="weightMandatory" className="text-sm font-medium cursor-pointer">Weight is mandatory <span className="text-xs text-muted-foreground font-normal">(for delivery of higher weight products, we need that)</span></Label>
               </div>
             </div>
           </div>

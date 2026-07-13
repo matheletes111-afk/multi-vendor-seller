@@ -123,6 +123,7 @@ export async function POST(request: NextRequest) {
     const commissionRate = 0.0; // Commission is being disabled project-wide
     const isActive = formData.get("isActive") === "true";
     const isFeatured = formData.get("isFeatured") === "true";
+    const weightMandatory = formData.get("weightMandatory") !== "false";
  
     const categoryImageFile = formData.get("categoryImage") as File | null;
     const categoryImageUrl = (formData.get("categoryImageUrl") as string)?.trim() || null;
@@ -245,6 +246,7 @@ export async function POST(request: NextRequest) {
         commissionRate,
         isActive,
         isFeatured,
+        weightMandatory,
       },
     });
 

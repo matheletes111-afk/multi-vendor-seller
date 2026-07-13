@@ -17,6 +17,7 @@ type VariantRow = {
   hasGst: boolean
   stock: string
   sku: string
+  weight: string
   images: string[]
   imageMode: "link" | "upload"
   attributes: AttributePair[]
@@ -28,7 +29,7 @@ type VariantRow = {
 type GeneratorOption = { optionName: string; valuesText: string }
 
 type Subcategory = { id: string; name: string; slug: string }
-type CategoryWithSub = { id: string; name: string; slug: string; subcategories: Subcategory[] }
+type CategoryWithSub = { id: string; name: string; slug: string; weightMandatory?: boolean; subcategories: Subcategory[] }
 
 export function NewProductClient() {
   const router = useRouter()
@@ -53,6 +54,7 @@ export function NewProductClient() {
       hasGst: true,
       stock: "0",
       sku: "",
+      weight: "",
       images: [],
       imageMode: "upload",
       attributes: [],
@@ -76,6 +78,7 @@ export function NewProductClient() {
   }, [])
 
   const paramsError = searchParams.get("error")
+  const isWeightMandatory = categories.find((c) => c.id === selectedCategoryId)?.weightMandatory ?? false
   const subcategories = selectedCategoryId
     ? (categories.find((c) => c.id === selectedCategoryId)?.subcategories ?? [])
     : []
@@ -90,6 +93,7 @@ export function NewProductClient() {
         hasGst: true,
         stock: "0",
         sku: "",
+        weight: "",
         images: [],
         imageMode: "upload",
         attributes: [],
@@ -227,6 +231,7 @@ export function NewProductClient() {
       hasGst: true,
       stock: "0",
       sku: "",
+      weight: "",
       images: [],
       imageMode: "upload",
       attributes: options.map((opt, idx) => ({ key: (opt.optionName ?? "").trim(), value: combo[idx] ?? "" })),
@@ -311,6 +316,7 @@ export function NewProductClient() {
       discount: number
       hasGst: boolean
       stock: number
+      weight: number | null
       sku?: string
       images?: string[]
       attributes?: Record<string, string>
@@ -319,17 +325,27 @@ export function NewProductClient() {
       returnDays?: number
       replacementAllowed?: boolean
     }[] = []
+
+    const selectedCategoryObj = categories.find(c => c.id === selectedCategoryId)
+    const isWeightMandatory = selectedCategoryObj?.weightMandatory ?? false
+
     for (let i = 0; i < variants.length; i++) {
       const v = variants[i]
       const price = parseFloat(v.price)
       const stock = parseInt(v.stock, 10)
       const discount = parseFloat(v.discount) || 0
+      const weight = v.weight ? parseFloat(v.weight) : null
+
       if (isNaN(price) || price <= 0) {
         setError(`Variant ${i + 1}: valid price is required`)
         return
       }
       if (isNaN(stock) || stock < 0) {
         setError(`Variant ${i + 1}: valid stock is required`)
+        return
+      }
+      if (isWeightMandatory && (weight === null || isNaN(weight) || weight <= 0)) {
+        setError(`Variant ${i + 1}: valid weight is required for category ${selectedCategoryObj?.name || ""}`)
         return
       }
       const attributesObj =
@@ -362,6 +378,7 @@ export function NewProductClient() {
         discount,
         hasGst: v.hasGst,
         stock,
+        weight,
         sku: v.sku.trim() || undefined,
         images: variantImages,
         attributes: attributesObj && Object.keys(attributesObj).length > 0 ? attributesObj : undefined,
@@ -767,6 +784,12 @@ export function NewProductClient() {
                       <div className="space-y-1.5">
                         <Label className="text-xs font-semibold">SKU Code</Label>
                         <Input placeholder="Optional SKU code" value={v.sku} onChange={(e) => updateVariant(i, "sku", e.target.value)} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-semibold">
+                          Weight (kg) {isWeightMandatory ? <span className="text-destructive">*</span> : <span className="text-muted-foreground font-normal">(Optional)</span>}
+                        </Label>
+                        <Input type="number" step="0.001" min="0.001" placeholder="e.g. 0.5" value={v.weight} onChange={(e) => updateVariant(i, "weight", e.target.value)} required={isWeightMandatory} />
                       </div>
                       <div className="space-y-1.5 flex items-center pt-5 hidden">
                         <label className="flex items-center gap-2 cursor-pointer select-none">
