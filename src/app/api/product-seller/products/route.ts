@@ -138,6 +138,12 @@ export async function POST(request: NextRequest) {
   if (!name || !categoryId) return NextResponse.json({ error: "Name and category are required" }, { status: 400 })
   const allowedCat = await sellerHasSelectedCategory(seller.id, categoryId)
   if (!allowedCat) return NextResponse.json({ error: "Category is not in your allowed list" }, { status: 400 })
+  const category = await prisma.category.findUnique({
+    where: { id: categoryId }
+  })
+  if (!category) return NextResponse.json({ error: "Category not found" }, { status: 400 })
+  const isWeightMandatory = category.weightMandatory
+
   const subcategoryId = typeof body.subcategoryId === "string" ? body.subcategoryId || null : null
   if (subcategoryId) {
     const sub = await prisma.subcategory.findFirst({
@@ -153,6 +159,9 @@ export async function POST(request: NextRequest) {
   for (let i = 0; i < variantsRaw.length; i++) {
     const parsed = parseVariantInput(variantsRaw[i] as VariantInput, i)
     if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: 400 })
+    if (isWeightMandatory && (parsed.variant.weight === null || parsed.variant.weight <= 0)) {
+      return NextResponse.json({ error: `Variant ${i + 1}: weight is mandatory for category ${category.name}` }, { status: 400 })
+    }
     // Sanitize variant name if present
     if (parsed.variant.name) {
       parsed.variant.name = sanitizeInput(parsed.variant.name)
@@ -186,6 +195,7 @@ export async function POST(request: NextRequest) {
             discount: v.discount,
             hasGst: v.hasGst,
             stock: v.stock,
+            weight: v.weight,
             images: v.images,
             attributes: v.attributes,
             specification: v.specification,

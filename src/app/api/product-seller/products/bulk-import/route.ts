@@ -74,7 +74,7 @@ function levenshteinDistance(a: string, b: string): number {
   return matrix[a.length][b.length]
 }
 
-function findBestCategoryMatch(input: string, categories: { id: string; name: string }[]) {
+function findBestCategoryMatch<T extends { id: string; name: string }>(input: string, categories: T[]): T | null {
   const cleanInput = input.trim().toLowerCase()
   if (!cleanInput) return null
 
@@ -96,7 +96,7 @@ function findBestCategoryMatch(input: string, categories: { id: string; name: st
 
   // 3. Levenshtein distance
   let minDistance = Infinity
-  let closest: { id: string; name: string } | null = null
+  let closest: T | null = null
   for (const cat of categories) {
     const dist = levenshteinDistance(cleanInput, cat.name.toLowerCase())
     if (dist < minDistance) {
@@ -139,7 +139,7 @@ export async function POST(request: NextRequest) {
     include: {
       selectedCategories: {
         where: { isActive: true },
-        select: { id: true, name: true },
+        select: { id: true, name: true, weightMandatory: true },
       },
     },
   })
@@ -267,7 +267,7 @@ export async function POST(request: NextRequest) {
       // 1. Try to match globally from all active categories in the database
       const allActiveCategories = await prisma.category.findMany({
         where: { isActive: true },
-        select: { id: true, name: true }
+        select: { id: true, name: true, weightMandatory: true }
       })
       const globalMatchedCategory = findBestCategoryMatch(inputCategoryText, allActiveCategories)
 
@@ -299,7 +299,7 @@ export async function POST(request: NextRequest) {
               connect: { id: seller.id }
             }
           },
-          select: { id: true, name: true }
+          select: { id: true, name: true, weightMandatory: true }
         })
         
         // Add to seller's local list to prevent duplicate create calls
@@ -346,12 +346,15 @@ export async function POST(request: NextRequest) {
         continue
       }
 
+      const weight = c.weight !== undefined && String(c.weight).trim() !== "" ? Number(c.weight) : undefined
+
       const vInput: VariantInput = {
         name: vName,
         price,
         stock,
         discount,
         sku: (c.sku_code ?? "").trim() || undefined,
+        weight,
         hasGst,
         images: parseImageList(c.variant_images ?? ""),
         attributes: Object.keys(attrParsed.attrs).length ? attrParsed.attrs : undefined,
@@ -367,6 +370,13 @@ export async function POST(request: NextRequest) {
         errors.push(`Row ${r.excelRow}: ${parsed.error}`)
         continue
       }
+      
+      const isWeightMandatory = matchedCategory?.weightMandatory ?? false
+      if (isWeightMandatory && (parsed.variant.weight === null || parsed.variant.weight <= 0)) {
+        errors.push(`Row ${r.excelRow}: weight is mandatory for category ${matchedCategory?.name || ""}`)
+        continue
+      }
+
       variants.push(parsed.variant)
     }
 
@@ -437,6 +447,7 @@ export async function POST(request: NextRequest) {
                 discount: v.discount,
                 hasGst: v.hasGst,
                 stock: v.stock,
+                weight: v.weight,
                 images: v.images,
                 attributes: v.attributes,
                 specification: v.specification,

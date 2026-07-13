@@ -3,6 +3,8 @@
  * Used by mobile API social login routes (customer, service-seller, product-seller).
  */
 
+import { firebaseAuth } from "./firebase-admin"
+
 export type SocialProfile = {
   provider: "google" | "facebook"
   providerAccountId: string
@@ -80,11 +82,62 @@ export async function verifyFacebookAccessToken(accessToken: string): Promise<So
   }
 }
 
+/**
+ * Verify Firebase ID token and return profile. Returns null if invalid.
+ */
+export async function verifyFirebaseIdToken(
+  idToken: string,
+  expectedProvider: "google" | "facebook"
+): Promise<SocialProfile | null> {
+  try {
+    const decodedToken = await firebaseAuth.verifyIdToken(idToken)
+    const email = decodedToken.email ?? null
+    const name = decodedToken.name ?? null
+    const image = decodedToken.picture ?? null
+
+    // Determine the provider account ID.
+    // Try to find the linked identity for google.com or facebook.com to match NextAuth's providerAccountId format.
+    const identities = decodedToken.firebase?.identities || {}
+    const signInProvider = decodedToken.firebase?.sign_in_provider
+    let providerAccountId = decodedToken.uid
+
+    if (expectedProvider === "google" && signInProvider === "google.com") {
+      if (Array.isArray(identities["google.com"]) && identities["google.com"].length > 0) {
+        providerAccountId = identities["google.com"][0]
+      }
+    } else if (expectedProvider === "facebook" && signInProvider === "facebook.com") {
+      if (Array.isArray(identities["facebook.com"]) && identities["facebook.com"].length > 0) {
+        providerAccountId = identities["facebook.com"][0]
+      }
+    }
+
+    return {
+      provider: expectedProvider,
+      providerAccountId,
+      email,
+      name,
+      image,
+    }
+  } catch (error) {
+    console.error("Firebase ID Token verification error:", error)
+    return null
+  }
+}
+
 export async function verifySocialToken(
   provider: "google" | "facebook",
   idToken: string | undefined,
   accessToken: string | undefined
 ): Promise<SocialProfile | null> {
+  // If idToken is provided, check if it verifies as a Firebase ID token.
+  if (idToken && typeof idToken === "string") {
+    const firebaseProfile = await verifyFirebaseIdToken(idToken, provider)
+    if (firebaseProfile) {
+      return firebaseProfile
+    }
+  }
+
+  // Fallback to legacy/direct OAuth verification
   if (provider === "google") {
     if (!idToken || typeof idToken !== "string") return null
     return verifyGoogleIdToken(idToken)

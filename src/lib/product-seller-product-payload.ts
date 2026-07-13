@@ -8,6 +8,7 @@ export type VariantInput = {
   discount?: number
   hasGst?: boolean
   stock?: number
+  weight?: number
   images?: string[] | unknown
   attributes?: Record<string, string> | unknown
   specification?: string
@@ -24,6 +25,7 @@ export type NormalizedVariant = {
   discount: number
   hasGst: boolean
   stock: number
+  weight: number | null
   images: object
   attributes: object
   specification: string | null
@@ -50,6 +52,7 @@ export function parseVariantInput(
   const vPrice = Number(v?.price ?? 0)
   const vStock = Number(v?.stock ?? 0)
   const vDiscount = Math.round(Number(v?.discount ?? 0) * 100) / 100
+  const vWeight = v?.weight !== undefined && v?.weight !== null ? Number(v.weight) : null
   if (isNaN(vPrice) || vPrice <= 0) {
     return { ok: false, error: `Variant ${index + 1}: valid price required` }
   }
@@ -74,6 +77,7 @@ export function parseVariantInput(
       discount: vDiscount,
       hasGst: v?.hasGst !== false,
       stock: Math.floor(vStock),
+      weight: vWeight !== null && !isNaN(vWeight) ? vWeight : null,
       images: Array.isArray(v?.images) ? (v.images as object) : [],
       attributes:
         v?.attributes && typeof v.attributes === "object" && !Array.isArray(v.attributes)
