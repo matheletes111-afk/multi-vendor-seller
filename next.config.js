@@ -3,7 +3,7 @@ const nextConfig = {
   images: {
     domains: ['localhost', 'images.unsplash.com', 'm.media-amazon.com', 'www.shutterstock.com', 'media.istockphoto.com', 'meeemsl-bucket.s3.us-east-1.amazonaws.com'],
   },
-  serverExternalPackages: ["xlsx"],
+  serverExternalPackages: ["xlsx", "firebase-admin"],
   async headers() {
     const cspHeader = `
       default-src 'self';

@@ -7,7 +7,8 @@ const config = {
     "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/app/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/ui/**/*.{js,ts,jsx,tsx,mdx}",
-    "!./src/app/api/**/*"
+    "!./src/app/api/**/*",
+    "!./src/app/mobileapi/**/*"
   ],
   prefix: "",
   theme: {
