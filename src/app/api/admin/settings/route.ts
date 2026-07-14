@@ -7,6 +7,68 @@ import { isAdmin } from "@/lib/rbac"
 import { uploadPublicFile } from "@/lib/upload-public-file"
 import { sanitizeInput } from "@/lib/html-sanitization"
 
+interface DeliveryRangeInput {
+  minWeight: number
+  maxWeight: number
+  charge: number
+}
+
+function validateAndSortRanges(ranges: any): { sorted: DeliveryRangeInput[] | null, error: string | null } {
+  if (!Array.isArray(ranges)) {
+    return { sorted: null, error: "Weight ranges must be an array" }
+  }
+
+  if (ranges.length === 0) {
+    return { sorted: [], error: null }
+  }
+
+  const parsed: DeliveryRangeInput[] = []
+
+  for (let i = 0; i < ranges.length; i++) {
+    const r = ranges[i]
+    const minWeight = parseFloat(r.minWeight)
+    const maxWeight = parseFloat(r.maxWeight)
+    const charge = parseFloat(r.charge)
+
+    if (isNaN(minWeight) || minWeight < 0) {
+      return { sorted: null, error: `Range ${i + 1}: Minimum weight must be a non-negative number` }
+    }
+    if (isNaN(maxWeight) || maxWeight <= minWeight) {
+      return { sorted: null, error: `Range ${i + 1}: Maximum weight must be greater than minimum weight` }
+    }
+    if (isNaN(charge) || charge < 0) {
+      return { sorted: null, error: `Range ${i + 1}: Delivery charge must be a non-negative number` }
+    }
+
+    parsed.push({ minWeight, maxWeight, charge })
+  }
+
+  // Sort by minWeight ascending
+  parsed.sort((a, b) => a.minWeight - b.minWeight)
+
+  // Validate contiguity and overlaps
+  for (let i = 0; i < parsed.length; i++) {
+    const current = parsed[i]
+    if (i > 0) {
+      const prev = parsed[i - 1]
+      // Allow minor floating point tolerance
+      if (Math.abs(current.minWeight - prev.maxWeight) > 0.001) {
+        return {
+          sorted: null,
+          error: `Range gap or overlap detected between ranges (${prev.minWeight}-${prev.maxWeight} kg) and (${current.minWeight}-${current.maxWeight} kg). The minimum weight of a range must match the maximum weight of the previous range.`
+        }
+      }
+    }
+  }
+
+  // First range must start at 0
+  if (parsed[0].minWeight > 0.001) {
+    return { sorted: null, error: "The first range must start at 0 kg to cover all possible weights" }
+  }
+
+  return { sorted: parsed, error: null }
+}
+
 function getImageExtFromContentType(contentType?: string | null) {
   const ct = (contentType || "").toLowerCase()
   if (ct.includes("png")) return ".png"
@@ -67,6 +129,7 @@ export async function PUT(request: NextRequest) {
     password?: string
   } = {}
   let baseCommission: number | undefined = undefined
+  let deliveryChargeRanges: any = undefined
 
   if (contentType.includes("multipart/form-data")) {
     const formData = await request.formData()
@@ -76,8 +139,19 @@ export async function PUT(request: NextRequest) {
     const phoneCountryCode = (formData.get("phoneCountryCode") as string | null) ?? ""
     const password = ((formData.get("password") as string | null) ?? "").trim()
     const currentPassword = ((formData.get("currentPassword") as string | null) ?? "").trim()
-    const baseCommissionStr = (formData.get("baseCommission") as string | null)
+    
+    const baseCommissionStr = formData.get("baseCommission") as string | null
     if (baseCommissionStr !== null) baseCommission = parseFloat(baseCommissionStr)
+
+    const deliveryChargeRangesStr = formData.get("deliveryChargeRanges") as string | null
+    if (deliveryChargeRangesStr !== null) {
+      try {
+        deliveryChargeRanges = JSON.parse(deliveryChargeRangesStr)
+      } catch {
+        return NextResponse.json({ error: "Invalid delivery charge ranges format" }, { status: 400 })
+      }
+    }
+
     const profileImageFile = formData.get("profileImage") as File | null
 
     if (name !== undefined) userData.name = name
@@ -141,6 +215,7 @@ export async function PUT(request: NextRequest) {
       password?: string
       currentPassword?: string
       baseCommission?: number
+      deliveryChargeRanges?: any
     }
     if (body.name !== undefined) {
       userData.name = typeof body.name === "string" ? sanitizeInput(body.name) : undefined
@@ -149,6 +224,7 @@ export async function PUT(request: NextRequest) {
     if (body.phone !== undefined) userData.phone = body.phone || null
     if (body.phoneCountryCode !== undefined) userData.phoneCountryCode = body.phoneCountryCode || null
     if (body.baseCommission !== undefined) baseCommission = body.baseCommission
+    if (body.deliveryChargeRanges !== undefined) deliveryChargeRanges = body.deliveryChargeRanges
 
     const phoneError = getRequiredPhoneFieldsError(userData.phone, userData.phoneCountryCode)
     if (phoneError) return NextResponse.json({ error: phoneError }, { status: 400 })
@@ -192,16 +268,32 @@ export async function PUT(request: NextRequest) {
     })
   }
 
-  if (baseCommission !== undefined) {
+  let validatedRanges: any = undefined
+  if (deliveryChargeRanges !== undefined) {
+    const { sorted, error } = validateAndSortRanges(deliveryChargeRanges)
+    if (error) {
+      return NextResponse.json({ error }, { status: 400 })
+    }
+    validatedRanges = sorted
+  }
+
+  if (baseCommission !== undefined || validatedRanges !== undefined) {
     const globalSettings = await (prisma as any).globalSetting.findFirst()
+    const updateData: any = {}
+    if (baseCommission !== undefined) updateData.baseCommission = baseCommission
+    if (validatedRanges !== undefined) updateData.deliveryChargeRanges = validatedRanges
+
     if (globalSettings) {
       await (prisma as any).globalSetting.update({
         where: { id: globalSettings.id },
-        data: { baseCommission }
+        data: updateData
       })
     } else {
       await (prisma as any).globalSetting.create({
-        data: { baseCommission }
+        data: {
+          baseCommission: baseCommission !== undefined ? baseCommission : 10.0,
+          deliveryChargeRanges: validatedRanges !== undefined ? validatedRanges : []
+        }
       })
     }
   }

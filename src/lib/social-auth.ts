@@ -3,7 +3,7 @@
  * Used by mobile API social login routes (customer, service-seller, product-seller).
  */
 
-import { firebaseAuth } from "./firebase-admin"
+import { getFirebaseAuth } from "./firebase-admin"
 
 export type SocialProfile = {
   provider: "google" | "facebook"
@@ -90,7 +90,12 @@ export async function verifyFirebaseIdToken(
   expectedProvider: "google" | "facebook"
 ): Promise<SocialProfile | null> {
   try {
-    const decodedToken = await firebaseAuth.verifyIdToken(idToken)
+    const auth = getFirebaseAuth()
+    if (!auth) {
+      console.warn("Firebase Auth is not initialized. Skipping Firebase ID Token verification.")
+      return null
+    }
+    const decodedToken = await auth.verifyIdToken(idToken)
     const email = decodedToken.email ?? null
     const name = decodedToken.name ?? null
     const image = decodedToken.picture ?? null

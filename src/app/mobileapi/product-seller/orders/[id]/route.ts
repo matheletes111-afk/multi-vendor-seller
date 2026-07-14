@@ -128,6 +128,7 @@ export async function GET(
       gstAmount: row.gstAmount,
       subtotalInclGst: row.subtotalInclGst,
       imageUrl,
+      shippingAmount: row.shippingAmount,
       returnAvailable,
       replacementAllowed: row.productVariant?.replacementAllowed === true,
       returnResolutionType: row.returnRequest?.resolutionType ?? null,

@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic"
 
 const CHECKOUT_CART_INCLUDE = {
   product: { select: { sellerId: true, name: true, isDeleted: true } },
-  productVariant: { select: { name: true } },
+  productVariant: { select: { name: true, weight: true } },
   service: { select: { sellerId: true, name: true, isDeleted: true } },
   servicePackage: { select: { name: true } },
 } as const
@@ -146,7 +146,29 @@ export async function POST(request: NextRequest) {
 
   const subtotal = normalizedItems.reduce((sum, row) => sum + row.item.totalPrice, 0)
   const tax = normalizedItems.reduce((sum, row) => sum + row.item.totalGst, 0)
-  const shipping = 0
+  // Fetch delivery settings
+  const globalSetting = await prisma.globalSetting.findFirst()
+  const ranges = (globalSetting?.deliveryChargeRanges as any[]) || []
+
+  function getShippingChargeForWeight(weight: number, ranges: any[]): number {
+    if (ranges.length === 0) return 0
+    for (const r of ranges) {
+      if (weight >= r.minWeight && weight < r.maxWeight) {
+        return r.charge
+      }
+    }
+    return ranges[ranges.length - 1].charge
+  }
+
+  let shipping = 0
+  const lineShippingFees = normalizedItems.map((row) => {
+    if (row.item.serviceId) return 0
+    const weight = (row.item as any).productVariant?.weight ?? 0
+    const unitShipping = getShippingChargeForWeight(weight, ranges)
+    const lineShipping = unitShipping * row.item.quantity
+    shipping += lineShipping
+    return lineShipping
+  })
 
   const hasService = normalizedItems.some((row) => row.item.serviceId != null)
   const orderType = hasService ? "SERVICE" : "PRODUCT"
@@ -175,22 +197,15 @@ export async function POST(request: NextRequest) {
   }
 
   const totalAmount = Math.max(0, subtotal + tax + shipping - couponDiscount)
-  const commission = totalAmount * (COMMISSION_RATE / 100)
 
-  const sellerSubtotal = new Map<string, number>()
-  for (const row of normalizedItems) {
-    sellerSubtotal.set(row.sellerId, (sellerSubtotal.get(row.sellerId) ?? 0) + row.item.totalPrice)
-  }
-  const sellerShipping = new Map<string, number>()
-  if (shipping > 0 && subtotal > 0) {
-    let assigned = 0
-    const entries = [...sellerSubtotal.entries()]
-    entries.forEach(([sid, sub], idx) => {
-      const value = idx === entries.length - 1 ? shipping - assigned : Number(((shipping * sub) / subtotal).toFixed(6))
-      assigned += value
-      sellerShipping.set(sid, value)
-    })
-  }
+  let totalOrderCommission = 0
+  const itemCommissionData = normalizedItems.map((row, idx) => {
+    const lineTotalInclGst = row.item.totalPriceInclGst ?? row.item.totalPrice + row.item.totalGst
+    const itemShippingAmount = lineShippingFees[idx]
+    const itemCommissionAmount = (lineTotalInclGst + itemShippingAmount) * (COMMISSION_RATE / 100)
+    totalOrderCommission += itemCommissionAmount
+    return { itemShippingAmount, itemCommissionAmount }
+  })
 
   const order = await prisma.$transaction(async (tx) => {
     const orderNumber = await allocateNextOrderNumberTx(tx)
@@ -204,7 +219,7 @@ export async function POST(request: NextRequest) {
         subtotal,
         tax,
         shipping,
-        commission,
+        commission: totalOrderCommission,
         commissionRate: COMMISSION_RATE,
         paymentStatus: "PENDING",
         paymentMethod: "COD",
@@ -233,12 +248,11 @@ export async function POST(request: NextRequest) {
     return newOrder
   })
 
-  for (const row of normalizedItems) {
+  for (let idx = 0; idx < normalizedItems.length; idx++) {
+    const row = normalizedItems[idx]
     const { productName, serviceName } = getItemName(row.item)
     const lineTotalInclGst = row.item.totalPriceInclGst ?? row.item.totalPrice + row.item.totalGst
-    const itemShippingAmount =
-      subtotal > 0 ? Number((((sellerShipping.get(row.sellerId) ?? 0) * row.item.totalPrice) / (sellerSubtotal.get(row.sellerId) ?? 1)).toFixed(6)) : 0
-    const itemCommissionAmount = (lineTotalInclGst + itemShippingAmount) * (COMMISSION_RATE / 100)
+    const itemData = itemCommissionData[idx]
 
     await prisma.orderItem.create({
       data: {
@@ -258,8 +272,8 @@ export async function POST(request: NextRequest) {
         gstAmount: row.item.totalGst,
         subtotalInclGst: lineTotalInclGst,
         itemStatus: "PENDING",
-        shippingAmount: itemShippingAmount,
-        commissionAmount: itemCommissionAmount,
+        shippingAmount: itemData.itemShippingAmount,
+        commissionAmount: itemData.itemCommissionAmount,
         commissionRateSnapshot: COMMISSION_RATE,
       },
     })
@@ -369,7 +383,7 @@ export async function POST(request: NextRequest) {
           customerName: customerUser.name ?? "Customer",
           items: adminItems,
           totalAmount,
-          commissionAmount: commission,
+          commissionAmount: totalOrderCommission,
         })
       }
     }

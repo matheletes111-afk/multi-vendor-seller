@@ -1453,9 +1453,10 @@ model AdManagement {
 }
 
 model GlobalSetting {
-  id              String   @id @default(cuid())
-  baseCommission  Float    @default(10.0)
-  updatedAt       DateTime @updatedAt
+  id                    String   @id @default(cuid())
+  baseCommission        Float    @default(10.0)
+  deliveryChargeRanges  Json?
+  updatedAt             DateTime @updatedAt
 
   @@map("global_settings")
 }

@@ -82,10 +82,15 @@ export async function GET(request: NextRequest) {
     })
 
     const recentOrders = recentOrdersRaw.map((order) => {
-      const sellerTotal = order.items.reduce(
+      const sellerSubtotal = order.items.reduce((sum, item) => sum + item.subtotal, 0)
+      let sellerCouponDiscount = 0
+      if (order.couponDiscount && order.subtotal > 0) {
+        sellerCouponDiscount = Number(((order.couponDiscount * sellerSubtotal) / order.subtotal).toFixed(2))
+      }
+      const sellerTotal = Math.max(0, order.items.reduce(
         (sum, item) => sum + (item.subtotalInclGst ?? item.subtotal + item.gstAmount) + item.shippingAmount,
         0
-      )
+      ) - sellerCouponDiscount)
       return {
         id: order.id,
         orderNumber: order.orderNumber,

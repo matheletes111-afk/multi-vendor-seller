@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Eye, EyeOff, User, Mail, Phone, Lock, ShieldCheck, Globe, Smartphone } from "lucide-react"
+import { Eye, EyeOff, User, Mail, Phone, Lock, ShieldCheck, Globe, Smartphone, Plus, Trash2 } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/ui/card"
 import { Button } from "@/ui/button"
 import { Input } from "@/ui/input"
@@ -21,6 +21,11 @@ type AdminProfile = {
   globalSettings?: {
     id: string
     baseCommission: number
+    deliveryChargeRanges?: {
+      minWeight: number
+      maxWeight: number
+      charge: number
+    }[]
   }
 }
 
@@ -33,13 +38,91 @@ export function AdminSettingsClient() {
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [showCurrentPassword, setShowCurrentPassword] = useState(false)
+  const [ranges, setRanges] = useState<{ minWeight: string; maxWeight: string; charge: string }[]>([])
 
   useEffect(() => {
     fetch("/api/admin/settings")
       .then((r) => (r.ok ? r.json() : null))
-      .then(setUser)
+      .then((data) => {
+        setUser(data)
+        if (data?.globalSettings?.deliveryChargeRanges) {
+          const loadedRanges = data.globalSettings.deliveryChargeRanges.map((r: any) => ({
+            minWeight: String(r.minWeight),
+            maxWeight: String(r.maxWeight),
+            charge: String(r.charge),
+          }))
+          setRanges(loadedRanges)
+        }
+      })
       .finally(() => setLoading(false))
   }, [])
+
+  function addRange() {
+    setRanges((prev) => {
+      let nextMin = "0"
+      if (prev.length > 0) {
+        const sorted = [...prev].sort((a, b) => parseFloat(a.minWeight || "0") - parseFloat(b.minWeight || "0"))
+        const last = sorted[sorted.length - 1]
+        nextMin = last.maxWeight || "0"
+      }
+      return [...prev, { minWeight: nextMin, maxWeight: "", charge: "" }]
+    })
+  }
+
+  function removeRange(index: number) {
+    setRanges((prev) => prev.filter((_, i) => i !== index))
+  }
+
+  function updateRange(index: number, key: "minWeight" | "maxWeight" | "charge", value: string) {
+    setRanges((prev) =>
+      prev.map((r, i) => (i === index ? { ...r, [key]: value } : r))
+    )
+  }
+
+  function validateClientRanges(
+    items: { minWeight: string; maxWeight: string; charge: string }[]
+  ): { valid: boolean; error: string | null } {
+    if (items.length === 0) return { valid: true, error: null }
+
+    const parsed = []
+    for (let i = 0; i < items.length; i++) {
+      const min = parseFloat(items[i].minWeight)
+      const max = parseFloat(items[i].maxWeight)
+      const chg = parseFloat(items[i].charge)
+
+      if (isNaN(min) || min < 0) {
+        return { valid: false, error: `Range ${i + 1}: Minimum weight must be a non-negative number.` }
+      }
+      if (isNaN(max) || max <= min) {
+        return { valid: false, error: `Range ${i + 1}: Maximum weight must be greater than minimum weight.` }
+      }
+      if (isNaN(chg) || chg < 0) {
+        return { valid: false, error: `Range ${i + 1}: Delivery charge must be a non-negative number.` }
+      }
+      parsed.push({ min, max, chg })
+    }
+
+    parsed.sort((a, b) => a.min - b.min)
+
+    for (let i = 0; i < parsed.length; i++) {
+      const current = parsed[i]
+      if (i > 0) {
+        const prev = parsed[i - 1]
+        if (Math.abs(current.min - prev.max) > 0.001) {
+          return {
+            valid: false,
+            error: `Range gap or overlap detected between ranges (${prev.min}-${prev.max} kg) and (${current.min}-${current.max} kg). The minimum weight of a range must match the maximum weight of the previous range.`
+          }
+        }
+      }
+    }
+
+    if (parsed[0].min > 0.001) {
+      return { valid: false, error: "The first range must start at 0 kg." }
+    }
+
+    return { valid: true, error: null }
+  }
 
   async function saveProfile(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -47,6 +130,18 @@ export function AdminSettingsClient() {
     setSuccess(null)
     const form = e.currentTarget
     const fd = new FormData(form)
+
+    const validation = validateClientRanges(ranges)
+    if (!validation.valid) {
+      setError(validation.error)
+      return
+    }
+
+    fd.append("deliveryChargeRanges", JSON.stringify(ranges.map(r => ({
+      minWeight: parseFloat(r.minWeight),
+      maxWeight: parseFloat(r.maxWeight),
+      charge: parseFloat(r.charge)
+    }))))
 
     // Ensure baseCommission is added to body for JSON or FormData
     const phone = ((fd.get("phone") as string | null) ?? "").trim()
@@ -329,6 +424,93 @@ export function AdminSettingsClient() {
                 </div>
                 <p className="text-[9px] text-muted-foreground/60 ml-1 italic">* Applied to all sellers unless overridden individually.</p>
               </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-none shadow-2xl overflow-hidden rounded-[2.5rem] bg-gradient-to-br from-background via-background to-primary/5 border-l-4 border-primary">
+            <CardHeader className="pb-6 border-b border-muted/30">
+              <div className="flex items-center justify-between col-span-full">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 bg-primary/10 rounded-2xl">
+                    <Globe className="h-6 w-6 text-primary" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-xl font-medium">Weight-based Shipping Rates</CardTitle>
+                    <CardDescription className="pt-1 font-medium italic text-xs uppercase tracking-widest opacity-60">Delivery Charges based on weight range (NLE)</CardDescription>
+                  </div>
+                </div>
+                <Button type="button" variant="outline" size="sm" onClick={addRange} className="rounded-full gap-1.5 font-bold uppercase tracking-wider text-[10px] border-primary/30 text-primary">
+                  <Plus className="h-3 w-3" /> Add Range
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="p-10 space-y-6">
+              {ranges.length === 0 ? (
+                <p className="text-sm text-muted-foreground italic text-center py-4 bg-muted/10 rounded-2xl w-full">
+                  No weight ranges configured. Standard free shipping will apply. Click "Add Range" to set weight-based charges.
+                </p>
+              ) : (
+                <div className="space-y-4">
+                  {ranges.map((range, index) => (
+                    <div key={index} className="flex flex-col md:flex-row items-end md:items-center gap-4 bg-muted/5 p-4 rounded-2xl border border-muted/20 relative">
+                      <div className="grid grid-cols-3 gap-4 flex-1 w-full">
+                        <div className="space-y-2">
+                          <Label className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Min Weight (kg)</Label>
+                          <Input
+                            type="number"
+                            step="0.001"
+                            min="0"
+                            placeholder="0.0"
+                            value={range.minWeight}
+                            onChange={(e) => updateRange(index, "minWeight", e.target.value)}
+                            className="h-10 border-muted bg-background rounded-xl font-medium text-sm"
+                            required
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Max Weight (kg)</Label>
+                          <Input
+                            type="number"
+                            step="0.001"
+                            min="0.001"
+                            placeholder="2.0"
+                            value={range.maxWeight}
+                            onChange={(e) => updateRange(index, "maxWeight", e.target.value)}
+                            className="h-10 border-muted bg-background rounded-xl font-medium text-sm"
+                            required
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Charge (NLE)</Label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            placeholder="50.00"
+                            value={range.charge}
+                            onChange={(e) => updateRange(index, "charge", e.target.value)}
+                            className="h-10 border-muted bg-background rounded-xl font-medium text-sm"
+                            required
+                          />
+                        </div>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="icon"
+                        onClick={() => removeRange(index)}
+                        className="rounded-xl h-10 w-10 shrink-0"
+                        title="Remove range"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <p className="text-[9px] text-muted-foreground/60 italic">
+                * Specify weights in kilograms (kg) and charges in NLE. Ranges must be continuous (e.g. 0-2kg, 2-5kg) without gaps or overlaps.
+              </p>
             </CardContent>
           </Card>
 

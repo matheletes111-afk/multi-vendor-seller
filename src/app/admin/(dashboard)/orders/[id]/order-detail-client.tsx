@@ -387,6 +387,11 @@ export function AdminOrderDetailClient({ orderId }: { orderId: string }) {
                         <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-sm text-foreground/70">
                           <span className="font-medium">Qty: <span className="text-foreground font-medium">{item.quantity}</span></span>
                           <span className="font-medium">Price: <span className="text-foreground font-medium">{formatCurrency(item.price)}</span></span>
+                          {item.shippingAmount > 0 && (
+                            <span className="font-medium text-orange-600 bg-orange-50/50 border border-orange-200/50 px-2 py-0.5 rounded text-[11px]">
+                              Shipping: {formatCurrency(item.shippingAmount)}
+                            </span>
+                          )}
                           <span className="font-medium text-foreground ml-auto bg-muted/50 px-3 py-1 rounded-lg">
                             {formatCurrency(lineTotal(item))}
                           </span>
