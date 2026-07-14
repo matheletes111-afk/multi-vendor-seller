@@ -1,0 +1,174 @@
+================================================================================
+  DELIVERY / SHIPPING CHARGE — MOBILE APP INTEGRATION NOTES
+  (Backend API changes are LIVE — please update the mobile app accordingly)
+================================================================================
+
+OVERVIEW
+--------
+A weight-based delivery charge system has been implemented on the backend.
+Every product order item now carries a "shippingAmount" field which is the
+delivery charge for that specific line item.
+
+Currency: NLe (Sierra Leonean Leone)
+  Example: shippingAmount = 15.00  →  display as  "NLe 15.00"
+
+
+================================================================================
+1. CHECKOUT (Place Product Order)
+================================================================================
+
+ENDPOINT:  POST /mobileapi/customer/checkout/place-order
+
+WHAT CHANGED:
+  The backend now automatically calculates the delivery charge for each item
+  based on the product variant's weight and the admin-configured weight ranges.
+
+  No changes required in the REQUEST payload — the app sends the same cart
+  data as before.
+
+RESPONSE — what is NOW returned (existing fields + new ones):
+  {
+    "success": true,
+    "orderIds": ["<orderId>"],
+    "orders": [
+      {
+        "id": "<orderId>",
+        "orderNumber": "ORD-XXXX",
+        "totalAmount": 150.00,
+        "shipping": 25.00,        ← NEW: total shipping across all items
+        ...
+      }
+    ]
+  }
+
+  ACTION FOR APP DEVELOPER:
+  ▸ On the order confirmation screen, show "Delivery Charge: NLe X.XX"
+    using the top-level  order.shipping  value.
+
+
+================================================================================
+2. CUSTOMER — ORDER LIST
+================================================================================
+
+ENDPOINT:  GET /mobileapi/customer/orders
+
+Each order object in the list already includes per-seller breakdowns.
+Each seller group summary now has:
+  {
+    "sellerId": "...",
+    "summary": {
+      "subtotal": 100.00,
+      "tax":       5.00,
+      "shipping":  10.00,   ← delivery charge for this seller's items
+      "total":    115.00
+    }
+  }
+
+  ACTION FOR APP DEVELOPER:
+  ▸ In the order list card, show delivery charge using  summary.shipping
+    per seller group (or sum them for the full order total).
+
+
+================================================================================
+3. CUSTOMER — ORDER DETAIL
+================================================================================
+
+ENDPOINT:  GET /mobileapi/customer/orders/products/details/[id]
+           GET /mobileapi/customer/orders/details/[id]     (combined endpoint)
+
+Each item in  order.items[]  now includes:
+  {
+    "id": "<orderItemId>",
+    "productNameSnapshot": "...",
+    "quantity": 2,
+    "price": 50.00,
+    "subtotal": 100.00,
+    "gstAmount": 5.00,
+    "shippingAmount": 10.00,   ← NEW: delivery charge for THIS line item
+    ...
+  }
+
+  ACTION FOR APP DEVELOPER:
+  ▸ On the order detail screen, show per-item delivery charge in each
+    line item card:
+      "Delivery Charge: NLe X.XX"  (only show if shippingAmount > 0)
+  ▸ The order-level total is:
+      subtotalInclGst + shippingAmount  (already reflected in order.total)
+
+
+================================================================================
+4. PRODUCT-SELLER — ORDER DETAIL (SELLER APP)
+================================================================================
+
+ENDPOINT:  GET /mobileapi/product-seller/orders/[id]
+
+Each item in  order.items[]  now includes:
+  {
+    "id": "<orderItemId>",
+    "productNameSnapshot": "...",
+    "quantity": 2,
+    "price": 50.00,
+    "subtotal": 100.00,
+    "gstAmount": 5.00,
+    "shippingAmount": 10.00,   ← NEW: delivery charge for THIS line item
+    ...
+  }
+
+  The order-level response already includes:
+  {
+    "shipping": 20.00,   ← sum of all item-level shippingAmounts for this seller
+    "totalAmount": ...,
+    ...
+  }
+
+  ACTION FOR APP DEVELOPER:
+  ▸ In the seller order detail screen, add a "Delivery Charge" row for
+    each product line item showing  item.shippingAmount  in NLe.
+  ▸ In the order summary section, show "Total Delivery: NLe X.XX"
+    using  order.shipping.
+
+
+================================================================================
+5. PRODUCT-SELLER — ORDER LIST (SELLER APP)
+================================================================================
+
+ENDPOINT:  GET /mobileapi/product-seller/orders
+
+Each order card already includes:
+  {
+    "totalAmount": 130.00,   ← this already includes shipping
+    ...
+  }
+
+  No display change needed here, but if you show a breakdown,
+  the shipping total is already baked into totalAmount.
+
+
+================================================================================
+6. SERVICE-SELLER ORDERS (SELLER APP)
+================================================================================
+
+Service orders have  shippingAmount = 0  for all items (services have no
+physical delivery weight). No changes needed in the app for service orders.
+
+
+================================================================================
+SUMMARY OF NEW JSON FIELDS TO DISPLAY
+================================================================================
+
+| Screen                         | Field path              | Label to show         |
+|-------------------------------|-------------------------|-----------------------|
+| Checkout confirmation          | order.shipping          | Delivery Charge       |
+| Customer order list (summary)  | sellerGroup.summary.shipping | Delivery        |
+| Customer order detail (item)   | item.shippingAmount     | Delivery Charge       |
+| Seller order detail (item)     | item.shippingAmount     | Delivery Charge       |
+| Seller order detail (summary)  | order.shipping          | Total Delivery        |
+
+All values are numbers (float). Format as: "NLe " + value.toFixed(2)
+Example: shippingAmount = 12.5  →  "NLe 12.50"
+
+Only show the delivery charge label/row if the value is > 0.
+
+================================================================================
+END OF NOTES
+================================================================================

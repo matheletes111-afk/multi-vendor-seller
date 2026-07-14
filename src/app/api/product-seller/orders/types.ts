@@ -14,6 +14,7 @@ export type SellerOrderDetailItemApi = {
   gstAmount: number
   subtotalInclGst: number | null
   imageUrl: string | null
+  shippingAmount: number
   returnAvailable: boolean
   replacementAllowed: boolean
   returnResolutionType: "REFUND" | "EXCHANGE" | null

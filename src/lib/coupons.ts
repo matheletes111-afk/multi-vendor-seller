@@ -38,15 +38,36 @@ export async function validateCoupon(params: {
     return { valid: false, error: "Coupon is expired or not yet active" }
   }
 
-  if (coupon.type !== type) {
+  const allowedTypesMap: Record<string, string[]> = {
+    PRODUCT: ["PRODUCT", "SERVICE"],
+    SERVICE: ["PRODUCT", "SERVICE"],
+    FOOD: ["FOOD"],
+    HOTEL: ["HOTEL"]
+  }
+
+  const allowedTypes = allowedTypesMap[type] || [type]
+  if (!allowedTypes.includes(coupon.type)) {
     return { valid: false, error: `This coupon is only valid for ${coupon.type.toLowerCase()} orders` }
   }
 
-  // Calculate matching items subtotal if categoryId is set
-  let applicableSubtotal = subtotal
+  // Filter items matching the coupon type
+  const typeMatchingItems = items.filter(i => {
+    if (coupon.type === "PRODUCT") return i.productId != null
+    if (coupon.type === "SERVICE") return i.serviceId != null
+    if (coupon.type === "FOOD") return i.foodItemId != null
+    return true // Default or HOTEL
+  })
+
+  if (typeMatchingItems.length === 0) {
+    return { valid: false, error: `This coupon is only valid for ${coupon.type.toLowerCase()} items` }
+  }
+
+  // Calculate matching items subtotal
+  let applicableSubtotal = typeMatchingItems.reduce((sum, item) => sum + item.price * item.quantity, 0)
+
   if (coupon.categoryId) {
-    const productIds = items.filter(i => i.productId).map(i => i.productId!)
-    const serviceIds = items.filter(i => i.serviceId).map(i => i.serviceId!)
+    const productIds = typeMatchingItems.filter(i => i.productId).map(i => i.productId!)
+    const serviceIds = typeMatchingItems.filter(i => i.serviceId).map(i => i.serviceId!)
 
     const [dbProducts, dbServices] = await Promise.all([
       productIds.length > 0
@@ -66,7 +87,7 @@ export async function validateCoupon(params: {
     const matchingProductIds = dbProducts.filter((p: { id: string; categoryId: string }) => p.categoryId === coupon.categoryId).map((p: { id: string }) => p.id)
     const matchingServiceIds = dbServices.filter((s: { id: string; serviceCategoryId: string | null }) => s.serviceCategoryId === coupon.categoryId).map((s: { id: string }) => s.id)
 
-    const matchingItems = items.filter(
+    const matchingItems = typeMatchingItems.filter(
       item =>
         (item.productId && matchingProductIds.includes(item.productId)) ||
         (item.serviceId && matchingServiceIds.includes(item.serviceId))

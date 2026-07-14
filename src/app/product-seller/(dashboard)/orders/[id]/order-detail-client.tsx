@@ -528,7 +528,7 @@ export function ProductSellerOrderDetailClient({ orderId }: { orderId: string })
                           </div>
                         )}
 
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 pt-4 border-t border-foreground/10 mt-4">
+                        <div className="grid grid-cols-2 md:grid-cols-5 gap-6 pt-4 border-t border-foreground/10 mt-4">
                           <div className="space-y-1">
                             <p className="text-[10px] uppercase font-black text-foreground/70 tracking-widest">Quantity</p>
                             <p className="text-lg font-bold tabular-nums">{item.quantity} units</p>
@@ -542,6 +542,10 @@ export function ProductSellerOrderDetailClient({ orderId }: { orderId: string })
                             <p className={cn("text-lg font-bold tabular-nums", item.hasGst ? "text-emerald-600" : "text-muted-foreground")}>
                               {item.hasGst ? formatCurrency(item.gstAmount) : "N/A"}
                             </p>
+                          </div>
+                          <div className="space-y-1">
+                            <p className="text-[10px] uppercase font-black text-foreground/70 tracking-widest">Delivery Charge</p>
+                            <p className="text-lg font-bold tabular-nums text-orange-600">{formatCurrency(item.shippingAmount)}</p>
                           </div>
                           <div className="space-y-1">
                             <p className="text-[10px] uppercase font-black text-foreground/70 tracking-widest">Total Value</p>

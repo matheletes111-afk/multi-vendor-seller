@@ -715,6 +715,14 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
                               {formatCurrency(item.price)}
                             </span>
                           </span>
+                          {item.shippingAmount > 0 && (
+                            <span className="text-gray-600">
+                              Delivery Charge{" "}
+                              <span className="font-mono font-semibold text-orange-600">
+                                {formatCurrency(item.shippingAmount)}
+                              </span>
+                            </span>
+                          )}
                           <span className="flex items-center gap-1 font-medium text-green-700">
                             <CheckCircle2 className="h-4 w-4" />
                             {item.itemStatus.replace(/_/g, " ")}
