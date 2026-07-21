@@ -35,7 +35,7 @@ import {
 } from "@/ui/dialog"
 import { cn, formatCurrency } from "@/lib/utils"
 import { PageLoader } from "@/components/ui/page-loader"
-import { Plus, Package, Pencil, Trash2, Megaphone, Search, X, Calendar, Filter } from "lucide-react"
+import { Plus, Package, Pencil, Trash2, Megaphone, Search, X, Calendar, Filter, Image as ImageIcon } from "lucide-react"
 import { AdminPagination } from "@/components/admin/admin-pagination"
 import { BulkUploadDialog } from "./bulk-upload-dialog"
 import { buildAdminPageUrl } from "@/lib/admin-pagination"
@@ -320,6 +320,12 @@ export function ProductsPageClient() {
         </div>
         <div className="flex flex-wrap gap-2">
           <BulkUploadDialog onImported={loadProducts} />
+          <Button variant="outline" asChild>
+            <Link href="/product-seller/products/bulk-image-upload">
+              <ImageIcon className="mr-2 h-4 w-4 text-primary" />
+              Bulk Image Upload
+            </Link>
+          </Button>
           <Button asChild>
             <Link href="/product-seller/products/new">
               <Plus className="mr-2 h-4 w-4" />

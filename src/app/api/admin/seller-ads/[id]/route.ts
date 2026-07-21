@@ -39,3 +39,28 @@ export async function GET(
     targetCountries: ad.targetCountries as string[] | null,
   })
 }
+
+export async function DELETE(
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const session = await auth()
+  if (!session?.user || session.user.role !== "ADMIN") {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+  const { id } = await params
+
+  const ad = await prisma.sellerAd.findUnique({
+    where: { id },
+  })
+
+  if (!ad) {
+    return NextResponse.json({ error: "Ad not found" }, { status: 404 })
+  }
+
+  await prisma.sellerAd.delete({
+    where: { id },
+  })
+
+  return NextResponse.json({ success: true, message: "Ad deleted successfully" })
+}

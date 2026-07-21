@@ -20,7 +20,7 @@ import {
 } from "@/ui/table"
 import { formatCurrency } from "@/lib/utils"
 import { getYoutubeThumbnailUrl } from "@/lib/youtube"
-import { Megaphone, Check, X, ImageIcon, Video, Eye, MessageSquare } from "lucide-react"
+import { Megaphone, Check, X, ImageIcon, Video, Eye, MessageSquare, Trash2 } from "lucide-react"
 import { AdminPagination } from "@/components/admin/admin-pagination"
 import { PageLoader } from "@/components/ui/page-loader"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/ui/dialog"
@@ -82,6 +82,10 @@ export function AdminSellerAdsPageClient() {
   const [rejectionReason, setRejectionReason] = useState("")
   const [adToReject, setAdToReject] = useState<string | null>(null)
 
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [adToDelete, setAdToDelete] = useState<string | null>(null)
+  const [adToDeleteTitle, setAdToDeleteTitle] = useState<string>("")
+
   const fetchAds = useCallback(async () => {
     setLoading(true)
     setFetchError(null)
@@ -121,6 +125,15 @@ export function AdminSellerAdsPageClient() {
     if (!res.ok) return { error: json.error || "Failed" }
     await fetchAds()
     router.replace("/admin/seller-ads?success=Rejected")
+    return {}
+  }
+
+  const deleteAd = async (adId: string) => {
+    const res = await fetch(`/api/admin/seller-ads/${adId}`, { method: "DELETE" })
+    const json = await res.json()
+    if (!res.ok) return { error: json.error || "Failed to delete ad" }
+    await fetchAds()
+    router.replace("/admin/seller-ads?success=Ad+deleted+successfully")
     return {}
   }
 
@@ -389,6 +402,19 @@ export function AdminSellerAdsPageClient() {
                           </Button>
                         </>
                       )}
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          disabled={loadingId === ad.id}
+                          onClick={() => {
+                            setAdToDelete(ad.id)
+                            setAdToDeleteTitle(ad.title)
+                            setIsDeleteDialogOpen(true)
+                          }}
+                        >
+                          <Trash2 className="mr-1 h-3.5 w-3.5" />
+                          Delete
+                        </Button>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -430,6 +456,35 @@ export function AdminSellerAdsPageClient() {
                   }}
                 >
                   {loadingId === adToReject ? "Rejecting..." : "Reject Ad"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Delete Ad</DialogTitle>
+                <DialogDescription>
+                  Are you sure you want to delete &quot;{adToDeleteTitle}&quot;? This will permanently remove the ad from the system.
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  variant="destructive"
+                  disabled={loadingId === adToDelete}
+                  onClick={async () => {
+                    if (!adToDelete) return
+                    setLoadingId(adToDelete)
+                    await deleteAd(adToDelete)
+                    setLoadingId(null)
+                    setIsDeleteDialogOpen(false)
+                  }}
+                >
+                  {loadingId === adToDelete ? "Deleting..." : "Delete Ad"}
                 </Button>
               </DialogFooter>
             </DialogContent>
