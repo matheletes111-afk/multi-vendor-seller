@@ -24,7 +24,7 @@ import {
   Eye,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
-import { getYoutubeEmbedUrl } from "@/lib/youtube";
+import { getYoutubeEmbedUrl, getYoutubeThumbnailUrl } from "@/lib/youtube";
 import { PageLoader } from "@/components/ui/page-loader";
 import { AddToCartButton } from "@/components/product/AddToCartButton";
 import { WishlistButton } from "@/components/product/WishlistButton";
@@ -641,6 +641,7 @@ export function HomeClient() {
                 const adPageHref = `/api/ads/click?adId=${ad.id}&redirect_to_ad=true`;
                 const isVideo = ad.creativeType === "VIDEO";
                 const youtubeEmbed = isVideo ? getYoutubeEmbedUrl(ad.creativeUrl) : null;
+                const displayImage = getYoutubeThumbnailUrl(ad.creativeUrl) || ad.creativeUrl;
                 return (
                   <Link
                     key={ad.id}
@@ -650,34 +651,28 @@ export function HomeClient() {
                     className="group flex w-[85vw] min-w-[260px] max-w-[320px] shrink-0 snap-start flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition-shadow hover:shadow-lg sm:min-w-[280px] md:min-w-[300px]"
                   >
                     <div className="relative aspect-video w-full overflow-hidden bg-slate-100">
-                      {isVideo ? (
-                        youtubeEmbed ? (
-                          <iframe
-                            src={youtubeEmbed}
-                            title={ad.title}
-                            className="h-full w-full object-cover pointer-events-auto"
-                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                            allowFullScreen
-                          />
-                        ) : (
-                          <video
-                            src={ad.creativeUrl}
-                            className="h-full w-full object-cover"
-                            controls
-                            muted
-                            playsInline
-                            preload="metadata"
-                          >
-                            Your browser does not support the video tag.
-                          </video>
-                        )
-                      ) : (
+                      {displayImage ? (
                         <img
-                          src={ad.creativeUrl}
+                          src={displayImage}
                           alt={ad.title}
                           className="h-full w-full object-cover transition-transform group-hover:scale-[1.02]"
                         />
-                      )}
+                      ) : isVideo && youtubeEmbed ? (
+                        <iframe
+                          src={youtubeEmbed}
+                          title={ad.title}
+                          className="h-full w-full object-cover pointer-events-none"
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        />
+                      ) : isVideo ? (
+                        <video
+                          src={ad.creativeUrl}
+                          className="h-full w-full object-cover"
+                          muted
+                          playsInline
+                          preload="metadata"
+                        />
+                      ) : null}
                       <div className="absolute bottom-2 left-2 pointer-events-none">
                         <span className="rounded bg-slate-900/80 px-2 py-0.5 text-xs font-medium text-white">
                           Sponsored

@@ -30,6 +30,18 @@ export function getYoutubeVideoId(url: string): string | null {
       if (u.pathname.startsWith("/v/")) {
         return u.pathname.replace("/v/", "").split("/")[0]
       }
+      if (u.pathname.startsWith("/vi/")) {
+        return u.pathname.replace("/vi/", "").split("/")[0]
+      }
+    }
+
+    if (hostname === "img.youtube.com" || hostname.endsWith(".ytimg.com") || hostname === "ytimg.com") {
+      if (u.pathname.startsWith("/vi/")) {
+        return u.pathname.replace("/vi/", "").split("/")[0]
+      }
+      if (u.pathname.startsWith("/vi_webp/")) {
+        return u.pathname.replace("/vi_webp/", "").split("/")[0]
+      }
     }
     return null
   } catch {

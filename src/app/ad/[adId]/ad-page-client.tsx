@@ -5,7 +5,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { Card, CardContent } from "@/ui/card";
 import { formatCurrency } from "@/lib/utils";
-import { getYoutubeEmbedUrl } from "@/lib/youtube";
+import { getYoutubeEmbedUrl, getYoutubeThumbnailUrl } from "@/lib/youtube";
 import { PageLoader } from "@/components/ui/page-loader";
 import { Briefcase, ShoppingBag } from "lucide-react";
 import { AddToCartButton } from "@/components/product/AddToCartButton";
@@ -100,6 +100,7 @@ export function AdPageClient() {
 
   const isVideo = ad.creativeType === "VIDEO";
   const youtubeEmbed = isVideo ? getYoutubeEmbedUrl(ad.creativeUrl) : null;
+  const imageSrc = getYoutubeThumbnailUrl(ad.creativeUrl) || ad.creativeUrl;
 
   return (
     <div className="flex-1 min-w-0 overflow-x-hidden" style={{ background: "#fefefe" }}>
@@ -130,7 +131,7 @@ export function AdPageClient() {
               )
             ) : (
               <img
-                src={ad.creativeUrl}
+                src={imageSrc}
                 alt={ad.title}
                 className="h-full w-full min-h-full min-w-full object-cover object-center"
                 sizes="100vw"

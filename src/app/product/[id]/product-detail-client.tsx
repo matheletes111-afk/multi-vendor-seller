@@ -6,7 +6,7 @@ import Link from "next/link"
 import { useSession } from "next-auth/react"
 import { Button } from "@/ui/button"
 import { formatCurrency } from "@/lib/utils"
-import { getYoutubeEmbedUrl } from "@/lib/youtube"
+import { getYoutubeEmbedUrl, getYoutubeThumbnailUrl } from "@/lib/youtube"
 import { PublicLayout } from "@/components/site-layout"
 import { useCart } from "@/app/cart/cart-context"
 import { WishlistButton } from "@/components/product/WishlistButton"
@@ -556,7 +556,7 @@ export function ProductDetailClient({ productId }: { productId: string }) {
                     )
                   ) : (
                     <img
-                      src={productAd.creativeUrl}
+                      src={getYoutubeThumbnailUrl(productAd.creativeUrl) || productAd.creativeUrl}
                       alt={productAd.title}
                       className="h-full w-full object-cover"
                     />
