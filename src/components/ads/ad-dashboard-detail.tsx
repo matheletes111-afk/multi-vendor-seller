@@ -2,13 +2,15 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/ui/card"
 import { Button } from "@/ui/button"
 import { Badge } from "@/ui/badge"
-import { ArrowLeft, Megaphone, Target, Clock, BarChart3, Presentation, Smartphone, Monitor } from "lucide-react"
+import { ArrowLeft, Megaphone, Target, Clock, BarChart3, Presentation, Smartphone, Monitor, Trash2 } from "lucide-react"
 import { formatCurrency } from "@/lib/utils"
 import { getYoutubeEmbedUrl } from "@/lib/youtube"
 import { PageLoader } from "@/components/ui/page-loader"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/ui/dialog"
 
 type DashboardAd = {
   id: string
@@ -40,9 +42,28 @@ export function AdDashboardDetail({
   apiBaseUrl: string
   backHref: string
 }) {
+  const router = useRouter()
   const [ad, setAd] = useState<DashboardAd | null>(null)
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+
+  const handleDeleteAd = async () => {
+    setIsDeleting(true)
+    try {
+      const res = await fetch(`${apiBaseUrl}/${adId}`, { method: "DELETE" })
+      if (res.ok) {
+        router.replace(`${backHref}?success=Ad+deleted+successfully`)
+      } else {
+        const data = await res.json().catch(() => ({}))
+        alert(data.error || "Failed to delete ad")
+      }
+    } finally {
+      setIsDeleting(false)
+      setIsDeleteDialogOpen(false)
+    }
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -142,23 +163,49 @@ export function AdDashboardDetail({
 
   return (
     <div className="container mx-auto p-6 space-y-6">
-      <div className="flex items-center gap-4">
-        <Button variant="outline" size="icon" asChild>
-          <Link href={backHref}>
-            <ArrowLeft className="h-4 w-4" />
-            <span className="sr-only">Back</span>
-          </Link>
-        </Button>
-        <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold tracking-tight">{ad.title}</h1>
-            {statusBadge(ad.status)}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <Button variant="outline" size="icon" asChild>
+            <Link href={backHref}>
+              <ArrowLeft className="h-4 w-4" />
+              <span className="sr-only">Back</span>
+            </Link>
+          </Button>
+          <div>
+            <div className="flex items-center gap-3">
+              <h1 className="text-2xl font-bold tracking-tight">{ad.title}</h1>
+              {statusBadge(ad.status)}
+            </div>
+            <p className="text-sm text-muted-foreground mt-1">
+              {ad.product?.name ? `Promoting Product: ${ad.product.name}` : ad.service?.name ? `Promoting Service: ${ad.service.name}` : "Own Business Ad"}
+            </p>
           </div>
-          <p className="text-sm text-muted-foreground mt-1">
-            {ad.product?.name ? `Promoting Product: ${ad.product.name}` : ad.service?.name ? `Promoting Service: ${ad.service.name}` : "Own Business Ad"}
-          </p>
         </div>
+
+        <Button variant="destructive" onClick={() => setIsDeleteDialogOpen(true)}>
+          <Trash2 className="mr-2 h-4 w-4" />
+          Delete Ad
+        </Button>
       </div>
+
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Ad</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete &quot;{ad.title}&quot;? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)} disabled={isDeleting}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleDeleteAd} disabled={isDeleting}>
+              {isDeleting ? "Deleting..." : "Delete Ad"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Left Column: Metrics and Metadata */}

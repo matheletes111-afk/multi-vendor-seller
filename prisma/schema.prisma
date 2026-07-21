@@ -293,8 +293,25 @@ model Seller {
 
   selectedCategories    Category[]      @relation("SellerCategories")
   selectedServiceCategories ServiceCategory[] @relation("SellerServiceCategories")
+  mediaImages           SellerMediaImage[]
 
   @@map("sellers")
+}
+
+model SellerMediaImage {
+  id        String   @id @default(cuid())
+  sellerId  String
+  url       String   @db.Text
+  filename  String?
+  size      Int?
+  mimeType  String?
+  isUsed    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  seller    Seller   @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+
+  @@index([sellerId])
+  @@map("seller_media_images")
 }
 
 model SellerBusinessInfo {
