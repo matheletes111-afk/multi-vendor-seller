@@ -20,11 +20,12 @@ import {
 } from "@/ui/table"
 import { formatCurrency } from "@/lib/utils"
 import { getYoutubeThumbnailUrl } from "@/lib/youtube"
-import { Megaphone, Check, X, ImageIcon, Video, Eye, MessageSquare, Trash2 } from "lucide-react"
+import { Megaphone, Check, X, ImageIcon, Video, Eye, MessageSquare, Trash2, Search } from "lucide-react"
 import { AdminPagination } from "@/components/admin/admin-pagination"
 import { PageLoader } from "@/components/ui/page-loader"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/ui/dialog"
 import { Textarea } from "@/ui/textarea"
+import { Input } from "@/ui/input"
 
 type Ad = {
   id: string
@@ -58,12 +59,20 @@ export function AdminSellerAdsPageClient() {
   const router = useRouter()
   const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10) || 1)
   const perPage = Math.min(50, Math.max(1, parseInt(searchParams.get("perPage") ?? "10", 10) || 10))
+  const search = searchParams.get("search") ?? ""
   const tab = searchParams.get("tab") ?? "all"
   const params = {
     error: searchParams.get("error") ?? undefined,
     success: searchParams.get("success") ?? undefined,
     tab: tab === "all" ? undefined : tab,
+    search: search || undefined,
   }
+
+  const [searchTerm, setSearchTerm] = useState(search)
+
+  useEffect(() => {
+    setSearchTerm(search)
+  }, [search])
 
   const [data, setData] = useState<{
     ads: Ad[]
@@ -91,7 +100,8 @@ export function AdminSellerAdsPageClient() {
     setFetchError(null)
     try {
       const tabQs = tab === "all" ? "" : `&tab=${encodeURIComponent(tab)}`
-      const res = await fetch(`/api/admin/seller-ads?page=${page}&perPage=${perPage}${tabQs}`)
+      const searchQs = search ? `&search=${encodeURIComponent(search)}` : ""
+      const res = await fetch(`/api/admin/seller-ads?page=${page}&perPage=${perPage}${tabQs}${searchQs}`)
       if (!res.ok) throw new Error("Failed to fetch seller ads")
       const json = await res.json()
       setData(json)
@@ -100,7 +110,7 @@ export function AdminSellerAdsPageClient() {
     } finally {
       setLoading(false)
     }
-  }, [page, perPage, tab])
+  }, [page, perPage, tab, search])
 
   useEffect(() => {
     fetchAds()
@@ -243,25 +253,63 @@ export function AdminSellerAdsPageClient() {
             <div className="py-12 text-center text-destructive">{fetchError}</div>
           ) : !data ? null : (
             <>
-          <div className="flex flex-wrap gap-2 pb-4 mb-4 border-b">
-            {adTabs.map((t) => (
-              <Link
-                key={t.id}
-                href={buildAdminPageUrl("/admin/seller-ads", 1, {
-                  error: params.error,
-                  success: params.success,
-                  tab: t.id === "all" ? undefined : t.id,
-                })}
-                className={cn(
-                  "rounded-full px-3 py-1.5 text-sm font-medium transition-colors",
-                  tab === t.id
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-muted text-muted-foreground hover:bg-muted/80"
-                )}
-              >
-                {t.label}
-              </Link>
-            ))}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 pb-4 mb-4 border-b">
+            <div className="flex flex-wrap gap-2">
+              {adTabs.map((t) => (
+                <Link
+                  key={t.id}
+                  href={buildAdminPageUrl("/admin/seller-ads", 1, {
+                    ...params,
+                    tab: t.id === "all" ? undefined : t.id,
+                  })}
+                  className={cn(
+                    "rounded-full px-3 py-1.5 text-sm font-medium transition-colors",
+                    tab === t.id
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted text-muted-foreground hover:bg-muted/80"
+                  )}
+                >
+                  {t.label}
+                </Link>
+              ))}
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault()
+                const url = buildAdminPageUrl("/admin/seller-ads", 1, {
+                  ...params,
+                  search: searchTerm.trim() || undefined,
+                })
+                router.push(url)
+              }}
+              className="relative w-full sm:w-80"
+            >
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                type="text"
+                placeholder="Search ads, sellers, products..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-9 pr-8 h-9 text-sm"
+              />
+              {searchTerm && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearchTerm("")
+                    const url = buildAdminPageUrl("/admin/seller-ads", 1, {
+                      ...params,
+                      search: undefined,
+                    })
+                    router.push(url)
+                  }}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </form>
           </div>
           <div className="rounded-xl border border-muted/50 overflow-hidden">
           <Table>

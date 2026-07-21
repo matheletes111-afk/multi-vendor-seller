@@ -19,6 +19,8 @@ export async function GET(request: NextRequest) {
     })
 
     const tab = searchParams.get("tab") ?? "all"
+    const search = searchParams.get("search")?.trim()
+
     let where: Prisma.SellerAdWhereInput = {}
     const statusMap: Record<string, SellerAdStatus> = {
       pending: "PENDING_APPROVAL",
@@ -28,7 +30,27 @@ export async function GET(request: NextRequest) {
       rejected: "REJECTED" as any,
     }
     if (tab !== "all" && statusMap[tab]) {
-      where = { status: statusMap[tab] }
+      where.status = statusMap[tab]
+    }
+
+    if (search) {
+      where.OR = [
+        { title: { contains: search, mode: "insensitive" } },
+        { description: { contains: search, mode: "insensitive" } },
+        { seller: { store: { name: { contains: search, mode: "insensitive" } } } },
+        { seller: { user: { name: { contains: search, mode: "insensitive" } } } },
+        { seller: { user: { email: { contains: search, mode: "insensitive" } } } },
+        { hotelSeller: { user: { name: { contains: search, mode: "insensitive" } } } },
+        { hotelSeller: { user: { email: { contains: search, mode: "insensitive" } } } },
+        { restaurantSeller: { user: { name: { contains: search, mode: "insensitive" } } } },
+        { restaurantSeller: { user: { email: { contains: search, mode: "insensitive" } } } },
+        { customer: { name: { contains: search, mode: "insensitive" } } },
+        { customer: { email: { contains: search, mode: "insensitive" } } },
+        { product: { name: { contains: search, mode: "insensitive" } } },
+        { service: { name: { contains: search, mode: "insensitive" } } },
+        { hotel: { name: { contains: search, mode: "insensitive" } } },
+        { foodItem: { name: { contains: search, mode: "insensitive" } } },
+      ]
     }
 
     const [ads, totalCount, stats, activeCount, pendingCount, rejectedCount] = await Promise.all([

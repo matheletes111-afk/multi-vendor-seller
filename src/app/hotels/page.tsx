@@ -7,6 +7,7 @@ import { Input } from "@/ui/input"
 import { Button } from "@/ui/button"
 import { Card, CardContent } from "@/ui/card"
 import { formatCurrency } from "@/lib/utils"
+import { getYoutubeThumbnailUrl } from "@/lib/youtube"
 
 type Room = {
   id: string
@@ -437,7 +438,7 @@ export default function HotelsBrowsePage() {
                     <div className="relative aspect-video w-full overflow-hidden bg-slate-100">
                       {ad.creativeUrl ? (
                         <img
-                          src={ad.creativeUrl}
+                          src={getYoutubeThumbnailUrl(ad.creativeUrl) || ad.creativeUrl}
                           alt={ad.title}
                           className="h-full w-full object-cover transition-transform group-hover:scale-102"
                         />

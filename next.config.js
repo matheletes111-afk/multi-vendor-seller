@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   images: {
-    domains: ['localhost', 'images.unsplash.com', 'm.media-amazon.com', 'www.shutterstock.com', 'media.istockphoto.com', 'meeemsl-bucket.s3.us-east-1.amazonaws.com', 'img.youtube.com'],
+    domains: ['localhost', 'images.unsplash.com', 'm.media-amazon.com', 'www.shutterstock.com', 'media.istockphoto.com', 'meeemsl-bucket.s3.us-east-1.amazonaws.com', 'img.youtube.com', 'i.ytimg.com'],
   },
   serverExternalPackages: ["xlsx", "firebase-admin"],
   async headers() {
@@ -9,10 +9,10 @@ const nextConfig = {
       default-src 'self';
       script-src 'self' 'unsafe-inline' 'unsafe-eval' https://maps.googleapis.com https://js.stripe.com;
       style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
-      img-src 'self' blob: data: https://images.unsplash.com https://meeemsl-bucket.s3.us-east-1.amazonaws.com https://api.qrserver.com https://*.googleapis.com https://*.gstatic.com https://*.media-amazon.com https://*.shutterstock.com https://*.istockphoto.com https://img.youtube.com;
+      img-src 'self' blob: data: https://images.unsplash.com https://meeemsl-bucket.s3.us-east-1.amazonaws.com https://api.qrserver.com https://*.googleapis.com https://*.gstatic.com https://*.media-amazon.com https://*.shutterstock.com https://*.istockphoto.com https://img.youtube.com https://*.ytimg.com;
       font-src 'self' data: https://fonts.gstatic.com;
       connect-src 'self' https://maps.googleapis.com https://api.stripe.com https://*.googleapis.com;
-      frame-src 'self' https://js.stripe.com;
+      frame-src 'self' https://js.stripe.com https://www.youtube.com https://youtube.com;
       frame-ancestors 'self';
       object-src 'none';
       base-uri 'self';
