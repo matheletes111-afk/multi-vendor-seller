@@ -530,6 +530,11 @@ export function CheckoutClient() {
                   const gstAmount = item.gstAmount ?? 0
                   const lineTotal =
                     item.lineTotal ?? subtotal + gstAmount
+                  const storeName =
+                    itemStoreNames[itemId] ||
+                    (item.id ? itemStoreNames[item.id] : undefined) ||
+                    (item.productId ? itemStoreNames[item.productId] : undefined)
+
                   return (
                     <li key={itemId} className="rounded-lg border border-slate-100 bg-slate-50/50 p-2 text-xs sm:p-3 sm:text-sm">
                       <div className="flex gap-2 sm:gap-3">
@@ -552,9 +557,9 @@ export function CheckoutClient() {
                         </div>
                         <div className="min-w-0 flex-1">
                           <p className="truncate font-medium text-slate-900">{item.name}</p>
-                          {(itemStoreNames[item.id] || itemStoreNames[item.productId || ""]) && (
+                          {storeName && (
                             <p className="text-[10px] font-medium text-amber-800 flex items-center gap-1 mt-0.5">
-                              <span>🏪</span> {itemStoreNames[item.id] || itemStoreNames[item.productId || ""]}
+                              <span>🏪</span> {storeName}
                             </p>
                           )}
                           <div className="mt-0.5 flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5 text-slate-600 sm:mt-1 sm:gap-x-2">
