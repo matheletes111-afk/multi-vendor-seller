@@ -56,6 +56,22 @@ export function CheckoutClient() {
   const [appliedCoupon, setAppliedCoupon] = useState<any | null>(null)
   const [couponLoading, setCouponLoading] = useState(false)
   const [couponError, setCouponError] = useState<string | null>(null)
+  const [deliveryCharge, setDeliveryCharge] = useState<number>(0)
+  const [sellerGroups, setSellerGroups] = useState<Array<{ sellerId: string; sellerName: string; sellerDeliveryFee: number; itemsCount: number }>>([])
+  const [itemStoreNames, setItemStoreNames] = useState<Record<string, string>>({})
+
+  useEffect(() => {
+    fetch("/api/customer/checkout/summary", { credentials: "include" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data && typeof data.shipping === "number") {
+          setDeliveryCharge(data.shipping)
+          setSellerGroups(data.sellerGroups || [])
+          setItemStoreNames(data.itemStoreNames || {})
+        }
+      })
+      .catch(() => {})
+  }, [items])
 
   const fetchAddresses = useCallback(async () => {
     setAddressesLoading(true)
@@ -263,7 +279,7 @@ export function CheckoutClient() {
   const cartSubtotal = productItems.reduce((sum, i) => sum + i.price * i.quantity, 0)
   const cartTax = productItems.reduce((sum, i) => sum + (i.gstAmount ?? 0), 0)
   const couponDiscount = appliedCoupon ? appliedCoupon.discountAmount : 0
-  const cartGrandTotal = Math.max(0, cartSubtotal + cartTax - couponDiscount)
+  const cartGrandTotal = Math.max(0, cartSubtotal + cartTax + deliveryCharge - couponDiscount)
 
   if (cartLoading) {
     return (
@@ -517,7 +533,7 @@ export function CheckoutClient() {
                   return (
                     <li key={itemId} className="rounded-lg border border-slate-100 bg-slate-50/50 p-2 text-xs sm:p-3 sm:text-sm">
                       <div className="flex gap-2 sm:gap-3">
-                        <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded bg-white sm:h-12 sm:w-12">
+                        <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded bg-white sm:h-12 sm:w-12 border border-slate-200">
                           {item.image ? (
                             <Image
                               src={item.image}
@@ -536,6 +552,11 @@ export function CheckoutClient() {
                         </div>
                         <div className="min-w-0 flex-1">
                           <p className="truncate font-medium text-slate-900">{item.name}</p>
+                          {(itemStoreNames[item.id] || itemStoreNames[item.productId || ""]) && (
+                            <p className="text-[10px] font-medium text-amber-800 flex items-center gap-1 mt-0.5">
+                              <span>🏪</span> {itemStoreNames[item.id] || itemStoreNames[item.productId || ""]}
+                            </p>
+                          )}
                           <div className="mt-0.5 flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5 text-slate-600 sm:mt-1 sm:gap-x-2">
                             <span>Qty: {item.quantity}</span>
                             <span>× {formatCurrency(item.price)}</span>
@@ -599,6 +620,39 @@ export function CheckoutClient() {
                   <span>Total GST (Tax)</span>
                   <span>{formatCurrency(cartTax)}</span>
                 </div>
+                {sellerGroups.length > 1 ? (
+                  <div className="rounded-lg border border-amber-200/80 bg-amber-50/60 p-2.5 text-xs space-y-1.5 my-2">
+                    <p className="font-semibold text-amber-900 flex items-center gap-1.5">
+                      <span>🚚</span> Multi-Vendor Delivery Breakdown ({sellerGroups.length} Sellers)
+                    </p>
+                    {sellerGroups.map((group, idx) => (
+                      <div key={group.sellerId || idx} className="flex justify-between text-amber-800 text-[11px]">
+                        <span>• {group.sellerName}</span>
+                        <span className="font-medium">
+                          {group.sellerDeliveryFee <= 0 ? "FREE" : formatCurrency(group.sellerDeliveryFee)}
+                        </span>
+                      </div>
+                    ))}
+                    <div className="flex justify-between border-t border-amber-200/60 pt-1 text-amber-950 font-bold text-xs">
+                      <span>Total Delivery Charge</span>
+                      <span>{deliveryCharge <= 0 ? "FREE" : formatCurrency(deliveryCharge)}</span>
+                    </div>
+                    <p className="text-[10px] text-amber-700/90 italic pt-0.5">
+                      📦 Note: You will receive {sellerGroups.length} separate packages at different times because they are shipped by different sellers!
+                    </p>
+                  </div>
+                ) : (
+                  <div className="flex justify-between text-xs text-slate-700 sm:text-sm">
+                    <span>Delivery Charge {sellerGroups.length === 1 ? `(${sellerGroups[0].sellerName})` : ""}</span>
+                    <span>
+                      {deliveryCharge <= 0 ? (
+                        <span className="font-semibold text-emerald-600">FREE</span>
+                      ) : (
+                        formatCurrency(deliveryCharge)
+                      )}
+                    </span>
+                  </div>
+                )}
                 {appliedCoupon && (
                   <div className="flex justify-between text-xs text-emerald-600 sm:text-sm font-medium">
                     <span>Coupon Discount ({appliedCoupon.code})</span>

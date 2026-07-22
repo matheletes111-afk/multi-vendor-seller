@@ -735,12 +735,16 @@ export function AdminOrderDetailClient({ orderId }: { orderId: string }) {
                     <span className="text-muted-foreground">GST (Included)</span>
                     <span className="font-semibold text-emerald-600 tabular-nums">{formatCurrency(order.tax)}</span>
                   </div>
-                  {order.shipping > 0 && (
-                    <div className="flex justify-between text-sm font-medium text-orange-500">
-                      <span>Shipping</span>
-                      <span className="font-semibold tabular-nums">{formatCurrency(order.shipping)}</span>
-                    </div>
-                  )}
+                  <div className="flex justify-between text-sm font-medium">
+                    <span className="text-muted-foreground">Delivery Charge</span>
+                    <span className="font-semibold tabular-nums">
+                      {order.shipping <= 0 ? (
+                        <span className="text-emerald-600 font-bold">FREE</span>
+                      ) : (
+                        formatCurrency(order.shipping)
+                      )}
+                    </span>
+                  </div>
                   {order.couponDiscount && order.couponDiscount > 0 && (
                     <div className="flex justify-between text-sm font-medium text-emerald-600">
                       <span>Coupon Discount ({order.couponCode})</span>
