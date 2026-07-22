@@ -584,12 +584,10 @@ export function ServiceSellerOrderDetailClient({ orderId }: { orderId: string })
             })}
           </div>
 
-          {order.shipping > 0 && (
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Shipping</span>
-              <span>{formatCurrency(order.shipping)}</span>
-            </div>
-          )}
+          <div className="flex justify-between text-sm">
+            <span className="text-muted-foreground">Delivery Charge</span>
+            <span className="font-semibold">{order.shipping <= 0 ? "FREE" : formatCurrency(order.shipping)}</span>
+          </div>
           {order.couponDiscount && order.couponDiscount > 0 && (
             <div className="flex justify-between text-sm text-emerald-600 font-bold">
               <span>Coupon Discount ({order.couponCode})</span>

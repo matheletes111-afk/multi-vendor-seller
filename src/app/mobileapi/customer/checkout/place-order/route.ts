@@ -151,13 +151,21 @@ export async function POST(request: NextRequest) {
   const ranges = (globalSetting?.deliveryChargeRanges as any[]) || []
 
   function getShippingChargeForWeight(weight: number, ranges: any[]): number {
-    if (ranges.length === 0) return 0
+    if (!ranges || ranges.length === 0) return 0
+    const w = typeof weight === "number" && !isNaN(weight) ? Math.max(0, weight) : 0
     for (const r of ranges) {
-      if (weight >= r.minWeight && weight < r.maxWeight) {
-        return r.charge
+      const minW = Number(r.minWeight ?? 0)
+      const maxW = Number(r.maxWeight ?? 0)
+      const charge = Number(r.charge ?? 0)
+      if (w >= minW && w < maxW) {
+        return charge
       }
     }
-    return ranges[ranges.length - 1].charge
+    const firstMin = Number(ranges[0]?.minWeight ?? 0)
+    if (w <= firstMin) {
+      return Number(ranges[0]?.charge ?? 0)
+    }
+    return Number(ranges[ranges.length - 1]?.charge ?? 0)
   }
 
   let shipping = 0

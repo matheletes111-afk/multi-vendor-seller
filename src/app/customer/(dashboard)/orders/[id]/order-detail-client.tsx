@@ -941,7 +941,7 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
                 </div>
               )}
               <div className="flex justify-between text-gray-600">
-                <span>Shipping</span>
+                <span>Delivery Charge</span>
                 <span className="font-mono font-medium text-gray-900">
                   {order.shipping <= 0 ? (
                     <span className="font-semibold text-green-600">FREE</span>

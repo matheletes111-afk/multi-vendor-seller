@@ -183,22 +183,57 @@ export async function POST(request: NextRequest) {
   const ranges = (globalSetting?.deliveryChargeRanges as any[]) || []
 
   function getShippingChargeForWeight(weight: number, ranges: any[]): number {
-    if (ranges.length === 0) return 0
+    if (!ranges || ranges.length === 0) return 0
+    const w = typeof weight === "number" && !isNaN(weight) ? Math.max(0, weight) : 0
     for (const r of ranges) {
-      if (weight >= r.minWeight && weight < r.maxWeight) {
-        return r.charge
+      const minW = Number(r.minWeight ?? 0)
+      const maxW = Number(r.maxWeight ?? 0)
+      const charge = Number(r.charge ?? 0)
+      if (w >= minW && w < maxW) {
+        return charge
       }
     }
-    return ranges[ranges.length - 1].charge
+    const firstMin = Number(ranges[0]?.minWeight ?? 0)
+    if (w <= firstMin) {
+      return Number(ranges[0]?.charge ?? 0)
+    }
+    return Number(ranges[ranges.length - 1]?.charge ?? 0)
   }
 
   let shipping = 0
+  const itemsBySeller = new Map<string, CartItemForCheckout[]>()
+  for (const row of normalizedItems) {
+    const list = itemsBySeller.get(row.sellerId) || []
+    list.push(row.item)
+    itemsBySeller.set(row.sellerId, list)
+  }
+
+  const sellerShippingMap = new Map<string, number>()
+  for (const [sellerId, sellerItems] of itemsBySeller.entries()) {
+    let sellerWeight = 0
+    let hasPhysicalProducts = false
+    for (const item of sellerItems) {
+      if (item.productId) {
+        hasPhysicalProducts = true
+        const w = (item as any).productVariant?.weight ?? 0
+        sellerWeight += w * item.quantity
+      }
+    }
+    const sellerShipping = hasPhysicalProducts ? getShippingChargeForWeight(sellerWeight, ranges) : 0
+    sellerShippingMap.set(sellerId, sellerShipping)
+    shipping += sellerShipping
+  }
+
   const lineShippingFees = normalizedItems.map((row) => {
     if (row.item.serviceId) return 0
-    const weight = (row.item as any).productVariant?.weight ?? 0
-    const unitShipping = getShippingChargeForWeight(weight, ranges)
-    const lineShipping = unitShipping * row.item.quantity
-    shipping += lineShipping
+    const sellerShipping = sellerShippingMap.get(row.sellerId) || 0
+    const sellerItems = itemsBySeller.get(row.sellerId) || []
+    const physicalItems = sellerItems.filter((i) => i.productId)
+    if (physicalItems.length === 0) return 0
+    const sellerSubtotal = physicalItems.reduce((s, i) => s + i.totalPrice, 0)
+    const lineShipping = sellerSubtotal > 0
+      ? Math.round((row.item.totalPrice / sellerSubtotal) * sellerShipping * 100) / 100
+      : Math.round((sellerShipping / physicalItems.length) * 100) / 100
     return lineShipping
   })
 

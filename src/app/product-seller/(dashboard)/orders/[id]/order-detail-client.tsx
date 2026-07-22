@@ -1245,6 +1245,16 @@ export function ProductSellerOrderDetailClient({ orderId }: { orderId: string })
                          {formatCurrency(priceBreakdown.kind === "exchange" ? priceBreakdown.displayTax : order.tax)}
                       </span>
                     </div>
+                    <div className="flex justify-between items-center px-1">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/40">Delivery Charge</span>
+                      <span className="font-bold tabular-nums text-foreground/80">
+                        {order.shipping <= 0 ? (
+                          <span className="font-bold text-emerald-600">FREE</span>
+                        ) : (
+                          formatCurrency(order.shipping)
+                        )}
+                      </span>
+                    </div>
 
                     {priceBreakdown.kind === "exchange" && priceBreakdown.topUp > 0.01 && (
                       <div className="flex justify-between items-center px-1">
