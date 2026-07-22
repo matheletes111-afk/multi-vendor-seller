@@ -39,6 +39,7 @@ type Product = {
   averageRating: number
   reviews: PublicReviewItem[]
   variants: Variant[]
+  estimatedDeliveryCharge?: number
 }
 
 type ProductAd = {
@@ -382,9 +383,9 @@ export function ProductDetailClient({ productId }: { productId: string }) {
               )}
 
               <div className="mt-3 flex flex-col gap-2 text-sm text-slate-600">
-                <div className="flex items-center gap-2">
-                  <Truck className="h-4 w-4 text-green-600" />
-                  <span>Delivery &amp; availability shown at checkout</span>
+                <div className="flex items-center gap-2 font-medium text-slate-700">
+                  <Truck className="h-4 w-4 text-amber-600 shrink-0" />
+                  <span>Estimated Delivery Charge: <strong className="text-slate-900">{formatCurrency(product.estimatedDeliveryCharge ?? 50)}</strong></span>
                 </div>
                 {selectedVariant && returnPolicy && (
                   <div className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-700 ring-1 ring-slate-200">

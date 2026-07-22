@@ -35,6 +35,24 @@ type EnrichedProduct = {
   condition: ProductCondition
 }
 
+function getShippingChargeForWeight(weight: number, ranges: any[]): number {
+  if (!ranges || ranges.length === 0) return 0
+  const w = typeof weight === "number" && !isNaN(weight) ? Math.max(0, weight) : 0
+  for (const r of ranges) {
+    const minW = Number(r.minWeight ?? 0)
+    const maxW = Number(r.maxWeight ?? 0)
+    const charge = Number(r.charge ?? 0)
+    if (w >= minW && w < maxW) {
+      return charge
+    }
+  }
+  const firstMin = Number(ranges[0]?.minWeight ?? 0)
+  if (w <= firstMin) {
+    return Number(ranges[0]?.charge ?? 0)
+  }
+  return Number(ranges[ranges.length - 1]?.charge ?? 0)
+}
+
 function parseCommaList(s: string | null): string[] {
   if (!s || !s.trim()) return []
   return s
@@ -215,6 +233,7 @@ export async function GET(request: NextRequest) {
                 returnType: true,
                 returnDays: true,
                 attributes: true,
+                weight: true,
               },
             },
             _count: { select: { reviews: true } },
@@ -437,31 +456,39 @@ export async function GET(request: NextRequest) {
 
   const serviceCategoryName = serviceCategoryWithName?.name ?? null
 
-  const serializeProduct = (p: EnrichedProduct) => ({
-    id: p.id,
-    name: p.name,
-    slug: p.slug,
-    description: p.description,
-    images: p.images,
-    isFeatured: p.isFeatured,
-    createdAt: p.createdAt.toISOString(),
-    category: p.category,
-    seller: p.seller,
-    variants: p.variants,
-    _count: p._count,
-    basePrice: p.basePrice,
-    discount: p.discount,
-    finalPrice: p.finalPrice,
-    avgRating: p.avgRating,
-    soldCount: p.soldCount,
-    brand: p.brand,
-    stock: p.stock,
-    returnType: p.returnType,
-    returnDays: p.returnDays,
-    isBrandedSeller: p.isBrandedSeller,
-    discountPercent: p.discountPercent,
-    condition: p.condition,
-  })
+  const globalSetting = await prisma.globalSetting.findFirst()
+  const ranges = (globalSetting?.deliveryChargeRanges as any[]) || []
+
+  const serializeProduct = (p: EnrichedProduct) => {
+    const weight = (p.variants?.[0] as any)?.weight ?? 0
+    const estimatedDeliveryCharge = getShippingChargeForWeight(weight, ranges)
+    return {
+      id: p.id,
+      name: p.name,
+      slug: p.slug,
+      description: p.description,
+      images: p.images,
+      isFeatured: p.isFeatured,
+      createdAt: p.createdAt.toISOString(),
+      category: p.category,
+      seller: p.seller,
+      variants: p.variants,
+      _count: p._count,
+      basePrice: p.basePrice,
+      discount: p.discount,
+      finalPrice: p.finalPrice,
+      avgRating: p.avgRating,
+      soldCount: p.soldCount,
+      brand: p.brand,
+      stock: p.stock,
+      returnType: p.returnType,
+      returnDays: p.returnDays,
+      isBrandedSeller: p.isBrandedSeller,
+      discountPercent: p.discountPercent,
+      condition: p.condition,
+      estimatedDeliveryCharge,
+    }
+  }
 
   return NextResponse.json({
     page: currentPage,

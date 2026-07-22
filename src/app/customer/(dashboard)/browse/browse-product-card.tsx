@@ -30,6 +30,7 @@ export type BrowseProduct = {
   discountPercent: number
   stock: number
   isBrandedSeller: boolean
+  estimatedDeliveryCharge?: number
 }
 
 function Stars({ rating, size = "sm" }: { rating: number; size?: "sm" | "md" }) {
@@ -130,9 +131,6 @@ export function BrowseProductCard({
             )}
             {product.soldCount > 0 && (
               <p className="mt-1 text-xs text-gray-500">{product.soldCount} sold</p>
-            )}
-            {showFreeDelivery && (
-              <p className="mt-1 text-xs font-medium text-green-700">FREE delivery</p>
             )}
             {product.stock <= 0 && (
               <p className="mt-1 text-xs font-medium text-amber-700">Out of stock</p>

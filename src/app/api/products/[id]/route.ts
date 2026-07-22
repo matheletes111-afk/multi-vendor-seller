@@ -14,13 +14,31 @@ function extractImageUrls(images: unknown): string[] {
   return []
 }
 
+function getShippingChargeForWeight(weight: number, ranges: any[]): number {
+  if (!ranges || ranges.length === 0) return 0
+  const w = typeof weight === "number" && !isNaN(weight) ? Math.max(0, weight) : 0
+  for (const r of ranges) {
+    const minW = Number(r.minWeight ?? 0)
+    const maxW = Number(r.maxWeight ?? 0)
+    const charge = Number(r.charge ?? 0)
+    if (w >= minW && w < maxW) {
+      return charge
+    }
+  }
+  const firstMin = Number(ranges[0]?.minWeight ?? 0)
+  if (w <= firstMin) {
+    return Number(ranges[0]?.charge ?? 0)
+  }
+  return Number(ranges[ranges.length - 1]?.charge ?? 0)
+}
+
 /** GET single product by id. Public (no auth) for product detail page. */
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params
-  const [product, ratingAgg] = await Promise.all([
+  const [product, ratingAgg, globalSetting] = await Promise.all([
     prisma.product.findUnique({
       where: { id, isActive: true },
       include: {
@@ -47,8 +65,13 @@ export async function GET(
       where: { productId: id },
       _avg: { rating: true },
     }),
+    prisma.globalSetting.findFirst(),
   ])
   if (!product) return NextResponse.json({ error: "Product not found" }, { status: 404 })
+
+  const ranges = (globalSetting?.deliveryChargeRanges as any[]) || []
+  const weight = product.variants?.[0]?.weight ?? 0
+  const estimatedDeliveryCharge = getShippingChargeForWeight(weight, ranges)
 
   const reviews = product.reviews.map((review) => {
     const safeName = (review.user?.name || "").trim()
@@ -69,5 +92,6 @@ export async function GET(
     ...product,
     averageRating: Number(ratingAgg._avg.rating ?? 0),
     reviews,
+    estimatedDeliveryCharge,
   })
 }
