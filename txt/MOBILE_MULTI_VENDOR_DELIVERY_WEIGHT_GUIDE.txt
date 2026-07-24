@@ -1,0 +1,357 @@
+================================================================================
+  MULTI-VENDOR DELIVERY & WEIGHT-BASED SHIPPING CHARGE — MOBILE APP GUIDE
+  (Backend & Web 100% Synced — Updated July 2026)
+================================================================================
+
+OVERVIEW & BUSINESS LOGIC
+--------------------------
+1. Weight Rule:
+   - Each product variant's weight is in kilograms (kg).
+   - Null / missing / 0 weight is treated as 0 kg (default — no error, still valid).
+
+2. Multi-Vendor Packaging & Calculation:
+   - Items from DIFFERENT sellers are packaged & shipped independently.
+   - Cart items are grouped by sellerId.
+   - Each seller's total package weight = sum(variant.weight * quantity) for that seller.
+   - That total weight is looked up in the Admin-configured weight-tier table to get that seller's delivery fee.
+
+3. Delivery Breakdown Logic:
+   - SINGLE SELLER:  Total Delivery Charge = fee for that seller's combined package weight.
+   - MULTI-SELLER:   Total Delivery Charge = fee(Seller A weight) + fee(Seller B weight) + ...
+   - Line item `shippingAmount` = that seller's delivery fee split proportionally by item price.
+
+4. Admin Weight Range Example:
+   ┌──────────────┬────────────────┐
+   │ Weight Range │ Delivery Fee   │
+   ├──────────────┼────────────────┤
+   │ 0 – 1 kg     │ NLe 50.00      │
+   │ 1 – 5 kg     │ NLe 100.00     │
+   │ 5 – 10 kg    │ NLe 250.00     │
+   │ 10 kg+       │ NLe 500.00     │
+   └──────────────┴────────────────┘
+
+
+================================================================================
+SECTION A: CHECKOUT — PLACE ORDER
+================================================================================
+
+ENDPOINT:  POST /mobileapi/customer/checkout/place-order
+AUTH:      Bearer token (Customer)
+
+What the backend calculates automatically:
+  ▸ Groups cart items by sellerId
+  ▸ Sums total weight per seller (null/0 weight treated as 0 kg)
+  ▸ Applies admin weight-tier table per seller package
+  ▸ Splits seller delivery fee across line items proportionally
+
+RESPONSE (key fields):
+  {
+    "success": true,
+    "orderIds": ["<orderId>"],
+    "orders": [
+      {
+        "id": "<orderId>",
+        "orderNumber": "ORD-XXXX",
+        "subtotal":    660.00,
+        "tax":          99.00,
+        "shipping":     50.00,    ← total delivery charge across all sellers
+        "totalAmount": 809.00,
+        ...
+      }
+    ]
+  }
+
+UI — ORDER CONFIRMATION SCREEN (CUSTOMER APP):
+  ┌─────────────────────────────┐
+  │ Order #ORD-XXXX confirmed!  │
+  │                             │
+  │ Subtotal       NLe 660.00   │
+  │ GST (Tax)      NLe  99.00   │
+  │ Delivery Charge NLe 50.00   │  ← show as "FREE" if 0
+  │ ─────────────────────────── │
+  │ Grand Total    NLe 809.00   │
+  └─────────────────────────────┘
+  
+  If shipping > 0 and there are 2+ sellers, show note:
+  "📦 Items from separate sellers are packed & shipped independently.
+   Delivery charges are calculated per seller's package weight.
+   (Products with no weight are counted as 0 kg)"
+
+
+================================================================================
+SECTION B: CUSTOMER ORDER LIST
+================================================================================
+
+ENDPOINT:  GET /mobileapi/customer/orders/products/list?page=1
+AUTH:      Bearer token (Customer)
+
+Each order object in the list already contains sellerGroups[] with shipping breakdown:
+
+RESPONSE SHAPE (per order in list):
+  {
+    "id": "<orderId>",
+    "orderNumber": "ORD-XXXX",
+    "status": "DELIVERED",
+    "subtotal":    8660.00,
+    "tax":         1299.00,
+    "shipping":     100.00,    ← total delivery for entire order
+    "totalAmount": 10059.00,
+    "couponCode": null,
+    "couponDiscount": 0,
+    "sellerGroups": [
+      {
+        "sellerId": "clx...",
+        "sellerStoreName": "Tech Store One",
+        "summary": {
+          "subtotal":  660.00,
+          "tax":        99.00,
+          "shipping":   50.00,  ← delivery for THIS seller's package
+          "total":     809.00
+        },
+        "derivedStatus": "DELIVERED",
+        "itemCount": 1
+      },
+      {
+        "sellerId": "cly...",
+        "sellerStoreName": "SKAITEL",
+        "summary": {
+          "subtotal": 8000.00,
+          "tax":      1200.00,
+          "shipping":   50.00,  ← delivery for THIS seller's package
+          "total":    9250.00
+        },
+        "derivedStatus": "PENDING",
+        "itemCount": 1
+      }
+    ],
+    "items": [
+      {
+        "id": "<orderItemId>",
+        "productNameSnapshot": "Mixer Grinder (Small)",
+        "quantity": 1,
+        "price":  660.00,
+        "subtotal": 660.00,
+        "gstAmount": 99.00,
+        "shippingAmount": 50.00,   ← delivery allocated to this specific line item
+        ...
+      }
+    ]
+  }
+
+UI — ORDER LIST CARD (CUSTOMER APP):
+  Show per-order: Total Delivery NLe X.XX (or FREE)
+  Optionally show "2 Packages from 2 Sellers" if sellerGroups.length > 1
+
+
+================================================================================
+SECTION C: CUSTOMER ORDER DETAIL
+================================================================================
+
+ENDPOINT:  GET /mobileapi/customer/orders/products/details/[id]
+AUTH:      Bearer token (Customer)
+
+RESPONSE SHAPE (same as list entry above, with all fields):
+  {
+    "id": "<orderId>",
+    "orderNumber": "ORD-XXXX",
+    "status": "PENDING",
+    "subtotal":    8660.00,
+    "tax":         1299.00,
+    "shipping":     100.00,    ← Grand total delivery charge
+    "totalAmount": 10059.00,
+    "couponCode": null,
+    "couponDiscount": 0,
+    "sellerGroups": [ ... ],   ← Same as list (see above)
+    "items": [ ... ],           ← Each item has shippingAmount
+    "shippingFullName": "John Doe",
+    "shippingAddressLine1": "123 Main St",
+    ...
+  }
+
+UI — ORDER DETAIL SCREEN (CUSTOMER APP):
+
+  PRICE BREAKDOWN CARD:
+  ┌──────────────────────────────────┐
+  │ PRICE BREAKDOWN                  │
+  │                                  │
+  │ Subtotal          NLe 8,660.00   │
+  │ GST (Tax)         NLe 1,299.00   │
+  │ Delivery Charge   NLe   100.00   │  ← order.shipping  (show FREE if 0)
+  │ ──────────────────────────────── │
+  │ Grand Total       NLe10,059.00   │
+  └──────────────────────────────────┘
+
+  SELLER-WISE SHIPPING BREAKDOWN CARD (show when sellerGroups.length > 0):
+  ┌──────────────────────────────────────────────────┐
+  │ 🚚 Delivery Breakdown (2 Sellers)                 │
+  │                                                  │
+  │  Tech Store One                   NLe 50.00      │
+  │    Subtotal NLe 660  Tax NLe 99   Ship NLe 50    │
+  │    Status: DELIVERED                              │
+  │                                                  │
+  │  SKAITEL                          NLe 50.00      │
+  │    Subtotal NLe 8000  Tax NLe 1200  Ship NLe 50  │
+  │    Status: PENDING                               │
+  │                                                  │
+  │  Total Delivery:                  NLe 100.00     │
+  └──────────────────────────────────────────────────┘
+  Note below card:
+  "📦 Items from separate sellers are packed & shipped independently.
+   Delivery charges per seller are based on total package weight.
+   (Null or missing weight is treated as 0 kg)"
+
+
+================================================================================
+SECTION D: PRODUCT-SELLER — ORDER LIST (SELLER APP)
+================================================================================
+
+ENDPOINT:  GET /mobileapi/product-seller/orders?page=1
+AUTH:      Bearer token (SELLER_PRODUCT)
+
+RESPONSE SHAPE (per order):
+  {
+    "id": "<orderId>",
+    "orderNumber": "ORD-XXXX",
+    "status": "PENDING",
+    "subtotal":  660.00,
+    "tax":        99.00,
+    "shipping":   50.00,    ← NEW: Total delivery charge for this seller's items
+    "totalAmount": 809.00,
+    "couponCode": null,
+    "couponDiscount": 0,
+    "customer": {
+      "name": "John Doe",
+      "email": "john@example.com"
+    },
+    "items": [
+      {
+        "id": "<itemId>",
+        "productNameSnapshot": "Mixer Grinder (Small)",
+        "quantity": 1,
+        "price": 660.00,
+        "shippingAmount": 50.00,  ← NEW: Delivery allocated to this line item
+        "imageUrl": "...",
+        "status": "PENDING"
+      }
+    ]
+  }
+
+UI — ORDER LIST CARD (SELLER APP):
+  ┌──────────────────────────────────┐
+  │ ORD-XXXX  •  PENDING            │
+  │ John Doe                        │
+  │                                  │
+  │ Mixer Grinder (Small)  x1        │
+  │ Subtotal    NLe 660.00           │
+  │ Delivery    NLe  50.00           │  ← order.shipping (show FREE if 0)
+  │ Total       NLe 809.00           │
+  └──────────────────────────────────┘
+
+
+================================================================================
+SECTION E: PRODUCT-SELLER — ORDER DETAIL (SELLER APP)
+================================================================================
+
+ENDPOINT:  GET /mobileapi/product-seller/orders/[id]
+AUTH:      Bearer token (SELLER_PRODUCT)
+
+RESPONSE SHAPE:
+  {
+    "id": "<orderId>",
+    "orderNumber": "ORD-XXXX",
+    "status": "PENDING",
+    "subtotal":  660.00,
+    "tax":        99.00,
+    "shipping":   50.00,      ← Total delivery charge for this seller's items in this order
+    "commission": 86.00,
+    "commissionRate": 10,
+    "totalAmount": 809.00,
+    "couponCode": null,
+    "couponDiscount": 0,
+    "paymentMethod": "COD",
+    "paymentStatus": "PENDING",
+    "shippingFullName": "John Doe",
+    "shippingPhone": "+232XXXXXXXX",
+    "shippingAddressLine1": "123 Main St",
+    "shippingCity": "Freetown",
+    "shippingCountry": "Sierra Leone",
+    "customer": {
+      "name": "John Doe",
+      "email": "john@example.com",
+      "phone": "+232XXXXXXXX"
+    },
+    "items": [
+      {
+        "id": "<itemId>",
+        "itemStatus": "PENDING",
+        "productNameSnapshot": "Mixer Grinder (Small)",
+        "quantity": 1,
+        "price":    660.00,
+        "subtotal": 660.00,
+        "gstAmount":  99.00,
+        "shippingAmount": 50.00,   ← Delivery charge allocated to this line item
+        ...
+      }
+    ]
+  }
+
+UI — ORDER DETAIL SCREEN BILLING SECTION (SELLER APP):
+  ┌──────────────────────────────────┐
+  │ BILLING SUMMARY                  │
+  │                                  │
+  │ Subtotal Gross    NLe 660.00     │
+  │ Tax (GST)         NLe  99.00     │
+  │ Delivery Charge   NLe  50.00     │  ← order.shipping (show FREE if 0)
+  │ Commission        NLe  86.00     │
+  │ ──────────────────────────────── │
+  │ Settlement Total  NLe 809.00     │
+  └──────────────────────────────────┘
+
+  Per-item row (in item list):
+  ┌──────────────────────────────────┐
+  │ 📦 Mixer Grinder (Small)  x1     │
+  │ Price: NLe 660  GST: NLe 99     │
+  │ Delivery: NLe 50.00              │  ← item.shippingAmount (show FREE if 0)
+  └──────────────────────────────────┘
+
+
+================================================================================
+SECTION F: CRITICAL RULES FOR MOBILE DEVS
+================================================================================
+
+1. NULL WEIGHT = 0 KG
+   Always treat missing/null product weight as 0 kg.
+   Never show an error or skip delivery calculation for zero-weight items.
+
+2. MULTI-VENDOR NOTE (Mandatory UI text when 2+ sellers in order):
+   "📦 Items from separate sellers are packed and shipped independently.
+    Delivery charges are calculated per seller based on their total package weight.
+    Items with no/null weight are counted as 0 kg."
+
+3. FREE DELIVERY
+   If shipping = 0 or shippingAmount = 0, display "FREE" (styled in green).
+   Do not display "NLe 0.00".
+
+4. SELLER VIEW SCOPE
+   Sellers only see THEIR OWN items and shipping charges.
+   order.shipping = sum of shippingAmount for that seller's items only.
+
+5. CUSTOMER VIEW SCOPE
+   Customers see the full order: order.shipping = sum of all seller delivery fees.
+   sellerGroups[].summary.shipping = per-seller delivery breakdown.
+
+================================================================================
+ENDPOINTS QUICK REFERENCE
+================================================================================
+
+  Customer:
+    POST  /mobileapi/customer/checkout/place-order       ← Place order
+    GET   /mobileapi/customer/orders/products/list       ← Order list (paginated)
+    GET   /mobileapi/customer/orders/products/details/[id] ← Order detail
+
+  Product Seller:
+    GET   /mobileapi/product-seller/orders               ← Order list (paginated)
+    GET   /mobileapi/product-seller/orders/[id]          ← Order detail
+    PATCH /mobileapi/product-seller/orders/[id]          ← Update item status
+
+================================================================================

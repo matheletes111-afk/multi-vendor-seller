@@ -841,7 +841,9 @@ export function OrderDetailInline({
                     Tax:{" "}
                     {formatCurrency(priceBreakdown.kind === "exchange" ? priceBreakdown.displayTax : group.summary.tax)}
                   </p>
-                  <p>Shipping: {formatCurrency(group.summary.shipping)}</p>
+                  <p className="text-xs text-muted-foreground">
+                    Shipping: <span className="font-medium text-foreground">{group.summary.shipping <= 0 ? "FREE" : formatCurrency(group.summary.shipping)}</span>
+                  </p>
                   <p className="font-medium text-foreground">
                     Total:{" "}
                     {formatCurrency(
@@ -851,6 +853,9 @@ export function OrderDetailInline({
                 </div>
               </div>
             ))}
+            <p className="text-[11px] text-muted-foreground italic pt-1">
+              🚚 Multi-vendor shipping breakdown: Delivery charges are calculated independently per seller according to package weight (missing weight is calculated as 0 kg).
+            </p>
           </CardContent>
         </Card>
       )}

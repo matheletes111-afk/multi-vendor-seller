@@ -57,7 +57,7 @@ export function CheckoutClient() {
   const [couponLoading, setCouponLoading] = useState(false)
   const [couponError, setCouponError] = useState<string | null>(null)
   const [deliveryCharge, setDeliveryCharge] = useState<number>(0)
-  const [sellerGroups, setSellerGroups] = useState<Array<{ sellerId: string; sellerName: string; sellerDeliveryFee: number; itemsCount: number }>>([])
+  const [sellerGroups, setSellerGroups] = useState<Array<{ sellerId: string; sellerName: string; sellerDeliveryFee: number; itemsCount: number; totalWeight: number }>>([])
   const [itemStoreNames, setItemStoreNames] = useState<Record<string, string>>({})
 
   useEffect(() => {
@@ -626,29 +626,40 @@ export function CheckoutClient() {
                   <span>{formatCurrency(cartTax)}</span>
                 </div>
                 {sellerGroups.length > 1 ? (
-                  <div className="rounded-lg border border-amber-200/80 bg-amber-50/60 p-2.5 text-xs space-y-1.5 my-2">
-                    <p className="font-semibold text-amber-900 flex items-center gap-1.5">
+                  <div className="rounded-xl border border-amber-200/80 bg-amber-50/60 p-3 text-xs space-y-2 my-3 shadow-xs">
+                    <p className="font-semibold text-amber-900 flex items-center gap-1.5 text-xs sm:text-sm">
                       <span>🚚</span> Multi-Vendor Delivery Breakdown ({sellerGroups.length} Sellers)
                     </p>
                     {sellerGroups.map((group, idx) => (
-                      <div key={group.sellerId || idx} className="flex justify-between text-amber-800 text-[11px]">
-                        <span>• {group.sellerName}</span>
-                        <span className="font-medium">
-                          {group.sellerDeliveryFee <= 0 ? "FREE" : formatCurrency(group.sellerDeliveryFee)}
+                      <div key={group.sellerId || idx} className="flex justify-between items-center text-amber-900 text-[11px] sm:text-xs bg-white/60 p-2 rounded-lg border border-amber-200/40">
+                        <div className="flex flex-col">
+                          <span className="font-medium">• {group.sellerName}</span>
+                          <span className="text-[10px] text-amber-700/80">
+                            Total package weight: {group.totalWeight > 0 ? `${group.totalWeight} kg` : "0 kg (Default)"}
+                          </span>
+                        </div>
+                        <span className="font-bold text-amber-950">
+                          {group.sellerDeliveryFee <= 0 ? (
+                            <span className="text-emerald-600">FREE</span>
+                          ) : (
+                            formatCurrency(group.sellerDeliveryFee)
+                          )}
                         </span>
                       </div>
                     ))}
-                    <div className="flex justify-between border-t border-amber-200/60 pt-1 text-amber-950 font-bold text-xs">
+                    <div className="flex justify-between border-t border-amber-200/80 pt-2 text-amber-950 font-bold text-xs sm:text-sm">
                       <span>Total Delivery Charge</span>
                       <span>{deliveryCharge <= 0 ? "FREE" : formatCurrency(deliveryCharge)}</span>
                     </div>
-                    <p className="text-[10px] text-amber-700/90 italic pt-0.5">
-                      📦 Note: You will receive {sellerGroups.length} separate packages at different times because they are shipped by different sellers!
+                    <p className="text-[11px] text-amber-800/90 italic pt-1 leading-snug">
+                      📦 Note: Items from separate sellers are packed and delivered independently. Delivery charges are calculated based on seller package weight (items with no/null weight are treated as 0 kg).
                     </p>
                   </div>
                 ) : (
                   <div className="flex justify-between text-xs text-slate-700 sm:text-sm">
-                    <span>Delivery Charge {sellerGroups.length === 1 ? `(${sellerGroups[0].sellerName})` : ""}</span>
+                    <span>
+                      Delivery Charge {sellerGroups.length === 1 ? `(${sellerGroups[0].sellerName}${sellerGroups[0].totalWeight > 0 ? ` - ${sellerGroups[0].totalWeight} kg` : " - 0 kg"})` : ""}
+                    </span>
                     <span>
                       {deliveryCharge <= 0 ? (
                         <span className="font-semibold text-emerald-600">FREE</span>

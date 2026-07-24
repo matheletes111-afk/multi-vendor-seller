@@ -779,10 +779,16 @@ export function AdminOrderDetailClient({ orderId }: { orderId: string }) {
                         {group.derivedStatus.replace(/_/g, " ").toLowerCase()}
                       </Badge>
                     </div>
-                    <div className="grid grid-cols-2 gap-3 text-[10px] font-medium text-muted-foreground">
+                    <div className="grid grid-cols-3 gap-2 text-[10px] font-medium text-muted-foreground">
                       <div className="bg-background/50 p-2 rounded-lg">
                         <p className="uppercase tracking-widest mb-1 opacity-60">Subtotal</p>
                         <p className="text-foreground text-xs">{formatCurrency(group.summary.subtotal)}</p>
+                      </div>
+                      <div className="bg-background/50 p-2 rounded-lg">
+                        <p className="uppercase tracking-widest mb-1 opacity-60">Shipping</p>
+                        <p className="text-foreground text-xs font-medium">
+                          {group.summary.shipping <= 0 ? <span className="text-emerald-600 font-bold">FREE</span> : formatCurrency(group.summary.shipping)}
+                        </p>
                       </div>
                       <div className="bg-background/50 p-2 rounded-lg">
                         <p className="uppercase tracking-widest mb-1 opacity-60">Total</p>
