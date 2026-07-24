@@ -136,6 +136,9 @@ export async function GET(request: NextRequest) {
       orderNumber: order.orderNumber,
       status: deriveOrderStatus(sellerItems.map((item) => item.itemStatus)),
       totalAmount: Math.max(0, sellerItems.reduce((sum, item) => sum + (item.subtotalInclGst ?? item.subtotal + item.gstAmount) + item.shippingAmount, 0) - sellerCouponDiscount),
+      subtotal: sellerSubtotal,
+      tax: sellerItems.reduce((sum, item) => sum + item.gstAmount, 0),
+      shipping: sellerItems.reduce((sum, item) => sum + item.shippingAmount, 0),
       createdAt: order.createdAt,
       customer: {
         name: order.customer?.name ?? null,
@@ -150,6 +153,7 @@ export async function GET(request: NextRequest) {
           productNameSnapshot: item.productNameSnapshot,
           quantity: item.quantity,
           price: item.price,
+          shippingAmount: item.shippingAmount,
           imageUrl,
           status: item.itemStatus
         }
