@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { useParams, useRouter } from "next/navigation"
-import { Star, ArrowLeft, Clock, Flame, ShoppingBag, Plus, Minus, ShieldAlert } from "lucide-react"
+import { Star, ArrowLeft, Clock, Flame, ShoppingBag, Plus, Minus, ShieldAlert, Utensils } from "lucide-react"
 import { Button } from "@/ui/button"
 import { Card, CardContent } from "@/ui/card"
 import { Textarea } from "@/ui/textarea"
@@ -278,7 +278,15 @@ export default function FoodDetailsPage() {
                 {food.category}
               </span>
               <h1 className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight leading-tight">{food.name}</h1>
-              <p className="text-sm font-bold text-slate-400">Offered by <span className="text-slate-700">{food.restaurantName}</span></p>
+              {food.restaurantName && (
+                <div className="mt-1.5 flex items-center gap-1.5 text-xs text-slate-600">
+                  <span>Offered by</span>
+                  <span className="inline-flex items-center gap-1 font-semibold text-amber-900 bg-amber-50 px-2.5 py-0.5 rounded-md border border-amber-200/80 text-xs shadow-2xs">
+                    <Utensils className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+                    {food.restaurantName}
+                  </span>
+                </div>
+              )}
 
               {food.totalReviews > 0 ? (
                 <div className="flex items-center gap-2">

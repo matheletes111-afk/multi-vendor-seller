@@ -89,3 +89,39 @@ export async function GET(
     );
   }
 }
+
+export async function DELETE(
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const session = await auth();
+    if (!session?.user || !isAdmin(session.user)) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const resolvedParams = await params;
+    const { id } = resolvedParams;
+
+    const hotel = await prisma.hotel.findUnique({ where: { id } });
+    if (!hotel) {
+      return NextResponse.json({ error: "Hotel not found" }, { status: 404 });
+    }
+
+    await prisma.hotel.update({
+      where: { id },
+      data: {
+        isDeleted: true,
+        isActive: false,
+      },
+    });
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("Error deleting hotel:", error);
+    return NextResponse.json(
+      { error: "Failed to delete hotel" },
+      { status: 500 }
+    );
+  }
+}

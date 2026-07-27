@@ -11,9 +11,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/ui/table"
 import { Card, CardContent, CardHeader, CardTitle } from "@/ui/card"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/ui/dialog"
 import { AdminPagination } from "@/components/admin/admin-pagination"
 import { PageLoader } from "@/components/ui/page-loader"
-import { Search, X, Filter, Eye, Star, Building2 } from "lucide-react"
+import { Search, X, Filter, Eye, Star, Building2, Trash2 } from "lucide-react"
 import Link from "next/link"
 
 export function HotelsClient() {
@@ -32,6 +33,7 @@ export function HotelsClient() {
   const [data, setData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
 
   const loadHotels = useCallback(() => {
     setLoading(true)
@@ -55,6 +57,24 @@ export function HotelsClient() {
   useEffect(() => {
     loadHotels()
   }, [loadHotels])
+
+  const handleDelete = async (hotelId: string) => {
+    setDeletingId(hotelId)
+    try {
+      const res = await fetch(`/api/admin/hotels/${hotelId}`, { method: "DELETE" })
+      if (res.ok) {
+        await loadHotels()
+        router.refresh()
+      } else {
+        const json = await res.json().catch(() => ({}))
+        setError(json.error || "Delete failed")
+      }
+    } catch (e: any) {
+      setError(e.message)
+    } finally {
+      setDeletingId(null)
+    }
+  }
 
   const handleSearch = () => {
     const params = {
@@ -249,11 +269,18 @@ export function HotelsClient() {
                       </div>
                     </TableCell>
                     <TableCell className="text-right pr-8">
-                      <Button asChild size="icon" variant="outline" className="h-9 w-9 rounded-full border-muted hover:bg-blue-50 hover:text-blue-600 transition-all shadow-sm">
-                        <Link href={`/admin/hotels/${hotel.id}`}>
-                          <Eye className="h-4 w-4" />
-                        </Link>
-                      </Button>
+                      <div className="flex items-center justify-end gap-2">
+                        <Button asChild size="icon" variant="outline" className="h-9 w-9 rounded-full border-muted hover:bg-blue-50 hover:text-blue-600 transition-all shadow-sm">
+                          <Link href={`/admin/hotels/${hotel.id}`}>
+                            <Eye className="h-4 w-4" />
+                          </Link>
+                        </Button>
+                        <DeleteHotelDialog
+                          name={hotel.name}
+                          onDelete={() => handleDelete(hotel.id)}
+                          isDeleting={deletingId === hotel.id}
+                        />
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))
@@ -273,5 +300,46 @@ export function HotelsClient() {
         </CardContent>
       </Card>
     </div>
+  )
+}
+
+function DeleteHotelDialog({
+  name,
+  onDelete,
+  isDeleting,
+}: {
+  name: string
+  onDelete: () => Promise<void>
+  isDeleting: boolean
+}) {
+  const [open, setOpen] = useState(false)
+
+  async function handleDelete() {
+    await onDelete()
+    setOpen(false)
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button size="icon" variant="outline" className="h-9 w-9 rounded-full border-muted hover:bg-red-50 hover:text-red-600 transition-all shadow-sm">
+          <Trash2 className="h-4 w-4" />
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="rounded-3xl">
+        <DialogHeader>
+          <DialogTitle>Soft Delete Hotel</DialogTitle>
+          <DialogDescription>
+            Are you sure you want to soft delete &quot;{name}&quot;? It will be deactivated and hidden from search, but previous booking records remain intact.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setOpen(false)} disabled={isDeleting}>Cancel</Button>
+          <Button variant="destructive" onClick={handleDelete} disabled={isDeleting}>
+            {isDeleting ? "Deleting..." : "Yes, Soft Delete"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }

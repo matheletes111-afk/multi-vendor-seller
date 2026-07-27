@@ -205,7 +205,7 @@ export function SiteHeader() {
               )}
               <Input
                 type="search"
-                placeholder="Search products..."
+                placeholder="Search products or 'Product, Shop'..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="h-9 min-w-0 rounded-l-md border-l border-amber-400 border-r-0 bg-white py-2 text-sm focus-visible:ring-amber-500 sm:h-10 sm:rounded-l-none sm:border-l-0 sm:text-base"
@@ -629,6 +629,40 @@ export function SiteHeader() {
                   <span className="text-xs text-slate-500">{wishlistCount} item{wishlistCount === 1 ? "" : "s"}</span>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
+                {status === "unauthenticated" && wishlistCount > 0 && (
+                  <div className="m-2 rounded-xl bg-gradient-to-r from-sky-50 via-blue-50 to-indigo-50 border border-sky-200/80 p-3 shadow-sm">
+                    <div className="flex items-start gap-2.5">
+                      <div className="rounded-lg bg-rose-100 p-1.5 text-rose-500 shrink-0 mt-0.5 shadow-xs">
+                        <Heart className="h-4 w-4 fill-rose-500 text-rose-500" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-bold text-sky-950 leading-tight">
+                          Save your wishlist
+                        </p>
+                        <p className="text-[11px] text-sky-800 mt-0.5 leading-snug">
+                          Sign in to sync your items across all your devices.
+                        </p>
+                        <div className="flex items-center gap-2 mt-2.5">
+                          <Button
+                            asChild
+                            size="sm"
+                            className="h-7 rounded-lg bg-sky-600 text-white text-[11px] font-bold hover:bg-sky-700 px-3 border-none shadow-xs"
+                          >
+                            <Link href="/customer/login">Sign In</Link>
+                          </Button>
+                          <Button
+                            asChild
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 rounded-lg text-sky-700 hover:text-sky-950 hover:bg-sky-100/60 text-[11px] font-medium px-2.5"
+                          >
+                            <Link href="/customer/registration">Register</Link>
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
                 {topWishlistItems.length === 0 ? (
                   <div className="px-3 py-4 text-sm text-slate-600">No items in wishlist yet.</div>
                 ) : (
@@ -651,7 +685,9 @@ export function SiteHeader() {
                               )}
                             </div>
                             <div className="min-w-0 flex-1">
-                              <p className="line-clamp-2 text-sm font-medium text-slate-900">{item.product?.name || item.service?.name}</p>
+                              <p className="line-clamp-2 text-sm font-medium text-slate-900">
+                                {item.product?.name || item.service?.name || (item.productId ? "View Product" : "View Service")}
+                              </p>
                               {typeof (item.product?.price || item.service?.price) === "number" && (
                                 <p className="text-xs font-semibold text-blue-600">{formatCurrency(item.product?.price || item.service?.price || 0)}</p>
                               )}

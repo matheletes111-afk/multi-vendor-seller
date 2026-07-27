@@ -9,14 +9,22 @@ import { useWishlist } from "@/app/wishlist/wishlist-context"
 type WishlistButtonProps = {
   productId?: string
   serviceId?: string
+  name?: string
+  image?: string | null
+  price?: number | null
   className?: string
 }
 
-export function WishlistButton({ productId, serviceId, className }: WishlistButtonProps) {
+export function WishlistButton({ productId, serviceId, name, image, price, className }: WishlistButtonProps) {
   const { status, data: session } = useSession()
   const { canUseWishlist, isWishlisted, toggleWishlist, loading } = useWishlist()
 
-  if (status !== "authenticated" || session?.user?.role !== UserRole.CUSTOMER || !canUseWishlist) {
+  // Sellers and Admin cannot see or use customer wishlist
+  if (status === "authenticated" && session?.user?.role !== UserRole.CUSTOMER) {
+    return null
+  }
+
+  if (!canUseWishlist) {
     return null
   }
 
@@ -28,11 +36,11 @@ export function WishlistButton({ productId, serviceId, className }: WishlistButt
       variant="secondary"
       size="icon"
       disabled={loading}
-      className={`h-8 w-8 rounded-full bg-white/95 text-slate-700 shadow hover:bg-white ${className ?? ""}`}
+      className={`h-8 w-8 rounded-full bg-white/95 text-slate-700 shadow hover:bg-white transition-all ${className ?? ""}`}
       onClick={(event) => {
         event.preventDefault()
         event.stopPropagation()
-        void toggleWishlist(productId, serviceId)
+        void toggleWishlist(productId, serviceId, { name, image, price })
       }}
       aria-label={active ? "Remove from wishlist" : "Add to wishlist"}
       title={active ? "Remove from wishlist" : "Add to wishlist"}
@@ -41,4 +49,3 @@ export function WishlistButton({ productId, serviceId, className }: WishlistButt
     </Button>
   )
 }
-

@@ -14,7 +14,9 @@ import { ShareButton } from "@/components/share-button"
 import { PublicReviewsSection, StarRow, type PublicReviewItem } from "@/components/reviews/public-reviews-section"
 import { UserRole } from "@prisma/client"
 import { PageLoader } from "@/components/ui/page-loader"
-import { ChevronRight, ShoppingCart, Truck } from "lucide-react"
+import { AddToCartButton } from "@/components/product/AddToCartButton"
+import { Card, CardContent } from "@/ui/card"
+import { ChevronRight, ShoppingCart, ShoppingBag, Store, Truck } from "lucide-react"
 
 type Variant = {
   id: string
@@ -28,6 +30,18 @@ type Variant = {
   returnType: "NON_RETURNABLE" | "RETURNABLE"
   returnDays?: number | null
 }
+type RelatedProduct = {
+  id: string
+  name: string
+  images: unknown
+  basePrice: number
+  discount: number
+  finalPrice: number
+  category: { id: string; name: string; slug: string }
+  seller: { store: { name: string } | null } | null
+  _count: { reviews: number }
+}
+
 type Product = {
   id: string
   name: string
@@ -40,6 +54,7 @@ type Product = {
   reviews: PublicReviewItem[]
   variants: Variant[]
   estimatedDeliveryCharge?: number
+  relatedProducts?: RelatedProduct[]
 }
 
 type ProductAd = {
@@ -269,7 +284,18 @@ export function ProductDetailClient({ productId }: { productId: string }) {
             <div className="min-w-0 flex-1">
               <p className="text-xs text-slate-500 sm:text-sm">{product.category.name}</p>
               <div className="mt-1 flex items-start justify-between gap-3">
-                <h1 className="min-w-0 flex-1 text-xl font-bold text-slate-900 sm:text-2xl md:text-3xl">{product.name}</h1>
+                <div className="min-w-0 flex-1">
+                  <h1 className="text-xl font-bold text-slate-900 sm:text-2xl md:text-3xl">{product.name}</h1>
+                  {product.seller?.store?.name && (
+                    <div className="mt-1.5 flex items-center gap-1.5 text-xs text-slate-600">
+                      <span>By</span>
+                      <span className="inline-flex items-center gap-1 font-semibold text-amber-900 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200/80 text-xs shadow-2xs">
+                        <Store className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+                        {product.seller.store.name}
+                      </span>
+                    </div>
+                  )}
+                </div>
                 <ShareButton title={product.name} className="shrink-0" />
               </div>
               {product._count.reviews > 0 && (
@@ -418,7 +444,13 @@ export function ProductDetailClient({ productId }: { productId: string }) {
                 {canUseCart && (
                   <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
                     <div className="sm:order-3">
-                      <WishlistButton productId={product.id} className="h-11 w-11 border border-slate-200" />
+                      <WishlistButton
+                        productId={product.id}
+                        name={product.name}
+                        image={mainImage}
+                        price={displayPrice}
+                        className="h-11 w-11 border border-slate-200"
+                      />
                     </div>
                     <Button
                       size="lg"
@@ -527,6 +559,108 @@ export function ProductDetailClient({ productId }: { productId: string }) {
             totalReviews={product._count.reviews}
             reviews={product.reviews}
           />
+
+          {/* Related Products Section */}
+          {Array.isArray(product.relatedProducts) && product.relatedProducts.length > 0 && (
+            <div className="mt-8 border-t border-slate-200 pt-6 sm:mt-10 sm:pt-8">
+              <div className="flex items-center justify-between mb-4 sm:mb-6">
+                <div>
+                  <h2 className="text-base font-bold text-slate-900 sm:text-xl">Related Products</h2>
+                  <p className="text-xs text-slate-500 mt-0.5 sm:text-sm">More items from {product.category.name}</p>
+                </div>
+                <Link
+                  href={`/browse?categoryId=${product.category.id}`}
+                  className="text-xs font-semibold text-blue-600 hover:underline sm:text-sm"
+                >
+                  View All →
+                </Link>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 sm:gap-4">
+                {product.relatedProducts.map((relItem) => {
+                  const relImages = Array.isArray(relItem.images)
+                    ? relItem.images
+                    : typeof relItem.images === "string"
+                      ? (() => {
+                          try {
+                            return JSON.parse(relItem.images as string) as string[]
+                          } catch {
+                            return []
+                          }
+                        })()
+                      : []
+                  const relFirstImg = relImages.length > 0 ? (relImages[0] as string) : null
+
+                  return (
+                    <Card
+                      key={relItem.id}
+                      className="group flex h-full flex-col overflow-hidden border border-slate-200 bg-white shadow-sm transition-all hover:shadow-md"
+                    >
+                      <div className="relative aspect-square w-full overflow-hidden bg-slate-100 flex items-center justify-center">
+                        <WishlistButton
+                          productId={relItem.id}
+                          name={relItem.name}
+                          image={relFirstImg}
+                          price={relItem.finalPrice}
+                          className="absolute top-2 right-2 z-10"
+                        />
+                        <Link href={`/product/${relItem.id}`} className="h-full w-full">
+                          {relFirstImg ? (
+                            <img
+                              src={relFirstImg}
+                              alt={relItem.name}
+                              className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                              loading="lazy"
+                            />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center text-slate-400">
+                              <ShoppingBag className="h-8 w-8" />
+                            </div>
+                          )}
+                        </Link>
+                      </div>
+
+                      <CardContent className="flex flex-1 flex-col justify-between p-3">
+                        <div>
+                          <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider truncate">
+                            {relItem.seller?.store?.name ?? "Store"}
+                          </p>
+                          <Link href={`/product/${relItem.id}`}>
+                            <p className="line-clamp-2 text-xs font-semibold text-slate-900 group-hover:text-amber-600 sm:text-sm mt-0.5">
+                              {relItem.name}
+                            </p>
+                          </Link>
+                        </div>
+
+                        <div className="mt-3">
+                          <div className="flex items-baseline gap-1.5">
+                            <span className="font-bold text-slate-900 text-sm sm:text-base">
+                              {formatCurrency(relItem.finalPrice)}
+                            </span>
+                            {relItem.discount > 0 && relItem.basePrice > 0 && (
+                              <span className="text-[10px] sm:text-xs text-slate-400 line-through">
+                                {formatCurrency(relItem.basePrice)}
+                              </span>
+                            )}
+                          </div>
+                          <div className="mt-2">
+                            <AddToCartButton
+                              productId={relItem.id}
+                              name={relItem.name}
+                              price={relItem.finalPrice}
+                              image={relFirstImg}
+                              size="sm"
+                              className="w-full justify-center text-xs"
+                            />
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Sponsored banner for this product */}
           {productAd && (

@@ -833,6 +833,9 @@ export function BrowseClient() {
                                 )}
                               </div>
                               <div className="p-4">
+                                <p className="text-[10px] font-bold text-amber-700 uppercase tracking-wider truncate mb-0.5">
+                                  {service.seller?.store?.name || "Store"}
+                                </p>
                                 <p className="line-clamp-2 font-medium text-slate-900">{service.name}</p>
                                 <Badge variant="outline" className="mt-1 text-xs">
                                   {service.serviceCategory?.name ?? "Service"}
@@ -849,7 +852,6 @@ export function BrowseClient() {
                                     <span className="text-[10px] text-slate-500">({service._count.reviews})</span>
                                   </div>
                                 )}
-                                <p className="mt-1 text-xs text-muted-foreground">{service.seller?.store?.name || "Store"}</p>
                               </div>
                             </div>
                           </Link>

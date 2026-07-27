@@ -451,7 +451,7 @@ export function HomeClient() {
                     >
                       <div className="relative aspect-square w-full overflow-hidden rounded-t-lg bg-muted flex items-center justify-center">
                         <div className="absolute right-2 top-2 z-10">
-                          <WishlistButton productId={p.id} />
+                          <WishlistButton productId={p.id} name={p.name} image={p.images?.[0] || null} price={p.basePrice} />
                         </div>
                         {p.images?.[0] ? (
                           <img src={p.images[0]} alt={p.name} className="h-full w-full object-cover" loading="lazy" />
@@ -460,6 +460,9 @@ export function HomeClient() {
                         )}
                       </div>
                       <div className="p-2">
+                        <p className="text-[9px] font-bold text-amber-700 uppercase tracking-wider truncate">
+                          {p.seller?.store?.name ?? "Store"}
+                        </p>
                         <p className="line-clamp-2 text-xs font-medium text-slate-800">{p.name}</p>
                         <div className="flex items-center justify-between gap-1 mt-1">
                           <p className="text-sm font-bold text-blue-600">
@@ -552,9 +555,9 @@ export function HomeClient() {
                               className="flex w-32 shrink-0 snap-start flex-col overflow-hidden rounded-lg bg-white shadow transition-shadow hover:shadow-lg sm:w-40"
                             >
                               <div className="relative aspect-square w-full overflow-hidden rounded-t-lg bg-muted flex items-center justify-center">
-                                <div className="absolute right-2 top-2 z-10">
-                                  <WishlistButton productId={p.id} />
-                                </div>
+                                 <div className="absolute right-2 top-2 z-10">
+                                   <WishlistButton productId={p.id} name={p.name} image={p.images?.[0] || null} price={p.basePrice} />
+                                 </div>
                                 {p.images[0] ? (
                                   <img src={p.images[0]} alt={p.name} className="h-full w-full object-cover" />
                                 ) : (
@@ -562,6 +565,9 @@ export function HomeClient() {
                                 )}
                               </div>
                               <div className="p-2">
+                                <p className="text-[9px] font-bold text-amber-700 uppercase tracking-wider truncate">
+                                  {p.seller?.store?.name ?? "Store"}
+                                </p>
                                 <p className="line-clamp-2 text-xs font-medium text-slate-800">{p.name}</p>
                                 <div className="flex items-center justify-between gap-1 mt-1">
                                   <p className="text-sm font-bold text-blue-600">
@@ -737,7 +743,7 @@ export function HomeClient() {
                   <Card className="flex h-full flex-col overflow-hidden border-0 bg-white shadow-md transition-shadow group-hover:shadow-lg">
                     <div className="relative aspect-square w-full overflow-hidden bg-muted flex items-center justify-center">
                       <div className="absolute right-2 top-2 z-10">
-                        <WishlistButton productId={p.id} />
+                        <WishlistButton productId={p.id} name={p.name} image={p.images?.[0] || null} price={p.basePrice} />
                       </div>
                       {p.images[0] ? (
                         <img src={p.images[0]} alt={p.name} className="h-full w-full object-cover" />
@@ -746,8 +752,10 @@ export function HomeClient() {
                       )}
                     </div>
                     <CardContent className="flex flex-1 flex-col p-3">
+                      <p className="text-[10px] font-bold text-amber-700 uppercase tracking-wider truncate mb-0.5">
+                        {p.seller?.store?.name ?? "Store"}
+                      </p>
                       <p className="line-clamp-2 text-sm font-medium text-slate-800">{p.name}</p>
-                      <p className="text-xs text-slate-500">{p.seller?.store?.name ?? "Store"}</p>
                       <div className="flex items-center justify-between gap-1 mt-1">
                         <p className="font-bold text-blue-600">{formatCurrency(Math.max(0, p.basePrice - p.discount))}</p>
                         {(p._count?.reviews ?? 0) > 0 && (
@@ -840,7 +848,7 @@ export function HomeClient() {
                     >
                       <div className="relative aspect-[4/3] w-full overflow-hidden bg-slate-100 flex items-center justify-center">
                         <div className="absolute right-2 top-2 z-10">
-                          <WishlistButton serviceId={s.id} />
+                          <WishlistButton serviceId={s.id} name={s.name} image={imageUrl || null} price={s.basePrice} />
                         </div>
                         {imageUrl ? (
                           <img src={imageUrl} alt={s.name} className="h-full w-full object-cover transition-transform group-hover:scale-[1.02]" />
@@ -849,8 +857,10 @@ export function HomeClient() {
                         )}
                       </div>
                       <CardContent className="p-3 sm:p-4">
+                        <p className="text-[10px] font-bold text-amber-700 uppercase tracking-wider truncate mb-0.5">
+                          {s.seller?.store?.name ?? "Service Store"}
+                        </p>
                         <p className="line-clamp-2 text-sm font-semibold text-slate-900">{s.name}</p>
-                        <p className="mt-1 text-xs text-slate-500">{s.seller?.store?.name ?? "Service seller"}</p>
                         <p className="text-xs text-slate-500">{s.serviceCategory?.name ?? "Service"}</p>
                         <div className="flex items-center justify-between gap-1 mt-2">
                           <p className="text-sm font-bold text-blue-600">
