@@ -494,11 +494,6 @@ export function ProductsClient() {
                           <Button size="icon" variant="outline" className="h-9 w-9 rounded-full border-muted hover:bg-blue-50 hover:text-blue-600 transition-all shadow-sm" onClick={() => setViewProduct(product)}>
                             <Eye className="h-4 w-4" />
                           </Button>
-                          <Button asChild size="icon" variant="outline" className="h-9 w-9 rounded-full border-muted hover:bg-amber-50 hover:text-amber-600 transition-all shadow-sm">
-                            <Link href={`/admin/products/${product.id}`}>
-                              <Pencil className="h-4 w-4" />
-                            </Link>
-                          </Button>
                           <DeleteDialog
                             name={product.name}
                             onDelete={() => handleDelete(product.id)}
