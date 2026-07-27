@@ -489,11 +489,6 @@ export function ServicesClient() {
                           <Button size="icon" variant="outline" className="h-9 w-9 rounded-full border-muted hover:bg-blue-50 hover:text-blue-600 transition-all shadow-sm" onClick={() => setViewService(service)}>
                             <Eye className="h-4 w-4" />
                           </Button>
-                          <Button asChild size="icon" variant="outline" className="h-9 w-9 rounded-full border-muted hover:bg-amber-50 hover:text-amber-600 transition-all shadow-sm">
-                            <Link href={`/admin/services/${service.id}`}>
-                              <Pencil className="h-4 w-4" />
-                            </Link>
-                          </Button>
                           <DeleteDialog
                             name={service.name}
                             onDelete={() => handleDelete(service.id)}
