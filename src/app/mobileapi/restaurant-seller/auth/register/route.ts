@@ -55,6 +55,8 @@ interface ErrorResponse {
   }
 }
 
+import { checkDisallowedName } from "@/lib/name-validation"
+
 type ApiResponse = SuccessResponse | ErrorResponse
 
 export async function POST(request: Request): Promise<NextResponse<ApiResponse>> {
@@ -79,6 +81,17 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
         { 
           success: false,
           error: "Email and password are required" 
+        },
+        { status: 400 }
+      )
+    }
+
+    const nameCheck = await checkDisallowedName(name)
+    if (!nameCheck.isAllowed) {
+      return NextResponse.json<ErrorResponse>(
+        {
+          success: false,
+          error: nameCheck.error!
         },
         { status: 400 }
       )
