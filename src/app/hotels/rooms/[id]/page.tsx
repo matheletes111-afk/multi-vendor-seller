@@ -277,9 +277,18 @@ export default function RoomBookingPage() {
             <div className="bg-white border border-slate-100 rounded-3xl p-6 sm:p-8 shadow-sm space-y-6">
               <div className="space-y-2">
                 <h1 className="text-2xl sm:text-3xl font-black text-slate-900 leading-tight">{room.name}</h1>
+                {room.hotel?.name && (
+                  <div className="flex items-center gap-1.5 text-xs text-slate-600">
+                    <span>At</span>
+                    <span className="inline-flex items-center gap-1 font-semibold text-emerald-950 bg-emerald-50 px-2.5 py-0.5 rounded-md border border-emerald-200/80 text-xs shadow-2xs">
+                      <Building2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                      {room.hotel.name}
+                    </span>
+                  </div>
+                )}
                 <div className="flex items-center gap-1.5 text-slate-500 text-sm font-medium">
                   <MapPin className="h-4 w-4 text-emerald-600 shrink-0" />
-                  <span>{room.hotel.name} — {room.hotel.address}, {room.hotel.city}</span>
+                  <span>{room.hotel.address}, {room.hotel.city}</span>
                 </div>
               </div>
 

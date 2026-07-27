@@ -9,6 +9,7 @@ import { getYoutubeEmbedUrl, getYoutubeThumbnailUrl } from "@/lib/youtube";
 import { PageLoader } from "@/components/ui/page-loader";
 import { Briefcase, ShoppingBag } from "lucide-react";
 import { AddToCartButton } from "@/components/product/AddToCartButton";
+import { WishlistButton } from "@/components/product/WishlistButton";
 
 type Ad = {
   id: string;
@@ -169,6 +170,7 @@ export function AdPageClient() {
               <Card className="h-full overflow-hidden border border-slate-200 bg-white shadow-sm transition-shadow hover:shadow-md group-hover:shadow-lg">
                 <div className="flex flex-col sm:flex-row">
                   <div className="relative aspect-square w-full sm:w-40 sm:aspect-auto sm:min-h-[140px] overflow-hidden bg-slate-100 flex items-center justify-center shrink-0">
+                    <WishlistButton productId={ad.product.id} className="absolute top-2 right-2 z-10" />
                     {(() => {
                       const images = Array.isArray(ad.product.images)
                         ? ad.product.images

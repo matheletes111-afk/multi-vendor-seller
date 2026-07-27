@@ -73,6 +73,42 @@ export async function GET(
   const weight = product.variants?.[0]?.weight ?? 0
   const estimatedDeliveryCharge = getShippingChargeForWeight(weight, ranges)
 
+  // Fetch related products from same category
+  const relatedProductsRaw = await prisma.product.findMany({
+    where: {
+      categoryId: product.categoryId,
+      id: { not: id },
+      isActive: true,
+      isDeleted: false,
+    },
+    take: 8,
+    include: {
+      category: { select: { id: true, name: true, slug: true } },
+      seller: { include: { store: true } },
+      variants: true,
+      _count: { select: { reviews: true } },
+    },
+    orderBy: { createdAt: "desc" },
+  })
+
+  const relatedProducts = relatedProductsRaw.map((p) => {
+    const v0 = p.variants?.[0]
+    const basePrice = v0?.price ?? 0
+    const discount = v0?.discount ?? 0
+    const finalPrice = Math.max(0, basePrice - discount)
+    return {
+      id: p.id,
+      name: p.name,
+      images: p.images,
+      basePrice,
+      discount,
+      finalPrice,
+      category: p.category,
+      seller: p.seller,
+      _count: p._count,
+    }
+  })
+
   const reviews = product.reviews.map((review) => {
     const safeName = (review.user?.name || "").trim()
     const reviewerName = safeName ? safeName.split(/\s+/)[0] : "Verified buyer"
@@ -93,5 +129,6 @@ export async function GET(
     averageRating: Number(ratingAgg._avg.rating ?? 0),
     reviews,
     estimatedDeliveryCharge,
+    relatedProducts,
   })
 }

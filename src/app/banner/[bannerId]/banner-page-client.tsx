@@ -8,6 +8,7 @@ import { formatCurrency } from "@/lib/utils";
 import { PageLoader } from "@/components/ui/page-loader";
 import { Package, Briefcase, ShoppingBag } from "lucide-react";
 import { AddToCartButton } from "@/components/product/AddToCartButton";
+import { WishlistButton } from "@/components/product/WishlistButton";
 import { getServiceFirstDisplayImageUrl } from "@/lib/service-images";
 
 type Banner = {
@@ -255,6 +256,7 @@ export function BannerPageClient() {
                   >
                     <Card className="h-full overflow-hidden border border-slate-200 bg-white shadow-sm transition-shadow hover:shadow-md group-hover:shadow-lg">
                       <div className="relative aspect-square w-full overflow-hidden bg-slate-100 flex items-center justify-center">
+                        <WishlistButton productId={product.id} className="absolute top-2 right-2 z-10" />
                         {firstImage ? (
                           <img
                             src={firstImage}

@@ -119,3 +119,32 @@ export async function GET(request: NextRequest) {
     );
   }
 }
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const session = await auth();
+    if (!session?.user || !isAdmin(session.user)) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const body = await request.json().catch(() => ({}));
+    const { ids } = body as { ids?: string[] };
+
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      return NextResponse.json({ error: "No ids provided" }, { status: 400 });
+    }
+
+    await prisma.hotel.updateMany({
+      where: { id: { in: ids } },
+      data: {
+        isDeleted: true,
+        isActive: false,
+      },
+    });
+
+    return NextResponse.json({ success: true, count: ids.length });
+  } catch (error) {
+    console.error("Error bulk deleting hotels:", error);
+    return NextResponse.json({ error: "Failed to delete hotels" }, { status: 500 });
+  }
+}

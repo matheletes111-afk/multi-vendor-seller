@@ -156,6 +156,59 @@ export async function GET(request: NextRequest) {
 
     const isServiceCategoryOnly = Boolean(serviceCategoryId && effectiveCategoryIds.length === 0 && !subcategoryId)
 
+    // Build smart search filter (supports "productTerm, storeTerm" comma syntax or general matching)
+    let searchConditions: Prisma.ProductWhereInput | undefined = undefined
+    if (q) {
+      if (q.includes(",")) {
+        const parts = q.split(",").map((p) => p.trim()).filter(Boolean)
+        const productTerm = parts[0] || ""
+        const storeTerm = parts[1] || ""
+
+        const andList: Prisma.ProductWhereInput[] = []
+        if (productTerm) {
+          andList.push({
+            OR: [
+              { name: { contains: productTerm, mode: Prisma.QueryMode.insensitive } },
+              { description: { contains: productTerm, mode: Prisma.QueryMode.insensitive } },
+              { category: { name: { contains: productTerm, mode: Prisma.QueryMode.insensitive } } },
+              { subcategory: { name: { contains: productTerm, mode: Prisma.QueryMode.insensitive } } },
+            ],
+          })
+        }
+        if (storeTerm) {
+          andList.push({
+            seller: {
+              isApproved: true,
+              isSuspended: false,
+              store: {
+                name: { contains: storeTerm, mode: Prisma.QueryMode.insensitive },
+              },
+            },
+          })
+        }
+        if (andList.length > 0) {
+          searchConditions = { AND: andList }
+        }
+      } else {
+        // No comma: general search across product name, description, category, subcategory, or store name
+        searchConditions = {
+          OR: [
+            { name: { contains: q, mode: Prisma.QueryMode.insensitive } },
+            { description: { contains: q, mode: Prisma.QueryMode.insensitive } },
+            { category: { name: { contains: q, mode: Prisma.QueryMode.insensitive } } },
+            { subcategory: { name: { contains: q, mode: Prisma.QueryMode.insensitive } } },
+            {
+              seller: {
+                store: {
+                  name: { contains: q, mode: Prisma.QueryMode.insensitive },
+                },
+              },
+            },
+          ],
+        }
+      }
+    }
+
     const productWhere: Prisma.ProductWhereInput = {
       isActive: true,
       isDeleted: false,
@@ -165,8 +218,8 @@ export async function GET(request: NextRequest) {
       },
       ...(effectiveCategoryIds.length > 0 && { categoryId: { in: effectiveCategoryIds } }),
       ...(subcategoryId && { subcategoryId }),
-      ...(q && { name: { contains: q, mode: Prisma.QueryMode.insensitive } }),
       ...(conditionFilter.length > 0 && { condition: { in: conditionFilter } }),
+      ...(searchConditions && searchConditions),
     }
 
     const isFiltered = true

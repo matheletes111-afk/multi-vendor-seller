@@ -85,7 +85,12 @@ export function BrowseProductCard({
           <div className="relative aspect-square w-full overflow-hidden bg-slate-50">
             {canUseWishlist && (
               <div className="absolute right-2 top-2 z-10">
-                <WishlistButton productId={product.id} />
+                <WishlistButton
+                  productId={product.id}
+                  name={product.name}
+                  image={firstImage}
+                  price={finalPrice}
+                />
               </div>
             )}
             <button
@@ -114,6 +119,9 @@ export function BrowseProductCard({
             )}
           </div>
           <div className="flex min-h-0 flex-1 flex-col p-3">
+            <p className="text-[10px] font-bold text-amber-700 uppercase tracking-wider truncate mb-0.5">
+              {product.seller?.store?.name ?? "Store"}
+            </p>
             <p className="line-clamp-2 text-sm font-medium text-gray-800">{product.name}</p>
             <div className="mt-1 flex flex-wrap items-center gap-2">
               <span className="text-xl font-bold text-slate-900">{formatCurrency(finalPrice)}</span>

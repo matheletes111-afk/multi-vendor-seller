@@ -9,7 +9,7 @@ import { formatCurrency } from "@/lib/utils"
 import { PublicLayout } from "@/components/site-layout"
 import { PublicReviewsSection, StarRow, type PublicReviewItem } from "@/components/reviews/public-reviews-section"
 import { UserRole } from "@prisma/client"
-import { Briefcase, Calendar, ChevronRight, Clock, Loader2, Truck } from "lucide-react"
+import { Briefcase, Calendar, ChevronRight, Clock, Loader2, Store, Truck } from "lucide-react"
 import { WishlistButton } from "@/components/product/WishlistButton"
 import { ShareButton } from "@/components/share-button"
 
@@ -201,7 +201,18 @@ export function ServiceDetailClient({ service }: { service: Service }) {
             <div className="flex-1">
               <p className="text-sm text-slate-500">{service.serviceCategory.name}</p>
               <div className="mt-1 flex items-start justify-between gap-3">
-                <h1 className="min-w-0 flex-1 text-2xl font-bold text-slate-900 md:text-3xl">{service.name}</h1>
+                <div className="min-w-0 flex-1">
+                  <h1 className="text-2xl font-bold text-slate-900 md:text-3xl">{service.name}</h1>
+                  {service.seller?.store?.name && (
+                    <div className="mt-1.5 flex items-center gap-1.5 text-xs text-slate-600">
+                      <span>By</span>
+                      <span className="inline-flex items-center gap-1 font-semibold text-amber-900 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200/80 text-xs shadow-2xs">
+                        <Store className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+                        {service.seller.store.name}
+                      </span>
+                    </div>
+                  )}
+                </div>
                 <ShareButton title={service.name} className="shrink-0" />
               </div>
               <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -358,7 +369,13 @@ export function ServiceDetailClient({ service }: { service: Service }) {
                       >
                         Book now
                       </Button>
-                      <WishlistButton serviceId={service.id} className="h-11 w-11 border border-slate-200" />
+                      <WishlistButton
+                        serviceId={service.id}
+                        name={service.name}
+                        image={mainImage}
+                        price={displayPrice}
+                        className="h-11 w-11 border border-slate-200"
+                      />
                     </div>
                   )}
                 </div>
