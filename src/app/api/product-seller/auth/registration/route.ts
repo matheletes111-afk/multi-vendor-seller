@@ -8,6 +8,7 @@ import { activateFreePlan } from "@/lib/subscriptions"
 import { validatePhoneAndCountryCode } from "@/lib/phone-validation"
 import { validatePassword } from "@/lib/password-validation"
 import { sanitizeInput } from "@/lib/html-sanitization"
+import { checkDisallowedName } from "@/lib/name-validation"
 
 const OTP_EXPIRY_MS = 10 * 60 * 1000 // 10 min
 
@@ -19,6 +20,10 @@ export async function POST(request: Request) {
     const sanitizedName = name ? sanitizeInput(name) : null
     if (!email || !password) {
       return NextResponse.json({ error: "Email and password are required" }, { status: 400 })
+    }
+    const nameCheck = await checkDisallowedName(sanitizedName)
+    if (!nameCheck.isAllowed) {
+      return NextResponse.json({ error: nameCheck.error }, { status: 400 })
     }
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
     if (!emailRegex.test(email)) {

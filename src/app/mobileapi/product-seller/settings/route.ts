@@ -7,6 +7,7 @@ import path from "path"
 import bcrypt from "bcryptjs"
 import { validatePassword } from "@/lib/password-validation"
 import { sanitizeInput } from "@/lib/html-sanitization"
+import { checkDisallowedName } from "@/lib/name-validation"
 
 export const dynamic = "force-dynamic"
 
@@ -360,6 +361,10 @@ export async function PUT(request: NextRequest) {
       }
 
       // Execute Multipart Updates
+      if (userData.name) {
+        const nameCheck = await checkDisallowedName(userData.name as string)
+        if (!nameCheck.isAllowed) return NextResponse.json({ success: false, error: nameCheck.error! }, { status: 400 })
+      }
       if (userData.phone) {
         const existing = await prisma.user.findFirst({ where: { phone: userData.phone as string, NOT: { id: userId } } })
         if (existing) return NextResponse.json({ success: false, error: "Phone number already in use" }, { status: 400 })

@@ -6,6 +6,7 @@ import { uploadPublicFile } from "@/lib/upload-public-file"
 import { getMobileCustomerAuth } from "@/app/mobileapi/_helpers/customer-auth"
 import { validatePassword } from "@/lib/password-validation"
 import { sanitizeInput } from "@/lib/html-sanitization"
+import { checkDisallowedName } from "@/lib/name-validation"
 
 export const dynamic = "force-dynamic"
 
@@ -190,6 +191,13 @@ export async function PUT(request: NextRequest) {
 
   if (Object.keys(userData).length === 0) {
     return NextResponse.json({ success: true, message: "No changes provided" })
+  }
+
+  if (userData.name) {
+    const nameCheck = await checkDisallowedName(userData.name)
+    if (!nameCheck.isAllowed) {
+      return NextResponse.json({ success: false, error: nameCheck.error! }, { status: 400 })
+    }
   }
 
   await prisma.user.update({

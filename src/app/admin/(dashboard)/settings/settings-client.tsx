@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Eye, EyeOff, User, Mail, Phone, Lock, ShieldCheck, Globe, Smartphone, Plus, Trash2 } from "lucide-react"
+import { Eye, EyeOff, User, Mail, Phone, Lock, ShieldCheck, Globe, Smartphone, Plus, Trash2, Ban, X } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/ui/card"
 import { Button } from "@/ui/button"
 import { Input } from "@/ui/input"
@@ -26,6 +26,7 @@ type AdminProfile = {
       maxWeight: number
       charge: number
     }[]
+    disallowedNames?: string[]
   }
 }
 
@@ -39,6 +40,8 @@ export function AdminSettingsClient() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [showCurrentPassword, setShowCurrentPassword] = useState(false)
   const [ranges, setRanges] = useState<{ minWeight: string; maxWeight: string; charge: string }[]>([])
+  const [disallowedNames, setDisallowedNames] = useState<string[]>([])
+  const [newDisallowedName, setNewDisallowedName] = useState("")
 
   useEffect(() => {
     fetch("/api/admin/settings")
@@ -53,9 +56,27 @@ export function AdminSettingsClient() {
           }))
           setRanges(loadedRanges)
         }
+        if (data?.globalSettings?.disallowedNames && Array.isArray(data.globalSettings.disallowedNames)) {
+          setDisallowedNames(data.globalSettings.disallowedNames)
+        }
       })
       .finally(() => setLoading(false))
   }, [])
+
+  function handleAddDisallowedName() {
+    const trimmed = newDisallowedName.trim().toLowerCase()
+    if (!trimmed) return
+    if (disallowedNames.includes(trimmed)) {
+      setNewDisallowedName("")
+      return
+    }
+    setDisallowedNames((prev) => [...prev, trimmed])
+    setNewDisallowedName("")
+  }
+
+  function handleRemoveDisallowedName(nameToRemove: string) {
+    setDisallowedNames((prev) => prev.filter((n) => n !== nameToRemove))
+  }
 
   function addRange() {
     setRanges((prev) => {
@@ -142,6 +163,7 @@ export function AdminSettingsClient() {
       maxWeight: parseFloat(r.maxWeight),
       charge: parseFloat(r.charge)
     }))))
+    fd.append("disallowedNames", JSON.stringify(disallowedNames))
 
     // Ensure baseCommission is added to body for JSON or FormData
     const phone = ((fd.get("phone") as string | null) ?? "").trim()
@@ -511,6 +533,84 @@ export function AdminSettingsClient() {
               <p className="text-[9px] text-muted-foreground/60 italic">
                 * Specify weights in kilograms (kg) and charges in NLE. Ranges must be continuous (e.g. 0-2kg, 2-5kg) without gaps or overlaps.
               </p>
+            </CardContent>
+          </Card>
+
+          <Card className="border-none shadow-2xl overflow-hidden rounded-[2.5rem] bg-gradient-to-br from-background via-background to-rose-500/5 border-l-4 border-rose-500">
+            <CardHeader className="pb-6 border-b border-muted/30">
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-rose-500/10 rounded-2xl">
+                  <Ban className="h-6 w-6 text-rose-600" />
+                </div>
+                <div>
+                  <CardTitle className="text-xl font-medium text-rose-900">Restricted Names</CardTitle>
+                  <CardDescription className="pt-1 font-medium italic text-xs uppercase tracking-widest opacity-60">Prohibited seller and customer registration names</CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="p-10 space-y-6">
+              <div className="space-y-3">
+                <Label htmlFor="addDisallowedName" className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground ml-1">
+                  Add Prohibited Word
+                </Label>
+                <div className="flex gap-3">
+                  <Input
+                    id="addDisallowedName"
+                    type="text"
+                    placeholder="Enter restricted word e.g. 'badword', 'admin', 'scam'"
+                    value={newDisallowedName}
+                    onChange={(e) => setNewDisallowedName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault()
+                        handleAddDisallowedName()
+                      }
+                    }}
+                    className="border-muted bg-muted/20 rounded-2xl h-12 focus-visible:ring-rose-500 font-medium shadow-inner flex-1"
+                  />
+                  <Button
+                    type="button"
+                    onClick={handleAddDisallowedName}
+                    className="rounded-2xl h-12 px-6 bg-rose-600 hover:bg-rose-700 text-white font-medium text-xs uppercase tracking-wider shadow-lg shadow-rose-500/20"
+                  >
+                    <Plus className="h-4 w-4 mr-1.5" /> Add
+                  </Button>
+                </div>
+                <p className="text-[9px] text-muted-foreground/60 ml-1 italic">
+                  * Registrations and profile name updates matching these words (including obfuscations) will be blocked automatically.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground ml-1">
+                  Active Restricted List ({disallowedNames.length})
+                </Label>
+                {disallowedNames.length === 0 ? (
+                  <p className="text-sm text-muted-foreground italic text-center py-4 bg-muted/10 rounded-2xl w-full">
+                    No restricted names configured yet.
+                  </p>
+                ) : (
+                  <div className="flex flex-wrap gap-2 p-4 bg-muted/10 rounded-2xl border border-muted/20 max-h-48 overflow-y-auto">
+                    {disallowedNames.map((name) => (
+                      <Badge
+                        key={name}
+                        variant="secondary"
+                        className="px-3 py-1.5 rounded-full text-xs font-medium bg-rose-500/10 text-rose-700 border border-rose-200 flex items-center gap-1.5 hover:bg-rose-500/20 transition-colors"
+                      >
+                        <span>{name}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveDisallowedName(name)}
+                          className="hover:text-rose-900 transition-colors focus:outline-none"
+                          title={`Remove '${name}'`}
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+              </div>
             </CardContent>
           </Card>
 

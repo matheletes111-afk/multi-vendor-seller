@@ -8,6 +8,8 @@ import { uploadPublicFile } from "@/lib/upload-public-file"
 import { validatePassword } from "@/lib/password-validation"
 import { sanitizeInput } from "@/lib/html-sanitization"
 
+import { checkDisallowedName } from "@/lib/name-validation"
+
 function getImageExtFromContentType(contentType?: string | null) {
   const ct = (contentType || "").toLowerCase()
   if (ct.includes("png")) return ".png"
@@ -171,6 +173,12 @@ export async function PUT(request: NextRequest) {
 
   if (Object.keys(userData).length === 0) {
     return NextResponse.json({ success: true })
+  }
+  if (userData.name) {
+    const nameCheck = await checkDisallowedName(userData.name)
+    if (!nameCheck.isAllowed) {
+      return NextResponse.json({ error: nameCheck.error }, { status: 400 })
+    }
   }
   if (userData.phone) {
     const existing = await prisma.user.findFirst({

@@ -7,6 +7,7 @@ import bcrypt from "bcryptjs"
 import { uploadPublicFile } from "@/lib/upload-public-file"
 import { validatePassword } from "@/lib/password-validation"
 import { sanitizeInput } from "@/lib/html-sanitization"
+import { checkDisallowedName } from "@/lib/name-validation"
 
 function getImageExtFromContentType(contentType?: string | null) {
   const ct = (contentType || "").toLowerCase()
@@ -112,7 +113,11 @@ export async function PUT(request: NextRequest) {
         const profileImageFile = fd.get("profileImage") as File | null
 
         const userData: any = {}
-        if (name) userData.name = name
+        if (name) {
+            const nameCheck = await checkDisallowedName(name)
+            if (!nameCheck.isAllowed) return NextResponse.json({ error: nameCheck.error }, { status: 400 })
+            userData.name = name
+        }
         if (phone) {
             if (!/^[0-9]+$/.test(phone)) {
                 return NextResponse.json({ error: "Phone number must contain only numbers." }, { status: 400 })

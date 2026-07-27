@@ -130,6 +130,7 @@ export async function PUT(request: NextRequest) {
   } = {}
   let baseCommission: number | undefined = undefined
   let deliveryChargeRanges: any = undefined
+  let disallowedNames: string[] | undefined = undefined
 
   if (contentType.includes("multipart/form-data")) {
     const formData = await request.formData()
@@ -149,6 +150,18 @@ export async function PUT(request: NextRequest) {
         deliveryChargeRanges = JSON.parse(deliveryChargeRangesStr)
       } catch {
         return NextResponse.json({ error: "Invalid delivery charge ranges format" }, { status: 400 })
+      }
+    }
+
+    const disallowedNamesStr = formData.get("disallowedNames") as string | null
+    if (disallowedNamesStr !== null) {
+      try {
+        const parsed = JSON.parse(disallowedNamesStr)
+        if (Array.isArray(parsed)) {
+          disallowedNames = parsed.map((s: any) => String(s).trim()).filter(Boolean)
+        }
+      } catch {
+        return NextResponse.json({ error: "Invalid disallowed names format" }, { status: 400 })
       }
     }
 
@@ -216,6 +229,7 @@ export async function PUT(request: NextRequest) {
       currentPassword?: string
       baseCommission?: number
       deliveryChargeRanges?: any
+      disallowedNames?: string[]
     }
     if (body.name !== undefined) {
       userData.name = typeof body.name === "string" ? sanitizeInput(body.name) : undefined
@@ -225,6 +239,9 @@ export async function PUT(request: NextRequest) {
     if (body.phoneCountryCode !== undefined) userData.phoneCountryCode = body.phoneCountryCode || null
     if (body.baseCommission !== undefined) baseCommission = body.baseCommission
     if (body.deliveryChargeRanges !== undefined) deliveryChargeRanges = body.deliveryChargeRanges
+    if (body.disallowedNames !== undefined && Array.isArray(body.disallowedNames)) {
+      disallowedNames = body.disallowedNames.map(s => String(s).trim()).filter(Boolean)
+    }
 
     const phoneError = getRequiredPhoneFieldsError(userData.phone, userData.phoneCountryCode)
     if (phoneError) return NextResponse.json({ error: phoneError }, { status: 400 })
@@ -277,11 +294,12 @@ export async function PUT(request: NextRequest) {
     validatedRanges = sorted
   }
 
-  if (baseCommission !== undefined || validatedRanges !== undefined) {
+  if (baseCommission !== undefined || validatedRanges !== undefined || disallowedNames !== undefined) {
     const globalSettings = await (prisma as any).globalSetting.findFirst()
     const updateData: any = {}
     if (baseCommission !== undefined) updateData.baseCommission = baseCommission
     if (validatedRanges !== undefined) updateData.deliveryChargeRanges = validatedRanges
+    if (disallowedNames !== undefined) updateData.disallowedNames = disallowedNames
 
     if (globalSettings) {
       await (prisma as any).globalSetting.update({
@@ -292,7 +310,8 @@ export async function PUT(request: NextRequest) {
       await (prisma as any).globalSetting.create({
         data: {
           baseCommission: baseCommission !== undefined ? baseCommission : 10.0,
-          deliveryChargeRanges: validatedRanges !== undefined ? validatedRanges : []
+          deliveryChargeRanges: validatedRanges !== undefined ? validatedRanges : [],
+          disallowedNames: disallowedNames !== undefined ? disallowedNames : []
         }
       })
     }
