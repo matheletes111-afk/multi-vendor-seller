@@ -67,7 +67,7 @@ export async function GET(req: NextRequest) {
 
   const items = cartItems.filter((i) => i.productId != null || i.serviceId != null)
 
-  const globalSetting = await prisma.globalSetting.findFirst()
+  const globalSetting = await prisma.globalSetting.findFirst({ select: { deliveryChargeRanges: true } }).catch(() => null)
   const ranges = (globalSetting?.deliveryChargeRanges as any[]) || []
 
   // Group by seller

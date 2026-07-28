@@ -1,0 +1,297 @@
+================================================================================
+MOBILE HOME PAGE MICRO APIS MASTER SPECIFICATION & TRACKING LIST
+================================================================================
+Document Purpose: Complete component-by-component micro API architecture & state
+tracking document for the Mobile Home Screen (Product, Service, Hotel, Food).
+Location: f:\react\meeem\multi-vendor-seller\txt\mobile_home_page_apis_list.txt
+Primary Prefix: /mobileapi/v1/
+Last Updated: 2026-07-28
+
+--------------------------------------------------------------------------------
+GLOBAL REQUEST CONTEXT & HEADERS
+--------------------------------------------------------------------------------
+All home screen APIs support localization, currency handling, and location:
+
+Header Key              Type     Required  Description / Example
+----------------------- -------- --------- -------------------------------------
+Authorization           String   Optional  Bearer <user_token> (Personalization)
+X-User-Latitude         Float    Optional  User latitude (e.g. 25.2048)
+X-User-Longitude        Float    Optional  User longitude (e.g. 55.2708)
+X-Country-Code          String   Optional  ISO country code (e.g. UAE)
+X-Currency              String   Optional  Currency code (e.g. AED, USD)
+X-Language              String   Optional  Language code (e.g. en, ar)
+X-Device-ID             String   Optional  Device UUID for guest fallback
+
+POLICY NOTES:
+1. Guest Users: Guests without Authorization Bearer token will NOT receive recent
+   search data (returns empty list []).
+2. Geolocation Fallback: If X-User-Latitude/Longitude (or lat/lng query params) are
+   missing, Nearby Hotels and Food Spots fall back to returning Top-Rated items.
+
+
+================================================================================
+HOTEL CATEGORY ARCHITECTURE (CITY / LOCATION & PROPERTY TYPES)
+================================================================================
+Hotels are categorized primarily by City / Destination (`Hotel.city` field in DB):
+- Primary Mobile Hotel Categories: Cities (e.g., Dubai, Abu Dhabi, Sharjah, Ras Al Khaimah).
+- Secondary Property Type Categories: `HotelSeller.categories` JSON array (Resorts, Luxury, Villas, Apartments).
+- Zero DB / CRUD Form Changes: Hotel sellers already provide `city` when adding a hotel in `hotel-seller/hotels/new`.
+
+
+================================================================================
+SECTION BREAKDOWN & DOMAIN MAPPING (18 MICRO APIS + BFF LAYOUT)
+================================================================================
+
+--------------------------------------------------------------------------------
+0. BFF / UNIFIED HOME LAYOUT ENGINE (Global / Architecture)
+--------------------------------------------------------------------------------
+[STATUS]: [DONE] - Endpoint created at /mobileapi/v1/home/layout
+
+* API Endpoint: GET /mobileapi/v1/home/layout
+* Purpose: Single Backend-For-Frontend (BFF) call returning ordered home page section
+  payloads for fast app startup without 17+ network roundtrips.
+* Response Schema:
+  {
+    "success": true,
+    "data": {
+      "sections": [
+        { "type": "HEADER_LOCATION", "data": { "address_id": "...", "label": "Deliver to Home - Silicon Oasis", "city": "Dubai" } },
+        { "type": "NOTIFICATION_COUNT", "data": { "unread_count": 3 } },
+        { "type": "QUICK_CATEGORIES", "data": [ ... ] },
+        { "type": "HERO_CAROUSEL", "data": [ ... ] },
+        { "type": "RECENT_SEARCHES", "data": [ ... ] },
+        { "type": "DISCOUNTED_PRODUCTS", "title": "Shop Products - Up to 50% Off", "data": [ ... ] },
+        { "type": "SPONSORED_SPOTLIGHT_1", "data": { ... } },
+        { "type": "SERVICES_UNDER_PRICE", "title": "Best Service under AED 99", "data": [ ... ] },
+        { "type": "SHOP_BY_CATEGORY", "data": [ ... ] },
+        { "type": "CONTINUE_SEARCH", "data": [ ... ] },
+        { "type": "MEGA_SALE_BANNER", "data": { ... } },
+        { "type": "DEALS_OF_THE_DAY", "data": [ ... ] },
+        { "type": "NEARBY_RESTAURANTS", "title": "Food spots near you", "data": [ ... ] },
+        { "type": "EXPERT_SERVICES", "title": "Expert Services", "data": [ ... ] },
+        { "type": "SPONSORED_SPOTLIGHT_2", "data": { ... } },
+        { "type": "NEARBY_HOTELS", "title": "Hotels near you", "data": [ ... ] },
+        { "type": "HOTEL_PROMO_BANNER", "data": { ... } },
+        { "type": "RECOMMENDED_GRID", "title": "Recommended for you", "endpoint": "/mobileapi/v1/recommendations/feed?page=1" }
+      ]
+    }
+  }
+
+
+--------------------------------------------------------------------------------
+1. HEADER & LOCATION BAR (Global / User Context)
+--------------------------------------------------------------------------------
+[1.1 ACTIVE DELIVERY ADDRESS]
+* [STATUS]: [DONE]
+* API Endpoint: GET /mobileapi/v1/user/delivery-addresses/active
+* Purpose: Returns active delivery address label for top header.
+* Query Params: None (Requires Auth Header or default fallback)
+* Response Attributes: `id`, `address_type`, `label`, `city`, `is_default`
+
+[1.2 UNREAD NOTIFICATIONS COUNT]
+* [STATUS]: [DONE]
+* API Endpoint: GET /mobileapi/v1/notifications/unread-count
+* Purpose: Returns unread badge count for top bell/profile icon.
+* Response Attributes: `unread_count`, `has_critical`
+
+
+--------------------------------------------------------------------------------
+2. VERTICAL CATEGORY APIS & CATEGORY CLICK LISTINGS (Product, Service, Hotel, Food)
+--------------------------------------------------------------------------------
+[STATUS]: [DONE]
+* 2.1 Product Categories List:   GET /mobileapi/v1/categories/products
+* 2.2 Service Categories List:   GET /mobileapi/v1/categories/services
+* 2.3 Hotel Destinations List:  GET /mobileapi/v1/categories/hotels
+* 2.4 Food Categories List:    GET /mobileapi/v1/categories/food
+
+[CATEGORY CLICK LISTING APIS (On Category Tap)]:
+* Product Category Click: GET /mobileapi/v1/products?category={slug}
+* Service Category Click: GET /mobileapi/v1/services?category={slug}
+* Hotel City Click:       GET /mobileapi/v1/hotels?city={city_name}
+* Food Cuisine Click:     GET /mobileapi/v1/restaurants?category={cuisine_name}
+
+
+--------------------------------------------------------------------------------
+3. TOP HERO CAROUSEL BANNERS (Product Vertical)
+--------------------------------------------------------------------------------
+[STATUS]: [DONE]
+* API Endpoint: GET /mobileapi/v1/banners?placement=home_hero
+* Purpose: Main auto-rotating promotional top hero slider.
+* Response Attributes: `banner_id`, `heading`, `description`, `image_url`, `target_type`, `target_id`, `cta_text`
+
+
+--------------------------------------------------------------------------------
+4. RECENT SEARCHES SECTION (Product / User Vertical)
+--------------------------------------------------------------------------------
+[4.1 GET RECENT SEARCHES]
+* [STATUS]: [DONE]
+* API Endpoint: GET /mobileapi/v1/user/recent-searches
+* Purpose: User's recent search keywords with product previews & timestamps (returns [] for guest users).
+* Query Params: `limit` (default: 50, returns all recent searches)
+* Response Attributes: `search_id`, `query_text`, `searched_time_ago`, `image_url`, `price`, `discount_tag`
+
+[4.2 CLEAR RECENT SEARCHES]
+* [STATUS]: [DONE]
+* API Endpoint: DELETE /mobileapi/v1/user/recent-searches
+* Purpose: Clears history when user clicks "Clear all".
+* Response Attributes: `success: true`, `message`
+
+
+--------------------------------------------------------------------------------
+5. "SHOP PRODUCTS - UP TO 50% OFF" (Product Vertical)
+--------------------------------------------------------------------------------
+[STATUS]: [DONE]
+* API Endpoint: GET /mobileapi/v1/products/promotions?type=discount&max_discount=50&limit=10
+* Purpose: Horizontal carousel of heavily discounted products with strike-through prices.
+* Query Params: `type` (discount), `max_discount` (50), `limit` (10)
+* Response Attributes: `product_id`, `title`, `brand`, `thumbnail`, `current_price`, `original_price`, `discount_percentage`, `rating`, `review_count`, `stock_status`
+
+
+--------------------------------------------------------------------------------
+6. SPONSORED SPOTLIGHT CARD #1 (Product / Brand Vertical)
+--------------------------------------------------------------------------------
+[STATUS]: [DONE]
+* API Endpoint: GET /mobileapi/v1/ads/spotlight?slot=home_mid_1
+* Dedicated Panel Endpoints:
+  - Product Ads: GET /mobileapi/v1/ads/products
+  - Service Ads: GET /mobileapi/v1/ads/services
+  - Food Ads:    GET /mobileapi/v1/ads/food
+  - Hotel Ads:   GET /mobileapi/v1/ads/hotels
+* Purpose: Mid-page inline sponsored single product/brand advertisement unit.
+* Response Attributes: `ad_id`, `is_sponsored: true`, `title`, `subtitle`, `image_url`, `price`, `rating`, `review_count`, `cta_text`, `click_url`
+
+
+--------------------------------------------------------------------------------
+7. "BEST SERVICE UNDER $99 / AED 99" (Service Vertical)
+--------------------------------------------------------------------------------
+[STATUS]: [DONE]
+* API Endpoint: GET /mobileapi/v1/services/promotions?max_price=99&limit=6
+* Purpose: Budget-friendly services carousel (AC repair, Cleaning, Plumbing).
+* Query Params: `max_price` (99), `limit` (6)
+* Response Attributes: `service_id`, `title`, `category_name`, `discount_badge`, `price`, `currency`, `image_url`, `rating`
+
+
+--------------------------------------------------------------------------------
+8. "SHOP BY CATEGORY" GRID (Product Vertical)
+--------------------------------------------------------------------------------
+[STATUS]: [DONE]
+* API Endpoint: GET /mobileapi/v1/categories/featured?vertical=product&limit=4
+* Purpose: 2x2 featured product category grid (Apparel, Electronics, Home & Kitchen, etc.).
+* Response Attributes: `category_id`, `name`, `thumbnail_url`, `item_count`, `deep_link`
+
+
+--------------------------------------------------------------------------------
+9. "CONTINUE YOUR SEARCH" (Product Vertical)
+--------------------------------------------------------------------------------
+[STATUS]: [DONE - REPLACED BY SECTION 4.1]
+* API Endpoint: GET /mobileapi/v1/user/recent-searches
+* Purpose: Handled by Recent Searches API (Section 4.1) which returns complete customer view/search history with product previews.
+
+
+--------------------------------------------------------------------------------
+10. MID-PAGE MEGA SALE EVENT BANNER (Product Vertical)
+--------------------------------------------------------------------------------
+[STATUS]: [DONE]
+* API Endpoint: GET /mobileapi/v1/banners?placement=home_mid_banner
+* Purpose: Large promotional event banner ("50% OFF ON ALL ITEMS").
+* Response Attributes: `banner_id`, `image_url`, `target_type`, `target_id`
+
+
+--------------------------------------------------------------------------------
+11. "DEALS OF THE DAY" (Product & Service Verticals)
+--------------------------------------------------------------------------------
+[STATUS]: [DONE]
+* Product Deals: GET /mobileapi/v1/deals/products
+* Service Deals: GET /mobileapi/v1/deals/services
+* Unified Slot:  GET /mobileapi/v1/deals/day?type=product|service
+* Purpose: Flash daily deals horizontal carousels with active end-of-day countdown timer (`deal_ends_at`) using real schema fields (`price`, `discount`, `basePrice`, `stock`).
+* Response Attributes: `deal_id`, `product_id`/`service_id`, `title`, `image_url`, `current_price`, `original_price`, `discount_badge`, `deal_ends_at` (ISO timestamp)
+
+
+--------------------------------------------------------------------------------
+12. "FOOD SPOTS NEAR YOU" (Food / Restaurant Vertical)
+--------------------------------------------------------------------------------
+[STATUS]: [DONE]
+* API Endpoint: GET /mobileapi/v1/restaurants/nearby?lat={lat}&lng={lng}&limit=6
+* Purpose: Nearby restaurants card list with delivery time estimation and distance (falls back to top-rated if lat/lng missing).
+* Query Params: `lat`, `lng`, `limit` (default: 6)
+* Response Attributes: `restaurant_id`, `name`, `cuisine_type`, `image_url`, `rating`, `delivery_time_range` (e.g. "25-30 mins"), `distance_km`, `offer_tag` (e.g. "Free Delivery")
+
+
+--------------------------------------------------------------------------------
+13. "EXPERT SERVICES" (Service Vertical)
+--------------------------------------------------------------------------------
+[STATUS]: [DONE]
+* API Endpoint: GET /mobileapi/v1/services/featured-home-services
+* Purpose: Essential home service categories 2x2 grid with starting price tags.
+* Response Attributes: `service_id`, `name`, `image_url`, `discount_tag`, `starting_price`
+
+
+--------------------------------------------------------------------------------
+14. SPONSORED PRODUCT SPOTLIGHT CARD #2 (Product / Brand Vertical)
+--------------------------------------------------------------------------------
+[STATUS]: [DONE]
+* API Endpoint: GET /mobileapi/v1/ads/spotlight?slot=home_mid_2
+* Purpose: Second inline sponsored ad unit.
+* Response Attributes: Same as Spotlight #1 with slot `home_mid_2`.
+
+
+--------------------------------------------------------------------------------
+15. "HOTELS NEAR YOU" (Hotel Vertical)
+--------------------------------------------------------------------------------
+[STATUS]: [DONE]
+* API Endpoint: GET /mobileapi/v1/hotels/nearby?lat={lat}&lng={lng}&city={city}&limit=5
+* Purpose: Nearby / top-rated hotel booking recommendation cards (falls back to top-rated if lat/lng missing).
+* Query Params: `lat`, `lng`, `city` (optional), `limit` (default: 5)
+* Response Attributes: `hotel_id`, `name`, `location_text`, `image_url`, `rating`, `price_per_night`, `badge_text`, `booking_cta`
+
+
+--------------------------------------------------------------------------------
+16. HOTEL PROMOTIONAL BANNER (Hotel Vertical)
+--------------------------------------------------------------------------------
+[STATUS]: [DONE]
+* API Endpoint: GET /mobileapi/v1/banners?placement=home_hotels_promo
+* Purpose: Full width hotel promotional banner ("Book Your Festive Stay - 20% Cashback").
+* Response Attributes: `banner_id`, `image_url`, `target_type`, `target_id`
+
+
+--------------------------------------------------------------------------------
+17. "RECOMMENDED FOR YOU" INFINITE SCROLL GRID (Product Vertical)
+--------------------------------------------------------------------------------
+[STATUS]: [DONE]
+* API Endpoint: GET /mobileapi/v1/recommendations/feed?page=1&limit=10
+* Purpose: Paginated dynamic recommendation grid at bottom of home screen.
+* Query Params: `page` (default: 1), `limit` (default: 10)
+* Response Schema:
+  {
+    "items": [
+      {
+        "id": "prod_101",
+        "title": "Wireless Earbuds Pro",
+        "image": "https://...",
+        "price": 379.50,
+        "original_price": 499.00,
+        "rating": 4.8,
+        "badge": "Sale"
+      }
+    ],
+    "pagination": {
+      "current_page": 1,
+      "total_pages": 15,
+      "has_more": true
+    }
+  }
+
+================================================================================
+SUMMARY MATRIX & TASK AUDIT
+================================================================================
+Domain Vertical     Total Micro APIs   [DONE / EXISTING]   [PENDING TO BUILD]
+------------------  ----------------   -----------------   ------------------
+BFF & Global Header 4 APIs             4 APIs DONE         0 APIs
+Product Vertical    9 APIs             9 APIs DONE         0 APIs
+Service Vertical    2 APIs             2 APIs DONE         0 APIs
+Hotel Vertical      2 APIs             2 APIs DONE         0 APIs
+Food Vertical       1 API              1 API DONE          0 APIs
+------------------  ----------------   -----------------   ------------------
+TOTAL               18 APIs            18 APIs DONE        0 APIs (100% COMPLETE)
+================================================================================

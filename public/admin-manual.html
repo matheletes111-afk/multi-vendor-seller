@@ -1,0 +1,861 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Panel — Operational Manual</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,500;0,700;1,400&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --gold: #c9a84c;
+      --gold-light: #f0d98a;
+      --paper: #f9f5eb;
+      --paper2: #f2eddf;
+      --ink: #1a1a2e;
+      --ink-muted: #5a5a72;
+      --card-bg: #ffffff;
+      --card-border: #e4ddd0;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: radial-gradient(ellipse at 20% 0%, #1a237e 0%, #0d1117 60%);
+      min-height: 100vh;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+    }
+
+    /* ── TOP BAR ── */
+    .topbar {
+      width: 100%;
+      max-width: 1360px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.12);
+      backdrop-filter: blur(16px);
+      border-radius: 14px;
+      padding: 14px 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .topbar-brand { display: flex; align-items: center; gap: 12px; }
+    .topbar-icon {
+      width: 36px; height: 36px;
+      background: linear-gradient(135deg, var(--gold), #8b6914);
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px;
+    }
+    .topbar-title {
+      font-family: 'Cinzel', serif;
+      font-size: 18px;
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: 0.5px;
+    }
+    .topbar-sub { font-size: 12px; color: rgba(255,255,255,0.5); margin-top: 1px; }
+    .search-wrap { position: relative; }
+    .search-wrap input {
+      background: rgba(0,0,0,0.4);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 22px;
+      padding: 9px 18px 9px 40px;
+      color: #fff;
+      font-size: 13px;
+      width: 300px;
+      outline: none;
+      transition: border 0.2s;
+    }
+    .search-wrap input::placeholder { color: rgba(255,255,255,0.4); }
+    .search-wrap input:focus { border-color: var(--gold); }
+    .search-wrap::before {
+      content: '🔍';
+      position: absolute;
+      left: 13px; top: 50%;
+      transform: translateY(-50%);
+      font-size: 14px;
+      pointer-events: none;
+    }
+
+    /* ── LAYOUT ── */
+    .main-layout {
+      display: flex;
+      gap: 24px;
+      width: 100%;
+      max-width: 1360px;
+      align-items: flex-start;
+    }
+
+    /* ── TOC SIDEBAR ── */
+    .toc {
+      width: 310px;
+      flex-shrink: 0;
+      background: rgba(15, 23, 42, 0.95);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 18px;
+      padding: 20px 16px;
+      position: sticky;
+      top: 20px;
+      max-height: calc(100vh - 40px);
+      overflow-y: auto;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.6);
+    }
+    .toc::-webkit-scrollbar { width: 5px; }
+    .toc::-webkit-scrollbar-thumb { background: rgba(201,168,76,0.4); border-radius: 4px; }
+
+    .toc-heading {
+      font-family: 'Cinzel', serif;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--gold);
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      margin-bottom: 16px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid rgba(201,168,76,0.3);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .toc-count-badge {
+      font-family: 'Inter', sans-serif;
+      font-size: 10px;
+      background: rgba(201,168,76,0.2);
+      color: var(--gold-light);
+      padding: 2px 8px;
+      border-radius: 12px;
+      border: 1px solid rgba(201,168,76,0.4);
+    }
+
+    .ch-label {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #cbd5e1;
+      margin: 16px 0 8px 6px;
+    }
+
+    .toc-btn {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid transparent;
+      background: rgba(255,255,255,0.03);
+      color: #cbd5e1;
+      font-size: 12.5px;
+      font-family: 'Inter', sans-serif;
+      cursor: pointer;
+      text-align: left;
+      transition: all 0.15s ease;
+      margin-bottom: 4px;
+      line-height: 1.3;
+    }
+    .toc-btn .toc-num {
+      font-size: 11px;
+      font-weight: 700;
+      font-family: monospace;
+      color: #94a3b8;
+      min-width: 24px;
+      height: 22px;
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(0,0,0,0.4);
+      border-radius: 6px;
+      flex-shrink: 0;
+    }
+    .toc-btn:hover {
+      background: rgba(201,168,76,0.15);
+      color: #ffffff;
+      transform: translateX(2px);
+    }
+    /* SUPER VISIBLE ACTIVE STATE */
+    .toc-btn.active {
+      background: linear-gradient(135deg, #c9a84c 0%, #9a7820 100%) !important;
+      color: #0f172a !important;
+      font-weight: 800 !important;
+      border-left: 5px solid #ffffff !important;
+      border-radius: 10px !important;
+      box-shadow: 0 6px 20px rgba(201,168,76,0.4) !important;
+      transform: translateX(4px) !important;
+    }
+    .toc-btn.active .toc-num {
+      background: #0f172a !important;
+      color: #f4e8c1 !important;
+      font-weight: 800 !important;
+    }
+    .toc-btn.active .toc-txt {
+      color: #0f172a !important;
+      font-weight: 800 !important;
+    }
+
+    /* ── BOOK OUTER ── */
+    .book-outer {
+      flex: 1;
+      background: #16120c;
+      border-radius: 24px;
+      padding: 16px;
+      box-shadow: 0 30px 60px -12px rgba(0,0,0,0.8), 0 0 0 2px rgba(201,168,76,0.4);
+      position: relative;
+    }
+
+    .ribbons {
+      position: absolute;
+      top: -12px; right: 48px;
+      display: flex; gap: 6px; z-index: 30;
+    }
+    .ribbon {
+      width: 22px; height: 46px;
+      clip-path: polygon(0 0,100% 0,100% 100%,50% 82%,0 100%);
+      cursor: pointer;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+      transition: transform 0.2s;
+    }
+    .ribbon:hover { transform: translateY(5px); }
+    .r1 { background: var(--gold); }
+    .r2 { background: #1e40af; }
+    .r3 { background: #065f46; }
+    .r4 { background: #7c3aed; }
+
+    /* ── BOOK INNER ── */
+    .book-inner {
+      background: var(--paper);
+      border-radius: 14px;
+      display: grid;
+      grid-template-columns: 1fr 40px 1fr;
+      min-height: 700px;
+      overflow: hidden;
+      border: 1px solid #d5c9b0;
+      box-shadow: inset 0 0 60px rgba(0,0,0,0.06);
+    }
+    .page { padding: 36px 40px; display: flex; flex-direction: column; }
+    .page-left { background: var(--paper); }
+    .page-right { background: var(--paper2); }
+
+    .spine-col {
+      background: linear-gradient(90deg,
+        rgba(0,0,0,0.18) 0%,
+        rgba(0,0,0,0.06) 25%,
+        rgba(255,255,255,0.45) 50%,
+        rgba(0,0,0,0.06) 75%,
+        rgba(0,0,0,0.18) 100%);
+      pointer-events: none;
+    }
+
+    .pg-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1.5px solid #d5c9b0;
+      padding-bottom: 12px;
+      margin-bottom: 22px;
+    }
+    .ch-badge {
+      font-family: 'Cinzel', serif;
+      font-size: 11px;
+      font-weight: 700;
+      color: #854d0e;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+    }
+    .pg-num {
+      font-family: 'Playfair Display', serif;
+      font-size: 12px;
+      color: #64748b;
+      background: #eae1cd;
+      padding: 3px 10px;
+      border-radius: 12px;
+      font-weight: 600;
+    }
+
+    .pg-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--ink);
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .pg-title .title-icon {
+      width: 42px; height: 42px;
+      background: rgba(201,168,76,0.15);
+      border: 1px solid rgba(201,168,76,0.3);
+      border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px;
+      flex-shrink: 0;
+    }
+    .pg-subtitle {
+      font-size: 13px;
+      color: #475569;
+      line-height: 1.6;
+      margin-bottom: 20px;
+      background: #f2eddf;
+      padding: 14px 16px;
+      border-radius: 12px;
+      border: 1px solid #d5c9b0;
+    }
+
+    .activities { display: flex; flex-direction: column; gap: 12px; flex: 1; overflow-y: auto; max-height: 480px; padding-right: 4px; }
+    .act-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 14px 16px;
+      transition: all 0.2s;
+    }
+    .act-card:hover { border-color: var(--gold); box-shadow: 0 4px 14px rgba(0,0,0,0.06); }
+    .act-head {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 13.5px; font-weight: 700; color: var(--ink);
+      margin-bottom: 5px;
+    }
+    .act-head span.dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--gold); flex-shrink: 0;
+    }
+    .act-body {
+      font-size: 12.5px; color: #475569; line-height: 1.55;
+      padding-left: 16px;
+    }
+
+    .tip-box {
+      margin-top: 14px;
+      padding: 14px 16px;
+      border-radius: 12px;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+    .tip-box.blue { background: #eff6ff; border-left: 4px solid #1e40af; color: #1e3a8a; }
+    .tip-box.amber { background: #fffbeb; border-left: 4px solid #d97706; color: #78350f; }
+    .tip-box.green { background: #ecfdf5; border-left: 4px solid #059669; color: #064e3b; }
+    .tip-box strong { font-weight: 700; }
+
+    .pg-footer {
+      margin-top: auto;
+      padding-top: 18px;
+      border-top: 1px solid #d5c9b0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .flip-btn {
+      display: flex; align-items: center; gap: 6px;
+      padding: 9px 20px;
+      border: 1px solid #c5b99a;
+      border-radius: 20px;
+      background: var(--card-bg);
+      color: #4a3f2e;
+      font-size: 12.5px; font-weight: 700;
+      cursor: pointer;
+      font-family: 'Inter', sans-serif;
+      transition: all 0.2s;
+    }
+    .flip-btn:hover:not(:disabled) {
+      background: var(--gold);
+      color: #fff;
+      border-color: var(--gold);
+      box-shadow: 0 4px 14px rgba(201,168,76,0.4);
+    }
+    .flip-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+    .pg-hint { font-size: 11px; color: #94a3b8; }
+
+    .right-footer { justify-content: flex-end; }
+
+    @media (max-width: 1100px) {
+      .main-layout { flex-direction: column; }
+      .toc { width: 100%; position: static; max-height: none; }
+      .book-inner { grid-template-columns: 1fr; }
+      .spine-col { display: none; }
+      .page-right { border-top: 2px solid #d5c9b0; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<header class="topbar">
+  <div class="topbar-brand">
+    <div class="topbar-icon">📖</div>
+    <div>
+      <div class="topbar-title">Admin Panel — Operational Manual</div>
+      <div class="topbar-sub">Detailed interactive guide for all 19 administration modules</div>
+    </div>
+  </div>
+  <div class="search-wrap">
+    <input type="text" id="searchInput" placeholder="Search all 19 modules (e.g. Settings, Coupons)…" oninput="handleSearch(this.value)">
+  </div>
+</header>
+
+<!-- MAIN LAYOUT -->
+<div class="main-layout">
+
+  <!-- TOC SIDEBAR -->
+  <aside class="toc" id="tocSidebar">
+    <div class="toc-heading">
+      <span>📑 Table of Contents</span>
+      <span class="toc-count-badge">19 Modules</span>
+    </div>
+
+    <div class="ch-label">Chapter I · Master Setup</div>
+    <button type="button" class="toc-btn active" onclick="goTo(0)" data-idx="0"><span class="toc-num">1</span><span class="toc-txt">Dashboard Overview</span></button>
+    <button type="button" class="toc-btn" onclick="goTo(1)" data-idx="1"><span class="toc-num">2</span><span class="toc-txt">Banners & Promotions</span></button>
+    <button type="button" class="toc-btn" onclick="goTo(2)" data-idx="2"><span class="toc-num">3</span><span class="toc-txt">Subscriptions</span></button>
+    <button type="button" class="toc-btn" onclick="goTo(3)" data-idx="3"><span class="toc-num">4</span><span class="toc-txt">Seller Ads</span></button>
+    <button type="button" class="toc-btn" onclick="goTo(4)" data-idx="4"><span class="toc-num">5</span><span class="toc-txt">Reviews</span></button>
+    <button type="button" class="toc-btn" onclick="goTo(5)" data-idx="5"><span class="toc-num">6</span><span class="toc-txt">Settings & Delivery Rates</span></button>
+    <button type="button" class="toc-btn" onclick="goTo(6)" data-idx="6"><span class="toc-num">7</span><span class="toc-txt">Coupons & Discounts</span></button>
+
+    <div class="ch-label">Chapter II · Products & Services</div>
+    <button type="button" class="toc-btn" onclick="goTo(7)" data-idx="7"><span class="toc-num">8</span><span class="toc-txt">Product Categories</span></button>
+    <button type="button" class="toc-btn" onclick="goTo(8)" data-idx="8"><span class="toc-num">9</span><span class="toc-txt">Products</span></button>
+    <button type="button" class="toc-btn" onclick="goTo(9)" data-idx="9"><span class="toc-num">10</span><span class="toc-txt">Service Categories</span></button>
+    <button type="button" class="toc-btn" onclick="goTo(10)" data-idx="10"><span class="toc-num">11</span><span class="toc-txt">Services</span></button>
+    <button type="button" class="toc-btn" onclick="goTo(11)" data-idx="11"><span class="toc-num">12</span><span class="toc-txt">Product/Service Sellers</span></button>
+    <button type="button" class="toc-btn" onclick="goTo(12)" data-idx="12"><span class="toc-num">13</span><span class="toc-txt">Product/Service Orders</span></button>
+
+    <div class="ch-label">Chapter III · Hotels</div>
+    <button type="button" class="toc-btn" onclick="goTo(13)" data-idx="13"><span class="toc-num">14</span><span class="toc-txt">Hotel Sellers</span></button>
+    <button type="button" class="toc-btn" onclick="goTo(14)" data-idx="14"><span class="toc-num">15</span><span class="toc-txt">Hotels</span></button>
+    <button type="button" class="toc-btn" onclick="goTo(15)" data-idx="15"><span class="toc-num">16</span><span class="toc-txt">Hotel Bookings</span></button>
+
+    <div class="ch-label">Chapter IV · Restaurants</div>
+    <button type="button" class="toc-btn" onclick="goTo(16)" data-idx="16"><span class="toc-num">17</span><span class="toc-txt">Restaurant Sellers</span></button>
+    <button type="button" class="toc-btn" onclick="goTo(17)" data-idx="17"><span class="toc-num">18</span><span class="toc-txt">Food Items</span></button>
+    <button type="button" class="toc-btn" onclick="goTo(18)" data-idx="18"><span class="toc-num">19</span><span class="toc-txt">Restaurant Orders</span></button>
+  </aside>
+
+  <!-- BOOK -->
+  <div class="book-outer">
+    <div class="ribbons">
+      <div class="ribbon r1" onclick="goTo(0)" title="Ch. I Master Setup"></div>
+      <div class="ribbon r2" onclick="goTo(7)" title="Ch. II Products"></div>
+      <div class="ribbon r3" onclick="goTo(13)" title="Ch. III Hotels"></div>
+      <div class="ribbon r4" onclick="goTo(16)" title="Ch. IV Restaurants"></div>
+    </div>
+
+    <div class="book-inner" id="bookInner">
+      <!-- LEFT PAGE -->
+      <article class="page page-left">
+        <div class="pg-header">
+          <span class="ch-badge" id="lBadge">CHAPTER I · MASTER SETUP</span>
+          <span class="pg-num" id="lNum">Module 1 of 19</span>
+        </div>
+        <div class="pg-title">
+          <div class="title-icon" id="lIcon">📊</div>
+          <div>
+            <span id="lTitle">Dashboard Overview</span>
+            <div style="font-size: 10px; font-weight: 700; color: #854d0e; text-transform: uppercase; letter-spacing: 1px; margin-top: 2px;">Module Overview</div>
+          </div>
+        </div>
+        <p class="pg-subtitle" id="lSubtitle">Loading…</p>
+
+        <div style="flex: 1;">
+          <h4 style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: #1e293b; letter-spacing: 0.5px; margin-bottom: 8px;">Administrative Scope</h4>
+          <p style="font-size: 12.5px; color: #334155; line-height: 1.6;" id="lSummary">
+            From this menu, administrators have complete oversight and execution authority for this module. Refer to the operational capabilities listed on the opposite page for exact instructions.
+          </p>
+        </div>
+
+        <div id="lTip"></div>
+        <div class="pg-footer">
+          <button type="button" class="flip-btn" id="prevBtn" onclick="prev()">◀ Previous Module</button>
+          <span class="pg-hint">Use ← → arrow keys</span>
+        </div>
+      </article>
+
+      <div class="spine-col"></div>
+
+      <!-- RIGHT PAGE -->
+      <article class="page page-right">
+        <div class="pg-header">
+          <span class="ch-badge" id="rBadge">CHAPTER I · MASTER SETUP</span>
+          <span class="pg-num" id="rNum">Action Capabilities</span>
+        </div>
+        <div class="pg-title" style="font-size: 16px; margin-bottom: 14px; font-weight: 700;">
+          <span>⚡</span> <span id="rActionTitle">Operational Capabilities</span>
+        </div>
+        
+        <div class="activities" id="rActivities"></div>
+
+        <div class="pg-footer right-footer">
+          <button type="button" class="flip-btn" id="nextBtn" onclick="next()">Next Module ▶</button>
+        </div>
+      </article>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ===== PAGE DATA (all 19 menus) ===== */
+const pages = [
+  /* 0 */ {
+    chapter: "CHAPTER I · MASTER SETUP",
+    icon: "📊",
+    title: "Dashboard Overview",
+    subtitle: "The central command screen giving the admin a real-time snapshot of the entire platform's health and activity.",
+    acts: [
+      { h: "View Platform Revenue", b: "See total Gross Merchandise Value (GMV), today's revenue, weekly trends, and net commission earned by the platform from all seller types." },
+      { h: "Monitor Active Users & Sellers", b: "View counts of registered customers, approved product sellers, hotel sellers, restaurant sellers, and service providers." },
+      { h: "Review Pending Approvals", b: "Instantly see sellers awaiting KYC verification, products flagged for review, pending return/refund requests, and unmoderated reviews." },
+      { h: "Quick Navigation Widgets", b: "Click summary cards (e.g. 'Pending Sellers: 4') to jump directly into the relevant management section." }
+    ],
+    tip: { type: "blue", text: "<strong>Tip:</strong> The dashboard refreshes automatically every 60 seconds. Use the date range filter in the top-right corner to compare Today vs Last 7 days vs Last 30 days." }
+  },
+  /* 1 */ {
+    chapter: "CHAPTER I · MASTER SETUP",
+    icon: "🖼️",
+    title: "Banners & Promotions",
+    subtitle: "Manage all visual promotional banners that appear on the homepage carousel, mobile app hero sections, and campaign pages.",
+    acts: [
+      { h: "Create a New Banner", b: "Upload a banner image, set a display title, add an optional redirect URL (e.g. a category or sale page), and choose display position (Top Slider, Mid Strip, etc.)." },
+      { h: "Set Active Date Range", b: "Define the start and end date for each banner so it auto-appears and disappears without manual intervention." },
+      { h: "Reorder Banner Priority", b: "Drag banners or input priority numbers (1, 2, 3) to control which banner appears first in the slider." },
+      { h: "Enable or Disable a Banner", b: "Toggle any banner active/inactive instantly without deleting it — useful for seasonal promotions." },
+      { h: "Delete a Banner", b: "Permanently remove old banners that are no longer required." }
+    ],
+    tip: { type: "amber", text: "<strong>Best Size:</strong> Upload banners at 1200×450px (desktop) and 750×400px (mobile). Compressed WebP format is recommended for fast page loads." }
+  },
+  /* 2 */ {
+    chapter: "CHAPTER I · MASTER SETUP",
+    icon: "💳",
+    title: "Subscriptions",
+    subtitle: "View and manage all seller subscription plans, payment history, and manual plan overrides for product/service sellers.",
+    acts: [
+      { h: "View All Subscriptions", b: "See a list of all sellers with their current plan (Free, Basic, Pro, Premium), subscription start date, renewal date, and payment status." },
+      { h: "Filter by Status", b: "Filter subscriptions by Active, Expired, Grace Period, or Cancelled to identify sellers needing attention." },
+      { h: "Manually Upgrade / Extend a Plan", b: "Assign or extend a seller's subscription plan directly from their record (useful after offline payment verification)." },
+      { h: "View Payment History", b: "Inspect individual payment transactions linked to each subscription period including Stripe payment IDs." },
+      { h: "Cancel a Subscription", b: "Cancel a seller's plan immediately, which restricts their listing privileges based on the free-tier limits." }
+    ],
+    tip: { type: "green", text: "<strong>Note:</strong> After manual plan changes the seller's dashboard will reflect the updated limits within a few minutes on their next page load." }
+  },
+  /* 3 */ {
+    chapter: "CHAPTER I · MASTER SETUP",
+    icon: "📣",
+    title: "Seller Ads",
+    subtitle: "Review and moderate all seller-created advertisement campaigns — product spotlight ads, banner campaigns, and search boosts.",
+    acts: [
+      { h: "View All Ad Campaigns", b: "See every seller-submitted ad with its type (Product Ad / Banner / Video), status (Pending, Active, Expired, Rejected), and budget spent." },
+      { h: "Approve or Reject an Ad", b: "Review the creative (image or video URL), check it meets community standards, then approve to make it live or reject with a reason." },
+      { h: "Set Ad Budget Limits", b: "View and adjust the budget ceiling for any campaign and monitor real-time spend vs. remaining balance." },
+      { h: "Pause or Stop an Active Ad", b: "Instantly pause any live ad if it violates guidelines or a seller requests a hold." },
+      { h: "View Ad Performance Metrics", b: "Check impressions delivered, click count, and CTR (Click-Through Rate) for any campaign." }
+    ],
+    tip: { type: "amber", text: "<strong>Important:</strong> Video ads must be YouTube links only. The system auto-converts the URL into an embeddable format — direct file uploads are not supported." }
+  },
+  /* 4 */ {
+    chapter: "CHAPTER I · MASTER SETUP",
+    icon: "⭐",
+    title: "Reviews",
+    subtitle: "Moderate all customer-submitted product and service reviews to ensure quality and prevent abuse on the platform.",
+    acts: [
+      { h: "View All Reviews", b: "Browse all reviews across products and services, sortable by date, star rating, seller, or verified purchase status." },
+      { h: "Approve or Reject a Review", b: "Reviews flagged by the system or reported by sellers can be manually approved or permanently removed." },
+      { h: "Mark as Verified Purchase", b: "Toggle the 'Verified Buyer' badge on any review to indicate the reviewer actually ordered the product." },
+      { h: "Filter Reported Reviews", b: "Quickly access only reviews that sellers or customers have flagged as inappropriate or fake." },
+      { h: "Delete Abusive Reviews", b: "Permanently delete reviews containing offensive language, spam links, or unrelated content." }
+    ],
+    tip: { type: "blue", text: "<strong>Tip:</strong> Use the star rating filter to find clusters of 1-star reviews on a product — this may indicate a seller quality issue requiring investigation." }
+  },
+  /* 5 */ {
+    chapter: "CHAPTER I · MASTER SETUP",
+    icon: "⚙️",
+    title: "Settings & Delivery Rates",
+    subtitle: "Configure global platform rules including commission rates, shipping weight charges, and seller name validation controls.",
+    acts: [
+      { h: "Set Base Commission Rate", b: "Define the default commission percentage (%) the platform takes from every completed order when no seller-specific or category-specific override exists." },
+      { h: "Configure Delivery Charge Weight Brackets", b: "Set shipping cost ranges by package weight (e.g. 0–1 kg: ₹50, 1–5 kg: ₹100, 5+ kg: ₹200). These are applied automatically at checkout." },
+      { h: "Manage Disallowed Store Names", b: "Add words or phrases to the blocklist that sellers cannot use in their store names (e.g. brand names, offensive terms)." },
+      { h: "Save Settings", b: "All changes are saved immediately and take effect on the next customer request — no server restart required." }
+    ],
+    tip: { type: "amber", text: "<strong>Warning:</strong> Changing the base commission rate does NOT retroactively affect existing completed orders — it only applies to new orders placed after the save." }
+  },
+  /* 6 */ {
+    chapter: "CHAPTER I · MASTER SETUP",
+    icon: "🎟️",
+    title: "Coupons & Discounts",
+    subtitle: "Create and manage platform-wide promotional discount codes that customers can apply at checkout.",
+    acts: [
+      { h: "Create a New Coupon", b: "Generate a coupon code (e.g. SAVE20), set discount type (Percentage or Fixed Amount), set the discount value, and configure start/end dates." },
+      { h: "Set Minimum Cart Value", b: "Define the minimum order amount (e.g. ₹500 minimum) required before the coupon becomes applicable." },
+      { h: "Set Maximum Discount Cap", b: "For percentage coupons, set a rupee ceiling (e.g. max ₹300 off) to prevent over-discounting on large orders." },
+      { h: "Limit Total Redemptions", b: "Cap how many times a coupon can be used across all customers (e.g. first 1000 orders only)." },
+      { h: "Limit Per-User Usage", b: "Restrict how many times a single customer can redeem the same coupon (usually set to 1)." },
+      { h: "Enable or Disable a Coupon", b: "Toggle any coupon active/inactive without deleting it — useful for pausing seasonal codes." }
+    ],
+    tip: { type: "green", text: "<strong>Tip:</strong> Test the coupon code in an incognito browser window as a customer before announcing it publicly to verify it works as expected." }
+  },
+  /* 7 */ {
+    chapter: "CHAPTER II · PRODUCTS & SERVICES",
+    icon: "🗂️",
+    title: "Product Categories",
+    subtitle: "Define and manage the hierarchical category tree that sellers use to list products and customers use to browse.",
+    acts: [
+      { h: "Add a New Category", b: "Create a top-level category (e.g. Electronics) with a name, slug, description, category image, and mobile icon." },
+      { h: "Add Subcategories", b: "Nest subcategories under parent categories (e.g. Phones under Electronics) to build a navigation hierarchy." },
+      { h: "Set Category Commission Rate", b: "Override the global commission rate for a specific category (e.g. Jewellery at 12% instead of the default 10%)." },
+      { h: "Toggle Mandatory Weight", b: "Enable 'Weight Required' on categories where accurate shipping weight is critical (e.g. Heavy Goods). Sellers cannot publish listings without entering weight." },
+      { h: "Mark as Featured", b: "Featured categories appear at the top of the browse page and in homepage category strips." },
+      { h: "Enable or Disable a Category", b: "Deactivating a category hides it from seller listing options and customer browse immediately." }
+    ],
+    tip: { type: "blue", text: "<strong>Tip:</strong> Keep category slugs short and lowercase (e.g. 'home-decor'). Slugs are used in SEO URLs and changing them later may break existing links." }
+  },
+  /* 8 */ {
+    chapter: "CHAPTER II · PRODUCTS & SERVICES",
+    icon: "📦",
+    title: "Products",
+    subtitle: "Monitor, inspect, and moderate all product listings submitted by sellers across the platform.",
+    acts: [
+      { h: "Browse All Products", b: "View all products in a paginated table filterable by seller, category, active status, date, or featured flag." },
+      { h: "View Product Details", b: "Open any product to review its full listing: name, description, category, all variants (SKU, price, stock, weight, attributes), and uploaded images." },
+      { h: "Toggle Active / Inactive", b: "Deactivate a product to immediately hide it from customer search and product detail pages without permanently deleting it." },
+      { h: "Feature a Product", b: "Mark a product as 'Featured' to elevate it in homepage featured product carousels and search results." },
+      { h: "Delete a Product", b: "Permanently remove a product listing that violates guidelines. This action is irreversible." }
+    ],
+    tip: { type: "amber", text: "<strong>Note:</strong> Deactivating a product does NOT cancel existing orders that already included it. Only new purchases are blocked." }
+  },
+  /* 9 */ {
+    chapter: "CHAPTER II · PRODUCTS & SERVICES",
+    icon: "🗃️",
+    title: "Service Categories",
+    subtitle: "Define the service category tree used by service providers (e.g. Plumbing, Cleaning, Tutoring) to list their offerings.",
+    acts: [
+      { h: "Add a Service Category", b: "Create categories with a name, slug, image, and mobile icon for the service marketplace section." },
+      { h: "Enable or Disable a Category", b: "Inactive service categories are hidden from the service browse page and new service listing forms." },
+      { h: "Edit Category Details", b: "Update the name, description, or images of an existing category." },
+      { h: "Delete a Category", b: "Remove unused service categories — only possible if no active services are currently listed under them." }
+    ],
+    tip: { type: "green", text: "<strong>Tip:</strong> Service categories do not support subcategories currently. Each service category is a standalone top-level entry." }
+  },
+  /* 10 */ {
+    chapter: "CHAPTER II · PRODUCTS & SERVICES",
+    icon: "🔧",
+    title: "Services",
+    subtitle: "View and manage all service listings submitted by service-provider sellers across all service categories.",
+    acts: [
+      { h: "Browse All Services", b: "View all active and inactive service listings with details of the seller, service category, pricing, and status." },
+      { h: "View Service Details", b: "Inspect the full service listing: service name, description, pricing model, location coverage, seller profile, and uploaded images." },
+      { h: "Toggle Active / Inactive", b: "Deactivate a service listing to hide it from customer search without deleting it." },
+      { h: "Delete a Service", b: "Permanently remove a service listing that violates platform policies or is fraudulent." }
+    ],
+    tip: { type: "blue", text: "<strong>Note:</strong> Services follow a booking-based model — customers raise a service request and the seller confirms. Orders appear under Product/Service Orders." }
+  },
+  /* 11 */ {
+    chapter: "CHAPTER II · PRODUCTS & SERVICES",
+    icon: "🧑‍💼",
+    title: "Product & Service Sellers",
+    subtitle: "Manage the onboarding, verification, and status of all product and service sellers registered on the platform.",
+    acts: [
+      { h: "View All Sellers", b: "Browse all registered product/service sellers with their onboarding status, approval state, subscription plan, and store name." },
+      { h: "Review KYC Documents", b: "Open a seller record to review uploaded identity documents (National ID, GST, etc.) submitted during onboarding." },
+      { h: "Approve a Seller", b: "After verifying KYC documents, mark the seller as Approved — this unlocks their dashboard to add products/services." },
+      { h: "Reject a Seller with Feedback", b: "Reject onboarding with a written reason that the seller sees in their dashboard (e.g. 'Invalid ID document')." },
+      { h: "Suspend a Seller", b: "Temporarily suspend a seller — their store and all listings become hidden from customers immediately." },
+      { h: "Set Custom Commission Rate", b: "Override the platform's default commission for a specific seller (e.g. 5% for a premium partner)." }
+    ],
+    tip: { type: "amber", text: "<strong>Important:</strong> Suspending a seller does NOT cancel their active orders. Existing orders must be handled manually through the Orders section." }
+  },
+  /* 12 */ {
+    chapter: "CHAPTER II · PRODUCTS & SERVICES",
+    icon: "🛒",
+    title: "Product & Service Orders",
+    subtitle: "Track and manage all customer orders for products and services across the full order lifecycle.",
+    acts: [
+      { h: "View All Orders", b: "Browse all orders with filters by status (Pending, Confirmed, Shipped, Delivered, Cancelled, Returned), date range, and seller." },
+      { h: "View Order Details", b: "Open any order to see customer info, ordered items, quantities, pricing, discount applied, shipping address, and payment method." },
+      { h: "Update Order Status", b: "Manually advance an order's status (e.g. from Shipped → Delivered) if the seller has not updated it." },
+      { h: "Process Return Requests", b: "Review return/refund requests raised by customers — approve or reject with a written reason." },
+      { h: "Cancel an Order", b: "Admin can cancel any order before dispatch in cases of fraud, seller non-compliance, or customer escalation." },
+      { h: "Generate Invoice", b: "View and download the invoice for any order for accounting and dispute resolution purposes." }
+    ],
+    tip: { type: "blue", text: "<strong>Tip:</strong> Use the 'Return Requests' filter tab to focus only on orders needing return/refund decisions to speed up customer resolutions." }
+  },
+  /* 13 */ {
+    chapter: "CHAPTER III · HOTELS",
+    icon: "🏨",
+    title: "Hotel Sellers",
+    subtitle: "Manage hotel vendors who have registered on the platform to list and sell room bookings.",
+    acts: [
+      { h: "View All Hotel Sellers", b: "Browse all registered hotel vendors with their onboarding status, approval state, and hotel count." },
+      { h: "Review Hotel Seller KYC", b: "Inspect verification documents submitted by hotel owners including property ownership proofs and GSTIN." },
+      { h: "Approve or Reject a Hotel Seller", b: "Approve the hotel vendor after document verification to allow them to publish hotels, or reject with a written feedback note." },
+      { h: "Suspend a Hotel Vendor", b: "Suspend a hotel seller account — all their listed hotels and room availability are immediately hidden from customers." },
+      { h: "View Vendor Profile & Financials", b: "Check the vendor's commission rate, net earnings balance, and ad balance from a consolidated profile view." }
+    ],
+    tip: { type: "green", text: "<strong>Note:</strong> Hotel sellers have a separate onboarding flow from product/service sellers. Their dashboard is at /hotel-seller and manages rooms, availability, and bookings independently." }
+  },
+  /* 14 */ {
+    chapter: "CHAPTER III · HOTELS",
+    icon: "🛏️",
+    title: "Hotels",
+    subtitle: "View and moderate all hotel property listings across all hotel vendor accounts on the platform.",
+    acts: [
+      { h: "Browse All Hotels", b: "View all hotel listings with property name, location (city/state), room count, listing status (Active/Inactive), and associated vendor." },
+      { h: "View Hotel Details", b: "Inspect full hotel information: name, description, address, GPS coordinates, amenities list, check-in/check-out policies, and uploaded photo gallery." },
+      { h: "View Room Types", b: "Review all room categories configured for a hotel (e.g. Deluxe, Suite, Single) with pricing, capacity, and availability status." },
+      { h: "Toggle Hotel Active Status", b: "Deactivate a hotel to hide it from the booking search without deleting it — useful while the vendor resolves compliance issues." },
+      { h: "Delete a Hotel", b: "Permanently remove a hotel listing. Only possible if no future confirmed bookings exist for that property." }
+    ],
+    tip: { type: "amber", text: "<strong>Warning:</strong> Do not deactivate a hotel that has confirmed upcoming bookings — contact the vendor first to ensure customers are notified before any status changes." }
+  },
+  /* 15 */ {
+    chapter: "CHAPTER III · HOTELS",
+    icon: "📅",
+    title: "Hotel Bookings",
+    subtitle: "Track all customer room reservation bookings across the platform with full booking lifecycle management.",
+    acts: [
+      { h: "View All Bookings", b: "Browse all hotel bookings filterable by status (Pending, Confirmed, Checked In, Checked Out, Cancelled), date range, and hotel vendor." },
+      { h: "View Booking Details", b: "Open a booking to see the customer's name, hotel, room type, check-in/check-out dates, number of guests, total amount, and payment method." },
+      { h: "Cancel a Booking", b: "Admin can cancel a booking in cases of hotel overbooking errors, vendor disputes, or customer escalation — triggering a refund workflow." },
+      { h: "Filter by Check-in Date", b: "View all upcoming arrivals within a date range to proactively monitor hotel operations." }
+    ],
+    tip: { type: "blue", text: "<strong>Tip:</strong> When cancelling a booking on behalf of a customer, always note the cancellation reason in the admin notes field — this is recorded for refund audit trails." }
+  },
+  /* 16 */ {
+    chapter: "CHAPTER IV · RESTAURANTS",
+    icon: "🍽️",
+    title: "Restaurant Sellers",
+    subtitle: "Manage restaurant vendors registered on the platform who offer food delivery or dine-in ordering services.",
+    acts: [
+      { h: "View All Restaurant Sellers", b: "Browse all registered restaurant vendors with their approval status, cuisine type, and FSSAI/hygiene compliance status." },
+      { h: "Review Restaurant KYC", b: "Check uploaded documents: FSSAI license, restaurant photos, GST registration, and owner identity proof." },
+      { h: "Approve or Reject a Restaurant", b: "Grant approval after document review to allow the restaurant to go live on the food ordering section, or reject with feedback." },
+      { h: "Suspend a Restaurant", b: "Suspend a restaurant account — their menu and ordering option disappear from customers immediately." },
+      { h: "View Restaurant Financials", b: "Check the restaurant's earned revenue, platform commission deducted, and pending settlement balance." }
+    ],
+    tip: { type: "green", text: "<strong>Note:</strong> Restaurants have a separate seller portal at /restaurant-seller. Their delivery radius and operating hours are configured there, not in this admin section." }
+  },
+  /* 17 */ {
+    chapter: "CHAPTER IV · RESTAURANTS",
+    icon: "🥗",
+    title: "Food Items",
+    subtitle: "Inspect all food menu items listed by restaurant vendors across all active restaurants.",
+    acts: [
+      { h: "Browse All Food Items", b: "View all food dishes across all restaurants with details on price, restaurant name, dietary flags (Veg/Non-Veg/Vegan), and active status." },
+      { h: "View Food Item Details", b: "See the full dish profile: name, description, category (Starter, Main, Dessert), base price, discount price, and photos." },
+      { h: "Toggle Food Item Status", b: "Deactivate a specific food item that violates guidelines (e.g. mislabelled allergens) without affecting the rest of the restaurant's menu." },
+      { h: "Delete a Food Item", b: "Permanently remove a food listing — used when a dish is found to be fraudulent or permanently discontinued." }
+    ],
+    tip: { type: "amber", text: "<strong>Note:</strong> Individual food item prices and availability are managed by the restaurant seller from their own dashboard. Admin-side changes are for moderation only." }
+  },
+  /* 18 */ {
+    chapter: "CHAPTER IV · RESTAURANTS",
+    icon: "🛵",
+    title: "Restaurant Orders",
+    subtitle: "Track all food delivery and dine-in orders placed by customers across all restaurant partners.",
+    acts: [
+      { h: "View All Restaurant Orders", b: "Browse all food orders filterable by status (Placed, Preparing, Out for Delivery, Delivered, Cancelled), date, and restaurant." },
+      { h: "View Order Details", b: "Open any order to inspect: items ordered, quantities, customer address, selected restaurant, delivery rider (if assigned), and total bill." },
+      { h: "Update Order Status", b: "Manually advance an order status (e.g. mark as Delivered) if the restaurant or rider has not updated it and the customer escalates." },
+      { h: "Cancel an Order", b: "Cancel a food order in cases of restaurant non-response, payment disputes, or system errors." },
+      { h: "Filter by Restaurant", b: "Isolate orders from a specific restaurant to audit their fulfilment performance or investigate complaints." }
+    ],
+    tip: { type: "blue", text: "<strong>Tip:</strong> High cancellation rates from a specific restaurant are a strong indicator of operational issues. Use the restaurant filter to generate a quick audit view." }
+  }
+];
+
+/* ===== RENDER ENGINE ===== */
+let current = 0;
+
+function cardsHTML(acts) {
+  return acts.map(a => `
+    <div class="act-card">
+      <div class="act-head"><span class="dot"></span>${a.h}</div>
+      <div class="act-body">${a.b}</div>
+    </div>
+  `).join('');
+}
+
+function tipHTML(tip) {
+  if (!tip) return '';
+  return `<div class="tip-box ${tip.type}">${tip.text}</div>`;
+}
+
+function render() {
+  const p = pages[current];
+
+  document.getElementById('lBadge').textContent = p.chapter;
+  document.getElementById('rBadge').textContent = p.chapter;
+
+  document.getElementById('lNum').textContent = `Module ${current + 1} of ${pages.length}`;
+  document.getElementById('lIcon').textContent = p.icon;
+  document.getElementById('lTitle').textContent = p.title;
+  document.getElementById('lSubtitle').textContent = p.subtitle;
+
+  document.getElementById('lSummary').innerHTML = `From this menu, administrators have complete oversight and execution authority for <strong>${p.title}</strong>. Refer to the operational capabilities listed on the opposite page for exact instructions.`;
+  document.getElementById('lTip').innerHTML = tipHTML(p.tip);
+
+  document.getElementById('rActionTitle').textContent = `Operational Capabilities in ${p.title}`;
+  document.getElementById('rActivities').innerHTML = cardsHTML(p.acts);
+
+  document.getElementById('prevBtn').disabled = current === 0;
+  document.getElementById('nextBtn').disabled = current + 1 >= pages.length;
+
+  updateTOC();
+}
+
+function updateTOC() {
+  document.querySelectorAll('.toc-btn').forEach(btn => {
+    const idx = parseInt(btn.getAttribute('data-idx'));
+    if (idx === current) {
+      btn.classList.add('active');
+      try {
+        btn.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      } catch(e) {}
+    } else {
+      btn.classList.remove('active');
+    }
+  });
+}
+
+function next() {
+  if (current + 1 < pages.length) { goTo(current + 1); }
+}
+
+function prev() {
+  if (current - 1 >= 0) { goTo(current - 1); }
+}
+
+function goTo(idx) {
+  if (idx < 0 || idx >= pages.length) return;
+  current = idx;
+  render();
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'ArrowRight') next();
+  if (e.key === 'ArrowLeft') prev();
+});
+
+/* ===== SEARCH ===== */
+function handleSearch(val) {
+  const q = val.toLowerCase().trim();
+  document.querySelectorAll('.toc-btn').forEach(btn => {
+    const idx = parseInt(btn.getAttribute('data-idx'));
+    const p = pages[idx];
+    const match = !q ||
+      p.title.toLowerCase().includes(q) ||
+      p.subtitle.toLowerCase().includes(q) ||
+      p.acts.some(a => a.h.toLowerCase().includes(q) || a.b.toLowerCase().includes(q));
+    btn.style.opacity = match ? '1' : '0.2';
+  });
+  if (!q) return;
+  const firstMatch = pages.findIndex(p =>
+    p.title.toLowerCase().includes(q) ||
+    p.acts.some(a => a.h.toLowerCase().includes(q))
+  );
+  if (firstMatch !== -1) goTo(firstMatch);
+}
+
+/* INIT */
+render();
+</script>
+</body>
+</html>

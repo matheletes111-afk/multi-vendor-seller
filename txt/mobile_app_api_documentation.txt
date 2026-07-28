@@ -1,0 +1,1092 @@
+================================================================================
+MEEEM MULTI-VENDOR MOBILE APP - BACKEND API DOCUMENTATION
+================================================================================
+Target Audience: Mobile App Developers (iOS / Android / Flutter / React Native)
+Base URL: https://www.meeemsl.com (Production) / http://localhost:3000 (Local Dev)
+API Version: v1
+Primary API Path Prefix: /mobileapi/v1/
+Document Location: f:\react\meeem\multi-vendor-seller\txt\mobile_app_api_documentation.txt
+Last Updated: 2026-07-28
+
+--------------------------------------------------------------------------------
+1. GLOBAL HEADERS & CONTEXT
+--------------------------------------------------------------------------------
+All mobile requests should include the following standard HTTP headers:
+
+Header Key              Type     Required  Description / Example
+----------------------- -------- --------- -------------------------------------
+Authorization           String   Optional  Bearer <jwt_token> (Required for auth)
+X-User-Latitude         Float    Optional  User latitude (e.g. 25.2048)
+X-User-Longitude        Float    Optional  User longitude (e.g. 55.2708)
+X-Country-Code          String   Optional  ISO country code (e.g. UAE, KSA)
+X-Currency              String   Optional  Currency code (e.g. AED, USD)
+X-Language              String   Optional  Language code (e.g. en, ar)
+X-Device-ID             String   Optional  Device UUID for guest session tracking
+
+--------------------------------------------------------------------------------
+2. STANDARD API RESPONSE WRAPPER
+--------------------------------------------------------------------------------
+All API endpoints follow a consistent JSON response format:
+
+Success Response:
+{
+  "success": true,
+  "data": { ... },
+  "message": "Optional message string"
+}
+
+Error Response:
+{
+  "success": false,
+  "error": "Detailed error description string",
+  "code": "ERROR_CODE_NAME"
+}
+
+================================================================================
+ENDPOINTS IMPLEMENTATION LOG & DOCUMENTATION
+================================================================================
+
+--------------------------------------------------------------------------------
+ENDPOINT 1: GET /mobileapi/v1/home/layout
+--------------------------------------------------------------------------------
+Status: [IMPLEMENTED]
+Description: Unified Backend-For-Frontend (BFF) engine. Returns the complete ordered
+section tree for the home screen in a single HTTP request for instant app startup.
+
+WHY TO USE & BENEFITS FOR MOBILE DEVELOPERS:
+1. ⚡ Instant App Launch: Eliminates 16+ separate HTTP network roundtrips on home screen startup.
+   Reduces home screen load time drastically on mobile 3G/4G/5G networks.
+2. 🎛️ Dynamic Backend Layout Control: The backend can re-order components, hide/show seasonal
+   promotions, or switch banner layouts without requiring an app store update.
+3. 💡 Flexibility: Using this endpoint is OPTIONAL. You can use this unified layout API to drive the
+   entire screen dynamically, OR call individual micro endpoints section-by-section.
+
+HTTP Method: GET
+Path: /mobileapi/v1/home/layout
+Authentication: Optional (Enriches personalization if Bearer token present)
+
+Headers:
+- Authorization (Optional)
+- X-User-Latitude, X-User-Longitude (Optional)
+
+Sample Request:
+GET /mobileapi/v1/home/layout HTTP/1.1
+Host: www.meeemsl.com
+Authorization: Bearer <token>
+
+Sample Success Response (200 OK):
+{
+  "success": true,
+  "data": {
+    "sections": [
+      {
+        "type": "HEADER_LOCATION",
+        "data": {
+          "id": "addr_123",
+          "label": "Deliver to Home - Silicon Oasis",
+          "street": "Silicon Oasis",
+          "city": "Dubai",
+          "state": "Dubai",
+          "postalCode": "00000",
+          "country": "UAE",
+          "is_default": true,
+          "is_guest_fallback": false
+        }
+      },
+      {
+        "type": "NOTIFICATION_COUNT",
+        "data": {
+          "unread_count": 3,
+          "has_critical": false
+        }
+      },
+      {
+        "type": "QUICK_CATEGORIES",
+        "data": [
+          { "id": "cat_all", "name": "All", "icon_url": "/icons/all.png", "category_type": "ALL", "deep_link": "/browse" },
+          { "id": "cat_products", "name": "Shopping", "icon_url": "/icons/product.png", "category_type": "PRODUCT", "deep_link": "/products" },
+          { "id": "cat_food", "name": "Food & Dining", "icon_url": "/icons/food.png", "category_type": "FOOD", "deep_link": "/food" },
+          { "id": "cat_services", "name": "Services", "icon_url": "/icons/service.png", "category_type": "SERVICE", "deep_link": "/services" },
+          { "id": "cat_hotels", "name": "Dubai Stays", "icon_url": "/icons/hotel.png", "category_type": "HOTEL", "deep_link": "/hotels?city=Dubai" }
+        ]
+      }
+    ]
+  }
+}
+
+--------------------------------------------------------------------------------
+ENDPOINT 2: GET /mobileapi/v1/user/delivery-addresses/active
+--------------------------------------------------------------------------------
+Status: [IMPLEMENTED]
+Description: Fetches active user delivery location label for the home screen top bar.
+Returns default/guest location if not authenticated.
+
+HTTP Method: GET
+Path: /mobileapi/v1/user/delivery-addresses/active
+Authentication: Optional
+
+Headers:
+- Authorization (Optional)
+
+Sample Request:
+GET /mobileapi/v1/user/delivery-addresses/active HTTP/1.1
+
+Sample Success Response (200 OK):
+{
+  "success": true,
+  "data": {
+    "id": "addr_9876",
+    "label": "Deliver to Home - Silicon Oasis",
+    "street": "Boulevard 4",
+    "city": "Dubai",
+    "state": "Dubai",
+    "postalCode": "00000",
+    "country": "UAE",
+    "is_default": true,
+    "is_guest_fallback": false
+  }
+}
+
+--------------------------------------------------------------------------------
+ENDPOINT 3: GET /mobileapi/v1/notifications/unread-count
+--------------------------------------------------------------------------------
+Status: [IMPLEMENTED]
+Description: Returns count of unread user notifications for top header bell badge.
+
+HTTP Method: GET
+Path: /mobileapi/v1/notifications/unread-count
+Authentication: Optional (Returns 0 for unauthenticated guest users)
+
+Headers:
+- Authorization (Optional)
+
+Sample Request:
+GET /mobileapi/v1/notifications/unread-count HTTP/1.1
+
+Sample Success Response (200 OK):
+{
+  "success": true,
+  "data": {
+    "unread_count": 3,
+    "has_critical": false
+  }
+}
+
+--------------------------------------------------------------------------------
+ENDPOINT 4: DEDICATED VERTICAL CATEGORY APIS
+--------------------------------------------------------------------------------
+
+[4.1 DEDICATED PRODUCT CATEGORIES LIST]
+Status: [IMPLEMENTED]
+Description: Complete active product categories list with item counts.
+HTTP Method: GET
+Path: /mobileapi/v1/categories/products
+Sample Success Response (200 OK):
+{
+  "success": true,
+  "data": [
+    {
+      "category_id": "cat_101",
+      "name": "Electronics",
+      "slug": "electronics",
+      "description": "Gadgets & accessories",
+      "image_url": "https://...",
+      "is_featured": true,
+      "product_count": 48,
+      "deep_link": "/products?category=electronics"
+    }
+  ]
+}
+
+[4.2 DEDICATED SERVICE CATEGORIES LIST]
+Status: [IMPLEMENTED]
+Description: Complete active service categories list with service counts.
+HTTP Method: GET
+Path: /mobileapi/v1/categories/services
+Sample Success Response (200 OK):
+{
+  "success": true,
+  "data": [
+    {
+      "category_id": "scat_201",
+      "name": "Home Cleaning",
+      "slug": "home-cleaning",
+      "description": "Professional house cleaning",
+      "image_url": "https://...",
+      "service_count": 15,
+      "deep_link": "/services?category=home-cleaning"
+    }
+  ]
+}
+
+[4.3 DEDICATED HOTEL CATEGORIES LIST (CITIES & DESTINATIONS)]
+Status: [IMPLEMENTED]
+Description: Primary hotel category list by destination cities (e.g., Dubai, Abu Dhabi, Sharjah).
+HTTP Method: GET
+Path: /mobileapi/v1/categories/hotels
+Sample Success Response (200 OK):
+{
+  "success": true,
+  "data": [
+    {
+      "category_id": "city_dubai",
+      "name": "Dubai Stays",
+      "city": "Dubai",
+      "image_url": "https://...",
+      "hotel_count": 12,
+      "deep_link": "/hotels?city=Dubai"
+    }
+  ]
+}
+
+[4.4 DEDICATED FOOD CATEGORIES LIST]
+Status: [IMPLEMENTED]
+Description: Active food item categories and cuisine listings.
+HTTP Method: GET
+Path: /mobileapi/v1/categories/food
+Sample Success Response (200 OK):
+{
+  "success": true,
+  "data": [
+    {
+      "category_id": "food_cat_0",
+      "name": "Burgers",
+      "image_url": "https://...",
+      "item_count": 15,
+      "deep_link": "/food?category=Burgers"
+    }
+  ]
+}
+
+--------------------------------------------------------------------------------
+ENDPOINT 5: GET /mobileapi/v1/banners
+--------------------------------------------------------------------------------
+Status: [IMPLEMENTED]
+Description: Returns active promotional banners filtered by placement (hero slider, mid banner, hotel promo) or target type (product, service, hotel).
+
+HTTP Method: GET
+Path: /mobileapi/v1/banners
+Query Parameters:
+- placement (Optional, String): placement slot name (e.g. home_hero, home_mid_banner, home_hotels_promo). Default: home_hero
+- type (Optional, String): filter by target type (product, service, hotel).
+
+Authentication: Optional
+
+Sample Request:
+GET /mobileapi/v1/banners?placement=home_hero&type=product HTTP/1.1
+
+Sample Success Response (200 OK):
+{
+  "success": true,
+  "data": [
+    {
+      "banner_id": "b_101",
+      "heading": "Exclusive Fashion Sale",
+      "description": "Get Up To 50% Off on Top Brands",
+      "image_url": "https://...",
+      "target_type": "product",
+      "target_id": "fashion",
+      "placement": "home_hero",
+      "cta_text": "Discover Now"
+    }
+  ]
+}
+
+--------------------------------------------------------------------------------
+ENDPOINT 6: GET & DELETE /mobileapi/v1/user/recent-searches
+--------------------------------------------------------------------------------
+Status: [IMPLEMENTED]
+Description: 
+- GET: Returns customer's complete recent product search & view history (Default returns all recent items up to 50; guest users return empty array []).
+- DELETE: Clears recent search history for the authenticated user.
+
+HTTP Method: GET / DELETE
+Path: /mobileapi/v1/user/recent-searches
+Query Parameters (GET):
+- limit (Optional, Integer): Number of items to return. Default: 50 (returns all recent searches)
+
+Authentication: Optional for GET (Enriches for auth users), Required for DELETE
+
+Sample Request (GET):
+GET /mobileapi/v1/user/recent-searches HTTP/1.1
+Authorization: Bearer <token>
+
+Sample Success Response (GET 200 OK):
+{
+  "success": true,
+  "data": [
+    {
+      "search_id": "rv_1001",
+      "product_id": "prod_550",
+      "query_text": "Wireless Noise Cancelling Headphones",
+      "searched_time_ago": "Recently viewed",
+      "image_url": "https://...",
+      "price": 299,
+      "original_price": 349,
+      "discount_tag": "14% OFF"
+    }
+  ]
+}
+
+Sample Success Response (DELETE 200 OK):
+{
+  "success": true,
+  "message": "Recent searches cleared successfully"
+}
+
+================================================================================
+MOBILE DEVELOPER GUIDE: CATEGORY CLICK & DEEP LINK INTEGRATION
+================================================================================
+When a user clicks on any category icon or card in the app across the 4 panels,
+call the corresponding vertical listing API below passing the category parameter:
+
+1. Product Category Click:
+   - Deep Link: /products?category={category_slug}
+   - Endpoint:  GET /mobileapi/v1/products?category={category_slug_or_id}
+
+2. Service Category Click:
+   - Deep Link: /services?category={category_slug}
+   - Endpoint:  GET /mobileapi/v1/services?category={category_slug_or_id}
+
+3. Food Category / Cuisine Click:
+   - Deep Link: /food?category={cuisine_name}
+   - Endpoint:  GET /mobileapi/v1/restaurants?category={cuisine_name}
+
+4. Hotel City / Destination Click:
+   - Deep Link: /hotels?city={city_name}
+   - Endpoint:  GET /mobileapi/v1/hotels?city={city_name}
+================================================================================
+
+--------------------------------------------------------------------------------
+ENDPOINT 7: GET /mobileapi/v1/products (PRODUCTS BY CATEGORY CLICK)
+--------------------------------------------------------------------------------
+Status: [IMPLEMENTED]
+Description: Returns paginated active products filtered by category or subcategory when a user clicks a product category.
+
+HTTP Method: GET
+Path: /mobileapi/v1/products
+Query Parameters:
+- category (Optional, String): Category ID, slug, or name (e.g. electronics, fashion)
+- subcategory (Optional, String): Subcategory ID, slug, or name
+- page (Optional, Integer): Page number (Default: 1)
+- limit (Optional, Integer): Items per page (Default: 10, Max: 50)
+
+Authentication: Optional
+
+Sample Request:
+GET /mobileapi/v1/products?category=electronics&page=1&limit=10 HTTP/1.1
+
+Sample Success Response (200 OK):
+{
+  "success": true,
+  "data": {
+    "products": [
+      {
+        "product_id": "prod_101",
+        "title": "Wireless Earbuds Pro",
+        "slug": "wireless-earbuds-pro",
+        "category": { "id": "cat_e1", "name": "Electronics", "slug": "electronics" },
+        "subcategory": null,
+        "thumbnail_url": "https://...",
+        "current_price": 299,
+        "original_price": 349,
+        "discount_tag": "14% OFF",
+        "rating": 4.8,
+        "review_count": 24,
+        "in_stock": true
+      }
+    ],
+    "pagination": {
+      "current_page": 1,
+      "total_pages": 5,
+      "total_items": 48,
+      "has_more": true
+    }
+  }
+}
+
+--------------------------------------------------------------------------------
+ENDPOINT 8: GET /mobileapi/v1/services (SERVICES BY CATEGORY)
+--------------------------------------------------------------------------------
+Status: [IMPLEMENTED]
+Description: Returns paginated active services filtered by service category when a user clicks a service category.
+
+HTTP Method: GET
+Path: /mobileapi/v1/services
+Query Parameters:
+- category (Optional, String): Service category ID, slug, or name (e.g. home-cleaning, ac-repair)
+- page (Optional, Integer): Page number (Default: 1)
+- limit (Optional, Integer): Items per page (Default: 10, Max: 50)
+
+Authentication: Optional
+
+Sample Request:
+GET /mobileapi/v1/services?category=home-cleaning&page=1&limit=10 HTTP/1.1
+
+Sample Success Response (200 OK):
+{
+  "success": true,
+  "data": {
+    "services": [
+      {
+        "service_id": "srv_201",
+        "title": "Deep Home Cleaning",
+        "slug": "deep-home-cleaning",
+        "category": { "id": "scat_1", "name": "Home Cleaning", "slug": "home-cleaning" },
+        "provider_name": "Sparkle Cleaners",
+        "image_url": "https://...",
+        "price": 149,
+        "original_price": 199,
+        "discount_tag": "25% OFF",
+        "duration_mins": 120,
+        "rating": 4.9,
+        "review_count": 18
+      }
+    ],
+    "pagination": {
+      "current_page": 1,
+      "total_pages": 2,
+      "total_items": 15,
+      "has_more": true
+    }
+  }
+}
+
+--------------------------------------------------------------------------------
+ENDPOINT 9: GET /mobileapi/v1/restaurants (FOOD ITEMS / RESTAURANTS BY CATEGORY)
+--------------------------------------------------------------------------------
+Status: [IMPLEMENTED]
+Description: Returns paginated food items and restaurant listings filtered by food category/cuisine when a user clicks a food category.
+
+HTTP Method: GET
+Path: /mobileapi/v1/restaurants
+Query Parameters:
+- category (Optional, String): Food category or cuisine name (e.g. Burgers, Pizza, Indian)
+- page (Optional, Integer): Page number (Default: 1)
+- limit (Optional, Integer): Items per page (Default: 10, Max: 50)
+
+Authentication: Optional
+
+Sample Request:
+GET /mobileapi/v1/restaurants?category=Burgers&page=1&limit=10 HTTP/1.1
+
+Sample Success Response (200 OK):
+{
+  "success": true,
+  "data": {
+    "food_items": [
+      {
+        "food_id": "food_501",
+        "title": "Double Cheese Burger",
+        "description": "Grilled beef patty with melted cheddar",
+        "category": "Burgers",
+        "price": 45,
+        "is_veg": false,
+        "image_url": "https://...",
+        "restaurant_name": "Burger Joint",
+        "restaurant_logo": "https://...",
+        "rating": 4.7,
+        "review_count": 32,
+        "delivery_time": "25-35 mins"
+      }
+    ],
+    "pagination": {
+      "current_page": 1,
+      "total_pages": 2,
+      "total_items": 15,
+      "has_more": true
+    }
+  }
+}
+
+--------------------------------------------------------------------------------
+ENDPOINT 10: GET /mobileapi/v1/hotels (HOTELS BY CITY CATEGORY)
+--------------------------------------------------------------------------------
+Status: [IMPLEMENTED]
+Description: Returns paginated hotel property listings filtered by city / destination when a user clicks a hotel city category.
+
+HTTP Method: GET
+Path: /mobileapi/v1/hotels
+Query Parameters:
+- city (Optional, String): Destination city name (e.g. Dubai, Abu Dhabi, Sharjah)
+- star_rating (Optional, Integer): Filter by star rating (e.g. 5)
+- page (Optional, Integer): Page number (Default: 1)
+- limit (Optional, Integer): Items per page (Default: 10, Max: 50)
+
+Authentication: Optional
+
+Sample Request:
+GET /mobileapi/v1/hotels?city=Dubai&page=1&limit=10 HTTP/1.1
+
+Sample Success Response (200 OK):
+{
+  "success": true,
+  "data": {
+    "hotels": [
+      {
+        "hotel_id": "hotel_801",
+        "name": "Grand Palace Hotel & Resort",
+        "description": "Luxury 5-star beachfront resort",
+        "star_rating": 5,
+        "city": "Dubai",
+        "address": "Downtown Dubai",
+        "image_url": "https://...",
+        "logo": "https://...",
+        "starting_price_per_night": 599,
+        "currency": "AED",
+        "rating": 4.8,
+        "review_count": 45,
+        "amenities": ["Pool", "Spa", "Free WiFi", "Gym"]
+      }
+    ],
+    "pagination": {
+      "current_page": 1,
+      "total_pages": 2,
+      "total_items": 12,
+      "has_more": true
+    }
+  }
+}
+
+--------------------------------------------------------------------------------
+ENDPOINT 11: GET /mobileapi/v1/products/promotions (PRODUCT DISCOUNTS - UP TO 50% OFF)
+--------------------------------------------------------------------------------
+Status: [IMPLEMENTED]
+Description: Horizontal carousel of heavily discounted products with strike-through prices and percentage discount tags.
+
+HTTP Method: GET
+Path: /mobileapi/v1/products/promotions
+Query Parameters:
+- max_discount (Optional, Float): Ceiling for discount percentage (Default: 50)
+- limit (Optional, Integer): Number of items (Default: 10, Max: 50)
+
+Authentication: Optional
+
+Sample Request:
+GET /mobileapi/v1/products/promotions?max_discount=50&limit=10 HTTP/1.1
+
+Sample Success Response (200 OK):
+{
+  "success": true,
+  "data": [
+    {
+      "product_id": "prod_promo_1",
+      "title": "Wireless ANC Headphones",
+      "slug": "wireless-anc-headphones",
+      "category_name": "Electronics",
+      "thumbnail": "https://...",
+      "current_price": 249,
+      "original_price": 499,
+      "discount_percentage": 50,
+      "discount_tag": "50% OFF",
+      "rating": 4.9,
+      "review_count": 56,
+      "stock_status": "IN_STOCK"
+    }
+  ]
+}
+
+--------------------------------------------------------------------------------
+ENDPOINT 12: GET /mobileapi/v1/services/promotions (SERVICE DISCOUNTS / UNDER PRICE)
+--------------------------------------------------------------------------------
+Status: [IMPLEMENTED]
+Description: Service promotions carousel featuring discounted services or budget-friendly services (e.g. Under AED 99).
+
+HTTP Method: GET
+Path: /mobileapi/v1/services/promotions
+Query Parameters:
+- max_price (Optional, Float): Filter services under price threshold (e.g. 99)
+- limit (Optional, Integer): Number of items (Default: 10, Max: 50)
+
+Authentication: Optional
+
+Sample Request:
+GET /mobileapi/v1/services/promotions?max_price=99&limit=10 HTTP/1.1
+
+Sample Success Response (200 OK):
+{
+  "success": true,
+  "data": [
+    {
+      "service_id": "srv_promo_1",
+      "title": "Full AC Deep Cleaning & Sanitization",
+      "slug": "ac-deep-cleaning",
+      "category_name": "AC Services",
+      "image_url": "https://...",
+      "current_price": 79,
+      "original_price": 150,
+      "discount_percentage": 47,
+      "discount_tag": "47% OFF",
+      "duration_mins": 60,
+      "rating": 4.9,
+      "review_count": 84
+    }
+  ]
+}
+
+--------------------------------------------------------------------------------
+ENDPOINT 13: SPONSORED SPOTLIGHT ADS (ALL 4 PANELS)
+--------------------------------------------------------------------------------
+[13.1 PRODUCT PANEL SPOTLIGHT ADS]
+Status: [IMPLEMENTED]
+Description: Inline sponsored product ad card for product panel.
+HTTP Method: GET
+Path: /mobileapi/v1/ads/products
+Sample Success Response (200 OK):
+{
+  "success": true,
+  "data": [
+    {
+      "ad_id": "ad_prod_spotlight_1",
+      "is_sponsored": true,
+      "title": "Noise Cancelling Headphones Pro",
+      "subtitle": "Premium Audio Experience - Sponsored Spotlight",
+      "image_url": "https://...",
+      "product_id": "prod_spotlight_1",
+      "price": 299,
+      "rating": 4.9,
+      "review_count": 142,
+      "cta_text": "Shop Now",
+      "click_url": "/products/featured-headphones"
+    }
+  ]
+}
+
+[13.2 SERVICE PANEL SPOTLIGHT ADS]
+Status: [IMPLEMENTED]
+Description: Inline sponsored service ad card for service panel.
+HTTP Method: GET
+Path: /mobileapi/v1/ads/services
+Sample Success Response (200 OK):
+{
+  "success": true,
+  "data": [
+    {
+      "ad_id": "ad_srv_spotlight_1",
+      "is_sponsored": true,
+      "title": "Premium Villa Deep Cleaning",
+      "subtitle": "Eco-Friendly Professional Home Care - Sponsored",
+      "image_url": "https://...",
+      "service_id": "srv_spotlight_1",
+      "price": 199,
+      "rating": 4.9,
+      "review_count": 86,
+      "cta_text": "Book Service",
+      "click_url": "/services/villa-deep-cleaning"
+    }
+  ]
+}
+
+[13.3 FOOD PANEL SPOTLIGHT ADS]
+Status: [IMPLEMENTED]
+Description: Inline sponsored food/restaurant ad card for food panel.
+HTTP Method: GET
+Path: /mobileapi/v1/ads/food
+Sample Success Response (200 OK):
+{
+  "success": true,
+  "data": [
+    {
+      "ad_id": "ad_food_spotlight_1",
+      "is_sponsored": true,
+      "title": "Artisanal Truffle Burger Special",
+      "subtitle": "Smoky Black Angus Beef & Truffle Mayo - Sponsored",
+      "image_url": "https://...",
+      "food_id": "food_spotlight_1",
+      "restaurant_name": "The Gourmet Burger Club",
+      "price": 49,
+      "rating": 4.9,
+      "review_count": 110,
+      "cta_text": "Order Now",
+      "click_url": "/food/truffle-burger"
+    }
+  ]
+}
+
+[13.4 HOTEL PANEL SPOTLIGHT ADS]
+Status: [IMPLEMENTED]
+Description: Inline sponsored hotel/resort ad card for hotel panel.
+HTTP Method: GET
+Path: /mobileapi/v1/ads/hotels
+Sample Success Response (200 OK):
+{
+  "success": true,
+  "data": [
+    {
+      "ad_id": "ad_hotel_spotlight_1",
+      "is_sponsored": true,
+      "title": "Luxury Palm Jumeirah Villa Resort",
+      "subtitle": "Private Pool & Beach Access - Sponsored Spotlight",
+      "image_url": "https://...",
+      "hotel_id": "hotel_spotlight_1",
+      "city": "Dubai",
+      "starting_price_per_night": 899,
+      "currency": "AED",
+      "rating": 4.9,
+      "review_count": 145,
+      "cta_text": "Book Stay",
+      "click_url": "/hotels/palm-jumeirah-villa"
+    }
+  ]
+}
+
+[13.5 HOME SLOT SPOTLIGHT AD]
+Status: [IMPLEMENTED]
+Description: Home layout mid-page spotlight ad unit filtered by slot or type.
+HTTP Method: GET
+Path: /mobileapi/v1/ads/spotlight
+Query Parameters:
+- slot (Optional, String): Slot identifier (e.g. home_mid_1, home_mid_2). Default: home_mid_1
+- type (Optional, String): Target vertical type (product, service, food, hotel)
+
+--------------------------------------------------------------------------------
+ENDPOINT 14: GET /mobileapi/v1/categories/featured (FEATURED CATEGORIES GRID)
+--------------------------------------------------------------------------------
+Status: [IMPLEMENTED]
+Description: Returns featured categories across Product, Service, Hotel, and Food verticals for home page grid placement.
+
+HTTP Method: GET
+Path: /mobileapi/v1/categories/featured
+Query Parameters:
+- vertical (Optional, String): Filter by specific vertical (product, service, hotel, food, all)
+
+Authentication: Optional
+
+Sample Request:
+GET /mobileapi/v1/categories/featured?vertical=all HTTP/1.1
+
+Sample Success Response (200 OK):
+{
+  "success": true,
+  "data": [
+    {
+      "category_id": "cat_101",
+      "name": "Electronics",
+      "slug": "electronics",
+      "description": "Gadgets & accessories",
+      "image_url": "https://...",
+      "vertical": "product",
+      "is_featured": true,
+      "item_count": 48,
+      "deep_link": "/products?category=electronics"
+    },
+    {
+      "category_id": "city_dubai",
+      "name": "Dubai Stays",
+      "slug": "dubai",
+      "description": "Luxury resorts & downtown stays",
+      "image_url": "https://...",
+      "vertical": "hotel",
+      "is_featured": true,
+      "item_count": 12,
+      "deep_link": "/hotels?city=Dubai"
+    }
+  ]
+}
+
+--------------------------------------------------------------------------------
+ENDPOINT 15: DEALS OF THE DAY / FLASH SALES (PRODUCT & SERVICE)
+--------------------------------------------------------------------------------
+[15.1 PRODUCT DEALS OF THE DAY]
+Status: [IMPLEMENTED]
+Description: Flash daily deals for products with real schema discount fields (`price`, `discount`, `stock`) and active end-of-day countdown timer (`deal_ends_at`).
+HTTP Method: GET
+Path: /mobileapi/v1/deals/products
+Query Parameters:
+- limit (Optional, Integer): Number of items (Default: 10, Max: 50)
+Sample Success Response (200 OK):
+{
+  "success": true,
+  "data": [
+    {
+      "deal_id": "deal_prod_101_0",
+      "product_id": "prod_101",
+      "title": "Ultra Slim Smartwatch Pro 2026",
+      "slug": "ultra-slim-smartwatch-pro",
+      "category_name": "Wearables",
+      "image_url": "https://...",
+      "current_price": 149,
+      "original_price": 299,
+      "discount_percentage": 50,
+      "discount_badge": "FLASH 50% OFF",
+      "deal_ends_at": "2026-07-28T23:59:59.999Z",
+      "stock_status": "ONLY 3 LEFT",
+      "rating": 4.9,
+      "review_count": 88
+    }
+  ]
+}
+
+[15.2 SERVICE DEALS OF THE DAY]
+Status: [IMPLEMENTED]
+Description: Flash daily deals for services with real schema discount fields (`basePrice`, `discount`, `duration`) and active end-of-day countdown timer (`deal_ends_at`).
+HTTP Method: GET
+Path: /mobileapi/v1/deals/services
+Query Parameters:
+- limit (Optional, Integer): Number of items (Default: 10, Max: 50)
+Sample Success Response (200 OK):
+{
+  "success": true,
+  "data": [
+    {
+      "deal_id": "deal_srv_201_0",
+      "service_id": "srv_201",
+      "title": "Full Home Deep Cleaning & Sanitization",
+      "slug": "home-deep-cleaning",
+      "category_name": "Cleaning",
+      "image_url": "https://...",
+      "current_price": 99,
+      "original_price": 199,
+      "discount_percentage": 50,
+      "discount_badge": "FLASH 50% OFF",
+      "deal_ends_at": "2026-07-28T23:59:59.999Z",
+      "duration_mins": 120,
+      "rating": 4.9,
+      "review_count": 76
+    }
+  ]
+}
+
+--------------------------------------------------------------------------------
+ENDPOINT 16: GET /mobileapi/v1/restaurants/nearby (NEARBY FOOD SPOTS)
+--------------------------------------------------------------------------------
+Status: [IMPLEMENTED]
+Description: Returns nearby restaurants and food spots by geo-location (lat/lng), with distance estimation, delivery time, and offer tags.
+
+HTTP Method: GET
+Path: /mobileapi/v1/restaurants/nearby
+Query Parameters:
+- lat (Optional, Float): User latitude
+- lng (Optional, Float): User longitude
+- limit (Optional, Integer): Number of items (Default: 6, Max: 50)
+
+Authentication: Optional
+
+Sample Request:
+GET /mobileapi/v1/restaurants/nearby?lat=25.2048&lng=55.2708&limit=6 HTTP/1.1
+
+Sample Success Response (200 OK):
+{
+  "success": true,
+  "data": [
+    {
+      "restaurant_id": "rest_101",
+      "name": "The Gourmet Burger Kitchen",
+      "cuisine_type": "Burgers, Fast Food",
+      "image_url": "https://...",
+      "logo": null,
+      "city": "Dubai",
+      "location_text": "Dubai Marina",
+      "rating": 4.8,
+      "review_count": 124,
+      "delivery_time_range": "20-30 mins",
+      "distance_km": 1.5,
+      "offer_tag": "Free Delivery"
+    }
+  ]
+}
+
+--------------------------------------------------------------------------------
+ENDPOINT 17: GET /mobileapi/v1/services/featured-home-services (FEATURED HOME SERVICES)
+--------------------------------------------------------------------------------
+Status: [IMPLEMENTED]
+Description: Returns 2x2 featured home service category cards with starting price tags and discount badges.
+
+HTTP Method: GET
+Path: /mobileapi/v1/services/featured-home-services
+Query Parameters:
+- limit (Optional, Integer): Number of items (Default: 4, Max: 50)
+
+Authentication: Optional
+
+Sample Request:
+GET /mobileapi/v1/services/featured-home-services?limit=4 HTTP/1.1
+
+Sample Success Response (200 OK):
+{
+  "success": true,
+  "data": [
+    {
+      "service_id": "scat_101",
+      "name": "AC Maintenance & Repair",
+      "slug": "ac-maintenance",
+      "image_url": "https://...",
+      "discount_tag": "UP TO 30% OFF",
+      "starting_price": 79,
+      "currency": "AED",
+      "deep_link": "/services?category=ac-maintenance"
+    }
+  ]
+}
+
+--------------------------------------------------------------------------------
+ENDPOINT 18: GET /mobileapi/v1/hotels/nearby (HOTELS & RESORTS NEAR YOU)
+--------------------------------------------------------------------------------
+Status: [IMPLEMENTED]
+Description: Returns nearby and top-rated hotel property cards with star rating, starting price per night, and amenities.
+
+HTTP Method: GET
+Path: /mobileapi/v1/hotels/nearby
+Query Parameters:
+- lat (Optional, Float): User latitude
+- lng (Optional, Float): User longitude
+- city (Optional, String): Destination city filter
+- limit (Optional, Integer): Number of items (Default: 5, Max: 50)
+
+Authentication: Optional
+
+Sample Request:
+GET /mobileapi/v1/hotels/nearby?city=Dubai&limit=5 HTTP/1.1
+
+Sample Success Response (200 OK):
+{
+  "success": true,
+  "data": [
+    {
+      "hotel_id": "hotel_101",
+      "name": "Grand Palace Hotel & Resort",
+      "location_text": "Dubai Marina, Dubai",
+      "city": "Dubai",
+      "star_rating": 5,
+      "image_url": "https://...",
+      "rating": 4.9,
+      "review_count": 142,
+      "price_per_night": 599,
+      "currency": "AED",
+      "badge_text": "POPULAR CHOICE",
+      "booking_cta": "View Rooms"
+    }
+  ]
+}
+
+--------------------------------------------------------------------------------
+ENDPOINT 19: INFINITE RECOMMENDATION SCROLL FEEDS (ALL 4 PANELS)
+--------------------------------------------------------------------------------
+[19.1 PRODUCT RECOMMENDATION FEED]
+Status: [IMPLEMENTED]
+Description: Paginated infinite recommendation product feed.
+HTTP Method: GET
+Path: /mobileapi/v1/recommendations/products
+Query Parameters:
+- page (Optional, Integer): Page number (Default: 1)
+- limit (Optional, Integer): Items per page (Default: 10, Max: 50)
+Sample Success Response (200 OK):
+{
+  "success": true,
+  "data": {
+    "items": [
+      {
+        "id": "prod_101",
+        "title": "Wireless Earbuds Pro",
+        "slug": "wireless-earbuds-pro",
+        "category": "Electronics",
+        "image": "https://...",
+        "price": 299,
+        "original_price": 349,
+        "rating": 4.8,
+        "review_count": 24,
+        "badge": "14% OFF",
+        "in_stock": true
+      }
+    ],
+    "pagination": { "current_page": 1, "total_pages": 15, "total_items": 150, "has_more": true }
+  }
+}
+
+[19.2 SERVICE RECOMMENDATION FEED]
+Status: [IMPLEMENTED]
+Description: Paginated infinite recommendation service feed.
+HTTP Method: GET
+Path: /mobileapi/v1/recommendations/services
+Query Parameters:
+- page (Optional, Integer): Page number (Default: 1)
+- limit (Optional, Integer): Items per page (Default: 10, Max: 50)
+Sample Success Response (200 OK):
+{
+  "success": true,
+  "data": {
+    "items": [
+      {
+        "id": "srv_201",
+        "title": "Full Home Deep Cleaning",
+        "slug": "home-deep-cleaning",
+        "category": "Cleaning",
+        "provider_name": "Sparkle Cleaners",
+        "image": "https://...",
+        "price": 149,
+        "duration_mins": 120,
+        "rating": 4.9,
+        "review_count": 48
+      }
+    ],
+    "pagination": { "current_page": 1, "total_pages": 5, "total_items": 45, "has_more": true }
+  }
+}
+
+[19.3 HOTEL RECOMMENDATION FEED]
+Status: [IMPLEMENTED]
+Description: Paginated infinite recommendation hotel property feed.
+HTTP Method: GET
+Path: /mobileapi/v1/recommendations/hotels
+Query Parameters:
+- page (Optional, Integer): Page number (Default: 1)
+- limit (Optional, Integer): Items per page (Default: 10, Max: 50)
+- city (Optional, String): City filter
+Sample Success Response (200 OK):
+{
+  "success": true,
+  "data": {
+    "items": [
+      {
+        "id": "hotel_101",
+        "title": "Grand Palace Hotel & Resort",
+        "city": "Dubai",
+        "location_text": "Dubai Marina, Dubai",
+        "star_rating": 5,
+        "image": "https://...",
+        "price_per_night": 599,
+        "currency": "AED",
+        "rating": 4.9,
+        "review_count": 124,
+        "badge": "TOP CHOICE"
+      }
+    ],
+    "pagination": { "current_page": 1, "total_pages": 3, "total_items": 24, "has_more": true }
+  }
+}
+
+[19.4 FOOD RECOMMENDATION FEED]
+Status: [IMPLEMENTED]
+Description: Paginated infinite recommendation food items/dishes feed.
+HTTP Method: GET
+Path: /mobileapi/v1/recommendations/food
+Query Parameters:
+- page (Optional, Integer): Page number (Default: 1)
+- limit (Optional, Integer): Items per page (Default: 10, Max: 50)
+Sample Success Response (200 OK):
+{
+  "success": true,
+  "data": {
+    "items": [
+      {
+        "id": "food_501",
+        "title": "Double Cheese Burger Combo",
+        "description": "Grilled beef patty with melted cheddar & fries",
+        "category": "Burgers",
+        "restaurant_name": "The Gourmet Burger Kitchen",
+        "is_veg": false,
+        "image": "https://...",
+        "price": 45,
+        "rating": 4.8,
+        "review_count": 92,
+        "delivery_time": "20-30 mins",
+        "badge": "BESTSELLER"
+      }
+    ],
+    "pagination": { "current_page": 1, "total_pages": 4, "total_items": 38, "has_more": true }
+  }
+}
+
+================================================================================
+ALL MOBILE HOME PAGE APIS IMPLEMENTED & VERIFIED (100% COMPLETE)
+================================================================================

@@ -47,17 +47,9 @@ function HotelSellerLoginForm() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password, callbackUrl, csrfToken: csrfToken ?? undefined }),
         credentials: "include",
-        redirect: "manual",
       })
-      if (res.status === 302) {
-        const loc = res.headers.get("Location")
-        if (loc && !loc.includes("error=")) {
-          window.location.href = getSafeRedirectUrl(loc, "/hotel-seller")
-          return
-        }
-      }
+      const data = await res.json().catch(() => ({}))
       if (res.ok) {
-        const data = await res.json().catch(() => ({}))
         if (data?.url && data.url.includes("error=")) {
           setError("Invalid email or password.")
           return
@@ -65,7 +57,6 @@ function HotelSellerLoginForm() {
         window.location.href = getSafeRedirectUrl(data?.url || callbackUrl, "/hotel-seller")
         return
       }
-      const data = await res.json().catch(() => ({}))
       if (res.status === 403 && data.needsVerification && data.verifyUrl) {
         router.push(data.verifyUrl)
         return
