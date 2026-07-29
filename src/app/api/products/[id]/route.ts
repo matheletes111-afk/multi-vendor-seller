@@ -65,7 +65,7 @@ export async function GET(
       where: { productId: id },
       _avg: { rating: true },
     }),
-    prisma.globalSetting.findFirst(),
+    prisma.globalSetting.findFirst({ select: { deliveryChargeRanges: true } }).catch(() => null),
   ])
   if (!product) return NextResponse.json({ error: "Product not found" }, { status: 404 })
 

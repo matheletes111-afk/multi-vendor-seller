@@ -68,58 +68,85 @@ export async function POST(request: Request) {
       body: form.toString(),
     })
     const res = await nextAuthPost(nextauthRequest as any)
-    
     const location = res.headers.get("Location") ?? ""
-    if (res.status === 302 && (location.includes("error=") || location.includes("login"))) {
-        let msg = "Invalid email or password."
-        try {
-            const err = new URL(location, origin).searchParams.get("error")
-            if (err === "MissingCSRF") msg = "Session expired. Please refresh and try again."
-            else if (err === "CredentialsSignin") {
-                const u = await prisma.user.findUnique({ where: { email }, select: { id: true, role: true, isEmailVerified: true } })
-                if (u?.role === UserRole.SELLER_HOTEL) {
-                    if (u.isEmailVerified === false) {
-                        const verifyUrl = `/hotel-seller/verify-otp?email=${encodeURIComponent(email)}`
-                        return NextResponse.json({ error: "Please verify your email first.", needsVerification: true, verifyUrl }, { status: 403 })
-                    }
-                    const s = await prisma.hotelSeller.findUnique({ where: { userId: u.id }, select: { isSuspended: true } })
-                    if (s?.isSuspended) return NextResponse.json({ error: "Your account has been suspended." }, { status: 403 })
-                }
-                msg = "Invalid email or password."
-            } else if (err) msg = err
-        } catch { /* ignore */ }
-        return NextResponse.json({ error: msg }, { status: 401 })
+    const isErrorRedirect =
+      res.status === 302 &&
+      (location.includes("error=") ||
+        location.includes("login"))
+
+    if (isErrorRedirect) {
+      let msg = "Invalid email or password."
+      try {
+        const err = new URL(location, origin).searchParams.get("error")
+        if (err === "MissingCSRF") {
+          msg = "Session expired. Please refresh and try again."
+        } else if (err === "CredentialsSignin") {
+          const u = await prisma.user.findUnique({
+            where: { email },
+            select: { id: true, role: true, isEmailVerified: true },
+          })
+          if (!u) {
+            msg = "Invalid email or password."
+          } else if (u.role !== UserRole.SELLER_HOTEL) {
+            const roleLabels: Record<string, string> = {
+              CUSTOMER: "Customer",
+              SELLER_PRODUCT: "Product Seller",
+              SELLER_SERVICE: "Service Seller",
+              SELLER_RESTAURANT: "Restaurant Seller",
+              ADMIN: "Admin",
+            }
+            const label = roleLabels[u.role] || u.role
+            msg = `This email is registered as a ${label}. Please sign in using the ${label} login page.`
+          } else if (u.isEmailVerified === false) {
+            const verifyUrl = `/hotel-seller/verify-otp?email=${encodeURIComponent(email)}`
+            return NextResponse.json(
+              { error: "Please verify your email first.", needsVerification: true, verifyUrl },
+              { status: 403 }
+            )
+          } else {
+            const s = await prisma.hotelSeller.findUnique({
+              where: { userId: u.id },
+              select: { isSuspended: true },
+            })
+            if (s?.isSuspended) {
+              return NextResponse.json(
+                { error: "Your account has been suspended. Please contact support." },
+                { status: 403 }
+              )
+            }
+            msg = "Invalid email or password."
+          }
+        } else if (err) {
+          msg = err
+        }
+      } catch {
+        /* use default */
+      }
+      return NextResponse.json({ error: msg }, { status: 401 })
     }
 
-    if (res.status === 302) {
-      const headers = new Headers()
-      headers.set("Location", getSafeRedirectUrl(location, "/hotel-seller", origin))
-      res.headers.getSetCookie?.().forEach((c) => headers.append("Set-Cookie", c))
-      return new NextResponse(null, { status: 302, headers })
-    }
-
-    const text = await res.text()
-    let data: { url?: string } = {}
+    let url = getSafeRedirectUrl(location || callbackUrl, "/hotel-seller", origin)
     try {
-      data = JSON.parse(text)
-    } catch {
-      return NextResponse.json({ error: "Invalid email or password." }, { status: 401 })
-    }
-    
-    let url = getSafeRedirectUrl(data?.url || callbackUrl, "/hotel-seller", origin)
-    try {
-      const u = await prisma.user.findUnique({ where: { email }, select: { id: true, role: true } })
+      const u = await prisma.user.findUnique({
+        where: { email },
+        select: { id: true, role: true },
+      })
       if (u?.role === UserRole.SELLER_HOTEL) {
-        const s = await prisma.hotelSeller.findUnique({ where: { userId: u.id }, select: { onboardingCompleted: true } })
+        const s = await prisma.hotelSeller.findUnique({
+          where: { userId: u.id },
+          select: { onboardingCompleted: true },
+        })
         if (s && !s.onboardingCompleted) {
           url = "/hotel-seller/onboarding"
         }
       }
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
 
     const headers = new Headers()
-    res.headers.getSetCookie?.().forEach((c) => headers.append("Set-Cookie", c))
-    return NextResponse.json({ ...data, url }, { status: res.status, headers })
+    res.headers.getSetCookie?.().forEach((c: string) => headers.append("Set-Cookie", c))
+    return NextResponse.json({ success: true, url }, { status: 200, headers })
   } catch (error) {
     console.error("Hotel seller login error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })

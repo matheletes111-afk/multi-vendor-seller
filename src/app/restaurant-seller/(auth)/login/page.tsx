@@ -52,19 +52,10 @@ function RestaurantSellerLoginForm() {
           csrfToken: csrfToken ?? undefined,
         }),
         credentials: "include",
-        redirect: "manual",
       })
 
-      if (res.status === 302) {
-        const loc = res.headers.get("Location")
-        if (loc && !loc.includes("error=")) {
-          window.location.href = getSafeRedirectUrl(loc, "/restaurant-seller")
-          return
-        }
-      }
-
+      const data = await res.json().catch(() => ({}))
       if (res.ok) {
-        const data = await res.json().catch(() => ({}))
         if (data?.url && data.url.includes("error=")) {
           setError("Invalid email or password.")
           return
@@ -73,11 +64,10 @@ function RestaurantSellerLoginForm() {
         return
       }
 
-      const result = await res.json().catch(() => ({}))
-      if (res.status === 403 && result.needsVerification && result.verifyUrl) {
-        router.push(result.verifyUrl)
+      if (res.status === 403 && data.needsVerification && data.verifyUrl) {
+        router.push(data.verifyUrl)
       } else {
-        setError(result.error || "Login failed. Please check your credentials.")
+        setError(data.error || "Login failed. Please check your credentials.")
       }
     } catch {
       setError("Something went wrong. Please try again.")

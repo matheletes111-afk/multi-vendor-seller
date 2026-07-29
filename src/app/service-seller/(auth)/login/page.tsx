@@ -56,35 +56,16 @@ function ServiceSellerLoginForm() {
           csrfToken: csrfToken ?? undefined,
         }),
         credentials: "include",
-        redirect: "manual",
       })
-      if (res.status === 302) {
-        const loc = res.headers.get("Location")
-        if (loc && !loc.includes("error=")) {
-          window.location.href = getSafeRedirectUrl(loc, "/service-seller")
-          return
-        }
-      }
+      const data = await res.json().catch(() => ({}))
       if (res.ok) {
-        const data = await res.json().catch(() => ({}))
         if (data?.url && data.url.includes("error=")) {
-          let msg = "Invalid email or password."
-          try {
-            const u = new URL(data.url)
-            const err = u.searchParams.get("error")
-            if (err === "CredentialsSignin") msg = "Invalid email or password."
-            else if (err === "MissingCSRF") msg = "Session expired. Please refresh and try again."
-            else if (err) msg = err
-          } catch {
-            /* use default */
-          }
-          setError(msg)
+          setError("Invalid email or password.")
           return
         }
         window.location.href = getSafeRedirectUrl(data?.url || callbackUrl, "/service-seller")
         return
       }
-      const data = await res.json().catch(() => ({}))
       if (res.status === 403 && data.needsVerification && data.verifyUrl) {
         router.push(data.verifyUrl)
         return

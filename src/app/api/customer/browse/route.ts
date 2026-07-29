@@ -509,7 +509,7 @@ export async function GET(request: NextRequest) {
 
   const serviceCategoryName = serviceCategoryWithName?.name ?? null
 
-  const globalSetting = await prisma.globalSetting.findFirst()
+  const globalSetting = await prisma.globalSetting.findFirst({ select: { deliveryChargeRanges: true } }).catch(() => null)
   const ranges = (globalSetting?.deliveryChargeRanges as any[]) || []
 
   const serializeProduct = (p: EnrichedProduct) => {
