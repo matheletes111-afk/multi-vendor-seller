@@ -46,19 +46,23 @@ export async function GET(request: NextRequest) {
   const roleParam = searchParams.get("role") ?? ""
   const nextParam = searchParams.get("next") ?? ""
 
+  const forwardedHost = request.headers.get("x-forwarded-host") || request.headers.get("host")
+  const forwardedProto = request.headers.get("x-forwarded-proto") || "https"
+  const publicBaseUrl = forwardedHost ? `${forwardedProto}://${forwardedHost}` : (process.env.NEXTAUTH_URL || request.url)
+
   const intendedRole = ALLOWED_ROLES[roleParam]
   if (!intendedRole) {
-    return NextResponse.redirect(new URL("/customer/login?error=InvalidRole", request.url))
+    return NextResponse.redirect(new URL("/customer/login?error=InvalidRole", publicBaseUrl))
   }
 
   const session = await auth()
   const userId = session?.user?.id
   if (!userId) {
-    return NextResponse.redirect(new URL("/customer/login?error=OAuthSessionMissing", request.url))
+    return NextResponse.redirect(new URL("/customer/login?error=OAuthSessionMissing", publicBaseUrl))
   }
 
   const safeNext = isAllowedNextPath(nextParam) ? nextParam : ROLE_DEFAULT_NEXT[intendedRole]
-  let redirectResponse = NextResponse.redirect(new URL(safeNext, request.url))
+  let redirectResponse = NextResponse.redirect(new URL(safeNext, publicBaseUrl))
 
   const existingUser = await prisma.user.findUnique({
     where: { id: userId },
@@ -73,7 +77,7 @@ export async function GET(request: NextRequest) {
     },
   })
   if (!existingUser) {
-    return NextResponse.redirect(new URL("/customer/login?error=UserNotFound", request.url))
+    return NextResponse.redirect(new URL("/customer/login?error=UserNotFound", publicBaseUrl))
   }
 
   const SELLER_ROLES: UserRole[] = [
@@ -88,18 +92,18 @@ export async function GET(request: NextRequest) {
   // Prevent cross-panel role overwrites for the same email.
   if (intendedRole !== UserRole.CUSTOMER && currentIsSeller && existingUser.role !== intendedRole) {
     const redirectPrefix = ROLE_DEFAULT_NEXT[intendedRole].replace("/", "") || "customer"
-    return NextResponse.redirect(new URL(`/${redirectPrefix}/login?error=EmailAlreadyUsedAsDifferentSeller`, request.url))
+    return NextResponse.redirect(new URL(`/${redirectPrefix}/login?error=EmailAlreadyUsedAsDifferentSeller`, publicBaseUrl))
   }
 
   // If the user is already a verified customer, do not allow overwriting them into a seller.
   if (intendedRole !== UserRole.CUSTOMER && existingUser.role === UserRole.CUSTOMER && (existingUser.password !== null || existingUser.isEmailVerified === true)) {
     const redirectPrefix = ROLE_DEFAULT_NEXT[intendedRole].replace("/", "") || "customer"
-    return NextResponse.redirect(new URL(`/${redirectPrefix}/login?error=EmailAlreadyUsedAsCustomer`, request.url))
+    return NextResponse.redirect(new URL(`/${redirectPrefix}/login?error=EmailAlreadyUsedAsCustomer`, publicBaseUrl))
   }
 
   if (intendedRole === UserRole.CUSTOMER && currentIsSeller) {
     return NextResponse.redirect(
-      new URL(`/customer/login?error=EmailAlreadyUsedAsSeller&currentRole=${encodeURIComponent(existingUser.role)}`, request.url),
+      new URL(`/customer/login?error=EmailAlreadyUsedAsSeller&currentRole=${encodeURIComponent(existingUser.role)}`, publicBaseUrl),
     )
   }
 
@@ -207,7 +211,7 @@ export async function GET(request: NextRequest) {
         // Final safety: Override redirect URL if onboarding is not complete
         if (!seller?.onboardingCompleted) {
           const redirectPrefix = ROLE_DEFAULT_NEXT[intendedRole].replace("/", "") || "customer"
-          redirectResponse = NextResponse.redirect(new URL(`/${redirectPrefix}/onboarding`, request.url))
+          redirectResponse = NextResponse.redirect(new URL(`/${redirectPrefix}/onboarding`, publicBaseUrl))
         }
       }
 
