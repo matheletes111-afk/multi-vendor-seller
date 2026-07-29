@@ -17,8 +17,12 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
   const adId = searchParams.get("adId")
   const redirectToAd = searchParams.get("redirect_to_ad") === "true"
+  const forwardedHost = request.headers.get("x-forwarded-host") || request.headers.get("host")
+  const forwardedProto = request.headers.get("x-forwarded-proto") || "https"
+  const publicBaseUrl = forwardedHost ? `${forwardedProto}://${forwardedHost}` : (process.env.NEXTAUTH_URL || request.url)
+
   if (!adId) {
-    return NextResponse.redirect(new URL("/browse", request.url))
+    return NextResponse.redirect(new URL("/browse", publicBaseUrl))
   }
 
   const session = await auth()
@@ -31,7 +35,7 @@ export async function GET(request: NextRequest) {
   })
 
   if (!ad) {
-    return NextResponse.redirect(new URL("/browse", request.url))
+    return NextResponse.redirect(new URL("/browse", publicBaseUrl))
   }
 
   const now = new Date()
@@ -54,7 +58,7 @@ export async function GET(request: NextRequest) {
     redirectUrl = `/service/${ad.serviceId}`
   }
 
-  const response = NextResponse.redirect(new URL(redirectUrl, request.url))
+  const response = NextResponse.redirect(new URL(redirectUrl, publicBaseUrl))
 
   await recordAdClick({ adId, userId, sessionId }).catch(() => {})
 
