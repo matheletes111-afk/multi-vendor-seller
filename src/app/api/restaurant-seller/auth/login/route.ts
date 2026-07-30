@@ -103,14 +103,23 @@ export async function POST(request: Request) {
     })
     const res = await nextAuthPost(nextauthRequest as any)
 
+    // Auth.js (NextAuth v5) with X-Auth-Return-Redirect:1 returns 200+JSON {url:"..."}
+    // instead of a 302 Location redirect when auth fails. Handle both.
     const location = res.headers.get("Location") ?? ""
-    const isErrorRedirect =
-      res.status === 302 && (location.includes("error=") || location.includes("login"))
+    let nextAuthUrl = location
+    if (!nextAuthUrl) {
+      try {
+        const body = await res.clone().json().catch(() => ({}))
+        nextAuthUrl = typeof body?.url === "string" ? body.url : ""
+      } catch { /* ignore */ }
+    }
+
+    const isErrorRedirect = nextAuthUrl.includes("error=") || nextAuthUrl.includes("login")
 
     if (isErrorRedirect) {
       let msg = "Invalid email or password."
       try {
-        const err = new URL(location, origin).searchParams.get("error")
+        const err = new URL(nextAuthUrl, origin).searchParams.get("error")
         if (err === "MissingCSRF") {
           msg = "Session expired. Please refresh and try again."
         } else if (err === "CredentialsSignin") {
@@ -124,7 +133,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: msg }, { status: 401 })
     }
 
-    let url = getSafeRedirectUrl(location || callbackUrl, "/restaurant-seller", origin)
+    let url = getSafeRedirectUrl(nextAuthUrl || callbackUrl, "/restaurant-seller", origin)
     try {
       if (user?.role === UserRole.SELLER_RESTAURANT) {
         const s = await prisma.restaurantSeller.findUnique({
