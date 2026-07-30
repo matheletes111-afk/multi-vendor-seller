@@ -39,35 +39,45 @@ export async function POST(request: Request) {
       select: { id: true, password: true, role: true, isEmailVerified: true },
     })
 
+    // Check credentials / OTP validity BEFORE revealing role mismatch
     if (user) {
-      // 1. Role mismatch check
-      if (user.role !== UserRole.SELLER_SERVICE) {
-        const label = ROLE_LABELS[user.role] || user.role
-        return NextResponse.json(
-          { error: `This email is registered as a ${label}. Please sign in using the ${label} login page.` },
-          { status: 401 }
-        )
+      let isCredentialsValid = false
+      if (hasOtpLoginToken) {
+        isCredentialsValid = true
+      } else if (user.password && password) {
+        isCredentialsValid = await bcrypt.compare(password, user.password)
       }
 
-      // 2. Unverified email check
-      if (user.isEmailVerified === false) {
-        const verifyUrl = `/service-seller/verify-otp?email=${encodeURIComponent(cleanEmail)}`
-        return NextResponse.json(
-          { error: "Please verify your email first.", needsVerification: true, verifyUrl },
-          { status: 403 }
-        )
-      }
+      if (isCredentialsValid) {
+        // 1. Role mismatch check (only if credentials are valid)
+        if (user.role !== UserRole.SELLER_SERVICE) {
+          const label = ROLE_LABELS[user.role] || user.role
+          return NextResponse.json(
+            { error: `This email is registered as a ${label}. Please sign in using the ${label} login page.` },
+            { status: 401 }
+          )
+        }
 
-      // 3. Suspended seller account check
-      const seller = await prisma.seller.findUnique({
-        where: { userId: user.id },
-        select: { isSuspended: true },
-      })
-      if (seller?.isSuspended) {
-        return NextResponse.json(
-          { error: "Your seller account has been suspended. Please contact support." },
-          { status: 403 }
-        )
+        // 2. Unverified email check
+        if (user.isEmailVerified === false) {
+          const verifyUrl = `/service-seller/verify-otp?email=${encodeURIComponent(cleanEmail)}`
+          return NextResponse.json(
+            { error: "Please verify your email first.", needsVerification: true, verifyUrl },
+            { status: 403 }
+          )
+        }
+
+        // 3. Suspended seller account check
+        const seller = await prisma.seller.findUnique({
+          where: { userId: user.id },
+          select: { isSuspended: true },
+        })
+        if (seller?.isSuspended) {
+          return NextResponse.json(
+            { error: "Your seller account has been suspended. Please contact support." },
+            { status: 403 }
+          )
+        }
       }
     }
 
