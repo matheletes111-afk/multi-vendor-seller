@@ -19,12 +19,13 @@ import { Button } from "@/ui/button"
 import { Sheet, SheetContent, SheetTrigger } from "@/ui/sheet"
 import { LogOut, User, LayoutDashboard, Briefcase, ShoppingCart, CreditCard, Settings, Menu, Megaphone, Star, TrendingUp } from "lucide-react"
 
-function NavItem({ href, label, icon }: { href: string; label: string; icon?: ReactNode }) {
+function NavItem({ href, label, icon, onClick }: { href: string; label: string; icon?: ReactNode; onClick?: () => void }) {
   const pathname = usePathname()
-  const isActive = pathname === href || pathname?.startsWith(`${href}/`)
+  const isActive = pathname === href || (href !== "/service-seller" && pathname?.startsWith(`${href}/`))
   return (
     <Link
       href={href}
+      onClick={onClick}
       className={cn(
         "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
         isActive
