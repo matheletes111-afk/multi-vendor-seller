@@ -19,20 +19,35 @@ type Props = {
   label?: string
   requiresPortrait?: boolean
   fieldNamePrefix?: string
+  initialType?: "IMAGE" | "VIDEO"
+  initialUrl?: string | null
   onCreativeChange?: (creative: { type: "IMAGE" | "VIDEO", url: string | null }) => void
 }
 
-export function AdCreativeField({ label = "Creative (image or video) *", requiresPortrait = false, fieldNamePrefix = "", onCreativeChange, ..._props }: Props) {
-  const [creativeType, setCreativeType] = useState<"IMAGE" | "VIDEO">("IMAGE")
-  const [imageMode, setImageMode] = useState<"url" | "upload">("upload")
-  const [videoMode, setVideoMode] = useState<"url" | "upload">("upload")
-  const [imageUrl, setImageUrl] = useState("")
-  const [videoUrl, setVideoUrl] = useState("")
+export function AdCreativeField({ label = "Creative (image or video) *", requiresPortrait = false, fieldNamePrefix = "", initialType = "IMAGE", initialUrl = null, onCreativeChange, ..._props }: Props) {
+  const [creativeType, setCreativeType] = useState<"IMAGE" | "VIDEO">(initialType)
+  const [imageMode, setImageMode] = useState<"url" | "upload">(initialUrl ? "url" : "upload")
+  const [videoMode, setVideoMode] = useState<"url" | "upload">(initialUrl ? "url" : "upload")
+  const [imageUrl, setImageUrl] = useState(initialType === "IMAGE" && initialUrl ? initialUrl : "")
+  const [videoUrl, setVideoUrl] = useState(initialType === "VIDEO" && initialUrl ? initialUrl : "")
   const [imagePreviewBlob, setImagePreviewBlob] = useState<string | null>(null)
   const [videoPreviewBlob, setVideoPreviewBlob] = useState<string | null>(null)
   const [uploadError, setUploadError] = useState<string | null>(null)
   const imageFileRef = useRef<HTMLInputElement>(null)
   const videoFileRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (initialType) setCreativeType(initialType)
+    if (initialUrl) {
+      if (initialType === "IMAGE") {
+        setImageMode("url")
+        setImageUrl(initialUrl)
+      } else {
+        setVideoMode("url")
+        setVideoUrl(initialUrl)
+      }
+    }
+  }, [initialType, initialUrl])
 
   // Revoke object URLs on unmount or when changing
   useEffect(() => {

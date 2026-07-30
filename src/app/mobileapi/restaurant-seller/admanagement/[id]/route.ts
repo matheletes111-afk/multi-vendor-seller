@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { UserRole } from "@prisma/client"
 import { getMobileHotelRestaurantSellerAuth } from "../../../_helpers/hotel-restaurant-seller-auth"
+import { saveAdCreativeFile } from "@/lib/ad-upload"
 
 export const dynamic = 'force-dynamic'
 
@@ -62,7 +63,7 @@ export async function GET(
 
 /**
  * PATCH /mobileapi/restaurant-seller/admanagement/[id]
- * Update ad status (pause or resume).
+ * Update ad fields or toggle ad status.
  */
 export async function PATCH(
   request: NextRequest,
@@ -96,30 +97,147 @@ export async function PATCH(
       return NextResponse.json({ success: false, error: "Ad not found" }, { status: 404 })
     }
 
-    const body = await request.json().catch(() => ({}))
-    const { status } = body as { status?: string }
+    const contentType = request.headers.get("content-type") || ""
 
-    if (status === "PAUSED" && ad.status === "ACTIVE") {
-      const updated = await prisma.sellerAd.update({
-        where: { id },
-        data: { status: "PAUSED" },
-      })
-      return NextResponse.json({ success: true, data: { status: "PAUSED", ad: updated } })
+    if (contentType.includes("application/json")) {
+      const jsonBody = await request.json().catch(() => ({}))
+      if (Object.keys(jsonBody).length === 1 && jsonBody.status) {
+        const { status } = jsonBody
+        if (status === "PAUSED" && ad.status === "ACTIVE") {
+          const updated = await prisma.sellerAd.update({ where: { id }, data: { status: "PAUSED" } })
+          return NextResponse.json({ success: true, data: { status: "PAUSED", ad: updated } })
+        }
+        if (status === "ACTIVE" && ad.status === "PAUSED") {
+          const updated = await prisma.sellerAd.update({ where: { id }, data: { status: "ACTIVE" } })
+          return NextResponse.json({ success: true, data: { status: "ACTIVE", ad: updated } })
+        }
+        return NextResponse.json({ success: false, error: "Invalid status change" }, { status: 400 })
+      }
     }
 
-    if (status === "ACTIVE" && ad.status === "PAUSED") {
-      const updated = await prisma.sellerAd.update({
-        where: { id },
-        data: { status: "ACTIVE" },
-      })
-      return NextResponse.json({ success: true, data: { status: "ACTIVE", ad: updated } })
+    let body: any = {}
+    if (contentType.includes("multipart/form-data")) {
+      const formData = await request.formData()
+      const placements = formData.getAll("placements") as string[]
+      
+      let creativeUrl = (formData.get("creativeUrl") as string) || ad.creativeUrl || ""
+      const creativeFile = formData.get("creativeFile") as File | null
+      if (creativeFile && creativeFile.size > 0) {
+        creativeUrl = await saveAdCreativeFile(creativeFile)
+      }
+
+      let mobileCreativeUrl = (formData.get("mobileCreativeUrl") as string) || ad.mobileCreativeUrl || ""
+      const mobileCreativeFile = formData.get("mobileCreativeFile") as File | null
+      if (mobileCreativeFile && mobileCreativeFile.size > 0) {
+        mobileCreativeUrl = await saveAdCreativeFile(mobileCreativeFile)
+      }
+
+      body = {
+        adType: formData.get("adType") as string,
+        foodItemId: formData.get("foodItemId") as string,
+        title: formData.get("title") as string,
+        description: formData.get("description") as string,
+        placements: placements.length > 0 ? placements : undefined,
+        creativeType: formData.get("creativeType") as string,
+        creativeUrl,
+        mobileCreativeType: formData.get("mobileCreativeType") as string,
+        mobileCreativeUrl,
+        totalBudget: formData.get("totalBudget") ? parseFloat(formData.get("totalBudget") as string) : undefined,
+        maxCpc: formData.get("maxCpc") ? parseFloat(formData.get("maxCpc") as string) : undefined,
+        startAt: formData.get("startAt") as string,
+        endAt: formData.get("endAt") as string,
+        targetCountries: formData.get("targetCountries") as string,
+        targetAgeMin: formData.get("targetAgeMin") ? parseInt(formData.get("targetAgeMin") as string) : undefined,
+        targetAgeMax: formData.get("targetAgeMax") ? parseInt(formData.get("targetAgeMax") as string) : undefined,
+        targetAudience: formData.get("targetAudience") ? parseInt(formData.get("targetAudience") as string) : undefined,
+        expandAudience: formData.get("expandAudience") === "on" || formData.get("expandAudience") === "true",
+      }
+    } else {
+      body = await request.json().catch(() => ({}))
     }
 
-    return NextResponse.json({ success: false, error: "Invalid status change" }, { status: 400 })
-  } catch (error) {
+    const adType = String(body.adType || "promote_product").trim().toLowerCase()
+    const isOwnAd = adType === "own_ad" || adType === "ownad"
+    const foodItemId = isOwnAd ? null : (body.foodItemId ? String(body.foodItemId).trim() : ad.foodItemId)
+    const title = body.title ? String(body.title).trim() : ad.title
+
+    let placements: string[] = ad.placements && ad.placements.length > 0 ? (ad.placements as string[]) : ["WEB"]
+    const rawPlacements = body.placements
+    if (Array.isArray(rawPlacements)) {
+      placements = rawPlacements.flatMap((p: any) => String(p).split(",")).map((p: string) => p.trim().toUpperCase())
+    } else if (typeof rawPlacements === "string" && rawPlacements.trim()) {
+      placements = rawPlacements.split(",").map((p: string) => p.trim().toUpperCase())
+    }
+    placements = placements.filter((p) => p === "WEB" || p === "MOBILE")
+    if (placements.length === 0) placements = ["WEB"]
+
+    const creativeUrl = body.creativeUrl !== undefined ? String(body.creativeUrl).trim() : ad.creativeUrl
+    const mobileCreativeUrl = body.mobileCreativeUrl !== undefined ? String(body.mobileCreativeUrl).trim() : ad.mobileCreativeUrl
+    const totalBudget = body.totalBudget ? Number(body.totalBudget) : Number(ad.totalBudget)
+    const maxCpc = body.maxCpc ? Number(body.maxCpc) : Number(ad.maxCpc)
+    const startAt = body.startAt ? new Date(String(body.startAt)) : ad.startAt
+    const endAt = body.endAt ? new Date(String(body.endAt)) : ad.endAt
+
+    if (!title) return NextResponse.json({ success: false, error: "Title is required" }, { status: 400 })
+
+    if (foodItemId) {
+      const food = await prisma.foodItem.findFirst({ where: { id: foodItemId, restaurantSellerId: seller.id } })
+      if (!food) return NextResponse.json({ success: false, error: "Food item not found or does not belong to you" }, { status: 404 })
+    }
+
+    let targetCountries: string[] | null = (ad.targetCountries as string[]) || null
+    if (body.targetCountries !== undefined) {
+      const tc = body.targetCountries
+      if (!tc) {
+        targetCountries = null
+      } else {
+        try {
+          const parsed = typeof tc === "string" ? JSON.parse(tc) : tc
+          targetCountries = Array.isArray(parsed) ? parsed.map((c: any) => String(c).trim()).filter(Boolean) : null
+        } catch {
+          targetCountries = String(tc).split(",").map((c) => c.trim()).filter(Boolean)
+        }
+      }
+    }
+
+    const updatedAd = await prisma.sellerAd.update({
+      where: { id },
+      data: {
+        foodItemId,
+        title,
+        description: body.description !== undefined ? body.description : ad.description,
+        // @ts-ignore
+        placements,
+        creativeType: body.creativeType ? (body.creativeType === "VIDEO" ? "VIDEO" : "IMAGE") : ad.creativeType,
+        creativeUrl: creativeUrl || mobileCreativeUrl || ad.creativeUrl,
+        // @ts-ignore
+        mobileCreativeType: body.mobileCreativeType ? (body.mobileCreativeType === "VIDEO" ? "VIDEO" : "IMAGE") : ad.mobileCreativeType,
+        mobileCreativeUrl: mobileCreativeUrl || null,
+        status: "PENDING_APPROVAL",
+        totalBudget,
+        maxCpc,
+        startAt,
+        endAt,
+        targetCountries: targetCountries ? (targetCountries as any) : null,
+        targetAgeMin: body.targetAgeMin !== undefined ? (body.targetAgeMin ? Number(body.targetAgeMin) : null) : ad.targetAgeMin,
+        targetAgeMax: body.targetAgeMax !== undefined ? (body.targetAgeMax ? Number(body.targetAgeMax) : null) : ad.targetAgeMax,
+        targetAudience: body.targetAudience !== undefined ? (body.targetAudience ? Number(body.targetAudience) : null) : ad.targetAudience,
+        expandAudience: body.expandAudience !== undefined ? Boolean(body.expandAudience) : ad.expandAudience,
+      },
+    })
+
+    return NextResponse.json({ success: true, data: updatedAd })
+  } catch (error: any) {
     console.error("Mobile patch ad error:", error)
-    return NextResponse.json({ success: false, error: "Internal Server Error" }, { status: 500 })
+    return NextResponse.json({ success: false, error: error.message || "Internal Server Error" }, { status: 500 })
   }
+}
+
+export async function PUT(
+  request: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
+  return PATCH(request, context)
 }
 
 /**

@@ -10,7 +10,11 @@ const COUNTRIES_URL = "https://restcountries.com/v3.1/all?fields=name,cca2"
 
 type Country = { name: { common: string }; cca2: string }
 
-export function CountryMultiSelect() {
+type CountryProps = {
+  defaultCountries?: string[] | null
+}
+
+export function CountryMultiSelect({ defaultCountries = [] }: CountryProps) {
   const [countries, setCountries] = useState<Country[]>([])
   const [selected, setSelected] = useState<string[]>([])
   const [open, setOpen] = useState(false)
@@ -22,11 +26,18 @@ export function CountryMultiSelect() {
     fetch(COUNTRIES_URL)
       .then((res) => res.json())
       .then((data: Country[]) => {
-        setCountries(data.sort((a, b) => a.name.common.localeCompare(b.name.common)))
+        const sorted = data.sort((a, b) => a.name.common.localeCompare(b.name.common))
+        setCountries(sorted)
+        if (defaultCountries && defaultCountries.length > 0) {
+          const codes = sorted
+            .filter((c) => defaultCountries.includes(c.name.common) || defaultCountries.includes(c.cca2))
+            .map((c) => c.cca2)
+          setSelected(codes)
+        }
       })
       .catch(() => setCountries([]))
       .finally(() => setLoading(false))
-  }, [])
+  }, [defaultCountries])
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {

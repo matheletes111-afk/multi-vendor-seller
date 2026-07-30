@@ -1,12 +1,33 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Label } from "@/ui/label"
 import { Input } from "@/ui/input"
 
-export function BudgetAudienceField() {
-  const [totalBudget, setTotalBudget] = useState("")
-  const [targetAudience, setTargetAudience] = useState("")
+type BudgetProps = {
+  defaultTotalBudget?: number | string
+  defaultMaxCpc?: number | string
+}
+
+export function BudgetAudienceField({ defaultTotalBudget = "", defaultMaxCpc = "" }: BudgetProps) {
+  const [totalBudget, setTotalBudget] = useState(defaultTotalBudget ? String(defaultTotalBudget) : "")
+  const [targetAudience, setTargetAudience] = useState(() => {
+    if (defaultTotalBudget && defaultMaxCpc) {
+      const tb = Number(defaultTotalBudget)
+      const mc = Number(defaultMaxCpc)
+      if (tb > 0 && mc > 0) return String(Math.round(tb / mc))
+    }
+    return ""
+  })
+
+  useEffect(() => {
+    if (defaultTotalBudget) setTotalBudget(String(defaultTotalBudget))
+    if (defaultTotalBudget && defaultMaxCpc) {
+      const tb = Number(defaultTotalBudget)
+      const mc = Number(defaultMaxCpc)
+      if (tb > 0 && mc > 0) setTargetAudience(String(Math.round(tb / mc)))
+    }
+  }, [defaultTotalBudget, defaultMaxCpc])
 
   const budget = parseFloat(totalBudget)
   const audience = parseInt(targetAudience, 10)

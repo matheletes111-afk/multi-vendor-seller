@@ -20,7 +20,7 @@ import {
 import { formatCurrency } from "@/lib/utils"
 import { getYoutubeThumbnailUrl } from "@/lib/youtube"
 import { PageLoader } from "@/components/ui/page-loader"
-import { Plus, Megaphone, Pause, Play, Trash2, ImageIcon, Video, Eye } from "lucide-react"
+import { Plus, Megaphone, Pause, Play, Trash2, ImageIcon, Video, Eye, Pencil } from "lucide-react"
 import { AdminPagination } from "@/components/admin/admin-pagination"
 import {
   Table,
@@ -248,6 +248,14 @@ export function ProductSellerAdmanagementPageClient() {
                               Details
                             </Link>
                           </Button>
+                          {!isEnded && (
+                            <Button asChild variant="outline" size="sm">
+                              <Link href={`/product-seller/admanagement/${ad.id}/edit`}>
+                                <Pencil className="mr-1 h-3 w-3" />
+                                Edit
+                              </Link>
+                            </Button>
+                          )}
                           {!isEnded && ad.status === "ACTIVE" && (
                             <Button
                               variant="outline"

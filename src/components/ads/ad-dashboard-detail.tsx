@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/ui/card"
 import { Button } from "@/ui/button"
 import { Badge } from "@/ui/badge"
-import { ArrowLeft, Megaphone, Target, Clock, BarChart3, Presentation, Smartphone, Monitor, Trash2 } from "lucide-react"
+import { ArrowLeft, Megaphone, Target, Clock, BarChart3, Presentation, Smartphone, Monitor, Trash2, Pencil } from "lucide-react"
 import { formatCurrency } from "@/lib/utils"
 import { getYoutubeEmbedUrl } from "@/lib/youtube"
 import { PageLoader } from "@/components/ui/page-loader"
@@ -48,6 +48,8 @@ export function AdDashboardDetail({
   const [notFound, setNotFound] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+
+  const editHref = `${backHref}/${adId}/edit`
 
   const handleDeleteAd = async () => {
     setIsDeleting(true)
@@ -182,10 +184,18 @@ export function AdDashboardDetail({
           </div>
         </div>
 
-        <Button variant="destructive" onClick={() => setIsDeleteDialogOpen(true)}>
-          <Trash2 className="mr-2 h-4 w-4" />
-          Delete Ad
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" asChild>
+            <Link href={editHref}>
+              <Pencil className="mr-2 h-4 w-4" />
+              Edit Ad
+            </Link>
+          </Button>
+          <Button variant="destructive" onClick={() => setIsDeleteDialogOpen(true)}>
+            <Trash2 className="mr-2 h-4 w-4" />
+            Delete Ad
+          </Button>
+        </div>
       </div>
 
       <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
