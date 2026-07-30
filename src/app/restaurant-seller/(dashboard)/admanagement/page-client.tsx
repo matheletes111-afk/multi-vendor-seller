@@ -20,7 +20,7 @@ import {
 import { formatCurrency } from "@/lib/utils"
 import { getYoutubeThumbnailUrl } from "@/lib/youtube"
 import { PageLoader } from "@/components/ui/page-loader"
-import { Plus, Megaphone, Pause, Play, Trash2, ImageIcon, Video } from "lucide-react"
+import { Plus, Megaphone, Pause, Play, Trash2, ImageIcon, Video, Eye, Pencil } from "lucide-react"
 import { AdminPagination } from "@/components/admin/admin-pagination"
 import {
   Table,
@@ -251,6 +251,20 @@ export function RestaurantSellerAdmanagementPageClient() {
                       <TableCell className="hidden xl:table-cell text-right text-sm whitespace-nowrap">{formatCurrency(ad.maxCpc)}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex flex-wrap justify-end gap-1">
+                          <Button asChild variant="outline" size="sm" className="rounded-xl">
+                            <Link href={`/restaurant-seller/admanagement/${ad.id}`}>
+                              <Eye className="mr-1 h-3 w-3" />
+                              Details
+                            </Link>
+                          </Button>
+                          {!isEnded && (
+                            <Button asChild variant="outline" size="sm" className="rounded-xl">
+                              <Link href={`/restaurant-seller/admanagement/${ad.id}/edit`}>
+                                <Pencil className="mr-1 h-3 w-3" />
+                                Edit
+                              </Link>
+                            </Button>
+                          )}
                           {!isEnded && ad.status === "ACTIVE" && (
                             <Button
                               variant="outline"

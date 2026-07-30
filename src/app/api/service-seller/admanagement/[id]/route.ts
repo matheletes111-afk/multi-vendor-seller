@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { isServiceSeller } from "@/lib/rbac"
+import { saveAdCreativeFile } from "@/lib/ad-upload"
 
 export async function GET(
   _request: NextRequest,
@@ -70,26 +71,152 @@ export async function PATCH(
     return NextResponse.json({ error: "Ad not found" }, { status: 404 })
   }
 
-  const body = await request.json().catch(() => ({}))
-  const { status } = body as { status?: string }
+  const contentType = request.headers.get("content-type") || ""
 
-  if (status === "PAUSED" && ad.status === "ACTIVE") {
-    await prisma.sellerAd.update({
-      where: { id },
-      data: { status: "PAUSED" },
-    })
-    return NextResponse.json({ success: true, status: "PAUSED" })
+  // Status-only update
+  if (contentType.includes("application/json")) {
+    const jsonBody = await request.json().catch(() => ({}))
+    if (Object.keys(jsonBody).length === 1 && jsonBody.status) {
+      const { status } = jsonBody
+      if (status === "PAUSED" && ad.status === "ACTIVE") {
+        await prisma.sellerAd.update({ where: { id }, data: { status: "PAUSED" } })
+        return NextResponse.json({ success: true, status: "PAUSED" })
+      }
+      if (status === "ACTIVE" && ad.status === "PAUSED") {
+        await prisma.sellerAd.update({ where: { id }, data: { status: "ACTIVE" } })
+        return NextResponse.json({ success: true, status: "ACTIVE" })
+      }
+      return NextResponse.json({ error: "Invalid status change" }, { status: 400 })
+    }
   }
 
-  if (status === "ACTIVE" && ad.status === "PAUSED") {
-    await prisma.sellerAd.update({
-      where: { id },
-      data: { status: "ACTIVE" },
-    })
-    return NextResponse.json({ success: true, status: "ACTIVE" })
-  }
+  // Full ad update
+  try {
+    let body: any = {}
+    if (contentType.includes("multipart/form-data")) {
+      const formData = await request.formData()
+      const placements = formData.getAll("placements") as string[]
+      
+      let creativeUrl = (formData.get("creativeUrl") as string) || ad.creativeUrl || ""
+      const creativeFile = formData.get("creativeFile") as File | null
+      if (creativeFile && creativeFile.size > 0) {
+        creativeUrl = await saveAdCreativeFile(creativeFile)
+      }
 
-  return NextResponse.json({ error: "Invalid status change" }, { status: 400 })
+      let mobileCreativeUrl = (formData.get("mobileCreativeUrl") as string) || ad.mobileCreativeUrl || ""
+      const mobileCreativeFile = formData.get("mobileCreativeFile") as File | null
+      if (mobileCreativeFile && mobileCreativeFile.size > 0) {
+        mobileCreativeUrl = await saveAdCreativeFile(mobileCreativeFile)
+      }
+
+      body = {
+        adType: formData.get("adType") as string,
+        serviceId: formData.get("serviceId") as string,
+        title: formData.get("title") as string,
+        description: formData.get("description") as string,
+        placements: placements.length > 0 ? placements : undefined,
+        creativeType: formData.get("creativeType") as string,
+        creativeUrl,
+        mobileCreativeType: formData.get("mobileCreativeType") as string,
+        mobileCreativeUrl,
+        totalBudget: formData.get("totalBudget") ? parseFloat(formData.get("totalBudget") as string) : undefined,
+        maxCpc: formData.get("maxCpc") ? parseFloat(formData.get("maxCpc") as string) : undefined,
+        startAt: formData.get("startAt") as string,
+        endAt: formData.get("endAt") as string,
+        targetCountries: formData.get("targetCountries") as string,
+        targetAgeMin: formData.get("targetAgeMin") ? parseInt(formData.get("targetAgeMin") as string) : undefined,
+        targetAgeMax: formData.get("targetAgeMax") ? parseInt(formData.get("targetAgeMax") as string) : undefined,
+        targetAudience: formData.get("targetAudience") ? parseInt(formData.get("targetAudience") as string) : undefined,
+        expandAudience: formData.get("expandAudience") === "on" || formData.get("expandAudience") === "true",
+      }
+    } else {
+      body = await request.json()
+    }
+
+    const adType = String(body.adType || "promote_product").trim().toLowerCase()
+    const isOwnAd = adType === "own_ad" || adType === "ownad"
+    const serviceId = isOwnAd ? null : (body.serviceId ? String(body.serviceId).trim() : ad.serviceId)
+    const title = body.title ? String(body.title).trim() : ad.title
+
+    let placements: string[] = ad.placements && ad.placements.length > 0 ? (ad.placements as string[]) : ["WEB"]
+    const rawPlacements = body.placements
+    if (Array.isArray(rawPlacements)) {
+      placements = rawPlacements.flatMap((p: any) => String(p).split(",")).map((p: string) => p.trim().toUpperCase())
+    } else if (typeof rawPlacements === "string" && rawPlacements.trim()) {
+      placements = rawPlacements.split(",").map((p: string) => p.trim().toUpperCase())
+    }
+    placements = placements.filter((p) => p === "WEB" || p === "MOBILE")
+    if (placements.length === 0) placements = ["WEB"]
+
+    const creativeUrl = body.creativeUrl !== undefined ? String(body.creativeUrl).trim() : ad.creativeUrl
+    const mobileCreativeUrl = body.mobileCreativeUrl !== undefined ? String(body.mobileCreativeUrl).trim() : ad.mobileCreativeUrl
+    const totalBudget = body.totalBudget ? Number(body.totalBudget) : Number(ad.totalBudget)
+    const maxCpc = body.maxCpc ? Number(body.maxCpc) : Number(ad.maxCpc)
+    const startAt = body.startAt ? new Date(String(body.startAt)) : ad.startAt
+    const endAt = body.endAt ? new Date(String(body.endAt)) : ad.endAt
+
+    if (!title) return NextResponse.json({ error: "Title is required" }, { status: 400 })
+
+    if (serviceId) {
+      const service = await prisma.service.findFirst({ where: { id: serviceId, sellerId: seller.id } })
+      if (!service) return NextResponse.json({ error: "Service not found or does not belong to you" }, { status: 404 })
+    }
+
+    let targetCountries: string[] | null = (ad.targetCountries as string[]) || null
+    if (body.targetCountries !== undefined) {
+      const tc = body.targetCountries
+      if (!tc) {
+        targetCountries = null
+      } else {
+        try {
+          const parsed = typeof tc === "string" ? JSON.parse(tc) : tc
+          targetCountries = Array.isArray(parsed) ? parsed.map((c: any) => String(c).trim()).filter(Boolean) : null
+        } catch {
+          targetCountries = String(tc).split(",").map((c) => c.trim()).filter(Boolean)
+        }
+      }
+    }
+
+    const newStatus = "PENDING_APPROVAL"
+
+    const updatedAd = await prisma.sellerAd.update({
+      where: { id },
+      data: {
+        serviceId,
+        title,
+        description: body.description !== undefined ? body.description : ad.description,
+        // @ts-ignore
+        placements,
+        creativeType: body.creativeType ? (body.creativeType === "VIDEO" ? "VIDEO" : "IMAGE") : ad.creativeType,
+        creativeUrl: creativeUrl || mobileCreativeUrl || ad.creativeUrl,
+        // @ts-ignore
+        mobileCreativeType: body.mobileCreativeType ? (body.mobileCreativeType === "VIDEO" ? "VIDEO" : "IMAGE") : ad.mobileCreativeType,
+        mobileCreativeUrl: mobileCreativeUrl || null,
+        status: newStatus,
+        totalBudget,
+        maxCpc,
+        startAt,
+        endAt,
+        targetCountries: targetCountries ? (targetCountries as any) : null,
+        targetAgeMin: body.targetAgeMin !== undefined ? (body.targetAgeMin ? Number(body.targetAgeMin) : null) : ad.targetAgeMin,
+        targetAgeMax: body.targetAgeMax !== undefined ? (body.targetAgeMax ? Number(body.targetAgeMax) : null) : ad.targetAgeMax,
+        targetAudience: body.targetAudience !== undefined ? (body.targetAudience ? Number(body.targetAudience) : null) : ad.targetAudience,
+        expandAudience: body.expandAudience !== undefined ? Boolean(body.expandAudience) : ad.expandAudience,
+      },
+    })
+
+    return NextResponse.json({ success: true, data: updatedAd })
+  } catch (err: any) {
+    console.error("Service seller edit ad error:", err)
+    return NextResponse.json({ error: err.message || "Failed to update ad" }, { status: 500 })
+  }
+}
+
+export async function PUT(
+  request: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
+  return PATCH(request, context)
 }
 
 export async function DELETE(

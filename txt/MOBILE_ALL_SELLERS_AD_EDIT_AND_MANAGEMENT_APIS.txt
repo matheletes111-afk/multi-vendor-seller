@@ -1,0 +1,180 @@
+================================================================================
+MOBILE API DOCUMENTATION: AD MANAGEMENT & EDIT APIS (ALL 4 SELLER PANELS)
+================================================================================
+
+This document provides full technical specifications for Mobile Developers to integrate
+Ad Creation, Details, Edit/Update, Status Toggle, and Deletion across all 4 Seller Panels:
+  1. Product Seller
+  2. Restaurant Seller
+  3. Hotel Seller
+  4. Service Seller
+
+--------------------------------------------------------------------------------
+IMPORTANT SELLER NOTE / WORKFLOW RULE
+--------------------------------------------------------------------------------
+Ad Re-approval Workflow Notice:
+"When a seller edits an active or rejected ad (e.g., changes title, creative image/video, 
+or placements), the ad status will be reset to PENDING_APPROVAL so that administrators 
+can review the updated content before it goes live again. If only budget/date ranges 
+are edited, or if preferred, we can configure whether re-approval is required."
+
+================================================================================
+1. ENDPOINTS SUMMARY
+================================================================================
+
+A. PRODUCT SELLER
+- List Ads:       GET    /mobileapi/product-seller/ads?page=1&perPage=10
+- Get Ad Detail:  GET    /mobileapi/product-seller/ads/{id}
+- Create Ad:      POST   /mobileapi/product-seller/ads
+- Edit Ad / Status: PUT/PATCH /mobileapi/product-seller/ads/{id}
+- Delete Ad:      DELETE /mobileapi/product-seller/ads/{id}
+
+B. RESTAURANT SELLER
+- List Ads:       GET    /mobileapi/restaurant-seller/admanagement?page=1&perPage=10
+- Get Ad Detail:  GET    /mobileapi/restaurant-seller/admanagement/{id}
+- Create Ad:      POST   /mobileapi/restaurant-seller/admanagement
+- Edit Ad / Status: PUT/PATCH /mobileapi/restaurant-seller/admanagement/{id}
+- Delete Ad:      DELETE /mobileapi/restaurant-seller/admanagement/{id}
+
+C. HOTEL SELLER
+- List Ads:       GET    /mobileapi/hotel-seller/admanagement?page=1&perPage=10
+- Get Ad Detail:  GET    /mobileapi/hotel-seller/admanagement/{id}
+- Create Ad:      POST   /mobileapi/hotel-seller/admanagement
+- Edit Ad / Status: PUT/PATCH /mobileapi/hotel-seller/admanagement/{id}
+- Delete Ad:      DELETE /mobileapi/hotel-seller/admanagement/{id}
+
+D. SERVICE SELLER
+- List Ads:       GET    /mobileapi/service-seller/ads?page=1&perPage=10
+- Get Ad Detail:  GET    /mobileapi/service-seller/ads/{id}
+- Create Ad:      POST   /mobileapi/service-seller/ads
+- Edit Ad / Status: PUT/PATCH /mobileapi/service-seller/ads/{id}
+- Delete Ad:      DELETE /mobileapi/service-seller/ads/{id}
+
+================================================================================
+2. EDIT / UPDATE AD API (PUT or PATCH)
+================================================================================
+
+Headers:
+- Authorization: Bearer <access_token>
+- Content-Type: multipart/form-data (for file uploads) OR application/json
+
+A. FULL AD EDIT (Multipart Form Data or JSON)
+Use this payload when the seller updates title, description, budget, dates, creatives, or targeting.
+
+Form Data Fields:
+- adType:              String ("promote_product" | "own_ad" for product/restaurant/hotel; "promote_service" | "own_ad" for service)
+- productId:           String (Product ID if Product Seller & promote_product)
+- foodItemId:          String (Food Item ID if Restaurant Seller & promote_product)
+- hotelId:             String (Hotel ID if Hotel Seller & promote_product)
+- serviceId:           String (Service ID if Service Seller & promote_service)
+- title:               String (Required)
+- description:         String (Optional)
+- placements:          Array or comma-separated string e.g. ["WEB", "MOBILE"] or "WEB,MOBILE"
+- creativeType:        String ("IMAGE" | "VIDEO") - Web banner creative type
+- creativeFile:        File (Optional - upload new Web creative image/video file)
+- creativeUrl:         String (Optional - retain existing URL or supply image/video URL)
+- mobileCreativeType:  String ("IMAGE" | "VIDEO") - Mobile story creative type
+- mobileCreativeFile:  File (Optional - upload new Mobile story vertical file)
+- mobileCreativeUrl:   String (Optional - retain existing URL or supply image/video URL)
+- totalBudget:         Float (Required total budget amount)
+- targetAudience:      Integer (Expected click count)
+- maxCpc:              Float (Max CPC auto-calculated: totalBudget / targetAudience)
+- startAt:             ISO Date String (e.g. "2026-08-01T00:00:00.000Z")
+- endAt:               ISO Date String (e.g. "2026-08-15T23:59:59.000Z")
+- targetCountries:     JSON Array String e.g. "[\"United States\",\"India\"]" or "US,IN"
+- targetAgeMin:        Integer (Optional min audience age)
+- targetAgeMax:        Integer (Optional max audience age)
+- expandAudience:      Boolean ("true" / "on")
+
+Success Response (200 OK):
+{
+  "success": true,
+  "data": {
+    "id": "ad_123456",
+    "title": "Updated Ad Title",
+    "status": "PENDING_APPROVAL",
+    "totalBudget": 100.0,
+    "spentAmount": 0,
+    "maxCpc": 1.0,
+    "placements": ["WEB", "MOBILE"],
+    "creativeType": "IMAGE",
+    "creativeUrl": "/uploads/ads/creative_web.jpg",
+    "mobileCreativeType": "IMAGE",
+    "mobileCreativeUrl": "/uploads/ads/creative_mobile.jpg",
+    "startAt": "2026-08-01T00:00:00.000Z",
+    "endAt": "2026-08-15T23:59:59.000Z",
+    "updatedAt": "2026-07-30T12:00:00.000Z"
+  }
+}
+
+B. QUICK STATUS TOGGLE ONLY (JSON Payload)
+If only pausing or resuming an ad without changing details:
+
+Headers:
+- Content-Type: application/json
+
+Request Body:
+{
+  "status": "PAUSED" // or "ACTIVE"
+}
+
+Success Response (200 OK):
+{
+  "success": true,
+  "status": "PAUSED",
+  "data": { ... }
+}
+
+================================================================================
+3. GET AD DETAILS (GET)
+================================================================================
+Headers:
+- Authorization: Bearer <access_token>
+
+Success Response (200 OK):
+{
+  "success": true,
+  "data": {
+    "id": "ad_123456",
+    "sellerId": "seller_abc",
+    "title": "Summer Promotion",
+    "description": "50% Off on all items",
+    "status": "ACTIVE",
+    "placements": ["WEB", "MOBILE"],
+    "creativeType": "IMAGE",
+    "creativeUrl": "https://domain.com/uploads/web.jpg",
+    "mobileCreativeType": "IMAGE",
+    "mobileCreativeUrl": "https://domain.com/uploads/mobile.jpg",
+    "totalBudget": 200,
+    "spentAmount": 45.5,
+    "maxCpc": 0.5,
+    "startAt": "2026-07-01T00:00:00.000Z",
+    "endAt": "2026-08-01T00:00:00.000Z",
+    "targetCountries": ["United States", "Canada"],
+    "targetAgeMin": 18,
+    "targetAgeMax": 65,
+    "expandAudience": true,
+    "clickCount": 91
+  }
+}
+
+================================================================================
+4. DELETE AD (DELETE)
+================================================================================
+Headers:
+- Authorization: Bearer <access_token>
+
+Success Response (200 OK):
+{
+  "success": true
+}
+
+================================================================================
+5. AD STATUS LIFECYCLE & MEANINGS
+================================================================================
+- PENDING_APPROVAL: Initial state upon creation or after an edit. Waiting for admin approval.
+- ACTIVE:           Approved by Admin and currently live.
+- PAUSED:           Paused by seller. Can be resumed by setting status to ACTIVE.
+- ENDED:            Expired by date/budget or deleted by seller.
+- REJECTED:         Rejected by Admin. Check `rejectionReason` in ad details.
+================================================================================
