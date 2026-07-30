@@ -29,9 +29,31 @@ function RestaurantSellerLoginForm() {
     getCsrfToken().then(setCsrfToken)
   }, [])
 
+  // Handle URL search param errors/success (e.g. redirected back from dashboard middleware)
   useEffect(() => {
-    if (searchParams.get("verified") === "1") {
+    const err = searchParams.get("error")
+    const verified = searchParams.get("verified")
+    const reset = searchParams.get("reset")
+    const registered = searchParams.get("registered")
+
+    if (verified === "1") {
       setSuccess("Email verified successfully! You can now log in.")
+    } else if (reset === "1") {
+      setSuccess("Password reset successfully. You can now log in with your new password.")
+    } else if (registered === "true") {
+      setSuccess("Registration successful! Please check your email to verify your account before signing in.")
+    }
+
+    if (err === "AccountPendingOrSuspended") {
+      setError("Your account is pending approval or has been suspended. Please contact support.")
+    } else if (err === "NoSellerAccount") {
+      setError("You do not have a restaurant seller account for this email. Please register or use a different email.")
+    } else if (err === "session_expired") {
+      setError("Your session has expired. Please sign in again.")
+    } else if (err === "CredentialsSignin") {
+      setError("Invalid email or password. Please try again.")
+    } else if (err && err !== "undefined") {
+      setError(decodeURIComponent(err))
     }
   }, [searchParams])
 
@@ -55,6 +77,7 @@ function RestaurantSellerLoginForm() {
       })
 
       const data = await res.json().catch(() => ({}))
+
       if (res.ok) {
         if (data?.url && data.url.includes("error=")) {
           setError("Invalid email or password.")
@@ -66,11 +89,19 @@ function RestaurantSellerLoginForm() {
 
       if (res.status === 403 && data.needsVerification && data.verifyUrl) {
         router.push(data.verifyUrl)
+        return
+      }
+
+      // Surface specific errors from the API
+      if (res.status === 401 || res.status === 403 || res.status === 400) {
+        setError(data.error || "Invalid email or password.")
+      } else if (res.status === 500) {
+        setError("A server error occurred. Please try again in a moment.")
       } else {
-        setError(data.error || "Login failed. Please check your credentials.")
+        setError(data.error || "Login failed. Please check your credentials and try again.")
       }
     } catch {
-      setError("Something went wrong. Please try again.")
+      setError("Network error. Please check your internet connection and try again.")
     } finally {
       setLoading(false)
     }
@@ -88,13 +119,7 @@ function RestaurantSellerLoginForm() {
         <p className="mt-1 text-center text-sm text-gray-500">Log in to your restaurant dashboard</p>
 
         <form onSubmit={handleSubmit} className="mt-8 space-y-4">
-          {error && (
-            <Alert variant="destructive" className="rounded-xl">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-
+          {/* Success banner */}
           {success && (
             <Alert className="border-green-100 bg-green-50 text-green-800 rounded-xl">
               <CheckCircle2 className="h-4 w-4 text-green-600" />
@@ -102,9 +127,17 @@ function RestaurantSellerLoginForm() {
             </Alert>
           )}
 
+          {/* Error banner */}
+          {error && (
+            <Alert variant="destructive" className="rounded-xl">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+
           <div className="space-y-2">
             <Label htmlFor="email">Work Email</Label>
-            <Input id="email" name="email" type="email" placeholder="john@restaurant.com" value={email} onChange={(e) => setEmail(e.target.value)} required className="rounded-xl" />
+            <Input id="email" name="email" type="email" placeholder="john@restaurant.com" value={email} onChange={(e) => setEmail(e.target.value)} required disabled={loading} className="rounded-xl" />
           </div>
 
           <div className="space-y-2">
@@ -123,12 +156,14 @@ function RestaurantSellerLoginForm() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                disabled={loading}
                 className="rounded-xl pr-10"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                tabIndex={-1}
               >
                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
@@ -205,7 +240,7 @@ function RestaurantSellerLoginForm() {
 
 export default function RestaurantSellerLoginPage() {
   return (
-    <Suspense fallback={<div className="flex min-h-screen items-center justify-center">Loading...</div>}>
+    <Suspense fallback={<div className="flex min-h-screen items-center justify-center"><div className="text-gray-500">Loading...</div></div>}>
       <RestaurantSellerLoginForm />
     </Suspense>
   )

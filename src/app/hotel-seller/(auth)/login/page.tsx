@@ -9,7 +9,7 @@ import { Button } from "@/ui/button"
 import { Input } from "@/ui/input"
 import { Label } from "@/ui/label"
 import { Alert, AlertDescription } from "@/ui/alert"
-import { AlertCircle, Eye, EyeOff } from "lucide-react"
+import { AlertCircle, Eye, EyeOff, CheckCircle2 } from "lucide-react"
 import { getSafeRedirectUrl } from "@/lib/safe-redirect"
 
 
@@ -20,6 +20,7 @@ function HotelSellerLoginForm() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
+  const [success, setSuccess] = useState("")
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [csrfToken, setCsrfToken] = useState<string | null>(null)
@@ -28,18 +29,38 @@ function HotelSellerLoginForm() {
     getCsrfToken().then(setCsrfToken)
   }, [])
 
+  // Handle URL search param errors (e.g. redirected back from dashboard middleware)
   useEffect(() => {
     const err = searchParams.get("error")
+    const verified = searchParams.get("verified")
+    const reset = searchParams.get("reset")
+    const registered = searchParams.get("registered")
+
+    if (verified === "1") {
+      setSuccess("Email verified successfully! You can now log in.")
+    } else if (reset === "1") {
+      setSuccess("Password reset successfully. You can now log in with your new password.")
+    } else if (registered === "true") {
+      setSuccess("Registration successful! Please check your email to verify your account before signing in.")
+    }
+
     if (err === "AccountPendingOrSuspended") {
-      setError("Your account is pending approval or has been suspended.")
+      setError("Your account is pending approval or has been suspended. Please contact support.")
     } else if (err === "NoSellerAccount") {
-      setError("You do not have a hotel seller account for this email.")
+      setError("You do not have a hotel seller account for this email. Please register or use a different email.")
+    } else if (err === "session_expired") {
+      setError("Your session has expired. Please sign in again.")
+    } else if (err === "CredentialsSignin") {
+      setError("Invalid email or password. Please try again.")
+    } else if (err && err !== "undefined") {
+      setError(decodeURIComponent(err))
     }
   }, [searchParams])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
+    setSuccess("")
     setLoading(true)
     try {
       const res = await fetch("/api/hotel-seller/auth/login", {
@@ -49,6 +70,7 @@ function HotelSellerLoginForm() {
         credentials: "include",
       })
       const data = await res.json().catch(() => ({}))
+
       if (res.ok) {
         if (data?.url && data.url.includes("error=")) {
           setError("Invalid email or password.")
@@ -57,13 +79,22 @@ function HotelSellerLoginForm() {
         window.location.href = getSafeRedirectUrl(data?.url || callbackUrl, "/hotel-seller")
         return
       }
+
       if (res.status === 403 && data.needsVerification && data.verifyUrl) {
         router.push(data.verifyUrl)
         return
       }
-      setError(data.error || "Invalid email or password.")
+
+      // Surface specific errors from the API
+      if (res.status === 401 || res.status === 403 || res.status === 400) {
+        setError(data.error || "Invalid email or password.")
+      } else if (res.status === 500) {
+        setError("A server error occurred. Please try again in a moment.")
+      } else {
+        setError(data.error || "Login failed. Please check your credentials and try again.")
+      }
     } catch {
-      setError("An error occurred. Please try again.")
+      setError("Network error. Please check your internet connection and try again.")
     } finally {
       setLoading(false)
     }
@@ -82,12 +113,22 @@ function HotelSellerLoginForm() {
           <p className="mt-1 text-left text-sm text-gray-500">Sign in to manage your hotels</p>
         </div>
         <form onSubmit={handleSubmit}>
+          {/* Success banner */}
+          {success && (
+            <Alert className="mb-5 border-green-200 bg-green-50 text-green-800 rounded-xl">
+              <CheckCircle2 className="h-4 w-4 text-green-600" />
+              <AlertDescription>{success}</AlertDescription>
+            </Alert>
+          )}
+
+          {/* Error banner */}
           {error && (
-            <Alert variant="destructive" className="mb-5">
+            <Alert variant="destructive" className="mb-5 rounded-xl">
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
+
           <div className="space-y-5">
             <div>
               <Label htmlFor="email" className="mb-1.5 block text-sm font-medium text-gray-700">Email</Label>
@@ -120,7 +161,7 @@ function HotelSellerLoginForm() {
                 </Button>
               </div>
             </div>
-            
+
             <div className="relative my-6">
               <div className="absolute inset-0 flex items-center">
                 <span className="w-full border-t border-gray-200" />
