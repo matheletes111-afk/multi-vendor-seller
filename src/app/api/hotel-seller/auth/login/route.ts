@@ -40,35 +40,45 @@ export async function POST(request: Request) {
       select: { id: true, password: true, role: true, isEmailVerified: true },
     })
 
+    // Check credentials / OTP validity BEFORE revealing role mismatch
     if (user) {
-      // 1. Role mismatch check
-      if (user.role !== UserRole.SELLER_HOTEL) {
-        const label = ROLE_LABELS[user.role] || user.role
-        return NextResponse.json(
-          { error: `This email is registered as a ${label}. Please sign in using the ${label} login page.` },
-          { status: 401 }
-        )
+      let isCredentialsValid = false
+      if (hasOtpLoginToken) {
+        isCredentialsValid = true
+      } else if (user.password && password) {
+        isCredentialsValid = await bcrypt.compare(password, user.password)
       }
 
-      // 2. Unverified email check
-      if (user.isEmailVerified === false) {
-        const verifyUrl = `/hotel-seller/verify-otp?email=${encodeURIComponent(cleanEmail)}`
-        return NextResponse.json(
-          { error: "Please verify your email first.", needsVerification: true, verifyUrl },
-          { status: 403 }
-        )
-      }
+      if (isCredentialsValid) {
+        // 1. Role mismatch check (only if credentials are valid)
+        if (user.role !== UserRole.SELLER_HOTEL) {
+          const label = ROLE_LABELS[user.role] || user.role
+          return NextResponse.json(
+            { error: `This email is registered as a ${label}. Please sign in using the ${label} login page.` },
+            { status: 401 }
+          )
+        }
 
-      // 3. Suspended seller account check
-      const seller = await prisma.hotelSeller.findUnique({
-        where: { userId: user.id },
-        select: { isSuspended: true },
-      })
-      if (seller?.isSuspended) {
-        return NextResponse.json(
-          { error: "Your seller account has been suspended. Please contact support." },
-          { status: 403 }
-        )
+        // 2. Unverified email check
+        if (user.isEmailVerified === false) {
+          const verifyUrl = `/hotel-seller/verify-otp?email=${encodeURIComponent(cleanEmail)}`
+          return NextResponse.json(
+            { error: "Please verify your email first.", needsVerification: true, verifyUrl },
+            { status: 403 }
+          )
+        }
+
+        // 3. Suspended seller account check
+        const seller = await prisma.hotelSeller.findUnique({
+          where: { userId: user.id },
+          select: { isSuspended: true },
+        })
+        if (seller?.isSuspended) {
+          return NextResponse.json(
+            { error: "Your seller account has been suspended. Please contact support." },
+            { status: 403 }
+          )
+        }
       }
     }
 
@@ -95,14 +105,24 @@ export async function POST(request: Request) {
       body: form.toString(),
     })
     const res = await nextAuthPost(nextauthRequest as any)
+
+    // Auth.js (NextAuth v5) with X-Auth-Return-Redirect:1 returns 200+JSON {url:"..."}
+    // instead of a 302 Location redirect when auth fails. Handle both.
     const location = res.headers.get("Location") ?? ""
-    const isErrorRedirect =
-      res.status === 302 && (location.includes("error=") || location.includes("login"))
+    let nextAuthUrl = location
+    if (!nextAuthUrl) {
+      try {
+        const body = await res.clone().json().catch(() => ({}))
+        nextAuthUrl = typeof body?.url === "string" ? body.url : ""
+      } catch { /* ignore */ }
+    }
+
+    const isErrorRedirect = nextAuthUrl.includes("error=") || nextAuthUrl.includes("login")
 
     if (isErrorRedirect) {
       let msg = "Invalid email or password."
       try {
-        const err = new URL(location, origin).searchParams.get("error")
+        const err = new URL(nextAuthUrl, origin).searchParams.get("error")
         if (err === "MissingCSRF") {
           msg = "Session expired. Please refresh and try again."
         } else if (err === "CredentialsSignin") {
@@ -116,7 +136,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: msg }, { status: 401 })
     }
 
-    let url = getSafeRedirectUrl(location || callbackUrl, "/hotel-seller", origin)
+    let url = getSafeRedirectUrl(nextAuthUrl || callbackUrl, "/hotel-seller", origin)
     try {
       if (user?.role === UserRole.SELLER_HOTEL) {
         const s = await prisma.hotelSeller.findUnique({
