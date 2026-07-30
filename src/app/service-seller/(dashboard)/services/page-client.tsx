@@ -26,7 +26,7 @@ import {
 } from "@/ui/dialog"
 import { formatCurrency } from "@/lib/utils"
 import { PageLoader } from "@/components/ui/page-loader"
-import { Edit, Trash2, Briefcase, Megaphone } from "lucide-react"
+import { Edit, Trash2, Briefcase, Megaphone, CheckCircle2 } from "lucide-react"
 import { AdminPagination } from "@/components/admin/admin-pagination"
 import { getServiceDisplayImageUrls } from "@/lib/service-images"
 
@@ -127,8 +127,15 @@ export function ServicesPageClient() {
         </Alert>
       )}
       {paramsSuccess && (
-        <Alert className="mb-6">
-          <AlertDescription>{decodeURIComponent(paramsSuccess)}</AlertDescription>
+        <Alert className="mb-6 border-green-500/40 bg-green-50 text-green-800 dark:bg-green-950/30 dark:text-green-400">
+          <AlertDescription className="flex items-center gap-2">
+            <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400 shrink-0" />
+            <span>
+              {paramsSuccess === "created"
+                ? "Service created successfully!"
+                : decodeURIComponent(paramsSuccess)}
+            </span>
+          </AlertDescription>
         </Alert>
       )}
 

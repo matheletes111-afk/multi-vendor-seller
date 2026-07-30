@@ -240,9 +240,7 @@ export function EditServiceClient({
       }
 
       setSuccess("Service updated successfully! Redirecting…")
-      setTimeout(() => {
-        router.replace("/service-seller/services?success=Service+updated+successfully")
-      }, 800)
+      window.location.href = "/service-seller/services?success=Service+updated+successfully"
     } catch (err: any) {
       setLoading(false)
       const message = err?.message || "An unexpected error occurred. Please try again."
