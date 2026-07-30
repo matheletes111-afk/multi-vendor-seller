@@ -55,7 +55,7 @@ function ProductSellerLoginForm() {
       const data = await res.json().catch(() => ({}))
       if (res.ok) {
         if (data?.url && data.url.includes("error=")) {
-          setError("Invalid email or password.")
+          setError(data.error || "Invalid email or password.")
           return
         }
         window.location.href = getSafeRedirectUrl(data?.url || callbackUrl, "/product-seller")
@@ -65,9 +65,16 @@ function ProductSellerLoginForm() {
         router.push(data.verifyUrl)
         return
       }
-      setError(data.error || "Invalid email or password.")
+      // Surface specific errors from the API
+      if (res.status === 401 || res.status === 403 || res.status === 400) {
+        setError(data.error || "Invalid email or password.")
+      } else if (res.status === 500) {
+        setError("A server error occurred. Please try again in a moment.")
+      } else {
+        setError(data.error || "Login failed. Please check your credentials and try again.")
+      }
     } catch {
-      setError("An error occurred. Please try again.")
+      setError("Network error. Please check your internet connection and try again.")
     } finally {
       setLoading(false)
     }

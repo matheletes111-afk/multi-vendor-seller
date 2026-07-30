@@ -80,7 +80,7 @@ function RestaurantSellerLoginForm() {
 
       if (res.ok) {
         if (data?.url && data.url.includes("error=")) {
-          setError("Invalid email or password.")
+          setError(data.error || "Invalid email or password.")
           return
         }
         window.location.href = getSafeRedirectUrl(data?.url || callbackUrl, "/restaurant-seller")
