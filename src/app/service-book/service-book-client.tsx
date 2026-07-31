@@ -10,6 +10,7 @@ import { formatCurrency } from "@/lib/utils"
 import type { AddressApi } from "@/app/api/customer/checkout/types"
 import { MapPin, Banknote, Loader2, Pencil, Plus, Briefcase } from "lucide-react"
 import { GoogleAddressAutocomplete } from "@/components/google-address-autocomplete"
+import { GoogleMapView } from "@/components/google-map-view"
 
 type AddressFormState = {
   addressType: AddressApi["addressType"]
@@ -21,6 +22,8 @@ type AddressFormState = {
   state: string
   postalCode: string
   country: string
+  latitude: number | null
+  longitude: number | null
 }
 
 const emptyAddressForm: AddressFormState = {
@@ -33,6 +36,8 @@ const emptyAddressForm: AddressFormState = {
   state: "",
   postalCode: "",
   country: "",
+  latitude: null,
+  longitude: null,
 }
 
 function formatSlotTime(iso: string): string {
@@ -145,6 +150,8 @@ export function ServiceBookClient({
       state: addr.state,
       postalCode: addr.postalCode,
       country: addr.country,
+      latitude: addr.latitude ?? null,
+      longitude: addr.longitude ?? null,
     })
     setShowAddressForm(true)
     setError(null)
@@ -189,6 +196,8 @@ export function ServiceBookClient({
       state: addressForm.state.trim(),
       postalCode: addressForm.postalCode.trim(),
       country: addressForm.country.trim(),
+      latitude: addressForm.latitude,
+      longitude: addressForm.longitude,
       isDefault: editingAddressId ? undefined : addresses.length === 0,
     }
     try {
@@ -307,6 +316,24 @@ export function ServiceBookClient({
                       </li>
                     ))}
                   </ul>
+                  {(() => {
+                    const selectedAddr = addresses.find((a) => a.id === selectedAddressId)
+                    if (!selectedAddr) return null
+                    return (
+                      <div className="mt-3 space-y-1.5">
+                        <span className="text-xs font-semibold text-slate-500 flex items-center gap-1">
+                          <MapPin className="h-3.5 w-3.5 text-amber-600" /> Service Location Map
+                        </span>
+                        <GoogleMapView
+                          lat={selectedAddr.latitude != null ? Number(selectedAddr.latitude) : null}
+                          lng={selectedAddr.longitude != null ? Number(selectedAddr.longitude) : null}
+                          address={`${selectedAddr.addressLine1}, ${selectedAddr.city}, ${selectedAddr.state} ${selectedAddr.postalCode}`}
+                          title={selectedAddr.fullName}
+                          height="180px"
+                        />
+                      </div>
+                    )
+                  })()}
                   {!showAddressForm && (
                     <Button
                       type="button"
@@ -343,6 +370,8 @@ export function ServiceBookClient({
                           state: parsed.state || f.state,
                           postalCode: parsed.postalCode || f.postalCode,
                           country: parsed.country || f.country,
+                          latitude: parsed.lat != null ? parsed.lat : f.latitude,
+                          longitude: parsed.lng != null ? parsed.lng : f.longitude,
                         }))
                       }}
                     />

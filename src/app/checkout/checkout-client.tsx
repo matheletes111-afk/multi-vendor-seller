@@ -13,10 +13,10 @@ import { getCartItemId } from "@/app/cart/cart-types"
 import { formatCurrency } from "@/lib/utils"
 import type { AddressApi } from "@/app/api/customer/checkout/types"
 import type { PlaceOrderResponse } from "@/app/api/customer/checkout/types"
-import { MapPin, Banknote, Loader2, Pencil, Plus, ShoppingBag } from "lucide-react"
+import { Plus, MapPin, Banknote, Loader2, ShoppingBag, Check, Pencil, X } from "lucide-react"
 import { PageLoader } from "@/components/ui/page-loader"
-
-import { GoogleAddressAutocomplete } from "@/components/google-address-autocomplete"
+import { GoogleAddressAutocomplete, type StructuredAddress } from "@/components/google-address-autocomplete"
+import { GoogleMapView } from "@/components/google-map-view"
 
 type AddressFormState = {
   addressType: AddressApi["addressType"]
@@ -28,6 +28,8 @@ type AddressFormState = {
   state: string
   postalCode: string
   country: string
+  latitude: number | null
+  longitude: number | null
 }
 
 const emptyAddressForm: AddressFormState = {
@@ -40,6 +42,8 @@ const emptyAddressForm: AddressFormState = {
   state: "",
   postalCode: "",
   country: "",
+  latitude: null,
+  longitude: null,
 }
 
 export function CheckoutClient() {
@@ -197,6 +201,8 @@ export function CheckoutClient() {
       state: addr.state,
       postalCode: addr.postalCode,
       country: addr.country,
+      latitude: addr.latitude ?? null,
+      longitude: addr.longitude ?? null,
     })
     setShowAddressForm(true)
     setError(null)
@@ -233,6 +239,8 @@ export function CheckoutClient() {
       state: addressForm.state.trim(),
       postalCode: addressForm.postalCode.trim(),
       country: addressForm.country.trim(),
+      latitude: addressForm.latitude,
+      longitude: addressForm.longitude,
       isDefault: editingAddressId ? undefined : addresses.length === 0,
     }
     try {
@@ -381,6 +389,24 @@ export function CheckoutClient() {
                       </li>
                     ))}
                   </ul>
+                  {(() => {
+                    const selectedAddr = addresses.find((a) => a.id === selectedAddressId)
+                    if (!selectedAddr) return null
+                    return (
+                      <div className="mt-3 space-y-1.5">
+                        <span className="text-xs font-semibold text-slate-500 flex items-center gap-1">
+                          <MapPin className="h-3.5 w-3.5 text-amber-600" /> Delivery Location Map
+                        </span>
+                        <GoogleMapView
+                          lat={selectedAddr.latitude != null ? Number(selectedAddr.latitude) : null}
+                          lng={selectedAddr.longitude != null ? Number(selectedAddr.longitude) : null}
+                          address={`${selectedAddr.addressLine1}, ${selectedAddr.city}, ${selectedAddr.state} ${selectedAddr.postalCode}`}
+                          title={selectedAddr.fullName}
+                          height="180px"
+                        />
+                      </div>
+                    )
+                  })()}
                   {!showAddressForm && (
                     <Button type="button" variant="outline" className="mt-3 min-h-10 w-full sm:w-auto" onClick={openAddForm}>
                       <Plus className="mr-2 h-4 w-4 shrink-0" />
@@ -409,6 +435,8 @@ export function CheckoutClient() {
                           state: parsed.state || f.state,
                           postalCode: parsed.postalCode || f.postalCode,
                           country: parsed.country || f.country,
+                          latitude: parsed.lat != null ? parsed.lat : f.latitude,
+                          longitude: parsed.lng != null ? parsed.lng : f.longitude,
                         }))
                       }}
                     />

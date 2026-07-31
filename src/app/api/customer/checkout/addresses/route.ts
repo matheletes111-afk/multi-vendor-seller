@@ -15,6 +15,8 @@ function toAddressApi(row: {
   state: string
   postalCode: string
   country: string
+  latitude?: number | null
+  longitude?: number | null
   isDefault: boolean
 }): AddressApi {
   return {
@@ -28,6 +30,8 @@ function toAddressApi(row: {
     state: row.state,
     postalCode: row.postalCode,
     country: row.country,
+    latitude: row.latitude ?? null,
+    longitude: row.longitude ?? null,
     isDefault: row.isDefault,
   }
 }
@@ -74,6 +78,8 @@ export async function POST(request: NextRequest) {
     state?: string
     postalCode?: string
     country?: string
+    latitude?: number | string | null
+    longitude?: number | string | null
     isDefault?: boolean
   }
   const fullName = typeof payload.fullName === "string" && payload.fullName.trim() ? payload.fullName.trim() : null
@@ -86,6 +92,10 @@ export async function POST(request: NextRequest) {
   const state = typeof payload.state === "string" && payload.state.trim() ? payload.state.trim() : null
   const postalCode = typeof payload.postalCode === "string" && payload.postalCode.trim() ? payload.postalCode.trim() : null
   const country = typeof payload.country === "string" && payload.country.trim() ? payload.country.trim() : null
+
+  const latitude = payload.latitude != null && !isNaN(Number(payload.latitude)) ? Number(payload.latitude) : null
+  const longitude = payload.longitude != null && !isNaN(Number(payload.longitude)) ? Number(payload.longitude) : null
+
   if (!fullName || !phone || !addressLine1 || !city || !state || !postalCode || !country) {
     return NextResponse.json(
       { error: "Missing required fields: fullName, phone, addressLine1, city, state, postalCode, country" },
@@ -112,8 +122,10 @@ export async function POST(request: NextRequest) {
       state,
       postalCode,
       country,
+      latitude,
+      longitude,
       isDefault,
-    } as any,
+    },
   })
   return NextResponse.json(toAddressApi(created))
 }

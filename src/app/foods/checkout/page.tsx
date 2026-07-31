@@ -11,6 +11,7 @@ import { formatCurrency } from "@/lib/utils"
 import { useSession } from "next-auth/react"
 import { PublicLayout } from "@/components/site-layout"
 import { GoogleAddressAutocomplete } from "@/components/google-address-autocomplete"
+import { GoogleMapView } from "@/components/google-map-view"
 
 type Address = {
   id: string
@@ -23,6 +24,8 @@ type Address = {
   state: string
   postalCode: string
   country: string
+  latitude?: number | null
+  longitude?: number | null
   isDefault: boolean
 }
 
@@ -83,6 +86,8 @@ function CheckoutContent() {
   const [postalCode, setPostalCode] = useState("")
   const [country, setCountry] = useState("Sierra Leone")
   const [addressType, setAddressType] = useState<"HOME" | "OFFICE" | "OTHER">("HOME")
+  const [latitude, setLatitude] = useState<number | null>(null)
+  const [longitude, setLongitude] = useState<number | null>(null)
   const [saveToProfile, setSaveToProfile] = useState(true)
 
   const handleOpenEdit = (addr: Address) => {
@@ -96,6 +101,8 @@ function CheckoutContent() {
     setPostalCode(addr.postalCode)
     setCountry(addr.country)
     setAddressType(addr.addressType)
+    setLatitude(addr.latitude ?? null)
+    setLongitude(addr.longitude ?? null)
     setSaveToProfile(true)
     setShowNewForm(true)
   }
@@ -201,7 +208,9 @@ function CheckoutContent() {
           state,
           postalCode,
           country,
-          addressType
+          addressType,
+          latitude,
+          longitude,
         }
 
         // Save to address book if selected
@@ -438,6 +447,25 @@ function CheckoutContent() {
                   ))}
                 </div>
 
+                {(() => {
+                  const selectedAddr = addresses.find((a) => a.id === selectedAddressId)
+                  if (!selectedAddr) return null
+                  return (
+                    <div className="mt-3 space-y-1.5">
+                      <span className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
+                        <MapPin className="h-3.5 w-3.5 text-emerald-600" /> Delivery Location Map
+                      </span>
+                      <GoogleMapView
+                        lat={selectedAddr.latitude != null ? Number(selectedAddr.latitude) : null}
+                        lng={selectedAddr.longitude != null ? Number(selectedAddr.longitude) : null}
+                        address={`${selectedAddr.addressLine1}, ${selectedAddr.city}, ${selectedAddr.state} ${selectedAddr.postalCode}`}
+                        title={selectedAddr.fullName}
+                        height="180px"
+                      />
+                    </div>
+                  )
+                })()}
+
                 <Button
                   variant="outline"
                   onClick={() => setShowNewForm(true)}
@@ -459,6 +487,8 @@ function CheckoutContent() {
                       if (parsed.state) setState(parsed.state)
                       if (parsed.postalCode) setPostalCode(parsed.postalCode)
                       if (parsed.country) setCountry(parsed.country)
+                      if (parsed.lat != null) setLatitude(parsed.lat)
+                      if (parsed.lng != null) setLongitude(parsed.lng)
                     }}
                   />
                 </div>

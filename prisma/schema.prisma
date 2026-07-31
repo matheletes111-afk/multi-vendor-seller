@@ -185,6 +185,8 @@ model UserAddress {
   state         String
   postalCode    String
   country       String
+  latitude      Float?
+  longitude     Float?
   isDefault     Boolean  @default(false)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
@@ -329,6 +331,8 @@ model SellerBusinessInfo {
   city              String?
   district          String?
   postalCode        String?
+  latitude          Float?
+  longitude         Float?
   yearsInOperation Int?
   natureOfBusiness  String?
   haveGst           Boolean  @default(false)
@@ -689,6 +693,8 @@ model RestaurantBusinessInfo {
   city              String?
   district          String?
   state             String?
+  latitude          Float?
+  longitude         Float?
   haveGst           Boolean          @default(false)
   gstInvNo          String?
   gstCustomerName   String?
