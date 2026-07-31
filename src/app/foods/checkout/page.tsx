@@ -478,8 +478,10 @@ function CheckoutContent() {
               // New Address Form
               <div className="space-y-4 pt-2">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-amber-800 uppercase tracking-wider block">Search Address with Google Maps (Auto-fills form)</label>
+                  <label className="text-xs font-bold text-amber-800 uppercase tracking-wider block">Search Address with Google Maps (Auto-fills form & map)</label>
                   <GoogleAddressAutocomplete
+                    key={editingAddressId || "new-food-address"}
+                    defaultValue={[addressLine1, city, state].filter(Boolean).join(", ")}
                     onAddressSelect={(parsed) => {
                       if (parsed.addressLine1) setAddressLine1(parsed.addressLine1)
                       if (parsed.addressLine2) setAddressLine2(parsed.addressLine2)
@@ -491,6 +493,17 @@ function CheckoutContent() {
                       if (parsed.lng != null) setLongitude(parsed.lng)
                     }}
                   />
+                  {(latitude != null || addressLine1) && (
+                    <div className="mt-2.5">
+                      <GoogleMapView
+                        lat={latitude}
+                        lng={longitude}
+                        address={[addressLine1, city, state, postalCode].filter(Boolean).join(", ")}
+                        title={fullName || "Address Location"}
+                        height="190px"
+                      />
+                    </div>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

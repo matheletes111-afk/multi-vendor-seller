@@ -184,6 +184,12 @@ export function GoogleAddressAutocomplete({
     }
   }, [initAutocomplete])
 
+  useEffect(() => {
+    if (inputRef.current) {
+      inputRef.current.value = defaultValue || ""
+    }
+  }, [defaultValue])
+
   return (
     <div className="relative w-full">
       <div className="relative">
