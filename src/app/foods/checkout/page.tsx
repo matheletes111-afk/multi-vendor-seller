@@ -501,6 +501,16 @@ function CheckoutContent() {
                         address={[addressLine1, city, state, postalCode].filter(Boolean).join(", ")}
                         title={fullName || "Address Location"}
                         height="190px"
+                        draggable
+                        onLocationChange={(loc) => {
+                          setLatitude(loc.lat)
+                          setLongitude(loc.lng)
+                          if (loc.addressLine1) setAddressLine1(loc.addressLine1)
+                          if (loc.city) setCity(loc.city)
+                          if (loc.state) setState(loc.state)
+                          if (loc.postalCode) setPostalCode(loc.postalCode)
+                          if (loc.country) setCountry(loc.country)
+                        }}
                       />
                     </div>
                   )}

@@ -385,6 +385,19 @@ export function ServiceBookClient({
                           address={[addressForm.addressLine1, addressForm.city, addressForm.state, addressForm.postalCode].filter(Boolean).join(", ")}
                           title={addressForm.fullName || "Address Location"}
                           height="190px"
+                          draggable
+                          onLocationChange={(loc) => {
+                            setAddressForm((f) => ({
+                              ...f,
+                              latitude: loc.lat,
+                              longitude: loc.lng,
+                              ...(loc.addressLine1 ? { addressLine1: loc.addressLine1 } : {}),
+                              ...(loc.city ? { city: loc.city } : {}),
+                              ...(loc.state ? { state: loc.state } : {}),
+                              ...(loc.postalCode ? { postalCode: loc.postalCode } : {}),
+                              ...(loc.country ? { country: loc.country } : {}),
+                            }))
+                          }}
                         />
                       </div>
                     )}
