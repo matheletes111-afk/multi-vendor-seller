@@ -121,7 +121,12 @@ export function AdminSellerAdsPageClient() {
     const json = await res.json()
     if (!res.ok) return { error: json.error || "Failed" }
     await fetchAds()
-    router.replace("/admin/seller-ads?success=Approved")
+    const url = buildAdminPageUrl("/admin/seller-ads", page, {
+      ...params,
+      success: "Approved",
+      error: undefined,
+    })
+    router.replace(url)
     return {}
   }
 
@@ -134,7 +139,12 @@ export function AdminSellerAdsPageClient() {
     const json = await res.json()
     if (!res.ok) return { error: json.error || "Failed" }
     await fetchAds()
-    router.replace("/admin/seller-ads?success=Rejected")
+    const url = buildAdminPageUrl("/admin/seller-ads", page, {
+      ...params,
+      success: "Rejected",
+      error: undefined,
+    })
+    router.replace(url)
     return {}
   }
 
@@ -142,8 +152,14 @@ export function AdminSellerAdsPageClient() {
     const res = await fetch(`/api/admin/seller-ads/${adId}`, { method: "DELETE" })
     const json = await res.json()
     if (!res.ok) return { error: json.error || "Failed to delete ad" }
+    const targetPage = (data?.ads?.length === 1 && page > 1) ? page - 1 : page
     await fetchAds()
-    router.replace("/admin/seller-ads?success=Ad+deleted+successfully")
+    const url = buildAdminPageUrl("/admin/seller-ads", targetPage, {
+      ...params,
+      success: "Ad deleted successfully",
+      error: undefined,
+    })
+    router.replace(url)
     return {}
   }
 

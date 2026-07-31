@@ -6,7 +6,7 @@ import { AdminReviewDetailsClient } from "./review-details-client"
 export default async function AdminReviewDetailsPage({
   params,
 }: {
-  params: Promise<{ type: "product" | "service"; id: string }>
+  params: Promise<{ type: string; id: string }>
 }) {
   const session = await auth()
   if (!session?.user || !isAdmin(session.user)) {

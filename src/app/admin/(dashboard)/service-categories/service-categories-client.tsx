@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import { buildAdminPageUrl } from "@/lib/admin-pagination";
 import { Button } from "@/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/ui/card";
 import { cn } from "@/lib/utils";
@@ -162,9 +163,13 @@ export function ServiceCategoriesClient() {
       if (!response.ok) {
         throw new Error(resData.error || "Failed to delete service category");
       }
-      router.push("/admin/service-categories?success=Service category deleted successfully");
+      const targetPage = (data?.categories?.length === 1 && page > 1) ? page - 1 : page;
+      router.refresh();
+      const url = buildAdminPageUrl("/admin/service-categories", targetPage, { success: "Service category deleted successfully" });
+      router.push(url);
     } catch (error: any) {
-      router.push(`/admin/service-categories?error=${encodeURIComponent(error.message)}`);
+      const url = buildAdminPageUrl("/admin/service-categories", page, { error: error.message });
+      router.push(url);
     } finally {
       setDeletingId(null);
     }

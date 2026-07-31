@@ -9,6 +9,7 @@ import { Label } from "@/ui/label"
 import { formatCurrency } from "@/lib/utils"
 import type { AddressApi } from "@/app/api/customer/checkout/types"
 import { MapPin, Banknote, Loader2, Pencil, Plus, Briefcase } from "lucide-react"
+import { GoogleAddressAutocomplete } from "@/components/google-address-autocomplete"
 
 type AddressFormState = {
   addressType: AddressApi["addressType"]
@@ -328,6 +329,24 @@ export function ServiceBookClient({
                   <h3 className="text-sm font-medium text-slate-700">
                     {editingAddressId ? "Edit address" : "Add new address"}
                   </h3>
+                  <div>
+                    <Label className="text-xs sm:text-sm text-amber-800 font-semibold mb-1 block">
+                      Search Address with Google Maps (Auto-fills form)
+                    </Label>
+                    <GoogleAddressAutocomplete
+                      onAddressSelect={(parsed) => {
+                        setAddressForm((f) => ({
+                          ...f,
+                          addressLine1: parsed.addressLine1 || f.addressLine1,
+                          addressLine2: parsed.addressLine2 || f.addressLine2,
+                          city: parsed.city || f.city,
+                          state: parsed.state || f.state,
+                          postalCode: parsed.postalCode || f.postalCode,
+                          country: parsed.country || f.country,
+                        }))
+                      }}
+                    />
+                  </div>
                   <div>
                     <Label htmlFor="sb-addressType" className="text-xs sm:text-sm">Address type</Label>
                     <select

@@ -9,6 +9,10 @@ interface LocationResult {
   lat: number
   lng: number
   address: string
+  city?: string
+  state?: string
+  postalCode?: string
+  country?: string
 }
 
 interface StoreLocationPickerProps {
@@ -43,6 +47,29 @@ export function StoreLocationPicker({
   const [address, setAddress] = useState(initialAddress ?? "")
   const [loaded, setLoaded] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const extractComponents = (components: any[]) => {
+    let city = ""
+    let state = ""
+    let postalCode = ""
+    let country = ""
+
+    if (Array.isArray(components)) {
+      for (const comp of components) {
+        const types: string[] = comp.types || []
+        if (types.includes("locality")) city = comp.long_name
+        else if (!city && types.includes("postal_town")) city = comp.long_name
+        else if (!city && (types.includes("sublocality_level_1") || types.includes("sublocality"))) city = comp.long_name
+        else if (!city && types.includes("administrative_area_level_2")) city = comp.long_name
+        else if (!city && types.includes("neighborhood")) city = comp.long_name
+
+        if (types.includes("administrative_area_level_1")) state = comp.long_name
+        if (types.includes("postal_code")) postalCode = comp.long_name
+        if (types.includes("country")) country = comp.long_name
+      }
+    }
+    return { city, state, postalCode, country }
+  }
 
   const initMap = useCallback(() => {
     if (!mapRef.current || !window.google) return
@@ -84,7 +111,8 @@ export function StoreLocationPicker({
           const addr = results[0].formatted_address
           setAddress(addr)
           if (inputRef.current) inputRef.current.value = addr
-          onLocationSelect?.({ lat: newLat, lng: newLng, address: addr })
+          const parsed = extractComponents(results[0].address_components)
+          onLocationSelect?.({ lat: newLat, lng: newLng, address: addr, ...parsed })
         }
       })
     })
@@ -92,7 +120,7 @@ export function StoreLocationPicker({
     // Set up Autocomplete
     if (inputRef.current) {
       const autocomplete = new window.google.maps.places.Autocomplete(inputRef.current, {
-        fields: ["geometry", "formatted_address", "name"],
+        fields: ["geometry", "formatted_address", "address_components", "name"],
       })
       autocompleteRef.current = autocomplete
 
@@ -103,6 +131,7 @@ export function StoreLocationPicker({
         const newLat = place.geometry.location.lat()
         const newLng = place.geometry.location.lng()
         const addr = place.formatted_address || place.name || ""
+        const parsed = extractComponents(place.address_components || [])
 
         setLat(newLat)
         setLng(newLng)
@@ -113,7 +142,7 @@ export function StoreLocationPicker({
         marker.setPosition({ lat: newLat, lng: newLng })
         marker.setVisible(true)
 
-        onLocationSelect?.({ lat: newLat, lng: newLng, address: addr })
+        onLocationSelect?.({ lat: newLat, lng: newLng, address: addr, ...parsed })
       })
     }
 

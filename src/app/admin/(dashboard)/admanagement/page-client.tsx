@@ -31,6 +31,7 @@ import {
 } from "@/ui/dialog"
 import { Plus, Pencil, Trash2, Upload, X, ImageIcon } from "lucide-react"
 import { AdminPagination } from "@/components/admin/admin-pagination"
+import { buildAdminPageUrl } from "@/lib/admin-pagination"
 import { cn } from "@/lib/utils"
 
 type Ad = {
@@ -337,6 +338,8 @@ function EditAdForm({ ad }: { ad: Ad }) {
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   const [imageFile, setImageFile] = useState<File | null>(null)
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10) || 1)
 
   const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     let file = e.target.files?.[0]
@@ -379,12 +382,15 @@ function EditAdForm({ ad }: { ad: Ad }) {
       if (data.success) {
         setOpen(false)
         router.refresh()
-        window.location.href = "/admin/admanagement?success=Ad updated successfully"
+        const url = buildAdminPageUrl("/admin/admanagement", page, { success: "Ad updated successfully" })
+        router.push(url)
       } else {
-        window.location.href = `/admin/admanagement?error=${encodeURIComponent(data.error || "Update failed")}`
+        const url = buildAdminPageUrl("/admin/admanagement", page, { error: data.error || "Update failed" })
+        router.push(url)
       }
     } catch {
-      window.location.href = "/admin/admanagement?error=Failed to update ad"
+      const url = buildAdminPageUrl("/admin/admanagement", page, { error: "Failed to update ad" })
+      router.push(url)
     } finally {
       setLoading(false)
     }
@@ -451,6 +457,8 @@ function DeleteAdButton({ adId, adTitle }: { adId: string; adTitle: string }) {
   const [open, setOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10) || 1)
 
   async function handleDelete() {
     setIsDeleting(true)
@@ -460,12 +468,15 @@ function DeleteAdButton({ adId, adTitle }: { adId: string; adTitle: string }) {
       if (data.success) {
         setOpen(false)
         router.refresh()
-        router.push("/admin/admanagement?success=Ad deleted successfully")
+        const url = buildAdminPageUrl("/admin/admanagement", page, { success: "Ad deleted successfully" })
+        router.push(url)
       } else {
-        router.push(`/admin/admanagement?error=${encodeURIComponent(data.error)}`)
+        const url = buildAdminPageUrl("/admin/admanagement", page, { error: data.error || "Failed to delete ad" })
+        router.push(url)
       }
     } catch {
-      router.push("/admin/admanagement?error=Failed to delete ad")
+      const url = buildAdminPageUrl("/admin/admanagement", page, { error: "Failed to delete ad" })
+      router.push(url)
     } finally {
       setIsDeleting(false)
     }

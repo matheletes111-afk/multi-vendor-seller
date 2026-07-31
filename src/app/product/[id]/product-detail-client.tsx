@@ -187,9 +187,50 @@ export function ProductDetailClient({ productId }: { productId: string }) {
   })()
 
   const displayPrice = selectedVariant ? Math.max(0, selectedVariant.price - (selectedVariant.discount ?? 0)) : 0
-  const variantImages = selectedVariant && Array.isArray(selectedVariant.images) ? (selectedVariant.images as string[]) : []
-  const productImages = (product.images as string[]) || []
-  const images = variantImages.length > 0 ? variantImages : productImages
+
+  // Combine master product images (ALWAYS FIRST) with all variant images (deduplicated)
+  const productImages = (Array.isArray(product.images) ? (product.images as string[]) : []).filter((s): s is string => typeof s === "string" && s.trim().length > 0)
+  const allVariantImages = variants.flatMap((v) => Array.isArray(v.images) ? (v.images as string[]) : []).filter((s): s is string => typeof s === "string" && s.trim().length > 0)
+  const images = Array.from(new Set([...productImages, ...allVariantImages]))
+
+  const handleOptionSelect = (key: string, val: string) => {
+    const nextOptions = { ...selectedOptions, [key]: val }
+    setSelectedOptions(nextOptions)
+    setSelectedVariantId(null)
+
+    const matched = variants.find((v) => {
+      const attrs = (v.attributes && typeof v.attributes === "object" && !Array.isArray(v.attributes) ? v.attributes : {}) as Record<string, string>
+      return attributeKeys.every((k) => attrs[k] === nextOptions[k])
+    })
+
+    if (matched && Array.isArray(matched.images)) {
+      const varImgs = (matched.images as string[]).filter((s): s is string => typeof s === "string" && s.trim().length > 0)
+      if (varImgs.length > 0) {
+        const idx = images.indexOf(varImgs[0])
+        if (idx !== -1) {
+          setSelectedImageIndex(idx)
+          return
+        }
+      }
+    }
+  }
+
+  const handleVariantSelect = (variantId: string) => {
+    setSelectedVariantId(variantId)
+    setSelectedOptions({})
+    const matched = variants.find((v) => v.id === variantId)
+    if (matched && Array.isArray(matched.images)) {
+      const varImgs = (matched.images as string[]).filter((s): s is string => typeof s === "string" && s.trim().length > 0)
+      if (varImgs.length > 0) {
+        const idx = images.indexOf(varImgs[0])
+        if (idx !== -1) {
+          setSelectedImageIndex(idx)
+          return
+        }
+      }
+    }
+  }
+
   const mainImage = images[selectedImageIndex] || images[0]
   const adIsVideo = productAd?.creativeType === "VIDEO"
   const adEmbedUrl = adIsVideo && productAd ? getYoutubeEmbedUrl(productAd.creativeUrl) : null
@@ -325,11 +366,7 @@ export function ProductDetailClient({ productId }: { productId: string }) {
                                 key={val}
                                 type="button"
                                 title={val}
-                                onClick={() => {
-                                  setSelectedOptions((prev) => ({ ...prev, [key]: val }))
-                                  setSelectedVariantId(null)
-                                  setSelectedImageIndex(0)
-                                }}
+                                onClick={() => handleOptionSelect(key, val)}
                                 className={`h-8 w-8 rounded-full border transition-all ${
                                   isSelected 
                                     ? "ring-2 ring-offset-2 ring-amber-500 border-transparent scale-110 shadow-md" 
@@ -348,11 +385,7 @@ export function ProductDetailClient({ productId }: { productId: string }) {
                             <button
                               key={val}
                               type="button"
-                              onClick={() => {
-                                setSelectedOptions((prev) => ({ ...prev, [key]: val }))
-                                setSelectedVariantId(null)
-                                setSelectedImageIndex(0)
-                              }}
+                              onClick={() => handleOptionSelect(key, val)}
                               className={`min-w-[3rem] rounded-md border px-3 py-1.5 text-sm font-medium transition-colors ${
                                 selectedOptions[key] === val
                                   ? "border-amber-500 bg-amber-50 text-amber-800 ring-1 ring-amber-500"
@@ -376,11 +409,7 @@ export function ProductDetailClient({ productId }: { productId: string }) {
                       <button
                         key={v.id}
                         type="button"
-                        onClick={() => {
-                          setSelectedVariantId(v.id)
-                          setSelectedOptions({})
-                          setSelectedImageIndex(0)
-                        }}
+                        onClick={() => handleVariantSelect(v.id)}
                         className={`rounded-md border px-3 py-1.5 text-sm font-medium transition-colors ${
                           selectedVariantId === v.id
                             ? "border-amber-500 bg-amber-50 text-amber-800"
