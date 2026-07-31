@@ -20,6 +20,8 @@ function toAddressApi(row: {
   state: string
   postalCode: string
   country: string
+  latitude?: number | null
+  longitude?: number | null
   isDefault: boolean
 }): AddressApi {
   return {
@@ -33,6 +35,8 @@ function toAddressApi(row: {
     state: row.state,
     postalCode: row.postalCode,
     country: row.country,
+    latitude: row.latitude ?? null,
+    longitude: row.longitude ?? null,
     isDefault: row.isDefault,
   }
 }
@@ -68,6 +72,8 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     state?: string
     postalCode?: string
     country?: string
+    latitude?: number | string | null
+    longitude?: number | string | null
     isDefault?: boolean
   }
 
@@ -93,6 +99,13 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     typeof payload.country === "string" && payload.country.trim() ? payload.country.trim() : existing.country
   const addressLine2 = typeof payload.addressLine2 === "string" ? payload.addressLine2.trim() || null : existing.addressLine2
 
+  const latitude = payload.latitude != null && !isNaN(Number(payload.latitude))
+    ? Number(payload.latitude)
+    : existing.latitude
+  const longitude = payload.longitude != null && !isNaN(Number(payload.longitude))
+    ? Number(payload.longitude)
+    : existing.longitude
+
   const isDefault = payload.isDefault === true
   if (isDefault && !existing.isDefault) {
     await prisma.userAddress.updateMany({
@@ -113,8 +126,10 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       state,
       postalCode,
       country,
+      latitude,
+      longitude,
       isDefault,
-    } as any,
+    },
   })
 
   return NextResponse.json(toAddressApi(updated))
@@ -137,7 +152,6 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
 
   await prisma.userAddress.delete({ where: { id: addressId } })
 
-  // If we deleted the default address, promote the oldest remaining address to default (deterministic).
   if (existing.isDefault) {
     const remaining = await prisma.userAddress.findFirst({
       where: { userId: auth.userId },
@@ -151,4 +165,3 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
 
   return NextResponse.json({ success: true })
 }
-

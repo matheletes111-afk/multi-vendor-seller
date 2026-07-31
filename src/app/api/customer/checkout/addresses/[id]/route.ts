@@ -15,6 +15,8 @@ function toAddressApi(row: {
   state: string
   postalCode: string
   country: string
+  latitude?: number | null
+  longitude?: number | null
   isDefault: boolean
 }): AddressApi {
   return {
@@ -28,6 +30,8 @@ function toAddressApi(row: {
     state: row.state,
     postalCode: row.postalCode,
     country: row.country,
+    latitude: row.latitude ?? null,
+    longitude: row.longitude ?? null,
     isDefault: row.isDefault,
   }
 }
@@ -67,6 +71,8 @@ export async function PATCH(
     state?: string
     postalCode?: string
     country?: string
+    latitude?: number | string | null
+    longitude?: number | string | null
     isDefault?: boolean
   }
   const fullName = typeof payload.fullName === "string" && payload.fullName.trim() ? payload.fullName.trim() : existing.fullName
@@ -82,6 +88,14 @@ export async function PATCH(
   const postalCode = typeof payload.postalCode === "string" && payload.postalCode.trim() ? payload.postalCode.trim() : existing.postalCode
   const country = typeof payload.country === "string" && payload.country.trim() ? payload.country.trim() : existing.country
   const addressLine2 = typeof payload.addressLine2 === "string" ? payload.addressLine2.trim() || null : existing.addressLine2
+
+  const latitude = payload.latitude != null && !isNaN(Number(payload.latitude))
+    ? Number(payload.latitude)
+    : existing.latitude
+  const longitude = payload.longitude != null && !isNaN(Number(payload.longitude))
+    ? Number(payload.longitude)
+    : existing.longitude
+
   const isDefault = payload.isDefault === true
   if (isDefault && !existing.isDefault) {
     await prisma.userAddress.updateMany({
@@ -101,8 +115,10 @@ export async function PATCH(
       state,
       postalCode,
       country,
+      latitude,
+      longitude,
       isDefault,
-    } as any,
+    },
   })
   return NextResponse.json(toAddressApi(updated))
 }
@@ -131,4 +147,3 @@ export async function DELETE(
   })
   return NextResponse.json({ success: true })
 }
-

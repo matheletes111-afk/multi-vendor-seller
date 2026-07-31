@@ -13,6 +13,8 @@ export type AddressApi = {
   state: string
   postalCode: string
   country: string
+  latitude?: number | null
+  longitude?: number | null
   isDefault: boolean
 }
 

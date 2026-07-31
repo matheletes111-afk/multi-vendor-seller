@@ -8,6 +8,7 @@ import { Button } from "@/ui/button"
 import { Card, CardContent } from "@/ui/card"
 import { formatCurrency } from "@/lib/utils"
 import { useSession } from "next-auth/react"
+import { GoogleMapView } from "@/components/google-map-view"
 
 type Room = {
   id: string
@@ -238,6 +239,23 @@ export default function HotelDetailsPage() {
                 </div>
               </div>
             )}
+          </div>
+
+          {/* Hotel Location & Map View Card */}
+          <div className="bg-white border border-slate-100 rounded-3xl p-6 sm:p-8 shadow-sm space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-black text-slate-900">Hotel Location & Map</h2>
+                <p className="text-slate-500 text-xs font-semibold mt-0.5">{hotel.address}, {hotel.city}, {hotel.state}</p>
+              </div>
+            </div>
+            <GoogleMapView
+              lat={(hotel as any).latitude ? Number((hotel as any).latitude) : null}
+              lng={(hotel as any).longitude ? Number((hotel as any).longitude) : null}
+              address={`${hotel.address || ""}, ${hotel.city || ""}, ${hotel.state || ""}`}
+              title={hotel.name}
+              height="280px"
+            />
           </div>
         </div>
 
