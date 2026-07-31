@@ -23,6 +23,8 @@ export async function GET(request: NextRequest) {
           state: userAddr.state,
           country: userAddr.country,
           postalCode: userAddr.postalCode,
+          latitude: userAddr.latitude ?? null,
+          longitude: userAddr.longitude ?? null,
           is_default: userAddr.isDefault,
           is_guest_fallback: false,
         }

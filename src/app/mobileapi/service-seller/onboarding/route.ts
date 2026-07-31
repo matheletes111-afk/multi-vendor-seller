@@ -77,6 +77,8 @@ export async function POST(request: NextRequest) {
                 haveGst,
                 gstInvNo: haveGst ? (formData.get("gstInvNo") as string) : null,
                 gstCustomerName: haveGst ? (formData.get("gstCustomerName") as string) : null,
+                latitude: (() => { const v = formData.get("latitude"); return v != null && !isNaN(Number(v)) ? Number(v) : null })(),
+                longitude: (() => { const v = formData.get("longitude"); return v != null && !isNaN(Number(v)) ? Number(v) : null })(),
                 busRegCertUrl: seller.businessInfo?.busRegCertUrl || null,
                 cityCouncilCertUrl: seller.businessInfo?.cityCouncilCertUrl || null,
                 gstTinCertUrl: seller.businessInfo?.gstTinCertUrl || null,
@@ -87,6 +89,8 @@ export async function POST(request: NextRequest) {
                 taxIdNumber: jsonBody.data.taxIdNumber,
                 gstInvNo: haveGst ? jsonBody.data.gstInvNo : null,
                 gstCustomerName: haveGst ? jsonBody.data.gstCustomerName : null,
+                latitude: jsonBody.data?.latitude != null && !isNaN(Number(jsonBody.data.latitude)) ? Number(jsonBody.data.latitude) : null,
+                longitude: jsonBody.data?.longitude != null && !isNaN(Number(jsonBody.data.longitude)) ? Number(jsonBody.data.longitude) : null,
             };
 
             if (formData) {

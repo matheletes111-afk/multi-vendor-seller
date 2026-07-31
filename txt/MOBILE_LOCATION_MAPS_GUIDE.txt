@@ -1,0 +1,137 @@
+================================================================================
+MOBILE APP LOCATION & MAP INTEGRATION SPECIFICATION GUIDE
+================================================================================
+Target Audience: Mobile Application Developer (React Native / Flutter / iOS / Android)
+Project: Meeem Multi-Vendor Platform Mobile API & Location Sync
+
+--------------------------------------------------------------------------------
+1. OVERVIEW & STRATEGY
+--------------------------------------------------------------------------------
+All address creation/editing forms and seller onboarding/settings forms in the mobile app
+MUST support Google Places Search & Interactive Map Pin picking.
+
+- Latitude & Longitude MUST be silently captured and sent in API payloads (`latitude`, `longitude`).
+- Users do NOT see numerical latitude/longitude text inputs, but coordinates are saved to DB.
+- Marker Pin MUST be draggable and map MUST be clickable to adjust delivery/business location.
+- When marker is dragged or map is clicked, perform reverse geocoding to update address fields.
+- On Edit Address / Business Info, pre-fill both the Search Bar and Map Marker with saved coordinates/address.
+
+--------------------------------------------------------------------------------
+2. MOBILE API ENDPOINTS (COORDINATES READY)
+--------------------------------------------------------------------------------
+
+A) CUSTOMER DELIVERY ADDRESSES (UNIFIED FOR FOOD, PRODUCT & SERVICE):
+   * NOTE FOR MOBILE DEVELOPER: `/mobileapi/customer/checkout/addresses` is the SINGLE 
+     UNIFIED address management endpoint for ALL delivery/service categories (Food Delivery, 
+     Product Delivery, and Home Services).
+
+   - GET /mobileapi/customer/checkout/addresses
+     * Response returns list of UserAddress objects with `latitude` (float|null) and `longitude` (float|null).
+
+   - POST /mobileapi/customer/checkout/addresses
+     * Request JSON Payload:
+       {
+         "fullName": "John Doe",
+         "addressType": "HOME" | "OFFICE" | "OTHER",
+         "phone": "+1234567890",
+         "addressLine1": "123 Main St",
+         "addressLine2": "Apt 4B",
+         "city": "Freetown",
+         "state": "Western Area",
+         "postalCode": "00232",
+         "country": "Sierra Leone",
+         "latitude": 8.484,
+         "longitude": -13.2299,
+         "isDefault": true
+       }
+
+   - PATCH /mobileapi/customer/checkout/addresses/{id}
+     * Request JSON Payload (accepts updated `latitude` and `longitude`):
+       {
+         "addressLine1": "New Street Address",
+         "city": "Freetown",
+         "state": "Western Area",
+         "latitude": 8.4855,
+         "longitude": -13.2310
+       }
+
+   - DELETE /mobileapi/customer/checkout/addresses/{id}
+
+   - GET /mobileapi/v1/user/delivery-addresses/active
+     * Response returns currently active user address with `latitude` and `longitude`.
+
+   - GET /mobileapi/v1/home/layout
+     * Response returns `activeAddress` object containing `latitude` and `longitude`.
+
+B) HOTEL SELLER ONBOARDING & SETTINGS:
+   - POST /mobileapi/hotel-seller/onboarding (Step 2: Business Info)
+     * Form Data or JSON Payload accepts `latitude` and `longitude`.
+   - PUT /mobileapi/hotel-seller/settings (section: "business")
+     * Form Data accepts `latitude` and `longitude` fields.
+
+C) RESTAURANT SELLER ONBOARDING & SETTINGS:
+   - POST /mobileapi/restaurant-seller/onboarding (Step 2: Business Info)
+     * Form Data or JSON Payload accepts `latitude` and `longitude`.
+   - PUT /mobileapi/restaurant-seller/settings (section: "business")
+     * Form Data accepts `latitude` and `longitude` fields.
+
+D) PRODUCT SELLER ONBOARDING & SETTINGS:
+   - POST /mobileapi/product-seller/onboarding (Step 2: Business Info & Step 5: Store Profile)
+     * Step 2 accepts `latitude` and `longitude`.
+     * Step 5 accepts `storeLat`, `storeLng`, `storeAddress`.
+   - PUT /mobileapi/product-seller/settings (section: "business")
+     * Form Data accepts `latitude` and `longitude`.
+
+E) SERVICE SELLER ONBOARDING & SETTINGS:
+   - POST /mobileapi/service-seller/onboarding (Step 2: Business Info & Step 5: Store Profile)
+     * Step 2 accepts `latitude` and `longitude`.
+     * Step 5 accepts `storeLat`, `storeLng`, `storeAddress`.
+   - PUT /mobileapi/service-seller/settings (section: "business")
+     * Form Data accepts `latitude` and `longitude`.
+
+--------------------------------------------------------------------------------
+3. MOBILE UI & MAP WORKFLOW (100% WEB MATCH)
+--------------------------------------------------------------------------------
+
+1. ADD NEW ADDRESS / BUSINESS FORM:
+   - Place a Google Places Search bar at the top of the address form.
+   - Embed an interactive Map View directly below the search bar (only show when location/address is selected or being edited).
+   - When user picks a place from Google Places Autocomplete:
+     * Auto-fill: `addressLine1`, `city`, `state`, `postalCode`, `country`.
+     * Update map marker position to selected place's `lat` and `lng`.
+     * Store `latitude` and `longitude` in local form state.
+
+2. EDIT ADDRESS FORM:
+   - When user taps "Edit Address":
+     * Pre-fill Google Places Search Bar with existing address string (`addressLine1, city, state postalCode`).
+     * Pre-fill embedded Map View with saved `latitude` and `longitude` (or geocode existing address if coords null).
+     * Marker pin drops at saved position.
+
+3. DRAGGABLE MARKER & MAP CLICK (SILENT COORD UPDATE):
+   - Set Marker prop `draggable = true`.
+   - Enable Map click listener to relocate pin on tap.
+   - When marker is dragged (`onDragEnd`) or map is clicked:
+     * Extract new `lat` & `lng` from marker position.
+     * Silently update `latitude` and `longitude` in form state (stored in DB on submit).
+     * Call Reverse Geocoding API (`Geocoder.geocode({ location: { lat, lng } })`) to auto-update street, city, state if user drags to a new location.
+   - Show a subtle hint badge on top of map: "📍 Drag pin or tap map to adjust location".
+
+--------------------------------------------------------------------------------
+4. PRISMA SCHEMA STRUCTURE (REFERENCE)
+--------------------------------------------------------------------------------
+UserAddress:
+  - id: String
+  - latitude: Float?
+  - longitude: Float?
+
+SellerBusinessInfo / HotelBusinessInfo / RestaurantBusinessInfo:
+  - latitude: Float?
+  - longitude: Float?
+
+Store:
+  - lat: Float?
+  - lng: Float?
+
+================================================================================
+END OF SPECIFICATION
+================================================================================

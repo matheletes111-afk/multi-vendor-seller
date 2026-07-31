@@ -215,9 +215,15 @@ export async function PUT(request: NextRequest) {
 
       const managerName = (fd.get("managerName") as string)?.trim()
       const pocContact = (fd.get("pocContact") as string)?.trim()
+      const latRaw = fd.get("latitude")
+      const lngRaw = fd.get("longitude")
+      const latitude = latRaw != null && !isNaN(Number(latRaw)) ? Number(latRaw) : undefined
+      const longitude = lngRaw != null && !isNaN(Number(lngRaw)) ? Number(lngRaw) : undefined
 
       const busData: any = {
-        businessName, businessType, taxIdNumber, landmark, city, district, state, managerName, pocContact
+        businessName, businessType, taxIdNumber, landmark, city, district, state, managerName, pocContact,
+        ...(latitude !== undefined ? { latitude } : {}),
+        ...(longitude !== undefined ? { longitude } : {}),
       }
       if (haveGstRaw !== null) {
         const h = haveGstRaw === "true"
