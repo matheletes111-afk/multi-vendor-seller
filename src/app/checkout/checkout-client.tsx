@@ -423,9 +423,11 @@ export function CheckoutClient() {
                   </h3>
                   <div>
                     <Label className="text-xs sm:text-sm text-amber-800 font-semibold mb-1 block">
-                      Search Address with Google Maps (Auto-fills form)
+                      Search Address with Google Maps (Auto-fills form & map)
                     </Label>
                     <GoogleAddressAutocomplete
+                      key={editingAddressId || "new-address"}
+                      defaultValue={[addressForm.addressLine1, addressForm.city, addressForm.state].filter(Boolean).join(", ")}
                       onAddressSelect={(parsed) => {
                         setAddressForm((f) => ({
                           ...f,
@@ -440,6 +442,17 @@ export function CheckoutClient() {
                         }))
                       }}
                     />
+                    {(addressForm.latitude != null || addressForm.addressLine1) && (
+                      <div className="mt-2.5">
+                        <GoogleMapView
+                          lat={addressForm.latitude}
+                          lng={addressForm.longitude}
+                          address={[addressForm.addressLine1, addressForm.city, addressForm.state, addressForm.postalCode].filter(Boolean).join(", ")}
+                          title={addressForm.fullName || "Address Location"}
+                          height="190px"
+                        />
+                      </div>
+                    )}
                   </div>
                   <div>
                     <Label htmlFor="addressType" className="text-xs sm:text-sm">Address type</Label>
