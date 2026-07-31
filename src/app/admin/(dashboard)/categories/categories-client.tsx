@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import { buildAdminPageUrl } from "@/lib/admin-pagination";
 import { Button } from "@/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/ui/card";
 import { cn } from "@/lib/utils";
@@ -205,10 +206,13 @@ export function CategoriesClient() {
         };
       });
 
+      const targetPage = (data?.categories?.length === 1 && page > 1) ? page - 1 : page;
       router.refresh();
-      router.push("/admin/categories?success=Category deleted successfully");
+      const url = buildAdminPageUrl("/admin/categories", targetPage, { success: "Category deleted successfully" });
+      router.push(url);
     } catch (error: any) {
-      router.push(`/admin/categories?error=${encodeURIComponent(error.message)}`);
+      const url = buildAdminPageUrl("/admin/categories", page, { error: error.message });
+      router.push(url);
     } finally {
       setDeletingId(null);
     }

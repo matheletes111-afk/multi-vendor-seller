@@ -235,24 +235,35 @@ export function NewHotelClient() {
       const clickLat = e.latLng.lat()
       const clickLng = e.latLng.lng()
       marker.setPosition({ lat: clickLat, lng: clickLng })
-      setFormData(prev => ({ ...prev, lat: clickLat.toString(), lng: clickLng.toString() }))
 
       const geocoder = new (window as any).google.maps.Geocoder()
       geocoder.geocode({ location: { lat: clickLat, lng: clickLng } }, (results: any, status: string) => {
         if (status === "OK" && results[0]) {
           const addr = results[0].formatted_address
-          setFormData(prev => ({ ...prev, address: addr }))
           if (addressInputRef.current) addressInputRef.current.value = addr
 
           let city = ""
           let state = ""
-          for (const comp of results[0].address_components) {
+          for (const comp of results[0].address_components || []) {
             if (comp.types.includes("locality")) city = comp.long_name
-            else if (comp.types.includes("administrative_area_level_1")) state = comp.long_name
+            else if (!city && comp.types.includes("postal_town")) city = comp.long_name
+            else if (!city && (comp.types.includes("sublocality_level_1") || comp.types.includes("sublocality"))) city = comp.long_name
             else if (!city && comp.types.includes("administrative_area_level_2")) city = comp.long_name
+            else if (!city && comp.types.includes("neighborhood")) city = comp.long_name
+
+            if (comp.types.includes("administrative_area_level_1")) state = comp.long_name
           }
-          if (city) setFormData(prev => ({ ...prev, city }))
-          if (state) setFormData(prev => ({ ...prev, state }))
+
+          setFormData(prev => ({
+            ...prev,
+            lat: clickLat.toString(),
+            lng: clickLng.toString(),
+            address: addr,
+            city: city || prev.city,
+            state: state || prev.state,
+          }))
+        } else {
+          setFormData(prev => ({ ...prev, lat: clickLat.toString(), lng: clickLng.toString() }))
         }
       })
     })
@@ -263,24 +274,35 @@ export function NewHotelClient() {
       if (!pos) return
       const dragLat = pos.lat()
       const dragLng = pos.lng()
-      setFormData(prev => ({ ...prev, lat: dragLat.toString(), lng: dragLng.toString() }))
 
       const geocoder = new (window as any).google.maps.Geocoder()
       geocoder.geocode({ location: { lat: dragLat, lng: dragLng } }, (results: any, status: string) => {
         if (status === "OK" && results[0]) {
           const addr = results[0].formatted_address
-          setFormData(prev => ({ ...prev, address: addr }))
           if (addressInputRef.current) addressInputRef.current.value = addr
 
           let city = ""
           let state = ""
-          for (const comp of results[0].address_components) {
+          for (const comp of results[0].address_components || []) {
             if (comp.types.includes("locality")) city = comp.long_name
-            else if (comp.types.includes("administrative_area_level_1")) state = comp.long_name
+            else if (!city && comp.types.includes("postal_town")) city = comp.long_name
+            else if (!city && (comp.types.includes("sublocality_level_1") || comp.types.includes("sublocality"))) city = comp.long_name
             else if (!city && comp.types.includes("administrative_area_level_2")) city = comp.long_name
+            else if (!city && comp.types.includes("neighborhood")) city = comp.long_name
+
+            if (comp.types.includes("administrative_area_level_1")) state = comp.long_name
           }
-          if (city) setFormData(prev => ({ ...prev, city }))
-          if (state) setFormData(prev => ({ ...prev, state }))
+
+          setFormData(prev => ({
+            ...prev,
+            lat: dragLat.toString(),
+            lng: dragLng.toString(),
+            address: addr,
+            city: city || prev.city,
+            state: state || prev.state,
+          }))
+        } else {
+          setFormData(prev => ({ ...prev, lat: dragLat.toString(), lng: dragLng.toString() }))
         }
       })
     })
@@ -305,8 +327,12 @@ export function NewHotelClient() {
         if (place.address_components) {
           for (const comp of place.address_components) {
             if (comp.types.includes("locality")) city = comp.long_name
-            else if (comp.types.includes("administrative_area_level_1")) state = comp.long_name
+            else if (!city && comp.types.includes("postal_town")) city = comp.long_name
+            else if (!city && (comp.types.includes("sublocality_level_1") || comp.types.includes("sublocality"))) city = comp.long_name
             else if (!city && comp.types.includes("administrative_area_level_2")) city = comp.long_name
+            else if (!city && comp.types.includes("neighborhood")) city = comp.long_name
+
+            if (comp.types.includes("administrative_area_level_1")) state = comp.long_name
           }
         }
 

@@ -16,9 +16,9 @@ function toImageArray(images: unknown): string[] {
   return []
 }
 
-type ReviewType = "product" | "service"
+type ReviewType = "product" | "service" | "hotel" | "food" | "restaurant"
 
-/** GET /api/admin/reviews/[type]/[id] — all reviews for one product/service. */
+/** GET /api/admin/reviews/[type]/[id] — all reviews for one item (product/service/hotel/food). */
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ type: string; id: string }> }
@@ -29,16 +29,98 @@ export async function GET(
   }
 
   const { type, id } = await params
-  const reviewType = type === "product" || type === "service" ? (type as ReviewType) : null
+  const normalizedType = type === "restaurant" ? "food" : type
+  const reviewType = (["product", "service", "hotel", "food"].includes(normalizedType)
+    ? normalizedType
+    : null) as ReviewType | null
+
   if (!reviewType) return NextResponse.json({ error: "Invalid review type" }, { status: 400 })
   if (!id || id === "undefined" || id === "null") {
     return NextResponse.json({ error: "Invalid review item id" }, { status: 400 })
   }
 
-  const where =
-    reviewType === "product"
-      ? { productId: id }
-      : { serviceId: id }
+  if (reviewType === "hotel") {
+    const [hotel, agg, reviews] = await Promise.all([
+      prisma.hotel.findUnique({ where: { id }, select: { id: true, name: true, images: true } }),
+      prisma.hotelReview.aggregate({
+        where: { hotelId: id },
+        _avg: { rating: true },
+        _count: { _all: true },
+      }),
+      prisma.hotelReview.findMany({
+        where: { hotelId: id },
+        orderBy: { createdAt: "desc" },
+        include: {
+          user: { select: { name: true, email: true, image: true } },
+        },
+      }),
+    ])
+
+    return NextResponse.json({
+      reviewType: "hotel",
+      itemId: id,
+      itemName: hotel?.name ?? "Hotel",
+      itemImage: toImageArray(hotel?.images).at(0) ?? null,
+      avgRating: agg._avg.rating ?? 0,
+      reviewCount: agg._count._all ?? 0,
+      reviews: reviews.map((row) => ({
+        id: row.id,
+        rating: row.rating,
+        comment: row.comment,
+        images: toImageArray(row.images),
+        createdAt: row.createdAt.toISOString(),
+        isVerified: true,
+        customerName: row.user?.name ?? null,
+        customerEmail: row.user?.email ?? null,
+        customerImage: row.user?.image ?? null,
+        orderNumber: null,
+        sellerStoreName: null,
+      })),
+    })
+  }
+
+  if (reviewType === "food") {
+    const [foodItem, agg, reviews] = await Promise.all([
+      prisma.foodItem.findUnique({ where: { id }, select: { id: true, name: true, images: true } }),
+      prisma.foodReview.aggregate({
+        where: { foodItemId: id },
+        _avg: { rating: true },
+        _count: { _all: true },
+      }),
+      prisma.foodReview.findMany({
+        where: { foodItemId: id },
+        orderBy: { createdAt: "desc" },
+        include: {
+          user: { select: { name: true, email: true, image: true } },
+        },
+      }),
+    ])
+
+    return NextResponse.json({
+      reviewType: "food",
+      itemId: id,
+      itemName: foodItem?.name ?? "Food Item",
+      itemImage: toImageArray(foodItem?.images).at(0) ?? null,
+      avgRating: agg._avg.rating ?? 0,
+      reviewCount: agg._count._all ?? 0,
+      reviews: reviews.map((row) => ({
+        id: row.id,
+        rating: row.rating,
+        comment: row.comment,
+        images: toImageArray(row.images),
+        createdAt: row.createdAt.toISOString(),
+        isVerified: true,
+        customerName: row.user?.name ?? null,
+        customerEmail: row.user?.email ?? null,
+        customerImage: row.user?.image ?? null,
+        orderNumber: null,
+        sellerStoreName: null,
+      })),
+    })
+  }
+
+  // Product or Service
+  const where = reviewType === "product" ? { productId: id } : { serviceId: id }
 
   const [item, agg, reviews] = await Promise.all([
     reviewType === "product"
@@ -87,4 +169,3 @@ export async function GET(
     })),
   })
 }
-

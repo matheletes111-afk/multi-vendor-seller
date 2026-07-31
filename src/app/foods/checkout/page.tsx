@@ -10,6 +10,7 @@ import { Card, CardContent } from "@/ui/card"
 import { formatCurrency } from "@/lib/utils"
 import { useSession } from "next-auth/react"
 import { PublicLayout } from "@/components/site-layout"
+import { GoogleAddressAutocomplete } from "@/components/google-address-autocomplete"
 
 type Address = {
   id: string
@@ -448,6 +449,20 @@ function CheckoutContent() {
             ) : (
               // New Address Form
               <div className="space-y-4 pt-2">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-amber-800 uppercase tracking-wider block">Search Address with Google Maps (Auto-fills form)</label>
+                  <GoogleAddressAutocomplete
+                    onAddressSelect={(parsed) => {
+                      if (parsed.addressLine1) setAddressLine1(parsed.addressLine1)
+                      if (parsed.addressLine2) setAddressLine2(parsed.addressLine2)
+                      if (parsed.city) setCity(parsed.city)
+                      if (parsed.state) setState(parsed.state)
+                      if (parsed.postalCode) setPostalCode(parsed.postalCode)
+                      if (parsed.country) setCountry(parsed.country)
+                    }}
+                  />
+                </div>
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Full Name *</label>

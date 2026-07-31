@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
+import { buildAdminPageUrl } from "@/lib/admin-pagination";
 import { Button } from "@/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/ui/card";
 import { Badge } from "@/ui/badge";
@@ -44,6 +45,7 @@ interface Banner {
 }
 
 export function BannersClient() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10) || 1);
   const perPage = Math.min(50, Math.max(1, parseInt(searchParams.get("perPage") ?? "10", 10) || 10));
@@ -108,13 +110,17 @@ export function BannersClient() {
       const response = await fetch(`/api/admin/banners/${bannerId}`, {
         method: "DELETE",
       });
-      const data = await response.json();
+      const resJson = await response.json();
       if (!response.ok) {
-        throw new Error(data.error || "Failed to delete banner");
+        throw new Error(resJson.error || "Failed to delete banner");
       }
-      window.location.href = "/admin/banners?success=Banner deleted successfully";
+      const targetPage = (data?.banners?.length === 1 && page > 1) ? page - 1 : page;
+      await refetchBanners();
+      const url = buildAdminPageUrl("/admin/banners", targetPage, { success: "Banner deleted successfully" });
+      router.replace(url);
     } catch (error: any) {
-      window.location.href = `/admin/banners?error=${encodeURIComponent(error.message)}`;
+      const url = buildAdminPageUrl("/admin/banners", page, { error: error.message });
+      router.replace(url);
     } finally {
       setDeletingId(null);
     }

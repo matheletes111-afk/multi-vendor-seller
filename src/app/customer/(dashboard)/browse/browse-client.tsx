@@ -431,52 +431,101 @@ export function BrowseClient() {
       </CollapsibleSection>
 
       <CollapsibleSection title="Price">
-        <div className="flex flex-wrap items-end gap-2">
-          <div className="min-w-0 flex-1">
-            <label className="mb-1 block text-xs text-slate-500">Min</label>
-            <div className="relative">
-              <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-500">₹</span>
+        <div className="space-y-3.5 pt-1">
+          {/* Dual Range Price Slider UI */}
+          {(() => {
+            const sliderMinBound = priceExtent.min >= 0 ? Math.floor(priceExtent.min) : 0
+            const sliderMaxBound = priceExtent.max > 0 ? Math.ceil(priceExtent.max) : 10000
+            const currentMinNum = priceMinDraft !== "" ? Math.max(sliderMinBound, Math.min(Number(priceMinDraft), sliderMaxBound)) : sliderMinBound
+            const currentMaxNum = priceMaxDraft !== "" ? Math.min(sliderMaxBound, Math.max(Number(priceMaxDraft), sliderMinBound)) : sliderMaxBound
+            const sliderSpan = sliderMaxBound - sliderMinBound || 1
+            const minPercent = Math.max(0, Math.min(100, ((currentMinNum - sliderMinBound) / sliderSpan) * 100))
+            const maxPercent = Math.max(0, Math.min(100, ((currentMaxNum - sliderMinBound) / sliderSpan) * 100))
+
+            return (
+              <div className="space-y-2 px-0.5">
+                <div className="relative h-2 w-full rounded-full bg-slate-200">
+                  <div
+                    className="absolute h-2 rounded-full bg-amber-400"
+                    style={{
+                      left: `${minPercent}%`,
+                      width: `${Math.max(0, maxPercent - minPercent)}%`,
+                    }}
+                  />
+                  <input
+                    type="range"
+                    min={sliderMinBound}
+                    max={sliderMaxBound}
+                    value={currentMinNum}
+                    onChange={(e) => {
+                      const val = Math.min(Number(e.target.value), currentMaxNum - 1)
+                      setPriceMinDraft(String(Math.round(val)))
+                    }}
+                    className="pointer-events-none absolute inset-0 z-20 h-2 w-full appearance-none bg-transparent [&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-amber-500 [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-white [&::-webkit-slider-thumb]:shadow [&::-moz-range-thumb]:pointer-events-auto [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-amber-500 [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-white [&::-moz-range-thumb]:shadow"
+                  />
+                  <input
+                    type="range"
+                    min={sliderMinBound}
+                    max={sliderMaxBound}
+                    value={currentMaxNum}
+                    onChange={(e) => {
+                      const val = Math.max(Number(e.target.value), currentMinNum + 1)
+                      setPriceMaxDraft(String(Math.round(val)))
+                    }}
+                    className="pointer-events-none absolute inset-0 z-20 h-2 w-full appearance-none bg-transparent [&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-amber-500 [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-white [&::-webkit-slider-thumb]:shadow [&::-moz-range-thumb]:pointer-events-auto [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-amber-500 [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-white [&::-moz-range-thumb]:shadow"
+                  />
+                </div>
+                <div className="flex items-center justify-between text-[11px] font-medium text-slate-500 pt-1">
+                  <span>{formatCurrency(sliderMinBound)}</span>
+                  <span>{formatCurrency(sliderMaxBound)}</span>
+                </div>
+              </div>
+            )
+          })()}
+
+          {/* Min & Max Inputs and Apply Button */}
+          <div className="flex flex-wrap items-end gap-2">
+            <div className="min-w-0 flex-1">
+              <label className="mb-1 block text-xs font-medium text-slate-600">Min</label>
               <Input
-                className="pl-7"
                 inputMode="numeric"
                 value={priceMinDraft}
                 onChange={(e) => setPriceMinDraft(e.target.value.replace(/[^\d]/g, ""))}
                 placeholder={String(Math.round(priceExtent.min))}
+                className="h-9 rounded-lg border-slate-200 text-sm focus:border-amber-500 focus:ring-amber-500"
               />
             </div>
-          </div>
-          <div className="min-w-0 flex-1">
-            <label className="mb-1 block text-xs text-slate-500">Max</label>
-            <div className="relative">
-              <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-500">₹</span>
+            <div className="min-w-0 flex-1">
+              <label className="mb-1 block text-xs font-medium text-slate-600">Max</label>
               <Input
-                className="pl-7"
                 inputMode="numeric"
                 value={priceMaxDraft}
                 onChange={(e) => setPriceMaxDraft(e.target.value.replace(/[^\d]/g, ""))}
                 placeholder={String(Math.round(priceExtent.max))}
+                className="h-9 rounded-lg border-slate-200 text-sm focus:border-amber-500 focus:ring-amber-500"
               />
             </div>
+            <Button
+              type="button"
+              size="sm"
+              className="h-9 bg-amber-400 font-semibold text-black hover:bg-amber-500 rounded-lg px-3.5 shrink-0"
+              onClick={() => {
+                const minV = priceMinDraft ? Number(priceMinDraft) : null
+                const maxV = priceMaxDraft ? Number(priceMaxDraft) : null
+                updateFilters({
+                  minPrice: minV != null && minV > 0 ? String(minV) : null,
+                  maxPrice: maxV != null && maxV > 0 && maxV < 1000000 ? String(maxV) : null,
+                })
+              }}
+            >
+              Apply
+            </Button>
           </div>
-          <Button
-            type="button"
-            size="sm"
-            className="bg-amber-400 text-black hover:bg-amber-500"
-            onClick={() => {
-              const minV = priceMinDraft ? Number(priceMinDraft) : null
-              const maxV = priceMaxDraft ? Number(priceMaxDraft) : null
-              updateFilters({
-                minPrice: minV != null && minV > 0 ? String(minV) : null,
-                maxPrice: maxV != null && maxV > 0 && maxV < 100000 ? String(maxV) : null,
-              })
-            }}
-          >
-            Apply
-          </Button>
+
+          <p className="text-xs text-slate-500">
+            Range in results: {formatCurrency(priceExtent.min)} – {formatCurrency(priceExtent.max)}
+          </p>
         </div>
-        <p className="mt-2 text-xs text-slate-500">
-          Range in results: {formatCurrency(priceExtent.min)} – {formatCurrency(priceExtent.max)}
-        </p>
       </CollapsibleSection>
 
       <CollapsibleSection title="Discount">

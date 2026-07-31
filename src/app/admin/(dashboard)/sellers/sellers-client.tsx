@@ -208,10 +208,9 @@ export function SellersClient() {
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || "Failed")
       await loadSellers({ showLoading: false })
-      router.push("/admin/sellers?success=approved")
-      router.refresh()
+      router.push(buildAdminPageUrl("/admin/sellers", page, { ...params, success: "approved", error: undefined }))
     } catch (e: any) {
-      router.push(`/admin/sellers?error=${encodeURIComponent(e.message)}`)
+      router.push(buildAdminPageUrl("/admin/sellers", page, { ...params, error: e.message, success: undefined }))
     } finally {
       setActionLoading(null)
     }
@@ -224,10 +223,9 @@ export function SellersClient() {
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || "Failed")
       await loadSellers({ showLoading: false })
-      router.push("/admin/sellers?success=suspended")
-      router.refresh()
+      router.push(buildAdminPageUrl("/admin/sellers", page, { ...params, success: "suspended", error: undefined }))
     } catch (e: any) {
-      router.push(`/admin/sellers?error=${encodeURIComponent(e.message)}`)
+      router.push(buildAdminPageUrl("/admin/sellers", page, { ...params, error: e.message, success: undefined }))
     } finally {
       setActionLoading(null)
     }
@@ -240,10 +238,9 @@ export function SellersClient() {
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || "Failed")
       await loadSellers({ showLoading: false })
-      router.push("/admin/sellers?success=unsuspended")
-      router.refresh()
+      router.push(buildAdminPageUrl("/admin/sellers", page, { ...params, success: "unsuspended", error: undefined }))
     } catch (e: any) {
-      router.push(`/admin/sellers?error=${encodeURIComponent(e.message)}`)
+      router.push(buildAdminPageUrl("/admin/sellers", page, { ...params, error: e.message, success: undefined }))
     } finally {
       setActionLoading(null)
     }
@@ -260,10 +257,9 @@ export function SellersClient() {
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || "Failed")
       await loadSellers({ showLoading: false })
-      router.push(`/admin/sellers?success=${action}_success`)
-      router.refresh()
+      router.push(buildAdminPageUrl("/admin/sellers", page, { ...params, success: `${action}_success`, error: undefined }))
     } catch (e: any) {
-      router.push(`/admin/sellers?error=${encodeURIComponent(e.message)}`)
+      router.push(buildAdminPageUrl("/admin/sellers", page, { ...params, error: e.message, success: undefined }))
     } finally {
       setActionLoading(null)
     }

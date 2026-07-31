@@ -187,9 +187,27 @@ export function ProductDetailClient({ productId }: { productId: string }) {
   })()
 
   const displayPrice = selectedVariant ? Math.max(0, selectedVariant.price - (selectedVariant.discount ?? 0)) : 0
-  const variantImages = selectedVariant && Array.isArray(selectedVariant.images) ? (selectedVariant.images as string[]) : []
-  const productImages = (product.images as string[]) || []
-  const images = variantImages.length > 0 ? variantImages : productImages
+
+  // Combine master product images (ALWAYS FIRST) with all variant images (deduplicated)
+  const productImages = (Array.isArray(product.images) ? (product.images as string[]) : []).filter((s): s is string => typeof s === "string" && s.trim().length > 0)
+  const allVariantImages = variants.flatMap((v) => Array.isArray(v.images) ? (v.images as string[]) : []).filter((s): s is string => typeof s === "string" && s.trim().length > 0)
+  const images = Array.from(new Set([...productImages, ...allVariantImages]))
+
+  // When selectedVariant changes, auto-switch main image to that variant's first image if available
+  useEffect(() => {
+    if (!selectedVariant) return
+    const selImages = Array.isArray(selectedVariant.images)
+      ? (selectedVariant.images as string[]).filter((s): s is string => typeof s === "string" && s.trim().length > 0)
+      : []
+    if (selImages.length > 0) {
+      const targetImg = selImages[0]
+      const idx = images.indexOf(targetImg)
+      if (idx !== -1) {
+        setSelectedImageIndex(idx)
+      }
+    }
+  }, [selectedVariant?.id])
+
   const mainImage = images[selectedImageIndex] || images[0]
   const adIsVideo = productAd?.creativeType === "VIDEO"
   const adEmbedUrl = adIsVideo && productAd ? getYoutubeEmbedUrl(productAd.creativeUrl) : null

@@ -924,14 +924,6 @@ export function SiteFooter() {
           <p className={cn("text-center text-xs sm:text-left", isFoodSection ? "text-amber-800" : "text-slate-600")}>
             © {new Date().getFullYear()} MEEEM Marketplace. All rights reserved.
           </p>
-          <div className="flex gap-4 text-xs font-medium">
-            <Link href="/terms-and-conditions" className={isFoodSection ? "text-amber-800 hover:text-amber-950 hover:underline" : "text-slate-600 hover:text-slate-900 hover:underline"}>
-              Terms & Conditions
-            </Link>
-            <Link href="/privacy-policy" className={isFoodSection ? "text-amber-800 hover:text-amber-950 hover:underline" : "text-slate-600 hover:text-slate-900 hover:underline"}>
-              Privacy Policy
-            </Link>
-          </div>
         </div>
       </div>
     </footer>
