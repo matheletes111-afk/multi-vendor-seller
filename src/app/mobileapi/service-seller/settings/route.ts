@@ -210,6 +210,10 @@ export async function PUT(request: NextRequest) {
       if (state !== null) busInfoData.state = state.trim()
       if (postalCode !== null) busInfoData.postalCode = postalCode.trim()
       if (natureOfBusiness !== null) busInfoData.natureOfBusiness = natureOfBusiness.trim()
+      const latRaw = fd.get("latitude")
+      const lngRaw = fd.get("longitude")
+      if (latRaw !== null && !isNaN(Number(latRaw))) busInfoData.latitude = Number(latRaw)
+      if (lngRaw !== null && !isNaN(Number(lngRaw))) busInfoData.longitude = Number(lngRaw)
 
       const busRegCert = fd.get("busRegCert") as File | null
       if (busRegCert && busRegCert.size > 0) {

@@ -83,6 +83,8 @@ export async function POST(request: NextRequest) {
                 haveGst,
                 gstInvNo: haveGst ? ((formData?.get("gstInvNo") as string) || jsonBody?.data?.gstInvNo) : null,
                 gstCustomerName: haveGst ? ((formData?.get("gstCustomerName") as string) || jsonBody?.data?.gstCustomerName) : null,
+                latitude: (() => { const v = formData ? formData.get("latitude") : jsonBody?.data?.latitude; return v != null && !isNaN(Number(v)) ? Number(v) : null })(),
+                longitude: (() => { const v = formData ? formData.get("longitude") : jsonBody?.data?.longitude; return v != null && !isNaN(Number(v)) ? Number(v) : null })(),
             };
 
             if (formData) {
