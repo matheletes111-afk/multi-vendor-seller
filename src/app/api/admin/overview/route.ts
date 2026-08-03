@@ -54,11 +54,43 @@ export async function GET() {
     ])
 
     const adRevenue = Number(adAgg._sum.spentAmount ?? 0)
-    const subscriptionRevenue = subscriptionPlans.reduce((sum, plan) => {
+    
+    // Fetch coupon usages for subscriptions to deduct discounts from gross subscription revenue
+    const subscriptionUsages = await prisma.couponUsage.findMany({
+      where: { subscriptionId: { not: null } },
+      include: { coupon: true }
+    })
+
+    // Map subscription IDs to their plan price to accurately calculate percentage discounts
+    const subIds = subscriptionUsages.map(u => u.subscriptionId!).filter(Boolean)
+    const [prodSubs, hotelSubs, restSubs] = await Promise.all([
+      subIds.length > 0 ? prisma.subscription.findMany({ where: { id: { in: subIds } }, select: { id: true, plan: { select: { price: true } } } }) : [],
+      subIds.length > 0 ? prisma.hotelSubscription.findMany({ where: { id: { in: subIds } }, select: { id: true, plan: { select: { price: true } } } }) : [],
+      subIds.length > 0 ? prisma.restaurantSubscription.findMany({ where: { id: { in: subIds } }, select: { id: true, plan: { select: { price: true } } } }) : [],
+    ])
+
+    const planPriceMap: Record<string, number> = {}
+    prodSubs.forEach(s => { planPriceMap[s.id] = s.plan.price })
+    hotelSubs.forEach(s => { planPriceMap[s.id] = s.plan.price })
+    restSubs.forEach(s => { planPriceMap[s.id] = s.plan.price })
+    
+    const grossSubscriptionRevenue = subscriptionPlans.reduce((sum, plan) => {
       const counts = plan._count as any
       const totalSubs = (counts.subscriptions ?? 0) + (counts.hotelSubscriptions ?? 0) + (counts.restaurantSubscriptions ?? 0)
       return sum + (plan.price * totalSubs)
     }, 0)
+
+    const totalSubDiscounts = subscriptionUsages.reduce((sum, usage) => {
+      if (!usage.coupon) return sum
+      const basePrice = planPriceMap[usage.subscriptionId!] || 0
+      if (usage.coupon.discountType === "PERCENTAGE") {
+        return sum + ((basePrice * usage.coupon.discountValue) / 100)
+      } else {
+        return sum + Math.min(usage.coupon.discountValue, basePrice)
+      }
+    }, 0)
+
+    const subscriptionRevenue = Math.max(0, grossSubscriptionRevenue - totalSubDiscounts)
     const commissionRevenue = 0 // Commission is handled separately for now
 
     // Total platform revenue is Subscription + Ad revenue

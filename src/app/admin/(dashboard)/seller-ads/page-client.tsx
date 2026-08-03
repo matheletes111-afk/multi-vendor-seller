@@ -421,6 +421,11 @@ export function AdminSellerAdsPageClient() {
                       <div className="flex flex-col gap-0.5">
                         <span className="text-foreground">{formatCurrency(ad.spentAmount)}</span>
                         <span className="text-[10px] text-muted-foreground/60 tracking-wider">OF {formatCurrency(ad.totalBudget)}</span>
+                        {(ad as any).couponCode && (
+                          <div className="text-[10px] text-purple-600 font-semibold bg-purple-50 dark:bg-purple-950/40 px-1 py-0.5 rounded inline-block mt-0.5">
+                            Coupon: {(ad as any).couponCode} (-{formatCurrency((ad as any).couponDiscount || 0)})
+                          </div>
+                        )}
                       </div>
                     </TableCell>
                     <TableCell className="text-muted-foreground font-medium">

@@ -236,7 +236,12 @@ export function ProductSellerAdmanagementPageClient() {
                         {new Date(ad.startAt).toLocaleDateString()} - {new Date(ad.endAt).toLocaleDateString()}
                       </TableCell>
                       <TableCell className="hidden lg:table-cell text-right text-sm whitespace-nowrap">
-                        {formatCurrency(ad.spentAmount)} / {formatCurrency(ad.totalBudget)}
+                        <div>{formatCurrency(ad.spentAmount)} / {formatCurrency(ad.totalBudget)}</div>
+                        {(ad as any).couponCode && (
+                          <div className="text-[10px] text-emerald-700 font-bold bg-emerald-50 dark:bg-emerald-950/40 px-1 py-0.5 rounded inline-block mt-0.5">
+                            Coupon: {(ad as any).couponCode} (-{formatCurrency((ad as any).couponDiscount || 0)})
+                          </div>
+                        )}
                       </TableCell>
                       <TableCell className="hidden sm:table-cell text-right">{ad._count.adClicks}</TableCell>
                       <TableCell className="hidden xl:table-cell text-right text-sm whitespace-nowrap">{formatCurrency(ad.maxCpc)}</TableCell>

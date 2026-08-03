@@ -545,11 +545,23 @@ export function SubscriptionsClient() {
                     </TableCell>
                     <TableCell>
                       <div className="font-medium">
-                        {formatCurrency(subscription.plan?.price ?? 0)}
-                        {(subscription.plan?.price ?? 0) > 0 && (
-                          <span className="text-muted-foreground text-xs font-normal">
-                            {formatPlanDurationShort(subscription.plan?.duration)}
-                          </span>
+                        {subscription.couponCode ? (
+                          <div>
+                            <span className="line-through text-muted-foreground text-xs mr-1">{formatCurrency(subscription.plan?.price ?? 0)}</span>
+                            <span className="text-emerald-600 font-bold">{formatCurrency(subscription.finalPaidAmount ?? subscription.plan?.price)}</span>
+                            <div className="text-[10px] text-purple-600 font-semibold bg-purple-50 dark:bg-purple-950/40 px-1.5 py-0.5 rounded inline-block mt-0.5">
+                              Coupon: {subscription.couponCode} (-{formatCurrency(subscription.couponDiscount)})
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                            {formatCurrency(subscription.plan?.price ?? 0)}
+                            {(subscription.plan?.price ?? 0) > 0 && (
+                              <span className="text-muted-foreground text-xs font-normal">
+                                {formatPlanDurationShort(subscription.plan?.duration)}
+                              </span>
+                            )}
+                          </>
                         )}
                       </div>
                     </TableCell>

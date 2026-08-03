@@ -94,13 +94,36 @@ export async function GET(request: NextRequest) {
       prisma.sellerAd.count({ where: { status: "REJECTED" as any } }),
     ])
 
-    const serialized = ads.map((ad) => ({
-      ...ad,
-      totalBudget: Number(ad.totalBudget),
-      spentAmount: Number(ad.spentAmount),
-      maxCpc: Number(ad.maxCpc),
-      targetCountries: ad.targetCountries as string[] | null,
-    }))
+    const adIds = ads.map((a) => a.id)
+    const usages = adIds.length > 0
+      ? await prisma.couponUsage.findMany({
+          where: { sellerAdId: { in: adIds } },
+          include: { coupon: true }
+        })
+      : []
+
+    const usageMap = Object.fromEntries(usages.filter(u => u.sellerAdId).map((u) => [u.sellerAdId!, u]))
+
+    const serialized = ads.map((ad) => {
+      const usage = usageMap[ad.id]
+      let couponDiscount = 0
+      if (usage?.coupon) {
+        if (usage.coupon.discountType === "PERCENTAGE") {
+          couponDiscount = (Number(ad.totalBudget) * usage.coupon.discountValue) / 100
+        } else {
+          couponDiscount = Math.min(usage.coupon.discountValue, Number(ad.totalBudget))
+        }
+      }
+      return {
+        ...ad,
+        totalBudget: Number(ad.totalBudget),
+        spentAmount: Number(ad.spentAmount),
+        maxCpc: Number(ad.maxCpc),
+        targetCountries: ad.targetCountries as string[] | null,
+        couponCode: usage?.coupon?.code || null,
+        couponDiscount,
+      }
+    })
 
     const totalPages = Math.ceil(totalCount / perPage)
     return NextResponse.json({

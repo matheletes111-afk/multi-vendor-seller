@@ -1,0 +1,305 @@
+================================================================================
+        MULTI-VENDOR PLATFORM - MOBILE SELLER API INTEGRATION GUIDE
+        (Seller Coupons, Subscriptions, Ad Campaigns & History)
+================================================================================
+Audience    : Mobile App Developers (iOS / Android / Flutter / React Native)
+Base URL    : https://<YOUR_DOMAIN>
+Prefix      : /api/mobile/seller/
+Auth        : Bearer Token  OR  Session Cookie
+              Mobile callers may also pass ?userId=<id> or { "userId": "..." }
+              in the body when a token/session is unavailable.
+Last Updated: 2026-08-03
+--------------------------------------------------------------------------------
+
+
+================================================================================
+SECTION 1 — COUPON VALIDATION
+================================================================================
+
+ENDPOINT : POST /api/mobile/seller/coupons/validate
+PURPOSE  : Validate a SELLER coupon code and preview the discount before
+           the seller confirms subscription purchase or ad campaign creation.
+
+REQUEST HEADERS
+  Content-Type: application/json
+
+REQUEST BODY
+  {
+    "code"   : "SUMMER50",   // required  – coupon code (case-insensitive)
+    "amount" : 100.00,       // required  – plan price or ad budget in NLe
+    "userId" : "usr_123"     // optional  – only needed if no session token
+  }
+
+SUCCESS RESPONSE  200 OK
+  {
+    "valid"          : true,
+    "coupon"         : {
+      "id"            : "coup_abc123",
+      "code"          : "SUMMER50",
+      "discountType"  : "PERCENTAGE",   // "PERCENTAGE" | "FIXED"
+      "discountValue" : 20              // 20% off  OR  NLe 20 off
+    },
+    "discountAmount" : 20.00,
+    "finalAmount"    : 80.00
+  }
+
+ERROR RESPONSE  400 Bad Request
+  { "valid": false, "error": "Coupon has expired or usage limit reached" }
+
+POSSIBLE ERRORS
+  • "Coupon not found"
+  • "Coupon is inactive"
+  • "Coupon is expired or not yet active"
+  • "This coupon is not valid for seller promotions or subscriptions"
+  • "Minimum amount of NLe X.XX required for this coupon"
+  • "Coupon usage limit reached"
+  • "You have already used this coupon the maximum allowed times (N)"
+
+
+================================================================================
+SECTION 2 — SUBSCRIPTION PLAN LIST
+================================================================================
+
+ENDPOINT : GET /api/mobile/seller/subscription/plans
+PURPOSE  : Fetch all available subscription plans for the seller type,
+           so the mobile app can render the plan selection screen.
+
+QUERY PARAMS
+  type = "PRODUCT_SERVICE"   // default – for Product & Service sellers
+       | "HOTEL"             // for Hotel sellers
+       | "RESTAURANT"        // for Restaurant sellers
+
+EXAMPLE REQUEST
+  GET /api/mobile/seller/subscription/plans?type=HOTEL
+
+SUCCESS RESPONSE  200 OK
+  {
+    "plans": [
+      {
+        "id"          : "plan_001",
+        "name"        : "FREE",
+        "displayName" : "Free Plan",
+        "price"       : 0.00,
+        "duration"    : 30
+      },
+      {
+        "id"          : "plan_999",
+        "name"        : "PREMIUM",
+        "displayName" : "Premium Seller Plan",
+        "price"       : 100.00,
+        "duration"    : 30
+      }
+    ]
+  }
+
+
+================================================================================
+SECTION 3 — GET CURRENT SUBSCRIPTION & APPLIED COUPON
+================================================================================
+
+ENDPOINT : GET /api/mobile/seller/subscription
+PURPOSE  : Returns the seller's currently active subscription plan and the
+           coupon that was applied when it was purchased (if any).
+
+QUERY PARAMS
+  userId = "usr_123"   // optional – only needed if no session token
+
+SUCCESS RESPONSE  200 OK — subscription exists
+  {
+    "subscription": {
+      "id"                 : "sub_777",
+      "status"             : "ACTIVE",
+      "currentPeriodStart" : "2026-08-01T00:00:00Z",
+      "currentPeriodEnd"   : "2026-09-01T00:00:00Z",
+      "plan": {
+        "id"          : "plan_999",
+        "displayName" : "Premium Seller Plan",
+        "price"       : 100.00
+      },
+      "appliedCoupon": {         // null if no coupon was applied
+        "code"           : "SUMMER50",
+        "discountType"   : "PERCENTAGE",
+        "discountValue"  : 20,
+        "discountAmount" : 20.00,
+        "finalPaidAmount": 80.00
+      }
+    }
+  }
+
+SUCCESS RESPONSE  200 OK — no subscription
+  { "subscription": null }
+
+
+================================================================================
+SECTION 4 — SUBSCRIPTION CHECKOUT (PURCHASE / UPGRADE)
+================================================================================
+
+ENDPOINT : POST /api/mobile/seller/subscription/checkout
+PURPOSE  : Activate or upgrade a subscription plan.
+           Supports all 4 seller types in one unified endpoint.
+           Coupon code is optional — applied before plan activation.
+
+REQUEST BODY
+  {
+    "planId"     : "plan_999",          // required
+    "sellerType" : "PRODUCT_SERVICE",   // required: "PRODUCT_SERVICE" | "HOTEL" | "RESTAURANT"
+    "couponCode" : "SUMMER50",          // optional
+    "userId"     : "usr_123"            // optional if session token provided
+  }
+
+SUCCESS RESPONSE  200 OK
+  {
+    "success"        : true,
+    "message"        : "Subscription activated successfully",
+    "subscriptionId" : "sub_777",
+    "paidAmount"     : 80.00,
+    "discountAmount" : 20.00,
+    "couponCode"     : "SUMMER50"       // null if no coupon used
+  }
+
+NOTE: For Stripe-integrated paid plans in production, the web checkout uses
+Stripe sessions. The mobile checkout directly activates the plan in the DB —
+if you need Stripe payment on mobile, process payment first, then call this
+endpoint to activate the plan.
+
+
+================================================================================
+SECTION 5 — SUBSCRIPTION HISTORY
+================================================================================
+
+ENDPOINT : GET /api/mobile/seller/subscription/history
+PURPOSE  : Returns a full chronological list of the seller's subscription
+           activations and coupon redemptions — for the History tab/screen.
+
+QUERY PARAMS
+  userId = "usr_123"   // optional – only needed if no session token
+
+SUCCESS RESPONSE  200 OK
+  {
+    "history": [
+      {
+        "id"              : "sub_777",
+        "planName"        : "Premium Seller Plan",
+        "planType"        : "PREMIUM",
+        "price"           : 100.00,
+        "status"          : "ACTIVE",
+        "periodStart"     : "2026-08-01T00:00:00Z",
+        "periodEnd"       : "2026-09-01T00:00:00Z",
+        "createdAt"       : "2026-08-01T10:30:00Z",
+        "couponCode"      : "SUMMER50",   // null if no coupon used
+        "couponDiscount"  : 20.00,
+        "finalPaidAmount" : 80.00,
+        "isCurrent"       : true          // true = currently active plan
+      },
+      {
+        "id"              : "usage_456",
+        "planName"        : "Seller Coupon (WELCOME10)",
+        "planType"        : "COUPON_REDEMPTION",
+        "price"           : 10.00,
+        "status"          : "COMPLETED",
+        "createdAt"       : "2026-07-15T14:20:00Z",
+        "couponCode"      : "WELCOME10",
+        "couponDiscount"  : 10.00,
+        "finalPaidAmount" : 0.00,
+        "isCurrent"       : false
+      }
+    ],
+    "currentSubscription": {             // summary of active plan
+      "id"              : "sub_777",
+      "status"          : "ACTIVE",
+      "planName"        : "Premium Seller Plan",
+      "price"           : 100.00,
+      "currentPeriodEnd": "2026-09-01T00:00:00Z"
+    }
+  }
+
+
+================================================================================
+SECTION 6 — CREATE SELLER AD CAMPAIGN WITH COUPON
+================================================================================
+
+ENDPOINT : POST /api/mobile/seller/admanagement/create
+PURPOSE  : Create a new seller ad campaign.
+           Supports all 4 seller types. Coupon code is optional.
+
+REQUEST BODY
+  {
+    "title"              : "Summer Clearance Sale",    // required
+    "description"        : "Up to 50% off all items", // optional
+    "totalBudget"        : 500.00,                     // required (NLe)
+    "maxCpc"             : 5.00,                       // required – max cost per click
+    "placements"         : ["MOBILE"],                 // required: "WEB" | "MOBILE"
+    "creativeType"       : "IMAGE",                    // "IMAGE" | "VIDEO"
+    "creativeUrl"        : "https://cdn.example.com/banner.jpg",
+    "mobileCreativeType" : "IMAGE",
+    "mobileCreativeUrl"  : "https://cdn.example.com/mobile_banner.jpg",
+    "startAt"            : "2026-08-01T00:00:00Z",    // required
+    "endAt"              : "2026-08-31T23:59:59Z",    // required
+    "couponCode"         : "ADPROMO50",               // optional
+    "productId"          : "prod_101",                // optional – link to product
+    "serviceId"          : "svc_202",                 // optional – link to service
+    "hotelId"            : "hot_303",                 // optional – link to hotel
+    "foodItemId"         : "food_404",                // optional – link to food item
+    "userId"             : "usr_123"                  // optional if session token provided
+  }
+
+SUCCESS RESPONSE  200 OK
+  {
+    "success"        : true,
+    "adId"           : "ad_888",
+    "totalBudget"    : 500.00,
+    "discountAmount" : 50.00,
+    "finalPaidBudget": 450.00,
+    "couponCode"     : "ADPROMO50"   // null if no coupon used
+  }
+
+VALIDATION RULES
+  • totalBudget must be > 0
+  • maxCpc must be > 0
+  • endAt must be after startAt
+  • If placement includes "MOBILE", mobileCreativeUrl is required
+  • If placement includes "WEB",    creativeUrl is required
+
+
+================================================================================
+SECTION 7 — INTEGRATION FLOW (MOBILE UI)
+================================================================================
+
+--- SUBSCRIPTION PURCHASE FLOW ---
+1. Call GET /api/mobile/seller/subscription/plans?type=<sellerType>
+   → Render plan cards
+
+2. Seller taps a plan → show coupon input field
+   If coupon entered: POST /api/mobile/seller/coupons/validate
+   → Show discounted price preview in real-time
+
+3. Seller taps "Subscribe":
+   POST /api/mobile/seller/subscription/checkout
+   → Show success confirmation with coupon savings badge
+
+--- HISTORY SCREEN ---
+4. On History tab: GET /api/mobile/seller/subscription/history
+   → Show list of past plans + coupons applied (badge per entry)
+
+--- AD CAMPAIGN CREATION FLOW ---
+5. On Create Ad screen, show coupon input field below budget field
+   On "Apply": POST /api/mobile/seller/coupons/validate
+   → Preview discounted budget before submission
+
+6. On "Create Campaign":
+   POST /api/mobile/seller/admanagement/create
+   → Show success screen with coupon discount saved
+
+
+================================================================================
+SECTION 8 — ERROR CODES REFERENCE
+================================================================================
+
+  400  Bad Request     – Missing required field or invalid coupon
+  401  Unauthorized    – No session and no userId provided
+  404  Not Found       – Plan or seller not found
+  500  Server Error    – Unexpected internal error
+
+================================================================================
+END OF DOCUMENT
+================================================================================

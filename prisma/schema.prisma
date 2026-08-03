@@ -1632,10 +1632,10 @@ model Coupon {
   code               String        @unique
   discountType       String        // "PERCENTAGE" | "FIXED"
   discountValue      Float
-  type               String        // "PRODUCT" | "SERVICE" | "HOTEL" | "FOOD"
+  type               String        // "PRODUCT" | "SERVICE" | "HOTEL" | "FOOD" | "SELLER"
   categoryId         String?       // Restricts to a specific category
-  customerCount      Int?          // Total global usage limit (max customers/orders)
-  maxUsesPerCustomer Int           @default(1) // Limit per customer
+  customerCount      Int?          // Total global usage limit (max users/sellers)
+  maxUsesPerCustomer Int           @default(1) // Limit per user/seller
   minOrderValue      Float         @default(0)
   startDate          DateTime
   endDate            DateTime
@@ -1654,6 +1654,8 @@ model CouponUsage {
   orderId        String?
   hotelBookingId String?
   foodOrderId    String?
+  sellerAdId     String?
+  subscriptionId String?
   createdAt      DateTime @default(now())
 
   coupon Coupon @relation(fields: [couponId], references: [id], onDelete: Cascade)

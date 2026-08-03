@@ -80,7 +80,7 @@ export async function POST(request: NextRequest) {
     if (!["PERCENTAGE", "FIXED"].includes(discountType)) {
       return NextResponse.json({ error: "Invalid discount type" }, { status: 400 })
     }
-    if (!["PRODUCT", "SERVICE", "HOTEL", "FOOD"].includes(type)) {
+    if (!["PRODUCT", "SERVICE", "HOTEL", "FOOD", "SELLER"].includes(type)) {
       return NextResponse.json({ error: "Invalid coupon type" }, { status: 400 })
     }
     if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
