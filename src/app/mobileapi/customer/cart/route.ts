@@ -114,9 +114,15 @@ export async function POST(request: NextRequest) {
     const productId = payload.productId
     const productVariantId = payload.productVariantId ?? null
 
-    const existing = await prisma.cartItem.findFirst({
+    let existing = await prisma.cartItem.findFirst({
       where: { userId, productId, productVariantId, serviceId: null },
     })
+
+    if (!existing) {
+      existing = await prisma.cartItem.findFirst({
+        where: { userId, productId, serviceId: null },
+      })
+    }
 
     if (existing) {
       const nextQuantity = existing.quantity + quantity
@@ -127,6 +133,7 @@ export async function POST(request: NextRequest) {
       await prisma.cartItem.update({
         where: { id: existing.id },
         data: {
+          productVariantId: productVariantId || existing.productVariantId,
           quantity: nextQuantity,
           unitPrice: resolved.unitPrice,
           totalPrice: resolved.totalPrice,

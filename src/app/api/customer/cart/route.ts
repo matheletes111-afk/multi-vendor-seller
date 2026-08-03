@@ -105,6 +105,97 @@ function toCartItemApi(row: CartItemRow): CartItemApi {
   }
 }
 
+async function consolidateUserDbCart(userId: string) {
+  try {
+    const items = await prisma.cartItem.findMany({
+      where: { userId },
+      orderBy: { updatedAt: "desc" },
+    })
+
+    const productGroups = new Map<string, typeof items>()
+    for (const item of items) {
+      if (!item.productId) continue
+      const key = item.productId
+      const list = productGroups.get(key) || []
+      list.push(item)
+      productGroups.set(key, list)
+    }
+
+    for (const [productId, group] of productGroups.entries()) {
+      if (group.length <= 1) continue
+      const variantSubgroups = new Map<string, typeof items>()
+      for (const item of group) {
+        const vKey = item.productVariantId ?? "DEFAULT"
+        const list = variantSubgroups.get(vKey) || []
+        list.push(item)
+        variantSubgroups.set(vKey, list)
+      }
+
+      for (const [, subgroup] of variantSubgroups.entries()) {
+        if (subgroup.length <= 1) continue
+        const primary = subgroup[0]
+        const duplicates = subgroup.slice(1)
+        const totalQty = subgroup.reduce((acc, i) => acc + i.quantity, 0)
+        const variantToUse = primary.productVariantId || undefined
+
+        const resolved = await resolveCartLine({
+          productId,
+          productVariantId: variantToUse,
+          quantity: totalQty
+        }, totalQty)
+
+        if (resolved) {
+          await prisma.cartItem.update({
+            where: { id: primary.id },
+            data: {
+              quantity: totalQty,
+              unitPrice: resolved.unitPrice,
+              totalPrice: resolved.totalPrice,
+              hasGst: resolved.hasGst,
+              totalGst: resolved.totalGst,
+              totalPriceInclGst: resolved.totalPriceInclGst,
+            } as Parameters<typeof prisma.cartItem.update>[0]["data"],
+          })
+
+          await prisma.cartItem.deleteMany({
+            where: { id: { in: duplicates.map((d) => d.id) } }
+          })
+        }
+      }
+
+      const defaultList = variantSubgroups.get("DEFAULT")
+      const otherSubgroups = Array.from(variantSubgroups.entries()).filter(([k]) => k !== "DEFAULT")
+      if (defaultList && defaultList.length > 0 && otherSubgroups.length > 0) {
+        const primary = otherSubgroups[0][1][0]
+        const totalQty = primary.quantity + defaultList.reduce((acc, i) => acc + i.quantity, 0)
+        const resolved = await resolveCartLine({
+          productId,
+          productVariantId: primary.productVariantId || undefined,
+          quantity: totalQty
+        }, totalQty)
+        if (resolved) {
+          await prisma.cartItem.update({
+            where: { id: primary.id },
+            data: {
+              quantity: totalQty,
+              unitPrice: resolved.unitPrice,
+              totalPrice: resolved.totalPrice,
+              hasGst: resolved.hasGst,
+              totalGst: resolved.totalGst,
+              totalPriceInclGst: resolved.totalPriceInclGst,
+            } as Parameters<typeof prisma.cartItem.update>[0]["data"],
+          })
+          await prisma.cartItem.deleteMany({
+            where: { id: { in: defaultList.map((d) => d.id) } }
+          })
+        }
+      }
+    }
+  } catch {
+    // Ignore consolidation failures
+  }
+}
+
 /** GET /api/customer/cart — return current user's cart items. Only CUSTOMER. */
 export async function GET() {
   const session = await auth()
@@ -114,6 +205,7 @@ export async function GET() {
   if (session.user.role !== UserRole.CUSTOMER) {
     return NextResponse.json({ error: "Forbidden: only customers can use cart" }, { status: 403 })
   }
+  await consolidateUserDbCart(session.user.id)
   const items = await prisma.cartItem.findMany({
     where: { userId: session.user.id },
     include: cartItemInclude,
@@ -156,7 +248,7 @@ export async function POST(request: NextRequest) {
     ...payload,
     productVariantId,
   }
-  const existing = await prisma.cartItem.findFirst({
+  let existing = await prisma.cartItem.findFirst({
     where: {
       userId,
       productId,
@@ -164,6 +256,15 @@ export async function POST(request: NextRequest) {
       serviceId: null,
     },
   })
+  if (!existing) {
+    existing = await prisma.cartItem.findFirst({
+      where: {
+        userId,
+        productId,
+        serviceId: null,
+      },
+    })
+  }
   if (existing) {
     const nextQuantity = existing.quantity + quantity
     const resolved = await resolveCartLine(payloadWithVariant, nextQuantity)
@@ -173,6 +274,7 @@ export async function POST(request: NextRequest) {
     await prisma.cartItem.update({
       where: { id: existing.id },
       data: {
+        productVariantId,
         quantity: nextQuantity,
         unitPrice: resolved.unitPrice,
         totalPrice: resolved.totalPrice,
@@ -202,6 +304,7 @@ export async function POST(request: NextRequest) {
     }
     await prisma.cartItem.create({ data })
   }
+  await consolidateUserDbCart(userId)
   const items = await prisma.cartItem.findMany({
     where: { userId },
     include: cartItemInclude,

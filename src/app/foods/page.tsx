@@ -6,7 +6,7 @@ import { Search, Star, MapPin, Utensils, Sparkles, ChevronLeft, ChevronRight, Le
 import { Input } from "@/ui/input"
 import { Button } from "@/ui/button"
 import { PublicLayout } from "@/components/site-layout"
-import { formatCurrency } from "@/lib/utils"
+import { formatCurrency, extractFoodImages } from "@/lib/utils"
 
 type PreviewFood = {
   id: string

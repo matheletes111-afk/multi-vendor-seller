@@ -22,7 +22,7 @@ export async function POST(
     }
 
     const finalImages = Array.isArray(imageUrls)
-      ? imageUrls.filter((url): url is string => typeof url === "string" && /^https?:\/\//.test(url))
+      ? imageUrls.filter((url): url is string => typeof url === "string" && url.trim().length > 0)
       : []
 
     // Check if food item exists
@@ -97,7 +97,7 @@ export async function PUT(
     }
 
     const finalImages = Array.isArray(imageUrls)
-      ? imageUrls.filter((url): url is string => typeof url === "string" && /^https?:\/\//.test(url))
+      ? imageUrls.filter((url): url is string => typeof url === "string" && url.trim().length > 0)
       : []
 
     const existingReview = await prisma.foodReview.findFirst({

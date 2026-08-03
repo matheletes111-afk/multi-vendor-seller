@@ -7,7 +7,7 @@ import { Star, ArrowLeft, Clock, Flame, ShoppingBag, Plus, Minus, ShieldAlert, U
 import { Button } from "@/ui/button"
 import { Card, CardContent } from "@/ui/card"
 import { Textarea } from "@/ui/textarea"
-import { formatCurrency } from "@/lib/utils"
+import { formatCurrency, extractFoodImages } from "@/lib/utils"
 import { useSession } from "next-auth/react"
 import { PublicLayout } from "@/components/site-layout"
 
@@ -69,7 +69,7 @@ export default function FoodDetailsPage() {
               let rImages: string[] = []
               if (Array.isArray(userReview.images)) {
                 rImages = userReview.images
-              } else if (typeof userReview.images === "string") {
+              } else if (typeof userReview.images === 'string') {
                 try {
                   rImages = JSON.parse(userReview.images)
                 } catch {}
@@ -205,6 +205,14 @@ export default function FoodDetailsPage() {
 
   const existingUserReview = food.reviews.find(r => r.userId === session?.user?.id)
 
+  let foodImages: string[] = []
+  if (food) {
+    foodImages = extractFoodImages(food.images)
+    if (foodImages.length === 0 && food.image) {
+      foodImages = extractFoodImages(food.image)
+    }
+  }
+
   return (
     <PublicLayout>
       <div className="container mx-auto px-4 py-8 max-w-6xl space-y-8 animate-in fade-in duration-500">
@@ -218,23 +226,8 @@ export default function FoodDetailsPage() {
         {/* Hero Section */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-12 items-start">
           {/* Image Gallery / Banner */}
-          {(() => {
-            let foodImages: string[] = []
-            if (food) {
-              if (Array.isArray(food.images)) {
-                foodImages = food.images
-              } else if (food.images && typeof food.images === 'string') {
-                try {
-                  foodImages = JSON.parse(food.images)
-                } catch {}
-              }
-              if (foodImages.length === 0 && food.image) {
-                foodImages = [food.image]
-              }
-            }
-            return (
-              <div className="space-y-4 w-full">
-                <div className="bg-white rounded-[2.5rem] p-4 border border-slate-100 shadow-xl overflow-hidden aspect-[4/3] relative flex items-center justify-center">
+          <div className="space-y-4 w-full">
+            <div className="bg-white rounded-[2.5rem] p-4 border border-slate-100 shadow-xl overflow-hidden aspect-[4/3] relative flex items-center justify-center">
                   {foodImages.length > 0 ? (
                     <img src={foodImages[activeImageIndex] || foodImages[0]} alt={food.name} className="object-cover w-full h-full rounded-[2rem]" />
                   ) : (
@@ -268,8 +261,6 @@ export default function FoodDetailsPage() {
                   </div>
                 )}
               </div>
-            )
-          })()}
 
           {/* Core Info */}
           <div className="space-y-6">
@@ -396,15 +387,29 @@ export default function FoodDetailsPage() {
                       {review.comment || "No comment left."}
                     </p>
 
-                    {review.images && (
-                      <div className="flex flex-wrap gap-1.5 mt-2">
-                        {(Array.isArray(review.images) ? review.images : JSON.parse(review.images || "[]")).map((img: string, idx: number) => (
-                          <div key={idx} className="relative w-12 h-12 rounded-lg overflow-hidden border border-slate-100 shadow-sm shrink-0">
-                            <img src={img} alt="Review attachment" className="w-full h-full object-cover" />
-                          </div>
-                        ))}
-                      </div>
-                    )}
+                    {(() => {
+                      let rImgs: string[] = []
+                      if (Array.isArray(review.images)) {
+                        rImgs = review.images
+                      } else if (typeof review.images === "string" && (review as any).images.trim()) {
+                        try {
+                          const parsed = JSON.parse((review as any).images)
+                          if (Array.isArray(parsed)) rImgs = parsed
+                          else if (typeof parsed === "string") rImgs = [parsed]
+                        } catch {
+                          rImgs = [(review as any).images]
+                        }
+                      }
+                      return rImgs.length > 0 ? (
+                        <div className="flex flex-wrap gap-1.5 mt-2">
+                          {rImgs.map((img: string, idx: number) => (
+                            <div key={idx} className="relative w-14 h-14 rounded-xl overflow-hidden border border-slate-200 shadow-xs shrink-0 bg-slate-50">
+                              <img src={img} alt="Review attachment" className="w-full h-full object-cover" />
+                            </div>
+                          ))}
+                        </div>
+                      ) : null
+                    })()}
                   </Card>
                 ))}
               </div>

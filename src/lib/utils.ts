@@ -40,3 +40,51 @@ export function generateSlug(text: string): string {
     .replace(/^-+/, "")
     .replace(/-+$/, "")
 }
+
+export function extractFoodImages(raw: unknown): string[] {
+  if (!raw) return []
+
+  if (Array.isArray(raw)) {
+    const result: string[] = []
+    for (const item of raw) {
+      if (typeof item === "string" && item.trim()) {
+        result.push(item.trim())
+      } else if (item && typeof item === "object") {
+        const obj = item as Record<string, unknown>
+        const url = obj.url || obj.src || obj.path || obj.image
+        if (typeof url === "string" && url.trim()) {
+          result.push(url.trim())
+        }
+      }
+    }
+    return result
+  }
+
+  if (typeof raw === "string") {
+    const trimmed = raw.trim()
+    if (!trimmed) return []
+
+    if (trimmed.startsWith("[") || trimmed.startsWith("{") || trimmed.startsWith('"')) {
+      try {
+        const parsed = JSON.parse(trimmed)
+        return extractFoodImages(parsed)
+      } catch {
+        // Fall through
+      }
+    }
+
+    if (trimmed.startsWith("http") || trimmed.startsWith("/") || trimmed.startsWith("data:") || trimmed.includes(".")) {
+      return [trimmed]
+    }
+  }
+
+  if (typeof raw === "object") {
+    const obj = raw as Record<string, unknown>
+    const url = obj.url || obj.src || obj.path || obj.image
+    if (typeof url === "string" && url.trim()) {
+      return [url.trim()]
+    }
+  }
+
+  return []
+}

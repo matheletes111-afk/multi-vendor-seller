@@ -7,7 +7,7 @@ import { ArrowLeft, Star, MapPin, Sparkles, Plus, Minus, ShoppingBag, AlertTrian
 import { Button } from "@/ui/button"
 import { Card, CardContent } from "@/ui/card"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/ui/dialog"
-import { formatCurrency } from "@/lib/utils"
+import { formatCurrency, extractFoodImages } from "@/lib/utils"
 import { PublicLayout } from "@/components/site-layout"
 
 type FoodItem = {
@@ -345,19 +345,24 @@ export default function RestaurantMenuPage() {
                       <Card key={food.id} className="rounded-2xl border border-[#F5EFE6] overflow-hidden shadow-sm hover:shadow-md transition-shadow bg-white flex flex-col group">
                         
                         {/* Food Image — top */}
-                        <div className="relative w-full h-32 bg-amber-50 overflow-hidden shrink-0">
-                          {food.image ? (
-                            <img src={food.image} alt={food.name} className="object-cover h-full w-full group-hover:scale-105 transition-transform duration-300" />
-                          ) : (
-                            <div className="h-full w-full flex items-center justify-center">
-                              <Utensils className="h-10 w-10 text-amber-200" />
+                        {(() => {
+                          const itemImg = food.image || extractFoodImages((food as any).images)[0] || null
+                          return (
+                            <div className="relative w-full h-32 bg-amber-50 overflow-hidden shrink-0">
+                              {itemImg ? (
+                                <img src={itemImg} alt={food.name} className="object-cover h-full w-full group-hover:scale-105 transition-transform duration-300" />
+                              ) : (
+                                <div className="h-full w-full flex items-center justify-center">
+                                  <Utensils className="h-10 w-10 text-amber-200" />
+                                </div>
+                              )}
+                              {/* Veg/Non-veg dot */}
+                              <div className={`absolute top-2 left-2 h-4 w-4 border-2 rounded-sm flex items-center justify-center bg-white ${food.isVeg ? "border-emerald-500" : "border-rose-500"}`}>
+                                <span className={`h-1.5 w-1.5 rounded-full ${food.isVeg ? "bg-emerald-500" : "bg-rose-500"}`} />
+                              </div>
                             </div>
-                          )}
-                          {/* Veg/Non-veg dot */}
-                          <div className={`absolute top-2 left-2 h-4 w-4 border-2 rounded-sm flex items-center justify-center bg-white ${food.isVeg ? "border-emerald-500" : "border-rose-500"}`}>
-                            <span className={`h-1.5 w-1.5 rounded-full ${food.isVeg ? "bg-emerald-500" : "bg-rose-500"}`} />
-                          </div>
-                        </div>
+                          )
+                        })()}
 
                         {/* Food Details — bottom */}
                         <div className="p-3 flex flex-col justify-between gap-2 flex-1">
