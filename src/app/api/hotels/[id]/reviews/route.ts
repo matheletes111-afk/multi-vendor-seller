@@ -55,7 +55,7 @@ export async function POST(
     }
 
     const finalImages = Array.isArray(imageUrls)
-      ? imageUrls.filter((url): url is string => typeof url === "string" && /^https?:\/\//.test(url))
+      ? imageUrls.filter((url): url is string => typeof url === "string" && url.trim().length > 0)
       : []
 
     const newReview = await prisma.hotelReview.create({
@@ -101,7 +101,7 @@ export async function PUT(
     }
 
     const finalImages = Array.isArray(imageUrls)
-      ? imageUrls.filter((url): url is string => typeof url === "string" && /^https?:\/\//.test(url))
+      ? imageUrls.filter((url): url is string => typeof url === "string" && url.trim().length > 0)
       : []
 
     const updated = await prisma.hotelReview.update({

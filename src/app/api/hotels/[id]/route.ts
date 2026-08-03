@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { extractFoodImages } from "@/lib/utils"
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -41,17 +42,23 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     const totalRating = hotel.reviews.reduce((acc, r) => acc + r.rating, 0)
     const averageRating = reviewCount > 0 ? parseFloat((totalRating / reviewCount).toFixed(1)) : 0
 
-    const { reviews, ...restHotel } = hotel
+    const { reviews, rooms, ...restHotel } = hotel
     const hotelData = {
       ...restHotel,
+      images: extractFoodImages(hotel.images),
       averageRating,
       totalReviews: reviewCount,
+      rooms: rooms.map(room => ({
+        ...room,
+        images: extractFoodImages(room.images)
+      })),
       reviews: reviews.map(r => ({
         id: r.id,
         userId: r.userId,
         userName: r.user.name || "Customer",
         rating: r.rating,
         comment: r.comment,
+        images: extractFoodImages(r.images),
         createdAt: r.createdAt
       }))
     }

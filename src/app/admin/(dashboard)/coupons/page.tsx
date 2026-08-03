@@ -241,8 +241,12 @@ export default function AdminCouponsPage() {
                         </span>
                       </td>
                       <td className="px-6 py-4">
-                        <span className="capitalize px-2 py-0.5 rounded text-xs bg-slate-100 dark:bg-slate-800 font-medium">
-                          {coupon.type.toLowerCase()}
+                        <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
+                          coupon.type === "SELLER"
+                            ? "bg-purple-50 text-purple-700 dark:bg-purple-950/30 dark:text-purple-300 border border-purple-200 dark:border-purple-800"
+                            : "bg-slate-100 dark:bg-slate-800 font-medium text-slate-700 dark:text-slate-300"
+                        }`}>
+                          {coupon.type === "SELLER" ? "Seller (Ad & Sub)" : `${coupon.type.toLowerCase()} (Customer)`}
                         </span>
                       </td>
                       <td className="px-6 py-4 font-semibold text-emerald-600 dark:text-emerald-400">
@@ -344,10 +348,11 @@ export default function AdminCouponsPage() {
                     }}
                     className="w-full bg-background border border-input rounded-xl px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-ring"
                   >
-                    <option value="PRODUCT">Products</option>
-                    <option value="SERVICE">Services</option>
-                    <option value="HOTEL">Hotels</option>
-                    <option value="FOOD">Foods</option>
+                    <option value="PRODUCT">Product Order (Customer)</option>
+                    <option value="SERVICE">Service Booking (Customer)</option>
+                    <option value="HOTEL">Hotel Booking (Customer)</option>
+                    <option value="FOOD">Food Order (Customer)</option>
+                    <option value="SELLER">Ad Promote & Subscription (Seller)</option>
                   </select>
                 </div>
 

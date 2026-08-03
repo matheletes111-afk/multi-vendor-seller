@@ -25,10 +25,12 @@ export async function GET(
               select: {
                 id: true,
                 name: true,
-                email: true
+                email: true,
+                role: true
               }
             }
-          }
+          },
+          orderBy: { createdAt: "desc" }
         }
       }
     })
@@ -37,7 +39,20 @@ export async function GET(
       return NextResponse.json({ error: "Coupon not found" }, { status: 404 })
     }
 
-    return NextResponse.json({ coupon })
+    const usagesEnriched = coupon.usages.map((u) => {
+      let usageType = "ORDER"
+      if (u.sellerAdId) usageType = "SELLER_AD"
+      else if (u.subscriptionId) usageType = "SELLER_SUBSCRIPTION"
+      else if (u.foodOrderId) usageType = "FOOD_ORDER"
+      else if (u.hotelBookingId) usageType = "HOTEL_BOOKING"
+
+      return {
+        ...u,
+        usageType
+      }
+    })
+
+    return NextResponse.json({ coupon: { ...coupon, usages: usagesEnriched } })
   } catch (error: any) {
     console.error("Error fetching coupon details:", error)
     return NextResponse.json(
@@ -77,7 +92,7 @@ export async function PUT(
     if (!["PERCENTAGE", "FIXED"].includes(discountType)) {
       return NextResponse.json({ error: "Invalid discount type" }, { status: 400 })
     }
-    if (!["PRODUCT", "SERVICE", "HOTEL", "FOOD"].includes(type)) {
+    if (!["PRODUCT", "SERVICE", "HOTEL", "FOOD", "SELLER"].includes(type)) {
       return NextResponse.json({ error: "Invalid coupon type" }, { status: 400 })
     }
     if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {

@@ -54,7 +54,7 @@ export function getCartFromStorage(): CartItem[] {
     if (!raw) return []
     const parsed = JSON.parse(raw) as unknown
     if (!Array.isArray(parsed)) return []
-    return parsed.filter(
+    const rawItems = parsed.filter(
       (x): x is CartItem =>
         x &&
         typeof x === "object" &&
@@ -63,6 +63,45 @@ export function getCartFromStorage(): CartItem[] {
         typeof x.quantity === "number" &&
         (typeof (x as CartItem).productId === "string" || typeof (x as CartItem).serviceId === "string")
     )
+
+    // Consolidate duplicate items for the same product/service
+    const consolidated: CartItem[] = []
+    for (const item of rawItems) {
+      if (item.productId) {
+        const existing = consolidated.find((c) => {
+          if (c.productId !== item.productId) return false
+          // If both have variant IDs and they differ, keep separate
+          if (c.productVariantId && item.productVariantId && c.productVariantId !== item.productVariantId) {
+            return false
+          }
+          return true
+        })
+        if (existing) {
+          existing.quantity += item.quantity
+          if (!existing.productVariantId && item.productVariantId) {
+            existing.productVariantId = item.productVariantId
+          }
+          if (!existing.image && item.image) {
+            existing.image = item.image
+          }
+        } else {
+          consolidated.push({ ...item })
+        }
+      } else {
+        consolidated.push({ ...item })
+      }
+    }
+
+    // Save cleaned cart back if items were merged
+    if (consolidated.length < rawItems.length) {
+      try {
+        localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(consolidated))
+      } catch {
+        // ignore
+      }
+    }
+
+    return consolidated
   } catch {
     return []
   }

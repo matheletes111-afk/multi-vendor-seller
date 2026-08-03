@@ -42,13 +42,36 @@ export async function GET(request: NextRequest) {
     prisma.sellerAd.count({ where }),
   ])
 
-  const serialized = ads.map((ad) => ({
-    ...ad,
-    totalBudget: Number(ad.totalBudget),
-    spentAmount: Number(ad.spentAmount),
-    maxCpc: Number(ad.maxCpc),
-    targetCountries: ad.targetCountries as string[] | null,
-  }))
+  const adIds = ads.map((a) => a.id)
+  const usages = adIds.length > 0
+    ? await prisma.couponUsage.findMany({
+        where: { sellerAdId: { in: adIds } },
+        include: { coupon: true }
+      })
+    : []
+
+  const usageMap = Object.fromEntries(usages.filter(u => u.sellerAdId).map((u) => [u.sellerAdId!, u]))
+
+  const serialized = ads.map((ad) => {
+    const usage = usageMap[ad.id]
+    let couponDiscount = 0
+    if (usage?.coupon) {
+      if (usage.coupon.discountType === "PERCENTAGE") {
+        couponDiscount = (Number(ad.totalBudget) * usage.coupon.discountValue) / 100
+      } else {
+        couponDiscount = Math.min(usage.coupon.discountValue, Number(ad.totalBudget))
+      }
+    }
+    return {
+      ...ad,
+      totalBudget: Number(ad.totalBudget),
+      spentAmount: Number(ad.spentAmount),
+      maxCpc: Number(ad.maxCpc),
+      targetCountries: ad.targetCountries as string[] | null,
+      couponCode: usage?.coupon?.code || null,
+      couponDiscount,
+    }
+  })
 
   const totalPages = Math.ceil(totalCount / perPage) || 1
 
@@ -198,8 +221,22 @@ export async function POST(request: NextRequest) {
   const targetAgeMax = body.targetAgeMax != null && !isNaN(Number(body.targetAgeMax)) ? Number(body.targetAgeMax) : null
   const targetAudience = body.targetAudience != null && Number(body.targetAudience) >= 1 ? Number(body.targetAudience) : null
 
+  let appliedCoupon: any = null
+  if (body.couponCode && String(body.couponCode).trim()) {
+    const { validateSellerCoupon } = await import("@/lib/coupons")
+    const val = await validateSellerCoupon({
+      code: String(body.couponCode).trim(),
+      amount: totalBudget,
+      userId: session.user.id
+    })
+    if (!val.valid) {
+      return NextResponse.json({ error: val.error }, { status: 400 })
+    }
+    appliedCoupon = val.coupon
+  }
+
   try {
-    await prisma.sellerAd.create({
+    const createdAd = await prisma.sellerAd.create({
       data: {
         restaurantSellerId: seller.id,
         customerUserId: null,
@@ -227,7 +264,17 @@ export async function POST(request: NextRequest) {
         expandAudience: body.expandAudience === true,
       },
     })
-    return NextResponse.json({ success: true })
+
+    if (appliedCoupon) {
+      const { recordSellerCouponUsage } = await import("@/lib/coupons")
+      await recordSellerCouponUsage({
+        couponId: appliedCoupon.id,
+        userId: session.user.id,
+        sellerAdId: createdAd.id
+      })
+    }
+
+    return NextResponse.json({ success: true, ad: createdAd })
   } catch (error: unknown) {
     return NextResponse.json(
       { error: `Failed to create ad: ${error instanceof Error ? error.message : "Unknown"}` },

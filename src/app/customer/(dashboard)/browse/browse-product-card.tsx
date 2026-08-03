@@ -80,11 +80,11 @@ export function BrowseProductCard({
 
   return (
     <>
-      <div className="group relative flex h-full flex-col rounded-lg border border-slate-200 bg-white shadow-sm transition-shadow hover:shadow-lg">
+      <div className="group relative flex h-full flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xs transition-all hover:shadow-md">
         <Link href={`/product/${product.id}`} className="flex min-h-0 flex-1 flex-col">
-          <div className="relative aspect-square w-full overflow-hidden bg-slate-50">
+          <div className="relative aspect-square w-full overflow-hidden bg-slate-50/70 p-2 flex items-center justify-center">
             {canUseWishlist && (
-              <div className="absolute right-2 top-2 z-10">
+              <div className="absolute right-1.5 top-1.5 z-10 scale-90 sm:scale-100">
                 <WishlistButton
                   productId={product.id}
                   name={product.name}
@@ -95,7 +95,7 @@ export function BrowseProductCard({
             )}
             <button
               type="button"
-              className="absolute left-2 top-2 z-10 rounded-full bg-white/90 p-1.5 text-slate-600 opacity-0 shadow transition hover:bg-white hover:text-amber-600 group-hover:opacity-100"
+              className="absolute left-1.5 top-1.5 z-10 rounded-full bg-white/90 p-1.5 text-slate-600 opacity-0 shadow transition hover:bg-white hover:text-amber-600 group-hover:opacity-100"
               title="Quick view"
               onClick={(e) => {
                 e.preventDefault()
@@ -103,34 +103,34 @@ export function BrowseProductCard({
                 setQuickOpen(true)
               }}
             >
-              <Eye className="h-4 w-4" />
+              <Eye className="h-3.5 w-3.5" />
             </button>
             {firstImage ? (
-              <img src={firstImage} alt="" className="h-full w-full object-cover" loading="lazy" />
+              <img src={firstImage} alt="" className="h-full w-full object-contain transition-transform duration-300 group-hover:scale-105" loading="lazy" />
             ) : (
               <div className="flex h-full w-full items-center justify-center">
-                <ShoppingBag className="h-12 w-12 text-slate-300" />
+                <ShoppingBag className="h-10 w-10 text-slate-300" />
               </div>
             )}
             {hasDiscount && (
-              <span className="absolute bottom-2 left-2 rounded bg-red-100 px-2 py-0.5 text-xs font-medium text-red-600">
+              <span className="absolute bottom-1.5 left-1.5 rounded bg-red-100 px-1.5 py-0.5 text-[10px] sm:text-xs font-bold text-red-600">
                 {product.discountPercent}% off
               </span>
             )}
           </div>
-          <div className="flex min-h-0 flex-1 flex-col p-3">
+          <div className="flex min-h-0 flex-1 flex-col p-2.5 sm:p-3">
             <p className="text-[10px] font-bold text-amber-700 uppercase tracking-wider truncate mb-0.5">
               {product.seller?.store?.name ?? "Store"}
             </p>
-            <p className="line-clamp-2 text-sm font-medium text-gray-800">{product.name}</p>
-            <div className="mt-1 flex flex-wrap items-center gap-2">
-              <span className="text-xl font-bold text-slate-900">{formatCurrency(finalPrice)}</span>
+            <p className="line-clamp-2 text-xs sm:text-sm font-medium text-gray-800 leading-snug">{product.name}</p>
+            <div className="mt-1 flex flex-wrap items-baseline gap-1">
+              <span className="text-sm sm:text-base md:text-lg font-bold text-slate-900">{formatCurrency(finalPrice)}</span>
               {hasDiscount && (
-                <span className="text-sm text-gray-500 line-through">{formatCurrency(product.basePrice)}</span>
+                <span className="text-[11px] sm:text-xs text-gray-400 line-through">{formatCurrency(product.basePrice)}</span>
               )}
             </div>
             {product._count.reviews > 0 && (
-              <div className="mt-1 flex flex-wrap items-center gap-1 text-xs text-gray-600">
+              <div className="mt-1 flex items-center gap-1 text-[11px] sm:text-xs text-gray-600">
                 <Stars rating={product.avgRating} />
                 <span>
                   ({product._count.reviews})
@@ -138,15 +138,14 @@ export function BrowseProductCard({
               </div>
             )}
             {product.soldCount > 0 && (
-              <p className="mt-1 text-xs text-gray-500">{product.soldCount} sold</p>
+              <p className="mt-0.5 text-[11px] sm:text-xs text-gray-500">{product.soldCount} sold</p>
             )}
             {product.stock <= 0 && (
-              <p className="mt-1 text-xs font-medium text-amber-700">Out of stock</p>
+              <p className="mt-0.5 text-[11px] sm:text-xs font-semibold text-amber-700">Out of stock</p>
             )}
-            <p className="mt-1 truncate text-xs text-gray-500">{product.seller?.store?.name ?? "Store"}</p>
           </div>
         </Link>
-        <div className="mt-auto border-t border-slate-100 p-3 pt-2">
+        <div className="mt-auto border-t border-slate-100 p-2 sm:p-3 pt-1.5">
           <AddToCartButton
             productId={product.id}
             name={product.name}
@@ -156,7 +155,7 @@ export function BrowseProductCard({
             label="Add to Cart"
             showLabel={true}
             ariaLabel={`Add ${product.name} to cart`}
-            className="w-full justify-center rounded-lg px-4 py-2"
+            className="w-full justify-center rounded-lg px-2 py-1.5 text-xs font-semibold min-h-8 sm:min-h-9"
           />
         </div>
       </div>

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { extractFoodImages } from "@/lib/utils"
 
 export async function GET(
   request: NextRequest,
@@ -55,19 +56,12 @@ export async function GET(
     const averageRating = reviewCount > 0 ? parseFloat((totalRating / reviewCount).toFixed(1)) : 0
 
     const { reviews, ...restFood } = food
-    let firstImage: string | null = null
-    if (Array.isArray(food.images) && food.images.length > 0) {
-      firstImage = food.images[0] as string
-    } else if (food.images && typeof food.images === 'string') {
-      try {
-        const parsed = JSON.parse(food.images)
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          firstImage = parsed[0]
-        }
-      } catch {}
-    }
+    const extractedImages = extractFoodImages(food.images)
+    const firstImage = extractedImages[0] || null
+
     const foodData = {
       ...restFood,
+      images: extractedImages,
       image: firstImage,
       averageRating,
       totalReviews: reviewCount,
@@ -78,6 +72,7 @@ export async function GET(
         userName: r.user.name || "Customer",
         rating: r.rating,
         comment: r.comment,
+        images: r.images,
         createdAt: r.createdAt
       }))
     }

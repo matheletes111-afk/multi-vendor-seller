@@ -33,7 +33,7 @@ export async function mergeGuestCartForUser(
       ...payload,
       productVariantId,
     }
-    const existing = await prisma.cartItem.findFirst({
+    let existing = await prisma.cartItem.findFirst({
       where: {
         userId,
         productId,
@@ -41,6 +41,15 @@ export async function mergeGuestCartForUser(
         serviceId: null,
       },
     })
+    if (!existing) {
+      existing = await prisma.cartItem.findFirst({
+        where: {
+          userId,
+          productId,
+          serviceId: null,
+        },
+      })
+    }
     if (existing) {
       const nextQuantity = existing.quantity + quantity
       const resolved = await resolveCartLine(payloadWithVariant, nextQuantity)
@@ -48,6 +57,7 @@ export async function mergeGuestCartForUser(
       await prisma.cartItem.update({
         where: { id: existing.id },
         data: {
+          productVariantId,
           quantity: nextQuantity,
           unitPrice: resolved.unitPrice,
           totalPrice: resolved.totalPrice,

@@ -6,7 +6,7 @@ import { useParams } from "next/navigation"
 import { Star, MapPin, Building2, CheckCircle2, ChevronRight, User, Users, Coffee, ShieldAlert, ArrowLeft, MessageSquare } from "lucide-react"
 import { Button } from "@/ui/button"
 import { Card, CardContent } from "@/ui/card"
-import { formatCurrency } from "@/lib/utils"
+import { formatCurrency, extractFoodImages } from "@/lib/utils"
 import { useSession } from "next-auth/react"
 import { GoogleMapView } from "@/components/google-map-view"
 
@@ -184,7 +184,7 @@ export default function HotelDetailsPage() {
     )
   }
 
-  const images = Array.isArray(hotel.images) ? hotel.images : []
+  const images = extractFoodImages(hotel.images)
   const mainImage = images[0] || "/images/placeholder-hotel.jpg"
   const amenitiesList = Array.isArray(hotel.amenities) ? hotel.amenities : []
 
@@ -394,15 +394,29 @@ export default function HotelDetailsPage() {
                   {review.comment && (
                     <p className="text-slate-600 text-sm font-medium leading-relaxed pl-12">{review.comment}</p>
                   )}
-                  {review.images && (
-                    <div className="flex flex-wrap gap-1.5 mt-2 pl-12">
-                      {(Array.isArray(review.images) ? review.images : JSON.parse(review.images || "[]")).map((img: string, idx: number) => (
-                        <div key={idx} className="relative w-12 h-12 rounded-lg overflow-hidden border border-slate-100 shadow-sm shrink-0">
-                          <img src={img} alt="Review attachment" className="w-full h-full object-cover" />
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                  {(() => {
+                    let rImgs: string[] = []
+                    if (Array.isArray(review.images)) {
+                      rImgs = review.images
+                    } else if (typeof review.images === "string" && (review as any).images.trim()) {
+                      try {
+                        const parsed = JSON.parse((review as any).images)
+                        if (Array.isArray(parsed)) rImgs = parsed
+                        else if (typeof parsed === "string") rImgs = [parsed]
+                      } catch {
+                        rImgs = [(review as any).images]
+                      }
+                    }
+                    return rImgs.length > 0 ? (
+                      <div className="flex flex-wrap gap-1.5 mt-2 pl-12">
+                        {rImgs.map((img: string, idx: number) => (
+                          <div key={idx} className="relative w-14 h-14 rounded-xl overflow-hidden border border-slate-200 shadow-xs shrink-0 bg-slate-50">
+                            <img src={img} alt="Review photo" className="w-full h-full object-cover" />
+                          </div>
+                        ))}
+                      </div>
+                    ) : null
+                  })()}
                 </div>
               ))}
             </div>

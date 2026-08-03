@@ -238,13 +238,41 @@ export async function GET(request: NextRequest) {
       planActiveCounts = prodPlanActiveCounts
     }
 
-    const totalRevenue = filteredForRevenue.reduce((sum, s) => sum + s.plan.price, 0)
+    const subIds = subscriptions.map((s) => s.id)
+    const usages = subIds.length > 0
+      ? await prisma.couponUsage.findMany({
+          where: { subscriptionId: { in: subIds } },
+          include: { coupon: true }
+        })
+      : []
+
+    const usageMap = Object.fromEntries(usages.filter(u => u.subscriptionId).map((u) => [u.subscriptionId!, u]))
+
+    const enrichedSubscriptions = subscriptions.map((s) => {
+      const usage = usageMap[s.id]
+      let couponDiscount = 0
+      if (usage?.coupon) {
+        if (usage.coupon.discountType === "PERCENTAGE") {
+          couponDiscount = (s.plan.price * usage.coupon.discountValue) / 100
+        } else {
+          couponDiscount = Math.min(usage.coupon.discountValue, s.plan.price)
+        }
+      }
+      return {
+        ...s,
+        couponCode: usage?.coupon?.code || null,
+        couponDiscount,
+        finalPaidAmount: Math.max(0, s.plan.price - couponDiscount)
+      }
+    })
+
+    const totalRevenue = enrichedSubscriptions.reduce((sum, s) => sum + s.finalPaidAmount, 0)
     const planCountMap = Object.fromEntries(planCounts.map((p: any) => [p.planId, p._count]))
     const planActiveMap = Object.fromEntries(planActiveCounts.map((p: any) => [p.planId, p._count]))
     const totalPages = Math.ceil(totalCount / perPage)
 
     return NextResponse.json({
-      subscriptions,
+      subscriptions: enrichedSubscriptions,
       totalCount,
       totalPages,
       page,

@@ -7,7 +7,7 @@ import { ShieldCheck, Plus, MapPin, Check, CreditCard, ShieldAlert, Pencil } fro
 import { Button } from "@/ui/button"
 import { Input } from "@/ui/input"
 import { Card, CardContent } from "@/ui/card"
-import { formatCurrency } from "@/lib/utils"
+import { formatCurrency, extractFoodImages } from "@/lib/utils"
 import { useSession } from "next-auth/react"
 import { PublicLayout } from "@/components/site-layout"
 import { GoogleAddressAutocomplete } from "@/components/google-address-autocomplete"
@@ -682,18 +682,8 @@ function CheckoutContent() {
                 <div className="flex items-start justify-between gap-3 text-sm">
                   <div className="flex items-center gap-3">
                     {(() => {
-                      let imageUrl: string | null = null;
-                      if (Array.isArray(singleFood.images) && singleFood.images.length > 0) {
-                        imageUrl = singleFood.images[0];
-                      } else if (singleFood.images && typeof singleFood.images === 'string') {
-                        try {
-                          const parsed = JSON.parse(singleFood.images);
-                          if (Array.isArray(parsed) && parsed.length > 0) imageUrl = parsed[0];
-                        } catch {}
-                      }
-                      if (!imageUrl && singleFood.image) {
-                        imageUrl = singleFood.image;
-                      }
+                      const imgs = extractFoodImages(singleFood.images)
+                      const imageUrl = imgs[0] || singleFood.image || null;
                       return imageUrl ? (
                         <div className="relative w-14 h-14 rounded-xl overflow-hidden border border-slate-100 shadow-sm shrink-0">
                           <img src={imageUrl} alt={singleFood.name} className="w-full h-full object-cover" />

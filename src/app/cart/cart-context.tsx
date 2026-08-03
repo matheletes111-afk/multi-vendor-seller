@@ -202,14 +202,21 @@ export function CartProvider({ children }: { children: ReactNode }) {
         }
       }
       const next = getCartFromStorage()
-      const sameLine = (i: CartItem) =>
-        i.productId === input.productId &&
-        (effectiveVariantId != null
-          ? i.productVariantId === effectiveVariantId
-          : i.productVariantId == null)
+      const inputVariantId = (input as CartItem).productVariantId
+      const sameLine = (i: CartItem) => {
+        if (i.productId !== input.productId) return false
+        const targetVariant = inputVariantId || effectiveVariantId
+        if (i.productVariantId && targetVariant && i.productVariantId !== targetVariant) {
+          return false
+        }
+        return true
+      }
       const existing = next.find(sameLine)
       if (existing) {
         existing.quantity += quantity
+        if (!existing.productVariantId && (inputVariantId || effectiveVariantId)) {
+          existing.productVariantId = inputVariantId || effectiveVariantId
+        }
         const existingIndex = next.findIndex((i) => getCartItemId(i) === getCartItemId(existing))
         if (existingIndex > 0) {
           const [line] = next.splice(existingIndex, 1)
@@ -218,7 +225,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       } else {
         next.unshift({
           productId: input.productId,
-          productVariantId: effectiveVariantId,
+          productVariantId: inputVariantId || effectiveVariantId,
           name: input.name,
           price: input.price,
           image: input.image ?? null,

@@ -132,3 +132,96 @@ export async function validateCoupon(params: {
     discountAmount
   }
 }
+
+export async function validateSellerCoupon(params: {
+  code: string
+  amount: number
+  userId: string
+}) {
+  const { code, amount, userId } = params
+
+  if (!code || !code.trim()) {
+    return { valid: false, error: "Coupon code is required" }
+  }
+
+  const coupon = await prisma.coupon.findUnique({
+    where: { code: code.trim().toUpperCase() },
+    include: {
+      usages: true
+    }
+  })
+
+  if (!coupon) {
+    return { valid: false, error: "Coupon not found" }
+  }
+
+  if (!coupon.isActive) {
+    return { valid: false, error: "Coupon is inactive" }
+  }
+
+  const now = new Date()
+  if (now < coupon.startDate || now > coupon.endDate) {
+    return { valid: false, error: "Coupon is expired or not yet active" }
+  }
+
+  if (coupon.type !== "SELLER") {
+    return { valid: false, error: "This coupon is not valid for seller promotions or subscriptions" }
+  }
+
+  if (amount < coupon.minOrderValue) {
+    return { valid: false, error: `Minimum amount of NLe ${coupon.minOrderValue.toFixed(2)} required for this coupon` }
+  }
+
+  // Global count check
+  if (coupon.customerCount !== null) {
+    const totalUsages = coupon.usages.length
+    if (totalUsages >= coupon.customerCount) {
+      return { valid: false, error: "Coupon usage limit reached" }
+    }
+  }
+
+  // Per-seller usage limit check
+  const sellerUsages = coupon.usages.filter((usage: { userId: string }) => usage.userId === userId).length
+  if (sellerUsages >= coupon.maxUsesPerCustomer) {
+    return { valid: false, error: `You have already used this coupon the maximum allowed times (${coupon.maxUsesPerCustomer})` }
+  }
+
+  // Calculate discount amount
+  let discountAmount = 0
+  if (coupon.discountType === "PERCENTAGE") {
+    discountAmount = (amount * coupon.discountValue) / 100
+  } else {
+    // FIXED
+    discountAmount = Math.min(coupon.discountValue, amount)
+  }
+
+  const finalAmount = Math.max(0, amount - discountAmount)
+
+  return {
+    valid: true,
+    coupon,
+    discountAmount,
+    finalAmount
+  }
+}
+
+export async function recordSellerCouponUsage(params: {
+  couponId: string
+  userId: string
+  sellerAdId?: string
+  subscriptionId?: string
+  prismaTx?: any
+}) {
+  const { couponId, userId, sellerAdId, subscriptionId, prismaTx } = params
+  const client = prismaTx || prisma
+
+  return await client.couponUsage.create({
+    data: {
+      couponId,
+      userId,
+      sellerAdId: sellerAdId || null,
+      subscriptionId: subscriptionId || null,
+    }
+  })
+}
+

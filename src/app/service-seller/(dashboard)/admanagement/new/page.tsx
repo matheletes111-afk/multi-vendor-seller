@@ -31,7 +31,7 @@ const createAdSchema = z.object({
   expandAudience: z.boolean().optional(),
 })
 
-async function createAd(data: unknown) {
+async function createAd(data: any) {
   const session = await auth()
   if (!session?.user || !isServiceSeller(session.user)) return { error: "Unauthorized" }
   const validated = createAdSchema.safeParse(data)
@@ -98,13 +98,28 @@ async function createAd(data: unknown) {
     }
 
     try {
-      await prisma.sellerAd.create({ data: adData })
-    revalidatePath("/service-seller/admanagement")
-    return { success: true }
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : "Unknown error"
-    return { error: `Failed to create ad: ${message}` }
-  }
+      const createdAd = await prisma.sellerAd.create({ data: adData })
+      if (data?.couponCode) {
+        const { validateSellerCoupon, recordSellerCouponUsage } = await import("@/lib/coupons")
+        const val = await validateSellerCoupon({
+          code: String(data.couponCode),
+          amount: validated.data.totalBudget,
+          userId: session.user.id
+        })
+        if (val.valid && val.coupon) {
+          await recordSellerCouponUsage({
+            couponId: val.coupon.id,
+            userId: session.user.id,
+            sellerAdId: createdAd.id
+          })
+        }
+      }
+      revalidatePath("/service-seller/admanagement")
+      return { success: true }
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Unknown error"
+      return { error: `Failed to create ad: ${message}` }
+    }
 }
 
 async function createAdForm(formData: FormData) {
@@ -200,8 +215,10 @@ async function createAdForm(formData: FormData) {
     targetAgeMin: targetAgeMin != null && !isNaN(targetAgeMin) ? targetAgeMin : undefined,
     targetAgeMax: targetAgeMax != null && !isNaN(targetAgeMax) ? targetAgeMax : undefined,
     expandAudience,
+    couponCode: (formData.get("couponCode") as string) || undefined,
+    userId: session.user.id,
   }
-  const result = await createAd(data)
+  const result = await createAd(data as any)
   if (result.error) {
     redirect(`/service-seller/admanagement/new?error=${encodeURIComponent(typeof result.error === "string" ? result.error : "Failed")}`)
   }

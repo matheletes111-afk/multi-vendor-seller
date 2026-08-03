@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { extractFoodImages } from "@/lib/utils"
 
 export async function GET(request: NextRequest) {
   try {
@@ -76,7 +77,19 @@ export async function GET(request: NextRequest) {
       .map((h) => h.city)
       .filter((c): c is string => !!c && c.trim() !== "")
 
-    return NextResponse.json({ success: true, data: hotels, cities: citiesList })
+    const formattedHotels = hotels.map((h) => {
+      const extractedImages = extractFoodImages(h.images)
+      return {
+        ...h,
+        images: extractedImages,
+        rooms: h.rooms.map((r) => ({
+          ...r,
+          images: extractFoodImages(r.images),
+        })),
+      }
+    })
+
+    return NextResponse.json({ success: true, data: formattedHotels, cities: citiesList })
   } catch (error) {
     console.error("Error fetching hotels list:", error)
     return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 })

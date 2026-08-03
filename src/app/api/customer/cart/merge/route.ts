@@ -92,29 +92,46 @@ export async function POST(request: NextRequest) {
     {
       const productId = item.productId as string
       const productVariantId = effectiveVariantId
-      const existing = await prisma.cartItem.findFirst({
+      let existing = await prisma.cartItem.findFirst({
         where: { userId, productId, productVariantId, serviceId: null },
       })
-      const data = {
-        userId,
-        productId,
-        productVariantId,
-        serviceId: null,
-        servicePackageId: null,
-        serviceSlotId: null,
-        quantity: item.quantity,
-        unitPrice: resolved.unitPrice,
-        totalPrice: resolved.totalPrice,
-        hasGst: resolved.hasGst,
-        totalGst: resolved.totalGst,
-        totalPriceInclGst: resolved.totalPriceInclGst,
+      if (!existing) {
+        existing = await prisma.cartItem.findFirst({
+          where: { userId, productId, serviceId: null },
+        })
       }
       if (existing) {
-        await prisma.cartItem.update({
-          where: { id: existing.id },
-          data: { quantity: item.quantity, totalPrice: resolved.totalPrice, totalGst: resolved.totalGst, totalPriceInclGst: resolved.totalPriceInclGst },
-        })
+        const nextQuantity = existing.quantity + item.quantity
+        const nextResolved = await resolveCartLine(normalizedItem, nextQuantity)
+        if (nextResolved) {
+          await prisma.cartItem.update({
+            where: { id: existing.id },
+            data: {
+              productVariantId,
+              quantity: nextQuantity,
+              unitPrice: nextResolved.unitPrice,
+              totalPrice: nextResolved.totalPrice,
+              hasGst: nextResolved.hasGst,
+              totalGst: nextResolved.totalGst,
+              totalPriceInclGst: nextResolved.totalPriceInclGst,
+            },
+          })
+        }
       } else {
+        const data = {
+          userId,
+          productId,
+          productVariantId,
+          serviceId: null,
+          servicePackageId: null,
+          serviceSlotId: null,
+          quantity: item.quantity,
+          unitPrice: resolved.unitPrice,
+          totalPrice: resolved.totalPrice,
+          hasGst: resolved.hasGst,
+          totalGst: resolved.totalGst,
+          totalPriceInclGst: resolved.totalPriceInclGst,
+        }
         await prisma.cartItem.create({ data })
       }
     }

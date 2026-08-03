@@ -35,7 +35,30 @@ export async function GET() {
       }
     }
 
-    return NextResponse.json(subscription)
+    let appliedCoupon: any = null
+    if (subscription) {
+      const usage = await prisma.couponUsage.findFirst({
+        where: { subscriptionId: subscription.id },
+        include: { coupon: true }
+      })
+      if (usage?.coupon) {
+        let discountAmount = 0
+        if (usage.coupon.discountType === "PERCENTAGE") {
+          discountAmount = (subscription.plan.price * usage.coupon.discountValue) / 100
+        } else {
+          discountAmount = Math.min(usage.coupon.discountValue, subscription.plan.price)
+        }
+        appliedCoupon = {
+          code: usage.coupon.code,
+          discountType: usage.coupon.discountType,
+          discountValue: usage.coupon.discountValue,
+          discountAmount,
+          finalPaidAmount: Math.max(0, subscription.plan.price - discountAmount)
+        }
+      }
+    }
+
+    return NextResponse.json(subscription ? { ...subscription, appliedCoupon } : null)
   } catch (error) {
     console.error("Error fetching hotel subscription:", error)
     return NextResponse.json({ error: "Failed to fetch subscription" }, { status: 500 })
