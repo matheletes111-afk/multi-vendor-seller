@@ -3,13 +3,14 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { useParams, useRouter } from "next/navigation"
-import { Star, ArrowLeft, Clock, Flame, ShoppingBag, Plus, Minus, ShieldAlert, Utensils } from "lucide-react"
+import { Star, ArrowLeft, Clock, Flame, ShoppingBag, Plus, Minus, ShieldAlert, Utensils, ZoomIn } from "lucide-react"
 import { Button } from "@/ui/button"
 import { Card, CardContent } from "@/ui/card"
 import { Textarea } from "@/ui/textarea"
 import { formatCurrency, extractFoodImages } from "@/lib/utils"
 import { useSession } from "next-auth/react"
 import { PublicLayout } from "@/components/site-layout"
+import { ReviewImageModal } from "@/components/reviews/review-image-modal"
 
 type FoodReviewItem = {
   id: string
@@ -52,6 +53,11 @@ export default function FoodDetailsPage() {
   const [reviewPreviews, setReviewPreviews] = useState<string[]>([])
   const [submittingReview, setSubmittingReview] = useState(false)
   const [reviewMessage, setReviewMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
+
+  // Image Modal state
+  const [modalImages, setModalImages] = useState<string[]>([])
+  const [modalIndex, setModalIndex] = useState(0)
+  const [isModalOpen, setIsModalOpen] = useState(false)
 
   const fetchFoodDetails = async () => {
     try {
@@ -401,11 +407,24 @@ export default function FoodDetailsPage() {
                         }
                       }
                       return rImgs.length > 0 ? (
-                        <div className="flex flex-wrap gap-1.5 mt-2">
+                        <div className="flex flex-wrap gap-2 mt-2">
                           {rImgs.map((img: string, idx: number) => (
-                            <div key={idx} className="relative w-14 h-14 rounded-xl overflow-hidden border border-slate-200 shadow-xs shrink-0 bg-slate-50">
-                              <img src={img} alt="Review attachment" className="w-full h-full object-cover" />
-                            </div>
+                            <button
+                              key={idx}
+                              type="button"
+                              onClick={() => {
+                                setModalImages(rImgs)
+                                setModalIndex(idx)
+                                setIsModalOpen(true)
+                              }}
+                              className="group relative w-16 h-16 rounded-xl overflow-hidden border border-slate-200 shadow-xs shrink-0 bg-slate-50 hover:border-rose-500 hover:shadow-md transition-all focus:outline-none ring-2 ring-transparent focus:ring-rose-500 cursor-pointer"
+                              title="Click to view large image"
+                            >
+                              <img src={img} alt="Review attachment" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300" />
+                              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center">
+                                <ZoomIn className="h-5 w-5 text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow-md" />
+                              </div>
+                            </button>
                           ))}
                         </div>
                       ) : null
@@ -462,11 +481,24 @@ export default function FoodDetailsPage() {
                     className="block w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-slate-50 file:text-slate-700 hover:file:bg-slate-100"
                   />
                   {reviewPreviews.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5 mt-2">
+                    <div className="flex flex-wrap gap-2 mt-2">
                       {reviewPreviews.map((url, index) => (
-                        <div key={index} className="relative w-12 h-12 rounded-lg overflow-hidden border border-slate-100 shadow-sm shrink-0">
-                          <img src={url} alt="Preview" className="w-full h-full object-cover" />
-                        </div>
+                        <button
+                          key={index}
+                          type="button"
+                          onClick={() => {
+                            setModalImages(reviewPreviews)
+                            setModalIndex(index)
+                            setIsModalOpen(true)
+                          }}
+                          className="group relative w-14 h-14 rounded-xl overflow-hidden border border-slate-200 shadow-xs shrink-0 bg-slate-50 hover:border-rose-500 hover:shadow-md transition-all cursor-pointer"
+                          title="Click to view large image"
+                        >
+                          <img src={url} alt="Preview" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300" />
+                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center">
+                            <ZoomIn className="h-4 w-4 text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow-md" />
+                          </div>
+                        </button>
                       ))}
                     </div>
                   )}
@@ -494,6 +526,14 @@ export default function FoodDetailsPage() {
           )}
         </div>
       </div>
+
+      <ReviewImageModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        images={modalImages}
+        currentIndex={modalIndex}
+        onIndexChange={setModalIndex}
+      />
     </PublicLayout>
   )
 }

@@ -2,42 +2,33 @@
 
 import { useState, useEffect, useRef } from "react"
 import { Label } from "@/ui/label"
-import { Button } from "@/ui/button"
 import { ChevronDown } from "lucide-react"
 import { cn } from "@/lib/utils"
-
-const COUNTRIES_URL = "https://restcountries.com/v3.1/all?fields=name,cca2"
-
-type Country = { name: { common: string }; cca2: string }
+import { WORLD_COUNTRIES, type Country } from "@/lib/countries-data"
 
 type CountryProps = {
   defaultCountries?: string[] | null
 }
 
-export function CountryMultiSelect({ defaultCountries = [] }: CountryProps) {
-  const [countries, setCountries] = useState<Country[]>([])
+export function CountryMultiSelect({ defaultCountries }: CountryProps) {
+  const [countries] = useState<Country[]>(WORLD_COUNTRIES)
   const [selected, setSelected] = useState<string[]>([])
   const [open, setOpen] = useState(false)
-  const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
   const containerRef = useRef<HTMLDivElement>(null)
 
+  const defaultKey = Array.isArray(defaultCountries) ? defaultCountries.join(",") : ""
+
   useEffect(() => {
-    fetch(COUNTRIES_URL)
-      .then((res) => res.json())
-      .then((data: Country[]) => {
-        const sorted = data.sort((a, b) => a.name.common.localeCompare(b.name.common))
-        setCountries(sorted)
-        if (defaultCountries && defaultCountries.length > 0) {
-          const codes = sorted
-            .filter((c) => defaultCountries.includes(c.name.common) || defaultCountries.includes(c.cca2))
-            .map((c) => c.cca2)
-          setSelected(codes)
-        }
-      })
-      .catch(() => setCountries([]))
-      .finally(() => setLoading(false))
-  }, [defaultCountries])
+    if (defaultCountries && defaultCountries.length > 0) {
+      const codes = WORLD_COUNTRIES
+        .filter((c) => defaultCountries.includes(c.name.common) || defaultCountries.includes(c.cca2))
+        .map((c) => c.cca2)
+      setSelected(codes)
+    } else {
+      setSelected([])
+    }
+  }, [defaultKey])
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -92,28 +83,21 @@ export function CountryMultiSelect({ defaultCountries = [] }: CountryProps) {
               className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm mb-2"
             />
             <div className="overflow-y-auto flex-1 min-h-0">
-              {loading ? (
-                <div className="py-6 flex flex-col items-center gap-2">
-                  <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary/30 border-t-primary" aria-hidden />
-                  <p className="text-xs text-muted-foreground">Loading…</p>
-                </div>
-              ) : (
-                filtered.slice(0, 200).map((c) => (
-                  <label
-                    key={c.cca2}
-                    className="flex items-center gap-2 py-1.5 px-2 rounded cursor-pointer hover:bg-muted"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={selected.includes(c.cca2)}
-                      onChange={() => toggle(c.cca2)}
-                      className="rounded border-input"
-                    />
-                    <span className="text-sm">{c.name.common}</span>
-                    <span className="text-xs text-muted-foreground">({c.cca2})</span>
-                  </label>
-                ))
-              )}
+              {filtered.slice(0, 200).map((c) => (
+                <label
+                  key={c.cca2}
+                  className="flex items-center gap-2 py-1.5 px-2 rounded cursor-pointer hover:bg-muted"
+                >
+                  <input
+                    type="checkbox"
+                    checked={selected.includes(c.cca2)}
+                    onChange={() => toggle(c.cca2)}
+                    className="rounded border-input"
+                  />
+                  <span className="text-sm">{c.name.common}</span>
+                  <span className="text-xs text-muted-foreground">({c.cca2})</span>
+                </label>
+              ))}
             </div>
             {filtered.length > 200 && (
               <p className="text-xs text-muted-foreground pt-1">Type to search. Showing first 200.</p>
@@ -124,3 +108,4 @@ export function CountryMultiSelect({ defaultCountries = [] }: CountryProps) {
     </div>
   )
 }
+

@@ -13,6 +13,7 @@ type Props = {
   name: string
   price: number
   image: string | null
+  stock?: number
   /**
    * Button size for compact product cards.
    * - `sm`: normal card width
@@ -36,6 +37,7 @@ export function AddToCartButton({
   name,
   price,
   image,
+  stock,
   size = "sm",
   label = "Add to Cart",
   showLabel = true,
@@ -72,6 +74,7 @@ export function AddToCartButton({
           name,
           price,
           image,
+          stock,
         })
 
         if (!res || !("error" in res) || res.error == null) {

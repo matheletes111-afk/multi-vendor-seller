@@ -248,6 +248,7 @@ export async function GET(request: NextRequest) {
     categoryWithSubs,
     subcategoryWithCategory,
     allCategories,
+    allServiceCategories,
   ] = await Promise.all([
     isFiltered
       ? Promise.resolve([])
@@ -320,6 +321,11 @@ export async function GET(request: NextRequest) {
         })
       : Promise.resolve(null),
     prisma.category.findMany({
+      where: { isActive: true },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true, slug: true },
+    }),
+    prisma.serviceCategory.findMany({
       where: { isActive: true },
       orderBy: { name: "asc" },
       select: { id: true, name: true, slug: true },
@@ -562,6 +568,7 @@ export async function GET(request: NextRequest) {
     subcategories,
     filterMeta: {
       categories: allCategories,
+      serviceCategories: allServiceCategories,
       brands: brandsList,
       priceExtent,
     },

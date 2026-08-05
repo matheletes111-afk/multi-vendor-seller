@@ -266,6 +266,19 @@ export async function GET(request: NextRequest) {
       }
     })
 
+    // Guarantee latest created / updated subscriptions always come first
+    enrichedSubscriptions.sort((a, b) => {
+      const timeA = Math.max(
+        a.createdAt ? new Date(a.createdAt).getTime() : 0,
+        a.updatedAt ? new Date(a.updatedAt).getTime() : 0
+      )
+      const timeB = Math.max(
+        b.createdAt ? new Date(b.createdAt).getTime() : 0,
+        b.updatedAt ? new Date(b.updatedAt).getTime() : 0
+      )
+      return timeB - timeA
+    })
+
     const totalRevenue = enrichedSubscriptions.reduce((sum, s) => sum + s.finalPaidAmount, 0)
     const planCountMap = Object.fromEntries(planCounts.map((p: any) => [p.planId, p._count]))
     const planActiveMap = Object.fromEntries(planActiveCounts.map((p: any) => [p.planId, p._count]))

@@ -1,9 +1,10 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Star, MessageSquare, Loader2, ArrowLeft, Calendar, Building2 } from "lucide-react"
+import { Star, MessageSquare, Loader2, ArrowLeft, Calendar, Building2, ZoomIn } from "lucide-react"
 import { Card, CardContent } from "@/ui/card"
 import { Button } from "@/ui/button"
+import { ReviewImageModal } from "@/components/reviews/review-image-modal"
 
 type GroupedHotel = {
   hotelId: string
@@ -38,6 +39,11 @@ export function HotelReviewsClient() {
   const [loading, setLoading] = useState(true)
   const [selectedHotelId, setSelectedHotelId] = useState<string | null>(null)
   const [detailData, setDetailData] = useState<DetailResponse | null>(null)
+  
+  // Image Modal state
+  const [modalImages, setModalImages] = useState<string[]>([])
+  const [modalIndex, setModalIndex] = useState(0)
+  const [isModalOpen, setIsModalOpen] = useState(false)
   const [loadingDetail, setLoadingDetail] = useState(false)
 
   const fetchGroupedReviews = async () => {
@@ -142,11 +148,24 @@ export function HotelReviewsClient() {
                 </p>
 
                 {review.images && Array.isArray(review.images) && (review.images as string[]).length > 0 && (
-                  <div className="flex flex-wrap gap-1.5 mt-2.5">
+                  <div className="flex flex-wrap gap-2 mt-2.5">
                     {(review.images as string[]).map((img: string, idx: number) => (
-                      <div key={idx} className="relative w-12 h-12 rounded-lg overflow-hidden border border-slate-100 shadow-sm shrink-0">
-                        <img src={img} alt="Review attachment" className="w-full h-full object-cover" />
-                      </div>
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => {
+                          setModalImages(review.images as string[])
+                          setModalIndex(idx)
+                          setIsModalOpen(true)
+                        }}
+                        className="group relative w-14 h-14 rounded-xl overflow-hidden border border-slate-100 shadow-xs shrink-0 bg-slate-50 hover:border-emerald-500 transition-all cursor-pointer focus:outline-none ring-2 ring-transparent focus:ring-emerald-500"
+                        title="Click to view large image"
+                      >
+                        <img src={img} alt="Review attachment" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300" />
+                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center">
+                          <ZoomIn className="h-4 w-4 text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow-md" />
+                        </div>
+                      </button>
                     ))}
                   </div>
                 )}
@@ -159,6 +178,14 @@ export function HotelReviewsClient() {
             </Card>
           ))}
         </div>
+
+        <ReviewImageModal
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          images={modalImages}
+          currentIndex={modalIndex}
+          onIndexChange={setModalIndex}
+        />
       </div>
     )
   }

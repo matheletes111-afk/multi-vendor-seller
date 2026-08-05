@@ -31,6 +31,7 @@ function mapApiItemToCartItem(api: CartItemApi): CartItem {
     price: api.unitPrice,
     image: api.image,
     quantity: api.quantity,
+    stock: api.stock ?? undefined,
     hasGst: api.hasGst,
     gstAmount: api.totalGst,
     lineTotal: api.totalPriceInclGst ?? api.totalPrice + api.totalGst,
@@ -230,6 +231,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
           price: input.price,
           image: input.image ?? null,
           quantity,
+          stock: input.stock ?? undefined,
         })
       }
       setCartInStorage(next)
@@ -241,10 +243,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const removeItem = useCallback(
     async (itemId: string) => {
+      setItems((prev) => prev.filter((i) => getCartItemId(i) !== itemId))
       if (isCustomer) {
         const item = items.find((i) => getCartItemId(i) === itemId)
         if (item?.id) {
-          setIsLoading(true)
           try {
             const res = await fetch("/api/customer/cart", {
               method: "PATCH",
@@ -256,15 +258,14 @@ export function CartProvider({ children }: { children: ReactNode }) {
               const data = (await res.json()) as CartItemApi[]
               setItems(Array.isArray(data) ? data.map(mapApiItemToCartItem) : [])
             }
-          } finally {
-            setIsLoading(false)
+          } catch {
+            // Ignore background network error; next refresh will sync
           }
         }
         return
       }
       const next = getCartFromStorage().filter((i) => getCartItemId(i) !== itemId)
       setCartInStorage(next)
-      setItems([...next])
     },
     [isCustomer, items]
   )
@@ -275,10 +276,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
         removeItem(itemId)
         return
       }
+      setItems((prev) =>
+        prev.map((i) => (getCartItemId(i) === itemId ? { ...i, quantity } : i))
+      )
       const item = items.find((i) => getCartItemId(i) === itemId)
       if (isCustomer) {
         if (item?.id) {
-          setIsLoading(true)
           try {
             const res = await fetch("/api/customer/cart", {
               method: "PATCH",
@@ -290,8 +293,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
               const data = (await res.json()) as CartItemApi[]
               setItems(Array.isArray(data) ? data.map(mapApiItemToCartItem) : [])
             }
-          } finally {
-            setIsLoading(false)
+          } catch {
+            // Ignore background network error
           }
         }
         return
@@ -300,7 +303,6 @@ export function CartProvider({ children }: { children: ReactNode }) {
         getCartItemId(i) === itemId ? { ...i, quantity } : i
       )
       setCartInStorage(next)
-      setItems([...next])
     },
     [isCustomer, items, removeItem]
   )

@@ -347,6 +347,9 @@ export async function POST(request: NextRequest) {
       }
 
       const weight = c.weight !== undefined && String(c.weight).trim() !== "" ? Number(c.weight) : undefined
+      const height = c.height !== undefined && String(c.height).trim() !== "" ? Number(c.height) : 0
+      const width = c.width !== undefined && String(c.width).trim() !== "" ? Number(c.width) : 0
+      const depth = c.depth !== undefined && String(c.depth).trim() !== "" ? Number(c.depth) : 0
 
       const vInput: VariantInput = {
         name: vName,
@@ -355,6 +358,9 @@ export async function POST(request: NextRequest) {
         discount,
         sku: (c.sku_code ?? "").trim() || undefined,
         weight,
+        height,
+        width,
+        depth,
         hasGst,
         images: parseImageList(c.variant_images ?? ""),
         attributes: Object.keys(attrParsed.attrs).length ? attrParsed.attrs : undefined,
@@ -448,6 +454,9 @@ export async function POST(request: NextRequest) {
                 hasGst: v.hasGst,
                 stock: v.stock,
                 weight: v.weight,
+                height: v.height,
+                width: v.width,
+                depth: v.depth,
                 images: v.images,
                 attributes: v.attributes,
                 specification: v.specification,

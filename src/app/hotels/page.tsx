@@ -339,7 +339,7 @@ export default function HotelsBrowsePage() {
 
                 return (
                   <Card key={hotel.id} className="rounded-[2rem] overflow-hidden border-none shadow-md hover:shadow-xl transition-all duration-300 flex flex-col h-full group bg-white">
-                    <div className="relative aspect-[4/3] bg-slate-100 overflow-hidden shrink-0">
+                    <Link href={`/hotels/${hotel.id}`} className="relative aspect-[4/3] bg-slate-100 overflow-hidden shrink-0 block cursor-pointer">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={coverImage}
@@ -350,7 +350,7 @@ export default function HotelsBrowsePage() {
                         <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400 shrink-0" />
                         <span>{hotel.starRating || "N/A"} Star</span>
                       </div>
-                    </div>
+                    </Link>
 
                     <CardContent className="p-6 flex flex-col flex-1">
                       <div className="flex-1 space-y-3">
@@ -359,7 +359,9 @@ export default function HotelsBrowsePage() {
                           <span className="truncate">{hotel.city || "Sierra Leone"}</span>
                         </div>
 
-                        <h3 className="text-lg font-black text-slate-900 leading-tight line-clamp-1">{hotel.name}</h3>
+                        <Link href={`/hotels/${hotel.id}`} className="block group-hover:text-emerald-700 transition-colors">
+                          <h3 className="text-lg font-black text-slate-900 leading-tight line-clamp-1">{hotel.name}</h3>
+                        </Link>
 
                         <p className="text-slate-500 text-sm font-medium line-clamp-2 leading-relaxed">{hotel.description}</p>
                       </div>
@@ -387,15 +389,16 @@ export default function HotelsBrowsePage() {
 
       {/* Sponsored Ads Section */}
       {ads.length > 0 && (
-        <section className="bg-white border border-slate-100 rounded-[2.5rem] p-8 shadow-sm space-y-6">
+        <section
+          className="bg-white border border-slate-100 rounded-[2.5rem] p-8 shadow-sm space-y-6"
+          onMouseEnter={() => setSponsoredCarouselPaused(true)}
+          onMouseLeave={() => setSponsoredCarouselPaused(false)}
+        >
           <div className="flex items-center gap-2">
             <h2 className="text-xl font-black text-slate-900">Sponsored Stays</h2>
             <span className="rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-bold text-emerald-900 border border-emerald-500/20">
               {ads.length} {ads.length === 1 ? "ad" : "ads"}
             </span>
-            {sponsoredCarouselPaused && (
-              <span className="text-xs text-slate-500 font-semibold">(paused)</span>
-            )}
           </div>
           <div className="relative">
             {ads.length > 1 && (

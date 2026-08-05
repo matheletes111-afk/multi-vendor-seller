@@ -18,6 +18,7 @@ export type CartItem = {
   price: number
   image: string | null
   quantity: number
+  stock?: number | null
   gstAmount?: number
   hasGst?: boolean
   lineTotal?: number
@@ -38,6 +39,7 @@ export type CartItemApi = {
   totalPriceInclGst: number
   name: string
   image: string | null
+  stock?: number | null
 }
 
 export function getCartItemId(item: CartItem): string {

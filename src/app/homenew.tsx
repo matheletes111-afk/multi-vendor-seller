@@ -446,11 +446,23 @@ export function HomeClient() {
                           <ProductIcon className="h-12 w-12 text-slate-400" />
                         )}
                       </div>
-                      <div className="p-2">
-                        <p className="line-clamp-2 text-xs font-medium text-slate-800">{p.name}</p>
-                        <p className="mt-1 text-sm font-bold text-blue-600">
-                          {formatCurrency(Math.max(0, (p.basePrice ?? 0) - (p.discount ?? 0)))}
-                        </p>
+                      <div className="p-2.5 flex flex-col justify-between flex-1">
+                        <div>
+                          <p className="line-clamp-2 text-xs font-medium text-slate-800">{p.name}</p>
+                          <p className="mt-1 text-sm font-bold text-blue-600">
+                            {formatCurrency(Math.max(0, (p.basePrice ?? 0) - (p.discount ?? 0)))}
+                          </p>
+                        </div>
+                        <div className="mt-2.5 pt-2 border-t border-slate-100">
+                          <AddToCartButton
+                            productId={p.id}
+                            name={p.name}
+                            price={Math.max(0, (p.basePrice ?? 0) - (p.discount ?? 0))}
+                            image={p.images?.[0] || null}
+                            size="sm"
+                            className="w-full h-8 text-xs font-bold rounded-lg"
+                          />
+                        </div>
                       </div>
                     </Link>
                   );
@@ -561,15 +573,16 @@ export function HomeClient() {
 
         {/* Sponsored ads - auto carousel left to right; pause when user clicks an ad/video */}
         {ads.length > 0 && (
-          <section className="container mx-auto px-3 sm:px-4 py-6 sm:py-8">
+          <section
+            className="container mx-auto px-3 sm:px-4 py-6 sm:py-8"
+            onMouseEnter={() => setSponsoredCarouselPaused(true)}
+            onMouseLeave={() => setSponsoredCarouselPaused(false)}
+          >
             <div className="mb-4 sm:mb-6 flex items-center gap-2">
               <h2 className="text-lg font-bold text-slate-800 sm:text-xl">Sponsored</h2>
               <span className="rounded-full bg-slate-200 px-2.5 py-0.5 text-xs font-medium text-slate-600">
                 {ads.length} {ads.length === 1 ? "ad" : "ads"}
               </span>
-              {sponsoredCarouselPaused && (
-                <span className="text-xs text-slate-500">(paused)</span>
-              )}
             </div>
             <div className="relative">
               {/* Carousel arrows */}

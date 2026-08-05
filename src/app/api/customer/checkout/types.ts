@@ -32,8 +32,16 @@ export type PlaceOrderOrderSummary = {
   couponDiscount?: number
 }
 
-export type PlaceOrderResponse = {
-  success: true
-  orderIds: string[]
-  orders: PlaceOrderOrderSummary[]
-}
+export type PlaceOrderResponse =
+  | {
+      success: true
+      orderIds: string[]
+      orders: PlaceOrderOrderSummary[]
+      error?: undefined
+    }
+  | {
+      success?: false
+      error: string
+      orderIds?: undefined
+      orders?: undefined
+    }

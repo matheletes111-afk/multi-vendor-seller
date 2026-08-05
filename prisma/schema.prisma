@@ -1123,6 +1123,9 @@ model ProductVariant {
   hasGst        Boolean  @default(true)
   stock         Int      @default(0)
   weight        Float?
+  height        Float?   @default(0)
+  width         Float?   @default(0)
+  depth         Float?   @default(0)
   attributes    Json     // e.g., {"size": "S", "color": "Red"}
   images        Json?    // Array of image URLs per variant
   specification String? @db.Text

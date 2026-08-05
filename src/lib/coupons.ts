@@ -38,15 +38,7 @@ export async function validateCoupon(params: {
     return { valid: false, error: "Coupon is expired or not yet active" }
   }
 
-  const allowedTypesMap: Record<string, string[]> = {
-    PRODUCT: ["PRODUCT", "SERVICE"],
-    SERVICE: ["PRODUCT", "SERVICE"],
-    FOOD: ["FOOD"],
-    HOTEL: ["HOTEL"]
-  }
-
-  const allowedTypes = allowedTypesMap[type] || [type]
-  if (!allowedTypes.includes(coupon.type)) {
+  if (coupon.type !== type) {
     return { valid: false, error: `This coupon is only valid for ${coupon.type.toLowerCase()} orders` }
   }
 

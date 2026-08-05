@@ -11,6 +11,7 @@ import type { AddressApi } from "@/app/api/customer/checkout/types"
 import { MapPin, Banknote, Loader2, Pencil, Plus, Briefcase } from "lucide-react"
 import { GoogleAddressAutocomplete } from "@/components/google-address-autocomplete"
 import { GoogleMapView } from "@/components/google-map-view"
+import { AvailableCoupons } from "@/components/coupons/available-coupons"
 
 type AddressFormState = {
   addressType: AddressApi["addressType"]
@@ -70,6 +71,51 @@ export function ServiceBookClient({
   const [addressForm, setAddressForm] = useState<AddressFormState>(emptyAddressForm)
   const [formSubmitting, setFormSubmitting] = useState(false)
 
+  const [couponCode, setCouponCode] = useState("")
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [appliedCoupon, setAppliedCoupon] = useState<any | null>(null)
+  const [couponLoading, setCouponLoading] = useState(false)
+  const [couponError, setCouponError] = useState<string | null>(null)
+
+  const handleApplyCoupon = async (codeToApply?: string) => {
+    const targetCode = (codeToApply ?? couponCode).trim()
+    if (!targetCode) return
+    setCouponCode(targetCode)
+    setCouponLoading(true)
+    setCouponError(null)
+    try {
+      const res = await fetch("/api/customer/coupons/apply", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          code: targetCode,
+          type: "SERVICE",
+          subtotal: displayPrice ?? 0,
+          items: [{ serviceId, price: displayPrice ?? 0, quantity: 1 }],
+        }),
+      })
+      const data = await res.json()
+      if (res.ok && data.success) {
+        setAppliedCoupon(data.data)
+        setCouponError(null)
+      } else {
+        setCouponError(data.error || "Failed to apply coupon")
+        setAppliedCoupon(null)
+      }
+    } catch {
+      setCouponError("Network error applying coupon")
+      setAppliedCoupon(null)
+    } finally {
+      setCouponLoading(false)
+    }
+  }
+
+  const handleRemoveCoupon = () => {
+    setAppliedCoupon(null)
+    setCouponCode("")
+    setCouponError(null)
+  }
+
   const fetchAddresses = useCallback(async () => {
     setAddressesLoading(true)
     try {
@@ -109,12 +155,13 @@ export function ServiceBookClient({
     setError(null)
     setPlacing(true)
     try {
-      const body: { serviceId: string; addressId: string; slotStartTime?: string; slotEndTime?: string } = {
+      const body: { serviceId: string; addressId: string; slotStartTime?: string; slotEndTime?: string; couponCode?: string } = {
         serviceId,
         addressId: selectedAddressId,
       }
       if (slotStartTime) body.slotStartTime = slotStartTime
       if (slotEndTime) body.slotEndTime = slotEndTime
+      if (appliedCoupon?.code) body.couponCode = appliedCoupon.code
       const res = await fetch("/api/customer/checkout/place-service-order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -431,10 +478,17 @@ export function ServiceBookClient({
                       <Label htmlFor="sb-phone" className="text-xs sm:text-sm">Phone *</Label>
                       <Input
                         id="sb-phone"
+                        type="tel"
+                        inputMode="tel"
                         value={addressForm.phone}
-                        onChange={(e) => setAddressForm((f) => ({ ...f, phone: e.target.value }))}
-                        placeholder="Phone"
+                        onChange={(e) => {
+                          const sanitized = e.target.value.replace(/(?!^\+)[^\d]/g, "")
+                          setAddressForm((f) => ({ ...f, phone: sanitized }))
+                        }}
+                        placeholder="e.g. +23288123456"
                         required
+                        pattern="^\+?[0-9]{7,15}$"
+                        title="Phone number must contain only numbers (7 to 15 digits)."
                         className="min-h-10 sm:min-h-9"
                       />
                     </div>
@@ -556,10 +610,55 @@ export function ServiceBookClient({
                   </p>
                 </div>
               </div>
+
+              {/* Coupon Section */}
+              <div className="mt-4 border-t border-slate-200 pt-3">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Promo Code</label>
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Enter coupon"
+                    value={couponCode}
+                    onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                    disabled={couponLoading || !!appliedCoupon}
+                    className="h-9 text-xs rounded-xl bg-slate-50 border-slate-200"
+                  />
+                  {appliedCoupon ? (
+                    <Button type="button" variant="outline" onClick={handleRemoveCoupon} className="h-9 text-xs rounded-xl text-rose-600 border-rose-200 hover:bg-rose-50">
+                      Remove
+                    </Button>
+                  ) : (
+                    <Button type="button" disabled={couponLoading || !couponCode.trim()} onClick={() => handleApplyCoupon()} className="h-9 text-xs rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold">
+                      {couponLoading ? "..." : "Apply"}
+                    </Button>
+                  )}
+                </div>
+                {couponError && (
+                  <p className="mt-1 text-[11px] text-rose-600 font-semibold">{couponError}</p>
+                )}
+                {appliedCoupon && (
+                  <p className="mt-1 text-[11px] text-emerald-600 font-bold">
+                    Saved {formatCurrency(appliedCoupon.discountAmount)}!
+                  </p>
+                )}
+                <AvailableCoupons
+                  type="SERVICE"
+                  subtotal={displayPrice ?? 0}
+                  onApplyCoupon={(code) => handleApplyCoupon(code)}
+                  appliedCode={appliedCoupon?.code}
+                  loading={couponLoading}
+                />
+              </div>
+
               <div className="mt-4 space-y-2 border-t border-slate-200 pt-4">
+                {appliedCoupon && (
+                  <div className="flex justify-between text-xs text-emerald-600 font-semibold">
+                    <span>Coupon Discount ({appliedCoupon.code})</span>
+                    <span>-{formatCurrency(appliedCoupon.discountAmount)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between border-t border-slate-200 pt-2 text-sm font-semibold text-slate-900 sm:text-base">
                   <span>Total</span>
-                  <span>{displayPrice != null ? formatCurrency(displayPrice) : "—"}</span>
+                  <span>{displayPrice != null ? formatCurrency(Math.max(0, displayPrice - (appliedCoupon?.discountAmount || 0))) : "—"}</span>
                 </div>
                 <p className="text-[10px] text-slate-500 sm:text-xs">COD: pay on delivery.</p>
                 <Button

@@ -12,6 +12,7 @@ import { useSession } from "next-auth/react"
 import { PublicLayout } from "@/components/site-layout"
 import { GoogleAddressAutocomplete } from "@/components/google-address-autocomplete"
 import { GoogleMapView } from "@/components/google-map-view"
+import { AvailableCoupons } from "@/components/coupons/available-coupons"
 
 type Address = {
   id: string
@@ -301,8 +302,10 @@ function CheckoutContent() {
     }
   }
 
-  const handleApplyCoupon = async () => {
-    if (!couponCode.trim()) return
+  const handleApplyCoupon = async (codeToApply?: string) => {
+    const targetCode = (codeToApply ?? couponCode).trim()
+    if (!targetCode) return
+    setCouponCode(targetCode)
     setCouponLoading(true)
     setCouponError(null)
     try {
@@ -314,7 +317,7 @@ function CheckoutContent() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          code: couponCode,
+          code: targetCode,
           type: "FOOD",
           subtotal: orderSubtotal,
           items: itemsPayload
@@ -328,7 +331,7 @@ function CheckoutContent() {
         setCouponError(data.error || "Failed to apply coupon")
         setAppliedCoupon(null)
       }
-    } catch (e) {
+    } catch {
       setCouponError("Network error applying coupon")
       setAppliedCoupon(null)
     } finally {
@@ -530,9 +533,16 @@ function CheckoutContent() {
                   <div className="space-y-1.5">
                     <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Phone Number *</label>
                     <Input
-                      placeholder="e.g. +232 88 123456"
+                      type="tel"
+                      inputMode="tel"
+                      placeholder="e.g. +23288123456"
                       value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
+                      onChange={(e) => {
+                        const sanitized = e.target.value.replace(/(?!^\+)[^\d]/g, "")
+                        setPhone(sanitized)
+                      }}
+                      pattern="^\+?[0-9]{7,15}$"
+                      title="Phone number must contain only numbers (7 to 15 digits)."
                       className="rounded-xl border-slate-200 text-sm h-10"
                     />
                   </div>
@@ -736,7 +746,7 @@ function CheckoutContent() {
                       Remove
                     </Button>
                   ) : (
-                    <Button type="button" disabled={couponLoading || !couponCode.trim()} onClick={handleApplyCoupon} className="h-9 text-xs rounded-xl bg-amber-500 hover:bg-amber-600 text-amber-950 font-bold">
+                    <Button type="button" disabled={couponLoading || !couponCode.trim()} onClick={() => handleApplyCoupon()} className="h-9 text-xs rounded-xl bg-amber-500 hover:bg-amber-600 text-amber-950 font-bold">
                       Apply
                     </Button>
                   )}
@@ -749,6 +759,13 @@ function CheckoutContent() {
                     Saved {formatCurrency(appliedCoupon.discountAmount)}!
                   </p>
                 )}
+                <AvailableCoupons
+                  type="FOOD"
+                  subtotal={orderSubtotal}
+                  onApplyCoupon={(code) => handleApplyCoupon(code)}
+                  appliedCode={appliedCoupon?.code}
+                  loading={couponLoading}
+                />
               </div>
 
               <hr className="border-slate-100" />

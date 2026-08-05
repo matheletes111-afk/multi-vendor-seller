@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { auth } from "@/lib/auth"
 import { extractFoodImages } from "@/lib/utils"
 
 export async function GET(
@@ -8,6 +9,8 @@ export async function GET(
 ) {
   try {
     const { id } = await params
+    const session = await auth()
+    const userId = session?.user?.id || null
 
     const food = await prisma.foodItem.findFirst({
       where: {
@@ -51,6 +54,34 @@ export async function GET(
       return NextResponse.json({ success: false, error: "Food item not found" }, { status: 404 })
     }
 
+    let userHasPurchased = false
+    let userReview: any = null
+
+    if (userId) {
+      const order = await prisma.foodOrder.findFirst({
+        where: {
+          customerId: userId,
+          items: {
+            some: {
+              foodItemId: id
+            }
+          }
+        }
+      })
+      userHasPurchased = Boolean(order)
+
+      const existingRev = food.reviews.find(r => r.userId === userId)
+      if (existingRev) {
+        userReview = {
+          id: existingRev.id,
+          rating: existingRev.rating,
+          comment: existingRev.comment,
+          images: existingRev.images,
+          createdAt: existingRev.createdAt
+        }
+      }
+    }
+
     const reviewCount = food.reviews.length
     const totalRating = food.reviews.reduce((acc, r) => acc + r.rating, 0)
     const averageRating = reviewCount > 0 ? parseFloat((totalRating / reviewCount).toFixed(1)) : 0
@@ -66,13 +97,15 @@ export async function GET(
       averageRating,
       totalReviews: reviewCount,
       restaurantName: food.restaurantSeller.businessInfo?.businessName || food.restaurantSeller.user.name || "Restaurant",
+      userHasPurchased,
+      userReview,
       reviews: reviews.map(r => ({
         id: r.id,
         userId: r.userId,
         userName: r.user.name || "Customer",
         rating: r.rating,
         comment: r.comment,
-        images: r.images,
+        images: Array.isArray(r.images) ? r.images : [],
         createdAt: r.createdAt
       }))
     }

@@ -1,6 +1,8 @@
 "use client"
 
-import { Star } from "lucide-react"
+import { useState } from "react"
+import { Star, ZoomIn } from "lucide-react"
+import { ReviewImageModal } from "./review-image-modal"
 
 export type PublicReviewItem = {
   id: string
@@ -62,6 +64,9 @@ export function PublicReviewsSection({
   totalReviews: number
   reviews: PublicReviewItem[]
 }) {
+  const [modalImages, setModalImages] = useState<string[]>([])
+  const [modalIndex, setModalIndex] = useState(0)
+  const [isModalOpen, setIsModalOpen] = useState(false)
   return (
     <section id="reviews" className="mt-8 scroll-mt-24 border-t border-slate-200 pt-6 sm:mt-10 sm:pt-8">
       <div className="flex flex-wrap items-end justify-between gap-3">
@@ -117,20 +122,27 @@ export function PublicReviewsSection({
               {review.images.length > 0 && (
                 <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5">
                   {review.images.map((imageUrl, index) => (
-                    <a
+                    <button
                       key={`${review.id}-${index}`}
-                      href={imageUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="block overflow-hidden rounded-md border border-slate-200 bg-slate-50"
+                      type="button"
+                      onClick={() => {
+                        setModalImages(review.images)
+                        setModalIndex(index)
+                        setIsModalOpen(true)
+                      }}
+                      className="group relative block overflow-hidden rounded-md border border-slate-200 bg-slate-50 hover:border-emerald-500 transition-all cursor-pointer text-left focus:outline-none ring-2 ring-transparent focus:ring-emerald-500"
+                      title="Click to view large image"
                     >
                       <img
                         src={imageUrl}
                         alt={`Review image ${index + 1}`}
-                        className="h-20 w-full object-cover sm:h-24"
+                        className="h-20 w-full object-cover sm:h-24 group-hover:scale-105 transition-transform duration-300"
                         loading="lazy"
                       />
-                    </a>
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
+                        <ZoomIn className="h-5 w-5 text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow-md" />
+                      </div>
+                    </button>
                   ))}
                 </div>
               )}
@@ -138,6 +150,14 @@ export function PublicReviewsSection({
           ))}
         </div>
       )}
+
+      <ReviewImageModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        images={modalImages}
+        currentIndex={modalIndex}
+        onIndexChange={setModalIndex}
+      />
     </section>
   )
 }

@@ -9,6 +9,7 @@ import { Card, CardContent } from "@/ui/card"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/ui/dialog"
 import { formatCurrency, extractFoodImages } from "@/lib/utils"
 import { PublicLayout } from "@/components/site-layout"
+import { FoodDetailModal } from "@/components/foods/food-detail-modal"
 
 type FoodItem = {
   id: string
@@ -61,7 +62,12 @@ export default function RestaurantMenuPage() {
   const [restaurant, setRestaurant] = useState<RestaurantDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [selectedVegFilter, setSelectedVegFilter] = useState("ALL") // ALL, VEG, NON-VEG
-  
+  const [selectedCategory, setSelectedCategory] = useState("ALL")
+
+  // Food Detail Modal State
+  const [selectedFoodItemId, setSelectedFoodItemId] = useState<string | null>(null)
+  const [modalOpen, setModalOpen] = useState(false)
+
   // Local Cart State
   const [cart, setCart] = useState<LocalFoodCart | null>(null)
   const [conflictItem, setConflictItem] = useState<{ item: FoodItem; qty: number } | null>(null)
@@ -204,13 +210,14 @@ export default function RestaurantMenuPage() {
 
   // Filter foods list
   const filteredFoods = restaurant.foods.filter(f => {
-    if (selectedVegFilter === "VEG") return f.isVeg
-    if (selectedVegFilter === "NON_VEG") return !f.isVeg
+    if (selectedVegFilter === "VEG" && !f.isVeg) return false
+    if (selectedVegFilter === "NON_VEG" && f.isVeg) return false
+    if (selectedCategory !== "ALL" && f.category !== selectedCategory) return false
     return true
   })
 
-  // Group foods by category
-  const categories = Array.from(new Set(filteredFoods.map(f => f.category)))
+  // Extract all categories
+  const categories = Array.from(new Set(restaurant.foods.map(f => f.category)))
 
   // Calculate cart totals
   const totalCartItems = cart?.restaurantId === restaurant.id ? cart.items.reduce((acc, i) => acc + i.quantity, 0) : 0
@@ -218,7 +225,7 @@ export default function RestaurantMenuPage() {
 
   return (
     <PublicLayout>
-      <div className="container mx-auto px-4 py-8 max-w-6xl space-y-8 animate-in fade-in duration-500 bg-[#FAF8F5] text-amber-950 pb-28">
+      <div className="container mx-auto px-3 sm:px-6 md:px-8 py-6 max-w-[1440px] space-y-6 animate-in fade-in duration-500 bg-[#FAF8F5] text-amber-950 pb-28">
         
         {/* Back Button */}
         <div>
@@ -227,181 +234,200 @@ export default function RestaurantMenuPage() {
           </Link>
         </div>
 
-        {/* Restaurant Hero Banner Image */}
-        {(restaurant.banner || restaurant.mainPhoto) && (
-          <div className="relative rounded-[2.5rem] overflow-hidden h-48 sm:h-72 w-full border border-[#F5EFE6] shadow-md">
-            <img
-              src={restaurant.banner || restaurant.mainPhoto!}
-              alt={`${restaurant.businessName} banner`}
-              className="w-full h-full object-cover"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
-            <div className="absolute bottom-5 left-6 right-6 flex items-end justify-between">
-              <div className="space-y-1">
-                <h1 className="text-2xl sm:text-3xl font-black text-white drop-shadow-lg leading-tight">
-                  {restaurant.businessName}
-                </h1>
-                <div className="flex flex-wrap gap-1.5">
-                  {restaurant.cuisines.map((c, i) => (
-                    <span key={i} className="text-[10px] font-bold text-white/90 bg-white/20 backdrop-blur-sm px-2.5 py-0.5 rounded-full border border-white/20">
-                      {c}
-                    </span>
-                  ))}
-                </div>
-              </div>
-              {restaurant.averageRating > 0 && (
-                <div className="flex items-center gap-1 bg-emerald-500 text-white text-xs font-black px-3 py-1.5 rounded-xl shadow-md shrink-0">
-                  <Star className="h-3.5 w-3.5 fill-current" />
-                  {restaurant.averageRating}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Restaurant Header */}
-        <div className="relative rounded-[2.5rem] overflow-hidden border border-[#F5EFE6] bg-white shadow-md p-6 sm:p-10 flex flex-col md:flex-row gap-6 items-center">
-          <div className="absolute top-0 right-0 w-80 h-80 bg-amber-100/30 rounded-full blur-3xl pointer-events-none" />
-          
-          {/* Logo or banner preview */}
-          <div className="relative h-28 w-28 sm:h-36 sm:w-36 rounded-[2rem] overflow-hidden border border-[#F5EFE6] shrink-0 bg-amber-50 shadow-sm flex items-center justify-center">
-            {restaurant.logo ? (
-              <img src={restaurant.logo} alt={restaurant.businessName} className="h-full w-full object-cover" />
+        {/* Restaurant Hero Header (Large Banner Top, Info Below Under Image) */}
+        <div className="rounded-[2.5rem] overflow-hidden border border-[#F5EFE6] bg-white shadow-xl space-y-0">
+          {/* Top Cover Banner Image - Tall height */}
+          <div className="relative h-64 sm:h-96 md:h-[420px] lg:h-[460px] w-full bg-slate-900 overflow-hidden">
+            {restaurant.banner || restaurant.mainPhoto ? (
+              <img
+                src={restaurant.banner || restaurant.mainPhoto!}
+                alt={restaurant.businessName}
+                className="w-full h-full object-cover"
+              />
             ) : (
-              <Utensils className="h-16 w-16 text-amber-200" />
+              <div className="w-full h-full bg-gradient-to-r from-amber-500 to-orange-600 flex items-center justify-center">
+                <Utensils className="h-24 w-24 text-white/40" />
+              </div>
             )}
           </div>
 
-          <div className="flex-1 text-center md:text-left space-y-3">
-            <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-amber-950 leading-tight">
-              {restaurant.businessName}
-            </h1>
-            
-            {/* Cuisines */}
-            <div className="flex flex-wrap items-center justify-center md:justify-start gap-1.5">
-              {restaurant.cuisines.map((c, i) => (
-                <span key={i} className="text-xs font-bold text-amber-800 bg-amber-50 px-3 py-1 rounded-full border border-amber-200/50">
-                  {c}
-                </span>
-              ))}
+          {/* Restaurant Details Section (Cleanly Under Image) */}
+          <div className="p-6 sm:p-8 bg-white flex flex-col sm:flex-row items-center sm:items-start gap-5 sm:gap-6">
+            {/* Logo Avatar */}
+            <div className="h-20 w-20 sm:h-28 sm:w-28 rounded-2xl overflow-hidden border border-amber-100 shrink-0 bg-amber-50 shadow-md flex items-center justify-center">
+              {restaurant.logo ? (
+                <img src={restaurant.logo} alt={restaurant.businessName} className="h-full w-full object-cover" />
+              ) : (
+                <Utensils className="h-10 w-10 text-amber-500" />
+              )}
             </div>
 
-            {/* Rating / Address */}
-            <div className="flex flex-wrap items-center justify-center md:justify-start gap-x-4 gap-y-2 pt-1 text-xs sm:text-sm font-bold text-amber-900/60">
-              <div className="flex items-center gap-1 bg-emerald-50 border border-emerald-200 text-emerald-700 px-3 py-1 rounded-full shrink-0">
-                <Star className="h-4 w-4 fill-emerald-600 text-emerald-600" />
-                <span>{restaurant.averageRating > 0 ? `${restaurant.averageRating} Rating` : "New Restaurant"}</span>
-                {restaurant.totalReviews > 0 && <span className="font-semibold text-emerald-600/80">({restaurant.totalReviews})</span>}
+            {/* Restaurant Meta Info Under Image */}
+            <div className="flex-1 text-center sm:text-left space-y-2.5">
+              <h1 className="text-2xl sm:text-3xl md:text-4xl font-black tracking-tight text-amber-950 leading-tight">
+                {restaurant.businessName}
+              </h1>
+
+              {/* Cuisines */}
+              <div className="flex flex-wrap items-center justify-center sm:justify-start gap-1.5">
+                {restaurant.cuisines.map((c, i) => (
+                  <span key={i} className="text-xs font-black text-amber-900 bg-amber-50 px-3 py-1 rounded-full border border-amber-200">
+                    {c}
+                  </span>
+                ))}
               </div>
 
-              <div className="flex items-center gap-1">
-                <MapPin className="h-4 w-4 text-amber-600 shrink-0" />
-                <span>{restaurant.street ? `${restaurant.street}, ` : ""}{restaurant.city}</span>
-              </div>
-            </div>
-          </div>
-        </div>
+              {/* Rating & Address */}
+              <div className="flex flex-wrap items-center justify-center sm:justify-start gap-x-4 gap-y-2 pt-1 text-xs sm:text-sm font-bold text-amber-900/70">
+                <div className="flex items-center gap-1 bg-emerald-600 text-white px-3 py-1 rounded-full shadow-xs shrink-0 font-black">
+                  <Star className="h-3.5 w-3.5 fill-current" />
+                  <span>{restaurant.averageRating > 0 ? `${restaurant.averageRating} Rating` : "New Restaurant"}</span>
+                  {restaurant.totalReviews > 0 && <span className="text-white/80 font-normal">({restaurant.totalReviews})</span>}
+                </div>
 
-        {/* Menu Filters */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white border border-[#F5EFE6] rounded-3xl p-4 shadow-sm">
-          <span className="font-black text-amber-950 uppercase tracking-wider text-sm flex items-center gap-1.5">
-            <Sparkles className="h-4 w-4 text-amber-500" /> Menu Dishes ({filteredFoods.length})
-          </span>
-
-          <div className="flex gap-2 w-full sm:w-auto">
-            {["ALL", "VEG", "NON_VEG"].map((type) => (
-              <button
-                key={type}
-                onClick={() => setSelectedVegFilter(type)}
-                className={`flex-1 sm:flex-none px-5 py-2 text-xs font-bold rounded-xl border transition-all ${
-                  selectedVegFilter === type
-                    ? "bg-amber-500 border-amber-500 text-amber-950 shadow-md"
-                    : "border-[#F5EFE6] bg-[#FAF8F5] text-amber-850 hover:bg-[#F5EFE6]"
-                }`}
-              >
-                {type === "ALL" ? "All Dishes" : type === "VEG" ? "Veg Only 🟢" : "Non-Veg Only 🔴"}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Menu Categories & Food Items */}
-        {categories.length === 0 ? (
-          <div className="text-center py-16 bg-white border border-[#F5EFE6] rounded-3xl shadow-sm">
-            <p className="text-amber-850/60 font-bold text-sm">No dishes match the selected food type.</p>
-          </div>
-        ) : (
-          <div className="space-y-12">
-            {categories.map((category) => (
-              <div key={category} className="space-y-4">
-                <h2 className="text-xl sm:text-2xl font-black text-amber-950 tracking-tight border-b-2 border-amber-500/20 pb-2 pl-1">
-                  {category}
-                </h2>
-                
-                <div className="grid grid-cols-2 gap-3">
-                  {filteredFoods.filter(f => f.category === category).map((food) => {
-                    const quantityInCart = getItemQty(food.id)
-                    return (
-                      <Card key={food.id} className="rounded-2xl border border-[#F5EFE6] overflow-hidden shadow-sm hover:shadow-md transition-shadow bg-white flex flex-col group">
-                        
-                        {/* Food Image — top */}
-                        {(() => {
-                          const itemImg = food.image || extractFoodImages((food as any).images)[0] || null
-                          return (
-                            <div className="relative w-full h-32 bg-amber-50 overflow-hidden shrink-0">
-                              {itemImg ? (
-                                <img src={itemImg} alt={food.name} className="object-cover h-full w-full group-hover:scale-105 transition-transform duration-300" />
-                              ) : (
-                                <div className="h-full w-full flex items-center justify-center">
-                                  <Utensils className="h-10 w-10 text-amber-200" />
-                                </div>
-                              )}
-                              {/* Veg/Non-veg dot */}
-                              <div className={`absolute top-2 left-2 h-4 w-4 border-2 rounded-sm flex items-center justify-center bg-white ${food.isVeg ? "border-emerald-500" : "border-rose-500"}`}>
-                                <span className={`h-1.5 w-1.5 rounded-full ${food.isVeg ? "bg-emerald-500" : "bg-rose-500"}`} />
-                              </div>
-                            </div>
-                          )
-                        })()}
-
-                        {/* Food Details — bottom */}
-                        <div className="p-3 flex flex-col justify-between gap-2 flex-1">
-                          <div className="space-y-0.5">
-                            <span className="text-[9px] font-black text-amber-500 uppercase tracking-widest">{food.category}</span>
-                            <h3 className="text-xs font-black text-amber-950 leading-tight group-hover:text-amber-600 transition-colors line-clamp-2">{food.name}</h3>
-                            <p className="text-amber-900/50 text-[10px] font-semibold line-clamp-2 leading-relaxed">{food.description || "Fresh ingredients prepared by our expert kitchen."}</p>
-                          </div>
-
-                          <div className="flex items-center justify-between gap-1 pt-1">
-                            <span className="text-sm font-black text-amber-950">{formatCurrency(food.price)}</span>
-                            
-                            {/* Quantity Controls */}
-                            {quantityInCart > 0 ? (
-                              <div className="flex items-center border border-amber-200 rounded-lg overflow-hidden bg-amber-50">
-                                <button onClick={() => handleAddToCart(food, -1)} className="px-1.5 py-1 text-amber-700 hover:bg-white transition-colors">
-                                  <Minus className="h-3 w-3" />
-                                </button>
-                                <span className="px-2 font-black text-amber-950 text-xs">{quantityInCart}</span>
-                                <button onClick={() => handleAddToCart(food, 1)} className="px-1.5 py-1 text-amber-700 hover:bg-white transition-colors">
-                                  <Plus className="h-3 w-3" />
-                                </button>
-                              </div>
-                            ) : (
-                              <button
-                                onClick={() => handleAddToCart(food, 1)}
-                                className="bg-amber-500 hover:bg-amber-600 text-amber-950 rounded-lg font-black text-xs h-7 px-3 flex items-center gap-0.5 shadow-sm border border-amber-600/10 transition-colors"
-                              >
-                                ADD <Plus className="h-3 w-3" />
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      </Card>
-                    )
-                  })}
+                <div className="flex items-center gap-1 font-semibold text-amber-900/60">
+                  <MapPin className="h-4 w-4 text-amber-600 shrink-0" />
+                  <span>{restaurant.street ? `${restaurant.street}, ` : ""}{restaurant.city}</span>
                 </div>
               </div>
-            ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Menu Filters & Category Chips */}
+        <div className="space-y-4 bg-white border border-[#F5EFE6] rounded-3xl p-5 shadow-sm">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+            <span className="font-black text-amber-950 uppercase tracking-wider text-sm flex items-center gap-1.5">
+              <Sparkles className="h-4 w-4 text-amber-500" /> Menu Dishes ({filteredFoods.length})
+            </span>
+
+            {/* Veg / Non-Veg Toggle */}
+            <div className="flex gap-2 w-full sm:w-auto">
+              {["ALL", "VEG", "NON_VEG"].map((type) => (
+                <button
+                  key={type}
+                  onClick={() => setSelectedVegFilter(type)}
+                  className={`flex-1 sm:flex-none px-4 py-2 text-xs font-bold rounded-xl border transition-all ${
+                    selectedVegFilter === type
+                      ? "bg-amber-500 border-amber-500 text-amber-950 shadow-md"
+                      : "border-[#F5EFE6] bg-[#FAF8F5] text-amber-850 hover:bg-[#F5EFE6]"
+                  }`}
+                >
+                  {type === "ALL" ? "All Dishes" : type === "VEG" ? "Veg Only 🟢" : "Non-Veg Only 🔴"}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Category Chips Bar (All Categories, Pizza, Pasta, etc.) */}
+          {categories.length > 1 && (
+            <div className="flex gap-2 overflow-x-auto scrollbar-hide pt-3 border-t border-amber-50">
+              <button
+                onClick={() => setSelectedCategory("ALL")}
+                className={`flex-none px-4 py-1.5 text-xs font-black rounded-full border transition-all ${
+                  selectedCategory === "ALL"
+                    ? "bg-amber-950 border-amber-950 text-white shadow-sm"
+                    : "bg-amber-50/80 border-amber-200 text-amber-900 hover:bg-amber-100"
+                }`}
+              >
+                All Categories ({restaurant.foods.length})
+              </button>
+              {categories.map((cat) => {
+                const catCount = restaurant.foods.filter(f => f.category === cat).length
+                return (
+                  <button
+                    key={cat}
+                    onClick={() => setSelectedCategory(cat)}
+                    className={`flex-none px-4 py-1.5 text-xs font-extrabold rounded-full border transition-all ${
+                      selectedCategory === cat
+                        ? "bg-amber-950 border-amber-950 text-white shadow-sm"
+                        : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
+                    }`}
+                  >
+                    {cat} ({catCount})
+                  </button>
+                )
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Unified 2 Foods Per Row Grid Across Mobile & Desktop */}
+        {filteredFoods.length === 0 ? (
+          <div className="text-center py-16 bg-white border border-[#F5EFE6] rounded-3xl shadow-sm">
+            <p className="text-amber-850/60 font-bold text-sm">No dishes match the selected food filters.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-3 sm:gap-6 w-full">
+            {filteredFoods.map((food) => {
+              const quantityInCart = getItemQty(food.id)
+              return (
+                <Card
+                  key={food.id}
+                  onClick={() => {
+                    setSelectedFoodItemId(food.id)
+                    setModalOpen(true)
+                  }}
+                  className="rounded-3xl border border-[#F5EFE6] overflow-hidden shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all bg-white flex flex-col group cursor-pointer w-full"
+                >
+                  {/* Food Image — Height increased */}
+                  {(() => {
+                    const itemImg = food.image || extractFoodImages((food as any).images)[0] || null
+                    return (
+                      <div className="relative w-full h-44 sm:h-60 md:h-64 bg-amber-50 overflow-hidden shrink-0">
+                        {itemImg ? (
+                          <img src={itemImg} alt={food.name} className="object-cover h-full w-full group-hover:scale-105 transition-transform duration-500" />
+                        ) : (
+                          <div className="h-full w-full flex items-center justify-center">
+                            <Utensils className="h-12 w-12 text-amber-200" />
+                          </div>
+                        )}
+                        {/* Veg/Non-veg dot */}
+                        <div className={`absolute top-2.5 left-2.5 h-5 w-5 border-2 rounded-md flex items-center justify-center bg-white/95 backdrop-blur-xs shadow-md ${food.isVeg ? "border-emerald-600" : "border-rose-600"}`}>
+                          <span className={`h-2 w-2 rounded-full ${food.isVeg ? "bg-emerald-600" : "bg-rose-600"}`} />
+                        </div>
+                      </div>
+                    )
+                  })()}
+
+                  {/* Food Details */}
+                  <div className="p-3.5 sm:p-5 flex flex-col justify-between gap-3 flex-1">
+                    <div className="space-y-1">
+                      <span className="text-[9px] sm:text-[10px] font-black text-amber-600 uppercase tracking-widest">{food.category}</span>
+                      <h3 className="text-xs sm:text-base font-black text-amber-950 leading-tight group-hover:text-amber-600 transition-colors line-clamp-2">{food.name}</h3>
+                      <p className="text-amber-900/60 text-[10px] sm:text-xs font-semibold line-clamp-2 leading-relaxed">{food.description || "Fresh ingredients prepared by our expert kitchen."}</p>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-2 pt-2 border-t border-amber-50">
+                      <span className="text-xs sm:text-base font-black text-amber-950">{formatCurrency(food.price)}</span>
+                      
+                      {/* Quantity Controls */}
+                      {quantityInCart > 0 ? (
+                        <div className="flex items-center border border-amber-300 rounded-xl overflow-hidden bg-amber-50 shadow-xs" onClick={(e) => e.stopPropagation()}>
+                          <button onClick={() => handleAddToCart(food, -1)} className="px-2 py-1.5 text-amber-800 hover:bg-white transition-colors">
+                            <Minus className="h-3.5 w-3.5" />
+                          </button>
+                          <span className="px-2.5 font-black text-amber-950 text-xs sm:text-sm">{quantityInCart}</span>
+                          <button onClick={() => handleAddToCart(food, 1)} className="px-2 py-1.5 text-amber-800 hover:bg-white transition-colors">
+                            <Plus className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleAddToCart(food, 1)
+                          }}
+                          className="bg-amber-500 hover:bg-amber-600 text-amber-950 rounded-xl font-black text-xs sm:text-sm h-8 sm:h-9 px-3.5 sm:px-4 flex items-center gap-1 shadow-sm border border-amber-600/10 transition-colors"
+                        >
+                          ADD <Plus className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </Card>
+              )
+            })}
           </div>
         )}
 
@@ -552,6 +578,15 @@ export default function RestaurantMenuPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* Food Item Detail & Review Modal */}
+        <FoodDetailModal
+          foodItemId={selectedFoodItemId}
+          isOpen={modalOpen}
+          onClose={() => setModalOpen(false)}
+          onAddToCart={handleAddToCart}
+          getItemQty={getItemQty}
+        />
 
       </div>
     </PublicLayout>
