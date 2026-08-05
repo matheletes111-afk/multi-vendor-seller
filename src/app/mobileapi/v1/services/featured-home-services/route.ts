@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
         ? Math.max(0, (minService.basePrice || 0) - (minService.discount || 0))
         : 49
 
-      let imageUrl: string | null = cat.mobileIcon || cat.image || null
+      let imageUrl: string | null = cat.image || cat.mobileIcon || null
 
       const discountTags = ["UP TO 30% OFF", "POPULAR", "EXPRESS SERVICE", "TOP RATED"]
       const discountTag = discountTags[index % discountTags.length]
@@ -36,6 +36,7 @@ export async function GET(request: NextRequest) {
         name: cat.name,
         slug: cat.slug,
         image_url: imageUrl || "https://images.unsplash.com/photo-1581578731548-c64695cc6952?auto=format&fit=crop&w=400&q=80",
+        mobile_icon: cat.mobileIcon || null,
         discount_tag: discountTag,
         starting_price: startingPrice,
         currency: "AED",
