@@ -9,6 +9,9 @@ export type VariantInput = {
   hasGst?: boolean
   stock?: number
   weight?: number
+  height?: number
+  width?: number
+  depth?: number
   images?: string[] | unknown
   attributes?: Record<string, string> | unknown
   specification?: string
@@ -26,6 +29,9 @@ export type NormalizedVariant = {
   hasGst: boolean
   stock: number
   weight: number | null
+  height: number
+  width: number
+  depth: number
   images: object
   attributes: object
   specification: string | null
@@ -53,6 +59,9 @@ export function parseVariantInput(
   const vStock = Number(v?.stock ?? 0)
   const vDiscount = Math.round(Number(v?.discount ?? 0) * 100) / 100
   const vWeight = v?.weight !== undefined && v?.weight !== null ? Number(v.weight) : null
+  const vHeight = v?.height !== undefined && v?.height !== null ? Number(v.height) : 0
+  const vWidth = v?.width !== undefined && v?.width !== null ? Number(v.width) : 0
+  const vDepth = v?.depth !== undefined && v?.depth !== null ? Number(v.depth) : 0
   if (isNaN(vPrice) || vPrice <= 0) {
     return { ok: false, error: `Variant ${index + 1}: valid price required` }
   }
@@ -78,6 +87,9 @@ export function parseVariantInput(
       hasGst: v?.hasGst !== false,
       stock: Math.floor(vStock),
       weight: vWeight !== null && !isNaN(vWeight) ? vWeight : null,
+      height: !isNaN(vHeight) && vHeight >= 0 ? vHeight : 0,
+      width: !isNaN(vWidth) && vWidth >= 0 ? vWidth : 0,
+      depth: !isNaN(vDepth) && vDepth >= 0 ? vDepth : 0,
       images: Array.isArray(v?.images) ? (v.images as object) : [],
       attributes:
         v?.attributes && typeof v.attributes === "object" && !Array.isArray(v.attributes)

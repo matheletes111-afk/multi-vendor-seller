@@ -6,6 +6,7 @@ import { Search, Star, MapPin, Utensils, Sparkles, ChevronLeft, ChevronRight, Le
 import { Input } from "@/ui/input"
 import { Button } from "@/ui/button"
 import { PublicLayout } from "@/components/site-layout"
+import { FoodDetailModal } from "@/components/foods/food-detail-modal"
 import { formatCurrency, extractFoodImages } from "@/lib/utils"
 
 type PreviewFood = {
@@ -75,7 +76,15 @@ function getCuisineEmoji(cName: string): string {
 }
 
 // Horizontal food scroll strip inside each restaurant card
-function FoodScrollStrip({ foods, restaurantId }: { foods: PreviewFood[]; restaurantId: string }) {
+function FoodScrollStrip({ 
+  foods, 
+  restaurantId,
+  onFoodClick 
+}: { 
+  foods: PreviewFood[]; 
+  restaurantId: string;
+  onFoodClick: (foodItemId: string) => void
+}) {
   const router = useRouter()
 
   if (foods.length === 0) return null
@@ -89,7 +98,7 @@ function FoodScrollStrip({ foods, restaurantId }: { foods: PreviewFood[]; restau
             key={food.id}
             onClick={(e) => {
               e.stopPropagation()
-              router.push(`/foods/restaurant/${restaurantId}`)
+              onFoodClick(food.id)
             }}
             className="relative flex-none w-40 rounded-2xl overflow-hidden border border-[#F5EFE6] bg-white shadow-sm cursor-pointer hover:shadow-md hover:scale-[1.03] transition-all duration-200 group/food"
           >
@@ -103,10 +112,6 @@ function FoodScrollStrip({ foods, restaurantId }: { foods: PreviewFood[]; restau
               {/* Veg/Non-veg indicator */}
               <div className={`absolute top-1.5 left-1.5 h-4 w-4 rounded-sm border-2 flex items-center justify-center ${food.isVeg ? "border-emerald-600 bg-white" : "border-red-600 bg-white"}`}>
                 <div className={`h-2 w-2 rounded-full ${food.isVeg ? "bg-emerald-600" : "bg-red-600"}`} />
-              </div>
-              {/* Plus button */}
-              <div className="absolute bottom-1.5 right-1.5 h-6 w-6 bg-white border border-amber-300 rounded-md flex items-center justify-center shadow-sm opacity-0 group-hover/food:opacity-100 transition-opacity">
-                <span className="text-amber-700 font-black text-sm leading-none">+</span>
               </div>
             </div>
 
@@ -136,7 +141,15 @@ function FoodScrollStrip({ foods, restaurantId }: { foods: PreviewFood[]; restau
 }
 
 // Zomato-style Restaurant Card
-function RestaurantCard({ resto, idx }: { resto: Restaurant; idx: number }) {
+function RestaurantCard({ 
+  resto, 
+  idx,
+  onFoodClick 
+}: { 
+  resto: Restaurant; 
+  idx: number;
+  onFoodClick: (foodItemId: string) => void 
+}) {
   const router = useRouter()
   const cover = resto.banner || resto.mainPhoto
 
@@ -209,7 +222,7 @@ function RestaurantCard({ resto, idx }: { resto: Restaurant; idx: number }) {
       {resto.previewFoods.length > 0 && (
         <div className="px-5 pb-5">
           <p className="text-[10px] font-black text-amber-800/40 uppercase tracking-widest mb-2.5">Popular Dishes</p>
-          <FoodScrollStrip foods={resto.previewFoods} restaurantId={resto.id} />
+          <FoodScrollStrip foods={resto.previewFoods} restaurantId={resto.id} onFoodClick={onFoodClick} />
         </div>
       )}
     </div>
@@ -221,11 +234,15 @@ export default function RestaurantsDirectoryPage() {
   const [cuisines, setCuisines] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
-  const [selectedCuisine, setSelectedCuisine] = useState("ALL")
+  const [selectedCuisine, setSelectedCuisine] = useState("")
   const [selectedRating, setSelectedRating] = useState<number | null>(null)
   const [pureVeg, setPureVeg] = useState(false)
   const [nonVeg, setNonVeg] = useState(false)
   const [sortBy, setSortBy] = useState<"rating" | "items" | "default">("default")
+
+  // Food Detail Modal State
+  const [selectedFoodItemId, setSelectedFoodItemId] = useState<string | null>(null)
+  const [modalOpen, setModalOpen] = useState(false)
 
   const [visibleCount, setVisibleCount] = useState(20)
 
@@ -488,7 +505,15 @@ export default function RestaurantsDirectoryPage() {
           ) : (
             <div className="space-y-5">
               {restaurants.slice(0, visibleCount).map((resto, idx) => (
-                <RestaurantCard key={resto.id} resto={resto} idx={idx} />
+                <RestaurantCard
+                  key={resto.id}
+                  resto={resto}
+                  idx={idx}
+                  onFoodClick={(foodId) => {
+                    setSelectedFoodItemId(foodId)
+                    setModalOpen(true)
+                  }}
+                />
               ))}
               
               {/* Pagination Loader */}
@@ -505,6 +530,13 @@ export default function RestaurantsDirectoryPage() {
             </div>
           )}
         </div>
+
+        {/* Food Item Detail & Review Popup Modal */}
+        <FoodDetailModal
+          foodItemId={selectedFoodItemId}
+          isOpen={modalOpen}
+          onClose={() => setModalOpen(false)}
+        />
 
       </div>
 

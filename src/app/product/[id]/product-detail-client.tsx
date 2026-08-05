@@ -24,6 +24,10 @@ type Variant = {
   price: number
   discount: number
   stock: number
+  weight?: number | null
+  height?: number | null
+  width?: number | null
+  depth?: number | null
   images?: unknown
   attributes?: Record<string, string> | null
   details?: string | null
@@ -257,20 +261,34 @@ export function ProductDetailClient({ productId }: { productId: string }) {
       }
     : null
 
-  // Product details (key/value) shown per selected variant: use its attributes.
+  // Product details (key/value) shown per selected variant (or default first variant): use its attributes + physical specs.
+  const targetVariant = selectedVariant || variants[0] || null
   const detailPairs: { label: string; value: string }[] = (() => {
-    if (!selectedVariant) return []
+    if (!targetVariant) return []
     const attrs =
-      selectedVariant.attributes &&
-      typeof selectedVariant.attributes === "object" &&
-      !Array.isArray(selectedVariant.attributes)
-        ? (selectedVariant.attributes as Record<string, string>)
+      targetVariant.attributes &&
+      typeof targetVariant.attributes === "object" &&
+      !Array.isArray(targetVariant.attributes)
+        ? (targetVariant.attributes as Record<string, string>)
         : {}
-    return Object.entries(attrs)
+    const list = Object.entries(attrs)
       .map(([k, v]) => ({ label: k, value: String(v ?? "") }))
       .filter((x) => x.label.trim() && x.value.trim())
+
+    if (targetVariant.weight != null && targetVariant.weight > 0) {
+      list.push({ label: "Weight", value: `${targetVariant.weight} kg` })
+    }
+    const h = targetVariant.height
+    const w = targetVariant.width
+    const d = targetVariant.depth
+    if ((h != null && Number(h) >= 0) || (w != null && Number(w) >= 0) || (d != null && Number(d) >= 0)) {
+      if (Number(h) > 0 || Number(w) > 0 || Number(d) > 0) {
+        list.push({ label: "Dimensions (H × W × D)", value: `${h ?? 0} × ${w ?? 0} × ${d ?? 0} cm` })
+      }
+    }
+    return list
   })()
-  const variantDetailsText = selectedVariant?.details?.trim() || ""
+  const variantDetailsText = targetVariant?.details?.trim() || ""
   const hasVariantDetails = detailPairs.length > 0 || variantDetailsText.length > 0
 
   return (
@@ -550,7 +568,7 @@ export function ProductDetailClient({ productId }: { productId: string }) {
               )}
             </div>
 
-            {selectedVariant && hasVariantDetails && (
+            {hasVariantDetails && (
               <div>
                 <h3 className="text-sm font-semibold text-slate-900 sm:text-base">
                   Product details

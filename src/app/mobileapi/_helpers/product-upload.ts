@@ -22,6 +22,9 @@ export type HybridProductPayload = {
     hasGst?: boolean
     stock?: number
     weight?: number
+    height?: number
+    width?: number
+    depth?: number
     images?: string[] // Combined result (URLs)
     attributes?: Record<string, any>
     specification?: string

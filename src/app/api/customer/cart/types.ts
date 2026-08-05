@@ -59,4 +59,5 @@ export type CartItemApi = {
   totalPriceInclGst: number
   name: string
   image: string | null
+  stock?: number | null
 }

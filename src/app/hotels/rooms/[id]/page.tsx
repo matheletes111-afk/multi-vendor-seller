@@ -9,6 +9,7 @@ import { Button } from "@/ui/button"
 import { Input } from "@/ui/input"
 import { Card, CardContent } from "@/ui/card"
 import { formatCurrency } from "@/lib/utils"
+import { AvailableCoupons } from "@/components/coupons/available-coupons"
 
 type Hotel = {
   id: string
@@ -132,8 +133,10 @@ export default function RoomBookingPage() {
     }
   }
 
-  const handleApplyCoupon = async () => {
-    if (!couponCode.trim()) return
+  const handleApplyCoupon = async (codeToApply?: string) => {
+    const targetCode = (codeToApply ?? couponCode).trim()
+    if (!targetCode) return
+    setCouponCode(targetCode)
     setCouponLoading(true)
     setCouponError(null)
     try {
@@ -141,7 +144,7 @@ export default function RoomBookingPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          code: couponCode,
+          code: targetCode,
           type: "HOTEL",
           subtotal: calculatedTotalPrice,
           items: []
@@ -155,7 +158,7 @@ export default function RoomBookingPage() {
         setCouponError(data.error || "Failed to apply coupon")
         setAppliedCoupon(null)
       }
-    } catch (e) {
+    } catch {
       setCouponError("Network error applying coupon")
       setAppliedCoupon(null)
     } finally {
@@ -485,7 +488,7 @@ export default function RoomBookingPage() {
                                 Remove
                               </Button>
                             ) : (
-                              <Button type="button" disabled={couponLoading || !couponCode.trim()} onClick={handleApplyCoupon} className="h-9 text-xs rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white">
+                              <Button type="button" disabled={couponLoading || !couponCode.trim()} onClick={() => handleApplyCoupon()} className="h-9 text-xs rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white">
                                 {couponLoading ? "..." : "Apply"}
                               </Button>
                             )}
@@ -498,6 +501,13 @@ export default function RoomBookingPage() {
                               Saved {formatCurrency(appliedCoupon.discountAmount)}!
                             </p>
                           )}
+                          <AvailableCoupons
+                            type="HOTEL"
+                            subtotal={calculatedTotalPrice}
+                            onApplyCoupon={(code) => handleApplyCoupon(code)}
+                            appliedCode={appliedCoupon?.code}
+                            loading={couponLoading}
+                          />
                         </div>
 
                         <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 text-xs font-semibold text-slate-600 space-y-2">

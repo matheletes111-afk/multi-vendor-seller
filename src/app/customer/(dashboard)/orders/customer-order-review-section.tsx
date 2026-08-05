@@ -1,9 +1,10 @@
 "use client"
 
-import type { Dispatch, SetStateAction } from "react"
+import { useState, type Dispatch, type SetStateAction } from "react"
 import { Button } from "@/ui/button"
 import { Textarea } from "@/ui/textarea"
-import { Star, Upload, Loader2 } from "lucide-react"
+import { Star, Upload, Loader2, ZoomIn } from "lucide-react"
+import { ReviewImageModal } from "@/components/reviews/review-image-modal"
 import type { OrderDetailApi } from "@/app/api/customer/orders/types"
 
 export type CustomerReviewDraft = {
@@ -40,6 +41,11 @@ export function CustomerOrderReviewSection({
   const commentMax = 2000
   const draft = getDraft(item.id)
   const commentLen = draft.comment.length
+
+  // Image Modal state
+  const [modalImages, setModalImages] = useState<string[]>([])
+  const [modalIndex, setModalIndex] = useState(0)
+  const [isModalOpen, setIsModalOpen] = useState(false)
 
   if (item.review) {
     if (editingReview[item.id]) {
@@ -216,10 +222,23 @@ export function CustomerOrderReviewSection({
         {item.review.images.length > 0 && (
           <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
             {item.review.images.map((url, idx) => (
-              <a key={`${item.review!.id}-${idx}`} href={url} target="_blank" rel="noreferrer">
+              <button
+                key={`${item.review!.id}-${idx}`}
+                type="button"
+                onClick={() => {
+                  setModalImages(item.review!.images)
+                  setModalIndex(idx)
+                  setIsModalOpen(true)
+                }}
+                className="group relative block overflow-hidden rounded-lg border border-slate-200 bg-slate-50 hover:border-emerald-500 transition-all cursor-pointer text-left focus:outline-none ring-2 ring-transparent focus:ring-emerald-500"
+                title="Click to view large image"
+              >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={url} alt={`Review ${idx + 1}`} className="h-16 w-full rounded-lg object-cover" />
-              </a>
+                <img src={url} alt={`Review ${idx + 1}`} className="h-16 w-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center">
+                  <ZoomIn className="h-5 w-5 text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow-md" />
+                </div>
+              </button>
             ))}
           </div>
         )}
@@ -373,6 +392,14 @@ export function CustomerOrderReviewSection({
             )}
           </Button>
         </div>
+
+        <ReviewImageModal
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          images={modalImages}
+          currentIndex={modalIndex}
+          onIndexChange={setModalIndex}
+        />
       </div>
     )
   }

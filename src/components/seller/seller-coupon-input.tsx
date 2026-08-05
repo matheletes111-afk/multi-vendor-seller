@@ -4,6 +4,7 @@ import { useState } from "react"
 import { Tag, CheckCircle2, XCircle, Loader2 } from "lucide-react"
 import { Button } from "@/ui/button"
 import { Input } from "@/ui/input"
+import { AvailableCoupons } from "@/components/coupons/available-coupons"
 
 export interface AppliedSellerCoupon {
   id: string
@@ -26,8 +27,10 @@ export function SellerCouponInput({ amount, onCouponApplied, disabled = false }:
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [appliedCoupon, setAppliedCoupon] = useState<AppliedSellerCoupon | null>(null)
 
-  const handleApply = async () => {
-    if (!couponCode.trim()) return
+  const handleApply = async (codeToApply?: string) => {
+    const targetCode = (codeToApply ?? couponCode).trim()
+    if (!targetCode) return
+    setCouponCode(targetCode)
     setIsLoading(true)
     setErrorMsg(null)
 
@@ -36,7 +39,7 @@ export function SellerCouponInput({ amount, onCouponApplied, disabled = false }:
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          code: couponCode.trim(),
+          code: targetCode,
           amount
         })
       })
@@ -113,7 +116,7 @@ export function SellerCouponInput({ amount, onCouponApplied, disabled = false }:
           />
           <Button
             type="button"
-            onClick={handleApply}
+            onClick={() => handleApply()}
             disabled={disabled || isLoading || !couponCode.trim()}
             variant="outline"
             className="h-10 px-4 rounded-xl text-xs font-bold border-indigo-200 text-indigo-700 hover:bg-indigo-50 dark:border-indigo-800 dark:text-indigo-300 dark:hover:bg-indigo-950"
@@ -129,6 +132,14 @@ export function SellerCouponInput({ amount, onCouponApplied, disabled = false }:
           <span>{errorMsg}</span>
         </div>
       )}
+
+      <AvailableCoupons
+        type="SELLER"
+        subtotal={amount}
+        onApplyCoupon={(code) => handleApply(code)}
+        appliedCode={appliedCoupon?.code}
+        loading={isLoading}
+      />
     </div>
   )
 }

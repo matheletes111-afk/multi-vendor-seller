@@ -9,7 +9,7 @@ import { Input } from "@/ui/input"
 import { Label } from "@/ui/label"
 import { Alert, AlertDescription } from "@/ui/alert"
 import { PageLoader } from "@/components/ui/page-loader"
-import { Upload, Link as LinkIcon, Plus, Trash2, Zap } from "lucide-react"
+import { Upload, Link as LinkIcon, Plus, Trash2, Zap, Image as ImageIcon, X, Sparkles, Loader2 } from "lucide-react"
 
 type AttributePair = { key: string; value: string }
 type VariantRow = {
@@ -20,6 +20,9 @@ type VariantRow = {
   stock: string
   sku: string
   weight: string
+  height: string
+  width: string
+  depth: string
   images: string[]
   imageMode: "link" | "upload"
   attributes: AttributePair[]
@@ -40,6 +43,9 @@ type Variant = {
   hasGst: boolean
   stock: number
   weight: number | null
+  height?: number | null
+  width?: number | null
+  depth?: number | null
   sku: string | null
   images?: unknown
   attributes?: unknown
@@ -130,6 +136,9 @@ export function EditProductClient({ productId }: { productId: string }) {
                 stock: String(x.stock),
                 sku: x.sku ?? "",
                 weight: x.weight != null ? String(x.weight) : "",
+                height: x.height != null ? String(x.height) : "0",
+                width: x.width != null ? String(x.width) : "0",
+                depth: x.depth != null ? String(x.depth) : "0",
                 images: Array.isArray(x.images) ? (x.images as string[]) : [],
                 imageMode: "upload" as const,
                 attributes: attrs,
@@ -148,6 +157,9 @@ export function EditProductClient({ productId }: { productId: string }) {
                 stock: "0",
                 sku: "",
                 weight: "",
+                height: "0",
+                width: "0",
+                depth: "0",
                 images: [],
                 imageMode: "upload",
                 attributes: [],
@@ -193,6 +205,9 @@ export function EditProductClient({ productId }: { productId: string }) {
         stock: "0",
         sku: "",
         weight: "",
+        height: "0",
+        width: "0",
+        depth: "0",
         images: [],
         imageMode: "upload",
         attributes: [],
@@ -251,6 +266,60 @@ export function EditProductClient({ productId }: { productId: string }) {
     })
   }
 
+  const [aiEstimatingIndex, setAiEstimatingIndex] = useState<number | null>(null)
+
+  async function fetchAIDimensions(variantIndex: number, targetImageUrl?: string) {
+    const v = variants[variantIndex]
+    if (!v) return
+    const imageUrl = targetImageUrl || (Array.isArray(v.images) ? v.images[0] : "")
+    if (!imageUrl) return
+
+    setAiEstimatingIndex(variantIndex)
+    try {
+      let imageBase64: string | undefined
+      if (imageUrl.startsWith("blob:")) {
+        try {
+          const blob = await fetch(imageUrl).then((r) => r.blob())
+          imageBase64 = await new Promise<string>((resolve) => {
+            const reader = new FileReader()
+            reader.onloadend = () => resolve(reader.result as string)
+            reader.readAsDataURL(blob)
+          })
+        } catch {
+          // Fallback
+        }
+      }
+
+      const res = await fetch("/api/product-seller/ai-dimensions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ imageUrl, imageBase64, productName: product?.name || "", variantName: v.name }),
+      })
+      const data = await res.json()
+      if (data.dimensions) {
+        const { weight, height, width, depth } = data.dimensions
+        setVariants((prev) => {
+          const next = [...prev]
+          const cur = next[variantIndex]
+          if (cur) {
+            next[variantIndex] = {
+              ...cur,
+              weight: weight ? String(weight) : cur.weight,
+              height: height ? String(height) : cur.height,
+              width: width ? String(width) : cur.width,
+              depth: depth ? String(depth) : cur.depth,
+            }
+          }
+          return next
+        })
+      }
+    } catch {
+      // Ignore background AI failure
+    } finally {
+      setAiEstimatingIndex(null)
+    }
+  }
+
   async function handleVariantFileSelect(e: React.ChangeEvent<HTMLInputElement>, variantIndex: number) {
     const files = e.target.files
     if (!files?.length) return
@@ -274,9 +343,15 @@ export function EditProductClient({ productId }: { productId: string }) {
       setVariants((prev) => {
         const next = [...prev]
         const v = next[variantIndex]
-        if (v) next[variantIndex] = { ...v, images: [...(v.images ?? []), ...previewUrls] }
+        if (v) {
+          const existingUrls = (v.images ?? []).filter((u) => !u.startsWith("blob:"))
+          next[variantIndex] = { ...v, images: [...existingUrls, ...previewUrls] }
+        }
         return next
       })
+      if (previewUrls[0]) {
+        fetchAIDimensions(variantIndex, previewUrls[0])
+      }
     }
     setVariantUploadingFor(null)
     e.target.value = ""
@@ -349,6 +424,9 @@ export function EditProductClient({ productId }: { productId: string }) {
       stock: "0",
       sku: "",
       weight: "",
+      height: "0",
+      width: "0",
+      depth: "0",
       images: [],
       imageMode: "link",
       attributes: options.map((opt, idx) => ({ key: (opt.optionName ?? "").trim(), value: combo[idx] ?? "" })),
@@ -434,6 +512,9 @@ export function EditProductClient({ productId }: { productId: string }) {
       hasGst: boolean
       stock: number
       weight: number | null
+      height: number
+      width: number
+      depth: number
       sku?: string
       images?: string[]
       attributes?: Record<string, string>
@@ -452,6 +533,9 @@ export function EditProductClient({ productId }: { productId: string }) {
       const stock = parseInt(v.stock, 10)
       const discount = parseFloat(v.discount) || 0
       const weight = v.weight ? parseFloat(v.weight) : null
+      const height = v.height ? parseFloat(v.height) : 0
+      const width = v.width ? parseFloat(v.width) : 0
+      const depth = v.depth ? parseFloat(v.depth) : 0
 
       if (isNaN(price) || price <= 0) {
         setError(`Variant ${i + 1}: valid price is required`)
@@ -478,16 +562,17 @@ export function EditProductClient({ productId }: { productId: string }) {
 
       let variantImages: string[] | undefined
       try {
-        if (v.imageMode === "link") {
-          variantImages = Array.isArray(v.images) && v.images.length > 0 ? v.images : undefined
-        } else {
-          const existingUrls = (v.images ?? []).filter((u) => !u.startsWith("blob:"))
-          const uploadedUrls = variantPendingFiles[i]?.length ? await uploadFiles(variantPendingFiles[i]) : []
-          const merged = Array.from(new Set([...existingUrls, ...uploadedUrls]))
-          variantImages = merged.length > 0 ? merged : undefined
-        }
+        const pendingUploaded = variantPendingFiles[i]?.length ? await uploadFiles(variantPendingFiles[i]) : []
+        const existingOrLinks = Array.isArray(v.images) ? v.images.filter((u) => !u.startsWith("blob:")) : []
+        const merged = Array.from(new Set([...existingOrLinks, ...pendingUploaded]))
+        variantImages = merged.length > 0 ? merged : undefined
       } catch {
         setError(`Variant ${i + 1}: image upload failed. Please try again.`)
+        return
+      }
+
+      if (!variantImages || variantImages.length === 0) {
+        setError(`Variant ${i + 1}: at least one variant image is required`)
         return
       }
 
@@ -498,6 +583,9 @@ export function EditProductClient({ productId }: { productId: string }) {
         hasGst: v.hasGst,
         stock,
         weight,
+        height: isNaN(height) || height < 0 ? 0 : height,
+        width: isNaN(width) || width < 0 ? 0 : width,
+        depth: isNaN(depth) || depth < 0 ? 0 : depth,
         sku: v.sku.trim() || undefined,
         images: variantImages,
         attributes: attributesObj && Object.keys(attributesObj).length > 0 ? attributesObj : undefined,
@@ -551,6 +639,9 @@ export function EditProductClient({ productId }: { productId: string }) {
     const previewUrl = URL.createObjectURL(file)
     masterImagePreviewUrlRef.current = previewUrl
     setMasterImagePreviewUrl(previewUrl)
+    if (previewUrl) {
+      fetchAIDimensions(0, previewUrl)
+    }
     setUploading(false)
     e.target.value = ""
   }
@@ -664,7 +755,7 @@ export function EditProductClient({ productId }: { productId: string }) {
                   <option value="USED">Used</option>
                 </select>
               </div>
-              <div className="space-y-2">
+              <div className="space-y-2" style={{ display: "none" }}>
                 <Label htmlFor="deliveryChargePerKm">Add per KM Delivery Charge (default 0)</Label>
                 <Input 
                   id="deliveryChargePerKm" 
@@ -678,30 +769,94 @@ export function EditProductClient({ productId }: { productId: string }) {
               </div>
             </div>
 
-            <div className="border-t pt-6 space-y-3">
-              <Label className="text-base font-semibold">Master Image (Listing Thumbnail)</Label>
-              <p className="text-xs text-muted-foreground">Main product image. Changing it replaces the current image.</p>
-              <div className="flex gap-2 p-1 bg-muted/40 rounded-lg max-w-xs">
-                <button
-                  type="button"
-                  onClick={() => setMasterImageMode("link")}
-                  className={`flex-1 flex items-center justify-center gap-2 py-1.5 rounded-md text-xs font-medium transition-all ${masterImageMode === "link" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
-                >
-                  <LinkIcon className="h-3 w-3" />
-                  Via Link
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setMasterImageMode("upload")}
-                  className={`flex-1 flex items-center justify-center gap-2 py-1.5 rounded-md text-xs font-medium transition-all ${masterImageMode === "upload" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
-                >
-                  <Upload className="h-3 w-3" />
-                  File Upload
-                </button>
+            <div className="rounded-xl border border-neutral-300 dark:border-neutral-700 bg-muted/20 p-4 space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b pb-2.5">
+                <div>
+                  <Label className="text-sm font-bold flex items-center gap-1.5 text-foreground">
+                    <ImageIcon className="h-4 w-4 text-primary" /> Product Master Image (Listing Thumbnail)
+                  </Label>
+                  <p className="text-xs text-muted-foreground mt-0.5">Main fallback image shown on catalog, search, and browse pages.</p>
+                </div>
+
+                {/* Mode Selector Tabs */}
+                <div className="flex items-center gap-1 p-1 bg-background rounded-lg border shadow-sm shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setMasterImageMode("upload")}
+                    className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold transition-all ${
+                      masterImageMode === "upload"
+                        ? "bg-primary text-primary-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    <Upload className="h-3.5 w-3.5" />
+                    Upload File
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMasterImageMode("link")}
+                    className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold transition-all ${
+                      masterImageMode === "link"
+                        ? "bg-primary text-primary-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    <LinkIcon className="h-3.5 w-3.5" />
+                    Image URL (Link)
+                  </button>
+                </div>
               </div>
 
-              {masterImageMode === "link" ? (
-                <div className="space-y-2 pt-2">
+              {/* Mode Content */}
+              {masterImageMode === "upload" ? (
+                <div className="space-y-3">
+                  <input
+                    ref={masterFileInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/gif,image/webp"
+                    className="hidden"
+                    onChange={handleMasterFileSelect}
+                  />
+                  <div
+                    onClick={() => masterFileInputRef.current?.click()}
+                    className="group flex flex-col items-center justify-center p-5 border-2 border-dashed border-muted-foreground/30 hover:border-primary/60 rounded-lg cursor-pointer bg-background/50 hover:bg-primary/5 transition-all text-center"
+                  >
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary group-hover:scale-110 transition-transform">
+                      <Upload className="h-5 w-5" />
+                    </div>
+                    <p className="text-xs font-semibold mt-2 text-foreground">
+                      {uploading ? "Preparing image..." : "Click to select or upload master product image"}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">PNG, JPG, WEBP or GIF (Max 5MB)</p>
+                  </div>
+
+                  {(masterImagePreviewUrl || masterImageUrl) && (
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between text-[11px] text-muted-foreground font-medium">
+                        <span>Current Master Image</span>
+                      </div>
+                      <div className="group relative w-20 h-20 rounded-lg overflow-hidden border border-neutral-300 dark:border-neutral-700 bg-background shadow-sm">
+                        <img src={masterImagePreviewUrl || masterImageUrl} alt="Master preview" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setMasterImageFile(null)
+                            if (masterImagePreviewUrl) URL.revokeObjectURL(masterImagePreviewUrl)
+                            setMasterImagePreviewUrl("")
+                            masterImagePreviewUrlRef.current = ""
+                            setMasterImageUrl("")
+                          }}
+                          className="absolute top-1 right-1 h-5 w-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center text-xs opacity-90 hover:opacity-100 shadow transition-opacity"
+                          title="Remove image"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-2">
                   <Input
                     type="text"
                     placeholder="/uploads/products/your-image.jpg or https://example.com/image.jpg"
@@ -713,70 +868,25 @@ export function EditProductClient({ productId }: { productId: string }) {
                       masterImagePreviewUrlRef.current = ""
                       setMasterImageUrl(e.target.value)
                     }}
-                    className="w-full"
+                    className="w-full text-xs"
                   />
-                  <p className="text-xs text-muted-foreground">Enter one image URL. Changing it replaces the current master image.</p>
+                  <p className="text-[10px] text-muted-foreground">Enter image URL. Changing it replaces current master image.</p>
                   {masterImageUrl && (
-                    <div className="mt-2">
-                      <p className="text-xs font-medium text-muted-foreground mb-1">Preview</p>
-                      <div className="relative w-32 h-32 rounded overflow-hidden border bg-muted inline-block">
-                        <img src={masterImageUrl} alt="Master preview" className="w-full h-full object-cover" />
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setMasterImageFile(null)
-                            if (masterImagePreviewUrl) URL.revokeObjectURL(masterImagePreviewUrl)
-                            setMasterImagePreviewUrl("")
-                            masterImagePreviewUrlRef.current = ""
-                            setMasterImageUrl("")
-                          }}
-                          className="absolute top-0 right-0 bg-destructive/90 text-destructive-foreground text-xs px-1.5 py-0.5 rounded-bl font-semibold"
-                        >
-                          ×
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="space-y-2 pt-2">
-                  <input
-                    ref={masterFileInputRef}
-                    type="file"
-                    accept="image/jpeg,image/png,image/gif,image/webp"
-                    className="hidden"
-                    onChange={handleMasterFileSelect}
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => masterFileInputRef.current?.click()}
-                    disabled={uploading}
-                  >
-                    {uploading ? "Preparing..." : "Choose image (replaces current)"}
-                  </Button>
-                  {(masterImagePreviewUrl || masterImageUrl) && (
-                    <div className="mt-2">
-                      <p className="text-xs font-medium text-muted-foreground mb-1">Preview</p>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <div className="relative w-32 h-32 rounded overflow-hidden border bg-muted">
-                          <img src={masterImagePreviewUrl || masterImageUrl} alt="Master preview" className="w-full h-full object-cover" />
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setMasterImageFile(null)
-                              if (masterImagePreviewUrl) URL.revokeObjectURL(masterImagePreviewUrl)
-                              setMasterImagePreviewUrl("")
-                              masterImagePreviewUrlRef.current = ""
-                              setMasterImageUrl("")
-                            }}
-                            className="absolute top-0 right-0 bg-destructive/90 text-destructive-foreground text-xs px-1.5 py-0.5 rounded-bl font-semibold"
-                          >
-                            ×
-                          </button>
-                        </div>
-                      </div>
+                    <div className="group relative w-16 h-16 rounded-lg overflow-hidden border bg-background shadow-sm mt-1">
+                      <img src={masterImageUrl} alt="Master preview" className="w-full h-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setMasterImageFile(null)
+                          if (masterImagePreviewUrl) URL.revokeObjectURL(masterImagePreviewUrl)
+                          setMasterImagePreviewUrl("")
+                          masterImagePreviewUrlRef.current = ""
+                          setMasterImageUrl("")
+                        }}
+                        className="absolute top-0.5 right-0.5 h-4 w-4 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center text-[10px]"
+                      >
+                        <X className="h-2.5 w-2.5" />
+                      </button>
                     </div>
                   )}
                 </div>
@@ -882,10 +992,10 @@ export function EditProductClient({ productId }: { productId: string }) {
                     </Button>
                   </div>
                   
-                  <div className="p-4 space-y-4">
-                    {/* Primary Variant Fields */}
-                    <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
-                      <div className="space-y-1.5">
+                  <div className="p-4 space-y-5">
+                    {/* 1. Variant Basic Pricing Info */}
+                    <div className="grid gap-4 sm:grid-cols-3">
+                      <div className="space-y-1.5 sm:col-span-1">
                         <Label className="text-xs font-semibold">Variant Name <span className="text-destructive">*</span></Label>
                         <Input placeholder="e.g. Standard, Red / M" value={v.name} onChange={(e) => updateVariant(i, "name", e.target.value)} required />
                       </div>
@@ -897,6 +1007,158 @@ export function EditProductClient({ productId }: { productId: string }) {
                         <Label className="text-xs font-semibold">Discount (INR)</Label>
                         <Input type="number" step="0.01" min="0" placeholder="0" value={v.discount} onChange={(e) => updateVariant(i, "discount", e.target.value)} />
                       </div>
+                    </div>
+
+                    {/* 2. Variant Images (PLACED BEFORE STOCK/INVENTORY) */}
+                    <div className="rounded-xl border border-neutral-300 dark:border-neutral-700 bg-muted/20 p-3.5 space-y-3">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b pb-2.5">
+                        <div>
+                          <Label className="text-xs font-bold flex items-center gap-1.5 text-foreground">
+                            <ImageIcon className="h-4 w-4 text-primary" /> Variant Images <span className="text-destructive">*</span>
+                          </Label>
+                          <p className="text-[11px] text-muted-foreground mt-0.5">At least 1 image is required for each variant.</p>
+                        </div>
+
+                        {/* Mode Selector Tabs */}
+                        <div className="flex items-center gap-1 p-1 bg-background rounded-lg border shadow-sm shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => updateVariant(i, "imageMode", "upload")}
+                            className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold transition-all ${
+                              v.imageMode === "upload"
+                                ? "bg-primary text-primary-foreground shadow-sm"
+                                : "text-muted-foreground hover:text-foreground"
+                            }`}
+                          >
+                            <Upload className="h-3.5 w-3.5" />
+                            Upload Files
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => updateVariant(i, "imageMode", "link")}
+                            className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold transition-all ${
+                              v.imageMode === "link"
+                                ? "bg-primary text-primary-foreground shadow-sm"
+                                : "text-muted-foreground hover:text-foreground"
+                            }`}
+                          >
+                            <LinkIcon className="h-3.5 w-3.5" />
+                            Image URLs (Link)
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Mode Content */}
+                      {v.imageMode === "upload" ? (
+                        <div className="space-y-3">
+                          <input
+                            ref={(el) => { variantFileInputRefs.current[i] = el }}
+                            type="file"
+                            accept="image/jpeg,image/png,image/gif,image/webp"
+                            multiple
+                            className="hidden"
+                            onChange={(e) => handleVariantFileSelect(e, i)}
+                          />
+                          <div
+                            onClick={() => variantFileInputRefs.current[i]?.click()}
+                            className="group flex flex-col items-center justify-center p-4 border-2 border-dashed border-muted-foreground/30 hover:border-primary/60 rounded-lg cursor-pointer bg-background/50 hover:bg-primary/5 transition-all text-center"
+                          >
+                            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary group-hover:scale-110 transition-transform">
+                              <Upload className="h-4 w-4" />
+                            </div>
+                            <p className="text-xs font-semibold mt-2 text-foreground">
+                              {variantUploadingFor === i ? "Uploading images..." : "Click to select or upload variant images"}
+                            </p>
+                            <p className="text-[10px] text-muted-foreground mt-0.5">PNG, JPG, WEBP or GIF (Multiple allowed)</p>
+                          </div>
+
+                          {(v.images?.length ?? 0) > 0 && (
+                            <div className="space-y-1.5">
+                              <div className="flex items-center justify-between text-[11px] text-muted-foreground font-medium">
+                                <span>Uploaded Images ({v.images.length})</span>
+                              </div>
+                              <div className="flex flex-wrap gap-2">
+                                {v.images.map((url) => (
+                                  <div key={url} className="group relative w-16 h-16 rounded-lg overflow-hidden border border-neutral-300 dark:border-neutral-700 bg-background shadow-sm">
+                                    <img src={url} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                                    <button
+                                      type="button"
+                                      onClick={(e) => { e.stopPropagation(); removeVariantImage(i, url); }}
+                                      className="absolute top-1 right-1 h-5 w-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center text-xs opacity-90 hover:opacity-100 shadow transition-opacity"
+                                      title="Remove image"
+                                    >
+                                      <X className="h-3 w-3" />
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          <textarea
+                            className="flex min-h-[60px] w-full rounded-md border border-input bg-background px-3 py-2 text-xs placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                            placeholder="Paste comma-separated image URLs (e.g. https://example.com/img1.jpg, https://example.com/img2.jpg)"
+                            value={Array.isArray(v.images) ? v.images.join(", ") : ""}
+                            onChange={(e) => updateVariant(i, "images", parseVariantImageLinks(e.target.value))}
+                          />
+                          <p className="text-[10px] text-muted-foreground">Separate multiple image URLs with commas.</p>
+                          {(v.images?.length ?? 0) > 0 && (
+                            <div className="flex flex-wrap gap-2 pt-1">
+                              {v.images.map((url) => (
+                                <div key={url} className="group relative w-14 h-14 rounded-lg overflow-hidden border bg-background shadow-sm">
+                                  <img src={url} alt="" className="w-full h-full object-cover" />
+                                  <button
+                                    type="button"
+                                    onClick={() => removeVariantImage(i, url)}
+                                    className="absolute top-0.5 right-0.5 h-4 w-4 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center text-[10px]"
+                                  >
+                                    <X className="h-2.5 w-2.5" />
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* 3. Stock & Inventory + Physical Dimensions */}
+                    <div className="space-y-2">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-semibold text-muted-foreground">Stock & Physical Dimensions</span>
+                          {aiEstimatingIndex === i && (
+                            <span className="inline-flex items-center gap-1.5 text-[11px] text-primary font-medium bg-primary/10 px-2 py-0.5 rounded-full animate-pulse">
+                              <Loader2 className="h-3 w-3 animate-spin text-primary" /> AI analyzing image & estimating dimensions...
+                            </span>
+                          )}
+                        </div>
+                        {(v.images?.length ?? 0) > 0 && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => fetchAIDimensions(i)}
+                            disabled={aiEstimatingIndex === i}
+                            className="h-6 text-[11px] px-2 text-primary hover:bg-primary/10 font-medium shrink-0"
+                          >
+                            {aiEstimatingIndex === i ? (
+                              <>
+                                <Loader2 className="h-3 w-3 mr-1 animate-spin text-primary" />
+                                Estimating...
+                              </>
+                            ) : (
+                              <>
+                                <Sparkles className="h-3 w-3 mr-1" />
+                                Auto-Fill Dimensions with AI
+                              </>
+                            )}
+                          </Button>
+                        )}
+                      </div>
+                      <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
                       <div className="space-y-1.5">
                         <Label className="text-xs font-semibold">Stock / Inventory <span className="text-destructive">*</span></Label>
                         <Input type="number" min="0" placeholder="0" value={v.stock} onChange={(e) => updateVariant(i, "stock", e.target.value)} required />
@@ -911,6 +1173,18 @@ export function EditProductClient({ productId }: { productId: string }) {
                         </Label>
                         <Input type="number" step="0.001" min="0.001" placeholder="e.g. 0.5" value={v.weight} onChange={(e) => updateVariant(i, "weight", e.target.value)} required={isWeightMandatory} />
                       </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-semibold">Height (cm)</Label>
+                        <Input type="number" step="0.1" min="0" placeholder="0" value={v.height} onChange={(e) => updateVariant(i, "height", e.target.value)} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-semibold">Width (cm)</Label>
+                        <Input type="number" step="0.1" min="0" placeholder="0" value={v.width} onChange={(e) => updateVariant(i, "width", e.target.value)} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-semibold">Depth (cm)</Label>
+                        <Input type="number" step="0.1" min="0" placeholder="0" value={v.depth} onChange={(e) => updateVariant(i, "depth", e.target.value)} />
+                      </div>
                       <div className="space-y-1.5 flex items-center pt-5 hidden">
                         <label className="flex items-center gap-2 cursor-pointer select-none">
                           <input type="checkbox" checked={v.hasGst} onChange={(e) => updateVariant(i, "hasGst", e.target.checked)} className="h-4 w-4 rounded border-input text-primary focus:ring-primary" />
@@ -918,84 +1192,13 @@ export function EditProductClient({ productId }: { productId: string }) {
                         </label>
                       </div>
                     </div>
+                    </div>
 
-                    {/* Advanced Fields */}
+                    {/* 4. Specifications & Details */}
                     <div className="border-t pt-4 grid gap-6 md:grid-cols-2">
-                      {/* Left: Images & Details */}
+                      {/* Left: Variant-Specific Details */}
                       <div className="space-y-3">
                         <div className="space-y-1.5">
-                          <Label className="text-xs font-semibold">Variant Images (Optional)</Label>
-                          <p className="text-[11px] text-muted-foreground">Shown specifically when this variant is selected.</p>
-                          <div className="flex gap-2 p-1 bg-muted/40 rounded-lg max-w-xs">
-                            <button
-                              type="button"
-                              onClick={() => updateVariant(i, "imageMode", "link")}
-                              className={`flex-1 flex items-center justify-center gap-1.5 py-1 rounded-md text-[11px] font-medium transition-all ${v.imageMode === "link" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
-                            >
-                              <LinkIcon className="h-3 w-3" />
-                              Link
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => updateVariant(i, "imageMode", "upload")}
-                              className={`flex-1 flex items-center justify-center gap-1.5 py-1 rounded-md text-[11px] font-medium transition-all ${v.imageMode === "upload" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
-                            >
-                              <Upload className="h-3 w-3" />
-                              Upload
-                            </button>
-                          </div>
-                        </div>
-
-                        {v.imageMode === "link" ? (
-                          <div className="space-y-1.5">
-                            <textarea
-                              className="flex min-h-[60px] w-full rounded-md border border-input bg-background px-3 py-2 text-xs ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                              placeholder="https://example.com/image1.jpg, https://example.com/image2.jpg"
-                              value={Array.isArray(v.images) ? v.images.join(", ") : ""}
-                              onChange={(e) => updateVariant(i, "images", parseVariantImageLinks(e.target.value))}
-                            />
-                            <p className="text-[10px] text-muted-foreground">Comma-separated image URLs.</p>
-                          </div>
-                        ) : (
-                          <div className="space-y-1.5">
-                            <input
-                              ref={(el) => { variantFileInputRefs.current[i] = el }}
-                              type="file"
-                              accept="image/jpeg,image/png,image/gif,image/webp"
-                              multiple
-                              className="hidden"
-                              onChange={(e) => handleVariantFileSelect(e, i)}
-                            />
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => variantFileInputRefs.current[i]?.click()}
-                              disabled={variantUploadingFor === i}
-                              className="text-xs"
-                            >
-                              {variantUploadingFor === i ? "Uploading..." : "Choose Files"}
-                            </Button>
-                            {(v.images?.length ?? 0) > 0 && (
-                              <div className="flex flex-wrap gap-1.5 mt-1.5">
-                                {v.images.map((url) => (
-                                  <div key={url} className="relative w-12 h-12 rounded overflow-hidden border bg-muted shadow-sm">
-                                    <img src={url} alt="" className="w-full h-full object-cover" />
-                                    <button
-                                      type="button"
-                                      onClick={() => removeVariantImage(i, url)}
-                                      className="absolute top-0 right-0 bg-destructive/90 text-destructive-foreground text-[10px] px-1 rounded-bl"
-                                    >
-                                      ×
-                                    </button>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        )}
-
-                        <div className="space-y-1.5 pt-2">
                           <Label className="text-xs font-semibold">Variant-Specific Details (Optional)</Label>
                           <textarea
                             className="flex min-h-[60px] w-full rounded-md border border-input bg-background px-3 py-2 text-xs ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"

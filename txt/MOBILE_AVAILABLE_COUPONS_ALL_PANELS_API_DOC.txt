@@ -1,0 +1,223 @@
+================================================================================
+MOBILE API DOCUMENTATION: AVAILABLE COUPONS & PROMO CODES FOR ALL PANELS
+================================================================================
+Project: Multi-Vendor Marketplace (Product, Service, Hotel, Food + 4 Seller Dashboards)
+Date: August 5, 2026
+Format: REST JSON APIs for Mobile Developers (iOS / Android / Flutter / React Native)
+
+================================================================================
+TABLE OF CONTENTS
+================================================================================
+1. Overview & Panel Types
+2. Customer Available Coupons API (Product, Service, Hotel, Food)
+3. Customer Coupon Application API
+4. Seller Available Coupons API (Product, Service, Hotel, Restaurant Sellers)
+5. Seller Coupon Validation API
+6. Summary Table of Endpoints
+
+================================================================================
+1. OVERVIEW & PANEL TYPES
+================================================================================
+Coupons created in the Admin Panel are isolated by panel types:
+  - "PRODUCT" : Valid ONLY for Product Checkout
+  - "SERVICE" : Valid ONLY for Service Booking Checkout
+  - "HOTEL"   : Valid ONLY for Hotel Room Booking
+  - "FOOD"    : Valid ONLY for Food Ordering Checkout
+  - "SELLER"  : Valid ONLY for 4 Sellers (Subscription Plans & Ad Management)
+
+All dates are in ISO 8601 string format (UTC).
+Currency values are in floating-point numbers (NLe / USD).
+
+================================================================================
+2. CUSTOMER AVAILABLE COUPONS API
+================================================================================
+Endpoint:
+  GET /mobileapi/customer/coupons/available
+
+Query Parameters:
+  - type (Optional): "PRODUCT" | "SERVICE" | "HOTEL" | "FOOD"
+  - subtotal (Optional): number (Current cart/booking subtotal to calculate min order criteria)
+
+Example Request:
+  GET /mobileapi/customer/coupons/available?type=PRODUCT&subtotal=150.00
+
+Response 200 (Success):
+{
+  "success": true,
+  "count": 2,
+  "type": "PRODUCT",
+  "data": [
+    {
+      "id": "cm01ab23c456",
+      "code": "PROD20",
+      "discountType": "PERCENTAGE",     // "PERCENTAGE" | "FIXED"
+      "discountValue": 20,
+      "discountLabel": "20% OFF",
+      "type": "PRODUCT",
+      "minOrderValue": 100.00,
+      "endDate": "2026-12-31T23:59:59.000Z",
+      "expiryFormatted": "Dec 31, 2026",
+      "categoryId": null,
+      "meetsMinOrder": true,            // true if subtotal >= minOrderValue
+      "amountNeededForMinOrder": 0      // Remaining amount to reach minimum order
+    },
+    {
+      "id": "cm01ef78g901",
+      "code": "SUPER50",
+      "discountType": "FIXED",
+      "discountValue": 50,
+      "discountLabel": "NLe 50.00 OFF",
+      "type": "PRODUCT",
+      "minOrderValue": 300.00,
+      "endDate": "2026-12-31T23:59:59.000Z",
+      "expiryFormatted": "Dec 31, 2026",
+      "categoryId": null,
+      "meetsMinOrder": false,
+      "amountNeededForMinOrder": 150.00
+    }
+  ]
+}
+
+Usage Guide for Mobile Apps:
+- In Product Checkout, pass type=PRODUCT
+- In Service Booking, pass type=SERVICE
+- In Hotel Room Booking, pass type=HOTEL
+- In Food Checkout, pass type=FOOD
+- Render `meetsMinOrder === false` items in disabled state with text:
+  "Add NLe {amountNeededForMinOrder} more to unlock"
+
+================================================================================
+3. CUSTOMER COUPON APPLICATION API
+================================================================================
+Endpoint:
+  POST /mobileapi/customer/coupons/apply
+
+Headers:
+  Content-Type: application/json
+  Authorization: Bearer <customer_token> (Optional/Required based on session)
+
+Request Body:
+{
+  "code": "PROD20",
+  "type": "PRODUCT",    // "PRODUCT" | "SERVICE" | "HOTEL" | "FOOD"
+  "subtotal": 150.00,
+  "items": [
+    { "productId": "prod_123", "price": 50.00, "quantity": 3 }
+  ]
+}
+
+Response 200 (Success):
+{
+  "success": true,
+  "message": "Coupon applied successfully",
+  "data": {
+    "couponId": "cm01ab23c456",
+    "code": "PROD20",
+    "discountType": "PERCENTAGE",
+    "discountValue": 20.0,
+    "discountAmount": 30.00,
+    "finalAmount": 120.00
+  }
+}
+
+Response 400 (Error):
+{
+  "success": false,
+  "error": "Minimum order value of NLe 300.00 required for this coupon"
+}
+
+================================================================================
+4. SELLER AVAILABLE COUPONS API (FOR ALL 4 SELLER PANELS)
+================================================================================
+Applies to:
+  1) Product Seller Panel
+  2) Service Seller Panel
+  3) Hotel Seller Panel
+  4) Restaurant / Food Seller Panel
+
+Used in:
+  - Subscription Plan Checkout
+  - Ad Creation & Budget Payment
+
+Endpoint:
+  GET /mobileapi/seller/coupons/available
+
+Query Parameters:
+  - amount (Optional): number (Plan price or Ad total budget amount)
+
+Example Request:
+  GET /mobileapi/seller/coupons/available?amount=250.00
+
+Response 200 (Success):
+{
+  "success": true,
+  "count": 1,
+  "type": "SELLER",
+  "data": [
+    {
+      "id": "cm09xx88y999",
+      "code": "GROWTH50",
+      "discountType": "FIXED",
+      "discountValue": 50.00,
+      "discountLabel": "NLe 50.00 OFF",
+      "type": "SELLER",
+      "minOrderValue": 200.00,
+      "endDate": "2026-12-31T23:59:59.000Z",
+      "expiryFormatted": "Dec 31, 2026",
+      "meetsMinOrder": true,
+      "amountNeededForMinOrder": 0
+    }
+  ]
+}
+
+================================================================================
+5. SELLER COUPON VALIDATION API
+================================================================================
+Endpoint:
+  POST /mobileapi/seller/coupons/validate
+
+Headers:
+  Content-Type: application/json
+  Authorization: Bearer <seller_token>
+
+Request Body:
+{
+  "code": "GROWTH50",
+  "amount": 250.00
+}
+
+Response 200 (Success):
+{
+  "valid": true,
+  "coupon": {
+    "id": "cm09xx88y999",
+    "code": "GROWTH50",
+    "discountType": "FIXED",
+    "discountValue": 50.00,
+    "type": "SELLER"
+  },
+  "discountAmount": 50.00,
+  "finalAmount": 200.00
+}
+
+Response 400 (Error):
+{
+  "valid": false,
+  "error": "This coupon is not valid for seller promotions or subscriptions"
+}
+
+================================================================================
+6. SUMMARY TABLE OF ENDPOINTS FOR MOBILE DEVELOPERS
+================================================================================
++------------------------------------------+--------+-----------------------------------------------------+
+| Action                                   | Method | Endpoint                                            |
++------------------------------------------+--------+-----------------------------------------------------+
+| Customer Get Available Coupons           | GET    | /mobileapi/customer/coupons/available?type={TYPE}  |
+| Customer Apply Coupon                    | POST   | /mobileapi/customer/coupons/apply                  |
+| Seller Get Available Coupons (Sub & Ads) | GET    | /mobileapi/seller/coupons/available?amount={AMOUNT} |
+| Seller Validate Coupon (Sub & Ads)       | POST   | /mobileapi/seller/coupons/validate                  |
++------------------------------------------+--------+-----------------------------------------------------+
+
+Types supported for customer: "PRODUCT" | "SERVICE" | "HOTEL" | "FOOD"
+Type supported for sellers: "SELLER"
+================================================================================

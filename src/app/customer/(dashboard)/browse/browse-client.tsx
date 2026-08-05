@@ -32,6 +32,7 @@ type Subcategory = { id: string; name: string; slug: string }
 
 type FilterMeta = {
   categories: { id: string; name: string; slug: string }[]
+  serviceCategories?: { id: string; name: string; slug: string }[]
   brands: string[]
   priceExtent: { min: number; max: number }
 }
@@ -101,6 +102,7 @@ export function BrowseClient() {
   const categoryId = searchParams.get("categoryId")
   const catsParam = searchParams.get("cats")
   const subcategoryId = searchParams.get("subcategoryId")
+  const serviceCategoryId = searchParams.get("serviceCategoryId")
   const q = searchParams.get("q")
   const sortParam = searchParams.get("sort")
   const sort =
@@ -132,6 +134,7 @@ export function BrowseClient() {
   const [totalPages, setTotalPages] = useState(1)
   const [categoryName, setCategoryName] = useState<string | null>(null)
   const [subcategoryName, setSubcategoryName] = useState<string | null>(null)
+  const [serviceCategoryName, setServiceCategoryName] = useState<string | null>(null)
   const [subcategories, setSubcategories] = useState<Subcategory[]>([])
   const [resolvedCategoryId, setResolvedCategoryId] = useState<string | null>(null)
   const [filterMeta, setFilterMeta] = useState<FilterMeta | null>(null)
@@ -139,8 +142,10 @@ export function BrowseClient() {
   const [loading, setLoading] = useState(true)
 
   const [catSearch, setCatSearch] = useState("")
+  const [serviceCatSearch, setServiceCatSearch] = useState("")
   const [brandSearch, setBrandSearch] = useState("")
   const [showAllCats, setShowAllCats] = useState(false)
+  const [showAllServiceCats, setShowAllServiceCats] = useState(false)
   const [showAllBrands, setShowAllBrands] = useState(false)
   const [priceMinDraft, setPriceMinDraft] = useState("")
   const [priceMaxDraft, setPriceMaxDraft] = useState("")
@@ -152,6 +157,7 @@ export function BrowseClient() {
     if (categoryId) params.set("categoryId", categoryId)
     if (catsParam) params.set("cats", catsParam)
     if (subcategoryId) params.set("subcategoryId", subcategoryId)
+    if (serviceCategoryId) params.set("serviceCategoryId", serviceCategoryId)
     if (q) params.set("q", q)
     if (sort && sort !== "newest") params.set("sort", sort)
     if (Number.isFinite(minPrice) && minPrice > 0) params.set("minPrice", String(minPrice))
@@ -169,6 +175,7 @@ export function BrowseClient() {
     categoryId,
     catsParam,
     subcategoryId,
+    serviceCategoryId,
     q,
     sort,
     minPrice,
@@ -197,6 +204,7 @@ export function BrowseClient() {
           pageSize?: number
           categoryName?: string | null
           subcategoryName?: string | null
+          serviceCategoryName?: string | null
           subcategories?: Subcategory[]
           resolvedCategoryId?: string | null
           filterMeta?: FilterMeta
@@ -208,6 +216,7 @@ export function BrowseClient() {
           setPageSize(typeof data.pageSize === "number" && data.pageSize > 0 ? data.pageSize : 12)
           setCategoryName(data.categoryName ?? null)
           setSubcategoryName(data.subcategoryName ?? null)
+          setServiceCategoryName(data.serviceCategoryName ?? null)
           setSubcategories(data.subcategories || [])
           setResolvedCategoryId(data.resolvedCategoryId ?? null)
           setFilterMeta(data.filterMeta ?? null)
@@ -309,6 +318,7 @@ export function BrowseClient() {
   if (catsParam) activeChips.push({ key: "cats", label: `Categories (${parseComma(catsParam).length})`, clear: () => updateFilters({ cats: null }) })
   if (categoryId && !catsParam) activeChips.push({ key: "cat", label: "Category", clear: () => updateFilters({ categoryId: null }) })
   if (subcategoryId) activeChips.push({ key: "sub", label: "Subcategory", clear: () => updateFilters({ subcategoryId: null }) })
+  if (serviceCategoryId) activeChips.push({ key: "serviceCat", label: serviceCategoryName ? `Service: ${serviceCategoryName}` : "Service Category", clear: () => updateFilters({ serviceCategoryId: null }) })
   if (brandsParam) activeChips.push({ key: "brands", label: `Brands (${parseComma(brandsParam).length})`, clear: () => updateFilters({ brands: null }) })
   if (ratingParam) activeChips.push({ key: "rating", label: `${ratingParam}+ stars`, clear: () => updateFilters({ rating: null }) })
   if (discParam) activeChips.push({ key: "disc", label: "Discount", clear: () => updateFilters({ disc: null }) })
@@ -319,17 +329,23 @@ export function BrowseClient() {
   if (Number.isFinite(minPrice) && minPrice > 0) activeChips.push({ key: "min", label: `Min ${formatCurrency(minPrice)}`, clear: () => updateFilters({ minPrice: null }) })
   if (Number.isFinite(maxPrice) && maxPrice < 100000) activeChips.push({ key: "max", label: `Max ${formatCurrency(maxPrice)}`, clear: () => updateFilters({ maxPrice: null }) })
 
-  const pageTitle = subcategoryName ?? categoryName ?? "Browse Marketplace"
+  const isServiceFilter = Boolean(serviceCategoryId || serviceCategoryName)
+  const pageTitle = isServiceFilter
+    ? (serviceCategoryName ?? "Services")
+    : (subcategoryName ?? categoryName ?? "Browse Marketplace")
   const isSubcategoryView = !!subcategoryId
   const isProductCategoryFilter = !!(categoryId || subcategoryId || catsParam)
-  const showSubcategoryPills = subcategories.length > 0 && !subcategoryId
+  const showSubcategoryPills = subcategories.length > 0 && !subcategoryId && !isServiceFilter
 
   const categories = filterMeta?.categories ?? []
+  const serviceCategoriesList = filterMeta?.serviceCategories ?? []
   const brands = filterMeta?.brands ?? []
   const priceExtent = filterMeta?.priceExtent ?? { min: 0, max: 0 }
 
   const filteredCats = categories.filter((c) => c.name.toLowerCase().includes(catSearch.toLowerCase()))
   const visibleCats = showAllCats ? filteredCats : filteredCats.slice(0, INITIAL_LIST)
+  const filteredServiceCats = serviceCategoriesList.filter((sc) => sc.name.toLowerCase().includes(serviceCatSearch.toLowerCase()))
+  const visibleServiceCats = showAllServiceCats ? filteredServiceCats : filteredServiceCats.slice(0, INITIAL_LIST)
   const filteredBrands = brands.filter((b) => b.toLowerCase().includes(brandSearch.toLowerCase()))
   const visibleBrands = showAllBrands ? filteredBrands : filteredBrands.slice(0, INITIAL_LIST)
 
@@ -340,9 +356,9 @@ export function BrowseClient() {
 
   const filterSidebar = (
     <div className="space-y-0">
-      <CollapsibleSection title="Category" tooltip="Filter by product category">
+      <CollapsibleSection title="Product Categories" tooltip="Filter by product category">
         <Input
-          placeholder="Search categories"
+          placeholder="Search product categories"
           value={catSearch}
           onChange={(e) => setCatSearch(e.target.value)}
           className="mb-2 h-9 text-sm"
@@ -350,11 +366,11 @@ export function BrowseClient() {
         <label className="flex cursor-pointer items-center gap-2 py-1 text-sm text-slate-700">
           <input
             type="checkbox"
-            checked={selectedCats.size === 0 && !categoryId}
-            onChange={() => updateFilters({ cats: null, categoryId: null })}
+            checked={selectedCats.size === 0 && !categoryId && !serviceCategoryId}
+            onChange={() => updateFilters({ cats: null, categoryId: null, subcategoryId: null, serviceCategoryId: null })}
             className="rounded border-slate-300 text-amber-500 focus:ring-amber-500"
           />
-          All
+          All Products
         </label>
         {visibleCats.map((c) => (
           <label key={c.id} className="flex cursor-pointer items-center gap-2 py-1 text-sm text-slate-700">
@@ -363,6 +379,7 @@ export function BrowseClient() {
               checked={selectedCats.has(c.id) || (categoryId === c.id && !catsParam)}
               onChange={() => {
                 if (categoryId && !catsParam) updateFilters({ categoryId: null })
+                if (serviceCategoryId) updateFilters({ serviceCategoryId: null })
                 toggleCat(c.id)
               }}
               className="rounded border-slate-300 text-amber-500 focus:ring-amber-500"
@@ -376,6 +393,44 @@ export function BrowseClient() {
           </button>
         )}
       </CollapsibleSection>
+
+      {serviceCategoriesList.length > 0 && (
+        <CollapsibleSection title="Service Categories" tooltip="Filter by service category">
+          <Input
+            placeholder="Search service categories"
+            value={serviceCatSearch}
+            onChange={(e) => setServiceCatSearch(e.target.value)}
+            className="mb-2 h-9 text-sm"
+          />
+          {visibleServiceCats.map((sc) => (
+            <label key={sc.id} className="flex cursor-pointer items-center gap-2 py-1 text-sm text-slate-700">
+              <input
+                type="checkbox"
+                checked={serviceCategoryId === sc.id}
+                onChange={() => {
+                  if (serviceCategoryId === sc.id) {
+                    updateFilters({ serviceCategoryId: null })
+                  } else {
+                    updateFilters({
+                      serviceCategoryId: sc.id,
+                      categoryId: null,
+                      subcategoryId: null,
+                      cats: null,
+                    })
+                  }
+                }}
+                className="rounded border-slate-300 text-amber-500 focus:ring-amber-500"
+              />
+              {sc.name}
+            </label>
+          ))}
+          {filteredServiceCats.length > INITIAL_LIST && (
+            <button type="button" className="mt-1 text-sm font-medium text-blue-600 hover:underline" onClick={() => setShowAllServiceCats((v) => !v)}>
+              {showAllServiceCats ? "See less" : "See more"}
+            </button>
+          )}
+        </CollapsibleSection>
+      )}
 
       <CollapsibleSection title="Brands" tooltip="Filter by brand (from product attributes)">
         <Input
@@ -652,27 +707,36 @@ export function BrowseClient() {
     <div className="min-w-0 overflow-x-hidden bg-slate-50/80">
       <div className="mx-auto max-w-[1400px] px-4 md:px-6">
         <div className="py-5 md:py-8">
-          {(categoryName || subcategoryName) && (
+          {(categoryName || subcategoryName || serviceCategoryName || isServiceFilter) && (
             <nav className="mb-4 flex flex-wrap items-center gap-1 text-sm text-muted-foreground">
               <Link href="/browse" className="hover:text-foreground hover:underline">
                 Browse
               </Link>
-              {categoryName && (
+              {isServiceFilter ? (
                 <>
                   <ChevronRight className="h-4 w-4 shrink-0" />
-                  {isSubcategoryView && resolvedCategoryId ? (
-                    <Link href={`/browse?categoryId=${resolvedCategoryId}`} className="hover:text-foreground hover:underline">
-                      {categoryName}
-                    </Link>
-                  ) : (
-                    <span className="font-medium text-foreground">{categoryName}</span>
-                  )}
+                  <span className="font-medium text-foreground">{serviceCategoryName || "Services"}</span>
                 </>
-              )}
-              {subcategoryName && (
+              ) : (
                 <>
-                  <ChevronRight className="h-4 w-4 shrink-0" />
-                  <span className="font-medium text-foreground">{subcategoryName}</span>
+                  {categoryName && (
+                    <>
+                      <ChevronRight className="h-4 w-4 shrink-0" />
+                      {isSubcategoryView && resolvedCategoryId ? (
+                        <Link href={`/browse?categoryId=${resolvedCategoryId}`} className="hover:text-foreground hover:underline">
+                          {categoryName}
+                        </Link>
+                      ) : (
+                        <span className="font-medium text-foreground">{categoryName}</span>
+                      )}
+                    </>
+                  )}
+                  {subcategoryName && (
+                    <>
+                      <ChevronRight className="h-4 w-4 shrink-0" />
+                      <span className="font-medium text-foreground">{subcategoryName}</span>
+                    </>
+                  )}
                 </>
               )}
             </nav>
@@ -681,11 +745,13 @@ export function BrowseClient() {
           <div className="mb-6">
             <h1 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl md:text-3xl">{pageTitle}</h1>
             <p className="mt-1 text-sm text-muted-foreground sm:text-base">
-              {isSubcategoryView
-                ? `Products in ${subcategoryName}`
-                : categoryName
-                  ? `Products in ${categoryName}`
-                  : "Discover products and services from our sellers"}
+              {isServiceFilter
+                ? `Services in ${serviceCategoryName || "Selected Category"}`
+                : isSubcategoryView
+                  ? `Products in ${subcategoryName}`
+                  : categoryName
+                    ? `Products in ${categoryName}`
+                    : "Discover products and services from our sellers"}
             </p>
           </div>
 
@@ -785,80 +851,84 @@ export function BrowseClient() {
                 )}
               </section>
 
-              <section>
-                <div className="mb-4 flex flex-wrap items-center gap-2">
-                  <Package className="h-5 w-5 shrink-0 text-slate-600" />
-                  <h2 className="text-lg font-semibold text-slate-900 sm:text-xl">Products</h2>
-                  <Badge variant="secondary" className="text-xs">
-                    {totalProducts}
-                  </Badge>
-                </div>
+              {!isServiceFilter && (
+                <section>
+                  <div className="mb-4 flex flex-wrap items-center gap-2">
+                    <Package className="h-5 w-5 shrink-0 text-slate-600" />
+                    <h2 className="text-lg font-semibold text-slate-900 sm:text-xl">Products</h2>
+                    <Badge variant="secondary" className="text-xs">
+                      {totalProducts}
+                    </Badge>
+                  </div>
 
-                {loading ? (
-                  <div className="grid grid-cols-2 gap-2 sm:gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                    {Array.from({ length: 8 }).map((_, i) => (
-                      <div key={i} className="animate-pulse overflow-hidden rounded-lg border border-slate-200 bg-white">
-                        <div className="aspect-square bg-slate-200" />
-                        <div className="space-y-2 p-3">
-                          <div className="h-4 w-3/4 rounded bg-slate-200" />
-                          <div className="h-4 w-1/2 rounded bg-slate-200" />
-                          <div className="h-8 w-full rounded bg-slate-200" />
+                  {loading ? (
+                    <div className="grid grid-cols-2 gap-2 sm:gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                      {Array.from({ length: 8 }).map((_, i) => (
+                        <div key={i} className="animate-pulse overflow-hidden rounded-lg border border-slate-200 bg-white">
+                          <div className="aspect-square bg-slate-200" />
+                          <div className="space-y-2 p-3">
+                            <div className="h-4 w-3/4 rounded bg-slate-200" />
+                            <div className="h-4 w-1/2 rounded bg-slate-200" />
+                            <div className="h-8 w-full rounded bg-slate-200" />
+                          </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : products.length === 0 ? (
-                  <div className="rounded-lg border border-dashed border-slate-300 bg-white py-16 text-center">
-                    <p className="text-slate-600">No products found</p>
-                    <Button type="button" variant="outline" className="mt-4" onClick={clearAllFilters}>
-                      Clear filters
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-2 gap-2 sm:gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                    {products.map((product) => (
-                      <BrowseProductCard
-                        key={product.id}
-                        product={product}
-                        canUseWishlist={canUseWishlist}
-                        showFreeDelivery={product.finalPrice >= 35}
-                      />
-                    ))}
-                  </div>
-                )}
-
-                {!loading && totalProducts > 0 && (
-                  <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white p-3">
-                    <p className="text-sm text-muted-foreground">
-                      Page {currentPage} of {totalPages}
-                    </p>
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => changePage(currentPage - 1)}
-                        disabled={currentPage <= 1}
-                        className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        Previous
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => changePage(currentPage + 1)}
-                        disabled={currentPage >= totalPages}
-                        className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        Next
-                      </button>
+                      ))}
                     </div>
-                  </div>
-                )}
-              </section>
+                  ) : products.length === 0 ? (
+                    <div className="rounded-lg border border-dashed border-slate-300 bg-white py-16 text-center">
+                      <p className="text-slate-600">No products found</p>
+                      <Button type="button" variant="outline" className="mt-4" onClick={clearAllFilters}>
+                        Clear filters
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-2 sm:gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                      {products.map((product) => (
+                        <BrowseProductCard
+                          key={product.id}
+                          product={product}
+                          canUseWishlist={canUseWishlist}
+                          showFreeDelivery={product.finalPrice >= 35}
+                        />
+                      ))}
+                    </div>
+                  )}
 
-              {!isProductCategoryFilter && (
+                  {!loading && totalProducts > 0 && (
+                    <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white p-3">
+                      <p className="text-sm text-muted-foreground">
+                        Page {currentPage} of {totalPages}
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => changePage(currentPage - 1)}
+                          disabled={currentPage <= 1}
+                          className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          Previous
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => changePage(currentPage + 1)}
+                          disabled={currentPage >= totalPages}
+                          className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          Next
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </section>
+              )}
+
+              {(!isProductCategoryFilter || isServiceFilter) && (
                 <section>
                   <div className="mb-4 flex flex-wrap items-center gap-2">
                     <Briefcase className="h-5 w-5 shrink-0 text-slate-600" />
-                    <h2 className="text-lg font-semibold text-slate-900 sm:text-xl">Services</h2>
+                    <h2 className="text-lg font-semibold text-slate-900 sm:text-xl">
+                      {isServiceFilter ? `Services (${services.length})` : "Services"}
+                    </h2>
                     <Badge variant="secondary" className="text-xs">
                       {services.length}
                     </Badge>

@@ -7,8 +7,15 @@ import { isProductCartPayload } from "./types"
 import { UserRole } from "@prisma/client"
 
 const cartItemInclude = {
-  product: { select: { id: true, name: true, images: true } },
-  productVariant: { select: { id: true, name: true, price: true, discount: true, hasGst: true, images: true } },
+  product: {
+    select: {
+      id: true,
+      name: true,
+      images: true,
+      variants: { select: { id: true, stock: true }, take: 1, orderBy: { createdAt: "asc" as const } },
+    },
+  },
+  productVariant: { select: { id: true, name: true, price: true, discount: true, hasGst: true, images: true, stock: true } },
   service: { select: { id: true, name: true, basePrice: true, discount: true, hasGst: true, images: true } },
   servicePackage: { select: { id: true, name: true, price: true } },
 } as const
@@ -87,6 +94,7 @@ function toCartItemApi(row: CartItemRow): CartItemApi {
   const serviceFirstImage = toFirstImage(row.service?.images as unknown)
 
   const image = variantFirstImage ?? productFirstImage ?? serviceFirstImage
+  const stock = row.productVariant?.stock ?? row.product?.variants?.[0]?.stock ?? 999
   return {
     id: row.id,
     productId: row.productId,
@@ -102,6 +110,7 @@ function toCartItemApi(row: CartItemRow): CartItemApi {
     totalPriceInclGst: row.totalPriceInclGst ?? row.totalPrice + row.totalGst,
     name,
     image,
+    stock,
   }
 }
 
@@ -343,8 +352,20 @@ export async function PATCH(request: NextRequest) {
     await prisma.cartItem.delete({ where: { id: cartItemId } })
   } else if (typeof quantity === "number" && quantity >= 1) {
     const item = existing as typeof existing & CartItemPricing
-    // Services are one booking per line; cap quantity at 1
-    const effectiveQty = existing.serviceId != null ? 1 : quantity
+    let maxStock = 999
+    if (existing.productVariantId) {
+      const v = await prisma.productVariant.findUnique({ where: { id: existing.productVariantId }, select: { stock: true } })
+      if (v) maxStock = v.stock
+    } else if (existing.productId) {
+      const p = await prisma.product.findUnique({
+        where: { id: existing.productId },
+        select: { variants: { select: { stock: true }, take: 1, orderBy: { createdAt: "asc" } } },
+      })
+      if (p?.variants?.[0]) maxStock = p.variants[0].stock
+    }
+    // Services are one booking per line; cap quantity at 1, for products cap at maxStock
+    const requestedQty = existing.serviceId != null ? 1 : quantity
+    const effectiveQty = Math.min(requestedQty, Math.max(1, maxStock))
     const totalPrice = item.unitPrice * effectiveQty
     const totalGst = item.hasGst ? totalPrice * 0.15 : 0
     await prisma.cartItem.update({
