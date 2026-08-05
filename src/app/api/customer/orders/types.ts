@@ -51,6 +51,8 @@ export type OrderDetailItemApi = {
   pickupStatus: "NOT_REQUESTED" | "PENDING" | "COMPLETED" | null
   refundStatus: "NOT_REQUESTED" | "PENDING" | "COMPLETED" | null
   deliveryProofImage: string | null
+  deliveryOtp: string | null
+  deliveryOtpExpires: string | null
   statusHistory: {
     status: string
     location: string | null
