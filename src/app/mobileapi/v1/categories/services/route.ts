@@ -28,7 +28,8 @@ export async function GET(request: NextRequest) {
       name: scat.name,
       slug: scat.slug,
       description: scat.description || "",
-      image_url: scat.mobileIcon || scat.image || null,
+      image_url: scat.image || scat.mobileIcon || null,
+      mobile_icon: scat.mobileIcon || null,
       service_count: scat._count.services,
       deep_link: `/services?category=${encodeURIComponent(scat.slug)}`,
     }))
