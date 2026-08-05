@@ -39,23 +39,34 @@ export async function validateCoupon(params: {
   }
 
   if (coupon.type !== type) {
-    return { valid: false, error: `This coupon is only valid for ${coupon.type.toLowerCase()} orders` }
+    if (coupon.type === "SELLER" && (type === ("SELLER" as any) || type === ("SUBSCRIPTION" as any) || type === ("AD" as any))) {
+      // Allow SELLER coupons for seller subscription or ad requests
+    } else {
+      return { valid: false, error: `This coupon is only valid for ${coupon.type.toLowerCase()} orders` }
+    }
   }
 
-  // Filter items matching the coupon type
-  const typeMatchingItems = items.filter(i => {
-    if (coupon.type === "PRODUCT") return i.productId != null
-    if (coupon.type === "SERVICE") return i.serviceId != null
-    if (coupon.type === "FOOD") return i.foodItemId != null
-    return true // Default or HOTEL
-  })
+  const isHotelOrSeller = coupon.type === "HOTEL" || coupon.type === "SELLER"
 
-  if (typeMatchingItems.length === 0) {
-    return { valid: false, error: `This coupon is only valid for ${coupon.type.toLowerCase()} items` }
+  // Filter items matching the coupon type if items array was provided with items
+  let typeMatchingItems: CouponItem[] = []
+  if (items && items.length > 0 && !isHotelOrSeller) {
+    typeMatchingItems = items.filter(i => {
+      if (coupon.type === "PRODUCT") return i.productId != null
+      if (coupon.type === "SERVICE") return i.serviceId != null
+      if (coupon.type === "FOOD") return i.foodItemId != null
+      return true
+    })
+
+    if (typeMatchingItems.length === 0) {
+      return { valid: false, error: `This coupon is only valid for ${coupon.type.toLowerCase()} items` }
+    }
   }
 
   // Calculate matching items subtotal
-  let applicableSubtotal = typeMatchingItems.reduce((sum, item) => sum + item.price * item.quantity, 0)
+  let applicableSubtotal = typeMatchingItems.length > 0
+    ? typeMatchingItems.reduce((sum, item) => sum + item.price * item.quantity, 0)
+    : subtotal
 
   if (coupon.categoryId) {
     const productIds = typeMatchingItems.filter(i => i.productId).map(i => i.productId!)
