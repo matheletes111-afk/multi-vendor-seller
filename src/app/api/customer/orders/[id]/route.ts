@@ -173,6 +173,8 @@ export async function GET(
       pickupStatus: returnAvailable ? request?.pickupStatus ?? "NOT_REQUESTED" : null,
       refundStatus: returnAvailable ? request?.refundStatus ?? "NOT_REQUESTED" : null,
       deliveryProofImage: row.deliveryProofImage ?? null,
+      deliveryOtp: (row as any).deliveryOtp ?? null,
+      deliveryOtpExpires: (row as any).deliveryOtpExpires ? (row as any).deliveryOtpExpires.toISOString() : null,
       statusHistory: row.statusHistory.map((h) => ({
         status: h.status,
         location: h.location ?? null,

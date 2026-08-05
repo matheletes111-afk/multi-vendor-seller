@@ -689,6 +689,21 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
                             </Badge>
                           )}
                         </div>
+                        {item.itemStatus === "OUT_FOR_DELIVERY" && item.deliveryOtp && (
+                          <div className="my-2 rounded-2xl border border-emerald-300 bg-emerald-50/90 p-3.5 shadow-xs text-emerald-950 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                            <div className="space-y-0.5">
+                              <p className="text-xs font-bold text-emerald-900 uppercase tracking-wider flex items-center gap-1.5">
+                                🚚 Delivery OTP Code
+                              </p>
+                              <p className="text-[11px] text-emerald-800 font-medium">
+                                Share this code with your delivery partner at your doorstep to receive package.
+                              </p>
+                            </div>
+                            <div className="bg-white border border-emerald-300 rounded-xl px-4 py-1.5 font-mono text-xl font-black text-emerald-950 tracking-widest shadow-xs">
+                              {item.deliveryOtp}
+                            </div>
+                          </div>
+                        )}
                         {item.serviceNameSnapshot && item.serviceSlotStartTime && item.serviceSlotEndTime && (
                           <p className="text-sm text-gray-600">
                             Slot: {formatSlotTimeRange(item.serviceSlotStartTime, item.serviceSlotEndTime)}
