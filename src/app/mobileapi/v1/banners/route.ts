@@ -31,6 +31,7 @@ export async function GET(request: NextRequest) {
         heading: b.bannerHeading,
         description: b.bannerDescription || "",
         image_url: b.bannerImage,
+        mobile_banner: b.mobileBanner || b.bannerImage,
         target_type: b.targetType || "product",
         target_id: targetId,
         placement: placement,

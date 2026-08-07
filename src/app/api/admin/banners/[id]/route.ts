@@ -105,6 +105,9 @@ export async function PUT(
     const removeImage = formData.get("removeImage") === "true";
     const bannerImageFile = formData.get("bannerImage") as File | null;
     const bannerImageUrl = (formData.get("bannerImageUrl") as string)?.trim() || null;
+    const mobileBannerFile = formData.get("mobileBanner") as File | null;
+    const mobileBannerUrl = (formData.get("mobileBannerUrl") as string)?.trim() || null;
+    const removeMobileImage = formData.get("removeMobileImage") === "true";
 
     const getImageExtFromContentType = (contentType?: string | null) => {
       const ct = (contentType || "").toLowerCase();
@@ -136,6 +139,7 @@ export async function PUT(
       subcategory: { connect: { id: string } } | { disconnect: true };
       serviceCategory: { connect: { id: string } } | { disconnect: true };
       bannerImage?: string;
+      mobileBanner?: string | null;
     } = {
       bannerHeading,
       bannerDescription,
@@ -146,7 +150,7 @@ export async function PUT(
       serviceCategory: targetType === "service" && serviceCategoryId ? { connect: { id: serviceCategoryId } } : { disconnect: true },
     };
 
-    // Handle image
+    // Handle desktop image
     if (bannerImageFile && bannerImageFile.size > 0) {
       // Delete old image
       if (existingBanner.bannerImage && existingBanner.bannerImage.startsWith('/uploads/')) {
@@ -184,6 +188,30 @@ export async function PUT(
       // bannerImage is required; keep existing if no new image provided
     } else if (bannerImageUrl) {
       updateData.bannerImage = bannerImageUrl;
+    }
+
+    // Handle mobile image
+    if (mobileBannerFile && mobileBannerFile.size > 0) {
+      try {
+        const bytes = await mobileBannerFile.arrayBuffer();
+        const buffer = Buffer.from(bytes);
+        const contentType = mobileBannerFile.type || "image/jpeg";
+        const ext = getImageExtFromContentType(contentType);
+
+        updateData.mobileBanner = await uploadPublicFile({
+          folder: "banners",
+          ext,
+          contentType,
+          buffer,
+          prefix: "mobile_banner",
+        });
+      } catch (uploadError) {
+        console.error("Error uploading mobile banner image:", uploadError);
+      }
+    } else if (removeMobileImage) {
+      updateData.mobileBanner = null;
+    } else if (mobileBannerUrl) {
+      updateData.mobileBanner = mobileBannerUrl;
     }
 
     const banner = await prisma.banner.update({

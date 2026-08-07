@@ -17,13 +17,18 @@ export async function GET(
         bannerHeading: true,
         bannerDescription: true,
         bannerImage: true,
+        mobileBanner: true,
         categoryId: true,
         subcategoryId: true,
         serviceCategoryId: true,
       },
     });
     if (!banner) return NextResponse.json({ error: "Banner not found" }, { status: 404 });
-    return NextResponse.json(banner);
+    return NextResponse.json({
+      ...banner,
+      mobile_banner: banner.mobileBanner || banner.bannerImage,
+      mobileBanner: banner.mobileBanner || banner.bannerImage,
+    });
   } catch (error) {
     console.error("Error fetching banner:", error);
     return NextResponse.json(
