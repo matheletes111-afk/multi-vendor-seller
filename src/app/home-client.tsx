@@ -176,12 +176,18 @@ export function HomeClient() {
   const categoryScrollRef = useRef<HTMLDivElement>(null);
   const recentScrollRef = useRef<HTMLDivElement>(null);
 
-  // Recommended for You real infinite scroll pagination (12 initial items + auto fetch next page without duplicates)
+  // Recommended for You infinite scroll pagination (12 initial items + 12 new products on scroll)
   const [recommendedItems, setRecommendedItems] = useState<Product[]>([]);
-  const [recommendedPage, setRecommendedPage] = useState(1);
   const [hasMoreRecommended, setHasMoreRecommended] = useState(true);
   const [loadingMoreRecommended, setLoadingMoreRecommended] = useState(false);
   const loadMoreRecommendedRef = useRef<HTMLDivElement>(null);
+  const pageRef = useRef(1);
+  const loadingRef = useRef(false);
+  const hasMoreRef = useRef(true);
+
+  useEffect(() => {
+    hasMoreRef.current = hasMoreRecommended;
+  }, [hasMoreRecommended]);
 
   // Sync initial randomProducts into recommendedItems
   useEffect(() => {
@@ -190,49 +196,68 @@ export function HomeClient() {
     }
   }, [randomProducts, recommendedItems.length]);
 
-  const loadNextRecommendedPage = useCallback(() => {
-    if (loadingMoreRecommended || !hasMoreRecommended) return;
+  const fetchNextRecommendedPage = useCallback((targetPage: number) => {
+    if (loadingRef.current || !hasMoreRef.current) return;
+    loadingRef.current = true;
     setLoadingMoreRecommended(true);
 
-    const nextPage = recommendedPage + 1;
-    fetch(`/api/customer/browse?page=${nextPage}&pageSize=12`)
+    fetch(`/api/customer/browse?page=${targetPage}&pageSize=12`)
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
         const newProducts: Product[] = Array.isArray(data?.products) ? data.products : [];
-        if (newProducts.length === 0) {
+        const totalPages = typeof data?.totalPages === "number" && data.totalPages > 0 ? data.totalPages : 1;
+
+        if (newProducts.length === 0 || targetPage > totalPages) {
           setHasMoreRecommended(false);
-        } else {
-          setRecommendedItems((prev) => {
-            const existingIds = new Set(prev.map((item) => item.id));
-            const uniqueNew = newProducts.filter((item) => !existingIds.has(item.id));
-            if (uniqueNew.length === 0) {
-              setHasMoreRecommended(false);
-              return prev;
-            }
-            return [...prev, ...uniqueNew];
-          });
-          setRecommendedPage(nextPage);
+          hasMoreRef.current = false;
+          return;
+        }
+
+        setRecommendedItems((prev) => {
+          const existingIds = new Set(prev.map((item) => item.id));
+          const uniqueNew = newProducts.filter((item) => !existingIds.has(item.id));
+          if (uniqueNew.length === 0) {
+            return prev;
+          }
+          return [...prev, ...uniqueNew];
+        });
+
+        pageRef.current = targetPage;
+        if (targetPage >= totalPages) {
+          setHasMoreRecommended(false);
+          hasMoreRef.current = false;
         }
       })
-      .catch(() => setHasMoreRecommended(false))
-      .finally(() => setLoadingMoreRecommended(false));
-  }, [recommendedPage, loadingMoreRecommended, hasMoreRecommended]);
+      .catch((err) => {
+        console.error("Error loading recommended products:", err);
+        setHasMoreRecommended(false);
+        hasMoreRef.current = false;
+      })
+      .finally(() => {
+        loadingRef.current = false;
+        setLoadingMoreRecommended(false);
+      });
+  }, []);
+
+  const loadNextRecommendedPage = useCallback(() => {
+    fetchNextRecommendedPage(pageRef.current + 1);
+  }, [fetchNextRecommendedPage]);
 
   useEffect(() => {
     const el = loadMoreRecommendedRef.current;
     if (!el) return;
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0]?.isIntersecting && hasMoreRecommended && !loadingMoreRecommended) {
+        if (entries[0]?.isIntersecting && hasMoreRef.current && !loadingRef.current) {
           loadNextRecommendedPage();
         }
       },
-      { rootMargin: "300px" }
+      { rootMargin: "400px" }
     );
 
     observer.observe(el);
     return () => observer.disconnect();
-  }, [loadNextRecommendedPage, hasMoreRecommended, loadingMoreRecommended]);
+  }, [loadNextRecommendedPage]);
 
   // Persistent Countdown Timer for Deals of the Day (stored in localStorage)
   const [timeLeft, setTimeLeft] = useState({ hours: 8, minutes: 42, seconds: 15 });
@@ -1480,9 +1505,7 @@ export function HomeClient() {
                             className="group flex flex-col overflow-hidden rounded-xl border border-slate-200/80 bg-white p-2.5 shadow-sm transition-all hover:border-blue-300 hover:shadow-lg hover:-translate-y-0.5"
                           >
                             <div className="relative aspect-square w-full overflow-hidden rounded-lg bg-slate-100">
-                              <span className="absolute left-1.5 top-1.5 z-10 rounded bg-red-600 px-1.5 py-0.5 text-[9px] font-extrabold text-white shadow">
-                                HOT
-                              </span>
+
                               <div className="absolute right-1.5 top-1.5 z-10">
                                 <WishlistButton productId={p.id} name={p.name} image={imgSrc} price={p.basePrice} />
                               </div>
@@ -1535,17 +1558,17 @@ export function HomeClient() {
                     </div>
 
                     {/* Infinite Scroll Sentinel */}
-                    <div ref={loadMoreRecommendedRef} className="mt-8 flex flex-col items-center justify-center py-4">
-                      {hasMoreRecommended ? (
-                        <div className="flex items-center gap-2 text-xs font-extrabold text-slate-500 bg-slate-100/80 px-4 py-2 rounded-full border border-slate-200/80 shadow-sm animate-pulse">
-                          <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
-                          Loading more recommended products...
+                    <div ref={loadMoreRecommendedRef} className="mt-8 flex flex-col items-center justify-center py-6 min-h-[60px]">
+                      {loadingMoreRecommended ? (
+                        <div className="flex items-center gap-2.5 text-xs sm:text-sm font-extrabold text-slate-600 bg-white px-5 py-2.5 rounded-full border border-slate-200 shadow-md animate-pulse">
+                          <Loader2 className="h-4 w-4 animate-spin text-amber-500" />
+                          <span>Loading 12 more recommended products...</span>
                         </div>
-                      ) : (
-                        <span className="text-xs font-bold text-slate-400">
+                      ) : !hasMoreRecommended ? (
+                        <span className="text-xs font-extrabold text-slate-400 uppercase tracking-wider bg-slate-100 px-4 py-1.5 rounded-full border border-slate-200/60">
                           You've viewed all recommended products
                         </span>
-                      )}
+                      ) : null}
                     </div>
                   </>
                 );
