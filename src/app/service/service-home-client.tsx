@@ -140,7 +140,7 @@ function ServiceHomeContent() {
   const [currentPage, setCurrentPage] = useState<number>(1)
   const [totalPages, setTotalPages] = useState<number>(1)
 
-  // Fetch Service Categories
+  // Fetch Service Categories & Service Banners
   useEffect(() => {
     fetch("/api/service-categories")
       .then((res) => (res.ok ? res.json() : { categories: [] }))
@@ -150,6 +150,15 @@ function ServiceHomeContent() {
         }
       })
       .catch((err) => console.error("Error loading service categories:", err))
+
+    fetch("/api/home/banners?targetType=service")
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data) => {
+        if (Array.isArray(data) && data.length > 0) {
+          setBanners(data)
+        }
+      })
+      .catch((err) => console.error("Error loading service banners:", err))
   }, [])
 
   // Fetch Services & Banners
