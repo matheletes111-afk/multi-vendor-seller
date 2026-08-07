@@ -1,0 +1,177 @@
+================================================================================
+📱 MOBILE API DOCUMENTATION: AI PRODUCT DIMENSIONS ESTIMATION
+================================================================================
+
+1. ENDPOINT OVERVIEW
+--------------------
+Primary Endpoint:  POST /mobileapi/product-seller/ai-dimensions
+Alias Endpoint 1:  POST /mobileapi/seller/ai-dimensions
+Alias Endpoint 2:  POST /mobileapi/product-seller/product/ai-dimensions
+GET Endpoint:      GET  /mobileapi/product-seller/ai-dimensions?productName=...&imageUrl=...
+
+Description: Estimates product weight, height, width, and depth using AI Vision
+or Category Heuristics for mobile sellers creating or editing products.
+
+
+2. REQUEST CONTENT TYPES & PARAMETERS
+-------------------------------------
+Supported Content-Types:
+  1) multipart/form-data        (Recommended for uploading camera/gallery images)
+  2) application/json           (Recommended when sending Image URL or Base64)
+  3) Query Parameters / URL Encoded
+
+Parameters (Provide at least ONE input parameter):
+  - image / file / photo (File): Binary image file from camera/gallery
+  - imageUrl / image_url / url (String): Direct HTTP/HTTPS link to product image
+  - imageBase64 / image_base64 / base64 (String): Base64 encoded image string
+  - productName / product_name / title / name (String): Product title (e.g., "Gaming Chair")
+  - variantName / variant_name / variant (String): Product variant (e.g., "XL Black")
+
+
+3. RESPONSE FORMAT (JSON)
+-------------------------
+HTTP Status: 200 OK
+
+{
+  "success": true,
+  "dimensions": {
+    "weight": 1.2,
+    "height": 28.5,
+    "width": 18.0,
+    "depth": 12.0
+  },
+  "unit": {
+    "weight": "kg",
+    "dimensions": "cm"
+  }
+}
+
+Field Descriptions:
+  - success: true when estimation succeeds
+  - dimensions.weight: Estimated weight in kilograms (kg)
+  - dimensions.height: Estimated height in centimeters (cm)
+  - dimensions.width: Estimated width in centimeters (cm)
+  - dimensions.depth: Estimated depth/length in centimeters (cm)
+  - unit.weight: "kg"
+  - unit.dimensions: "cm"
+
+
+4. CODE EXAMPLES FOR MOBILE DEVELOPERS
+--------------------------------------
+
+A) FLUTTER / DART (multipart/form-data)
+---------------------------------------
+import 'dart:convert';
+import 'dart:io';
+import 'package:http/http.dart' as http;
+
+Future<Map<String, dynamic>?> getAiDimensions({
+  File? imageFile,
+  String? productName,
+  String? imageUrl,
+}) async {
+  final uri = Uri.parse('https://your-domain.com/mobileapi/product-seller/ai-dimensions');
+  final request = http.MultipartRequest('POST', uri);
+
+  if (productName != null && productName.isNotEmpty) {
+    request.fields['productName'] = productName;
+  }
+  if (imageUrl != null && imageUrl.isNotEmpty) {
+    request.fields['imageUrl'] = imageUrl;
+  }
+  if (imageFile != null) {
+    request.files.add(await http.MultipartFile.fromPath('image', imageFile.path));
+  }
+
+  final streamedResponse = await request.send();
+  final response = await http.Response.fromStream(streamedResponse);
+
+  if (response.statusCode == 200) {
+    return jsonDecode(response.body);
+  }
+  return null;
+}
+
+
+B) KOTLIN / ANDROID (Retrofit / OkHttp)
+----------------------------------------
+@Multipart
+@POST("mobileapi/product-seller/ai-dimensions")
+suspend fun getAiDimensions(
+    @Part image: MultipartBody.Part?,
+    @Part("productName") productName: RequestBody?,
+    @Part("imageUrl") imageUrl: RequestBody?
+): Response<AiDimensionResponse>
+
+data class AiDimensionResponse(
+    val success: Boolean,
+    val dimensions: DimensionsData,
+    val unit: UnitData
+)
+
+data class DimensionsData(
+    val weight: Double,
+    val height: Double,
+    val width: Double,
+    val depth: Double
+)
+
+data class UnitData(
+    val weight: String,
+    val dimensions: String
+)
+
+
+C) SWIFT / IOS (URLSession)
+---------------------------
+func fetchAiDimensions(image: UIImage?, productName: String?, completion: @escaping ([String: Any]?) -> Void) {
+    guard let url = URL(string: "https://your-domain.com/mobileapi/product-seller/ai-dimensions") else { return }
+    var request = URLRequest(url: url)
+    request.httpMethod = "POST"
+    
+    let boundary = "Boundary-\(UUID().uuidString)"
+    request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+    
+    var body = Data()
+    if let productName = productName {
+        body.append("--\(boundary)\r\nContent-Disposition: form-data; name=\"productName\"\r\n\r\n\(productName)\r\n".data(using: .utf8)!)
+    }
+    if let image = image, let imageData = image.jpegData(compressionQuality: 0.8) {
+        body.append("--\(boundary)\r\nContent-Disposition: form-data; name=\"image\"; filename=\"photo.jpg\"\r\nContent-Type: image/jpeg\r\n\r\n".data(using: .utf8)!)
+        body.append(imageData)
+        body.append("\r\n".data(using: .utf8)!)
+    }
+    body.append("--\(boundary)--\r\n".data(using: .utf8)!)
+    request.httpBody = body
+    
+    URLSession.shared.dataTask(with: request) { data, _, _ in
+        if let data = data, let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            completion(json)
+        } else {
+            completion(nil)
+        }
+    }.resume()
+}
+
+
+D) REACT NATIVE / JAVASCRIPT
+----------------------------
+async function getAiDimensions(imageUri, productName) {
+  const formData = new FormData();
+  if (productName) formData.append('productName', productName);
+  if (imageUri) {
+    formData.append('image', {
+      uri: imageUri,
+      type: 'image/jpeg',
+      name: 'product.jpg',
+    });
+  }
+
+  const response = await fetch('https://your-domain.com/mobileapi/product-seller/ai-dimensions', {
+    method: 'POST',
+    body: formData,
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+
+  return await response.json();
+}

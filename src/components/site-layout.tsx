@@ -40,7 +40,9 @@ export function SiteHeader() {
   const router = useRouter()
   const pathname = usePathname()
   const isFoodSection = pathname?.startsWith("/foods")
-  const isCustomNav = pathname?.startsWith("/foods") || pathname?.startsWith("/hotels")
+  const isHotelSection = pathname?.startsWith("/hotels")
+  const isServiceSection = pathname?.startsWith("/service")
+  const isCustomNav = isFoodSection || isHotelSection || isServiceSection
   const { data: session, status } = useSession()
   const { totalItems } = useCart()
   const { count: wishlistCount, items: wishlistItems, canUseWishlist, removeWishlist } = useWishlist()
@@ -111,8 +113,6 @@ export function SiteHeader() {
     }
   }
 
-  const isHotelSection = pathname === "/hotels"
-
   return (
     <header className={
       isFoodSection 
@@ -174,21 +174,7 @@ export function SiteHeader() {
                         ))}
                       </div>
                     ))}
-                    {serviceCategories.length > 0 && (
-                      <>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuLabel className="font-medium">
-                          Service Categories
-                        </DropdownMenuLabel>
-                        {serviceCategories.map((cat) => (
-                          <DropdownMenuItem asChild key={`service-${cat.id}`}>
-                            <Link href={`/browse?serviceCategoryId=${cat.id}`} className="pl-6 text-sm text-slate-600">
-                              {cat.name}
-                            </Link>
-                          </DropdownMenuItem>
-                        ))}
-                      </>
-                    )}
+
                   </DropdownMenuContent>
                 </DropdownMenu>
               ) : (
@@ -239,17 +225,21 @@ export function SiteHeader() {
                     <SheetTitle className="text-slate-800">Menu</SheetTitle>
                   </SheetHeader>
                   <div className="flex flex-col py-2">
-                    <Link href="/browse" className="flex items-center gap-3 px-4 py-3 text-sm font-medium text-slate-800 hover:bg-slate-100">
-                      <LayoutGrid className="h-4 w-4" />
-                      All Category
+                    <Link href="/browse" className={cn("flex items-center gap-3 px-4 py-3 text-sm font-medium text-slate-800 hover:bg-slate-100", (pathname === "/" || pathname === "/browse") && "bg-amber-50 text-amber-900 font-bold")}>
+                      <LayoutGrid className="h-4 w-4 text-amber-600" />
+                      Marketplace
                     </Link>
-                    <Link href="/foods" className="flex items-center gap-3 px-4 py-3 text-sm font-medium text-slate-800 hover:bg-slate-100">
-                      <span className="text-base">🍔</span>
-                      Order Food / Restaurants
+                    <Link href="/service" className={cn("flex items-center gap-3 px-4 py-3 text-sm font-medium text-slate-800 hover:bg-slate-100", pathname?.startsWith("/service") && "bg-amber-50 text-amber-900 font-bold")}>
+                      <span className="text-base">🛠️</span>
+                      Book Services
                     </Link>
-                    <Link href="/hotels" className="flex items-center gap-3 px-4 py-3 text-sm font-medium text-slate-800 hover:bg-slate-100">
+                    <Link href="/hotels" className={cn("flex items-center gap-3 px-4 py-3 text-sm font-medium text-slate-800 hover:bg-slate-100", pathname?.startsWith("/hotels") && "bg-amber-50 text-amber-900 font-bold")}>
                       <span className="text-base">🏨</span>
                       Book Hotels
+                    </Link>
+                    <Link href="/foods" className={cn("flex items-center gap-3 px-4 py-3 text-sm font-medium text-slate-800 hover:bg-slate-100", pathname?.startsWith("/foods") && "bg-amber-50 text-amber-900 font-bold")}>
+                      <span className="text-base">🍔</span>
+                      Order Food / Restaurants
                     </Link>
                     {categories.map((cat) => (
                       <div key={cat.id}>
@@ -263,19 +253,7 @@ export function SiteHeader() {
                         ))}
                       </div>
                     ))}
-                    {serviceCategories.length > 0 && (
-                      <>
-                        <div className="my-2 border-t border-slate-200" />
-                        <p className="px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                          Service Categories
-                        </p>
-                        {serviceCategories.map((cat) => (
-                          <Link href={`/browse?serviceCategoryId=${cat.id}`} key={`mobile-service-${cat.id}`} className="flex px-4 py-2.5 pl-8 text-sm text-slate-700 hover:bg-slate-100">
-                            {cat.name}
-                          </Link>
-                        ))}
-                      </>
-                    )}
+
                     <div className="my-2 border-t border-slate-200" />
                     {showBecomePartner && (
                       <>
@@ -393,186 +371,143 @@ export function SiteHeader() {
           <div className="hidden md:flex md:items-center md:gap-2 lg:gap-3 order-50">
             {mounted ? (
               <>
-                {isCustomNav ? (
-                  <>
-                    <Link
-                      href="/"
-                      className={cn(
-                        "flex items-center rounded px-2 py-1.5 text-sm font-bold sm:px-3 transition-colors",
-                        isFoodSection
-                          ? (pathname === "/" ? "text-[#D97706] bg-amber-500/10" : "text-amber-950 hover:bg-amber-100/50")
-                          : (pathname === "/" ? "text-amber-300 bg-white/10" : "text-white hover:bg-slate-600/50")
-                      )}
-                    >
-                      Market
-                    </Link>
-                    <Link
-                      href="/foods"
-                      className={cn(
-                        "flex items-center rounded px-2 py-1.5 text-sm font-bold sm:px-3 transition-colors",
-                        isFoodSection
-                          ? (pathname?.startsWith("/foods") ? "text-[#D97706] bg-amber-500/10" : "text-amber-950 hover:bg-amber-100/50")
-                          : (pathname?.startsWith("/foods") ? "text-amber-300 bg-white/10" : "text-white hover:bg-slate-600/50")
-                      )}
-                    >
-                      Restaurants
-                    </Link>
-                    <Link
-                      href="/hotels"
-                      className={cn(
-                        "flex items-center rounded px-2 py-1.5 text-sm font-bold sm:px-3 transition-colors",
-                        isFoodSection
-                          ? (pathname?.startsWith("/hotels") ? "text-[#D97706] bg-[#EAB308]/10" : "text-amber-950 hover:bg-amber-100/50")
-                          : (pathname?.startsWith("/hotels") ? "text-amber-300 bg-white/10" : "text-white hover:bg-slate-600/50")
-                      )}
-                    >
-                      Hotels
-                    </Link>
-                    {isLoggedIn ? (
-                      <Link
-                        href="/dashboard"
+                {(() => {
+                  const isMarketActive = pathname === "/" || pathname === "/browse"
+                  const isServiceActive = pathname?.startsWith("/service") ?? false
+                  const isHotelActive = pathname?.startsWith("/hotels") ?? false
+                  const isFoodActive = pathname?.startsWith("/foods") ?? false
+
+                  const getNavLinkClass = (isActive: boolean) => {
+                    if (isFoodSection) {
+                      return cn(
+                        "flex items-center rounded-xl px-3 py-1.5 text-sm transition-all duration-200 font-bold",
+                        isActive
+                          ? "bg-amber-950 text-amber-50 font-extrabold shadow-sm"
+                          : "text-amber-950 hover:bg-amber-950/10"
+                      )
+                    }
+                    if (isHotelSection) {
+                      return cn(
+                        "flex items-center rounded-xl px-3 py-1.5 text-sm transition-all duration-200 font-bold",
+                        isActive
+                          ? "bg-white text-emerald-950 font-extrabold shadow-md"
+                          : "text-white hover:bg-white/15"
+                      )
+                    }
+                    if (isServiceSection) {
+                      return cn(
+                        "flex items-center rounded-xl px-3 py-1.5 text-sm transition-all duration-200 font-bold",
+                        isActive
+                          ? "bg-amber-400 text-slate-950 font-extrabold shadow-md"
+                          : "text-white hover:bg-white/15"
+                      )
+                    }
+                    // Default / Marketplace Header
+                    return cn(
+                      "flex items-center rounded-xl px-3.5 py-1.5 text-sm transition-all duration-200 font-medium",
+                      isActive
+                        ? "bg-slate-900 text-white font-extrabold shadow-md ring-1 ring-slate-950/20"
+                        : "text-white hover:bg-slate-600/50 hover:text-white font-semibold"
+                    )
+                  }
+
+                  return (
+                    <>
+                      <Link href="/" className={getNavLinkClass(isMarketActive)}>
+                        Marketplace
+                      </Link>
+                      <Link href="/service" className={getNavLinkClass(isServiceActive)}>
+                        Services
+                      </Link>
+                      <Link href="/hotels" className={getNavLinkClass(isHotelActive)}>
+                        Hotels
+                      </Link>
+                      <Link href="/foods" className={getNavLinkClass(isFoodActive)}>
+                        Restaurants
+                      </Link>
+                    </>
+                  )
+                })()}
+
+                {showBecomePartner && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        type="button"
                         className={cn(
-                          "flex flex-col items-start rounded px-1.5 py-1 text-left hover:outline-none focus:outline-none sm:px-2 sm:py-1.5",
-                          isFoodSection ? "text-amber-950 hover:bg-amber-100/50" : "text-white hover:bg-slate-600/50"
+                          "flex items-center rounded-xl px-2.5 py-1.5 text-left text-sm font-medium transition-all sm:px-3",
+                          isFoodSection
+                            ? "text-amber-950 hover:bg-amber-950/10 font-semibold"
+                            : "text-white hover:bg-slate-600/50 hover:text-white"
                         )}
                       >
-                        <span className="text-xs font-semibold leading-tight sm:text-sm">Dashboard</span>
-                      </Link>
-                    ) : (
-                      <div className="flex items-center gap-2">
-                        <Link href="/customer/login">
-                          <Button
-                            variant="ghost"
-                            className={cn(
-                              "font-bold text-sm rounded-xl h-10 px-3",
-                              isFoodSection ? "text-amber-950 hover:bg-amber-100/50" : "text-white hover:bg-white/10"
-                            )}
-                          >
-                            Sign In
-                          </Button>
-                        </Link>
-                        <Link href="/customer/registration">
-                          <Button
-                            className={cn(
-                              "font-bold text-sm rounded-xl h-10 px-3 shadow-sm",
-                              isFoodSection ? "bg-[#EAB308] hover:bg-[#CA8A04] text-amber-950" : "bg-amber-400 hover:bg-amber-500 text-black"
-                            )}
-                          >
-                            Sign Up
-                          </Button>
-                        </Link>
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  <>
-                    <Link href="/foods" className="flex items-center rounded px-2 py-1.5 text-sm font-medium text-white hover:bg-slate-600/50 sm:px-3">
-                      Restaurants
-                    </Link>
-                    <Link href="/hotels" className="flex items-center rounded px-2 py-1.5 text-sm font-medium text-white hover:bg-slate-600/50 sm:px-3">
-                      Hotels
-                    </Link>
-                    {showBecomePartner && (
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <button type="button" className="flex items-center rounded px-2 py-1.5 text-left text-sm font-medium text-white hover:bg-slate-600/50 hover:outline-none focus:outline-none sm:px-3">
-                            Become a partner
-                            <ChevronDown className="ml-1 h-4 w-4 shrink-0" />
-                          </button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-52">
-                          <DropdownMenuItem asChild>
-                            <Link href="/product-seller/login">Product Seller Login</Link>
-                          </DropdownMenuItem>
-                          <DropdownMenuItem asChild>
-                            <Link href="/service-seller/login">Service Seller Login</Link>
-                          </DropdownMenuItem>
-                          <DropdownMenuItem asChild>
-                            <Link href="/hotel-seller/login">Hotel Seller Login</Link>
-                          </DropdownMenuItem>
-                          <DropdownMenuItem asChild>
-                            <Link href="/restaurant-seller/login">Restaurant Seller Login</Link>
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    )}
-                    {isLoggedIn ? (
-                      <Link
-                        href="/dashboard"
-                        className="flex flex-col items-start rounded px-1.5 py-1 text-left text-white hover:bg-slate-600/50 hover:outline-none focus:outline-none sm:px-2 sm:py-1.5"
-                      >
-                        <span className="text-xs font-semibold leading-tight sm:text-sm">Dashboard</span>
-                      </Link>
-                    ) : (
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <button type="button" className="flex flex-col items-start rounded px-1.5 py-1 text-left text-white hover:outline-none focus:outline-none sm:px-2 sm:py-1.5">
-                            <span className="text-[10px] text-blue-100 sm:text-xs">Hello, sign in</span>
-                            <span className="flex items-center text-xs font-semibold leading-tight sm:text-sm">
-                              Customer
-                              <ChevronDown className="ml-0.5 h-3 w-3 shrink-0 sm:h-4 sm:w-4" />
-                            </span>
-                          </button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-48">
-                          <DropdownMenuItem asChild>
-                            <Link href="/customer/login">Customer Login</Link>
-                          </DropdownMenuItem>
-                          <DropdownMenuItem asChild>
-                            <Link href="/customer/registration">Customer Registration</Link>
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    )}
-                  </>
+                        Become a partner
+                        <ChevronDown className="ml-1 h-4 w-4 shrink-0" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-52">
+                      <DropdownMenuItem asChild>
+                        <Link href="/product-seller/login">Product Seller Login</Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link href="/service-seller/login">Service Seller Login</Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link href="/hotel-seller/login">Hotel Seller Login</Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link href="/restaurant-seller/login">Restaurant Seller Login</Link>
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 )}
-              </>
-            ) : (
-              <>
-                {isCustomNav && (
-                  <Link
-                    href="/"
-                    className={cn(
-                      "flex items-center rounded px-2 py-1.5 text-sm font-medium sm:px-3",
-                      isFoodSection ? "text-amber-950" : "text-white"
-                    )}
-                  >
-                    Market
-                  </Link>
-                )}
-                <Link href="/foods" className={cn("flex items-center rounded px-2 py-1.5 text-sm font-medium sm:px-3", isFoodSection ? "text-amber-950" : "text-white")}>
-                  Restaurants
-                </Link>
-                <Link href="/hotels" className={cn("flex items-center rounded px-2 py-1.5 text-sm font-medium sm:px-3", isFoodSection ? "text-amber-950" : "text-white")}>
-                  Hotels
-                </Link>
-                {showBecomePartner && !isCustomNav && (
-                  <Link href="/product-seller/login" className="rounded px-2 py-1.5 text-sm font-medium text-white hover:bg-slate-600/50 sm:px-3">
-                    Become a partner
-                  </Link>
-                )}
+
                 {isLoggedIn ? (
                   <Link
                     href="/dashboard"
-                    className={cn("flex flex-col items-start rounded px-1.5 py-1 text-left sm:px-2 sm:py-1.5", isFoodSection ? "text-amber-950" : "text-white")}
+                    className={cn(
+                      "flex flex-col items-start rounded-xl px-1.5 py-1 text-left sm:px-2 sm:py-1.5",
+                      isFoodSection
+                        ? "text-amber-950 hover:bg-amber-950/10"
+                        : "text-white hover:bg-slate-600/50 hover:text-white"
+                    )}
                   >
                     <span className="text-xs font-semibold leading-tight sm:text-sm">Dashboard</span>
                   </Link>
                 ) : (
-                  <Link
-                    href="/customer/login"
-                    className={cn("flex flex-col items-start rounded px-1.5 py-1 text-left sm:px-2 sm:py-1.5", isFoodSection ? "text-amber-950" : "text-white")}
-                  >
-                    <span className={cn("text-[10px] sm:text-xs", isFoodSection ? "text-amber-800" : "text-blue-100")}>Hello, sign in</span>
-                    <span className="flex items-center text-xs font-semibold leading-tight sm:text-sm">
-                      Customer
-                      <ChevronDown className="ml-0.5 h-3 w-3 shrink-0 sm:h-4 sm:w-4" />
-                    </span>
-                  </Link>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        type="button"
+                        className={cn(
+                          "flex flex-col items-start rounded-xl px-1.5 py-1 text-left sm:px-2 sm:py-1.5",
+                          isFoodSection
+                            ? "text-amber-950 hover:bg-amber-950/10"
+                            : "text-white hover:bg-slate-600/50 hover:text-white"
+                        )}
+                      >
+                        <span className={cn("text-[10px] sm:text-xs font-medium", isFoodSection ? "text-amber-800" : "text-blue-100")}>Hello, sign in</span>
+                        <span className="flex items-center text-xs font-semibold leading-tight sm:text-sm">
+                          Customer
+                          <ChevronDown className="ml-0.5 h-3 w-3 shrink-0 sm:h-4 sm:w-4" />
+                        </span>
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-48">
+                      <DropdownMenuItem asChild>
+                        <Link href="/customer/login">Customer Login</Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link href="/customer/registration">Customer Registration</Link>
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 )}
               </>
-            )}
-            {showOrdersLink && (
+            ) : null}
+          </div>
+
+          {showOrdersLink && (
               <Link
                 href={
                   isFoodSection
@@ -587,7 +522,6 @@ export function SiteHeader() {
                 <span className="font-semibold">{pathname?.startsWith("/hotels") ? "Bookings" : "Orders"}</span>
               </Link>
             )}
-          </div>
 
           {canUseCart && !isCustomNav && (
             <Link
@@ -816,10 +750,10 @@ export function SiteFooter() {
           <nav aria-label="Quick links" className="min-w-0">
             <p className={headingClass}>Quick Links</p>
             <ul className="flex flex-col gap-1.5">
-              <li><Link href="/" className={linkClass}>Home</Link></li>
-              <li><Link href="/browse" className={linkClass}>Browse</Link></li>
-              <li><Link href="/foods" className={linkClass}>Order Food / Restaurants</Link></li>
-              <li><Link href="/hotels" className={linkClass}>Book Hotels</Link></li>
+              <li><Link href="/" className={linkClass}>Marketplace</Link></li>
+              <li><Link href="/service" className={linkClass}>Services</Link></li>
+              <li><Link href="/hotels" className={linkClass}>Hotels</Link></li>
+              <li><Link href="/foods" className={linkClass}>Restaurants</Link></li>
               {canUseCart && <li><Link href="/cart" className={linkClass}>Cart</Link></li>}
               {isLoggedIn ? (
                 <>

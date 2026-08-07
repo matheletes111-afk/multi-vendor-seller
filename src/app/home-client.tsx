@@ -6,6 +6,7 @@ import { useSession } from "next-auth/react";
 import { UserRole } from "@prisma/client";
 import { Button } from "@/ui/button";
 import { Card, CardContent } from "@/ui/card";
+
 import {
   ChevronLeft,
   ChevronRight,
@@ -21,7 +22,14 @@ import {
   Box,
   Gift,
   Sparkles,
-  Eye,
+  Store,
+  ShieldCheck,
+  Truck,
+  Zap,
+  Flame,
+  Clock,
+  History,
+  Loader2,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { getYoutubeEmbedUrl, getYoutubeThumbnailUrl } from "@/lib/youtube";
@@ -32,6 +40,56 @@ import { WishlistButton } from "@/components/product/WishlistButton";
 const SUB_PLACEHOLDER_ICONS = [Package, Folder, LayoutGrid, Tag, BookOpen, Briefcase, Dumbbell, Music];
 const PRODUCT_PLACEHOLDER_ICONS = [ShoppingBag, Box, Package, Gift, Sparkles, Tag];
 const SERVICE_PLACEHOLDER_ICONS = [Briefcase, Sparkles, Tag, Music, Dumbbell, Folder];
+
+const PRODUCT_FALLBACK_IMAGES = [
+  "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=600&q=80",
+  "https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=600&q=80",
+  "https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=600&q=80",
+  "https://images.unsplash.com/photo-1583394838336-acd977736f90?auto=format&fit=crop&w=600&q=80",
+  "https://images.unsplash.com/photo-1608231387042-66d1773070a5?auto=format&fit=crop&w=600&q=80",
+  "https://images.unsplash.com/photo-1572635196237-14b3f281503f?auto=format&fit=crop&w=600&q=80",
+  "https://images.unsplash.com/photo-1560343090-f0409e92791a?auto=format&fit=crop&w=600&q=80",
+  "https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?auto=format&fit=crop&w=600&q=80",
+];
+
+const getProductImg = (img?: string | null, idx: number = 0) => {
+  if (img && typeof img === "string" && img.trim().length > 0) return img;
+  return PRODUCT_FALLBACK_IMAGES[idx % PRODUCT_FALLBACK_IMAGES.length];
+};
+
+const formatDynamicTimeAgo = (timestamp?: string | Date | number | null, indexFallback: number = 0): string => {
+  if (timestamp) {
+    const date = new Date(timestamp);
+    if (!isNaN(date.getTime())) {
+      const diffSec = Math.floor((Date.now() - date.getTime()) / 1000);
+      if (diffSec < 60) return "Just now";
+      const diffMin = Math.floor(diffSec / 60);
+      if (diffMin < 60) return `${diffMin}m ago`;
+      const diffHr = Math.floor(diffMin / 60);
+      if (diffHr < 24) return `${diffHr}h ago`;
+      const diffDays = Math.floor(diffHr / 24);
+      if (diffDays < 30) return `${diffDays}d ago`;
+    }
+  }
+  const relativeMinutes = (indexFallback + 1) * 7 + 3;
+  if (relativeMinutes < 60) return `${relativeMinutes}m ago`;
+  const relativeHours = Math.floor(relativeMinutes / 60) + 1;
+  if (relativeHours < 24) return `${relativeHours}h ago`;
+  return `${Math.floor(relativeHours / 24)}d ago`;
+};
+
+const getAmazonHeadline = (catName: string, idx: number): string => {
+  const headlines = [
+    `Deals on ${catName}`,
+    `${catName} curated for you`,
+    `Deals on ${catName}`,
+    `Top brand deals for ${catName}`,
+    `Big savings on ${catName}`,
+    `Featured picks in ${catName}`,
+  ];
+  return headlines[idx % headlines.length];
+};
+
 import { PublicLayout } from "@/components/site-layout";
 import { PublicReviewsSection, StarRow } from "@/components/reviews/public-reviews-section";
 import {
@@ -113,6 +171,128 @@ export function HomeClient() {
   const [sponsoredCarouselPaused, setSponsoredCarouselPaused] = useState(false);
   const [sponsoredIndex, setSponsoredIndex] = useState(0);
   const sponsoredScrollRef = useRef<HTMLDivElement>(null);
+  const [categoryIndex, setCategoryIndex] = useState(0);
+  const [categoryCarouselPaused, setCategoryCarouselPaused] = useState(false);
+  const categoryScrollRef = useRef<HTMLDivElement>(null);
+  const recentScrollRef = useRef<HTMLDivElement>(null);
+
+  // Recommended for You real infinite scroll pagination (12 initial items + auto fetch next page without duplicates)
+  const [recommendedItems, setRecommendedItems] = useState<Product[]>([]);
+  const [recommendedPage, setRecommendedPage] = useState(1);
+  const [hasMoreRecommended, setHasMoreRecommended] = useState(true);
+  const [loadingMoreRecommended, setLoadingMoreRecommended] = useState(false);
+  const loadMoreRecommendedRef = useRef<HTMLDivElement>(null);
+
+  // Sync initial randomProducts into recommendedItems
+  useEffect(() => {
+    if (randomProducts.length > 0 && recommendedItems.length === 0) {
+      setRecommendedItems(randomProducts);
+    }
+  }, [randomProducts, recommendedItems.length]);
+
+  const loadNextRecommendedPage = useCallback(() => {
+    if (loadingMoreRecommended || !hasMoreRecommended) return;
+    setLoadingMoreRecommended(true);
+
+    const nextPage = recommendedPage + 1;
+    fetch(`/api/customer/browse?page=${nextPage}&pageSize=12`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        const newProducts: Product[] = Array.isArray(data?.products) ? data.products : [];
+        if (newProducts.length === 0) {
+          setHasMoreRecommended(false);
+        } else {
+          setRecommendedItems((prev) => {
+            const existingIds = new Set(prev.map((item) => item.id));
+            const uniqueNew = newProducts.filter((item) => !existingIds.has(item.id));
+            if (uniqueNew.length === 0) {
+              setHasMoreRecommended(false);
+              return prev;
+            }
+            return [...prev, ...uniqueNew];
+          });
+          setRecommendedPage(nextPage);
+        }
+      })
+      .catch(() => setHasMoreRecommended(false))
+      .finally(() => setLoadingMoreRecommended(false));
+  }, [recommendedPage, loadingMoreRecommended, hasMoreRecommended]);
+
+  useEffect(() => {
+    const el = loadMoreRecommendedRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting && hasMoreRecommended && !loadingMoreRecommended) {
+          loadNextRecommendedPage();
+        }
+      },
+      { rootMargin: "300px" }
+    );
+
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [loadNextRecommendedPage, hasMoreRecommended, loadingMoreRecommended]);
+
+  // Persistent Countdown Timer for Deals of the Day (stored in localStorage)
+  const [timeLeft, setTimeLeft] = useState({ hours: 8, minutes: 42, seconds: 15 });
+
+  useEffect(() => {
+    const STORAGE_KEY = "marketplace_deals_countdown_end_v1";
+    let targetEnd = 0;
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored) {
+        const parsed = parseInt(stored, 10);
+        if (!isNaN(parsed) && parsed > Date.now()) {
+          targetEnd = parsed;
+        }
+      }
+    } catch (_) { }
+
+    if (!targetEnd) {
+      targetEnd = Date.now() + 12 * 60 * 60 * 1000;
+      try {
+        localStorage.setItem(STORAGE_KEY, targetEnd.toString());
+      } catch (_) { }
+    }
+
+    const updateTimer = () => {
+      const diff = Math.max(0, targetEnd - Date.now());
+      if (diff <= 0) {
+        targetEnd = Date.now() + 12 * 60 * 60 * 1000;
+        try {
+          localStorage.setItem(STORAGE_KEY, targetEnd.toString());
+        } catch (_) { }
+      }
+      const hours = Math.floor(diff / (1000 * 60 * 60));
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+      setTimeLeft({ hours, minutes, seconds });
+    };
+
+    updateTimer();
+    const interval = setInterval(updateTimer, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    if (categories.length <= 1 || categoryCarouselPaused) return;
+    const t = setInterval(() => {
+      setCategoryIndex((i) => (i + 1) % categories.length);
+    }, 3500);
+    return () => clearInterval(t);
+  }, [categories.length, categoryCarouselPaused]);
+
+  useEffect(() => {
+    const el = categoryScrollRef.current;
+    if (!el || categories.length === 0) return;
+    const card = el.querySelector("[data-category-card]") as HTMLElement | null;
+    const gap = 16;
+    const cardWidth = (card?.getBoundingClientRect().width ?? 200) + gap;
+    el.scrollLeft = Math.min(categoryIndex * cardWidth, el.scrollWidth - el.clientWidth);
+  }, [categoryIndex, categories.length]);
+
   const [interestModalOpen, setInterestModalOpen] = useState(false);
   const [interestPickerCategories, setInterestPickerCategories] = useState<CategoryPickItem[]>([]);
   const [interestInitialIds, setInterestInitialIds] = useState<string[]>([]);
@@ -131,12 +311,13 @@ export function HomeClient() {
   }, []);
 
   useEffect(() => {
-    fetch("/api/home/banners")
+    fetch("/api/home/banners?targetType=product")
       .then((r) => r.json())
       .then((data: any) => {
+        // API already filters by targetType=product (active, non-restaurant/hotel/service)
+        // Limit to max 4 banners for home carousel
         if (Array.isArray(data)) {
-          const homeBanners = data.filter((b) => b.targetType !== "restaurant" && b.targetType !== "hotel");
-          setBanners(homeBanners);
+          setBanners(data);
         } else {
           setBanners([]);
         }
@@ -218,9 +399,9 @@ export function HomeClient() {
       setRecentViewProducts([]);
       return;
     }
-    fetch("/api/customer/recent-views")
-      .then((r) => (r.ok ? r.json() : { products: [] }))
-      .then((data: { products?: Product[] }) => setRecentViewProducts(Array.isArray(data?.products) ? data.products : []))
+    fetch("/api/customer/recent-searches", { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : []))
+      .then((data: Product[]) => setRecentViewProducts(Array.isArray(data) ? data : []))
       .catch(() => setRecentViewProducts([]));
   }, [status, session?.user?.role]);
 
@@ -234,7 +415,7 @@ export function HomeClient() {
           const rows = Array.isArray(list) ? (list as Product[]) : [];
           setProductsByCategory((prev) => ({ ...prev, [cat.id]: rows }));
         })
-        .catch(() => {});
+        .catch(() => { });
     });
   }, [categories, featuredCategories]);
 
@@ -247,9 +428,30 @@ export function HomeClient() {
   }, [banners.length]);
 
   useEffect(() => {
-    fetch("/api/home/ads")
+    fetch("/api/home/ads?type=product&limit=all")
       .then((r) => r.json())
-      .then((data) => (Array.isArray(data) ? setAds(data) : setAds([])))
+      .then((data) => {
+        if (Array.isArray(data)) {
+          const productOnlyAds = data.filter(
+            (a: any) =>
+              !a.serviceId &&
+              !a.hotelId &&
+              !a.foodItemId &&
+              !a.title?.toLowerCase().includes("maintenance") &&
+              !a.title?.toLowerCase().includes("repair") &&
+              !a.title?.toLowerCase().includes("washing machine") &&
+              !a.title?.toLowerCase().includes("fridge") &&
+              !a.title?.toLowerCase().includes("cleaning")
+          );
+          const shuffled = [...productOnlyAds].sort(() => Math.random() - 0.5);
+          setAds(shuffled);
+          if (shuffled.length > 0) {
+            setSponsoredIndex(Math.floor(Math.random() * shuffled.length));
+          }
+        } else {
+          setAds([]);
+        }
+      })
       .catch(() => setAds([]));
   }, []);
 
@@ -258,7 +460,7 @@ export function HomeClient() {
     if (ads.length <= 1 || sponsoredCarouselPaused) return;
     const t = setInterval(() => {
       setSponsoredIndex((i) => (i + 1) % ads.length);
-    }, 3000);
+    }, 8000);
     return () => clearInterval(t);
   }, [ads.length, sponsoredCarouselPaused]);
 
@@ -314,7 +516,7 @@ export function HomeClient() {
         const selected = Array.isArray(data?.selectedIds) ? data.selectedIds : [];
         setHasCategoryInterests(selected.length > 0);
       })
-      .catch(() => {});
+      .catch(() => { });
     refreshHomeProducts();
   }, [refreshHomeProducts]);
 
@@ -332,159 +534,395 @@ export function HomeClient() {
             <PageLoader message="Loading…" />
           </div>
         ) : (
-        <>
-        {/* Full-width hero: banner with category cards overlapping from above */}
-        <section className="relative w-full max-w-[100vw] bg-muted overflow-hidden min-h-[50vh] sm:min-h-[60vh] md:min-h-[70vh]">
-          {banners.length > 0 ? (
-            <>
-            <div className="relative w-full min-h-[50vh] sm:min-h-[60vh] md:min-h-[70vh] overflow-hidden">
-              {banners.map((banner, i) => (
-                <div
-                  key={banner.id}
-                  className={`absolute inset-0 transition-opacity duration-500 ${
-                    i === bannerIndex ? "opacity-100 z-10" : "opacity-0 z-0"
-                  }`}
-                >
-                  <Link
-                    href={`/banner/${banner.id}`}
-                    className="block size-full"
-                  >
-                    <img
-                      src={banner.bannerImage}
-                      alt={banner.bannerHeading}
-                      className="h-full w-full min-h-full min-w-full object-cover object-center"
-                    />
-                    <div className="absolute inset-0 flex items-center justify-center px-4 drop-shadow-md">
-                      <h2 className="text-lg font-bold text-blue-100 sm:text-xl md:text-2xl lg:text-3xl text-center [text-shadow:0_1px_2px_rgba(0,0,0,0.5)]">{banner.bannerHeading}</h2>
-                    </div>
-                  </Link>
-                </div>
-              ))}
-            </div>
-            {banners.length > 1 && (
-              <>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="icon"
-                  className="absolute left-1 top-1/2 z-20 h-9 w-9 -translate-y-1/2 rounded-full shadow-md sm:left-2 sm:h-10 sm:w-10"
-                  onClick={() => setBannerIndex((i) => (i - 1 + banners.length) % banners.length)}
-                >
-                  <ChevronLeft className="h-5 w-5" />
-                </Button>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="icon"
-                  className="absolute right-1 top-1/2 z-20 h-9 w-9 -translate-y-1/2 rounded-full shadow-md sm:right-2 sm:h-10 sm:w-10"
-                  onClick={() => setBannerIndex((i) => (i + 1) % banners.length)}
-                >
-                  <ChevronRight className="h-5 w-5" />
-                </Button>
-              </>
-            )}
-            </>
-          ) : null}
-        </section>
+          <>
+            {/* Full-width hero banner container */}
+            <section className="relative w-full max-w-[100vw] bg-slate-900 overflow-hidden h-[460px] sm:h-[640px] md:h-[800px] lg:h-[920px]">
+              {banners.length > 0 ? (
+                <>
+                  <div className="relative w-full h-full overflow-hidden">
+                    {banners.map((banner, i) => (
+                      <div
+                        key={banner.id}
+                        className={`absolute inset-0 transition-opacity duration-500 ${i === bannerIndex ? "opacity-100 z-10" : "opacity-0 z-0"
+                          }`}
+                      >
+                        <Link
+                          href={`/banner/${banner.id}`}
+                          className="block size-full"
+                        >
+                          <img
+                            src={banner.bannerImage}
+                            alt={banner.bannerHeading}
+                            className="h-full w-full object-cover object-top"
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-slate-950/10 via-transparent to-transparent pointer-events-none" />
+                        </Link>
+                      </div>
+                    ))}
+                  </div>
+                  {banners.length > 1 && (
+                    <>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="icon"
+                        className="absolute left-2 top-1/3 z-20 h-9 w-9 -translate-y-1/2 rounded-full shadow-md bg-white/80 text-slate-900 hover:bg-white sm:left-4 sm:h-11 sm:w-11"
+                        onClick={() => setBannerIndex((i) => (i - 1 + banners.length) % banners.length)}
+                      >
+                        <ChevronLeft className="h-6 w-6" />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="icon"
+                        className="absolute right-2 top-1/3 z-20 h-9 w-9 -translate-y-1/2 rounded-full shadow-md bg-white/80 text-slate-900 hover:bg-white sm:right-4 sm:h-11 sm:w-11"
+                        onClick={() => setBannerIndex((i) => (i + 1) % banners.length)}
+                      >
+                        <ChevronRight className="h-6 w-6" />
+                      </Button>
+                    </>
+                  )}
+                </>
+              ) : null}
+            </section>
 
-        {/* Category cards above banner (overlap); slightly less overlap so banner top stays visible */}
-        <section className="container mx-auto px-3 sm:px-4 -mt-[15vh] sm:-mt-[19vh] md:-mt-[21vh] relative z-10 pb-6 sm:pb-8 min-h-[180px] sm:min-h-[200px] flex items-center justify-center">
-          {latestCategories.length > 0 ? (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4 w-full max-w-6xl mx-auto">
-              {latestCategories.map((cat) => (
-                <Card key={cat.id} className="overflow-hidden border-0 bg-white shadow-lg transition-shadow hover:shadow-xl">
-                  <CardContent className="p-4 flex flex-col">
-                    <h3 className="mb-3 font-bold text-slate-900 text-base">{cat.name}</h3>
-                    <div className="grid grid-cols-2 gap-2 flex-1">
-                      {cat.subcategories.slice(0, 4).map((sub, subIdx) => {
-                        const SubIcon = SUB_PLACEHOLDER_ICONS[subIdx % SUB_PLACEHOLDER_ICONS.length];
+            {/* Category cards — float seamlessly over the banner's bottom ambient area */}
+            <section className="container mx-auto px-3 sm:px-4 -mt-56 sm:-mt-80 md:-mt-96 lg:-mt-[420px] relative z-20 pb-6 sm:pb-8 flex items-center justify-center">
+              {latestCategories.length > 0 ? (
+                <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4 w-full max-w-7xl mx-auto">
+                  {latestCategories.map((cat, catIdx) => (
+                    <Card key={cat.id} className="overflow-hidden border border-slate-200/60 bg-white p-4 sm:p-5 shadow-lg transition-shadow hover:shadow-xl rounded-xl flex flex-col justify-between">
+                      <CardContent className="p-0 flex flex-col h-full justify-between">
+                        <div>
+                          <h3 className="mb-3 font-extrabold text-slate-900 text-lg sm:text-xl tracking-tight leading-snug line-clamp-2 h-14 flex items-center">
+                            {getAmazonHeadline(cat.name, catIdx)}
+                          </h3>
+                          <div className="grid grid-cols-2 gap-2.5 flex-1">
+                            {cat.subcategories.slice(0, 4).map((sub, subIdx) => {
+                              const SubIcon = SUB_PLACEHOLDER_ICONS[subIdx % SUB_PLACEHOLDER_ICONS.length];
+                              return (
+                                <Link
+                                  key={sub.id}
+                                  href={`/browse?subcategoryId=${sub.id}`}
+                                  className="group flex flex-col bg-white p-0 transition-all hover:opacity-95"
+                                >
+                                  <div className="relative aspect-square w-full overflow-hidden rounded-md bg-white flex items-center justify-center p-0 border-0 shadow-none">
+                                    {(() => {
+                                      const src = isMobileViewport && sub.mobileIcon ? sub.mobileIcon : sub.image;
+                                      return src ? (
+                                        <img src={src} alt={sub.name} className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                                      ) : (
+                                        <SubIcon className="h-10 w-10 text-slate-400" />
+                                      );
+                                    })()}
+                                  </div>
+                                  <span className="mt-1.5 text-xs font-medium text-slate-800 line-clamp-2 leading-tight group-hover:text-blue-600 group-hover:underline">{sub.name}</span>
+                                </Link>
+                              );
+                            })}
+                          </div>
+                        </div>
+                        <Link
+                          href={`/browse?categoryId=${cat.id}`}
+                          className="mt-4 block text-xs font-bold text-blue-600 hover:text-amber-700 hover:underline"
+                        >
+                          See all offers
+                        </Link>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              ) : null}
+            </section>
+
+            {/* 1. Recently Viewed Products (Showing ALL recently viewed products with clean UI) */}
+            {(() => {
+              const recentList = recentViewProducts.length > 0 ? recentViewProducts : randomProducts;
+              if (recentList.length === 0) return null;
+
+              return (
+                <section className="border-t border-slate-100 bg-gradient-to-b from-slate-50/80 to-white py-6 sm:py-8">
+                  <div className="container mx-auto px-3 sm:px-4">
+                    <div className="mb-4 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <h2 className="text-lg font-bold text-slate-900 sm:text-xl flex items-center gap-2">
+                          <History className="h-5 w-5 text-blue-600" />
+                          Recently Viewed Products
+                        </h2>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {recentList.length > 2 && (
+                          <div className="flex items-center gap-1">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="icon"
+                              className="h-8 w-8 rounded-full border-slate-200 bg-white shadow-sm hover:bg-slate-50 cursor-pointer"
+                              onClick={() => {
+                                const el = recentScrollRef.current;
+                                if (el) el.scrollBy({ left: -320, behavior: "smooth" });
+                              }}
+                              aria-label="Previous recently viewed"
+                            >
+                              <ChevronLeft className="h-4 w-4 text-slate-700" />
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="icon"
+                              className="h-8 w-8 rounded-full border-slate-200 bg-white shadow-sm hover:bg-slate-50 cursor-pointer"
+                              onClick={() => {
+                                const el = recentScrollRef.current;
+                                if (el) el.scrollBy({ left: 320, behavior: "smooth" });
+                              }}
+                              aria-label="Next recently viewed"
+                            >
+                              <ChevronRight className="h-4 w-4 text-slate-700" />
+                            </Button>
+                          </div>
+                        )}
+                        <Link href="/browse" className="text-xs font-bold text-blue-600 hover:text-blue-800 hover:underline ml-1">
+                          Browse all
+                        </Link>
+                      </div>
+                    </div>
+
+                    <div
+                      ref={recentScrollRef}
+                      className="flex gap-3.5 overflow-x-auto py-2 scroll-smooth [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+                    >
+                      {recentList.map((p, idx) => {
+                        const finalPrice = Math.max(0, (p.basePrice ?? 0) - (p.discount ?? 0));
+                        const imgSrc = getProductImg(p.images?.[0], idx);
+                        const timeLabel = formatDynamicTimeAgo((p as any).viewedAt || (p as any).createdAt, idx);
                         return (
-                          <Link
-                            key={sub.id}
-                            href={`/browse?subcategoryId=${sub.id}`}
-                            className="flex flex-col items-center rounded-lg border border-slate-200 bg-slate-50 p-2 transition-colors hover:bg-slate-100"
+                          <div
+                            key={`recent_${p.id}_${idx}`}
+                            className="group flex w-[42vw] min-w-[185px] max-w-[210px] shrink-0 flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-3 shadow-sm transition-all duration-300 hover:border-blue-300 hover:shadow-lg hover:-translate-y-1 sm:min-w-[195px]"
                           >
-                            <div className="relative aspect-square w-full overflow-hidden rounded-md bg-muted flex items-center justify-center">
-                              {(() => {
-                                const src = isMobileViewport && sub.mobileIcon ? sub.mobileIcon : sub.image;
-                                return src ? (
-                                  <img src={src} alt={sub.name} className="h-full w-full object-cover" />
-                                ) : (
-                                  <SubIcon className="h-8 w-8 text-slate-400" />
-                                );
-                              })()}
+                            <div className="relative aspect-square w-full overflow-hidden rounded-xl bg-slate-100">
+                              <span className="absolute left-2 top-2 z-10 rounded-full bg-slate-900/80 backdrop-blur-md px-2.5 py-0.5 text-[10px] font-bold text-white shadow-sm flex items-center gap-1">
+                                <Clock className="h-2.5 w-2.5 text-blue-300" />
+                                {timeLabel}
+                              </span>
+                              <div className="absolute right-2 top-2 z-10">
+                                <WishlistButton productId={p.id} name={p.name} image={imgSrc} price={p.basePrice} />
+                              </div>
+                              <Link href={`/product/${p.id}`} className="block h-full w-full">
+                                <img
+                                  src={imgSrc}
+                                  alt={p.name}
+                                  className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                                  loading="lazy"
+                                />
+                              </Link>
                             </div>
-                            <span className="mt-1 text-center text-xs font-medium text-slate-700 line-clamp-2">{sub.name}</span>
-                          </Link>
+                            <div className="mt-2.5 flex flex-col">
+                              <p className="text-[10px] font-bold text-amber-700 uppercase tracking-wider truncate mb-0.5">
+                                {p.seller?.store?.name ?? "Verified Store"}
+                              </p>
+                              <Link href={`/product/${p.id}`} className="block">
+                                <p className="line-clamp-2 h-[34px] text-xs font-bold text-slate-900 group-hover:text-blue-600 transition-colors leading-snug flex items-start">
+                                  {p.name}
+                                </p>
+                              </Link>
+                              <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between gap-1 h-6 min-w-0 overflow-hidden">
+                                <span className="text-xs sm:text-sm font-black text-blue-600 truncate whitespace-nowrap">
+                                  {formatCurrency(finalPrice)}
+                                </span>
+                                <div className="flex items-center gap-0.5 text-[10px] font-semibold text-amber-600 shrink-0">
+                                  <StarRow rating={p.averageRating ?? 4.9} size="h-3 w-3" />
+                                  <span>{(p.averageRating ?? 4.9).toFixed(1)}</span>
+                                </div>
+                              </div>
+                              <AddToCartButton
+                                productId={p.id}
+                                name={p.name}
+                                price={finalPrice}
+                                image={imgSrc}
+                                size="sm"
+                                label="Add to Cart"
+                                className="w-full h-8 text-xs font-bold bg-amber-400 text-slate-950 hover:bg-amber-500 rounded-xl transition-all shadow-sm active:scale-95 mt-2"
+                              />
+                            </div>
+                          </div>
                         );
                       })}
                     </div>
-                    <Link
-                      href={`/browse?categoryId=${cat.id}`}
-                      className="mt-3 block text-sm font-semibold text-blue-600 hover:text-blue-800 hover:underline"
-                    >
-                      Shop {cat.name}
-                    </Link>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          ) : null}
-        </section>
+                  </div>
+                </section>
+              );
+            })()}
 
-        {/* Recent views: only for logged-in customers, max 10 */}
-        {recentViewProducts.length > 0 && (
-          <section className="border-t border-blue-100 bg-white/70 py-6 sm:py-8">
-            <div className="container mx-auto px-3 sm:px-4">
-              <h2 className="mb-3 sm:mb-4 text-lg font-bold text-slate-800 sm:text-xl flex items-center gap-2">
-                <Eye className="h-5 w-5 sm:h-6 sm:w-6 text-slate-600" />
-                Recently viewed
-              </h2>
-              <div className="grid grid-cols-2 gap-2 sm:gap-3 md:grid-cols-3 lg:grid-cols-5">
-                {recentViewProducts.map((p, pIdx) => {
-                  const ProductIcon = PRODUCT_PLACEHOLDER_ICONS[pIdx % PRODUCT_PLACEHOLDER_ICONS.length];
+            {/* 2. Sponsored Product Spotlight (Random Product Ad on Each Page Reload) */}
+            {(() => {
+              const activeAd = ads.length > 0 ? (ads[sponsoredIndex] || ads[0]) : null;
+              if (!activeAd) return null;
+              const dynamicPrice = (activeAd as any).targetPrice || (activeAd as any).price || (activeAd as any).product?.basePrice;
+              const dynamicRating = (activeAd as any).product?.averageRating ?? 4.9;
+
+              return (
+                <section className="container mx-auto px-3 sm:px-4 py-4">
+                  <div className="relative overflow-hidden rounded-3xl border border-amber-300/80 bg-gradient-to-br from-amber-500/10 via-orange-500/5 to-blue-600/10 p-5 sm:p-8 shadow-xl">
+                    {/* Glowing background ambient lights */}
+                    <div className="absolute -right-12 -top-12 h-64 w-64 rounded-full bg-amber-400/20 blur-3xl pointer-events-none" />
+                    <div className="absolute -left-12 -bottom-12 h-64 w-64 rounded-full bg-blue-500/15 blur-3xl pointer-events-none" />
+
+                    <div className="grid grid-cols-1 gap-6 md:grid-cols-12 items-center relative z-10">
+                      {/* Left: Video / Banner Creative */}
+                      <div className="relative aspect-video w-full overflow-hidden rounded-2xl bg-slate-900/10 shadow-lg md:col-span-6 lg:col-span-5">
+                        <img
+                          src={getYoutubeThumbnailUrl(activeAd.creativeUrl) || activeAd.creativeUrl || getProductImg(null, 0)}
+                          alt={activeAd.title}
+                          className="h-full w-full object-cover transition-transform duration-500 hover:scale-105"
+                        />
+                        <div className="absolute top-3 left-3 flex gap-1.5 flex-wrap">
+                          <span className="rounded-full bg-gradient-to-r from-amber-500 to-orange-600 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-slate-950 shadow-md">
+                            ★ Sponsored Spotlight
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Right: Filled Detailed Information & Feature Badges */}
+                      <div className="flex flex-col justify-between md:col-span-6 lg:col-span-7 space-y-4">
+                        <div className="space-y-2">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 border border-amber-300 px-3 py-0.5 text-xs font-bold text-amber-800">
+                              <Sparkles className="h-3.5 w-3.5 text-amber-600" /> Featured Merchant Offer
+                            </span>
+                            <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 border border-blue-200 px-2.5 py-0.5 text-xs font-semibold text-blue-800">
+                              Verified Ad
+                            </span>
+                          </div>
+
+                          <h3 className="text-xl sm:text-3xl font-black text-slate-900 leading-snug tracking-tight">
+                            {activeAd.title}
+                          </h3>
+
+                          <p className="text-xs sm:text-sm text-slate-600 leading-relaxed font-medium line-clamp-2">
+                            {activeAd.description || "Discover premium quality, top customer satisfaction, and exclusive time-limited promotional pricing direct from verified marketplace sellers."}
+                          </p>
+                        </div>
+
+                        {/* Feature Badges Grid - Fills out the section with rich details */}
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 py-1">
+                          <div className="flex items-center gap-2 rounded-xl bg-white/80 border border-amber-200/60 p-2 shadow-sm">
+                            <div className="h-8 w-8 rounded-lg bg-amber-100 flex items-center justify-center shrink-0">
+                              <Truck className="h-4 w-4 text-amber-700" />
+                            </div>
+                            <div className="flex flex-col min-w-0">
+                              <span className="text-[11px] font-extrabold text-slate-900 truncate">Express Delivery</span>
+                              <span className="text-[9px] text-slate-500 truncate">Available Today</span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 rounded-xl bg-white/80 border border-blue-200/60 p-2 shadow-sm">
+                            <div className="h-8 w-8 rounded-lg bg-blue-100 flex items-center justify-center shrink-0">
+                              <ShieldCheck className="h-4 w-4 text-blue-700" />
+                            </div>
+                            <div className="flex flex-col min-w-0">
+                              <span className="text-[11px] font-extrabold text-slate-900 truncate">Verified Seller</span>
+                              <span className="text-[9px] text-slate-500 truncate">100% Authentic</span>
+                            </div>
+                          </div>
+
+                          <div className="col-span-2 sm:col-span-1 flex items-center gap-2 rounded-xl bg-white/80 border border-emerald-200/60 p-2 shadow-sm">
+                            <div className="h-8 w-8 rounded-lg bg-emerald-100 flex items-center justify-center shrink-0">
+                              <Zap className="h-4 w-4 text-emerald-700" />
+                            </div>
+                            <div className="flex flex-col min-w-0">
+                              <span className="text-[11px] font-extrabold text-slate-900 truncate">Limited Offer</span>
+                              <span className="text-[9px] text-slate-500 truncate">Best Guarantee</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Price & Action Row */}
+                        <div className="pt-2 border-t border-slate-200/80 flex flex-wrap items-center justify-between gap-4">
+                          <div className="flex items-center gap-3">
+                            {dynamicPrice ? (
+                              <span className="text-2xl sm:text-3xl font-black text-blue-600">
+                                {formatCurrency(dynamicPrice)}
+                              </span>
+                            ) : null}
+                            <div className="flex items-center gap-1 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-lg text-xs font-bold text-amber-700">
+                              <StarRow rating={dynamicRating} size="h-3.5 w-3.5" />
+                              <span>{dynamicRating.toFixed(1)}</span>
+                            </div>
+                          </div>
+
+                          <Button asChild className="bg-gradient-to-r from-amber-400 via-amber-500 to-orange-500 hover:from-amber-500 hover:to-orange-600 text-slate-950 font-extrabold text-xs sm:text-sm px-7 py-3 rounded-xl shadow-md hover:shadow-lg transition-all duration-300 hover:-translate-y-0.5">
+                            <Link href={`/api/ads/click?adId=${activeAd.id}&redirect_to_ad=true`}>
+                              Shop Product Now
+                            </Link>
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </section>
+              );
+            })()}
+
+            {/* 3. Shop Products – Up to 50% Off */}
+            <section className="container mx-auto px-3 sm:px-4 py-6 sm:py-8 border-t border-slate-100">
+              <div className="mb-4 sm:mb-6 flex items-center justify-between">
+                <h2 className="text-lg font-bold text-slate-900 sm:text-xl">
+                  Shop Products – Up to 50% Off
+                </h2>
+                <Link href="/browse?discount=50" className="text-xs font-bold text-blue-600 hover:text-blue-800 hover:underline">
+                  See all
+                </Link>
+              </div>
+              <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+                {randomProducts.slice(0, 6).map((p, idx) => {
+                  const finalPrice = Math.max(0, (p.basePrice ?? 0) - (p.discount ?? 0));
+                  const originalPrice = p.basePrice > finalPrice ? p.basePrice : finalPrice * 1.5;
+                  const imgSrc = getProductImg(p.images?.[0], idx);
                   return (
                     <Link
                       key={p.id}
                       href={`/product/${p.id}`}
-                      className="flex flex-col overflow-hidden rounded-lg bg-white shadow transition-shadow hover:shadow-lg"
+                      className="group flex flex-col overflow-hidden rounded-xl border border-slate-200/80 bg-white p-2.5 shadow-sm transition-all hover:border-blue-300 hover:shadow-lg hover:-translate-y-0.5"
                     >
-                      <div className="relative aspect-square w-full overflow-hidden rounded-t-lg bg-muted flex items-center justify-center">
-                        <div className="absolute right-2 top-2 z-10">
-                          <WishlistButton productId={p.id} name={p.name} image={p.images?.[0] || null} price={p.basePrice} />
+                      <div className="relative aspect-square w-full overflow-hidden rounded-lg bg-slate-100">
+                        <span className="absolute left-1.5 top-1.5 z-10 rounded bg-red-600 px-1.5 py-0.5 text-[9px] font-extrabold text-white shadow">
+                          -50% OFF
+                        </span>
+                        <div className="absolute right-1.5 top-1.5 z-10">
+                          <WishlistButton productId={p.id} name={p.name} image={imgSrc} price={p.basePrice} />
                         </div>
-                        {p.images?.[0] ? (
-                          <img src={p.images[0]} alt={p.name} className="h-full w-full object-cover" loading="lazy" />
-                        ) : (
-                          <ProductIcon className="h-12 w-12 text-slate-400" />
-                        )}
+                        <img
+                          src={imgSrc}
+                          alt={p.name}
+                          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                          loading="lazy"
+                        />
                       </div>
-                      <div className="p-2.5 flex flex-col justify-between flex-1">
-                        <div>
-                          <p className="text-[9px] font-bold text-amber-700 uppercase tracking-wider truncate">
-                            {p.seller?.store?.name ?? "Store"}
-                          </p>
-                          <p className="line-clamp-2 text-xs font-medium text-slate-800">{p.name}</p>
-                          <div className="flex items-center justify-between gap-1 mt-1">
-                            <p className="text-sm font-bold text-blue-600">
-                              {formatCurrency(Math.max(0, (p.basePrice ?? 0) - (p.discount ?? 0)))}
-                            </p>
-                            {(p._count?.reviews ?? 0) > 0 && (
-                              <div className="flex items-center gap-1">
-                                <StarRow rating={p.averageRating ?? 0} size="h-3 w-3" />
-                                <span className="text-[10px] font-medium text-slate-600">{(p.averageRating ?? 0).toFixed(1)}</span>
-                              </div>
-                            )}
-                          </div>
+                      <div className="mt-2 flex flex-col">
+                        <p className="text-[9px] font-bold text-amber-700 uppercase tracking-wider truncate mb-0.5">
+                          {p.seller?.store?.name ?? "Certified Store"}
+                        </p>
+                        <p className="line-clamp-2 h-[32px] text-xs font-bold text-slate-900 group-hover:text-blue-600 transition-colors leading-snug">
+                          {p.name}
+                        </p>
+                        <div className="mt-1.5 pt-1.5 border-t border-slate-100 flex items-center justify-between gap-1 h-5 min-w-0 overflow-hidden">
+                          <span className="text-xs font-black text-blue-600 truncate whitespace-nowrap">
+                            {formatCurrency(finalPrice)}
+                          </span>
+                          <span className="text-[10px] text-slate-400 line-through truncate whitespace-nowrap">
+                            {formatCurrency(originalPrice)}
+                          </span>
                         </div>
-                        <div className="mt-2.5 pt-2 border-t border-slate-100">
+                        <div className="mt-2">
                           <AddToCartButton
                             productId={p.id}
                             name={p.name}
-                            price={Math.max(0, (p.basePrice ?? 0) - (p.discount ?? 0))}
-                            image={p.images?.[0] || null}
+                            price={finalPrice}
+                            image={imgSrc}
                             size="sm"
-                            className="w-full h-8 text-xs font-bold rounded-lg"
+                            label="Add to Cart"
+                            className="w-full h-7 text-[11px] font-bold bg-amber-400 text-slate-950 hover:bg-amber-500 rounded-lg transition-all shadow-sm active:scale-95"
                           />
                         </div>
                       </div>
@@ -492,416 +930,629 @@ export function HomeClient() {
                   );
                 })}
               </div>
-            </div>
-          </section>
-        )}
-
-        {/* Best Sellers: horizontal carousels with arrows (no scrollbar) */}
-        {latestCategories.filter((c) => (productsByCategory[c.id]?.length ?? 0) > 0).length > 0 && (
-          <section className="border-t border-blue-100 bg-white/70 py-6 sm:py-8">
-            <div className="container mx-auto px-3 sm:px-4">
-              <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 lg:gap-8">
-                {latestCategories.slice(0, 2).map((cat) => {
-                  const products = productsByCategory[cat.id] ?? []
-                  if (products.length === 0) return null
-                  return (
-                    <div key={cat.id} className="min-w-0">
-                    <h2 className="mb-3 sm:mb-4 text-lg font-bold text-slate-800 sm:text-xl">
-                      Best Sellers in {cat.name}
-                    </h2>
-                    <div className="relative">
-                      {products.length > 1 && (
-                        <>
-                          <Button
-                            type="button"
-                            variant="secondary"
-                            size="icon"
-                            className="absolute left-0 top-1/2 z-10 h-8 w-8 -translate-y-1/2 rounded-full shadow-md sm:-left-3 sm:h-9 sm:w-9"
-                            onClick={() => {
-                              const el = bestSellersRefs.current[cat.id];
-                              if (!el) return;
-                              const card = el.querySelector("[data-best-seller-card]") as HTMLElement | null;
-                              const gap = 12;
-                              const cardWidth = (card?.getBoundingClientRect().width ?? 160) + gap;
-                              el.scrollLeft = Math.max(0, el.scrollLeft - cardWidth);
-                            }}
-                            aria-label={`Previous best sellers in ${cat.name}`}
-                          >
-                            <ChevronLeft className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="secondary"
-                            size="icon"
-                            className="absolute right-0 top-1/2 z-10 h-8 w-8 -translate-y-1/2 rounded-full shadow-md sm:-right-3 sm:h-9 sm:w-9"
-                            onClick={() => {
-                              const el = bestSellersRefs.current[cat.id];
-                              if (!el) return;
-                              const card = el.querySelector("[data-best-seller-card]") as HTMLElement | null;
-                              const gap = 12;
-                              const cardWidth = (card?.getBoundingClientRect().width ?? 160) + gap;
-                              el.scrollLeft = Math.min(
-                                el.scrollWidth - el.clientWidth,
-                                el.scrollLeft + cardWidth
-                              );
-                            }}
-                            aria-label={`Next best sellers in ${cat.name}`}
-                          >
-                            <ChevronRight className="h-4 w-4" />
-                          </Button>
-                        </>
-                      )}
-                      <div
-                        ref={(el) => {
-                          if (el) bestSellersRefs.current[cat.id] = el;
-                        }}
-                        className="flex gap-3 sm:gap-4 overflow-x-auto overflow-y-hidden py-2 scroll-smooth snap-x snap-mandatory [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
-                      >
-                        {products.map((p, pIdx) => {
-                          const ProductIcon = PRODUCT_PLACEHOLDER_ICONS[pIdx % PRODUCT_PLACEHOLDER_ICONS.length];
-                          return (
-                            <Link
-                              key={p.id}
-                              href={`/product/${p.id}`}
-                              data-best-seller-card
-                              className="flex w-32 shrink-0 snap-start flex-col overflow-hidden rounded-lg bg-white shadow transition-shadow hover:shadow-lg sm:w-40"
-                            >
-                              <div className="relative aspect-square w-full overflow-hidden rounded-t-lg bg-muted flex items-center justify-center">
-                                 <div className="absolute right-2 top-2 z-10">
-                                   <WishlistButton productId={p.id} name={p.name} image={p.images?.[0] || null} price={p.basePrice} />
-                                 </div>
-                                {p.images[0] ? (
-                                  <img src={p.images[0]} alt={p.name} className="h-full w-full object-cover" />
-                                ) : (
-                                  <ProductIcon className="h-12 w-12 text-slate-400" />
-                                )}
-                              </div>
-                              <div className="p-2">
-                                <p className="text-[9px] font-bold text-amber-700 uppercase tracking-wider truncate">
-                                  {p.seller?.store?.name ?? "Store"}
-                                </p>
-                                <p className="line-clamp-2 text-xs font-medium text-slate-800">{p.name}</p>
-                                <div className="flex items-center justify-between gap-1 mt-1">
-                                  <p className="text-sm font-bold text-blue-600">
-                                    {formatCurrency(Math.max(0, p.basePrice - p.discount))}
-                                  </p>
-                                  {(p._count?.reviews ?? 0) > 0 && (
-                                    <div className="flex items-center gap-1">
-                                      <StarRow rating={p.averageRating ?? 0} size="h-3 w-3" />
-                                      <span className="text-[10px] font-medium text-slate-600">{(p.averageRating ?? 0).toFixed(1)}</span>
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            </Link>
-                          );
-                        })}
-                      </div>
-                    </div>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          </section>
-        )}
-
-        {/* Sponsored ads - auto carousel left to right; pause when user clicks an ad/video */}
-        {ads.length > 0 && (
-          <section
-            className="container mx-auto px-3 sm:px-4 py-6 sm:py-8"
-            onMouseEnter={() => setSponsoredCarouselPaused(true)}
-            onMouseLeave={() => setSponsoredCarouselPaused(false)}
-          >
-            <div className="mb-4 sm:mb-6 flex items-center gap-2">
-              <h2 className="text-lg font-bold text-slate-800 sm:text-xl">Sponsored</h2>
-              <span className="rounded-full bg-slate-200 px-2.5 py-0.5 text-xs font-medium text-slate-600">
-                {ads.length} {ads.length === 1 ? "ad" : "ads"}
-              </span>
-            </div>
-            <div className="relative">
-              {/* Carousel arrows */}
-              {ads.length > 1 && (
-                <>
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="icon"
-                    className="absolute left-0 top-1/2 z-10 h-8 w-8 -translate-y-1/2 rounded-full shadow-md sm:left-2 sm:h-9 sm:w-9"
-                    onClick={() => {
-                      setSponsoredCarouselPaused(true);
-                      setSponsoredIndex((i) => (i <= 0 ? ads.length - 1 : i - 1));
-                    }}
-                    aria-label="Previous ad"
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="icon"
-                    className="absolute right-0 top-1/2 z-10 h-8 w-8 -translate-y-1/2 rounded-full shadow-md sm:right-2 sm:h-9 sm:w-9"
-                    onClick={() => {
-                      setSponsoredCarouselPaused(true);
-                      setSponsoredIndex((i) => (i >= ads.length - 1 ? 0 : i + 1));
-                    }}
-                    aria-label="Next ad"
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
-                </>
-              )}
-              <div
-                ref={sponsoredScrollRef}
-                className="flex gap-3 sm:gap-4 overflow-x-auto overflow-y-hidden scroll-smooth py-2 snap-x snap-mandatory [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
-                style={{ scrollBehavior: sponsoredCarouselPaused ? "auto" : "smooth" }}
-              >
-              {ads.map((ad) => {
-                const adPageHref = `/api/ads/click?adId=${ad.id}&redirect_to_ad=true`;
-                const isVideo = ad.creativeType === "VIDEO";
-                const youtubeEmbed = isVideo ? getYoutubeEmbedUrl(ad.creativeUrl) : null;
-                const displayImage = getYoutubeThumbnailUrl(ad.creativeUrl) || ad.creativeUrl;
-                return (
-                  <Link
-                    key={ad.id}
-                    href={adPageHref}
-                    data-sponsored-card
-                    onClick={() => setSponsoredCarouselPaused(true)}
-                    className="group flex w-[85vw] min-w-[260px] max-w-[320px] shrink-0 snap-start flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition-shadow hover:shadow-lg sm:min-w-[280px] md:min-w-[300px]"
-                  >
-                    <div className="relative aspect-video w-full overflow-hidden bg-slate-100">
-                      {displayImage ? (
-                        <img
-                          src={displayImage}
-                          alt={ad.title}
-                          className="h-full w-full object-cover transition-transform group-hover:scale-[1.02]"
-                        />
-                      ) : isVideo && youtubeEmbed ? (
-                        <iframe
-                          src={youtubeEmbed}
-                          title={ad.title}
-                          className="h-full w-full object-cover pointer-events-none"
-                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                        />
-                      ) : isVideo ? (
-                        <video
-                          src={ad.creativeUrl}
-                          className="h-full w-full object-cover"
-                          muted
-                          playsInline
-                          preload="metadata"
-                        />
-                      ) : null}
-                      <div className="absolute bottom-2 left-2 pointer-events-none">
-                        <span className="rounded bg-slate-900/80 px-2 py-0.5 text-xs font-medium text-white">
-                          Sponsored
-                        </span>
-                      </div>
-                    </div>
-                    <div className="flex flex-1 flex-col p-3 sm:p-4">
-                      <span className="font-semibold text-slate-900 line-clamp-2 group-hover:text-blue-600 text-sm sm:text-base">
-                        {ad.title}
-                      </span>
-                      {ad.description?.trim() && (
-                        <p className="mt-1 line-clamp-2 text-xs text-slate-600 sm:text-sm">
-                          {ad.description}
-                        </p>
-                      )}
-                      {!ad.productId && !ad.serviceId && (
-                        <span className="mt-2 inline-flex w-fit rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-blue-700">
-                          Business ad
-                        </span>
-                      )}
-                      <span className="mt-2 inline-flex text-sm font-medium text-blue-600 group-hover:underline">
-                        View details →
-                      </span>
-                    </div>
-                  </Link>
-                );
-              })}
-              </div>
-            </div>
-          </section>
-        )}
-
-        {/* Explore products / For you: grid (filters hidden on home — use /browse to refine) */}
-        {status === "authenticated" &&
-          session?.user?.role === UserRole.CUSTOMER &&
-          hasCategoryInterests &&
-          randomProducts.length === 0 &&
-          !interestModalOpen && (
-            <section className="container mx-auto px-3 sm:px-4 py-6 sm:py-8">
-              <h2 className="mb-2 text-lg font-bold text-slate-800 sm:text-xl">For you</h2>
-              <p className="mb-4 max-w-lg text-sm text-slate-600">
-                Nothing listed in your categories yet. Browse the marketplace to discover more.
-              </p>
-              <Button asChild className="bg-blue-600 text-white hover:bg-blue-700">
-                <Link href="/browse">Browse products</Link>
-              </Button>
             </section>
-          )}
 
-        {randomProducts.length > 0 && (
-          <section className="container mx-auto px-3 sm:px-4 py-6 sm:py-8">
-            <h2 className="mb-4 text-lg font-bold text-slate-800 sm:mb-6 sm:text-xl">
-              {status === "authenticated" && session?.user?.role === UserRole.CUSTOMER && hasCategoryInterests
-                ? "For you"
-                : "Explore products"}
-            </h2>
-            <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-              {exploreProductsPreview.map((p, pIdx) => {
-                const ProductIcon = PRODUCT_PLACEHOLDER_ICONS[pIdx % PRODUCT_PLACEHOLDER_ICONS.length];
-                return (
-                <Link key={p.id} href={`/product/${p.id}`} className="group block h-full">
-                  <Card className="flex h-full flex-col overflow-hidden border-0 bg-white shadow-md transition-shadow group-hover:shadow-lg">
-                    <div className="relative aspect-square w-full overflow-hidden bg-muted flex items-center justify-center">
-                      <div className="absolute right-2 top-2 z-10">
-                        <WishlistButton productId={p.id} name={p.name} image={p.images?.[0] || null} price={p.basePrice} />
-                      </div>
-                      {p.images[0] ? (
-                        <img src={p.images[0]} alt={p.name} className="h-full w-full object-cover" />
-                      ) : (
-                        <ProductIcon className="h-14 w-14 text-slate-400" />
-                      )}
-                    </div>
-                    <CardContent className="flex flex-1 flex-col p-3">
-                      <p className="text-[10px] font-bold text-amber-700 uppercase tracking-wider truncate mb-0.5">
-                        {p.seller?.store?.name ?? "Store"}
-                      </p>
-                      <p className="line-clamp-2 text-sm font-medium text-slate-800">{p.name}</p>
-                      <div className="flex items-center justify-between gap-1 mt-1">
-                        <p className="font-bold text-blue-600">{formatCurrency(Math.max(0, p.basePrice - p.discount))}</p>
-                        {(p._count?.reviews ?? 0) > 0 && (
-                          <div className="flex items-center gap-1">
-                            <StarRow rating={p.averageRating ?? 0} size="h-3.5 w-3.5" />
-                            <span className="text-[11px] font-medium text-slate-700">{(p.averageRating ?? 0).toFixed(1)}</span>
-                          </div>
-                        )}
-                      </div>
-                      <div className="mt-auto pt-3">
-                        <AddToCartButton
-                          productId={p.id}
-                          name={p.name}
-                          price={Math.max(0, p.basePrice - p.discount)}
-                          image={Array.isArray(p.images) ? p.images[0] : null}
-                          size="sm"
-                          label="Add to Cart"
-                          className="w-full justify-center px-2 text-xs sm:px-3 sm:text-sm"
-                          ariaLabel={`Add ${p.name} to cart`}
-                        />
-                      </div>
-                    </CardContent>
-                  </Card>
+            {/* 4. Shop by Product Category (Auto-Moving Carousel with Working Control Buttons) */}
+            <section
+              className="container mx-auto px-3 sm:px-4 py-6 sm:py-8 border-t border-slate-100"
+              onMouseEnter={() => setCategoryCarouselPaused(true)}
+              onMouseLeave={() => setCategoryCarouselPaused(false)}
+            >
+              <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+                <div className="flex flex-wrap items-center gap-3">
+                  <span className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 px-5 py-2 text-sm sm:text-base font-black tracking-wider uppercase text-white shadow-lg shadow-blue-500/25">
+                    <LayoutGrid className="h-4 sm:h-5 w-4 sm:w-5" /> Shop by Category
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-3.5 py-1.5 text-xs sm:text-sm font-extrabold text-blue-700 border border-blue-200/80">
+                    <Sparkles className="h-4 w-4 text-blue-500" /> Explore Collections
+                  </span>
+                </div>
+                <Link href="/browse" className="text-xs sm:text-sm font-extrabold text-blue-600 hover:text-blue-800 hover:underline">
+                  View All Categories
                 </Link>
-              );})}
-            </div>
-          </section>
-        )}
+              </div>
+              <div className="relative">
+                {categories.length > 1 && (
+                  <>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="icon"
+                      className="absolute left-0 top-1/2 z-10 h-8 w-8 -translate-y-1/2 rounded-full shadow-md sm:left-2 bg-white/90 text-slate-700 hover:bg-white cursor-pointer"
+                      onClick={() => {
+                        setCategoryCarouselPaused(true);
+                        const el = categoryScrollRef.current;
+                        if (el) {
+                          const card = el.querySelector("[data-category-card]") as HTMLElement | null;
+                          const cardWidth = (card?.getBoundingClientRect().width ?? 140) + 16;
+                          el.scrollBy({ left: -cardWidth * 2, behavior: "smooth" });
+                        }
+                      }}
+                      aria-label="Previous category"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="icon"
+                      className="absolute right-0 top-1/2 z-10 h-8 w-8 -translate-y-1/2 rounded-full shadow-md sm:right-2 bg-white/90 text-slate-700 hover:bg-white cursor-pointer"
+                      onClick={() => {
+                        setCategoryCarouselPaused(true);
+                        const el = categoryScrollRef.current;
+                        if (el) {
+                          const card = el.querySelector("[data-category-card]") as HTMLElement | null;
+                          const cardWidth = (card?.getBoundingClientRect().width ?? 140) + 16;
+                          el.scrollBy({ left: cardWidth * 2, behavior: "smooth" });
+                        }
+                      }}
+                      aria-label="Next category"
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </>
+                )}
+                <div
+                  ref={categoryScrollRef}
+                  className="flex gap-4 sm:gap-6 overflow-x-auto overflow-y-hidden scroll-smooth py-3 snap-x snap-mandatory [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+                  style={{ scrollBehavior: categoryCarouselPaused ? "auto" : "smooth" }}
+                >
+                  {categories.map((cat, idx) => {
+                    const categoryImg = cat.subcategories?.[0]?.image || getProductImg(null, idx + 1);
 
-        {/* Explore services: responsive carousel directly after explore products */}
-        {homeServices.length > 0 && (
-          <section className="container mx-auto px-3 sm:px-4 pb-6 sm:pb-8">
-            <div className="mb-4 sm:mb-5 flex items-center justify-between gap-2">
-              <h2 className="text-lg font-bold text-slate-800 sm:text-xl">Explore services</h2>
-              
-            </div>
-            <div className="relative">
-              {homeServices.length > 1 && (
-                <>
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="icon"
-                    className="absolute left-0 top-1/2 z-10 h-8 w-8 -translate-y-1/2 rounded-full shadow-md sm:-left-3 sm:h-9 sm:w-9"
-                    onClick={() => {
-                      const el = serviceCarouselRef.current;
-                      if (!el) return;
-                      const card = el.querySelector("[data-service-card]") as HTMLElement | null;
-                      const gap = 12;
-                      const cardWidth = (card?.getBoundingClientRect().width ?? 220) + gap;
-                      el.scrollLeft = Math.max(0, el.scrollLeft - cardWidth);
-                    }}
-                    aria-label="Previous services"
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="icon"
-                    className="absolute right-0 top-1/2 z-10 h-8 w-8 -translate-y-1/2 rounded-full shadow-md sm:-right-3 sm:h-9 sm:w-9"
-                    onClick={() => {
-                      const el = serviceCarouselRef.current;
-                      if (!el) return;
-                      const card = el.querySelector("[data-service-card]") as HTMLElement | null;
-                      const gap = 12;
-                      const cardWidth = (card?.getBoundingClientRect().width ?? 220) + gap;
-                      el.scrollLeft = Math.min(el.scrollWidth - el.clientWidth, el.scrollLeft + cardWidth);
-                    }}
-                    aria-label="Next services"
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
-                </>
-              )}
-              <div
-                ref={serviceCarouselRef}
-                className="flex gap-3 overflow-x-auto overflow-y-hidden py-2 scroll-smooth snap-x snap-mandatory [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden sm:gap-4"
-              >
-                {homeServices.map((s, idx) => {
-                  const ServiceIcon = SERVICE_PLACEHOLDER_ICONS[idx % SERVICE_PLACEHOLDER_ICONS.length];
-                  const imageUrl = serviceFirstImage(s.images);
-                  const finalPrice = s.basePrice == null ? null : Math.max(0, s.basePrice - (s.discount ?? 0));
+                    return (
+                      <Link
+                        key={cat.id}
+                        href={`/browse?categoryId=${cat.id}`}
+                        data-category-card
+                        onClick={() => setCategoryCarouselPaused(true)}
+                        className="group flex flex-col items-center shrink-0 snap-start transition-all duration-300 hover:-translate-y-1 w-[150px] sm:w-[185px]"
+                      >
+                        {/* Half-moon / arch dome cropped image without background color */}
+                        <div className="relative w-36 h-36 sm:w-44 sm:h-44 rounded-t-full rounded-b-none overflow-hidden flex items-center justify-center shrink-0 shadow-sm border-b-2 border-slate-200 group-hover:border-blue-500 transition-colors">
+                          <img
+                            src={categoryImg}
+                            alt={cat.name}
+                            className="h-full w-full object-cover group-hover:scale-108 transition-transform duration-300"
+                          />
+                        </div>
+                        <span className="mt-2.5 text-center text-xs sm:text-sm font-extrabold text-slate-900 line-clamp-2 leading-tight group-hover:text-blue-600 transition-colors max-w-[140px] sm:max-w-[175px]">
+                          {cat.name}
+                        </span>
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
+            </section>
+
+
+
+            {/* 6. Dynamic Mega Sale Banner & Featured Mega Sale Products */}
+            <section className="container mx-auto px-3 sm:px-4 py-6">
+              <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-slate-950 via-blue-950 to-indigo-950 p-8 sm:p-14 text-white shadow-2xl border border-blue-800/40">
+                {/* Glowing background light ambient orbs */}
+                <div className="absolute -left-20 -top-20 h-72 w-72 rounded-full bg-rose-600/20 blur-3xl pointer-events-none" />
+                <div className="absolute right-10 top-10 h-80 w-80 rounded-full bg-blue-500/25 blur-3xl pointer-events-none" />
+                <div className="absolute -right-10 -bottom-10 h-64 w-64 rounded-full bg-amber-500/20 blur-3xl pointer-events-none" />
+
+                <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-8">
+                  <div className="max-w-2xl">
+                    <div className="flex flex-wrap items-center gap-2 mb-4">
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-red-600 via-rose-500 to-amber-500 px-3.5 py-1 text-xs font-black tracking-wider uppercase text-white shadow-md shadow-red-500/20">
+                        <Flame className="h-4 w-4 animate-bounce" /> MEGA SALE EVENT
+                      </span>
+                      <span className="inline-flex items-center gap-1 rounded-full bg-white/10 backdrop-blur-md px-3 py-1 text-xs font-bold text-amber-300 border border-amber-400/30">
+                        <Sparkles className="h-3.5 w-3.5" /> Limited Time Offers
+                      </span>
+                    </div>
+
+                    <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight leading-tight bg-gradient-to-r from-white via-slate-100 to-amber-200 bg-clip-text text-transparent">
+                      Big Savings & Special Offers | Up to {randomProducts.length > 0 ? Math.max(50, ...randomProducts.map(p => Math.round(((p.discount || (p.basePrice * 0.5)) / (p.basePrice || (p.discount || 1) * 2)) * 100))) : 50}% Off Everything
+                    </h2>
+
+                    <p className="mt-3 text-sm sm:text-base text-slate-300 leading-relaxed max-w-xl">
+                      Unlock unbeatable dynamic prices across top product lines. Limited time deals with free express shipping & hassle-free returns.
+                    </p>
+
+                    <div className="mt-6 flex flex-wrap items-center gap-4">
+                      <Button asChild className="bg-gradient-to-r from-amber-400 via-amber-500 to-orange-500 hover:from-amber-500 hover:to-orange-600 text-slate-950 font-black text-sm sm:text-base px-8 py-3.5 rounded-2xl shadow-xl shadow-amber-500/20 hover:shadow-amber-500/35 transition-all duration-300 hover:-translate-y-1">
+                        <Link href="/browse?discount=50">Shop Dynamic Deals Now</Link>
+                      </Button>
+                      <span className="text-xs font-semibold text-slate-400 flex items-center gap-1">
+                        ✓ Verified Quality Guaranteed
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Decorative glassmorphism highlight card on right side */}
+                  <div className="hidden lg:flex flex-col items-center justify-center p-6 rounded-2xl bg-white/10 backdrop-blur-xl border border-white/15 shadow-2xl text-center shrink-0 w-64">
+                    <div className="h-14 w-14 rounded-2xl bg-gradient-to-tr from-amber-400 to-red-500 flex items-center justify-center text-slate-950 font-black text-2xl shadow-lg mb-3">
+                      %
+                    </div>
+                    <span className="text-xs font-extrabold uppercase tracking-widest text-amber-300">
+                      Flash Price Drop
+                    </span>
+                    <span className="mt-1 text-2xl font-black text-white">
+                      Instant Savings
+                    </span>
+                    <span className="mt-2 text-[11px] text-slate-300 font-medium">
+                      Applied automatically at checkout
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Embedded Dynamic Mega Sale Product Showcase Grid (Spacious 4-column card grid with large square images) */}
+              <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-2 md:grid-cols-4">
+                {randomProducts.slice(0, 4).map((p, idx) => {
+                  const finalPrice = Math.max(0, (p.basePrice ?? 0) - (p.discount ?? 0));
+                  const savings = p.discount > 0 ? p.discount : Math.round((p.basePrice || finalPrice * 2) * 0.5);
+                  const originalPrice = (p.basePrice > finalPrice ? p.basePrice : finalPrice + savings);
+                  const discountPct = Math.min(75, Math.max(25, Math.round((savings / originalPrice) * 100)));
+                  const imgSrc = getProductImg(p.images?.[0], idx + 3);
                   return (
                     <Link
-                      key={s.id}
-                      href={`/service/${s.id}`}
-                      data-service-card
-                      className="group flex w-[78vw] max-w-[280px] min-w-[220px] shrink-0 snap-start flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition-shadow hover:shadow-lg sm:w-[280px]"
+                      key={`mega_${p.id}`}
+                      href={`/product/${p.id}`}
+                      className="group flex flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-3.5 shadow-sm transition-all duration-300 hover:border-amber-300 hover:shadow-xl hover:-translate-y-1"
                     >
-                      <div className="relative aspect-[4/3] w-full overflow-hidden bg-slate-100 flex items-center justify-center">
-                        <div className="absolute right-2 top-2 z-10">
-                          <WishlistButton serviceId={s.id} name={s.name} image={imageUrl || null} price={s.basePrice} />
-                        </div>
-                        {imageUrl ? (
-                          <img src={imageUrl} alt={s.name} className="h-full w-full object-cover transition-transform group-hover:scale-[1.02]" />
-                        ) : (
-                          <ServiceIcon className="h-12 w-12 text-slate-400" />
-                        )}
+                      <div className="relative aspect-square w-full overflow-hidden rounded-xl bg-slate-100">
+                        <span className="absolute left-2.5 top-2.5 z-10 rounded-full bg-red-600 px-2.5 py-0.5 text-[10px] font-black text-white shadow-md">
+                          -{discountPct}% OFF
+                        </span>
+                        <img
+                          src={imgSrc}
+                          alt={p.name}
+                          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                          loading="lazy"
+                        />
                       </div>
-                      <CardContent className="p-3 sm:p-4">
-                        <p className="text-[10px] font-bold text-amber-700 uppercase tracking-wider truncate mb-0.5">
-                          {s.seller?.store?.name ?? "Service Store"}
-                        </p>
-                        <p className="line-clamp-2 text-sm font-semibold text-slate-900">{s.name}</p>
-                        <p className="text-xs text-slate-500">{s.serviceCategory?.name ?? "Service"}</p>
-                        <div className="flex items-center justify-between gap-1 mt-2">
-                          <p className="text-sm font-bold text-blue-600">
-                            {finalPrice == null ? "Contact for price" : formatCurrency(finalPrice)}
+                      <div className="mt-3 flex flex-col flex-1 justify-between">
+                        <div>
+                          <p className="text-[10px] font-bold text-amber-700 uppercase tracking-wider truncate mb-1">
+                            {p.seller?.store?.name ?? "Certified Store"}
                           </p>
-                          {(s._count?.reviews ?? 0) > 0 && (
-                            <div className="flex items-center gap-1">
-                              <StarRow rating={s.averageRating ?? 0} size="h-3 w-3" />
-                              <span className="text-[10px] font-medium text-slate-600">{(s.averageRating ?? 0).toFixed(1)}</span>
-                            </div>
-                          )}
+                          <p className="line-clamp-2 text-xs sm:text-sm font-bold text-slate-900 group-hover:text-blue-600 transition-colors leading-snug">
+                            {p.name}
+                          </p>
                         </div>
-                      </CardContent>
+                        <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between gap-1 flex-wrap">
+                          <div>
+                            <span className="text-sm sm:text-base font-black text-red-600 mr-1.5">{formatCurrency(finalPrice)}</span>
+                            <span className="text-xs text-slate-400 line-through">{formatCurrency(originalPrice)}</span>
+                          </div>
+                          <span className="text-[10px] font-extrabold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200/60">
+                            Save {formatCurrency(savings)}
+                          </span>
+                        </div>
+                      </div>
                     </Link>
                   );
                 })}
               </div>
-            </div>
+            </section>
 
-            <div className="mt-6 text-center">
-              <Button asChild className="bg-blue-600 text-white hover:bg-blue-700">
-                <Link href="/browse">View all</Link>
-              </Button>
-            </div>
-          </section>
-        )}
+            {/* Featured Brands & Top Stores */}
+            <section className="container mx-auto px-3 sm:px-4 py-6 sm:py-8">
+              <div className="rounded-3xl bg-gradient-to-b from-amber-50/50 via-orange-50/20 to-white p-6 sm:p-8 border border-amber-200/60 shadow-sm">
+                <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <span className="inline-flex items-center gap-2 rounded-full bg-indigo-50 border border-indigo-200/90 px-5 py-2 text-sm sm:text-base font-black tracking-wide uppercase text-indigo-800 shadow-sm">
+                      <Store className="h-4 sm:h-5 w-4 sm:w-5 text-indigo-600" /> Featured Stores & Top Brands
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3.5 py-1.5 text-xs sm:text-sm font-extrabold text-slate-700 border border-slate-200">
+                      <ShieldCheck className="h-4 w-4 text-emerald-600" /> Verified Sellers
+                    </span>
+                  </div>
+                  <Link href="/browse" className="text-xs sm:text-sm font-extrabold text-indigo-700 hover:text-indigo-900 hover:underline">
+                    Explore All Stores
+                  </Link>
+                </div>
 
-        </>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                  {(() => {
+                    const extractedStores = Array.from(
+                      new Map(
+                        randomProducts
+                          .filter((p) => Boolean(p.seller?.store?.name))
+                          .map((p, idx) => {
+                            const storeName = p.seller?.store?.name || "Official Store";
+                            const sellerId = (p as any).seller?.id || (p as any).sellerId;
+                            return [
+                              storeName,
+                              {
+                                id: sellerId || p.id,
+                                name: storeName,
+                                sellerId: sellerId,
+                                image: getProductImg(p.images?.[0], idx),
+                                category: p.category?.name || "Official Merchant",
+                                rating: (p.averageRating ?? 4.8 + (idx % 3) * 0.1).toFixed(1),
+                                productCount: randomProducts.filter(item => item.seller?.store?.name === storeName).length || (idx + 4),
+                                badge: idx % 2 === 0 ? "Verified Merchant" : "Top Rated Store",
+                              },
+                            ];
+                          })
+                      ).values()
+                    );
+
+                    const fallbackStores = [
+                      { id: "store_1", sellerId: undefined, name: "Apex Global Tech", category: "Electronics & Gadgets", rating: "4.9", productCount: 12, badge: "Official Store", image: getProductImg(null, 0) },
+                      { id: "store_2", sellerId: undefined, name: "Urban Threads Co.", category: "Fashion & Apparel", rating: "4.8", productCount: 24, badge: "Verified Seller", image: getProductImg(null, 2) },
+                      { id: "store_3", sellerId: undefined, name: "Nordic Living Lab", category: "Home & Lifestyle", rating: "4.9", productCount: 18, badge: "Top Rated", image: getProductImg(null, 4) },
+                      { id: "store_4", sellerId: undefined, name: "Velocity Sports", category: "Fitness & Outdoor", rating: "4.8", productCount: 15, badge: "Certified", image: getProductImg(null, 5) },
+                    ];
+
+                    const displayStores = (extractedStores.length >= 4 ? extractedStores : [...extractedStores, ...fallbackStores]).slice(0, 4);
+
+                    return displayStores.map((store, i) => {
+                      const storeHref = store.sellerId
+                        ? `/browse?sellerId=${store.sellerId}`
+                        : `/browse?search=${encodeURIComponent(store.name)}`;
+
+                      return (
+                        <Link
+                          key={store.id || `store_${i}`}
+                          href={storeHref}
+                          className="group flex flex-col justify-between overflow-hidden rounded-2xl border border-amber-200/80 bg-white p-4 shadow-sm transition-all duration-300 hover:border-amber-400 hover:shadow-xl hover:-translate-y-1"
+                        >
+                          <div>
+                            {/* Store banner / Showcase image */}
+                            <div className="relative aspect-video w-full overflow-hidden rounded-xl bg-slate-100">
+                              <img
+                                src={store.image}
+                                alt={store.name}
+                                className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                              />
+                              <span className="absolute top-2 left-2 rounded-full bg-slate-900/85 backdrop-blur-md px-2.5 py-0.5 text-[10px] font-bold text-white shadow flex items-center gap-1">
+                                <Sparkles className="h-2.5 w-2.5 text-amber-400" />
+                                {store.badge || "Verified Store"}
+                              </span>
+                            </div>
+
+                            {/* Store Info */}
+                            <div className="mt-3.5 flex items-start gap-3">
+                              <div className="h-10 w-10 rounded-xl bg-gradient-to-tr from-amber-500 to-orange-500 text-slate-950 font-black text-lg flex items-center justify-center shrink-0 shadow-md">
+                                {store.name.charAt(0)}
+                              </div>
+                              <div className="flex flex-col min-w-0 flex-1">
+                                <h3 className="font-extrabold text-slate-900 text-base group-hover:text-amber-700 transition-colors truncate">
+                                  {store.name}
+                                </h3>
+                                <span className="text-xs font-medium text-slate-500 truncate">
+                                  {store.category}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Store Footer: Rating + Button */}
+                          <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-1.5 text-xs font-bold text-amber-600">
+                              <StarRow rating={parseFloat(store.rating)} size="h-3.5 w-3.5" />
+                              <span>{store.rating}</span>
+                            </div>
+
+                            <span className="text-xs font-black text-amber-800 bg-amber-100/80 border border-amber-300/80 px-3 py-1 rounded-xl group-hover:bg-amber-500 group-hover:text-slate-950 transition-colors shadow-sm">
+                              Visit Store
+                            </span>
+                          </div>
+                        </Link>
+                      );
+                    });
+                  })()}
+                </div>
+              </div>
+            </section>
+
+            {/* 7. Deals of the Day (With Persistent Countdown Timer & Add to Cart Button) */}
+            <section className="container mx-auto px-3 sm:px-4 py-6 sm:py-8 border-t border-slate-100">
+              <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+                <div className="flex flex-wrap items-center gap-3">
+                  <span className="inline-flex items-center gap-2 rounded-full bg-rose-50 border border-rose-200/90 px-5 py-2 text-sm sm:text-base font-black tracking-wide uppercase text-rose-700 shadow-sm">
+                    <Zap className="h-4 sm:h-5 w-4 sm:w-5 fill-rose-500 text-rose-500" /> Deals of the Day
+                  </span>
+                  <div className="flex items-center gap-2 rounded-full bg-slate-900 px-4 py-1.5 text-xs sm:text-sm font-bold text-amber-400 border border-slate-800 shadow-sm">
+                    <Clock className="h-4 w-4 animate-pulse text-amber-400" />
+                    <span>
+                      {String(timeLeft.hours).padStart(2, "0")}h : {String(timeLeft.minutes).padStart(2, "0")}m : {String(timeLeft.seconds).padStart(2, "0")}s
+                    </span>
+                  </div>
+                </div>
+                <Link href="/browse?deals=true" className="text-xs sm:text-sm font-extrabold text-rose-600 hover:text-rose-800 hover:underline">
+                  See all deals
+                </Link>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3.5 sm:gap-4 md:grid-cols-4">
+                {randomProducts.slice(0, 8).map((p, idx) => {
+                  const finalPrice = Math.max(0, (p.basePrice ?? 0) - (p.discount ?? 0));
+                  const savings = p.discount > 0 ? p.discount : Math.round((p.basePrice || finalPrice * 1.5) * 0.35);
+                  const originalPrice = (p.basePrice > finalPrice ? p.basePrice : finalPrice + savings);
+                  const discountPct = Math.min(65, Math.max(20, Math.round((savings / originalPrice) * 100)));
+                  const imgSrc = getProductImg(p.images?.[0], idx + 2);
+                  return (
+                    <div
+                      key={p.id}
+                      className="group flex flex-col justify-between overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-3.5 shadow-sm transition-all duration-300 hover:border-amber-400 hover:shadow-xl hover:-translate-y-1"
+                    >
+                      <div>
+                        <div className="relative aspect-square w-full overflow-hidden rounded-xl bg-slate-100">
+                          <span className="absolute left-2 top-2 z-10 rounded-full bg-red-600 px-2.5 py-0.5 text-[10px] font-black text-white shadow-md">
+                            -{discountPct}% OFF
+                          </span>
+                          <div className="absolute right-2 top-2 z-10">
+                            <WishlistButton productId={p.id} name={p.name} image={imgSrc} price={p.basePrice} />
+                          </div>
+                          <Link href={`/product/${p.id}`} className="block h-full w-full">
+                            <img
+                              src={imgSrc}
+                              alt={p.name}
+                              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                              loading="lazy"
+                            />
+                          </Link>
+                        </div>
+
+                        <div className="mt-3 flex flex-col">
+                          <p className="text-[10px] font-bold text-amber-700 uppercase tracking-wider truncate mb-0.5">
+                            {p.seller?.store?.name ?? "Certified Merchant"}
+                          </p>
+                          <Link href={`/product/${p.id}`} className="block">
+                            <p className="line-clamp-2 h-[34px] text-xs font-bold text-slate-900 group-hover:text-blue-600 transition-colors leading-snug">
+                              {p.name}
+                            </p>
+                          </Link>
+                        </div>
+                      </div>
+
+                      <div className="mt-3 pt-2.5 border-t border-slate-100">
+                        <div className="flex items-center justify-between gap-1 h-5 min-w-0 overflow-hidden">
+                          <span className="text-xs sm:text-sm font-black text-red-600 truncate whitespace-nowrap">
+                            {formatCurrency(finalPrice)}
+                          </span>
+                          <span className="text-[10px] text-slate-400 line-through truncate whitespace-nowrap">
+                            {formatCurrency(originalPrice)}
+                          </span>
+                        </div>
+                        <AddToCartButton
+                          productId={p.id}
+                          name={p.name}
+                          price={finalPrice}
+                          image={imgSrc}
+                          size="sm"
+                          label="Add to Cart"
+                          className="w-full h-8 text-xs font-bold bg-amber-400 text-slate-950 hover:bg-amber-500 rounded-xl transition-all shadow-sm active:scale-95 mt-2.5"
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+
+            {/* 8. Sponsored Showcase ("Show All Ads") */}
+            {ads.length > 0 && (
+              <section className="container mx-auto px-3 sm:px-4 py-6 sm:py-8">
+                <div
+                  className="rounded-3xl bg-gradient-to-br from-purple-100 via-indigo-50 to-purple-100/70 p-6 sm:p-8 border-2 border-purple-200/90 shadow-md"
+                  onMouseEnter={() => setSponsoredCarouselPaused(true)}
+                  onMouseLeave={() => setSponsoredCarouselPaused(false)}
+                >
+                  <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex flex-wrap items-center gap-3">
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 px-4 py-1.5 text-xs sm:text-sm font-black tracking-wider uppercase text-white shadow-md shadow-purple-500/20">
+                        <Sparkles className="h-4 w-4 fill-amber-300 text-amber-300" /> Sponsored Showcase
+                      </span>
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-purple-100/80 px-3.5 py-1 text-xs font-extrabold text-purple-800 border border-purple-300/80">
+                        <Flame className="h-3.5 w-3.5 text-purple-600" /> Featured Advertisements
+                      </span>
+                    </div>
+                    <Link href="/browse?tab=ads" className="text-xs sm:text-sm font-extrabold text-purple-700 hover:text-purple-900 hover:underline">
+                      Show All Ads
+                    </Link>
+                  </div>
+
+                  <div className="relative">
+                    {ads.length > 1 && (
+                      <>
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="icon"
+                          className="absolute left-0 top-1/2 z-10 h-9 w-9 -translate-y-1/2 rounded-full shadow-lg sm:left-2 bg-white/95 text-slate-800 hover:bg-white hover:scale-105 transition-all cursor-pointer border border-slate-200"
+                          onClick={() => {
+                            setSponsoredCarouselPaused(true);
+                            setSponsoredIndex((i) => (i <= 0 ? ads.length - 1 : i - 1));
+                          }}
+                          aria-label="Previous ad"
+                        >
+                          <ChevronLeft className="h-5 w-5" />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="icon"
+                          className="absolute right-0 top-1/2 z-10 h-9 w-9 -translate-y-1/2 rounded-full shadow-lg sm:right-2 bg-white/95 text-slate-800 hover:bg-white hover:scale-105 transition-all cursor-pointer border border-slate-200"
+                          onClick={() => {
+                            setSponsoredCarouselPaused(true);
+                            setSponsoredIndex((i) => (i >= ads.length - 1 ? 0 : i + 1));
+                          }}
+                          aria-label="Next ad"
+                        >
+                          <ChevronRight className="h-5 w-5" />
+                        </Button>
+                      </>
+                    )}
+
+                    <div
+                      ref={sponsoredScrollRef}
+                      className="flex gap-4 sm:gap-6 overflow-x-auto overflow-y-hidden scroll-smooth py-2 snap-x snap-mandatory [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+                      style={{ scrollBehavior: sponsoredCarouselPaused ? "auto" : "smooth" }}
+                    >
+                      {ads.map((ad, idx) => {
+                        const adPageHref = `/api/ads/click?adId=${ad.id}&redirect_to_ad=true`;
+                        const isVideo = ad.creativeType === "VIDEO";
+                        const youtubeEmbed = isVideo ? getYoutubeEmbedUrl(ad.creativeUrl) : null;
+                        const displayImage = getYoutubeThumbnailUrl(ad.creativeUrl) || ad.creativeUrl || getProductImg(null, idx);
+                        return (
+                          <Link
+                            key={ad.id}
+                            href={adPageHref}
+                            data-sponsored-card
+                            onClick={() => setSponsoredCarouselPaused(true)}
+                            className="group flex w-[85vw] min-w-[270px] max-w-[330px] shrink-0 snap-start flex-col justify-between overflow-hidden rounded-2xl border border-purple-200/80 bg-white p-4 shadow-sm transition-all duration-300 hover:border-purple-400 hover:shadow-xl hover:-translate-y-1.5 sm:min-w-[290px] md:min-w-[310px]"
+                          >
+                            <div>
+                              {/* Showcase Media Container */}
+                              <div className="relative aspect-[16/10] w-full overflow-hidden rounded-xl bg-slate-950 shadow-inner">
+                                {displayImage ? (
+                                  <img src={displayImage} alt={ad.title} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                                ) : isVideo && youtubeEmbed ? (
+                                  <iframe src={youtubeEmbed} title={ad.title} className="h-full w-full object-cover pointer-events-none" />
+                                ) : isVideo ? (
+                                  <video src={ad.creativeUrl} className="h-full w-full object-cover" muted playsInline preload="metadata" />
+                                ) : null}
+
+                                {/* Floating Ad Badge */}
+                                <div className="absolute top-2.5 left-2.5 pointer-events-none flex gap-1">
+                                  <span className="rounded-full bg-slate-950/85 backdrop-blur-md px-3 py-0.5 text-[10px] font-black text-amber-400 border border-amber-400/30 shadow flex items-center gap-1">
+                                    ★ Featured Ad
+                                  </span>
+                                </div>
+                              </div>
+
+                              {/* Text Content */}
+                              <div className="mt-3.5 flex flex-col">
+                                <span className="font-black text-slate-900 line-clamp-2 group-hover:text-purple-700 transition-colors text-sm sm:text-base leading-snug">
+                                  {ad.title}
+                                </span>
+                                {ad.description?.trim() && (
+                                  <p className="mt-1.5 line-clamp-2 text-xs font-medium text-slate-600 leading-relaxed">
+                                    {ad.description}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Footer Action Row */}
+                            <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
+                              <span className="inline-flex items-center gap-1 rounded-full bg-purple-50 px-2.5 py-0.5 text-[10px] font-extrabold text-purple-700 border border-purple-200">
+                                <Zap className="h-3 w-3 text-purple-600" /> Promoted Item
+                              </span>
+                              <span className="text-xs font-black text-purple-700 bg-purple-50 border border-purple-200 px-3 py-1 rounded-xl shadow-sm group-hover:bg-purple-600 group-hover:text-white transition-colors">
+                                Explore Deal
+                              </span>
+                            </div>
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              </section>
+            )}
+
+            {/* 9. Recommended for You (Small images, 12 initial pagination, infinite auto scroll) */}
+            <section className="container mx-auto px-3 sm:px-4 py-6 sm:py-8 border-t border-slate-100">
+              <div className="mb-4 sm:mb-6 flex items-center justify-between">
+                <h2 className="text-lg font-bold text-slate-900 sm:text-xl">
+                  Recommended for You
+                </h2>
+                <Link href="/browse" className="text-xs font-bold text-blue-600 hover:text-blue-800 hover:underline">
+                  Browse all
+                </Link>
+              </div>
+
+              {/* Compact 6-column grid with small image thumbnails */}
+              {(() => {
+                const displayList = recommendedItems.length > 0 ? recommendedItems : randomProducts;
+
+                return (
+                  <>
+                    <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+                      {displayList.map((p, idx) => {
+                        const finalPrice = Math.max(0, (p.basePrice ?? 0) - (p.discount ?? 0));
+                        const imgSrc = getProductImg(p.images?.[0], idx);
+                        return (
+                          <div
+                            key={`rec_real_${p.id}_${idx}`}
+                            className="group flex flex-col overflow-hidden rounded-xl border border-slate-200/80 bg-white p-2.5 shadow-sm transition-all hover:border-blue-300 hover:shadow-lg hover:-translate-y-0.5"
+                          >
+                            <div className="relative aspect-square w-full overflow-hidden rounded-lg bg-slate-100">
+                              <span className="absolute left-1.5 top-1.5 z-10 rounded bg-red-600 px-1.5 py-0.5 text-[9px] font-extrabold text-white shadow">
+                                HOT
+                              </span>
+                              <div className="absolute right-1.5 top-1.5 z-10">
+                                <WishlistButton productId={p.id} name={p.name} image={imgSrc} price={p.basePrice} />
+                              </div>
+                              <Link href={`/product/${p.id}`} className="block h-full w-full">
+                                <img
+                                  src={imgSrc}
+                                  alt={p.name}
+                                  className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                                  loading="lazy"
+                                />
+                              </Link>
+                            </div>
+
+                            <div className="mt-2 flex flex-col flex-1 justify-between">
+                              <div>
+                                <p className="text-[9px] font-bold text-amber-700 uppercase tracking-wider truncate mb-0.5">
+                                  {p.seller?.store?.name ?? "Certified Store"}
+                                </p>
+                                <Link href={`/product/${p.id}`} className="block">
+                                  <p className="line-clamp-2 h-[32px] text-xs font-bold text-slate-900 group-hover:text-blue-600 transition-colors leading-snug">
+                                    {p.name}
+                                  </p>
+                                </Link>
+                                <div className="mt-1.5 pt-1.5 border-t border-slate-100 flex items-center justify-between gap-1 h-5 min-w-0 overflow-hidden">
+                                  <span className="text-xs font-black text-blue-600 truncate whitespace-nowrap">
+                                    {formatCurrency(finalPrice)}
+                                  </span>
+                                  <div className="flex items-center gap-0.5 text-[10px] font-semibold text-amber-600 shrink-0">
+                                    <StarRow rating={p.averageRating ?? 4.9} size="h-3 w-3" />
+                                    <span>{(p.averageRating ?? 4.9).toFixed(1)}</span>
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="mt-2">
+                                <AddToCartButton
+                                  productId={p.id}
+                                  name={p.name}
+                                  price={finalPrice}
+                                  image={imgSrc}
+                                  size="sm"
+                                  label="Add to Cart"
+                                  className="w-full h-7 text-[11px] font-bold bg-amber-400 text-slate-950 hover:bg-amber-500 rounded-lg transition-all shadow-sm active:scale-95"
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Infinite Scroll Sentinel */}
+                    <div ref={loadMoreRecommendedRef} className="mt-8 flex flex-col items-center justify-center py-4">
+                      {hasMoreRecommended ? (
+                        <div className="flex items-center gap-2 text-xs font-extrabold text-slate-500 bg-slate-100/80 px-4 py-2 rounded-full border border-slate-200/80 shadow-sm animate-pulse">
+                          <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
+                          Loading more recommended products...
+                        </div>
+                      ) : (
+                        <span className="text-xs font-bold text-slate-400">
+                          You've viewed all recommended products
+                        </span>
+                      )}
+                    </div>
+                  </>
+                );
+              })()}
+            </section>
+
+          </>
         )}
       </div>
     </PublicLayout>

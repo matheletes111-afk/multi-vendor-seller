@@ -286,7 +286,7 @@ export default function RestaurantsDirectoryPage() {
 
   // Load banners targeting restaurants
   useEffect(() => {
-    fetch("/api/home/banners")
+    fetch("/api/home/banners?targetType=restaurant")
       .then(res => res.json())
       .then(data => {
         if (Array.isArray(data)) {

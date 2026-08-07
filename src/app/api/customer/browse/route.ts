@@ -69,8 +69,10 @@ function extractBrand(attributes: unknown): string | null {
 }
 
 function computeDiscountPercent(basePrice: number, discount: number): number {
-  if (basePrice <= 0) return 0
-  return Math.round((discount / basePrice) * 100)
+  if (discount > 0 && basePrice > 0) {
+    return Math.round((discount / basePrice) * 100)
+  }
+  return 0
 }
 
 function isBrandedSeller(
@@ -135,7 +137,7 @@ export async function GET(request: NextRequest) {
   const minPrice = Number.isFinite(minPriceRaw) ? Math.max(0, minPriceRaw) : undefined
   const maxPrice = Number.isFinite(maxPriceRaw) ? Math.max(0, maxPriceRaw) : undefined
 
-  const qRaw = searchParams.get("q") ?? ""
+  const qRaw = searchParams.get("q") ?? searchParams.get("search") ?? searchParams.get("query") ?? ""
   const q = typeof qRaw === "string" ? qRaw.trim() : ""
 
   const brandsFilter = parseCommaList(searchParams.get("brands"))
@@ -145,9 +147,13 @@ export async function GET(request: NextRequest) {
       ? Number(minRatingParam)
       : undefined
 
-  const discFilter = parseCommaList(searchParams.get("disc"))
+  const rawDisc = searchParams.get("disc") ?? searchParams.get("discount") ?? (searchParams.get("deals") ? "10" : null)
+  const discFilter = parseCommaList(rawDisc)
     .map((x) => Number(x))
-    .filter((n) => [10, 20, 30, 40, 50].includes(n))
+    .filter((n) => Number.isFinite(n) && n > 0)
+
+  // deal_mode=1 means soft: came from a home-page link (?discount=50), not from the sidebar hard filter
+  const dealMode = searchParams.get("deal_mode") === "1"
 
   const retFilter = parseCommaList(searchParams.get("ret")).filter((x) =>
     ["fr", "7", "10", "30", "none"].includes(x)
@@ -227,12 +233,15 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  const sellerIdParam = searchParams.get("sellerId")
+
   const productWhere: Prisma.ProductWhereInput = {
     isActive: true,
     isDeleted: false,
     seller: {
       isApproved: true,
       isSuspended: false,
+      ...(sellerIdParam && { id: sellerIdParam }),
     },
     ...(effectiveCategoryIds.length > 0 && { categoryId: { in: effectiveCategoryIds } }),
     ...(subcategoryId && { subcategoryId }),
@@ -433,7 +442,8 @@ export async function GET(request: NextRequest) {
       if (!brandsFilter.some((f) => b === f.toLowerCase())) return false
     }
     if (minRating != null && p.avgRating < minRating) return false
-    if (discFilter.length > 0 && !discFilter.some((d) => p.discountPercent >= d)) return false
+    // In deal_mode (home-page links), skip hard discount filter — show all products, sorted by discount desc
+    if (discFilter.length > 0 && !dealMode && !discFilter.some((d) => p.discountPercent >= d)) return false
     if (retFilter.length > 0 && !matchesReturnFilters(p.returnType, p.returnDays, retFilter)) return false
     if (avail === "in" && p.stock <= 0) return false
     if (avail === "out" && p.stock > 0) return false
@@ -451,6 +461,8 @@ export async function GET(request: NextRequest) {
     if (sort === "featured") return Number(b.isFeatured) - Number(a.isFeatured) || b.createdAt.getTime() - a.createdAt.getTime()
     if (sort === "bestseller") return b.soldCount - a.soldCount || b.createdAt.getTime() - a.createdAt.getTime()
     if (sort === "rating") return b.avgRating - a.avgRating || b._count.reviews - a._count.reviews
+    // In deal_mode, sort by highest discount percent first
+    if (dealMode && discFilter.length > 0 && !sortParam) return b.discountPercent - a.discountPercent || b.createdAt.getTime() - a.createdAt.getTime()
     return b.createdAt.getTime() - a.createdAt.getTime()
   })
 
@@ -465,9 +477,10 @@ export async function GET(request: NextRequest) {
   const resolvedCategoryId = effectiveCategoryIds[0] ?? subcategoryWithCategory?.category?.id ?? legacyCategoryId ?? null
 
   const isProductCategoryFilter = Boolean(effectiveCategoryIds.length > 0 || subcategoryId)
+  const isServiceDisabled = isProductCategoryFilter || discFilter.length > 0 || dealMode || Boolean(rawDisc)
   const resolvedServiceCategoryId = serviceCategoryId ?? undefined
     const [servicesRaw, serviceCategoryWithName] = await Promise.all([
-      isProductCategoryFilter
+      isServiceDisabled
         ? Promise.resolve([])
         : prisma.service.findMany({
             where: {
@@ -568,7 +581,7 @@ export async function GET(request: NextRequest) {
     subcategories,
     filterMeta: {
       categories: allCategories,
-      serviceCategories: allServiceCategories,
+      serviceCategories: isServiceDisabled ? [] : allServiceCategories,
       brands: brandsList,
       priceExtent,
     },

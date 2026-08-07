@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { Button } from "@/ui/button";
 import { Input } from "@/ui/input";
 import { Label } from "@/ui/label";
-import { Link as LinkIcon, Upload, ImageIcon } from "lucide-react";
+import { Link as LinkIcon, Upload, ImageIcon, Trash2, CheckCircle2 } from "lucide-react";
 
 const MAX_MB = 5;
 const MAX_BYTES = MAX_MB * 1024 * 1024;
@@ -27,34 +27,24 @@ export function ImageLinkOrUpload({
   value,
   onChange,
   currentImage,
-  label = "Image",
+  label = "Banner Image",
   showPreview = true,
   required = false,
 }: ImageLinkOrUploadProps) {
-  const [mode, setMode] = useState<"link" | "upload">("upload");
+  const [mode, setMode] = useState<"upload" | "link">("upload");
   const [urlInput, setUrlInput] = useState("");
   const [filePreview, setFilePreview] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Keep UI mode/input in sync with external value (so editing existing URL shows the URL field,
-  // and switching between URL/file keeps preview consistent).
   useEffect(() => {
     if (value?.type === "url") {
       setMode("link");
       setUrlInput(value.url);
-      if (filePreview) {
-        URL.revokeObjectURL(filePreview);
-        setFilePreview(null);
-      }
-      if (fileInputRef.current) fileInputRef.current.value = "";
     } else if (value?.type === "file") {
       setMode("upload");
-      setUrlInput("");
-    } else {
-      setUrlInput("");
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value?.type, value?.type === "url" ? value.url : null]);
+  }, [value]);
 
   useEffect(() => {
     return () => {
@@ -79,26 +69,42 @@ export function ImageLinkOrUpload({
     }
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+  const processFile = (file: File) => {
     if (filePreview) URL.revokeObjectURL(filePreview);
     setFilePreview(null);
-    if (!file) {
-      onChange(null);
-      return;
-    }
+
     if (file.size > MAX_BYTES) {
       alert(`File must be under ${MAX_MB} MB`);
-      e.target.value = "";
       return;
     }
     if (!file.type.startsWith("image/")) {
-      alert("Please select an image file");
-      e.target.value = "";
+      alert("Please select a valid image file");
       return;
     }
     setFilePreview(URL.createObjectURL(file));
     onChange({ type: "file", file });
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) processFile(file);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) processFile(file);
   };
 
   const handleRemove = () => {
@@ -109,81 +115,59 @@ export function ImageLinkOrUpload({
     onChange(null);
   };
 
-  const switchToLink = () => {
-    setMode("link");
-    if (value?.type === "file" && filePreview) URL.revokeObjectURL(filePreview);
-    setFilePreview(null);
-    onChange(null);
-    if (fileInputRef.current) fileInputRef.current.value = "";
-  };
-
-  const switchToUpload = () => {
-    setMode("upload");
-    setUrlInput("");
-    onChange(null);
-  };
-
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       {label && (
-        <Label>
-          {label}
-          {required && <span className="text-destructive ml-0.5">*</span>}
-        </Label>
+        <div className="flex items-center justify-between">
+          <Label className="text-sm font-semibold text-foreground">
+            {label}
+            {required && <span className="text-destructive ml-1">*</span>}
+          </Label>
+          <span className="text-xs text-muted-foreground">Max {MAX_MB}MB (JPEG, PNG, WebP)</span>
+        </div>
       )}
-      <div className="flex gap-2 p-2 rounded-lg border bg-muted/30">
+
+      {/* Mode Switcher Tabs */}
+      <div className="grid grid-cols-2 gap-2 p-1.5 rounded-xl bg-muted/50 border border-muted">
         <button
           type="button"
-          onClick={() => {
-            setMode("upload");
-            setUrlInput("");
-            onChange(null);
-          }}
-          className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${mode === "upload" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
+          onClick={() => setMode("upload")}
+          className={`flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs font-bold transition-all ${
+            mode === "upload"
+              ? "bg-background text-foreground shadow-sm border border-border"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
         >
-          <Upload className="h-4 w-4" />
-          Upload file
+          <Upload className="h-3.5 w-3.5" />
+          Upload Image File
         </button>
         <button
           type="button"
-          onClick={switchToLink}
-          className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${mode === "link" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
+          onClick={() => setMode("link")}
+          className={`flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs font-bold transition-all ${
+            mode === "link"
+              ? "bg-background text-foreground shadow-sm border border-border"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
         >
-          <LinkIcon className="h-4 w-4" />
-          Image link
+          <LinkIcon className="h-3.5 w-3.5" />
+          Image Web Link (URL)
         </button>
       </div>
 
-      {mode === "link" ? (
-        <div className="space-y-2">
-          <Input
-            type="url"
-            value={urlInput || (value?.type === "url" ? value.url : "")}
-            onChange={handleUrlChange}
-            placeholder="https://example.com/image.jpg"
-          />
-          {(value || currentImage) && (
-            <Button type="button" variant="ghost" size="sm" onClick={handleRemove}>
-              Remove
-            </Button>
-          )}
-        </div>
-      ) : (
-        <div className="flex items-center gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => fileInputRef.current?.click()}
-            className="w-full"
-          >
-            <ImageIcon className="mr-2 h-4 w-4" />
-            {value?.type === "file" ? "Change image" : "Choose image"}
-          </Button>
-          {(value || currentImage) && (
-            <Button type="button" variant="ghost" size="sm" onClick={handleRemove}>
-              Remove
-            </Button>
-          )}
+      {/* Upload mode: Dropzone */}
+      {mode === "upload" && (
+        <div
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+          onClick={() => fileInputRef.current?.click()}
+          className={`group relative flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-2xl cursor-pointer transition-all ${
+            isDragging
+              ? "border-primary bg-primary/5 scale-[0.99]"
+              : "border-muted-foreground/25 hover:border-primary/50 hover:bg-muted/30"
+          }`}
+        >
           <input
             ref={fileInputRef}
             type="file"
@@ -191,18 +175,66 @@ export function ImageLinkOrUpload({
             className="hidden"
             onChange={handleFileChange}
           />
+          <div className="p-3 rounded-full bg-primary/10 text-primary mb-2 group-hover:scale-110 transition-transform">
+            <ImageIcon className="h-6 w-6" />
+          </div>
+          <p className="text-sm font-semibold text-foreground text-center">
+            {value?.type === "file" ? value.file.name : "Click to browse or drop banner image"}
+          </p>
+          <p className="text-xs text-muted-foreground text-center mt-1">
+            Recommended aspect ratio 16:9 or 21:9 for wide screens
+          </p>
         </div>
       )}
 
+      {/* Link mode: URL Input */}
+      {mode === "link" && (
+        <div className="space-y-2">
+          <div className="relative">
+            <Input
+              type="url"
+              value={urlInput}
+              onChange={handleUrlChange}
+              placeholder="Paste banner image URL (e.g. https://example.com/banner.jpg)"
+              className="pr-10 h-11 text-sm rounded-xl"
+            />
+            {urlInput && (
+              <CheckCircle2 className="absolute right-3 top-3.5 h-4 w-4 text-emerald-500" />
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Image Preview Box */}
       {showPreview && previewUrl && (
-        <div className="mt-2">
-          <p className="text-xs text-muted-foreground mb-1">Preview</p>
-          <div className="relative w-32 h-32 rounded-lg border overflow-hidden bg-muted">
+        <div className="rounded-2xl border bg-card p-3 space-y-2 shadow-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+              {value?.type === "file"
+                ? `Uploaded File: ${value.file.name}`
+                : value?.type === "url"
+                ? "External Image Link"
+                : "Current Active Banner Image"}
+            </span>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={handleRemove}
+              className="h-7 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive px-2 rounded-lg"
+            >
+              <Trash2 className="h-3.5 w-3.5 mr-1" />
+              Remove
+            </Button>
+          </div>
+
+          <div className="relative w-full aspect-[21/9] sm:aspect-[16/7] rounded-xl overflow-hidden bg-slate-950 border border-border shadow-inner">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={previewUrl}
-              alt="Preview"
-              className="w-full h-full object-cover"
+              alt="Banner preview"
+              className="w-full h-full object-cover object-top"
               onError={(e) => {
                 (e.target as HTMLImageElement).style.display = "none";
               }}

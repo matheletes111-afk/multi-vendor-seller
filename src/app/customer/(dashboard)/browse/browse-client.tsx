@@ -59,7 +59,7 @@ const RET_OPTS: { code: string; label: string }[] = [
 function CollapsibleSection({
   title,
   tooltip,
-  defaultOpen = true,
+  defaultOpen = false,
   children,
 }: {
   title: string
@@ -103,7 +103,7 @@ export function BrowseClient() {
   const catsParam = searchParams.get("cats")
   const subcategoryId = searchParams.get("subcategoryId")
   const serviceCategoryId = searchParams.get("serviceCategoryId")
-  const q = searchParams.get("q")
+  const q = searchParams.get("q") || searchParams.get("search") || searchParams.get("query")
   const sortParam = searchParams.get("sort")
   const sort =
     sortParam === "price_desc" ||
@@ -119,10 +119,12 @@ export function BrowseClient() {
   const maxPrice = Number(searchParams.get("maxPrice") ?? "100000")
   const brandsParam = searchParams.get("brands")
   const ratingParam = searchParams.get("rating")
-  const discParam = searchParams.get("disc")
+  const discParam = searchParams.get("disc") || searchParams.get("discount") || (searchParams.get("deals") ? "10" : null)
+  const isDealMode = !searchParams.get("disc") && !!(searchParams.get("discount") || searchParams.get("deals"))
   const retParam = searchParams.get("ret")
   const availParam = searchParams.get("avail")
   const sellerParam = searchParams.get("seller")
+  const sellerIdParam = searchParams.get("sellerId")
   const conditionParam = searchParams.get("condition")
 
   const pageParam = Number(searchParams.get("page") ?? "1")
@@ -165,9 +167,11 @@ export function BrowseClient() {
     if (brandsParam) params.set("brands", brandsParam)
     if (ratingParam) params.set("rating", ratingParam)
     if (discParam) params.set("disc", discParam)
+    if (isDealMode) params.set("deal_mode", "1")
     if (retParam) params.set("ret", retParam)
     if (availParam) params.set("avail", availParam)
     if (sellerParam) params.set("seller", sellerParam)
+    if (sellerIdParam) params.set("sellerId", sellerIdParam)
     if (conditionParam) params.set("condition", conditionParam)
     params.set("page", String(currentPage))
     return params.toString()
@@ -186,6 +190,7 @@ export function BrowseClient() {
     retParam,
     availParam,
     sellerParam,
+    sellerIdParam,
     conditionParam,
     currentPage,
   ])
@@ -394,7 +399,7 @@ export function BrowseClient() {
         )}
       </CollapsibleSection>
 
-      {serviceCategoriesList.length > 0 && (
+      {serviceCategoriesList.length > 0 && !discParam && (
         <CollapsibleSection title="Service Categories" tooltip="Filter by service category">
           <Input
             placeholder="Search service categories"
@@ -922,7 +927,7 @@ export function BrowseClient() {
                 </section>
               )}
 
-              {(!isProductCategoryFilter || isServiceFilter) && (
+              {(!isProductCategoryFilter || isServiceFilter) && !discParam && services.length > 0 && (
                 <section>
                   <div className="mb-4 flex flex-wrap items-center gap-2">
                     <Briefcase className="h-5 w-5 shrink-0 text-slate-600" />
@@ -933,10 +938,7 @@ export function BrowseClient() {
                       {services.length}
                     </Badge>
                   </div>
-                  {services.length === 0 ? (
-                    <div className="rounded-lg border border-slate-200 bg-white py-12 text-center text-muted-foreground">No services available</div>
-                  ) : (
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                       {services.map((service) => {
                         const firstImg = getServiceFirstDisplayImageUrl(service)
                         return (
@@ -977,9 +979,8 @@ export function BrowseClient() {
                         )
                       })}
                     </div>
-                  )}
-                </section>
-              )}
+                  </section>
+                )}
             </main>
           </div>
         </div>

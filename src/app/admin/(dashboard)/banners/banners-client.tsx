@@ -128,18 +128,40 @@ export function BannersClient() {
 
   const handleToggleStatus = async (bannerId: string, currentStatus: boolean) => {
     setTogglingId(bannerId);
+
+    // Optimistically update status locally without re-ordering table rows
+    const newStatus = !currentStatus;
+    setData((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        banners: prev.banners.map((b) =>
+          b.id === bannerId ? { ...b, isActive: newStatus } : b
+        ),
+      };
+    });
+
     try {
       const response = await fetch(`/api/admin/banners/${bannerId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ isActive: !currentStatus }),
+        body: JSON.stringify({ isActive: newStatus }),
       });
       const resData = await response.json();
       if (!response.ok) {
         throw new Error(resData.error || "Failed to update banner status");
       }
-      await refetchBanners();
     } catch (error: any) {
+      // Revert optimistic update on failure
+      setData((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          banners: prev.banners.map((b) =>
+            b.id === bannerId ? { ...b, isActive: currentStatus } : b
+          ),
+        };
+      });
       alert(error.message);
     } finally {
       setTogglingId(null);
@@ -301,16 +323,22 @@ export function BannersClient() {
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-8 w-8 rounded-full hover:bg-primary/10 hover:text-primary transition-colors"
+                                title={banner.isActive ? "Deactivate banner" : "Activate banner"}
+                                className={cn(
+                                  "h-8 w-8 rounded-full transition-colors",
+                                  banner.isActive
+                                    ? "hover:bg-amber-500/10 text-emerald-600 hover:text-emerald-700"
+                                    : "hover:bg-emerald-500/10 text-slate-400 hover:text-emerald-600"
+                                )}
                                 onClick={() => handleToggleStatus(banner.id, banner.isActive)}
                                 disabled={togglingId === banner.id}
                               >
                                 {togglingId === banner.id ? (
                                   <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
                                 ) : banner.isActive ? (
-                                  <EyeOff className="h-4 w-4" />
-                                ) : (
                                   <Eye className="h-4 w-4" />
+                                ) : (
+                                  <EyeOff className="h-4 w-4" />
                                 )}
                               </Button>
                               <Link href={`/admin/banners/${banner.id}/edit`}>
