@@ -1505,9 +1505,7 @@ export function HomeClient() {
                             className="group flex flex-col overflow-hidden rounded-xl border border-slate-200/80 bg-white p-2.5 shadow-sm transition-all hover:border-blue-300 hover:shadow-lg hover:-translate-y-0.5"
                           >
                             <div className="relative aspect-square w-full overflow-hidden rounded-lg bg-slate-100">
-                              <span className="absolute left-1.5 top-1.5 z-10 rounded bg-red-600 px-1.5 py-0.5 text-[9px] font-extrabold text-white shadow">
-                                HOT
-                              </span>
+
                               <div className="absolute right-1.5 top-1.5 z-10">
                                 <WishlistButton productId={p.id} name={p.name} image={imgSrc} price={p.basePrice} />
                               </div>
