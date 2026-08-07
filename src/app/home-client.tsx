@@ -165,6 +165,7 @@ export function HomeClient() {
   const [homeServices, setHomeServices] = useState<Service[]>([]);
   const [recentViewProducts, setRecentViewProducts] = useState<Product[]>([]);
   const [bannerIndex, setBannerIndex] = useState(0);
+  const [bannerCarouselPaused, setBannerCarouselPaused] = useState(false);
   const { data: session, status } = useSession();
   const [ads, setAds] = useState<Ad[]>([]);
   const [sponsoredCarouselPaused, setSponsoredCarouselPaused] = useState(false);
@@ -366,12 +367,12 @@ export function HomeClient() {
   }, [categories, featuredCategories]);
 
   useEffect(() => {
-    if (banners.length <= 1) return;
+    if (banners.length <= 1 || bannerCarouselPaused) return;
     const t = setInterval(() => {
       setBannerIndex((i) => (i + 1) % banners.length);
-    }, 5000);
+    }, 8000);
     return () => clearInterval(t);
-  }, [banners.length]);
+  }, [banners.length, bannerCarouselPaused]);
 
   useEffect(() => {
     fetch("/api/home/ads?type=product&limit=all")
@@ -482,7 +483,11 @@ export function HomeClient() {
         ) : (
           <>
             {/* Full-width hero banner container */}
-            <section className="relative w-full max-w-[100vw] bg-slate-900 overflow-hidden h-[460px] sm:h-[640px] md:h-[800px] lg:h-[920px]">
+            <section
+              className="relative w-full max-w-[100vw] bg-slate-900 overflow-hidden h-[400px] sm:h-[500px] md:h-[580px] lg:h-[660px]"
+              onMouseEnter={() => setBannerCarouselPaused(true)}
+              onMouseLeave={() => setBannerCarouselPaused(false)}
+            >
               {banners.length > 0 ? (
                 <>
                   <div className="relative w-full h-full overflow-hidden">
@@ -497,7 +502,7 @@ export function HomeClient() {
                           className="block size-full"
                         >
                           <img
-                            src={banner.bannerImage}
+                            src={isMobileViewport && (banner as any).mobileBanner ? (banner as any).mobileBanner : banner.bannerImage}
                             alt={banner.bannerHeading}
                             className="h-full w-full object-cover object-top"
                           />
@@ -533,7 +538,7 @@ export function HomeClient() {
             </section>
 
             {/* Category cards — float seamlessly over the banner's bottom ambient area */}
-            <section className="container mx-auto px-3 sm:px-4 -mt-56 sm:-mt-80 md:-mt-96 lg:-mt-[420px] relative z-20 pb-6 sm:pb-8 flex items-center justify-center">
+            <section className="container mx-auto px-3 sm:px-4 -mt-24 sm:-mt-36 md:-mt-48 lg:-mt-60 relative z-20 pb-6 sm:pb-8 flex items-center justify-center">
               {latestCategories.length > 0 ? (
                 <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4 w-full max-w-7xl mx-auto">
                   {latestCategories.map((cat, catIdx) => (

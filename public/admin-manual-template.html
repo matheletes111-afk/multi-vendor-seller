@@ -514,13 +514,15 @@ const pages = [
     title: "Banners & Promotions",
     subtitle: "Manage all visual promotional banners that appear on the homepage carousel, mobile app hero sections, and campaign pages.",
     acts: [
-      { h: "Create a New Banner", b: "Upload a banner image, set a display title, add an optional redirect URL (e.g. a category or sale page), and choose display position (Top Slider, Mid Strip, etc.)." },
+      { h: "Create a New Banner", b: "Upload a main desktop banner image, set a display title, add an optional redirect URL, and choose display position (Top Slider, Mid Strip, etc.)." },
+      { h: "Upload Dedicated Mobile Banner", b: "Upload a separate, vertically-optimized image for mobile devices (mobileBanner). If omitted, the system automatically falls back to the desktop banner image." },
+      { h: "Target Category & Service Routing", b: "Link banners directly to a Product Category, Subcategory, or Service Category for instant one-tap customer navigation." },
       { h: "Set Active Date Range", b: "Define the start and end date for each banner so it auto-appears and disappears without manual intervention." },
-      { h: "Reorder Banner Priority", b: "Drag banners or input priority numbers (1, 2, 3) to control which banner appears first in the slider." },
+      { h: "Reorder Banner Priority", b: "Input priority numbers (1, 2, 3) to control which banner appears first in the slider." },
       { h: "Enable or Disable a Banner", b: "Toggle any banner active/inactive instantly without deleting it — useful for seasonal promotions." },
       { h: "Delete a Banner", b: "Permanently remove old banners that are no longer required." }
     ],
-    tip: { type: "amber", text: "<strong>Best Size:</strong> Upload banners at 1200×450px (desktop) and 750×400px (mobile). Compressed WebP format is recommended for fast page loads." }
+    tip: { type: "amber", text: "<strong>Best Sizes:</strong> Upload Desktop banners at 1200×450px and Mobile banners at 750×400px (or vertical ratio). Compressed WebP or PNG format is recommended." }
   },
   /* 2 */ {
     chapter: "CHAPTER I · MASTER SETUP",
@@ -599,7 +601,7 @@ const pages = [
     subtitle: "Define and manage the hierarchical category tree that sellers use to list products and customers use to browse.",
     acts: [
       { h: "Add a New Category", b: "Create a top-level category (e.g. Electronics) with a name, slug, description, category image, and mobile icon." },
-      { h: "Add Subcategories", b: "Nest subcategories under parent categories (e.g. Phones under Electronics) to build a navigation hierarchy." },
+      { h: "Add Subcategories & Mobile Icons", b: "Nest subcategories under parent categories (e.g. Phones under Electronics) and upload dedicated transparent PNG mobile icons for mobile app grid navigation." },
       { h: "Set Category Commission Rate", b: "Override the global commission rate for a specific category (e.g. Jewellery at 12% instead of the default 10%)." },
       { h: "Toggle Mandatory Weight", b: "Enable 'Weight Required' on categories where accurate shipping weight is critical (e.g. Heavy Goods). Sellers cannot publish listings without entering weight." },
       { h: "Mark as Featured", b: "Featured categories appear at the top of the browse page and in homepage category strips." },
