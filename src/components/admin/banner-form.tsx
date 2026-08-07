@@ -51,6 +51,7 @@ interface Banner {
   bannerHeading: string;
   bannerDescription: string | null;
   bannerImage: string;
+  mobileBanner?: string | null;
   isActive: boolean;
   targetType?: string | null;
   categoryId?: string | null;
@@ -93,6 +94,7 @@ export function BannerForm({
   });
 
   const [bannerImageValue, setBannerImageValue] = useState<ImageLinkOrUploadValue>(null);
+  const [mobileBannerImageValue, setMobileBannerImageValue] = useState<ImageLinkOrUploadValue>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>(banner?.categoryId || NONE_CATEGORY);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -149,6 +151,12 @@ export function BannerForm({
         formDataObj.append("bannerImage", bannerImageValue.file);
       } else if (bannerImageValue?.type === "url" && bannerImageValue.url) {
         formDataObj.append("bannerImageUrl", bannerImageValue.url);
+      }
+
+      if (mobileBannerImageValue?.type === "file") {
+        formDataObj.append("mobileBanner", mobileBannerImageValue.file);
+      } else if (mobileBannerImageValue?.type === "url" && mobileBannerImageValue.url) {
+        formDataObj.append("mobileBannerUrl", mobileBannerImageValue.url);
       }
       if (!bannerImageValue && banner?.bannerImage) {
         formDataObj.append("removeImage", "true");
@@ -254,15 +262,26 @@ export function BannerForm({
               />
             </div>
 
-            <div className="space-y-2">
-              <ImageLinkOrUpload
-                label="Banner Image"
-                value={bannerImageValue}
-                onChange={setBannerImageValue}
-                currentImage={banner?.bannerImage}
-                showPreview={true}
-                required
-              />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <ImageLinkOrUpload
+                  label="Desktop Banner Image *"
+                  value={bannerImageValue}
+                  onChange={setBannerImageValue}
+                  currentImage={banner?.bannerImage}
+                  showPreview={true}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <ImageLinkOrUpload
+                  label="Mobile Banner Image (Optional)"
+                  value={mobileBannerImageValue}
+                  onChange={setMobileBannerImageValue}
+                  currentImage={banner?.mobileBanner}
+                  showPreview={true}
+                />
+              </div>
             </div>
 
             <div className="flex items-center space-x-2">

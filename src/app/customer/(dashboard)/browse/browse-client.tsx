@@ -10,7 +10,7 @@ import { Button } from "@/ui/button"
 import { Input } from "@/ui/input"
 import { formatCurrency } from "@/lib/utils"
 import { cn } from "@/lib/utils"
-import { Package, Briefcase, ChevronRight, ChevronDown, Filter, X, ArrowUp } from "lucide-react"
+import { Package, Briefcase, ChevronRight, ChevronDown, Filter, X, ArrowUp, Loader2 } from "lucide-react"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/ui/sheet"
 import { BrowseProductCard, type BrowseProduct } from "./browse-product-card"
 import { getServiceFirstDisplayImageUrl } from "@/lib/service-images"
@@ -230,10 +230,43 @@ export function BrowseClient() {
       .finally(() => setLoading(false))
   }, [buildQuery])
 
-  const searchKey = searchParams.toString()
+  const [loadedPage, setLoadedPage] = useState(1)
+  const [loadingMore, setLoadingMore] = useState(false)
+
+  // Reset loadedPage to 1 whenever filters / search parameters change
+  const filterKey = searchParams.toString()
   useEffect(() => {
-    window.scrollTo({ top: 0, behavior: "smooth" })
-  }, [searchKey])
+    setLoadedPage(1)
+  }, [filterKey])
+
+  const handleLoadMore = async () => {
+    if (loadingMore || loadedPage >= totalPages) return
+    setLoadingMore(true)
+    try {
+      const nextPage = loadedPage + 1
+      const params = new URLSearchParams(buildQuery())
+      params.set("page", String(nextPage))
+      const res = await fetch(`/api/customer/browse?${params.toString()}`)
+      if (res.ok) {
+        const data = await res.json()
+        const newProds: BrowseProduct[] = Array.isArray(data?.products) ? data.products : []
+        if (newProds.length > 0) {
+          setProducts((prev) => {
+            const existing = new Set(prev.map((p) => p.id))
+            const unique = newProds.filter((p) => !existing.has(p.id))
+            return [...prev, ...unique]
+          })
+          setLoadedPage(nextPage)
+        } else {
+          setTotalPages(loadedPage)
+        }
+      }
+    } catch (err) {
+      console.error("Error loading more products:", err)
+    } finally {
+      setLoadingMore(false)
+    }
+  }
 
   useEffect(() => {
     const onScroll = () => setScrollTopVisible(window.scrollY > 400)
@@ -398,44 +431,6 @@ export function BrowseClient() {
           </button>
         )}
       </CollapsibleSection>
-
-      {serviceCategoriesList.length > 0 && !discParam && (
-        <CollapsibleSection title="Service Categories" tooltip="Filter by service category">
-          <Input
-            placeholder="Search service categories"
-            value={serviceCatSearch}
-            onChange={(e) => setServiceCatSearch(e.target.value)}
-            className="mb-2 h-9 text-sm"
-          />
-          {visibleServiceCats.map((sc) => (
-            <label key={sc.id} className="flex cursor-pointer items-center gap-2 py-1 text-sm text-slate-700">
-              <input
-                type="checkbox"
-                checked={serviceCategoryId === sc.id}
-                onChange={() => {
-                  if (serviceCategoryId === sc.id) {
-                    updateFilters({ serviceCategoryId: null })
-                  } else {
-                    updateFilters({
-                      serviceCategoryId: sc.id,
-                      categoryId: null,
-                      subcategoryId: null,
-                      cats: null,
-                    })
-                  }
-                }}
-                className="rounded border-slate-300 text-amber-500 focus:ring-amber-500"
-              />
-              {sc.name}
-            </label>
-          ))}
-          {filteredServiceCats.length > INITIAL_LIST && (
-            <button type="button" className="mt-1 text-sm font-medium text-blue-600 hover:underline" onClick={() => setShowAllServiceCats((v) => !v)}>
-              {showAllServiceCats ? "See less" : "See more"}
-            </button>
-          )}
-        </CollapsibleSection>
-      )}
 
       <CollapsibleSection title="Brands" tooltip="Filter by brand (from product attributes)">
         <Input
@@ -900,87 +895,35 @@ export function BrowseClient() {
                   )}
 
                   {!loading && totalProducts > 0 && (
-                    <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white p-3">
-                      <p className="text-sm text-muted-foreground">
-                        Page {currentPage} of {totalPages}
-                      </p>
-                      <div className="flex items-center gap-2">
-                        <button
+                    <div className="mt-8 flex flex-col items-center justify-center py-4 min-h-[60px]">
+                      {loadedPage < totalPages ? (
+                        <Button
                           type="button"
-                          onClick={() => changePage(currentPage - 1)}
-                          disabled={currentPage <= 1}
-                          className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+                          disabled={loadingMore}
+                          onClick={handleLoadMore}
+                          className="rounded-full px-8 py-3 text-xs sm:text-sm font-black uppercase tracking-wider bg-slate-900 text-white hover:bg-amber-500 hover:text-slate-950 shadow-lg transition-all duration-300 hover:scale-105 flex items-center gap-2"
                         >
-                          Previous
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => changePage(currentPage + 1)}
-                          disabled={currentPage >= totalPages}
-                          className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                          Next
-                        </button>
-                      </div>
+                          {loadingMore ? (
+                            <>
+                              <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                              <span>Loading More Products...</span>
+                            </>
+                          ) : (
+                            <>
+                              <span>Load More Products</span>
+                              <ChevronDown className="h-4 w-4" />
+                            </>
+                          )}
+                        </Button>
+                      ) : (
+                        <span className="text-xs font-extrabold text-slate-400 uppercase tracking-wider bg-slate-100 px-5 py-2 rounded-full border border-slate-200/60">
+                          You've viewed all {totalProducts} products
+                        </span>
+                      )}
                     </div>
                   )}
                 </section>
               )}
-
-              {(!isProductCategoryFilter || isServiceFilter) && !discParam && services.length > 0 && (
-                <section>
-                  <div className="mb-4 flex flex-wrap items-center gap-2">
-                    <Briefcase className="h-5 w-5 shrink-0 text-slate-600" />
-                    <h2 className="text-lg font-semibold text-slate-900 sm:text-xl">
-                      {isServiceFilter ? `Services (${services.length})` : "Services"}
-                    </h2>
-                    <Badge variant="secondary" className="text-xs">
-                      {services.length}
-                    </Badge>
-                  </div>
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                      {services.map((service) => {
-                        const firstImg = getServiceFirstDisplayImageUrl(service)
-                        return (
-                          <Link key={service.id} href={`/service/${service.id}`} className="block min-w-0">
-                            <div className="h-full overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm transition-shadow hover:shadow-lg">
-                              <div className="relative aspect-video w-full overflow-hidden bg-slate-100">
-                                {firstImg ? (
-                                  <img src={firstImg} alt={service.name} className="h-full w-full object-cover" loading="lazy" />
-                                ) : (
-                                  <div className="flex h-full w-full items-center justify-center text-slate-400">
-                                    <Briefcase className="h-10 w-10" />
-                                  </div>
-                                )}
-                              </div>
-                              <div className="p-4">
-                                <p className="text-[10px] font-bold text-amber-700 uppercase tracking-wider truncate mb-0.5">
-                                  {service.seller?.store?.name || "Store"}
-                                </p>
-                                <p className="line-clamp-2 font-medium text-slate-900">{service.name}</p>
-                                <Badge variant="outline" className="mt-1 text-xs">
-                                  {service.serviceCategory?.name ?? "Service"}
-                                </Badge>
-                                {service.basePrice ? (
-                                  <p className="mt-2 text-lg font-bold">{formatCurrency(service.basePrice)}</p>
-                                ) : (
-                                  <p className="mt-2 text-sm text-muted-foreground">Price on request</p>
-                                )}
-                                {service._count.reviews > 0 && (
-                                  <div className="mt-1 flex items-center gap-1.5">
-                                    <StarRow rating={service.averageRating} size="h-3.5 w-3.5" />
-                                    <span className="text-xs font-medium text-slate-700">{service.averageRating.toFixed(1)}</span>
-                                    <span className="text-[10px] text-slate-500">({service._count.reviews})</span>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          </Link>
-                        )
-                      })}
-                    </div>
-                  </section>
-                )}
             </main>
           </div>
         </div>

@@ -93,6 +93,8 @@ export async function POST(request: NextRequest) {
     
     const bannerImageFile = formData.get("bannerImage") as File | null;
     const bannerImageUrl = (formData.get("bannerImageUrl") as string)?.trim() || null;
+    const mobileBannerFile = formData.get("mobileBanner") as File | null;
+    const mobileBannerUrl = (formData.get("mobileBannerUrl") as string)?.trim() || null;
 
     if (!bannerHeading) {
       return NextResponse.json(
@@ -102,6 +104,7 @@ export async function POST(request: NextRequest) {
     }
 
     let bannerImagePath: string | null = bannerImageUrl;
+    let mobileBannerPath: string | null = mobileBannerUrl;
 
     const getImageExtFromContentType = (contentType?: string | null) => {
       const ct = (contentType || "").toLowerCase();
@@ -131,6 +134,24 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    if (mobileBannerFile && mobileBannerFile.size > 0) {
+      try {
+        const bytes = await mobileBannerFile.arrayBuffer();
+        const buffer = Buffer.from(bytes);
+        const contentType = mobileBannerFile.type || "image/jpeg";
+        const ext = getImageExtFromContentType(contentType);
+        mobileBannerPath = await uploadPublicFile({
+          folder: "banners",
+          ext,
+          contentType,
+          buffer,
+          prefix: "mobile_banner",
+        });
+      } catch (uploadError) {
+        console.error("Error uploading mobile banner image:", uploadError);
+      }
+    }
+
     if (!bannerImagePath) {
       return NextResponse.json(
         { error: "Banner image is required (link or upload)" },
@@ -143,6 +164,7 @@ export async function POST(request: NextRequest) {
         bannerHeading,
         bannerDescription,
         bannerImage: bannerImagePath,
+        mobileBanner: mobileBannerPath,
         isActive,
         targetType: targetType === "product" || targetType === "service" || targetType === "hotel" || targetType === "restaurant" ? targetType : null,
         categoryId: targetType === "product" ? categoryId : null,

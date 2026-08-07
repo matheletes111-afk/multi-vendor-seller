@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { UserRole } from "@prisma/client";
@@ -29,7 +29,6 @@ import {
   Flame,
   Clock,
   History,
-  Loader2,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { getYoutubeEmbedUrl, getYoutubeThumbnailUrl } from "@/lib/youtube";
@@ -176,88 +175,10 @@ export function HomeClient() {
   const categoryScrollRef = useRef<HTMLDivElement>(null);
   const recentScrollRef = useRef<HTMLDivElement>(null);
 
-  // Recommended for You infinite scroll pagination (12 initial items + 12 new products on scroll)
-  const [recommendedItems, setRecommendedItems] = useState<Product[]>([]);
-  const [hasMoreRecommended, setHasMoreRecommended] = useState(true);
-  const [loadingMoreRecommended, setLoadingMoreRecommended] = useState(false);
-  const loadMoreRecommendedRef = useRef<HTMLDivElement>(null);
-  const pageRef = useRef(1);
-  const loadingRef = useRef(false);
-  const hasMoreRef = useRef(true);
-
-  useEffect(() => {
-    hasMoreRef.current = hasMoreRecommended;
-  }, [hasMoreRecommended]);
-
-  // Sync initial randomProducts into recommendedItems
-  useEffect(() => {
-    if (randomProducts.length > 0 && recommendedItems.length === 0) {
-      setRecommendedItems(randomProducts);
-    }
-  }, [randomProducts, recommendedItems.length]);
-
-  const fetchNextRecommendedPage = useCallback((targetPage: number) => {
-    if (loadingRef.current || !hasMoreRef.current) return;
-    loadingRef.current = true;
-    setLoadingMoreRecommended(true);
-
-    fetch(`/api/customer/browse?page=${targetPage}&pageSize=12`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data) => {
-        const newProducts: Product[] = Array.isArray(data?.products) ? data.products : [];
-        const totalPages = typeof data?.totalPages === "number" && data.totalPages > 0 ? data.totalPages : 1;
-
-        if (newProducts.length === 0 || targetPage > totalPages) {
-          setHasMoreRecommended(false);
-          hasMoreRef.current = false;
-          return;
-        }
-
-        setRecommendedItems((prev) => {
-          const existingIds = new Set(prev.map((item) => item.id));
-          const uniqueNew = newProducts.filter((item) => !existingIds.has(item.id));
-          if (uniqueNew.length === 0) {
-            return prev;
-          }
-          return [...prev, ...uniqueNew];
-        });
-
-        pageRef.current = targetPage;
-        if (targetPage >= totalPages) {
-          setHasMoreRecommended(false);
-          hasMoreRef.current = false;
-        }
-      })
-      .catch((err) => {
-        console.error("Error loading recommended products:", err);
-        setHasMoreRecommended(false);
-        hasMoreRef.current = false;
-      })
-      .finally(() => {
-        loadingRef.current = false;
-        setLoadingMoreRecommended(false);
-      });
-  }, []);
-
-  const loadNextRecommendedPage = useCallback(() => {
-    fetchNextRecommendedPage(pageRef.current + 1);
-  }, [fetchNextRecommendedPage]);
-
-  useEffect(() => {
-    const el = loadMoreRecommendedRef.current;
-    if (!el) return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0]?.isIntersecting && hasMoreRef.current && !loadingRef.current) {
-          loadNextRecommendedPage();
-        }
-      },
-      { rootMargin: "400px" }
-    );
-
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [loadNextRecommendedPage]);
+  // Recommended for You section products (from randomProducts prop)
+  const displayRecommendedProducts = useMemo<Product[]>(() => {
+    return randomProducts || [];
+  }, [randomProducts]);
 
   // Persistent Countdown Timer for Deals of the Day (stored in localStorage)
   const [timeLeft, setTimeLeft] = useState({ hours: 8, minutes: 42, seconds: 15 });
@@ -1491,12 +1412,12 @@ export function HomeClient() {
 
               {/* Compact 6-column grid with small image thumbnails */}
               {(() => {
-                const displayList = recommendedItems.length > 0 ? recommendedItems : randomProducts;
+                const displayList = displayRecommendedProducts;
 
                 return (
                   <>
                     <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
-                      {displayList.map((p, idx) => {
+                      {displayList.map((p: Product, idx: number) => {
                         const finalPrice = Math.max(0, (p.basePrice ?? 0) - (p.discount ?? 0));
                         const imgSrc = getProductImg(p.images?.[0], idx);
                         return (
@@ -1557,24 +1478,22 @@ export function HomeClient() {
                       })}
                     </div>
 
-                    {/* Infinite Scroll Sentinel */}
-                    <div ref={loadMoreRecommendedRef} className="mt-8 flex flex-col items-center justify-center py-6 min-h-[60px]">
-                      {loadingMoreRecommended ? (
-                        <div className="flex items-center gap-2.5 text-xs sm:text-sm font-extrabold text-slate-600 bg-white px-5 py-2.5 rounded-full border border-slate-200 shadow-md animate-pulse">
-                          <Loader2 className="h-4 w-4 animate-spin text-amber-500" />
-                          <span>Loading 12 more recommended products...</span>
-                        </div>
-                      ) : !hasMoreRecommended ? (
-                        <span className="text-xs font-extrabold text-slate-400 uppercase tracking-wider bg-slate-100 px-4 py-1.5 rounded-full border border-slate-200/60">
-                          You've viewed all recommended products
-                        </span>
-                      ) : null}
+                    {/* Clean See More Products Button */}
+                    <div className="mt-8 flex justify-center">
+                      <Link href="/browse">
+                        <Button
+                          variant="outline"
+                          className="rounded-full px-8 py-3 text-xs sm:text-sm font-black uppercase tracking-wider text-slate-800 bg-white hover:bg-slate-950 hover:text-white border-2 border-slate-300 hover:border-slate-950 shadow-md transition-all duration-300 hover:scale-105 flex items-center gap-2"
+                        >
+                          <span>See More Products</span>
+                          <ChevronRight className="h-4 w-4" />
+                        </Button>
+                      </Link>
                     </div>
                   </>
                 );
               })()}
             </section>
-
           </>
         )}
       </div>

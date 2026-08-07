@@ -1017,6 +1017,7 @@ model Banner {
   bannerHeading     String
   bannerDescription String?  @db.Text
   bannerImage       String   // URL to the banner image
+  mobileBanner      String?  // Optional URL to the mobile banner image (mobile_banner)
   isActive          Boolean  @default(true)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt

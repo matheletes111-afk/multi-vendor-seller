@@ -16,6 +16,7 @@ export async function GET(request: NextRequest) {
         bannerHeading: true,
         bannerDescription: true,
         bannerImage: true,
+        mobileBanner: true,
         categoryId: true,
         subcategoryId: true,
         serviceCategoryId: true,
@@ -24,9 +25,14 @@ export async function GET(request: NextRequest) {
       orderBy: { createdAt: "desc" },
     })
 
+    const formattedBanners = banners.map((b) => ({
+      ...b,
+      mobile_banner: b.mobileBanner || b.bannerImage,
+    }))
+
     return NextResponse.json({
       success: true,
-      data: banners
+      data: formattedBanners
     })
   } catch (error) {
     console.error("Mobile hotel banners GET error:", error)

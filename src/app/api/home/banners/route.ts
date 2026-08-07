@@ -25,6 +25,7 @@ export async function GET(request: Request) {
         bannerHeading: true,
         bannerDescription: true,
         bannerImage: true,
+        mobileBanner: true,
         categoryId: true,
         subcategoryId: true,
         serviceCategoryId: true,
@@ -32,7 +33,13 @@ export async function GET(request: Request) {
       },
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
     });
-    return NextResponse.json(banners);
+
+    const formattedBanners = banners.map((b) => ({
+      ...b,
+      mobile_banner: b.mobileBanner || b.bannerImage,
+      mobileBanner: b.mobileBanner || b.bannerImage,
+    }));
+    return NextResponse.json(formattedBanners);
   } catch (error) {
     console.error("Error fetching home banners:", error);
     return NextResponse.json(
