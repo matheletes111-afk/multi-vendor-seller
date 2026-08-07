@@ -438,36 +438,6 @@ export function BannerForm({
           </CardContent>
         </Card>
       </div>
-
-      {/* Image Preview */}
-      {((bannerImageValue?.type === "url" && bannerImageValue.url) || bannerImageValue?.type === "file" || banner?.bannerImage) && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Image Preview</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="relative w-full max-w-2xl h-64 border rounded-lg overflow-hidden bg-muted">
-              {bannerImageValue?.type === "url" ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={bannerImageValue.url}
-                  alt="Banner preview"
-                  className="w-full h-full object-cover"
-                />
-              ) : bannerImageValue?.type === "file" ? (
-                <BannerPreviewFromFile file={bannerImageValue.file} />
-              ) : banner?.bannerImage ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={banner.bannerImage}
-                  alt="Banner preview"
-                  className="w-full h-full object-cover"
-                />
-              ) : null}
-            </div>
-          </CardContent>
-        </Card>
-      )}
     </form>
   );
 }
