@@ -81,6 +81,8 @@ export interface BannerItem {
   bannerHeading: string
   bannerDescription?: string | null
   bannerImage: string
+  mobileBanner?: string | null
+  mobile_banner?: string | null
 }
 
 const CATEGORY_ICONS: Record<string, string> = {
@@ -327,7 +329,7 @@ function ServiceHomeContent() {
               <Link href={`/banner/${banners[bannerIndex]?.id}`} className="block h-full w-full">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={banners[bannerIndex]?.mobileBanner || (banners[bannerIndex] as any)?.mobile_banner || banners[bannerIndex]?.bannerImage}
+                  src={banners[bannerIndex]?.mobileBanner || banners[bannerIndex]?.mobile_banner || banners[bannerIndex]?.bannerImage}
                   alt={banners[bannerIndex]?.bannerHeading || "Service Banner"}
                   className="w-full h-full object-cover object-top transition-all duration-700 ease-in-out"
                 />
