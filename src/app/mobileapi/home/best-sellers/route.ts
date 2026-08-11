@@ -41,7 +41,14 @@ export async function GET(request: NextRequest): Promise<NextResponse<SuccessRes
 
     const grouped = await prisma.product.groupBy({
       by: ["sellerId"],
-      where: { isActive: true, isDeleted: false },
+      where: {
+        isActive: true,
+        isDeleted: false,
+        seller: {
+          isApproved: true,
+          isSuspended: false,
+        },
+      },
       _count: { _all: true },
       orderBy: { _count: { sellerId: "desc" } },
       take: limitSellers,

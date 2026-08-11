@@ -12,6 +12,10 @@ export async function GET(request: NextRequest) {
     const where: any = {
       isActive: true,
       isDeleted: false,
+      seller: {
+        isApproved: true,
+        isSuspended: false,
+      },
       OR: [
         { discount: { gt: 0 } },
         { basePrice: { lte: maxPriceFilter || 999 } },

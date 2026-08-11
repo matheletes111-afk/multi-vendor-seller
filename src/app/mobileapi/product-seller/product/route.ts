@@ -172,7 +172,6 @@ export async function POST(request: NextRequest) {
     if (variantsRaw.length === 0) return NextResponse.json({ success: false, error: "At least one variant is required" }, { status: 400 })
     
     const slug = slugFromName(name)
-    const imagesData = Array.isArray(body.images) ? body.images : []
     const variants: NormalizedVariant[] = []
     
     for (let i = 0; i < variantsRaw.length; i++) {
@@ -183,9 +182,12 @@ export async function POST(request: NextRequest) {
       }
       variants.push(parsed.variant)
     }
-    
+
     const conditionInput = typeof body.condition === "string" ? body.condition.toUpperCase() : "NEW"
     const condition = (conditionInput === "USED") ? "USED" : "NEW"
+
+    const firstVarImages = (Array.isArray(variants[0]?.images) ? variants[0].images : []) as string[]
+    const masterImages = firstVarImages.length > 0 ? [firstVarImages[0]] : []
 
     const product = await prisma.product.create({
       data: {
@@ -197,7 +199,7 @@ export async function POST(request: NextRequest) {
         description: body.description ?? null,
         condition: condition as any,
         deliveryChargePerKm: Number(body.deliveryChargePerKm || 0),
-        images: imagesData as object,
+        images: masterImages as object,
         variants: {
           create: variants.map((v) => ({
             name: v.name,

@@ -95,7 +95,6 @@ export async function PUT(
       }
       updateData.subcategoryId = body.subcategoryId || null
     }
-    if (body.images !== undefined) updateData.images = Array.isArray(body.images) ? body.images : existing.images
     if (typeof body.isActive === "boolean") updateData.isActive = body.isActive
     if (typeof body.condition === "string") {
       const c = body.condition.toUpperCase()
@@ -106,6 +105,9 @@ export async function PUT(
     // Handle Variants (Mirroring web logic: Recreate all)
     if (Array.isArray(body.variants)) {
       if (body.variants.length === 0) return NextResponse.json({ success: false, error: "At least one variant is required" }, { status: 400 })
+
+      const firstVarImages = (Array.isArray(body.variants[0]?.images) ? body.variants[0].images : []) as string[]
+      updateData.images = firstVarImages.length > 0 ? [firstVarImages[0]] : []
 
       const categoryIdForCheck = (body.categoryId ?? existing.categoryId) as string
       const categoryObj = await prisma.category.findUnique({

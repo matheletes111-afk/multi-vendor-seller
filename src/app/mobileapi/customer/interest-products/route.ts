@@ -165,7 +165,11 @@ export async function GET(request: NextRequest): Promise<NextResponse<InterestPr
       where: {
         isActive: true,
         isDeleted: false,
-        categoryId: { in: interestCategoryIds }
+        categoryId: { in: interestCategoryIds },
+        seller: {
+          isApproved: true,
+          isSuspended: false,
+        },
       },
       include: {
         seller: {

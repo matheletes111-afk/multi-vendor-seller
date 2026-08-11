@@ -484,7 +484,7 @@ export function HomeClient() {
           <>
             {/* Full-width hero banner container */}
             <section
-              className="relative w-full max-w-[100vw] bg-slate-900 overflow-hidden h-[400px] sm:h-[500px] md:h-[580px] lg:h-[660px]"
+              className="relative w-full max-w-[100vw] bg-slate-900 overflow-hidden aspect-[16/5.2] sm:aspect-auto sm:h-[500px] md:h-[580px] lg:h-[660px]"
               onMouseEnter={() => setBannerCarouselPaused(true)}
               onMouseLeave={() => setBannerCarouselPaused(false)}
             >
@@ -517,28 +517,38 @@ export function HomeClient() {
                         type="button"
                         variant="secondary"
                         size="icon"
-                        className="absolute left-2 top-1/3 z-20 h-9 w-9 -translate-y-1/2 rounded-full shadow-md bg-white/80 text-slate-900 hover:bg-white sm:left-4 sm:h-11 sm:w-11"
+                        className="absolute left-2 top-1/2 z-20 h-8 w-8 -translate-y-1/2 rounded-full shadow-md bg-white/80 text-slate-900 hover:bg-white sm:left-4 sm:h-11 sm:w-11"
                         onClick={() => setBannerIndex((i) => (i - 1 + banners.length) % banners.length)}
                       >
-                        <ChevronLeft className="h-6 w-6" />
+                        <ChevronLeft className="h-5 w-5 sm:h-6 sm:w-6" />
                       </Button>
                       <Button
                         type="button"
                         variant="secondary"
                         size="icon"
-                        className="absolute right-2 top-1/3 z-20 h-9 w-9 -translate-y-1/2 rounded-full shadow-md bg-white/80 text-slate-900 hover:bg-white sm:right-4 sm:h-11 sm:w-11"
+                        className="absolute right-2 top-1/2 z-20 h-8 w-8 -translate-y-1/2 rounded-full shadow-md bg-white/80 text-slate-900 hover:bg-white sm:right-4 sm:h-11 sm:w-11"
                         onClick={() => setBannerIndex((i) => (i + 1) % banners.length)}
                       >
-                        <ChevronRight className="h-6 w-6" />
+                        <ChevronRight className="h-5 w-5 sm:h-6 sm:w-6" />
                       </Button>
+                      <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-20 flex gap-1.5 sm:bottom-4">
+                        {banners.map((_, idx) => (
+                          <button
+                            key={idx}
+                            type="button"
+                            onClick={() => setBannerIndex(idx)}
+                            className={`h-1.5 rounded-full transition-all duration-300 sm:h-2 ${bannerIndex === idx ? "w-5 bg-white sm:w-6" : "w-1.5 bg-white/50 sm:w-2"}`}
+                          />
+                        ))}
+                      </div>
                     </>
                   )}
                 </>
               ) : null}
             </section>
 
-            {/* Category cards — float seamlessly over the banner's bottom ambient area */}
-            <section className="container mx-auto px-3 sm:px-4 -mt-24 sm:-mt-36 md:-mt-48 lg:-mt-60 relative z-20 pb-6 sm:pb-8 flex items-center justify-center">
+            {/* Category cards — placed below banner on mobile, floating over bottom of banner on desktop */}
+            <section className="container mx-auto px-3 sm:px-4 mt-4 sm:-mt-36 md:-mt-48 lg:-mt-60 relative z-20 pb-6 sm:pb-8 flex items-center justify-center">
               {latestCategories.length > 0 ? (
                 <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4 w-full max-w-7xl mx-auto">
                   {latestCategories.map((cat, catIdx) => (
@@ -1118,7 +1128,7 @@ export function HomeClient() {
                                 sellerId: sellerId,
                                 image: getProductImg(p.images?.[0], idx),
                                 category: p.category?.name || "Official Merchant",
-                                rating: (p.averageRating ?? 4.8 + (idx % 3) * 0.1).toFixed(1),
+                                rating: p.averageRating ? p.averageRating.toFixed(1) : "New Store",
                                 productCount: randomProducts.filter(item => item.seller?.store?.name === storeName).length || (idx + 4),
                                 badge: idx % 2 === 0 ? "Verified Merchant" : "Top Rated Store",
                               },

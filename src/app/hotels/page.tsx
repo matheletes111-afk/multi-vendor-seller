@@ -2,11 +2,12 @@
 
 import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
-import { Search, Star, MapPin, SlidersHorizontal, Eye, RefreshCw, ChevronLeft, ChevronRight } from "lucide-react"
+import { useSearchParams } from "next/navigation"
+import { Search, Star, MapPin, SlidersHorizontal, Eye, RefreshCw, ChevronLeft, ChevronRight, X } from "lucide-react"
 import { Input } from "@/ui/input"
 import { Button } from "@/ui/button"
 import { Card, CardContent } from "@/ui/card"
-import { formatCurrency } from "@/lib/utils"
+import { formatCurrency, cn } from "@/lib/utils"
 import { getYoutubeThumbnailUrl } from "@/lib/youtube"
 
 type Room = {
@@ -28,12 +29,66 @@ type Hotel = {
   rooms: Room[]
 }
 
+const CITY_ICONS: Record<string, string> = {
+  freetown: "🏙️",
+  bo: "🌴",
+  kenema: "⛰️",
+  makeni: "🌆",
+  koidu: "💎",
+  lunsar: "🏞️",
+  waterloo: "🌊",
+  "port loko": "⛵",
+  luxury: "🏨",
+  beach: "🏖️",
+  resort: "🏝️",
+  boutique: "🏰",
+  business: "🏢",
+  budget: "🏡",
+  villa: "🏯",
+}
+
+const RANDOM_CITY_ICONS = ["🏙️", "🏨", "🌴", "⛰️", "🏖️", "🏰", "🏢", "🏡", "🏯", "🌅", "🌆", "⛵", "🌊", "🏝️"]
+
+function getCityIcon(cityName: string): string {
+  const lower = cityName.toLowerCase()
+  for (const [key, icon] of Object.entries(CITY_ICONS)) {
+    if (lower.includes(key)) return icon
+  }
+  let hash = 0
+  for (let i = 0; i < cityName.length; i++) hash += cityName.charCodeAt(i)
+  return RANDOM_CITY_ICONS[hash % RANDOM_CITY_ICONS.length]
+}
+
 export default function HotelsBrowsePage() {
+  const searchParams = useSearchParams()
+  const initialQ = searchParams?.get("q") || ""
+  const initialCity = searchParams?.get("city") || ""
+
   const [hotels, setHotels] = useState<Hotel[]>([])
   const [cities, setCities] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
-  const [searchQuery, setSearchQuery] = useState("")
-  const [selectedCity, setSelectedCity] = useState("")
+  const [searchQuery, setSearchQuery] = useState(initialQ)
+  const [selectedCity, setSelectedCity] = useState(initialCity)
+
+  const cityScrollRef = useRef<HTMLDivElement>(null)
+
+  const scrollCityCategories = (direction: "left" | "right") => {
+    if (cityScrollRef.current) {
+      const scrollAmount = direction === "left" ? -300 : 300
+      cityScrollRef.current.scrollBy({ left: scrollAmount, behavior: "smooth" })
+    }
+  }
+
+  const cityCategories = cities.map((c) => ({
+    name: c,
+    isCity: true,
+    count: hotels.filter((h) => h.city?.toLowerCase() === c.toLowerCase()).length,
+  }))
+
+  useEffect(() => {
+    setSearchQuery(initialQ)
+    setSelectedCity(initialCity)
+  }, [initialQ, initialCity])
   const [selectedRating, setSelectedRating] = useState<number | null>(null)
   const [minPrice, setMinPrice] = useState("")
   const [maxPrice, setMaxPrice] = useState("")
@@ -138,7 +193,7 @@ export default function HotelsBrowsePage() {
 
   useEffect(() => {
     fetchHotels()
-  }, [selectedCity, selectedRating])
+  }, [searchQuery, selectedCity, selectedRating])
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -150,18 +205,39 @@ export default function HotelsBrowsePage() {
       
       {/* Banners Carousel / Fallback Hero Search Section */}
       {banners.length > 0 ? (
-        <div className="relative rounded-[2.5rem] h-[340px] sm:h-[420px] overflow-hidden shadow-lg border border-slate-100 bg-white group">
+        <div className="relative rounded-[2.5rem] aspect-[16/5.2] sm:aspect-auto sm:h-[420px] overflow-hidden shadow-lg border border-slate-100 bg-white group">
           <div className="absolute inset-0 flex transition-transform duration-700 ease-in-out" style={{ transform: `translateX(-${currentBannerIdx * 100}%)` }}>
             {banners.map((banner) => (
-              <div key={banner.id} className="min-w-full h-full relative flex items-center px-8 sm:px-16">
+              <div key={banner.id} className="min-w-full h-full relative flex items-center px-4 sm:px-12">
                 <div className="absolute inset-0 z-0">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={banner.bannerImage} alt={banner.bannerHeading} className="w-full h-full object-cover" />
+                  <img src={banner.mobileBanner || (banner as any).mobile_banner || banner.bannerImage} alt={banner.bannerHeading} className="w-full h-full object-cover" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-slate-950/60 via-transparent to-slate-950/30 pointer-events-none" />
                 </div>
-                <div className="relative z-20 max-w-md space-y-4 bg-white/95 backdrop-blur-md p-6 sm:p-8 rounded-[2rem] border border-slate-100/50 shadow-lg ml-2 sm:ml-4">
-                  <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-slate-900 leading-none">{banner.bannerHeading}</h1>
-                  <p className="text-slate-700 font-medium text-xs sm:text-sm leading-relaxed">{banner.bannerDescription}</p>
+
+                {/* Top-Left Title Badge */}
+                <div className="absolute top-3 left-3 sm:top-5 sm:left-6 z-20 flex items-center gap-2 max-w-[calc(100%-120px)]">
+                  <div className="inline-flex items-center gap-2 rounded-full border border-emerald-400/40 bg-slate-950/80 px-3 py-1 sm:px-4 sm:py-2 text-xs sm:text-sm font-extrabold text-emerald-300 backdrop-blur-md shadow-md min-w-0">
+                    <span className="shrink-0 text-sm sm:text-base">🏨</span>
+                    <span className="truncate max-w-[180px] sm:max-w-[360px]">{banner.bannerHeading}</span>
+                  </div>
                 </div>
+
+                {/* Top-Right Offer Badge */}
+                <div className="absolute top-3 right-3 sm:top-5 sm:right-6 z-20">
+                  <div className="inline-flex items-center rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 px-2.5 py-1 sm:px-4 sm:py-2 text-[10px] sm:text-xs font-black text-white shadow-md uppercase tracking-wider border border-emerald-300/40">
+                    HOTEL PROMO
+                  </div>
+                </div>
+
+                {/* Bottom Description Badge */}
+                {banner.bannerDescription && (
+                  <div className="absolute bottom-3 left-3 right-3 sm:bottom-5 sm:left-6 sm:right-auto z-20 sm:max-w-xl">
+                    <div className="inline-block rounded-xl sm:rounded-2xl border border-white/20 bg-slate-950/80 px-3 py-1.5 sm:px-4 sm:py-2 text-[11px] sm:text-xs font-medium text-slate-100 backdrop-blur-md shadow-lg">
+                      <p className="line-clamp-2 leading-relaxed">{banner.bannerDescription}</p>
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -221,6 +297,131 @@ export default function HotelsBrowsePage() {
             Search
           </Button>
         </form>
+      </div>
+
+      {/* SLEEK COMPACT HORIZONTAL CITY / CATEGORY CAROUSEL */}
+      <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm space-y-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <span className="text-[10px] font-black uppercase tracking-wider text-emerald-600">Explore Locations</span>
+            <h2 className="text-lg font-black tracking-tight text-slate-900">
+              Browse Hotels by City & Category
+            </h2>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {(selectedCity || searchQuery) && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setSelectedCity("")
+                  setSearchQuery("")
+                }}
+                className="h-8 px-2.5 text-xs font-bold text-slate-600 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg"
+              >
+                Clear Location
+                <X className="ml-1 h-3.5 w-3.5" />
+              </Button>
+            )}
+
+            {/* Scroll Arrow Controls */}
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => scrollCityCategories("left")}
+                className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 text-slate-700 hover:bg-emerald-600 hover:text-white transition-colors shadow-2xs"
+                aria-label="Scroll left"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => scrollCityCategories("right")}
+                className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 text-slate-700 hover:bg-emerald-600 hover:text-white transition-colors shadow-2xs"
+                aria-label="Scroll right"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Horizontally Scrollable Pills Row */}
+        <div
+          ref={cityScrollRef}
+          className="flex gap-2.5 overflow-x-auto scroll-smooth py-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+        >
+          {/* All Locations Pill */}
+          <button
+            type="button"
+            onClick={() => {
+              setSelectedCity("")
+              setSearchQuery("")
+            }}
+            className={cn(
+              "group flex items-center gap-2.5 rounded-xl border px-3.5 py-2 transition-all duration-200 shrink-0 hover:scale-[1.02]",
+              !selectedCity && !searchQuery
+                ? "border-emerald-500 bg-emerald-500/15 shadow-xs ring-2 ring-emerald-500/30 text-emerald-950 font-black"
+                : "border-slate-200 bg-slate-50/70 hover:border-emerald-300 hover:bg-white text-slate-800"
+            )}
+          >
+            <div className={cn(
+              "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-sm shadow-xs",
+              !selectedCity && !searchQuery ? "bg-emerald-600 text-white" : "bg-white text-slate-800 border border-slate-200"
+            )}>
+              🌐
+            </div>
+            <div className="text-left">
+              <span className="text-xs font-bold block leading-tight">All Locations</span>
+              <span className="text-[10px] font-semibold text-slate-500">{hotels.length} hotels</span>
+            </div>
+          </button>
+
+          {/* Individual City / Category Pills */}
+          {cityCategories.map((cItem) => {
+            const isSelected = selectedCity.toLowerCase() === cItem.name.toLowerCase() || searchQuery.toLowerCase() === cItem.name.toLowerCase()
+            const iconStr = getCityIcon(cItem.name)
+
+            return (
+              <button
+                key={cItem.name}
+                type="button"
+                onClick={() => {
+                  if (isSelected) {
+                    setSelectedCity("")
+                    setSearchQuery("")
+                  } else if (cItem.isCity) {
+                    setSelectedCity(cItem.name)
+                    setSearchQuery("")
+                  } else {
+                    setSearchQuery(cItem.name)
+                    setSelectedCity("")
+                  }
+                }}
+                className={cn(
+                  "group flex items-center gap-2.5 rounded-xl border px-3.5 py-2 transition-all duration-200 shrink-0 hover:scale-[1.02]",
+                  isSelected
+                    ? "border-emerald-500 bg-emerald-500/15 shadow-xs ring-2 ring-emerald-500/30 text-emerald-950 font-black"
+                    : "border-slate-200 bg-slate-50/70 hover:border-emerald-300 hover:bg-white text-slate-800"
+                )}
+              >
+                <div className={cn(
+                  "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-base shadow-xs transition-transform group-hover:scale-110",
+                  isSelected ? "bg-emerald-600 text-white" : "bg-white text-slate-800 border border-slate-200"
+                )}>
+                  {iconStr}
+                </div>
+                <div className="text-left">
+                  <span className="text-xs font-bold block leading-tight">{cItem.name}</span>
+                  <span className="text-[10px] font-semibold text-slate-500">
+                    {cItem.count > 0 ? `${cItem.count} ${cItem.count === 1 ? 'hotel' : 'hotels'}` : 'Browse'}
+                  </span>
+                </div>
+              </button>
+            )
+          })}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">

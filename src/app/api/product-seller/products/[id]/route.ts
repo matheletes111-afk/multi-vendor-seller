@@ -104,7 +104,6 @@ export async function PUT(
     }
     updateData.subcategoryId = body.subcategoryId || null
   }
-  if (body.images !== undefined) updateData.images = Array.isArray(body.images) ? body.images : (existing as { images: unknown }).images
   if (typeof body.isActive === "boolean") updateData.isActive = body.isActive
   if (typeof body.condition === "string") {
     const c = body.condition.toUpperCase()
@@ -128,6 +127,9 @@ export async function PUT(
 
   try {
     if (Array.isArray(body.variants) && body.variants.length > 0) {
+      const firstVarImages = (Array.isArray(body.variants[0]?.images) ? body.variants[0].images : []) as string[]
+      updateData.images = firstVarImages.length > 0 ? [firstVarImages[0]] : []
+
       await prisma.productVariant.deleteMany({ where: { productId: id } })
       type V = (typeof body.variants)[number] & { weight?: number; height?: number; width?: number; depth?: number }
       for (const v of body.variants as V[]) {

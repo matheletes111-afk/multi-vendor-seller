@@ -75,6 +75,8 @@ export function CheckoutClient() {
     { sellerId: string; sellerName: string; totalWeight: number; sellerDeliveryFee: number }[]
   >([])
   const [deliveryCharge, setDeliveryCharge] = useState<number>(0)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [shippingBreakup, setShippingBreakup] = useState<any>(null)
 
   const fetchAddresses = useCallback(async () => {
     setAddressesLoading(true)
@@ -107,9 +109,12 @@ export function CheckoutClient() {
     fetchAddresses()
   }, [fetchAddresses])
 
-  // Fetch store names & delivery calculation for items in cart
+  // Fetch store names & delivery calculation for items in cart, re-fetch when address changes
   useEffect(() => {
-    fetch("/api/customer/checkout/summary", { credentials: "include" })
+    const url = selectedAddressId
+      ? `/api/customer/checkout/summary?addressId=${encodeURIComponent(selectedAddressId)}`
+      : "/api/customer/checkout/summary"
+    fetch(url, { credentials: "include" })
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
         if (data && data.itemStoreNames) {
@@ -121,9 +126,12 @@ export function CheckoutClient() {
         if (data && Array.isArray(data.sellerGroups)) {
           setSellerGroups(data.sellerGroups)
         }
+        if (data && data.shippingBreakup) {
+          setShippingBreakup(data.shippingBreakup)
+        }
       })
       .catch(() => {})
-  }, [items])
+  }, [items, selectedAddressId])
 
   const handlePlaceOrder = async () => {
     if (!selectedAddressId) {
@@ -783,25 +791,46 @@ export function CheckoutClient() {
                   </div>
 
                   {sellerGroups.length > 1 ? (
-                    <div className="rounded-xl border border-amber-200/80 bg-amber-50/60 p-3 text-xs space-y-2 my-2">
+                    <div className="rounded-xl border border-amber-200/80 bg-amber-50/60 p-3 text-xs space-y-2.5 my-2">
                       <p className="font-bold text-amber-900 flex items-center gap-1.5 text-xs">
                         <Truck className="h-3.5 w-3.5 text-amber-700" /> Multi-Vendor Delivery ({sellerGroups.length} Sellers)
                       </p>
-                      {sellerGroups.map((group, idx) => (
-                        <div key={group.sellerId || idx} className="flex justify-between items-center text-amber-950 text-[11px] bg-white/70 p-2 rounded-lg border border-amber-200/40">
-                          <span>{group.sellerName}</span>
-                          <span className="font-bold">
-                            {group.sellerDeliveryFee <= 0 ? (
-                              <span className="text-emerald-700">FREE</span>
-                            ) : (
-                              formatCurrency(group.sellerDeliveryFee)
+                      {sellerGroups.map((group, idx) => {
+                        const sb = (group as any).shippingBreakup
+                        return (
+                          <div key={group.sellerId || idx} className="bg-white/80 p-2.5 rounded-lg border border-amber-200/50 space-y-1">
+                            <div className="flex justify-between items-center text-amber-950 font-bold text-xs">
+                              <span>🏪 {group.sellerName}</span>
+                              <span className="font-extrabold text-slate-900">
+                                {group.sellerDeliveryFee <= 0 ? (
+                                  <span className="text-emerald-700">FREE</span>
+                                ) : (
+                                  formatCurrency(group.sellerDeliveryFee)
+                                )}
+                              </span>
+                            </div>
+                            {sb && (sb.weightShippingFee > 0 || sb.dimensionShippingFee > 0) && (
+                              <div className="text-[10px] text-slate-500 pl-4 space-y-0.5 border-l-2 border-amber-300/60 mt-1">
+                                {sb.weightShippingFee > 0 && (
+                                  <div className="flex justify-between">
+                                    <span>Weight charge</span>
+                                    <span className="font-medium text-slate-700">{formatCurrency(sb.weightShippingFee)}</span>
+                                  </div>
+                                )}
+                                {sb.dimensionShippingFee > 0 && (
+                                  <div className="flex justify-between">
+                                    <span>Dimension charge</span>
+                                    <span className="font-medium text-slate-700">{formatCurrency(sb.dimensionShippingFee)}</span>
+                                  </div>
+                                )}
+                              </div>
                             )}
-                          </span>
-                        </div>
-                      ))}
-                      <div className="flex justify-between border-t border-amber-200/80 pt-1.5 text-amber-950 font-extrabold">
-                        <span>Total Shipping</span>
-                        <span>{deliveryCharge <= 0 ? "FREE" : formatCurrency(deliveryCharge)}</span>
+                          </div>
+                        )
+                      })}
+                      <div className="flex justify-between border-t border-amber-200/80 pt-1.5 text-amber-950 font-extrabold text-xs">
+                        <span>Total Shipping (incl. Region)</span>
+                        <span className="text-amber-700">{deliveryCharge <= 0 ? "FREE" : formatCurrency(deliveryCharge)}</span>
                       </div>
                     </div>
                   ) : (
@@ -814,6 +843,31 @@ export function CheckoutClient() {
                           formatCurrency(deliveryCharge)
                         )}
                       </span>
+                    </div>
+                  )}
+
+                  {/* Shipping Breakup — shown when there are non-zero component fees */}
+                  {shippingBreakup && deliveryCharge > 0 && (
+                    <div className="rounded-lg border border-slate-200/80 bg-slate-50/70 p-2.5 text-[11px] text-slate-500 space-y-1">
+                      <p className="font-bold text-slate-600 text-[11px] uppercase tracking-wide mb-1">Delivery Breakdown</p>
+                      {shippingBreakup.weightShippingFee > 0 && (
+                        <div className="flex justify-between">
+                          <span>Weight-based</span>
+                          <span className="font-semibold text-slate-700">{formatCurrency(shippingBreakup.weightShippingFee)}</span>
+                        </div>
+                      )}
+                      {shippingBreakup.dimensionShippingFee > 0 && (
+                        <div className="flex justify-between">
+                          <span>Dimension-based</span>
+                          <span className="font-semibold text-slate-700">{formatCurrency(shippingBreakup.dimensionShippingFee)}</span>
+                        </div>
+                      )}
+                      {shippingBreakup.regionShippingFee > 0 && (
+                        <div className="flex justify-between">
+                          <span>Region surcharge</span>
+                          <span className="font-semibold text-slate-700">{formatCurrency(shippingBreakup.regionShippingFee)}</span>
+                        </div>
+                      )}
                     </div>
                   )}
 

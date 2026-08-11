@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
 
       const allRatings = r.foods.flatMap((f) => f.reviews.map((rev) => rev.rating))
       const totalRating = allRatings.reduce((acc, curr) => acc + curr, 0)
-      const rating = allRatings.length > 0 ? parseFloat((totalRating / allRatings.length).toFixed(1)) : 4.8
+      const rating = allRatings.length > 0 ? parseFloat((totalRating / allRatings.length).toFixed(1)) : 0
 
       const deliveryTimeRange = `${20 + index * 5}-${30 + index * 5} mins`
       const offerTags = ["Free Delivery", "20% OFF", "Top Rated", "Express Delivery"]

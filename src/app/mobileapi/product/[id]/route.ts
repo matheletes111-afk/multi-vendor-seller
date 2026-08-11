@@ -19,7 +19,11 @@ export async function GET(
       where: { 
         id, 
         isActive: true,
-        isDeleted: false
+        isDeleted: false,
+        seller: {
+          isApproved: true,
+          isSuspended: false,
+        },
       },
       include: {
         category: true,

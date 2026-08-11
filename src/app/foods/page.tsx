@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { Search, Star, MapPin, Utensils, Sparkles, ChevronLeft, ChevronRight, Leaf, Drumstick, ChevronDown } from "lucide-react"
 import { Input } from "@/ui/input"
 import { Button } from "@/ui/button"
@@ -41,6 +41,7 @@ type Banner = {
   bannerHeading: string
   bannerDescription: string | null
   bannerImage: string
+  mobileBanner?: string | null
 }
 
 // Fallback food images per category
@@ -76,12 +77,12 @@ function getCuisineEmoji(cName: string): string {
 }
 
 // Horizontal food scroll strip inside each restaurant card
-function FoodScrollStrip({ 
-  foods, 
+function FoodScrollStrip({
+  foods,
   restaurantId,
-  onFoodClick 
-}: { 
-  foods: PreviewFood[]; 
+  onFoodClick
+}: {
+  foods: PreviewFood[];
   restaurantId: string;
   onFoodClick: (foodItemId: string) => void
 }) {
@@ -141,14 +142,14 @@ function FoodScrollStrip({
 }
 
 // Zomato-style Restaurant Card
-function RestaurantCard({ 
-  resto, 
+function RestaurantCard({
+  resto,
   idx,
-  onFoodClick 
-}: { 
-  resto: Restaurant; 
+  onFoodClick
+}: {
+  resto: Restaurant;
   idx: number;
-  onFoodClick: (foodItemId: string) => void 
+  onFoodClick: (foodItemId: string) => void
 }) {
   const router = useRouter()
   const cover = resto.banner || resto.mainPhoto
@@ -230,11 +231,21 @@ function RestaurantCard({
 }
 
 export default function RestaurantsDirectoryPage() {
+  const searchParams = useSearchParams()
+  const initialQ = searchParams?.get("q") || ""
+  const initialCuisine = searchParams?.get("cuisine") || ""
+
   const [restaurants, setRestaurants] = useState<Restaurant[]>([])
   const [cuisines, setCuisines] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
-  const [searchQuery, setSearchQuery] = useState("")
-  const [selectedCuisine, setSelectedCuisine] = useState("")
+  const [searchQuery, setSearchQuery] = useState(initialQ)
+  const [selectedCuisine, setSelectedCuisine] = useState(initialCuisine)
+
+  useEffect(() => {
+    setSearchQuery(initialQ)
+    setSelectedCuisine(initialCuisine)
+  }, [initialQ, initialCuisine])
+
   const [selectedRating, setSelectedRating] = useState<number | null>(null)
   const [pureVeg, setPureVeg] = useState(false)
   const [nonVeg, setNonVeg] = useState(false)
@@ -317,21 +328,42 @@ export default function RestaurantsDirectoryPage() {
 
         {/* ── Dynamic Banners Carousel or Fallback Hero ── */}
         {banners.length > 0 ? (
-          <div className="relative rounded-[2.5rem] h-[300px] sm:h-[400px] overflow-hidden shadow-lg border border-[#F5EFE6] group">
+          <div className="relative rounded-[2.5rem] aspect-[16/5.2] sm:aspect-auto sm:h-[400px] overflow-hidden shadow-lg border border-[#F5EFE6] group">
             <div
               className="absolute inset-0 flex transition-transform duration-700 ease-in-out"
               style={{ transform: `translateX(-${currentBannerIdx * 100}%)` }}
             >
               {banners.map((banner) => (
-                <div key={banner.id} className="min-w-full h-full relative flex items-center px-8 sm:px-16">
+                <div key={banner.id} className="min-w-full h-full relative flex items-center px-4 sm:px-12">
                   <div className="absolute inset-0 z-0">
-                    <img src={banner.bannerImage} alt={banner.bannerHeading} className="w-full h-full object-cover" />
-                    <div className="absolute inset-0 bg-black/30" />
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={banner.mobileBanner || (banner as any).mobile_banner || banner.bannerImage} alt={banner.bannerHeading} className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/30 pointer-events-none" />
                   </div>
-                  <div className="relative z-20 max-w-md space-y-4 bg-[#FAF8F5]/90 backdrop-blur-md p-6 sm:p-8 rounded-[2rem] border border-[#F5EFE6]/50 shadow-lg">
-                    <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-amber-950 leading-none">{banner.bannerHeading}</h1>
-                    <p className="text-amber-800/80 font-medium text-xs sm:text-sm leading-relaxed">{banner.bannerDescription}</p>
+
+                  {/* Top-Left Title Badge */}
+                  <div className="absolute top-3 left-3 sm:top-5 sm:left-6 z-20 flex items-center gap-2 max-w-[calc(100%-130px)]">
+                    <div className="inline-flex items-center gap-2 rounded-full border border-orange-400/40 bg-slate-950/80 px-3 py-1 sm:px-4 sm:py-2 text-xs sm:text-sm font-extrabold text-orange-300 backdrop-blur-md shadow-md min-w-0">
+                      <span className="shrink-0 text-sm sm:text-base">🔥</span>
+                      <span className="truncate max-w-[180px] sm:max-w-[360px]">{banner.bannerHeading}</span>
+                    </div>
                   </div>
+
+                  {/* Top-Right Offer Badge */}
+                  <div className="absolute top-3 right-3 sm:top-5 sm:right-6 z-20">
+                    <div className="inline-flex items-center rounded-full bg-gradient-to-r from-orange-500 to-amber-500 px-2.5 py-1 sm:px-4 sm:py-2 text-[10px] sm:text-xs font-black text-slate-950 shadow-md uppercase tracking-wider border border-orange-300/40">
+                      SPECIAL DEALS
+                    </div>
+                  </div>
+
+                  {/* Bottom Description Badge */}
+                  {banner.bannerDescription && (
+                    <div className="absolute bottom-3 left-3 right-3 sm:bottom-5 sm:left-6 sm:right-auto z-20 sm:max-w-xl">
+                      <div className="inline-block rounded-xl sm:rounded-2xl border border-white/20 bg-slate-950/80 px-3 py-1.5 sm:px-4 sm:py-2 text-[11px] sm:text-xs font-medium text-slate-100 backdrop-blur-md shadow-lg">
+                        <p className="line-clamp-2 leading-relaxed">{banner.bannerDescription}</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -404,11 +436,10 @@ export default function RestaurantsDirectoryPage() {
             {/* Pure Veg Pill */}
             <button
               onClick={() => setPureVeg(!pureVeg)}
-              className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all border ${
-                pureVeg
+              className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all border ${pureVeg
                   ? "bg-emerald-50 border-emerald-500 text-emerald-800 shadow-sm"
                   : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
-              }`}
+                }`}
             >
               <Leaf className={`h-3.5 w-3.5 ${pureVeg ? "fill-emerald-600 text-emerald-600" : "text-slate-400"}`} />
               <span>Pure Veg</span>
@@ -417,11 +448,10 @@ export default function RestaurantsDirectoryPage() {
             {/* Non-Veg Pill */}
             <button
               onClick={() => setNonVeg(!nonVeg)}
-              className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all border ${
-                nonVeg
+              className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all border ${nonVeg
                   ? "bg-rose-50 border-rose-500 text-rose-800 shadow-sm"
                   : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
-              }`}
+                }`}
             >
               <Drumstick className={`h-3.5 w-3.5 ${nonVeg ? "fill-rose-600 text-rose-600" : "text-slate-400"}`} />
               <span>Non-Veg</span>
@@ -430,11 +460,10 @@ export default function RestaurantsDirectoryPage() {
             {/* Rating Pill */}
             <button
               onClick={() => setSelectedRating(selectedRating === 4 ? null : 4)}
-              className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all border ${
-                selectedRating === 4
+              className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all border ${selectedRating === 4
                   ? "bg-amber-500 border-amber-500 text-amber-950 shadow-sm"
                   : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
-              }`}
+                }`}
             >
               <Star className={`h-3.5 w-3.5 ${selectedRating === 4 ? "fill-amber-950 text-amber-950" : "text-slate-400"}`} />
               <span>Ratings 4.0+</span>
@@ -446,22 +475,20 @@ export default function RestaurantsDirectoryPage() {
 
             <button
               onClick={() => setSortBy(sortBy === "rating" ? "default" : "rating")}
-              className={`px-3 py-2 rounded-xl text-xs font-bold transition-all border ${
-                sortBy === "rating"
+              className={`px-3 py-2 rounded-xl text-xs font-bold transition-all border ${sortBy === "rating"
                   ? "bg-slate-900 border-slate-900 text-white shadow-sm"
                   : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
-              }`}
+                }`}
             >
               Rating (High to Low)
             </button>
 
             <button
               onClick={() => setSortBy(sortBy === "items" ? "default" : "items")}
-              className={`px-3 py-2 rounded-xl text-xs font-bold transition-all border ${
-                sortBy === "items"
+              className={`px-3 py-2 rounded-xl text-xs font-bold transition-all border ${sortBy === "items"
                   ? "bg-slate-900 border-slate-900 text-white shadow-sm"
                   : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
-              }`}
+                }`}
             >
               Menu Size
             </button>
@@ -515,7 +542,7 @@ export default function RestaurantsDirectoryPage() {
                   }}
                 />
               ))}
-              
+
               {/* Pagination Loader */}
               {visibleCount < restaurants.length && (
                 <div className="flex justify-center pt-6">

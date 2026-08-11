@@ -476,6 +476,30 @@ export function OrderDetailInline({
                 {order.paymentMethod ?? "—"} <span className="text-gray-500">({order.paymentStatus.toLowerCase()})</span>
               </span>
             </div>
+            {/* Delivery Price Breakup */}
+            {((order.shipping ?? 0) > 0 || (order.weightShippingFee ?? 0) > 0 || (order.dimensionShippingFee ?? 0) > 0 || (order.regionShippingFee ?? 0) > 0) && (
+              <div className="mt-2 pt-2 border-t border-gray-100 space-y-1 text-xs text-gray-600">
+                <span className="font-semibold text-gray-700 block text-[11px] uppercase tracking-wider">Delivery Breakdown</span>
+                {(order.weightShippingFee ?? 0) > 0 && (
+                  <div className="flex justify-between">
+                    <span>Weight Charge</span>
+                    <span className="font-medium text-gray-800">{formatCurrency(order.weightShippingFee!)}</span>
+                  </div>
+                )}
+                {(order.dimensionShippingFee ?? 0) > 0 && (
+                  <div className="flex justify-between">
+                    <span>Dimension Charge</span>
+                    <span className="font-medium text-gray-800">{formatCurrency(order.dimensionShippingFee!)}</span>
+                  </div>
+                )}
+                {(order.regionShippingFee ?? 0) > 0 && (
+                  <div className="flex justify-between">
+                    <span>Region Surcharge</span>
+                    <span className="font-medium text-gray-800">{formatCurrency(order.regionShippingFee!)}</span>
+                  </div>
+                )}
+              </div>
+            )}
             {canCancelOrder && (
               <div className="pt-1">
                 <Button

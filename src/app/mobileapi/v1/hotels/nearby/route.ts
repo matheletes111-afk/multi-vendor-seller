@@ -12,6 +12,10 @@ export async function GET(request: NextRequest) {
     const where: any = {
       isActive: true,
       isDeleted: false,
+      hotelSeller: {
+        isApproved: true,
+        isSuspended: false,
+      },
     }
 
     if (cityParam && cityParam.trim().length > 0) {

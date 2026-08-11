@@ -11,6 +11,10 @@ export async function GET(request: NextRequest) {
     const where = {
       isActive: true,
       isDeleted: false,
+      restaurantSeller: {
+        isApproved: true,
+        isSuspended: false,
+      },
     }
 
     const [totalItems, foodItems] = await Promise.all([

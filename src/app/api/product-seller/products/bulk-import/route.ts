@@ -4,6 +4,8 @@ import { prisma } from "@/lib/prisma"
 import { isProductSeller } from "@/lib/rbac"
 import { checkProductLimit } from "@/lib/subscriptions"
 import { parseBulkFile, type BulkDataRow } from "@/lib/product-seller-bulk-import-parse"
+import { getSmartFallbackDimensions } from "@/lib/ai-dimensions"
+import { startBulkAIDimensionJob } from "@/lib/bulk-ai-dimension-queue"
 import {
   parseVariantInput,
   sellerHasSelectedCategory,
@@ -19,6 +21,12 @@ const MAX_FILE_BYTES = 8 * 1024 * 1024
 function parseImageList(s: string): string[] {
   if (!s?.trim()) return []
   return s.split(/[\n|]+/).map((x) => x.trim()).filter(Boolean)
+}
+
+function parseCleanNumber(val: string | number | undefined | null): number {
+  if (val == null) return NaN
+  const s = String(val).replace(/,/g, "").replace(/[^0-9.-]/g, "").trim()
+  return s ? Number(s) : NaN
 }
 
 function parseBoolTri(s: string): boolean | undefined {
@@ -214,7 +222,6 @@ export async function POST(request: NextRequest) {
 
     let productName = ""
     let description: string | null = null
-    let productImages: string[] = []
     const categoryStrings = new Set<string>()
     let nameConflict = false
 
@@ -233,14 +240,13 @@ export async function POST(request: NextRequest) {
       if (catText) categoryStrings.add(catText)
 
       const desc = (c.product_description ?? "").trim()
-      if (desc && !description) description = desc
-
-      const pImg = parseImageList(c.product_images ?? "")
-      if (pImg.length && productImages.length === 0) productImages = pImg
+      if (desc && !description && !desc.startsWith("http://") && !desc.startsWith("https://")) {
+        description = desc
+      }
     }
     
     const firstValidCharge = sorted.find(r => (r.cells.delivery_charge_per_km ?? "").trim())?.cells.delivery_charge_per_km?.trim()
-    const deliveryChargePerKm = firstValidCharge ? parseFloat(firstValidCharge) || 0 : 0
+    const deliveryChargePerKm = firstValidCharge ? parseCleanNumber(firstValidCharge) || 0 : 0
 
     if (nameConflict) continue
 
@@ -323,18 +329,18 @@ export async function POST(request: NextRequest) {
         continue
       }
 
-      const price = Number(c.price)
-      const stock = Number(c.stock)
-      const discount = c.discount !== undefined && String(c.discount).trim() !== "" ? Number(c.discount) : 0
+      const price = parseCleanNumber(c.price)
+      const stock = parseCleanNumber(c.stock)
+      const discount = c.discount !== undefined && String(c.discount).trim() !== "" ? parseCleanNumber(c.discount) : 0
 
       const gstTri = parseBoolTri(c.gst_applicable ?? "")
       const hasGst = gstTri === undefined ? true : gstTri
 
       const returnType =
         (c.return_policy ?? "").trim().toUpperCase() === "RETURNABLE" ? "RETURNABLE" : "NON_RETURNABLE"
-      const returnDaysRaw = String(c.return_limit_days ?? "").trim() ? Number(c.return_limit_days) : undefined
+      const returnDaysRaw = parseCleanNumber(c.return_limit_days)
       const returnDays =
-        returnType === "RETURNABLE" && typeof returnDaysRaw === "number" && returnDaysRaw > 0
+        returnType === "RETURNABLE" && !isNaN(returnDaysRaw) && returnDaysRaw > 0
           ? Math.floor(returnDaysRaw)
           : undefined
 
@@ -346,10 +352,23 @@ export async function POST(request: NextRequest) {
         continue
       }
 
-      const weight = c.weight !== undefined && String(c.weight).trim() !== "" ? Number(c.weight) : undefined
-      const height = c.height !== undefined && String(c.height).trim() !== "" ? Number(c.height) : 0
-      const width = c.width !== undefined && String(c.width).trim() !== "" ? Number(c.width) : 0
-      const depth = c.depth !== undefined && String(c.depth).trim() !== "" ? Number(c.depth) : 0
+      const smartFallback = getSmartFallbackDimensions(productName)
+      const weightRaw = parseCleanNumber(c.weight)
+      const weight = !isNaN(weightRaw) && weightRaw > 0 ? weightRaw : smartFallback.weight
+      const heightRaw = parseCleanNumber(c.height)
+      const height = !isNaN(heightRaw) && heightRaw > 0 ? heightRaw : smartFallback.height
+      const widthRaw = parseCleanNumber(c.width)
+      const width = !isNaN(widthRaw) && widthRaw > 0 ? widthRaw : smartFallback.width
+      const depthRaw = parseCleanNumber(c.depth)
+      const depth = !isNaN(depthRaw) && depthRaw > 0 ? depthRaw : smartFallback.depth
+
+      let images = parseImageList(c.product_variant_images ?? "")
+      if (!images.length) {
+        const pDesc = (c.product_description ?? "").trim()
+        if (pDesc.startsWith("http://") || pDesc.startsWith("https://")) {
+          images = parseImageList(pDesc)
+        }
+      }
 
       const vInput: VariantInput = {
         name: vName,
@@ -362,7 +381,7 @@ export async function POST(request: NextRequest) {
         width,
         depth,
         hasGst,
-        images: parseImageList(c.variant_images ?? ""),
+        images,
         attributes: Object.keys(attrParsed.attrs).length ? attrParsed.attrs : undefined,
         specification: (c.specifications ?? "").trim() || undefined,
         details: (c.additional_details ?? "").trim() || undefined,
@@ -393,11 +412,14 @@ export async function POST(request: NextRequest) {
       continue
     }
 
+    const firstVarImages = (Array.isArray(variants[0]?.images) ? variants[0].images : []) as string[]
+    const masterImages = firstVarImages.length ? [firstVarImages[0]] : []
+
     prepared.push({
       categoryId: groupCategoryId,
       name: productName,
       description,
-      images: productImages,
+      images: masterImages,
       subcategoryId,
       condition,
       deliveryChargePerKm,
@@ -471,18 +493,48 @@ export async function POST(request: NextRequest) {
       )
     )
 
+    const createdWithVariants = await prisma.product.findMany({
+      where: { id: { in: created.map((p) => p.id) } },
+      select: {
+        id: true,
+        name: true,
+        variants: {
+          select: { id: true, name: true, images: true },
+        },
+      },
+    })
+
+    const itemsToEnrich = createdWithVariants.flatMap((p) =>
+      p.variants.map((v) => {
+        const imgs = Array.isArray(v.images) ? (v.images as string[]) : []
+        return {
+          variantId: v.id,
+          productName: p.name,
+          variantName: v.name,
+          imageUrl: imgs[0] || undefined,
+        }
+      })
+    )
+
+    const jobId = startBulkAIDimensionJob(seller.id, itemsToEnrich)
     const variantCount = prepared.reduce((acc, p) => acc + p.variants.length, 0)
+
     return NextResponse.json({
       ok: true,
       createdProducts: created.length,
       createdVariants: variantCount,
+      jobId,
     })
   } catch (e: unknown) {
-    const err = e as { code?: string }
+    const err = e as { code?: string; message?: string }
     if (err.code === "P2002") {
-      return NextResponse.json({ error: "A product slug conflict occurred. Retry the import." }, { status: 400 })
+      return NextResponse.json(
+        { error: "A product slug conflict occurred. Retry the import.", errors: ["A product slug conflict occurred. Please retry the import."] },
+        { status: 400 }
+      )
     }
     console.error("bulk-import", e)
-    return NextResponse.json({ error: "Failed to import products" }, { status: 500 })
+    const errMsg = err?.message || String(e || "An unexpected error occurred during import.")
+    return NextResponse.json({ error: "Failed to import products", errors: [errMsg] }, { status: 500 })
   }
 }

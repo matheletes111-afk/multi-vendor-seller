@@ -12,17 +12,17 @@ import {
   DialogTrigger,
 } from "@/ui/dialog"
 import { Label } from "@/ui/label"
-import { Upload } from "lucide-react"
+import { Upload, AlertTriangle, CheckCircle2 } from "lucide-react"
 
 type Subcategory = { id: string; name: string; slug: string }
 type CategoryWithSub = { id: string; name: string; slug: string; subcategories: Subcategory[] }
 
-export function BulkUploadDialog({ onImported }: { onImported?: () => void }) {
+export function BulkUploadDialog({ onImported }: { onImported?: (jobId?: string) => void }) {
   const [open, setOpen] = useState(false)
   const [categories, setCategories] = useState<CategoryWithSub[]>([])
   const [file, setFile] = useState<File | null>(null)
   const [loadingCats, setLoadingCats] = useState(false)
-  const [downloading, setDownloading] = useState<"csv" | "xlsx" | null>(null)
+  const [downloadingType, setDownloadingType] = useState<string | null>(null)
   const [importing, setImporting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<string | null>(null)
@@ -48,8 +48,9 @@ export function BulkUploadDialog({ onImported }: { onImported?: () => void }) {
   }, [open, loadCategories])
 
   async function handleDownloadTemplate(format: "csv" | "xlsx", dummy: boolean = true) {
+    const key = dummy ? "example" : "fresh"
     setError(null)
-    setDownloading(format)
+    setDownloadingType(key)
     try {
       const url = `/api/product-seller/products/bulk-template?format=${format}&dummy=${dummy}`
       const res = await fetch(url, { credentials: "include" })
@@ -68,7 +69,7 @@ export function BulkUploadDialog({ onImported }: { onImported?: () => void }) {
       a.click()
       URL.revokeObjectURL(dUrl)
     } finally {
-      setDownloading(null)
+      setDownloadingType(null)
     }
   }
 
@@ -99,7 +100,7 @@ export function BulkUploadDialog({ onImported }: { onImported?: () => void }) {
       }
       setResult(`Created ${data.createdProducts} product(s) with ${data.createdVariants} variant(s).`)
       setFile(null)
-      onImported?.()
+      onImported?.(data.jobId)
     } finally {
       setImporting(false)
     }
@@ -167,10 +168,10 @@ export function BulkUploadDialog({ onImported }: { onImported?: () => void }) {
                   variant="secondary"
                   size="sm"
                   className="w-full font-semibold text-xs rounded-full bg-secondary hover:bg-secondary/80"
-                  disabled={downloading !== null}
+                  disabled={downloadingType !== null}
                   onClick={() => handleDownloadTemplate("xlsx", true)}
                 >
-                  {downloading === "xlsx" ? "Downloading..." : "Download Example Sheet"}
+                  {downloadingType === "example" ? "Downloading..." : "Download Example Sheet"}
                 </Button>
               </div>
 
@@ -184,10 +185,10 @@ export function BulkUploadDialog({ onImported }: { onImported?: () => void }) {
                   variant="outline"
                   size="sm"
                   className="w-full font-semibold text-xs rounded-full"
-                  disabled={downloading !== null}
+                  disabled={downloadingType !== null}
                   onClick={() => handleDownloadTemplate("xlsx", false)}
                 >
-                  {downloading === "xlsx" ? "Downloading..." : "Download Fresh Sheet"}
+                  {downloadingType === "fresh" ? "Downloading..." : "Download Fresh Sheet"}
                 </Button>
               </div>
             </div>
@@ -216,16 +217,38 @@ export function BulkUploadDialog({ onImported }: { onImported?: () => void }) {
             </div>
           </section>
 
-          {error && <p className="text-sm font-medium text-destructive animate-in slide-in-from-top-1">{error}</p>}
-          {result && <p className="text-sm font-medium text-emerald-600 dark:text-emerald-500 animate-in slide-in-from-top-1">{result}</p>}
-          {importErrors.length > 0 && (
-            <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm max-h-40 overflow-y-auto">
-              <p className="font-semibold text-destructive mb-2">Import Errors:</p>
-              <ul className="list-disc pl-4 space-y-1 text-muted-foreground font-medium">
-                {importErrors.map((e, i) => (
-                  <li key={i}>{e}</li>
-                ))}
-              </ul>
+          {result && (
+            <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-xs animate-in slide-in-from-top-1 flex items-start gap-3">
+              <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-semibold text-emerald-700 dark:text-emerald-300 text-sm">Import Successful!</p>
+                <p className="text-emerald-600 dark:text-emerald-400 font-medium mt-0.5">{result}</p>
+              </div>
+            </div>
+          )}
+
+          {(error || importErrors.length > 0) && (
+            <div className="rounded-xl border border-destructive/40 bg-destructive/10 p-4 text-xs space-y-3 animate-in slide-in-from-top-1">
+              <div className="flex items-center gap-2 text-destructive font-semibold text-sm">
+                <AlertTriangle className="h-5 w-5 shrink-0 text-destructive" />
+                <span>{error || "Import Validation Failed"}</span>
+                {importErrors.length > 0 && (
+                  <span className="ml-auto rounded-full bg-destructive/20 px-2.5 py-0.5 text-[11px] font-bold text-destructive">
+                    {importErrors.length} {importErrors.length === 1 ? "Issue" : "Issues"}
+                  </span>
+                )}
+              </div>
+
+              {importErrors.length > 0 && (
+                <div className="max-h-48 overflow-y-auto rounded-lg border border-destructive/20 bg-background/80 p-3 space-y-1 text-[11px]">
+                  {importErrors.map((e, i) => (
+                    <div key={i} className="flex items-start gap-2 text-destructive/90 font-medium leading-relaxed">
+                      <span className="font-bold shrink-0 text-destructive">•</span>
+                      <span>{e}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>

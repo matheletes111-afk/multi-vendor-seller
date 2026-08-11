@@ -49,9 +49,15 @@ export function BannersClient() {
   const searchParams = useSearchParams();
   const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10) || 1);
   const perPage = Math.min(50, Math.max(1, parseInt(searchParams.get("perPage") ?? "10", 10) || 10));
+
+  const [targetTypeFilter, setTargetTypeFilter] = useState<string>(
+    searchParams.get("targetType") || "all"
+  );
+
   const params = {
     error: searchParams.get("error") ?? undefined,
     success: searchParams.get("success") ?? undefined,
+    targetType: targetTypeFilter !== "all" ? targetTypeFilter : undefined,
   };
 
   const [data, setData] = useState<{
@@ -69,7 +75,8 @@ export function BannersClient() {
   useEffect(() => setMounted(true), []);
 
   const refetchBanners = () => {
-    return fetch(`/api/admin/banners?page=${page}&perPage=${perPage}`)
+    const filterQuery = targetTypeFilter && targetTypeFilter !== "all" ? `&targetType=${targetTypeFilter}` : "";
+    return fetch(`/api/admin/banners?page=${page}&perPage=${perPage}${filterQuery}`)
       .then((res) => {
         if (!res.ok) throw new Error("Failed to fetch banners");
         return res.json();
@@ -81,7 +88,8 @@ export function BannersClient() {
     let cancelled = false;
     setLoading(true);
     setFetchError(null);
-    fetch(`/api/admin/banners?page=${page}&perPage=${perPage}`)
+    const filterQuery = targetTypeFilter && targetTypeFilter !== "all" ? `&targetType=${targetTypeFilter}` : "";
+    fetch(`/api/admin/banners?page=${page}&perPage=${perPage}${filterQuery}`)
       .then((res) => {
         if (!res.ok) throw new Error("Failed to fetch banners");
         return res.json();
@@ -98,7 +106,7 @@ export function BannersClient() {
     return () => {
       cancelled = true;
     };
-  }, [page, perPage]);
+  }, [page, perPage, targetTypeFilter]);
 
   const handleImageError = (id: string) => {
     setImageErrors((prev) => new Set(prev).add(id));
@@ -206,16 +214,46 @@ export function BannersClient() {
 
       <Card className="border-none shadow-2xl overflow-hidden rounded-3xl bg-gradient-to-br from-background via-background to-muted/20">
         <CardHeader className="pb-4 border-b border-muted/30">
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="text-xl font-medium">Promotion Inventory</CardTitle>
-              <CardDescription className="text-sm font-medium">Monitor active banner slots and performance targeting</CardDescription>
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-xl font-medium">Promotion Inventory</CardTitle>
+                <CardDescription className="text-sm font-medium">Monitor active banner slots and performance targeting across all 4 panels</CardDescription>
+              </div>
+              {data && (
+                <Badge variant="outline" className="px-4 py-1 font-medium rounded-full shadow-sm bg-background border-primary/20 text-primary">
+                  {data.totalCount} Banners
+                </Badge>
+              )}
             </div>
-            {data && (
-              <Badge variant="outline" className="px-4 py-1 font-medium rounded-full shadow-sm bg-background border-primary/20 text-primary">
-                {data.totalCount} Banners
-              </Badge>
-            )}
+
+            {/* 4-Panel Filter Bar */}
+            <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-muted/20">
+              <span className="text-xs font-semibold text-muted-foreground mr-1">Filter Panel:</span>
+              {[
+                { id: "all", label: "All Panels" },
+                { id: "product", label: "Marketplace" },
+                { id: "service", label: "Services" },
+                { id: "hotel", label: "Hotels" },
+                { id: "restaurant", label: "Restaurants" },
+              ].map((tab) => (
+                <Button
+                  key={tab.id}
+                  type="button"
+                  variant={targetTypeFilter === tab.id ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setTargetTypeFilter(tab.id)}
+                  className={cn(
+                    "rounded-full text-xs font-bold transition-all h-7 px-3.5",
+                    targetTypeFilter === tab.id
+                      ? "shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  {tab.label}
+                </Button>
+              ))}
+            </div>
           </div>
         </CardHeader>
         <CardContent className="p-0">
@@ -275,34 +313,57 @@ export function BannersClient() {
                             </div>
                           </TableCell>
                           <TableCell>
-                            <div className="flex items-center gap-2">
-                              <div className={cn(
-                                "p-1.5 rounded-lg",
-                                banner.targetType === "service" ? "bg-indigo-500/10" :
-                                banner.targetType === "hotel" ? "bg-sky-500/10" :
-                                banner.targetType === "restaurant" ? "bg-rose-500/10" :
-                                "bg-emerald-500/10"
-                              )}>
-                                <Tag className={cn(
-                                  "h-3.5 w-3.5",
-                                  banner.targetType === "service" ? "text-indigo-600" :
-                                  banner.targetType === "hotel" ? "text-sky-600" :
-                                  banner.targetType === "restaurant" ? "text-rose-600" :
-                                  "text-emerald-600"
-                                )} />
-                              </div>
-                              <span className="text-xs font-semibold text-foreground/80 lowercase italic whitespace-nowrap">
-                                {banner.serviceCategory
-                                  ? banner.serviceCategory.name
-                                  : banner.category
-                                  ? banner.category.name
-                                  : banner.subcategory
-                                  ? banner.subcategory.name
-                                  : banner.targetType === "restaurant"
-                                  ? "foods & restaurants"
-                                  : banner.targetType || "global"}
-                              </span>
-                            </div>
+                            {(() => {
+                              const isService = banner.targetType === "service" || !!banner.serviceCategory;
+                              const isHotel = banner.targetType === "hotel";
+                              const isRestaurant = banner.targetType === "restaurant";
+                              const isProduct = banner.targetType === "product" || !!banner.category || !!banner.subcategory;
+
+                              let panelName = "Marketplace";
+                              let itemDetail = "";
+
+                              if (isService) {
+                                panelName = "Service Panel";
+                                itemDetail = banner.serviceCategory ? banner.serviceCategory.name : "All Services";
+                              } else if (isHotel) {
+                                panelName = "Hotel Panel";
+                                itemDetail = "Hotels & Resorts";
+                              } else if (isRestaurant) {
+                                panelName = "Restaurant Panel";
+                                itemDetail = "Foods & Dining";
+                              } else if (isProduct) {
+                                panelName = "Marketplace";
+                                if (banner.subcategory) {
+                                  itemDetail = banner.subcategory.name;
+                                } else if (banner.category) {
+                                  itemDetail = banner.category.name;
+                                } else {
+                                  itemDetail = "All Categories";
+                                }
+                              } else {
+                                panelName = banner.targetType ? String(banner.targetType).toUpperCase() : "Global";
+                                itemDetail = "All Panels";
+                              }
+
+                              return (
+                                <div className="flex items-center gap-2">
+                                  <div className={cn(
+                                    "p-1.5 rounded-lg shrink-0",
+                                    isService ? "bg-amber-500/10 text-amber-600" :
+                                    isHotel ? "bg-sky-500/10 text-sky-600" :
+                                    isRestaurant ? "bg-rose-500/10 text-rose-600" :
+                                    "bg-emerald-500/10 text-emerald-600"
+                                  )}>
+                                    <Tag className="h-3.5 w-3.5" />
+                                  </div>
+                                  <div className="flex flex-col">
+                                    <span className="text-xs font-bold text-foreground whitespace-nowrap">
+                                      {panelName} <span className="font-semibold text-muted-foreground">({itemDetail})</span>
+                                    </span>
+                                  </div>
+                                </div>
+                              );
+                            })()}
                           </TableCell>
                           <TableCell>
                             <Badge className={cn(

@@ -12,6 +12,10 @@ export async function GET(request: NextRequest) {
     const where: any = {
       isActive: true,
       isDeleted: false,
+      seller: {
+        isApproved: true,
+        isSuspended: false,
+      },
     }
 
     if (categoryParam && categoryParam.trim().length > 0) {

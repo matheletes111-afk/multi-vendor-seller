@@ -123,7 +123,7 @@ export async function GET(request: NextRequest) {
 
     let services = rawServices.map((s) => ({
       ...s,
-      rating: ratingMap[s.id] || 4.8, // Fallback default rating for display if unreviewed
+      rating: ratingMap[s.id] || 0, // 0 if unreviewed
       reviewCount: s._count.reviews || 0,
       bookingsCount: s._count.orderItems || 0,
     }))

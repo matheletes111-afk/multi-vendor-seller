@@ -80,13 +80,7 @@ export function EditProductClient({ productId }: { productId: string }) {
   const [saving, setSaving] = useState(false)
   const [condition, setCondition] = useState<"NEW" | "USED">("NEW")
   const [error, setError] = useState<string | null>(null)
-  const [masterImageMode, setMasterImageMode] = useState<"link" | "upload">("upload")
-  const [masterImageUrl, setMasterImageUrl] = useState("")
-  const [masterImageFile, setMasterImageFile] = useState<File | null>(null)
-  const [masterImagePreviewUrl, setMasterImagePreviewUrl] = useState("")
-  const masterImagePreviewUrlRef = useRef("")
   const [uploading, setUploading] = useState(false)
-  const masterFileInputRef = useRef<HTMLInputElement>(null)
   const [variants, setVariants] = useState<VariantRow[]>([])
   const [variantUploadingFor, setVariantUploadingFor] = useState<number | null>(null)
   const variantFileInputRefs = useRef<(HTMLInputElement | null)[]>([])
@@ -103,11 +97,6 @@ export function EditProductClient({ productId }: { productId: string }) {
       setCategories(cats)
       if (p?.categoryId) setSelectedCategoryId(p.categoryId)
       if (p?.condition) setCondition(p.condition)
-      const imgs = normalizeImages(p?.images)
-      setMasterImageUrl(Array.isArray(imgs) && imgs.length > 0 ? imgs[0] : "")
-      setMasterImageFile(null)
-      setMasterImagePreviewUrl("")
-      masterImagePreviewUrlRef.current = ""
       const v = (p as Product)?.variants ?? []
       setVariants(
         v.length > 0
@@ -383,7 +372,6 @@ export function EditProductClient({ productId }: { productId: string }) {
 
   useEffect(() => {
     return () => {
-      if (masterImagePreviewUrlRef.current) URL.revokeObjectURL(masterImagePreviewUrlRef.current)
       variantPreviewUrlsRef.current.flat().forEach((u) => URL.revokeObjectURL(u))
     }
   }, [])
@@ -491,19 +479,10 @@ export function EditProductClient({ productId }: { productId: string }) {
     const subcategoryId = (formData.get("subcategoryId") as string) || null
     const description = (formData.get("description") as string) || undefined
     const isActive = (formData.get("isActive") as string) === "true"
-    let images = masterImageUrl.trim() ? [masterImageUrl.trim()] : []
 
     if (!name || !categoryId) {
       setError("Name and category are required")
       return
-    }
-    if (masterImageMode === "upload" && masterImageFile) {
-      try {
-        images = await uploadFiles([masterImageFile])
-      } catch {
-        setError("Master image upload failed. Please try again.")
-        return
-      }
     }
     const variantsPayload: {
       name: string
@@ -608,7 +587,6 @@ export function EditProductClient({ productId }: { productId: string }) {
         isActive,
         condition,
         deliveryChargePerKm: parseFloat(formData.get("deliveryChargePerKm") as string) || 0,
-        images,
         variants: variantsPayload,
       }),
     })
@@ -619,31 +597,6 @@ export function EditProductClient({ productId }: { productId: string }) {
     } else {
       setError(data.error || "Failed to update product")
     }
-  }
-
-  async function handleMasterFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
-    let file = e.target.files?.[0]
-    if (!file || !file.type.startsWith("image/")) {
-      e.target.value = ""
-      return
-    }
-    setUploading(true)
-    try {
-      const { compressImage } = await import("@/lib/image-compressor")
-      file = await compressImage(file)
-    } catch {
-      // Fallback
-    }
-    if (masterImagePreviewUrl) URL.revokeObjectURL(masterImagePreviewUrl)
-    setMasterImageFile(file)
-    const previewUrl = URL.createObjectURL(file)
-    masterImagePreviewUrlRef.current = previewUrl
-    setMasterImagePreviewUrl(previewUrl)
-    if (previewUrl) {
-      fetchAIDimensions(0, previewUrl)
-    }
-    setUploading(false)
-    e.target.value = ""
   }
 
   if (loading) return <PageLoader variant="detail" message="Loading product…" />
@@ -767,130 +720,6 @@ export function EditProductClient({ productId }: { productId: string }) {
                   placeholder="0.00" 
                 />
               </div>
-            </div>
-
-            <div className="rounded-xl border border-neutral-300 dark:border-neutral-700 bg-muted/20 p-4 space-y-3">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b pb-2.5">
-                <div>
-                  <Label className="text-sm font-bold flex items-center gap-1.5 text-foreground">
-                    <ImageIcon className="h-4 w-4 text-primary" /> Product Master Image (Listing Thumbnail)
-                  </Label>
-                  <p className="text-xs text-muted-foreground mt-0.5">Main fallback image shown on catalog, search, and browse pages.</p>
-                </div>
-
-                {/* Mode Selector Tabs */}
-                <div className="flex items-center gap-1 p-1 bg-background rounded-lg border shadow-sm shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => setMasterImageMode("upload")}
-                    className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold transition-all ${
-                      masterImageMode === "upload"
-                        ? "bg-primary text-primary-foreground shadow-sm"
-                        : "text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    <Upload className="h-3.5 w-3.5" />
-                    Upload File
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setMasterImageMode("link")}
-                    className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold transition-all ${
-                      masterImageMode === "link"
-                        ? "bg-primary text-primary-foreground shadow-sm"
-                        : "text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    <LinkIcon className="h-3.5 w-3.5" />
-                    Image URL (Link)
-                  </button>
-                </div>
-              </div>
-
-              {/* Mode Content */}
-              {masterImageMode === "upload" ? (
-                <div className="space-y-3">
-                  <input
-                    ref={masterFileInputRef}
-                    type="file"
-                    accept="image/jpeg,image/png,image/gif,image/webp"
-                    className="hidden"
-                    onChange={handleMasterFileSelect}
-                  />
-                  <div
-                    onClick={() => masterFileInputRef.current?.click()}
-                    className="group flex flex-col items-center justify-center p-5 border-2 border-dashed border-muted-foreground/30 hover:border-primary/60 rounded-lg cursor-pointer bg-background/50 hover:bg-primary/5 transition-all text-center"
-                  >
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary group-hover:scale-110 transition-transform">
-                      <Upload className="h-5 w-5" />
-                    </div>
-                    <p className="text-xs font-semibold mt-2 text-foreground">
-                      {uploading ? "Preparing image..." : "Click to select or upload master product image"}
-                    </p>
-                    <p className="text-[10px] text-muted-foreground mt-0.5">PNG, JPG, WEBP or GIF (Max 5MB)</p>
-                  </div>
-
-                  {(masterImagePreviewUrl || masterImageUrl) && (
-                    <div className="space-y-1.5">
-                      <div className="flex items-center justify-between text-[11px] text-muted-foreground font-medium">
-                        <span>Current Master Image</span>
-                      </div>
-                      <div className="group relative w-20 h-20 rounded-lg overflow-hidden border border-neutral-300 dark:border-neutral-700 bg-background shadow-sm">
-                        <img src={masterImagePreviewUrl || masterImageUrl} alt="Master preview" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setMasterImageFile(null)
-                            if (masterImagePreviewUrl) URL.revokeObjectURL(masterImagePreviewUrl)
-                            setMasterImagePreviewUrl("")
-                            masterImagePreviewUrlRef.current = ""
-                            setMasterImageUrl("")
-                          }}
-                          className="absolute top-1 right-1 h-5 w-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center text-xs opacity-90 hover:opacity-100 shadow transition-opacity"
-                          title="Remove image"
-                        >
-                          <X className="h-3 w-3" />
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  <Input
-                    type="text"
-                    placeholder="/uploads/products/your-image.jpg or https://example.com/image.jpg"
-                    value={masterImageUrl}
-                    onChange={(e) => {
-                      setMasterImageFile(null)
-                      if (masterImagePreviewUrl) URL.revokeObjectURL(masterImagePreviewUrl)
-                      setMasterImagePreviewUrl("")
-                      masterImagePreviewUrlRef.current = ""
-                      setMasterImageUrl(e.target.value)
-                    }}
-                    className="w-full text-xs"
-                  />
-                  <p className="text-[10px] text-muted-foreground">Enter image URL. Changing it replaces current master image.</p>
-                  {masterImageUrl && (
-                    <div className="group relative w-16 h-16 rounded-lg overflow-hidden border bg-background shadow-sm mt-1">
-                      <img src={masterImageUrl} alt="Master preview" className="w-full h-full object-cover" />
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setMasterImageFile(null)
-                          if (masterImagePreviewUrl) URL.revokeObjectURL(masterImagePreviewUrl)
-                          setMasterImagePreviewUrl("")
-                          masterImagePreviewUrlRef.current = ""
-                          setMasterImageUrl("")
-                        }}
-                        className="absolute top-0.5 right-0.5 h-4 w-4 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center text-[10px]"
-                      >
-                        <X className="h-2.5 w-2.5" />
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
             </div>
           </CardContent>
         </Card>

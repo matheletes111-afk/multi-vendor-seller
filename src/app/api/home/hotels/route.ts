@@ -12,6 +12,10 @@ export async function GET(request: NextRequest) {
       where: {
         isActive: true,
         isDeleted: false,
+        hotelSeller: {
+          isApproved: true,
+          isSuspended: false,
+        },
       },
       take: limit,
       orderBy: [{ starRating: "desc" }, { createdAt: "desc" }],
@@ -34,7 +38,7 @@ export async function GET(request: NextRequest) {
 
       const startingPrice = h.rooms.length > 0 ? h.rooms[0].price : 399
       const totalRating = h.reviews.reduce((acc, r) => acc + r.rating, 0)
-      const rating = h.reviews.length > 0 ? parseFloat((totalRating / h.reviews.length).toFixed(1)) : 4.8
+      const rating = h.reviews.length > 0 ? parseFloat((totalRating / h.reviews.length).toFixed(1)) : 0
 
       const badges = ["NEARBY RESORT", "POPULAR CHOICE", "FREE CANCELLATION", "TOP RATED"]
       const badgeText = badges[index % badges.length]
@@ -47,7 +51,7 @@ export async function GET(request: NextRequest) {
         starRating: h.starRating,
         imageUrl: imageUrl || "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=600&q=80",
         rating,
-        reviewCount: h.reviews.length || 38,
+        reviewCount: h.reviews.length,
         pricePerNight: startingPrice,
         currency: "AED",
         badgeText,
