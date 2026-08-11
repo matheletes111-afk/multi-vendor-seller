@@ -13,6 +13,10 @@ export async function GET(request: NextRequest) {
       where: {
         isActive: true,
         isDeleted: false,
+        seller: {
+          isApproved: true,
+          isSuspended: false,
+        },
         variants: {
           some: {
             discount: { gt: 0 },

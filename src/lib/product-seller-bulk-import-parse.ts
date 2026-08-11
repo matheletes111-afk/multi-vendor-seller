@@ -13,7 +13,6 @@ export const BULK_COLUMN_KEYS = [
   "category",
   "product_name",
   "product_description",
-  "product_images",
   "condition",
   "delivery_charge_per_km",
   "variant_name",
@@ -26,7 +25,7 @@ export const BULK_COLUMN_KEYS = [
   "height",
   "width",
   "depth",
-  "variant_images",
+  "product_variant_images",
   "variant_details",
   "specifications",
   "additional_details",
@@ -124,8 +123,9 @@ function mapGridToRows(aoa: unknown[][], sheetErrors: string[]): { rows: BulkDat
   const headerRow = (aoa[0] ?? []).map((c) => normalizeHeader(String(c ?? "")))
   const colIndexToKey = new Map<number, BulkColumnKey>()
   headerRow.forEach((h, idx) => {
-    if (KEY_SET.has(h)) {
-      colIndexToKey.set(idx, h as BulkColumnKey)
+    const key = h === "variant_images" ? "product_variant_images" : h
+    if (KEY_SET.has(key)) {
+      colIndexToKey.set(idx, key as BulkColumnKey)
     }
   })
 
@@ -234,7 +234,6 @@ export function exampleDataRows(categories: string[]): string[][] {
         catName,              // category
         prodName,             // product_name
         "This is an example product description. Replace or delete before import.", // product_description
-        "https://example.com/sample-image-1.jpg", // product_images
         "NEW",                // condition
         "0",                  // delivery_charge_per_km
         "Standard Version",   // variant_name
@@ -244,7 +243,10 @@ export function exampleDataRows(categories: string[]): string[][] {
         "100",                // stock
         `SKU-${idx + 1}-STD`, // sku_code
         "0.5",                // weight (kg)
-        "https://example.com/variant-std.jpg", // variant_images
+        "10",                 // height (cm)
+        "10",                 // width (cm)
+        "10",                 // depth (cm)
+        "https://example.com/variant-std.jpg", // product_variant_images
         '{"color":"Black","size":"Regular"}', // variant_details
         "Standard specification", // specifications
         "Standard details",   // additional_details
@@ -256,7 +258,6 @@ export function exampleDataRows(categories: string[]): string[][] {
         catName,              // category
         prodName,             // product_name
         "This is an example product description. Replace or delete before import.", // product_description
-        "https://example.com/sample-image-1.jpg", // product_images
         "NEW",                // condition
         "0",                  // delivery_charge_per_km
         "Premium Version",    // variant_name
@@ -266,7 +267,10 @@ export function exampleDataRows(categories: string[]): string[][] {
         "50",                 // stock
         `SKU-${idx + 1}-PREM`,// sku_code
         "1.2",                // weight (kg)
-        "https://example.com/variant-prem.jpg", // variant_images
+        "15",                 // height (cm)
+        "15",                 // width (cm)
+        "15",                 // depth (cm)
+        "https://example.com/variant-prem.jpg", // product_variant_images
         '{"color":"Gold","size":"Premium"}', // variant_details
         "Premium specification", // specifications
         "Premium details",    // additional_details
@@ -303,16 +307,31 @@ export function buildTemplateXlsx(
   XLSX.utils.book_append_sheet(wb, ws, BULK_SHEET_NAME)
 
   const instr: string[][] = [
-    ["Bulk import — read me"],
+    ["Bulk Import Instructions & Guide"],
     [""],
-    ["• The Products sheet contains example rows demonstrating variant grouping. Replace or delete them before import."],
-    ["• One row = one variant. Rows with the same product_name are grouped together as a single product with multiple variants."],
-    ["• category: Write the exact or closest matching category name (e.g. 'Electronics' or 'electro')."],
-    ["• variant_name, price, and stock are required for each row."],
-    ["• variant_details (optional): attributes for the variant in JSON format. E.g. {\"color\":\"Black\",\"size\":\"L\"}"],
-    ["• In CSV, wrap the JSON in double quotes. Leave blank if not using attributes."],
-    ["• Images: public URLs only; separate multiple URLs with a vertical bar (|)."],
-    ["• Max 500 data rows per upload."],
+    ["1. MULTIPLE VARIANTS GROUPING:"],
+    ["• Each row in the 'Products' sheet represents ONE variant."],
+    ["• To create 1 Product with Multiple Variants (e.g. Size S, M, L), use the EXACT SAME 'product_name' and 'category' for all variant rows."],
+    ["• The system automatically groups rows with matching product_name into a single product listing."],
+    [""],
+    ["2. REQUIRED COLUMNS:"],
+    ["• category: Write the exact or closest matching category name (e.g. 'Electronics', 'Clothing')."],
+    ["• product_name: The name of the product."],
+    ["• variant_name: Name of the variant (e.g. 'Red / Large', '64GB', 'Standard')."],
+    ["• price: Price for this variant (e.g. 299.99)."],
+    ["• stock: Quantity in stock (e.g. 50)."],
+    [""],
+    ["3. IMAGES, WEIGHT & DIMENSIONS:"],
+    ["• weight (optional/mandatory depending on category): Weight in kg (e.g. 0.5). Mandatory if category requires weight."],
+    ["• height, width, depth (optional): Package dimensions in cm (e.g. 10)."],
+    ["• product_variant_images: Public image URLs separated by vertical bar (|) or newlines. E.g. https://example.com/img1.jpg|https://example.com/img2.jpg"],
+    ["• variant_details (optional): Attributes in JSON format. E.g. {\"color\":\"Black\",\"size\":\"L\"}"],
+    ["• condition (optional): 'NEW' or 'USED' (default is NEW)."],
+    ["• delivery_charge_per_km (optional): Additional delivery charge per km (default 0)."],
+    [""],
+    ["4. FILE LIMITS:"],
+    ["• Maximum 500 data rows per Excel/CSV import."],
+    ["• Please replace or delete the example rows in the 'Products' tab before importing."],
   ]
   const ws2 = XLSX.utils.aoa_to_sheet(instr)
   XLSX.utils.book_append_sheet(wb, ws2, "Instructions")

@@ -6,11 +6,12 @@ import { UserRole } from "@prisma/client"
 import type { PlaceOrderResponse } from "../types"
 import { sendOrderConfirmationEmail, sendSellerNewOrderEmail, sendAdminNewOrderEmail } from "@/lib/email"
 import { validateCoupon } from "@/lib/coupons"
+import { calculateShippingBreakup, getRegionDeliveryCharge } from "@/lib/shipping-calculator"
 
 
 const CHECKOUT_CART_INCLUDE = {
   product: { select: { sellerId: true, name: true, isActive: true, isDeleted: true } },
-  productVariant: { select: { name: true, weight: true } },
+  productVariant: { select: { name: true, weight: true, height: true, width: true, depth: true } },
   service: { select: { sellerId: true, name: true, isActive: true, isDeleted: true } },
   servicePackage: { select: { name: true } },
 } as const
@@ -180,27 +181,13 @@ export async function POST(request: NextRequest) {
 
   // Fetch delivery settings
   const globalSetting = await prisma.globalSetting.findFirst()
-  const ranges = (globalSetting?.deliveryChargeRanges as any[]) || []
-
-  function getShippingChargeForWeight(weight: number, ranges: any[]): number {
-    if (!ranges || ranges.length === 0) return 0
-    const w = typeof weight === "number" && !isNaN(weight) ? Math.max(0, weight) : 0
-    for (const r of ranges) {
-      const minW = Number(r.minWeight ?? 0)
-      const maxW = Number(r.maxWeight ?? 0)
-      const charge = Number(r.charge ?? 0)
-      if (w >= minW && w < maxW) {
-        return charge
-      }
-    }
-    const firstMin = Number(ranges[0]?.minWeight ?? 0)
-    if (w <= firstMin) {
-      return Number(ranges[0]?.charge ?? 0)
-    }
-    return Number(ranges[ranges.length - 1]?.charge ?? 0)
-  }
+  const weightRanges = (globalSetting?.deliveryChargeRanges as any[]) || []
+  const dimensionRanges = (globalSetting?.dimensionDeliveryChargeRanges as any[]) || []
+  const regionCharges = (globalSetting?.regionDeliveryCharges as any[]) || []
 
   let shipping = 0
+  let totalWeightFee = 0
+  let totalDimFee = 0
   const itemsBySeller = new Map<string, CartItemForCheckout[]>()
   for (const row of normalizedItems) {
     const list = itemsBySeller.get(row.sellerId) || []
@@ -210,19 +197,47 @@ export async function POST(request: NextRequest) {
 
   const sellerShippingMap = new Map<string, number>()
   for (const [sellerId, sellerItems] of itemsBySeller.entries()) {
-    let sellerWeight = 0
-    let hasPhysicalProducts = false
-    for (const item of sellerItems) {
-      if (item.productId) {
-        hasPhysicalProducts = true
-        const w = (item as any).productVariant?.weight ?? 0
-        sellerWeight += w * item.quantity
+    const shippingItems = sellerItems.map((item) => {
+      const variant = (item as any).productVariant
+      return {
+        weight: variant?.weight ?? 0,
+        height: variant?.height ?? 0,
+        width: variant?.width ?? 0,
+        depth: variant?.depth ?? 0,
+        quantity: item.quantity,
+        isPhysical: item.productId != null,
       }
-    }
-    const sellerShipping = hasPhysicalProducts ? getShippingChargeForWeight(sellerWeight, ranges) : 0
+    })
+
+    // Pass empty regionCharges — region is a per-order charge, not per-seller
+    const breakup = calculateShippingBreakup({
+      items: shippingItems,
+      destinationState: address.state,
+      weightRanges,
+      dimensionRanges,
+      regionCharges: [],
+    })
+
+    totalWeightFee += breakup.weightShippingFee
+    totalDimFee += breakup.dimensionShippingFee
+
+    const sellerShipping = breakup.totalShippingFee
     sellerShippingMap.set(sellerId, sellerShipping)
     shipping += sellerShipping
   }
+
+  // Region fee applied once per order (flat charge, not per-seller)
+  const regionFee = getRegionDeliveryCharge(address.state, regionCharges)
+  shipping += regionFee
+  const shippingBreakup = {
+    weightShippingFee: totalWeightFee,
+    dimensionShippingFee: totalDimFee,
+    regionShippingFee: regionFee,
+    totalShippingFee: shipping,
+  }
+
+  const orderPhysicalItems = normalizedItems.filter((row) => row.item.productId != null)
+  const orderPhysicalSubtotal = orderPhysicalItems.reduce((sum, row) => sum + row.item.totalPrice, 0)
 
   const lineShippingFees = normalizedItems.map((row) => {
     if (row.item.serviceId) return 0
@@ -231,11 +246,24 @@ export async function POST(request: NextRequest) {
     const physicalItems = sellerItems.filter((i) => i.productId)
     if (physicalItems.length === 0) return 0
     const sellerSubtotal = physicalItems.reduce((s, i) => s + i.totalPrice, 0)
-    const lineShipping = sellerSubtotal > 0
-      ? Math.round((row.item.totalPrice / sellerSubtotal) * sellerShipping * 100) / 100
-      : Math.round((sellerShipping / physicalItems.length) * 100) / 100
-    return lineShipping
+    const linePhysical = sellerSubtotal > 0
+      ? (row.item.totalPrice / sellerSubtotal) * sellerShipping
+      : sellerShipping / physicalItems.length
+    const lineRegion = regionFee > 0
+      ? (orderPhysicalSubtotal > 0 ? (row.item.totalPrice / orderPhysicalSubtotal) * regionFee : regionFee / orderPhysicalItems.length)
+      : 0
+    return Math.round((linePhysical + lineRegion) * 100) / 100
   })
+
+  // Absorb rounding cents onto the last physical item so sum(lineShippingFees) === shipping
+  const sumLineShipping = lineShippingFees.reduce((a, b) => a + b, 0)
+  const remainder = Math.round((shipping - sumLineShipping) * 100) / 100
+  if (remainder !== 0 && orderPhysicalItems.length > 0) {
+    const lastPhysicalIdx = normalizedItems.findLastIndex((row) => row.item.productId != null)
+    if (lastPhysicalIdx !== -1) {
+      lineShippingFees[lastPhysicalIdx] = Math.round((lineShippingFees[lastPhysicalIdx] + remainder) * 100) / 100
+    }
+  }
 
   const hasService = normalizedItems.some(row => row.item.serviceId != null)
   const orderType = hasService ? "SERVICE" : "PRODUCT"
@@ -293,6 +321,9 @@ export async function POST(request: NextRequest) {
         subtotal,
         tax,
         shipping,
+        weightShippingFee: shippingBreakup.weightShippingFee,
+        dimensionShippingFee: shippingBreakup.dimensionShippingFee,
+        regionShippingFee: shippingBreakup.regionShippingFee,
         commission: totalOrderCommission,
         commissionRate: baseRate,
         paymentStatus: "PENDING",
@@ -498,5 +529,5 @@ export async function POST(request: NextRequest) {
       },
     ],
   }
-  return NextResponse.json(response)
+  return NextResponse.json({ ...response, shippingBreakup })
 }

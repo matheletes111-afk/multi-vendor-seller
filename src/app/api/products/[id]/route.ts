@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { calculateShippingBreakup } from "@/lib/shipping-calculator"
 
 function extractImageUrls(images: unknown): string[] {
   if (Array.isArray(images)) return images.filter((value): value is string => typeof value === "string")
@@ -14,24 +15,6 @@ function extractImageUrls(images: unknown): string[] {
   return []
 }
 
-function getShippingChargeForWeight(weight: number, ranges: any[]): number {
-  if (!ranges || ranges.length === 0) return 0
-  const w = typeof weight === "number" && !isNaN(weight) ? Math.max(0, weight) : 0
-  for (const r of ranges) {
-    const minW = Number(r.minWeight ?? 0)
-    const maxW = Number(r.maxWeight ?? 0)
-    const charge = Number(r.charge ?? 0)
-    if (w >= minW && w < maxW) {
-      return charge
-    }
-  }
-  const firstMin = Number(ranges[0]?.minWeight ?? 0)
-  if (w <= firstMin) {
-    return Number(ranges[0]?.charge ?? 0)
-  }
-  return Number(ranges[ranges.length - 1]?.charge ?? 0)
-}
-
 /** GET single product by id. Public (no auth) for product detail page. */
 export async function GET(
   _request: NextRequest,
@@ -39,8 +22,8 @@ export async function GET(
 ) {
   const { id } = await params
   const [product, ratingAgg, globalSetting] = await Promise.all([
-    prisma.product.findUnique({
-      where: { id, isActive: true },
+    prisma.product.findFirst({
+      where: { id, isActive: true, isDeleted: false, seller: { isApproved: true, isSuspended: false } },
       include: {
         category: true,
         seller: { include: { store: true } },
@@ -65,13 +48,33 @@ export async function GET(
       where: { productId: id },
       _avg: { rating: true },
     }),
-    prisma.globalSetting.findFirst({ select: { deliveryChargeRanges: true } }).catch(() => null),
+    prisma.globalSetting.findFirst({ select: { deliveryChargeRanges: true, dimensionDeliveryChargeRanges: true, regionDeliveryCharges: true } }).catch(() => null),
   ])
   if (!product) return NextResponse.json({ error: "Product not found" }, { status: 404 })
 
-  const ranges = (globalSetting?.deliveryChargeRanges as any[]) || []
-  const weight = product.variants?.[0]?.weight ?? 0
-  const estimatedDeliveryCharge = getShippingChargeForWeight(weight, ranges)
+  const weightRanges = (globalSetting?.deliveryChargeRanges as any[]) || []
+  const dimensionRanges = (globalSetting?.dimensionDeliveryChargeRanges as any[]) || []
+  const regionCharges = (globalSetting?.regionDeliveryCharges as any[]) || []
+  
+  const variant = product.variants?.[0]
+
+  const shippingBreakup = calculateShippingBreakup({
+    items: [
+      {
+        weight: variant?.weight ?? 0,
+        height: variant?.height ?? 0,
+        width: variant?.width ?? 0,
+        depth: variant?.depth ?? 0,
+        quantity: 1,
+        isPhysical: true,
+      },
+    ],
+    weightRanges,
+    dimensionRanges,
+    regionCharges,
+  })
+
+  const estimatedDeliveryCharge = shippingBreakup.totalShippingFee
 
   // Fetch related products from same category
   const relatedProductsRaw = await prisma.product.findMany({

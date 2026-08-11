@@ -21,8 +21,29 @@ export async function GET(request: NextRequest) {
       perPage: searchParams.get("perPage") ?? undefined,
     });
 
+    const targetTypeParam = searchParams.get("targetType");
+    const where: any = {};
+
+    if (targetTypeParam && targetTypeParam !== "all") {
+      if (targetTypeParam === "product") {
+        where.OR = [
+          { targetType: "product" },
+          { categoryId: { not: null } },
+          { subcategoryId: { not: null } },
+        ];
+      } else if (targetTypeParam === "service") {
+        where.OR = [
+          { targetType: "service" },
+          { serviceCategoryId: { not: null } },
+        ];
+      } else {
+        where.targetType = targetTypeParam;
+      }
+    }
+
     const [banners, totalCount] = await Promise.all([
       prisma.banner.findMany({
+        where,
         skip,
         take,
         include: {
@@ -52,7 +73,7 @@ export async function GET(request: NextRequest) {
         },
         orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       }),
-      prisma.banner.count(),
+      prisma.banner.count({ where }),
     ]);
 
     const totalPages = Math.ceil(totalCount / perPage);

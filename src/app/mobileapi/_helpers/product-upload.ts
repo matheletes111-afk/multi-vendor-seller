@@ -79,17 +79,7 @@ export async function processHybridProductRequest(
         }
       }
 
-      // Handle main product images (URLs already in rawData.images)
-      const mainImages: string[] = Array.isArray(rawData.images) ? [...rawData.images] : []
-      const mainFiles = formData.getAll("file").concat(formData.getAll("images")) as File[]
-      
-      for (const file of mainFiles) {
-        if (file && file.size > 0) {
-          const url = await uploadAndGetUrl(file, "products", "mobile-product")
-          mainImages.push(url)
-        }
-      }
-      rawData.images = mainImages
+      rawData.images = []
 
       // Handle Variants
       if (Array.isArray(rawData.variants)) {
@@ -97,8 +87,9 @@ export async function processHybridProductRequest(
           const variant = rawData.variants[i]
           const variantImages: string[] = Array.isArray(variant.images) ? [...variant.images] : []
           
-          // Files named variant_file_0, variant_file_1, etc.
-          const variantFiles = formData.getAll(`variant_file_${i}`).concat(formData.getAll(`variant_images_${i}`)) as File[]
+          const variantFiles = formData.getAll(`variant_file_${i}`)
+            .concat(formData.getAll(`variant_images_${i}`))
+            .concat(formData.getAll(`product_variant_images_${i}`)) as File[]
           
           for (const file of variantFiles) {
             if (file && file.size > 0) {

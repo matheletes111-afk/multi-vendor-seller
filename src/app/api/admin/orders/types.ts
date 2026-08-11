@@ -128,6 +128,15 @@ export type AdminOrderDetailApi = {
   subtotal: number
   tax: number
   shipping: number
+  weightShippingFee?: number | null
+  dimensionShippingFee?: number | null
+  regionShippingFee?: number | null
+  shippingBreakup?: {
+    weightShippingFee: number
+    dimensionShippingFee: number
+    regionShippingFee: number
+    totalShippingFee: number
+  }
   commission: number
   commissionRate: number
   paymentMethod: string | null

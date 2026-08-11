@@ -38,6 +38,7 @@ import { PageLoader } from "@/components/ui/page-loader"
 import { Plus, Package, Pencil, Trash2, Megaphone, Search, X, Calendar, Filter, Image as ImageIcon } from "lucide-react"
 import { AdminPagination } from "@/components/admin/admin-pagination"
 import { BulkUploadDialog } from "./bulk-upload-dialog"
+import { BulkAIProgressBanner } from "@/components/bulk-ai-progress-banner"
 import { buildAdminPageUrl } from "@/lib/admin-pagination"
 import Checkbox from "@/ui/checkbox-v2"
 
@@ -99,6 +100,7 @@ export function ProductsPageClient() {
   const minPriceStr = searchParams.get("minPrice") ?? ""
   const maxPriceStr = searchParams.get("maxPrice") ?? ""
 
+  const [activeJobId, setActiveJobId] = useState<string | null>(null)
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [deletingId, setDeletingId] = useState<string | null>(null)
@@ -319,7 +321,12 @@ export function ProductsPageClient() {
           <p className="text-muted-foreground mt-2">Manage your product listings</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <BulkUploadDialog onImported={loadProducts} />
+          <BulkUploadDialog
+            onImported={(jobId) => {
+              loadProducts()
+              if (jobId) setActiveJobId(jobId)
+            }}
+          />
           <Button variant="outline" asChild>
             <Link href="/product-seller/products/bulk-image-upload">
               <ImageIcon className="mr-2 h-4 w-4 text-primary" />
@@ -334,6 +341,8 @@ export function ProductsPageClient() {
           </Button>
         </div>
       </div>
+
+      <BulkAIProgressBanner jobId={activeJobId} onCompleted={loadProducts} />
 
       {paramsError && (
         <Alert variant="destructive" className="mb-6">

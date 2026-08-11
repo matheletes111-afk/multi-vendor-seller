@@ -11,9 +11,21 @@ export async function GET(request: Request) {
     if (targetType === "product" || targetType === "home") {
       whereClause.OR = [
         { targetType: "product" },
+        { targetType: "home" },
         { targetType: null },
         { targetType: "" },
+        { categoryId: { not: null } },
+        { subcategoryId: { not: null } },
       ];
+    } else if (targetType === "service") {
+      whereClause.OR = [
+        { targetType: "service" },
+        { serviceCategoryId: { not: null } },
+      ];
+    } else if (targetType === "hotel") {
+      whereClause.targetType = "hotel";
+    } else if (targetType === "restaurant") {
+      whereClause.targetType = "restaurant";
     } else if (targetType) {
       whereClause.targetType = targetType;
     }

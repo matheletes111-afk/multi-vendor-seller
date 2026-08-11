@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Eye, EyeOff, User, Mail, Phone, Lock, ShieldCheck, Globe, Smartphone, Plus, Trash2, Ban, X } from "lucide-react"
+import { Eye, EyeOff, User, Mail, Phone, Lock, ShieldCheck, Globe, Smartphone, Plus, Trash2, Ban, X, Box } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/ui/card"
 import { Button } from "@/ui/button"
 import { Input } from "@/ui/input"
@@ -10,6 +10,14 @@ import { Badge } from "@/ui/badge"
 import { Alert, AlertDescription } from "@/ui/alert"
 import { PageLoader } from "@/components/ui/page-loader"
 import { ProfilePictureInput } from "@/components/profile-picture-input"
+
+const ALLOWED_ADMINISTRATIVE_REGIONS = [
+  "Eastern Province",
+  "Northern Province",
+  "North West Province",
+  "Southern Province",
+  "Western Area",
+] as const
 
 type AdminProfile = {
   id: string
@@ -26,6 +34,15 @@ type AdminProfile = {
       maxWeight: number
       charge: number
     }[]
+    dimensionDeliveryChargeRanges?: {
+      minDimension: number
+      maxDimension: number
+      charge: number
+    }[]
+    regionDeliveryCharges?: {
+      region: string
+      charge: number
+    }[]
     disallowedNames?: string[]
   }
 }
@@ -40,6 +57,8 @@ export function AdminSettingsClient() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [showCurrentPassword, setShowCurrentPassword] = useState(false)
   const [ranges, setRanges] = useState<{ minWeight: string; maxWeight: string; charge: string }[]>([])
+  const [dimensionRanges, setDimensionRanges] = useState<{ minDimension: string; maxDimension: string; charge: string }[]>([])
+  const [regionCharges, setRegionCharges] = useState<{ region: string; charge: string }[]>([])
   const [disallowedNames, setDisallowedNames] = useState<string[]>([])
   const [newDisallowedName, setNewDisallowedName] = useState("")
 
@@ -55,6 +74,21 @@ export function AdminSettingsClient() {
             charge: String(r.charge),
           }))
           setRanges(loadedRanges)
+        }
+        if (data?.globalSettings?.dimensionDeliveryChargeRanges) {
+          const loadedDimRanges = data.globalSettings.dimensionDeliveryChargeRanges.map((r: any) => ({
+            minDimension: String(r.minDimension),
+            maxDimension: String(r.maxDimension),
+            charge: String(r.charge),
+          }))
+          setDimensionRanges(loadedDimRanges)
+        }
+        if (data?.globalSettings?.regionDeliveryCharges) {
+          const loadedRegCharges = data.globalSettings.regionDeliveryCharges.map((r: any) => ({
+            region: String(r.region),
+            charge: String(r.charge),
+          }))
+          setRegionCharges(loadedRegCharges)
         }
         if (data?.globalSettings?.disallowedNames && Array.isArray(data.globalSettings.disallowedNames)) {
           setDisallowedNames(data.globalSettings.disallowedNames)
@@ -96,6 +130,45 @@ export function AdminSettingsClient() {
 
   function updateRange(index: number, key: "minWeight" | "maxWeight" | "charge", value: string) {
     setRanges((prev) =>
+      prev.map((r, i) => (i === index ? { ...r, [key]: value } : r))
+    )
+  }
+
+  function addDimensionRange() {
+    setDimensionRanges((prev) => {
+      let nextMin = "0"
+      if (prev.length > 0) {
+        const sorted = [...prev].sort((a, b) => parseFloat(a.minDimension || "0") - parseFloat(b.minDimension || "0"))
+        const last = sorted[sorted.length - 1]
+        nextMin = last.maxDimension || "0"
+      }
+      return [...prev, { minDimension: nextMin, maxDimension: "", charge: "" }]
+    })
+  }
+
+  function removeDimensionRange(index: number) {
+    setDimensionRanges((prev) => prev.filter((_, i) => i !== index))
+  }
+
+  function updateDimensionRange(index: number, key: "minDimension" | "maxDimension" | "charge", value: string) {
+    setDimensionRanges((prev) =>
+      prev.map((r, i) => (i === index ? { ...r, [key]: value } : r))
+    )
+  }
+
+  function addRegionCharge() {
+    const availableRegion = ALLOWED_ADMINISTRATIVE_REGIONS.find(
+      (reg) => !regionCharges.some((rc) => rc.region === reg)
+    ) || ALLOWED_ADMINISTRATIVE_REGIONS[0]
+    setRegionCharges((prev) => [...prev, { region: availableRegion, charge: "" }])
+  }
+
+  function removeRegionCharge(index: number) {
+    setRegionCharges((prev) => prev.filter((_, i) => i !== index))
+  }
+
+  function updateRegionCharge(index: number, key: "region" | "charge", value: string) {
+    setRegionCharges((prev) =>
       prev.map((r, i) => (i === index ? { ...r, [key]: value } : r))
     )
   }
@@ -145,6 +218,75 @@ export function AdminSettingsClient() {
     return { valid: true, error: null }
   }
 
+  function validateClientDimensionRanges(
+    items: { minDimension: string; maxDimension: string; charge: string }[]
+  ): { valid: boolean; error: string | null } {
+    if (items.length === 0) return { valid: true, error: null }
+
+    const parsed = []
+    for (let i = 0; i < items.length; i++) {
+      const min = parseFloat(items[i].minDimension)
+      const max = parseFloat(items[i].maxDimension)
+      const chg = parseFloat(items[i].charge)
+
+      if (isNaN(min) || min < 0) {
+        return { valid: false, error: `Dimension Range ${i + 1}: Minimum dimension/volume must be a non-negative number.` }
+      }
+      if (isNaN(max) || max <= min) {
+        return { valid: false, error: `Dimension Range ${i + 1}: Maximum dimension/volume must be greater than minimum dimension/volume.` }
+      }
+      if (isNaN(chg) || chg < 0) {
+        return { valid: false, error: `Dimension Range ${i + 1}: Delivery charge must be a non-negative number.` }
+      }
+      parsed.push({ min, max, chg })
+    }
+
+    parsed.sort((a, b) => a.min - b.min)
+
+    for (let i = 0; i < parsed.length; i++) {
+      const current = parsed[i]
+      if (i > 0) {
+        const prev = parsed[i - 1]
+        if (Math.abs(current.min - prev.max) > 0.001) {
+          return {
+            valid: false,
+            error: `Range gap or overlap detected between dimension ranges (${prev.min}-${prev.max} cm³) and (${current.min}-${current.max} cm³). The minimum dimension of a range must match the maximum dimension of the previous range.`
+          }
+        }
+      }
+    }
+
+    if (parsed[0].min > 0.001) {
+      return { valid: false, error: "The first dimension range must start at 0 cm³." }
+    }
+
+    return { valid: true, error: null }
+  }
+
+  function validateClientRegionCharges(
+    items: { region: string; charge: string }[]
+  ): { valid: boolean; error: string | null } {
+    if (items.length === 0) return { valid: true, error: null }
+
+    const seen = new Set<string>()
+    for (let i = 0; i < items.length; i++) {
+      const r = items[i].region
+      const chg = parseFloat(items[i].charge)
+      if (!r) {
+        return { valid: false, error: `Row ${i + 1}: Administrative Region is required.` }
+      }
+      if (seen.has(r)) {
+        return { valid: false, error: `Region "${r}" is configured multiple times.` }
+      }
+      seen.add(r)
+      if (isNaN(chg) || chg < 0) {
+        return { valid: false, error: `Delivery charge for "${r}" must be a non-negative number.` }
+      }
+    }
+
+    return { valid: true, error: null }
+  }
+
   async function saveProfile(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setError(null)
@@ -158,14 +300,34 @@ export function AdminSettingsClient() {
       return
     }
 
+    const dimValidation = validateClientDimensionRanges(dimensionRanges)
+    if (!dimValidation.valid) {
+      setError(dimValidation.error)
+      return
+    }
+
+    const regValidation = validateClientRegionCharges(regionCharges)
+    if (!regValidation.valid) {
+      setError(regValidation.error)
+      return
+    }
+
     fd.append("deliveryChargeRanges", JSON.stringify(ranges.map(r => ({
       minWeight: parseFloat(r.minWeight),
       maxWeight: parseFloat(r.maxWeight),
       charge: parseFloat(r.charge)
     }))))
+    fd.append("dimensionDeliveryChargeRanges", JSON.stringify(dimensionRanges.map(r => ({
+      minDimension: parseFloat(r.minDimension),
+      maxDimension: parseFloat(r.maxDimension),
+      charge: parseFloat(r.charge)
+    }))))
+    fd.append("regionDeliveryCharges", JSON.stringify(regionCharges.map(rc => ({
+      region: rc.region,
+      charge: parseFloat(rc.charge)
+    }))))
     fd.append("disallowedNames", JSON.stringify(disallowedNames))
 
-    // Ensure baseCommission is added to body for JSON or FormData
     const phone = ((fd.get("phone") as string | null) ?? "").trim()
     const phoneCountryCode = ((fd.get("phoneCountryCode") as string | null) ?? "").trim()
     if (!phone || !phoneCountryCode) {
@@ -199,24 +361,23 @@ export function AdminSettingsClient() {
     try {
       const updateResponse = await fetch("/api/admin/settings", {
         method: "PUT",
-        body: fd
+        body: fd,
       })
+      const data = await updateResponse.json().catch(() => ({}))
       if (!updateResponse.ok) {
-        const payload = await updateResponse.json().catch(() => null) as { error?: string } | null
-        setError(payload?.error || "Failed to update profile.")
-        return
+        throw new Error(data.error || "Failed to update profile")
       }
-      const res = await fetch("/api/admin/settings")
-      if (res.ok) {
-        setUser(await res.json())
-        setSuccess("Profile settings synchronized successfully! Reloading...")
+      setSuccess("Profile settings updated successfully.")
+      if (data.image) {
+        setUser((prev) => (prev ? { ...prev, image: data.image } : prev))
+      }
+      const profileImageInput = form.querySelector('input[type="file"][name="profileImage"]') as HTMLInputElement | null
+      if (profileImageInput && profileImageInput.files && profileImageInput.files.length > 0) {
         isReloading = true
-        setTimeout(() => {
-          window.location.reload()
-        }, 1500)
+        window.location.reload()
       }
-      setShowPassword(false)
-      setShowConfirmPassword(false)
+    } catch (err: any) {
+      setError(err.message || "Failed to save profile")
     } finally {
       if (!isReloading) {
         setSaving(false)
@@ -224,78 +385,60 @@ export function AdminSettingsClient() {
     }
   }
 
-  if (loading || !user) return <PageLoader message="Decrypting profile data..." />
+  if (loading) return <PageLoader message="Loading settings..." />
+  if (!user) return <div className="p-8 text-center text-muted-foreground font-medium">Failed to load admin profile.</div>
 
   return (
-    <div className="container mx-auto p-6 space-y-10 animate-in fade-in duration-700">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-medium text-foreground">Security & Settings</h1>
-          <p className="text-muted-foreground mt-2 text-lg font-medium">Manage your administrative credentials and biometric profile</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Badge variant="outline" className="px-4 py-1.5 text-sm font-medium rounded-full shadow-sm bg-background border-primary/20 text-primary">
-            Master Admin Access
-          </Badge>
-        </div>
+    <div className="space-y-8 max-w-5xl mx-auto pb-16">
+      <div>
+        <h1 className="text-3xl font-medium tracking-tight">Admin System Settings</h1>
+        <p className="text-muted-foreground text-sm mt-1">Manage global platform economics, operational security parameters, and profile details.</p>
       </div>
 
-      {/* Right Columns: Core Credentials & Platform Settings */}
-      <form onSubmit={saveProfile} className="lg:col-span-3 grid gap-8 lg:grid-cols-3">
-        {/* Left Column: Visual Profile */}
-        <Card className="border-none shadow-2xl overflow-hidden rounded-[2.5rem] bg-gradient-to-br from-background via-background to-muted/20 lg:h-fit">
-          <CardHeader className="pb-6 border-b border-muted/30 bg-muted/10">
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-primary/10 rounded-2xl">
-                <User className="h-6 w-6 text-primary" />
-              </div>
-              <CardTitle className="text-xl font-medium">Visual Identity</CardTitle>
-            </div>
-            <CardDescription className="pt-1 font-medium italic text-xs uppercase tracking-widest opacity-60">Authentication Avatar</CardDescription>
-          </CardHeader>
-          <CardContent className="pt-10 pb-12 flex flex-col items-center">
-            <div className="relative group cursor-pointer ring-8 ring-primary/5 rounded-full ring-offset-4 ring-offset-background p-1 bg-background shadow-2xl transition-all hover:scale-105 duration-500">
-              <ProfilePictureInput currentImage={user.image} fileInputName="profileImage" urlInputName="image" />
-            </div>
-            <div className="mt-8 text-center space-y-2">
-              <h3 className="text-2xl font-medium">{user.name || "System Operator"}</h3>
-              <div className="flex items-center justify-center gap-2 px-4 py-1.5 bg-muted/50 rounded-full border border-muted w-fit mx-auto">
-                <ShieldCheck className="h-3.5 w-3.5 text-green-500" />
-                <span className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">Identity Verified</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+      {error && (
+        <Alert variant="destructive" className="rounded-2xl border-destructive/20 bg-destructive/10">
+          <AlertDescription className="font-medium text-sm">{error}</AlertDescription>
+        </Alert>
+      )}
 
-        <div className="lg:col-span-2 space-y-8">
+      {success && (
+        <Alert className="rounded-2xl border-emerald-500/20 bg-emerald-500/10 text-emerald-700">
+          <AlertDescription className="font-medium text-sm">{success}</AlertDescription>
+        </Alert>
+      )}
+
+      <form onSubmit={saveProfile}>
+        <div className="space-y-8">
           <Card className="border-none shadow-2xl overflow-hidden rounded-[2.5rem] bg-gradient-to-br from-background via-background to-muted/20">
             <CardHeader className="pb-6 border-b border-muted/30">
               <div className="flex items-center gap-4">
-                <div className="p-3 bg-indigo-500/10 rounded-2xl">
-                  <Lock className="h-6 w-6 text-indigo-600" />
+                <div className="p-3 bg-primary/10 rounded-2xl">
+                  <User className="h-6 w-6 text-primary" />
                 </div>
-                <CardTitle className="text-xl font-medium">Master Credentials</CardTitle>
+                <div>
+                  <CardTitle className="text-xl font-medium">Profile Identity</CardTitle>
+                  <CardDescription className="pt-1 font-medium italic text-xs uppercase tracking-widest opacity-60">Personal credentials & system authorization</CardDescription>
+                </div>
               </div>
-              <CardDescription className="pt-1 font-medium italic text-xs uppercase tracking-widest opacity-60">System Security Parameters</CardDescription>
             </CardHeader>
             <CardContent className="p-10 space-y-8">
-              {error && (
-                <Alert variant="destructive" className="border-none shadow-xl bg-destructive/10 text-destructive animate-in slide-in-from-top-4 duration-500">
-                  <AlertDescription className="font-medium">{error}</AlertDescription>
-                </Alert>
-              )}
-              {success && (
-                <Alert className="border-none shadow-xl bg-green-500/10 text-green-600 animate-in slide-in-from-top-4 duration-500">
-                  <AlertDescription className="font-medium text-xs">Update phase: {success}</AlertDescription>
-                </Alert>
-              )}
+              <div className="flex flex-col sm:flex-row items-center gap-8 pb-8 border-b border-muted/30">
+                <ProfilePictureInput fileInputName="profileImage" currentImage={user.image} size="lg" />
+                <div className="space-y-1 text-center sm:text-left">
+                  <h3 className="text-lg font-medium">{user.name || "Administrator"}</h3>
+                  <p className="text-xs text-muted-foreground font-mono">{user.email}</p>
+                  <Badge variant="outline" className="mt-2 bg-primary/5 text-primary border-primary/20 rounded-full font-medium text-[10px] uppercase tracking-wider px-3 py-0.5">
+                    Super Administrator
+                  </Badge>
+                </div>
+              </div>
 
               <div className="grid gap-8 md:grid-cols-2">
                 <div className="space-y-3">
-                  <Label className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground ml-1">System Handle</Label>
+                  <Label htmlFor="email" className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground ml-1">System Handle (Email)</Label>
                   <div className="relative">
                     <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50" />
-                    <Input id="email" type="email" defaultValue={user.email} disabled className="pl-12 bg-muted/40 border-muted rounded-2xl h-12 font-medium cursor-not-allowed opacity-60" />
+                    <Input id="email" value={user.email} disabled className="pl-12 border-muted bg-muted/40 rounded-2xl h-12 text-muted-foreground font-mono text-xs cursor-not-allowed opacity-80" />
                   </div>
                   <p className="text-[9px] text-muted-foreground/60 ml-1 italic">* Primary authentication channel (locked)</p>
                 </div>
@@ -313,313 +456,334 @@ export function AdminSettingsClient() {
                   <Label htmlFor="phoneCountryCode" className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground ml-1">Global Prefix</Label>
                   <div className="relative">
                     <Globe className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50" />
-                    <Input
-                      id="phoneCountryCode"
-                      name="phoneCountryCode"
-                      type="tel"
-                      inputMode="numeric"
-                      defaultValue={user.phoneCountryCode || ""}
-                      placeholder="+234"
-                      className="pl-12 border-muted bg-muted/20 rounded-2xl h-12 focus-visible:ring-primary font-medium shadow-inner"
-                      required
-                    />
+                    <Input id="phoneCountryCode" name="phoneCountryCode" type="tel" defaultValue={user.phoneCountryCode || ""} placeholder="+234" className="pl-12 border-muted bg-muted/20 rounded-2xl h-12" required />
                   </div>
                 </div>
                 <div className="space-y-3">
                   <Label htmlFor="phone" className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground ml-1">Secure Line</Label>
                   <div className="relative">
                     <Smartphone className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50" />
-                    <Input
-                      id="phone"
-                      name="phone"
-                      type="tel"
-                      inputMode="numeric"
-                      defaultValue={user.phone || ""}
-                      placeholder="Telephonic signature"
-                      className="pl-12 border-muted bg-muted/20 rounded-2xl h-12 focus-visible:ring-primary font-medium shadow-inner"
-                      required
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="pt-8 border-t border-muted/30">
-                <div className="flex items-center gap-3 mb-8">
-                  <ShieldCheck className="h-4 w-4 text-orange-500" />
-                  <h4 className="text-[10px] font-medium uppercase tracking-[0.3em] text-muted-foreground/60">Cryptographic Update</h4>
-                </div>
-
-                <div className="space-y-4">
-                  <div className="space-y-3">
-                    <Label htmlFor="currentPassword" className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground ml-1">Current Password (Required for password change)</Label>
-                    <div className="relative max-w-md">
-                      <Input
-                        id="currentPassword"
-                        name="currentPassword"
-                        type={showCurrentPassword ? "text" : "password"}
-                        placeholder="Enter current password"
-                        className="pr-12 pl-4 border-muted bg-muted/20 rounded-2xl h-12 focus-visible:ring-primary font-medium shadow-inner"
-                      />
-                      <button
-                        type="button"
-                        tabIndex={-1}
-                        onClick={() => setShowCurrentPassword((value) => !value)}
-                        className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground/40 hover:text-primary transition-colors"
-                        aria-label={showCurrentPassword ? "Hide current password" : "Show current password"}
-                      >
-                        {showCurrentPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      </button>
-                    </div>
-                  </div>
-                  <div className="grid gap-8 md:grid-cols-2">
-                    <div className="space-y-3">
-                      <Label htmlFor="password" title="Leave empty to keep current password" className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground ml-1">New Hash Secret</Label>
-                      <div className="relative">
-                        <Input
-                          id="password"
-                          name="password"
-                          type={showPassword ? "text" : "password"}
-                          placeholder="Min 6 characters required"
-                          className="pr-12 pl-4 border-muted bg-muted/20 rounded-2xl h-12 focus-visible:ring-primary font-medium shadow-inner"
-                        />
-                        <button
-                          type="button"
-                          tabIndex={-1}
-                          onClick={() => setShowPassword((value) => !value)}
-                          className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground/40 hover:text-primary transition-colors"
-                          aria-label={showPassword ? "Hide new password" : "Show new password"}
-                        >
-                          {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                        </button>
-                      </div>
-                    </div>
-                    <div className="space-y-3">
-                      <Label htmlFor="confirmPassword" title="Leave empty to keep current password" className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground ml-1">Verify Hash</Label>
-                      <div className="relative">
-                        <Input
-                          id="confirmPassword"
-                          name="confirmPassword"
-                          type={showConfirmPassword ? "text" : "password"}
-                          placeholder="Repeat secret for parity"
-                          className="pr-12 pl-4 border-muted bg-muted/20 rounded-2xl h-12 focus-visible:ring-primary font-medium shadow-inner"
-                        />
-                        <button
-                          type="button"
-                          tabIndex={-1}
-                          onClick={() => setShowConfirmPassword((value) => !value)}
-                          className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground/40 hover:text-primary transition-colors"
-                          aria-label={showConfirmPassword ? "Hide confirm password" : "Show confirm password"}
-                        >
-                          {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                        </button>
-                      </div>
-                    </div>
+                    <Input id="phone" name="phone" type="tel" defaultValue={user.phone || ""} placeholder="Telephonic signature" className="pl-12 border-muted bg-muted/20 rounded-2xl h-12" required />
                   </div>
                 </div>
               </div>
             </CardContent>
-          </Card>
-
-          <Card className="border-none shadow-2xl overflow-hidden rounded-[2.5rem] bg-gradient-to-br from-background via-background to-amber-500/5 border-l-4 border-amber-500">
-            <CardHeader className="pb-6 border-b border-muted/30">
-              <div className="flex items-center gap-4">
-                <div className="p-3 bg-amber-500/10 rounded-2xl">
-                  <Globe className="h-6 w-6 text-amber-600" />
-                </div>
-                <CardTitle className="text-xl font-medium text-amber-900">Platform Configuration</CardTitle>
+          </Card>          {/* Delivery Charges Calculation Logic Explainer Banner */}
+          <div className="rounded-[2.5rem] bg-gradient-to-r from-blue-600 via-indigo-600 to-teal-600 p-8 text-white shadow-2xl space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="p-3 bg-white/20 rounded-2xl backdrop-blur-md border border-white/30">
+                <Box className="h-6 w-6 text-white" />
               </div>
-              <CardDescription className="pt-1 font-medium italic text-xs uppercase tracking-widest opacity-60">Global economic parameters</CardDescription>
-            </CardHeader>
-            <CardContent className="p-10">
-              <div className="space-y-3">
-                <Label htmlFor="baseCommission" className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground ml-1">Platform Base Commission (%)</Label>
-                <div className="relative">
-                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground/50 font-medium px-4">%</div>
-                  <Input
-                    id="baseCommission"
-                    name="baseCommission"
-                    type="number"
-                    step="0.1"
-                    defaultValue={user.globalSettings?.baseCommission ?? 10.0}
-                    className="pl-12 border-muted bg-muted/20 rounded-2xl h-12 focus-visible:ring-amber-500 font-medium shadow-inner"
-                  />
-                </div>
-                <p className="text-[9px] text-muted-foreground/60 ml-1 italic">* Applied to all sellers unless overridden individually.</p>
+              <div>
+                <h3 className="text-xl font-bold tracking-tight">Delivery Charges Calculation Engine</h3>
+                <p className="text-xs text-white/80 font-medium mt-0.5">How customer delivery charges are calculated at checkout (Web & Mobile)</p>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+              <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/20 space-y-1">
+                <span className="text-[10px] font-extrabold uppercase tracking-wider text-blue-200 block">1. Physical Base Fee</span>
+                <p className="text-xs font-semibold leading-relaxed text-white">
+                  Takes the <span className="font-bold underline underline-offset-2">HIGHER</span> of Weight charge vs Volume charge:
+                </p>
+                <code className="text-[11px] font-mono font-bold bg-black/30 px-2.5 py-1 rounded-lg block mt-1 text-yellow-300">
+                  Math.max(Weight, Volume)
+                </code>
+              </div>
 
+              <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/20 space-y-1">
+                <span className="text-[10px] font-extrabold uppercase tracking-wider text-teal-200 block">2. Regional Surcharge</span>
+                <p className="text-xs font-semibold leading-relaxed text-white">
+                  Flat surcharge based on customer's delivery state/province:
+                </p>
+                <code className="text-[11px] font-mono font-bold bg-black/30 px-2.5 py-1 rounded-lg block mt-1 text-emerald-300">
+                  Flat Per-Order Charge
+                </code>
+              </div>
+
+              <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/20 space-y-1">
+                <span className="text-[10px] font-extrabold uppercase tracking-wider text-amber-200 block">3. Total Delivery Fee</span>
+                <p className="text-xs font-semibold leading-relaxed text-white">
+                  Physical Base Fee + Region Fee. Unconfigured values safely default to:
+                </p>
+                <code className="text-[11px] font-mono font-bold bg-black/30 px-2.5 py-1 rounded-lg block mt-1 text-amber-300">
+                  NLe 0.00 Default
+                </code>
+              </div>
+            </div>
+          </div>
+
+          {/* Weight-based Shipping Rates Card */}
           <Card className="border-none shadow-2xl overflow-hidden rounded-[2.5rem] bg-gradient-to-br from-background via-background to-primary/5 border-l-4 border-primary">
             <CardHeader className="pb-6 border-b border-muted/30">
-              <div className="flex items-center justify-between col-span-full">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 col-span-full">
                 <div className="flex items-center gap-4">
                   <div className="p-3 bg-primary/10 rounded-2xl">
                     <Globe className="h-6 w-6 text-primary" />
                   </div>
                   <div>
-                    <CardTitle className="text-xl font-medium">Weight-based Shipping Rates</CardTitle>
-                    <CardDescription className="pt-1 font-medium italic text-xs uppercase tracking-widest opacity-60">Delivery Charges based on weight range (NLE)</CardDescription>
+                    <div className="flex items-center gap-2">
+                      <CardTitle className="text-xl font-bold">1. Weight-based Shipping Rates</CardTitle>
+                      <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20 font-bold text-[10px]">
+                        {ranges.length} Tier{ranges.length === 1 ? "" : "s"} Configured
+                      </Badge>
+                    </div>
+                    <CardDescription className="pt-1 font-medium text-xs text-muted-foreground">
+                      Set shipping fee tiers based on total package weight in kilograms (kg).
+                    </CardDescription>
                   </div>
                 </div>
-                <Button type="button" variant="outline" size="sm" onClick={addRange} className="rounded-full gap-1.5 font-bold uppercase tracking-wider text-[10px] border-primary/30 text-primary">
-                  <Plus className="h-3 w-3" /> Add Range
+                <Button type="button" variant="outline" size="sm" onClick={addRange} className="rounded-full gap-1.5 font-bold uppercase tracking-wider text-[10px] border-primary/30 text-primary hover:bg-primary hover:text-white transition-all shadow-sm">
+                  <Plus className="h-3.5 w-3.5" /> Add Weight Tier
                 </Button>
               </div>
             </CardHeader>
-            <CardContent className="p-10 space-y-6">
+            <CardContent className="p-8 space-y-6">
               {ranges.length === 0 ? (
-                <p className="text-sm text-muted-foreground italic text-center py-4 bg-muted/10 rounded-2xl w-full">
-                  No weight ranges configured. Standard free shipping will apply. Click "Add Range" to set weight-based charges.
-                </p>
+                <div className="text-center py-8 bg-muted/10 rounded-3xl border-2 border-dashed border-muted/40 space-y-3">
+                  <Globe className="h-10 w-10 text-muted-foreground/40 mx-auto" />
+                  <p className="text-sm font-semibold text-muted-foreground">No weight tiers configured yet.</p>
+                  <Button type="button" size="sm" onClick={addRange} className="rounded-full gap-1.5 font-bold text-xs">
+                    <Plus className="h-4 w-4" /> Add First Weight Tier
+                  </Button>
+                </div>
               ) : (
                 <div className="space-y-4">
                   {ranges.map((range, index) => (
-                    <div key={index} className="flex flex-col md:flex-row items-end md:items-center gap-4 bg-muted/5 p-4 rounded-2xl border border-muted/20 relative">
-                      <div className="grid grid-cols-3 gap-4 flex-1 w-full">
-                        <div className="space-y-2">
-                          <Label className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Min Weight (kg)</Label>
-                          <Input
-                            type="number"
-                            step="0.001"
-                            min="0"
-                            placeholder="0.0"
-                            value={range.minWeight}
-                            onChange={(e) => updateRange(index, "minWeight", e.target.value)}
-                            className="h-10 border-muted bg-background rounded-xl font-medium text-sm"
-                            required
-                          />
+                    <div key={index} className="flex flex-col md:flex-row items-end md:items-center gap-4 bg-muted/10 p-5 rounded-3xl border border-muted/30 hover:border-primary/30 transition-all relative group">
+                      <div className="flex items-center justify-center h-8 w-8 rounded-full bg-primary/10 text-primary font-bold text-xs shrink-0">
+                        #{index + 1}
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 flex-1 w-full">
+                        <div className="space-y-1.5">
+                          <Label className="text-[10px] font-extrabold uppercase tracking-wider text-muted-foreground flex items-center justify-between">
+                            <span>Min Weight</span>
+                            <span className="text-primary font-mono text-[9px]">kg</span>
+                          </Label>
+                          <Input type="number" step="0.001" min="0" placeholder="0.0" value={range.minWeight} onChange={(e) => updateRange(index, "minWeight", e.target.value)} className="h-11 border-muted bg-background rounded-2xl font-bold text-sm" required />
                         </div>
-                        <div className="space-y-2">
-                          <Label className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Max Weight (kg)</Label>
-                          <Input
-                            type="number"
-                            step="0.001"
-                            min="0.001"
-                            placeholder="2.0"
-                            value={range.maxWeight}
-                            onChange={(e) => updateRange(index, "maxWeight", e.target.value)}
-                            className="h-10 border-muted bg-background rounded-xl font-medium text-sm"
-                            required
-                          />
+                        <div className="space-y-1.5">
+                          <Label className="text-[10px] font-extrabold uppercase tracking-wider text-muted-foreground flex items-center justify-between">
+                            <span>Max Weight</span>
+                            <span className="text-primary font-mono text-[9px]">kg</span>
+                          </Label>
+                          <Input type="number" step="0.001" min="0.001" placeholder="2.0" value={range.maxWeight} onChange={(e) => updateRange(index, "maxWeight", e.target.value)} className="h-11 border-muted bg-background rounded-2xl font-bold text-sm" required />
                         </div>
-                        <div className="space-y-2">
-                          <Label className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Charge (NLE)</Label>
-                          <Input
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            placeholder="50.00"
-                            value={range.charge}
-                            onChange={(e) => updateRange(index, "charge", e.target.value)}
-                            className="h-10 border-muted bg-background rounded-xl font-medium text-sm"
-                            required
-                          />
+                        <div className="space-y-1.5">
+                          <Label className="text-[10px] font-extrabold uppercase tracking-wider text-muted-foreground flex items-center justify-between">
+                            <span>Delivery Fee</span>
+                            <span className="text-emerald-600 font-mono text-[9px]">NLe</span>
+                          </Label>
+                          <Input type="number" step="0.01" min="0" placeholder="50.00" value={range.charge} onChange={(e) => updateRange(index, "charge", e.target.value)} className="h-11 border-muted bg-background rounded-2xl font-bold text-sm text-emerald-700" required />
                         </div>
                       </div>
-                      <Button
-                        type="button"
-                        variant="destructive"
-                        size="icon"
-                        onClick={() => removeRange(index)}
-                        className="rounded-xl h-10 w-10 shrink-0"
-                        title="Remove range"
-                      >
+                      <Button type="button" variant="destructive" size="icon" onClick={() => removeRange(index)} className="rounded-2xl h-11 w-11 shrink-0 opacity-80 group-hover:opacity-100 transition-opacity" title="Remove weight tier">
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
                   ))}
                 </div>
               )}
-              <p className="text-[9px] text-muted-foreground/60 italic">
-                * Specify weights in kilograms (kg) and charges in NLE. Ranges must be continuous (e.g. 0-2kg, 2-5kg) without gaps or overlaps.
+              <p className="text-[10px] text-muted-foreground font-medium italic bg-primary/5 p-3 rounded-2xl border border-primary/10">
+                💡 <strong>Tip:</strong> Weight is specified in kilograms (kg) and fee in NLe. Example: Tier 1: <code>0 - 2.0 kg ➔ NLe 50.00</code>, Tier 2: <code>2.0 - 5.0 kg ➔ NLe 100.00</code>.
               </p>
             </CardContent>
           </Card>
 
-          <Card className="border-none shadow-2xl overflow-hidden rounded-[2.5rem] bg-gradient-to-br from-background via-background to-rose-500/5 border-l-4 border-rose-500">
+          {/* Dimension-based Shipping Rates Card */}
+          <Card className="border-none shadow-2xl overflow-hidden rounded-[2.5rem] bg-gradient-to-br from-background via-background to-indigo-500/5 border-l-4 border-indigo-500">
             <CardHeader className="pb-6 border-b border-muted/30">
-              <div className="flex items-center gap-4">
-                <div className="p-3 bg-rose-500/10 rounded-2xl">
-                  <Ban className="h-6 w-6 text-rose-600" />
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 col-span-full">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 bg-indigo-500/10 rounded-2xl">
+                    <Box className="h-6 w-6 text-indigo-600" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <CardTitle className="text-xl font-bold text-indigo-950">2. Dimension-based Shipping Rates</CardTitle>
+                      <Badge variant="outline" className="bg-indigo-500/10 text-indigo-600 border-indigo-500/20 font-bold text-[10px]">
+                        {dimensionRanges.length} Tier{dimensionRanges.length === 1 ? "" : "s"} Configured
+                      </Badge>
+                    </div>
+                    <CardDescription className="pt-1 font-medium text-xs text-muted-foreground">
+                      Set shipping fee tiers based on total volume (Height × Width × Depth in cm³).
+                    </CardDescription>
+                  </div>
                 </div>
-                <div>
-                  <CardTitle className="text-xl font-medium text-rose-900">Restricted Names</CardTitle>
-                  <CardDescription className="pt-1 font-medium italic text-xs uppercase tracking-widest opacity-60">Prohibited seller and customer registration names</CardDescription>
-                </div>
+                <Button type="button" variant="outline" size="sm" onClick={addDimensionRange} className="rounded-full gap-1.5 font-bold uppercase tracking-wider text-[10px] border-indigo-500/30 text-indigo-600 hover:bg-indigo-600 hover:text-white transition-all shadow-sm">
+                  <Plus className="h-3.5 w-3.5" /> Add Volume Tier
+                </Button>
               </div>
             </CardHeader>
-            <CardContent className="p-10 space-y-6">
-              <div className="space-y-3">
-                <Label htmlFor="addDisallowedName" className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground ml-1">
-                  Add Prohibited Word
-                </Label>
-                <div className="flex gap-3">
-                  <Input
-                    id="addDisallowedName"
-                    type="text"
-                    placeholder="Enter restricted word e.g. 'badword', 'admin', 'scam'"
-                    value={newDisallowedName}
-                    onChange={(e) => setNewDisallowedName(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault()
-                        handleAddDisallowedName()
-                      }
-                    }}
-                    className="border-muted bg-muted/20 rounded-2xl h-12 focus-visible:ring-rose-500 font-medium shadow-inner flex-1"
-                  />
-                  <Button
-                    type="button"
-                    onClick={handleAddDisallowedName}
-                    className="rounded-2xl h-12 px-6 bg-rose-600 hover:bg-rose-700 text-white font-medium text-xs uppercase tracking-wider shadow-lg shadow-rose-500/20"
-                  >
-                    <Plus className="h-4 w-4 mr-1.5" /> Add
+            <CardContent className="p-8 space-y-6">
+              {dimensionRanges.length === 0 ? (
+                <div className="text-center py-8 bg-muted/10 rounded-3xl border-2 border-dashed border-muted/40 space-y-3">
+                  <Box className="h-10 w-10 text-muted-foreground/40 mx-auto" />
+                  <p className="text-sm font-semibold text-muted-foreground">No volume tiers configured yet.</p>
+                  <Button type="button" size="sm" onClick={addDimensionRange} className="rounded-full gap-1.5 font-bold text-xs bg-indigo-600 hover:bg-indigo-700">
+                    <Plus className="h-4 w-4" /> Add First Volume Tier
                   </Button>
                 </div>
-                <p className="text-[9px] text-muted-foreground/60 ml-1 italic">
-                  * Registrations and profile name updates matching these words (including obfuscations) will be blocked automatically.
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground ml-1">
-                  Active Restricted List ({disallowedNames.length})
-                </Label>
-                {disallowedNames.length === 0 ? (
-                  <p className="text-sm text-muted-foreground italic text-center py-4 bg-muted/10 rounded-2xl w-full">
-                    No restricted names configured yet.
-                  </p>
-                ) : (
-                  <div className="flex flex-wrap gap-2 p-4 bg-muted/10 rounded-2xl border border-muted/20 max-h-48 overflow-y-auto">
-                    {disallowedNames.map((name) => (
-                      <Badge
-                        key={name}
-                        variant="secondary"
-                        className="px-3 py-1.5 rounded-full text-xs font-medium bg-rose-500/10 text-rose-700 border border-rose-200 flex items-center gap-1.5 hover:bg-rose-500/20 transition-colors"
-                      >
-                        <span>{name}</span>
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveDisallowedName(name)}
-                          className="hover:text-rose-900 transition-colors focus:outline-none"
-                          title={`Remove '${name}'`}
-                        >
-                          <X className="h-3.5 w-3.5" />
-                        </button>
-                      </Badge>
-                    ))}
-                  </div>
-                )}
-              </div>
+              ) : (
+                <div className="space-y-4">
+                  {dimensionRanges.map((range, index) => (
+                    <div key={index} className="flex flex-col md:flex-row items-end md:items-center gap-4 bg-muted/10 p-5 rounded-3xl border border-muted/30 hover:border-indigo-500/30 transition-all relative group">
+                      <div className="flex items-center justify-center h-8 w-8 rounded-full bg-indigo-500/10 text-indigo-600 font-bold text-xs shrink-0">
+                        #{index + 1}
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 flex-1 w-full">
+                        <div className="space-y-1.5">
+                          <Label className="text-[10px] font-extrabold uppercase tracking-wider text-muted-foreground flex items-center justify-between">
+                            <span>Min Volume</span>
+                            <span className="text-indigo-600 font-mono text-[9px]">cm³</span>
+                          </Label>
+                          <Input type="number" step="0.1" min="0" placeholder="0.0" value={range.minDimension} onChange={(e) => updateDimensionRange(index, "minDimension", e.target.value)} className="h-11 border-muted bg-background rounded-2xl font-bold text-sm" required />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-[10px] font-extrabold uppercase tracking-wider text-muted-foreground flex items-center justify-between">
+                            <span>Max Volume</span>
+                            <span className="text-indigo-600 font-mono text-[9px]">cm³</span>
+                          </Label>
+                          <Input type="number" step="0.1" min="0.1" placeholder="1000.0" value={range.maxDimension} onChange={(e) => updateDimensionRange(index, "maxDimension", e.target.value)} className="h-11 border-muted bg-background rounded-2xl font-bold text-sm" required />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-[10px] font-extrabold uppercase tracking-wider text-muted-foreground flex items-center justify-between">
+                            <span>Delivery Fee</span>
+                            <span className="text-emerald-600 font-mono text-[9px]">NLe</span>
+                          </Label>
+                          <Input type="number" step="0.01" min="0" placeholder="50.00" value={range.charge} onChange={(e) => updateDimensionRange(index, "charge", e.target.value)} className="h-11 border-muted bg-background rounded-2xl font-bold text-sm text-emerald-700" required />
+                        </div>
+                      </div>
+                      <Button type="button" variant="destructive" size="icon" onClick={() => removeDimensionRange(index)} className="rounded-2xl h-11 w-11 shrink-0 opacity-80 group-hover:opacity-100 transition-opacity" title="Remove volume tier">
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <p className="text-[10px] text-muted-foreground font-medium italic bg-indigo-500/5 p-3 rounded-2xl border border-indigo-500/10">
+                💡 <strong>Volume Calculation:</strong> Volume (cm³) = Height (cm) × Width (cm) × Depth (cm). Example: A package 10 × 10 × 10 cm = 1,000 cm³.
+              </p>
             </CardContent>
           </Card>
 
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-6 p-4">
-            <p className="text-[10px] font-medium text-muted-foreground/60 italic max-w-sm">
-              System configuration updates are logged. Ensure cryptographic parity before submitting changes.
+          {/* Region-wise Delivery Charges Card */}
+          <Card className="border-none shadow-2xl overflow-hidden rounded-[2.5rem] bg-gradient-to-br from-background via-background to-teal-500/5 border-l-4 border-teal-500">
+            <CardHeader className="pb-6 border-b border-muted/30">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 col-span-full">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 bg-teal-500/10 rounded-2xl">
+                    <Globe className="h-6 w-6 text-teal-600" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <CardTitle className="text-xl font-bold text-teal-950">3. Region-wise Delivery Charges</CardTitle>
+                      <Badge variant="outline" className="bg-teal-500/10 text-teal-700 border-teal-500/20 font-bold text-[10px]">
+                        {regionCharges.length} of {ALLOWED_ADMINISTRATIVE_REGIONS.length} Regions Configured
+                      </Badge>
+                    </div>
+                    <CardDescription className="pt-1 font-medium text-xs text-muted-foreground">
+                      Set regional delivery surcharges for Sierra Leone's 5 Administrative Regions.
+                    </CardDescription>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  {regionCharges.length < ALLOWED_ADMINISTRATIVE_REGIONS.length && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const missing = ALLOWED_ADMINISTRATIVE_REGIONS.filter(
+                          (reg) => !regionCharges.some((rc) => rc.region === reg)
+                        )
+                        setRegionCharges((prev) => [
+                          ...prev,
+                          ...missing.map((reg) => ({ region: reg, charge: "0.00" })),
+                        ])
+                      }}
+                      className="rounded-full gap-1 font-bold text-[10px] border-teal-500/30 text-teal-700 hover:bg-teal-50"
+                    >
+                      + Add All 5 Regions
+                    </Button>
+                  )}
+                  <Button type="button" variant="outline" size="sm" onClick={addRegionCharge} className="rounded-full gap-1.5 font-bold uppercase tracking-wider text-[10px] border-teal-500/30 text-teal-700 hover:bg-teal-600 hover:text-white transition-all shadow-sm">
+                    <Plus className="h-3.5 w-3.5" /> Add Region
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="p-8 space-y-6">
+              {regionCharges.length === 0 ? (
+                <div className="text-center py-8 bg-muted/10 rounded-3xl border-2 border-dashed border-muted/40 space-y-3">
+                  <Globe className="h-10 w-10 text-muted-foreground/40 mx-auto" />
+                  <p className="text-sm font-semibold text-muted-foreground">No regional charges configured yet.</p>
+                  <Button type="button" size="sm" onClick={addRegionCharge} className="rounded-full gap-1.5 font-bold text-xs bg-teal-600 hover:bg-teal-700">
+                    <Plus className="h-4 w-4" /> Add First Region Charge
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {regionCharges.map((rc, index) => (
+                    <div key={index} className="flex flex-col md:flex-row items-end md:items-center gap-4 bg-muted/10 p-5 rounded-3xl border border-muted/30 hover:border-teal-500/30 transition-all relative group">
+                      <div className="flex items-center justify-center h-8 w-8 rounded-full bg-teal-500/10 text-teal-700 font-bold text-xs shrink-0">
+                        📍
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 flex-1 w-full">
+                        <div className="space-y-1.5">
+                          <Label className="text-[10px] font-extrabold uppercase tracking-wider text-muted-foreground">
+                            Administrative Region (Dropdown)
+                          </Label>
+                          <select
+                            value={rc.region}
+                            onChange={(e) => updateRegionCharge(index, "region", e.target.value)}
+                            className="h-11 w-full border border-muted bg-background rounded-2xl font-bold text-sm px-4 focus:outline-none focus:ring-2 focus:ring-teal-500 text-slate-800"
+                            required
+                          >
+                            <option value="" disabled>Select Region...</option>
+                            {ALLOWED_ADMINISTRATIVE_REGIONS.map((reg) => (
+                              <option key={reg} value={reg} disabled={regionCharges.some((r, i) => i !== index && r.region === reg)}>
+                                {reg}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-[10px] font-extrabold uppercase tracking-wider text-muted-foreground flex items-center justify-between">
+                            <span>Delivery Charge</span>
+                            <span className="text-emerald-600 font-mono text-[9px]">NLe</span>
+                          </Label>
+                          <Input type="number" step="0.01" min="0" placeholder="50.00" value={rc.charge} onChange={(e) => updateRegionCharge(index, "charge", e.target.value)} className="h-11 border-muted bg-background rounded-2xl font-bold text-sm text-emerald-700" required />
+                        </div>
+                      </div>
+                      <Button type="button" variant="destructive" size="icon" onClick={() => removeRegionCharge(index)} className="rounded-2xl h-11 w-11 shrink-0 opacity-80 group-hover:opacity-100 transition-opacity" title="Remove region charge">
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <p className="text-[10px] text-muted-foreground font-medium italic bg-teal-500/5 p-3 rounded-2xl border border-teal-500/10">
+                💡 <strong>Regions Supported:</strong> Eastern Province, Northern Province, North West Province, Southern Province, Western Area. Unconfigured regions default to <code>NLe 0.00</code>.
+              </p>
+            </CardContent>
+          </Card>
+
+          <div className="sticky bottom-6 z-20 flex flex-col sm:flex-row items-center justify-between gap-6 p-6 rounded-[2.5rem] bg-background/95 backdrop-blur-xl border border-muted/30 shadow-2xl">
+            <p className="text-xs font-semibold text-muted-foreground max-w-sm">
+              💡 Changes applied here will update shipping rules instantly for all Web and Mobile checkouts.
             </p>
-            <Button type="submit" disabled={saving} className="w-full sm:w-fit rounded-full px-12 h-14 font-medium uppercase tracking-[0.2em] text-[11px] shadow-2xl shadow-primary/30 hover:scale-105 transition-all">
-              {saving ? "Synchronizing..." : "Synchronize System"}
+            <Button type="submit" disabled={saving} className="w-full sm:w-fit rounded-full px-10 h-14 font-extrabold uppercase tracking-wider text-xs shadow-2xl bg-primary text-primary-foreground hover:bg-primary/90 hover:scale-105 transition-all gap-2">
+              {saving ? (
+                <>
+                  <PageLoader message="" />
+                  <span>Saving Settings...</span>
+                </>
+              ) : (
+                <>
+                  <ShieldCheck className="h-4 w-4" />
+                  <span>Save All System Settings</span>
+                </>
+              )}
             </Button>
           </div>
         </div>

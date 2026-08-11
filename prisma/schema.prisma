@@ -1244,6 +1244,9 @@ model Order {
   subtotal        Float
   tax             Float         @default(0)
   shipping        Float         @default(0)
+  weightShippingFee    Float?   @default(0)
+  dimensionShippingFee Float?   @default(0)
+  regionShippingFee    Float?   @default(0)
   commission      Float         @default(0)
   commissionRate  Float         // Store the commission rate at time of order
   paymentStatus   PaymentStatus @default(PENDING)
@@ -1480,11 +1483,13 @@ model AdManagement {
 }
 
 model GlobalSetting {
-  id                    String   @id @default(cuid())
-  baseCommission        Float    @default(10.0)
-  deliveryChargeRanges  Json?
-  disallowedNames       Json?
-  updatedAt             DateTime @updatedAt
+  id                            String   @id @default(cuid())
+  baseCommission                Float    @default(10.0)
+  deliveryChargeRanges          Json?
+  dimensionDeliveryChargeRanges Json?
+  regionDeliveryCharges         Json?
+  disallowedNames               Json?
+  updatedAt                     DateTime @updatedAt
 
   @@map("global_settings")
 }

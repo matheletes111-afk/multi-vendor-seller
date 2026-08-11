@@ -117,7 +117,7 @@ export async function GET(
     const { id } = await params
     const [service, ratingAgg] = await Promise.all([
       prisma.service.findFirst({
-        where: { id, isActive: true, isDeleted: false },
+        where: { id, isActive: true, isDeleted: false, seller: { isApproved: true, isSuspended: false } },
         include: {
           serviceCategory: true,
           seller: {

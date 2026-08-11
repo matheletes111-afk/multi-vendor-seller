@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { calculateShippingBreakup, getRegionDeliveryCharge } from "@/lib/shipping-calculator"
 
 const CHECKOUT_CART_INCLUDE = {
   product: {
@@ -17,7 +18,7 @@ const CHECKOUT_CART_INCLUDE = {
       },
     },
   },
-  productVariant: { select: { name: true, weight: true } },
+  productVariant: { select: { name: true, weight: true, height: true, width: true, depth: true } },
   service: {
     select: {
       sellerId: true,
@@ -35,24 +36,6 @@ const CHECKOUT_CART_INCLUDE = {
   servicePackage: { select: { name: true } },
 } as const
 
-function getShippingChargeForWeight(weight: number, ranges: any[]): number {
-  if (!ranges || ranges.length === 0) return 0
-  const w = typeof weight === "number" && !isNaN(weight) ? Math.max(0, weight) : 0
-  for (const r of ranges) {
-    const minW = Number(r.minWeight ?? 0)
-    const maxW = Number(r.maxWeight ?? 0)
-    const charge = Number(r.charge ?? 0)
-    if (w >= minW && w < maxW) {
-      return charge
-    }
-  }
-  const firstMin = Number(ranges[0]?.minWeight ?? 0)
-  if (w <= firstMin) {
-    return Number(ranges[0]?.charge ?? 0)
-  }
-  return Number(ranges[ranges.length - 1]?.charge ?? 0)
-}
-
 export async function GET(req: NextRequest) {
   const session = await auth()
   if (!session?.user) {
@@ -67,16 +50,30 @@ export async function GET(req: NextRequest) {
 
   const items = cartItems.filter((i) => i.productId != null || i.serviceId != null)
 
-  const globalSetting = await prisma.globalSetting.findFirst({ select: { deliveryChargeRanges: true } }).catch(() => null)
-  const ranges = (globalSetting?.deliveryChargeRanges as any[]) || []
+  const globalSetting = await prisma.globalSetting.findFirst({ select: { deliveryChargeRanges: true, dimensionDeliveryChargeRanges: true, regionDeliveryCharges: true } }).catch(() => null)
+  const weightRanges = (globalSetting?.deliveryChargeRanges as any[]) || []
+  const dimensionRanges = (globalSetting?.dimensionDeliveryChargeRanges as any[]) || []
+  const regionCharges = (globalSetting?.regionDeliveryCharges as any[]) || []
+
+  const searchParams = req.nextUrl.searchParams
+  const addressId = searchParams.get("addressId")
+
+  let addressState = ""
+  if (addressId) {
+    const addr = await prisma.userAddress.findFirst({ where: { id: addressId, userId: session.user.id } })
+    addressState = addr?.state || ""
+  } else {
+    const addr = await prisma.userAddress.findFirst({ where: { userId: session.user.id, isDefault: true } })
+    addressState = addr?.state || ""
+  }
+
+  const regionFee = getRegionDeliveryCharge(addressState, regionCharges)
 
   // Group by seller
   const groupsMap = new Map<string, {
     sellerId: string
     sellerName: string
     items: typeof items
-    totalWeight: number
-    hasPhysicalProducts: boolean
   }>()
 
   const itemStoreNames: Record<string, string> = {}
@@ -94,38 +91,68 @@ export async function GET(req: NextRequest) {
         sellerId,
         sellerName,
         items: [],
-        totalWeight: 0,
-        hasPhysicalProducts: false,
       })
     }
 
     const group = groupsMap.get(sellerId)!
     group.items.push(item)
-    if (item.productId) {
-      group.hasPhysicalProducts = true
-      const weight = item.productVariant?.weight ?? 0
-      group.totalWeight += weight * item.quantity
-    }
   }
 
-  let totalShipping = 0
+  let totalWeightShippingFee = 0
+  let totalDimensionShippingFee = 0
+  let totalPhysicalBaseFee = 0
+
   const sellerGroups = Array.from(groupsMap.values()).map((g) => {
-    const sellerDeliveryFee = g.hasPhysicalProducts ? getShippingChargeForWeight(g.totalWeight, ranges) : 0
-    totalShipping += sellerDeliveryFee
+    const shippingItems = g.items.map((item) => ({
+      weight: item.productVariant?.weight ?? 0,
+      height: item.productVariant?.height ?? 0,
+      width: item.productVariant?.width ?? 0,
+      depth: item.productVariant?.depth ?? 0,
+      quantity: item.quantity,
+      isPhysical: item.productId != null,
+    }))
+
+    // Pass empty regionCharges here — region is a per-order charge, not per-seller
+    const breakup = calculateShippingBreakup({
+      items: shippingItems,
+      destinationState: addressState,
+      weightRanges,
+      dimensionRanges,
+      regionCharges: [],
+    })
+
+    totalWeightShippingFee += breakup.weightShippingFee
+    totalDimensionShippingFee += breakup.dimensionShippingFee
+    // breakup.totalShippingFee is already max(weight, dim) per seller
+    totalPhysicalBaseFee += breakup.totalShippingFee
+
     return {
       sellerId: g.sellerId,
       sellerName: g.sellerName,
       itemsCount: g.items.length,
-      sellerDeliveryFee,
-      totalWeight: g.totalWeight,
+      sellerDeliveryFee: breakup.totalShippingFee,
+      shippingBreakup: breakup,
     }
   })
 
+  // Region fee is a flat per-order charge — apply once regardless of seller count
+  const totalRegionShippingFee = regionFee
+  const totalShipping = totalPhysicalBaseFee + totalRegionShippingFee
+
   return NextResponse.json({
     shipping: totalShipping,
+    shippingBreakup: {
+      weightShippingFee: totalWeightShippingFee,
+      dimensionShippingFee: totalDimensionShippingFee,
+      regionShippingFee: totalRegionShippingFee,
+      totalShippingFee: totalShipping,
+    },
+    regionFee,
     sellerGroups,
     itemStoreNames,
     isMultiVendor: sellerGroups.length > 1,
-    deliveryChargeRanges: ranges,
+    deliveryChargeRanges: weightRanges,
+    dimensionDeliveryChargeRanges: dimensionRanges,
+    regionDeliveryCharges: regionCharges,
   })
 }

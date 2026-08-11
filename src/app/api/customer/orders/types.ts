@@ -83,6 +83,15 @@ export type OrderDetailApi = {
   subtotal: number
   tax: number
   shipping: number
+  weightShippingFee?: number | null
+  dimensionShippingFee?: number | null
+  regionShippingFee?: number | null
+  shippingBreakup?: {
+    weightShippingFee: number
+    dimensionShippingFee: number
+    regionShippingFee: number
+    totalShippingFee: number
+  }
   paymentMethod: string | null
   paymentStatus: string
   shippingFullName: string | null

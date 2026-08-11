@@ -1256,6 +1256,31 @@ export function ProductSellerOrderDetailClient({ orderId }: { orderId: string })
                       </span>
                     </div>
 
+                    {/* Delivery Fee Sub-Breakup */}
+                    {order.shipping > 0 && (
+                      <div className="mx-1 rounded-xl bg-muted/30 p-2.5 space-y-1 text-[11px] text-muted-foreground border border-muted/20">
+                        <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/60 block mb-0.5">Delivery Breakdown</span>
+                        {(order.weightShippingFee ?? 0) > 0 && (
+                          <div className="flex justify-between">
+                            <span>Weight Charge</span>
+                            <span className="font-semibold text-foreground/80">{formatCurrency(order.weightShippingFee!)}</span>
+                          </div>
+                        )}
+                        {(order.dimensionShippingFee ?? 0) > 0 && (
+                          <div className="flex justify-between">
+                            <span>Dimension Charge</span>
+                            <span className="font-semibold text-foreground/80">{formatCurrency(order.dimensionShippingFee!)}</span>
+                          </div>
+                        )}
+                        {(order.regionShippingFee ?? 0) > 0 && (
+                          <div className="flex justify-between">
+                            <span>Region Surcharge</span>
+                            <span className="font-semibold text-foreground/80">{formatCurrency(order.regionShippingFee!)}</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
                     {priceBreakdown.kind === "exchange" && priceBreakdown.topUp > 0.01 && (
                       <div className="flex justify-between items-center px-1">
                         <span className="text-[10px] font-black uppercase tracking-widest text-amber-600/60">Exchange Top-up</span>

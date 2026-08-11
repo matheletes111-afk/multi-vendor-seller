@@ -745,6 +745,31 @@ export function AdminOrderDetailClient({ orderId }: { orderId: string }) {
                       )}
                     </span>
                   </div>
+
+                  {/* Delivery Fee Sub-Breakup */}
+                  {order.shipping > 0 && (
+                    <div className="rounded-xl bg-background/80 p-2.5 space-y-1 text-xs text-muted-foreground border border-muted/20">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70 block mb-0.5">Delivery Breakdown</span>
+                      {(order.weightShippingFee ?? 0) > 0 && (
+                        <div className="flex justify-between">
+                          <span>Weight Charge</span>
+                          <span className="font-semibold text-foreground">{formatCurrency(order.weightShippingFee!)}</span>
+                        </div>
+                      )}
+                      {(order.dimensionShippingFee ?? 0) > 0 && (
+                        <div className="flex justify-between">
+                          <span>Dimension Charge</span>
+                          <span className="font-semibold text-foreground">{formatCurrency(order.dimensionShippingFee!)}</span>
+                        </div>
+                      )}
+                      {(order.regionShippingFee ?? 0) > 0 && (
+                        <div className="flex justify-between">
+                          <span>Region Surcharge</span>
+                          <span className="font-semibold text-foreground">{formatCurrency(order.regionShippingFee!)}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
                   {order.couponDiscount && order.couponDiscount > 0 && (
                     <div className="flex justify-between text-sm font-medium text-emerald-600">
                       <span>Coupon Discount ({order.couponCode})</span>

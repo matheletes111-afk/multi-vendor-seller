@@ -1,0 +1,192 @@
+================================================================================
+          MEEEM MULTI-VENDOR MOBILE API - SHIPPING & REGION GUIDE
+================================================================================
+
+1. OVERVIEW & ADMINISTRATIVE REGIONS
+--------------------------------------------------------------------------------
+The backend calculates delivery fees based on 3 distinct components:
+  1) Weight-based Shipping Fee (weightShippingFee)
+  2) Dimension-based Shipping Fee (dimensionShippingFee)
+  3) Region-based Shipping Fee (regionShippingFee)
+
+IMPORTANT ZERO-FALLBACK RULE:
+- If weight, dimensions, address region, or setting ranges are null, empty,
+  or unconfigured, the charge for that specific component defaults to 0.00.
+
+FORMULA & MULTI-VENDOR CALCULATION:
+- Per Seller Physical Base Fee = Math.max(weightShippingFee, dimensionShippingFee)
+- Total Order Delivery Fee = Sum(Per Seller Physical Base Fee) + regionShippingFee
+* Note: Region shipping fee is a flat PER-ORDER surcharge based on delivery region.
+  It is applied ONCE per order, regardless of how many sellers are in the cart.
+
+
+2. MOBILE ADDRESS FORM REQUIREMENTS
+--------------------------------------------------------------------------------
+When adding or updating a delivery address (via POST/PATCH /mobileapi/customer/checkout/addresses),
+the app MUST present a dropdown for the 'state' field containing Sierra Leone's
+5 Administrative Regions:
+
+  - Eastern Province
+  - Northern Province
+  - North West Province
+  - Southern Province
+  - Western Area
+
+Example Address JSON Payload (POST /mobileapi/customer/checkout/addresses):
+{
+  "fullName": "John Doe",
+  "phone": "076123456",
+  "addressLine1": "15 Circular Road",
+  "addressLine2": "Apartment 4B",
+  "city": "Freetown",
+  "state": "Western Area",       <-- MUST match one of the 5 Administrative Regions
+  "postalCode": "00232",
+  "country": "Sierra Leone",
+  "isDefault": true
+}
+
+
+3. CHECKOUT API ENDPOINTS & 3-PRICE BREAKUP
+--------------------------------------------------------------------------------
+
+A. GET /mobileapi/customer/checkout/summary?addressId=<address_id>
+--------------------------------------------------------------------------------
+Headers:
+  Authorization: Bearer <customer_jwt_token>
+
+Response Example (Multi-Vendor with 2 Sellers):
+{
+  "success": true,
+  "shipping": 115.00,
+  "shippingBreakup": {
+    "weightShippingFee": 80.00,
+    "dimensionShippingFee": 50.00,
+    "regionShippingFee": 35.00,
+    "totalShippingFee": 115.00
+  },
+  "sellerGroups": [
+    {
+      "sellerId": "seller_123",
+      "sellerName": "Freetown Electronics",
+      "itemsCount": 2,
+      "sellerDeliveryFee": 50.00,
+      "shippingBreakup": {
+        "weightShippingFee": 50.00,
+        "dimensionShippingFee": 40.00,
+        "regionShippingFee": 0,
+        "totalShippingFee": 50.00
+      }
+    },
+    {
+      "sellerId": "seller_456",
+      "sellerName": "Bo Fashion Store",
+      "itemsCount": 1,
+      "sellerDeliveryFee": 30.00,
+      "shippingBreakup": {
+        "weightShippingFee": 30.00,
+        "dimensionShippingFee": 10.00,
+        "regionShippingFee": 0,
+        "totalShippingFee": 30.00
+      }
+    }
+  ],
+  "isMultiVendor": true
+}
+
+
+B. POST /mobileapi/customer/checkout/place-order
+--------------------------------------------------------------------------------
+Headers:
+  Authorization: Bearer <customer_jwt_token>
+  Content-Type: application/json
+
+Request Body:
+{
+  "addressId": "clx...",
+  "couponCode": "DISCOUNT10"
+}
+
+Response Example (Multi-Vendor with 2 Sellers):
+{
+  "success": true,
+  "orderIds": [
+    "order_789"
+  ],
+  "orders": [
+    {
+      "orderId": "order_789",
+      "orderNumber": "ORD-2026-00102",
+      "sellerId": "MULTI",
+      "totalAmount": 515.00,
+      "itemCount": 3,
+      "couponCode": "DISCOUNT10",
+      "couponDiscount": 10.00
+    }
+  ],
+  "shippingBreakup": {
+    "weightShippingFee": 80.00,
+    "dimensionShippingFee": 50.00,
+    "regionShippingFee": 35.00,
+    "totalShippingFee": 115.00
+  }
+}
+
+
+C. GET /mobileapi/customer/orders/products/details/[id]
+--------------------------------------------------------------------------------
+Headers:
+  Authorization: Bearer <customer_jwt_token>
+
+Response Object Includes:
+{
+  "id": "order_789",
+  "orderNumber": "ORD-2026-00102",
+  "totalAmount": 515.00,
+  "subtotal": 400.00,
+  "tax": 0.00,
+  "shipping": 115.00,
+  "weightShippingFee": 80.00,
+  "dimensionShippingFee": 50.00,
+  "regionShippingFee": 35.00,
+  "shippingBreakup": {
+    "weightShippingFee": 80.00,
+    "dimensionShippingFee": 50.00,
+    "regionShippingFee": 35.00,
+    "totalShippingFee": 115.00
+  }
+}
+
+
+D. GET /mobileapi/product-seller/orders/[id]
+--------------------------------------------------------------------------------
+Headers:
+  Authorization: Bearer <seller_jwt_token>
+
+Response Object Includes:
+{
+  "id": "order_789",
+  "orderNumber": "ORD-2026-00102",
+  "totalAmount": 515.00,
+  "subtotal": 400.00,
+  "shipping": 115.00,
+  "weightShippingFee": 80.00,
+  "dimensionShippingFee": 50.00,
+  "regionShippingFee": 35.00,
+  "shippingBreakup": {
+    "weightShippingFee": 80.00,
+    "dimensionShippingFee": 50.00,
+    "regionShippingFee": 35.00,
+    "totalShippingFee": 115.00
+  }
+}
+
+
+4. SUMMARY OF DEFAULT FALLBACKS
+--------------------------------------------------------------------------------
+- Missing Weight / Variant Weight = null       => weightShippingFee = 0.00
+- Missing Height/Width/Depth = null            => dimensionShippingFee = 0.00
+- Address Region Unmatched / Missing = null    => regionShippingFee = 0.00
+- Service-only Orders (No Physical Products)   => All shipping fees = 0.00
+
+================================================================================
+

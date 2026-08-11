@@ -13,6 +13,12 @@ interface DeliveryRangeInput {
   charge: number
 }
 
+interface DimensionRangeInput {
+  minDimension: number
+  maxDimension: number
+  charge: number
+}
+
 function validateAndSortRanges(ranges: any): { sorted: DeliveryRangeInput[] | null, error: string | null } {
   if (!Array.isArray(ranges)) {
     return { sorted: null, error: "Weight ranges must be an array" }
@@ -64,6 +70,110 @@ function validateAndSortRanges(ranges: any): { sorted: DeliveryRangeInput[] | nu
   // First range must start at 0
   if (parsed[0].minWeight > 0.001) {
     return { sorted: null, error: "The first range must start at 0 kg to cover all possible weights" }
+  }
+
+  return { sorted: parsed, error: null }
+}
+
+function validateAndSortDimensionRanges(ranges: any): { sorted: DimensionRangeInput[] | null, error: string | null } {
+  if (!Array.isArray(ranges)) {
+    return { sorted: null, error: "Dimension ranges must be an array" }
+  }
+
+  if (ranges.length === 0) {
+    return { sorted: [], error: null }
+  }
+
+  const parsed: DimensionRangeInput[] = []
+
+  for (let i = 0; i < ranges.length; i++) {
+    const r = ranges[i]
+    const minDimension = parseFloat(r.minDimension)
+    const maxDimension = parseFloat(r.maxDimension)
+    const charge = parseFloat(r.charge)
+
+    if (isNaN(minDimension) || minDimension < 0) {
+      return { sorted: null, error: `Dimension Range ${i + 1}: Minimum dimension/volume must be a non-negative number` }
+    }
+    if (isNaN(maxDimension) || maxDimension <= minDimension) {
+      return { sorted: null, error: `Dimension Range ${i + 1}: Maximum dimension/volume must be greater than minimum dimension/volume` }
+    }
+    if (isNaN(charge) || charge < 0) {
+      return { sorted: null, error: `Dimension Range ${i + 1}: Delivery charge must be a non-negative number` }
+    }
+
+    parsed.push({ minDimension, maxDimension, charge })
+  }
+
+  // Sort by minDimension ascending
+  parsed.sort((a, b) => a.minDimension - b.minDimension)
+
+  // Validate contiguity and overlaps
+  for (let i = 0; i < parsed.length; i++) {
+    const current = parsed[i]
+    if (i > 0) {
+      const prev = parsed[i - 1]
+      // Allow minor floating point tolerance
+      if (Math.abs(current.minDimension - prev.maxDimension) > 0.001) {
+        return {
+          sorted: null,
+          error: `Range gap or overlap detected between dimension ranges (${prev.minDimension}-${prev.maxDimension} cm³) and (${current.minDimension}-${current.maxDimension} cm³). The minimum dimension of a range must match the maximum dimension of the previous range.`
+        }
+      }
+    }
+  }
+
+  // First range must start at 0
+  if (parsed[0].minDimension > 0.001) {
+    return { sorted: null, error: "The first dimension range must start at 0 cm³ to cover all possible volumes" }
+  }
+
+  return { sorted: parsed, error: null }
+}
+
+const ALLOWED_ADMINISTRATIVE_REGIONS = [
+  "Eastern Province",
+  "Northern Province",
+  "North West Province",
+  "Southern Province",
+  "Western Area",
+] as const
+
+interface RegionDeliveryChargeInput {
+  region: string
+  charge: number
+}
+
+function validateRegionDeliveryCharges(items: any): { sorted: RegionDeliveryChargeInput[] | null, error: string | null } {
+  if (!Array.isArray(items)) {
+    return { sorted: null, error: "Region delivery charges must be an array" }
+  }
+
+  if (items.length === 0) {
+    return { sorted: [], error: null }
+  }
+
+  const parsed: RegionDeliveryChargeInput[] = []
+  const seenRegions = new Set<string>()
+
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i]
+    const region = typeof item?.region === "string" ? item.region.trim() : ""
+    const charge = parseFloat(item?.charge)
+
+    if (!ALLOWED_ADMINISTRATIVE_REGIONS.includes(region as any)) {
+      return { sorted: null, error: `Row ${i + 1}: Invalid administrative region "${region}"` }
+    }
+    if (seenRegions.has(region)) {
+      return { sorted: null, error: `Region "${region}" is configured multiple times.` }
+    }
+    seenRegions.add(region)
+
+    if (isNaN(charge) || charge < 0) {
+      return { sorted: null, error: `Row ${i + 1}: Delivery charge for "${region}" must be a non-negative number` }
+    }
+
+    parsed.push({ region, charge })
   }
 
   return { sorted: parsed, error: null }
@@ -130,6 +240,8 @@ export async function PUT(request: NextRequest) {
   } = {}
   let baseCommission: number | undefined = undefined
   let deliveryChargeRanges: any = undefined
+  let dimensionDeliveryChargeRanges: any = undefined
+  let regionDeliveryCharges: any = undefined
   let disallowedNames: string[] | undefined = undefined
 
   if (contentType.includes("multipart/form-data")) {
@@ -150,6 +262,24 @@ export async function PUT(request: NextRequest) {
         deliveryChargeRanges = JSON.parse(deliveryChargeRangesStr)
       } catch {
         return NextResponse.json({ error: "Invalid delivery charge ranges format" }, { status: 400 })
+      }
+    }
+
+    const dimensionDeliveryChargeRangesStr = formData.get("dimensionDeliveryChargeRanges") as string | null
+    if (dimensionDeliveryChargeRangesStr !== null) {
+      try {
+        dimensionDeliveryChargeRanges = JSON.parse(dimensionDeliveryChargeRangesStr)
+      } catch {
+        return NextResponse.json({ error: "Invalid dimension delivery charge ranges format" }, { status: 400 })
+      }
+    }
+
+    const regionDeliveryChargesStr = formData.get("regionDeliveryCharges") as string | null
+    if (regionDeliveryChargesStr !== null) {
+      try {
+        regionDeliveryCharges = JSON.parse(regionDeliveryChargesStr)
+      } catch {
+        return NextResponse.json({ error: "Invalid region delivery charges format" }, { status: 400 })
       }
     }
 
@@ -229,6 +359,8 @@ export async function PUT(request: NextRequest) {
       currentPassword?: string
       baseCommission?: number
       deliveryChargeRanges?: any
+      dimensionDeliveryChargeRanges?: any
+      regionDeliveryCharges?: any
       disallowedNames?: string[]
     }
     if (body.name !== undefined) {
@@ -239,6 +371,8 @@ export async function PUT(request: NextRequest) {
     if (body.phoneCountryCode !== undefined) userData.phoneCountryCode = body.phoneCountryCode || null
     if (body.baseCommission !== undefined) baseCommission = body.baseCommission
     if (body.deliveryChargeRanges !== undefined) deliveryChargeRanges = body.deliveryChargeRanges
+    if (body.dimensionDeliveryChargeRanges !== undefined) dimensionDeliveryChargeRanges = body.dimensionDeliveryChargeRanges
+    if (body.regionDeliveryCharges !== undefined) regionDeliveryCharges = body.regionDeliveryCharges
     if (body.disallowedNames !== undefined && Array.isArray(body.disallowedNames)) {
       disallowedNames = body.disallowedNames.map(s => String(s).trim()).filter(Boolean)
     }
@@ -294,11 +428,31 @@ export async function PUT(request: NextRequest) {
     validatedRanges = sorted
   }
 
-  if (baseCommission !== undefined || validatedRanges !== undefined || disallowedNames !== undefined) {
+  let validatedDimensionRanges: any = undefined
+  if (dimensionDeliveryChargeRanges !== undefined) {
+    const { sorted, error } = validateAndSortDimensionRanges(dimensionDeliveryChargeRanges)
+    if (error) {
+      return NextResponse.json({ error }, { status: 400 })
+    }
+    validatedDimensionRanges = sorted
+  }
+
+  let validatedRegionCharges: any = undefined
+  if (regionDeliveryCharges !== undefined) {
+    const { sorted, error } = validateRegionDeliveryCharges(regionDeliveryCharges)
+    if (error) {
+      return NextResponse.json({ error }, { status: 400 })
+    }
+    validatedRegionCharges = sorted
+  }
+
+  if (baseCommission !== undefined || validatedRanges !== undefined || validatedDimensionRanges !== undefined || validatedRegionCharges !== undefined || disallowedNames !== undefined) {
     const globalSettings = await (prisma as any).globalSetting.findFirst()
     const updateData: any = {}
     if (baseCommission !== undefined) updateData.baseCommission = baseCommission
     if (validatedRanges !== undefined) updateData.deliveryChargeRanges = validatedRanges
+    if (validatedDimensionRanges !== undefined) updateData.dimensionDeliveryChargeRanges = validatedDimensionRanges
+    if (validatedRegionCharges !== undefined) updateData.regionDeliveryCharges = validatedRegionCharges
     if (disallowedNames !== undefined) updateData.disallowedNames = disallowedNames
 
     if (globalSettings) {
@@ -311,6 +465,8 @@ export async function PUT(request: NextRequest) {
         data: {
           baseCommission: baseCommission !== undefined ? baseCommission : 10.0,
           deliveryChargeRanges: validatedRanges !== undefined ? validatedRanges : [],
+          dimensionDeliveryChargeRanges: validatedDimensionRanges !== undefined ? validatedDimensionRanges : [],
+          regionDeliveryCharges: validatedRegionCharges !== undefined ? validatedRegionCharges : [],
           disallowedNames: disallowedNames !== undefined ? disallowedNames : []
         }
       })

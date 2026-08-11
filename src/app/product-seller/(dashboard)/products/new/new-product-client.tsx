@@ -41,14 +41,8 @@ export function NewProductClient() {
   const [selectedCategoryId, setSelectedCategoryId] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [imageMode, setImageMode] = useState<"link" | "upload">("upload")
-  const [imageUrlsText, setImageUrlsText] = useState("")
-  const [uploadedImageUrls, setUploadedImageUrls] = useState<string[]>([])
-  const [uploadedImageFiles, setUploadedImageFiles] = useState<File[]>([])
   const [condition, setCondition] = useState<"NEW" | "USED">("NEW")
-  const productPreviewUrlsRef = useRef<string[]>([])
   const [uploading, setUploading] = useState(false)
-  const fileInputRef = useRef<HTMLInputElement>(null)
   const [variants, setVariants] = useState<VariantRow[]>([
     {
       name: "Default",
@@ -368,18 +362,6 @@ export function NewProductClient() {
       setError("Name and category are required")
       return
     }
-    let images: string[] = []
-    try {
-      images =
-        imageMode === "link"
-          ? (imageUrlsText || "").split("\n").map((u) => u.trim()).filter(Boolean)
-          : uploadedImageFiles.length > 0
-            ? await uploadFiles(uploadedImageFiles)
-            : []
-    } catch {
-      setError("Product image upload failed. Please try again.")
-      return
-    }
     const variantsPayload: {
       name: string
       price: number
@@ -482,7 +464,6 @@ export function NewProductClient() {
         subcategoryId: subcategoryId || undefined,
         condition,
         deliveryChargePerKm: parseFloat(formData.get("deliveryChargePerKm") as string) || 0,
-        images: images.length ? images : undefined,
         variants: variantsPayload,
       }),
     })
@@ -495,45 +476,8 @@ export function NewProductClient() {
     }
   }
 
-  async function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
-    const files = e.target.files
-    if (!files?.length) return
-    setUploading(true)
-    let selected = Array.from(files).filter((f) => f.type.startsWith("image/"))
-    if (selected.length > 0) {
-      try {
-        const { compressImage } = await import("@/lib/image-compressor")
-        selected = await Promise.all(selected.map((f) => compressImage(f)))
-      } catch {
-        // Fallback
-      }
-      productPreviewUrlsRef.current.forEach((u) => URL.revokeObjectURL(u))
-      const previewUrls = selected.map((f) => URL.createObjectURL(f))
-      productPreviewUrlsRef.current = previewUrls
-      setUploadedImageFiles(selected)
-      setUploadedImageUrls(previewUrls)
-      if (previewUrls[0]) {
-        fetchAIDimensions(0, previewUrls[0])
-      }
-    }
-    setUploading(false)
-    e.target.value = ""
-  }
-
-  function removeUploadedUrl(url: string) {
-    setUploadedImageUrls((prev) => {
-      const idx = prev.indexOf(url)
-      if (idx >= 0) {
-        URL.revokeObjectURL(url)
-        setUploadedImageFiles((files) => files.filter((_, i) => i !== idx))
-      }
-      return prev.filter((u) => u !== url)
-    })
-  }
-
   useEffect(() => {
     return () => {
-      productPreviewUrlsRef.current.forEach((u) => URL.revokeObjectURL(u))
       variantPreviewUrlsRef.current.flat().forEach((u) => URL.revokeObjectURL(u))
     }
   }, [])
@@ -660,113 +604,6 @@ export function NewProductClient() {
                   placeholder="0.00" 
                 />
               </div>
-            </div>
-
-            <div className="rounded-xl border border-neutral-300 dark:border-neutral-700 bg-muted/20 p-4 space-y-3">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b pb-2.5">
-                <div>
-                  <Label className="text-sm font-bold flex items-center gap-1.5 text-foreground">
-                    <ImageIcon className="h-4 w-4 text-primary" /> Product Master Images (Listing Thumbnail)
-                  </Label>
-                  <p className="text-xs text-muted-foreground mt-0.5">Main fallback image shown on catalog, search, and browse pages.</p>
-                </div>
-
-                {/* Mode Selector Tabs */}
-                <div className="flex items-center gap-1 p-1 bg-background rounded-lg border shadow-sm shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => setImageMode("upload")}
-                    className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold transition-all ${
-                      imageMode === "upload"
-                        ? "bg-primary text-primary-foreground shadow-sm"
-                        : "text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    <Upload className="h-3.5 w-3.5" />
-                    Upload Files
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setImageMode("link")}
-                    className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold transition-all ${
-                      imageMode === "link"
-                        ? "bg-primary text-primary-foreground shadow-sm"
-                        : "text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    <LinkIcon className="h-3.5 w-3.5" />
-                    Image URLs (Link)
-                  </button>
-                </div>
-              </div>
-
-              {/* Mode Content */}
-              {imageMode === "upload" ? (
-                <div className="space-y-3">
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/jpeg,image/png,image/gif,image/webp"
-                    multiple
-                    className="hidden"
-                    onChange={handleFileSelect}
-                  />
-                  <div
-                    onClick={() => fileInputRef.current?.click()}
-                    className="group flex flex-col items-center justify-center p-5 border-2 border-dashed border-muted-foreground/30 hover:border-primary/60 rounded-lg cursor-pointer bg-background/50 hover:bg-primary/5 transition-all text-center"
-                  >
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary group-hover:scale-110 transition-transform">
-                      <Upload className="h-5 w-5" />
-                    </div>
-                    <p className="text-xs font-semibold mt-2 text-foreground">
-                      {uploading ? "Uploading images..." : "Click to select or upload master product images"}
-                    </p>
-                    <p className="text-[10px] text-muted-foreground mt-0.5">PNG, JPG, WEBP or GIF (Multiple allowed)</p>
-                  </div>
-
-                  {uploadedImageUrls.length > 0 && (
-                    <div className="space-y-1.5">
-                      <div className="flex items-center justify-between text-[11px] text-muted-foreground font-medium">
-                        <span>Uploaded Master Images ({uploadedImageUrls.length})</span>
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        {uploadedImageUrls.map((url) => (
-                          <div key={url} className="group relative w-16 h-16 rounded-lg overflow-hidden border border-neutral-300 dark:border-neutral-700 bg-background shadow-sm">
-                            <img src={url} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
-                            <button
-                              type="button"
-                              onClick={(e) => { e.stopPropagation(); removeUploadedUrl(url); }}
-                              className="absolute top-1 right-1 h-5 w-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center text-xs opacity-90 hover:opacity-100 shadow transition-opacity"
-                              title="Remove image"
-                            >
-                              <X className="h-3 w-3" />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  <textarea
-                    value={imageUrlsText}
-                    onChange={(e) => setImageUrlsText(e.target.value)}
-                    className="flex min-h-[70px] w-full rounded-md border border-input bg-background px-3 py-2 text-xs placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                    placeholder="Paste comma or newline-separated image URLs (e.g. https://example.com/main.jpg)"
-                  />
-                  <p className="text-[10px] text-muted-foreground">Separate multiple image URLs with newlines or commas.</p>
-                  {(imageUrlsText || "").trim().split(/[\n,]+/).map((u) => u.trim()).filter(Boolean).length > 0 && (
-                    <div className="flex flex-wrap gap-2 pt-1">
-                      {(imageUrlsText || "").trim().split(/[\n,]+/).map((u) => u.trim()).filter(Boolean).map((url) => (
-                        <div key={url} className="group relative w-14 h-14 rounded-lg overflow-hidden border bg-background shadow-sm">
-                          <img src={url} alt="" className="w-full h-full object-cover" />
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
             </div>
           </CardContent>
         </Card>
