@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Search, Star, MapPin, Utensils, Sparkles, ChevronLeft, ChevronRight, Leaf, Drumstick, ChevronDown } from "lucide-react"
 import { Input } from "@/ui/input"
@@ -230,7 +230,7 @@ function RestaurantCard({
   )
 }
 
-export default function RestaurantsDirectoryPage() {
+function RestaurantsDirectoryPageContent() {
   const searchParams = useSearchParams()
   const initialQ = searchParams?.get("q") || ""
   const initialCuisine = searchParams?.get("cuisine") || ""
@@ -572,5 +572,19 @@ export default function RestaurantsDirectoryPage() {
         .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
       `}</style>
     </PublicLayout>
+  )
+}
+
+export default function RestaurantsDirectoryPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[#FFFDF9] p-8 flex items-center justify-center">
+          <p className="text-sm font-semibold text-amber-800">Loading restaurants...</p>
+        </div>
+      }
+    >
+      <RestaurantsDirectoryPageContent />
+    </Suspense>
   )
 }

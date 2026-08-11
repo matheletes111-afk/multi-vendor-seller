@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, Suspense } from "react"
 import Link from "next/link"
 import { useSearchParams } from "next/navigation"
 import { Search, Star, MapPin, SlidersHorizontal, Eye, RefreshCw, ChevronLeft, ChevronRight, X } from "lucide-react"
@@ -59,7 +59,7 @@ function getCityIcon(cityName: string): string {
   return RANDOM_CITY_ICONS[hash % RANDOM_CITY_ICONS.length]
 }
 
-export default function HotelsBrowsePage() {
+function HotelsBrowsePageContent() {
   const searchParams = useSearchParams()
   const initialQ = searchParams?.get("q") || ""
   const initialCity = searchParams?.get("city") || ""
@@ -677,5 +677,19 @@ export default function HotelsBrowsePage() {
       )}
 
     </div>
+  )
+}
+
+export default function HotelsBrowsePage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-slate-900 p-8 flex items-center justify-center">
+          <p className="text-sm font-semibold text-slate-300">Loading hotels...</p>
+        </div>
+      }
+    >
+      <HotelsBrowsePageContent />
+    </Suspense>
   )
 }
