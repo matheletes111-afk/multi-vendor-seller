@@ -85,7 +85,8 @@ export async function GET(request: NextRequest) {
 
   let totalWeightShippingFee = 0
   let totalDimensionShippingFee = 0
-  let totalPhysicalBaseFee = 0
+  let totalRegionShippingFee = 0
+  let totalShippingFee = 0
 
   const sellerGroups = Array.from(groupsMap.values()).map((g) => {
     const shippingItems = g.items.map((item) => ({
@@ -97,37 +98,27 @@ export async function GET(request: NextRequest) {
       isPhysical: item.productId != null,
     }))
 
-    // Region charge is per-order, not per-seller � pass empty array here
     const breakup = calculateShippingBreakup({
       items: shippingItems,
       destinationState: addressState,
       weightRanges,
       dimensionRanges,
-      regionCharges: [],
+      regionCharges,
     })
 
     totalWeightShippingFee += breakup.weightShippingFee
     totalDimensionShippingFee += breakup.dimensionShippingFee
-    totalPhysicalBaseFee += breakup.totalShippingFee
+    totalRegionShippingFee += breakup.regionShippingFee
+    totalShippingFee += breakup.totalShippingFee
 
     return {
       sellerId: g.sellerId,
       sellerName: g.sellerName,
       itemsCount: g.items.length,
       sellerDeliveryFee: breakup.totalShippingFee,
-      shippingBreakup: {
-        weightShippingFee: breakup.weightShippingFee,
-        dimensionShippingFee: breakup.dimensionShippingFee,
-        regionShippingFee: 0,
-        totalShippingFee: breakup.totalShippingFee,
-      },
+      shippingBreakup: breakup,
     }
   })
-
-  // Region fee is a flat per-order charge  apply once
-  const regionShippingFee = getRegionDeliveryCharge(addressState, regionCharges)
-  // totalPhysicalBaseFee = sum of (weightFee + dimFee) per seller — additive formula
-  const totalShippingFee = totalPhysicalBaseFee + regionShippingFee
 
   return NextResponse.json({
     success: true,
@@ -135,7 +126,7 @@ export async function GET(request: NextRequest) {
     shippingBreakup: {
       weightShippingFee: totalWeightShippingFee,
       dimensionShippingFee: totalDimensionShippingFee,
-      regionShippingFee,
+      regionShippingFee: totalRegionShippingFee,
       totalShippingFee,
     },
     sellerGroups,

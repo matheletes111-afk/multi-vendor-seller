@@ -102,7 +102,6 @@ export interface RegionCharge {
 export function getShippingChargeForWeight(weight: number, ranges: WeightRange[] | null | undefined): number {
   if (!ranges || !Array.isArray(ranges) || ranges.length === 0) return 0
   const w = typeof weight === "number" && !isNaN(weight) ? Math.max(0, weight) : 0
-  if (w <= 0) return 0
 
   for (const r of ranges) {
     const minW = typeof r?.minWeight === "number" && !isNaN(r.minWeight) ? Number(r.minWeight) : 0
@@ -123,7 +122,6 @@ export function getShippingChargeForWeight(weight: number, ranges: WeightRange[]
 export function getShippingChargeForDimension(volume: number, ranges: DimensionRange[] | null | undefined): number {
   if (!ranges || !Array.isArray(ranges) || ranges.length === 0) return 0
   const v = typeof volume === "number" && !isNaN(volume) ? Math.max(0, volume) : 0
-  if (v <= 0) return 0
 
   for (const r of ranges) {
     const minD = typeof r?.minDimension === "number" && !isNaN(r.minDimension) ? Number(r.minDimension) : 0
@@ -146,17 +144,16 @@ export function getRegionDeliveryCharge(destinationState: string | null | undefi
     return 0
   }
 
-  const cleanState = destinationState && typeof destinationState === "string" ? destinationState.trim().toLowerCase() : ""
+  const resolvedRegion = resolveAdministrativeRegion(destinationState)
+  const cleanResolved = resolvedRegion.trim().toLowerCase()
 
-  if (cleanState) {
-    for (const rc of regionCharges) {
-      const regName = typeof rc?.region === "string" ? rc.region.trim().toLowerCase() : ""
-      if (!regName) continue
+  for (const rc of regionCharges) {
+    const regName = typeof rc?.region === "string" ? rc.region.trim().toLowerCase() : ""
+    if (!regName) continue
 
-      if (cleanState === regName || cleanState.includes(regName) || regName.includes(cleanState)) {
-        const charge = typeof rc?.charge === "number" && !isNaN(rc.charge) ? Math.max(0, Number(rc.charge)) : 0
-        return charge
-      }
+    if (cleanResolved === regName || cleanResolved.includes(regName) || regName.includes(cleanResolved)) {
+      const charge = typeof rc?.charge === "number" && !isNaN(rc.charge) ? Math.max(0, Number(rc.charge)) : 0
+      return charge
     }
   }
 
@@ -170,7 +167,8 @@ export function getRegionDeliveryCharge(destinationState: string | null | undefi
     return typeof otherRc?.charge === "number" && !isNaN(otherRc.charge) ? Math.max(0, Number(otherRc.charge)) : 0
   }
 
-  return 0
+  const firstCharge = regionCharges[0]?.charge
+  return typeof firstCharge === "number" && !isNaN(firstCharge) ? Math.max(0, Number(firstCharge)) : 0
 }
 
 export function calculateShippingBreakup(params: {

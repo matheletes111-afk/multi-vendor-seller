@@ -18,6 +18,7 @@ import { PageLoader } from "@/components/ui/page-loader"
 import { GoogleAddressAutocomplete } from "@/components/google-address-autocomplete"
 import { GoogleMapView } from "@/components/google-map-view"
 import { AvailableCoupons } from "@/components/coupons/available-coupons"
+import { resolveAdministrativeRegion } from "@/lib/shipping-calculator"
 
 type AddressFormState = {
   addressType: AddressApi["addressType"]
@@ -77,6 +78,9 @@ export function CheckoutClient() {
   const [deliveryCharge, setDeliveryCharge] = useState<number>(0)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [shippingBreakup, setShippingBreakup] = useState<any>(null)
+
+  const selectedAddress = addresses.find((a) => a.id === selectedAddressId)
+  const activeRegionName = resolveAdministrativeRegion(selectedAddress?.state)
 
   const fetchAddresses = useCallback(async () => {
     setAddressesLoading(true)
@@ -719,8 +723,15 @@ export function CheckoutClient() {
                               <span>🏪</span> {storeName}
                             </p>
                           )}
-                          <div className="flex flex-wrap items-center justify-between gap-1 text-[11px] text-slate-600">
-                            <span>Qty: {item.quantity} × {formatCurrency(item.price)}</span>
+                          <div className="flex flex-wrap items-end justify-between gap-1 text-[11px] text-slate-600">
+                            <div>
+                              <span>Qty: {item.quantity} × {formatCurrency(item.price)}</span>
+                              {gstAmount > 0 && (
+                                <span className="block text-[10px] text-slate-500 font-medium">
+                                  + Tax (GST): {formatCurrency(gstAmount)}
+                                </span>
+                              )}
+                            </div>
                             <span className="font-extrabold text-slate-900">{formatCurrency(lineTotal)}</span>
                           </div>
                         </div>
@@ -809,7 +820,7 @@ export function CheckoutClient() {
                                 )}
                               </span>
                             </div>
-                            {sb && (sb.weightShippingFee > 0 || sb.dimensionShippingFee > 0) && (
+                            {sb && (sb.weightShippingFee > 0 || sb.dimensionShippingFee > 0 || sb.regionShippingFee > 0) && (
                               <div className="text-[10px] text-slate-500 pl-4 space-y-0.5 border-l-2 border-amber-300/60 mt-1">
                                 {sb.weightShippingFee > 0 && (
                                   <div className="flex justify-between">
@@ -821,6 +832,12 @@ export function CheckoutClient() {
                                   <div className="flex justify-between">
                                     <span>Dimension charge</span>
                                     <span className="font-medium text-slate-700">{formatCurrency(sb.dimensionShippingFee)}</span>
+                                  </div>
+                                )}
+                                {sb.regionShippingFee > 0 && (
+                                  <div className="flex justify-between">
+                                    <span>Region charge ({activeRegionName})</span>
+                                    <span className="font-medium text-slate-700">{formatCurrency(sb.regionShippingFee)}</span>
                                   </div>
                                 )}
                               </div>
@@ -864,7 +881,7 @@ export function CheckoutClient() {
                       )}
                       {shippingBreakup.regionShippingFee > 0 && (
                         <div className="flex justify-between">
-                          <span>Region surcharge</span>
+                          <span>Region surcharge ({activeRegionName})</span>
                           <span className="font-semibold text-slate-700">{formatCurrency(shippingBreakup.regionShippingFee)}</span>
                         </div>
                       )}

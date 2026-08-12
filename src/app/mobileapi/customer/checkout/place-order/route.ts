@@ -156,6 +156,7 @@ export async function POST(request: NextRequest) {
   let shipping = 0
   let totalWeightFee = 0
   let totalDimFee = 0
+  let totalRegionFee = 0
 
   const itemsBySeller = new Map<string, CartItemForCheckout[]>()
   for (const row of normalizedItems) {
@@ -178,30 +179,27 @@ export async function POST(request: NextRequest) {
       }
     })
 
-    // Pass empty regionCharges — region is a per-order charge, not per-seller
     const breakup = calculateShippingBreakup({
       items: shippingItems,
       destinationState: address.state,
       weightRanges,
       dimensionRanges,
-      regionCharges: [],
+      regionCharges,
     })
 
     totalWeightFee += breakup.weightShippingFee
     totalDimFee += breakup.dimensionShippingFee
+    totalRegionFee += breakup.regionShippingFee
 
     const sellerShipping = breakup.totalShippingFee
     sellerShippingMap.set(sellerId, sellerShipping)
     shipping += sellerShipping
   }
 
-  // Region fee applied once per order (flat charge, not per-seller)
-  const regionFee = getRegionDeliveryCharge(address.state, regionCharges)
-  shipping += regionFee
   const shippingBreakup = {
     weightShippingFee: totalWeightFee,
     dimensionShippingFee: totalDimFee,
-    regionShippingFee: regionFee,
+    regionShippingFee: totalRegionFee,
     totalShippingFee: shipping,
   }
 
@@ -218,10 +216,7 @@ export async function POST(request: NextRequest) {
     const linePhysical = sellerSubtotal > 0
       ? (row.item.totalPrice / sellerSubtotal) * sellerShipping
       : sellerShipping / physicalItems.length
-    const lineRegion = regionFee > 0
-      ? (orderPhysicalSubtotal > 0 ? (row.item.totalPrice / orderPhysicalSubtotal) * regionFee : regionFee / orderPhysicalItems.length)
-      : 0
-    return Math.round((linePhysical + lineRegion) * 100) / 100
+    return Math.round(linePhysical * 100) / 100
   })
 
   // Absorb rounding cents onto the last physical item so sum(lineShippingFees) === shipping

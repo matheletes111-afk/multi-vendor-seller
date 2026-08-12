@@ -100,7 +100,8 @@ export async function GET(req: NextRequest) {
 
   let totalWeightShippingFee = 0
   let totalDimensionShippingFee = 0
-  let totalPhysicalBaseFee = 0
+  let totalRegionShippingFee = 0
+  let totalShipping = 0
 
   const sellerGroups = Array.from(groupsMap.values()).map((g) => {
     const shippingItems = g.items.map((item) => ({
@@ -112,19 +113,18 @@ export async function GET(req: NextRequest) {
       isPhysical: item.productId != null,
     }))
 
-    // Pass empty regionCharges here — region is a per-order charge, not per-seller
     const breakup = calculateShippingBreakup({
       items: shippingItems,
       destinationState: addressState,
       weightRanges,
       dimensionRanges,
-      regionCharges: [],
+      regionCharges,
     })
 
     totalWeightShippingFee += breakup.weightShippingFee
     totalDimensionShippingFee += breakup.dimensionShippingFee
-    // breakup.totalShippingFee is already max(weight, dim) per seller
-    totalPhysicalBaseFee += breakup.totalShippingFee
+    totalRegionShippingFee += breakup.regionShippingFee
+    totalShipping += breakup.totalShippingFee
 
     return {
       sellerId: g.sellerId,
@@ -135,10 +135,6 @@ export async function GET(req: NextRequest) {
     }
   })
 
-  // Region fee is a flat per-order charge — apply once regardless of seller count
-  const totalRegionShippingFee = regionFee
-  const totalShipping = totalPhysicalBaseFee + totalRegionShippingFee
-
   return NextResponse.json({
     shipping: totalShipping,
     shippingBreakup: {
@@ -147,7 +143,7 @@ export async function GET(req: NextRequest) {
       regionShippingFee: totalRegionShippingFee,
       totalShippingFee: totalShipping,
     },
-    regionFee,
+    regionFee: totalRegionShippingFee,
     sellerGroups,
     itemStoreNames,
     isMultiVendor: sellerGroups.length > 1,
