@@ -6,6 +6,7 @@ import type { OrderDetailApi, OrderDetailItemApi } from "../types"
 import { getSellerSubscription, canReceiveReviews } from "@/lib/subscriptions"
 import { deriveOrderStatus, summarizeSellerItemStatuses } from "@/lib/order-status"
 import { parseReturnImagesJson } from "@/lib/return-request-validation"
+import { calculateShippingBreakup } from "@/lib/shipping-calculator"
 
 /** GET /api/customer/orders/[id] — get one order for current customer. CUSTOMER only. */
 export async function GET(
@@ -21,56 +22,61 @@ export async function GET(
   }
   const { id: orderId } = await params
 
-  const order = await prisma.order.findFirst({
-    where: { id: orderId, customerId: session.user.id },
-    include: {
-      seller: { include: { store: true } },
-      items: {
-        include: {
-          seller: { include: { store: { select: { name: true } } } },
-          product: { select: { images: true } },
-          productVariant: {
-            select: { images: true, returnType: true, returnDays: true, replacementAllowed: true },
-          },
-          service: { select: { images: true } },
-          serviceSlot: { select: { startTime: true, endTime: true } },
-          returnRequest: {
-            select: {
-              status: true,
-              reason: true,
-              returnImages: true,
-              pickupStatus: true,
-              refundStatus: true,
-              resolutionType: true,
-              replacementOrderItemId: true,
-              exchangeTopUpAmount: true,
-              exchangeTopUpStatus: true,
-              exchangeRefundDifferenceAmount: true,
-              exchangeRefundDifferenceStatus: true,
+  const [order, globalSetting] = await Promise.all([
+    prisma.order.findFirst({
+      where: { id: orderId, customerId: session.user.id },
+      include: {
+        seller: { include: { store: true } },
+        items: {
+          include: {
+            seller: { include: { store: { select: { name: true } } } },
+            product: { select: { images: true } },
+            productVariant: {
+              select: { images: true, returnType: true, returnDays: true, replacementAllowed: true, weight: true, height: true, width: true, depth: true },
             },
-          },
-          statusHistory: {
-            select: {
-              status: true,
-              location: true,
-              note: true,
-              createdAt: true,
+            service: { select: { images: true } },
+            serviceSlot: { select: { startTime: true, endTime: true } },
+            returnRequest: {
+              select: {
+                status: true,
+                reason: true,
+                returnImages: true,
+                pickupStatus: true,
+                refundStatus: true,
+                resolutionType: true,
+                replacementOrderItemId: true,
+                exchangeTopUpAmount: true,
+                exchangeTopUpStatus: true,
+                exchangeRefundDifferenceAmount: true,
+                exchangeRefundDifferenceStatus: true,
+              },
             },
-            orderBy: { createdAt: "asc" },
-          },
-          review: {
-            select: {
-              id: true,
-              rating: true,
-              comment: true,
-              images: true,
-              isVerified: true,
+            statusHistory: {
+              select: {
+                status: true,
+                location: true,
+                note: true,
+                createdAt: true,
+              },
+              orderBy: { createdAt: "asc" },
+            },
+            review: {
+              select: {
+                id: true,
+                rating: true,
+                comment: true,
+                images: true,
+                isVerified: true,
+              },
             },
           },
         },
       },
-    },
-  })
+    }),
+    prisma.globalSetting.findFirst({
+      select: { deliveryChargeRanges: true, dimensionDeliveryChargeRanges: true, regionDeliveryCharges: true },
+    }).catch(() => null),
+  ])
 
   if (!order) {
     return NextResponse.json({ error: "Order not found" }, { status: 404 })
@@ -219,8 +225,29 @@ export async function GET(
     sellerGroupMap.set(key, current)
   }
 
+  const weightRanges = (globalSetting?.deliveryChargeRanges as any[]) || []
+  const dimensionRanges = (globalSetting?.dimensionDeliveryChargeRanges as any[]) || []
+  const regionCharges = (globalSetting?.regionDeliveryCharges as any[]) || []
+
   const sellerGroups = [...sellerGroupMap.values()].map((group) => {
     const statusSummary = summarizeSellerItemStatuses(group.statuses)
+    const sellerItems = order.items.filter((i) => (i.sellerId ?? "unknown") === (group.sellerId ?? "unknown"))
+    const shippingItems = sellerItems.map((item) => ({
+      weight: item.productVariant?.weight ?? 0,
+      height: item.productVariant?.height ?? 0,
+      width: item.productVariant?.width ?? 0,
+      depth: item.productVariant?.depth ?? 0,
+      quantity: item.quantity,
+      isPhysical: item.productId != null,
+    }))
+    const breakup = calculateShippingBreakup({
+      items: shippingItems,
+      destinationState: order.shippingState,
+      weightRanges,
+      dimensionRanges,
+      regionCharges,
+    })
+
     return {
       sellerId: group.sellerId,
       sellerStoreName: group.sellerStoreName,
@@ -230,6 +257,7 @@ export async function GET(
         shipping: group.shipping,
         total: group.total,
       },
+      shippingBreakup: breakup,
       itemStatuses: statusSummary.counts,
       derivedStatus: statusSummary.derivedStatus,
       itemCount: group.itemCount,

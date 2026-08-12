@@ -22,6 +22,7 @@ import { applySellerCreditForOrderLineDelivered } from "@/lib/seller-order-line-
 import { sendDeliveryOtp } from "@/lib/delivery-otp"
 import path from "path"
 import { uploadPublicFile } from "@/lib/upload-public-file"
+import { calculateShippingBreakup } from "@/lib/shipping-calculator"
 
 
 function isValidSellerStatus(s: string): s is PatchOrderStatusPayload["status"] {
@@ -50,48 +51,53 @@ export async function GET(
 
   const { id: orderId } = await params
 
-  const order = await prisma.order.findFirst({
-    where: { 
-      id: orderId, 
-      items: { some: { sellerId: seller.id, productId: { not: null } } } 
-    },
-    include: {
-      customer: true,
-      items: {
-        where: { sellerId: seller.id, productId: { not: null } },
-        include: {
-          product: { select: { images: true } },
-          productVariant: { select: { images: true, returnType: true, replacementAllowed: true } },
-          service: { select: { images: true } },
-          returnRequest: {
-            select: {
-              status: true,
-              reason: true,
-              returnImages: true,
-              pickupStatus: true,
-              refundStatus: true,
-              resolutionType: true,
-              replacementVariantId: true,
-              replacementOrderItemId: true,
-              exchangeTopUpAmount: true,
-              exchangeTopUpStatus: true,
-              exchangeRefundDifferenceAmount: true,
-              exchangeRefundDifferenceStatus: true,
+  const [order, globalSetting] = await Promise.all([
+    prisma.order.findFirst({
+      where: { 
+        id: orderId, 
+        items: { some: { sellerId: seller.id, productId: { not: null } } } 
+      },
+      include: {
+        customer: true,
+        items: {
+          where: { sellerId: seller.id, productId: { not: null } },
+          include: {
+            product: { select: { images: true } },
+            productVariant: { select: { images: true, returnType: true, replacementAllowed: true, weight: true, height: true, width: true, depth: true } },
+            service: { select: { images: true } },
+            returnRequest: {
+              select: {
+                status: true,
+                reason: true,
+                returnImages: true,
+                pickupStatus: true,
+                refundStatus: true,
+                resolutionType: true,
+                replacementVariantId: true,
+                replacementOrderItemId: true,
+                exchangeTopUpAmount: true,
+                exchangeTopUpStatus: true,
+                exchangeRefundDifferenceAmount: true,
+                exchangeRefundDifferenceStatus: true,
+              },
             },
-          },
-          statusHistory: {
-            select: {
-              status: true,
-              location: true,
-              note: true,
-              createdAt: true,
+            statusHistory: {
+              select: {
+                status: true,
+                location: true,
+                note: true,
+                createdAt: true,
+              },
+              orderBy: { createdAt: "asc" },
             },
-            orderBy: { createdAt: "asc" },
           },
         },
       },
-    },
-  })
+    }),
+    prisma.globalSetting.findFirst({
+      select: { deliveryChargeRanges: true, dimensionDeliveryChargeRanges: true, regionDeliveryCharges: true },
+    }).catch(() => null),
+  ])
 
   if (!order) {
     return NextResponse.json({ error: "Order not found" }, { status: 404 })
@@ -164,6 +170,29 @@ export async function GET(
     sellerCouponDiscount = Number(((order.couponDiscount * sellerSubtotal) / order.subtotal).toFixed(2))
   }
 
+  const weightRanges = (globalSetting?.deliveryChargeRanges as any[]) || []
+  const dimensionRanges = (globalSetting?.dimensionDeliveryChargeRanges as any[]) || []
+  const regionCharges = (globalSetting?.regionDeliveryCharges as any[]) || []
+
+  const sellerShippingItems = order.items.map((item) => ({
+    weight: item.productVariant?.weight ?? 0,
+    height: item.productVariant?.height ?? 0,
+    width: item.productVariant?.width ?? 0,
+    depth: item.productVariant?.depth ?? 0,
+    quantity: item.quantity,
+    isPhysical: item.productId != null,
+  }))
+
+  const sellerShippingBreakup = calculateShippingBreakup({
+    items: sellerShippingItems,
+    destinationState: order.shippingState,
+    weightRanges,
+    dimensionRanges,
+    regionCharges,
+  })
+
+  const sellerShippingTotal = order.items.reduce((sum, item) => sum + item.shippingAmount, 0)
+
   const body = {
     id: order.id,
     orderNumber: order.orderNumber,
@@ -172,15 +201,15 @@ export async function GET(
     totalAmount: Math.max(0, order.items.reduce((sum, item) => sum + (item.subtotalInclGst ?? item.subtotal + item.gstAmount) + item.shippingAmount, 0) - sellerCouponDiscount),
     subtotal: sellerSubtotal,
     tax: order.items.reduce((sum, item) => sum + item.gstAmount, 0),
-    shipping: order.items.reduce((sum, item) => sum + item.shippingAmount, 0),
-    weightShippingFee: (order as any).weightShippingFee ?? 0,
-    dimensionShippingFee: (order as any).dimensionShippingFee ?? 0,
-    regionShippingFee: (order as any).regionShippingFee ?? 0,
+    shipping: sellerShippingTotal,
+    weightShippingFee: sellerShippingBreakup.weightShippingFee,
+    dimensionShippingFee: sellerShippingBreakup.dimensionShippingFee,
+    regionShippingFee: sellerShippingBreakup.regionShippingFee,
     shippingBreakup: {
-      weightShippingFee: (order as any).weightShippingFee ?? 0,
-      dimensionShippingFee: (order as any).dimensionShippingFee ?? 0,
-      regionShippingFee: (order as any).regionShippingFee ?? 0,
-      totalShippingFee: order.shipping,
+      weightShippingFee: sellerShippingBreakup.weightShippingFee,
+      dimensionShippingFee: sellerShippingBreakup.dimensionShippingFee,
+      regionShippingFee: sellerShippingBreakup.regionShippingFee,
+      totalShippingFee: sellerShippingTotal,
     },
     commission: order.items.reduce((sum, item) => sum + item.commissionAmount, 0),
     commissionRate: order.commissionRate,

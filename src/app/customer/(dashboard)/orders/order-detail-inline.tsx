@@ -23,6 +23,7 @@ import {
 } from "@/lib/return-request-validation"
 import { CustomerOrderReviewSection, type CustomerReviewDraft } from "./customer-order-review-section"
 import { CustomerReturnExchangeStatusDashboard } from "./customer-return-exchange-status-dashboard"
+import { resolveAdministrativeRegion } from "@/lib/shipping-calculator"
 import {
   ExchangeCurrentVsReplacement,
   ExchangeVariantImageGrid,
@@ -843,39 +844,67 @@ export function OrderDetailInline({
             <CardTitle className="text-sm font-semibold text-gray-900">Seller-wise breakup</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2.5 text-sm">
-            {order.sellerGroups.map((group) => (
-              <div
-                key={group.sellerId ?? `group-${group.sellerStoreName ?? "unknown"}`}
-                className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm transition-shadow duration-200 hover:shadow-md"
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <p className="font-medium">{group.sellerStoreName ?? "Store"}</p>
-                  <Badge variant="outline" className="text-[10px] uppercase tracking-wide">
-                    {group.derivedStatus.replace(/_/g, " ")}
-                  </Badge>
+            {order.sellerGroups.map((group) => {
+              const sb = (group as any).shippingBreakup
+              const activeRegionName = resolveAdministrativeRegion(order.shippingState)
+              return (
+                <div
+                  key={group.sellerId ?? `group-${group.sellerStoreName ?? "unknown"}`}
+                  className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm transition-shadow duration-200 hover:shadow-md space-y-2"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="font-medium">{group.sellerStoreName ?? "Store"}</p>
+                    <Badge variant="outline" className="text-[10px] uppercase tracking-wide">
+                      {group.derivedStatus.replace(/_/g, " ")}
+                    </Badge>
+                  </div>
+                  <div className="mt-1.5 grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-muted-foreground sm:grid-cols-5">
+                    <p>Items: {group.itemCount}</p>
+                    <p>
+                      Subtotal:{" "}
+                      {formatCurrency(priceBreakdown.kind === "exchange" ? priceBreakdown.displaySubtotal : group.summary.subtotal)}
+                    </p>
+                    <p>
+                      Tax:{" "}
+                      {formatCurrency(priceBreakdown.kind === "exchange" ? priceBreakdown.displayTax : group.summary.tax)}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Shipping: <span className="font-medium text-foreground">{group.summary.shipping <= 0 ? "FREE" : formatCurrency(group.summary.shipping)}</span>
+                    </p>
+                    <p className="font-medium text-foreground">
+                      Total:{" "}
+                      {formatCurrency(
+                        priceBreakdown.kind === "exchange" ? priceBreakdown.effectiveGrandTotal : group.summary.total,
+                      )}
+                    </p>
+                  </div>
+
+                  {sb && (sb.weightShippingFee > 0 || sb.dimensionShippingFee > 0 || sb.regionShippingFee > 0) && (
+                    <div className="text-[11px] text-slate-600 pl-3 space-y-0.5 border-l-2 border-amber-400 bg-amber-50/50 p-2 rounded-r-lg mt-2">
+                      <p className="font-bold text-[10px] uppercase text-amber-900 mb-1">Delivery Fee Price Breakup</p>
+                      {sb.weightShippingFee > 0 && (
+                        <div className="flex justify-between">
+                          <span>Weight charge</span>
+                          <span className="font-semibold text-slate-700">{formatCurrency(sb.weightShippingFee)}</span>
+                        </div>
+                      )}
+                      {sb.dimensionShippingFee > 0 && (
+                        <div className="flex justify-between">
+                          <span>Dimension charge</span>
+                          <span className="font-semibold text-slate-700">{formatCurrency(sb.dimensionShippingFee)}</span>
+                        </div>
+                      )}
+                      {sb.regionShippingFee > 0 && (
+                        <div className="flex justify-between">
+                          <span>Region charge ({activeRegionName})</span>
+                          <span className="font-semibold text-slate-700">{formatCurrency(sb.regionShippingFee)}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
-                <div className="mt-1.5 grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-muted-foreground sm:grid-cols-5">
-                  <p>Items: {group.itemCount}</p>
-                  <p>
-                    Subtotal:{" "}
-                    {formatCurrency(priceBreakdown.kind === "exchange" ? priceBreakdown.displaySubtotal : group.summary.subtotal)}
-                  </p>
-                  <p>
-                    Tax:{" "}
-                    {formatCurrency(priceBreakdown.kind === "exchange" ? priceBreakdown.displayTax : group.summary.tax)}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    Shipping: <span className="font-medium text-foreground">{group.summary.shipping <= 0 ? "FREE" : formatCurrency(group.summary.shipping)}</span>
-                  </p>
-                  <p className="font-medium text-foreground">
-                    Total:{" "}
-                    {formatCurrency(
-                      priceBreakdown.kind === "exchange" ? priceBreakdown.effectiveGrandTotal : group.summary.total,
-                    )}
-                  </p>
-                </div>
-              </div>
-            ))}
+              )
+            })}
             <p className="text-[11px] text-muted-foreground italic pt-1">
               🚚 Multi-vendor shipping breakdown: Delivery charges are calculated independently per seller according to package weight (missing weight is calculated as 0 kg).
             </p>

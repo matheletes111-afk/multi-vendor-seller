@@ -1,27 +1,87 @@
 ================================================================================
           MEEEM MULTI-VENDOR MOBILE API - SHIPPING & REGION GUIDE
+          (Backend & Web & Mobile 100% Synced — Updated August 2026)
 ================================================================================
 
-1. OVERVIEW & ADMINISTRATIVE REGIONS
+1. OVERVIEW & CALCULATION FORMULA
 --------------------------------------------------------------------------------
-The backend calculates delivery fees based on 3 distinct components:
+The backend shipping engine calculates multi-vendor delivery charges dynamically based on 3 distinct components:
+
   1) Weight-based Shipping Fee (weightShippingFee)
   2) Dimension-based Shipping Fee (dimensionShippingFee)
   3) Region-based Shipping Fee (regionShippingFee)
 
-IMPORTANT ZERO-FALLBACK RULE:
-- If weight, dimensions, address region, or setting ranges are null, empty,
-  or unconfigured, the charge for that specific component defaults to 0.00.
+ADDITIVE & PER-SELLER PACKAGING FORMULA:
+- Items from DIFFERENT sellers are packaged and shipped independently.
+- Cart items are grouped by `sellerId`.
+- Each seller's total delivery charge is calculated as:
+  
+    Seller Delivery Fee = Weight Fee + Dimension Fee + Region Fee
 
-ADDITIVE FORMULA & MULTI-VENDOR CALCULATION:
-- Per Seller Physical Fee = weightShippingFee + dimensionShippingFee
-- Total Order Delivery Fee = Weight Fee + Dimension Fee + Region Fee
-* Note: Weight Fee and Dimension Fee are ADDITIVE (Weight + Dimension).
-* Note: Region shipping fee is a flat PER-ORDER surcharge based on delivery region.
-  It is applied ONCE per order, regardless of how many sellers are in the cart.
+- Total Order Shipping Fee = Sum of all Seller Delivery Fees:
+  
+    Total Order Shipping = Seller A Fee + Seller B Fee + ...
+
+NULL & ZERO WEIGHT/DIMENSION/REGION RULE:
+- Missing, null, or 0 weight/dimensions are treated as 0 kg / 0 cm³.
+- They are NOT skipped and do NOT automatically default to 0/FREE.
+- Instead, 0 kg / 0 cm³ is looked up in the Admin-configured tier table (e.g. 0-5 kg tier or base tier) to return the Admin's configured delivery fee.
+- If address region is null/unspecified or unlisted, it maps to "Other" region and applies the Admin "Other" region delivery surcharge (or fallback first region charge).
 
 
-2. MOBILE ADDRESS FORM & MAP REGION RESOLUTION
+2. MOBILE APP UI MOCKUPS (MATCHING EXACT CHECKOUT SCREENSHOT)
+--------------------------------------------------------------------------------
+
+A. MULTI-VENDOR DELIVERY BOX & BREAKDOWN (CUSTOMER CHECKOUT)
+
+  ┌────────────────────────────────────────────────────────────────────────┐
+  │ Subtotal                                                  NLe 8,018.00 │
+  │ Total GST (Tax)                                           NLe 1,202.70 │
+  │                                                                        │
+  │ 🚚 Multi-Vendor Delivery (2 Sellers)                                  │
+  │ ┌────────────────────────────────────────────────────────────────────┐ │
+  │ │ 🏪 Tech Store One updated                              NLe 200.00 │ │
+  │ │   Weight charge                                         NLe 50.00  │ │
+  │ │   Dimension charge                                      NLe 50.00  │ │
+  │ │   Region charge (Western Area)                         NLe 100.00  │ │
+  │ └────────────────────────────────────────────────────────────────────┘ │
+  │ ┌────────────────────────────────────────────────────────────────────┐ │
+  │ │ 🏪 SKAITEL                                             NLe 270.00 │ │
+  │ │   Weight charge                                        NLe 100.00  │ │
+  │ │   Dimension charge                                      NLe 70.00  │ │
+  │ │   Region charge (Western Area)                         NLe 100.00  │ │
+  │ └────────────────────────────────────────────────────────────────────┘ │
+  │ ────────────────────────────────────────────────────────────────────── │
+  │ Total Shipping (incl. Region)                            NLe 470.00    │
+  └────────────────────────────────────────────────────────────────────────┘
+
+  ┌────────────────────────────────────────────────────────────────────────┐
+  │ DELIVERY BREAKDOWN                                                     │
+  │ Weight-based                                              NLe 150.00   │
+  │ Dimension-based                                           NLe 120.00   │
+  │ Region surcharge (Western Area)                           NLe 200.00   │
+  │ ────────────────────────────────────────────────────────────────────── │
+  │ Grand Total                                               NLe 9,690.70  │
+  └────────────────────────────────────────────────────────────────────────┘
+
+B. ORDER SUMMARY — LINE ITEM WITH SMALL TAX TEXT (CUSTOMER CHECKOUT)
+
+  ┌────────────────────────────────────────────────────────────────────────┐
+  │ Order Summary                                                 2 Items  │
+  │ ────────────────────────────────────────────────────────────────────── │
+  │ ┌────┐ Air SKYLAND Compressor Leg Massager w...                        │
+  │ │📷  │ 🏪 SKAITEL                                                       │
+  │ └────┘ Qty: 1 × NLe 8,000.00                              NLe 9,200.00 │
+  │        + Tax (GST): NLe 1,200.00  <-- (Small text, text-[10px])       │
+  │ ────────────────────────────────────────────────────────────────────── │
+  │ ┌────┐ Mens Tshirt (Red - XL)                                          │
+  │ │📷  │ 🏪 Tech Store One updated                                       │
+  │ └────┘ Qty: 1 × NLe 18.00                                   NLe 20.70 │
+  │        + Tax (GST): NLe 2.70     <-- (Small text, text-[10px])       │
+  └────────────────────────────────────────────────────────────────────────┘
+
+
+3. MOBILE ADDRESS FORM & MAP REGION RESOLUTION
 --------------------------------------------------------------------------------
 When adding or updating a delivery address (via POST/PATCH /mobileapi/customer/checkout/addresses),
 the app MUST present a dropdown for the 'state' field containing Sierra Leone's
@@ -39,28 +99,9 @@ MAP & REVERSE GEOCODING REGION EXTRACTION:
   1) Extract the administrative region or city from the geocoding response.
   2) Map major cities/areas to standard regions (e.g. Freetown -> Western Area, Kenema -> Eastern Province, Bo -> Southern Province, Makeni -> Northern Province).
   3) If the geocoded location or city does not match any of the 5 main provinces, pass `state: "Other"`.
-- The backend shipping engine automatically resolves map location strings and applies the "Other" region surcharge.
-
-Region Fallback Rule:
-- If the delivery address state does not match any of the 5 specific provinces above,
-  the shipping calculator automatically falls back to the "Other" region delivery surcharge
-  configured in Admin Settings. If "Other" is unconfigured, it defaults to 0.00.
-
-Example Address JSON Payload (POST /mobileapi/customer/checkout/addresses):
-{
-  "fullName": "John Doe",
-  "phone": "076123456",
-  "addressLine1": "15 Circular Road",
-  "addressLine2": "Apartment 4B",
-  "city": "Freetown",
-  "state": "Western Area",       <-- Select from regions, map reverse-geocode, or "Other"
-  "postalCode": "00232",
-  "country": "Sierra Leone",
-  "isDefault": true
-}
 
 
-3. CHECKOUT API ENDPOINTS & FULL PRICE BREAKUP
+4. CHECKOUT API ENDPOINTS & JSON RESPONSE SHAPES
 --------------------------------------------------------------------------------
 
 A. GET /mobileapi/customer/checkout/summary?addressId=<address_id>
@@ -71,36 +112,36 @@ Headers:
 Response Example (Multi-Vendor with 2 Sellers):
 {
   "success": true,
-  "shipping": 165.00,
+  "shipping": 470.00,
   "shippingBreakup": {
-    "weightShippingFee": 80.00,
-    "dimensionShippingFee": 50.00,
-    "regionShippingFee": 35.00,
-    "totalShippingFee": 165.00
+    "weightShippingFee": 150.00,
+    "dimensionShippingFee": 120.00,
+    "regionShippingFee": 200.00,
+    "totalShippingFee": 470.00
   },
   "sellerGroups": [
     {
-      "sellerId": "seller_123",
-      "sellerName": "Freetown Electronics",
-      "itemsCount": 2,
-      "sellerDeliveryFee": 90.00,
+      "sellerId": "seller_1",
+      "sellerName": "Tech Store One updated",
+      "itemsCount": 1,
+      "sellerDeliveryFee": 200.00,
       "shippingBreakup": {
         "weightShippingFee": 50.00,
-        "dimensionShippingFee": 40.00,
-        "regionShippingFee": 0,
-        "totalShippingFee": 90.00
+        "dimensionShippingFee": 50.00,
+        "regionShippingFee": 100.00,
+        "totalShippingFee": 200.00
       }
     },
     {
-      "sellerId": "seller_456",
-      "sellerName": "Bo Fashion Store",
+      "sellerId": "seller_2",
+      "sellerName": "SKAITEL",
       "itemsCount": 1,
-      "sellerDeliveryFee": 40.00,
+      "sellerDeliveryFee": 270.00,
       "shippingBreakup": {
-        "weightShippingFee": 30.00,
-        "dimensionShippingFee": 10.00,
-        "regionShippingFee": 0,
-        "totalShippingFee": 40.00
+        "weightShippingFee": 100.00,
+        "dimensionShippingFee": 70.00,
+        "regionShippingFee": 100.00,
+        "totalShippingFee": 270.00
       }
     }
   ],
@@ -120,87 +161,112 @@ Request Body:
   "couponCode": "DISCOUNT10"
 }
 
-Response Example (Multi-Vendor with 2 Sellers):
+Response Example:
 {
   "success": true,
-  "orderIds": [
-    "order_789"
-  ],
+  "orderIds": ["order_789"],
   "orders": [
     {
       "orderId": "order_789",
       "orderNumber": "ORD-2026-00102",
-      "sellerId": "MULTI",
-      "totalAmount": 565.00,
-      "itemCount": 3,
-      "couponCode": "DISCOUNT10",
-      "couponDiscount": 10.00
+      "totalAmount": 9690.70,
+      "subtotal": 8018.00,
+      "tax": 1202.70,
+      "shipping": 470.00
     }
   ],
   "shippingBreakup": {
-    "weightShippingFee": 80.00,
-    "dimensionShippingFee": 50.00,
-    "regionShippingFee": 35.00,
-    "totalShippingFee": 165.00
+    "weightShippingFee": 150.00,
+    "dimensionShippingFee": 120.00,
+    "regionShippingFee": 200.00,
+    "totalShippingFee": 470.00
   }
 }
 
 
-C. GET /mobileapi/customer/orders/products/details/[id] (CUSTOMER ORDER DETAILS)
---------------------------------------------------------------------------------
-Headers:
-  Authorization: Bearer <customer_jwt_token>
-
-Response Object Includes Full Delivery Breakup:
-{
-  "id": "order_789",
-  "orderNumber": "ORD-2026-00102",
-  "totalAmount": 565.00,
-  "subtotal": 400.00,
-  "tax": 0.00,
-  "shipping": 165.00,
-  "weightShippingFee": 80.00,
-  "dimensionShippingFee": 50.00,
-  "regionShippingFee": 35.00,
-  "shippingBreakup": {
-    "weightShippingFee": 80.00,
-    "dimensionShippingFee": 50.00,
-    "regionShippingFee": 35.00,
-    "totalShippingFee": 165.00
-  }
-}
-
-
-D. GET /mobileapi/product-seller/orders/[id] (SELLER ORDER DETAILS)
+C. GET /mobileapi/product-seller/orders/[id] (SELLER ORDER DETAILS)
 --------------------------------------------------------------------------------
 Headers:
   Authorization: Bearer <seller_jwt_token>
 
-Response Object Includes Full Delivery Breakup:
+Response Example (Sellers only see THEIR OWN items and delivery charges):
 {
   "id": "order_789",
   "orderNumber": "ORD-2026-00102",
-  "totalAmount": 565.00,
-  "subtotal": 400.00,
-  "shipping": 165.00,
-  "weightShippingFee": 80.00,
-  "dimensionShippingFee": 50.00,
-  "regionShippingFee": 35.00,
+  "status": "PENDING",
+  "subtotal": 8000.00,
+  "tax": 1200.00,
+  "shipping": 270.00,
+  "weightShippingFee": 100.00,
+  "dimensionShippingFee": 70.00,
+  "regionShippingFee": 100.00,
   "shippingBreakup": {
-    "weightShippingFee": 80.00,
-    "dimensionShippingFee": 50.00,
-    "regionShippingFee": 35.00,
-    "totalShippingFee": 165.00
-  }
+    "weightShippingFee": 100.00,
+    "dimensionShippingFee": 70.00,
+    "regionShippingFee": 100.00,
+    "totalShippingFee": 270.00
+  },
+  "items": [
+    {
+      "id": "item_1",
+      "productNameSnapshot": "Air SKYLAND Compressor Leg Massager",
+      "quantity": 1,
+      "price": 8000.00,
+      "subtotal": 8000.00,
+      "hasGst": true,
+      "gstAmount": 1200.00,
+      "shippingAmount": 270.00
+    }
+  ]
 }
 
 
-4. SUMMARY OF DEFAULT FALLBACKS & MAP RESOLUTION
+5. CUSTOMER ORDER DETAILS API — SELLER-WISE BREAKUP WITH SHIPPING BREAKUP
 --------------------------------------------------------------------------------
-- Missing Weight / Variant Weight = null       => weightShippingFee = 0.00
-- Missing Height/Width/Depth = null            => dimensionShippingFee = 0.00
-- Unrecognized Map/Address Location            => Automatic fallback to "Other" charge
-- Unconfigured "Other" Region                  => regionShippingFee = 0.00
-- Service-only Orders (No Physical Products)   => All shipping fees = 0.00
+GET /mobileapi/customer/orders/products/details/[id]
+Headers:
+  Authorization: Bearer <customer_jwt_token>
+
+Response Example (includes per-seller delivery charge breakup):
+{
+  "id": "order_789",
+  "orderNumber": "ORD-2026-00102",
+  "sellerGroups": [
+    {
+      "sellerId": "seller_1",
+      "sellerStoreName": "Tech Store One updated",
+      "summary": {
+        "subtotal": 18.00,
+        "tax": 2.70,
+        "shipping": 200.00,
+        "total": 220.70
+      },
+      "shippingBreakup": {
+        "weightShippingFee": 50.00,
+        "dimensionShippingFee": 50.00,
+        "regionShippingFee": 100.00,
+        "totalShippingFee": 200.00
+      },
+      "itemCount": 1
+    },
+    {
+      "sellerId": "seller_2",
+      "sellerStoreName": "SKAITEL",
+      "summary": {
+        "subtotal": 8000.00,
+        "tax": 1200.00,
+        "shipping": 270.00,
+        "total": 9470.00
+      },
+      "shippingBreakup": {
+        "weightShippingFee": 100.00,
+        "dimensionShippingFee": 70.00,
+        "regionShippingFee": 100.00,
+        "totalShippingFee": 270.00
+      },
+      "itemCount": 1
+    }
+  ]
+}
 
 ================================================================================
