@@ -394,7 +394,7 @@ export function ProductSellerOrderDetailClient({ orderId }: { orderId: string })
     item.subtotalInclGst ?? item.subtotal + item.gstAmount
 
   return (
-    <div className="container mx-auto max-w-6xl space-y-6 p-4 sm:p-6">
+    <div className="w-full max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
       {/* Alerts */}
       {successMessage && (
         <Alert className="border-emerald-200 bg-emerald-50 text-emerald-900">
@@ -451,9 +451,9 @@ export function ProductSellerOrderDetailClient({ orderId }: { orderId: string })
         </div>
       </header>
 
-      <div className="grid gap-6 lg:grid-cols-5 lg:items-start">
-        {/* Left column ~60% */}
-        <div className="space-y-6 lg:col-span-3">
+      <div className="grid gap-6 lg:grid-cols-12 lg:items-start">
+        {/* Left column ~60-65% */}
+        <div className="space-y-6 lg:col-span-7 xl:col-span-8">
           {orderedItems.map((item) => {
             const draftStatus = itemStatusDrafts[item.id] ?? item.itemStatus
             const showShipmentForm =
@@ -528,30 +528,76 @@ export function ProductSellerOrderDetailClient({ orderId }: { orderId: string })
                           </div>
                         )}
 
-                        <div className="grid grid-cols-2 md:grid-cols-5 gap-6 pt-4 border-t border-foreground/10 mt-4">
-                          <div className="space-y-1">
-                            <p className="text-[10px] uppercase font-black text-foreground/70 tracking-widest">Quantity</p>
-                            <p className="text-lg font-bold tabular-nums">{item.quantity} units</p>
-                          </div>
-                          <div className="space-y-1">
-                            <p className="text-[10px] uppercase font-black text-foreground/70 tracking-widest">Unit Price</p>
-                            <p className="text-lg font-bold tabular-nums text-primary/80">{formatCurrency(item.price)}</p>
-                          </div>
-                          <div className="space-y-1">
-                            <p className="text-[10px] uppercase font-black text-foreground/70 tracking-widest">Tax (GST)</p>
-                            <p className={cn("text-lg font-bold tabular-nums", item.hasGst ? "text-emerald-600" : "text-muted-foreground")}>
-                              {item.hasGst ? formatCurrency(item.gstAmount) : "N/A"}
-                            </p>
-                          </div>
-                          <div className="space-y-1">
-                            <p className="text-[10px] uppercase font-black text-foreground/70 tracking-widest">Delivery Charge</p>
-                            <p className="text-lg font-bold tabular-nums text-orange-600">{formatCurrency(item.shippingAmount)}</p>
-                          </div>
-                          <div className="space-y-1">
-                            <p className="text-[10px] uppercase font-black text-foreground/70 tracking-widest">Total Value</p>
-                            <p className="text-xl font-black tabular-nums text-foreground">{formatCurrency(lineTotal(item))}</p>
-                          </div>
-                        </div>
+                        {(() => {
+                          const effectiveUnitPrice = item.quantity > 0 && item.subtotal > 0 ? item.subtotal / item.quantity : item.price
+                          const grossTotalVal = (item.subtotalInclGst ?? item.subtotal + item.gstAmount) + item.shippingAmount
+                          const netPayoutVal = Math.max(0, grossTotalVal - item.commissionAmount)
+
+                          return (
+                            <>
+                              <div className="flex flex-wrap items-center justify-between gap-4 p-4 rounded-2xl bg-muted/30 border border-muted/20 mt-4">
+                                <div className="space-y-1 min-w-[90px]">
+                                  <p className="text-[10px] uppercase font-black text-muted-foreground tracking-wider">Quantity</p>
+                                  <p className="text-base font-bold tabular-nums text-foreground">{item.quantity} units</p>
+                                </div>
+                                <div className="space-y-1 min-w-[100px]">
+                                  <p className="text-[10px] uppercase font-black text-muted-foreground tracking-wider">Unit Price</p>
+                                  <p className="text-base font-bold tabular-nums text-primary">{formatCurrency(effectiveUnitPrice)}</p>
+                                </div>
+                                <div className="space-y-1 min-w-[90px]">
+                                  <p className="text-[10px] uppercase font-black text-muted-foreground tracking-wider">Tax (GST)</p>
+                                  <p className={cn("text-base font-bold tabular-nums", item.hasGst ? "text-emerald-600" : "text-muted-foreground")}>
+                                    {item.hasGst ? formatCurrency(item.gstAmount) : "N/A"}
+                                  </p>
+                                </div>
+                                <div className="space-y-1 min-w-[110px]">
+                                  <p className="text-[10px] uppercase font-black text-muted-foreground tracking-wider">Delivery Charge</p>
+                                  <p className="text-base font-bold tabular-nums text-orange-600">{formatCurrency(item.shippingAmount)}</p>
+                                </div>
+                                <div className="space-y-1 min-w-[120px]">
+                                  <p className="text-[10px] uppercase font-black text-muted-foreground tracking-wider">Gross Total</p>
+                                  <p className="text-lg font-black tabular-nums text-foreground">{formatCurrency(grossTotalVal)}</p>
+                                </div>
+                              </div>
+
+                              {/* Financial Payout Breakdown Banner */}
+                              <div className="mt-5 rounded-2xl bg-slate-900 text-white p-5 shadow-xl border border-slate-800 space-y-3">
+                                <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                                  <div className="flex items-center gap-2">
+                                    <Receipt className="h-4 w-4 text-emerald-400" />
+                                    <span className="text-xs font-bold uppercase tracking-wider text-slate-200">Seller Earnings & Payout Breakdown</span>
+                                  </div>
+                                  <Badge variant="outline" className="bg-emerald-500/10 text-emerald-400 border-emerald-500/30 font-bold text-[10px]">
+                                    Commission Rate: {item.commissionRateSnapshot}%
+                                  </Badge>
+                                </div>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-1">
+                                  <div className="space-y-1 bg-slate-800/60 p-3 rounded-xl border border-slate-700/50">
+                                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Gross Order Value</span>
+                                    <p className="text-base font-bold text-slate-100 tabular-nums">
+                                      {formatCurrency(grossTotalVal)}
+                                    </p>
+                                  </div>
+
+                                  <div className="space-y-1 bg-rose-500/10 p-3 rounded-xl border border-rose-500/20">
+                                    <span className="text-[10px] font-bold uppercase tracking-wider text-rose-300 block">Platform Fee ({item.commissionRateSnapshot}%)</span>
+                                    <p className="text-base font-bold text-rose-400 tabular-nums">
+                                      -{formatCurrency(item.commissionAmount)}
+                                    </p>
+                                  </div>
+
+                                  <div className="space-y-1 bg-emerald-500/15 p-3 rounded-xl border border-emerald-500/30">
+                                    <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-300 block">Net Seller Payout</span>
+                                    <p className="text-lg font-black text-emerald-400 tabular-nums">
+                                      {formatCurrency(netPayoutVal)}
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+                            </>
+                          )
+                        })()}
                       </div>
                     </div>
                   </CardContent>
@@ -1142,8 +1188,8 @@ export function ProductSellerOrderDetailClient({ orderId }: { orderId: string })
           })}
         </div>
 
-        {/* Right column ~40% redesign */}
-        <div className="space-y-8 lg:col-span-2">
+        {/* Right column ~35-40% redesign */}
+        <div className="space-y-8 lg:col-span-5 xl:col-span-4">
           {/* Order Summary Premium Section */}
           <Card className="border-none shadow-2xl rounded-[2.5rem] overflow-hidden bg-gradient-to-br from-background via-background to-muted/20 lg:sticky lg:top-8 animate-in fade-in slide-in-from-right-4 duration-700">
             <CardHeader className="bg-primary/5 py-8 border-b border-primary/10">
@@ -1181,8 +1227,10 @@ export function ProductSellerOrderDetailClient({ orderId }: { orderId: string })
                         )}
                      </div>
                     <div className="flex gap-2 mt-4">
-                       <Button size="sm" variant="outline" className="h-8 rounded-full text-[10px] font-bold uppercase tracking-widest border-primary/20 hover:bg-primary/5 hover:text-primary shadow-none">
-                          View History
+                       <Button size="sm" variant="outline" className="h-8 rounded-full text-[10px] font-bold uppercase tracking-widest border-primary/20 hover:bg-primary/5 hover:text-primary shadow-none" asChild>
+                          <Link href={`/product-seller/orders?${order.customerEmail ? `customerEmail=${encodeURIComponent(order.customerEmail)}` : `customerName=${encodeURIComponent(order.customerName || "")}`}`}>
+                            View Client Orders
+                          </Link>
                        </Button>
                     </div>
                   </div>
@@ -1210,6 +1258,31 @@ export function ProductSellerOrderDetailClient({ orderId }: { orderId: string })
                     ) : (
                       <p className="text-muted-foreground/50 italic text-xs py-4 text-center">Unspecified address</p>
                     )}
+                  </div>
+                </div>
+
+                {/* Shipping & Delivery Fee Breakup Card */}
+                <div className="space-y-3">
+                  <h4 className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-foreground/70 px-1">
+                    <Truck className="w-3.5 h-3.5 text-orange-600" /> Delivery Fee Price Breakup
+                  </h4>
+                  <div className="rounded-3xl bg-slate-900 text-white p-5 shadow-xl border border-slate-800 space-y-3">
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-slate-400 font-medium">Weight Shipping Fee</span>
+                      <span className="font-bold tabular-nums text-slate-200">{formatCurrency(order.weightShippingFee ?? 0)}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-slate-400 font-medium">Dimension Shipping Fee</span>
+                      <span className="font-bold tabular-nums text-slate-200">{formatCurrency(order.dimensionShippingFee ?? 0)}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-slate-400 font-medium">Region Fee ({order.shippingState || "Other"})</span>
+                      <span className="font-bold tabular-nums text-slate-200">{formatCurrency(order.regionShippingFee ?? 0)}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-xs pt-2.5 border-t border-slate-800 font-black">
+                      <span className="text-orange-400 uppercase tracking-wider text-[10px]">Total Delivery Charge</span>
+                      <span className="text-orange-400 text-sm tabular-nums">{formatCurrency(order.shipping)}</span>
+                    </div>
                   </div>
                 </div>
 

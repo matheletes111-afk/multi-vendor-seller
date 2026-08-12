@@ -24,9 +24,9 @@ export async function GET() {
     return NextResponse.json({ error: "Seller not found" }, { status: 404 })
   }
 
-  const [subscription, totalProducts, totalOrders, totalRevenue, creditsAgg, debitsAgg, totalAdClicks] = await Promise.all([
+  const [subscription, totalProducts, totalOrders, revenueAgg, pendingRevenueAgg, creditsAgg, debitsAgg, totalAdClicks] = await Promise.all([
     getValidSubscription(seller.id),
-    prisma.product.count({ where: { sellerId: seller.id, isActive: true } }),
+    prisma.product.count({ where: { sellerId: seller.id, isActive: true, isDeleted: false } }),
     prisma.order.count({
       where: {
         items: {
@@ -38,8 +38,24 @@ export async function GET() {
       where: {
         sellerId: seller.id,
         productId: { not: null },
+        itemStatus: "DELIVERED",
       },
-      _sum: { commissionAmount: true },
+      _sum: {
+        subtotalInclGst: true,
+        shippingAmount: true,
+        commissionAmount: true,
+      },
+    }),
+    prisma.orderItem.aggregate({
+      where: {
+        sellerId: seller.id,
+        productId: { not: null },
+        itemStatus: { in: ["PENDING", "CONFIRMED", "PROCESSING", "SHIPPED", "OUT_FOR_DELIVERY"] },
+      },
+      _sum: {
+        subtotalInclGst: true,
+        shippingAmount: true,
+      },
     }),
     prisma.sellerBalanceTransaction.aggregate({
       where: { sellerId: seller.id, kind: "CREDIT" },
@@ -58,6 +74,10 @@ export async function GET() {
     })
   ])
 
+  const grossSales = (revenueAgg._sum.subtotalInclGst ?? 0) + (revenueAgg._sum.shippingAmount ?? 0)
+  const pendingSales = (pendingRevenueAgg._sum.subtotalInclGst ?? 0) + (pendingRevenueAgg._sum.shippingAmount ?? 0)
+  const platformCommission = revenueAgg._sum.commissionAmount ?? 0
+  const netEarnings = Math.max(0, grossSales - platformCommission)
   const netBalance = Number(seller.netBalance)
   const balanceCreditsTotal = Number(creditsAgg._sum.amount ?? 0)
   const balanceDebitsTotal = Number(debitsAgg._sum.amount ?? 0)
@@ -68,8 +88,16 @@ export async function GET() {
     isGlobalRate: seller.commissionRate === null || seller.commissionRate === undefined,
     totalProducts,
     totalOrders,
-    totalRevenue: totalRevenue._sum.commissionAmount ?? 0,
-    totalRevenueFormatted: formatCurrency(totalRevenue._sum.commissionAmount ?? 0),
+    totalRevenue: grossSales,
+    totalRevenueFormatted: formatCurrency(grossSales),
+    pendingRevenue: pendingSales,
+    pendingRevenueFormatted: formatCurrency(pendingSales),
+    grossSales,
+    grossSalesFormatted: formatCurrency(grossSales),
+    platformCommission,
+    platformCommissionFormatted: formatCurrency(platformCommission),
+    netEarnings,
+    netEarningsFormatted: formatCurrency(netEarnings),
     netBalance,
     netBalanceFormatted: formatCurrency(netBalance),
     balanceCreditsTotal,

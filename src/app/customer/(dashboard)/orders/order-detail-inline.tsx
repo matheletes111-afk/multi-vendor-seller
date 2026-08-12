@@ -477,29 +477,28 @@ export function OrderDetailInline({
               </span>
             </div>
             {/* Delivery Price Breakup */}
-            {((order.shipping ?? 0) > 0 || (order.weightShippingFee ?? 0) > 0 || (order.dimensionShippingFee ?? 0) > 0 || (order.regionShippingFee ?? 0) > 0) && (
-              <div className="mt-2 pt-2 border-t border-gray-100 space-y-1 text-xs text-gray-600">
-                <span className="font-semibold text-gray-700 block text-[11px] uppercase tracking-wider">Delivery Breakdown</span>
-                {(order.weightShippingFee ?? 0) > 0 && (
-                  <div className="flex justify-between">
-                    <span>Weight Charge</span>
-                    <span className="font-medium text-gray-800">{formatCurrency(order.weightShippingFee!)}</span>
-                  </div>
-                )}
-                {(order.dimensionShippingFee ?? 0) > 0 && (
-                  <div className="flex justify-between">
-                    <span>Dimension Charge</span>
-                    <span className="font-medium text-gray-800">{formatCurrency(order.dimensionShippingFee!)}</span>
-                  </div>
-                )}
-                {(order.regionShippingFee ?? 0) > 0 && (
-                  <div className="flex justify-between">
-                    <span>Region Surcharge</span>
-                    <span className="font-medium text-gray-800">{formatCurrency(order.regionShippingFee!)}</span>
-                  </div>
-                )}
+            <div className="mt-3 rounded-2xl bg-slate-900 text-white p-3.5 space-y-2 text-xs border border-slate-800">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-1.5">
+                <span className="text-[10px] font-extrabold uppercase tracking-wider text-amber-400">Delivery Fee Breakup</span>
+                <span className="text-[10px] text-slate-400 font-medium">Region: {order.shippingState || "Other"}</span>
               </div>
-            )}
+              <div className="flex justify-between">
+                <span className="text-slate-400">Weight Charge</span>
+                <span className="font-bold tabular-nums text-slate-200">{formatCurrency(order.weightShippingFee ?? 0)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Dimension Charge</span>
+                <span className="font-bold tabular-nums text-slate-200">{formatCurrency(order.dimensionShippingFee ?? 0)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Region Fee</span>
+                <span className="font-bold tabular-nums text-slate-200">{formatCurrency(order.regionShippingFee ?? 0)}</span>
+              </div>
+              <div className="flex justify-between pt-1.5 border-t border-slate-800 font-black">
+                <span className="text-orange-400 uppercase tracking-wider text-[10px]">Total Shipping Fee</span>
+                <span className="text-orange-400 tabular-nums">{formatCurrency(order.shipping ?? 0)}</span>
+              </div>
+            </div>
             {canCancelOrder && (
               <div className="pt-1">
                 <Button

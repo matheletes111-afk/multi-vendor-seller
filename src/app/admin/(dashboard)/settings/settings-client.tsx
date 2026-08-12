@@ -17,6 +17,7 @@ const ALLOWED_ADMINISTRATIVE_REGIONS = [
   "North West Province",
   "Southern Province",
   "Western Area",
+  "Other",
 ] as const
 
 type AdminProfile = {
@@ -682,7 +683,7 @@ export function AdminSettingsClient() {
                       </Badge>
                     </div>
                     <CardDescription className="pt-1 font-medium text-xs text-muted-foreground">
-                      Set regional delivery surcharges for Sierra Leone's 5 Administrative Regions.
+                      Set regional delivery surcharges for Administrative Regions & Fallback (&quot;Other&quot;).
                     </CardDescription>
                   </div>
                 </div>
@@ -703,7 +704,7 @@ export function AdminSettingsClient() {
                       }}
                       className="rounded-full gap-1 font-bold text-[10px] border-teal-500/30 text-teal-700 hover:bg-teal-50"
                     >
-                      + Add All 5 Regions
+                      + Add All Regions
                     </Button>
                   )}
                   <Button type="button" variant="outline" size="sm" onClick={addRegionCharge} className="rounded-full gap-1.5 font-bold uppercase tracking-wider text-[10px] border-teal-500/30 text-teal-700 hover:bg-teal-600 hover:text-white transition-all shadow-sm">
@@ -764,6 +765,96 @@ export function AdminSettingsClient() {
               )}
               <p className="text-[10px] text-muted-foreground font-medium italic bg-teal-500/5 p-3 rounded-2xl border border-teal-500/10">
                 💡 <strong>Regions Supported:</strong> Eastern Province, Northern Province, North West Province, Southern Province, Western Area. Unconfigured regions default to <code>NLe 0.00</code>.
+              </p>
+            </CardContent>
+          </Card>
+
+          {/* Restricted & Prohibited Names Card */}
+          <Card className="border-none shadow-2xl overflow-hidden rounded-[2.5rem] bg-gradient-to-br from-background via-background to-rose-500/5 border-l-4 border-rose-500">
+            <CardHeader className="pb-6 border-b border-muted/30">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 col-span-full">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 bg-rose-500/10 rounded-2xl">
+                    <Ban className="h-6 w-6 text-rose-600" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <CardTitle className="text-xl font-bold text-rose-950">4. Restricted & Prohibited Names</CardTitle>
+                      <Badge variant="outline" className="bg-rose-500/10 text-rose-700 border-rose-500/20 font-bold text-[10px]">
+                        {disallowedNames.length} Term{disallowedNames.length === 1 ? "" : "s"} Restricted
+                      </Badge>
+                    </div>
+                    <CardDescription className="pt-1 font-medium text-xs text-muted-foreground">
+                      Block reserved handles, offensive words, or impersonation terms from user & seller registrations.
+                    </CardDescription>
+                  </div>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="p-8 space-y-6">
+              <div className="flex flex-col sm:flex-row gap-3">
+                <div className="relative flex-1">
+                  <Ban className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50" />
+                  <Input
+                    type="text"
+                    placeholder="Enter restricted term (e.g. admin, null, support)..."
+                    value={newDisallowedName}
+                    onChange={(e) => setNewDisallowedName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault()
+                        handleAddDisallowedName()
+                      }
+                    }}
+                    className="pl-12 h-12 border-muted bg-background rounded-2xl font-medium text-sm focus-visible:ring-rose-500"
+                  />
+                </div>
+                <Button
+                  type="button"
+                  onClick={handleAddDisallowedName}
+                  disabled={!newDisallowedName.trim()}
+                  className="rounded-2xl h-12 px-6 font-bold text-xs bg-rose-600 hover:bg-rose-700 text-white gap-2 shadow-md shrink-0"
+                >
+                  <Plus className="h-4 w-4" />
+                  Add Restricted Name
+                </Button>
+              </div>
+
+              {disallowedNames.length === 0 ? (
+                <div className="text-center py-8 bg-muted/10 rounded-3xl border-2 border-dashed border-muted/40 space-y-3">
+                  <Ban className="h-10 w-10 text-muted-foreground/40 mx-auto" />
+                  <p className="text-sm font-semibold text-muted-foreground">No restricted names configured yet.</p>
+                  <p className="text-xs text-muted-foreground/70">Users can register with any name until terms are added to the list above.</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <Label className="text-[10px] font-extrabold uppercase tracking-wider text-muted-foreground">
+                    Active Restricted Terms ({disallowedNames.length})
+                  </Label>
+                  <div className="flex flex-wrap gap-2.5 p-4 rounded-3xl bg-muted/10 border border-muted/30 min-h-[80px] items-center">
+                    {disallowedNames.map((name) => (
+                      <Badge
+                        key={name}
+                        variant="secondary"
+                        className="bg-rose-500/10 text-rose-700 hover:bg-rose-500/20 border border-rose-500/20 rounded-full px-4 py-2 text-xs font-semibold flex items-center gap-2 group transition-all"
+                      >
+                        <span>{name}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveDisallowedName(name)}
+                          className="rounded-full p-0.5 hover:bg-rose-500/20 text-rose-700/70 hover:text-rose-700 transition-colors"
+                          title={`Remove ${name}`}
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <p className="text-[10px] text-muted-foreground font-medium italic bg-rose-500/5 p-4 rounded-2xl border border-rose-500/10 leading-relaxed">
+                🛡️ <strong>Smart Obfuscation Matching:</strong> The validation engine automatically normalizes characters (e.g. <code>@</code> ➔ <code>a</code>, <code>0</code> ➔ <code>o</code>, <code>3</code> ➔ <code>e</code>, <code>$</code>/<code>5</code> ➔ <code>s</code>) to catch bypassed or obfuscated words during Customer and Seller registration.
               </p>
             </CardContent>
           </Card>

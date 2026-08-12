@@ -48,10 +48,11 @@ export async function GET(request: NextRequest) {
   const subcategoryId = searchParams.get("subcategoryId") || ""
   const minPrice = searchParams.get("minPrice") || ""
   const maxPrice = searchParams.get("maxPrice") || ""
+  const tab = searchParams.get("tab") || searchParams.get("status") || "active"
 
   const where: any = { 
     sellerId: seller.id, 
-    isDeleted: false 
+    isDeleted: tab === "deleted"
   }
 
   if (q) {
@@ -84,7 +85,7 @@ export async function GET(request: NextRequest) {
     if (maxPrice) where.variants.some.price = { ...where.variants.some.price, lte: parseFloat(maxPrice) }
   }
 
-  const [products, totalCount] = await Promise.all([
+  const [products, totalCount, activeCount, deletedCount] = await Promise.all([
     prisma.product.findMany({
       where,
       skip,
@@ -103,6 +104,8 @@ export async function GET(request: NextRequest) {
       orderBy: { createdAt: "desc" },
     }),
     prisma.product.count({ where }),
+    prisma.product.count({ where: { sellerId: seller.id, isDeleted: false } }),
+    prisma.product.count({ where: { sellerId: seller.id, isDeleted: true } }),
   ])
 
   const totalPages = Math.ceil(totalCount / perPage) || 1
@@ -113,6 +116,8 @@ export async function GET(request: NextRequest) {
     totalPages,
     page,
     perPage,
+    activeCount,
+    deletedCount,
   })
 }
 

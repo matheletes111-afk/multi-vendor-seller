@@ -14,6 +14,74 @@ export interface ShippingBreakup {
   totalShippingFee: number
 }
 
+export const ALLOWED_ADMINISTRATIVE_REGIONS = [
+  "Eastern Province",
+  "Northern Province",
+  "North West Province",
+  "Southern Province",
+  "Western Area",
+  "Other",
+] as const
+
+/**
+ * Resolves any raw map location, city, or state string into a valid Administrative Region or "Other".
+ * Safe for use with reverse-geocoded strings, dropdown selections, and manual text input.
+ * Check ordering: North West BEFORE Northern to avoid partial-match issues.
+ */
+export function resolveAdministrativeRegion(stateInput?: string | null): string {
+  if (!stateInput || typeof stateInput !== "string") return "Other"
+  const clean = stateInput.trim().toLowerCase()
+  if (!clean) return "Other"
+
+  // Exact match on known region names first
+  for (const reg of ALLOWED_ADMINISTRATIVE_REGIONS) {
+    if (reg === "Other") continue
+    if (clean === reg.toLowerCase()) return reg
+  }
+
+  // Western Area keywords
+  if (clean.includes("western") || clean.includes("freetown") || clean.includes("western area")) return "Western Area"
+
+  // North West Province — must check BEFORE "northern" to avoid partial match
+  if (
+    clean.includes("north west") ||
+    clean.includes("northwest") ||
+    clean.includes("port loko") ||
+    clean.includes("kambia")
+  ) return "North West Province"
+
+  // Northern Province
+  if (
+    clean.includes("northern") ||
+    clean.includes("makeni") ||
+    clean.includes("bombali") ||
+    clean.includes("tonkolili") ||
+    clean.includes("koinadugu")
+  ) return "Northern Province"
+
+  // Eastern Province
+  if (
+    clean.includes("eastern") ||
+    clean.includes("kenema") ||
+    clean.includes("kailahun") ||
+    clean.includes("kono district") ||
+    clean === "kono"
+  ) return "Eastern Province"
+
+  // Southern Province — use word-boundary safe checks (avoid 'bo' substring trap)
+  if (
+    clean.includes("southern") ||
+    clean === "bo" ||
+    clean.startsWith("bo ") ||
+    clean.endsWith(" bo") ||
+    clean.includes("moyamba") ||
+    clean.includes("pujehun") ||
+    clean.includes("bonthe")
+  ) return "Southern Province"
+
+  return "Other"
+}
+
 export interface WeightRange {
   minWeight?: number | null
   maxWeight?: number | null
@@ -74,21 +142,32 @@ export function getShippingChargeForDimension(volume: number, ranges: DimensionR
 }
 
 export function getRegionDeliveryCharge(destinationState: string | null | undefined, regionCharges: RegionCharge[] | null | undefined): number {
-  if (!destinationState || typeof destinationState !== "string" || !regionCharges || !Array.isArray(regionCharges) || regionCharges.length === 0) {
+  if (!regionCharges || !Array.isArray(regionCharges) || regionCharges.length === 0) {
     return 0
   }
 
-  const cleanState = destinationState.trim().toLowerCase()
-  if (!cleanState) return 0
+  const cleanState = destinationState && typeof destinationState === "string" ? destinationState.trim().toLowerCase() : ""
 
-  for (const rc of regionCharges) {
-    const regName = typeof rc?.region === "string" ? rc.region.trim().toLowerCase() : ""
-    if (!regName) continue
+  if (cleanState) {
+    for (const rc of regionCharges) {
+      const regName = typeof rc?.region === "string" ? rc.region.trim().toLowerCase() : ""
+      if (!regName) continue
 
-    if (cleanState === regName || cleanState.includes(regName) || regName.includes(cleanState)) {
-      const charge = typeof rc?.charge === "number" && !isNaN(rc.charge) ? Math.max(0, Number(rc.charge)) : 0
-      return charge
+      if (cleanState === regName || cleanState.includes(regName) || regName.includes(cleanState)) {
+        const charge = typeof rc?.charge === "number" && !isNaN(rc.charge) ? Math.max(0, Number(rc.charge)) : 0
+        return charge
+      }
     }
+  }
+
+  // Fallback to "Other" region charge if destination does not match standard 5 regions
+  const otherRc = regionCharges.find((rc) => {
+    const regName = typeof rc?.region === "string" ? rc.region.trim().toLowerCase() : ""
+    return regName === "other" || regName === "other region" || regName.includes("other")
+  })
+
+  if (otherRc) {
+    return typeof otherRc?.charge === "number" && !isNaN(otherRc.charge) ? Math.max(0, Number(otherRc.charge)) : 0
   }
 
   return 0
@@ -132,13 +211,11 @@ export function calculateShippingBreakup(params: {
     }
   }
 
-  const weightCharge = getShippingChargeForWeight(totalWeight, weightRanges)
-  const dimensionCharge = getShippingChargeForDimension(totalVolume, dimensionRanges)
+  const weightShippingFee = getShippingChargeForWeight(totalWeight, weightRanges)
+  const dimensionShippingFee = getShippingChargeForDimension(totalVolume, dimensionRanges)
   const regionShippingFee = getRegionDeliveryCharge(destinationState, regionCharges)
 
-  // Applied fee logic: whichever component fee is higher gets applied; the other is superseded (0).
-  const weightShippingFee = weightCharge >= dimensionCharge ? weightCharge : 0
-  const dimensionShippingFee = dimensionCharge > weightCharge ? dimensionCharge : 0
+  // Additive shipping formula: Weight + Dimension + Region
   const totalShippingFee = weightShippingFee + dimensionShippingFee + regionShippingFee
 
   return {

@@ -137,6 +137,7 @@ const ALLOWED_ADMINISTRATIVE_REGIONS = [
   "North West Province",
   "Southern Province",
   "Western Area",
+  "Other",
 ] as const
 
 interface RegionDeliveryChargeInput {

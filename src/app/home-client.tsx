@@ -482,77 +482,79 @@ export function HomeClient() {
           </div>
         ) : (
           <>
-            {/* Full-width hero banner container */}
-            <section
-              className="relative w-full max-w-[100vw] bg-slate-900 overflow-hidden aspect-[16/5.2] sm:aspect-auto sm:h-[500px] md:h-[580px] lg:h-[660px]"
-              onMouseEnter={() => setBannerCarouselPaused(true)}
-              onMouseLeave={() => setBannerCarouselPaused(false)}
-            >
-              {banners.length > 0 ? (
-                <>
-                  <div className="relative w-full h-full overflow-hidden">
-                    {banners.map((banner, i) => (
-                      <div
-                        key={banner.id}
-                        className={`absolute inset-0 transition-opacity duration-500 ${i === bannerIndex ? "opacity-100 z-10" : "opacity-0 z-0"
-                          }`}
-                      >
-                        <Link
-                          href={`/banner/${banner.id}`}
-                          className="block size-full"
+            {/* Hero banner container with subtle side whitespace */}
+            <div className="w-full max-w-[1440px] mx-auto px-2 sm:px-4 pt-2 sm:pt-3">
+              <section
+                className="relative w-full bg-slate-900 overflow-hidden rounded-xl sm:rounded-2xl shadow-sm aspect-[16/6.8] sm:aspect-[16/6.6] min-h-[220px]"
+                onMouseEnter={() => setBannerCarouselPaused(true)}
+                onMouseLeave={() => setBannerCarouselPaused(false)}
+              >
+                {banners.length > 0 ? (
+                  <>
+                    <div className="relative w-full h-full overflow-hidden">
+                      {banners.map((banner, i) => (
+                        <div
+                          key={banner.id}
+                          className={`absolute inset-0 transition-opacity duration-500 ${i === bannerIndex ? "opacity-100 z-10" : "opacity-0 z-0"
+                            }`}
                         >
-                          <img
-                            src={isMobileViewport && (banner as any).mobileBanner ? (banner as any).mobileBanner : banner.bannerImage}
-                            alt={banner.bannerHeading}
-                            className="h-full w-full object-cover object-top"
-                          />
-                          <div className="absolute inset-0 bg-gradient-to-t from-slate-950/10 via-transparent to-transparent pointer-events-none" />
-                        </Link>
-                      </div>
-                    ))}
-                  </div>
-                  {banners.length > 1 && (
-                    <>
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        size="icon"
-                        className="absolute left-2 top-1/2 z-20 h-8 w-8 -translate-y-1/2 rounded-full shadow-md bg-white/80 text-slate-900 hover:bg-white sm:left-4 sm:h-11 sm:w-11"
-                        onClick={() => setBannerIndex((i) => (i - 1 + banners.length) % banners.length)}
-                      >
-                        <ChevronLeft className="h-5 w-5 sm:h-6 sm:w-6" />
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        size="icon"
-                        className="absolute right-2 top-1/2 z-20 h-8 w-8 -translate-y-1/2 rounded-full shadow-md bg-white/80 text-slate-900 hover:bg-white sm:right-4 sm:h-11 sm:w-11"
-                        onClick={() => setBannerIndex((i) => (i + 1) % banners.length)}
-                      >
-                        <ChevronRight className="h-5 w-5 sm:h-6 sm:w-6" />
-                      </Button>
-                      <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-20 flex gap-1.5 sm:bottom-4">
-                        {banners.map((_, idx) => (
-                          <button
-                            key={idx}
-                            type="button"
-                            onClick={() => setBannerIndex(idx)}
-                            className={`h-1.5 rounded-full transition-all duration-300 sm:h-2 ${bannerIndex === idx ? "w-5 bg-white sm:w-6" : "w-1.5 bg-white/50 sm:w-2"}`}
-                          />
-                        ))}
-                      </div>
-                    </>
-                  )}
-                </>
-              ) : null}
-            </section>
+                          <Link
+                            href={`/banner/${banner.id}`}
+                            className="block size-full"
+                          >
+                            <img
+                              src={isMobileViewport && (banner as any).mobileBanner ? (banner as any).mobileBanner : banner.bannerImage}
+                              alt={banner.bannerHeading}
+                              className="h-full w-full object-cover object-top"
+                            />
+                            <div className="absolute inset-0 bg-gradient-to-t from-slate-950/10 via-transparent to-transparent pointer-events-none" />
+                          </Link>
+                        </div>
+                      ))}
+                    </div>
+                    {banners.length > 1 && (
+                      <>
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="icon"
+                          className="absolute left-2 top-1/2 z-20 h-8 w-8 -translate-y-1/2 rounded-full shadow-md bg-white/80 text-slate-900 hover:bg-white sm:left-4 sm:h-11 sm:w-11"
+                          onClick={() => setBannerIndex((i) => (i - 1 + banners.length) % banners.length)}
+                        >
+                          <ChevronLeft className="h-5 w-5 sm:h-6 sm:w-6" />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="icon"
+                          className="absolute right-2 top-1/2 z-20 h-8 w-8 -translate-y-1/2 rounded-full shadow-md bg-white/80 text-slate-900 hover:bg-white sm:right-4 sm:h-11 sm:w-11"
+                          onClick={() => setBannerIndex((i) => (i + 1) % banners.length)}
+                        >
+                          <ChevronRight className="h-5 w-5 sm:h-6 sm:w-6" />
+                        </Button>
+                        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-20 flex gap-1.5 sm:bottom-4">
+                          {banners.map((_, idx) => (
+                            <button
+                              key={idx}
+                              type="button"
+                              onClick={() => setBannerIndex(idx)}
+                              className={`h-1.5 rounded-full transition-all duration-300 sm:h-2 ${bannerIndex === idx ? "w-5 bg-white sm:w-6" : "w-1.5 bg-white/50 sm:w-2"}`}
+                            />
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </>
+                ) : null}
+              </section>
+            </div>
 
-            {/* Category cards — placed below banner on mobile, floating over bottom of banner on desktop */}
-            <section className="container mx-auto px-3 sm:px-4 mt-4 sm:-mt-36 md:-mt-48 lg:-mt-60 relative z-20 pb-6 sm:pb-8 flex items-center justify-center">
+            {/* Category cards — overlapping lower 30% empty background wave area of hero banner */}
+            <section className="w-full max-w-[1440px] mx-auto px-2 sm:px-4 mt-4 sm:-mt-28 md:-mt-32 lg:-mt-36 xl:-mt-40 relative z-20 pb-6 sm:pb-8 flex items-center justify-center">
               {latestCategories.length > 0 ? (
-                <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4 w-full max-w-7xl mx-auto">
+                <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4 w-full">
                   {latestCategories.map((cat, catIdx) => (
-                    <Card key={cat.id} className="overflow-hidden border border-slate-200/60 bg-white p-4 sm:p-5 shadow-lg transition-shadow hover:shadow-xl rounded-xl flex flex-col justify-between">
+                    <Card key={cat.id} className="overflow-hidden border border-slate-200/60 bg-white p-4 sm:p-5 shadow-lg transition-shadow hover:shadow-xl rounded-none flex flex-col justify-between">
                       <CardContent className="p-0 flex flex-col h-full justify-between">
                         <div>
                           <h3 className="mb-3 font-extrabold text-slate-900 text-lg sm:text-xl tracking-tight leading-snug line-clamp-2 h-14 flex items-center">
@@ -567,7 +569,7 @@ export function HomeClient() {
                                   href={`/browse?subcategoryId=${sub.id}`}
                                   className="group flex flex-col bg-white p-0 transition-all hover:opacity-95"
                                 >
-                                  <div className="relative aspect-square w-full overflow-hidden rounded-md bg-white flex items-center justify-center p-0 border-0 shadow-none">
+                                  <div className="relative aspect-square w-full overflow-hidden rounded-none bg-white flex items-center justify-center p-0 border-0 shadow-none">
                                     {(() => {
                                       const src = isMobileViewport && sub.mobileIcon ? sub.mobileIcon : sub.image;
                                       return src ? (

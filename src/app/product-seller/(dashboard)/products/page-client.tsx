@@ -35,7 +35,7 @@ import {
 } from "@/ui/dialog"
 import { cn, formatCurrency } from "@/lib/utils"
 import { PageLoader } from "@/components/ui/page-loader"
-import { Plus, Package, Pencil, Trash2, Megaphone, Search, X, Calendar, Filter, Image as ImageIcon } from "lucide-react"
+import { Plus, Package, Pencil, Trash2, Megaphone, Search, X, Calendar, Filter, Image as ImageIcon, RotateCcw } from "lucide-react"
 import { AdminPagination } from "@/components/admin/admin-pagination"
 import { BulkUploadDialog } from "./bulk-upload-dialog"
 import { BulkAIProgressBanner } from "@/components/bulk-ai-progress-banner"
@@ -46,6 +46,7 @@ type Product = {
   id: string
   name: string
   isActive: boolean
+  isDeleted?: boolean
   images: unknown
   createdAt: string
   category: { name: string }
@@ -99,14 +100,17 @@ export function ProductsPageClient() {
   const subCatIdStr = searchParams.get("subcategoryId") ?? ""
   const minPriceStr = searchParams.get("minPrice") ?? ""
   const maxPriceStr = searchParams.get("maxPrice") ?? ""
+  const tabStr = searchParams.get("tab") ?? "active"
 
   const [activeJobId, setActiveJobId] = useState<string | null>(null)
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [restoringId, setRestoringId] = useState<string | null>(null)
   const [imageErrors, setImageErrors] = useState<Set<string>>(new Set())
   const [totalCount, setTotalCount] = useState(0)
   const [totalPages, setTotalPages] = useState(1)
+  const [counts, setCounts] = useState<{ active: number; deleted: number }>({ active: 0, deleted: 0 })
 
   // Selection state
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
@@ -147,6 +151,7 @@ export function ProductsPageClient() {
     const params = new URLSearchParams()
     params.set("page", page.toString())
     params.set("perPage", perPage.toString())
+    params.set("tab", tabStr)
     if (qStr) params.set("q", qStr)
     if (startStr) params.set("startDate", startStr)
     if (endStr) params.set("endDate", endStr)
@@ -162,6 +167,10 @@ export function ProductsPageClient() {
           setProducts(json.products)
           setTotalCount(json.totalCount ?? 0)
           setTotalPages(json.totalPages ?? 1)
+          setCounts({
+            active: json.activeCount ?? 0,
+            deleted: json.deletedCount ?? 0,
+          })
         } else {
           setProducts([])
           setTotalCount(0)
@@ -174,7 +183,7 @@ export function ProductsPageClient() {
         setTotalPages(1)
       })
       .finally(() => setLoading(false))
-  }, [page, perPage, qStr, startStr, endStr, catIdStr, subCatIdStr, minPriceStr, maxPriceStr])
+  }, [page, perPage, tabStr, qStr, startStr, endStr, catIdStr, subCatIdStr, minPriceStr, maxPriceStr])
 
   useEffect(() => {
     loadProducts()
@@ -259,9 +268,24 @@ export function ProductsPageClient() {
     }
   }
 
+  const handleTabChange = (newTab: "active" | "deleted") => {
+    const p = {
+      tab: newTab,
+      q: qStr || undefined,
+      startDate: startStr || undefined,
+      endDate: endStr || undefined,
+      categoryId: catIdStr || undefined,
+      subcategoryId: subCatIdStr || undefined,
+      minPrice: minPriceStr || undefined,
+      maxPrice: maxPriceStr || undefined,
+    }
+    router.push(buildAdminPageUrl("/product-seller/products", 1, p))
+  }
+
   const paramsError = searchParams.get("error")
   const paramsSuccess = searchParams.get("success")
   const paginationParams = {
+    tab: tabStr,
     error: paramsError ?? undefined,
     success: paramsSuccess ?? undefined,
     q: qStr || undefined,
@@ -280,17 +304,33 @@ export function ProductsPageClient() {
       const res = await fetch(`/api/product-seller/products/${productId}`, { method: "DELETE" })
       if (res.ok) {
         if (wasLastOnPage && page > 1) {
-          router.replace(`/product-seller/products?page=${page - 1}&success=Product+deleted+permanently`)
+          router.replace(`/product-seller/products?tab=${tabStr}&page=${page - 1}&success=Product+deleted+successfully`)
         } else {
           await loadProducts()
-          router.replace("/product-seller/products?success=Product+deleted+permanently")
+          router.replace(`/product-seller/products?tab=${tabStr}&success=Product+deleted+successfully`)
         }
       } else {
         const data = await res.json().catch(() => ({}))
-        router.replace(`/product-seller/products?error=${encodeURIComponent(data.error || "Delete failed")}`)
+        router.replace(`/product-seller/products?tab=${tabStr}&error=${encodeURIComponent(data.error || "Delete failed")}`)
       }
     } finally {
       setDeletingId(null)
+    }
+  }
+
+  const handleRestore = async (productId: string) => {
+    setRestoringId(productId)
+    try {
+      const res = await fetch(`/api/product-seller/products/${productId}/restore`, { method: "POST" })
+      const data = await res.json().catch(() => ({}))
+      if (res.ok) {
+        await loadProducts()
+        router.replace("/product-seller/products?tab=deleted&success=Product+restored+successfully")
+      } else {
+        router.replace(`/product-seller/products?tab=deleted&error=${encodeURIComponent(data.error || "Restore failed")}`)
+      }
+    } finally {
+      setRestoringId(null)
     }
   }
 
@@ -340,6 +380,53 @@ export function ProductsPageClient() {
             </Link>
           </Button>
         </div>
+      </div>
+
+      {/* Product Status Tabs */}
+      <div className="flex items-center gap-3 border-b border-muted/50 pb-4">
+        <Button
+          type="button"
+          variant={tabStr === "active" ? "default" : "outline"}
+          onClick={() => handleTabChange("active")}
+          className={cn(
+            "rounded-full gap-2 font-bold text-xs h-10 px-5 transition-all shadow-sm",
+            tabStr === "active" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+          )}
+        >
+          <Package className="h-4 w-4" />
+          <span>Active Products</span>
+          <Badge
+            variant="secondary"
+            className={cn(
+              "rounded-full text-[10px] px-2 py-0.5 font-bold",
+              tabStr === "active" ? "bg-primary-foreground/20 text-primary-foreground" : "bg-muted text-muted-foreground"
+            )}
+          >
+            {counts.active}
+          </Badge>
+        </Button>
+
+        <Button
+          type="button"
+          variant={tabStr === "deleted" ? "default" : "outline"}
+          onClick={() => handleTabChange("deleted")}
+          className={cn(
+            "rounded-full gap-2 font-bold text-xs h-10 px-5 transition-all shadow-sm",
+            tabStr === "deleted" ? "bg-rose-600 hover:bg-rose-700 text-white" : "text-muted-foreground hover:text-foreground"
+          )}
+        >
+          <Trash2 className="h-4 w-4 text-rose-500" />
+          <span>Deleted Products</span>
+          <Badge
+            variant="secondary"
+            className={cn(
+              "rounded-full text-[10px] px-2 py-0.5 font-bold",
+              tabStr === "deleted" ? "bg-white/20 text-white" : "bg-rose-500/10 text-rose-700 border border-rose-500/20"
+            )}
+          >
+            {counts.deleted}
+          </Badge>
+        </Button>
       </div>
 
       <BulkAIProgressBanner jobId={activeJobId} onCompleted={loadProducts} />
@@ -625,33 +712,50 @@ export function ProductsPageClient() {
                         )}
                       </TableCell>
                       <TableCell>
-                        <Badge variant={product.isActive ? "default" : "secondary"}>
-                          {product.isActive ? "Active" : "Inactive"}
-                        </Badge>
+                        {tabStr === "deleted" || product.isDeleted ? (
+                          <Badge variant="destructive" className="bg-rose-500/10 text-rose-700 border border-rose-500/20 font-bold">
+                            Deleted
+                          </Badge>
+                        ) : (
+                          <Badge variant={product.isActive ? "default" : "secondary"}>
+                            {product.isActive ? "Active" : "Inactive"}
+                          </Badge>
+                        )}
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">{formatDate(product.createdAt)}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
-                          <Link href={`/product-seller/admanagement/new?productId=${product.id}`}>
-                            <Button variant="default" size="sm" className="bg-blue-600 hover:bg-blue-700">
-                              <Megaphone className="mr-2 h-4 w-4" />
-                              Promote
-                            </Button>
-                          </Link>
-                          <Link href={`/product-seller/products/${product.id}`}>
-                            <Button variant="outline" size="sm">
-                              <Pencil className="mr-2 h-4 w-4" />
-                              Edit
-                            </Button>
-                          </Link>
-                          <DeleteProductDialog
-                            productId={product.id}
-                            productName={product.name}
-                            orderItemsCount={product._count.orderItems}
-                            variantsCount={product.variants.length}
-                            onDelete={() => handleDelete(product.id)}
-                            isDeleting={deletingId === product.id}
-                          />
+                          {tabStr === "deleted" || product.isDeleted ? (
+                            <RestoreProductDialog
+                              productId={product.id}
+                              productName={product.name}
+                              onRestore={() => handleRestore(product.id)}
+                              isRestoring={restoringId === product.id}
+                            />
+                          ) : (
+                            <>
+                              <Link href={`/product-seller/admanagement/new?productId=${product.id}`}>
+                                <Button variant="default" size="sm" className="bg-blue-600 hover:bg-blue-700">
+                                  <Megaphone className="mr-2 h-4 w-4" />
+                                  Promote
+                                </Button>
+                              </Link>
+                              <Link href={`/product-seller/products/${product.id}`}>
+                                <Button variant="outline" size="sm">
+                                  <Pencil className="mr-2 h-4 w-4" />
+                                  Edit
+                                </Button>
+                              </Link>
+                              <DeleteProductDialog
+                                productId={product.id}
+                                productName={product.name}
+                                orderItemsCount={product._count.orderItems}
+                                variantsCount={product.variants.length}
+                                onDelete={() => handleDelete(product.id)}
+                                isDeleting={deletingId === product.id}
+                              />
+                            </>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>
@@ -722,6 +826,53 @@ function DeleteProductDialog({
           <Button variant="outline" onClick={() => setOpen(false)} disabled={isDeleting}>Cancel</Button>
           <Button variant="destructive" onClick={handleDelete} disabled={isDeleting}>
             {isDeleting ? "Deleting..." : "Yes, Delete Permanently"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function RestoreProductDialog({
+  productId,
+  productName,
+  onRestore,
+  isRestoring,
+}: {
+  productId: string
+  productName: string
+  onRestore: () => Promise<void>
+  isRestoring: boolean
+}) {
+  const [open, setOpen] = useState(false)
+
+  async function handleRestore() {
+    await onRestore()
+    setOpen(false)
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="outline" size="sm" className="border-emerald-500/30 text-emerald-700 hover:bg-emerald-50 font-bold gap-1.5 rounded-xl">
+          <RotateCcw className="h-4 w-4" />
+          Restore
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="rounded-3xl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-emerald-700">
+            <RotateCcw className="h-5 w-5" />
+            Restore Deleted Product
+          </DialogTitle>
+          <DialogDescription className="pt-2">
+            Are you sure you want to restore &quot;{productName}&quot; back to your active product list? This will make the product visible in your catalog again.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter className="gap-2">
+          <Button variant="outline" className="rounded-xl" onClick={() => setOpen(false)} disabled={isRestoring}>Cancel</Button>
+          <Button className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold gap-2" onClick={handleRestore} disabled={isRestoring}>
+            {isRestoring ? "Restoring..." : "Yes, Restore Product"}
           </Button>
         </DialogFooter>
       </DialogContent>

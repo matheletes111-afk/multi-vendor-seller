@@ -108,7 +108,6 @@ export async function GET(request: NextRequest) {
 
     totalWeightShippingFee += breakup.weightShippingFee
     totalDimensionShippingFee += breakup.dimensionShippingFee
-    // breakup.totalShippingFee = max(weight,dim) per seller - sum these, not max of totals
     totalPhysicalBaseFee += breakup.totalShippingFee
 
     return {
@@ -125,9 +124,9 @@ export async function GET(request: NextRequest) {
     }
   })
 
-  // Region fee is a flat per-order charge � apply once
+  // Region fee is a flat per-order charge  apply once
   const regionShippingFee = getRegionDeliveryCharge(addressState, regionCharges)
-  // totalPhysicalBaseFee = sum of max(w,d) per seller (correct cross-seller aggregation)
+  // totalPhysicalBaseFee = sum of (weightFee + dimFee) per seller — additive formula
   const totalShippingFee = totalPhysicalBaseFee + regionShippingFee
 
   return NextResponse.json({
