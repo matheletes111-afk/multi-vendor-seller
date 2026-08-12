@@ -4,6 +4,33 @@ import { prisma } from "@/lib/prisma"
 import { isAdmin } from "@/lib/rbac"
 import { SubscriptionPlan, PlanType } from "@prisma/client"
 
+export async function GET(request: NextRequest) {
+  try {
+    const session = await auth()
+    if (!session?.user || !isAdmin(session.user)) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const { searchParams } = new URL(request.url)
+    const type = searchParams.get("type")
+
+    const where: any = {}
+    if (type) {
+      where.type = type as PlanType
+    }
+
+    const plans = await prisma.plan.findMany({
+      where,
+      orderBy: { price: "asc" },
+    })
+
+    return NextResponse.json(plans)
+  } catch (error) {
+    console.error("Error fetching plans:", error)
+    return NextResponse.json({ error: "Failed to fetch plans" }, { status: 500 })
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const session = await auth()

@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/ui/card"
 import { Badge } from "@/ui/badge"
 import { Button } from "@/ui/button"
 import { DocumentThumbnail } from "@/components/admin/document-viewer"
+import { SellerSubscriptionDetailsCard } from "@/components/admin/sellers/seller-subscription-details-card"
 import {
   User,
   Mail,
@@ -239,6 +240,13 @@ export function SellerDetailsView({
             </div>
           </CardContent>
         </Card>
+
+        {/* SUBSCRIPTION PACKAGE DETAILS */}
+        <SellerSubscriptionDetailsCard
+          subscription={seller.subscription}
+          plans={seller.plans || []}
+          sellerType={seller.type || "PRODUCT"}
+        />
 
         {/* PART 4: FINANCIAL ANCHOR */}
         <Card className="border border-muted/50 shadow-xl bg-background rounded-3xl overflow-hidden flex flex-col border-l-4 border-l-emerald-500/40">

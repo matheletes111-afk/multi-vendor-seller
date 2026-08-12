@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useSearchParams } from "next/navigation"
-import { Eye, EyeOff, FileText, CheckCircle2, AlertCircle } from "lucide-react"
+import { Eye, EyeOff, FileText, CheckCircle2, AlertCircle, Info } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/ui/card"
 import { Button } from "@/ui/button"
 import { Input } from "@/ui/input"
@@ -205,6 +205,18 @@ export function ServiceSettingsClient() {
             {seller.isApproved && !isCorrection && !isRejected && <Badge className="bg-green-100 text-green-800">Verified Provider</Badge>}
         </div>
       </div>
+
+      {!seller?.isApproved && (
+        <Alert className="mb-6 border-blue-200 bg-blue-50/80 text-blue-950 dark:bg-blue-950/40 dark:text-blue-200 dark:border-blue-800">
+          <Info className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5 shrink-0" />
+          <div>
+            <AlertTitle className="font-semibold text-blue-900 dark:text-blue-100 text-base">Starter Package Notice</AlertTitle>
+            <AlertDescription className="text-sm mt-1 text-blue-800 dark:text-blue-300 leading-relaxed">
+              You are currently on the <strong>Free Starter Package</strong>. After your account is reviewed and approved by Admin, you will be able to select and switch to your desired subscription package from the Subscription page.
+            </AlertDescription>
+          </div>
+        </Alert>
+      )}
 
       {(paramsError || error) && (
         <Alert variant="destructive" className="mb-6">

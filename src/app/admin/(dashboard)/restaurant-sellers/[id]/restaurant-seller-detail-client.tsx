@@ -33,9 +33,10 @@ import Link from "next/link"
 
 interface RestaurantSellerDetailClientProps {
   seller: any
+  plans?: any[]
 }
 
-export function RestaurantSellerDetailClient({ seller }: RestaurantSellerDetailClientProps) {
+export function RestaurantSellerDetailClient({ seller, plans = [] }: RestaurantSellerDetailClientProps) {
   const router = useRouter()
   const [actionLoading, setActionLoading] = useState<string | null>(null)
   const [rejectDialog, setRejectDialog] = useState({ open: false, id: "", action: "" })
@@ -139,7 +140,7 @@ export function RestaurantSellerDetailClient({ seller }: RestaurantSellerDetailC
       <div className="grid gap-8 lg:grid-cols-12">
         <div className="lg:col-span-12">
           <RestaurantSellerDetailsView 
-            seller={seller}
+            seller={{ ...seller, plans }}
             actionLoading={actionLoading}
             onApprove={(id) => handleStatusUpdate(id, "approve")}
             onSuspend={(id) => handleStatusUpdate(id, "suspend")}

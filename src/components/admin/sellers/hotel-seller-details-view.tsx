@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/ui/card"
 import { Badge } from "@/ui/badge"
 import { Button } from "@/ui/button"
 import { DocumentThumbnail } from "@/components/admin/document-viewer"
+import { SellerSubscriptionDetailsCard } from "@/components/admin/sellers/seller-subscription-details-card"
 import {
   User,
   Mail,
@@ -273,6 +274,12 @@ export function HotelSellerDetailsView({
           </CardContent>
         </Card>
 
+        {/* Subscription Package Details */}
+        <SellerSubscriptionDetailsCard
+          subscription={seller.subscription}
+          plans={seller.plans || []}
+          sellerType="HOTEL"
+        />
       </div>
 
       {/* Footer Actions */}

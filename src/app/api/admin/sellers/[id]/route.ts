@@ -34,11 +34,12 @@ export async function GET(
       }
     })
 
-    if (!seller) {
-      return new NextResponse("Seller not found", { status: 404 })
-    }
+    const plans = await prisma.plan.findMany({
+      where: { type: "PRODUCT_SERVICE" },
+      orderBy: { price: "asc" }
+    })
 
-    return NextResponse.json(seller)
+    return NextResponse.json({ ...seller, plans })
   } catch (error) {
     console.error("[SELLER_GET]", error)
     return new NextResponse("Internal Error", { status: 500 })

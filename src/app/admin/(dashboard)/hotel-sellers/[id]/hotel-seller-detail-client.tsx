@@ -8,15 +8,15 @@ import { Badge } from "@/ui/badge"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/ui/dialog"
 import { Label } from "@/ui/label"
 import { Textarea } from "@/ui/textarea"
-import { 
-  Building2, 
-  ArrowLeft, 
-  CheckCircle2, 
-  AlertCircle, 
-  Ban, 
-  Mail, 
-  Phone, 
-  MapPin, 
+import {
+  Building2,
+  ArrowLeft,
+  CheckCircle2,
+  AlertCircle,
+  Ban,
+  Mail,
+  Phone,
+  MapPin,
   Calendar,
   CreditCard,
   Briefcase,
@@ -63,7 +63,7 @@ interface Seller {
   hotels: Hotel[]
 }
 
-export function HotelSellerDetailClient({ seller }: { seller: Seller }) {
+export function HotelSellerDetailClient({ seller, plans = [] }: { seller: any; plans?: any[] }) {
   const router = useRouter()
   const [actionLoading, setActionLoading] = useState<string | null>(null)
   const [rejectDialog, setRejectDialog] = useState<{ open: boolean; id: string; action: string }>({ open: false, id: "", action: "" })
@@ -116,8 +116,8 @@ export function HotelSellerDetailClient({ seller }: { seller: Seller }) {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Left Column: Onboarding & Business Details */}
         <div className="lg:col-span-2 space-y-8">
-          <HotelSellerDetailsView 
-            seller={seller} 
+          <HotelSellerDetailsView
+            seller={{ ...seller, plans }}
             actionLoading={actionLoading}
             onApprove={() => handleStatusAction(seller.id, "approve")}
             onSuspend={() => handleStatusAction(seller.id, "suspend")}
@@ -141,7 +141,7 @@ export function HotelSellerDetailClient({ seller }: { seller: Seller }) {
                     <p className="text-muted-foreground font-bold text-sm uppercase tracking-wider">No hotels listed yet</p>
                   </div>
                 ) : (
-                  seller.hotels.map((hotel) => (
+                  seller.hotels.map((hotel: any) => (
                     <Card key={hotel.id} className="rounded-3xl border-muted/50 overflow-hidden hover:shadow-xl transition-all group">
                       <div className="aspect-[16/9] relative overflow-hidden bg-muted">
                         {hotel.images?.[0] ? (
@@ -196,10 +196,10 @@ export function HotelSellerDetailClient({ seller }: { seller: Seller }) {
                 </div>
                 <div className="bg-white/10 rounded-3xl p-4 backdrop-blur-sm">
                   <p className="text-[10px] font-bold uppercase opacity-60 mb-1 tracking-widest">Total Rooms</p>
-                  <p className="text-3xl font-black">{seller.hotels.reduce((acc, h) => acc + h._count.rooms, 0)}</p>
+                  <p className="text-3xl font-black">{seller.hotels.reduce((acc: number, h: any) => acc + h._count.rooms, 0)}</p>
                 </div>
               </div>
-              
+
               <div className="pt-4 border-t border-white/10 space-y-4">
                 <div className="flex items-center gap-3">
                   <div className="p-2 bg-white/10 rounded-xl"><Mail className="h-4 w-4" /></div>
@@ -232,17 +232,17 @@ export function HotelSellerDetailClient({ seller }: { seller: Seller }) {
             <DialogDescription className="pt-2 font-medium">Provide details for the seller to correct or reason for rejection.</DialogDescription>
           </DialogHeader>
           <div className="py-6">
-             <Label className="text-xs font-black uppercase tracking-widest mb-3 block text-muted-foreground ml-1">Your Memo</Label>
-             <Textarea 
-                placeholder="Type your message here..." 
-                className="rounded-3xl min-h-[150px] p-6 bg-muted/20 border-none shadow-inner focus-visible:ring-primary/20" 
-                value={feedback} 
-                onChange={e => setFeedback(e.target.value)}
-             />
+            <Label className="text-xs font-black uppercase tracking-widest mb-3 block text-muted-foreground ml-1">Your Memo</Label>
+            <Textarea
+              placeholder="Type your message here..."
+              className="rounded-3xl min-h-[150px] p-6 bg-muted/20 border-none shadow-inner focus-visible:ring-primary/20"
+              value={feedback}
+              onChange={e => setFeedback(e.target.value)}
+            />
           </div>
           <DialogFooter className="gap-2">
-             <Button variant="outline" className="rounded-full px-8 h-12 font-bold" onClick={() => setRejectDialog({ open: false, id: "", action: "" })}>Cancel</Button>
-             <Button className="rounded-full bg-red-600 hover:bg-red-700 font-bold px-10 h-12 shadow-lg shadow-red-500/20" onClick={() => handleStatusAction(rejectDialog.id, rejectDialog.action, feedback)} disabled={!feedback || !!actionLoading}>Send Feedback</Button>
+            <Button variant="outline" className="rounded-full px-8 h-12 font-bold" onClick={() => setRejectDialog({ open: false, id: "", action: "" })}>Cancel</Button>
+            <Button className="rounded-full bg-red-600 hover:bg-red-700 font-bold px-10 h-12 shadow-lg shadow-red-500/20" onClick={() => handleStatusAction(rejectDialog.id, rejectDialog.action, feedback)} disabled={!feedback || !!actionLoading}>Send Feedback</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -13,16 +13,25 @@ export default async function RestaurantSellerDetailPage({ params }: { params: P
 
   const { id } = await params
 
-  const seller = await prisma.restaurantSeller.findUnique({
-    where: { id },
-    include: {
-      user: true,
-      businessInfo: true,
-      kyc: true,
-      bankDetails: true,
-      agreement: true,
-    }
-  })
+  const [seller, allPlans] = await Promise.all([
+    prisma.restaurantSeller.findUnique({
+      where: { id },
+      include: {
+        user: true,
+        businessInfo: true,
+        kyc: true,
+        bankDetails: true,
+        agreement: true,
+        subscription: {
+          include: { plan: true }
+        },
+      }
+    }),
+    prisma.plan.findMany({
+      where: { type: "RESTAURANT" },
+      orderBy: { price: "asc" }
+    })
+  ])
 
   if (!seller) notFound()
 
@@ -69,5 +78,5 @@ export default async function RestaurantSellerDetailPage({ params }: { params: P
   // Serialize to plain object for client component
   const plainSeller = JSON.parse(JSON.stringify(seller))
 
-  return <RestaurantSellerDetailClient seller={plainSeller} />
+  return <RestaurantSellerDetailClient seller={plainSeller} plans={JSON.parse(JSON.stringify(allPlans))} />
 }

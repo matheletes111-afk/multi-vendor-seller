@@ -65,6 +65,9 @@ export async function GET(request: NextRequest) {
           kyc: true,
           bankDetails: true,
           agreement: true,
+          subscription: {
+            include: { plan: true }
+          },
         },
         orderBy: { createdAt: "desc" },
       }),

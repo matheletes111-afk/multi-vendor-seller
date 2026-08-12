@@ -33,7 +33,8 @@ import {
   Filter,
   Calendar,
   X,
-  ArrowRight
+  ArrowRight,
+  Search
 } from "lucide-react"
 
 const formatPlanDuration = (durationDays?: number) => {
@@ -67,6 +68,12 @@ export function SubscriptionsClient() {
   const month = searchParams.get("month") || ""
   const from = searchParams.get("from") || ""
   const to = searchParams.get("to") || ""
+  const searchQ = searchParams.get("search") || ""
+
+  const [searchInput, setSearchInput] = useState(searchQ)
+  useEffect(() => {
+    setSearchInput(searchQ)
+  }, [searchQ])
 
   const [data, setData] = useState<{
     subscriptions: any[]
@@ -123,6 +130,7 @@ export function SubscriptionsClient() {
   }
 
   const clearFilters = () => {
+    setSearchInput("")
     router.push(pathname)
   }
 
@@ -285,7 +293,7 @@ export function SubscriptionsClient() {
             <Filter className="w-4 h-4 text-primary" />
             <CardTitle className="text-lg font-medium">Revenue Filters</CardTitle>
           </div>
-          {(year || month || from || to) && (
+          {(year || month || from || to || searchQ) && (
             <Button
               variant="outline"
               size="sm"
@@ -297,7 +305,45 @@ export function SubscriptionsClient() {
             </Button>
           )}
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-6">
+          <div className="relative">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              type="text"
+              placeholder="Search by seller name, email, phone, store / business name, plan, status (Active, Canceled)..."
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") updateFilters({ search: searchInput })
+              }}
+              className="pl-10 pr-24 h-11 bg-background rounded-xl border-muted shadow-sm focus-visible:ring-primary/20 text-sm"
+            />
+            <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-1">
+              {searchInput && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    setSearchInput("")
+                    updateFilters({ search: null })
+                  }}
+                  className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </Button>
+              )}
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => updateFilters({ search: searchInput })}
+                className="h-8 px-4 text-xs font-bold bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg shadow-sm"
+              >
+                Search
+              </Button>
+            </div>
+          </div>
+
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
             <div className="space-y-2">
               <label className="text-sm font-medium flex items-center gap-2">
@@ -504,11 +550,16 @@ export function SubscriptionsClient() {
                 subscriptions.map((subscription: any) => (
                   <TableRow key={subscription.id} className="group hover:bg-muted/30 transition-colors">
                     <TableCell className="py-4 pl-6">
-                      <div className="font-medium text-foreground">
-                        {subscription.seller?.store?.name || subscription.seller?.user?.email}
+                      <div className="font-bold text-foreground flex items-center gap-2">
+                        {subscription.seller?.user?.name || "Seller"}
+                        {(subscription.seller?.store?.name || subscription.seller?.businessInfo?.businessName) && (
+                          <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-muted text-muted-foreground">
+                            {subscription.seller?.store?.name || subscription.seller?.businessInfo?.businessName}
+                          </span>
+                        )}
                       </div>
-                      <div className="text-xs text-muted-foreground font-medium">
-                        {subscription.seller?.user?.email}
+                      <div className="text-xs text-muted-foreground font-medium mt-0.5">
+                        {subscription.seller?.user?.email} {subscription.seller?.user?.phone && `• +${subscription.seller?.user?.phoneCountryCode || ""} ${subscription.seller?.user?.phone}`}
                       </div>
                     </TableCell>
                     <TableCell>

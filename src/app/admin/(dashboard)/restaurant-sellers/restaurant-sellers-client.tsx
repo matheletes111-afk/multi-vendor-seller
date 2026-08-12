@@ -37,6 +37,16 @@ export function RestaurantSellersClient() {
   const [endDate, setEndDate] = useState(endParam)
   const [localTab, setLocalTab] = useState(tab)
 
+  const [plans, setPlans] = useState<any[]>([])
+  useEffect(() => {
+    fetch("/api/admin/plans?type=RESTAURANT")
+      .then((res) => res.json())
+      .then((data) => {
+        if (Array.isArray(data)) setPlans(data)
+      })
+      .catch((err) => console.error("Error loading restaurant plans:", err))
+  }, [])
+
   const [data, setData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -331,7 +341,7 @@ export function RestaurantSellersClient() {
                                   </Link>
                                 </div>
                                 <RestaurantSellerDetailsView
-                                  seller={seller}
+                                  seller={{ ...seller, plans }}
                                   actionLoading={actionLoading}
                                   onApprove={id => handleStatusAction(id, "approve")}
                                   onSuspend={id => handleStatusAction(id, "suspend")}
