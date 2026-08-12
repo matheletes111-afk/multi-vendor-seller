@@ -116,25 +116,19 @@ export function BannerPageClient() {
 
   return (
     <div className="flex-1 min-w-0 overflow-x-hidden" style={{ background: "#fefefe" }}>
-        {/* Banner hero - same placement/sizing as home page banner */}
-        <section className="relative w-full max-w-[100vw] bg-muted overflow-hidden min-h-[50vh] sm:min-h-[60vh] md:min-h-[70vh]">
-          <div className="relative w-full min-h-[50vh] sm:min-h-[60vh] md:min-h-[70vh] overflow-hidden">
-            <div className="absolute inset-0">
-              <img
-                src={banner.bannerImage}
-                alt={banner.bannerHeading}
-                className="h-full w-full min-h-full min-w-full object-cover object-center"
-                sizes="100vw"
-                fetchPriority="high"
-              />
-              <div className="absolute inset-0 flex items-center justify-center px-4 drop-shadow-md">
-                <h1 className="text-lg font-bold text-blue-100 max-w-4xl sm:text-xl md:text-2xl lg:text-3xl text-center [text-shadow:0_1px_2px_rgba(0,0,0,0.5)] leading-tight">
-                  {banner.bannerHeading}
-                </h1>
-              </div>
-            </div>
+        {/* Clean Header without Hero Banner Image */}
+        <div className="bg-slate-50 border-b border-slate-200 py-6 sm:py-8">
+          <div className="container mx-auto max-w-7xl px-4 sm:px-6">
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight">
+              {banner.bannerHeading}
+            </h1>
+            {banner.bannerDescription && (
+              <p className="mt-2 text-sm sm:text-base text-slate-600 max-w-3xl">
+                {banner.bannerDescription}
+              </p>
+            )}
           </div>
-        </section>
+        </div>
 
         {/* When banner is for a service category, show services first; otherwise products first */}
         {banner.serviceCategoryId ? (

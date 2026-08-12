@@ -34,6 +34,8 @@ export type SellerOrderDetailItemApi = {
   deliveredAt: string | null
   deliveryOtp: string | null
   deliveryOtpExpires: string | null
+  commissionAmount: number
+  commissionRateSnapshot: number
   statusHistory: {
     status: string
     location: string | null

@@ -17,6 +17,8 @@ type Overview = {
   totalOrders: number
   totalRevenue: number
   totalRevenueFormatted: string
+  pendingRevenue?: number
+  pendingRevenueFormatted?: string
   netBalance: number
   netBalanceFormatted: string
   balanceCreditsTotal: number
@@ -85,6 +87,7 @@ export function ProductSellerPageClient() {
     totalProducts,
     totalOrders,
     totalRevenueFormatted,
+    pendingRevenueFormatted,
     netBalanceFormatted,
     balanceCreditsTotal,
     balanceDebitsTotal,
@@ -143,12 +146,17 @@ export function ProductSellerPageClient() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Revenue</CardTitle>
+            <CardTitle className="text-sm font-medium">Delivered Revenue</CardTitle>
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{totalRevenueFormatted}</div>
-            <p className="text-xs text-muted-foreground mt-1">Total revenue</p>
+            {pendingRevenueFormatted && (
+              <p className="text-[11px] font-semibold text-amber-600 mt-1">
+                Pending: {pendingRevenueFormatted}
+              </p>
+            )}
+            <p className="text-xs text-muted-foreground mt-0.5">Delivered orders total</p>
           </CardContent>
         </Card>
 

@@ -13,24 +13,38 @@ IMPORTANT ZERO-FALLBACK RULE:
 - If weight, dimensions, address region, or setting ranges are null, empty,
   or unconfigured, the charge for that specific component defaults to 0.00.
 
-FORMULA & MULTI-VENDOR CALCULATION:
-- Per Seller Physical Base Fee = Math.max(weightShippingFee, dimensionShippingFee)
-- Total Order Delivery Fee = Sum(Per Seller Physical Base Fee) + regionShippingFee
+ADDITIVE FORMULA & MULTI-VENDOR CALCULATION:
+- Per Seller Physical Fee = weightShippingFee + dimensionShippingFee
+- Total Order Delivery Fee = Weight Fee + Dimension Fee + Region Fee
+* Note: Weight Fee and Dimension Fee are ADDITIVE (Weight + Dimension).
 * Note: Region shipping fee is a flat PER-ORDER surcharge based on delivery region.
   It is applied ONCE per order, regardless of how many sellers are in the cart.
 
 
-2. MOBILE ADDRESS FORM REQUIREMENTS
+2. MOBILE ADDRESS FORM & MAP REGION RESOLUTION
 --------------------------------------------------------------------------------
 When adding or updating a delivery address (via POST/PATCH /mobileapi/customer/checkout/addresses),
 the app MUST present a dropdown for the 'state' field containing Sierra Leone's
-5 Administrative Regions:
+Administrative Regions + Fallback:
 
   - Eastern Province
   - Northern Province
   - North West Province
   - Southern Province
   - Western Area
+  - Other                      <-- Fallback region for custom/other destinations
+
+MAP & REVERSE GEOCODING REGION EXTRACTION:
+- When a customer picks a location on the Map or uses GPS reverse-geocoding (lat/lng):
+  1) Extract the administrative region or city from the geocoding response.
+  2) Map major cities/areas to standard regions (e.g. Freetown -> Western Area, Kenema -> Eastern Province, Bo -> Southern Province, Makeni -> Northern Province).
+  3) If the geocoded location or city does not match any of the 5 main provinces, pass `state: "Other"`.
+- The backend shipping engine automatically resolves map location strings and applies the "Other" region surcharge.
+
+Region Fallback Rule:
+- If the delivery address state does not match any of the 5 specific provinces above,
+  the shipping calculator automatically falls back to the "Other" region delivery surcharge
+  configured in Admin Settings. If "Other" is unconfigured, it defaults to 0.00.
 
 Example Address JSON Payload (POST /mobileapi/customer/checkout/addresses):
 {
@@ -39,14 +53,14 @@ Example Address JSON Payload (POST /mobileapi/customer/checkout/addresses):
   "addressLine1": "15 Circular Road",
   "addressLine2": "Apartment 4B",
   "city": "Freetown",
-  "state": "Western Area",       <-- MUST match one of the 5 Administrative Regions
+  "state": "Western Area",       <-- Select from regions, map reverse-geocode, or "Other"
   "postalCode": "00232",
   "country": "Sierra Leone",
   "isDefault": true
 }
 
 
-3. CHECKOUT API ENDPOINTS & 3-PRICE BREAKUP
+3. CHECKOUT API ENDPOINTS & FULL PRICE BREAKUP
 --------------------------------------------------------------------------------
 
 A. GET /mobileapi/customer/checkout/summary?addressId=<address_id>
@@ -57,36 +71,36 @@ Headers:
 Response Example (Multi-Vendor with 2 Sellers):
 {
   "success": true,
-  "shipping": 115.00,
+  "shipping": 165.00,
   "shippingBreakup": {
     "weightShippingFee": 80.00,
     "dimensionShippingFee": 50.00,
     "regionShippingFee": 35.00,
-    "totalShippingFee": 115.00
+    "totalShippingFee": 165.00
   },
   "sellerGroups": [
     {
       "sellerId": "seller_123",
       "sellerName": "Freetown Electronics",
       "itemsCount": 2,
-      "sellerDeliveryFee": 50.00,
+      "sellerDeliveryFee": 90.00,
       "shippingBreakup": {
         "weightShippingFee": 50.00,
         "dimensionShippingFee": 40.00,
         "regionShippingFee": 0,
-        "totalShippingFee": 50.00
+        "totalShippingFee": 90.00
       }
     },
     {
       "sellerId": "seller_456",
       "sellerName": "Bo Fashion Store",
       "itemsCount": 1,
-      "sellerDeliveryFee": 30.00,
+      "sellerDeliveryFee": 40.00,
       "shippingBreakup": {
         "weightShippingFee": 30.00,
         "dimensionShippingFee": 10.00,
         "regionShippingFee": 0,
-        "totalShippingFee": 30.00
+        "totalShippingFee": 40.00
       }
     }
   ],
@@ -117,7 +131,7 @@ Response Example (Multi-Vendor with 2 Sellers):
       "orderId": "order_789",
       "orderNumber": "ORD-2026-00102",
       "sellerId": "MULTI",
-      "totalAmount": 515.00,
+      "totalAmount": 565.00,
       "itemCount": 3,
       "couponCode": "DISCOUNT10",
       "couponDiscount": 10.00
@@ -127,24 +141,24 @@ Response Example (Multi-Vendor with 2 Sellers):
     "weightShippingFee": 80.00,
     "dimensionShippingFee": 50.00,
     "regionShippingFee": 35.00,
-    "totalShippingFee": 115.00
+    "totalShippingFee": 165.00
   }
 }
 
 
-C. GET /mobileapi/customer/orders/products/details/[id]
+C. GET /mobileapi/customer/orders/products/details/[id] (CUSTOMER ORDER DETAILS)
 --------------------------------------------------------------------------------
 Headers:
   Authorization: Bearer <customer_jwt_token>
 
-Response Object Includes:
+Response Object Includes Full Delivery Breakup:
 {
   "id": "order_789",
   "orderNumber": "ORD-2026-00102",
-  "totalAmount": 515.00,
+  "totalAmount": 565.00,
   "subtotal": 400.00,
   "tax": 0.00,
-  "shipping": 115.00,
+  "shipping": 165.00,
   "weightShippingFee": 80.00,
   "dimensionShippingFee": 50.00,
   "regionShippingFee": 35.00,
@@ -152,23 +166,23 @@ Response Object Includes:
     "weightShippingFee": 80.00,
     "dimensionShippingFee": 50.00,
     "regionShippingFee": 35.00,
-    "totalShippingFee": 115.00
+    "totalShippingFee": 165.00
   }
 }
 
 
-D. GET /mobileapi/product-seller/orders/[id]
+D. GET /mobileapi/product-seller/orders/[id] (SELLER ORDER DETAILS)
 --------------------------------------------------------------------------------
 Headers:
   Authorization: Bearer <seller_jwt_token>
 
-Response Object Includes:
+Response Object Includes Full Delivery Breakup:
 {
   "id": "order_789",
   "orderNumber": "ORD-2026-00102",
-  "totalAmount": 515.00,
+  "totalAmount": 565.00,
   "subtotal": 400.00,
-  "shipping": 115.00,
+  "shipping": 165.00,
   "weightShippingFee": 80.00,
   "dimensionShippingFee": 50.00,
   "regionShippingFee": 35.00,
@@ -176,17 +190,17 @@ Response Object Includes:
     "weightShippingFee": 80.00,
     "dimensionShippingFee": 50.00,
     "regionShippingFee": 35.00,
-    "totalShippingFee": 115.00
+    "totalShippingFee": 165.00
   }
 }
 
 
-4. SUMMARY OF DEFAULT FALLBACKS
+4. SUMMARY OF DEFAULT FALLBACKS & MAP RESOLUTION
 --------------------------------------------------------------------------------
 - Missing Weight / Variant Weight = null       => weightShippingFee = 0.00
 - Missing Height/Width/Depth = null            => dimensionShippingFee = 0.00
-- Address Region Unmatched / Missing = null    => regionShippingFee = 0.00
+- Unrecognized Map/Address Location            => Automatic fallback to "Other" charge
+- Unconfigured "Other" Region                  => regionShippingFee = 0.00
 - Service-only Orders (No Physical Products)   => All shipping fees = 0.00
 
 ================================================================================
-

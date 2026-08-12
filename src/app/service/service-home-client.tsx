@@ -33,6 +33,7 @@ import {
   SelectValue,
 } from "@/ui/select"
 import { cn, formatCurrency } from "@/lib/utils"
+import { PageLoader } from "@/components/ui/page-loader"
 
 export interface ServiceCategory {
   id: string
@@ -120,6 +121,7 @@ function ServiceHomeContent() {
   const [banners, setBanners] = useState<BannerItem[]>([])
   const [ads, setAds] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [initialLoading, setInitialLoading] = useState(true)
   const [bannerIndex, setBannerIndex] = useState(0)
   const [bannerCarouselPaused, setBannerCarouselPaused] = useState(false)
   const [sponsoredCarouselPaused, setSponsoredCarouselPaused] = useState(false)
@@ -148,33 +150,26 @@ function ServiceHomeContent() {
 
   // Fetch Service Categories, Banners & All Spotlight Services on mount
   useEffect(() => {
-    fetch("/api/service-categories")
-      .then((res) => (res.ok ? res.json() : { categories: [] }))
-      .then((data) => {
-        if (Array.isArray(data.categories)) {
-          setCategories(data.categories)
+    Promise.all([
+      fetch("/api/service-categories").then((res) => (res.ok ? res.json() : { categories: [] })),
+      fetch("/api/home/banners?targetType=service").then((res) => (res.ok ? res.json() : [])),
+      fetch("/api/services?limit=200").then((res) => (res.ok ? res.json() : { services: [] })),
+    ])
+      .then(([catData, bannerData, spotlightData]) => {
+        if (Array.isArray(catData?.categories)) {
+          setCategories(catData.categories)
+        }
+        if (Array.isArray(bannerData) && bannerData.length > 0) {
+          setBanners(bannerData)
+        }
+        if (Array.isArray(spotlightData?.services)) {
+          setSpotlightServices(spotlightData.services)
         }
       })
-      .catch((err) => console.error("Error loading service categories:", err))
-
-    fetch("/api/home/banners?targetType=service")
-      .then((res) => (res.ok ? res.json() : []))
-      .then((data) => {
-        if (Array.isArray(data) && data.length > 0) {
-          setBanners(data)
-        }
+      .catch((err) => console.error("Error loading service initial data:", err))
+      .finally(() => {
+        setInitialLoading(false)
       })
-      .catch((err) => console.error("Error loading service banners:", err))
-
-    // Fetch master services list for Category Spotlight Cards & Special Deals
-    fetch("/api/services?limit=200")
-      .then((res) => (res.ok ? res.json() : { services: [] }))
-      .then((data) => {
-        if (Array.isArray(data.services)) {
-          setSpotlightServices(data.services)
-        }
-      })
-      .catch((err) => console.error("Error loading spotlight services:", err))
   }, [])
 
   // Fetch Services & Banners (50 items per page with Load More)
@@ -301,93 +296,100 @@ function ServiceHomeContent() {
 
   return (
     <div className="min-h-screen bg-slate-50/60 pb-16 text-slate-900">
-
-      {/* 1. HERO BANNER CAROUSEL — Full-width container with clean unobscured banner & top badges */}
-      <section
-        className="relative w-full max-w-[100vw] bg-slate-900 overflow-hidden aspect-[16/5.2] sm:aspect-auto sm:h-[480px] md:h-[540px] lg:h-[600px]"
-        onMouseEnter={() => setBannerCarouselPaused(true)}
-        onMouseLeave={() => setBannerCarouselPaused(false)}
-      >
-        <div className="relative h-full w-full">
-          {/* TOP LEFT COMPACT BADGE */}
-          <div className="absolute top-3 left-3 sm:top-4 sm:left-6 z-20">
-            <div className="inline-flex items-center gap-1.5 rounded-full border border-amber-400/30 bg-slate-950/75 px-2.5 py-1 text-[9px] sm:text-[11px] font-extrabold text-amber-300 backdrop-blur-md shadow-md">
-              <Sparkles className="h-3 w-3 text-amber-400" />
-              <span>Verified On-Demand Services</span>
+      {initialLoading ? (
+        <div className="flex min-h-[70vh] items-center justify-center">
+          <PageLoader message="Loading…" />
+        </div>
+      ) : (
+        <>
+      {/* Hero banner container with subtle side whitespace */}
+      <div className="w-full max-w-[1440px] mx-auto px-2 sm:px-4 pt-2 sm:pt-3">
+        <section
+          className="relative w-full bg-slate-900 overflow-hidden rounded-xl sm:rounded-2xl shadow-sm aspect-[16/6.8] sm:aspect-[16/6.6] min-h-[220px]"
+          onMouseEnter={() => setBannerCarouselPaused(true)}
+          onMouseLeave={() => setBannerCarouselPaused(false)}
+        >
+          <div className="relative h-full w-full">
+            {/* TOP LEFT COMPACT BADGE */}
+            <div className="absolute top-3 left-3 sm:top-4 sm:left-6 z-20">
+              <div className="inline-flex items-center gap-1.5 rounded-full border border-amber-400/30 bg-slate-950/75 px-2.5 py-1 text-[9px] sm:text-[11px] font-extrabold text-amber-300 backdrop-blur-md shadow-md">
+                <Sparkles className="h-3 w-3 text-amber-400" />
+                <span>Verified On-Demand Services</span>
+              </div>
             </div>
-          </div>
 
-          {/* TOP RIGHT FEATURED SERVICE OFFER BADGE */}
-          <div className="absolute top-3 right-3 sm:top-4 sm:right-6 z-20">
-            <div className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-amber-400 to-amber-500 px-2.5 py-1 text-[9px] sm:text-[10px] font-black text-slate-950 shadow-md uppercase tracking-wider border border-amber-300/50">
-              <span>FEATURED OFFER</span>
+            {/* TOP RIGHT FEATURED SERVICE OFFER BADGE */}
+            <div className="absolute top-3 right-3 sm:top-4 sm:right-6 z-20">
+              <div className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-amber-400 to-amber-500 px-2.5 py-1 text-[9px] sm:text-[10px] font-black text-slate-950 shadow-md uppercase tracking-wider border border-amber-300/50">
+                <span>FEATURED OFFER</span>
+              </div>
             </div>
-          </div>
 
-          {banners.length > 0 ? (
-            <div className="relative h-full w-full">
-              <Link href={`/banner/${banners[bannerIndex]?.id}`} className="block h-full w-full">
+            {banners.length > 0 ? (
+              <div className="relative h-full w-full">
+                <Link href={`/banner/${banners[bannerIndex]?.id}`} className="block h-full w-full">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={banners[bannerIndex]?.mobileBanner || banners[bannerIndex]?.mobile_banner || banners[bannerIndex]?.bannerImage}
+                    alt={banners[bannerIndex]?.bannerHeading || "Service Banner"}
+                    className="w-full h-full object-cover object-top transition-all duration-700 ease-in-out"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-slate-950/20 via-transparent to-slate-950/30 pointer-events-none" />
+                </Link>
+              </div>
+            ) : (
+              <div className="relative h-full w-full">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={banners[bannerIndex]?.mobileBanner || banners[bannerIndex]?.mobile_banner || banners[bannerIndex]?.bannerImage}
-                  alt={banners[bannerIndex]?.bannerHeading || "Service Banner"}
-                  className="w-full h-full object-cover object-top transition-all duration-700 ease-in-out"
+                  src="https://images.unsplash.com/photo-1581578731548-c64695cc6952?auto=format&fit=crop&w=1600&q=80"
+                  alt="Home Services Banner"
+                  className="w-full h-full object-cover object-top"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-slate-950/20 via-transparent to-slate-950/30 pointer-events-none" />
-              </Link>
-            </div>
-          ) : (
-            <div className="relative h-full w-full">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src="https://images.unsplash.com/photo-1581578731548-c64695cc6952?auto=format&fit=crop&w=1600&q=80"
-                alt="Home Services Banner"
-                className="w-full h-full object-cover object-top"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-slate-950/20 via-transparent to-slate-950/30 pointer-events-none" />
-            </div>
-          )}
-
-          {/* Navigation Arrows */}
-          {banners.length > 1 && (
-            <>
-              <button
-                type="button"
-                onClick={() => setBannerIndex((prev) => (prev - 1 + banners.length) % banners.length)}
-                className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 z-30 p-2 sm:p-2.5 rounded-full bg-white/90 hover:bg-white text-slate-900 shadow-md border border-slate-100 transition-all hover:scale-105"
-                aria-label="Previous banner"
-              >
-                <ChevronLeft className="h-4 w-4 sm:h-5 sm:w-5" />
-              </button>
-              <button
-                type="button"
-                onClick={() => setBannerIndex((prev) => (prev + 1) % banners.length)}
-                className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 z-30 p-2 sm:p-2.5 rounded-full bg-white/90 hover:bg-white text-slate-900 shadow-md border border-slate-100 transition-all hover:scale-105"
-                aria-label="Next banner"
-              >
-                <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5" />
-              </button>
-
-              <div className="absolute bottom-3 sm:bottom-4 left-1/2 -translate-x-1/2 z-30 flex gap-2">
-                {banners.map((_, i) => (
-                  <button
-                    key={i}
-                    type="button"
-                    onClick={() => setBannerIndex(i)}
-                    className={cn(
-                      "h-1.5 sm:h-2 rounded-full transition-all duration-300",
-                      bannerIndex === i ? "w-5 sm:w-6 bg-amber-500" : "w-1.5 sm:w-2 bg-white/70"
-                    )}
-                    aria-label={`Go to slide ${i + 1}`}
-                  />
-                ))}
               </div>
-            </>
-          )}
-        </div>
-      </section>
+            )}
 
-      {/* 2. CATEGORY SPOTLIGHT CARDS — Placed cleanly BELOW the banner on mobile (mt-4), floating over banner on desktop (sm:-mt-32 md:-mt-44 lg:-mt-52) */}
+            {/* Navigation Arrows */}
+            {banners.length > 1 && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setBannerIndex((prev) => (prev - 1 + banners.length) % banners.length)}
+                  className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 z-30 p-2 sm:p-2.5 rounded-full bg-white/90 hover:bg-white text-slate-900 shadow-md border border-slate-100 transition-all hover:scale-105"
+                  aria-label="Previous banner"
+                >
+                  <ChevronLeft className="h-4 w-4 sm:h-5 sm:w-5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBannerIndex((prev) => (prev + 1) % banners.length)}
+                  className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 z-30 p-2 sm:p-2.5 rounded-full bg-white/90 hover:bg-white text-slate-900 shadow-md border border-slate-100 transition-all hover:scale-105"
+                  aria-label="Next banner"
+                >
+                  <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5" />
+                </button>
+
+                <div className="absolute bottom-3 sm:bottom-4 left-1/2 -translate-x-1/2 z-30 flex gap-2">
+                  {banners.map((_, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => setBannerIndex(i)}
+                      className={cn(
+                        "h-1.5 sm:h-2 rounded-full transition-all duration-300",
+                        bannerIndex === i ? "w-5 sm:w-6 bg-amber-500" : "w-1.5 sm:w-2 bg-white/70"
+                      )}
+                      aria-label={`Go to slide ${i + 1}`}
+                    />
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        </section>
+      </div>
+
+      {/* 2. CATEGORY SPOTLIGHT CARDS — Placed cleanly below hero banner to keep full banner graphic un-cropped and 100% visible */}
       {(() => {
         const qualifiedCategories = categories
           .filter((cat) => {
@@ -400,17 +402,17 @@ function ServiceHomeContent() {
         if (qualifiedCategories.length === 0) return null
 
         return (
-          <section className="container mx-auto px-3 sm:px-4 mt-4 sm:-mt-32 md:-mt-44 lg:-mt-52 relative z-20 pb-6 sm:pb-8 flex items-center justify-center">
-            <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4 w-full max-w-7xl mx-auto">
+          <section className="w-full max-w-[1440px] mx-auto px-2 sm:px-4 mt-4 sm:-mt-28 md:-mt-32 lg:-mt-36 xl:-mt-40 relative z-20 pb-6 sm:pb-8 flex items-center justify-center">
+            <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4 w-full">
               {qualifiedCategories.slice(0, 4).map((cat) => {
                 const catServices = spotlightServices.filter((s) => s.serviceCategory?.id === cat.id).slice(0, 4)
 
                 return (
-                  <Card key={cat.id} className="overflow-hidden border border-slate-200/80 bg-white p-4 sm:p-5 shadow-sm transition-all hover:shadow-md rounded-2xl flex flex-col justify-between">
+                  <Card key={cat.id} className="overflow-hidden border border-slate-200/80 bg-white p-4 sm:p-5 shadow-sm transition-all hover:shadow-md rounded-none flex flex-col justify-between">
                     <CardContent className="p-0 flex flex-col h-full justify-between">
                       <div>
                         <div className="flex items-center gap-2 mb-3">
-                          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-100 text-sm">
+                          <span className="flex h-7 w-7 items-center justify-center rounded-none bg-amber-100 text-sm">
                             {getCategoryIcon(cat.name)}
                           </span>
                           <h3 className="font-extrabold text-slate-900 text-base sm:text-lg tracking-tight leading-snug line-clamp-1">
@@ -428,9 +430,9 @@ function ServiceHomeContent() {
                               <Link
                                 key={sItem.id || `cat_s_${sIdx}`}
                                 href={`/service/${sItem.id}`}
-                                className="group flex flex-col bg-slate-50/60 rounded-xl p-1.5 border border-slate-100 transition-all hover:bg-amber-50/50 hover:border-amber-200"
+                                className="group flex flex-col bg-slate-50/60 rounded-none p-1.5 border border-slate-100 transition-all hover:bg-amber-50/50 hover:border-amber-200"
                               >
-                                <div className="relative aspect-square w-full overflow-hidden rounded-lg bg-slate-100">
+                                <div className="relative aspect-square w-full overflow-hidden rounded-none bg-slate-100">
                                   {/* eslint-disable-next-line @next/next/no-img-element */}
                                   <img
                                     src={imgUrl}
@@ -1184,6 +1186,8 @@ function ServiceHomeContent() {
           </div>
         </div>
       </section>
+        </>
+      )}
     </div>
   )
 }
@@ -1192,8 +1196,8 @@ export function ServiceHomeClient() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-slate-50 p-8 flex items-center justify-center">
-          <p className="text-sm font-semibold text-slate-500">Loading services...</p>
+        <div className="flex min-h-[70vh] items-center justify-center">
+          <PageLoader message="Loading…" />
         </div>
       }
     >

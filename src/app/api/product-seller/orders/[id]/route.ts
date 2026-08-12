@@ -137,6 +137,8 @@ export async function GET(
       deliveredAt: (row as any).deliveredAt ? (row as any).deliveredAt.toISOString() : null,
       deliveryOtp: (row as any).deliveryOtp ?? null,
       deliveryOtpExpires: (row as any).deliveryOtpExpires ? (row as any).deliveryOtpExpires.toISOString() : null,
+      commissionAmount: row.commissionAmount ?? 0,
+      commissionRateSnapshot: row.commissionRateSnapshot ?? 0,
       statusHistory: row.statusHistory.map((h) => ({
         status: h.status,
         location: h.location ?? null,
