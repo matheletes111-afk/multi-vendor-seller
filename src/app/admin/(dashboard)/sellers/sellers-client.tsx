@@ -75,9 +75,16 @@ export function SellersClient() {
   const [localType, setLocalType] = useState(typeFilter)
   const [localTab, setLocalTab] = useState(tab)
 
+  const [plans, setPlans] = useState<any[]>([])
   const [isMounted, setIsMounted] = useState(false)
   useEffect(() => {
     setIsMounted(true)
+    fetch("/api/admin/plans?type=PRODUCT_SERVICE")
+      .then((res) => res.json())
+      .then((data) => {
+        if (Array.isArray(data)) setPlans(data)
+      })
+      .catch((err) => console.error("Error loading plans:", err))
   }, [])
 
   const [data, setData] = useState<{
@@ -623,7 +630,7 @@ export function SellersClient() {
                                 <TableCell colSpan={7} className="p-0">
                                   <div className="p-8">
                                     <SellerDetailsView
-                                      seller={seller}
+                                      seller={{ ...seller, plans }}
                                       actionLoading={actionLoading}
                                       onApprove={handleApprove}
                                       onSuspend={handleSuspend}

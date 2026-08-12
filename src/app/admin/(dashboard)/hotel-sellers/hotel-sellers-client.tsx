@@ -51,6 +51,16 @@ export function HotelSellersClient() {
   const [endDate, setEndDate] = useState(endParam)
   const [localTab, setLocalTab] = useState(tab)
 
+  const [plans, setPlans] = useState<any[]>([])
+  useEffect(() => {
+    fetch("/api/admin/plans?type=HOTEL")
+      .then((res) => res.json())
+      .then((data) => {
+        if (Array.isArray(data)) setPlans(data)
+      })
+      .catch((err) => console.error("Error loading hotel plans:", err))
+  }, [])
+
   const [data, setData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -330,7 +340,7 @@ export function HotelSellersClient() {
                           <TableCell colSpan={6} className="p-0">
                             <div className="p-8 animate-in slide-in-from-top-2 duration-300">
                                <HotelSellerDetailsView 
-                                  seller={seller}
+                                  seller={{ ...seller, plans }}
                                   actionLoading={actionLoading}
                                   onApprove={id => handleStatusAction(id, "approve")}
                                   onSuspend={id => handleStatusAction(id, "suspend")}

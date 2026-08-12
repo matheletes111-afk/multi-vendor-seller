@@ -13,23 +13,31 @@ export default async function HotelSellerDetailPage({ params }: { params: Promis
 
   const { id } = await params
 
-  const seller = await prisma.hotelSeller.findUnique({
-    where: { id },
-    include: {
-      user: true,
-      businessInfo: true,
-      kyc: true,
-      bankDetails: true,
-      agreement: true,
-
-      hotels: {
-        where: { isDeleted: false },
-        include: {
-          _count: { select: { rooms: true } }
+  const [seller, allPlans] = await Promise.all([
+    prisma.hotelSeller.findUnique({
+      where: { id },
+      include: {
+        user: true,
+        businessInfo: true,
+        kyc: true,
+        bankDetails: true,
+        agreement: true,
+        subscription: {
+          include: { plan: true }
+        },
+        hotels: {
+          where: { isDeleted: false },
+          include: {
+            _count: { select: { rooms: true } }
+          }
         }
       }
-    }
-  })
+    }),
+    prisma.plan.findMany({
+      where: { type: "HOTEL" },
+      orderBy: { price: "asc" }
+    })
+  ])
 
   if (!seller) notFound()
 
@@ -95,5 +103,5 @@ export default async function HotelSellerDetailPage({ params }: { params: Promis
     )
   }
 
-  return <HotelSellerDetailClient seller={JSON.parse(JSON.stringify(seller))} />
+  return <HotelSellerDetailClient seller={JSON.parse(JSON.stringify(seller))} plans={JSON.parse(JSON.stringify(allPlans))} />
 }

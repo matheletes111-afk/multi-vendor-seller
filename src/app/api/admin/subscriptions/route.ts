@@ -72,6 +72,46 @@ export async function GET(request: NextRequest) {
       orderBy: { price: "asc" },
     })
 
+    const searchQuery = (searchParams.get("search") || "").trim()
+
+    let searchWhere: any = { ...where }
+    if (searchQuery) {
+      if (sellerType === "HOTEL") {
+        searchWhere.OR = [
+          { hotelSeller: { user: { name: { contains: searchQuery, mode: "insensitive" } } } },
+          { hotelSeller: { user: { email: { contains: searchQuery, mode: "insensitive" } } } },
+          { hotelSeller: { user: { phone: { contains: searchQuery, mode: "insensitive" } } } },
+          { hotelSeller: { businessInfo: { businessName: { contains: searchQuery, mode: "insensitive" } } } },
+          { plan: { displayName: { contains: searchQuery, mode: "insensitive" } } },
+          { plan: { name: { contains: searchQuery, mode: "insensitive" } } },
+        ]
+      } else if (sellerType === "RESTAURANT") {
+        searchWhere.OR = [
+          { restaurantSeller: { user: { name: { contains: searchQuery, mode: "insensitive" } } } },
+          { restaurantSeller: { user: { email: { contains: searchQuery, mode: "insensitive" } } } },
+          { restaurantSeller: { user: { phone: { contains: searchQuery, mode: "insensitive" } } } },
+          { restaurantSeller: { businessInfo: { businessName: { contains: searchQuery, mode: "insensitive" } } } },
+          { plan: { displayName: { contains: searchQuery, mode: "insensitive" } } },
+          { plan: { name: { contains: searchQuery, mode: "insensitive" } } },
+        ]
+      } else {
+        searchWhere.OR = [
+          { seller: { user: { name: { contains: searchQuery, mode: "insensitive" } } } },
+          { seller: { user: { email: { contains: searchQuery, mode: "insensitive" } } } },
+          { seller: { user: { phone: { contains: searchQuery, mode: "insensitive" } } } },
+          { seller: { store: { name: { contains: searchQuery, mode: "insensitive" } } } },
+          { seller: { businessInfo: { businessName: { contains: searchQuery, mode: "insensitive" } } } },
+          { plan: { displayName: { contains: searchQuery, mode: "insensitive" } } },
+          { plan: { name: { contains: searchQuery, mode: "insensitive" } } },
+        ]
+      }
+
+      const upperStatus = searchQuery.toUpperCase()
+      if (["ACTIVE", "CANCELED", "PAST_DUE", "TRIALING"].includes(upperStatus)) {
+        searchWhere.OR.push({ status: upperStatus })
+      }
+    }
+
     if (sellerType === "HOTEL") {
       const [
         hotelSubs,
@@ -82,7 +122,7 @@ export async function GET(request: NextRequest) {
         hotelPlanActiveCounts,
       ] = await Promise.all([
         prisma.hotelSubscription.findMany({
-          where,
+          where: searchWhere,
           skip,
           take,
           include: {
@@ -96,20 +136,20 @@ export async function GET(request: NextRequest) {
           },
           orderBy: { createdAt: "desc" },
         }),
-        prisma.hotelSubscription.count({ where }),
-        prisma.hotelSubscription.count({ where: { ...where, status: "ACTIVE" } }),
+        prisma.hotelSubscription.count({ where: searchWhere }),
+        prisma.hotelSubscription.count({ where: { ...searchWhere, status: "ACTIVE" } }),
         prisma.hotelSubscription.findMany({
-          where,
+          where: searchWhere,
           select: { plan: { select: { price: true } } },
         }),
         prisma.hotelSubscription.groupBy({ 
           by: ["planId"], 
-          where,
+          where: searchWhere,
           _count: true 
         }),
         prisma.hotelSubscription.groupBy({
           by: ["planId"],
-          where: { ...where, status: "ACTIVE" },
+          where: { ...searchWhere, status: "ACTIVE" },
           _count: true,
         }),
       ])
@@ -140,7 +180,7 @@ export async function GET(request: NextRequest) {
         restaurantPlanActiveCounts,
       ] = await Promise.all([
         prisma.restaurantSubscription.findMany({
-          where,
+          where: searchWhere,
           skip,
           take,
           include: {
@@ -154,20 +194,20 @@ export async function GET(request: NextRequest) {
           },
           orderBy: { createdAt: "desc" },
         }),
-        prisma.restaurantSubscription.count({ where }),
-        prisma.restaurantSubscription.count({ where: { ...where, status: "ACTIVE" } }),
+        prisma.restaurantSubscription.count({ where: searchWhere }),
+        prisma.restaurantSubscription.count({ where: { ...searchWhere, status: "ACTIVE" } }),
         prisma.restaurantSubscription.findMany({
-          where,
+          where: searchWhere,
           select: { plan: { select: { price: true } } },
         }),
         prisma.restaurantSubscription.groupBy({ 
           by: ["planId"], 
-          where,
+          where: searchWhere,
           _count: true 
         }),
         prisma.restaurantSubscription.groupBy({
           by: ["planId"],
-          where: { ...where, status: "ACTIVE" },
+          where: { ...searchWhere, status: "ACTIVE" },
           _count: true,
         }),
       ])
@@ -198,7 +238,7 @@ export async function GET(request: NextRequest) {
         prodPlanActiveCounts,
       ] = await Promise.all([
         prisma.subscription.findMany({
-          where,
+          where: searchWhere,
           skip,
           take,
           include: {
@@ -206,26 +246,27 @@ export async function GET(request: NextRequest) {
               include: {
                 user: true,
                 store: true,
+                businessInfo: true,
               },
             },
             plan: true,
           },
           orderBy: { createdAt: "desc" },
         }),
-        prisma.subscription.count({ where }),
-        prisma.subscription.count({ where: { ...where, status: "ACTIVE" } }),
+        prisma.subscription.count({ where: searchWhere }),
+        prisma.subscription.count({ where: { ...searchWhere, status: "ACTIVE" } }),
         prisma.subscription.findMany({
-          where,
+          where: searchWhere,
           select: { plan: { select: { price: true } } },
         }),
         prisma.subscription.groupBy({ 
           by: ["planId"], 
-          where,
+          where: searchWhere,
           _count: true 
         }),
         prisma.subscription.groupBy({
           by: ["planId"],
-          where: { ...where, status: "ACTIVE" },
+          where: { ...searchWhere, status: "ACTIVE" },
           _count: true,
         }),
       ])
@@ -279,7 +320,7 @@ export async function GET(request: NextRequest) {
       return timeB - timeA
     })
 
-    const totalRevenue = enrichedSubscriptions.reduce((sum, s) => sum + s.finalPaidAmount, 0)
+    const totalRevenue = filteredForRevenue.reduce((sum, s) => sum + (s.plan?.price || 0), 0)
     const planCountMap = Object.fromEntries(planCounts.map((p: any) => [p.planId, p._count]))
     const planActiveMap = Object.fromEntries(planActiveCounts.map((p: any) => [p.planId, p._count]))
     const totalPages = Math.ceil(totalCount / perPage)
