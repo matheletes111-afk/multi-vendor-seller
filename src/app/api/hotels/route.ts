@@ -23,7 +23,8 @@ export async function GET(request: NextRequest) {
       OR: query ? [
         { name: { contains: query, mode: "insensitive" } },
         { description: { contains: query, mode: "insensitive" } },
-        { city: { contains: query, mode: "insensitive" } }
+        { city: { contains: query, mode: "insensitive" } },
+        { rooms: { some: { name: { contains: query, mode: "insensitive" }, isActive: true, isDeleted: false } } }
       ] : undefined,
       rooms: {
         some: {

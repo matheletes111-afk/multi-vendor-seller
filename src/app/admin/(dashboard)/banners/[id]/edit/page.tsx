@@ -14,7 +14,7 @@ export default async function EditBannerPage({
   }
   const { id } = await params
   return (
-    <div className="container mx-auto p-6">
+    <div className="w-full px-4 sm:px-6 lg:px-8 py-6">
       <EditBannerClient bannerId={id} />
     </div>
   )

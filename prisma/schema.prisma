@@ -390,6 +390,7 @@ model SellerAgreement {
   agreedToCommission   Boolean  @default(false)
   agreedToReturnPolicy Boolean  @default(false)
   agreedToPrivacy      Boolean  @default(false)
+  hearAboutUs          String?
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
 
@@ -608,6 +609,7 @@ model HotelAgreement {
   agreedToTerms        Boolean     @default(false)
   agreedToCommission   Boolean     @default(false)
   agreedToPrivacy      Boolean     @default(false)
+  hearAboutUs          String?
   createdAt            DateTime    @default(now())
   updatedAt            DateTime    @updatedAt
 
@@ -751,6 +753,7 @@ model RestaurantAgreement {
   agreedToTerms        Boolean          @default(false)
   agreedToCommission   Boolean          @default(false)
   agreedToPrivacy      Boolean          @default(false)
+  hearAboutUs          String?
   createdAt            DateTime         @default(now())
   updatedAt            DateTime         @updatedAt
 

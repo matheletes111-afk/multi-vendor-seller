@@ -438,11 +438,17 @@ export async function POST(request: NextRequest) {
       }
     } else if (step === 6) {
       // Step 6: Agreement
-      const data = jsonBody.data
+      const agreementData = jsonBody?.data || {
+        agreedToTerms: formData?.get("agreedToTerms") === "true" || formData?.get("agreedToTerms") === "on",
+        agreedToCommission: formData?.get("agreedToCommission") === "true" || formData?.get("agreedToCommission") === "on",
+        agreedToReturnPolicy: formData?.get("agreedToReturnPolicy") === "true" || formData?.get("agreedToReturnPolicy") === "on",
+        agreedToPrivacy: formData?.get("agreedToPrivacy") === "true" || formData?.get("agreedToPrivacy") === "on",
+        hearAboutUs: (formData?.get("hearAboutUs") as string) || null,
+      }
       await (prisma as any).sellerAgreement.upsert({
         where: { sellerId: seller.id },
-        update: data,
-        create: { ...data, sellerId: seller.id },
+        update: agreementData,
+        create: { ...agreementData, sellerId: seller.id },
       })
 
       // Completion!

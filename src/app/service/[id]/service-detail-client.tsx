@@ -5,7 +5,8 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { Button } from "@/ui/button"
-import { formatCurrency } from "@/lib/utils"
+import { Card, CardContent } from "@/ui/card"
+import { formatCurrency, extractFoodImages } from "@/lib/utils"
 import { PublicLayout } from "@/components/site-layout"
 import { PublicReviewsSection, StarRow, type PublicReviewItem } from "@/components/reviews/public-reviews-section"
 import { UserRole } from "@prisma/client"
@@ -77,6 +78,21 @@ export function ServiceDetailClient({ service }: { service: Service }) {
   const [selectedSlot, setSelectedSlot] = useState<SlotApi | null>(null)
   const [bookError, setBookError] = useState<string | null>(null)
   const [slotsExpanded, setSlotsExpanded] = useState(false)
+  const [relatedServices, setRelatedServices] = useState<Service[]>([])
+
+  // Fetch related services in the same category
+  useEffect(() => {
+    if (!service?.serviceCategory?.id) return
+    fetch(`/api/services?category=${service.serviceCategory.id}&limit=8`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data && Array.isArray(data.services)) {
+          const filtered = data.services.filter((s: any) => s.id !== service.id)
+          setRelatedServices(filtered)
+        }
+      })
+      .catch((err) => console.error("Error loading related services:", err))
+  }, [service?.id, service?.serviceCategory?.id])
 
   // Collapse slots when user picks a different date
   useEffect(() => {
@@ -145,15 +161,21 @@ export function ServiceDetailClient({ service }: { service: Service }) {
   }
 
   return (
-    <PublicLayout>
+    <div className="min-h-screen bg-white text-slate-900 pb-16">
       <div className="mx-auto max-w-6xl px-4 py-6">
         {/* Breadcrumb */}
         <nav className="mb-4 flex items-center gap-1 text-sm text-slate-600">
           <Link href="/" className="hover:text-amber-600 hover:underline">Home</Link>
           <ChevronRight className="h-4 w-4 shrink-0" />
-          <Link href="/browse" className="hover:text-amber-600 hover:underline">Browse</Link>
-          <ChevronRight className="h-4 w-4 shrink-0" />
-          <Link href={`/browse?serviceCategoryId=${service.serviceCategory.id}`} className="hover:text-amber-600 hover:underline">{service.serviceCategory.name}</Link>
+          <Link href="/service" className="hover:text-amber-600 hover:underline">Services</Link>
+          {service.serviceCategory && (
+            <>
+              <ChevronRight className="h-4 w-4 shrink-0" />
+              <Link href={`/service?category=${service.serviceCategory.id}`} className="hover:text-amber-600 hover:underline">
+                {service.serviceCategory.name}
+              </Link>
+            </>
+          )}
           <ChevronRight className="h-4 w-4 shrink-0" />
           <span className="truncate text-slate-900 font-medium">{service.name}</span>
         </nav>
@@ -446,14 +468,89 @@ export function ServiceDetailClient({ service }: { service: Service }) {
             totalReviews={service._count.reviews}
             reviews={service.reviews}
           />
+
+          {/* Related Services in the Same Category */}
+          {relatedServices.length > 0 && (
+            <div className="mt-8 border-t border-slate-100 pt-8 sm:mt-10 sm:pt-10">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h2 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight">
+                    Related Services in {service.serviceCategory?.name || "this Category"}
+                  </h2>
+                  <p className="text-xs text-slate-500 font-semibold mt-0.5">Explore similar professional services</p>
+                </div>
+                {service.serviceCategory?.id && (
+                  <Link href={`/service?category=${service.serviceCategory.id}`}>
+                    <Button variant="ghost" size="sm" className="text-amber-600 hover:text-amber-700 font-extrabold text-xs flex items-center gap-1">
+                      View All <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </Link>
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+                {relatedServices.map((relItem) => {
+                  const relImages = extractFoodImages((relItem as any).images)
+                  const relImg = relImages[0] || (relItem as any).masterImage || (relItem as any).image || null
+                  const relPrice = (relItem as any).basePrice || (relItem as any).price || 0
+
+                  return (
+                    <Card
+                      key={relItem.id}
+                      className="group flex h-full flex-col overflow-hidden border border-slate-200/80 bg-white shadow-2xs transition-all hover:shadow-md rounded-2xl"
+                    >
+                      <Link href={`/service/${relItem.id}`} className="relative aspect-square w-full overflow-hidden bg-slate-100 block">
+                        {relImg ? (
+                          <img
+                            src={relImg}
+                            alt={relItem.name}
+                            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                            loading="lazy"
+                          />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center text-slate-400">
+                            <Briefcase className="h-8 w-8 text-slate-300" />
+                          </div>
+                        )}
+                      </Link>
+
+                      <CardContent className="flex flex-1 flex-col justify-between p-3">
+                        <div>
+                          <p className="text-[10px] text-amber-600 font-bold uppercase tracking-wider truncate">
+                            {relItem.serviceCategory?.name || "Service"}
+                          </p>
+                          <Link href={`/service/${relItem.id}`}>
+                            <p className="line-clamp-2 text-xs font-extrabold text-slate-900 group-hover:text-amber-600 sm:text-sm mt-0.5">
+                              {relItem.name}
+                            </p>
+                          </Link>
+                        </div>
+
+                        <div className="mt-3 flex items-center justify-between gap-1 pt-2 border-t border-slate-100">
+                          <span className="font-extrabold text-slate-900 text-xs sm:text-sm">
+                            {formatCurrency(relPrice)}
+                          </span>
+                          <Link href={`/service/${relItem.id}`}>
+                            <Button size="sm" className="bg-amber-500 hover:bg-amber-600 text-amber-950 font-black text-[11px] h-7 px-2.5 rounded-lg shadow-2xs">
+                              Book
+                            </Button>
+                          </Link>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )
+                })}
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="mt-6 text-center">
           <Button asChild variant="outline">
-            <Link href="/browse">Continue shopping</Link>
+            <Link href="/service">Explore More Services</Link>
           </Button>
         </div>
       </div>
-    </PublicLayout>
+    </div>
   )
 }

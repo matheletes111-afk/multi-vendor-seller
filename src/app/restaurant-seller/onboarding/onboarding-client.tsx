@@ -15,6 +15,8 @@ import { ProfilePictureInput } from "@/components/profile-picture-input"
 import { FileText, Image as ImageIcon, CheckCircle2, ChevronLeft, ChevronRight, Upload, Check, User, LogOut } from "lucide-react"
 import Image from "next/image"
 import { cn } from "@/lib/utils"
+import { HEAR_ABOUT_US_OPTIONS } from "@/lib/onboarding-constants"
+import { LegalTermsModal, LegalDocType } from "@/components/legal/legal-terms-modal"
 
 type Step = 2 | 3 | 4 | 5 | 6 | 7
 
@@ -38,8 +40,11 @@ export function RestaurantOnboardingClient() {
   const [agreements, setAgreements] = useState({
     agreedToTerms: false,
     agreedToCommission: false,
+    agreedToReturnPolicy: false,
     agreedToPrivacy: false
   })
+  const [activeLegalModal, setActiveLegalModal] = useState<LegalDocType | null>(null)
+  const [hearAboutUs, setHearAboutUs] = useState("")
   const [selectedCuisines, setSelectedCuisines] = useState<string[]>([])
   const [selectedServices, setSelectedServices] = useState<string[]>([])
   const [haveGst, setHaveGst] = useState(false)
@@ -50,8 +55,12 @@ export function RestaurantOnboardingClient() {
         setAgreements({
           agreedToTerms: !!seller.agreement.agreedToTerms,
           agreedToCommission: !!seller.agreement.agreedToCommission,
+          agreedToReturnPolicy: !!seller.agreement.agreedToReturnPolicy,
           agreedToPrivacy: !!seller.agreement.agreedToPrivacy
         })
+        if (seller.agreement.hearAboutUs) {
+          setHearAboutUs(seller.agreement.hearAboutUs)
+        }
       }
       if (seller.onboardingStep) {
         setCurrentStep(seller.onboardingStep as Step)
@@ -118,7 +127,8 @@ export function RestaurantOnboardingClient() {
           data: {
             agreedToTerms: formData.get("agreedToTerms") === "on",
             agreedToCommission: formData.get("agreedToCommission") === "on",
-            agreedToPrivacy: formData.get("agreedToPrivacy") === "on"
+            agreedToPrivacy: formData.get("agreedToPrivacy") === "on",
+            hearAboutUs: hearAboutUs || (formData.get("hearAboutUs") as string) || null
           }
         }
         res = await fetch("/api/restaurant-seller/onboarding", {
@@ -599,23 +609,116 @@ export function RestaurantOnboardingClient() {
                   <h1 className="text-3xl font-bold">Agreement</h1>
                   <p className="text-slate-500 mt-2">Accept our terms to finish registration.</p>
                 </div>
-                <div className="space-y-4 p-6 bg-slate-50 rounded-3xl border">
+
+                <div className="space-y-3 p-6 bg-slate-50 rounded-3xl border">
+                  <div>
+                    <Label htmlFor="hearAboutUs" className="text-base font-bold text-slate-800">
+                      Where did you hear about our platform?
+                    </Label>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Please select how you first learned about Meeem.
+                    </p>
+                  </div>
+                  <Select value={hearAboutUs} onValueChange={setHearAboutUs}>
+                    <SelectTrigger id="hearAboutUs" className="h-12 rounded-2xl bg-white border-slate-200 text-slate-800">
+                      <SelectValue placeholder="Select an option" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {HEAR_ABOUT_US_OPTIONS.map((opt) => (
+                        <SelectItem key={opt} value={opt}>
+                          {opt}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-4 p-6 bg-slate-50 rounded-3xl border border-slate-100">
                   {[
-                    { id: "agreedToTerms", label: "Accept Restaurant Seller Terms" },
-                    { id: "agreedToCommission", label: "Agree to Commission Policy" },
-                    { id: "agreedToPrivacy", label: "Data Privacy Consent" }
-                  ].map(item => (
-                    <div key={item.id} className="flex items-center gap-3 p-3 hover:bg-white rounded-xl transition-colors">
-                      <Checkbox 
-                        id={item.id} 
-                        name={item.id} 
-                        checked={(agreements as any)[item.id]} 
-                        onChange={(e: any) => setAgreements(prev => ({ ...prev, [item.id]: e.target.checked }))}
-                        required 
-                      />
-                      <Label htmlFor={item.id} className="font-medium cursor-pointer">{item.label}</Label>
-                    </div>
-                  ))}
+                    {
+                      id: "agreedToTerms",
+                      label: "General Restaurant Seller Terms & Conditions",
+                      sub: "I agree to the platform restaurant vendor rules and hygiene guidelines.",
+                      docType: "general-terms" as LegalDocType,
+                    },
+                    {
+                      id: "agreedToPrivacy",
+                      label: "Privacy Policy & Data Compliance",
+                      sub: "I consent to the secure collection and verification of my restaurant data.",
+                      docType: "privacy-policy" as LegalDocType,
+                    },
+                    {
+                      id: "agreedToReturnPolicy",
+                      label: "Vendor & Service Provider Agreement",
+                      sub: "I agree to food preparation, order fulfillment, and cancellation terms.",
+                      docType: "vendor-agreement" as LegalDocType,
+                    },
+                    {
+                      id: "agreedToCommission",
+                      label: "Payment Settling & Commission Terms",
+                      sub: "I understand the 12-72h automated settlement cycle and restaurant commission.",
+                      docType: "payment-settlement" as LegalDocType,
+                    },
+                  ].map((item) => {
+                    const isChecked = (agreements as any)[item.id]
+                    return (
+                      <div
+                        key={item.id}
+                        className={cn(
+                          "p-4 rounded-2xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4",
+                          isChecked
+                            ? "bg-white border-emerald-300 shadow-sm"
+                            : "bg-white/60 border-slate-200 hover:border-slate-300"
+                        )}
+                      >
+                        <div className="flex items-start gap-3.5">
+                          <Checkbox
+                            id={item.id}
+                            name={item.id}
+                            className="mt-1 w-5 h-5 rounded-md text-emerald-600 focus:ring-emerald-500"
+                            checked={isChecked}
+                            onChange={(e: any) =>
+                              setAgreements((prev) => ({
+                                ...prev,
+                                [item.id]: e.target.checked,
+                              }))
+                            }
+                            required
+                          />
+                          <div className="space-y-0.5">
+                            <Label
+                              htmlFor={item.id}
+                              className="text-sm font-bold text-slate-800 cursor-pointer flex items-center gap-2"
+                            >
+                              <span>{item.label}</span>
+                              {isChecked && (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                                  <Check className="w-2.5 h-2.5" /> Agreed
+                                </span>
+                              )}
+                            </Label>
+                            <p className="text-xs text-slate-500">{item.sub}</p>
+                          </div>
+                        </div>
+
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setActiveLegalModal(item.docType)}
+                          className={cn(
+                            "rounded-xl text-xs font-semibold px-4 h-9 self-start sm:self-auto shrink-0 transition-colors",
+                            isChecked
+                              ? "border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                              : "border-slate-200 text-slate-700 hover:bg-slate-50 bg-white"
+                          )}
+                        >
+                          <FileText className="w-3.5 h-3.5 mr-1.5" />
+                          {isChecked ? "Review Document" : "Read & Agree"}
+                        </Button>
+                      </div>
+                    )
+                  })}
                 </div>
                 <div className="mt-8 flex justify-between">
                   <Button type="button" variant="ghost" onClick={handleBack} disabled={saving} className="rounded-full px-6 hover:bg-slate-100">Back</Button>
@@ -633,18 +736,45 @@ export function RestaurantOnboardingClient() {
                 </div>
                 <div>
                   <h1 className="text-3xl font-bold">Registration Complete!</h1>
-                  <p className="text-slate-500 mt-4 max-w-md mx-auto">
-                    Your restaurant account is pending review. We will notify you once approved.
-                  </p>
+                  <p className="text-muted-foreground mt-2">Your restaurant profile is submitted for approval. You will be notified once verified.</p>
                 </div>
-                <Button onClick={() => router.push("/restaurant-seller/settings")} className="rounded-full px-10 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-semibold shadow-lg shadow-amber-200/50 transition-all hover:scale-[1.02]">
-                  Go to Dashboard
+                <Button onClick={() => router.push("/restaurant-seller/settings")} className="rounded-full bg-emerald-600 hover:bg-emerald-700 text-white px-8">
+                  Go to Settings
                 </Button>
               </div>
             )}
           </div>
         </div>
       </div>
+
+      {/* Interactive Legal Document Modal */}
+      {activeLegalModal && (
+        <LegalTermsModal
+          type={activeLegalModal}
+          isOpen={!!activeLegalModal}
+          onClose={() => setActiveLegalModal(null)}
+          isAccepted={
+            activeLegalModal === "general-terms"
+              ? agreements.agreedToTerms
+              : activeLegalModal === "privacy-policy"
+              ? agreements.agreedToPrivacy
+              : activeLegalModal === "vendor-agreement"
+              ? agreements.agreedToReturnPolicy
+              : agreements.agreedToCommission
+          }
+          onAccept={() => {
+            if (activeLegalModal === "general-terms") {
+              setAgreements((prev) => ({ ...prev, agreedToTerms: true }))
+            } else if (activeLegalModal === "privacy-policy") {
+              setAgreements((prev) => ({ ...prev, agreedToPrivacy: true }))
+            } else if (activeLegalModal === "vendor-agreement") {
+              setAgreements((prev) => ({ ...prev, agreedToReturnPolicy: true }))
+            } else if (activeLegalModal === "payment-settlement") {
+              setAgreements((prev) => ({ ...prev, agreedToCommission: true }))
+            }
+          }}
+        />
+      )}
     </div>
   )
 }

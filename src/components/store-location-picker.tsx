@@ -1,9 +1,8 @@
 "use client"
 
-import { useEffect, useRef, useState, useCallback } from "react"
+import { useEffect, useRef, useState } from "react"
 import { MapPin, Search, X } from "lucide-react"
-import { Input } from "@/ui/input"
-import { Label } from "@/ui/label"
+import { loadGoogleMapsScript } from "@/lib/google-maps-loader"
 
 interface LocationResult {
   lat: number
@@ -22,14 +21,6 @@ interface StoreLocationPickerProps {
   onLocationSelect?: (result: LocationResult) => void
 }
 
-declare global {
-  interface Window {
-    google: any
-    initGoogleMaps?: () => void
-    _googleMapsLoading?: boolean
-  }
-}
-
 export function StoreLocationPicker({
   initialLat,
   initialLng,
@@ -41,12 +32,17 @@ export function StoreLocationPicker({
   const mapInstanceRef = useRef<any>(null)
   const markerRef = useRef<any>(null)
   const autocompleteRef = useRef<any>(null)
+  const onLocationSelectRef = useRef(onLocationSelect)
 
   const [lat, setLat] = useState<number | null>(initialLat ?? null)
   const [lng, setLng] = useState<number | null>(initialLng ?? null)
   const [address, setAddress] = useState(initialAddress ?? "")
   const [loaded, setLoaded] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    onLocationSelectRef.current = onLocationSelect
+  }, [onLocationSelect])
 
   const extractComponents = (components: any[]) => {
     let city = ""
@@ -71,132 +67,99 @@ export function StoreLocationPicker({
     return { city, state, postalCode, country }
   }
 
-  const initMap = useCallback(() => {
-    if (!mapRef.current || !window.google) return
-
-    const defaultCenter = lat && lng ? { lat, lng } : { lat: 8.4657, lng: -13.2317 } // Default to Freetown, Sierra Leone
-
-    const map = new window.google.maps.Map(mapRef.current, {
-      center: defaultCenter,
-      zoom: lat && lng ? 15 : 7,
-      disableDefaultUI: false,
-      zoomControl: true,
-      mapTypeControl: false,
-      streetViewControl: false,
-      fullscreenControl: false,
-    })
-    mapInstanceRef.current = map
-
-    const marker = new window.google.maps.Marker({
-      position: defaultCenter,
-      map,
-      draggable: true,
-      visible: !!(lat && lng),
-      title: "Store Location",
-    })
-    markerRef.current = marker
-
-    // On marker drag end — reverse geocode
-    marker.addListener("dragend", () => {
-      const pos = marker.getPosition()
-      if (!pos) return
-      const newLat = pos.lat()
-      const newLng = pos.lng()
-      setLat(newLat)
-      setLng(newLng)
-
-      const geocoder = new window.google.maps.Geocoder()
-      geocoder.geocode({ location: { lat: newLat, lng: newLng } }, (results: any, status: string) => {
-        if (status === "OK" && results[0]) {
-          const addr = results[0].formatted_address
-          setAddress(addr)
-          if (inputRef.current) inputRef.current.value = addr
-          const parsed = extractComponents(results[0].address_components)
-          onLocationSelect?.({ lat: newLat, lng: newLng, address: addr, ...parsed })
-        }
-      })
-    })
-
-    // Set up Autocomplete
-    if (inputRef.current) {
-      const autocomplete = new window.google.maps.places.Autocomplete(inputRef.current, {
-        fields: ["geometry", "formatted_address", "address_components", "name"],
-      })
-      autocompleteRef.current = autocomplete
-
-      autocomplete.addListener("place_changed", () => {
-        const place = autocomplete.getPlace()
-        if (!place.geometry?.location) return
-
-        const newLat = place.geometry.location.lat()
-        const newLng = place.geometry.location.lng()
-        const addr = place.formatted_address || place.name || ""
-        const parsed = extractComponents(place.address_components || [])
-
-        setLat(newLat)
-        setLng(newLng)
-        setAddress(addr)
-
-        map.setCenter({ lat: newLat, lng: newLng })
-        map.setZoom(15)
-        marker.setPosition({ lat: newLat, lng: newLng })
-        marker.setVisible(true)
-
-        onLocationSelect?.({ lat: newLat, lng: newLng, address: addr, ...parsed })
-      })
-    }
-
-    setLoaded(true)
-  }, [lat, lng, onLocationSelect])
-
   useEffect(() => {
     let active = true
-    fetch("/api/utils/maps-key")
-      .then((res) => {
-        if (!res.ok) throw new Error("Unauthorized or not configured")
-        return res.json()
-      })
-      .then((data) => {
-        if (!active) return
-        const apiKey = data.key
-        if (!apiKey) {
-          setError("Map API key is not configured.")
-          return
+
+    loadGoogleMapsScript(["places"])
+      .then(() => {
+        if (!active || !mapRef.current || !window.google?.maps) return
+
+        if (!mapInstanceRef.current) {
+          const defaultCenter = lat && lng ? { lat, lng } : { lat: 8.4657, lng: -13.2317 } // Default to Freetown, Sierra Leone
+
+          const map = new window.google.maps.Map(mapRef.current, {
+            center: defaultCenter,
+            zoom: lat && lng ? 15 : 7,
+            disableDefaultUI: false,
+            zoomControl: true,
+            mapTypeControl: false,
+            streetViewControl: false,
+            fullscreenControl: false,
+          })
+          mapInstanceRef.current = map
+
+          const marker = new window.google.maps.Marker({
+            position: defaultCenter,
+            map,
+            draggable: true,
+            visible: !!(lat && lng),
+            title: "Store Location",
+          })
+          markerRef.current = marker
+
+          // On marker drag end — reverse geocode
+          marker.addListener("dragend", () => {
+            const pos = marker.getPosition()
+            if (!pos) return
+            const newLat = pos.lat()
+            const newLng = pos.lng()
+            setLat(newLat)
+            setLng(newLng)
+
+            const geocoder = new window.google.maps.Geocoder()
+            geocoder.geocode({ location: { lat: newLat, lng: newLng } }, (results: any, status: string) => {
+              if (status === "OK" && results[0]) {
+                const addr = results[0].formatted_address
+                setAddress(addr)
+                if (inputRef.current) inputRef.current.value = addr
+                const parsed = extractComponents(results[0].address_components)
+                onLocationSelectRef.current?.({ lat: newLat, lng: newLng, address: addr, ...parsed })
+              }
+            })
+          })
+
+          // Set up Autocomplete
+          if (inputRef.current && !autocompleteRef.current) {
+            const autocomplete = new window.google.maps.places.Autocomplete(inputRef.current, {
+              fields: ["geometry", "formatted_address", "address_components", "name"],
+            })
+            autocompleteRef.current = autocomplete
+
+            autocomplete.addListener("place_changed", () => {
+              const place = autocomplete.getPlace()
+              if (!place.geometry?.location) return
+
+              const newLat = place.geometry.location.lat()
+              const newLng = place.geometry.location.lng()
+              const addr = place.formatted_address || place.name || ""
+              const parsed = extractComponents(place.address_components || [])
+
+              setLat(newLat)
+              setLng(newLng)
+              setAddress(addr)
+
+              map.setCenter({ lat: newLat, lng: newLng })
+              map.setZoom(15)
+              marker.setPosition({ lat: newLat, lng: newLng })
+              marker.setVisible(true)
+
+              onLocationSelectRef.current?.({ lat: newLat, lng: newLng, address: addr, ...parsed })
+            })
+          }
         }
 
-        if (window.google?.maps) {
-          initMap()
-          return
-        }
-
-        if (window._googleMapsLoading) {
-          window.initGoogleMaps = initMap
-          return
-        }
-
-        window._googleMapsLoading = true
-        window.initGoogleMaps = () => {
-          window._googleMapsLoading = false
-          initMap()
-        }
-
-        const script = document.createElement("script")
-        script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&callback=initGoogleMaps`
-        script.async = true
-        script.defer = true
-        script.onerror = () => setError("Failed to load Google Maps.")
-        document.head.appendChild(script)
+        setLoaded(true)
       })
       .catch((err) => {
         if (active) {
-          setError(err.message || "Failed to configure map API key.")
+          setError(err.message || "Failed to configure map.")
         }
       })
 
     return () => {
       active = false
     }
-  }, [initMap])
+  }, [])
 
   const clearLocation = () => {
     setLat(null)

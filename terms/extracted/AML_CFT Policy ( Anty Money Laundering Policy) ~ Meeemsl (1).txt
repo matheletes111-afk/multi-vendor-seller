@@ -1,0 +1,138 @@
+﻿ANTI-MONEY LAUNDERING (AML) &
+COUNTER FINANCING OF TERRORISM (CFT) POLICY
+Introduction
+This Anti-Money Laundering (AML) and Counter Financing of Terrorism (CFT) Policy establishes the framework adopted by Meeemsl.com (the “Platform”), a multi-seller eCommerce marketplace operating in Sierra Leone, offering:
+Online sale of products by multiple sellers
+Service booking through mobile applications
+Digital payment processing via integrated payment gateways
+The purpose of this policy is to ensure that the Platform is not used for:
+Money laundering
+Terrorist financing
+Fraudulent or illegal transactions
+This policy aligns with international and local regulatory expectations, including:
+Financial Action Task Force (FATF Recommendations)
+Bank of Sierra Leone (BSL Guidelines)
+Financial Intelligence Unit Sierra Leone (FIU-SL)
+Relevant Anti-Money Laundering and Counter-Terrorist Financing laws of Sierra Leone
+Scope
+This policy applies to:
+Customers (buyers using mobile/web apps)
+Sellers (product vendors)
+Service Providers (service listing & booking entities)
+Employees and management of Meeemsl.com
+Third-party partners, including payment gateway providers
+Risk-Based Approach (RBA)
+Meeemsl.com adopts a risk-based approach to identify, assess, and mitigate AML/CFT risks.
+Risk Categories
+Customer Risk: Anonymous users, high-value transactions, frequent refunds
+Seller/Service Provider Risk: New or unverified vendors, unusual business models
+Geographical Risk: High-risk jurisdictions identified by FATF
+Transaction Risk: High-value orders, rapid transactions, abnormal patterns
+Risk Levels
+Low Risk
+Medium Risk
+High Risk (Enhanced Due Diligence required)
+Customer Due Diligence (CDD) & KYC
+Customers (Buyers)
+Registration via mobile number/email with OTP verification
+Monitoring of transaction patterns
+Additional verification for high-value transactions
+Sellers & Service Providers (Mandatory KYC)
+Before onboarding, the Platform shall collect:
+Full legal name / business name
+Government-issued ID (passport, national ID, etc.)
+Business registration documents (if applicable)
+Bank account details
+Address proof
+Enhanced Due Diligence (EDD)
+EDD shall be applied where:
+High-risk jurisdictions are involved
+Politically Exposed Persons (PEPs) are identified
+Unusual transaction patterns occur
+Payment Controls
+All payments must be processed via approved payment gateways
+No direct peer-to-peer transfers allowed outside the platform
+Refunds must be routed through original payment methods
+Cash transactions (if any) must be strictly limited and monitored
+Transaction Monitoring
+Meeemsl.com shall implement automated and manual monitoring systems to detect:
+Unusual transaction patterns
+Multiple high-value transactions in short periods
+Rapid buying and refund cycles
+Suspicious service bookings
+Red Flags Include:
+Mismatch between user profile and transaction value
+Repeated failed payment attempts
+Multiple accounts linked to same identity
+Transactions involving high-risk countries
+Suspicious Transaction Reporting (STR)
+Any suspicious activity shall be reported to the Financial Intelligence Unit Sierra Leone ● Reports must include:
+○ Customer details
+○ Transaction history
+○ Nature of suspicion
+Employees must escalate concerns to the Compliance Officer immediately
+Record Keeping
+Meeemsl.com shall maintain records for a minimum of 5 years, including:
+Customer identification data
+Transaction logs
+Payment records
+Communication records
+All records must be securely stored and accessible for regulatory review.
+Sanctions Screening
+The Platform shall ensure that:
+Users are screened against international sanctions lists (e.g., UN lists)
+Transactions involving sanctioned individuals/entities are blocked
+Continuous monitoring is performed for updates
+Prohibited Activities
+The Platform strictly prohibits:
+Sale of illegal goods/services
+Transactions linked to terrorism or criminal activity
+Use of fake identities or documents
+Circumvention of payment systems
+Violations will result in:
+Immediate suspension
+Account termination
+Reporting to authorities
+Roles & Responsibilities
+Compliance Officer
+Oversees AML/CFT implementation
+Reports suspicious activities
+Ensures regulatory compliance
+Management
+Approves AML policies
+Allocates resources for compliance
+Employees
+Follow AML procedures
+Report suspicious activities
+Training & Awareness
+Regular AML/CFT training for staff
+Awareness programs for sellers and service providers
+Updates on regulatory changes
+Data Protection & Confidentiality
+Customer data must be handled securely
+AML-related information must remain confidential
+Data sharing only with authorized regulators
+Technology & Security Measures
+Secure backend systems (e.g., Laravel APIs, MySQL database)
+Encrypted payment processing
+Fraud detection mechanisms
+Audit logs for all transactions
+Audit & Compliance Review
+Periodic internal audits
+External compliance checks (if required)
+Continuous improvement of AML systems
+Non-Compliance & Penalties
+Failure to comply with this policy may result in:
+Account suspension or termination
+Legal action under Sierra Leone laws
+Regulatory penalties
+Policy Review
+This policy shall be reviewed annually or upon:
+Regulatory updates
+Business model changes
+New risk identification
+Contact Information
+For AML/CFT concerns or reporting:
+Name:
+MEEEM E-COMMERCE LIMITED
+Email: alieskaikay@meeemsl.com

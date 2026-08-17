@@ -13,7 +13,7 @@ import { getCartItemId } from "@/app/cart/cart-types"
 import { formatCurrency } from "@/lib/utils"
 import type { AddressApi } from "@/app/api/customer/checkout/types"
 import type { PlaceOrderResponse } from "@/app/api/customer/checkout/types"
-import { Plus, MapPin, Banknote, Loader2, ShoppingBag, Check, Pencil, X, ShieldCheck, Truck } from "lucide-react"
+import { Plus, MapPin, Banknote, Loader2, ShoppingBag, Check, Pencil, X, ShieldCheck, Truck, Sparkles } from "lucide-react"
 import { PageLoader } from "@/components/ui/page-loader"
 import { GoogleAddressAutocomplete } from "@/components/google-address-autocomplete"
 import { GoogleMapView } from "@/components/google-map-view"
@@ -50,7 +50,7 @@ const emptyAddressForm: AddressFormState = {
 
 export function CheckoutClient() {
   const router = useRouter()
-  const { items, isLoading: cartLoading } = useCart()
+  const { items, isLoading: cartLoading, clearCart } = useCart()
 
   const [addresses, setAddresses] = useState<AddressApi[]>([])
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null)
@@ -78,9 +78,54 @@ export function CheckoutClient() {
   const [deliveryCharge, setDeliveryCharge] = useState<number>(0)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [shippingBreakup, setShippingBreakup] = useState<any>(null)
+  const [aiRegionResult, setAiRegionResult] = useState<{
+    matchedRegion: string
+    zone: string
+    confidence: number
+    reasoning: string
+    isAiMatched: boolean
+    charge: number
+  } | null>(null)
+  const [aiMatchingLoading, setAiMatchingLoading] = useState(false)
 
   const selectedAddress = addresses.find((a) => a.id === selectedAddressId)
-  const activeRegionName = resolveAdministrativeRegion(selectedAddress?.state)
+  // Priority: AI-matched region > summary API matched region > deterministic resolve from state string
+  const activeRegionName =
+    aiRegionResult?.matchedRegion ||
+    shippingBreakup?.matchedRegionName ||
+    resolveAdministrativeRegion(selectedAddress?.state)
+  const activeZoneName =
+    aiRegionResult?.zone ||
+    shippingBreakup?.matchedZoneName ||
+    ""
+
+  useEffect(() => {
+    if (!selectedAddress) {
+      setAiRegionResult(null)
+      return
+    }
+
+    setAiMatchingLoading(true)
+    fetch("/api/customer/checkout/ai-match-region", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        addressLine1: selectedAddress.addressLine1,
+        addressLine2: selectedAddress.addressLine2,
+        city: selectedAddress.city,
+        state: selectedAddress.state,
+        postalCode: selectedAddress.postalCode,
+      }),
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data && data.success && data.data) {
+          setAiRegionResult(data.data)
+        }
+      })
+      .catch((err) => console.error("AI region matching error:", err))
+      .finally(() => setAiMatchingLoading(false))
+  }, [selectedAddressId, selectedAddress])
 
   const fetchAddresses = useCallback(async () => {
     setAddressesLoading(true)
@@ -161,6 +206,7 @@ export function CheckoutClient() {
         return
       }
       if (data.success && data.orders?.length) {
+        clearCart()
         const firstOrder = data.orders[0]
         router.push("/order-success?orderId=" + encodeURIComponent(firstOrder.orderId))
         return
@@ -415,6 +461,32 @@ export function CheckoutClient() {
                                 {addr.addressLine2 ? `, ${addr.addressLine2}` : ""}, {addr.city},{" "}
                                 {addr.state} {addr.postalCode}, {addr.country}
                               </p>
+
+                              {isSelected && (
+                                <div className="mt-2.5">
+                                  {aiMatchingLoading ? (
+                                    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-teal-50 border border-teal-200 text-xs font-semibold text-teal-800 animate-pulse">
+                                      <Sparkles className="h-3.5 w-3.5 text-teal-600 animate-spin" />
+                                      <span>Determining delivery zone…</span>
+                                    </div>
+                                  ) : aiRegionResult ? (
+                                    <div className="inline-flex flex-wrap items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-50 border border-emerald-200 text-xs font-semibold text-emerald-950">
+                                      <Sparkles className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                                      <span className="text-[11px] text-slate-600 font-medium">Delivery Zone:</span>
+                                      <span className="font-bold text-emerald-900 bg-white px-2 py-0.5 rounded border border-emerald-200 shadow-2xs">
+                                        📍 {aiRegionResult.zone === "Administrative Provinces" || aiRegionResult.matchedRegion === "Other" || aiRegionResult.matchedRegion === aiRegionResult.zone
+                                          ? aiRegionResult.matchedRegion
+                                          : `${aiRegionResult.matchedRegion} (${aiRegionResult.zone})`}
+                                      </span>
+                                      {aiRegionResult.charge > 0 ? (
+                                        <span className="text-[11px] font-bold text-emerald-700 bg-white px-1.5 py-0.5 rounded border border-emerald-200">
+                                          +{formatCurrency(aiRegionResult.charge)}
+                                        </span>
+                                      ) : null}
+                                    </div>
+                                  ) : null}
+                                </div>
+                              )}
                             </div>
                           </div>
 
@@ -836,7 +908,15 @@ export function CheckoutClient() {
                                 )}
                                 {sb.regionShippingFee > 0 && (
                                   <div className="flex justify-between">
-                                    <span>Region charge ({activeRegionName})</span>
+                                    <span>
+                                      Regional Surcharge (
+                                      {aiRegionResult
+                                        ? aiRegionResult.zone === "Administrative Provinces" || aiRegionResult.matchedRegion === "Other" || aiRegionResult.matchedRegion === aiRegionResult.zone
+                                          ? aiRegionResult.matchedRegion
+                                          : `${aiRegionResult.matchedRegion} — ${aiRegionResult.zone}`
+                                        : activeRegionName || "Other"}
+                                      )
+                                    </span>
                                     <span className="font-medium text-slate-700">{formatCurrency(sb.regionShippingFee)}</span>
                                   </div>
                                 )}
@@ -846,7 +926,7 @@ export function CheckoutClient() {
                         )
                       })}
                       <div className="flex justify-between border-t border-amber-200/80 pt-1.5 text-amber-950 font-extrabold text-xs">
-                        <span>Total Shipping (incl. Region)</span>
+                        <span>Total Shipping</span>
                         <span className="text-amber-700">{deliveryCharge <= 0 ? "FREE" : formatCurrency(deliveryCharge)}</span>
                       </div>
                     </div>
@@ -863,28 +943,42 @@ export function CheckoutClient() {
                     </div>
                   )}
 
-                  {/* Shipping Breakup — shown when there are non-zero component fees */}
+                  {/* Shipping Breakup — shown when there are delivery fees */}
                   {shippingBreakup && deliveryCharge > 0 && (
-                    <div className="rounded-lg border border-slate-200/80 bg-slate-50/70 p-2.5 text-[11px] text-slate-500 space-y-1">
-                      <p className="font-bold text-slate-600 text-[11px] uppercase tracking-wide mb-1">Delivery Breakdown</p>
+                    <div className="rounded-xl border border-slate-200/90 bg-slate-50/80 p-3 text-[11px] text-slate-600 space-y-1.5 shadow-2xs">
+                      <div className="flex items-center justify-between border-b border-slate-200/70 pb-1.5">
+                        <p className="font-black text-slate-800 text-[11px] uppercase tracking-wide">Delivery Breakdown</p>
+                        <span className="text-[10px] text-emerald-900 font-extrabold bg-emerald-100/90 px-2 py-0.5 rounded-full border border-emerald-200/80">
+                          📍 {activeZoneName && activeZoneName !== "Administrative Provinces" && activeZoneName !== "Other" && activeRegionName !== activeZoneName
+                            ? `${activeRegionName} (${activeZoneName})`
+                            : activeRegionName || "Other"}
+                        </span>
+                      </div>
                       {shippingBreakup.weightShippingFee > 0 && (
                         <div className="flex justify-between">
-                          <span>Weight-based</span>
+                          <span>Weight-based Fee</span>
                           <span className="font-semibold text-slate-700">{formatCurrency(shippingBreakup.weightShippingFee)}</span>
                         </div>
                       )}
                       {shippingBreakup.dimensionShippingFee > 0 && (
                         <div className="flex justify-between">
-                          <span>Dimension-based</span>
+                          <span>Dimension-based Fee</span>
                           <span className="font-semibold text-slate-700">{formatCurrency(shippingBreakup.dimensionShippingFee)}</span>
                         </div>
                       )}
-                      {shippingBreakup.regionShippingFee > 0 && (
-                        <div className="flex justify-between">
-                          <span>Region surcharge ({activeRegionName})</span>
-                          <span className="font-semibold text-slate-700">{formatCurrency(shippingBreakup.regionShippingFee)}</span>
-                        </div>
-                      )}
+                      <div className="flex justify-between text-slate-800 font-bold pt-1 border-t border-slate-200/60">
+                        <span>
+                          Regional Surcharge
+                          {activeRegionName
+                            ? ` (${activeZoneName && activeZoneName !== "Administrative Provinces" && activeZoneName !== "Other" && activeRegionName !== activeZoneName
+                                ? `${activeRegionName} — ${activeZoneName}`
+                                : activeRegionName})`
+                            : ""}
+                        </span>
+                        <span className="font-black text-emerald-800">
+                          {formatCurrency(aiRegionResult?.charge ?? shippingBreakup.regionShippingFee ?? 0)}
+                        </span>
+                      </div>
                     </div>
                   )}
 

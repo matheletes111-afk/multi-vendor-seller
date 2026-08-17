@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
-import { calculateShippingBreakup, getRegionDeliveryCharge } from "@/lib/shipping-calculator"
+import { calculateShippingBreakup, getRegionDeliveryChargeDetails } from "@/lib/shipping-calculator"
 
 const CHECKOUT_CART_INCLUDE = {
   product: {
@@ -67,7 +67,8 @@ export async function GET(req: NextRequest) {
     addressState = addr?.state || ""
   }
 
-  const regionFee = getRegionDeliveryCharge(addressState, regionCharges)
+  // Resolve matched region name and zone for display in Delivery Breakdown UI
+  const regionDetails = getRegionDeliveryChargeDetails(addressState, regionCharges)
 
   // Group by seller
   const groupsMap = new Map<string, {
@@ -142,6 +143,9 @@ export async function GET(req: NextRequest) {
       dimensionShippingFee: totalDimensionShippingFee,
       regionShippingFee: totalRegionShippingFee,
       totalShippingFee: totalShipping,
+      // Region name and zone resolved from address.state for Delivery Breakdown display
+      matchedRegionName: regionDetails.matchedRegionName,
+      matchedZoneName: regionDetails.matchedZoneName,
     },
     regionFee: totalRegionShippingFee,
     sellerGroups,

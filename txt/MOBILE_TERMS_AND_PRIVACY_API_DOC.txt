@@ -1,0 +1,594 @@
+================================================================================
+     MEEEM MULTI-VENDOR MOBILE API - ALL 10 LEGAL & POLICY DOCUMENTS
+================================================================================
+
+1. API OVERVIEW (TOTAL 10 DOCUMENTS)
+--------------------------------------------------------------------------------
+All 10 legal and policy documents (2 from website footer + 8 from `terms/` folder)
+are available through dedicated endpoints and through a universal dynamic endpoint:
+
+  - Universal Endpoint: GET /mobileapi/legal/[slug]
+  - Document Catalog List: GET /mobileapi/legal/list
+
+
+2. COMPLETE TABLE OF ALL 10 DOCUMENT ENDPOINTS
+--------------------------------------------------------------------------------
+
+┌────┬─────────────────────────────────────────────────┬───────────────────────────────────────────┬────────────────────────────────────────────────────────┐
+│ #  │ Document Name / Scope                           │ Dedicated Endpoint                        │ Universal Dynamic Slug Endpoint                        │
+├────┼─────────────────────────────────────────────────┼───────────────────────────────────────────┼────────────────────────────────────────────────────────┤
+│ 1  │ Terms & Conditions (Web Footer)                 │ GET /mobileapi/terms-and-conditions       │ GET /mobileapi/legal/terms-and-conditions              │
+│ 2  │ Privacy Policy (Web Footer)                     │ GET /mobileapi/privacy-policy             │ GET /mobileapi/legal/privacy-policy                    │
+│ 3  │ AML & CFT Policy                                │ GET /mobileapi/aml-policy                 │ GET /mobileapi/legal/aml-cft-policy                    │
+│ 4  │ Cyber Security Policy (MEEEM Ecommerce Pvt Ltd) │ GET /mobileapi/cyber-security-policy      │ GET /mobileapi/legal/cyber-security-policy-ecommerce   │
+│ 5  │ Data Protection & Privacy Compliance Policy     │ GET /mobileapi/data-protection-privacy    │ GET /mobileapi/legal/data-protection-privacy           │
+│ 6  │ MEEEM Buyer's Terms & Conditions Summary        │ GET /mobileapi/buyer-terms                │ GET /mobileapi/legal/buyer-terms-summary               │
+│ 7  │ MEEEM Cybersecurity Policy                      │ GET /mobileapi/cybersecurity-policy       │ GET /mobileapi/legal/meeem-cybersecurity-policy        │
+│ 8  │ MEEEM Exchange & Return Policy                  │ GET /mobileapi/exchange-policy            │ GET /mobileapi/legal/exchange-policy                   │
+│ 9  │ Vendor (Seller) & Service Provider Agreement    │ GET /mobileapi/vendor-agreement           │ GET /mobileapi/legal/vendor-agreement                  │
+│ 10 │ Payment Settling Process Terms & Implementation │ GET /mobileapi/payment-settlement         │ GET /mobileapi/legal/payment-settling-process          │
+└────┴─────────────────────────────────────────────────┴───────────────────────────────────────────┴────────────────────────────────────────────────────────┘
+
+
+3. SELLER ONBOARDING FINAL STEP: 4 AGREEMENT CHECKBOXES & MODAL FLOW
+--------------------------------------------------------------------------------
+In the mobile app for Seller Registration (Product, Service, Restaurant, Hotel),
+the final step contains 4 agreement checkboxes. Each checkbox has a "Read & Agree" 
+button that opens a Modal/BottomSheet showing the legal document before accepting.
+
+┌──────────────────────────────────────────────┬────────────────────────┬───────────────────────────────────────────┐
+│ Checkbox / State Field                       │ Document Title         │ Mobile API Endpoint to Fetch Document     │
+├──────────────────────────────────────────────┼────────────────────────┼───────────────────────────────────────────┤
+│ 1. `agreedToTerms`                           │ Terms & Conditions     │ GET /mobileapi/terms-and-conditions       │
+│ 2. `agreedToPrivacy`                         │ Privacy Policy         │ GET /mobileapi/privacy-policy             │
+│ 3. `agreedToReturnPolicy`                    │ Vendor Agreement       │ GET /mobileapi/legal/vendor-agreement     │
+│ 4. `agreedToCommission`                      │ Payment Settlement     │ GET /mobileapi/legal/payment-settling-process
+└──────────────────────────────────────────────┴────────────────────────┴───────────────────────────────────────────┘
+
+SUBMISSION PAYLOAD (Sent to Seller Onboarding API):
+```json
+{
+  "step": 6,
+  "data": {
+    "agreedToTerms": true,
+    "agreedToPrivacy": true,
+    "agreedToReturnPolicy": true,
+    "agreedToCommission": true,
+    "hearAboutUs": "Social Media"
+  }
+}
+```
+
+
+4. CATALOG LIST API — GET ALL DOCUMENTS
+--------------------------------------------------------------------------------
+Endpoint: GET /mobileapi/legal/list
+HTTP 200 OK Response:
+{
+  "success": true,
+  "total": 10,
+  "documents": [
+    {
+      "id": "footer-terms-and-conditions",
+      "slug": "terms-and-conditions",
+      "title": "Terms and Conditions (Web Footer)",
+      "source": "Web Footer Page",
+      "lastUpdated": "July 10, 2026",
+      "endpoint": "/mobileapi/legal/terms-and-conditions"
+    },
+    {
+      "id": "footer-privacy-policy",
+      "slug": "privacy-policy",
+      "title": "Privacy Policy (Web Footer)",
+      "source": "Web Footer Page",
+      "lastUpdated": "July 10, 2026",
+      "endpoint": "/mobileapi/legal/privacy-policy"
+    },
+    {
+      "id": "aml-cft-policy",
+      "slug": "aml-cft-policy",
+      "title": "Anti-Money Laundering (AML) & Counter Financing of Terrorism (CFT) Policy",
+      "source": "AML_CFT Policy ( Anty Money Laundering Policy) ~ Meeemsl (1).docx",
+      "lastUpdated": "August 2026",
+      "endpoint": "/mobileapi/legal/aml-cft-policy"
+    },
+    {
+      "id": "cyber-security-policy-ecommerce",
+      "slug": "cyber-security-policy-ecommerce",
+      "title": "Cyber Security Policy ~ MEEEM Ecommerce Pvt. Ltd.",
+      "source": "Cyber Security Policy~MEEEM Ecommerce Pvt. Ltd..docx",
+      "lastUpdated": "August 2026",
+      "endpoint": "/mobileapi/legal/cyber-security-policy-ecommerce"
+    },
+    {
+      "id": "data-protection-privacy",
+      "slug": "data-protection-privacy",
+      "title": "Data Protection & Privacy Compliance Policy",
+      "source": "Data Protection & Privacy Compliance document .docx",
+      "lastUpdated": "August 2026",
+      "endpoint": "/mobileapi/legal/data-protection-privacy"
+    },
+    {
+      "id": "buyer-terms-summary",
+      "slug": "buyer-terms-summary",
+      "title": "MEEEM Buyer's Terms and Conditions Summary",
+      "source": "MEEEM Buyer's Terms Summery.docx",
+      "lastUpdated": "August 2026",
+      "endpoint": "/mobileapi/legal/buyer-terms-summary"
+    },
+    {
+      "id": "meeem-cybersecurity-policy",
+      "slug": "meeem-cybersecurity-policy",
+      "title": "MEEEM Cybersecurity Policy",
+      "source": "MEEEM Cybersecurity Policy.docx",
+      "lastUpdated": "August 2026",
+      "endpoint": "/mobileapi/legal/meeem-cybersecurity-policy"
+    },
+    {
+      "id": "exchange-policy",
+      "slug": "exchange-policy",
+      "title": "MEEEM Exchange & Return Policy",
+      "source": "MEEEM EXCHANGE POLICY.docx",
+      "lastUpdated": "August 2026",
+      "endpoint": "/mobileapi/legal/exchange-policy"
+    },
+    {
+      "id": "vendor-agreement",
+      "slug": "vendor-agreement",
+      "title": "MEEEM Vendor (Seller) & Service Provider Agreement",
+      "source": "MEEEM Vendor (Seller) & Service Provider Agreement .docx",
+      "lastUpdated": "August 2026",
+      "endpoint": "/mobileapi/legal/vendor-agreement"
+    },
+    {
+      "id": "payment-settling-process",
+      "slug": "payment-settling-process",
+      "title": "Payment Settling Process Terms & Implementation",
+      "source": "Payment Setteling Process Terms % Implementation.docx",
+      "lastUpdated": "August 2026",
+      "endpoint": "/mobileapi/legal/payment-settling-process"
+    }
+  ]
+}
+
+
+5. DOCUMENT RESPONSE SPECIFICATION (SAMPLE FOR ANY SLUG)
+--------------------------------------------------------------------------------
+Endpoint: GET /mobileapi/legal/:slug (or dedicated endpoint)
+HTTP 200 OK Response:
+{
+  "success": true,
+  "id": "buyer-terms-summary",
+  "slug": "buyer-terms-summary",
+  "title": "MEEEM Buyer's Terms and Conditions Summary",
+  "source": "MEEEM Buyer's Terms Summery.docx",
+  "lastUpdated": "August 2026",
+  "content": "<div class=\"legal-document\"><h1 style=\"font-size: 22px; font-weight: 800; color: #0f172a;\">MEEEM Buyer's Terms and Conditions Summary</h1>...</div>",
+  "rawText": "MEEEM E-COMMERCE LIMITED\nBUYER TERMS AND CONDITIONS\n\nWelcome to MEEEM E-Commerce Limited..."
+}
+
+
+6. FLUTTER COMPLETE SELLER ONBOARDING AGREEMENT SCREEN & MODAL IMPLEMENTATION
+--------------------------------------------------------------------------------
+
+```dart
+import 'dart:convert';
+import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
+
+// ==========================================
+// 1. DATA MODEL
+// ==========================================
+class LegalDocument {
+  final bool success;
+  final String title;
+  final String lastUpdated;
+  final String content;
+  final String rawText;
+
+  LegalDocument({
+    required this.success,
+    required this.title,
+    required this.lastUpdated,
+    required this.content,
+    required this.rawText,
+  });
+
+  factory LegalDocument.fromJson(Map<String, dynamic> json) {
+    return LegalDocument(
+      success: json['success'] ?? false,
+      title: json['title'] ?? '',
+      lastUpdated: json['lastUpdated'] ?? '',
+      content: json['content'] ?? '',
+      rawText: json['rawText'] ?? '',
+    );
+  }
+}
+
+// ==========================================
+// 2. REUSABLE DOCUMENT MODAL / BOTTOMSHEET
+// ==========================================
+void showLegalDocModal({
+  required BuildContext context,
+  required String title,
+  required String endpoint,
+  required VoidCallback onAgree,
+  bool isAgreed = false,
+}) {
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (ctx) => _LegalDocBottomSheet(
+      title: title,
+      endpoint: endpoint,
+      onAgree: onAgree,
+      isAgreed: isAgreed,
+    ),
+  );
+}
+
+class _LegalDocBottomSheet extends StatefulWidget {
+  final String title;
+  final String endpoint;
+  final VoidCallback onAgree;
+  final bool isAgreed;
+
+  const _LegalDocBottomSheet({
+    Key? key,
+    required this.title,
+    required this.endpoint,
+    required this.onAgree,
+    required this.isAgreed,
+  }) : super(key: key);
+
+  @override
+  State<_LegalDocBottomSheet> createState() => _LegalDocBottomSheetState();
+}
+
+class _LegalDocBottomSheetState extends State<_LegalDocBottomSheet> {
+  LegalDocument? document;
+  bool isLoading = true;
+  String? error;
+
+  @override
+  void initState() {
+    super.initState();
+    fetchDoc();
+  }
+
+  Future<void> fetchDoc() async {
+    try {
+      const baseUrl = "https://yourdomain.com"; // Replace with backend domain
+      final res = await http.get(
+        Uri.parse('$baseUrl${widget.endpoint}'),
+        headers: {'Accept': 'application/json'},
+      );
+      if (res.statusCode == 200) {
+        setState(() {
+          document = LegalDocument.fromJson(json.decode(res.body));
+          isLoading = false;
+        });
+      } else {
+        setState(() {
+          error = "Failed to load document (${res.statusCode})";
+          isLoading = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        error = "Network error: $e";
+        isLoading = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.85,
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: Column(
+        children: [
+          // Drag Handle
+          const SizedBox(height: 12),
+          Container(
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: Colors.grey.shade300,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+
+          // Header
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    document?.title ?? widget.title,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF0F172A),
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+
+          // Body Content
+          Expanded(
+            child: isLoading
+                ? const Center(child: CircularProgressIndicator(color: Colors.purple))
+                : error != null
+                    ? Center(child: Text(error!))
+                    : SingleChildScrollView(
+                        padding: const EdgeInsets.all(20),
+                        child: HtmlWidget(
+                          document?.content ?? '',
+                          textStyle: const TextStyle(fontSize: 14, color: Color(0xFF334155), height: 1.6),
+                        ),
+                      ),
+          ),
+
+          // Footer Action Bar
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade50,
+              border: Border(top: BorderSide(color: Colors.grey.shade200)),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: OutlinedButton.styleFrom(
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
+                    child: const Text("Close"),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  flex: 2,
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      widget.onAgree();
+                      Navigator.pop(context);
+                    },
+                    icon: const Icon(Icons.check_circle, size: 18),
+                    label: Text(widget.isAgreed ? "Agreed & Close" : "I Agree & Accept"),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF059669),
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ==========================================
+// 3. SELLER ONBOARDING STEP 6 SCREEN
+// ==========================================
+class SellerAgreementStepScreen extends StatefulWidget {
+  const SellerAgreementStepScreen({Key? key}) : super(key: key);
+
+  @override
+  State<SellerAgreementStepScreen> createState() => _SellerAgreementStepScreenState();
+}
+
+class _SellerAgreementStepScreenState extends State<SellerAgreementStepScreen> {
+  bool agreedToTerms = false;
+  bool agreedToPrivacy = false;
+  bool agreedToReturnPolicy = false;
+  bool agreedToCommission = false;
+
+  bool get allAgreed =>
+      agreedToTerms && agreedToPrivacy && agreedToReturnPolicy && agreedToCommission;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        title: const Text("Agreement & Compliance"),
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black,
+        elevation: 0.5,
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              "Review & Accept Agreements",
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              "Please review and accept our marketplace terms before completing registration.",
+              style: TextStyle(fontSize: 14, color: Color(0xFF64748B)),
+            ),
+            const SizedBox(height: 24),
+
+            // Card 1: General Terms & Conditions
+            _buildAgreementCard(
+              title: "General Terms & Conditions",
+              subtitle: "Accept marketplace seller terms and operational guidelines.",
+              isChecked: agreedToTerms,
+              endpoint: "/mobileapi/terms-and-conditions",
+              onChanged: (val) => setState(() => agreedToTerms = val ?? false),
+              onModalAgree: () => setState(() => agreedToTerms = true),
+            ),
+            const SizedBox(height: 14),
+
+            // Card 2: Privacy Policy & Data Compliance
+            _buildAgreementCard(
+              title: "Privacy Policy & Data Compliance",
+              subtitle: "Consent to secure collection and verification of business data.",
+              isChecked: agreedToPrivacy,
+              endpoint: "/mobileapi/privacy-policy",
+              onChanged: (val) => setState(() => agreedToPrivacy = val ?? false),
+              onModalAgree: () => setState(() => agreedToPrivacy = true),
+            ),
+            const SizedBox(height: 14),
+
+            // Card 3: Vendor & Service Provider Agreement
+            _buildAgreementCard(
+              title: "Vendor & Service Provider Agreement",
+              subtitle: "Agree to vendor listing standards and return/cancellation rules.",
+              isChecked: agreedToReturnPolicy,
+              endpoint: "/mobileapi/legal/vendor-agreement",
+              onChanged: (val) => setState(() => agreedToReturnPolicy = val ?? false),
+              onModalAgree: () => setState(() => agreedToReturnPolicy = true),
+            ),
+            const SizedBox(height: 14),
+
+            // Card 4: Payment Settling & Commission Terms
+            _buildAgreementCard(
+              title: "Payment Settling & Commission Terms",
+              subtitle: "Agree to automated 12-72h settlement flow and commission rates.",
+              isChecked: agreedToCommission,
+              endpoint: "/mobileapi/legal/payment-settling-process",
+              onChanged: (val) => setState(() => agreedToCommission = val ?? false),
+              onModalAgree: () => setState(() => agreedToCommission = true),
+            ),
+            const SizedBox(height: 32),
+
+            // Submit Button
+            SizedBox(
+              width: double.infinity,
+              height: 52,
+              child: ElevatedButton(
+                onPressed: allAgreed
+                    ? () {
+                        // Submit agreement payload to backend API
+                        submitOnboardingAgreements();
+                      }
+                    : null,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF059669),
+                  disabledBackgroundColor: Colors.grey.shade300,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                ),
+                child: const Text("Finish Registration", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAgreementCard({
+    required String title,
+    required String subtitle,
+    required bool isChecked,
+    required String endpoint,
+    required ValueChanged<bool?> onChanged,
+    required VoidCallback onModalAgree,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isChecked ? const Color(0xFFF0FDF4) : Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: isChecked ? const Color(0xFF86EFAC) : Colors.grey.shade200,
+        ),
+      ),
+      child: Column(
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Checkbox(
+                value: isChecked,
+                activeColor: const Color(0xFF059669),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                onChanged: onChanged,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF0F172A)),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              onPressed: () {
+                showLegalDocModal(
+                  context: context,
+                  title: title,
+                  endpoint: endpoint,
+                  isAgreed: isChecked,
+                  onAgree: onModalAgree,
+                );
+              },
+              icon: const Icon(Icons.description_outlined, size: 16),
+              label: Text(
+                isChecked ? "Review Document" : "Read & Agree Document",
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+              ),
+              style: TextButton.styleFrom(
+                foregroundColor: isChecked ? const Color(0xFF059669) : const Color(0xFF7C3AED),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void submitOnboardingAgreements() async {
+    // Call: POST /api/product-seller/onboarding (or mobileapi equivalent)
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("Agreements verified! Submitting registration...")),
+    );
+  }
+}
+```
+
+================================================================================

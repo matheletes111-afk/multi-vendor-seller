@@ -24,6 +24,7 @@ import {
 import { CustomerOrderReviewSection, type CustomerReviewDraft } from "./customer-order-review-section"
 import { CustomerReturnExchangeStatusDashboard } from "./customer-return-exchange-status-dashboard"
 import { resolveAdministrativeRegion } from "@/lib/shipping-calculator"
+import { getFormattedDeliveryZone } from "@/lib/ai-region-matcher"
 import {
   ExchangeCurrentVsReplacement,
   ExchangeVariantImageGrid,
@@ -481,7 +482,14 @@ export function OrderDetailInline({
             <div className="mt-3 rounded-2xl bg-slate-900 text-white p-3.5 space-y-2 text-xs border border-slate-800">
               <div className="flex items-center justify-between border-b border-slate-800 pb-1.5">
                 <span className="text-[10px] font-extrabold uppercase tracking-wider text-amber-400">Delivery Fee Breakup</span>
-                <span className="text-[10px] text-slate-400 font-medium">Region: {order.shippingState || "Other"}</span>
+                <span className="text-[10px] text-emerald-400 font-bold bg-slate-800 px-2 py-0.5 rounded-full border border-slate-700">
+                  📍 {getFormattedDeliveryZone({
+                    addressLine1: order.shippingAddressLine1,
+                    addressLine2: order.shippingAddressLine2,
+                    city: order.shippingCity,
+                    state: order.shippingState,
+                  })}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-400">Weight Charge</span>
@@ -492,7 +500,7 @@ export function OrderDetailInline({
                 <span className="font-bold tabular-nums text-slate-200">{formatCurrency(order.dimensionShippingFee ?? 0)}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-400">Region Fee</span>
+                <span className="text-slate-400">Regional Surcharge</span>
                 <span className="font-bold tabular-nums text-slate-200">{formatCurrency(order.regionShippingFee ?? 0)}</span>
               </div>
               <div className="flex justify-between pt-1.5 border-t border-slate-800 font-black">
@@ -540,6 +548,14 @@ export function OrderDetailInline({
                     {order.shippingCountry && `, ${order.shippingCountry}`}
                   </p>
                 )}
+                <p className="text-[11px] font-bold text-emerald-700 pt-1.5">
+                  📍 {getFormattedDeliveryZone({
+                    addressLine1: order.shippingAddressLine1,
+                    addressLine2: order.shippingAddressLine2,
+                    city: order.shippingCity,
+                    state: order.shippingState,
+                  })}
+                </p>
               </>
             ) : (
               <p className="text-gray-400">—</p>

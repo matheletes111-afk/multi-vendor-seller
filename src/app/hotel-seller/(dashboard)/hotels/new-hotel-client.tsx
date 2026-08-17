@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
+import { loadGoogleMapsScript } from "@/lib/google-maps-loader"
 import { Button } from "@/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/ui/card"
 import { Input } from "@/ui/input"
@@ -354,52 +355,21 @@ export function NewHotelClient() {
 
   useEffect(() => {
     let active = true
-    fetch("/api/utils/maps-key")
-      .then((res) => {
-        if (!res.ok) throw new Error("Unauthorized or not configured")
-        return res.json()
-      })
-      .then((data) => {
+    loadGoogleMapsScript(["places"])
+      .then(() => {
         if (!active) return
-        const apiKey = data.key
-        if (!apiKey) {
-          setMapError("Google Maps API key not configured.")
-          return
-        }
-
-        if ((window as any).google?.maps) {
-          initMap()
-          return
-        }
-
-        if ((window as any)._googleMapsLoading) {
-          (window as any).initGoogleMaps = initMap
-          return
-        }
-
-        (window as any)._googleMapsLoading = true;
-        (window as any).initGoogleMaps = () => {
-          (window as any)._googleMapsLoading = false
-          initMap()
-        }
-
-        const script = document.createElement("script")
-        script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&callback=initGoogleMaps`
-        script.async = true
-        script.defer = true
-        script.onerror = () => setMapError("Failed to load Google Maps.")
-        document.head.appendChild(script)
+        initMap()
       })
       .catch((err) => {
         if (active) {
-          setMapError(err.message || "Failed to configure map API key.")
+          setMapError(err.message || "Failed to load Google Maps.")
         }
       })
 
     return () => {
       active = false
     }
-  }, [initMap])
+  }, [])
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target

@@ -205,7 +205,7 @@ export function HotelSellerDetailClient({ seller, plans = [] }: { seller: any; p
                   <div className="p-2 bg-white/10 rounded-xl"><Mail className="h-4 w-4" /></div>
                   <div>
                     <p className="text-[9px] font-bold uppercase opacity-60 tracking-widest">Email Address</p>
-                    <p className="text-sm font-medium">{seller.user.email}</p>
+                    <p className="text-sm font-medium lowercase">{seller.user.email?.toLowerCase()}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">

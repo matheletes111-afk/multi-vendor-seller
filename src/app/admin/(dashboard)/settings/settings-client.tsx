@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Eye, EyeOff, User, Mail, Phone, Lock, ShieldCheck, Globe, Smartphone, Plus, Trash2, Ban, X, Box } from "lucide-react"
+import { Eye, EyeOff, User, Mail, Phone, Lock, ShieldCheck, Globe, Smartphone, Plus, Trash2, Ban, X, Box, Search, ChevronLeft, ChevronRight, Filter } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/ui/card"
 import { Button } from "@/ui/button"
 import { Input } from "@/ui/input"
@@ -11,14 +11,9 @@ import { Alert, AlertDescription } from "@/ui/alert"
 import { PageLoader } from "@/components/ui/page-loader"
 import { ProfilePictureInput } from "@/components/profile-picture-input"
 
-const ALLOWED_ADMINISTRATIVE_REGIONS = [
-  "Eastern Province",
-  "Northern Province",
-  "North West Province",
-  "Southern Province",
-  "Western Area",
-  "Other",
-] as const
+import { LOCATION_ZONES, ALL_LOCATION_REGIONS, getZoneForRegion } from "@/lib/location-zones"
+
+const ALLOWED_ADMINISTRATIVE_REGIONS = ALL_LOCATION_REGIONS
 
 type AdminProfile = {
   id: string
@@ -60,8 +55,25 @@ export function AdminSettingsClient() {
   const [ranges, setRanges] = useState<{ minWeight: string; maxWeight: string; charge: string }[]>([])
   const [dimensionRanges, setDimensionRanges] = useState<{ minDimension: string; maxDimension: string; charge: string }[]>([])
   const [regionCharges, setRegionCharges] = useState<{ region: string; charge: string }[]>([])
+  const [regionSearchInput, setRegionSearchInput] = useState("")
+  const [appliedSearchQuery, setAppliedSearchQuery] = useState("")
+  const [selectedZoneFilter, setSelectedZoneFilter] = useState("ALL")
+  const [regionPage, setRegionPage] = useState(1)
+  const [regionPageSize, setRegionPageSize] = useState(15)
   const [disallowedNames, setDisallowedNames] = useState<string[]>([])
   const [newDisallowedName, setNewDisallowedName] = useState("")
+
+  function handleApplySearch() {
+    setAppliedSearchQuery(regionSearchInput.trim().toLowerCase())
+    setRegionPage(1)
+  }
+
+  function handleClearSearch() {
+    setRegionSearchInput("")
+    setAppliedSearchQuery("")
+    setSelectedZoneFilter("ALL")
+    setRegionPage(1)
+  }
 
   useEffect(() => {
     fetch("/api/admin/settings")
@@ -160,8 +172,12 @@ export function AdminSettingsClient() {
   function addRegionCharge() {
     const availableRegion = ALLOWED_ADMINISTRATIVE_REGIONS.find(
       (reg) => !regionCharges.some((rc) => rc.region === reg)
-    ) || ALLOWED_ADMINISTRATIVE_REGIONS[0]
-    setRegionCharges((prev) => [...prev, { region: availableRegion, charge: "" }])
+    ) || ""
+    setRegionCharges((prev) => [{ region: availableRegion, charge: "" }, ...prev])
+    setRegionSearchInput("")
+    setAppliedSearchQuery("")
+    setSelectedZoneFilter("ALL")
+    setRegionPage(1)
   }
 
   function removeRegionCharge(index: number) {
@@ -169,6 +185,10 @@ export function AdminSettingsClient() {
   }
 
   function updateRegionCharge(index: number, key: "region" | "charge", value: string) {
+    if (key === "region" && value && regionCharges.some((r, i) => i !== index && r.region === value)) {
+      alert(`"${value}" is already configured. Duplicate regions are not allowed.`)
+      return
+    }
     setRegionCharges((prev) =>
       prev.map((r, i) => (i === index ? { ...r, [key]: value } : r))
     )
@@ -369,6 +389,7 @@ export function AdminSettingsClient() {
         throw new Error(data.error || "Failed to update profile")
       }
       setSuccess("Profile settings updated successfully.")
+      alert("Profile settings updated successfully!")
       if (data.image) {
         setUser((prev) => (prev ? { ...prev, image: data.image } : prev))
       }
@@ -667,7 +688,7 @@ export function AdminSettingsClient() {
             </CardContent>
           </Card>
 
-          {/* Region-wise Delivery Charges Card */}
+          {/* Region-wise Delivery Charges Card (Paginated by 15 Zones & Provinces) */}
           <Card className="border-none shadow-2xl overflow-hidden rounded-[2.5rem] bg-gradient-to-br from-background via-background to-teal-500/5 border-l-4 border-teal-500">
             <CardHeader className="pb-6 border-b border-muted/30">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 col-span-full">
@@ -677,94 +698,349 @@ export function AdminSettingsClient() {
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
-                      <CardTitle className="text-xl font-bold text-teal-950">3. Region-wise Delivery Charges</CardTitle>
+                      <CardTitle className="text-xl font-bold text-teal-950">3. Zone & Region-wise Delivery Charges</CardTitle>
                       <Badge variant="outline" className="bg-teal-500/10 text-teal-700 border-teal-500/20 font-bold text-[10px]">
-                        {regionCharges.length} of {ALLOWED_ADMINISTRATIVE_REGIONS.length} Regions Configured
+                        {regionCharges.length} Configured ({LOCATION_ZONES.length} Zones)
                       </Badge>
                     </div>
                     <CardDescription className="pt-1 font-medium text-xs text-muted-foreground">
-                      Set regional delivery surcharges for Administrative Regions & Fallback (&quot;Other&quot;).
+                      Manage delivery charges by Zone & Region (ZONE 1 – ZONE 15, Provinces & Fallback). Fast paginated view.
                     </CardDescription>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  {regionCharges.length < ALLOWED_ADMINISTRATIVE_REGIONS.length && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        const missing = ALLOWED_ADMINISTRATIVE_REGIONS.filter(
-                          (reg) => !regionCharges.some((rc) => rc.region === reg)
-                        )
-                        setRegionCharges((prev) => [
-                          ...prev,
-                          ...missing.map((reg) => ({ region: reg, charge: "0.00" })),
-                        ])
-                      }}
-                      className="rounded-full gap-1 font-bold text-[10px] border-teal-500/30 text-teal-700 hover:bg-teal-50"
-                    >
-                      + Add All Regions
-                    </Button>
-                  )}
-                  <Button type="button" variant="outline" size="sm" onClick={addRegionCharge} className="rounded-full gap-1.5 font-bold uppercase tracking-wider text-[10px] border-teal-500/30 text-teal-700 hover:bg-teal-600 hover:text-white transition-all shadow-sm">
-                    <Plus className="h-3.5 w-3.5" /> Add Region
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={addRegionCharge}
+                    className="rounded-full gap-1.5 font-bold uppercase tracking-wider text-[10px] border-teal-500/30 text-teal-700 hover:bg-teal-600 hover:text-white transition-all shadow-sm"
+                  >
+                    <Plus className="h-3.5 w-3.5" /> + Add Region (At Top)
                   </Button>
                 </div>
               </div>
             </CardHeader>
-            <CardContent className="p-8 space-y-6">
-              {regionCharges.length === 0 ? (
-                <div className="text-center py-8 bg-muted/10 rounded-3xl border-2 border-dashed border-muted/40 space-y-3">
-                  <Globe className="h-10 w-10 text-muted-foreground/40 mx-auto" />
-                  <p className="text-sm font-semibold text-muted-foreground">No regional charges configured yet.</p>
-                  <Button type="button" size="sm" onClick={addRegionCharge} className="rounded-full gap-1.5 font-bold text-xs bg-teal-600 hover:bg-teal-700">
-                    <Plus className="h-4 w-4" /> Add First Region Charge
+
+            <CardContent className="p-6 space-y-5">
+              {/* Search & Zone Filter Bar with Search Button */}
+              <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 bg-muted/20 p-4 rounded-2xl border border-muted/30">
+                <div className="flex flex-1 items-center gap-2">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      type="text"
+                      placeholder="Search region name or zone..."
+                      value={regionSearchInput}
+                      onChange={(e) => setRegionSearchInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault()
+                          handleApplySearch()
+                        }
+                      }}
+                      className="h-10 pl-9 pr-8 rounded-xl border-muted bg-background text-xs font-semibold"
+                    />
+                    {regionSearchInput && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setRegionSearchInput("")
+                          setAppliedSearchQuery("")
+                          setRegionPage(1)
+                        }}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground text-xs font-bold"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                  <Button
+                    type="button"
+                    onClick={handleApplySearch}
+                    className="h-10 px-4 bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs rounded-xl shadow-xs gap-1.5 shrink-0"
+                  >
+                    <Search className="h-3.5 w-3.5" />
+                    Search
                   </Button>
                 </div>
-              ) : (
-                <div className="space-y-4">
-                  {regionCharges.map((rc, index) => (
-                    <div key={index} className="flex flex-col md:flex-row items-end md:items-center gap-4 bg-muted/10 p-5 rounded-3xl border border-muted/30 hover:border-teal-500/30 transition-all relative group">
-                      <div className="flex items-center justify-center h-8 w-8 rounded-full bg-teal-500/10 text-teal-700 font-bold text-xs shrink-0">
-                        📍
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 flex-1 w-full">
-                        <div className="space-y-1.5">
-                          <Label className="text-[10px] font-extrabold uppercase tracking-wider text-muted-foreground">
-                            Administrative Region (Dropdown)
-                          </Label>
-                          <select
-                            value={rc.region}
-                            onChange={(e) => updateRegionCharge(index, "region", e.target.value)}
-                            className="h-11 w-full border border-muted bg-background rounded-2xl font-bold text-sm px-4 focus:outline-none focus:ring-2 focus:ring-teal-500 text-slate-800"
-                            required
-                          >
-                            <option value="" disabled>Select Region...</option>
-                            {ALLOWED_ADMINISTRATIVE_REGIONS.map((reg) => (
-                              <option key={reg} value={reg} disabled={regionCharges.some((r, i) => i !== index && r.region === reg)}>
-                                {reg}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label className="text-[10px] font-extrabold uppercase tracking-wider text-muted-foreground flex items-center justify-between">
-                            <span>Delivery Charge</span>
-                            <span className="text-emerald-600 font-mono text-[9px]">NLe</span>
-                          </Label>
-                          <Input type="number" step="0.01" min="0" placeholder="50.00" value={rc.charge} onChange={(e) => updateRegionCharge(index, "charge", e.target.value)} className="h-11 border-muted bg-background rounded-2xl font-bold text-sm text-emerald-700" required />
-                        </div>
-                      </div>
-                      <Button type="button" variant="destructive" size="icon" onClick={() => removeRegionCharge(index)} className="rounded-2xl h-11 w-11 shrink-0 opacity-80 group-hover:opacity-100 transition-opacity" title="Remove region charge">
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ))}
+
+                <div className="flex flex-wrap items-center gap-2">
+                  {/* Zone Filter */}
+                  <div className="flex items-center gap-1 bg-background border border-muted rounded-xl px-2.5 h-10">
+                    <Filter className="h-3.5 w-3.5 text-teal-600 shrink-0" />
+                    <select
+                      value={selectedZoneFilter}
+                      onChange={(e) => {
+                        setSelectedZoneFilter(e.target.value)
+                        setRegionPage(1)
+                      }}
+                      className="h-full bg-transparent text-xs font-bold text-slate-800 focus:outline-none"
+                    >
+                      <option value="ALL">All Zones ({LOCATION_ZONES.length})</option>
+                      {LOCATION_ZONES.map((z) => (
+                        <option key={z.zone} value={z.zone}>
+                          {z.zone} ({z.regions.length})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Page Size Selector */}
+                  <select
+                    value={regionPageSize}
+                    onChange={(e) => {
+                      setRegionPageSize(Number(e.target.value))
+                      setRegionPage(1)
+                    }}
+                    className="h-10 border border-muted bg-background rounded-xl text-xs font-bold px-3 text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  >
+                    <option value={10}>10 / page</option>
+                    <option value={15}>15 / page</option>
+                    <option value={25}>25 / page</option>
+                    <option value={50}>50 / page</option>
+                    <option value={100}>100 / page</option>
+                    <option value={9999}>All</option>
+                  </select>
+
+                  {(appliedSearchQuery || selectedZoneFilter !== "ALL") && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleClearSearch}
+                      className="h-10 text-xs font-bold text-rose-600 hover:bg-rose-50 rounded-xl"
+                    >
+                      Clear Filters
+                    </Button>
+                  )}
                 </div>
-              )}
+              </div>
+
+              {/* Filtering & Pagination Calculation */}
+              {(() => {
+                const filtered = regionCharges
+                  .map((rc, origIdx) => ({ ...rc, origIdx, zone: getZoneForRegion(rc.region) }))
+                  .filter((rc) => {
+                    if (selectedZoneFilter !== "ALL" && rc.zone !== selectedZoneFilter) return false
+                    if (appliedSearchQuery) {
+                      const regMatch = rc.region.toLowerCase().includes(appliedSearchQuery)
+                      const zoneMatch = rc.zone.toLowerCase().includes(appliedSearchQuery)
+                      if (!regMatch && !zoneMatch) return false
+                    }
+                    return true
+                  })
+
+                const totalFiltered = filtered.length
+                const totalPages = Math.max(1, Math.ceil(totalFiltered / regionPageSize))
+                const safePage = Math.min(Math.max(1, regionPage), totalPages)
+                const startIndex = (safePage - 1) * regionPageSize
+                const endIndex = Math.min(startIndex + regionPageSize, totalFiltered)
+                const paginated = filtered.slice(startIndex, endIndex)
+
+                // Pre-compute a Set of all regions already in use — O(n) once, then O(1) lookups per option
+                // This avoids the previous O(n²) .some() call inside every dropdown option render
+                const usedRegionsSet = new Set(regionCharges.map((rc) => rc.region))
+
+                return (
+                  <div className="space-y-4">
+                    {/* Pagination Header Info & Navigation */}
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 px-1">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="secondary" className="bg-teal-500/10 text-teal-800 border-teal-500/20 font-extrabold text-[11px] px-3 py-1">
+                          Showing {totalFiltered > 0 ? startIndex + 1 : 0}–{endIndex} of {totalFiltered} Regions
+                          {totalFiltered !== regionCharges.length ? ` (Filtered from ${regionCharges.length})` : ""}
+                        </Badge>
+                      </div>
+
+                      {totalPages > 1 && (
+                        <div className="flex items-center gap-1.5">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            disabled={safePage <= 1}
+                            onClick={() => setRegionPage((p) => Math.max(1, p - 1))}
+                            className="h-8 px-2.5 rounded-lg text-xs font-bold gap-1"
+                          >
+                            <ChevronLeft className="h-3.5 w-3.5" /> Prev
+                          </Button>
+                          <span className="text-xs font-extrabold text-slate-700 px-2">
+                            Page {safePage} of {totalPages}
+                          </span>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            disabled={safePage >= totalPages}
+                            onClick={() => setRegionPage((p) => Math.min(totalPages, p + 1))}
+                            className="h-8 px-2.5 rounded-lg text-xs font-bold gap-1"
+                          >
+                            Next <ChevronRight className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Paginated Cards Grid */}
+                    {totalFiltered === 0 ? (
+                      <div className="text-center py-8 bg-muted/10 rounded-3xl border-2 border-dashed border-muted/40 space-y-3">
+                        <Globe className="h-10 w-10 text-muted-foreground/40 mx-auto" />
+                        <p className="text-sm font-semibold text-muted-foreground">
+                          {regionCharges.length === 0 ? "No regional charges configured yet." : "No regions match your search or filter."}
+                        </p>
+                        {regionCharges.length > 0 && (
+                          <Button type="button" size="sm" onClick={handleClearSearch} variant="outline" className="rounded-full text-xs font-bold">
+                            Reset Search & Filters
+                          </Button>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {paginated.map((rc) => (
+                          <div
+                            key={rc.origIdx}
+                            className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 bg-muted/10 p-3.5 rounded-2xl border border-muted/30 hover:border-teal-500/30 transition-all relative group"
+                          >
+                            <div className="flex items-center gap-2 shrink-0 sm:w-44">
+                              <div className="flex items-center justify-center h-7 w-7 rounded-full bg-teal-500/10 text-teal-700 font-bold text-xs shrink-0">
+                                📍
+                              </div>
+                              {rc.region ? (
+                                <Badge
+                                  variant="secondary"
+                                  className="bg-teal-500/15 text-teal-900 border border-teal-500/30 font-black text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full truncate max-w-[130px]"
+                                  title={rc.zone}
+                                >
+                                  {rc.zone}
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline" className="text-[10px] text-teal-600 border-teal-500/30 font-bold">
+                                  ✨ New Top Row
+                                </Badge>
+                              )}
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 flex-1">
+                              <div>
+                                <select
+                                  value={rc.region}
+                                  onChange={(e) => updateRegionCharge(rc.origIdx, "region", e.target.value)}
+                                  className="h-10 w-full border border-muted bg-background rounded-xl font-bold text-xs px-3 focus:outline-none focus:ring-2 focus:ring-teal-500 text-slate-800"
+                                  required
+                                >
+                                  <option value="" disabled>
+                                    Select Region...
+                                  </option>
+                                  {LOCATION_ZONES.map((zDef) => (
+                                    <optgroup key={zDef.zone} label={`── ${zDef.zone} ──`}>
+                                      {zDef.regions.map((reg) => {
+                                        // O(1) Set lookup — was previously O(n) .some() per option causing render lag
+                                        const isUsed = reg !== rc.region && usedRegionsSet.has(reg)
+                                        return (
+                                          <option
+                                            key={`${zDef.zone}_${reg}`}
+                                            value={reg}
+                                            disabled={isUsed}
+                                          >
+                                            {reg} {isUsed ? "(Already Added)" : ""}
+                                          </option>
+                                        )
+                                      })}
+                                    </optgroup>
+                                  ))}
+                                </select>
+                              </div>
+
+                              <div className="relative flex items-center">
+                                <span className="absolute left-3 text-emerald-600 font-mono text-xs font-bold">NLe</span>
+                                <Input
+                                  type="number"
+                                  step="0.01"
+                                  min="0"
+                                  placeholder="50.00"
+                                  value={rc.charge}
+                                  onChange={(e) => updateRegionCharge(rc.origIdx, "charge", e.target.value)}
+                                  className="h-10 pl-11 border-muted bg-background rounded-xl font-bold text-xs text-emerald-700"
+                                  required
+                                />
+                              </div>
+                            </div>
+
+                            <Button
+                              type="button"
+                              variant="destructive"
+                              size="icon"
+                              onClick={() => removeRegionCharge(rc.origIdx)}
+                              className="rounded-xl h-10 w-10 shrink-0 opacity-80 group-hover:opacity-100 transition-opacity"
+                              title="Remove region charge"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Bottom Pagination Bar */}
+                    {totalPages > 1 && (
+                      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2 border-t border-muted/30">
+                        <p className="text-xs text-muted-foreground font-medium">
+                          Showing {startIndex + 1} to {endIndex} of {totalFiltered} entries
+                        </p>
+                        <div className="flex items-center gap-1.5">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            disabled={safePage <= 1}
+                            onClick={() => setRegionPage(1)}
+                            className="h-8 px-2 rounded-lg text-xs font-bold"
+                          >
+                            « First
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            disabled={safePage <= 1}
+                            onClick={() => setRegionPage((p) => Math.max(1, p - 1))}
+                            className="h-8 px-2.5 rounded-lg text-xs font-bold gap-1"
+                          >
+                            <ChevronLeft className="h-3.5 w-3.5" /> Prev
+                          </Button>
+                          <span className="text-xs font-extrabold text-slate-700 px-3">
+                            {safePage} / {totalPages}
+                          </span>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            disabled={safePage >= totalPages}
+                            onClick={() => setRegionPage((p) => Math.min(totalPages, p + 1))}
+                            className="h-8 px-2.5 rounded-lg text-xs font-bold gap-1"
+                          >
+                            Next <ChevronRight className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            disabled={safePage >= totalPages}
+                            onClick={() => setRegionPage(totalPages)}
+                            className="h-8 px-2 rounded-lg text-xs font-bold"
+                          >
+                            Last »
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )
+              })()}
+
               <p className="text-[10px] text-muted-foreground font-medium italic bg-teal-500/5 p-3 rounded-2xl border border-teal-500/10">
-                💡 <strong>Regions Supported:</strong> Eastern Province, Northern Province, North West Province, Southern Province, Western Area. Unconfigured regions default to <code>NLe 0.00</code>.
+                💡 <strong>Instant Paginated Management:</strong> Search by region or zone name and click <strong>Search</strong>. Pagination renders items fast without UI lag. Clicking &quot;+ Add Region&quot; creates a new row at the <strong>TOP</strong> of Page 1.
               </p>
             </CardContent>
           </Card>

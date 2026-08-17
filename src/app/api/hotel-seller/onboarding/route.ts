@@ -351,9 +351,10 @@ export async function POST(request: NextRequest) {
     } else if (step === 6) {
       // Step 6: Agreement
       const agreementData = jsonBody?.data || {
-        agreedToTerms: formData?.get("agreedToTerms") === "on",
-        agreedToCommission: formData?.get("agreedToCommission") === "on",
-        agreedToPrivacy: formData?.get("agreedToPrivacy") === "on",
+        agreedToTerms: formData?.get("agreedToTerms") === "true" || formData?.get("agreedToTerms") === "on",
+        agreedToCommission: formData?.get("agreedToCommission") === "true" || formData?.get("agreedToCommission") === "on",
+        agreedToPrivacy: formData?.get("agreedToPrivacy") === "true" || formData?.get("agreedToPrivacy") === "on",
+        hearAboutUs: (formData?.get("hearAboutUs") as string) || null,
       }
 
       await prisma.hotelAgreement.upsert({

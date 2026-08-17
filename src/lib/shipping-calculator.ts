@@ -1,3 +1,5 @@
+import { LOCATION_ZONES, ALL_LOCATION_REGIONS, getZoneForRegion } from "./location-zones"
+
 export interface ShippingItemInput {
   weight?: number | null
   height?: number | null
@@ -12,16 +14,11 @@ export interface ShippingBreakup {
   dimensionShippingFee: number
   regionShippingFee: number
   totalShippingFee: number
+  matchedRegionName: string
+  matchedZoneName: string
 }
 
-export const ALLOWED_ADMINISTRATIVE_REGIONS = [
-  "Eastern Province",
-  "Northern Province",
-  "North West Province",
-  "Southern Province",
-  "Western Area",
-  "Other",
-] as const
+export const ALLOWED_ADMINISTRATIVE_REGIONS = ALL_LOCATION_REGIONS
 
 /**
  * Resolves any raw map location, city, or state string into a valid Administrative Region or "Other".
@@ -34,7 +31,7 @@ export function resolveAdministrativeRegion(stateInput?: string | null): string 
   if (!clean) return "Other"
 
   // Exact match on known region names first
-  for (const reg of ALLOWED_ADMINISTRATIVE_REGIONS) {
+  for (const reg of ALL_LOCATION_REGIONS) {
     if (reg === "Other") continue
     if (clean === reg.toLowerCase()) return reg
   }
@@ -139,36 +136,72 @@ export function getShippingChargeForDimension(volume: number, ranges: DimensionR
   return typeof lastCharge === "number" && !isNaN(lastCharge) ? Math.max(0, Number(lastCharge)) : 0
 }
 
-export function getRegionDeliveryCharge(destinationState: string | null | undefined, regionCharges: RegionCharge[] | null | undefined): number {
+export interface RegionDeliveryDetails {
+  charge: number
+  matchedRegionName: string
+  matchedZoneName: string
+}
+
+export function getRegionDeliveryChargeDetails(
+  destinationState: string | null | undefined,
+  regionCharges: RegionCharge[] | null | undefined
+): RegionDeliveryDetails {
+  const resolvedRegion = resolveAdministrativeRegion(destinationState)
+  const zone = getZoneForRegion(resolvedRegion)
+
   if (!regionCharges || !Array.isArray(regionCharges) || regionCharges.length === 0) {
-    return 0
+    return { charge: 0, matchedRegionName: resolvedRegion, matchedZoneName: zone }
   }
 
-  const resolvedRegion = resolveAdministrativeRegion(destinationState)
   const cleanResolved = resolvedRegion.trim().toLowerCase()
 
+  // 1. Exact match first
   for (const rc of regionCharges) {
     const regName = typeof rc?.region === "string" ? rc.region.trim().toLowerCase() : ""
-    if (!regName) continue
-
-    if (cleanResolved === regName || cleanResolved.includes(regName) || regName.includes(cleanResolved)) {
+    if (regName && regName === cleanResolved) {
       const charge = typeof rc?.charge === "number" && !isNaN(rc.charge) ? Math.max(0, Number(rc.charge)) : 0
-      return charge
+      return {
+        charge,
+        matchedRegionName: rc.region!.trim(),
+        matchedZoneName: getZoneForRegion(rc.region!),
+      }
     }
   }
 
-  // Fallback to "Other" region charge if destination does not match standard 5 regions
+  // 2. Normalized match (removing dots & hyphens)
+  const normResolved = cleanResolved.replace(/[^a-z0-9]/g, "")
+  for (const rc of regionCharges) {
+    const regName = typeof rc?.region === "string" ? rc.region.trim().toLowerCase() : ""
+    const normReg = regName.replace(/[^a-z0-9]/g, "")
+    if (normReg && normReg === normResolved) {
+      const charge = typeof rc?.charge === "number" && !isNaN(rc.charge) ? Math.max(0, Number(rc.charge)) : 0
+      return {
+        charge,
+        matchedRegionName: rc.region!.trim(),
+        matchedZoneName: getZoneForRegion(rc.region!),
+      }
+    }
+  }
+
+  // 3. Fallback to "Other"
   const otherRc = regionCharges.find((rc) => {
     const regName = typeof rc?.region === "string" ? rc.region.trim().toLowerCase() : ""
-    return regName === "other" || regName === "other region" || regName.includes("other")
+    return regName === "other" || regName === "other region"
   })
 
   if (otherRc) {
-    return typeof otherRc?.charge === "number" && !isNaN(otherRc.charge) ? Math.max(0, Number(otherRc.charge)) : 0
+    const charge = typeof otherRc?.charge === "number" && !isNaN(otherRc.charge) ? Math.max(0, Number(otherRc.charge)) : 0
+    return { charge, matchedRegionName: "Other", matchedZoneName: "Other" }
   }
 
-  const firstCharge = regionCharges[0]?.charge
-  return typeof firstCharge === "number" && !isNaN(firstCharge) ? Math.max(0, Number(firstCharge)) : 0
+  return { charge: 0, matchedRegionName: resolvedRegion, matchedZoneName: zone }
+}
+
+export function getRegionDeliveryCharge(
+  destinationState: string | null | undefined,
+  regionCharges: RegionCharge[] | null | undefined
+): number {
+  return getRegionDeliveryChargeDetails(destinationState, regionCharges).charge
 }
 
 export function calculateShippingBreakup(params: {
@@ -206,20 +239,24 @@ export function calculateShippingBreakup(params: {
       dimensionShippingFee: 0,
       regionShippingFee: 0,
       totalShippingFee: 0,
+      matchedRegionName: "Other",
+      matchedZoneName: "Other",
     }
   }
 
   const weightShippingFee = getShippingChargeForWeight(totalWeight, weightRanges)
   const dimensionShippingFee = getShippingChargeForDimension(totalVolume, dimensionRanges)
-  const regionShippingFee = getRegionDeliveryCharge(destinationState, regionCharges)
+  const regionDetails = getRegionDeliveryChargeDetails(destinationState, regionCharges)
 
   // Additive shipping formula: Weight + Dimension + Region
-  const totalShippingFee = weightShippingFee + dimensionShippingFee + regionShippingFee
+  const totalShippingFee = weightShippingFee + dimensionShippingFee + regionDetails.charge
 
   return {
     weightShippingFee,
     dimensionShippingFee,
-    regionShippingFee,
+    regionShippingFee: regionDetails.charge,
     totalShippingFee,
+    matchedRegionName: regionDetails.matchedRegionName,
+    matchedZoneName: regionDetails.matchedZoneName,
   }
 }

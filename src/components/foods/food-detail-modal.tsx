@@ -6,7 +6,7 @@ import { Button } from "@/ui/button"
 import { Input } from "@/ui/input"
 import { Textarea } from "@/ui/textarea"
 import { formatCurrency } from "@/lib/utils"
-import { Star, Plus, Minus, X, Utensils, ShoppingBag, MessageSquare, Sparkles, ChevronLeft, ChevronRight, Image as ImageIcon, Edit2, Lock, Check } from "lucide-react"
+import { Star, Plus, Minus, X, ShoppingBag, MessageSquare, Sparkles, ChevronLeft, ChevronRight, Image as ImageIcon, Edit2, Lock, Check } from "lucide-react"
 
 type FoodReview = {
   id: string
@@ -42,6 +42,25 @@ type FoodDetailModalProps = {
   onClose: () => void
   onAddToCart?: (item: any, quantity: number) => void
   getItemQty?: (foodItemId: string) => number
+}
+
+const FALLBACK_FOOD_IMAGES: Record<string, string> = {
+  pizza: "https://images.unsplash.com/photo-1513104890138-7c749659a591?w=600&q=80",
+  pasta: "https://images.unsplash.com/photo-1473093295043-cdd812d0e601?w=600&q=80",
+  burger: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=600&q=80",
+  biryani: "https://images.unsplash.com/photo-1589302168068-964664d93dc0?w=600&q=80",
+  sushi: "https://images.unsplash.com/photo-1617196034183-421b4040ed20?w=600&q=80",
+  tacos: "https://images.unsplash.com/photo-1565299585323-38d6b0865b47?w=600&q=80",
+  dessert: "https://images.unsplash.com/photo-1571877227200-a0d98ea607e9?w=600&q=80",
+  default: "https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=600&q=80",
+}
+
+function getFallbackFoodImage(category?: string, name?: string): string {
+  const key = [category || "", name || ""].join(" ").toLowerCase()
+  for (const [k, v] of Object.entries(FALLBACK_FOOD_IMAGES)) {
+    if (key.includes(k)) return v
+  }
+  return FALLBACK_FOOD_IMAGES.default
 }
 
 export function FoodDetailModal({
@@ -98,7 +117,7 @@ export function FoodDetailModal({
           }
         })
         .catch((err) => {
-          console.error("Error loading food details:", err)
+          console.error("Error loading food detail:", err)
           setFood(null)
         })
         .finally(() => setLoading(false))
@@ -177,7 +196,7 @@ export function FoodDetailModal({
 
   if (!isOpen) return null
 
-  const images = food
+  const rawImages = food
     ? food.images && food.images.length > 0
       ? food.images
       : food.image
@@ -185,6 +204,7 @@ export function FoodDetailModal({
       : []
     : []
 
+  const images = rawImages.length > 0 ? rawImages : [getFallbackFoodImage(food?.category, food?.name)]
   const currentQtyInCart = food && getItemQty ? getItemQty(food.id) : 0
 
   return (
@@ -193,18 +213,23 @@ export function FoodDetailModal({
         <DialogTitle className="sr-only">{food?.name || "Food Item Details"}</DialogTitle>
         
         {/* Header / Gallery */}
-        <div className="relative w-full h-64 sm:h-80 bg-amber-950 shrink-0 overflow-hidden group">
+        <div className="relative w-full h-64 sm:h-80 bg-slate-900 shrink-0 overflow-hidden group">
           {loading ? (
             <div className="h-full w-full flex items-center justify-center bg-slate-100">
-              <div className="h-10 w-10 border-4 border-amber-500 border-t-transparent rounded-full animate-spin" />
+              <div className="h-10 w-10 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin" />
             </div>
-          ) : images.length > 0 ? (
+          ) : (
             <>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={images[activeImageIdx] || images[0]}
                 alt={food?.name || "Food Item"}
                 className="w-full h-full object-cover"
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement
+                  target.onerror = null
+                  target.src = getFallbackFoodImage(food?.category, food?.name)
+                }}
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
 
@@ -238,11 +263,6 @@ export function FoodDetailModal({
                 </>
               )}
             </>
-          ) : (
-            <div className="h-full w-full flex flex-col items-center justify-center bg-amber-50 text-amber-300">
-              <Utensils className="h-16 w-16 mb-2 text-amber-200" />
-              <p className="text-xs font-bold text-amber-700/60">No Image Available</p>
-            </div>
           )}
 
           {/* Badges Overlay */}

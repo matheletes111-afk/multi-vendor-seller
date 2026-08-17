@@ -5,6 +5,7 @@ import { uploadPublicFile } from "@/lib/upload-public-file";
 import { UserRole } from "@prisma/client";
 import path from "path";
 import { generateSlug } from "@/lib/utils";
+import { HEAR_ABOUT_US_OPTIONS } from "@/lib/onboarding-constants";
 
 /**
  * GET /mobileapi/product-seller/onboarding
@@ -38,6 +39,7 @@ export async function GET(request: NextRequest) {
       selectedCategories: seller.selectedCategories,
       nationIdentityNumber: seller.nationIdentityNumber,
       agreement: seller.agreement,
+      hearAboutUsOptions: HEAR_ABOUT_US_OPTIONS,
     },
   });
 }
@@ -472,6 +474,7 @@ export async function POST(request: NextRequest) {
         agreedToCommission: formData.get("agreedToCommission") === "true",
         agreedToReturnPolicy: formData.get("agreedToReturnPolicy") === "true",
         agreedToPrivacy: formData.get("agreedToPrivacy") === "true",
+        hearAboutUs: (formData.get("hearAboutUs") as string) || null,
       } : { ...jsonBody.data };
 
       await prisma.seller.update({

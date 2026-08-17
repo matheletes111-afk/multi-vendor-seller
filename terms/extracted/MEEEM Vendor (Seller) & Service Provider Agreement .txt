@@ -1,0 +1,123 @@
+﻿VENDOR & SERVICE PROVIDER AGREEMENT
+This Vendor & Service Provider Agreement (“Agreement”) is entered into on this ___ day of ____, 2026 (“Effective Date”)
+BY AND BETWEEN
+MEEEMSL.COM , a company registered under the laws of Sierra Leone, having its registered office at FREETOWN, SL.
+(hereinafter referred to as the “Platform”, which expression shall include its successors and assigns)
+AND
+[Vendor / Service Provider Name], having its registered address at [Vendor Address]
+(hereinafter referred to as the “Vendor/Service Provider”)
+The Platform and Vendor/Service Provider shall collectively be referred to as the “Parties”.
+PURPOSE
+This Agreement governs the terms under which the Vendor/Service Provider lists and sells products or offers services through the Platform.
+SCOPE OF SERVICES
+Vendor (Product Seller)
+List and sell products via the Platform
+Maintain accurate inventory and product descriptions
+Service Provider
+Offer services for booking via the Platform
+Define availability, pricing, and service terms
+ONBOARDING REQUIREMENTS
+The Vendor/Service Provider agrees to provide:
+Valid identification documents
+Business registration details (if applicable)
+Bank or mobile money details
+Product/service details
+The Platform reserves the right to approve or reject onboarding.
+OBLIGATIONS OF THE VENDOR / SERVICE PROVIDER
+The Vendor/Service Provider shall:
+Provide accurate and complete information
+Ensure quality of products/services
+Deliver products/services within committed timelines
+Comply with all applicable laws and regulations
+Maintain updated pricing and availability
+PRICING & COMMISSION
+The Vendor/Service Provider shall set their own pricing
+The Platform shall charge a commission of ___% per transaction (or as agreed) ● Applicable fees may include:
+○ Listing fees
+○ Subscription fees
+○ Promotional charges
+PAYMENTS & SETTLEMENT
+Payments shall be collected by the Platform via integrated payment gateways
+The Platform shall remit payments to the Vendor/Service Provider after deducting:
+○ Commission
+○ Applicable fees
+Payout Cycle
+● 48-72 hrs, Weekly / Bi-weekly / Monthly (as agreed)
+REFUND, CANCELLATION & EXCHANGE
+Vendor/Service Provider must define:
+○ Refund policy
+○ Cancellation terms
+○ Exchange rules
+The Vendor/Service Provider shall Honor their stated policies
+The Platform may intervene in disputes
+SERVICE DELIVERY & LOGISTICS
+For Vendors
+Responsible for packaging and shipping products
+Ensure timely delivery
+For Service Providers
+Ensure service delivery as per booking
+Maintain professionalism and service quality
+PLATFORM RIGHTS
+The Platform reserves the right to:
+Suspend or terminate accounts
+Remove listings
+Modify platform features
+Withhold payments in case of disputes or violations
+INTELLECTUAL PROPERTY
+● Vendor/Service Provider grants the Platform a non-exclusive license to:
+○ Use product/service images
+○ Display branding and content for marketing purposes
+DATA PROTECTION & PRIVACY
+Vendor/Service Provider shall comply with Platform’s privacy and data protection policies
+Personal data of users must not be misused or shared without authorization
+PROHIBITED ACTIVITIES
+The Vendor/Service Provider shall NOT:
+Sell illegal or prohibited items
+Misrepresent products/services
+Engage in fraudulent activities
+Bypass the Platform for direct transactions
+LIABILITY & INDEMNITY
+Vendor/Service Provider shall be solely responsible for:
+Product quality
+○ Service delivery
+○ Customer disputes
+Vendor/Service Provider agrees to indemnify the Platform against:
+Claims
+○     Losses
+○     Damages arising from their actions
+LIMITATION OF LIABILITY
+The Platform shall not be liable for:
+Indirect or consequential damages
+Loss of profits or business
+Vendor/service provider defaults
+TERM & TERMINATION
+Term
+This Agreement shall remain in effect until terminated.
+Termination
+Either Party may terminate:
+With prior written notice (e.g., 15–30 days)
+Immediately in case of breach
+DISPUTE RESOLUTION
+Parties shall attempt to resolve disputes amicably
+In case of unresolved disputes, legal proceedings may be initiated
+GOVERNING LAW
+This Agreement shall be governed by the laws of Sierra Leone.
+FORCE MAJEURE
+Neither Party shall be liable for failure due to:
+Natural disasters
+Government restrictions
+Events beyond reasonable control
+AMENDMENTS
+The Platform may update this Agreement from time to time.
+Continued use of the Platform constitutes acceptance of updated terms.
+CONFIDENTIALITY
+Both Parties agree to:
+Maintain confidentiality of sensitive information
+Not disclose business or operational data
+ENTIRE AGREEMENT
+This Agreement constitutes the entire understanding between the Parties and supersedes prior agreements.
+SIGNATURES
+For the Platform
+Automated
+For the Vendor/Service Provider
+Automated

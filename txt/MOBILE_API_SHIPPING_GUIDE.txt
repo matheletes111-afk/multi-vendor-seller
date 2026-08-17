@@ -1,6 +1,6 @@
 ================================================================================
           MEEEM MULTI-VENDOR MOBILE API - SHIPPING & REGION GUIDE
-          (Backend & Web & Mobile 100% Synced — Updated August 2026)
+          (Backend, Web & Flutter Mobile 100% Synced — Updated August 2026)
 ================================================================================
 
 1. OVERVIEW & CALCULATION FORMULA
@@ -9,7 +9,7 @@ The backend shipping engine calculates multi-vendor delivery charges dynamically
 
   1) Weight-based Shipping Fee (weightShippingFee)
   2) Dimension-based Shipping Fee (dimensionShippingFee)
-  3) Region-based Shipping Fee (regionShippingFee)
+  3) Region-based Shipping Surcharge (regionShippingFee)
 
 ADDITIVE & PER-SELLER PACKAGING FORMULA:
 - Items from DIFFERENT sellers are packaged and shipped independently.
@@ -26,42 +26,65 @@ NULL & ZERO WEIGHT/DIMENSION/REGION RULE:
 - Missing, null, or 0 weight/dimensions are treated as 0 kg / 0 cm³.
 - They are NOT skipped and do NOT automatically default to 0/FREE.
 - Instead, 0 kg / 0 cm³ is looked up in the Admin-configured tier table (e.g. 0-5 kg tier or base tier) to return the Admin's configured delivery fee.
-- If address region is null/unspecified or unlisted, it maps to "Other" region and applies the Admin "Other" region delivery surcharge (or fallback first region charge).
+- If address region is null/unspecified or unlisted, it maps to "Other" region and applies the Admin "Other" region delivery surcharge.
 
 
-2. MOBILE APP UI MOCKUPS (MATCHING EXACT CHECKOUT SCREENSHOT)
+2. REGION & DELIVERY ZONE PRIORITY MATCHING
+--------------------------------------------------------------------------------
+The delivery engine follows a strict 4-tier hierarchy for matching customer addresses to delivery zones and surcharges:
+
+  1) Priority 1: Specific Delivery Zones (ZONE 1 to ZONE 15)
+     - Evaluates street, building, sublocality, and area against 200+ specific location areas (e.g. PZ, Lumley, Wallace Johnson Street, Aberdeen, Kissy Road).
+  2) Priority 2: Gemini AI Spatial Matching
+     - Uses Gemini AI with spatial reasoning that prioritizes specific delivery zones (ZONE 1 to 15).
+  3) Priority 3: Administrative Provinces (Western Area, Eastern Province, Northern Province, etc.)
+     - Used ONLY if the location does not match any specific delivery zone.
+  4) Priority 4: "Other" (Fallback).
+
+AI Region Matcher API:
+  POST /api/customer/checkout/ai-match-region
+  Request:  { "addressLine1": "...", "city": "...", "state": "..." }
+  Response: { "matchedRegion": "PZ", "zone": "ZONE 5", "charge": 50, ... }
+
+CLEAN DISPLAY LABEL RULE:
+  - If zone starts with "ZONE" (e.g. ZONE 5): Display "📍 PZ (ZONE 5)" or "📍 Lumley (ZONE 2)"
+  - If zone is "Administrative Provinces":    Display "📍 Western Area"
+  - If "Other":                               Display "📍 Other"
+
+
+3. MOBILE APP UI MOCKUPS (MATCHING WEB & ORDER SCREENS)
 --------------------------------------------------------------------------------
 
-A. MULTI-VENDOR DELIVERY BOX & BREAKDOWN (CUSTOMER CHECKOUT)
+A. MULTI-VENDOR DELIVERY BOX & BREAKDOWN (CUSTOMER CHECKOUT & SUCCESS)
 
   ┌────────────────────────────────────────────────────────────────────────┐
   │ Subtotal                                                  NLe 8,018.00 │
-  │ Total GST (Tax)                                           NLe 1,202.70 │
+  │ Total GST (Tax Included)                                  NLe 1,202.70 │
   │                                                                        │
   │ 🚚 Multi-Vendor Delivery (2 Sellers)                                  │
   │ ┌────────────────────────────────────────────────────────────────────┐ │
-  │ │ 🏪 Tech Store One updated                              NLe 200.00 │ │
+  │ │ 🏪 Tech Store One                                       NLe 200.00 │ │
   │ │   Weight charge                                         NLe 50.00  │ │
   │ │   Dimension charge                                      NLe 50.00  │ │
-  │ │   Region charge (Western Area)                         NLe 100.00  │ │
+  │ │   Regional Surcharge (📍 PZ (ZONE 5))                  NLe 100.00  │ │
   │ └────────────────────────────────────────────────────────────────────┘ │
   │ ┌────────────────────────────────────────────────────────────────────┐ │
   │ │ 🏪 SKAITEL                                             NLe 270.00 │ │
   │ │   Weight charge                                        NLe 100.00  │ │
   │ │   Dimension charge                                      NLe 70.00  │ │
-  │ │   Region charge (Western Area)                         NLe 100.00  │ │
+  │ │   Regional Surcharge (📍 PZ (ZONE 5))                  NLe 100.00  │ │
   │ └────────────────────────────────────────────────────────────────────┘ │
   │ ────────────────────────────────────────────────────────────────────── │
-  │ Total Shipping (incl. Region)                            NLe 470.00    │
+  │ Total Shipping Fee                                        NLe 470.00   │
   └────────────────────────────────────────────────────────────────────────┘
 
   ┌────────────────────────────────────────────────────────────────────────┐
-  │ DELIVERY BREAKDOWN                                                     │
-  │ Weight-based                                              NLe 150.00   │
-  │ Dimension-based                                           NLe 120.00   │
-  │ Region surcharge (Western Area)                           NLe 200.00   │
+  │ DELIVERY BREAKDOWN                              📍 PZ (ZONE 5)        │
+  │ Weight-based Fee                                          NLe 150.00   │
+  │ Dimension-based Fee                                       NLe 120.00   │
+  │ Regional Surcharge (📍 PZ (ZONE 5))                       NLe 200.00   │
   │ ────────────────────────────────────────────────────────────────────── │
-  │ Grand Total                                               NLe 9,690.70  │
+  │ Grand Total                                               NLe 9,690.70 │
   └────────────────────────────────────────────────────────────────────────┘
 
 B. ORDER SUMMARY — LINE ITEM WITH SMALL TAX TEXT (CUSTOMER CHECKOUT)
@@ -69,36 +92,16 @@ B. ORDER SUMMARY — LINE ITEM WITH SMALL TAX TEXT (CUSTOMER CHECKOUT)
   ┌────────────────────────────────────────────────────────────────────────┐
   │ Order Summary                                                 2 Items  │
   │ ────────────────────────────────────────────────────────────────────── │
-  │ ┌────┐ Air SKYLAND Compressor Leg Massager w...                        │
-  │ │📷  │ 🏪 SKAITEL                                                       │
+  │ ┌────┐ Air SKYLAND Compressor Leg Massager                             │
+  │ │📷  │ 🏪 SKAITEL                                                      │
   │ └────┘ Qty: 1 × NLe 8,000.00                              NLe 9,200.00 │
-  │        + Tax (GST): NLe 1,200.00  <-- (Small text, text-[10px])       │
+  │        + Tax (GST): NLe 1,200.00  <-- (Small text, text-[10px])        │
   │ ────────────────────────────────────────────────────────────────────── │
   │ ┌────┐ Mens Tshirt (Red - XL)                                          │
-  │ │📷  │ 🏪 Tech Store One updated                                       │
-  │ └────┘ Qty: 1 × NLe 18.00                                   NLe 20.70 │
-  │        + Tax (GST): NLe 2.70     <-- (Small text, text-[10px])       │
+  │ │📷  │ 🏪 Tech Store One                                               │
+  │ └────┘ Qty: 1 × NLe 18.00                                   NLe 20.70  │
+  │        + Tax (GST): NLe 2.70      <-- (Small text, text-[10px])        │
   └────────────────────────────────────────────────────────────────────────┘
-
-
-3. MOBILE ADDRESS FORM & MAP REGION RESOLUTION
---------------------------------------------------------------------------------
-When adding or updating a delivery address (via POST/PATCH /mobileapi/customer/checkout/addresses),
-the app MUST present a dropdown for the 'state' field containing Sierra Leone's
-Administrative Regions + Fallback:
-
-  - Eastern Province
-  - Northern Province
-  - North West Province
-  - Southern Province
-  - Western Area
-  - Other                      <-- Fallback region for custom/other destinations
-
-MAP & REVERSE GEOCODING REGION EXTRACTION:
-- When a customer picks a location on the Map or uses GPS reverse-geocoding (lat/lng):
-  1) Extract the administrative region or city from the geocoding response.
-  2) Map major cities/areas to standard regions (e.g. Freetown -> Western Area, Kenema -> Eastern Province, Bo -> Southern Province, Makeni -> Northern Province).
-  3) If the geocoded location or city does not match any of the 5 main provinces, pass `state: "Other"`.
 
 
 4. CHECKOUT API ENDPOINTS & JSON RESPONSE SHAPES
@@ -122,7 +125,7 @@ Response Example (Multi-Vendor with 2 Sellers):
   "sellerGroups": [
     {
       "sellerId": "seller_1",
-      "sellerName": "Tech Store One updated",
+      "sellerName": "Tech Store One",
       "itemsCount": 1,
       "sellerDeliveryFee": 200.00,
       "shippingBreakup": {
@@ -183,6 +186,10 @@ Response Example:
   }
 }
 
+NOTE ON CART COUNT:
+  After a successful order placement, the mobile app MUST reset its local cart store
+  count to 0 immediately.
+
 
 C. GET /mobileapi/product-seller/orders/[id] (SELLER ORDER DETAILS)
 --------------------------------------------------------------------------------
@@ -234,7 +241,7 @@ Response Example (includes per-seller delivery charge breakup):
   "sellerGroups": [
     {
       "sellerId": "seller_1",
-      "sellerStoreName": "Tech Store One updated",
+      "sellerStoreName": "Tech Store One",
       "summary": {
         "subtotal": 18.00,
         "tax": 2.70,

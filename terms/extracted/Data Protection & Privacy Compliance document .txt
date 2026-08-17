@@ -1,0 +1,107 @@
+﻿DATA PROTECTION & PRIVACY
+COMPLIANCE POLICY
+Introduction
+This Data Protection & Privacy Compliance Policy outlines how the platform collects, processes, stores, and protects personal data of users, vendors, and service providers.
+We are committed to ensuring that all personal data is handled in a secure, lawful, and transparent manner in compliance with applicable laws and international best practices.
+Scope
+This policy applies to:
+Customers (buyers/service users)
+Vendors (product sellers)
+Service providers
+Website and mobile application users
+It covers all data processed through:
+Mobile application (Flutter)
+Web platform (Next.js)
+Backend APIs and cloud infrastructure (AWS EC2 & S3)
+Types of Data Collected
+Personal Data
+Full name
+Phone number
+Email address
+Delivery address
+Profile details
+Transaction Data
+Order history
+Booking details
+Payment transaction references (no sensitive card data stored)
+Technical Data
+IP address
+Device information
+Browser type
+App usage logs
+Vendor/Service Provider Data
+Business details
+Identification documents (if required for verification)
+Bank/mobile money details
+Purpose of Data Collection
+Data is collected for the following purposes:
+User registration and account management
+Processing orders and service bookings
+Payment processing via third-party providers
+Customer support and communication
+Platform improvement and analytics
+Fraud prevention and security monitoring
+Legal Basis for Processing
+Data is processed based on:
+User consent
+Contractual necessity (service delivery)
+Legal obligations
+Legitimate business interests
+Data Storage and Security
+Infrastructure Security
+Hosted on Amazon Web Services (AWS EC2)
+Data storage using PostgreSQL database
+Media storage via AWS S3 (secure bucket policies)
+Security Measures
+HTTPS/SSL encryption
+Secure API authentication (JWT tokens)
+Role-based access control (RBAC)
+Data encryption at rest and in transit
+Regular security updates and monitoring
+Data Sharing and Disclosure
+We do not sell personal data. Data may be shared only with:
+Payment gateways (e.g., mobile money providers, card processors)
+Logistics/delivery partners
+Legal authorities
+Cloud service providers (AWS)
+All third parties are required to maintain confidentiality and data security standards.
+Data Retention Policy
+Personal data is retained only as long as necessary
+Transaction data may be retained for legal and accounting purposes
+Inactive accounts may be deleted after a defined period
+User Rights
+Users have the right to:
+Access their personal data
+Request correction of inaccurate data
+Request deletion of their data
+Withdraw consent
+Object to certain types of processing
+Requests can be made via official support channels or in app support system.
+Cookies and Tracking Technologies
+The platform may use cookies and similar technologies to:
+Improve user experience
+Analyze platform performance
+Personalize content
+Users can control cookie preferences via browser settings.
+Cross-Border Data Transfer
+Data may be stored or processed outside Sierra Leone (e.g., AWS global infrastructure). In such cases, appropriate safeguards are implemented to ensure data protection.
+Compliance with Local Regulations
+The platform aligns with:
+Guidelines of Bank of Sierra Leone (for digital payments)
+Applicable ICT and data protection practices in Sierra Leone
+International standards such as GDPR principles (where applicable)
+Data Breach Management
+In case of a data breach:
+Immediate investigation will be conducted
+Affected users will be notified (if required)
+Corrective actions will be implemented promptly
+Children’s Data Protection
+The platform is not intended for users under the age of 18 without parental consent. We do not knowingly collect data from minors.
+Policy Updates
+This policy may be updated periodically.
+Users will be notified of significant changes through the platform.
+Contact Information
+For any data protection concerns or requests:
+Email: support@meeemsl.com
+Address: Freetown, SL
+Support: In-app / website contact form/ Support email

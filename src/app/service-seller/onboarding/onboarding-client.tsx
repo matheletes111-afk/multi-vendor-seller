@@ -18,6 +18,8 @@ import { StoreLocationPicker } from "@/components/store-location-picker"
 import { FileText, Image as ImageIcon, CheckCircle2, ChevronLeft, ChevronRight, Upload, AlertCircle, Check, User, LogOut, Plus, X, Pencil } from "lucide-react"
 import Image from "next/image"
 import { cn } from "@/lib/utils"
+import { HEAR_ABOUT_US_OPTIONS } from "@/lib/onboarding-constants"
+import { LegalTermsModal, LegalDocType } from "@/components/legal/legal-terms-modal"
 
 type Step = 2 | 3 | 4 | 5 | 6 | 7
 
@@ -58,6 +60,8 @@ export function ServiceOnboardingClient() {
     agreedToReturnPolicy: false,
     agreedToPrivacy: false
   })
+  const [activeLegalModal, setActiveLegalModal] = useState<LegalDocType | null>(null)
+  const [hearAboutUs, setHearAboutUs] = useState("")
   const [haveGst, setHaveGst] = useState(false)
 
   useEffect(() => {
@@ -72,6 +76,9 @@ export function ServiceOnboardingClient() {
           agreedToReturnPolicy: !!seller.agreement.agreedToReturnPolicy,
           agreedToPrivacy: !!seller.agreement.agreedToPrivacy
         })
+        if (seller.agreement.hearAboutUs) {
+          setHearAboutUs(seller.agreement.hearAboutUs)
+        }
       }
       if (seller.businessInfo) {
         setHaveGst(!!seller.businessInfo.haveGst)
@@ -184,6 +191,7 @@ export function ServiceOnboardingClient() {
           data.agreedToCommission = formData.get("agreedToCommission") === "on"
           data.agreedToReturnPolicy = formData.get("agreedToReturnPolicy") === "on"
           data.agreedToPrivacy = formData.get("agreedToPrivacy") === "on"
+          data.hearAboutUs = hearAboutUs || (formData.get("hearAboutUs") as string) || null
           res = await fetch("/api/service-seller/onboarding", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -950,28 +958,120 @@ export function ServiceOnboardingClient() {
                   <h1 className="text-3xl font-bold text-slate-900">Agreement & Compliance</h1>
                   <p className="text-slate-500 mt-2">Final confirmation before submitting your application.</p>
                 </div>
+
+                <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100 space-y-3 mb-6">
+                  <div>
+                    <Label htmlFor="hearAboutUs" className="text-base font-bold text-slate-800">
+                      Where did you hear about our platform?
+                    </Label>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Please select how you first learned about Meeem.
+                    </p>
+                  </div>
+                  <Select value={hearAboutUs} onValueChange={setHearAboutUs}>
+                    <SelectTrigger id="hearAboutUs" className="h-12 rounded-2xl bg-white border-slate-200 text-slate-800">
+                      <SelectValue placeholder="Select an option" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {HEAR_ABOUT_US_OPTIONS.map((opt) => (
+                        <SelectItem key={opt} value={opt}>
+                          {opt}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
                 <div className="space-y-4 bg-slate-50 p-6 rounded-3xl border border-slate-100">
                   {[
-                    { id: "agreedToTerms", label: "Accept Service Seller Terms & Conditions", sub: "I agree to the platform terms and service level agreements." },
-                    { id: "agreedToCommission", label: "Commission & Fee Agreement", sub: "I understand lead fees and booking commissions for my services." },
-                    { id: "agreedToReturnPolicy", label: "Cancellation & Refund Policy", sub: "I agree to honor appointments and follow refund guidelines." },
-                    { id: "agreedToPrivacy", label: "Data Consent", sub: "I agree to the collection of my business information for verification." }
-                  ].map((check) => (
-                    <div key={check.id} className="flex items-start space-x-4 p-4 rounded-2xl hover:bg-white transition-colors cursor-pointer group">
-                      <Checkbox
-                        id={check.id}
-                        name={check.id}
-                        className="mt-1 w-5 h-5"
-                        checked={(agreements as any)[check.id]}
-                        onChange={(e: any) => setAgreements(prev => ({ ...prev, [check.id]: e.target.checked }))}
-                        required
-                      />
-                      <div className="grid gap-1.5 leading-none cursor-pointer">
-                        <Label htmlFor={check.id} className="text-base font-bold text-slate-800 cursor-pointer">{check.label}</Label>
-                        <p className="text-xs text-slate-500">{check.sub}</p>
+                    {
+                      id: "agreedToTerms",
+                      label: "General Service Seller Terms & Conditions",
+                      sub: "I agree to the platform terms and service level agreements.",
+                      docType: "general-terms" as LegalDocType,
+                      docTitle: "Terms & Conditions",
+                    },
+                    {
+                      id: "agreedToPrivacy",
+                      label: "Data Privacy & Protection Policy",
+                      sub: "I agree to the secure collection and verification of my business information.",
+                      docType: "privacy-policy" as LegalDocType,
+                      docTitle: "Privacy Policy",
+                    },
+                    {
+                      id: "agreedToReturnPolicy",
+                      label: "Vendor & Service Provider Agreement",
+                      sub: "I agree to honor bookings, listing policies, and cancellation guidelines.",
+                      docType: "vendor-agreement" as LegalDocType,
+                      docTitle: "Service Provider Agreement",
+                    },
+                    {
+                      id: "agreedToCommission",
+                      label: "Payment Settling & Commission Terms",
+                      sub: "I understand lead fees, automated 12-72h settlement, and booking commissions.",
+                      docType: "payment-settlement" as LegalDocType,
+                      docTitle: "Payment Settlement Policy",
+                    },
+                  ].map((check) => {
+                    const isChecked = (agreements as any)[check.id]
+                    return (
+                      <div
+                        key={check.id}
+                        className={cn(
+                          "p-4 rounded-2xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4",
+                          isChecked
+                            ? "bg-white border-purple-300 shadow-sm"
+                            : "bg-white/60 border-slate-200 hover:border-slate-300"
+                        )}
+                      >
+                        <div className="flex items-start gap-3.5">
+                          <Checkbox
+                            id={check.id}
+                            name={check.id}
+                            className="mt-1 w-5 h-5 rounded-md text-purple-600 focus:ring-purple-500"
+                            checked={isChecked}
+                            onChange={(e: any) =>
+                              setAgreements((prev) => ({
+                                ...prev,
+                                [check.id]: e.target.checked,
+                              }))
+                            }
+                            required
+                          />
+                          <div className="space-y-0.5">
+                            <Label
+                              htmlFor={check.id}
+                              className="text-sm font-bold text-slate-800 cursor-pointer flex items-center gap-2"
+                            >
+                              <span>{check.label}</span>
+                              {isChecked && (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-purple-700 bg-purple-50 px-2 py-0.5 rounded-full border border-purple-200">
+                                  <Check className="w-2.5 h-2.5" /> Agreed
+                                </span>
+                              )}
+                            </Label>
+                            <p className="text-xs text-slate-500">{check.sub}</p>
+                          </div>
+                        </div>
+
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setActiveLegalModal(check.docType)}
+                          className={cn(
+                            "rounded-xl text-xs font-semibold px-4 h-9 self-start sm:self-auto shrink-0 transition-colors",
+                            isChecked
+                              ? "border-purple-200 text-purple-700 hover:bg-purple-50"
+                              : "border-slate-200 text-slate-700 hover:bg-slate-50 bg-white"
+                          )}
+                        >
+                          <FileText className="w-3.5 h-3.5 mr-1.5" />
+                          {isChecked ? "Review Document" : "Read & Agree"}
+                        </Button>
                       </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
                 <div className="mt-12 flex justify-between">
                   <Button type="button" variant="ghost" onClick={handleBack} disabled={saving} className="h-12 px-8 rounded-full text-slate-500 hover:text-slate-900"><ChevronLeft className="mr-2 h-4 w-4" /> Back</Button>
@@ -1008,6 +1108,36 @@ export function ServiceOnboardingClient() {
           </div>
         </div>
       </div>
+
+      {/* Interactive Legal Document Modal */}
+      {activeLegalModal && (
+        <LegalTermsModal
+          type={activeLegalModal}
+          isOpen={!!activeLegalModal}
+          onClose={() => setActiveLegalModal(null)}
+          isAccepted={
+            activeLegalModal === "general-terms"
+              ? agreements.agreedToTerms
+              : activeLegalModal === "privacy-policy"
+              ? agreements.agreedToPrivacy
+              : activeLegalModal === "vendor-agreement"
+              ? agreements.agreedToReturnPolicy
+              : agreements.agreedToCommission
+          }
+          onAccept={() => {
+            if (activeLegalModal === "general-terms") {
+              setAgreements((prev) => ({ ...prev, agreedToTerms: true }))
+            } else if (activeLegalModal === "privacy-policy") {
+              setAgreements((prev) => ({ ...prev, agreedToPrivacy: true }))
+            } else if (activeLegalModal === "vendor-agreement") {
+              setAgreements((prev) => ({ ...prev, agreedToReturnPolicy: true }))
+            } else if (activeLegalModal === "payment-settlement") {
+              setAgreements((prev) => ({ ...prev, agreedToCommission: true }))
+            }
+          }}
+        />
+      )}
     </div>
   )
 }
+

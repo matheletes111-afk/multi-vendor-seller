@@ -131,14 +131,9 @@ function validateAndSortDimensionRanges(ranges: any): { sorted: DimensionRangeIn
   return { sorted: parsed, error: null }
 }
 
-const ALLOWED_ADMINISTRATIVE_REGIONS = [
-  "Eastern Province",
-  "Northern Province",
-  "North West Province",
-  "Southern Province",
-  "Western Area",
-  "Other",
-] as const
+import { ALL_LOCATION_REGIONS } from "@/lib/location-zones"
+
+const ALLOWED_ADMINISTRATIVE_REGIONS = ALL_LOCATION_REGIONS
 
 interface RegionDeliveryChargeInput {
   region: string

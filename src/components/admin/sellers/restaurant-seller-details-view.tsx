@@ -272,6 +272,13 @@ export function RestaurantSellerDetailsView({
                   </div>
                </div>
                
+               {seller.agreement?.hearAboutUs && (
+                 <div className="flex items-center justify-between p-3 rounded-xl bg-purple-500/10 border border-purple-500/20">
+                   <span className="text-xs font-medium text-purple-700 dark:text-purple-300">Referral / Source</span>
+                   <span className="text-xs font-bold text-purple-900 dark:text-purple-100">{seller.agreement.hearAboutUs}</span>
+                 </div>
+               )}
+               
                <div className="pt-2">
                   <span className="text-[10px] font-bold text-muted-foreground uppercase ml-1 mb-2 block">Signed Document</span>
                   <DocumentThumbnail url={seller.agreement?.documentUrl} title="Signed Agreement" />

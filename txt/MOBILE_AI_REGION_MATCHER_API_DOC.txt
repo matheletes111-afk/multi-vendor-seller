@@ -1,0 +1,476 @@
+================================================================================
+MOBILE & WEB API DOCUMENTATION: AI-POWERED DELIVERY REGION & ZONE MATCHER
+================================================================================
+
+API ENDPOINT:
+  POST /api/customer/checkout/ai-match-region
+
+SUMMARY:
+  This API accepts a customer's physical delivery address (street, city, state/province, landmarks)
+  and leverages a multi-tier spatial resolution engine with strict priority order:
+    1. Priority 1 (Highest): Specific Delivery Zones (ZONE 1 to ZONE 15) evaluated from streets,
+       neighborhoods, landmarks, and area names.
+    2. Priority 2: Gemini AI spatial intelligence prioritizing specific delivery zones (ZONE 1 to 15).
+    3. Priority 3: Administrative Provinces (Western Area, Northern Province, etc.) used ONLY if
+       the address does not belong to any specific delivery zone.
+    4. Priority 4 (Lowest): "Other" fallback.
+  It also returns the exact live delivery surcharge (in NLe) configured in the database admin settings.
+
+NOTE FOR MOBILE DEVELOPERS:
+  YES! This exact same API is used for both Next.js Web Checkout and Flutter Mobile Apps.
+  There is zero separate logic required for mobile apps.
+
+===============================================================================
+1. REQUEST SPECIFICATION
+===============================================================================
+
+HTTP METHOD:
+  POST
+
+FULL URL:
+  http://<YOUR_DOMAIN_OR_LOCAL_IP>:3000/api/customer/checkout/ai-match-region
+
+HEADERS:
+  Content-Type: application/json
+  (Optional) Cookie: authjs.session-token=... (or Authorization: Bearer <token>)
+
+REQUEST BODY SCHEMA (JSON):
+{
+  "addressLine1": "15 Beach Road, near Lakka Junction",
+  "addressLine2": "Apt 3B",
+  "city": "Freetown",
+  "state": "Western Area",
+  "postalCode": "90001"
+}
+
+FIELD DETAILS:
+  - addressLine1 (string, optional): Primary street address or landmark (e.g. "15 Beach Road")
+  - addressLine2 (string, optional): Apartment, suite, or building name
+  - city         (string, optional): City or town name (e.g. "Freetown", "Bo", "Makeni")
+  - state        (string, optional): State / Province / District / Area name (e.g. "Western Area")
+  - postalCode   (string, optional): Zip or Postal code
+
+===============================================================================
+2. RESPONSE SPECIFICATIONS
+===============================================================================
+
+2.1 SUCCESS RESPONSE (200 OK):
+{
+  "success": true,
+  "data": {
+    "matchedRegion": "LAKKA",
+    "zone": "ZONE 1",
+    "confidence": 0.98,
+    "reasoning": "Address specifies Lakka Beach Road and Lakka Junction in Western Area.",
+    "isAiMatched": true,
+    "charge": 50
+  }
+}
+
+RESPONSE FIELD DEFINITIONS:
+  - matchedRegion (string):  Exact region matched from system list (e.g. "LAKKA", "CONGO CROSS", "PZ", "Western Area", "Other").
+  - zone          (string):  Parent zone name (e.g. "ZONE 1", "ZONE 4", "ZONE 5", "Administrative Provinces", "Other").
+  - confidence    (number):  Confidence score 0.0 to 1.0 (e.g. 0.98 = 98%).
+  - reasoning     (string):  Short spatial explanation from AI/matcher.
+  - isAiMatched   (boolean): true = matched by Gemini AI. false = deterministic exact match or fallback.
+  - charge        (number):  Live delivery surcharge fee in NLe from Admin Settings (e.g. 50.0).
+
+2.2 FALLBACK / UNKNOWN LOCATION RESPONSE (200 OK):
+{
+  "success": true,
+  "data": {
+    "matchedRegion": "Other",
+    "zone": "Other",
+    "confidence": 0.5,
+    "reasoning": "Standard fallback region.",
+    "isAiMatched": false,
+    "charge": 50
+  }
+}
+
+2.3 ERROR RESPONSE (400 / 500):
+{
+  "success": false,
+  "error": "Invalid address input payload"
+}
+
+===============================================================================
+3. SYSTEM ZONES & REGIONS DATASET REFERENCE (IN PRIORITY ORDER)
+===============================================================================
+
+--- PRIORITY 1: Specific Delivery Zones (ZONE 1 to ZONE 15) ---
+
+- ZONE 1:
+    NO 2 RIVER, BAW BAW, FREEMAN STREET, HALMILTON, LAKKA, LAKKA JUNCTION, SAN DRIVE,
+    SAIDU LANE, PONTO DRIVE, KOGBO, KABBA DRIVE, K BANGS DRIVE, DEEN SANKOH DRIVE,
+    BAH LANE, DESMOND LANE, HAMILTON VILLAGE JUNCTION ROAD
+
+- ZONE 2:
+    LAKKA, OGOO FARM, ANGOLA, ADONKIA, COLLLEGE ROAD, METCHEM JUCTION, FEMI TURNER,
+    FUNKIA, BAH JUNCTION, GODRICH, BATTLION, JUBA BARRACK, JUBA, LUMLEY, MALAMA,
+    BABADORIE, REGENT ROAD LUMLEY, BANGA FARM, COCKLE BAY, JUBA HILL, TARAWALLEY DRIVE,
+    FOFANAH DRIVE, YUMKELLA ROAD, CEMETERY ROAD, KOIVAYA AMARA DRIVE, GODERICH ROAD
+
+- ZONE 3:
+    TOKEH, YORK, KENT, BUREH, NO.2, JOHN OBEY, BLACLK JOHNSON, TOMBO, RUSSEL, WATERLOO
+
+- ZONE 4:
+    LUMLEY BEACH ROAD, BEACH ROAD, WILKINSON ROAD, FAMILY KINGDOM, COCKERY, BIG HOUSE,
+    INDIA TEMPLE, SMART FARM JUNCTION, COLLAGIATE JUNCTION, DISTNY DRIVE, FIELDER LANE,
+    SCAN DRIVE, WHITE POLE, ABERDEEN ROAD, SIR SAMUEL LEWIS ROAD, MUDGE FARM,
+    GRAMMER SCHOOL JUNTION, ABERDEEN, ABERDEEN VILLAGE, SOSO VILLAGE, MURRAY TOWN,
+    CONGO CROSS, KING STREET CONGO TOWN, WATER STREET, GIRL SCHOOL, TECHINAL SCHOOL,
+    ASCENSION TOWN, SYKE STREET, ADLELAIDE STREET, BROOKFIELD, TEGBEH TOWN, YUYIE BUILDING,
+    SAVAGE BRIDGE, ST JOHN
+
+- ZONE 5:
+    SANDER STREET, EDWARD STREET, BROOK STREET, CONGO MARKRT, CIRCULAR ROAD, PADAMBA ROAD,
+    WATERLOO STREET, BATHURST STREET, WELLINGTON STREET, POULTNEY STREET, LIVERERPOOL STREET,
+    LAMINA SANKOH STREET, LIGHTFOOOT BOSTON STREET, CHARLOTTE STEERT, RAWDON STREET,
+    WILBERFORCE STREET, PZ, GODRICH STREET, MOUNTAIN CUT, NEW ENGLAND FIELD, DWARZACK,
+    MODEL NEW ROAD, MODEL OLD ROAD, MOUNT OREL, KISSY ROAD, SAVAGE SQURE, SANI ABACHA,
+    EASTERN POLICE
+
+- ZONE 6:
+    UP-GUN, CLINE TOWN, FERRY JUNCTION, PORTEE, KISSY BROOK, WELLINGTON, GRASS FIELD,
+    THUNDER HILL, SHELL, KALABA TOWN, ALLEN TOWN, JUI, GRAFTON, HASTING, PMB JUNCTION,
+    SHELL KISSY, CONGO WATER, ROKEL JUNCTION, KISSY DOCKYARD, JENNER WRIGHT,
+    BARRACKS OLD ROAD, JUI ROAD, BAIMBU DRIVE, FOMBA DRIVE, LEIGH ROAD, SYER AVENUE,
+    BACK STREET, JUI STATION ROAD
+
+- ZONE 7:
+    HASTINGS, KOSSO TOWN, DEVIL HOLE, YAMS FARM, ROKEL, BANGA FARM, SUSSEX JUNCTION,
+    TOMBO JUNCTION, WATERLOO CLOCK TOWER, 55 JUNCTION, WATERLOO CENTRAL JUNCTION,
+    CHINA HOSPITAL JUNCTION, GRAFTON JUNCTION, GRAFTON REGENT ROAD JUNCTION, MAMBO JUNCTION,
+    FOUR MILE JUNCTION, WATERLOO HIGHWAY, CHURCH STREET, KING STREET, FREY STREET,
+    ROGBANGBA ROAD, FOUR MILE ACCESS ROAD
+
+- ZONE 8:
+    LUMLEY, LUMLEY ROAD, SPUR ROAD, FREETOWN ROAD, WILBERFORCE, WILBERFORCE VILLAGE,
+    SIGNALL HILL, SPURLOOP, HILL CUT, HILL STATION, IMATT, LEICESTER, GLOUCESTER,
+    BATHURST VILLAGE, BATHURST JUNCTION, BATHURST MAIN ROAD
+
+- ZONE 9:
+    IMATT JUNCTION, REGENT, HINGA ROAD, BALLAY LANE, TURAY DRIVE, HULKET LANE,
+    ROBERT STREET, THOMAS STREET, MASCOM DRIVE, YAYAH LANE, CYPRUS ROAD, SESAY LANE,
+    RENNER DRIVE, KEBBI DRIVE, JUI, KOSSOH TOWN, BASSA TOWN,
+    FREETOWN TEACHERS COLLEGE JUNCTION
+
+- ZONE 10:
+    AIR -FERRY ROAD, ERNEST BAI KOROMA, PETER CONTEH STREET, KAMARA STREET, MAHERAH,
+    TINTAFOR, KALLON STREET, MODU STREET, MASUBA ROAD, MUBUREH ROAD, KOYA ROAD, TAGRIN,
+    MASOLIA, SAWKTAR, KASONGAHA, TULUN, YONGORO
+
+- ZONE 11:
+    MOKERA, PETIFUL, GBONKOPIL, MASORIE, MAGBAFTH, SONGO, ROGBERE, MILE 36, MAKANEH,
+    ROWAL, MAKOSE, MAYONGA, MABEKE, MATEI, YEMA, MAKOYA
+
+- ZONE 12:
+    MAGBURAKA ROAD, KAABALA HIGHWAY, MAKENI FREETOWN HIGH WAY, TEKO ROAD, WUSUM ROAD,
+    CAMPBELL STREET, AZZOLINI HIGHWAY, STATION ROAD, NEW LONDON ROAD, MASONS ROAD,
+    VILLAGE, HANGA ROADE, WUSUM VILLAGE, MASONGBO VILLAGE, MAKARI VILLAGE, KAGBERE VILLAGE,
+    KAMABAI VILLAGE, KAMAKWIE VILLAGE, MANGE VILLAGE, MATHINKA VILLAGE, ROSINT VILLAGE,
+    BINKOLO, BATKANU, GBENDEMBU, MAKARIE, MABONTO
+
+- ZONE 13:
+    DAMBLA ROAD, KISSY ROAD, MISSION ROAD, TIKONKO, NJALA ROAD, HOSPITAL ROAD, MATTRU,
+    JUBILLE, BAI BUREH ROAD, GOVERNMENT ROAD, NJALA, KORIBONDO, SUMBUYA, MOGERE, BAOMA,
+    BUMPE, GBOYAMA, NGELEHUN, JIMMI, TELU, KAKUA, BADJIA, BAGBO, SELENGA
+
+- ZONE 14:
+    MAXWELL KHOBE STREET, DAMA ROAD, BLAMA, DEMBAY STREET, MAIN STREET, CIRCULAR ROAD,
+    KINGSWAYS STREET, ABDULAI STREET, ABDUL SANDY STREET, BAKISSA STREET, BARWOH STREET,
+    BOCKRIEBAY STREET, BRIMA KARGBO STREET, ENSA STREET, COOPER LANE, DAUD SANDY STREET,
+    FATIMEH STREET, FASEI STRREET, FELLIE STREET, FOYAH STREET, TONGO, KANGA,
+    ISLAMIC STREET, ISATU STREET, KAMANDA STREET
+
+- ZONE 15:
+    YENGEMA ROAD, TOMBODU ROAD, SEWAFE ROAD, JIAMA NIMiKORO, MOTEMA ROAD, KANGAMA ROAD,
+    KENEMA HIGHWAY, GOVERNMENT HOSPITAL ROAD, KOIDU MAIN STREET, SAFADU ROAD, STATION ROAD,
+    TANKORO, KAMIENDOU, KAINKORDU, SIAMA, PEYIMA, FOINDU, TEFEYA, TOMENDEH, YARDU,
+    SOA, TOLI, MAFINDOR
+
+--- PRIORITY 2: Administrative Provinces (Fallback when no Zone 1-15 matches) ---
+- Administrative Provinces:
+    Eastern Province, Northern Province, North West Province, Southern Province, Western Area
+
+--- PRIORITY 3: Other (Final Fallback) ---
+- Other:
+    Other (used when no region or province can be matched)
+
+===============================================================================
+4. PRODUCTION-READY FLUTTER (DART) CODE IMPLEMENTATION
+===============================================================================
+
+SETUP REQUIREMENT — Add to pubspec.yaml before using any code below:
+-------------------------------------------------------------------------------
+
+dependencies:
+  flutter:
+    sdk: flutter
+  http: ^1.2.0           # HTTP client for API calls
+
+Run: flutter pub get
+
+-------------------------------------------------------------------------------
+
+FILE STRUCTURE:
+  lib/
+    models/
+      ai_region_match_result.dart      (Section 4.1)
+    services/
+      ai_region_api_service.dart       (Section 4.2)
+    widgets/
+      ai_region_badge_widget.dart      (Section 4.3)
+
+===============================================================================
+4.1 DART MODEL CLASS
+File: lib/models/ai_region_match_result.dart
+===============================================================================
+
+class AIRegionMatchResult {
+  final String matchedRegion;
+  final String zone;
+  final double confidence;
+  final String reasoning;
+  final bool isAiMatched;
+  final double charge;
+
+  const AIRegionMatchResult({
+    required this.matchedRegion,
+    required this.zone,
+    required this.confidence,
+    required this.reasoning,
+    required this.isAiMatched,
+    required this.charge,
+  });
+
+  factory AIRegionMatchResult.fromJson(Map<String, dynamic> json) {
+    return AIRegionMatchResult(
+      matchedRegion: json['matchedRegion']?.toString() ?? 'Other',
+      zone: json['zone']?.toString() ?? 'Other',
+      confidence: (json['confidence'] is num)
+          ? (json['confidence'] as num).toDouble()
+          : 0.5,
+      reasoning: json['reasoning']?.toString() ?? '',
+      isAiMatched: json['isAiMatched'] == true,
+      charge: (json['charge'] is num)
+          ? (json['charge'] as num).toDouble()
+          : 0.0,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'matchedRegion': matchedRegion,
+        'zone': zone,
+        'confidence': confidence,
+        'reasoning': reasoning,
+        'isAiMatched': isAiMatched,
+        'charge': charge,
+      };
+
+  /// Clean display string helper for UI (e.g. "PZ (ZONE 5)", "Western Area", "Other")
+  String get displayLabel {
+    if (zone == 'Administrative Provinces' ||
+        matchedRegion == 'Other' ||
+        matchedRegion == zone) {
+      return matchedRegion;
+    }
+    return '$matchedRegion ($zone)';
+  }
+}
+
+===============================================================================
+4.2 FLUTTER API SERVICE
+File: lib/services/ai_region_api_service.dart
+===============================================================================
+
+import 'dart:convert';
+import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
+import '../models/ai_region_match_result.dart';
+
+class AIRegionApiService {
+  // TODO: Replace with your actual production domain
+  static const String baseUrl = 'https://your-domain.com';
+  static const Duration _timeout = Duration(seconds: 15);
+
+  /// Calls the AI region matcher API and returns the resolved region/zone/charge.
+  /// Returns null on failure or network error — always handle null in the caller.
+  static Future<AIRegionMatchResult?> matchAddressRegion({
+    required String addressLine1,
+    String? addressLine2,
+    required String city,
+    required String state,
+    String? postalCode,
+    String? sessionCookie,
+  }) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/customer/checkout/ai-match-region');
+
+      final headers = <String, String>{
+        'Content-Type': 'application/json',
+      };
+      if (sessionCookie != null && sessionCookie.isNotEmpty) {
+        headers['Cookie'] = sessionCookie;
+      }
+
+      final body = jsonEncode({
+        'addressLine1': addressLine1,
+        'addressLine2': addressLine2 ?? '',
+        'city': city,
+        'state': state,
+        'postalCode': postalCode ?? '',
+      });
+
+      final response = await http
+          .post(uri, headers: headers, body: body)
+          .timeout(_timeout);
+
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(response.body);
+        if (decoded is Map<String, dynamic> &&
+            decoded['success'] == true &&
+            decoded['data'] is Map<String, dynamic>) {
+          return AIRegionMatchResult.fromJson(
+            decoded['data'] as Map<String, dynamic>,
+          );
+        }
+      }
+    } on Exception catch (e) {
+      debugPrint('AIRegionApiService error: $e');
+    }
+    return null;
+  }
+}
+
+===============================================================================
+4.3 FLUTTER UI BADGE WIDGET
+File: lib/widgets/ai_region_badge_widget.dart
+===============================================================================
+
+import 'package:flutter/material.dart';
+import '../models/ai_region_match_result.dart';
+
+class AIRegionBadgeWidget extends StatelessWidget {
+  final AIRegionMatchResult aiResult;
+
+  const AIRegionBadgeWidget({super.key, required this.aiResult});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: const Color(0xFFECFDF5), // Light emerald tint
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFFA7F3D0)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.auto_awesome, size: 14, color: Color(0xFF059669)),
+          const SizedBox(width: 5),
+          const Text(
+            'Delivery Zone:',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+              color: Color(0xFF475569),
+            ),
+          ),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: const Color(0xFFA7F3D0)),
+              ),
+              child: Text(
+                '\u{1F4CD} ${aiResult.displayLabel}',
+                overflow: TextOverflow.ellipsis,
+                maxLines: 1,
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF064E3B),
+                ),
+              ),
+            ),
+          ),
+          if (aiResult.charge > 0) ...[
+            const SizedBox(width: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: const Color(0xFFA7F3D0)),
+              ),
+              child: Text(
+                '+NLe ${aiResult.charge.toStringAsFixed(2)}',
+                style: const TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF047857),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+===============================================================================
+4.4 USAGE EXAMPLE (inside a Flutter Checkout Screen)
+===============================================================================
+
+// Inside your checkout screen StatefulWidget _CheckoutScreenState:
+
+AIRegionMatchResult? _aiRegionResult;
+bool _isAiLoading = false;
+
+Future<void> _resolveRegion(Address selectedAddress) async {
+  setState(() => _isAiLoading = true);
+  final result = await AIRegionApiService.matchAddressRegion(
+    addressLine1: selectedAddress.line1,
+    addressLine2: selectedAddress.line2,
+    city: selectedAddress.city,
+    state: selectedAddress.state,
+    postalCode: selectedAddress.postalCode,
+  );
+  setState(() {
+    _aiRegionResult = result;
+    _isAiLoading = false;
+  });
+}
+
+// In your widget build method, under the selected delivery address card:
+if (_isAiLoading)
+  const Padding(
+    padding: EdgeInsets.symmetric(vertical: 6),
+    child: Row(
+      children: [
+        SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2)),
+        SizedBox(width: 8),
+        Text('Determining delivery zone…', style: TextStyle(fontSize: 11, color: Color(0xFF0F766E))),
+      ],
+    ),
+  )
+else if (_aiRegionResult != null)
+  AIRegionBadgeWidget(aiResult: _aiRegionResult!)
+
+// In your order summary (Delivery Breakdown card):
+Text(
+  'Regional Surcharge (${_aiRegionResult?.displayLabel ?? "Other"}): '
+  'NLe ${(_aiRegionResult?.charge ?? 0.0).toStringAsFixed(2)}',
+)
+
+===============================================================================
+Document Updated: 2026-08-17
+Location: txt/MOBILE_AI_REGION_MATCHER_API_DOC.txt
+===============================================================================

@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { formatCurrency, extractFoodImages } from "@/lib/utils"
 import { PublicLayout } from "@/components/site-layout"
 import { FoodDetailModal } from "@/components/foods/food-detail-modal"
+import { PageLoader } from "@/components/ui/page-loader"
 
 type FoodItem = {
   id: string
@@ -53,6 +54,25 @@ type LocalFoodCart = {
   restaurantId: string
   restaurantName: string
   items: CartItem[]
+}
+
+const FALLBACK_FOOD_IMAGES: Record<string, string> = {
+  pizza: "https://images.unsplash.com/photo-1513104890138-7c749659a591?w=400&q=80",
+  pasta: "https://images.unsplash.com/photo-1473093295043-cdd812d0e601?w=400&q=80",
+  burger: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=400&q=80",
+  biryani: "https://images.unsplash.com/photo-1589302168068-964664d93dc0?w=400&q=80",
+  sushi: "https://images.unsplash.com/photo-1617196034183-421b4040ed20?w=400&q=80",
+  tacos: "https://images.unsplash.com/photo-1565299585323-38d6b0865b47?w=400&q=80",
+  dessert: "https://images.unsplash.com/photo-1571877227200-a0d98ea607e9?w=400&q=80",
+  default: "https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=400&q=80",
+}
+
+function getFallbackFoodImage(category?: string, name?: string): string {
+  const key = [category || "", name || ""].join(" ").toLowerCase()
+  for (const [k, v] of Object.entries(FALLBACK_FOOD_IMAGES)) {
+    if (key.includes(k)) return v
+  }
+  return FALLBACK_FOOD_IMAGES.default
 }
 
 export default function RestaurantMenuPage() {
@@ -152,42 +172,40 @@ export default function RestaurantMenuPage() {
     }
   }
 
-  const handleResolveConflict = () => {
-    if (!conflictItem || !restaurant) return
-
-    // Clear existing cart and start new
+  const clearAndAddConflictItem = () => {
+    if (!restaurant || !conflictItem) return
     const newCart: LocalFoodCart = {
       restaurantId: restaurant.id,
       restaurantName: restaurant.businessName,
-      items: [
-        {
-          foodItemId: conflictItem.item.id,
-          name: conflictItem.item.name,
-          price: conflictItem.item.price,
-          quantity: conflictItem.qty,
-          image: conflictItem.item.image,
-          isVeg: conflictItem.item.isVeg,
-          category: conflictItem.item.category
-        }
-      ]
+      items: [{
+        foodItemId: conflictItem.item.id,
+        name: conflictItem.item.name,
+        price: conflictItem.item.price,
+        quantity: conflictItem.qty,
+        image: conflictItem.item.image,
+        isVeg: conflictItem.item.isVeg,
+        category: conflictItem.item.category
+      }]
     }
     saveCartToStorage(newCart)
-    setConflictOpen(false)
     setConflictItem(null)
+    setConflictOpen(false)
   }
 
-  const getItemQty = (itemId: string) => {
-    if (!cart || cart.restaurantId !== id) return 0
-    const matched = cart.items.find(i => i.foodItemId === itemId)
-    return matched ? matched.quantity : 0
+  const getItemQty = (foodItemId: string) => {
+    if (!cart || cart.restaurantId !== restaurant?.id) return 0
+    const found = cart.items.find(i => i.foodItemId === foodItemId)
+    return found ? found.quantity : 0
   }
+
+  const totalCartQty = cart?.items.reduce((sum, i) => sum + i.quantity, 0) || 0
+  const totalCartAmount = cart?.items.reduce((sum, i) => sum + (i.price * i.quantity), 0) || 0
 
   if (loading) {
     return (
       <PublicLayout>
-        <div className="container mx-auto px-4 py-16 text-center space-y-4 max-w-lg">
-          <div className="h-12 w-12 border-4 border-amber-500 border-t-transparent rounded-full animate-spin mx-auto" />
-          <p className="text-amber-800/80 font-bold">Loading delicious menu...</p>
+        <div className="flex min-h-[70vh] items-center justify-center">
+          <PageLoader message="Loading…" />
         </div>
       </PublicLayout>
     )
@@ -219,10 +237,6 @@ export default function RestaurantMenuPage() {
   // Extract all categories
   const categories = Array.from(new Set(restaurant.foods.map(f => f.category)))
 
-  // Calculate cart totals
-  const totalCartItems = cart?.restaurantId === restaurant.id ? cart.items.reduce((acc, i) => acc + i.quantity, 0) : 0
-  const cartSubtotal = cart?.restaurantId === restaurant.id ? cart.items.reduce((acc, i) => acc + i.price * i.quantity, 0) : 0
-
   return (
     <PublicLayout>
       <div className="container mx-auto px-3 sm:px-6 md:px-8 py-6 max-w-[1440px] space-y-6 animate-in fade-in duration-500 bg-[#FAF8F5] text-amber-950 pb-28">
@@ -238,28 +252,32 @@ export default function RestaurantMenuPage() {
         <div className="rounded-[2.5rem] overflow-hidden border border-[#F5EFE6] bg-white shadow-xl space-y-0">
           {/* Top Cover Banner Image - Tall height */}
           <div className="relative h-64 sm:h-96 md:h-[420px] lg:h-[460px] w-full bg-slate-900 overflow-hidden">
-            {restaurant.banner || restaurant.mainPhoto ? (
-              <img
-                src={restaurant.banner || restaurant.mainPhoto!}
-                alt={restaurant.businessName}
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              <div className="w-full h-full bg-gradient-to-r from-amber-500 to-orange-600 flex items-center justify-center">
-                <Utensils className="h-24 w-24 text-white/40" />
-              </div>
-            )}
+            <img
+              src={restaurant.banner || restaurant.mainPhoto || "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=1200&q=80"}
+              alt={restaurant.businessName}
+              className="w-full h-full object-cover"
+              onError={(e) => {
+                const target = e.target as HTMLImageElement
+                target.onerror = null
+                target.src = "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=1200&q=80"
+              }}
+            />
           </div>
 
           {/* Restaurant Details Section (Cleanly Under Image) */}
           <div className="p-6 sm:p-8 bg-white flex flex-col sm:flex-row items-center sm:items-start gap-5 sm:gap-6">
             {/* Logo Avatar */}
             <div className="h-20 w-20 sm:h-28 sm:w-28 rounded-2xl overflow-hidden border border-amber-100 shrink-0 bg-amber-50 shadow-md flex items-center justify-center">
-              {restaurant.logo ? (
-                <img src={restaurant.logo} alt={restaurant.businessName} className="h-full w-full object-cover" />
-              ) : (
-                <Utensils className="h-10 w-10 text-amber-500" />
-              )}
+              <img
+                src={restaurant.logo || "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=300&q=80"}
+                alt={restaurant.businessName}
+                className="h-full w-full object-cover"
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement
+                  target.onerror = null
+                  target.src = "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=300&q=80"
+                }}
+              />
             </div>
 
             {/* Restaurant Meta Info Under Image */}
@@ -370,18 +388,22 @@ export default function RestaurantMenuPage() {
                   }}
                   className="rounded-3xl border border-[#F5EFE6] overflow-hidden shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all bg-white flex flex-col group cursor-pointer w-full"
                 >
-                  {/* Food Image — Height increased */}
+                  {/* Food Image */}
                   {(() => {
-                    const itemImg = food.image || extractFoodImages((food as any).images)[0] || null
+                    const itemImg = food.image || extractFoodImages((food as any).images)[0] || getFallbackFoodImage(food.category, food.name)
                     return (
                       <div className="relative w-full h-44 sm:h-60 md:h-64 bg-amber-50 overflow-hidden shrink-0">
-                        {itemImg ? (
-                          <img src={itemImg} alt={food.name} className="object-cover h-full w-full group-hover:scale-105 transition-transform duration-500" />
-                        ) : (
-                          <div className="h-full w-full flex items-center justify-center">
-                            <Utensils className="h-12 w-12 text-amber-200" />
-                          </div>
-                        )}
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={itemImg}
+                          alt={food.name}
+                          className="object-cover h-full w-full group-hover:scale-105 transition-transform duration-500"
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement
+                            target.onerror = null
+                            target.src = getFallbackFoodImage(food.category, food.name)
+                          }}
+                        />
                         {/* Veg/Non-veg dot */}
                         <div className={`absolute top-2.5 left-2.5 h-5 w-5 border-2 rounded-md flex items-center justify-center bg-white/95 backdrop-blur-xs shadow-md ${food.isVeg ? "border-emerald-600" : "border-rose-600"}`}>
                           <span className={`h-2 w-2 rounded-full ${food.isVeg ? "bg-emerald-600" : "bg-rose-600"}`} />
@@ -432,14 +454,14 @@ export default function RestaurantMenuPage() {
         )}
 
         {/* Sticky/Floating Cart Summary Drawer at the bottom */}
-        {totalCartItems > 0 && cart && (
+        {totalCartQty > 0 && cart && (
           <div className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-amber-100 shadow-[0_-8px_30px_rgb(0,0,0,0.12)] p-4 sm:p-5 flex items-center justify-between gap-4 max-w-6xl mx-auto rounded-t-[2rem]">
             <div className="flex items-center gap-3">
               <div className="h-12 w-12 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-950 shrink-0">
                 <ShoppingBag className="h-6 w-6 text-amber-600" />
               </div>
               <div>
-                <p className="font-black text-amber-950 text-sm">{totalCartItems} Item{totalCartItems === 1 ? "" : "s"} Added</p>
+                <p className="font-black text-amber-950 text-sm">{totalCartQty} Item{totalCartQty === 1 ? "" : "s"} Added</p>
                 <p className="text-xs text-amber-900/60 font-semibold leading-none mt-1">From {cart.restaurantName}</p>
               </div>
             </div>
@@ -447,7 +469,7 @@ export default function RestaurantMenuPage() {
             <div className="flex items-center gap-6">
               <div className="text-right hidden sm:block">
                 <p className="text-xs font-bold text-amber-600 uppercase tracking-wider">Subtotal</p>
-                <p className="text-lg font-black text-amber-950 leading-none mt-0.5">{formatCurrency(cartSubtotal)}</p>
+                <p className="text-lg font-black text-amber-950 leading-none mt-0.5">{formatCurrency(totalCartAmount)}</p>
               </div>
 
               <div className="flex gap-2">
@@ -531,7 +553,7 @@ export default function RestaurantMenuPage() {
                   {/* Summary Totals */}
                   <div className="flex justify-between items-end">
                     <span className="font-bold text-amber-900/60 text-xs uppercase tracking-wider">Subtotal</span>
-                    <span className="text-2xl font-black text-amber-950 leading-none">{formatCurrency(cartSubtotal)}</span>
+                    <span className="text-2xl font-black text-amber-950 leading-none">{formatCurrency(totalCartAmount)}</span>
                   </div>
 
                   <Link href="/foods/checkout" className="block w-full">
@@ -570,7 +592,7 @@ export default function RestaurantMenuPage() {
                 Cancel
               </Button>
               <Button
-                onClick={handleResolveConflict}
+                onClick={clearAndAddConflictItem}
                 className="bg-rose-500 hover:bg-rose-600 text-white rounded-xl font-bold text-xs uppercase tracking-widest"
               >
                 Discard &amp; Add
