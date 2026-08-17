@@ -54,8 +54,28 @@ export async function GET(request: NextRequest) {
           }
         },
         {
+          businessInfo: {
+            city: { contains: q, mode: "insensitive" }
+          }
+        },
+        {
           user: {
             name: { contains: q, mode: "insensitive" }
+          }
+        },
+        {
+          primaryCuisine: { contains: q, mode: "insensitive" }
+        },
+        {
+          foods: {
+            some: {
+              isDeleted: false,
+              isActive: true,
+              OR: [
+                { name: { contains: q, mode: "insensitive" } },
+                { category: { contains: q, mode: "insensitive" } }
+              ]
+            }
           }
         }
       ]

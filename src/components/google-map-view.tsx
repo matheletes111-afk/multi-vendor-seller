@@ -2,12 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from "react"
 import { MapPin, ExternalLink, Loader2 } from "lucide-react"
-
-declare global {
-  interface Window {
-    initGoogleMapsViewCallback?: () => void
-  }
-}
+import { loadGoogleMapsScript } from "@/lib/google-maps-loader"
 
 export interface LocationDetails {
   lat: number
@@ -211,45 +206,7 @@ export function GoogleMapView({
     const initMap = async () => {
       setLoading(true)
       try {
-        if (!window.google?.maps) {
-          const res = await fetch("/api/utils/maps-key")
-          if (!res.ok) throw new Error("Maps API key unavailable")
-          const data = await res.json()
-          const apiKey = data.key
-          if (!apiKey) {
-            if (active) {
-              setError("Google Maps API key not configured.")
-              setLoading(false)
-            }
-            return
-          }
-
-          if (!window._googleMapsLoadingAutocomplete) {
-            window._googleMapsLoadingAutocomplete = true
-            await new Promise<void>((resolve, reject) => {
-              window.initGoogleMapsViewCallback = () => {
-                window._googleMapsLoadingAutocomplete = false
-                resolve()
-              }
-              const script = document.createElement("script")
-              script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&callback=initGoogleMapsViewCallback`
-              script.async = true
-              script.defer = true
-              script.onerror = () => reject(new Error("Failed to load Google Maps script"))
-              document.head.appendChild(script)
-            })
-          } else {
-            // Poll for window.google.maps
-            await new Promise<void>((resolve) => {
-              const interval = setInterval(() => {
-                if (window.google?.maps) {
-                  clearInterval(interval)
-                  resolve()
-                }
-              }, 100)
-            })
-          }
-        }
+        await loadGoogleMapsScript(["places"])
 
         if (!active) return
 
@@ -260,7 +217,8 @@ export function GoogleMapView({
         if (
           mapInstanceRef.current &&
           internalCoordsRef.current &&
-          finalLatNum != null && finalLngNum != null &&
+          finalLatNum != null &&
+          finalLngNum != null &&
           Math.abs(internalCoordsRef.current.lat - finalLatNum) < 0.0000001 &&
           Math.abs(internalCoordsRef.current.lng - finalLngNum) < 0.0000001
         ) {

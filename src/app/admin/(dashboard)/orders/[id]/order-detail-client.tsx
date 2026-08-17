@@ -17,6 +17,7 @@ import {
   DialogTitle,
 } from "@/ui/dialog"
 import { formatCurrency, formatDate, formatSlotTimeRange, cn } from "@/lib/utils"
+import { getFormattedDeliveryZone } from "@/lib/ai-region-matcher"
 import type { AdminOrderDetailApi } from "@/app/api/admin/orders/types"
 import { ADMIN_ORDER_STATUSES } from "@/app/api/admin/orders/types"
 import {
@@ -714,6 +715,14 @@ export function AdminOrderDetailClient({ orderId }: { orderId: string }) {
                         <p className="text-foreground uppercase tracking-wider text-[11px] font-bold pt-1">
                           {order.shippingCity}, {order.shippingState} {order.shippingPostalCode}
                         </p>
+                        <p className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 pt-0.5">
+                          📍 {getFormattedDeliveryZone({
+                            addressLine1: order.shippingAddressLine1,
+                            addressLine2: order.shippingAddressLine2,
+                            city: order.shippingCity,
+                            state: order.shippingState,
+                          })}
+                        </p>
                     </div>
                   </div>
                 ) : (
@@ -750,7 +759,14 @@ export function AdminOrderDetailClient({ orderId }: { orderId: string }) {
                   <div className="rounded-2xl bg-slate-900 text-white p-3.5 space-y-2 text-xs border border-slate-800 my-2">
                     <div className="flex items-center justify-between border-b border-slate-800 pb-1.5">
                       <span className="text-[10px] font-extrabold uppercase tracking-wider text-amber-400">Delivery Fee Breakup</span>
-                      <span className="text-[10px] text-slate-400 font-medium">Region: {order.shippingState || "Other"}</span>
+                      <span className="text-[10px] text-emerald-400 font-bold bg-slate-800 px-2 py-0.5 rounded-full border border-slate-700">
+                        📍 {getFormattedDeliveryZone({
+                          addressLine1: order.shippingAddressLine1,
+                          addressLine2: order.shippingAddressLine2,
+                          city: order.shippingCity,
+                          state: order.shippingState,
+                        })}
+                      </span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-slate-400">Weight Charge</span>
@@ -761,7 +777,7 @@ export function AdminOrderDetailClient({ orderId }: { orderId: string }) {
                       <span className="font-bold tabular-nums text-slate-200">{formatCurrency(order.dimensionShippingFee ?? 0)}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-slate-400">Region Fee</span>
+                      <span className="text-slate-400">Regional Surcharge</span>
                       <span className="font-bold tabular-nums text-slate-200">{formatCurrency(order.regionShippingFee ?? 0)}</span>
                     </div>
                   </div>

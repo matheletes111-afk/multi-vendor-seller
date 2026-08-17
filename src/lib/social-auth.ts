@@ -4,9 +4,10 @@
  */
 
 import { getFirebaseAuth } from "./firebase-admin"
+import jwt from "jsonwebtoken"
 
 export type SocialProfile = {
-  provider: "google" | "facebook"
+  provider: "google" | "facebook" | "apple"
   providerAccountId: string
   email: string | null
   name: string | null
@@ -83,11 +84,58 @@ export async function verifyFacebookAccessToken(accessToken: string): Promise<So
 }
 
 /**
+ * Verify direct Apple ID token (identityToken JWT issued by Apple). Returns null if invalid.
+ */
+export async function verifyAppleIdToken(idToken: string): Promise<SocialProfile | null> {
+  try {
+    const decoded = jwt.decode(idToken, { complete: true }) as {
+      header?: { kid?: string; alg?: string }
+      payload?: {
+        iss?: string
+        aud?: string
+        sub?: string
+        email?: string
+        email_verified?: boolean | string
+        exp?: number
+      }
+    } | null
+
+    if (!decoded || !decoded.payload) {
+      return null
+    }
+
+    const { iss, sub, email, exp } = decoded.payload
+
+    // Verify Apple issuer
+    if (iss !== "https://appleid.apple.com") {
+      return null
+    }
+    if (!sub) {
+      return null
+    }
+    if (exp && exp * 1000 < Date.now()) {
+      return null
+    }
+
+    return {
+      provider: "apple",
+      providerAccountId: sub,
+      email: email ?? null,
+      name: null,
+      image: null,
+    }
+  } catch (error) {
+    console.error("Apple ID Token verification error:", error)
+    return null
+  }
+}
+
+/**
  * Verify Firebase ID token and return profile. Returns null if invalid.
  */
 export async function verifyFirebaseIdToken(
   idToken: string,
-  expectedProvider: "google" | "facebook"
+  expectedProvider: "google" | "facebook" | "apple"
 ): Promise<SocialProfile | null> {
   try {
     const auth = getFirebaseAuth()
@@ -101,7 +149,7 @@ export async function verifyFirebaseIdToken(
     const image = decodedToken.picture ?? null
 
     // Determine the provider account ID.
-    // Try to find the linked identity for google.com or facebook.com to match NextAuth's providerAccountId format.
+    // Try to find the linked identity for google.com, facebook.com, or apple.com to match NextAuth's providerAccountId format.
     const identities = decodedToken.firebase?.identities || {}
     const signInProvider = decodedToken.firebase?.sign_in_provider
     let providerAccountId = decodedToken.uid
@@ -113,6 +161,13 @@ export async function verifyFirebaseIdToken(
     } else if (expectedProvider === "facebook" && signInProvider === "facebook.com") {
       if (Array.isArray(identities["facebook.com"]) && identities["facebook.com"].length > 0) {
         providerAccountId = identities["facebook.com"][0]
+      }
+    } else if (
+      expectedProvider === "apple" &&
+      (signInProvider === "apple.com" || signInProvider === "apple")
+    ) {
+      if (Array.isArray(identities["apple.com"]) && identities["apple.com"].length > 0) {
+        providerAccountId = identities["apple.com"][0]
       }
     }
 
@@ -130,7 +185,7 @@ export async function verifyFirebaseIdToken(
 }
 
 export async function verifySocialToken(
-  provider: "google" | "facebook",
+  provider: "google" | "facebook" | "apple",
   idToken: string | undefined,
   accessToken: string | undefined
 ): Promise<SocialProfile | null> {
@@ -150,6 +205,10 @@ export async function verifySocialToken(
   if (provider === "facebook") {
     if (!accessToken || typeof accessToken !== "string") return null
     return verifyFacebookAccessToken(accessToken)
+  }
+  if (provider === "apple") {
+    if (!idToken || typeof idToken !== "string") return null
+    return verifyAppleIdToken(idToken)
   }
   return null
 }

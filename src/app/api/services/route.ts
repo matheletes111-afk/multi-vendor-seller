@@ -34,6 +34,9 @@ export async function GET(request: NextRequest) {
         { name: { contains: search, mode: "insensitive" } },
         { description: { contains: search, mode: "insensitive" } },
         { seller: { store: { name: { contains: search, mode: "insensitive" } } } },
+        { seller: { store: { city: { contains: search, mode: "insensitive" } } } },
+        { serviceCategory: { name: { contains: search, mode: "insensitive" } } },
+        { serviceCategory: { slug: { contains: search, mode: "insensitive" } } },
       ]
     }
 

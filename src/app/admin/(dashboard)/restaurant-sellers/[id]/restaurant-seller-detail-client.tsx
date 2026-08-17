@@ -89,7 +89,7 @@ export function RestaurantSellerDetailClient({ seller, plans = [] }: RestaurantS
               )}
             </div>
             <p className="text-slate-500 font-medium flex items-center gap-2">
-              <Mail className="h-4 w-4" /> {seller.user.email} • ID: {seller.id}
+              <Mail className="h-4 w-4" /> {seller.user.email?.toLowerCase()} • ID: {seller.id}
             </p>
           </div>
         </div>

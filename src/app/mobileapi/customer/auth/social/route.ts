@@ -5,9 +5,11 @@ import { generateMobileTokens } from "@/lib/mobile-jwt"
 import { verifySocialToken } from "@/lib/social-auth"
 
 interface SocialLoginRequest {
-  provider: "google" | "facebook"
+  provider: "google" | "facebook" | "apple"
   idToken?: string
   accessToken?: string
+  name?: string
+  email?: string
 }
 
 interface SuccessResponse {
@@ -49,13 +51,20 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
       )
     }
 
-    const { provider, idToken, accessToken } = body
-    if (!provider || (provider !== "google" && provider !== "facebook")) {
+    const { idToken, accessToken, name: bodyName, email: bodyEmail } = body
+    let rawProvider = (body.provider as string | undefined)?.toLowerCase()?.trim()
+    if (rawProvider === "apple.com") rawProvider = "apple"
+    if (rawProvider === "google.com") rawProvider = "google"
+    if (rawProvider === "facebook.com") rawProvider = "facebook"
+
+    if (!rawProvider || (rawProvider !== "google" && rawProvider !== "facebook" && rawProvider !== "apple")) {
       return NextResponse.json<ErrorResponse>(
-        { success: false, error: "provider must be 'google' or 'facebook'" },
+        { success: false, error: "provider must be 'google', 'facebook', or 'apple'" },
         { status: 400 }
       )
     }
+
+    const provider = rawProvider as "google" | "facebook" | "apple"
 
     const profile = await verifySocialToken(provider, idToken, accessToken)
     if (!profile) {
@@ -65,8 +74,70 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
       )
     }
 
-    const email = profile.email?.toLowerCase().trim()
+    const email = (profile.email || bodyEmail)?.toLowerCase().trim()
+    const userName = profile.name || bodyName || null
     if (!email) {
+      // Check if existing account exists by provider and providerAccountId
+      const existingAccount = await prisma.account.findFirst({
+        where: {
+          provider,
+          providerAccountId: profile.providerAccountId,
+        },
+        include: {
+          user: {
+            select: {
+              password: true,
+              id: true,
+              email: true,
+              name: true,
+              role: true,
+              phone: true,
+              phoneCountryCode: true,
+              isEmailVerified: true,
+              createdAt: true,
+              updatedAt: true,
+            },
+          },
+        },
+      })
+
+      if (existingAccount) {
+        if (existingAccount.user.role !== UserRole.CUSTOMER) {
+          return NextResponse.json<ErrorResponse>(
+            { success: false, error: "This account is not a customer account" },
+            { status: 403 }
+          )
+        }
+        const tokens = generateMobileTokens({
+          userId: existingAccount.user.id,
+          email: existingAccount.user.email,
+          role: existingAccount.user.role,
+          passwordHash: existingAccount.user.password,
+        })
+        return NextResponse.json<SuccessResponse>(
+          {
+            success: true,
+            message: "Login successful",
+            data: {
+              user: {
+                id: existingAccount.user.id,
+                email: existingAccount.user.email,
+                name: existingAccount.user.name,
+                role: existingAccount.user.role,
+                phone: existingAccount.user.phone,
+                phoneCountryCode: existingAccount.user.phoneCountryCode,
+                isEmailVerified: existingAccount.user.isEmailVerified ?? false,
+                createdAt: existingAccount.user.createdAt,
+                updatedAt: existingAccount.user.updatedAt,
+              },
+              tokens,
+              sessionInfo: { expiresIn: tokens.expiresIn, tokenType: "Bearer" },
+            },
+          },
+          { status: 200 }
+        )
+      }
+
       return NextResponse.json<ErrorResponse>(
         { success: false, error: "Email not provided by provider" },
         { status: 401 }
@@ -164,7 +235,7 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
         const newUser = await prisma.user.create({
           data: {
             email,
-            name: profile.name ?? null,
+            name: userName,
             image: profile.image,
             password: null,
             role: UserRole.CUSTOMER,

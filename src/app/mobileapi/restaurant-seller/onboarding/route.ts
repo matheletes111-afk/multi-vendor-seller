@@ -5,6 +5,7 @@ import { uploadPublicFile } from "@/lib/upload-public-file";
 import { UserRole } from "@prisma/client";
 import path from "path";
 import { activateRestaurantFreePlan } from "@/lib/subscriptions";
+import { HEAR_ABOUT_US_OPTIONS } from "@/lib/onboarding-constants";
 
 /**
  * GET /mobileapi/restaurant-seller/onboarding
@@ -37,6 +38,7 @@ export async function GET(request: NextRequest) {
             estimateRestaurantCount: seller.estimateRestaurantCount,
             primaryCuisine: seller.primaryCuisine,
             serviceTypes: seller.serviceTypes,
+            hearAboutUsOptions: HEAR_ABOUT_US_OPTIONS,
         },
     });
 }
@@ -348,10 +350,16 @@ export async function POST(request: NextRequest) {
 
         else if (step === 6) {
             // Step 6: Agreement
-            const agreementData = jsonBody?.data || {
-                agreedToTerms: formData?.get("agreedToTerms") === "true" || formData?.get("agreedToTerms") === "on",
-                agreedToCommission: formData?.get("agreedToCommission") === "true" || formData?.get("agreedToCommission") === "on",
-                agreedToPrivacy: formData?.get("agreedToPrivacy") === "true" || formData?.get("agreedToPrivacy") === "on",
+            const agreementData = formData ? {
+                agreedToTerms: formData.get("agreedToTerms") === "true" || formData.get("agreedToTerms") === "on",
+                agreedToCommission: formData.get("agreedToCommission") === "true" || formData.get("agreedToCommission") === "on",
+                agreedToPrivacy: formData.get("agreedToPrivacy") === "true" || formData.get("agreedToPrivacy") === "on",
+                hearAboutUs: (formData.get("hearAboutUs") as string) || null,
+            } : {
+                agreedToTerms: !!jsonBody?.data?.agreedToTerms,
+                agreedToCommission: !!jsonBody?.data?.agreedToCommission,
+                agreedToPrivacy: !!jsonBody?.data?.agreedToPrivacy,
+                hearAboutUs: (jsonBody?.data?.hearAboutUs as string) || null,
             };
 
             await prisma.restaurantAgreement.upsert({

@@ -8,6 +8,7 @@ import { Badge } from "@/ui/badge"
 import { Separator } from "@/ui/separator"
 import { Alert, AlertDescription, AlertTitle } from "@/ui/alert"
 import { formatCurrency, formatDate, cn } from "@/lib/utils"
+import { getFormattedDeliveryZone } from "@/lib/ai-region-matcher"
 import type { SellerOrderDetailApi } from "@/app/api/product-seller/orders/types"
 import { SELLER_ORDER_STATUSES } from "@/app/api/product-seller/orders/types"
 import {
@@ -1253,6 +1254,14 @@ export function ProductSellerOrderDetailClient({ orderId }: { orderId: string })
                           <p>{order.shippingAddressLine1}</p>
                           {order.shippingAddressLine2 && <p>{order.shippingAddressLine2}</p>}
                           <p>{order.shippingCity}, {order.shippingState} {order.shippingPostalCode}</p>
+                          <p className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 pt-1">
+                            📍 {getFormattedDeliveryZone({
+                              addressLine1: order.shippingAddressLine1,
+                              addressLine2: order.shippingAddressLine2,
+                              city: order.shippingCity,
+                              state: order.shippingState,
+                            })}
+                          </p>
                         </div>
                       </div>
                     ) : (
@@ -1276,7 +1285,14 @@ export function ProductSellerOrderDetailClient({ orderId }: { orderId: string })
                       <span className="font-bold tabular-nums text-slate-200">{formatCurrency(order.dimensionShippingFee ?? 0)}</span>
                     </div>
                     <div className="flex justify-between items-center text-xs">
-                      <span className="text-slate-400 font-medium">Region Fee ({order.shippingState || "Other"})</span>
+                      <span className="text-slate-400 font-medium">
+                        Regional Surcharge ({getFormattedDeliveryZone({
+                          addressLine1: order.shippingAddressLine1,
+                          addressLine2: order.shippingAddressLine2,
+                          city: order.shippingCity,
+                          state: order.shippingState,
+                        })})
+                      </span>
                       <span className="font-bold tabular-nums text-slate-200">{formatCurrency(order.regionShippingFee ?? 0)}</span>
                     </div>
                     <div className="flex justify-between items-center text-xs pt-2.5 border-t border-slate-800 font-black">

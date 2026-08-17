@@ -1,0 +1,395 @@
+================================================================================
+MOBILE API DOCUMENTATION: "WHERE DID YOU HEAR ABOUT US" (ALL 4 PANELS)
+================================================================================
+
+This document details the Mobile API updates across all 4 Seller Panels:
+1. Product Seller
+2. Service Seller
+3. Restaurant Seller
+4. Hotel Seller
+
+A new static dropdown field ("hearAboutUs") has been added to the final Onboarding Agreement Step, and the list of available options ("hearAboutUsOptions") is exposed in all onboarding GET endpoints.
+
+================================================================================
+1. STATIC REFERRAL SOURCE OPTIONS (SINGLE-BY-SINGLE LIST)
+================================================================================
+The mobile apps can use the static list below or dynamically read `hearAboutUsOptions` from the GET response:
+
+[
+  "Google / Search Engine",
+  "Social Media (Facebook, Instagram, TikTok)",
+  "Facebook",
+  "Instagram",
+  "TikTok",
+  "LinkedIn",
+  "YouTube / Online Video",
+  "Friend, Family or Colleague Referral",
+  "Word of Mouth",
+  "Billboard / Outdoor Advertising",
+  "TV / Radio / Print Ad",
+  "Events / Trade Shows / Exhibitions",
+  "Email Newsletter or Promotion",
+  "Blog, News or Article",
+  "Other"
+]
+
+================================================================================
+2. PANEL 1: PRODUCT SELLER ONBOARDING
+================================================================================
+
+A. GET Current Status & Options
+-------------------------------
+- Method: GET
+- URL: /mobileapi/product-seller/onboarding
+- Headers:
+  Authorization: Bearer <TOKEN>
+
+- Response (200 OK):
+{
+  "success": true,
+  "data": {
+    "user": {
+      "id": "cm123abc...",
+      "email": "productseller@example.com",
+      "role": "SELLER_PRODUCT",
+      "name": "John Doe",
+      "image": "https://..."
+    },
+    "onboardingCompleted": false,
+    "onboardingStep": 6,
+    "status": "PENDING",
+    "adminFeedback": null,
+    "isApproved": false,
+    "isSuspended": false,
+    "mobileStep": 5,
+    "businessInfo": { ... },
+    "kyc": { ... },
+    "bankDetails": { ... },
+    "store": { ... },
+    "selectedCategories": [ ... ],
+    "agreement": {
+      "id": "cag123...",
+      "agreedToTerms": true,
+      "agreedToCommission": true,
+      "agreedToReturnPolicy": true,
+      "agreedToPrivacy": true,
+      "hearAboutUs": "Social Media (Facebook, Instagram, TikTok)"
+    },
+    "hearAboutUsOptions": [
+      "Google / Search Engine",
+      "Social Media (Facebook, Instagram, TikTok)",
+      "Facebook",
+      "Instagram",
+      "TikTok",
+      "LinkedIn",
+      "YouTube / Online Video",
+      "Friend, Family or Colleague Referral",
+      "Word of Mouth",
+      "Billboard / Outdoor Advertising",
+      "TV / Radio / Print Ad",
+      "Events / Trade Shows / Exhibitions",
+      "Email Newsletter or Promotion",
+      "Blog, News or Article",
+      "Other"
+    ]
+  }
+}
+
+B. POST Final Step (Mobile Step 5: Agreement & Completion)
+---------------------------------------------------------
+- Method: POST
+- URL: /mobileapi/product-seller/onboarding
+- Headers:
+  Authorization: Bearer <TOKEN>
+  Content-Type: application/json (or multipart/form-data)
+
+- Request Payload (JSON):
+{
+  "step": 5,
+  "data": {
+    "agreedToTerms": true,
+    "agreedToCommission": true,
+    "agreedToReturnPolicy": true,
+    "agreedToPrivacy": true,
+    "hearAboutUs": "Google / Search Engine"
+  }
+}
+
+- Request Payload (Multipart / Form-Data Alternative):
+  - mobileStep: 5
+  - agreedToTerms: "true"
+  - agreedToCommission: "true"
+  - agreedToReturnPolicy: "true"
+  - agreedToPrivacy: "true"
+  - hearAboutUs: "Google / Search Engine"
+
+- Response (200 OK):
+{
+  "success": true,
+  "message": "Step 5 saved successfully",
+  "data": {
+    "nextStep": null,
+    "onboardingCompleted": true
+  }
+}
+
+
+================================================================================
+3. PANEL 2: SERVICE SELLER ONBOARDING
+================================================================================
+
+A. GET Current Status & Options
+-------------------------------
+- Method: GET
+- URL: /mobileapi/service-seller/onboarding
+- Headers:
+  Authorization: Bearer <TOKEN>
+
+- Response (200 OK):
+{
+  "success": true,
+  "data": {
+    "user": {
+      "id": "cm123abc...",
+      "email": "serviceseller@example.com",
+      "role": "SELLER_SERVICE",
+      "name": "Jane Smith"
+    },
+    "onboardingCompleted": false,
+    "onboardingStep": 6,
+    "status": "PENDING",
+    "mobileStep": 5,
+    "agreement": {
+      "id": "cag456...",
+      "agreedToTerms": true,
+      "agreedToCommission": true,
+      "agreedToReturnPolicy": true,
+      "agreedToPrivacy": true,
+      "hearAboutUs": "Instagram"
+    },
+    "hearAboutUsOptions": [
+      "Google / Search Engine",
+      "Social Media (Facebook, Instagram, TikTok)",
+      "Facebook",
+      "Instagram",
+      "TikTok",
+      "LinkedIn",
+      "YouTube / Online Video",
+      "Friend, Family or Colleague Referral",
+      "Word of Mouth",
+      "Billboard / Outdoor Advertising",
+      "TV / Radio / Print Ad",
+      "Events / Trade Shows / Exhibitions",
+      "Email Newsletter or Promotion",
+      "Blog, News or Article",
+      "Other"
+    ]
+  }
+}
+
+B. POST Final Step (Mobile Step 5: Agreement & Completion)
+---------------------------------------------------------
+- Method: POST
+- URL: /mobileapi/service-seller/onboarding
+- Headers:
+  Authorization: Bearer <TOKEN>
+  Content-Type: application/json (or multipart/form-data)
+
+- Request Payload (JSON):
+{
+  "step": 5,
+  "data": {
+    "agreedToTerms": true,
+    "agreedToCommission": true,
+    "agreedToReturnPolicy": true,
+    "agreedToPrivacy": true,
+    "hearAboutUs": "Instagram"
+  }
+}
+
+- Response (200 OK):
+{
+  "success": true,
+  "message": "Step 5 saved successfully",
+  "data": {
+    "nextStep": null,
+    "onboardingCompleted": true
+  }
+}
+
+
+================================================================================
+4. PANEL 3: RESTAURANT SELLER ONBOARDING
+================================================================================
+
+A. GET Current Status & Options
+-------------------------------
+- Method: GET
+- URL: /mobileapi/restaurant-seller/onboarding
+- Headers:
+  Authorization: Bearer <TOKEN>
+
+- Response (200 OK):
+{
+  "success": true,
+  "data": {
+    "user": {
+      "id": "cm123abc...",
+      "email": "restaurantseller@example.com",
+      "role": "SELLER_RESTAURANT"
+    },
+    "onboardingCompleted": false,
+    "onboardingStep": 6,
+    "status": "PENDING",
+    "mobileStep": 6,
+    "agreement": {
+      "id": "cag789...",
+      "agreedToTerms": true,
+      "agreedToCommission": true,
+      "agreedToPrivacy": true,
+      "hearAboutUs": "Friend, Family or Colleague Referral"
+    },
+    "hearAboutUsOptions": [
+      "Google / Search Engine",
+      "Social Media (Facebook, Instagram, TikTok)",
+      "Facebook",
+      "Instagram",
+      "TikTok",
+      "LinkedIn",
+      "YouTube / Online Video",
+      "Friend, Family or Colleague Referral",
+      "Word of Mouth",
+      "Billboard / Outdoor Advertising",
+      "TV / Radio / Print Ad",
+      "Events / Trade Shows / Exhibitions",
+      "Email Newsletter or Promotion",
+      "Blog, News or Article",
+      "Other"
+    ]
+  }
+}
+
+B. POST Final Step (Step 6: Agreement & Completion)
+---------------------------------------------------
+- Method: POST
+- URL: /mobileapi/restaurant-seller/onboarding
+- Headers:
+  Authorization: Bearer <TOKEN>
+  Content-Type: application/json (or multipart/form-data)
+
+- Request Payload (JSON):
+{
+  "step": 6,
+  "data": {
+    "agreedToTerms": true,
+    "agreedToCommission": true,
+    "agreedToPrivacy": true,
+    "hearAboutUs": "Friend, Family or Colleague Referral"
+  }
+}
+
+- Request Payload (Multipart / Form-Data Alternative):
+  - step: 6
+  - agreedToTerms: "true"
+  - agreedToCommission: "true"
+  - agreedToPrivacy: "true"
+  - hearAboutUs: "Friend, Family or Colleague Referral"
+
+- Response (200 OK):
+{
+  "success": true,
+  "message": "Registration completed successfully",
+  "data": {
+    "nextStep": null,
+    "onboardingCompleted": true
+  }
+}
+
+
+================================================================================
+5. PANEL 4: HOTEL SELLER ONBOARDING
+================================================================================
+
+A. GET Current Status & Options
+-------------------------------
+- Method: GET
+- URL: /mobileapi/hotel-seller/onboarding
+- Headers:
+  Authorization: Bearer <TOKEN>
+
+- Response (200 OK):
+{
+  "success": true,
+  "data": {
+    "user": {
+      "id": "cm123abc...",
+      "email": "hotelseller@example.com",
+      "role": "SELLER_HOTEL"
+    },
+    "onboardingCompleted": false,
+    "onboardingStep": 6,
+    "status": "PENDING",
+    "mobileStep": 6,
+    "agreement": {
+      "id": "cag999...",
+      "agreedToTerms": true,
+      "agreedToCommission": true,
+      "agreedToPrivacy": true,
+      "hearAboutUs": "YouTube / Online Video"
+    },
+    "hearAboutUsOptions": [
+      "Google / Search Engine",
+      "Social Media (Facebook, Instagram, TikTok)",
+      "Facebook",
+      "Instagram",
+      "TikTok",
+      "LinkedIn",
+      "YouTube / Online Video",
+      "Friend, Family or Colleague Referral",
+      "Word of Mouth",
+      "Billboard / Outdoor Advertising",
+      "TV / Radio / Print Ad",
+      "Events / Trade Shows / Exhibitions",
+      "Email Newsletter or Promotion",
+      "Blog, News or Article",
+      "Other"
+    ]
+  }
+}
+
+B. POST Final Step (Step 6: Agreement & Completion)
+---------------------------------------------------
+- Method: POST
+- URL: /mobileapi/hotel-seller/onboarding
+- Headers:
+  Authorization: Bearer <TOKEN>
+  Content-Type: application/json (or multipart/form-data)
+
+- Request Payload (JSON):
+{
+  "step": 6,
+  "data": {
+    "agreedToTerms": true,
+    "agreedToCommission": true,
+    "agreedToPrivacy": true,
+    "hearAboutUs": "YouTube / Online Video"
+  }
+}
+
+- Request Payload (Multipart / Form-Data Alternative):
+  - step: 6
+  - agreedToTerms: "true"
+  - agreedToCommission: "true"
+  - agreedToPrivacy: "true"
+  - hearAboutUs: "YouTube / Online Video"
+
+- Response (200 OK):
+{
+  "success": true,
+  "message": "Registration completed successfully",
+  "data": {
+    "nextStep": null,
+    "onboardingCompleted": true
+  }
+}
+================================================================================

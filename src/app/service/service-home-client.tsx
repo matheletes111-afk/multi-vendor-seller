@@ -144,6 +144,13 @@ function ServiceHomeContent() {
   const [minRating, setMinRating] = useState(searchParams?.get("rating") || "")
   const [sortBy, setSortBy] = useState(searchParams?.get("sortBy") || "newest")
 
+  useEffect(() => {
+    const paramSearch = searchParams?.get("search") || searchParams?.get("q") || ""
+    const paramCat = searchParams?.get("category") || searchParams?.get("serviceCategoryId") || ""
+    setSearchQuery(paramSearch)
+    setSelectedCategoryId(paramCat)
+  }, [searchParams])
+
   const [totalAllServices, setTotalAllServices] = useState<number>(0)
   const [currentPage, setCurrentPage] = useState<number>(1)
   const [totalPages, setTotalPages] = useState<number>(1)
@@ -295,17 +302,17 @@ function ServiceHomeContent() {
   const staticTotalCount = totalAllServices > 0 ? totalAllServices : categoriesSumCount || services.length
 
   return (
-    <div className="min-h-screen bg-slate-50/60 pb-16 text-slate-900">
+    <div className="min-h-screen bg-[#FAF8F5] text-slate-900 pb-16">
       {initialLoading ? (
         <div className="flex min-h-[70vh] items-center justify-center">
           <PageLoader message="Loading…" />
         </div>
       ) : (
         <>
-      {/* Hero banner container with subtle side whitespace */}
-      <div className="w-full max-w-[1440px] mx-auto px-2 sm:px-4 pt-2 sm:pt-3">
+      {/* Hero banner container with sharp edges (no rounded corners), small side gap, and no top gap */}
+      <div className="w-full max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6 pt-0">
         <section
-          className="relative w-full bg-slate-900 overflow-hidden rounded-xl sm:rounded-2xl shadow-sm aspect-[16/6.8] sm:aspect-[16/6.6] min-h-[220px]"
+          className="relative w-full bg-slate-900 overflow-hidden rounded-none shadow-sm aspect-[16/4.8] sm:aspect-[16/6.6] min-h-[130px] sm:min-h-[220px]"
           onMouseEnter={() => setBannerCarouselPaused(true)}
           onMouseLeave={() => setBannerCarouselPaused(false)}
         >
@@ -402,8 +409,8 @@ function ServiceHomeContent() {
         if (qualifiedCategories.length === 0) return null
 
         return (
-          <section className="w-full max-w-[1440px] mx-auto px-2 sm:px-4 mt-4 sm:-mt-28 md:-mt-32 lg:-mt-36 xl:-mt-40 relative z-20 pb-6 sm:pb-8 flex items-center justify-center">
-            <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4 w-full">
+          <section className="w-full max-w-[1440px] mx-auto px-6 sm:px-8 lg:px-12 mt-4 sm:-mt-28 md:-mt-32 lg:-mt-36 xl:-mt-40 relative z-20 pb-6 sm:pb-8 flex items-center justify-center">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-4 w-full">
               {qualifiedCategories.slice(0, 4).map((cat) => {
                 const catServices = spotlightServices.filter((s) => s.serviceCategory?.id === cat.id).slice(0, 4)
 

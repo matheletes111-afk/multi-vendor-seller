@@ -45,6 +45,7 @@ type CartContextValue = {
   addItem: (item: Omit<CartItem, "quantity"> | CartItem) => Promise<{ error: string } | void>
   removeItem: (itemId: string) => void
   updateQuantity: (itemId: string, quantity: number) => void
+  clearCart: () => void
   refresh: () => void
   isCartFromApi: boolean
   isLoading: boolean
@@ -307,6 +308,14 @@ export function CartProvider({ children }: { children: ReactNode }) {
     [isCustomer, items, removeItem]
   )
 
+  const clearCart = useCallback(() => {
+    setItems([])
+    setCartInStorage([])
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new Event("meeem-cart-update"))
+    }
+  }, [])
+
   const productItems = items.filter((i) => i.productId)
   const totalItems = productItems.reduce((n, i) => n + i.quantity, 0)
   const subtotal = productItems.reduce((s, i) => s + i.price * i.quantity, 0)
@@ -318,6 +327,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     addItem,
     removeItem,
     updateQuantity,
+    clearCart,
     refresh,
     isCartFromApi,
     isLoading,

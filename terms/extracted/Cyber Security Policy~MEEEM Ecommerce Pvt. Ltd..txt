@@ -1,0 +1,313 @@
+﻿CYBERSECURITY POLICY
+MEEEM E-commerce Pvt. Ltd.
+Address: Freetown, Sierra Leone
+Version: 1.0Effective Date: Approved By: Management of MEEEM E-commerce Ltd.
+1. PURPOSE
+This Cybersecurity Policy establishes the security principles, standards, controls, and responsibilities for protecting the information assets, systems, applications, users, and business operations of MEEEM E-commerce Pvt. Ltd. ("MEEEM").
+MEEEM operates a multi-vendor e-commerce and services marketplace through web and mobile applications that connect customers, sellers, and service providers while facilitating online transactions and digital payments.
+This policy aims to:
+Protect customer, seller, and service provider information.
+Ensure confidentiality, integrity, and availability of data.
+Prevent unauthorized access, fraud, cyberattacks, and data breaches.
+Maintain secure online payment processing.
+Comply with applicable cybersecurity, privacy, and data protection regulations.
+Establish security requirements for all users and stakeholders.
+2. SCOPE
+This policy applies to:
+MEEEM Website
+MEEEM Mobile Applications
+Customer Accounts
+Seller Accounts
+Service Provider Accounts
+Administrative Portals
+Internal Systems
+Cloud Infrastructure
+Payment Systems
+Third-Party Integrations
+Employees
+Contractors
+Vendors
+Technology Partners
+3. INFORMATION ASSETS
+The following information assets are considered critical:
+Customer Data
+Name
+Phone Number
+Email Address
+Delivery Address
+Location Information
+Transaction History
+Device Information
+Seller Information
+Business Registration Documents
+Tax Information
+Identity Verification Documents
+Banking Information
+Business Addresses
+Service Provider Information
+Government-issued Identification
+Professional Certifications
+Business Licenses
+Background Verification Records
+Banking Details
+Financial Information
+Payment Transactions
+Refund Records
+Settlement Reports
+Commission Records
+Platform Assets
+Source Code
+Databases
+APIs
+Cloud Infrastructure
+Security Configurations
+Audit Logs
+4. SECURITY GOVERNANCE
+MEEEM shall maintain a cybersecurity governance framework consisting of:
+Management Responsibilities
+Management shall:
+Approve cybersecurity policies.
+Allocate resources for security controls.
+Review security incidents.
+Ensure compliance with legal obligations.
+Security Team Responsibilities
+The security team shall:
+Monitor threats and vulnerabilities.
+Manage security controls.
+Conduct audits and assessments.
+Investigate incidents.
+Coordinate remediation activities.
+5. ACCESS CONTROL POLICY
+User Authentication
+All platform users shall authenticate through secure login mechanisms.
+Security measures include:
+Strong password requirements
+Password encryption
+Multi-Factor Authentication (MFA) for administrators
+Session management controls
+Device recognition mechanisms
+Role-Based Access Control (RBAC)
+Access shall be restricted according to user roles:
+Customers
+Access only to personal accounts and transactions.
+Sellers
+Access only to their stores, products, orders, and settlements.
+Service Providers
+Access only to assigned service requests and business information.
+Administrators
+Access granted based on job responsibilities and least privilege principles.
+6. DATA PROTECTION POLICY
+Data Classification
+Information shall be classified as:
+Public
+Information intended for public disclosure.
+Internal
+Operational information for authorized personnel.
+Confidential
+Business-sensitive information.
+Restricted
+Personally Identifiable Information (PII), payment data, and verification documents.
+Data Encryption
+MEEEM shall implement:
+Data in Transit
+TLS 1.2 or higher
+HTTPS encryption
+Secure API communications
+Data at Rest
+Encrypted databases
+Encrypted file storage
+Encrypted backups
+7. LOCATION DATA PROTECTION
+MEEEM collects location information to:
+Display nearby products and services
+Facilitate deliveries
+Match customers with nearby service providers
+Improve service availability
+Security controls include:
+Collection only with user consent
+Secure storage
+Access restriction
+Data minimization
+Retention limitations
+Location data shall not be sold or disclosed to unauthorized third parties.
+8. NOTIFICATION PERMISSIONS
+The platform may request notification permissions for:
+Order updates
+Service booking updates
+Payment confirmations
+Security alerts
+Promotional communications
+Users shall have the ability to manage notification preferences.
+9. IDENTITY VERIFICATION SECURITY
+To maintain marketplace trust and safety, MEEEM performs identity verification for:
+Sellers
+Government-issued ID verification
+Business registration verification
+Banking verification
+Service Providers
+Government-issued ID verification
+Professional license verification
+Business verification where applicable
+Security controls include:
+Secure document uploads
+Encrypted storage
+Restricted access
+Verification audit trails
+Automated fraud detection
+Verification documents shall be retained only for legitimate business and regulatory purposes.
+10. PAYMENT SECURITY
+Payment Gateway Protection
+MEEEM shall use secure and reputable payment gateways.
+Requirements include:
+PCI-DSS compliant payment processors
+Tokenization where applicable
+Secure API integration
+Transaction monitoring
+Fraud detection mechanisms
+Payment Data
+MEEEM shall not store sensitive card data unless explicitly permitted under applicable regulations and PCI-DSS requirements.
+Stored payment information shall be:
+Encrypted
+Access controlled
+Audited regularly
+11. APPLICATION SECURITY
+Secure Software Development
+All applications shall follow secure development practices.
+Requirements include:
+Secure coding standards
+Code reviews
+Security testing
+Vulnerability assessments
+Dependency management
+Mobile Application Security
+The mobile application shall implement:
+Secure authentication
+Encrypted communication
+Certificate validation
+API security controls
+Protection against reverse engineering
+Device integrity checks where feasible
+12. API SECURITY
+All APIs shall be protected through:
+Authentication tokens
+Authorization controls
+Rate limiting
+Input validation
+Threat monitoring
+Audit logging
+Unauthorized API access attempts shall be blocked and logged.
+13. CLOUD SECURITY
+MEEEM shall implement cloud security controls including:
+Network segmentation
+Firewall protection
+Security monitoring
+Backup management
+Disaster recovery planning
+Encryption services
+Security configuration management
+14. LOGGING AND MONITORING
+The platform shall maintain logs for:
+Login activities
+Failed login attempts
+Payment transactions
+Administrative actions
+Verification activities
+API requests
+Security incidents
+Logs shall be:
+Protected from alteration
+Retained according to retention policies
+Regularly reviewed
+15. FRAUD PREVENTION
+MEEEM shall implement controls to detect and prevent:
+Account takeover
+Fake seller registrations
+Fake service provider registrations
+Identity theft
+Payment fraud
+Refund abuse
+Bot attacks
+Fraud prevention measures may include:
+Behavioral analytics
+Device fingerprinting
+Risk scoring
+Identity verification
+Transaction monitoring
+16. INCIDENT RESPONSE
+MEEEM shall maintain an Incident Response Plan covering:
+Identification
+Detection of security incidents.
+Containment
+Limiting incident impact.
+Investigation
+Determining root causes.
+Recovery
+Restoring affected services.
+Notification
+Informing affected users and authorities when required.
+17. VULNERABILITY MANAGEMENT
+MEEEM shall:
+Conduct periodic vulnerability assessments
+Perform penetration testing
+Patch critical vulnerabilities promptly
+Review third-party security risks
+Critical vulnerabilities shall be remediated as quickly as operationally feasible.
+18. BACKUP AND DISASTER RECOVERY
+MEEEM shall maintain:
+Automated backups
+Encrypted backups
+Redundant infrastructure
+Disaster recovery procedures
+Backup restoration testing shall be performed periodically.
+19. THIRD-PARTY SECURITY
+All third-party vendors, payment providers, hosting providers, and technology partners shall:
+Maintain adequate security controls
+Protect customer information
+Comply with contractual security obligations
+Notify MEEEM of security incidents affecting shared systems
+20. PRIVACY AND DATA RETENTION
+Personal information shall be retained only for:
+Business operations
+Legal obligations
+Regulatory requirements
+Fraud prevention
+Upon expiration of retention periods, data shall be securely deleted or anonymized.
+21. EMPLOYEE SECURITY RESPONSIBILITIES
+Employees shall:
+Follow security policies
+Protect passwords and credentials
+Report suspicious activity
+Complete security awareness training
+Use company systems responsibly
+22. SECURITY AWARENESS
+MEEEM shall provide ongoing cybersecurity awareness training covering:
+Phishing attacks
+Social engineering
+Password security
+Data handling
+Incident reporting
+23. COMPLIANCE
+MEEEM shall strive to comply with:
+Applicable data protection laws in Sierra Leone
+Payment Card Industry Data Security Standards (PCI-DSS)
+Industry cybersecurity best practices
+Contractual security obligations
+24. POLICY VIOLATIONS
+Violations of this policy may result in:
+Suspension of platform access
+Account termination
+Contractual actions
+Legal proceedings
+Regulatory reporting where applicable
+25. POLICY REVIEW
+This Cybersecurity Policy shall be reviewed at least annually or whenever significant changes occur to:
+Business operations
+Technology infrastructure
+Legal requirements
+Security threats
+APPROVAL
+This Cybersecurity Policy is approved and adopted by:
+MEEEM E-commerce Pvt. Ltd.Freetown, Sierra Leone
+Authorized Signatory: _____________________
+Designation: _____________________
+Date: _____________________

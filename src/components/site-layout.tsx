@@ -47,9 +47,14 @@ export function SiteHeader() {
   const { totalItems } = useCart()
   const { count: wishlistCount, items: wishlistItems, canUseWishlist, removeWishlist } = useWishlist()
   const [searchQuery, setSearchQuery] = useState("")
+  const [serviceQuery, setServiceQuery] = useState("")
+  const [hotelQuery, setHotelQuery] = useState("")
+  const [foodQuery, setFoodQuery] = useState("")
   const [mounted, setMounted] = useState(false)
   const [categories, setCategories] = useState<Category[]>([])
   const [serviceCategories, setServiceCategories] = useState<ServiceCategory[]>([])
+  const [hotelCities, setHotelCities] = useState<string[]>([])
+  const [foodCuisines, setFoodCuisines] = useState<string[]>([])
   const isLoggedIn = status === "authenticated" && !!session?.user
   const showOrdersLink = status === "authenticated" && session?.user?.role === UserRole.CUSTOMER
   const showBecomePartner = !isLoggedIn
@@ -90,19 +95,44 @@ export function SiteHeader() {
     Promise.all([
       fetch("/api/home/categories").then((r) => (r.ok ? r.json() : [])),
       fetch("/mobileapi/services/categories?activeOnly=true").then((r) => (r.ok ? r.json() : null)),
+      fetch("/api/hotels").then((r) => (r.ok ? r.json() : null)),
+      fetch("/api/customer/restaurants").then((r) => (r.ok ? r.json() : null)),
     ])
-      .then(([productCats, serviceResp]) => {
+      .then(([productCats, serviceResp, hotelResp, foodResp]) => {
         setCategories(Array.isArray(productCats) ? productCats : [])
         const list = serviceResp?.success && Array.isArray(serviceResp?.data?.categories)
           ? serviceResp.data.categories
           : []
         setServiceCategories(list)
+        if (hotelResp?.success && Array.isArray(hotelResp?.cities)) {
+          setHotelCities(hotelResp.cities)
+        }
+        if (foodResp?.success && Array.isArray(foodResp?.cuisines)) {
+          setFoodCuisines(foodResp.cuisines)
+        }
       })
       .catch(() => {
         setCategories([])
         setServiceCategories([])
+        setHotelCities([])
+        setFoodCuisines([])
       })
   }, [])
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const sp = new URLSearchParams(window.location.search)
+      if (isServiceSection) {
+        setServiceQuery(sp.get("search") || sp.get("q") || "")
+      } else if (isHotelSection) {
+        setHotelQuery(sp.get("q") || "")
+      } else if (isFoodSection) {
+        setFoodQuery(sp.get("q") || "")
+      } else {
+        setSearchQuery(sp.get("q") || "")
+      }
+    }
+  }, [pathname, isServiceSection, isHotelSection, isFoodSection])
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
@@ -199,6 +229,216 @@ export function SiteHeader() {
               <Button type="submit" size="icon" className="h-9 w-9 shrink-0 rounded-l-none border border-l-0 border-amber-400 bg-amber-400 text-black hover:bg-amber-500 sm:h-10 sm:w-10">
                 <Search className="h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4" />
                 <span className="sr-only">Search</span>
+              </Button>
+            </div>
+          </form>
+        )}
+
+        {isServiceSection && (
+          <form
+            onSubmit={(e) => {
+              e.preventDefault()
+              if (serviceQuery.trim()) {
+                router.push(`/service?search=${encodeURIComponent(serviceQuery.trim())}`)
+              } else {
+                router.push("/service")
+              }
+            }}
+            className="flex min-w-0 flex-1 max-w-xl items-center"
+          >
+            <div className="relative flex w-full min-w-0 items-center">
+              {mounted ? (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="hidden h-9 shrink-0 rounded-r-none border-slate-300 bg-slate-100 px-2 text-xs font-semibold text-slate-800 hover:bg-slate-200 focus-visible:ring-slate-400 sm:flex sm:h-10 sm:px-3 sm:text-sm"
+                    >
+                      <LayoutGrid className="mr-1 h-3.5 w-3.5 sm:mr-1.5 sm:h-4 sm:w-4 text-slate-700" />
+                      Categories
+                      <ChevronDown className="ml-0.5 h-3.5 w-3.5 sm:ml-1 sm:h-4 sm:w-4 text-slate-600" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="max-h-[70vh] w-56 overflow-y-auto p-1">
+                    <DropdownMenuItem asChild>
+                      <Link href="/service" className="flex items-center gap-2 font-medium">
+                        <LayoutGrid className="h-4 w-4 text-slate-600" />
+                        All Services
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    {serviceCategories.map((scat) => (
+                      <DropdownMenuItem asChild key={scat.id}>
+                        <Link href={`/service?category=${scat.id}`} className="font-medium text-slate-700">
+                          {scat.name}
+                        </Link>
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              ) : (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-10 shrink-0 rounded-r-none border-slate-300 bg-slate-100 px-3 text-sm font-medium text-slate-800"
+                  aria-hidden
+                >
+                  <LayoutGrid className="mr-1.5 h-4 w-4 text-slate-700" />
+                  Categories
+                  <ChevronDown className="ml-1 h-4 w-4" />
+                </Button>
+              )}
+              <Input
+                type="search"
+                placeholder="Search services, providers (e.g. Electrician)..."
+                value={serviceQuery}
+                onChange={(e) => setServiceQuery(e.target.value)}
+                className="h-9 min-w-0 rounded-l-md border-l border-slate-300 border-r-0 bg-white py-2 text-sm focus-visible:ring-slate-400 sm:h-10 sm:rounded-l-none sm:border-l-0 sm:text-base"
+              />
+              <Button type="submit" size="icon" className="h-9 w-9 shrink-0 rounded-l-none border border-l-0 border-slate-400 bg-slate-800 text-white hover:bg-slate-900 sm:h-10 sm:w-10">
+                <Search className="h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4" />
+                <span className="sr-only">Search Services</span>
+              </Button>
+            </div>
+          </form>
+        )}
+
+        {isHotelSection && (
+          <form
+            onSubmit={(e) => {
+              e.preventDefault()
+              if (hotelQuery.trim()) {
+                router.push(`/hotels?q=${encodeURIComponent(hotelQuery.trim())}`)
+              } else {
+                router.push("/hotels")
+              }
+            }}
+            className="flex min-w-0 flex-1 max-w-xl items-center"
+          >
+            <div className="relative flex w-full min-w-0 items-center">
+              {mounted ? (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="hidden h-9 shrink-0 rounded-r-none border-emerald-400 bg-emerald-50 px-2 text-xs font-semibold text-emerald-950 hover:bg-emerald-100 sm:flex sm:h-10 sm:px-3 sm:text-sm"
+                    >
+                      <MapPin className="mr-1 h-3.5 w-3.5 sm:mr-1.5 sm:h-4 sm:w-4 text-emerald-700" />
+                      Cities
+                      <ChevronDown className="ml-0.5 h-3.5 w-3.5 sm:ml-1 sm:h-4 sm:w-4 text-emerald-800" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="max-h-[70vh] w-56 overflow-y-auto p-1">
+                    <DropdownMenuItem asChild>
+                      <Link href="/hotels" className="flex items-center gap-2 font-medium">
+                        <MapPin className="h-4 w-4 text-emerald-600" />
+                        All Destinations
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    {hotelCities.map((city) => (
+                      <DropdownMenuItem asChild key={city}>
+                        <Link href={`/hotels?city=${encodeURIComponent(city)}`} className="font-medium text-slate-800">
+                          📍 {city}
+                        </Link>
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              ) : (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-10 shrink-0 rounded-r-none border-emerald-400 bg-emerald-50 px-3 text-sm font-medium text-emerald-950"
+                  aria-hidden
+                >
+                  <MapPin className="mr-1.5 h-4 w-4 text-emerald-700" />
+                  Cities
+                  <ChevronDown className="ml-1 h-4 w-4" />
+                </Button>
+              )}
+              <Input
+                type="search"
+                placeholder="Search hotels, resorts, locations, cities..."
+                value={hotelQuery}
+                onChange={(e) => setHotelQuery(e.target.value)}
+                className="h-9 min-w-0 rounded-l-md border-l border-emerald-400 border-r-0 bg-white py-2 text-sm focus-visible:ring-emerald-500 sm:h-10 sm:rounded-l-none sm:border-l-0 sm:text-base"
+              />
+              <Button type="submit" size="icon" className="h-9 w-9 shrink-0 rounded-l-none border border-l-0 border-emerald-500 bg-emerald-600 text-white hover:bg-emerald-700 sm:h-10 sm:w-10">
+                <Search className="h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4" />
+                <span className="sr-only">Search Hotels</span>
+              </Button>
+            </div>
+          </form>
+        )}
+
+        {isFoodSection && (
+          <form
+            onSubmit={(e) => {
+              e.preventDefault()
+              if (foodQuery.trim()) {
+                router.push(`/foods?q=${encodeURIComponent(foodQuery.trim())}`)
+              } else {
+                router.push("/foods")
+              }
+            }}
+            className="flex min-w-0 flex-1 max-w-xl items-center"
+          >
+            <div className="relative flex w-full min-w-0 items-center">
+              {mounted ? (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="hidden h-9 shrink-0 rounded-r-none border-amber-300 bg-amber-100/70 px-2 text-xs font-semibold text-amber-950 hover:bg-amber-200 sm:flex sm:h-10 sm:px-3 sm:text-sm"
+                    >
+                      <LayoutGrid className="mr-1 h-3.5 w-3.5 sm:mr-1.5 sm:h-4 sm:w-4 text-amber-800" />
+                      Cuisines
+                      <ChevronDown className="ml-0.5 h-3.5 w-3.5 sm:ml-1 sm:h-4 sm:w-4 text-amber-800" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="max-h-[70vh] w-56 overflow-y-auto p-1">
+                    <DropdownMenuItem asChild>
+                      <Link href="/foods" className="flex items-center gap-2 font-medium">
+                        <LayoutGrid className="h-4 w-4 text-amber-600" />
+                        All Cuisines
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    {foodCuisines.map((cuisine) => (
+                      <DropdownMenuItem asChild key={cuisine}>
+                        <Link href={`/foods?cuisine=${encodeURIComponent(cuisine)}`} className="font-medium text-slate-800">
+                          🍴 {cuisine}
+                        </Link>
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              ) : (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-10 shrink-0 rounded-r-none border-amber-300 bg-amber-100 px-3 text-sm font-medium text-amber-950"
+                  aria-hidden
+                >
+                  <LayoutGrid className="mr-1.5 h-4 w-4 text-amber-800" />
+                  Cuisines
+                  <ChevronDown className="ml-1 h-4 w-4" />
+                </Button>
+              )}
+              <Input
+                type="search"
+                placeholder="Search restaurants, dishes, cuisines..."
+                value={foodQuery}
+                onChange={(e) => setFoodQuery(e.target.value)}
+                className="h-9 min-w-0 rounded-l-md border-l border-amber-400 border-r-0 bg-white py-2 text-sm focus-visible:ring-amber-500 sm:h-10 sm:rounded-l-none sm:border-l-0 sm:text-base"
+              />
+              <Button type="submit" size="icon" className="h-9 w-9 shrink-0 rounded-l-none border border-l-0 border-orange-500 bg-orange-600 text-white hover:bg-orange-700 sm:h-10 sm:w-10">
+                <Search className="h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4" />
+                <span className="sr-only">Search Foods</span>
               </Button>
             </div>
           </form>
@@ -371,7 +611,7 @@ export function SiteHeader() {
                       </div>
                     )}
 
-                    {/* 4. Shop Categories (Only shown on Marketplace Panel) */}
+                    {/* 4. Panel Categories / Destinations / Cuisines in Mobile Drawer */}
                     {!isCustomNav && categories.length > 0 && (
                       <div className="space-y-2">
                         <p className="text-[11px] font-black uppercase tracking-wider text-slate-400">Shop Categories</p>
@@ -384,6 +624,60 @@ export function SiteHeader() {
                             >
                               <span>{cat.name}</span>
                               <ChevronRight className="h-3.5 w-3.5 text-slate-400" />
+                            </Link>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {isServiceSection && serviceCategories.length > 0 && (
+                      <div className="space-y-2">
+                        <p className="text-[11px] font-black uppercase tracking-wider text-slate-400">Service Categories</p>
+                        <div className="rounded-2xl border border-slate-200/80 bg-white p-2 space-y-1 shadow-2xs">
+                          {serviceCategories.map((scat) => (
+                            <Link
+                              key={scat.id}
+                              href={`/service?category=${scat.id}`}
+                              className="flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100"
+                            >
+                              <span>{scat.name}</span>
+                              <ChevronRight className="h-3.5 w-3.5 text-slate-400" />
+                            </Link>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {isHotelSection && hotelCities.length > 0 && (
+                      <div className="space-y-2">
+                        <p className="text-[11px] font-black uppercase tracking-wider text-emerald-600">Popular Destinations</p>
+                        <div className="rounded-2xl border border-emerald-200/80 bg-white p-2 space-y-1 shadow-2xs">
+                          {hotelCities.map((city) => (
+                            <Link
+                              key={city}
+                              href={`/hotels?city=${encodeURIComponent(city)}`}
+                              className="flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-emerald-50"
+                            >
+                              <span>📍 {city}</span>
+                              <ChevronRight className="h-3.5 w-3.5 text-emerald-400" />
+                            </Link>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {isFoodSection && foodCuisines.length > 0 && (
+                      <div className="space-y-2">
+                        <p className="text-[11px] font-black uppercase tracking-wider text-amber-700">Popular Cuisines</p>
+                        <div className="rounded-2xl border border-amber-200/80 bg-white p-2 space-y-1 shadow-2xs">
+                          {foodCuisines.map((cuisine) => (
+                            <Link
+                              key={cuisine}
+                              href={`/foods?cuisine=${encodeURIComponent(cuisine)}`}
+                              className="flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-amber-50"
+                            >
+                              <span>🍴 {cuisine}</span>
+                              <ChevronRight className="h-3.5 w-3.5 text-amber-400" />
                             </Link>
                           ))}
                         </div>

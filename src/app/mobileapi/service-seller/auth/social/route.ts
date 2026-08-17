@@ -6,9 +6,11 @@ import { verifySocialToken } from "@/lib/social-auth"
 import { activateFreePlan } from "@/lib/subscriptions"
 
 interface SocialLoginRequest {
-  provider: "google" | "facebook"
+  provider: "google" | "facebook" | "apple"
   idToken?: string
   accessToken?: string
+  name?: string
+  email?: string
 }
 
 interface SellerInfo {
@@ -64,26 +66,25 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
       )
     }
 
-    const { provider, idToken, accessToken } = body
-    if (!provider || (provider !== "google" && provider !== "facebook")) {
+    const { idToken, accessToken, name: bodyName, email: bodyEmail } = body
+    let rawProvider = (body.provider as string | undefined)?.toLowerCase()?.trim()
+    if (rawProvider === "apple.com") rawProvider = "apple"
+    if (rawProvider === "google.com") rawProvider = "google"
+    if (rawProvider === "facebook.com") rawProvider = "facebook"
+
+    if (!rawProvider || (rawProvider !== "google" && rawProvider !== "facebook" && rawProvider !== "apple")) {
       return NextResponse.json<ErrorResponse>(
-        { success: false, error: "provider must be 'google' or 'facebook'" },
+        { success: false, error: "provider must be 'google', 'facebook', or 'apple'" },
         { status: 400 }
       )
     }
+
+    const provider = rawProvider as "google" | "facebook" | "apple"
 
     const profile = await verifySocialToken(provider, idToken, accessToken)
     if (!profile) {
       return NextResponse.json<ErrorResponse>(
         { success: false, error: "Invalid or expired token" },
-        { status: 401 }
-      )
-    }
-
-    const email = profile.email?.toLowerCase().trim()
-    if (!email) {
-      return NextResponse.json<ErrorResponse>(
-        { success: false, error: "Email not provided by provider" },
         { status: 401 }
       )
     }
@@ -182,6 +183,16 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
       )
     }
 
+    const email = (profile.email || bodyEmail)?.toLowerCase().trim()
+    const userName = profile.name || bodyName || null
+
+    if (!email) {
+      return NextResponse.json<ErrorResponse>(
+        { success: false, error: "Email not provided by provider" },
+        { status: 401 }
+      )
+    }
+
     const existingUser = await prisma.user.findUnique({
       where: { email },
       include: { seller: true },
@@ -268,7 +279,7 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
     const newUser = await prisma.user.create({
       data: {
         email,
-        name: profile.name ?? null,
+        name: userName,
         image: profile.image,
         password: null,
         role: UserRole.SELLER_SERVICE,

@@ -1,6 +1,7 @@
 "use client"
 
 import React from "react"
+import { getGoogleMapsApiKey } from "@/lib/google-maps-loader"
 import { cn } from "@/lib/utils"
 import { Card, CardContent, CardHeader, CardTitle } from "@/ui/card"
 import { Badge } from "@/ui/badge"
@@ -51,12 +52,11 @@ export function SellerDetailsView({
 
   React.useEffect(() => {
     if (seller?.store?.lat && seller?.store?.lng) {
-      fetch("/api/utils/maps-key")
-        .then((res) => res.json())
-        .then((data) => {
-          if (data.key) {
+      getGoogleMapsApiKey()
+        .then((key) => {
+          if (key) {
             setMapUrl(
-              `https://maps.googleapis.com/maps/api/staticmap?center=${seller.store.lat},${seller.store.lng}&zoom=15&size=400x150&markers=color:red%7C${seller.store.lat},${seller.store.lng}&key=${data.key}`
+              `https://maps.googleapis.com/maps/api/staticmap?center=${seller.store.lat},${seller.store.lng}&zoom=15&size=400x150&markers=color:red%7C${seller.store.lat},${seller.store.lng}&key=${key}`
             )
           }
         })
@@ -353,6 +353,12 @@ export function SellerDetailsView({
                     {seller.agreement.agreedToCommission ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
                   </Badge>
                 </div>
+                {seller.agreement.hearAboutUs && (
+                  <div className="flex items-center justify-between p-3 rounded-xl bg-purple-500/10 border border-purple-500/20">
+                    <span className="text-xs font-medium text-purple-700 dark:text-purple-300">Referral / Source</span>
+                    <span className="text-xs font-bold text-purple-900 dark:text-purple-100">{seller.agreement.hearAboutUs}</span>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="flex flex-col items-center justify-center py-6 text-center space-y-2">

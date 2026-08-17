@@ -6,7 +6,7 @@ import { UserRole } from "@prisma/client"
 import type { PlaceOrderResponse } from "../types"
 import { sendOrderConfirmationEmail, sendSellerNewOrderEmail, sendAdminNewOrderEmail } from "@/lib/email"
 import { validateCoupon } from "@/lib/coupons"
-import { calculateShippingBreakup, getRegionDeliveryCharge } from "@/lib/shipping-calculator"
+import { calculateShippingBreakup, getRegionDeliveryChargeDetails } from "@/lib/shipping-calculator"
 
 
 const CHECKOUT_CART_INCLUDE = {
@@ -227,11 +227,14 @@ export async function POST(request: NextRequest) {
     shipping += sellerShipping
   }
 
+  const regionBreakupDetails = getRegionDeliveryChargeDetails(address.state, regionCharges)
   const shippingBreakup = {
     weightShippingFee: totalWeightFee,
     dimensionShippingFee: totalDimFee,
     regionShippingFee: totalRegionFee,
     totalShippingFee: shipping,
+    matchedRegionName: regionBreakupDetails.matchedRegionName,
+    matchedZoneName: regionBreakupDetails.matchedZoneName,
   }
 
   const orderPhysicalItems = normalizedItems.filter((row) => row.item.productId != null)

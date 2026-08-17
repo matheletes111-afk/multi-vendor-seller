@@ -293,7 +293,8 @@ export function ProductDetailClient({ productId }: { productId: string }) {
 
   return (
     <PublicLayout>
-      <div className="mx-auto max-w-6xl px-3 py-4 sm:px-4 sm:py-6">
+      <div className="min-h-screen bg-white text-slate-900 pb-16">
+        <div className="mx-auto max-w-6xl px-3 py-4 sm:px-4 sm:py-6">
         {/* Breadcrumb - scroll on small screens */}
         <nav className="mb-3 sm:mb-4 flex items-center gap-1 overflow-x-auto text-xs text-slate-600 sm:text-sm pb-1 scrollbar-none [scrollbar-width:none] [-ms-overflow-style:none]">
           <Link href="/" className="shrink-0 hover:text-amber-600 hover:underline">Home</Link>
@@ -763,6 +764,7 @@ export function ProductDetailClient({ productId }: { productId: string }) {
           </Button>
         </div>
       </div>
+    </div>
     </PublicLayout>
   )
 }

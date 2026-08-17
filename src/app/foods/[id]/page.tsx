@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { useParams, useRouter } from "next/navigation"
-import { Star, ArrowLeft, Clock, Flame, ShoppingBag, Plus, Minus, ShieldAlert, Utensils, ZoomIn } from "lucide-react"
+import { Star, ArrowLeft, ShoppingBag, Plus, Minus, ShieldAlert, ZoomIn, Utensils } from "lucide-react"
 import { Button } from "@/ui/button"
 import { Card, CardContent } from "@/ui/card"
 import { Textarea } from "@/ui/textarea"
@@ -11,6 +11,7 @@ import { formatCurrency, extractFoodImages } from "@/lib/utils"
 import { useSession } from "next-auth/react"
 import { PublicLayout } from "@/components/site-layout"
 import { ReviewImageModal } from "@/components/reviews/review-image-modal"
+import { PageLoader } from "@/components/ui/page-loader"
 
 type FoodReviewItem = {
   id: string
@@ -35,6 +36,25 @@ type FoodItem = {
   totalReviews: number
   restaurantName: string
   reviews: FoodReviewItem[]
+}
+
+const FALLBACK_FOOD_IMAGES: Record<string, string> = {
+  pizza: "https://images.unsplash.com/photo-1513104890138-7c749659a591?w=600&q=80",
+  pasta: "https://images.unsplash.com/photo-1473093295043-cdd812d0e601?w=600&q=80",
+  burger: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=600&q=80",
+  biryani: "https://images.unsplash.com/photo-1589302168068-964664d93dc0?w=600&q=80",
+  sushi: "https://images.unsplash.com/photo-1617196034183-421b4040ed20?w=600&q=80",
+  tacos: "https://images.unsplash.com/photo-1565299585323-38d6b0865b47?w=600&q=80",
+  dessert: "https://images.unsplash.com/photo-1571877227200-a0d98ea607e9?w=600&q=80",
+  default: "https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=600&q=80",
+}
+
+function getFallbackFoodImage(category?: string, name?: string): string {
+  const key = [category || "", name || ""].join(" ").toLowerCase()
+  for (const [k, v] of Object.entries(FALLBACK_FOOD_IMAGES)) {
+    if (key.includes(k)) return v
+  }
+  return FALLBACK_FOOD_IMAGES.default
 }
 
 export default function FoodDetailsPage() {
@@ -184,9 +204,8 @@ export default function FoodDetailsPage() {
   if (loading) {
     return (
       <PublicLayout>
-        <div className="container mx-auto px-4 py-16 max-w-6xl text-center space-y-4">
-          <div className="h-16 w-16 border-4 border-rose-500 border-t-transparent rounded-full animate-spin mx-auto" />
-          <p className="text-slate-500 font-medium">Loading delicious details...</p>
+        <div className="flex min-h-[70vh] items-center justify-center">
+          <PageLoader message="Loading…" />
         </div>
       </PublicLayout>
     )
@@ -218,6 +237,9 @@ export default function FoodDetailsPage() {
       foodImages = extractFoodImages(food.image)
     }
   }
+  if (foodImages.length === 0 && food) {
+    foodImages = [getFallbackFoodImage(food.category, food.name)]
+  }
 
   return (
     <PublicLayout>
@@ -234,39 +256,42 @@ export default function FoodDetailsPage() {
           {/* Image Gallery / Banner */}
           <div className="space-y-4 w-full">
             <div className="bg-white rounded-[2.5rem] p-4 border border-slate-100 shadow-xl overflow-hidden aspect-[4/3] relative flex items-center justify-center">
-                  {foodImages.length > 0 ? (
-                    <img src={foodImages[activeImageIndex] || foodImages[0]} alt={food.name} className="object-cover w-full h-full rounded-[2rem]" />
-                  ) : (
-                    <div className="text-slate-300 font-black text-xl flex flex-col items-center gap-3">
-                      <Flame className="h-20 w-20 text-rose-500/20" />
-                      No image available
-                    </div>
-                  )}
-                  <span className={`absolute top-8 left-8 px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest ${
-                    food.isVeg ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-rose-50 text-rose-700 border border-rose-200"
-                  }`}>
-                    {food.isVeg ? "Veg" : "Non-Veg"}
-                  </span>
-                </div>
-                
-                {/* Thumbnail selector */}
-                {foodImages.length > 1 && (
-                  <div className="flex gap-2.5 overflow-x-auto pb-2">
-                    {foodImages.map((img, idx) => (
-                      <button
-                        key={idx}
-                        type="button"
-                        onClick={() => setActiveImageIndex(idx)}
-                        className={`relative w-20 h-16 rounded-xl overflow-hidden border-2 shrink-0 transition-all ${
-                          activeImageIndex === idx ? "border-rose-500 scale-105 shadow-md" : "border-slate-200 opacity-70 hover:opacity-100"
-                        }`}
-                      >
-                        <img src={img} alt={`${food.name} ${idx + 1}`} className="w-full h-full object-cover" />
-                      </button>
-                    ))}
-                  </div>
-                )}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={foodImages[activeImageIndex] || foodImages[0] || getFallbackFoodImage(food?.category, food?.name)}
+                alt={food?.name || "Food"}
+                className="object-cover w-full h-full rounded-[2rem]"
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement
+                  target.onerror = null
+                  target.src = getFallbackFoodImage(food?.category, food?.name)
+                }}
+              />
+              <span className={`absolute top-8 left-8 px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest ${
+                food.isVeg ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-rose-50 text-rose-700 border border-rose-200"
+              }`}>
+                {food.isVeg ? "Veg" : "Non-Veg"}
+              </span>
+            </div>
+
+            {/* Thumbnail selector */}
+            {foodImages.length > 1 && (
+              <div className="flex gap-2.5 overflow-x-auto pb-2">
+                {foodImages.map((img, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => setActiveImageIndex(idx)}
+                    className={`relative w-20 h-16 rounded-xl overflow-hidden border-2 shrink-0 transition-all ${
+                      activeImageIndex === idx ? "border-rose-500 scale-105 shadow-md" : "border-slate-200 opacity-70 hover:opacity-100"
+                    }`}
+                  >
+                    <img src={img} alt={`${food.name} ${idx + 1}`} className="w-full h-full object-cover" />
+                  </button>
+                ))}
               </div>
+            )}
+          </div>
 
           {/* Core Info */}
           <div className="space-y-6">

@@ -1,16 +1,17 @@
-# Firebase Social Authentication Integration Guide for Mobile Developers
+# Firebase & Apple Social Authentication Integration Guide for Mobile Developers
 
-This guide provides details on how to integrate and use native social authentication (Google, Facebook, etc.) with the multi-vendor backend APIs.
+This guide provides details on how to integrate and use native social authentication (Google, Facebook, Apple, etc.) with the multi-vendor backend APIs.
 
 ---
 
 ## 🛠️ Overview of the Authentication Flow
 
-1. **Local Authentication**: The mobile app authenticates the user locally using native Google or Facebook SDKs or Firebase Authentication libraries.
-2. **Fetch ID Token**: Once logged in, retrieve the current user's Firebase ID token using:
-   - iOS / Android: `currentUser.getIdToken(true)` (this returns the JWT string representing the Firebase ID token).
-3. **Send to Backend**: Send a `POST` request to the correct backend route containing the `idToken` and the chosen `provider` ("google" or "facebook").
-4. **Backend Verification**: The Next.js server validates the Firebase ID token using the Firebase Admin SDK, extracts user details, checks/creates accounts matching the provider ID, and returns JWT tokens for subsequent authenticated requests.
+1. **Local Authentication**: The mobile app authenticates the user locally using native Google, Facebook, Apple SDKs, or Firebase Authentication libraries.
+2. **Fetch ID Token**: Once logged in, retrieve the current user's ID token:
+   - Firebase Auth: `currentUser.getIdToken(true)` (JWT string representing Firebase ID token).
+   - Direct Apple Sign-in (iOS): Native `identityToken` JWT string.
+3. **Send to Backend**: Send a `POST` request to the correct backend route containing the `idToken` and the chosen `provider` ("google", "facebook", or "apple").
+4. **Backend Verification**: The Next.js server validates the ID token, extracts user details, checks/creates accounts matching the provider ID, and returns JWT tokens for subsequent authenticated requests.
 
 ---
 
@@ -32,15 +33,17 @@ Use the endpoint corresponding to the role of the user logging in:
 
 Perform a `POST` request to the route with the following JSON body structure:
 
-### For Google and Facebook (using Firebase ID Token)
+### For Google, Facebook, and Apple
 ```json
 {
-  "provider": "google", // or "facebook"
-  "idToken": "<FIREBASE_ID_TOKEN>"
+  "provider": "apple", // "google" | "facebook" | "apple"
+  "idToken": "<ID_TOKEN>", // Firebase ID Token or Apple identityToken JWT
+  "name": "User Name", // Optional (recommended for Apple sign in first-time)
+  "email": "user@example.com" // Optional
 }
 ```
 
-*Note: For backward compatibility, direct logins not using Firebase (e.g. legacy/web oauth flow) are still supported on these endpoints. In those cases, Google uses `idToken` (raw Google ID token) and Facebook uses `accessToken` (raw Facebook access token).*
+*Note: For backward compatibility, direct logins not using Firebase (e.g. legacy/web oauth flow) are still supported on these endpoints. In those cases, Google uses `idToken` (raw Google ID token), Facebook uses `accessToken` (raw Facebook access token), and Apple uses `idToken` (raw Apple identityToken).*
 
 ---
 

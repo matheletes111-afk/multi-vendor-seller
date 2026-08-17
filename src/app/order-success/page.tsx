@@ -1,5 +1,8 @@
 import { PublicLayout } from "@/components/site-layout"
 import { prisma } from "@/lib/prisma"
+import { fastMatchSpecificZoneRegion, fastMatchProvinceRegion } from "@/lib/ai-region-matcher"
+import { getZoneForRegion } from "@/lib/location-zones"
+import { resolveAdministrativeRegion } from "@/lib/shipping-calculator"
 import { OrderSuccessClient, type SerializedOrder } from "./order-success-client"
 
 export default async function OrderSuccessPage({
@@ -25,6 +28,9 @@ export default async function OrderSuccessPage({
         shippingCity: true,
         shippingState: true,
         shippingAddressLine1: true,
+        shippingAddressLine2: true,
+        shippingPostalCode: true,
+        shippingCountry: true,
         shipping: true,
         weightShippingFee: true,
         dimensionShippingFee: true,
@@ -43,6 +49,30 @@ export default async function OrderSuccessPage({
     })
 
     if (rawOrder) {
+      // Resolve structured zone label using multi-tier priority
+      const specificMatch = fastMatchSpecificZoneRegion({
+        addressLine1: rawOrder.shippingAddressLine1,
+        addressLine2: rawOrder.shippingAddressLine2,
+        city: rawOrder.shippingCity,
+        state: rawOrder.shippingState,
+      })
+
+      let deliveryZoneLabel = "Other"
+      if (specificMatch) {
+        const zone = getZoneForRegion(specificMatch)
+        deliveryZoneLabel = `${specificMatch} (${zone})`
+      } else {
+        const provMatch =
+          fastMatchProvinceRegion({
+            state: rawOrder.shippingState,
+            city: rawOrder.shippingCity,
+          }) || resolveAdministrativeRegion(rawOrder.shippingState)
+
+        if (provMatch && provMatch !== "Other") {
+          deliveryZoneLabel = provMatch
+        }
+      }
+
       order = {
         id: rawOrder.id,
         orderNumber: rawOrder.orderNumber,
@@ -53,6 +83,10 @@ export default async function OrderSuccessPage({
         shippingCity: rawOrder.shippingCity,
         shippingState: rawOrder.shippingState,
         shippingAddressLine1: rawOrder.shippingAddressLine1,
+        shippingAddressLine2: rawOrder.shippingAddressLine2,
+        shippingPostalCode: rawOrder.shippingPostalCode,
+        shippingCountry: rawOrder.shippingCountry,
+        deliveryZoneLabel,
         shipping: rawOrder.shipping,
         weightShippingFee: rawOrder.weightShippingFee ?? 0,
         dimensionShippingFee: rawOrder.dimensionShippingFee ?? 0,

@@ -235,7 +235,7 @@ export function RestaurantSellersClient() {
                           <TableCell className="pl-8 py-5">
                             <div className="flex flex-col">
                               <span className="font-bold text-base leading-tight">{seller.user?.name}</span>
-                              <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-tighter">{seller.user?.email}</span>
+                              <span className="text-[10px] text-muted-foreground font-medium lowercase tracking-normal">{seller.user?.email?.toLowerCase()}</span>
                             </div>
                           </TableCell>
                           <TableCell>

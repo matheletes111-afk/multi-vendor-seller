@@ -482,10 +482,10 @@ export function HomeClient() {
           </div>
         ) : (
           <>
-            {/* Hero banner container with subtle side whitespace */}
-            <div className="w-full max-w-[1440px] mx-auto px-2 sm:px-4 pt-2 sm:pt-3">
+            {/* Hero Banner with sharp edges (no rounded corners), small side gap, and no top gap */}
+            <div className="w-full max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6 pt-0">
               <section
-                className="relative w-full bg-slate-900 overflow-hidden rounded-xl sm:rounded-2xl shadow-sm aspect-[16/6.8] sm:aspect-[16/6.6] min-h-[220px]"
+                className="relative w-full bg-slate-900 overflow-hidden rounded-none aspect-[16/4.8] sm:aspect-[16/6.6] min-h-[130px] sm:min-h-[220px]"
                 onMouseEnter={() => setBannerCarouselPaused(true)}
                 onMouseLeave={() => setBannerCarouselPaused(false)}
               >
@@ -549,10 +549,10 @@ export function HomeClient() {
               </section>
             </div>
 
-            {/* Category cards — overlapping lower 30% empty background wave area of hero banner */}
-            <section className="w-full max-w-[1440px] mx-auto px-2 sm:px-4 mt-4 sm:-mt-28 md:-mt-32 lg:-mt-36 xl:-mt-40 relative z-20 pb-6 sm:pb-8 flex items-center justify-center">
+            {/* Category cards — overlapping lower 30% empty background wave area of hero banner with 2-side outer gaps */}
+            <section className="w-full max-w-[1440px] mx-auto px-6 sm:px-8 lg:px-12 mt-4 sm:-mt-28 md:-mt-32 lg:-mt-36 xl:-mt-40 relative z-20 pb-6 sm:pb-8 flex items-center justify-center">
               {latestCategories.length > 0 ? (
-                <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4 w-full">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-4 w-full">
                   {latestCategories.map((cat, catIdx) => (
                     <Card key={cat.id} className="overflow-hidden border border-slate-200/60 bg-white p-4 sm:p-5 shadow-lg transition-shadow hover:shadow-xl rounded-none flex flex-col justify-between">
                       <CardContent className="p-0 flex flex-col h-full justify-between">
