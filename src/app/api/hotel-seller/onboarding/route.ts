@@ -7,117 +7,126 @@ import { UserRole } from "@prisma/client"
 import { activateHotelFreePlan } from "@/lib/subscriptions"
 import { sendSellerWelcomeEmail, sendAdminNewSellerAlertEmail } from "@/lib/email"
 
-
-
 export async function GET() {
-  const session = await auth()
-  if (!session?.user || session.user.role !== UserRole.SELLER_HOTEL) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
+  try {
+    const session = await auth()
+    if (!session?.user || session.user.role !== UserRole.SELLER_HOTEL) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
 
-  const seller = await prisma.hotelSeller.findUnique({
-    where: { userId: session.user.id },
-    include: {
-      businessInfo: true,
-      kyc: true,
-      bankDetails: true,
-      agreement: true,
-      user: {
-        select: { image: true, name: true, email: true }
+    const seller = await prisma.hotelSeller.findUnique({
+      where: { userId: session.user.id },
+      include: {
+        businessInfo: true,
+        kyc: true,
+        bankDetails: true,
+        agreement: true,
+        user: {
+          select: { image: true, name: true, email: true }
+        }
       }
-    }
-  })
+    })
 
-  if (seller) {
-    const { getPresignedUrlOrOriginal } = await import("@/lib/s3-presigned")
-    seller.logo = await getPresignedUrlOrOriginal(seller.logo)
-    seller.banner = await getPresignedUrlOrOriginal(seller.banner)
-    seller.mainPhoto = await getPresignedUrlOrOriginal(seller.mainPhoto)
-
-    if (seller.businessInfo) {
-      const [busReg, cityCouncil, gstTin, addrProof] = await Promise.all([
-        getPresignedUrlOrOriginal(seller.businessInfo.busRegCertUrl),
-        getPresignedUrlOrOriginal(seller.businessInfo.cityCouncilCertUrl),
-        getPresignedUrlOrOriginal(seller.businessInfo.gstTinCertUrl),
-        getPresignedUrlOrOriginal(seller.businessInfo.addressProofUrl)
-      ])
-      seller.businessInfo.busRegCertUrl = busReg
-      seller.businessInfo.cityCouncilCertUrl = cityCouncil
-      seller.businessInfo.gstTinCertUrl = gstTin
-      seller.businessInfo.addressProofUrl = addrProof
+    if (!seller) {
+      return NextResponse.json({ error: "Hotel seller profile not found" }, { status: 404 })
     }
 
-    if (seller.kyc) {
-      const [front, back, selfie] = await Promise.all([
-        getPresignedUrlOrOriginal(seller.kyc.idFrontUrl),
-        getPresignedUrlOrOriginal(seller.kyc.idBackUrl),
-        getPresignedUrlOrOriginal(seller.kyc.selfieUrl)
-      ])
-      seller.kyc.idFrontUrl = front
-      seller.kyc.idBackUrl = back
-      seller.kyc.selfieUrl = selfie
+    try {
+      const { getPresignedUrlOrOriginal } = await import("@/lib/s3-presigned")
+      seller.logo = await getPresignedUrlOrOriginal(seller.logo)
+      seller.banner = await getPresignedUrlOrOriginal(seller.banner)
+      seller.mainPhoto = await getPresignedUrlOrOriginal(seller.mainPhoto)
+
+      if (seller.businessInfo) {
+        const [busReg, cityCouncil, gstTin, addrProof] = await Promise.all([
+          getPresignedUrlOrOriginal(seller.businessInfo.busRegCertUrl),
+          getPresignedUrlOrOriginal(seller.businessInfo.cityCouncilCertUrl),
+          getPresignedUrlOrOriginal(seller.businessInfo.gstTinCertUrl),
+          getPresignedUrlOrOriginal(seller.businessInfo.addressProofUrl)
+        ])
+        seller.businessInfo.busRegCertUrl = busReg
+        seller.businessInfo.cityCouncilCertUrl = cityCouncil
+        seller.businessInfo.gstTinCertUrl = gstTin
+        seller.businessInfo.addressProofUrl = addrProof
+      }
+
+      if (seller.kyc) {
+        const [front, back, selfie] = await Promise.all([
+          getPresignedUrlOrOriginal(seller.kyc.idFrontUrl),
+          getPresignedUrlOrOriginal(seller.kyc.idBackUrl),
+          getPresignedUrlOrOriginal(seller.kyc.selfieUrl)
+        ])
+        seller.kyc.idFrontUrl = front
+        seller.kyc.idBackUrl = back
+        seller.kyc.selfieUrl = selfie
+      }
+
+      if (seller.bankDetails) {
+        const [passbook, bankLetter] = await Promise.all([
+          getPresignedUrlOrOriginal(seller.bankDetails.passbookUrl),
+          getPresignedUrlOrOriginal(seller.bankDetails.bankLetterUrl)
+        ])
+        seller.bankDetails.passbookUrl = passbook
+        seller.bankDetails.bankLetterUrl = bankLetter
+      }
+    } catch (s3Err) {
+      console.warn("Could not pre-sign S3 URLs in hotel onboarding GET:", s3Err)
     }
 
-    if (seller.bankDetails) {
-      const [passbook, bankLetter] = await Promise.all([
-        getPresignedUrlOrOriginal(seller.bankDetails.passbookUrl),
-        getPresignedUrlOrOriginal(seller.bankDetails.bankLetterUrl)
-      ])
-      seller.bankDetails.passbookUrl = passbook
-      seller.bankDetails.bankLetterUrl = bankLetter
-    }
+    return NextResponse.json(seller)
+  } catch (error: any) {
+    console.error("Hotel onboarding GET error:", error)
+    return NextResponse.json({ error: error.message || "Failed to load seller data" }, { status: 500 })
   }
-
-  return NextResponse.json(seller)
 }
 
 export async function POST(request: NextRequest) {
-  const session = await auth()
-  if (!session?.user || session.user.role !== UserRole.SELLER_HOTEL) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
-
-  const seller = await prisma.hotelSeller.findUnique({
-    where: { userId: session.user.id },
-    include: { businessInfo: true, kyc: true, bankDetails: true, agreement: true }
-  })
-
-  if (!seller) {
-    return NextResponse.json({ error: "Hotel seller not found" }, { status: 404 })
-  }
-
-  const contentType = request.headers.get("content-type") ?? ""
-  let step: number = 0
-  let formData: FormData | null = null
-  let jsonBody: any = null
-
-  if (contentType.includes("multipart/form-data")) {
-    formData = await request.formData()
-    step = parseInt(formData.get("step") as string, 10)
-  } else {
-    jsonBody = await request.json()
-    step = jsonBody.step
-  }
-
   try {
+    const session = await auth()
+    if (!session?.user || session.user.role !== UserRole.SELLER_HOTEL) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const seller = await prisma.hotelSeller.findUnique({
+      where: { userId: session.user.id },
+      include: { businessInfo: true, kyc: true, bankDetails: true, agreement: true }
+    })
+
+    if (!seller) {
+      return NextResponse.json({ error: "Hotel seller not found" }, { status: 404 })
+    }
+
+    const contentType = request.headers.get("content-type") ?? ""
+    let step: number = 0
+    let formData: FormData | null = null
+    let jsonBody: any = null
+
+    if (contentType.includes("multipart/form-data")) {
+      formData = await request.formData()
+      step = parseInt(formData.get("step") as string, 10)
+    } else {
+      jsonBody = await request.json()
+      step = jsonBody?.step || 0
+    }
+
     if (step === 2) {
       // Step 2: Business Information
-      const haveGst = formData ? (formData.get("haveGst") === "true") : !!jsonBody.data.haveGst
+      const haveGst = formData ? (formData.get("haveGst") === "true") : !!jsonBody?.data?.haveGst
       const businessData = {
-        businessName: (formData?.get("businessName") as string) || jsonBody?.data?.businessName,
-        businessType: (formData?.get("businessType") as string) || jsonBody?.data?.businessType,
-        businessRegNumber: (formData?.get("businessRegNumber") as string) || jsonBody?.data?.businessRegNumber,
-        taxIdNumber: (formData?.get("taxIdNumber") as string) || jsonBody?.data?.taxIdNumber,
-        landmark: (formData?.get("landmark") as string) || jsonBody?.data?.landmark,
-        managerName: (formData?.get("managerName") as string) || jsonBody?.data?.managerName,
-        pocContact: (formData?.get("pocContact") as string) || jsonBody?.data?.pocContact,
-        street: (formData?.get("street") as string) || jsonBody?.data?.street,
-        city: (formData?.get("city") as string) || jsonBody?.data?.city,
-        district: (formData?.get("district") as string) || jsonBody?.data?.district,
-        state: (formData?.get("state") as string) || jsonBody?.data?.state,
+        businessName: (formData?.get("businessName") as string) || jsonBody?.data?.businessName || null,
+        businessType: (formData?.get("businessType") as string) || jsonBody?.data?.businessType || null,
+        businessRegNumber: (formData?.get("businessRegNumber") as string) || jsonBody?.data?.businessRegNumber || null,
+        taxIdNumber: (formData?.get("taxIdNumber") as string) || jsonBody?.data?.taxIdNumber || null,
+        landmark: (formData?.get("landmark") as string) || jsonBody?.data?.landmark || null,
+        managerName: (formData?.get("managerName") as string) || jsonBody?.data?.managerName || null,
+        pocContact: (formData?.get("pocContact") as string) || jsonBody?.data?.pocContact || null,
+        street: (formData?.get("street") as string) || jsonBody?.data?.street || null,
+        city: (formData?.get("city") as string) || jsonBody?.data?.city || null,
+        district: (formData?.get("district") as string) || jsonBody?.data?.district || null,
+        state: (formData?.get("state") as string) || jsonBody?.data?.state || null,
         haveGst,
-        gstInvNo: haveGst ? ((formData?.get("gstInvNo") as string) || jsonBody?.data?.gstInvNo) : null,
-        gstCustomerName: haveGst ? ((formData?.get("gstCustomerName") as string) || jsonBody?.data?.gstCustomerName) : null,
+        gstInvNo: haveGst ? ((formData?.get("gstInvNo") as string) || jsonBody?.data?.gstInvNo || null) : null,
+        gstCustomerName: haveGst ? ((formData?.get("gstCustomerName") as string) || jsonBody?.data?.gstCustomerName || null) : null,
       }
 
       // Handle User Profile Image
@@ -186,6 +195,7 @@ export async function POST(request: NextRequest) {
           })
         }
       } else if (jsonBody?.data) {
+        if (jsonBody.data.busRegCertUrl) busRegCertUrl = jsonBody.data.busRegCertUrl
         if (jsonBody.data.cityCouncilCertUrl) cityCouncilCertUrl = jsonBody.data.cityCouncilCertUrl
         if (jsonBody.data.gstTinCertUrl) gstTinCertUrl = jsonBody.data.gstTinCertUrl
         if (jsonBody.data.addressProofUrl) addressProofUrl = jsonBody.data.addressProofUrl
@@ -200,8 +210,8 @@ export async function POST(request: NextRequest) {
     } else if (step === 3) {
       // Step 3: KYC
       const kycData = {
-        idType: (formData?.get("idType") as string) || jsonBody?.data?.idType,
-        idNumber: (formData?.get("idNumber") as string) || jsonBody?.data?.idNumber,
+        idType: (formData?.get("idType") as string) || jsonBody?.data?.idType || null,
+        idNumber: (formData?.get("idNumber") as string) || jsonBody?.data?.idNumber || null,
       }
 
       let idFrontUrl = seller.kyc?.idFrontUrl
@@ -240,6 +250,10 @@ export async function POST(request: NextRequest) {
             prefix: "hotel-selfie",
           })
         }
+      } else if (jsonBody?.data) {
+        if (jsonBody.data.idFrontUrl) idFrontUrl = jsonBody.data.idFrontUrl
+        if (jsonBody.data.idBackUrl) idBackUrl = jsonBody.data.idBackUrl
+        if (jsonBody.data.selfieUrl) selfieUrl = jsonBody.data.selfieUrl
       }
 
       await prisma.hotelKYC.upsert({
@@ -307,14 +321,14 @@ export async function POST(request: NextRequest) {
     } else if (step === 5) {
       // Step 5: Bank Details
       const bankData = {
-        bankName: (formData?.get("bankName") as string) || jsonBody?.data?.bankName,
-        bankAddress: (formData?.get("bankAddress") as string) || jsonBody?.data?.bankAddress,
-        accountHolderName: (formData?.get("accountHolderName") as string) || jsonBody?.data?.accountHolderName,
-        accountNumber: (formData?.get("accountNumber") as string) || jsonBody?.data?.accountNumber,
-        bbanNumber: (formData?.get("bbanNumber") as string) || jsonBody?.data?.bbanNumber,
-        branchName: (formData?.get("branchName") as string) || jsonBody?.data?.branchName,
-        mobileMoneyOption: (formData?.get("mobileMoneyOption") as string) || jsonBody?.data?.mobileMoneyOption,
-        preferredPayoutMethod: (formData?.get("preferredPayoutMethod") as string) || jsonBody?.data?.preferredPayoutMethod,
+        bankName: (formData?.get("bankName") as string) || jsonBody?.data?.bankName || null,
+        bankAddress: (formData?.get("bankAddress") as string) || jsonBody?.data?.bankAddress || null,
+        accountHolderName: (formData?.get("accountHolderName") as string) || jsonBody?.data?.accountHolderName || null,
+        accountNumber: (formData?.get("accountNumber") as string) || jsonBody?.data?.accountNumber || null,
+        bbanNumber: (formData?.get("bbanNumber") as string) || jsonBody?.data?.bbanNumber || null,
+        branchName: (formData?.get("branchName") as string) || jsonBody?.data?.branchName || null,
+        mobileMoneyOption: (formData?.get("mobileMoneyOption") as string) || jsonBody?.data?.mobileMoneyOption || null,
+        preferredPayoutMethod: (formData?.get("preferredPayoutMethod") as string) || jsonBody?.data?.preferredPayoutMethod || null,
       }
 
       let passbookUrl = seller.bankDetails?.passbookUrl
@@ -350,11 +364,11 @@ export async function POST(request: NextRequest) {
 
     } else if (step === 6) {
       // Step 6: Agreement
-      const agreementData = jsonBody?.data || {
-        agreedToTerms: formData?.get("agreedToTerms") === "true" || formData?.get("agreedToTerms") === "on",
-        agreedToCommission: formData?.get("agreedToCommission") === "true" || formData?.get("agreedToCommission") === "on",
-        agreedToPrivacy: formData?.get("agreedToPrivacy") === "true" || formData?.get("agreedToPrivacy") === "on",
-        hearAboutUs: (formData?.get("hearAboutUs") as string) || null,
+      const agreementData = {
+        agreedToTerms: !!(jsonBody?.data?.agreedToTerms ?? (formData?.get("agreedToTerms") === "true" || formData?.get("agreedToTerms") === "on")),
+        agreedToCommission: !!(jsonBody?.data?.agreedToCommission ?? (formData?.get("agreedToCommission") === "true" || formData?.get("agreedToCommission") === "on")),
+        agreedToPrivacy: !!(jsonBody?.data?.agreedToPrivacy ?? (formData?.get("agreedToPrivacy") === "true" || formData?.get("agreedToPrivacy") === "on")),
+        hearAboutUs: (jsonBody?.data?.hearAboutUs || formData?.get("hearAboutUs") as string) || null,
       }
 
       await prisma.hotelAgreement.upsert({
@@ -369,7 +383,11 @@ export async function POST(request: NextRequest) {
         data: { onboardingCompleted: true, onboardingStep: 7, status: "PENDING", adminFeedback: null },
       })
 
-      await activateHotelFreePlan(seller.id)
+      try {
+        await activateHotelFreePlan(seller.id)
+      } catch (planErr) {
+        console.warn("Could not activate hotel free plan:", planErr)
+      }
 
       try {
         const fullSeller = await prisma.hotelSeller.findUnique({
@@ -402,9 +420,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Update current step
+    const currentOnboardingStep = seller.onboardingStep || 2
     await prisma.hotelSeller.update({
       where: { id: seller.id },
-      data: { onboardingStep: Math.max(seller.onboardingStep, step + 1) },
+      data: { onboardingStep: Math.max(currentOnboardingStep, step + 1) },
     })
 
     return NextResponse.json({ success: true })

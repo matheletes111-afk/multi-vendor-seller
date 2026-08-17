@@ -205,8 +205,17 @@ export function ProductOnboardingClient() {
         })
       }
 
-      const result = await res.json()
-      if (!res.ok) throw new Error(result.error || "Failed to save step")
+      let result: any = {}
+      try {
+        const text = await res.text()
+        result = text ? JSON.parse(text) : {}
+      } catch (parseErr) {
+        if (!res.ok) {
+          throw new Error(`Server returned error (${res.status}). Please check your uploaded files.`)
+        }
+      }
+
+      if (!res.ok) throw new Error(result.error || `Failed to save step (Status ${res.status})`)
 
       if (result.completed) {
         // Refresh session to avoid middleware redirect loop
@@ -216,10 +225,19 @@ export function ProductOnboardingClient() {
         return
       }
 
-      // Reload seller data to get updated URLs
-      const updatedRes = await fetch("/api/product-seller/onboarding")
-      const updatedData = await updatedRes.json()
-      setSeller(updatedData)
+      // Reload seller data to get updated URLs safely
+      try {
+        const updatedRes = await fetch("/api/product-seller/onboarding")
+        if (updatedRes.ok) {
+          const updatedText = await updatedRes.text()
+          if (updatedText) {
+            const updatedData = JSON.parse(updatedText)
+            setSeller(updatedData)
+          }
+        }
+      } catch (reloadErr) {
+        console.warn("Could not reload seller data:", reloadErr)
+      }
 
       // Increment the step sequentially in the UI
       if (currentStep < 6) {
@@ -227,7 +245,7 @@ export function ProductOnboardingClient() {
       }
       window.scrollTo(0, 0)
     } catch (err: any) {
-      setError(err.message)
+      setError(err.message || "An unexpected error occurred. Please try again.")
     } finally {
       setSaving(false)
     }

@@ -115,19 +115,20 @@ export function RestaurantOnboardingClient() {
     try {
       let res: Response
       if (currentStep === 4) {
-          formData.delete("cuisines")
-          selectedCuisines.forEach(c => formData.append("cuisines", c))
-          formData.delete("services")
-          selectedServices.forEach(s => formData.append("services", s))
+        formData.delete("cuisines")
+        selectedCuisines.forEach(c => formData.append("cuisines", c))
+        formData.delete("services")
+        selectedServices.forEach(s => formData.append("services", s))
       }
 
       if (currentStep === 6) {
         const data = {
           step: 6,
           data: {
-            agreedToTerms: formData.get("agreedToTerms") === "on",
-            agreedToCommission: formData.get("agreedToCommission") === "on",
-            agreedToPrivacy: formData.get("agreedToPrivacy") === "on",
+            agreedToTerms: agreements.agreedToTerms || formData.get("agreedToTerms") === "on",
+            agreedToCommission: agreements.agreedToCommission || formData.get("agreedToCommission") === "on",
+            agreedToPrivacy: agreements.agreedToPrivacy || formData.get("agreedToPrivacy") === "on",
+            agreedToReturnPolicy: agreements.agreedToReturnPolicy || formData.get("agreedToReturnPolicy") === "on",
             hearAboutUs: hearAboutUs || (formData.get("hearAboutUs") as string) || null
           }
         }
@@ -143,8 +144,17 @@ export function RestaurantOnboardingClient() {
         })
       }
 
-      const result = await res.json()
-      if (!res.ok) throw new Error(result.error || "Failed to save step")
+      let result: any = {}
+      try {
+        const text = await res.text()
+        result = text ? JSON.parse(text) : {}
+      } catch (parseErr) {
+        if (!res.ok) {
+          throw new Error(`Server returned error (${res.status}). Please check your uploaded files.`)
+        }
+      }
+
+      if (!res.ok) throw new Error(result.error || `Failed to save step (Status ${res.status})`)
 
       if (result.completed) {
         await update({ onboardingCompleted: true, onboardingStep: 7 })
@@ -152,16 +162,25 @@ export function RestaurantOnboardingClient() {
         return
       }
 
-      const updatedRes = await fetch("/api/restaurant-seller/onboarding")
-      const updatedData = await updatedRes.json()
-      setSeller(updatedData)
+      try {
+        const updatedRes = await fetch("/api/restaurant-seller/onboarding")
+        if (updatedRes.ok) {
+          const updatedText = await updatedRes.text()
+          if (updatedText) {
+            const updatedData = JSON.parse(updatedText)
+            setSeller(updatedData)
+          }
+        }
+      } catch (reloadErr) {
+        console.warn("Could not reload seller data:", reloadErr)
+      }
 
       if (currentStep < 6) {
         setCurrentStep((currentStep + 1) as Step)
       }
       window.scrollTo(0, 0)
     } catch (err: any) {
-      setError(err.message)
+      setError(err.message || "An unexpected error occurred. Please try again.")
     } finally {
       setSaving(false)
     }
@@ -177,7 +196,7 @@ export function RestaurantOnboardingClient() {
     const rawFile = e.target.files?.[0]
     if (rawFile) {
       let file: File = rawFile
-      if (["logo", "banner", "mainPhoto"].includes(key)) {
+      if (rawFile.type.startsWith("image/")) {
         try {
           const { compressImage } = await import("@/lib/image-compressor")
           const compressed = await compressImage(rawFile)
