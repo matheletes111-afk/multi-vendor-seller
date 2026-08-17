@@ -50,7 +50,7 @@ export function HotelOnboardingClient() {
         setAgreements({
           agreedToTerms: !!seller.agreement.agreedToTerms,
           agreedToCommission: !!seller.agreement.agreedToCommission,
-          agreedToReturnPolicy: !!seller.agreement.agreedToReturnPolicy,
+          agreedToReturnPolicy: !!(seller.agreement.agreedToReturnPolicy ?? false),
           agreedToPrivacy: !!seller.agreement.agreedToPrivacy
         })
         if (seller.agreement.hearAboutUs) {
@@ -111,7 +111,6 @@ export function HotelOnboardingClient() {
             agreedToTerms: agreements.agreedToTerms || formData.get("agreedToTerms") === "on",
             agreedToCommission: agreements.agreedToCommission || formData.get("agreedToCommission") === "on",
             agreedToPrivacy: agreements.agreedToPrivacy || formData.get("agreedToPrivacy") === "on",
-            agreedToReturnPolicy: agreements.agreedToReturnPolicy || formData.get("agreedToReturnPolicy") === "on",
             hearAboutUs: hearAboutUs || (formData.get("hearAboutUs") as string) || null
           }
         }

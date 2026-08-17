@@ -31,7 +31,10 @@ export async function GET(request: NextRequest) {
             businessInfo: seller.businessInfo,
             kyc: seller.kyc,
             bankDetails: seller.bankDetails,
-            agreement: seller.agreement,
+            agreement: seller.agreement ? {
+                ...seller.agreement,
+                agreedToReturnPolicy: false, // Not stored in DB for hotel; mobile resets this to false on each session
+            } : null,
             logo: seller.logo,
             banner: seller.banner,
             mainPhoto: seller.mainPhoto,

@@ -8,7 +8,16 @@ This document details the Mobile API updates across all 4 Seller Panels:
 3. Restaurant Seller
 4. Hotel Seller
 
-A new static dropdown field ("hearAboutUs") has been added to the final Onboarding Agreement Step, and the list of available options ("hearAboutUsOptions") is exposed in all onboarding GET endpoints.
+A new static dropdown field ("hearAboutUs") has been added to the final Onboarding Agreement Step, alongside the 4 Legal Agreement Checkboxes. The list of available referral options ("hearAboutUsOptions") is exposed in all onboarding GET endpoints.
+
+Summary of Final Agreement Step UI (All 4 Sellers):
+1. Referral Dropdown ("Where did you hear about our platform?") -> hearAboutUs
+2. Checkbox 1: General Seller / Vendor Terms & Conditions -> agreedToTerms
+3. Checkbox 2: Privacy Policy & Data Compliance -> agreedToPrivacy
+4. Checkbox 3: Vendor Agreement / Return & Cancellation Policy -> agreedToReturnPolicy
+5. Checkbox 4: Payment Settling & Commission Terms -> agreedToCommission
+
+(Note: All 4 checkboxes can be sent in the POST payload for any seller type; the backend automatically accepts and maps them safely).
 
 ================================================================================
 1. STATIC REFERRAL SOURCE OPTIONS (SINGLE-BY-SINGLE LIST)
@@ -245,8 +254,9 @@ A. GET Current Status & Options
     "agreement": {
       "id": "cag789...",
       "agreedToTerms": true,
-      "agreedToCommission": true,
       "agreedToPrivacy": true,
+      "agreedToReturnPolicy": false, // Always false on GET (not stored in DB); user must re-check on mobile each session
+      "agreedToCommission": true,
       "hearAboutUs": "Friend, Family or Colleague Referral"
     },
     "hearAboutUsOptions": [
@@ -282,8 +292,9 @@ B. POST Final Step (Step 6: Agreement & Completion)
   "step": 6,
   "data": {
     "agreedToTerms": true,
-    "agreedToCommission": true,
     "agreedToPrivacy": true,
+    "agreedToReturnPolicy": true, // Vendor Agreement checkbox (optional/supported)
+    "agreedToCommission": true,
     "hearAboutUs": "Friend, Family or Colleague Referral"
   }
 }
@@ -291,8 +302,9 @@ B. POST Final Step (Step 6: Agreement & Completion)
 - Request Payload (Multipart / Form-Data Alternative):
   - step: 6
   - agreedToTerms: "true"
-  - agreedToCommission: "true"
   - agreedToPrivacy: "true"
+  - agreedToReturnPolicy: "true"
+  - agreedToCommission: "true"
   - hearAboutUs: "Friend, Family or Colleague Referral"
 
 - Response (200 OK):
@@ -333,8 +345,9 @@ A. GET Current Status & Options
     "agreement": {
       "id": "cag999...",
       "agreedToTerms": true,
-      "agreedToCommission": true,
       "agreedToPrivacy": true,
+      "agreedToReturnPolicy": false, // Always false on GET (not stored in DB); user must re-check on mobile each session
+      "agreedToCommission": true,
       "hearAboutUs": "YouTube / Online Video"
     },
     "hearAboutUsOptions": [
@@ -370,8 +383,9 @@ B. POST Final Step (Step 6: Agreement & Completion)
   "step": 6,
   "data": {
     "agreedToTerms": true,
-    "agreedToCommission": true,
     "agreedToPrivacy": true,
+    "agreedToReturnPolicy": true, // Vendor Agreement checkbox (optional/supported)
+    "agreedToCommission": true,
     "hearAboutUs": "YouTube / Online Video"
   }
 }
@@ -379,8 +393,9 @@ B. POST Final Step (Step 6: Agreement & Completion)
 - Request Payload (Multipart / Form-Data Alternative):
   - step: 6
   - agreedToTerms: "true"
-  - agreedToCommission: "true"
   - agreedToPrivacy: "true"
+  - agreedToReturnPolicy: "true"
+  - agreedToCommission: "true"
   - hearAboutUs: "YouTube / Online Video"
 
 - Response (200 OK):

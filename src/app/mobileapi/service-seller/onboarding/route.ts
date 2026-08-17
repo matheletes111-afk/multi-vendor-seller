@@ -446,7 +446,13 @@ export async function POST(request: NextRequest) {
                 agreedToReturnPolicy: formData.get("agreedToReturnPolicy") === "true",
                 agreedToPrivacy: formData.get("agreedToPrivacy") === "true",
                 hearAboutUs: (formData.get("hearAboutUs") as string) || null,
-            } : { ...jsonBody.data };
+            } : {
+                agreedToTerms: !!jsonBody?.data?.agreedToTerms,
+                agreedToCommission: !!jsonBody?.data?.agreedToCommission,
+                agreedToReturnPolicy: !!jsonBody?.data?.agreedToReturnPolicy,
+                agreedToPrivacy: !!jsonBody?.data?.agreedToPrivacy,
+                hearAboutUs: (jsonBody?.data?.hearAboutUs as string) || null,
+            };
 
             await prisma.seller.update({
                 where: { id: seller.id },

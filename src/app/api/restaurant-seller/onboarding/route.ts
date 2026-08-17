@@ -239,11 +239,11 @@ export async function POST(request: NextRequest) {
 
     } else if (step === 6) {
       // Step 6: Agreement
-      const agreementData = jsonBody?.data || {
-        agreedToTerms: formData?.get("agreedToTerms") === "true" || formData?.get("agreedToTerms") === "on",
-        agreedToCommission: formData?.get("agreedToCommission") === "true" || formData?.get("agreedToCommission") === "on",
-        agreedToPrivacy: formData?.get("agreedToPrivacy") === "true" || formData?.get("agreedToPrivacy") === "on",
-        hearAboutUs: (formData?.get("hearAboutUs") as string) || null,
+      const agreementData = {
+        agreedToTerms: !!(jsonBody?.data?.agreedToTerms ?? (formData?.get("agreedToTerms") === "true" || formData?.get("agreedToTerms") === "on")),
+        agreedToCommission: !!(jsonBody?.data?.agreedToCommission ?? (formData?.get("agreedToCommission") === "true" || formData?.get("agreedToCommission") === "on")),
+        agreedToPrivacy: !!(jsonBody?.data?.agreedToPrivacy ?? (formData?.get("agreedToPrivacy") === "true" || formData?.get("agreedToPrivacy") === "on")),
+        hearAboutUs: (jsonBody?.data?.hearAboutUs || (formData?.get("hearAboutUs") as string)) || null,
       }
 
       await prisma.restaurantAgreement.upsert({ where: { restaurantSellerId: seller.id }, update: agreementData, create: { ...agreementData, restaurantSellerId: seller.id } })
