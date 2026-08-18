@@ -6,6 +6,7 @@ import { UserRole } from "@prisma/client";
 import path from "path";
 import { activateHotelFreePlan } from "@/lib/subscriptions";
 import { HEAR_ABOUT_US_OPTIONS } from "@/lib/onboarding-constants";
+import { sendSellerWelcomeEmail, sendAdminNewSellerAlertEmail } from "@/lib/email";
 
 /**
  * GET /mobileapi/hotel-seller/onboarding
@@ -88,8 +89,6 @@ export async function POST(request: NextRequest) {
                 haveGst,
                 gstInvNo: haveGst ? ((formData?.get("gstInvNo") as string) || jsonBody?.data?.gstInvNo) : null,
                 gstCustomerName: haveGst ? ((formData?.get("gstCustomerName") as string) || jsonBody?.data?.gstCustomerName) : null,
-                latitude: (() => { const v = formData ? formData.get("latitude") : jsonBody?.data?.latitude; return v != null && !isNaN(Number(v)) ? Number(v) : null })(),
-                longitude: (() => { const v = formData ? formData.get("longitude") : jsonBody?.data?.longitude; return v != null && !isNaN(Number(v)) ? Number(v) : null })(),
             };
 
             if (formData) {
@@ -156,6 +155,7 @@ export async function POST(request: NextRequest) {
                     });
                 }
             } else if (jsonBody?.data) {
+                if (jsonBody.data.busRegCertUrl) busRegCertUrl = jsonBody.data.busRegCertUrl;
                 if (jsonBody.data.cityCouncilCertUrl) cityCouncilCertUrl = jsonBody.data.cityCouncilCertUrl;
                 if (jsonBody.data.gstTinCertUrl) gstTinCertUrl = jsonBody.data.gstTinCertUrl;
                 if (jsonBody.data.addressProofUrl) addressProofUrl = jsonBody.data.addressProofUrl;
@@ -372,7 +372,38 @@ export async function POST(request: NextRequest) {
                 },
             });
 
-            await activateHotelFreePlan(seller.id);
+            try {
+                await activateHotelFreePlan(seller.id);
+            } catch (planErr) {
+                console.warn("Could not activate hotel free plan:", planErr);
+            }
+
+            try {
+                const fullSeller = await prisma.hotelSeller.findUnique({
+                    where: { id: seller.id },
+                    include: { user: { select: { email: true, name: true, role: true } } }
+                });
+                if (fullSeller && fullSeller.user?.email) {
+                    await sendSellerWelcomeEmail({
+                        to: fullSeller.user.email,
+                        name: fullSeller.user.name ?? "Seller",
+                    });
+                    const admins = await prisma.user.findMany({
+                        where: { role: "ADMIN" },
+                        select: { email: true }
+                    });
+                    for (const admin of admins) {
+                        await sendAdminNewSellerAlertEmail({
+                            to: admin.email,
+                            sellerName: fullSeller.user.name ?? "Seller",
+                            sellerEmail: fullSeller.user.email,
+                            sellerRole: fullSeller.user.role,
+                        });
+                    }
+                }
+            } catch (emailErr) {
+                console.error("Failed to send seller onboarding completion emails:", emailErr);
+            }
 
             return NextResponse.json({
                 success: true,
