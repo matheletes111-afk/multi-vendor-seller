@@ -117,6 +117,8 @@ export async function PUT(
 
       await prisma.productVariant.deleteMany({ where: { productId: id } })
 
+      const brand = typeof body.brand === "string" ? body.brand.trim() : ""
+
       for (const v of body.variants) {
         const vName = typeof v?.name === "string" ? v.name.trim() : "Variant"
         const vPrice = Number(v?.price ?? 0)
@@ -149,7 +151,10 @@ export async function PUT(
             width: (() => { const n = v?.width !== undefined && v?.width !== null ? Number(v.width) : 0; return !isNaN(n) && n >= 0 ? n : 0 })(),
             depth: (() => { const n = v?.depth !== undefined && v?.depth !== null ? Number(v.depth) : 0; return !isNaN(n) && n >= 0 ? n : 0 })(),
             images: Array.isArray(v?.images) ? (v.images as object) : [],
-            attributes: (v?.attributes && typeof v.attributes === "object") ? v.attributes : {},
+            attributes: {
+              ...(v?.attributes && typeof v.attributes === "object" ? v.attributes : {}),
+              ...(brand ? { brand } : {}),
+            },
             specification: typeof v?.specification === "string" ? v.specification : null,
             details: typeof v?.details === "string" ? v.details : null,
             returnType: vReturnType,

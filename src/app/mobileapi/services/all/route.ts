@@ -41,14 +41,24 @@ export async function GET(request: NextRequest): Promise<NextResponse<SuccessRes
     const limit = limitRaw ? Math.max(1, Math.min(200, parseInt(limitRaw, 10) || 0)) : 50
     const featuredOnly = searchParams.get("featuredOnly") === "true"
 
-    const where = {
+    const q = (searchParams.get("q") || searchParams.get("search") || "").trim()
+
+    const where: any = {
       isDeleted: false,
       ...(activeOnly ? { isActive: true } : {}),
       ...(featuredOnly ? { isFeatured: true } : {}),
       seller: {
         isApproved: true,
         isSuspended: false,
-      }
+      },
+      ...(q ? {
+        OR: [
+          { name: { contains: q, mode: "insensitive" } },
+          { serviceCategory: { name: { contains: q, mode: "insensitive" } } },
+          { seller: { store: { name: { contains: q, mode: "insensitive" } } } },
+          ...(!isNaN(Number(q)) && Number(q) > 0 ? [{ basePrice: { equals: Number(q) } }] : []),
+        ]
+      } : {})
     }
 
     const services = await prisma.service.findMany({

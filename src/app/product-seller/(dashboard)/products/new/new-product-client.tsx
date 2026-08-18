@@ -42,6 +42,7 @@ export function NewProductClient() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [condition, setCondition] = useState<"NEW" | "USED">("NEW")
+  const [brand, setBrand] = useState("")
   const [uploading, setUploading] = useState(false)
   const [variants, setVariants] = useState<VariantRow[]>([
     {
@@ -406,14 +407,18 @@ export function NewProductClient() {
         setError(`Variant ${i + 1}: valid weight is required for category ${selectedCategoryObj?.name || ""}`)
         return
       }
-      const attributesObj =
+      const rawAttrs =
         Array.isArray(v.attributes) && v.attributes.length > 0
           ? Object.fromEntries(
               v.attributes
                 .filter((p) => (p.key ?? "").trim() !== "")
                 .map((p) => [(p.key ?? "").trim(), (p.value ?? "").trim()])
             )
-          : undefined
+          : {}
+      const attributesObj: Record<string, string> = { ...rawAttrs }
+      if (brand.trim()) {
+        attributesObj["brand"] = brand.trim()
+      }
       const returnType = v.returnType === "RETURNABLE" ? "RETURNABLE" : "NON_RETURNABLE"
       const daysNum = parseInt(v.returnDays || "", 10)
 
@@ -577,6 +582,16 @@ export function NewProductClient() {
                   ))}
                 </select>
                 <p className="text-xs text-muted-foreground">Select a category first to load subcategories.</p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="brand">Brand</Label>
+                <Input
+                  id="brand"
+                  name="brand"
+                  value={brand}
+                  onChange={(e) => setBrand(e.target.value)}
+                  placeholder="e.g. Nike, Apple, Samsung"
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="condition">Product Type / Condition <span className="text-destructive">*</span></Label>

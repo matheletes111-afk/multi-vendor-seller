@@ -221,6 +221,7 @@ export async function POST(request: NextRequest) {
     const rowNums = sorted.map((r) => r.excelRow).join(", ")
 
     let productName = ""
+    let brand: string | null = null
     let description: string | null = null
     const categoryStrings = new Set<string>()
     let nameConflict = false
@@ -234,6 +235,11 @@ export async function POST(request: NextRequest) {
           errors.push(`Rows ${rowNums}: conflicting product_name for the same product group`)
           nameConflict = true
         }
+      }
+
+      const br = (c.brand ?? "").trim()
+      if (br && !brand) {
+        brand = br
       }
 
       const catText = (c.category ?? "").trim()
@@ -370,6 +376,11 @@ export async function POST(request: NextRequest) {
         }
       }
 
+      const mergedAttrs = {
+        ...attrParsed.attrs,
+        ...(brand ? { brand } : {}),
+      }
+
       const vInput: VariantInput = {
         name: vName,
         price,
@@ -382,7 +393,7 @@ export async function POST(request: NextRequest) {
         depth,
         hasGst,
         images,
-        attributes: Object.keys(attrParsed.attrs).length ? attrParsed.attrs : undefined,
+        attributes: Object.keys(mergedAttrs).length ? mergedAttrs : undefined,
         specification: (c.specifications ?? "").trim() || undefined,
         details: (c.additional_details ?? "").trim() || undefined,
         returnType,

@@ -79,6 +79,7 @@ export function EditProductClient({ productId }: { productId: string }) {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [condition, setCondition] = useState<"NEW" | "USED">("NEW")
+  const [brand, setBrand] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
   const [variants, setVariants] = useState<VariantRow[]>([])
@@ -98,6 +99,17 @@ export function EditProductClient({ productId }: { productId: string }) {
       if (p?.categoryId) setSelectedCategoryId(p.categoryId)
       if (p?.condition) setCondition(p.condition)
       const v = (p as Product)?.variants ?? []
+      let loadedBrand = ""
+      for (const singleVar of v) {
+        if (singleVar.attributes && typeof singleVar.attributes === "object") {
+          const b = (singleVar.attributes as any).brand ?? (singleVar.attributes as any).Brand ?? (singleVar.attributes as any).BRAND
+          if (typeof b === "string" && b.trim()) {
+            loadedBrand = b.trim()
+            break
+          }
+        }
+      }
+      if (loadedBrand) setBrand(loadedBrand)
       setVariants(
         v.length > 0
           ? v.map((x) => {
@@ -528,14 +540,18 @@ export function EditProductClient({ productId }: { productId: string }) {
         setError(`Variant ${i + 1}: valid weight is required for category ${selectedCategoryObj?.name || ""}`)
         return
       }
-      const attributesObj =
+      const rawAttrs =
         Array.isArray(v.attributes) && v.attributes.length > 0
           ? Object.fromEntries(
               v.attributes
                 .filter((p) => (p.key ?? "").trim() !== "")
                 .map((p) => [(p.key ?? "").trim(), (p.value ?? "").trim()])
             )
-          : undefined
+          : {}
+      const attributesObj: Record<string, string> = { ...rawAttrs }
+      if (brand.trim()) {
+        attributesObj["brand"] = brand.trim()
+      }
       const returnType = v.returnType === "RETURNABLE" ? "RETURNABLE" : "NON_RETURNABLE"
       const daysNum = parseInt(v.returnDays || "", 10)
 
@@ -693,6 +709,16 @@ export function EditProductClient({ productId }: { productId: string }) {
                   ))}
                 </select>
                 <p className="text-xs text-muted-foreground">Select a category first to load subcategories.</p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="brand">Brand</Label>
+                <Input
+                  id="brand"
+                  name="brand"
+                  value={brand}
+                  onChange={(e) => setBrand(e.target.value)}
+                  placeholder="e.g. Nike, Apple, Samsung"
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="condition">Product Type / Condition <span className="text-destructive">*</span></Label>

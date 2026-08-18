@@ -7,6 +7,7 @@ const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/gif"
 
 export type HybridProductPayload = {
   name?: string
+  brand?: string
   categoryId?: string
   subcategoryId?: string | null
   description?: string
@@ -45,8 +46,8 @@ export async function processHybridProductRequest(
 
   if (contentType.includes("application/json")) {
     try {
-      const data = await request.json()
-      return { ok: true, data }
+      const body = await request.json()
+      return { ok: true, data: body }
     } catch (e) {
       return { ok: false, error: "Invalid JSON body" }
     }
@@ -68,6 +69,7 @@ export async function processHybridProductRequest(
         // Support flat fields if data JSON is missing
         rawData = {
           name: formData.get("name") as string,
+          brand: (formData.get("brand") as string) || undefined,
           categoryId: formData.get("categoryId") as string,
           subcategoryId: formData.get("subcategoryId") as string,
           description: formData.get("description") as string,
@@ -77,6 +79,9 @@ export async function processHybridProductRequest(
           images: [],
           variants: []
         }
+      }
+      if (formData.get("brand") && !rawData.brand) {
+        rawData.brand = formData.get("brand") as string
       }
 
       rawData.images = []

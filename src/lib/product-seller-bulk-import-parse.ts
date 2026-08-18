@@ -12,6 +12,7 @@ export const BULK_SHEET_NAME = "Products"
 export const BULK_COLUMN_KEYS = [
   "category",
   "product_name",
+  "brand",
   "product_description",
   "condition",
   "delivery_charge_per_km",
@@ -233,6 +234,7 @@ export function exampleDataRows(categories: string[]): string[][] {
       [
         catName,              // category
         prodName,             // product_name
+        "ExampleBrand",       // brand
         "This is an example product description. Replace or delete before import.", // product_description
         "NEW",                // condition
         "0",                  // delivery_charge_per_km
@@ -257,6 +259,7 @@ export function exampleDataRows(categories: string[]): string[][] {
       [
         catName,              // category
         prodName,             // product_name
+        "ExampleBrand",       // brand
         "This is an example product description. Replace or delete before import.", // product_description
         "NEW",                // condition
         "0",                  // delivery_charge_per_km
@@ -314,9 +317,10 @@ export function buildTemplateXlsx(
     ["• To create 1 Product with Multiple Variants (e.g. Size S, M, L), use the EXACT SAME 'product_name' and 'category' for all variant rows."],
     ["• The system automatically groups rows with matching product_name into a single product listing."],
     [""],
-    ["2. REQUIRED COLUMNS:"],
+    ["2. REQUIRED & OPTIONAL COLUMNS:"],
     ["• category: Write the exact or closest matching category name (e.g. 'Electronics', 'Clothing')."],
     ["• product_name: The name of the product."],
+    ["• brand (optional): Brand name (e.g. 'Nike', 'Apple', 'Samsung')."],
     ["• variant_name: Name of the variant (e.g. 'Red / Large', '64GB', 'Standard')."],
     ["• price: Price for this variant (e.g. 299.99)."],
     ["• stock: Quantity in stock (e.g. 50)."],

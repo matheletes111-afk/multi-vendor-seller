@@ -22,9 +22,9 @@ export async function GET(request: NextRequest) {
       starRating: rating ? { gte: rating } : undefined,
       OR: query ? [
         { name: { contains: query, mode: "insensitive" } },
-        { description: { contains: query, mode: "insensitive" } },
         { city: { contains: query, mode: "insensitive" } },
-        { rooms: { some: { name: { contains: query, mode: "insensitive" }, isActive: true, isDeleted: false } } }
+        { rooms: { some: { name: { contains: query, mode: "insensitive" }, isActive: true, isDeleted: false } } },
+        ...(!isNaN(Number(query)) && Number(query) > 0 ? [{ rooms: { some: { price: { equals: Number(query) }, isActive: true, isDeleted: false } } }] : []),
       ] : undefined,
       rooms: {
         some: {

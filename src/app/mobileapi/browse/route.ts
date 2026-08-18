@@ -46,7 +46,7 @@ function parseCommaList(s: string | null): string[] {
 function extractBrand(attributes: unknown): string | null {
   if (!attributes || typeof attributes !== "object") return null
   const o = attributes as Record<string, unknown>
-  const b = o.brand ?? o.Brand
+  const b = o.brand ?? o.Brand ?? o.BRAND
   return typeof b === "string" && b.trim() ? b.trim() : null
 }
 
@@ -166,12 +166,15 @@ export async function GET(request: NextRequest) {
 
         const andList: Prisma.ProductWhereInput[] = []
         if (productTerm) {
+          const numTerm = Number(productTerm)
           andList.push({
             OR: [
               { name: { contains: productTerm, mode: Prisma.QueryMode.insensitive } },
-              { description: { contains: productTerm, mode: Prisma.QueryMode.insensitive } },
+              { variants: { some: { name: { contains: productTerm, mode: Prisma.QueryMode.insensitive } } } },
+              { variants: { some: { sku: { contains: productTerm, mode: Prisma.QueryMode.insensitive } } } },
               { category: { name: { contains: productTerm, mode: Prisma.QueryMode.insensitive } } },
               { subcategory: { name: { contains: productTerm, mode: Prisma.QueryMode.insensitive } } },
+              ...(!isNaN(numTerm) && numTerm > 0 ? [{ variants: { some: { price: { equals: numTerm } } } }] : []),
             ],
           })
         }
@@ -190,11 +193,13 @@ export async function GET(request: NextRequest) {
           searchConditions = { AND: andList }
         }
       } else {
-        // No comma: general search across product name, description, category, subcategory, or store name
+        // No comma: general search across product name, variant name, sku, category, subcategory, store name, price (excluding description)
+        const numQ = Number(q)
         searchConditions = {
           OR: [
             { name: { contains: q, mode: Prisma.QueryMode.insensitive } },
-            { description: { contains: q, mode: Prisma.QueryMode.insensitive } },
+            { variants: { some: { name: { contains: q, mode: Prisma.QueryMode.insensitive } } } },
+            { variants: { some: { sku: { contains: q, mode: Prisma.QueryMode.insensitive } } } },
             { category: { name: { contains: q, mode: Prisma.QueryMode.insensitive } } },
             { subcategory: { name: { contains: q, mode: Prisma.QueryMode.insensitive } } },
             {
@@ -204,6 +209,7 @@ export async function GET(request: NextRequest) {
                 },
               },
             },
+            ...(!isNaN(numQ) && numQ > 0 ? [{ variants: { some: { price: { equals: numQ } } } }] : []),
           ],
         }
       }
@@ -386,8 +392,8 @@ export async function GET(request: NextRequest) {
 
     let filtered = enriched.filter((p) => {
       if (brandsFilter.length > 0) {
-        const b = (p.brand || "Other").toLowerCase()
-        if (!brandsFilter.some((f) => b === f.toLowerCase())) return false
+        const b = (p.brand || "Other").trim().toLowerCase()
+        if (!brandsFilter.some((f) => b === f.trim().toLowerCase())) return false
       }
       if (minRating != null && p.avgRating < minRating) return false
       if (discFilter.length > 0 && !discFilter.some((d) => p.discountPercent >= d)) return false

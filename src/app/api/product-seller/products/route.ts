@@ -56,7 +56,15 @@ export async function GET(request: NextRequest) {
   }
 
   if (q) {
-    where.name = { contains: q, mode: "insensitive" }
+    const numQ = Number(q)
+    where.OR = [
+      { name: { contains: q, mode: "insensitive" } },
+      { variants: { some: { name: { contains: q, mode: "insensitive" } } } },
+      { variants: { some: { sku: { contains: q, mode: "insensitive" } } } },
+      { category: { name: { contains: q, mode: "insensitive" } } },
+      { subcategory: { name: { contains: q, mode: "insensitive" } } },
+      ...(!isNaN(numQ) && numQ > 0 ? [{ variants: { some: { price: { equals: numQ } } } }] : []),
+    ]
   }
 
   if (startDate || endDate) {

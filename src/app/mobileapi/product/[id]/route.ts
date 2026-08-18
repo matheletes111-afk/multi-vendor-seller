@@ -49,9 +49,17 @@ export async function GET(
       }, { status: 404 })
     }
 
+    const firstVariantAttrs = (product.variants?.[0]?.attributes as Record<string, unknown>) || {}
+    const brand = typeof (firstVariantAttrs.brand ?? firstVariantAttrs.Brand ?? firstVariantAttrs.BRAND) === "string"
+      ? String(firstVariantAttrs.brand ?? firstVariantAttrs.Brand ?? firstVariantAttrs.BRAND).trim() || null
+      : null
+
     return NextResponse.json({
       success: true,
-      data: product
+      data: {
+        ...product,
+        brand,
+      }
     } as any)
 
   } catch (error) {

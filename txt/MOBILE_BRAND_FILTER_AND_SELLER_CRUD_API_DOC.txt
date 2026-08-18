@@ -1,0 +1,207 @@
+================================================================================
+MEEEM MOBILE DEVELOPER API GUIDE: DYNAMIC BRANDS & SELLER CRUD
+================================================================================
+Updated: August 2026
+
+This document covers all mobile integration rules for Brand Management, 
+Dynamic Brand Filtering on Browse, and Product Add/Edit forms for Sellers.
+
+--------------------------------------------------------------------------------
+1. OVERVIEW OF BRAND SYSTEM
+--------------------------------------------------------------------------------
+1. Seller Product Creation & Update:
+   - Mobile sellers can now submit a top-level `brand` parameter when creating 
+     or updating products (or inside `variants[i].attributes.brand`).
+   - The backend automatically merges `brand` into all variant attributes.
+
+2. Dynamic Brand Filters (Customer App):
+   - `data.brands` returned by `GET /mobileapi/browse/filters` contains a unique,
+     alphabetized list of real brands (Apple, Samsung, Nike, Sony, IKEA, etc.).
+   - Case-insensitive deduplication ensures zero duplicates (e.g., "Nike" and 
+     "nike" merge into one clean entry).
+   - Products without a brand are grouped under "Other".
+
+3. Product Details:
+   - `GET /mobileapi/product/:id` returns a top-level `brand` field 
+     (e.g., "Nike" or null).
+
+
+--------------------------------------------------------------------------------
+2. CUSTOMER BROWSE: DYNAMIC BRAND FILTERING
+--------------------------------------------------------------------------------
+
+A. FETCH FILTER METADATA (BRANDS LIST)
+Endpoint: GET /mobileapi/browse/filters
+Query Parameters (Optional):
+  - `cats`: Comma-separated category IDs (e.g., `cats=cat_fashion,cat_electronics`)
+  - `q`: Search keyword (e.g., `q=shoes`)
+  - `subcategoryId`: Subcategory ID
+
+Response Payload:
+{
+  "success": true,
+  "message": "Filter parameters fetched successfully",
+  "data": {
+    "categories": [
+      { "id": "cat_fashion", "name": "Fashion", "slug": "fashion" },
+      { "id": "cat_electronics", "name": "Electronics", "slug": "electronics" }
+    ],
+    "brands": [
+      "Anker",
+      "Apple",
+      "Bosch",
+      "Decathlon",
+      "Dell",
+      "H&M",
+      "IKEA",
+      "Levi's",
+      "L'Oréal",
+      "Nestlé",
+      "Nivea",
+      "Nike",
+      "Samsung",
+      "Sony",
+      "Zara",
+      "Other"
+    ],
+    "priceRange": {
+      "min": 2.49,
+      "max": 1500.00
+    },
+    "ratings": [ ... ],
+    "discounts": [ ... ],
+    "returnPolicies": [ ... ],
+    "conditions": [ ... ],
+    "availability": [ ... ],
+    "sellerTypes": [ ... ]
+  }
+}
+
+Mobile UI Implementation:
+• Render `data.brands` in a Multi-Select checkbox list or bottom sheet.
+• Provide an in-sheet search bar to filter through brand names quickly.
+
+
+B. FILTER PRODUCTS BY BRAND
+Endpoint: GET /mobileapi/browse
+Query Parameters:
+  - `brands`: Comma-separated list of selected brands (e.g., `brands=Nike,Apple`)
+  - `cats`: Comma-separated category IDs
+  - `page`: Page number (default: 1)
+  - `pageSize`: Page size (default: 12)
+
+Example Request:
+GET /mobileapi/browse?brands=Nike,Apple&page=1&pageSize=12
+
+Sample Product in Response:
+{
+  "success": true,
+  "data": {
+    "page": 1,
+    "pageSize": 12,
+    "totalProducts": 18,
+    "totalPages": 2,
+    "products": [
+      {
+        "id": "prod_15",
+        "name": "Running Sneakers White",
+        "slug": "running-sneakers-white",
+        "brand": "Nike",
+        "basePrice": 79.99,
+        "discount": 15.00,
+        "finalPrice": 64.99,
+        "stock": 45,
+        "images": [
+          "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400"
+        ],
+        "category": { "id": "cat_fashion", "name": "Fashion" },
+        "seller": { "store": { "name": "Sporty Hub" } }
+      }
+    ]
+  }
+}
+
+
+C. SINGLE PRODUCT DETAIL (BRAND BADGE)
+Endpoint: GET /mobileapi/product/:id
+
+Response:
+{
+  "success": true,
+  "data": {
+    "id": "prod_15",
+    "name": "Running Sneakers White",
+    "brand": "Nike",
+    "description": "Lightweight athletic shoes",
+    "variants": [ ... ],
+    "seller": { "store": { "name": "Sporty Hub" } }
+  }
+}
+
+Mobile UI Implementation:
+• Display the brand name (e.g. "Brand: Nike") on the Product Details page above
+  the product title or inside the specifications list.
+
+
+--------------------------------------------------------------------------------
+3. SELLER APP: PRODUCT CREATION & UPDATE WITH BRAND
+--------------------------------------------------------------------------------
+
+A. CREATE PRODUCT (POST /mobileapi/product-seller/product)
+Headers:
+  - `Authorization: Bearer <SELLER_TOKEN>`
+  - `Content-Type: application/json` (or `multipart/form-data`)
+
+JSON Payload:
+{
+  "name": "Air Zoom Running Shoes",
+  "brand": "Nike",
+  "categoryId": "cat_fashion",
+  "subcategoryId": "sub_f3",
+  "description": "High performance athletic shoes.",
+  "condition": "NEW",
+  "variants": [
+    {
+      "name": "Size 10 - Black",
+      "price": 120.00,
+      "discount": 10.00,
+      "stock": 25,
+      "weight": 0.8,
+      "images": ["https://.../img1.jpg"]
+    }
+  ]
+}
+
+Note:
+• When submitting multipart/form-data, pass `brand: "Nike"` either as a top-level
+  form field or inside the JSON string in the `data` field.
+
+
+B. UPDATE PRODUCT (PUT /mobileapi/product-seller/product/:id)
+Headers:
+  - `Authorization: Bearer <SELLER_TOKEN>`
+  - `Content-Type: application/json`
+
+Payload:
+{
+  "name": "Air Zoom Running Shoes v2",
+  "brand": "Nike",
+  "categoryId": "cat_fashion",
+  "subcategoryId": "sub_f3",
+  "condition": "NEW",
+  "variants": [ ... ]
+}
+
+
+--------------------------------------------------------------------------------
+4. MOBILE DEVELOPER ACTION CHECKLIST (BRANDS)
+--------------------------------------------------------------------------------
+[ ] 1. In Seller App, add a "Brand" input field under Basic Product Information 
+       in both "Add Product" and "Edit Product" screens.
+[ ] 2. Include `brand: brandController.text.trim()` in creation & edit API payloads.
+[ ] 3. In Customer App Browse/Filter screen, bind `data.brands` from 
+       `GET /mobileapi/browse/filters` to the Brand multi-select checkboxes.
+[ ] 4. Pass selected brands in browse requests (`GET /mobileapi/browse?brands=Nike,Apple`).
+[ ] 5. Render the `brand` label/badge on Product Cards and the Product Details page.
+
+================================================================================
