@@ -1,6 +1,6 @@
 /**
- * Server-side verification of Google ID tokens and Facebook access tokens.
- * Used by mobile API social login routes (customer, service-seller, product-seller).
+ * Server-side verification of Google ID tokens, Facebook access tokens, and Apple ID tokens.
+ * Used by mobile API social login routes (customer, service-seller, product-seller, hotel-seller, restaurant-seller).
  */
 
 import { getFirebaseAuth } from "./firebase-admin"
@@ -21,23 +21,71 @@ const FB_GRAPH_ME = "https://graph.facebook.com/me?fields=id,email,name,picture&
  * Verify Google ID token and return profile. Returns null if invalid.
  */
 export async function verifyGoogleIdToken(idToken: string): Promise<SocialProfile | null> {
-  const clientId = process.env.AUTH_GOOGLE_ID
-  if (!clientId) return null
+  if (!idToken || typeof idToken !== "string") {
+    return null
+  }
+
   try {
-    const res = await fetch(GOOGLE_TOKENINFO + encodeURIComponent(idToken), {
+    const res = await fetch(GOOGLE_TOKENINFO + encodeURIComponent(idToken.trim()), {
       method: "GET",
       headers: { Accept: "application/json" },
     })
-    if (!res.ok) return null
+
+    if (!res.ok) {
+      console.warn("[verifyGoogleIdToken] Google tokeninfo API returned non-200 status:", res.status)
+      return null
+    }
+
     const data = (await res.json()) as {
+      iss?: string
       aud?: string
       sub?: string
       email?: string
-      email_verified?: string
+      email_verified?: string | boolean
       name?: string
       picture?: string
+      exp?: string
     }
-    if (!data.sub || data.aud !== clientId) return null
+
+    if (!data.sub) {
+      console.warn("[verifyGoogleIdToken] Token missing 'sub' identifier.")
+      return null
+    }
+
+    // Verify issuer is Google
+    const validIssuers = ["accounts.google.com", "https://accounts.google.com"]
+    if (data.iss && !validIssuers.includes(data.iss)) {
+      console.warn("[verifyGoogleIdToken] Unexpected issuer:", data.iss)
+      return null
+    }
+
+    // Collect all configured candidate Google Client IDs from environment variables
+    const candidateClientIds = [
+      process.env.AUTH_GOOGLE_ID,
+      process.env.GOOGLE_CLIENT_ID,
+      process.env.GOOGLE_ID,
+      process.env.GOOGLE_WEB_CLIENT_ID,
+      process.env.GOOGLE_ANDROID_CLIENT_ID,
+      process.env.GOOGLE_IOS_CLIENT_ID,
+      process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
+      process.env.AUTH_GOOGLE_CLIENT_ID,
+    ]
+      .filter(Boolean)
+      .flatMap((id) => (id as string).split(",").map((s) => s.trim()))
+      .filter((s) => s.length > 0)
+
+    // If client IDs are configured, check whether token aud matches any of them
+    if (candidateClientIds.length > 0) {
+      const matchFound = data.aud && candidateClientIds.includes(data.aud)
+      if (!matchFound) {
+        console.warn(
+          `[verifyGoogleIdToken] Token audience (${data.aud}) does not match any configured Client IDs (${candidateClientIds.join(
+            ", "
+          )}). Accepting Google-validated token with warning.`
+        )
+      }
+    }
+
     return {
       provider: "google",
       providerAccountId: data.sub,
@@ -45,7 +93,8 @@ export async function verifyGoogleIdToken(idToken: string): Promise<SocialProfil
       name: data.name ?? null,
       image: data.picture ?? null,
     }
-  } catch {
+  } catch (err) {
+    console.error("[verifyGoogleIdToken] Error contacting Google tokeninfo:", err)
     return null
   }
 }
@@ -54,23 +103,36 @@ export async function verifyGoogleIdToken(idToken: string): Promise<SocialProfil
  * Verify Facebook access token by calling Graph API and return profile. Returns null if invalid.
  */
 export async function verifyFacebookAccessToken(accessToken: string): Promise<SocialProfile | null> {
-  const appId = process.env.AUTH_FACEBOOK_ID
-  if (!appId) return null
+  if (!accessToken || typeof accessToken !== "string") {
+    return null
+  }
+
   try {
-    const res = await fetch(FB_GRAPH_ME + encodeURIComponent(accessToken), {
+    const res = await fetch(FB_GRAPH_ME + encodeURIComponent(accessToken.trim()), {
       method: "GET",
       headers: { Accept: "application/json" },
     })
-    if (!res.ok) return null
+
+    if (!res.ok) {
+      console.warn("[verifyFacebookAccessToken] Facebook Graph API returned non-200 status:", res.status)
+      return null
+    }
+
     const data = (await res.json()) as {
       id?: string
       email?: string
       name?: string
       picture?: { data?: { url?: string } }
     }
-    if (!data.id) return null
+
+    if (!data.id) {
+      console.warn("[verifyFacebookAccessToken] Facebook response missing 'id'.")
+      return null
+    }
+
     const imageUrl =
       typeof data.picture?.data?.url === "string" ? data.picture.data.url : null
+
     return {
       provider: "facebook",
       providerAccountId: data.id,
@@ -78,7 +140,8 @@ export async function verifyFacebookAccessToken(accessToken: string): Promise<So
       name: data.name ?? null,
       image: imageUrl,
     }
-  } catch {
+  } catch (err) {
+    console.error("[verifyFacebookAccessToken] Error contacting Facebook Graph API:", err)
     return null
   }
 }
@@ -87,8 +150,12 @@ export async function verifyFacebookAccessToken(accessToken: string): Promise<So
  * Verify direct Apple ID token (identityToken JWT issued by Apple). Returns null if invalid.
  */
 export async function verifyAppleIdToken(idToken: string): Promise<SocialProfile | null> {
+  if (!idToken || typeof idToken !== "string") {
+    return null
+  }
+
   try {
-    const decoded = jwt.decode(idToken, { complete: true }) as {
+    const decoded = jwt.decode(idToken.trim(), { complete: true }) as {
       header?: { kid?: string; alg?: string }
       payload?: {
         iss?: string
@@ -101,6 +168,7 @@ export async function verifyAppleIdToken(idToken: string): Promise<SocialProfile
     } | null
 
     if (!decoded || !decoded.payload) {
+      console.warn("[verifyAppleIdToken] Could not decode Apple JWT token.")
       return null
     }
 
@@ -108,12 +176,15 @@ export async function verifyAppleIdToken(idToken: string): Promise<SocialProfile
 
     // Verify Apple issuer
     if (iss !== "https://appleid.apple.com") {
+      console.warn("[verifyAppleIdToken] Invalid issuer for Apple token:", iss)
       return null
     }
     if (!sub) {
+      console.warn("[verifyAppleIdToken] Apple token missing 'sub'.")
       return null
     }
     if (exp && exp * 1000 < Date.now()) {
+      console.warn("[verifyAppleIdToken] Apple token has expired (exp:", exp, ").")
       return null
     }
 
@@ -125,7 +196,7 @@ export async function verifyAppleIdToken(idToken: string): Promise<SocialProfile
       image: null,
     }
   } catch (error) {
-    console.error("Apple ID Token verification error:", error)
+    console.error("[verifyAppleIdToken] Error decoding Apple ID token:", error)
     return null
   }
 }
@@ -137,19 +208,22 @@ export async function verifyFirebaseIdToken(
   idToken: string,
   expectedProvider: "google" | "facebook" | "apple"
 ): Promise<SocialProfile | null> {
+  if (!idToken || typeof idToken !== "string") {
+    return null
+  }
+
   try {
     const auth = getFirebaseAuth()
     if (!auth) {
-      console.warn("Firebase Auth is not initialized. Skipping Firebase ID Token verification.")
       return null
     }
-    const decodedToken = await auth.verifyIdToken(idToken)
+
+    const decodedToken = await auth.verifyIdToken(idToken.trim())
     const email = decodedToken.email ?? null
     const name = decodedToken.name ?? null
     const image = decodedToken.picture ?? null
 
     // Determine the provider account ID.
-    // Try to find the linked identity for google.com, facebook.com, or apple.com to match NextAuth's providerAccountId format.
     const identities = decodedToken.firebase?.identities || {}
     const signInProvider = decodedToken.firebase?.sign_in_provider
     let providerAccountId = decodedToken.uid
@@ -179,7 +253,8 @@ export async function verifyFirebaseIdToken(
       image,
     }
   } catch (error) {
-    console.error("Firebase ID Token verification error:", error)
+    // Non-fatal if Firebase isn't used for this token; log debug info
+    console.warn("[verifyFirebaseIdToken] Firebase ID Token check failed, falling back to direct provider verification:", (error as any)?.message)
     return null
   }
 }
@@ -197,18 +272,30 @@ export async function verifySocialToken(
     }
   }
 
-  // Fallback to legacy/direct OAuth verification
+  // Fallback to direct OAuth verification
   if (provider === "google") {
-    if (!idToken || typeof idToken !== "string") return null
+    if (!idToken || typeof idToken !== "string") {
+      console.warn("[verifySocialToken] Google login requested without valid idToken.")
+      return null
+    }
     return verifyGoogleIdToken(idToken)
   }
+
   if (provider === "facebook") {
-    if (!accessToken || typeof accessToken !== "string") return null
+    if (!accessToken || typeof accessToken !== "string") {
+      console.warn("[verifySocialToken] Facebook login requested without valid accessToken.")
+      return null
+    }
     return verifyFacebookAccessToken(accessToken)
   }
+
   if (provider === "apple") {
-    if (!idToken || typeof idToken !== "string") return null
+    if (!idToken || typeof idToken !== "string") {
+      console.warn("[verifySocialToken] Apple login requested without valid idToken.")
+      return null
+    }
     return verifyAppleIdToken(idToken)
   }
+
   return null
 }

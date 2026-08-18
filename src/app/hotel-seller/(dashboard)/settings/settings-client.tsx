@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useSearchParams } from "next/navigation"
-import { Eye, EyeOff, FileText, CheckCircle2, AlertCircle, Camera, User, LogOut, LayoutDashboard, Settings as SettingsIcon, Info } from "lucide-react"
+import { Eye, EyeOff, FileText, CheckCircle2, AlertCircle, Camera, User, LogOut, LayoutDashboard, Settings as SettingsIcon, Info, Scale } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/ui/card"
 import { Button } from "@/ui/button"
 import { Input } from "@/ui/input"
@@ -14,6 +14,7 @@ import { Badge } from "@/ui/badge"
 import { Checkbox } from "@/ui/checkbox-v2"
 import { PageLoader } from "@/components/ui/page-loader"
 import { ProfilePictureInput } from "@/components/profile-picture-input"
+import { LegalPolicyTabContent } from "@/components/legal/legal-policy-tab-content"
 import { cn } from "@/lib/utils"
 
 const HOTEL_CATEGORIES = [
@@ -22,6 +23,9 @@ const HOTEL_CATEGORIES = [
 
 export default function HotelSettingsClient() {
   const searchParams = useSearchParams()
+  const [activeTab, setActiveTab] = useState<"general" | "legal">(() => {
+    return searchParams.get("tab") === "legal" ? "legal" : "general"
+  })
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState<string | null>(null)
   const [seller, setSeller] = useState<any>(null)
@@ -201,7 +205,43 @@ export default function HotelSettingsClient() {
           </Alert>
       )}
 
-      <div className="grid gap-8">
+      {/* Settings Tab Navigation */}
+      <div className="flex items-center gap-2 border-b border-slate-200 mb-8 pb-2">
+        <button
+          type="button"
+          onClick={() => setActiveTab("general")}
+          className={cn(
+            "flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-2xl transition-all",
+            activeTab === "general"
+              ? "bg-slate-900 text-white shadow-md"
+              : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+          )}
+        >
+          <SettingsIcon className="w-4 h-4" />
+          <span>Property & Account Settings</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab("legal")}
+          className={cn(
+            "flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-2xl transition-all",
+            activeTab === "legal"
+              ? "bg-slate-900 text-white shadow-md"
+              : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+          )}
+        >
+          <Scale className="w-4 h-4 text-emerald-400" />
+          <span>Terms & Policies</span>
+        </button>
+      </div>
+
+      {activeTab === "legal" ? (
+        <LegalPolicyTabContent
+          role="SELLER_HOTEL"
+          isAcceptedOnboarding={!!seller?.agreement?.agreedToTerms}
+        />
+      ) : (
+        <div className="grid gap-8">
         {/* USER INFO */}
         <Card>
           <CardHeader><CardTitle>Account Profile</CardTitle><CardDescription>Primary login and contact info</CardDescription></CardHeader>
@@ -508,6 +548,7 @@ export default function HotelSettingsClient() {
            </CardContent>
         </Card>
       </div>
+      )}
     </div>
   )
 }
