@@ -1,7 +1,8 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Eye, EyeOff } from "lucide-react"
+import { useSearchParams } from "next/navigation"
+import { Eye, EyeOff, Scale, Settings as SettingsIcon, User } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/ui/card"
 import { Button } from "@/ui/button"
 import { Input } from "@/ui/input"
@@ -9,6 +10,8 @@ import { Label } from "@/ui/label"
 import { PageLoader } from "@/components/ui/page-loader"
 import { ProfilePictureInput } from "@/components/profile-picture-input"
 import { validatePassword } from "@/lib/password-validation"
+import { LegalPolicyTabContent } from "@/components/legal/legal-policy-tab-content"
+import { cn } from "@/lib/utils"
 
 type UserProfile = {
   id: string
@@ -20,6 +23,10 @@ type UserProfile = {
 }
 
 export function CustomerSettingsClient() {
+  const searchParams = useSearchParams()
+  const [activeTab, setActiveTab] = useState<"general" | "legal">(() => {
+    return searchParams.get("tab") === "legal" ? "legal" : "general"
+  })
   const [user, setUser] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -116,9 +123,45 @@ export function CustomerSettingsClient() {
   if (loading || !user) return <PageLoader message="Loading profile…" />
 
   return (
-    <div className="container mx-auto py-8">
-      <h1 className="text-3xl font-bold mb-8">Profile</h1>
-      <Card>
+    <div className="container mx-auto py-8 max-w-5xl">
+      <div className="flex justify-between items-center mb-8">
+        <h1 className="text-3xl font-bold">Account Settings</h1>
+      </div>
+
+      {/* Settings Tab Navigation */}
+      <div className="flex items-center gap-2 border-b border-slate-200 mb-8 pb-2">
+        <button
+          type="button"
+          onClick={() => setActiveTab("general")}
+          className={cn(
+            "flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-2xl transition-all",
+            activeTab === "general"
+              ? "bg-slate-900 text-white shadow-md"
+              : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+          )}
+        >
+          <User className="w-4 h-4" />
+          <span>Profile & Security</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab("legal")}
+          className={cn(
+            "flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-2xl transition-all",
+            activeTab === "legal"
+              ? "bg-slate-900 text-white shadow-md"
+              : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+          )}
+        >
+          <Scale className="w-4 h-4 text-emerald-400" />
+          <span>Legal & Policies</span>
+        </button>
+      </div>
+
+      {activeTab === "legal" ? (
+        <LegalPolicyTabContent role="CUSTOMER" />
+      ) : (
+        <Card className="rounded-3xl border-slate-200 shadow-sm">
         <CardHeader>
           <CardTitle>Account Information</CardTitle>
           <CardDescription>
@@ -253,6 +296,7 @@ export function CustomerSettingsClient() {
           </form>
         </CardContent>
       </Card>
+      )}
     </div>
   )
 }

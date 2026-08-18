@@ -1,23 +1,50 @@
 import { initializeApp, getApps, cert } from "firebase-admin/app"
 import { getAuth } from "firebase-admin/auth"
 
-const projectId = process.env.FIREBASE_PROJECT_ID
-const clientEmail = process.env.FIREBASE_CLIENT_EMAIL
-let privateKey = process.env.FIREBASE_PRIVATE_KEY
+export function getCleanPrivateKey(): string | undefined {
+  let key = process.env.FIREBASE_PRIVATE_KEY || process.env.FIREBASE_PRIVATE_KEY_BASE64
+  if (!key) return undefined
 
-if (privateKey) {
-  // Strip surrounding quotes if present
-  if (privateKey.startsWith('"') && privateKey.endsWith('"')) {
-    privateKey = privateKey.slice(1, -1)
-  } else if (privateKey.startsWith("'") && privateKey.endsWith("'")) {
-    privateKey = privateKey.slice(1, -1)
+  key = key.trim()
+
+  // Strip surrounding double quotes or single quotes
+  if (
+    (key.startsWith('"') && key.endsWith('"')) ||
+    (key.startsWith("'") && key.endsWith("'"))
+  ) {
+    key = key.slice(1, -1).trim()
   }
-  privateKey = privateKey.replace(/\\n/g, "\n")
+
+  // Check if string is base64 encoded (does not contain header directly)
+  if (!key.includes("BEGIN PRIVATE KEY")) {
+    try {
+      const decoded = Buffer.from(key, "base64").toString("utf8")
+      if (decoded.includes("BEGIN PRIVATE KEY")) {
+        key = decoded.trim()
+      }
+    } catch {
+      // Not valid base64, continue with original
+    }
+  }
+
+  // Replace literal escaped \n with real newline characters
+  key = key.replace(/\\n/g, "\n")
+
+  return key
 }
 
 let appInitialized = false
 
-if (getApps().length === 0) {
+function initFirebase() {
+  if (appInitialized || getApps().length > 0) {
+    appInitialized = true
+    return
+  }
+
+  const projectId = process.env.FIREBASE_PROJECT_ID?.trim()
+  const clientEmail = process.env.FIREBASE_CLIENT_EMAIL?.trim()
+  const privateKey = getCleanPrivateKey()
+
   if (projectId && clientEmail && privateKey) {
     try {
       initializeApp({
@@ -28,25 +55,35 @@ if (getApps().length === 0) {
         }),
       })
       appInitialized = true
-    } catch (error) {
-      console.error("Failed to initialize Firebase Admin SDK:", error)
+      console.log(`[Firebase Admin] Initialized successfully for project: ${projectId}`)
+    } catch (error: any) {
+      console.error("[Firebase Admin] Initialization failed:", error?.message || error)
     }
   } else {
-    console.warn("Firebase Admin SDK credentials not fully configured in environment variables.")
+    console.warn(
+      `[Firebase Admin] Incomplete credentials in environment variables. ` +
+      `projectId: ${!!projectId}, clientEmail: ${!!clientEmail}, privateKey: ${!!privateKey}`
+    )
   }
-} else {
-  appInitialized = true
 }
 
+// Attempt initialization on startup
+initFirebase()
+
 export function getFirebaseAuth() {
-  if (!appInitialized) {
+  if (!appInitialized && getApps().length === 0) {
+    // Retry initialization lazily
+    initFirebase()
+  }
+
+  if (getApps().length === 0) {
     return null
   }
+
   try {
     return getAuth()
   } catch (error) {
-    console.error("Failed to get Firebase Auth instance:", error)
+    console.error("[Firebase Admin] Failed to get Auth instance:", error)
     return null
   }
 }
-

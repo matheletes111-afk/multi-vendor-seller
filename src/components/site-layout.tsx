@@ -1377,6 +1377,9 @@ export function SiteFooter() {
               <li>
                 <Link href="/privacy-policy" className={linkClass}>Privacy Policy</Link>
               </li>
+              <li>
+                <Link href="/terms" className={linkClass}>All Legal Policies</Link>
+              </li>
             </ul>
           </nav>
 

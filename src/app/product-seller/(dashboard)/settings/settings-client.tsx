@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useSearchParams } from "next/navigation"
-import { Eye, EyeOff, FileText, CheckCircle2, AlertCircle, Camera, Mail, Phone, MapPin, Building, ShieldCheck, MapPinned, User, ShoppingBag, ChevronRight, X, Info } from "lucide-react"
+import { Eye, EyeOff, FileText, CheckCircle2, AlertCircle, Camera, Mail, Phone, MapPin, Building, ShieldCheck, MapPinned, User, ShoppingBag, ChevronRight, X, Info, Scale, Settings as SettingsIcon } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/ui/card"
 import { Button } from "@/ui/button"
 import { Input } from "@/ui/input"
@@ -16,10 +16,14 @@ import { StoreLocationPicker } from "@/components/store-location-picker"
 import Checkbox from "@/ui/checkbox-v2"
 import { PageLoader } from "@/components/ui/page-loader"
 import { ProfilePictureInput } from "@/components/profile-picture-input"
+import { LegalPolicyTabContent } from "@/components/legal/legal-policy-tab-content"
 import { cn } from "@/lib/utils"
 
 export function SettingsClient() {
   const searchParams = useSearchParams()
+  const [activeTab, setActiveTab] = useState<"general" | "legal">(() => {
+    return searchParams.get("tab") === "legal" ? "legal" : "general"
+  })
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState<string | null>(null)
   const [seller, setSeller] = useState<any>(null)
@@ -232,7 +236,43 @@ export function SettingsClient() {
         </Alert>
       )}
 
-      <div className="grid gap-8">
+      {/* Settings Tab Navigation */}
+      <div className="flex items-center gap-2 border-b border-slate-200 mb-8 pb-2">
+        <button
+          type="button"
+          onClick={() => setActiveTab("general")}
+          className={cn(
+            "flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-2xl transition-all",
+            activeTab === "general"
+              ? "bg-slate-900 text-white shadow-md"
+              : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+          )}
+        >
+          <SettingsIcon className="w-4 h-4" />
+          <span>Account & Store Settings</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab("legal")}
+          className={cn(
+            "flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-2xl transition-all",
+            activeTab === "legal"
+              ? "bg-slate-900 text-white shadow-md"
+              : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+          )}
+        >
+          <Scale className="w-4 h-4 text-indigo-400" />
+          <span>Terms & Policies</span>
+        </button>
+      </div>
+
+      {activeTab === "legal" ? (
+        <LegalPolicyTabContent
+          role="SELLER_PRODUCT"
+          isAcceptedOnboarding={!!seller?.agreement?.agreedToTerms}
+        />
+      ) : (
+        <div className="grid gap-8">
         {/* PROFILE INFO */}
         <Card>
           <CardHeader><CardTitle>Profile Details</CardTitle><CardDescription>Primary account information</CardDescription></CardHeader>
@@ -524,6 +564,7 @@ export function SettingsClient() {
           </CardContent>
         </Card>
       </div>
+      )}
     </div>
   )
 }

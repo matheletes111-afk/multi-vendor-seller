@@ -92,12 +92,17 @@ We use cookies to maintain login sessions and track platform performance.
 Email: info@meeemsl.com / Support@meeemsl.com
 Address: Freetown, Sierra Leone`;
 
-const tsContent = `export interface LegalDocument {
+const tsContent = `export type LegalDocCategory = "core" | "seller" | "buyer" | "compliance" | "security";
+
+export interface LegalDocument {
   id: string
   slug: string
   title: string
   source: string
   lastUpdated: string
+  summary: string
+  category: LegalDocCategory
+  applicableRoles: string[]
   content: string
   rawText: string
 }
@@ -110,6 +115,9 @@ export const LEGAL_DOCUMENTS: LegalDocument[] = [
     title: "Terms and Conditions (Web Footer)",
     source: "Web Footer Page",
     lastUpdated: "July 10, 2026",
+    summary: "General platform terms of use, marketplace transactions, account conduct, and liability terms.",
+    category: "core",
+    applicableRoles: ["ADMIN", "SELLER_PRODUCT", "SELLER_SERVICE", "SELLER_HOTEL", "SELLER_RESTAURANT", "CUSTOMER"],
     content: ${JSON.stringify(textToHtml("Terms and Conditions", footerTermsText))},
     rawText: ${JSON.stringify(footerTermsText)},
   },
@@ -120,6 +128,9 @@ export const LEGAL_DOCUMENTS: LegalDocument[] = [
     title: "Privacy Policy (Web Footer)",
     source: "Web Footer Page",
     lastUpdated: "July 10, 2026",
+    summary: "Platform privacy disclosures, user data rights, transaction tracking, and cookie policies.",
+    category: "core",
+    applicableRoles: ["ADMIN", "SELLER_PRODUCT", "SELLER_SERVICE", "SELLER_HOTEL", "SELLER_RESTAURANT", "CUSTOMER"],
     content: ${JSON.stringify(textToHtml("Privacy Policy", footerPrivacyText))},
     rawText: ${JSON.stringify(footerPrivacyText)},
   },
@@ -130,6 +141,9 @@ export const LEGAL_DOCUMENTS: LegalDocument[] = [
     title: "Anti-Money Laundering (AML) & Counter Financing of Terrorism (CFT) Policy",
     source: "AML_CFT Policy ( Anty Money Laundering Policy) ~ Meeemsl (1).docx",
     lastUpdated: "August 2026",
+    summary: "Financial regulatory compliance, mandatory seller CDD/KYC, transaction monitoring, and fraud reporting.",
+    category: "compliance",
+    applicableRoles: ["ADMIN", "SELLER_PRODUCT", "SELLER_SERVICE", "SELLER_HOTEL", "SELLER_RESTAURANT"],
     content: ${JSON.stringify(textToHtml("Anti-Money Laundering (AML) & Counter Financing of Terrorism (CFT) Policy", doc1_aml))},
     rawText: ${JSON.stringify(doc1_aml)},
   },
@@ -140,6 +154,9 @@ export const LEGAL_DOCUMENTS: LegalDocument[] = [
     title: "Cyber Security Policy ~ MEEEM Ecommerce Pvt. Ltd.",
     source: "Cyber Security Policy~MEEEM Ecommerce Pvt. Ltd..docx",
     lastUpdated: "August 2026",
+    summary: "Information assets protection, RBAC access controls, encryption standards, and user security responsibilities.",
+    category: "security",
+    applicableRoles: ["ADMIN", "SELLER_PRODUCT", "SELLER_SERVICE", "SELLER_HOTEL", "SELLER_RESTAURANT"],
     content: ${JSON.stringify(textToHtml("Cyber Security Policy ~ MEEEM Ecommerce Pvt. Ltd.", doc2_cyber1))},
     rawText: ${JSON.stringify(doc2_cyber1)},
   },
@@ -150,6 +167,9 @@ export const LEGAL_DOCUMENTS: LegalDocument[] = [
     title: "Data Protection & Privacy Compliance Policy",
     source: "Data Protection & Privacy Compliance document .docx",
     lastUpdated: "August 2026",
+    summary: "Cloud infrastructure protection (AWS EC2/S3, PostgreSQL), JWT API encryption, and user data rights.",
+    category: "compliance",
+    applicableRoles: ["ADMIN", "SELLER_PRODUCT", "SELLER_SERVICE", "SELLER_HOTEL", "SELLER_RESTAURANT", "CUSTOMER"],
     content: ${JSON.stringify(textToHtml("Data Protection & Privacy Compliance Policy", doc3_dataprot))},
     rawText: ${JSON.stringify(doc3_dataprot)},
   },
@@ -160,6 +180,9 @@ export const LEGAL_DOCUMENTS: LegalDocument[] = [
     title: "MEEEM Buyer's Terms and Conditions Summary",
     source: "MEEEM Buyer's Terms Summery.docx",
     lastUpdated: "August 2026",
+    summary: "Customer purchasing terms, buyer protection, payment options, fraud prevention, and return eligibility.",
+    category: "buyer",
+    applicableRoles: ["ADMIN", "CUSTOMER"],
     content: ${JSON.stringify(textToHtml("MEEEM Buyer's Terms and Conditions Summary", doc4_buyer))},
     rawText: ${JSON.stringify(doc4_buyer)},
   },
@@ -170,6 +193,9 @@ export const LEGAL_DOCUMENTS: LegalDocument[] = [
     title: "MEEEM Cybersecurity Policy",
     source: "MEEEM Cybersecurity Policy.docx",
     lastUpdated: "August 2026",
+    summary: "Comprehensive internal cybersecurity protocols, system governance, data classifications, and compliance.",
+    category: "security",
+    applicableRoles: ["ADMIN"],
     content: ${JSON.stringify(textToHtml("MEEEM Cybersecurity Policy", doc5_cyber2))},
     rawText: ${JSON.stringify(doc5_cyber2)},
   },
@@ -180,6 +206,9 @@ export const LEGAL_DOCUMENTS: LegalDocument[] = [
     title: "MEEEM Exchange & Return Policy",
     source: "MEEEM EXCHANGE POLICY.docx",
     lastUpdated: "August 2026",
+    summary: "Product return/exchange guidelines, defective item handling, replacement shipping, and seller rules.",
+    category: "seller",
+    applicableRoles: ["ADMIN", "SELLER_PRODUCT", "CUSTOMER"],
     content: ${JSON.stringify(textToHtml("MEEEM Exchange & Return Policy", doc6_exchange))},
     rawText: ${JSON.stringify(doc6_exchange)},
   },
@@ -190,6 +219,9 @@ export const LEGAL_DOCUMENTS: LegalDocument[] = [
     title: "MEEEM Vendor (Seller) & Service Provider Agreement",
     source: "MEEEM Vendor (Seller) & Service Provider Agreement .docx",
     lastUpdated: "August 2026",
+    summary: "Official vendor agreement covering listing rules, commission structure, payout cycles, and merchant obligations.",
+    category: "seller",
+    applicableRoles: ["ADMIN", "SELLER_PRODUCT", "SELLER_SERVICE", "SELLER_HOTEL", "SELLER_RESTAURANT"],
     content: ${JSON.stringify(textToHtml("MEEEM Vendor (Seller) & Service Provider Agreement", doc7_vendor))},
     rawText: ${JSON.stringify(doc7_vendor)},
   },
@@ -200,6 +232,9 @@ export const LEGAL_DOCUMENTS: LegalDocument[] = [
     title: "Payment Settling Process Terms & Implementation",
     source: "Payment Setteling Process Terms % Implementation.docx",
     lastUpdated: "August 2026",
+    summary: "Automated 12-72h escrow settlement flow, instant release on buyer approval, and dispute hold rules.",
+    category: "seller",
+    applicableRoles: ["ADMIN", "SELLER_PRODUCT", "SELLER_SERVICE", "SELLER_HOTEL", "SELLER_RESTAURANT"],
     content: ${JSON.stringify(textToHtml("Payment Settling Process Terms & Implementation", doc8_payment))},
     rawText: ${JSON.stringify(doc8_payment)},
   }
@@ -243,7 +278,41 @@ export const LEGAL_DOCS_BY_SLUG: Record<string, LegalDocument> = {
   "payment-settlement": LEGAL_DOCUMENTS[9],
   "payment-settlement-policy": LEGAL_DOCUMENTS[9],
 };
+
+export const FOOTER_TERMS_DOC = LEGAL_DOCUMENTS[0];
+export const FOOTER_PRIVACY_DOC = LEGAL_DOCUMENTS[1];
+export const AML_CFT_DOC = LEGAL_DOCUMENTS[2];
+export const CYBER_SECURITY_ECOMMERCE_DOC = LEGAL_DOCUMENTS[3];
+export const DATA_PROTECTION_DOC = LEGAL_DOCUMENTS[4];
+export const BUYER_TERMS_DOC = LEGAL_DOCUMENTS[5];
+export const MEEEM_CYBERSECURITY_DOC = LEGAL_DOCUMENTS[6];
+export const EXCHANGE_POLICY_DOC = LEGAL_DOCUMENTS[7];
+export const VENDOR_AGREEMENT_DOC = LEGAL_DOCUMENTS[8];
+export const PAYMENT_SETTLING_DOC = LEGAL_DOCUMENTS[9];
+
+/**
+ * Returns legal documents filtered by user role.
+ */
+export function getLegalDocumentsForRole(role?: string | null): LegalDocument[] {
+  if (!role || role === "ADMIN") {
+    return LEGAL_DOCUMENTS;
+  }
+  const normRole = role.toUpperCase();
+  return LEGAL_DOCUMENTS.filter((doc) => doc.applicableRoles.includes(normRole));
+}
+
+/**
+ * Returns category details for UI filtering.
+ */
+export const LEGAL_CATEGORIES: { id: LegalDocCategory | "all"; label: string; count?: number }[] = [
+  { id: "all", label: "All Documents" },
+  { id: "core", label: "Core Platform Terms" },
+  { id: "seller", label: "Seller & Agreements" },
+  { id: "buyer", label: "Buyer & Marketplace" },
+  { id: "compliance", label: "Regulatory & Compliance" },
+  { id: "security", label: "Security & Operations" },
+];
 `;
 
 fs.writeFileSync(path.join(process.cwd(), 'src', 'lib', 'terms-data.ts'), tsContent, 'utf-8');
-console.log('src/lib/terms-data.ts generated successfully with 10 documents!');
+console.log('src/lib/terms-data.ts generated successfully with 10 documents and role mappings!');
