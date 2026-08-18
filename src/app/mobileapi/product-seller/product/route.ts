@@ -57,7 +57,15 @@ export async function GET(request: NextRequest) {
     }
 
     if (q) {
-      where.name = { contains: q, mode: "insensitive" }
+      const numQ = Number(q)
+      where.OR = [
+        { name: { contains: q, mode: "insensitive" } },
+        { variants: { some: { name: { contains: q, mode: "insensitive" } } } },
+        { variants: { some: { sku: { contains: q, mode: "insensitive" } } } },
+        { category: { name: { contains: q, mode: "insensitive" } } },
+        { subcategory: { name: { contains: q, mode: "insensitive" } } },
+        ...(!isNaN(numQ) && numQ > 0 ? [{ variants: { some: { price: { equals: numQ } } } }] : []),
+      ]
     }
 
     if (startDate || endDate) {
@@ -189,6 +197,8 @@ export async function POST(request: NextRequest) {
     const firstVarImages = (Array.isArray(variants[0]?.images) ? variants[0].images : []) as string[]
     const masterImages = firstVarImages.length > 0 ? [firstVarImages[0]] : []
 
+    const brand = typeof body.brand === "string" ? body.brand.trim() : ""
+
     const product = await prisma.product.create({
       data: {
         sellerId: seller.id,
@@ -213,7 +223,10 @@ export async function POST(request: NextRequest) {
             width: v.width ?? 0,
             depth: v.depth ?? 0,
             images: v.images,
-            attributes: v.attributes,
+            attributes: {
+              ...(v.attributes && typeof v.attributes === "object" ? v.attributes : {}),
+              ...(brand ? { brand } : {}),
+            },
             specification: v.specification,
             details: v.details,
             returnType: v.returnType,

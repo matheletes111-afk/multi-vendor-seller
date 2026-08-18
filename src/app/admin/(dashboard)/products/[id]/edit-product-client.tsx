@@ -23,6 +23,7 @@ type VariantInput = {
   returnType: "RETURNABLE" | "NON_RETURNABLE"
   returnDays: number
   replacementAllowed: boolean
+  attributes?: Record<string, any>
 }
 
 export function EditProductClient({ productId }: { productId: string }) {
@@ -37,6 +38,7 @@ export function EditProductClient({ productId }: { productId: string }) {
   const [categoryId, setCategoryId] = useState("")
   const [subcategoryId, setSubcategoryId] = useState<string | null>(null)
   const [condition, setCondition] = useState("NEW")
+  const [brand, setBrand] = useState("")
   const [isActive, setIsActive] = useState(true)
   const [deliveryChargePerKm, setDeliveryChargePerKm] = useState(0)
   const [variants, setVariants] = useState<VariantInput[]>([])
@@ -61,6 +63,17 @@ export function EditProductClient({ productId }: { productId: string }) {
           setCondition(product.condition)
           setIsActive(product.isActive)
           setDeliveryChargePerKm(product.deliveryChargePerKm || 0)
+          let loadedBrand = ""
+          for (const v of product.variants || []) {
+            if (v.attributes && typeof v.attributes === "object") {
+              const b = v.attributes.brand ?? v.attributes.Brand ?? v.attributes.BRAND
+              if (typeof b === "string" && b.trim()) {
+                loadedBrand = b.trim()
+                break
+              }
+            }
+          }
+          if (loadedBrand) setBrand(loadedBrand)
           setVariants(
             product.variants.map((v: any) => ({
               id: v.id,
@@ -72,6 +85,7 @@ export function EditProductClient({ productId }: { productId: string }) {
               returnType: v.returnType || "NON_RETURNABLE",
               returnDays: v.returnDays || 0,
               replacementAllowed: v.replacementAllowed === true,
+              attributes: (v.attributes && typeof v.attributes === "object" && !Array.isArray(v.attributes)) ? v.attributes : {},
             }))
           )
         }
@@ -140,7 +154,13 @@ export function EditProductClient({ productId }: { productId: string }) {
           condition,
           isActive,
           deliveryChargePerKm,
-          variants,
+          variants: variants.map((v) => ({
+            ...v,
+            attributes: {
+              ...(v.attributes || {}),
+              ...(brand.trim() ? { brand: brand.trim() } : {}),
+            },
+          })),
         }),
       })
 
@@ -203,6 +223,17 @@ export function EditProductClient({ productId }: { productId: string }) {
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="Description..."
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="brand" className="text-xs uppercase tracking-widest text-muted-foreground font-bold">Brand</Label>
+              <Input
+                id="brand"
+                className="rounded-2xl h-12 bg-background border-muted"
+                value={brand}
+                onChange={(e) => setBrand(e.target.value)}
+                placeholder="e.g. Nike, Apple, Samsung"
               />
             </div>
 

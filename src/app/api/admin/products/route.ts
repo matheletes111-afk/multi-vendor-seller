@@ -59,9 +59,15 @@ export async function GET(request: NextRequest) {
     }
 
     if (search) {
+      const numSearch = Number(search)
       where.OR = [
         { name: { contains: search, mode: "insensitive" } },
-        { description: { contains: search, mode: "insensitive" } },
+        { variants: { some: { name: { contains: search, mode: "insensitive" } } } },
+        { variants: { some: { sku: { contains: search, mode: "insensitive" } } } },
+        { category: { name: { contains: search, mode: "insensitive" } } },
+        { subcategory: { name: { contains: search, mode: "insensitive" } } },
+        { seller: { store: { name: { contains: search, mode: "insensitive" } } } },
+        ...(!isNaN(numSearch) && numSearch > 0 ? [{ variants: { some: { price: { equals: numSearch } } } }] : []),
       ]
     }
 

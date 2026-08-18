@@ -51,9 +51,12 @@ export async function GET(request: NextRequest) {
     }
 
     if (q) {
+      const numQ = Number(q)
       where.OR = [
         { name: { contains: q, mode: "insensitive" } },
-        { description: { contains: q, mode: "insensitive" } }
+        { category: { contains: q, mode: "insensitive" } },
+        { restaurantSeller: { businessInfo: { businessName: { contains: q, mode: "insensitive" } } } },
+        ...(!isNaN(numQ) && numQ > 0 ? [{ price: { equals: numQ } }] : []),
       ]
     }
 

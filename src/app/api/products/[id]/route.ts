@@ -127,8 +127,14 @@ export async function GET(
     }
   })
 
+  const firstVariantAttrs = (product.variants?.[0]?.attributes as Record<string, unknown>) || {}
+  const brand = typeof (firstVariantAttrs.brand ?? firstVariantAttrs.Brand ?? firstVariantAttrs.BRAND) === "string"
+    ? String(firstVariantAttrs.brand ?? firstVariantAttrs.Brand ?? firstVariantAttrs.BRAND).trim() || null
+    : null
+
   return NextResponse.json({
     ...product,
+    brand,
     averageRating: Number(ratingAgg._avg.rating ?? 0),
     reviews,
     estimatedDeliveryCharge,

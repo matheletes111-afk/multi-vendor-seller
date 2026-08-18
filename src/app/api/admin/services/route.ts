@@ -54,9 +54,12 @@ export async function GET(request: NextRequest) {
     }
 
     if (search) {
+      const numSearch = Number(search)
       where.OR = [
         { name: { contains: search, mode: "insensitive" } },
-        { description: { contains: search, mode: "insensitive" } },
+        { serviceCategory: { name: { contains: search, mode: "insensitive" } } },
+        { seller: { store: { name: { contains: search, mode: "insensitive" } } } },
+        ...(!isNaN(numSearch) && numSearch > 0 ? [{ basePrice: { equals: numSearch } }] : []),
       ]
     }
 

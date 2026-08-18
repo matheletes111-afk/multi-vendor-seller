@@ -31,6 +31,7 @@ export type BrowseProduct = {
   stock: number
   isBrandedSeller: boolean
   estimatedDeliveryCharge?: number
+  brand?: string | null
 }
 
 function Stars({ rating, size = "sm" }: { rating: number; size?: "sm" | "md" }) {
@@ -119,9 +120,16 @@ export function BrowseProductCard({
             )}
           </div>
           <div className="flex min-h-0 flex-1 flex-col p-2.5 sm:p-3">
-            <p className="text-[10px] font-bold text-amber-700 uppercase tracking-wider truncate mb-0.5">
-              {product.seller?.store?.name ?? "Store"}
-            </p>
+            <div className="flex items-center justify-between gap-1 mb-0.5">
+              <p className="text-[10px] font-bold text-amber-700 uppercase tracking-wider truncate">
+                {product.seller?.store?.name ?? "Store"}
+              </p>
+              {product.brand && product.brand !== "Other" && (
+                <span className="text-[9px] font-semibold text-slate-500 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded shrink-0">
+                  {product.brand}
+                </span>
+              )}
+            </div>
             <p className="line-clamp-2 text-xs sm:text-sm font-medium text-gray-800 leading-snug">{product.name}</p>
             <div className="mt-1 flex flex-wrap items-baseline gap-1">
               <span className="text-sm sm:text-base md:text-lg font-bold text-slate-900">{formatCurrency(finalPrice)}</span>
