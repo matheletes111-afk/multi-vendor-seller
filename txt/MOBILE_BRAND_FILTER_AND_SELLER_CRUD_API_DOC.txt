@@ -9,21 +9,25 @@ Dynamic Brand Filtering on Browse, and Product Add/Edit forms for Sellers.
 --------------------------------------------------------------------------------
 1. OVERVIEW OF BRAND SYSTEM
 --------------------------------------------------------------------------------
-1. Seller Product Creation & Update:
-   - Mobile sellers can now submit a top-level `brand` parameter when creating 
-     or updating products (or inside `variants[i].attributes.brand`).
-   - The backend automatically merges `brand` into all variant attributes.
+1. Product-Level Brand (Not a Variant Option):
+   - `brand` belongs to the entire Product, NOT a selectable variant dimension.
+   - When fetching single product details via `GET /mobileapi/product/:id`, the 
+     backend returns `brand` at the top level (`data.brand`).
+   - The `attributes` dictionary inside each variant in `data.variants` has `brand` 
+     OMITTED so your variant selector (e.g. Size, Color) will NEVER prompt 
+     customers to "select brand" as a variant option!
 
-2. Dynamic Brand Filters (Customer App):
+2. Seller Product Creation & Update:
+   - Mobile sellers can submit a top-level `brand` parameter when creating 
+     or updating products (or inside `variants[i].attributes.brand`).
+   - The backend automatically synchronizes `brand` to the product.
+
+3. Dynamic Brand Filters (Customer App):
    - `data.brands` returned by `GET /mobileapi/browse/filters` contains a unique,
      alphabetized list of real brands (Apple, Samsung, Nike, Sony, IKEA, etc.).
    - Case-insensitive deduplication ensures zero duplicates (e.g., "Nike" and 
      "nike" merge into one clean entry).
    - Products without a brand are grouped under "Other".
-
-3. Product Details:
-   - `GET /mobileapi/product/:id` returns a top-level `brand` field 
-     (e.g., "Nike" or null).
 
 
 --------------------------------------------------------------------------------
@@ -122,7 +126,7 @@ Sample Product in Response:
 }
 
 
-C. SINGLE PRODUCT DETAIL (BRAND BADGE)
+C. SINGLE PRODUCT DETAIL (BRAND BADGE & VARIANT PICKER)
 Endpoint: GET /mobileapi/product/:id
 
 Response:
@@ -133,7 +137,30 @@ Response:
     "name": "Running Sneakers White",
     "brand": "Nike",
     "description": "Lightweight athletic shoes",
-    "variants": [ ... ],
+    "variants": [
+      {
+        "id": "var_1",
+        "name": "Size 9 / White",
+        "price": 79.99,
+        "discount": 15.00,
+        "stock": 10,
+        "attributes": {
+          "size": "9",
+          "color": "White"
+        }
+      },
+      {
+        "id": "var_2",
+        "name": "Size 10 / White",
+        "price": 79.99,
+        "discount": 15.00,
+        "stock": 8,
+        "attributes": {
+          "size": "10",
+          "color": "White"
+        }
+      }
+    ],
     "seller": { "store": { "name": "Sporty Hub" } }
   }
 }
@@ -141,6 +168,9 @@ Response:
 Mobile UI Implementation:
 • Display the brand name (e.g. "Brand: Nike") on the Product Details page above
   the product title or inside the specifications list.
+• In your Variant Picker (Size, Color pills), iterate over `variant.attributes` 
+  as normal. `brand` is already excluded by the API, so no "Brand: Nike" option 
+  pill will appear!
 
 
 --------------------------------------------------------------------------------
@@ -172,10 +202,6 @@ JSON Payload:
   ]
 }
 
-Note:
-• When submitting multipart/form-data, pass `brand: "Nike"` either as a top-level
-  form field or inside the JSON string in the `data` field.
-
 
 B. UPDATE PRODUCT (PUT /mobileapi/product-seller/product/:id)
 Headers:
@@ -203,5 +229,6 @@ Payload:
        `GET /mobileapi/browse/filters` to the Brand multi-select checkboxes.
 [ ] 4. Pass selected brands in browse requests (`GET /mobileapi/browse?brands=Nike,Apple`).
 [ ] 5. Render the `brand` label/badge on Product Cards and the Product Details page.
+       (Variant picker automatically handles variant options without brand buttons).
 
 ================================================================================
