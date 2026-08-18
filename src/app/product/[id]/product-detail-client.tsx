@@ -58,6 +58,7 @@ type Product = {
   reviews: PublicReviewItem[]
   variants: Variant[]
   estimatedDeliveryCharge?: number
+  brand?: string | null
   relatedProducts?: RelatedProduct[]
 }
 
@@ -156,12 +157,14 @@ export function ProductDetailClient({ productId }: { productId: string }) {
 
   const variants = product.variants ?? []
 
-  // Build attribute options (Amazon/Flipkart style): e.g. Size: [S, M, L], Color: [Red, Blue]
+  // Build attribute options (Amazon/Flipkart style): e.g. Size: [S, M, L], Color: [Red, Blue] (excludes brand)
   const attributeKeys = (() => {
     const keys = new Set<string>()
     variants.forEach((v) => {
       const attrs = v.attributes && typeof v.attributes === "object" && !Array.isArray(v.attributes) ? (v.attributes as Record<string, string>) : {}
-      Object.keys(attrs).forEach((k) => keys.add(k))
+      Object.keys(attrs).forEach((k) => {
+        if (k.toLowerCase() !== "brand") keys.add(k)
+      })
     })
     return Array.from(keys)
   })()
@@ -272,6 +275,7 @@ export function ProductDetailClient({ productId }: { productId: string }) {
         ? (targetVariant.attributes as Record<string, string>)
         : {}
     const list = Object.entries(attrs)
+      .filter(([k]) => k.toLowerCase() !== "brand")
       .map(([k, v]) => ({ label: k, value: String(v ?? "") }))
       .filter((x) => x.label.trim() && x.value.trim())
 
@@ -346,15 +350,22 @@ export function ProductDetailClient({ productId }: { productId: string }) {
               <div className="mt-1 flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
                   <h1 className="text-xl font-bold text-slate-900 sm:text-2xl md:text-3xl">{product.name}</h1>
-                  {product.seller?.store?.name && (
-                    <div className="mt-1.5 flex items-center gap-1.5 text-xs text-slate-600">
-                      <span>By</span>
-                      <span className="inline-flex items-center gap-1 font-semibold text-amber-900 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200/80 text-xs shadow-2xs">
-                        <Store className="h-3.5 w-3.5 text-amber-600 shrink-0" />
-                        {product.seller.store.name}
+                  <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-slate-600">
+                    {product.brand && (
+                      <span className="inline-flex items-center font-semibold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200 text-xs shadow-2xs">
+                        Brand: {product.brand}
                       </span>
-                    </div>
-                  )}
+                    )}
+                    {product.seller?.store?.name && (
+                      <div className="flex items-center gap-1.5">
+                        <span>By</span>
+                        <span className="inline-flex items-center gap-1 font-semibold text-amber-900 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200/80 text-xs shadow-2xs">
+                          <Store className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+                          {product.seller.store.name}
+                        </span>
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <ShareButton title={product.name} className="shrink-0" />
               </div>

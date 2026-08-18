@@ -132,8 +132,23 @@ export async function GET(
     ? String(firstVariantAttrs.brand ?? firstVariantAttrs.Brand ?? firstVariantAttrs.BRAND).trim() || null
     : null
 
+  const cleanVariants = product.variants.map((v) => {
+    if (v.attributes && typeof v.attributes === "object" && !Array.isArray(v.attributes)) {
+      const attrs = { ...(v.attributes as Record<string, unknown>) }
+      delete attrs.brand
+      delete attrs.Brand
+      delete attrs.BRAND
+      return {
+        ...v,
+        attributes: attrs,
+      }
+    }
+    return v
+  })
+
   return NextResponse.json({
     ...product,
+    variants: cleanVariants,
     brand,
     averageRating: Number(ratingAgg._avg.rating ?? 0),
     reviews,
