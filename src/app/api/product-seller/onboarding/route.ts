@@ -6,6 +6,7 @@ import { uploadPublicFile } from "@/lib/upload-public-file"
 import path from "path"
 import { generateSlug } from "@/lib/utils"
 import { sendSellerWelcomeEmail, sendAdminNewSellerAlertEmail } from "@/lib/email"
+import { formatHearAboutUs } from "@/lib/onboarding-constants"
 
 
 export async function GET() {
@@ -440,12 +441,15 @@ export async function POST(request: NextRequest) {
       }
     } else if (step === 6) {
       // Step 6: Agreement
+      const rawHearAboutUs = (jsonBody?.data?.hearAboutUs || jsonBody?.hearAboutUs || (formData?.get("hearAboutUs") as string)) || null
+      const rawHearAboutUsOther = (jsonBody?.data?.hearAboutUsOther || jsonBody?.hearAboutUsOther || (formData?.get("hearAboutUsOther") as string)) || null
+
       const agreementData = {
         agreedToTerms: !!(jsonBody?.data?.agreedToTerms ?? (formData?.get("agreedToTerms") === "true" || formData?.get("agreedToTerms") === "on")),
         agreedToCommission: !!(jsonBody?.data?.agreedToCommission ?? (formData?.get("agreedToCommission") === "true" || formData?.get("agreedToCommission") === "on")),
         agreedToReturnPolicy: !!(jsonBody?.data?.agreedToReturnPolicy ?? (formData?.get("agreedToReturnPolicy") === "true" || formData?.get("agreedToReturnPolicy") === "on")),
         agreedToPrivacy: !!(jsonBody?.data?.agreedToPrivacy ?? (formData?.get("agreedToPrivacy") === "true" || formData?.get("agreedToPrivacy") === "on")),
-        hearAboutUs: (jsonBody?.data?.hearAboutUs || (formData?.get("hearAboutUs") as string)) || null,
+        hearAboutUs: formatHearAboutUs(rawHearAboutUs, rawHearAboutUsOther),
       }
       await (prisma as any).sellerAgreement.upsert({
         where: { sellerId: seller.id },

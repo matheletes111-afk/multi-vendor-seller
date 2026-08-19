@@ -59,7 +59,8 @@ export function SellerIdClient({ id }: SellerIdClientProps) {
     setError(null)
     try {
       const res = await fetch(`/api/admin/sellers/${sellerId}/approve`, { method: "POST" })
-      if (!res.ok) throw new Error("Failed to approve")
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || "Failed to approve")
       setSuccess("Seller approved successfully")
       fetchSeller()
     } catch (e: any) {

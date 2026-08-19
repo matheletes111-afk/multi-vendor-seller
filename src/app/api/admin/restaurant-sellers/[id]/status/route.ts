@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { isAdmin } from "@/lib/rbac"
+import { validateRestaurantSellerApproval } from "@/lib/seller-approval-validation"
+import { sendSellerApprovalEmail } from "@/lib/email"
 
 /** 
  * POST /api/admin/restaurant-sellers/[id]/status
@@ -24,7 +26,16 @@ export async function POST(
       return NextResponse.json({ error: "ID is required" }, { status: 400 })
     }
 
-    const seller = await prisma.restaurantSeller.findUnique({ where: { id } })
+    const seller = await prisma.restaurantSeller.findUnique({
+      where: { id },
+      include: {
+        user: true,
+        businessInfo: true,
+        kyc: true,
+        bankDetails: true,
+        agreement: true,
+      }
+    })
     if (!seller) {
       return NextResponse.json({ error: "Seller not found" }, { status: 404 })
     }
@@ -32,6 +43,16 @@ export async function POST(
     let updateData: any = { adminFeedback: feedback || null }
 
     if (action === "approve") {
+      const validation = validateRestaurantSellerApproval(seller)
+      if (!validation.canApprove) {
+        return NextResponse.json(
+          {
+            error: `Cannot approve restaurant seller: Onboarding is incomplete. ${validation.missingItems.join(". ")}`,
+            missingItems: validation.missingItems,
+          },
+          { status: 400 }
+        )
+      }
       updateData.isApproved = true
       updateData.status = "APPROVED"
       updateData.onboardingCompleted = true
@@ -54,6 +75,17 @@ export async function POST(
       where: { id },
       data: updateData
     })
+
+    if (action === "approve" && seller.user?.email) {
+      try {
+        await sendSellerApprovalEmail({
+          to: seller.user.email,
+          name: seller.user.name ?? "Restaurant Partner",
+        })
+      } catch (emailErr) {
+        console.error("Failed to send restaurant seller approval email:", emailErr)
+      }
+    }
 
     return NextResponse.json({ success: true, seller: updatedSeller })
   } catch (error: any) {

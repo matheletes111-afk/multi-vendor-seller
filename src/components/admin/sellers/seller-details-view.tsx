@@ -102,6 +102,15 @@ export function SellerDetailsView({
                 <div className="p-2 bg-muted rounded-xl"><FileText className="h-3.5 w-3.5 text-muted-foreground" /></div>
                 <div className="flex flex-col"><span className="text-[10px] font-medium text-muted-foreground/60">NIN</span><span className="text-sm font-medium">{seller.nationIdentityNumber || "Pending"}</span></div>
               </div>
+              {(seller.agreement?.hearAboutUs || seller.hearAboutUs) && (
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-purple-500/10 rounded-xl"><Globe className="h-3.5 w-3.5 text-purple-600" /></div>
+                  <div className="flex flex-col">
+                    <span className="text-[10px] font-medium text-purple-700 dark:text-purple-300">Where from you get to know</span>
+                    <span className="text-sm font-bold text-purple-900 dark:text-purple-100">{seller.agreement?.hearAboutUs || seller.hearAboutUs}</span>
+                  </div>
+                </div>
+              )}
             </div>
 
             {seller.adminFeedback && (
@@ -353,17 +362,25 @@ export function SellerDetailsView({
                     {seller.agreement.agreedToCommission ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
                   </Badge>
                 </div>
-                {seller.agreement.hearAboutUs && (
+                {(seller.agreement.hearAboutUs || seller.hearAboutUs) && (
                   <div className="flex items-center justify-between p-3 rounded-xl bg-purple-500/10 border border-purple-500/20">
-                    <span className="text-xs font-medium text-purple-700 dark:text-purple-300">Referral / Source</span>
-                    <span className="text-xs font-bold text-purple-900 dark:text-purple-100">{seller.agreement.hearAboutUs}</span>
+                    <span className="text-xs font-medium text-purple-700 dark:text-purple-300">Where from you get to know</span>
+                    <span className="text-xs font-bold text-purple-900 dark:text-purple-100">{seller.agreement.hearAboutUs || seller.hearAboutUs}</span>
                   </div>
                 )}
               </div>
             ) : (
-              <div className="flex flex-col items-center justify-center py-6 text-center space-y-2">
-                <AlertCircle className="h-8 w-8 text-amber-500/50" />
-                <span className="text-sm font-medium text-muted-foreground block text-balance">The seller has not finalized the agreement stage.</span>
+              <div className="space-y-3">
+                <div className="flex flex-col items-center justify-center py-4 text-center space-y-2">
+                  <AlertCircle className="h-8 w-8 text-amber-500/50" />
+                  <span className="text-sm font-medium text-muted-foreground block text-balance">The seller has not finalized the agreement stage.</span>
+                </div>
+                {seller.hearAboutUs && (
+                  <div className="flex items-center justify-between p-3 rounded-xl bg-purple-500/10 border border-purple-500/20">
+                    <span className="text-xs font-medium text-purple-700 dark:text-purple-300">Where from you get to know</span>
+                    <span className="text-xs font-bold text-purple-900 dark:text-purple-100">{seller.hearAboutUs}</span>
+                  </div>
+                )}
               </div>
             )}
           </CardContent>

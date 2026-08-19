@@ -1,23 +1,37 @@
 ================================================================================
-MOBILE API DOCUMENTATION: "WHERE DID YOU HEAR ABOUT US" (ALL 4 PANELS)
+MOBILE API DOCUMENTATION: "WHERE DID YOU HEAR ABOUT US" & "OTHER" TEXT FIELD (ALL 4 PANELS)
 ================================================================================
 
-This document details the Mobile API updates across all 4 Seller Panels:
-1. Product Seller
-2. Service Seller
-3. Restaurant Seller
-4. Hotel Seller
+This document details the Mobile API implementation for the Referral Source ("Where did you hear about our platform?") feature across all 4 Seller Panels:
+1. Product Seller  (/mobileapi/product-seller/onboarding)
+2. Service Seller  (/mobileapi/service-seller/onboarding)
+3. Restaurant Seller (/mobileapi/restaurant-seller/onboarding)
+4. Hotel Seller    (/mobileapi/hotel-seller/onboarding)
 
-A new static dropdown field ("hearAboutUs") has been added to the final Onboarding Agreement Step, alongside the 4 Legal Agreement Checkboxes. The list of available referral options ("hearAboutUsOptions") is exposed in all onboarding GET endpoints.
-
-Summary of Final Agreement Step UI (All 4 Sellers):
-1. Referral Dropdown ("Where did you hear about our platform?") -> hearAboutUs
-2. Checkbox 1: General Seller / Vendor Terms & Conditions -> agreedToTerms
-3. Checkbox 2: Privacy Policy & Data Compliance -> agreedToPrivacy
-4. Checkbox 3: Vendor Agreement / Return & Cancellation Policy -> agreedToReturnPolicy
-5. Checkbox 4: Payment Settling & Commission Terms -> agreedToCommission
-
-(Note: All 4 checkboxes can be sent in the POST payload for any seller type; the backend automatically accepts and maps them safely).
+--------------------------------------------------------------------------------
+KEY REQUIREMENTS & UI SPECIFICATION:
+--------------------------------------------------------------------------------
+1. Referral Dropdown ("Where did you hear about our platform?"):
+   - Displays all items in `hearAboutUsOptions`.
+   - "Other" is placed as the LAST item in the dropdown.
+2. Dynamic "Other" Text Box:
+   - When the user selects "Other" from the dropdown, a text input field ("Please specify where you heard about us") opens immediately below the dropdown.
+   - If the user switches away from "Other" to any other option, the text box disappears/clears.
+3. Payload Submission:
+   - Mobile apps can send either:
+     a) `hearAboutUs`: "Other" AND `hearAboutUsOther`: "<custom string>"
+     b) OR `hearAboutUs`: "Other: <custom string>"
+     c) If a standard option is selected: `hearAboutUs`: "Google / Search Engine" (and `hearAboutUsOther`: "" or omitted).
+   - Backend automatically merges and normalizes the value to `Other: <custom string>` (or standard option) and stores it in the database.
+4. Data Loading (GET Request):
+   - The backend returns `agreement.hearAboutUs` (e.g. "Other: Radio Station FM 98.1" or "Facebook" or null).
+   - When loading on mobile:
+     - If `hearAboutUs` starts with "Other:" or equals "Other":
+       -> Set dropdown value to "Other"
+       -> Set custom text box value to `hearAboutUs.replaceFirst(RegExp(r'^Other:\s*', caseSensitive: false), '')`
+     - If `hearAboutUs` matches any standard option:
+       -> Set dropdown value to that option
+       -> Custom text box is hidden/empty
 
 ================================================================================
 1. STATIC REFERRAL SOURCE OPTIONS (SINGLE-BY-SINGLE LIST)
@@ -82,7 +96,7 @@ A. GET Current Status & Options
       "agreedToCommission": true,
       "agreedToReturnPolicy": true,
       "agreedToPrivacy": true,
-      "hearAboutUs": "Social Media (Facebook, Instagram, TikTok)"
+      "hearAboutUs": "Other: Radio Advert on 98.1 FM"
     },
     "hearAboutUsOptions": [
       "Google / Search Engine",
@@ -112,7 +126,20 @@ B. POST Final Step (Mobile Step 5: Agreement & Completion)
   Authorization: Bearer <TOKEN>
   Content-Type: application/json (or multipart/form-data)
 
-- Request Payload (JSON):
+- Request Payload (JSON - When User Selects "Other"):
+{
+  "step": 5,
+  "data": {
+    "agreedToTerms": true,
+    "agreedToCommission": true,
+    "agreedToReturnPolicy": true,
+    "agreedToPrivacy": true,
+    "hearAboutUs": "Other",
+    "hearAboutUsOther": "Radio Advert on 98.1 FM"
+  }
+}
+
+- Request Payload (JSON - Standard Option):
 {
   "step": 5,
   "data": {
@@ -130,7 +157,8 @@ B. POST Final Step (Mobile Step 5: Agreement & Completion)
   - agreedToCommission: "true"
   - agreedToReturnPolicy: "true"
   - agreedToPrivacy: "true"
-  - hearAboutUs: "Google / Search Engine"
+  - hearAboutUs: "Other"
+  - hearAboutUsOther: "Radio Advert on 98.1 FM"
 
 - Response (200 OK):
 {
@@ -174,7 +202,7 @@ A. GET Current Status & Options
       "agreedToCommission": true,
       "agreedToReturnPolicy": true,
       "agreedToPrivacy": true,
-      "hearAboutUs": "Instagram"
+      "hearAboutUs": "Other: Community Meetup"
     },
     "hearAboutUsOptions": [
       "Google / Search Engine",
@@ -204,7 +232,7 @@ B. POST Final Step (Mobile Step 5: Agreement & Completion)
   Authorization: Bearer <TOKEN>
   Content-Type: application/json (or multipart/form-data)
 
-- Request Payload (JSON):
+- Request Payload (JSON - When User Selects "Other"):
 {
   "step": 5,
   "data": {
@@ -212,9 +240,19 @@ B. POST Final Step (Mobile Step 5: Agreement & Completion)
     "agreedToCommission": true,
     "agreedToReturnPolicy": true,
     "agreedToPrivacy": true,
-    "hearAboutUs": "Instagram"
+    "hearAboutUs": "Other",
+    "hearAboutUsOther": "Community Meetup"
   }
 }
+
+- Request Payload (Multipart / Form-Data Alternative):
+  - mobileStep: 5
+  - agreedToTerms: "true"
+  - agreedToCommission: "true"
+  - agreedToReturnPolicy: "true"
+  - agreedToPrivacy: "true"
+  - hearAboutUs: "Other"
+  - hearAboutUsOther: "Community Meetup"
 
 - Response (200 OK):
 {
@@ -255,9 +293,9 @@ A. GET Current Status & Options
       "id": "cag789...",
       "agreedToTerms": true,
       "agreedToPrivacy": true,
-      "agreedToReturnPolicy": false, // Always false on GET (not stored in DB); user must re-check on mobile each session
+      "agreedToReturnPolicy": false,
       "agreedToCommission": true,
-      "hearAboutUs": "Friend, Family or Colleague Referral"
+      "hearAboutUs": "Other: Food Expo 2026"
     },
     "hearAboutUsOptions": [
       "Google / Search Engine",
@@ -287,15 +325,16 @@ B. POST Final Step (Step 6: Agreement & Completion)
   Authorization: Bearer <TOKEN>
   Content-Type: application/json (or multipart/form-data)
 
-- Request Payload (JSON):
+- Request Payload (JSON - When User Selects "Other"):
 {
   "step": 6,
   "data": {
     "agreedToTerms": true,
     "agreedToPrivacy": true,
-    "agreedToReturnPolicy": true, // Vendor Agreement checkbox (optional/supported)
+    "agreedToReturnPolicy": true,
     "agreedToCommission": true,
-    "hearAboutUs": "Friend, Family or Colleague Referral"
+    "hearAboutUs": "Other",
+    "hearAboutUsOther": "Food Expo 2026"
   }
 }
 
@@ -305,7 +344,8 @@ B. POST Final Step (Step 6: Agreement & Completion)
   - agreedToPrivacy: "true"
   - agreedToReturnPolicy: "true"
   - agreedToCommission: "true"
-  - hearAboutUs: "Friend, Family or Colleague Referral"
+  - hearAboutUs: "Other"
+  - hearAboutUsOther: "Food Expo 2026"
 
 - Response (200 OK):
 {
@@ -346,9 +386,9 @@ A. GET Current Status & Options
       "id": "cag999...",
       "agreedToTerms": true,
       "agreedToPrivacy": true,
-      "agreedToReturnPolicy": false, // Always false on GET (not stored in DB); user must re-check on mobile each session
+      "agreedToReturnPolicy": false,
       "agreedToCommission": true,
-      "hearAboutUs": "YouTube / Online Video"
+      "hearAboutUs": "Other: Tourism Ministry circular"
     },
     "hearAboutUsOptions": [
       "Google / Search Engine",
@@ -378,15 +418,16 @@ B. POST Final Step (Step 6: Agreement & Completion)
   Authorization: Bearer <TOKEN>
   Content-Type: application/json (or multipart/form-data)
 
-- Request Payload (JSON):
+- Request Payload (JSON - When User Selects "Other"):
 {
   "step": 6,
   "data": {
     "agreedToTerms": true,
     "agreedToPrivacy": true,
-    "agreedToReturnPolicy": true, // Vendor Agreement checkbox (optional/supported)
+    "agreedToReturnPolicy": true,
     "agreedToCommission": true,
-    "hearAboutUs": "YouTube / Online Video"
+    "hearAboutUs": "Other",
+    "hearAboutUsOther": "Tourism Ministry circular"
   }
 }
 
@@ -396,7 +437,8 @@ B. POST Final Step (Step 6: Agreement & Completion)
   - agreedToPrivacy: "true"
   - agreedToReturnPolicy: "true"
   - agreedToCommission: "true"
-  - hearAboutUs: "YouTube / Online Video"
+  - hearAboutUs: "Other"
+  - hearAboutUsOther: "Tourism Ministry circular"
 
 - Response (200 OK):
 {
@@ -407,4 +449,396 @@ B. POST Final Step (Step 6: Agreement & Completion)
     "onboardingCompleted": true
   }
 }
+
+
+================================================================================
+6. FLUTTER / DART COMPLETE IMPLEMENTATION EXAMPLE
+================================================================================
+
+Below is a complete Flutter widget demonstrating how to implement the dropdown, conditional "Other" text box, loading state parsing, and API submission:
+
+```dart
+import 'dart:convert';
+import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+
+class OnboardingAgreementStepScreen extends StatefulWidget {
+  final String authToken;
+  final String sellerType; // 'product', 'service', 'restaurant', 'hotel'
+
+  const OnboardingAgreementStepScreen({
+    Key? key,
+    required this.authToken,
+    required this.sellerType,
+  }) : super(key: key);
+
+  @override
+  State<OnboardingAgreementStepScreen> createState() =>
+      _OnboardingAgreementStepScreenState();
+}
+
+class _OnboardingAgreementStepScreenState
+    extends State<OnboardingAgreementStepScreen> {
+  // Predefined options fallback (dynamically updated from API GET response)
+  List<String> hearAboutUsOptions = [
+    "Google / Search Engine",
+    "Social Media (Facebook, Instagram, TikTok)",
+    "Facebook",
+    "Instagram",
+    "TikTok",
+    "LinkedIn",
+    "YouTube / Online Video",
+    "Friend, Family or Colleague Referral",
+    "Word of Mouth",
+    "Billboard / Outdoor Advertising",
+    "TV / Radio / Print Ad",
+    "Events / Trade Shows / Exhibitions",
+    "Email Newsletter or Promotion",
+    "Blog, News or Article",
+    "Other",
+  ];
+
+  String? selectedHearAboutUs;
+  final TextEditingController otherSourceController = TextEditingController();
+
+  bool agreedToTerms = false;
+  bool agreedToPrivacy = false;
+  bool agreedToReturnPolicy = false;
+  bool agreedToCommission = false;
+
+  bool isLoading = true;
+  bool isSubmitting = false;
+
+  String get endpointUrl {
+    switch (widget.sellerType) {
+      case 'product':
+        return 'https://api.meeemsl.com/mobileapi/product-seller/onboarding';
+      case 'service':
+        return 'https://api.meeemsl.com/mobileapi/service-seller/onboarding';
+      case 'restaurant':
+        return 'https://api.meeemsl.com/mobileapi/restaurant-seller/onboarding';
+      case 'hotel':
+        return 'https://api.meeemsl.com/mobileapi/hotel-seller/onboarding';
+      default:
+        return 'https://api.meeemsl.com/mobileapi/product-seller/onboarding';
+    }
+  }
+
+  int get agreementStepNumber {
+    // Product & Service sellers use step 5 on mobile, Restaurant & Hotel use step 6
+    if (widget.sellerType == 'product' || widget.sellerType == 'service') {
+      return 5;
+    }
+    return 6;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    fetchOnboardingData();
+  }
+
+  @override
+  void dispose() {
+    otherSourceController.dispose();
+    super.dispose();
+  }
+
+  /// Parses the stored hearAboutUs string from backend
+  void parseReferralData(String? raw) {
+    if (raw == null || raw.trim().isEmpty) {
+      selectedHearAboutUs = null;
+      otherSourceController.text = '';
+      return;
+    }
+
+    final trimmed = raw.trim();
+
+    // Check if it starts with "Other:"
+    final otherPrefixRegex = RegExp(r'^Other:\s*', caseSensitive: false);
+    if (otherPrefixRegex.hasMatch(trimmed)) {
+      selectedHearAboutUs = "Other";
+      otherSourceController.text = trimmed.replaceFirst(otherPrefixRegex, '');
+      return;
+    }
+
+    if (trimmed.toLowerCase() == "other") {
+      selectedHearAboutUs = "Other";
+      otherSourceController.text = '';
+      return;
+    }
+
+    // Check if it matches any known option
+    final match = hearAboutUsOptions.firstWhere(
+      (opt) => opt.toLowerCase() == trimmed.toLowerCase(),
+      orElse: () => '',
+    );
+
+    if (match.isNotEmpty) {
+      selectedHearAboutUs = match;
+      otherSourceController.text = '';
+    } else {
+      // Unrecognized custom text -> treat as Other
+      selectedHearAboutUs = "Other";
+      otherSourceController.text = trimmed;
+    }
+  }
+
+  Future<void> fetchOnboardingData() async {
+    setState(() => isLoading = true);
+    try {
+      final response = await http.get(
+        Uri.parse(endpointUrl),
+        headers: {
+          'Authorization': 'Bearer ${widget.authToken}',
+          'Content-Type': 'application/json',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final resData = jsonDecode(response.body);
+        if (resData['success'] == true) {
+          final data = resData['data'] ?? {};
+
+          // Update options list if provided
+          if (data['hearAboutUsOptions'] != null) {
+            hearAboutUsOptions = List<String>.from(data['hearAboutUsOptions']);
+          }
+
+          final agreement = data['agreement'] ?? {};
+          agreedToTerms = agreement['agreedToTerms'] ?? false;
+          agreedToPrivacy = agreement['agreedToPrivacy'] ?? false;
+          agreedToReturnPolicy = agreement['agreedToReturnPolicy'] ?? false;
+          agreedToCommission = agreement['agreedToCommission'] ?? false;
+
+          parseReferralData(agreement['hearAboutUs'] as String?);
+        }
+      }
+    } catch (e) {
+      debugPrint('Error fetching onboarding data: $e');
+    } finally {
+      if (mounted) setState(() => isLoading = false);
+    }
+  }
+
+  Future<void> submitAgreement() async {
+    if (!agreedToTerms || !agreedToPrivacy || !agreedToCommission) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please accept all mandatory agreement terms.')),
+      );
+      return;
+    }
+
+    if (selectedHearAboutUs == "Other" &&
+        otherSourceController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please specify where you heard about us.')),
+      );
+      return;
+    }
+
+    setState(() => isSubmitting = true);
+    try {
+      final payload = {
+        "step": agreementStepNumber,
+        "data": {
+          "agreedToTerms": agreedToTerms,
+          "agreedToPrivacy": agreedToPrivacy,
+          "agreedToReturnPolicy": agreedToReturnPolicy,
+          "agreedToCommission": agreedToCommission,
+          "hearAboutUs": selectedHearAboutUs,
+          "hearAboutUsOther": selectedHearAboutUs == "Other"
+              ? otherSourceController.text.trim()
+              : null,
+        }
+      };
+
+      final response = await http.post(
+        Uri.parse(endpointUrl),
+        headers: {
+          'Authorization': 'Bearer ${widget.authToken}',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode(payload),
+      );
+
+      final resData = jsonDecode(response.body);
+      if (response.statusCode == 200 && resData['success'] == true) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Onboarding submitted successfully!')),
+        );
+        // Navigate to pending approval / home dashboard screen
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(resData['error'] ?? 'Submission failed')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Network error: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => isSubmitting = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (isLoading) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Agreement & Compliance'),
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Referral Source Section
+            Card(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              elevation: 1,
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      "Where did you hear about our platform?",
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      "Please select how you first learned about Meeem.",
+                      style: TextStyle(fontSize: 12, color: Colors.black54),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Referral Dropdown
+                    DropdownButtonFormField<String>(
+                      value: selectedHearAboutUs,
+                      isExpanded: true,
+                      decoration: InputDecoration(
+                        hintText: "Select an option",
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 12,
+                        ),
+                      ),
+                      items: hearAboutUsOptions.map((opt) {
+                        return DropdownMenuItem<String>(
+                          value: opt,
+                          child: Text(opt, overflow: TextOverflow.ellipsis),
+                        );
+                      }).toList(),
+                      onChanged: (val) {
+                        setState(() {
+                          selectedHearAboutUs = val;
+                          if (val != "Other") {
+                            otherSourceController.clear();
+                          }
+                        });
+                      },
+                    ),
+
+                    // Dynamic Text Box for "Other"
+                    if (selectedHearAboutUs == "Other") ...[
+                      const SizedBox(height: 12),
+                      const Text(
+                        "Please specify referral source *",
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      TextFormField(
+                        controller: otherSourceController,
+                        decoration: InputDecoration(
+                          hintText: "e.g., Radio station, Exhibition, Friend...",
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 12,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            // Checkboxes Section
+            CheckboxListTile(
+              title: const Text("General Seller Terms & Conditions"),
+              value: agreedToTerms,
+              onChanged: (val) => setState(() => agreedToTerms = val ?? false),
+            ),
+            CheckboxListTile(
+              title: const Text("Privacy Policy & Data Compliance"),
+              value: agreedToPrivacy,
+              onChanged: (val) => setState(() => agreedToPrivacy = val ?? false),
+            ),
+            CheckboxListTile(
+              title: const Text("Vendor Agreement & Listing Standards"),
+              value: agreedToReturnPolicy,
+              onChanged: (val) => setState(() => agreedToReturnPolicy = val ?? false),
+            ),
+            CheckboxListTile(
+              title: const Text("Payment Settling & Commission Terms"),
+              value: agreedToCommission,
+              onChanged: (val) => setState(() => agreedToCommission = val ?? false),
+            ),
+
+            const SizedBox(height: 24),
+
+            // Submit Button
+            SizedBox(
+              width: double.infinity,
+              height: 50,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                onPressed: isSubmitting ? null : submitAgreement,
+                child: isSubmitting
+                    ? const CircularProgressIndicator(color: Colors.white)
+                    : const Text(
+                        "Complete & Submit Application",
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+```
+
+================================================================================
+END OF DOCUMENTATION
 ================================================================================

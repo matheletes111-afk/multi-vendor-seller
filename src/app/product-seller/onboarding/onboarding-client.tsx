@@ -17,7 +17,7 @@ import { StoreLocationPicker } from "@/components/store-location-picker"
 import { FileText, Image as ImageIcon, CheckCircle2, ChevronLeft, ChevronRight, Upload, Check, User, LogOut, Plus, X, Pencil } from "lucide-react"
 import Image from "next/image"
 import { cn } from "@/lib/utils"
-import { HEAR_ABOUT_US_OPTIONS } from "@/lib/onboarding-constants"
+import { HEAR_ABOUT_US_OPTIONS, parseHearAboutUs, formatHearAboutUs } from "@/lib/onboarding-constants"
 import { LegalTermsModal, LegalDocType } from "@/components/legal/legal-terms-modal"
 
 type Step = 2 | 3 | 4 | 5 | 6 | 7
@@ -61,6 +61,7 @@ export function ProductOnboardingClient() {
   })
   const [activeLegalModal, setActiveLegalModal] = useState<LegalDocType | null>(null)
   const [hearAboutUs, setHearAboutUs] = useState("")
+  const [hearAboutUsOther, setHearAboutUsOther] = useState("")
   const [haveGst, setHaveGst] = useState(false)
 
   useEffect(() => {
@@ -76,7 +77,9 @@ export function ProductOnboardingClient() {
           agreedToPrivacy: !!seller.agreement.agreedToPrivacy
         })
         if (seller.agreement.hearAboutUs) {
-          setHearAboutUs(seller.agreement.hearAboutUs)
+          const parsed = parseHearAboutUs(seller.agreement.hearAboutUs)
+          setHearAboutUs(parsed.selected)
+          setHearAboutUsOther(parsed.otherText)
         }
       }
       if (seller.businessInfo) {
@@ -187,11 +190,19 @@ export function ProductOnboardingClient() {
           }
         } else {
           // Step 6
+          if (hearAboutUs === "Other" && !hearAboutUsOther.trim()) {
+            setError("Please specify where you heard about our platform.")
+            setSaving(false)
+            return
+          }
           data.agreedToTerms = formData.get("agreedToTerms") === "on"
           data.agreedToCommission = formData.get("agreedToCommission") === "on"
           data.agreedToReturnPolicy = formData.get("agreedToReturnPolicy") === "on"
           data.agreedToPrivacy = formData.get("agreedToPrivacy") === "on"
-          data.hearAboutUs = hearAboutUs || (formData.get("hearAboutUs") as string) || null
+          const rawSelected = hearAboutUs || (formData.get("hearAboutUs") as string) || null
+          const rawOther = hearAboutUsOther || (formData.get("hearAboutUsOther") as string) || null
+          data.hearAboutUs = formatHearAboutUs(rawSelected, rawOther)
+          data.hearAboutUsOther = rawOther
           res = await fetch("/api/product-seller/onboarding", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -962,7 +973,15 @@ export function ProductOnboardingClient() {
                       Please select how you first learned about Meeem.
                     </p>
                   </div>
-                  <Select value={hearAboutUs} onValueChange={setHearAboutUs}>
+                  <Select
+                    value={hearAboutUs}
+                    onValueChange={(val) => {
+                      setHearAboutUs(val)
+                      if (val !== "Other") {
+                        setHearAboutUsOther("")
+                      }
+                    }}
+                  >
                     <SelectTrigger id="hearAboutUs" className="h-12 rounded-2xl bg-white border-slate-200 text-slate-800">
                       <SelectValue placeholder="Select an option" />
                     </SelectTrigger>
@@ -974,6 +993,23 @@ export function ProductOnboardingClient() {
                       ))}
                     </SelectContent>
                   </Select>
+                  {hearAboutUs === "Other" && (
+                    <div className="pt-2 animate-in fade-in slide-in-from-top-2 duration-300">
+                      <Label htmlFor="hearAboutUsOther" className="text-xs font-semibold text-slate-700 block mb-1.5">
+                        Please specify where you heard about us <span className="text-rose-500">*</span>
+                      </Label>
+                      <Input
+                        id="hearAboutUsOther"
+                        name="hearAboutUsOther"
+                        type="text"
+                        placeholder="e.g. Radio station, Exhibition, Friend recommendation, etc."
+                        value={hearAboutUsOther}
+                        onChange={(e) => setHearAboutUsOther(e.target.value)}
+                        className="h-12 rounded-2xl bg-white border-slate-200 text-slate-800 focus:border-slate-400 placeholder:text-slate-400"
+                        required
+                      />
+                    </div>
+                  )}
                 </div>
 
                 <div className="space-y-4 bg-slate-50 p-6 rounded-3xl border border-slate-100">

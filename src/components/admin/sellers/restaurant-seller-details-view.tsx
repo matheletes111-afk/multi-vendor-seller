@@ -27,7 +27,8 @@ import {
   ChefHat,
   Landmark,
   ShieldCheck,
-  UserCheck
+  UserCheck,
+  Globe
 } from "lucide-react"
 
 interface RestaurantSellerDetailsViewProps {
@@ -157,6 +158,15 @@ export function RestaurantSellerDetailsView({
                     <span className="text-sm font-bold">{seller.businessInfo?.landmark || "—"}</span>
                   </div>
                </div>
+               {(seller.agreement?.hearAboutUs || seller.hearAboutUs) && (
+                 <div className="flex items-center gap-3">
+                   <div className="p-2 bg-purple-50 rounded-xl"><Globe className="h-4 w-4 text-purple-600" /></div>
+                   <div className="flex flex-col">
+                     <span className="text-[10px] font-medium text-purple-700 dark:text-purple-300 uppercase tracking-widest">Where from you get to know</span>
+                     <span className="text-sm font-bold text-purple-950 dark:text-purple-100">{seller.agreement?.hearAboutUs || seller.hearAboutUs}</span>
+                   </div>
+                 </div>
+               )}
             </div>
             
             <div className="pt-4 border-t space-y-2">
@@ -272,10 +282,10 @@ export function RestaurantSellerDetailsView({
                   </div>
                </div>
                
-               {seller.agreement?.hearAboutUs && (
+               {(seller.agreement?.hearAboutUs || seller.hearAboutUs) && (
                  <div className="flex items-center justify-between p-3 rounded-xl bg-purple-500/10 border border-purple-500/20">
-                   <span className="text-xs font-medium text-purple-700 dark:text-purple-300">Referral / Source</span>
-                   <span className="text-xs font-bold text-purple-900 dark:text-purple-100">{seller.agreement.hearAboutUs}</span>
+                   <span className="text-xs font-medium text-purple-700 dark:text-purple-300">Referral Source</span>
+                   <span className="text-xs font-bold text-purple-900 dark:text-purple-100">{seller.agreement?.hearAboutUs || seller.hearAboutUs || "—"}</span>
                  </div>
                )}
                
