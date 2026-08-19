@@ -25,6 +25,7 @@ import {
   X,
   AlertCircle,
   CheckCircle,
+  Globe,
 } from "lucide-react"
 
 interface SellerDetailsViewProps {
