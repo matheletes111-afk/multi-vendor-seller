@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useState, useMemo } from "react"
+import Link from "next/link"
 import {
   FileText,
   Search,
@@ -19,6 +20,7 @@ import {
   Filter,
   Eye,
   Info,
+  Trash2,
 } from "lucide-react"
 import { Badge } from "@/ui/badge"
 import { Button } from "@/ui/button"
@@ -156,49 +158,56 @@ export function LegalPolicyTabContent({
   return (
     <div className={cn("space-y-6", className)}>
       {/* Header Banner */}
-      <div className="rounded-3xl border border-slate-200/80 bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950 p-6 text-white shadow-xl sm:p-8">
+      <div className="rounded-3xl border border-indigo-200/80 bg-gradient-to-r from-blue-700 via-indigo-600 to-indigo-800 p-6 text-white shadow-xl sm:p-8">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-2">
             <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-xl bg-white/10 backdrop-blur-md flex items-center justify-center text-white border border-white/20">
-                <ShieldCheck className="w-5 h-5 text-indigo-400" />
+              <div className="w-9 h-9 rounded-xl bg-white/15 backdrop-blur-md flex items-center justify-center text-white border border-white/20">
+                <ShieldCheck className="w-5 h-5 text-indigo-200" />
               </div>
               <h2 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">
                 Legal & Policy Library
               </h2>
             </div>
-            <p className="text-sm text-slate-300 max-w-2xl leading-relaxed">
+            <p className="text-sm text-indigo-100 max-w-2xl leading-relaxed">
               Official marketplace legal framework, seller and vendor agreements, automated payment settlement policies, data privacy protocols, and regulatory compliance standards.
             </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
+            <Link
+              href="/delete-account"
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-rose-500 hover:bg-rose-600 text-white text-xs font-bold shadow-md shadow-rose-900/20 transition-all backdrop-blur-md"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>Delete Account Request</span>
+            </Link>
             {isAcceptedOnboarding && role !== "CUSTOMER" && (
-              <Badge className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-3.5 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 backdrop-blur-md">
-                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+              <Badge className="bg-emerald-500/20 text-emerald-200 border border-emerald-400/40 px-3.5 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 backdrop-blur-md">
+                <CheckCircle2 className="w-4 h-4 text-emerald-300" />
                 <span>Agreement Accepted & Active</span>
               </Badge>
             )}
-            <Badge variant="outline" className="text-slate-300 border-white/20 px-3 py-1 rounded-full text-xs">
-              {allDocs.length} Total Applicable Documents
+            <Badge variant="outline" className="text-indigo-100 border-white/25 px-3 py-1 rounded-full text-xs">
+              {allDocs.length} Applicable Docs
             </Badge>
           </div>
         </div>
 
         {/* Search & Categories Bar */}
-        <div className="mt-6 pt-6 border-t border-white/10 flex flex-col sm:flex-row gap-4 items-stretch sm:items-center justify-between">
+        <div className="mt-6 pt-6 border-t border-white/15 flex flex-col sm:flex-row gap-4 items-stretch sm:items-center justify-between">
           <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-indigo-200" />
             <Input
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search terms, agreements, policies..."
-              className="pl-10 h-10 bg-white/10 border-white/20 text-white placeholder:text-slate-400 rounded-2xl focus:bg-white/20 focus:border-indigo-400 text-sm"
+              className="pl-10 h-10 bg-white/15 border-white/25 text-white placeholder:text-indigo-200 rounded-2xl focus:bg-white/25 focus:border-white text-sm"
             />
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery("")}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-white"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-indigo-200 hover:text-white"
               >
                 Clear
               </button>
@@ -219,14 +228,14 @@ export function LegalPolicyTabContent({
                   className={cn(
                     "px-3 py-1.5 rounded-xl text-xs font-medium transition-all flex items-center gap-1.5",
                     isActive
-                      ? "bg-white text-slate-900 shadow-md font-semibold"
-                      : "bg-white/10 text-slate-300 hover:bg-white/20 hover:text-white"
+                      ? "bg-white text-indigo-900 shadow-md font-semibold"
+                      : "bg-white/15 text-indigo-100 hover:bg-white/25 hover:text-white"
                   )}
                 >
                   <span>{cat.label}</span>
                   <span className={cn(
                     "text-[10px] px-1.5 py-0.2 rounded-full",
-                    isActive ? "bg-slate-200 text-slate-900" : "bg-white/20 text-slate-300"
+                    isActive ? "bg-indigo-100 text-indigo-900" : "bg-white/20 text-white"
                   )}>
                     {count}
                   </span>

@@ -1677,3 +1677,57 @@ model CouponUsage {
   @@index([userId])
   @@map("coupon_usages")
 }
+
+enum SupportTicketStatus {
+  OPEN
+  IN_PROGRESS
+  CLOSED
+}
+
+enum SupportUserType {
+  CUSTOMER
+  SELLER_PRODUCT
+  SELLER_SERVICE
+  SELLER_RESTAURANT
+  SELLER_HOTEL
+}
+
+model SupportTicket {
+  id          String              @id @default(cuid())
+  ticketId    String              @unique
+  userType    SupportUserType     @default(CUSTOMER)
+  name        String
+  email       String
+  mobile      String
+  subject     String?
+  message     String              @db.Text
+  status      SupportTicketStatus @default(OPEN)
+  adminNotes  String?             @db.Text
+  closedAt    DateTime?
+  closedBy    String?
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  replies     SupportTicketReply[]
+
+  @@index([status])
+  @@index([email])
+  @@index([ticketId])
+  @@map("support_tickets")
+}
+
+model SupportTicketReply {
+  id          String        @id @default(cuid())
+  ticketId    String
+  senderType  String        @default("ADMIN")
+  senderEmail String?
+  senderName  String?
+  message     String        @db.Text
+  sentEmail   Boolean       @default(false)
+  createdAt   DateTime      @default(now())
+
+  ticket      SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId])
+  @@map("support_ticket_replies")
+}

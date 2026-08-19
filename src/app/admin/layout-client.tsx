@@ -18,7 +18,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/ui/avatar"
 import { Button } from "@/ui/button"
 import { Separator } from "@/ui/separator"
 import { Sheet, SheetContent, SheetTrigger } from "@/ui/sheet"
-import { LogOut, User, LayoutDashboard, Users, CreditCard, FolderTree, Briefcase, Megaphone, Menu, BadgeDollarSign, ImageIcon, ShoppingCart, Star, Building2, Calendar, Package, Utensils, Ticket } from "lucide-react"
+import { LogOut, User, LayoutDashboard, Users, CreditCard, FolderTree, Briefcase, Megaphone, Menu, BadgeDollarSign, ImageIcon, ShoppingCart, Star, Building2, Calendar, Package, Utensils, Ticket, LifeBuoy } from "lucide-react"
+import { DashboardFooter } from "@/components/layout/dashboard-footer"
 
 function NavItem({ href, label, icon }: { href: string; label: string; icon?: ReactNode }) {
   const pathname = usePathname()
@@ -68,6 +69,7 @@ export function AdminLayoutClient({
         </div>
         <div className="space-y-0.5">
           <NavItem href="/admin" label="Dashboard" icon={<LayoutDashboard className="h-4 w-4" />} />
+          <NavItem href="/admin/support" label="Support Tickets" icon={<LifeBuoy className="h-4 w-4" />} />
           <NavItem href="/admin/banners" label="Banners" icon={<ImageIcon className="h-4 w-4" />} />
           <NavItem href="/admin/subscriptions" label="Subscriptions" icon={<CreditCard className="h-4 w-4" />} />
           <NavItem href="/admin/seller-ads" label="Ads" icon={<BadgeDollarSign className="h-4 w-4" />} />
@@ -187,6 +189,7 @@ export function AdminLayoutClient({
           </div>
         </header>
         <main className="flex-1">{children}</main>
+        <DashboardFooter panelName="Admin Portal" />
       </div>
     </div>
   )

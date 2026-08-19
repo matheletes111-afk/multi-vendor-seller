@@ -1372,13 +1372,19 @@ export function SiteFooter() {
                 </>
               )}
               <li className="mt-1 border-t border-slate-200/50 pt-1.5 dark:border-slate-700/50">
+                <Link href="/terms" className={linkClass}>All Terms</Link>
+              </li>
+              <li>
                 <Link href="/terms-and-conditions" className={linkClass}>Terms & Conditions</Link>
               </li>
               <li>
                 <Link href="/privacy-policy" className={linkClass}>Privacy Policy</Link>
               </li>
               <li>
-                <Link href="/terms" className={linkClass}>All Legal Policies</Link>
+                <Link href="/support" className={linkClass}>Support & Help Desk</Link>
+              </li>
+              <li>
+                <Link href="/delete-account" className={linkClass}>Delete Account Request</Link>
               </li>
             </ul>
           </nav>
