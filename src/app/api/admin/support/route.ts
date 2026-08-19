@@ -22,10 +22,7 @@ export async function GET(req: NextRequest) {
     if (source === "IN_APP") {
       where.source = "IN_APP"
     } else if (source === "PUBLIC") {
-      where.OR = [
-        { source: "PUBLIC" },
-        { source: null },
-      ]
+      where.source = { not: "IN_APP" }
     }
 
     if (status !== "ALL") {
@@ -73,62 +70,80 @@ export async function GET(req: NextRequest) {
     }
 
     try {
-      const [data, total, allCounts, inAppCount, publicCount] = await Promise.all([
-        (prisma as any).supportTicket.findMany({
-          where,
+      tickets = await (prisma as any).supportTicket.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: limit,
+        include: {
+          replies: {
+            orderBy: { createdAt: "asc" },
+          },
+        },
+      })
+      totalCount = await (prisma as any).supportTicket.count({ where })
+    } catch (fetchErr: any) {
+      console.error("Error fetching support tickets findMany:", fetchErr?.message || fetchErr)
+      try {
+        // Fallback: try raw query or without where
+        tickets = await (prisma as any).supportTicket.findMany({
           orderBy: { createdAt: "desc" },
-          skip,
           take: limit,
           include: {
             replies: {
               orderBy: { createdAt: "asc" },
             },
           },
-        }),
-        (prisma as any).supportTicket.count({ where }),
-        (prisma as any).supportTicket.groupBy({
-          by: ["status"],
-          _count: { status: true },
+        })
+        totalCount = tickets.length
+      } catch (fallbackErr: any) {
+        console.error("Fallback findMany failed:", fallbackErr?.message || fallbackErr)
+        tickets = []
+        totalCount = 0
+      }
+    }
+
+    // Safe stats calculation
+    try {
+      const [allTickets, inAppCount] = await Promise.all([
+        (prisma as any).supportTicket.findMany({
+          select: { id: true, status: true, source: true },
         }),
         (prisma as any).supportTicket.count({
           where: { source: "IN_APP" },
-        }),
-        (prisma as any).supportTicket.count({
-          where: { OR: [{ source: "PUBLIC" }, { source: null }] },
-        }),
+        }).catch(() => 0),
       ])
-
-      tickets = data
-      totalCount = total
 
       let pendingCount = 0
       let inProgressCount = 0
       let resolvedCount = 0
       let closedCount = 0
-      let totalAll = 0
 
-      for (const item of allCounts) {
-        const count = item._count.status
-        totalAll += count
-        if (item.status === "PENDING" || item.status === "OPEN") pendingCount += count
-        if (item.status === "IN_PROGRESS") inProgressCount += count
-        if (item.status === "RESOLVED") resolvedCount += count
-        if (item.status === "CLOSED") closedCount += count
+      for (const item of allTickets) {
+        if (item.status === "PENDING" || item.status === "OPEN") pendingCount++
+        else if (item.status === "IN_PROGRESS") inProgressCount++
+        else if (item.status === "RESOLVED") resolvedCount++
+        else if (item.status === "CLOSED") closedCount++
       }
 
       stats = {
-        total: totalAll,
+        total: allTickets.length,
         open: pendingCount,
         inProgress: inProgressCount,
         closed: closedCount + resolvedCount,
         inApp: inAppCount,
-        public: publicCount,
+        public: Math.max(0, allTickets.length - inAppCount),
       }
-    } catch (dbErr: any) {
-      console.warn("Support tickets query notice:", dbErr?.message || dbErr)
-      tickets = []
-      totalCount = 0
-      stats = { total: 0, open: 0, inProgress: 0, closed: 0, inApp: 0, public: 0 }
+    } catch (statsErr: any) {
+      console.warn("Stats calculation warning:", statsErr?.message || statsErr)
+      stats = {
+        total: tickets.length,
+        open: tickets.filter((t) => t.status === "PENDING" || t.status === "OPEN").length,
+        inProgress: tickets.filter((t) => t.status === "IN_PROGRESS").length,
+        closed: tickets.filter((t) => t.status === "RESOLVED" || t.status === "CLOSED").length,
+        inApp: tickets.filter((t) => t.source === "IN_APP").length,
+        public: tickets.filter((t) => t.source !== "IN_APP").length,
+      }
     }
 
     return NextResponse.json({
