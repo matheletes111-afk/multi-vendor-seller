@@ -79,6 +79,8 @@ export async function POST(req: NextRequest) {
           subject: subject?.trim() || "In-App Support Request",
           message: message.trim(),
           status: "PENDING", // By default as requested
+          source: "IN_APP",
+          userId: session.user.id || null,
           adminNotes: session.user.id ? `uid:${session.user.id}` : null,
           replies: {
             create: [

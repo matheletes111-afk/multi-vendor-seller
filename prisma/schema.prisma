@@ -1679,8 +1679,10 @@ model CouponUsage {
 }
 
 enum SupportTicketStatus {
+  PENDING
   OPEN
   IN_PROGRESS
+  RESOLVED
   CLOSED
 }
 
@@ -1695,13 +1697,15 @@ enum SupportUserType {
 model SupportTicket {
   id          String              @id @default(cuid())
   ticketId    String              @unique
+  source      String              @default("PUBLIC") // "PUBLIC" or "IN_APP"
+  userId      String?
   userType    SupportUserType     @default(CUSTOMER)
   name        String
   email       String
   mobile      String
   subject     String?
   message     String              @db.Text
-  status      SupportTicketStatus @default(OPEN)
+  status      SupportTicketStatus @default(PENDING)
   adminNotes  String?             @db.Text
   closedAt    DateTime?
   closedBy    String?
@@ -1711,7 +1715,9 @@ model SupportTicket {
   replies     SupportTicketReply[]
 
   @@index([status])
+  @@index([source])
   @@index([email])
+  @@index([userId])
   @@index([ticketId])
   @@map("support_tickets")
 }

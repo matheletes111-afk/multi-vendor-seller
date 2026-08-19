@@ -38,7 +38,8 @@ export async function POST(req: NextRequest) {
           mobile: mobile.trim(),
           subject: subject ? String(subject).trim() : "General Support Inquiry",
           message: message.trim(),
-          status: "OPEN",
+          status: "PENDING",
+          source: "PUBLIC",
           replies: {
             create: [
               {
