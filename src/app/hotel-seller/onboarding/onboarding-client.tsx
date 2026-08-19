@@ -15,7 +15,7 @@ import { ProfilePictureInput } from "@/components/profile-picture-input"
 import { FileText, Image as ImageIcon, CheckCircle2, ChevronLeft, ChevronRight, Upload, Check, User, LogOut } from "lucide-react"
 import Image from "next/image"
 import { cn } from "@/lib/utils"
-import { HEAR_ABOUT_US_OPTIONS } from "@/lib/onboarding-constants"
+import { HEAR_ABOUT_US_OPTIONS, parseHearAboutUs, formatHearAboutUs } from "@/lib/onboarding-constants"
 import { LegalTermsModal, LegalDocType } from "@/components/legal/legal-terms-modal"
 
 type Step = 2 | 3 | 4 | 5 | 6 | 7
@@ -41,6 +41,7 @@ export function HotelOnboardingClient() {
   })
   const [activeLegalModal, setActiveLegalModal] = useState<LegalDocType | null>(null)
   const [hearAboutUs, setHearAboutUs] = useState("")
+  const [hearAboutUsOther, setHearAboutUsOther] = useState("")
   const [haveGst, setHaveGst] = useState(false)
   const [selectedCategories, setSelectedCategories] = useState<string[]>([])
 
@@ -54,7 +55,9 @@ export function HotelOnboardingClient() {
           agreedToPrivacy: !!seller.agreement.agreedToPrivacy
         })
         if (seller.agreement.hearAboutUs) {
-          setHearAboutUs(seller.agreement.hearAboutUs)
+          const parsed = parseHearAboutUs(seller.agreement.hearAboutUs)
+          setHearAboutUs(parsed.selected)
+          setHearAboutUsOther(parsed.otherText)
         }
       }
       if (seller.businessInfo) {
@@ -104,14 +107,22 @@ export function HotelOnboardingClient() {
       }
 
       if (currentStep === 6) {
+        if (hearAboutUs === "Other" && !hearAboutUsOther.trim()) {
+          setError("Please specify where you heard about our platform.")
+          setSaving(false)
+          return
+        }
         // Step 6: Agreement
+        const rawSelected = hearAboutUs || (formData.get("hearAboutUs") as string) || null
+        const rawOther = hearAboutUsOther || (formData.get("hearAboutUsOther") as string) || null
         const data = {
           step: 6,
           data: {
             agreedToTerms: agreements.agreedToTerms || formData.get("agreedToTerms") === "on",
             agreedToCommission: agreements.agreedToCommission || formData.get("agreedToCommission") === "on",
             agreedToPrivacy: agreements.agreedToPrivacy || formData.get("agreedToPrivacy") === "on",
-            hearAboutUs: hearAboutUs || (formData.get("hearAboutUs") as string) || null
+            hearAboutUs: formatHearAboutUs(rawSelected, rawOther),
+            hearAboutUsOther: rawOther,
           }
         }
         res = await fetch("/api/hotel-seller/onboarding", {
@@ -595,7 +606,15 @@ export function HotelOnboardingClient() {
                       Please select how you first learned about Meeem.
                     </p>
                   </div>
-                  <Select value={hearAboutUs} onValueChange={setHearAboutUs}>
+                  <Select
+                    value={hearAboutUs}
+                    onValueChange={(val) => {
+                      setHearAboutUs(val)
+                      if (val !== "Other") {
+                        setHearAboutUsOther("")
+                      }
+                    }}
+                  >
                     <SelectTrigger id="hearAboutUs" className="h-12 rounded-2xl bg-white border-slate-200 text-slate-800">
                       <SelectValue placeholder="Select an option" />
                     </SelectTrigger>
@@ -607,6 +626,23 @@ export function HotelOnboardingClient() {
                       ))}
                     </SelectContent>
                   </Select>
+                  {hearAboutUs === "Other" && (
+                    <div className="pt-2 animate-in fade-in slide-in-from-top-2 duration-300">
+                      <Label htmlFor="hearAboutUsOther" className="text-xs font-semibold text-slate-700 block mb-1.5">
+                        Please specify where you heard about us <span className="text-rose-500">*</span>
+                      </Label>
+                      <Input
+                        id="hearAboutUsOther"
+                        name="hearAboutUsOther"
+                        type="text"
+                        placeholder="e.g. Radio station, Exhibition, Friend recommendation, etc."
+                        value={hearAboutUsOther}
+                        onChange={(e) => setHearAboutUsOther(e.target.value)}
+                        className="h-12 rounded-2xl bg-white border-slate-200 text-slate-800 focus:border-slate-400 placeholder:text-slate-400"
+                        required
+                      />
+                    </div>
+                  )}
                 </div>
 
                 <div className="space-y-4 p-6 bg-slate-50 rounded-3xl border border-slate-100">

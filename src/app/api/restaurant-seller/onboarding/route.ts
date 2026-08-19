@@ -6,6 +6,7 @@ import path from "path"
 import { UserRole } from "@prisma/client"
 import { activateRestaurantFreePlan } from "@/lib/subscriptions"
 import { sendSellerWelcomeEmail, sendAdminNewSellerAlertEmail } from "@/lib/email"
+import { formatHearAboutUs } from "@/lib/onboarding-constants"
 
 
 
@@ -239,11 +240,14 @@ export async function POST(request: NextRequest) {
 
     } else if (step === 6) {
       // Step 6: Agreement
+      const rawHearAboutUs = (jsonBody?.data?.hearAboutUs || jsonBody?.hearAboutUs || (formData?.get("hearAboutUs") as string)) || null
+      const rawHearAboutUsOther = (jsonBody?.data?.hearAboutUsOther || jsonBody?.hearAboutUsOther || (formData?.get("hearAboutUsOther") as string)) || null
+
       const agreementData = {
         agreedToTerms: !!(jsonBody?.data?.agreedToTerms ?? (formData?.get("agreedToTerms") === "true" || formData?.get("agreedToTerms") === "on")),
         agreedToCommission: !!(jsonBody?.data?.agreedToCommission ?? (formData?.get("agreedToCommission") === "true" || formData?.get("agreedToCommission") === "on")),
         agreedToPrivacy: !!(jsonBody?.data?.agreedToPrivacy ?? (formData?.get("agreedToPrivacy") === "true" || formData?.get("agreedToPrivacy") === "on")),
-        hearAboutUs: (jsonBody?.data?.hearAboutUs || (formData?.get("hearAboutUs") as string)) || null,
+        hearAboutUs: formatHearAboutUs(rawHearAboutUs, rawHearAboutUsOther),
       }
 
       await prisma.restaurantAgreement.upsert({ where: { restaurantSellerId: seller.id }, update: agreementData, create: { ...agreementData, restaurantSellerId: seller.id } })

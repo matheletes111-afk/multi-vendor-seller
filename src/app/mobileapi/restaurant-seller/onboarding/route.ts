@@ -5,7 +5,7 @@ import { uploadPublicFile } from "@/lib/upload-public-file";
 import { UserRole } from "@prisma/client";
 import path from "path";
 import { activateRestaurantFreePlan } from "@/lib/subscriptions";
-import { HEAR_ABOUT_US_OPTIONS } from "@/lib/onboarding-constants";
+import { HEAR_ABOUT_US_OPTIONS, formatHearAboutUs } from "@/lib/onboarding-constants";
 
 /**
  * GET /mobileapi/restaurant-seller/onboarding
@@ -353,16 +353,19 @@ export async function POST(request: NextRequest) {
 
         else if (step === 6) {
             // Step 6: Agreement
+            const rawHearAboutUs = formData ? (formData.get("hearAboutUs") as string) : ((jsonBody?.data?.hearAboutUs ?? jsonBody?.hearAboutUs) as string);
+            const rawHearAboutUsOther = formData ? (formData.get("hearAboutUsOther") as string) : ((jsonBody?.data?.hearAboutUsOther ?? jsonBody?.hearAboutUsOther) as string);
+
             const agreementData = formData ? {
                 agreedToTerms: formData.get("agreedToTerms") === "true" || formData.get("agreedToTerms") === "on",
                 agreedToCommission: formData.get("agreedToCommission") === "true" || formData.get("agreedToCommission") === "on",
                 agreedToPrivacy: formData.get("agreedToPrivacy") === "true" || formData.get("agreedToPrivacy") === "on",
-                hearAboutUs: (formData.get("hearAboutUs") as string) || null,
+                hearAboutUs: formatHearAboutUs(rawHearAboutUs, rawHearAboutUsOther),
             } : {
                 agreedToTerms: !!jsonBody?.data?.agreedToTerms,
                 agreedToCommission: !!jsonBody?.data?.agreedToCommission,
                 agreedToPrivacy: !!jsonBody?.data?.agreedToPrivacy,
-                hearAboutUs: (jsonBody?.data?.hearAboutUs as string) || null,
+                hearAboutUs: formatHearAboutUs(rawHearAboutUs, rawHearAboutUsOther),
             };
 
             await prisma.restaurantAgreement.upsert({

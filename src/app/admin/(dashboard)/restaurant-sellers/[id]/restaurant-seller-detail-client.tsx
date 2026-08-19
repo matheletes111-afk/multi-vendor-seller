@@ -50,14 +50,17 @@ export function RestaurantSellerDetailClient({ seller, plans = [] }: RestaurantS
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action, feedback: feedbackText }),
       })
+      const json = await res.json()
 
       if (res.ok) {
         router.refresh()
         setRejectDialog({ open: false, id: "", action: "" })
         setFeedback("")
+      } else {
+        alert(json.error || "Failed to update status")
       }
     } catch (error: any) {
-      console.error(error)
+      alert(error.message || "Failed to update status")
     } finally {
       setActionLoading(null)
     }

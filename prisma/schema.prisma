@@ -1695,24 +1695,26 @@ enum SupportUserType {
 }
 
 model SupportTicket {
-  id          String              @id @default(cuid())
-  ticketId    String              @unique
-  source      String              @default("PUBLIC") // "PUBLIC" or "IN_APP"
-  userId      String?
-  userType    SupportUserType     @default(CUSTOMER)
-  name        String
-  email       String
-  mobile      String
-  subject     String?
-  message     String              @db.Text
-  status      SupportTicketStatus @default(PENDING)
-  adminNotes  String?             @db.Text
-  closedAt    DateTime?
-  closedBy    String?
-  createdAt   DateTime            @default(now())
-  updatedAt   DateTime            @updatedAt
+  id              String              @id @default(cuid())
+  ticketId        String              @unique
+  source          String              @default("PUBLIC") // "PUBLIC" or "IN_APP"
+  userId          String?
+  userType        SupportUserType     @default(CUSTOMER)
+  name            String
+  email           String
+  mobile          String
+  subject         String?
+  message         String              @db.Text
+  status          SupportTicketStatus @default(PENDING)
+  adminNotes      String?             @db.Text
+  adminLastReadAt DateTime?
+  userLastReadAt  DateTime?
+  closedAt        DateTime?
+  closedBy        String?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
 
-  replies     SupportTicketReply[]
+  replies         SupportTicketReply[]
 
   @@index([status])
   @@index([source])
@@ -1723,17 +1725,20 @@ model SupportTicket {
 }
 
 model SupportTicketReply {
-  id          String        @id @default(cuid())
-  ticketId    String
-  senderType  String        @default("ADMIN")
-  senderEmail String?
-  senderName  String?
-  message     String        @db.Text
-  sentEmail   Boolean       @default(false)
-  createdAt   DateTime      @default(now())
+  id            String        @id @default(cuid())
+  ticketId      String
+  senderType    String        @default("ADMIN") // "ADMIN" | "USER"
+  senderEmail   String?
+  senderName    String?
+  message       String        @db.Text
+  sentEmail     Boolean       @default(false)
+  isReadByAdmin Boolean       @default(false)
+  isReadByUser  Boolean       @default(false)
+  createdAt     DateTime      @default(now())
 
-  ticket      SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  ticket        SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
 
   @@index([ticketId])
+  @@index([isReadByAdmin])
   @@map("support_ticket_replies")
 }

@@ -307,13 +307,13 @@ export function SellersClient() {
     <div className="container mx-auto p-6 space-y-8 animate-in fade-in duration-700">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-medium text-foreground">Seller Management</h1>
-          <p className="text-muted-foreground mt-1 text-sm font-medium">Moderate applications and monitor seller performance</p>
+          <h1 className="text-2xl font-medium text-foreground">Product and Service Sellers</h1>
+          <p className="text-muted-foreground mt-1 text-sm font-medium">Moderate product and service seller accounts, onboarding applications and performance</p>
         </div>
         <div className="flex items-center gap-2">
           {data && (
             <Badge variant="outline" className="px-3 py-1 text-xs font-medium rounded-full shadow-sm bg-background border-primary/20 text-primary">
-              {data.totalCount} Total Sellers
+              {data.totalCount} Total Product/Service Sellers
             </Badge>
           )}
         </div>
@@ -490,6 +490,13 @@ export function SellersClient() {
                                 <div className="flex flex-col">
                                   <span>{seller.user?.name || "Unnamed Entity"}</span>
                                   <span className="text-[10px] text-muted-foreground/70 font-mono tracking-tighter font-medium">{seller.user?.email}</span>
+                                  {(seller.agreement?.hearAboutUs || seller.hearAboutUs) && (
+                                    <div className="mt-1 flex items-center gap-1">
+                                      <span className="text-[9px] text-purple-700 dark:text-purple-300 font-semibold bg-purple-50 dark:bg-purple-950/50 px-2 py-0.5 rounded-md border border-purple-200 dark:border-purple-800/50 truncate max-w-[200px]" title={seller.agreement?.hearAboutUs || seller.hearAboutUs}>
+                                        Source: {seller.agreement?.hearAboutUs || seller.hearAboutUs}
+                                      </span>
+                                    </div>
+                                  )}
                                 </div>
                               </TableCell>
                               <TableCell>

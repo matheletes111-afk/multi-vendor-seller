@@ -136,7 +136,8 @@ export function HotelSellersClient() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action, feedback: fb })
       })
-      if (!res.ok) throw new Error("Failed to update status")
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || "Failed to update status")
       
       setRejectDialog({ open: false, id: "", action: "" })
       setFeedback("")
@@ -247,6 +248,13 @@ export function HotelSellersClient() {
                           <div className="flex flex-col">
                             <span className="font-bold text-base leading-tight">{seller.user?.name}</span>
                             <span className="text-[10px] text-muted-foreground font-medium lowercase tracking-normal">{seller.user?.email?.toLowerCase()}</span>
+                            {(seller.agreement?.hearAboutUs || seller.hearAboutUs) && (
+                              <div className="mt-1 flex items-center gap-1">
+                                <span className="text-[9px] text-purple-700 dark:text-purple-300 font-semibold bg-purple-50 dark:bg-purple-950/50 px-2 py-0.5 rounded-md border border-purple-200 dark:border-purple-800/50 truncate max-w-[200px]" title={seller.agreement?.hearAboutUs || seller.hearAboutUs}>
+                                  Source: {seller.agreement?.hearAboutUs || seller.hearAboutUs}
+                                </span>
+                              </div>
+                            )}
                           </div>
                         </TableCell>
                         <TableCell>

@@ -15,7 +15,7 @@ export async function POST(
 
     const { id } = await params
     const body = await req.json().catch(() => ({}))
-    const { replyMessage, closeTicket = true } = body
+    const { replyMessage, closeTicket = false } = body
 
     if (!replyMessage || typeof replyMessage !== "string" || !replyMessage.trim()) {
       return NextResponse.json({ error: "Reply message cannot be empty." }, { status: 400 })
@@ -31,6 +31,13 @@ export async function POST(
       return NextResponse.json({ error: "Support ticket not found." }, { status: 404 })
     }
 
+    if (ticket.status === "RESOLVED" || ticket.status === "CLOSED") {
+      return NextResponse.json(
+        { error: "This support ticket is resolved and closed. Please reopen the ticket before sending additional messages." },
+        { status: 400 }
+      )
+    }
+
     // 1. Create Reply Record
     const replyRecord = await (prisma as any).supportTicketReply.create({
       data: {
@@ -39,14 +46,15 @@ export async function POST(
         senderEmail: session.user?.email || "support@meeemsl.com",
         senderName: session.user?.name || "MEEEM Admin Support",
         message: replyMessage.trim(),
-        sentEmail: true,
+        sentEmail: ticket.source !== "IN_APP", // only true for public email tickets
       },
     })
 
-    // 2. Update Ticket Status (mark as RESOLVED if requested)
+    // 2. Update Ticket Status
     const newStatus = closeTicket ? "RESOLVED" : "IN_PROGRESS"
     const updatePayload: any = {
       status: newStatus,
+      adminLastReadAt: new Date(), // admin just replied = they read it
     }
     if (closeTicket) {
       updatePayload.closedAt = new Date()
@@ -63,10 +71,10 @@ export async function POST(
       },
     })
 
-    // 3. Dispatch Email Notification
+    // 3. Dispatch Email Notification (only for public/email-based tickets, not in-app)
     let emailResult = { success: false }
     try {
-      if (ticket.email) {
+      if (ticket.email && ticket.source !== "IN_APP") {
         emailResult = await sendSupportTicketReplyEmail({
           to: ticket.email,
           recipientName: ticket.name || "Customer",

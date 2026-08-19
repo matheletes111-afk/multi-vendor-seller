@@ -77,11 +77,16 @@ export function HotelSellerDetailClient({ seller, plans = [] }: { seller: any; p
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action, feedback: fb })
       })
+      const json = await res.json()
       if (res.ok) {
         setRejectDialog({ open: false, id: "", action: "" })
         setFeedback("")
         router.refresh()
+      } else {
+        alert(json.error || "Failed to update status")
       }
+    } catch (e: any) {
+      alert(e.message || "Failed to update status")
     } finally {
       setActionLoading(null)
     }

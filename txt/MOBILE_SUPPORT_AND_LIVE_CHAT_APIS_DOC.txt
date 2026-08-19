@@ -1,0 +1,403 @@
+================================================================================
+MEEEM MULTI-VENDOR MARKETPLACE — MOBILE SUPPORT & LIVE CHAT API DOCUMENTATION
+================================================================================
+Target Audience : Mobile Application Developers (iOS / Android / Flutter / React Native)
+Base URL        : https://your-domain.com / http://localhost:3000
+Date            : August 2026
+Format          : RESTful JSON APIs (HTTPS / JSON)
+Headers         : Content-Type: application/json
+
+================================================================================
+TABLE OF CONTENTS
+================================================================================
+1. Architecture Overview (In-App Live Chat vs. Public Email Help Desk)
+2. Supported Roles & User Types
+3. Authentication & User Identification Options
+4. In-App Live Chat Support APIs
+   4.1. List In-App Conversations & Unread Badges (GET /api/mobile/support/in-app)
+   4.2. Start New Live Chat Conversation (POST /api/mobile/support/in-app)
+   4.3. Get Conversation Details & Message Thread (GET /api/mobile/support/in-app/:id)
+   4.4. Send Follow-Up Message in Chat Thread (POST /api/mobile/support/in-app/:id/messages)
+   4.5. Explicit Mark-As-Read Endpoint (POST /api/mobile/support/in-app/:id/read)
+5. Public Contact & Help Desk Support APIs
+   5.1. Submit Public Inquiry (POST /api/mobile/support/public)
+   5.2. Query Public Inquiry Status (GET /api/mobile/support/public)
+6. Mobile UI/UX & Polling Best Practices (WhatsApp Feel, Real-Time Sync & Badges)
+7. Complete Status Codes & Error Handling Reference
+
+================================================================================
+1. ARCHITECTURE OVERVIEW
+================================================================================
+The platform supports two distinct support channels:
+
+A. IN-APP LIVE CHAT ("IN_APP"):
+   - For authenticated users: Customer, Product Seller, Service Provider, Restaurant Partner, Hotel Host.
+   - WhatsApp-style two-way live chat with Admin / Support Team.
+   - Instant messaging with auto-refresh/polling and zero email spam (no SendGrid emails for in-app chat).
+   - Real-time unread message tracking (displays "X new" badges on tickets and total unread count on tab).
+   - Resolution locking: When Admin marks ticket as RESOLVED/CLOSED, chat input locks with prompt to start a new chat.
+
+B. PUBLIC HELP DESK ("PUBLIC"):
+   - For guest/unauthenticated visitors on public app screens (e.g., Contact Us, General Inquiries).
+   - Email-based ticket desk with auto-acknowledgment and SendGrid email notifications.
+
+================================================================================
+2. SUPPORTED ROLES & USER TYPES
+================================================================================
+Valid values for `userType`:
+  - "CUSTOMER"          : End-user marketplace shoppers / clients
+  - "SELLER_PRODUCT"    : Physical product vendors & shops
+  - "SELLER_SERVICE"    : Professional service providers & freelancers
+  - "SELLER_RESTAURANT" : Restaurant partners & food outlets
+  - "SELLER_HOTEL"      : Hotel hosts & accommodation providers
+
+Valid values for ticket `status`:
+  - "PENDING"     : Awaiting response from Support Team / User
+  - "IN_PROGRESS" : Currently being handled by Support Agent
+  - "RESOLVED"    : Issue resolved by Support (input locked)
+  - "CLOSED"      : Conversation closed (input locked)
+
+================================================================================
+3. AUTHENTICATION & USER IDENTIFICATION OPTIONS
+================================================================================
+Mobile clients can identify the logged-in user using any of the following convenient methods:
+  1. NextAuth Session Cookie (if using embedded webview or session auth)
+  2. Query Parameter: ?userId=<USER_ID> or ?email=<USER_EMAIL>
+  3. Custom Request Headers:
+     - x-user-id: <USER_ID>
+     - x-user-email: <USER_EMAIL>
+  4. Request Body: { "userId": "<USER_ID>", "email": "<USER_EMAIL>" }
+
+================================================================================
+4. IN-APP LIVE CHAT SUPPORT APIS
+================================================================================
+Note on URL Paths:
+  Both explicit path `/api/mobile/support/in-app/...` and shorthand alias `/api/mobile/support/...`
+  are supported identically on the server.
+
+--------------------------------------------------------------------------------
+4.1. LIST IN-APP CONVERSATIONS & UNREAD BADGES
+--------------------------------------------------------------------------------
+Endpoints (Both work identically):
+  GET /api/mobile/support/in-app
+  GET /api/mobile/support
+
+Query Parameters:
+  - userId (Optional/Recommended) : User ID from mobile auth state
+  - email  (Optional)             : User email address
+
+Headers (Optional):
+  - x-user-id: <USER_ID>
+  - x-user-email: <USER_EMAIL>
+
+Example Request:
+  GET /api/mobile/support/in-app?userId=cly1234567890
+
+Success Response (200 OK):
+{
+  "success": true,
+  "count": 2,
+  "totalUnread": 1,
+  "tickets": [
+    {
+      "id": "cm123abc456",
+      "ticketId": "TICK-MSZTRF4K-L5ET",
+      "source": "IN_APP",
+      "userType": "CUSTOMER",
+      "name": "Jane Doe",
+      "email": "jane@example.com",
+      "mobile": "+1234567890",
+      "subject": "Question regarding order #ORD-9912",
+      "message": "Hi, I would like to check when my package will arrive.",
+      "status": "IN_PROGRESS",
+      "unreadCount": 1,
+      "messageCount": 3,
+      "userLastReadAt": "2026-08-19T09:00:00.000Z",
+      "closedAt": null,
+      "closedBy": null,
+      "createdAt": "2026-08-19T08:30:00.000Z",
+      "updatedAt": "2026-08-19T09:05:00.000Z",
+      "replies": [
+        {
+          "id": "rep_101",
+          "senderType": "ADMIN",
+          "senderName": "MEEEM Admin Support",
+          "senderEmail": "support@meeemsl.com",
+          "message": "Hello Jane! Your package has been dispatched with tracking #TRK-881.",
+          "sentEmail": false,
+          "createdAt": "2026-08-19T09:05:00.000Z"
+        }
+      ]
+    }
+  ]
+}
+
+--------------------------------------------------------------------------------
+4.2. START NEW LIVE CHAT CONVERSATION
+--------------------------------------------------------------------------------
+Endpoint:
+  POST /api/mobile/support/in-app
+
+Request Body:
+{
+  "userId": "cly1234567890",
+  "userType": "CUSTOMER",                 // CUSTOMER | SELLER_PRODUCT | SELLER_SERVICE | SELLER_RESTAURANT | SELLER_HOTEL
+  "name": "Jane Doe",                     // Optional, defaults to user profile name
+  "email": "jane@example.com",            // Required
+  "mobile": "+1234567890",                // Optional
+  "subject": "Payout Inquiry",            // Optional (defaults to role-based title)
+  "message": "Hello, when will this week's earnings payout be processed?" // Required (min 5 chars)
+}
+
+Success Response (200 OK):
+{
+  "success": true,
+  "message": "Support ticket created successfully. Our team will assist you in this live chat.",
+  "ticket": {
+    "id": "cm987xyz123",
+    "ticketId": "TICK-MSZU882A-9KLM",
+    "userType": "CUSTOMER",
+    "name": "Jane Doe",
+    "email": "jane@example.com",
+    "mobile": "+1234567890",
+    "subject": "Payout Inquiry",
+    "message": "Hello, when will this week's earnings payout be processed?",
+    "status": "PENDING",
+    "source": "IN_APP",
+    "userId": "cly1234567890",
+    "unreadCount": 0,
+    "messageCount": 1,
+    "userLastReadAt": "2026-08-19T09:15:00.000Z",
+    "createdAt": "2026-08-19T09:15:00.000Z",
+    "replies": []
+  }
+}
+
+--------------------------------------------------------------------------------
+4.3. GET CONVERSATION DETAILS & MESSAGE THREAD
+--------------------------------------------------------------------------------
+Endpoint:
+  GET /api/mobile/support/in-app/:id
+
+Path Parameter:
+  - id : Database UUID (e.g. "cm987xyz123") or Public Ticket ID (e.g. "TICK-MSZU882A-9KLM")
+
+Query Parameters:
+  - markRead (Optional, default: "true") : Automatically marks conversation as read by the user
+  - userId   (Optional)                  : User ID
+
+Example Request:
+  GET /api/mobile/support/in-app/TICK-MSZU882A-9KLM?markRead=true
+
+Success Response (200 OK):
+{
+  "success": true,
+  "ticket": {
+    "id": "cm987xyz123",
+    "ticketId": "TICK-MSZU882A-9KLM",
+    "source": "IN_APP",
+    "userType": "CUSTOMER",
+    "name": "Jane Doe",
+    "email": "jane@example.com",
+    "mobile": "+1234567890",
+    "subject": "Payout Inquiry",
+    "message": "Hello, when will this week's earnings payout be processed?",
+    "status": "IN_PROGRESS",
+    "unreadCount": 0,
+    "messageCount": 2,
+    "userLastReadAt": "2026-08-19T09:20:00.000Z",
+    "closedAt": null,
+    "closedBy": null,
+    "createdAt": "2026-08-19T09:15:00.000Z",
+    "updatedAt": "2026-08-19T09:18:00.000Z",
+    "replies": [
+      {
+        "id": "rep_201",
+        "senderType": "ADMIN",
+        "senderName": "MEEEM Admin Support",
+        "senderEmail": "support@meeemsl.com",
+        "message": "Payouts are processed every Friday by 5:00 PM UTC.",
+        "sentEmail": false,
+        "createdAt": "2026-08-19T09:18:00.000Z"
+      }
+    ]
+  }
+}
+
+--------------------------------------------------------------------------------
+4.4. SEND FOLLOW-UP MESSAGE IN CHAT THREAD
+--------------------------------------------------------------------------------
+Endpoint:
+  POST /api/mobile/support/in-app/:id/messages
+
+Path Parameter:
+  - id : Ticket ID or DB ID
+
+Request Body:
+{
+  "message": "Thank you! Does this include bank transfer fees?",
+  "userId": "cly1234567890",              // Optional
+  "senderName": "Jane Doe",                // Optional
+  "senderEmail": "jane@example.com"        // Optional
+}
+
+Success Response (200 OK):
+{
+  "success": true,
+  "message": "Message sent successfully.",
+  "reply": {
+    "id": "rep_301",
+    "ticketId": "cm987xyz123",
+    "senderType": "USER",
+    "senderName": "Jane Doe",
+    "senderEmail": "jane@example.com",
+    "message": "Thank you! Does this include bank transfer fees?",
+    "sentEmail": false,
+    "createdAt": "2026-08-19T09:22:00.000Z"
+  },
+  "ticket": {
+    "id": "cm987xyz123",
+    "ticketId": "TICK-MSZU882A-9KLM",
+    "status": "PENDING",
+    "unreadCount": 0,
+    "messageCount": 3,
+    "updatedAt": "2026-08-19T09:22:00.000Z",
+    "replies": [...]
+  }
+}
+
+Resolution Locked Error Response (400 Bad Request):
+{
+  "error": "This support ticket has been marked as Resolved. No further messages are allowed. Please start a new support conversation.",
+  "isResolved": true
+}
+
+--------------------------------------------------------------------------------
+4.5. EXPLICIT MARK-AS-READ ENDPOINT
+--------------------------------------------------------------------------------
+Endpoint:
+  POST /api/mobile/support/in-app/:id/read
+
+Path Parameter:
+  - id : Ticket ID or DB ID
+
+Success Response (200 OK):
+{
+  "success": true,
+  "ticketId": "TICK-MSZU882A-9KLM",
+  "message": "Ticket marked as read successfully.",
+  "userLastReadAt": "2026-08-19T09:25:00.000Z"
+}
+
+================================================================================
+5. PUBLIC CONTACT & HELP DESK SUPPORT APIS
+================================================================================
+
+--------------------------------------------------------------------------------
+5.1. SUBMIT PUBLIC INQUIRY (NO AUTH REQUIRED)
+--------------------------------------------------------------------------------
+Endpoint:
+  POST /api/mobile/support/public
+
+Request Body:
+{
+  "name": "Alex Smith",                   // Required
+  "email": "alex.smith@example.com",       // Required
+  "mobile": "+1234567890",                // Required
+  "userType": "CUSTOMER",                 // Optional: "CUSTOMER" | "SELLER_PRODUCT" | "SELLER_SERVICE" | "SELLER_RESTAURANT" | "SELLER_HOTEL"
+  "subject": "Partnership Opportunity",   // Optional
+  "message": "We would like to partner with MEEEM for bulk product distribution in our region." // Required (min 5 chars)
+}
+
+Success Response (200 OK):
+{
+  "success": true,
+  "ticketId": "TICK-MSZV990P-88XY",
+  "message": "Your support inquiry has been submitted successfully. Our support team will reply to your email address.",
+  "ticket": {
+    "id": "cm654pub123",
+    "ticketId": "TICK-MSZV990P-88XY",
+    "userType": "CUSTOMER",
+    "name": "Alex Smith",
+    "email": "alex.smith@example.com",
+    "mobile": "+1234567890",
+    "subject": "Partnership Opportunity",
+    "message": "We would like to partner with MEEEM for bulk product distribution in our region.",
+    "status": "PENDING",
+    "source": "PUBLIC",
+    "createdAt": "2026-08-19T09:30:00.000Z"
+  }
+}
+
+--------------------------------------------------------------------------------
+5.2. QUERY PUBLIC INQUIRY STATUS
+--------------------------------------------------------------------------------
+Endpoint:
+  GET /api/mobile/support/public?ticketId=TICK-MSZV990P-88XY&email=alex.smith@example.com
+
+Query Parameters:
+  - ticketId (Required) : Public ticket identifier (e.g. "TICK-MSZV990P-88XY")
+  - email    (Optional) : Requester email for security match
+
+Success Response (200 OK):
+{
+  "success": true,
+  "ticket": {
+    "id": "cm654pub123",
+    "ticketId": "TICK-MSZV990P-88XY",
+    "subject": "Partnership Opportunity",
+    "status": "RESOLVED",
+    "name": "Alex Smith",
+    "email": "alex.smith@example.com",
+    "message": "We would like to partner with MEEEM for bulk product distribution in our region.",
+    "createdAt": "2026-08-19T09:30:00.000Z",
+    "closedAt": "2026-08-19T10:15:00.000Z",
+    "replies": [
+      {
+        "id": "rep_pub_01",
+        "senderType": "ADMIN",
+        "senderName": "MEEEM Admin Support",
+        "message": "Thank you for reaching out! Our business development team has sent a proposal to your email.",
+        "createdAt": "2026-08-19T10:15:00.000Z"
+      }
+    ]
+  }
+}
+
+================================================================================
+6. MOBILE UI/UX & POLLING BEST PRACTICES
+================================================================================
+
+1. Background Polling for Live Chat:
+   - When the user is viewing the active chat screen, set up a timer to call:
+     GET /api/mobile/support/in-app/:id?markRead=true every 3 to 5 seconds.
+   - When new replies arrive, append them to your message list and trigger an animated scroll to the bottom.
+
+2. WhatsApp-Style Message Rendering:
+   - Initial Message: Render the initial `ticket.message` at the very top as the opening user bubble.
+   - Replies: Loop through `ticket.replies` in chronological order:
+     * `senderType === "USER"`  -> Render on the RIGHT side with user avatar/initials.
+     * `senderType === "ADMIN"` -> Render on the LEFT side with Support headset icon / avatar.
+
+3. Unread Badges ("X new"):
+   - In ticket lists or drawer menus, render a red badge `unreadCount` when `ticket.unreadCount > 0`.
+   - On the top support tab bar, render the badge using `totalUnread`.
+   - When the user taps a conversation, clear the badge locally and call the mark-as-read endpoint.
+
+4. Resolution Handling:
+   - If `ticket.status === "RESOLVED"` or `ticket.status === "CLOSED"`, hide or disable the message input field.
+   - Display a lock banner: "This support ticket is marked as Resolved. Start a new conversation for assistance."
+   - Provide a button "Start New Support Chat" which switches to the ticket creation form.
+
+================================================================================
+7. STATUS CODES & ERROR HANDLING
+================================================================================
+- 200 OK                  : Successful request (tickets list, message sent, read status updated).
+- 400 Bad Request         : Missing required fields (e.g. empty message, invalid email) or sending to a resolved ticket.
+- 401 Unauthorized        : Missing userId or auth session.
+- 404 Not Found           : Ticket does not exist or access denied.
+- 500 Internal Error      : Server error (safe error message returned in JSON).
+
+================================================================================
+END OF MOBILE SUPPORT API DOCUMENTATION
+================================================================================

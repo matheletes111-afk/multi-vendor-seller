@@ -23,15 +23,16 @@ export async function POST(
     const userEmail = session.user.email?.toLowerCase().trim()
     const userId = session.user.id
 
-    // Find ticket
+    // Find ticket - owned by this user (by userId or email)
     const ticket = await (prisma as any).supportTicket.findFirst({
       where: {
         AND: [
           { OR: [{ id }, { ticketId: id }] },
+          { source: "IN_APP" },
           {
             OR: [
+              ...(userId ? [{ userId: userId }] : []),
               ...(userEmail ? [{ email: { equals: userEmail, mode: "insensitive" } }] : []),
-              ...(userId ? [{ adminNotes: { contains: `uid:${userId}` } }] : []),
             ],
           },
         ],
@@ -66,6 +67,7 @@ export async function POST(
       data: {
         status: ticket.status === "OPEN" ? "PENDING" : ticket.status,
         updatedAt: new Date(),
+        userLastReadAt: new Date(), // user is actively writing, so mark as read
       },
       include: {
         replies: {
