@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 
+export const dynamic = "force-dynamic"
+export const revalidate = 0
+
 export async function GET(req: NextRequest) {
   try {
     const session = await auth()
@@ -16,9 +19,10 @@ export async function GET(req: NextRequest) {
     try {
       tickets = await (prisma as any).supportTicket.findMany({
         where: {
+          source: "IN_APP",
           OR: [
             ...(userEmail ? [{ email: { equals: userEmail, mode: "insensitive" } }] : []),
-            ...(userId ? [{ adminNotes: { contains: `uid:${userId}` } }] : []),
+            ...(userId ? [{ userId: userId }] : []),
           ],
         },
         include: {
@@ -33,7 +37,39 @@ export async function GET(req: NextRequest) {
       tickets = []
     }
 
-    return NextResponse.json({ tickets })
+    // Helper to calculate unread admin messages using userLastReadAt
+    function getUserTicketUnreadCount(t: any) {
+      if (t.status === "RESOLVED" || t.status === "CLOSED") {
+        return 0
+      }
+      const userLastRead = t.userLastReadAt ? new Date(t.userLastReadAt).getTime() : 0
+      const replies = t.replies || []
+
+      let unread = 0
+      for (const r of replies) {
+        if (r.senderType === "ADMIN") {
+          const repTime = new Date(r.createdAt).getTime()
+          if (repTime > userLastRead) {
+            unread++
+          }
+        }
+      }
+      return unread
+    }
+
+    const ticketsWithUnread = tickets.map((t) => ({
+      ...t,
+      unreadCount: getUserTicketUnreadCount(t),
+    }))
+
+    return NextResponse.json(
+      { tickets: ticketsWithUnread },
+      {
+        headers: {
+          "Cache-Control": "no-store, max-age=0, must-revalidate",
+        },
+      }
+    )
   } catch (error: any) {
     console.error("Error in GET /api/account/support-tickets:", error)
     return NextResponse.json({ error: error?.message || "Failed to fetch support tickets." }, { status: 500 })
@@ -78,21 +114,10 @@ export async function POST(req: NextRequest) {
           mobile: senderMobile || "N/A",
           subject: subject?.trim() || "In-App Support Request",
           message: message.trim(),
-          status: "PENDING", // By default as requested
+          status: "PENDING",
           source: "IN_APP",
           userId: session.user.id || null,
           adminNotes: session.user.id ? `uid:${session.user.id}` : null,
-          replies: {
-            create: [
-              {
-                senderType: "USER",
-                senderEmail: senderEmail,
-                senderName: senderName,
-                message: message.trim(),
-                sentEmail: false,
-              },
-            ],
-          },
         },
         include: {
           replies: {
@@ -113,17 +138,7 @@ export async function POST(req: NextRequest) {
         message: message.trim(),
         status: "PENDING",
         createdAt: new Date(),
-        replies: [
-          {
-            id: `rep-${Date.now()}`,
-            senderType: "USER",
-            senderEmail: senderEmail,
-            senderName: senderName,
-            message: message.trim(),
-            sentEmail: false,
-            createdAt: new Date(),
-          },
-        ],
+        replies: [],
       }
     }
 

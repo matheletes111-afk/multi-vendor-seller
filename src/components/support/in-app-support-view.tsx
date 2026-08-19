@@ -16,8 +16,9 @@ import {
   UtensilsCrossed,
   Building2,
   User,
-  ShieldCheck,
   Check,
+  CheckCheck,
+  Headphones,
   Copy,
   ChevronRight,
   Inbox,
@@ -63,6 +64,7 @@ interface SupportTicket {
   status: "PENDING" | "IN_PROGRESS" | "RESOLVED" | "CLOSED"
   createdAt: string
   replies?: Reply[]
+  unreadCount?: number
 }
 
 const ROLE_ICONS: Record<PanelRole, React.ReactNode> = {
@@ -71,6 +73,13 @@ const ROLE_ICONS: Record<PanelRole, React.ReactNode> = {
   SELLER_SERVICE: <Briefcase className="w-4 h-4 text-purple-600" />,
   SELLER_RESTAURANT: <UtensilsCrossed className="w-4 h-4 text-emerald-600" />,
   SELLER_HOTEL: <Building2 className="w-4 h-4 text-teal-600" />,
+}
+
+function getInitials(name?: string) {
+  if (!name) return "U"
+  const parts = name.trim().split(" ")
+  if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase()
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
 }
 
 export function InAppSupportView({ role, panelTitle, panelSlug, className }: InAppSupportViewProps) {
@@ -94,33 +103,88 @@ export function InAppSupportView({ role, panelTitle, panelSlug, className }: InA
   const [chatError, setChatError] = useState("")
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
-  // Fetch tickets for current logged-in user
-  const fetchTickets = useCallback(async (autoSelectFirst = false) => {
+  const markTicketAsRead = useCallback(async (ticketId: string) => {
     try {
-      setIsLoading(true)
-      const res = await fetch("/api/account/support-tickets")
+      setTickets((prev) =>
+        prev.map((t) => (t.id === ticketId ? { ...t, unreadCount: 0 } : t))
+      )
+      await fetch(`/api/account/support-tickets/${ticketId}/read`, {
+        method: "POST",
+      })
+    } catch (err) {
+      console.warn("Failed to mark ticket as read:", err)
+    }
+  }, [])
+
+  // Fetch tickets for current logged-in user
+  const fetchTickets = useCallback(async (forcedSelectedId?: string, silent = false) => {
+    try {
+      if (!silent) setIsLoading(true)
+      const res = await fetch("/api/account/support-tickets", {
+        cache: "no-store",
+      })
       const data = await res.json().catch(() => ({}))
       if (res.ok) {
         const list: SupportTicket[] = data.tickets || []
-        setTickets(list)
-        if (list.length > 0) {
-          if (autoSelectFirst || !selectedTicketId) {
-            setSelectedTicketId(list[0].id)
+        // Zero out unread for the currently active ticket (user is viewing it)
+        setSelectedTicketId((prev) => {
+          const currentId = forcedSelectedId || prev
+          const normalizedList = list.map((t) =>
+            t.id === currentId ? { ...t, unreadCount: 0 } : t
+          )
+          setTickets(normalizedList)
+
+          if (list.length > 0) {
+            if (forcedSelectedId) return forcedSelectedId
+            if (prev && list.some((t) => t.id === prev)) return prev
+            return list[0].id
+          } else {
+            setActiveTab("new")
+            return null
           }
-        } else {
-          setActiveTab("new")
-        }
+        })
       }
     } catch (err) {
       console.error("Failed to load user support tickets:", err)
     } finally {
-      setIsLoading(false)
+      if (!silent) setIsLoading(false)
     }
-  }, [selectedTicketId])
+  }, [])
 
   useEffect(() => {
-    fetchTickets(true)
+    fetchTickets()
   }, [fetchTickets])
+
+  // When active ticket changes or is viewed, mark it as read
+  useEffect(() => {
+    if (selectedTicketId && activeTab === "chat") {
+      markTicketAsRead(selectedTicketId)
+    }
+  }, [selectedTicketId, activeTab, markTicketAsRead])
+
+  // Live Auto-Sync: Poll for incoming messages from Admin every 3.5 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (activeTab === "chat" && document.visibilityState === "visible" && !isSendingReply && !isSubmittingNew) {
+        fetchTickets(undefined, true)
+      }
+    }, 3500)
+
+    let lastFocusTime = 0
+    const handleFocus = () => {
+      const now = Date.now()
+      if (activeTab === "chat" && now - lastFocusTime > 4000) {
+        lastFocusTime = now
+        fetchTickets(undefined, true)
+      }
+    }
+    window.addEventListener("focus", handleFocus)
+
+    return () => {
+      clearInterval(interval)
+      window.removeEventListener("focus", handleFocus)
+    }
+  }, [fetchTickets, activeTab, isSendingReply, isSubmittingNew])
 
   // Scroll to bottom of chat when messages change
   useEffect(() => {
@@ -164,7 +228,7 @@ export function InAppSupportView({ role, panelTitle, panelSlug, className }: InA
       setMessage("")
       
       // Refresh tickets list and switch to chat view with new ticket selected
-      await fetchTickets(false)
+      await fetchTickets(data.ticket?.id)
       if (data.ticket) {
         setSelectedTicketId(data.ticket.id)
       }
@@ -200,11 +264,16 @@ export function InAppSupportView({ role, panelTitle, panelSlug, className }: InA
 
       setReplyText("")
       if (data.ticket) {
+        // Preserve unreadCount: user just sent so count is 0; don't wipe from stale API response
         setTickets((prev) =>
-          prev.map((t) => (t.id === selectedTicket.id ? data.ticket : t))
+          prev.map((t) =>
+            t.id === selectedTicket.id
+              ? { ...data.ticket, unreadCount: 0 }
+              : t
+          )
         )
       } else {
-        fetchTickets(false)
+        fetchTickets(undefined, true)
       }
     } catch (err: any) {
       setChatError(err.message || "Failed to send message. Please try again.")
@@ -234,8 +303,8 @@ export function InAppSupportView({ role, panelTitle, panelSlug, className }: InA
           </div>
         </div>
 
-        {/* Tab Navigation */}
-        <div className="flex items-center gap-2 self-start md:self-center bg-white/10 backdrop-blur-md p-1 rounded-2xl border border-white/20">
+        {/* Navigation Tabs */}
+        <div className="flex items-center gap-2 bg-white/10 p-1 rounded-2xl border border-white/15 backdrop-blur-md self-start sm:self-auto">
           <button
             type="button"
             onClick={() => setActiveTab("chat")}
@@ -247,7 +316,12 @@ export function InAppSupportView({ role, panelTitle, panelSlug, className }: InA
             )}
           >
             <MessageSquare className="w-3.5 h-3.5" />
-            <span>Support Chat & Tickets ({tickets.length})</span>
+            <span>Existing Chats ({tickets.length})</span>
+            {tickets.reduce((acc, t) => acc + (t.unreadCount || 0), 0) > 0 && (
+              <span className="bg-rose-500 text-white text-[10px] font-extrabold px-1.5 py-0.5 rounded-full ml-0.5 animate-pulse">
+                {tickets.reduce((acc, t) => acc + (t.unreadCount || 0), 0)} new
+              </span>
+            )}
           </button>
           <button
             type="button"
@@ -260,22 +334,22 @@ export function InAppSupportView({ role, panelTitle, panelSlug, className }: InA
             )}
           >
             <PlusCircle className="w-3.5 h-3.5" />
-            <span>New Ticket</span>
+            <span>New Chat</span>
           </button>
         </div>
       </div>
 
       {activeTab === "new" ? (
-        /* Tab 1: Submit New Support Ticket Form */
+        /* Tab 1: Submit New Support Chat Form */
         <Card className="rounded-3xl border-slate-200/90 shadow-sm bg-white overflow-hidden">
           <CardHeader className="p-6 sm:p-8 bg-slate-50/70 border-b border-slate-100">
             <div className="flex items-center justify-between gap-4">
               <div className="space-y-1">
                 <CardTitle className="text-xl font-bold text-slate-900">
-                  Open a New Support Ticket
+                  Start a New Support Conversation
                 </CardTitle>
                 <CardDescription className="text-xs sm:text-sm text-slate-600">
-                  Submit your question or issue. A support agent will respond directly in your chat thread.
+                  Describe your issue or question below. Our support team will assist you in this live message thread.
                 </CardDescription>
               </div>
               <Badge variant="outline" className="bg-indigo-50 border-indigo-200 text-indigo-700 text-xs font-semibold shrink-0">
@@ -285,81 +359,34 @@ export function InAppSupportView({ role, panelTitle, panelSlug, className }: InA
           </CardHeader>
 
           <CardContent className="p-6 sm:p-8">
-            <form onSubmit={handleCreateTicket} className="space-y-6">
+            <form onSubmit={handleCreateTicket} className="space-y-5">
               
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <Label htmlFor="inapp-name" className="text-xs font-semibold text-slate-700">
-                    Your Name
-                  </Label>
-                  <Input
-                    id="inapp-name"
-                    type="text"
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    placeholder="Enter your name"
-                    className="h-10 rounded-xl text-sm border-slate-200"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label htmlFor="inapp-email" className="text-xs font-semibold text-slate-700">
-                    Email Address
-                  </Label>
-                  <Input
-                    id="inapp-email"
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="Enter your email"
-                    className="h-10 rounded-xl text-sm border-slate-200"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <Label htmlFor="inapp-mobile" className="text-xs font-semibold text-slate-700">
-                    Mobile Number
-                  </Label>
-                  <Input
-                    id="inapp-mobile"
-                    type="tel"
-                    value={mobile}
-                    onChange={(e) => setMobile(e.target.value)}
-                    placeholder="+232 XX XXXXXX"
-                    className="h-10 rounded-xl text-sm border-slate-200"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label htmlFor="inapp-subject" className="text-xs font-semibold text-slate-700">
-                    Subject / Topic <span className="text-rose-500">*</span>
-                  </Label>
-                  <Input
-                    id="inapp-subject"
-                    type="text"
-                    required
-                    value={subject}
-                    onChange={(e) => setSubject(e.target.value)}
-                    placeholder="e.g. Issue with payout / Order inquiry / Account update"
-                    className="h-10 rounded-xl text-sm border-slate-200"
-                  />
-                </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="inapp-subject" className="text-xs font-semibold text-slate-700">
+                  Topic / Subject (Optional)
+                </Label>
+                <Input
+                  id="inapp-subject"
+                  type="text"
+                  value={subject}
+                  onChange={(e) => setSubject(e.target.value)}
+                  placeholder="e.g. Question about order, payout, account update..."
+                  className="h-11 rounded-xl text-sm border-slate-200"
+                />
               </div>
 
               <div className="space-y-1.5">
                 <Label htmlFor="inapp-message" className="text-xs font-semibold text-slate-700">
-                  Message / Details <span className="text-rose-500">*</span>
+                  Your Message <span className="text-rose-500">*</span>
                 </Label>
                 <Textarea
                   id="inapp-message"
                   required
-                  rows={5}
+                  rows={6}
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
-                  placeholder="Describe your issue or question in detail..."
-                  className="rounded-2xl text-sm border-slate-200 p-3.5 resize-y"
+                  placeholder="Type your message or inquiry here..."
+                  className="rounded-2xl text-sm border-slate-200 p-4 resize-y leading-relaxed"
                 />
               </div>
 
@@ -371,21 +398,21 @@ export function InAppSupportView({ role, panelTitle, panelSlug, className }: InA
                 </Alert>
               )}
 
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 pt-2">
                 <Button
                   type="submit"
                   disabled={isSubmittingNew}
-                  className="rounded-2xl px-6 h-11 text-sm font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-600/20"
+                  className="rounded-2xl px-8 h-11 text-sm font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-600/20"
                 >
                   {isSubmittingNew ? (
                     <div className="flex items-center gap-2">
                       <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      <span>Submitting...</span>
+                      <span>Starting Chat...</span>
                     </div>
                   ) : (
                     <div className="flex items-center gap-2">
                       <Send className="w-4 h-4" />
-                      <span>Create Support Ticket</span>
+                      <span>Start Support Chat</span>
                     </div>
                   )}
                 </Button>
@@ -416,7 +443,7 @@ export function InAppSupportView({ role, panelTitle, panelSlug, className }: InA
               </span>
               <button
                 type="button"
-                onClick={() => fetchTickets(false)}
+                onClick={() => fetchTickets()}
                 className="text-xs text-indigo-600 hover:text-indigo-700 font-semibold flex items-center gap-1"
                 title="Refresh list"
               >
@@ -450,23 +477,35 @@ export function InAppSupportView({ role, panelTitle, panelSlug, className }: InA
                   const isPending = t.status === "PENDING"
                   const isResolved = t.status === "RESOLVED"
                   const isClosed = t.status === "CLOSED"
+                  const hasUnread = Boolean(t.unreadCount && t.unreadCount > 0)
 
                   return (
                     <button
                       key={t.id}
                       type="button"
-                      onClick={() => setSelectedTicketId(t.id)}
+                      onClick={() => {
+                        setSelectedTicketId(t.id)
+                        markTicketAsRead(t.id)
+                      }}
                       className={cn(
-                        "w-full text-left p-4 rounded-2xl border transition-all space-y-2",
+                        "w-full text-left p-4 rounded-2xl border transition-all space-y-2 relative",
                         isSelected
                           ? "border-indigo-600 bg-indigo-50/70 shadow-sm ring-1 ring-indigo-600"
                           : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50"
                       )}
                     >
                       <div className="flex items-center justify-between gap-2">
-                        <span className="font-mono text-[11px] font-extrabold text-indigo-700">
-                          {t.ticketId}
-                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-mono text-[11px] font-extrabold text-indigo-700">
+                            {t.ticketId}
+                          </span>
+                          {hasUnread && (
+                            <Badge className="bg-rose-600 text-white font-extrabold text-[9px] px-1.5 py-0 border-0 shadow-xs animate-pulse">
+                              {t.unreadCount} new
+                            </Badge>
+                          )}
+                        </div>
+
                         {isPending ? (
                           <Badge className="bg-amber-100 text-amber-800 border-amber-300 text-[10px] font-semibold">
                             Pending
@@ -491,7 +530,7 @@ export function InAppSupportView({ role, panelTitle, panelSlug, className }: InA
                       </p>
 
                       <div className="flex items-center justify-between text-[11px] text-slate-400">
-                        <span>{t.replies?.length || 1} messages</span>
+                        <span>{((t.replies?.length ?? 0) + 1)} messages</span>
                         <span>{new Date(t.createdAt).toLocaleDateString()}</span>
                       </div>
                     </button>
@@ -506,34 +545,42 @@ export function InAppSupportView({ role, panelTitle, panelSlug, className }: InA
             {selectedTicket ? (
               <Card className="rounded-3xl border-slate-200/90 shadow-sm bg-white overflow-hidden flex flex-col h-[650px]">
                 
-                {/* Chat Header */}
-                <div className="p-4 sm:p-5 border-b border-slate-200 bg-slate-50/80 flex items-center justify-between gap-3 shrink-0">
-                  <div className="space-y-0.5 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono text-xs font-extrabold text-indigo-700 bg-indigo-50 px-2.5 py-0.5 rounded-lg border border-indigo-200">
-                        {selectedTicket.ticketId}
-                      </span>
-                      {selectedTicket.status === "PENDING" ? (
-                        <Badge className="bg-amber-100 text-amber-800 border-amber-300 text-[10px] font-semibold">
-                          Pending
-                        </Badge>
-                      ) : selectedTicket.status === "RESOLVED" ? (
-                        <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[10px] font-semibold">
-                          Resolved
-                        </Badge>
-                      ) : selectedTicket.status === "CLOSED" ? (
-                        <Badge className="bg-slate-100 text-slate-700 border-slate-300 text-[10px] font-semibold">
-                          Closed
-                        </Badge>
-                      ) : (
-                        <Badge className="bg-blue-100 text-blue-800 border-blue-300 text-[10px] font-semibold">
-                          In Progress
-                        </Badge>
-                      )}
+                {/* Chat Header with Official Agent DP */}
+                <div className="p-4 sm:p-5 border-b border-slate-200 bg-slate-50/90 flex items-center justify-between gap-3 shrink-0">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-10 h-10 rounded-full bg-slate-900 text-white flex items-center justify-center font-bold shadow-xs shrink-0 relative">
+                      <Headphones className="w-5 h-5 text-emerald-400" />
+                      <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-white" title="Support Online" />
                     </div>
-                    <p className="text-sm font-bold text-slate-900 truncate">
-                      {selectedTicket.subject || "Support Inquiry"}
-                    </p>
+
+                    <div className="space-y-0.5 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <h2 className="text-sm font-bold text-slate-900 truncate">
+                          MEEEM Support Desk
+                        </h2>
+                        {selectedTicket.status === "PENDING" ? (
+                          <Badge className="bg-amber-100 text-amber-800 border-amber-300 text-[10px] font-semibold">
+                            Pending
+                          </Badge>
+                        ) : selectedTicket.status === "RESOLVED" ? (
+                          <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[10px] font-semibold">
+                            Resolved
+                          </Badge>
+                        ) : selectedTicket.status === "CLOSED" ? (
+                          <Badge className="bg-slate-100 text-slate-700 border-slate-300 text-[10px] font-semibold">
+                            Closed
+                          </Badge>
+                        ) : (
+                          <Badge className="bg-blue-100 text-blue-800 border-blue-300 text-[10px] font-semibold">
+                            In Progress
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-xs text-slate-500 font-medium truncate">
+                        <span className="font-mono text-indigo-700 font-bold mr-1.5">{selectedTicket.ticketId}</span>
+                        <span>{selectedTicket.subject || "Support Inquiry"}</span>
+                      </p>
+                    </div>
                   </div>
 
                   <div className="text-[11px] text-slate-400 text-right shrink-0">
@@ -541,64 +588,95 @@ export function InAppSupportView({ role, panelTitle, panelSlug, className }: InA
                   </div>
                 </div>
 
-                {/* Messages Scroll Area */}
-                <div className="flex-1 p-4 sm:p-6 overflow-y-auto space-y-4 bg-slate-50/30">
-                  {/* Initial Ticket Message */}
-                  <div className="flex flex-col items-end">
-                    <div className="max-w-md sm:max-w-lg rounded-2xl rounded-tr-xs bg-indigo-600 text-white p-4 shadow-sm space-y-1">
-                      <p className="text-xs font-bold text-indigo-100">
-                        {selectedTicket.name || "You"}
-                      </p>
-                      <p className="text-sm leading-relaxed whitespace-pre-wrap">
-                        {selectedTicket.message}
-                      </p>
-                    </div>
-                    <span className="text-[10px] text-slate-400 mt-1 mr-1">
-                      {new Date(selectedTicket.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                    </span>
-                  </div>
-
-                  {/* Thread Replies */}
-                  {selectedTicket.replies?.map((rep, idx) => {
-                    const isAdmin = rep.senderType === "ADMIN"
-
-                    return (
-                      <div
-                        key={rep.id || idx}
-                        className={cn("flex flex-col", isAdmin ? "items-start" : "items-end")}
-                      >
-                        <div
-                          className={cn(
-                            "max-w-md sm:max-w-lg rounded-2xl p-4 shadow-sm space-y-1",
-                            isAdmin
-                              ? "rounded-tl-xs bg-white border border-slate-200/90 text-slate-800"
-                              : "rounded-tr-xs bg-indigo-600 text-white"
-                          )}
-                        >
-                          <div className="flex items-center gap-1.5 text-xs font-bold">
-                            {isAdmin ? (
-                              <>
-                                <span className="text-indigo-600">MEEEM Support Team</span>
-                                <Badge variant="outline" className="bg-indigo-50 text-indigo-700 border-indigo-200 text-[9px] px-1.5 py-0 font-bold">
-                                  Agent
-                                </Badge>
-                              </>
-                            ) : (
-                              <span className="text-indigo-100">{rep.senderName || "You"}</span>
-                            )}
-                          </div>
-
-                          <p className={cn("text-sm leading-relaxed whitespace-pre-wrap", isAdmin ? "text-slate-800" : "text-white")}>
-                            {rep.message}
+                {/* Messages Scroll Area (WhatsApp feel) */}
+                <div className="flex-1 p-4 sm:p-6 overflow-y-auto space-y-4 bg-slate-100/70">
+                  {(!selectedTicket.replies || selectedTicket.replies.length === 0) ? (
+                    /* Initial Ticket Message Fallback */
+                    <div className="flex items-end justify-end gap-2.5">
+                      <div className="flex flex-col items-end max-w-md sm:max-w-lg">
+                        <div className="rounded-2xl rounded-tr-xs bg-indigo-600 text-white p-4 shadow-xs space-y-1">
+                          <p className="text-xs font-bold text-indigo-100">
+                            {selectedTicket.name || "You"}
+                          </p>
+                          <p className="text-sm leading-relaxed whitespace-pre-wrap">
+                            {selectedTicket.message}
                           </p>
                         </div>
-
                         <span className="text-[10px] text-slate-400 mt-1 px-1">
-                          {new Date(rep.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                          {new Date(selectedTicket.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                         </span>
                       </div>
-                    )
-                  })}
+
+                      {/* User DP Avatar */}
+                      <div className="w-8 h-8 rounded-full bg-indigo-600 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-xs mb-5">
+                        {getInitials(selectedTicket.name || "You")}
+                      </div>
+                    </div>
+                  ) : (
+                    /* Thread Replies */
+                    selectedTicket.replies.map((rep, idx) => {
+                      const isAdmin = rep.senderType === "ADMIN"
+
+                      return (
+                        <div
+                          key={rep.id || idx}
+                          className={cn("flex items-end gap-2.5", isAdmin ? "justify-start" : "justify-end")}
+                        >
+                          {/* Admin Avatar on Left for Agent Replies */}
+                          {isAdmin && (
+                            <div className="w-8 h-8 rounded-full bg-slate-900 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-xs mb-5">
+                              <Headphones className="w-4 h-4 text-emerald-400" />
+                            </div>
+                          )}
+
+                          <div className={cn("flex flex-col max-w-md sm:max-w-lg", isAdmin ? "items-start" : "items-end")}>
+                            <div
+                              className={cn(
+                                "rounded-2xl p-4 shadow-xs space-y-1.5",
+                                isAdmin
+                                  ? "rounded-tl-xs bg-white border border-slate-200/90 text-slate-800"
+                                  : "rounded-tr-xs bg-indigo-600 text-white"
+                              )}
+                            >
+                              <div className="flex items-center gap-1.5 text-xs font-bold">
+                                {isAdmin ? (
+                                  <>
+                                    <span className="text-indigo-600">MEEEM Support Team</span>
+                                    <Badge variant="outline" className="bg-indigo-50 text-indigo-700 border-indigo-200 text-[9px] px-1.5 py-0 font-bold">
+                                      Official Agent
+                                    </Badge>
+                                  </>
+                                ) : (
+                                  <span className="text-indigo-100">{rep.senderName || "You"}</span>
+                                )}
+                              </div>
+
+                              <p className={cn("text-sm leading-relaxed whitespace-pre-wrap", isAdmin ? "text-slate-800" : "text-white")}>
+                                {rep.message}
+                              </p>
+                            </div>
+
+                            {/* Timestamp & Status Checkmark */}
+                            <div className={cn("flex items-center gap-1 text-[10px] text-slate-400 mt-1 px-1", isAdmin ? "justify-start" : "justify-end")}>
+                              <span>{new Date(rep.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+                              {!isAdmin && (
+                                <span title="Sent to Support">
+                                  <CheckCheck className="w-3.5 h-3.5 text-indigo-600 inline" />
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* User Avatar on Right for User Messages */}
+                          {!isAdmin && (
+                            <div className="w-8 h-8 rounded-full bg-indigo-600 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-xs mb-5">
+                              {getInitials(rep.senderName || selectedTicket.name || "You")}
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })
+                  )}
                   <div ref={messagesEndRef} />
                 </div>
 
