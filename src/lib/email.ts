@@ -803,3 +803,50 @@ export async function sendSellerSuspensionEmail({
   return sendEmail({ to, subject, html })
 }
 
+export async function sendSupportTicketReplyEmail({
+  to,
+  recipientName,
+  ticketId,
+  subject,
+  replyMessage,
+  isClosed,
+}: {
+  to: string
+  recipientName: string
+  ticketId: string
+  subject?: string | null
+  replyMessage: string
+  isClosed?: boolean
+}) {
+  const emailSubject = `[${ticketId}] Reply to Your Support Request: ${subject || "Support Inquiry"}`
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 640px; margin: 0 auto; padding: 24px; color: #1e293b; background-color: #f8fafc;">
+      <div style="background-color: #ffffff; border-radius: 16px; border: 1px solid #e2e8f0; padding: 32px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
+        <div style="border-bottom: 1px solid #e2e8f0; padding-bottom: 20px; margin-bottom: 24px;">
+          <h2 style="margin: 0 0 6px 0; font-size: 20px; font-weight: 700; color: #0f172a;">MEEEM Support Desk</h2>
+          <p style="margin: 0; font-size: 13px; color: #64748b; font-family: monospace;">Ticket ID: <strong>${ticketId}</strong></p>
+        </div>
+
+        <p style="font-size: 15px; line-height: 1.6; margin-top: 0;">Dear <strong>${recipientName}</strong>,</p>
+        <p style="font-size: 15px; line-height: 1.6; color: #334155;">Our customer and vendor support team has reviewed your inquiry and replied:</p>
+
+        <div style="background-color: #f1f5f9; border-left: 4px solid #4f46e5; border-radius: 8px; padding: 18px 20px; margin: 20px 0; font-size: 14px; line-height: 1.7; color: #0f172a; white-space: pre-wrap;">
+${replyMessage}
+        </div>
+
+        ${isClosed ? `
+        <div style="background-color: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px; padding: 12px 16px; margin: 20px 0; font-size: 13px; color: #065f46;">
+          <strong>Ticket Status:</strong> This support ticket has been marked as <strong>Resolved / Closed</strong>. If you still have questions, you may reply to this email or submit a new inquiry at our support portal.
+        </div>` : ''}
+
+        <div style="border-top: 1px solid #e2e8f0; padding-top: 20px; margin-top: 28px; font-size: 13px; color: #64748b; line-height: 1.5;">
+          <p style="margin: 0 0 4px 0;"><strong>MEEEM E-commerce Ltd.</strong></p>
+          <p style="margin: 0;">Support Email: <a href="mailto:support@meeemsl.com" style="color: #4f46e5; text-decoration: none;">support@meeemsl.com</a> | Website: <a href="https://meeemsl.com" style="color: #4f46e5; text-decoration: none;">meeemsl.com</a></p>
+        </div>
+      </div>
+    </div>
+  `
+  return sendEmail({ to, subject: emailSubject, html })
+}
+
+

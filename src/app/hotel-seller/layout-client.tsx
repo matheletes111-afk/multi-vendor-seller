@@ -17,7 +17,8 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/ui/avatar"
 import { Button } from "@/ui/button"
 import { Sheet, SheetContent, SheetTrigger } from "@/ui/sheet"
-import { LogOut, User, LayoutDashboard, Building2, ShoppingCart, CreditCard, Settings, Menu, Megaphone, Star, Wallet } from "lucide-react"
+import { LogOut, User, LayoutDashboard, Building2, ShoppingCart, CreditCard, Settings, Menu, Megaphone, Star, Wallet, HelpCircle, FileText } from "lucide-react"
+import { DashboardFooter } from "@/components/layout/dashboard-footer"
 
 function NavItem({ href, label, icon }: { href: string; label: string; icon?: ReactNode }) {
   const pathname = usePathname()
@@ -56,6 +57,8 @@ const navContent = (
     <NavItem href="/hotel-seller/reviews" label="Reviews" icon={<Star className="h-4 w-4" />} />
     <NavItem href="/hotel-seller/subscription" label="Subscription" icon={<CreditCard className="h-4 w-4" />} />
     <NavItem href="/hotel-seller/settings" label="Settings" icon={<Settings className="h-4 w-4" />} />
+    <NavItem href="/hotel-seller/support" label="Support Desk" icon={<HelpCircle className="h-4 w-4" />} />
+    <NavItem href="/terms" label="All Terms" icon={<FileText className="h-4 w-4" />} />
   </>
 )
 
@@ -139,6 +142,7 @@ export function HotelSellerLayoutClient({
           </div>
         </header>
         <main className="flex-1">{children}</main>
+        <DashboardFooter panelName="Hotel Host Panel" />
       </div>
     </div>
   )

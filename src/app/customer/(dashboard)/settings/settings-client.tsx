@@ -1,8 +1,8 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useSearchParams } from "next/navigation"
-import { Eye, EyeOff, Scale, Settings as SettingsIcon, User } from "lucide-react"
+import { useRouter, useSearchParams } from "next/navigation"
+import { Eye, EyeOff, Scale, Settings as SettingsIcon, User, UserX } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/ui/card"
 import { Button } from "@/ui/button"
 import { Input } from "@/ui/input"
@@ -11,6 +11,7 @@ import { PageLoader } from "@/components/ui/page-loader"
 import { ProfilePictureInput } from "@/components/profile-picture-input"
 import { validatePassword } from "@/lib/password-validation"
 import { LegalPolicyTabContent } from "@/components/legal/legal-policy-tab-content"
+import { DeleteAccountTabContent } from "@/components/account/delete-account-tab-content"
 import { cn } from "@/lib/utils"
 
 type UserProfile = {
@@ -23,10 +24,33 @@ type UserProfile = {
 }
 
 export function CustomerSettingsClient() {
+  const router = useRouter()
   const searchParams = useSearchParams()
-  const [activeTab, setActiveTab] = useState<"general" | "legal">(() => {
-    return searchParams.get("tab") === "legal" ? "legal" : "general"
+  const [activeTab, setActiveTab] = useState<"general" | "legal" | "delete-account">(() => {
+    const tab = searchParams.get("tab")
+    if (tab === "legal") return "legal"
+    if (tab === "delete-account" || tab === "delete") return "delete-account"
+    return "general"
   })
+
+  const handleTabChange = (tab: "general" | "legal" | "delete-account") => {
+    setActiveTab(tab)
+    const params = new URLSearchParams(searchParams.toString())
+    if (tab === "general") {
+      params.delete("tab")
+    } else {
+      params.set("tab", tab)
+    }
+    const newUrl = params.toString() ? `?${params.toString()}` : window.location.pathname
+    router.replace(newUrl, { scroll: false })
+  }
+
+  useEffect(() => {
+    const tab = searchParams.get("tab")
+    if (tab === "legal") setActiveTab("legal")
+    else if (tab === "delete-account" || tab === "delete") setActiveTab("delete-account")
+    else if (!tab || tab === "general") setActiveTab("general")
+  }, [searchParams])
   const [user, setUser] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -129,15 +153,15 @@ export function CustomerSettingsClient() {
       </div>
 
       {/* Settings Tab Navigation */}
-      <div className="flex items-center gap-2 border-b border-slate-200 mb-8 pb-2">
+      <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 mb-8 pb-2">
         <button
           type="button"
-          onClick={() => setActiveTab("general")}
+          onClick={() => handleTabChange("general")}
           className={cn(
             "flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-2xl transition-all",
             activeTab === "general"
-              ? "bg-slate-900 text-white shadow-md"
-              : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+              ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/20"
+              : "text-slate-600 hover:text-indigo-600 hover:bg-indigo-50"
           )}
         >
           <User className="w-4 h-4" />
@@ -145,20 +169,35 @@ export function CustomerSettingsClient() {
         </button>
         <button
           type="button"
-          onClick={() => setActiveTab("legal")}
+          onClick={() => handleTabChange("legal")}
           className={cn(
             "flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-2xl transition-all",
             activeTab === "legal"
-              ? "bg-slate-900 text-white shadow-md"
-              : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+              ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/20"
+              : "text-slate-600 hover:text-indigo-600 hover:bg-indigo-50"
           )}
         >
           <Scale className="w-4 h-4 text-emerald-400" />
           <span>Legal & Policies</span>
         </button>
+        <button
+          type="button"
+          onClick={() => handleTabChange("delete-account")}
+          className={cn(
+            "flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-2xl transition-all",
+            activeTab === "delete-account"
+              ? "bg-rose-600 text-white shadow-md"
+              : "text-rose-600 hover:text-rose-700 hover:bg-rose-50"
+          )}
+        >
+          <UserX className="w-4 h-4" />
+          <span>Delete Account</span>
+        </button>
       </div>
 
-      {activeTab === "legal" ? (
+      {activeTab === "delete-account" ? (
+        <DeleteAccountTabContent role="CUSTOMER" panelName="Customer Account" panelSlug="customer" />
+      ) : activeTab === "legal" ? (
         <LegalPolicyTabContent role="CUSTOMER" />
       ) : (
         <Card className="rounded-3xl border-slate-200 shadow-sm">

@@ -17,7 +17,8 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/ui/avatar"
 import { Button } from "@/ui/button"
 import { Sheet, SheetContent, SheetTrigger } from "@/ui/sheet"
-import { LogOut, User, LayoutDashboard, Briefcase, ShoppingCart, CreditCard, Settings, Menu, Megaphone, Star, TrendingUp } from "lucide-react"
+import { LogOut, User, LayoutDashboard, Briefcase, ShoppingCart, CreditCard, Settings, Menu, Megaphone, Star, TrendingUp, HelpCircle, FileText } from "lucide-react"
+import { DashboardFooter } from "@/components/layout/dashboard-footer"
 
 function NavItem({ href, label, icon, onClick }: { href: string; label: string; icon?: ReactNode; onClick?: () => void }) {
   const pathname = usePathname()
@@ -57,6 +58,8 @@ const navContent = (
     <NavItem href="/service-seller/net-worth" label="My Revenue" icon={<TrendingUp className="h-4 w-4" />} />
     <NavItem href="/service-seller/subscription" label="Subscription" icon={<CreditCard className="h-4 w-4" />} />
     <NavItem href="/service-seller/settings" label="Settings" icon={<Settings className="h-4 w-4" />} />
+    <NavItem href="/service-seller/support" label="Support Desk" icon={<HelpCircle className="h-4 w-4" />} />
+    <NavItem href="/terms" label="All Terms" icon={<FileText className="h-4 w-4" />} />
   </>
 )
 
@@ -148,6 +151,7 @@ export function ServiceSellerLayoutClient({
           </div>
         </header>
         <main className="flex-1">{children}</main>
+        <DashboardFooter panelName="Service Provider Panel" />
       </div>
     </div>
   )

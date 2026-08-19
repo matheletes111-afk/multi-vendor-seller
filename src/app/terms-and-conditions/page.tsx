@@ -16,8 +16,26 @@ export default async function TermsAndConditionsPage(props: PageProps) {
   const isEmbed = searchParams.embed === "true"
 
   const content = (
-    <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 sm:py-12 lg:px-8">
+    <div className="min-h-screen bg-slate-50/70 py-8 sm:py-12">
+      <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
       <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white p-6 shadow-sm sm:p-10 md:p-12">
+        {/* Quick Deletion & Policy Notice Bar */}
+        <div className="mb-6 rounded-2xl border border-rose-200 bg-rose-50/70 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="text-xs text-rose-950">
+            <strong>Looking to delete your account?</strong> View our official{" "}
+            <Link href="/delete-account" className="underline font-bold text-rose-700">
+              Account & Data Deletion Request
+            </Link>{" "}
+            instructions.
+          </div>
+          <Link
+            href="/delete-account"
+            className="px-3.5 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold shrink-0 text-center"
+          >
+            Delete Account Page
+          </Link>
+        </div>
+
         <h1 className="mb-2 text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">
           Terms and Conditions
         </h1>
@@ -118,6 +136,7 @@ export default async function TermsAndConditionsPage(props: PageProps) {
           </div>
         )}
       </div>
+    </div>
     </div>
   )
 

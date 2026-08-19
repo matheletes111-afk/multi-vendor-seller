@@ -1,8 +1,8 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useSearchParams } from "next/navigation"
-import { Eye, EyeOff, FileText, CheckCircle2, AlertCircle, Camera, User, LogOut, LayoutDashboard, Settings as SettingsIcon, Info, Scale } from "lucide-react"
+import { useRouter, useSearchParams } from "next/navigation"
+import { Eye, EyeOff, FileText, CheckCircle2, AlertCircle, Camera, User, LogOut, LayoutDashboard, Settings as SettingsIcon, Info, Scale, UserX } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/ui/card"
 import { Button } from "@/ui/button"
 import { Input } from "@/ui/input"
@@ -15,6 +15,7 @@ import { Checkbox } from "@/ui/checkbox-v2"
 import { PageLoader } from "@/components/ui/page-loader"
 import { ProfilePictureInput } from "@/components/profile-picture-input"
 import { LegalPolicyTabContent } from "@/components/legal/legal-policy-tab-content"
+import { DeleteAccountTabContent } from "@/components/account/delete-account-tab-content"
 import { cn } from "@/lib/utils"
 
 const HOTEL_CATEGORIES = [
@@ -22,10 +23,33 @@ const HOTEL_CATEGORIES = [
 ]
 
 export default function HotelSettingsClient() {
+  const router = useRouter()
   const searchParams = useSearchParams()
-  const [activeTab, setActiveTab] = useState<"general" | "legal">(() => {
-    return searchParams.get("tab") === "legal" ? "legal" : "general"
+  const [activeTab, setActiveTab] = useState<"general" | "legal" | "delete-account">(() => {
+    const tab = searchParams.get("tab")
+    if (tab === "legal") return "legal"
+    if (tab === "delete-account" || tab === "delete") return "delete-account"
+    return "general"
   })
+
+  const handleTabChange = (tab: "general" | "legal" | "delete-account") => {
+    setActiveTab(tab)
+    const params = new URLSearchParams(searchParams.toString())
+    if (tab === "general") {
+      params.delete("tab")
+    } else {
+      params.set("tab", tab)
+    }
+    const newUrl = params.toString() ? `?${params.toString()}` : window.location.pathname
+    router.replace(newUrl, { scroll: false })
+  }
+
+  useEffect(() => {
+    const tab = searchParams.get("tab")
+    if (tab === "legal") setActiveTab("legal")
+    else if (tab === "delete-account" || tab === "delete") setActiveTab("delete-account")
+    else if (!tab || tab === "general") setActiveTab("general")
+  }, [searchParams])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState<string | null>(null)
   const [seller, setSeller] = useState<any>(null)
@@ -206,15 +230,15 @@ export default function HotelSettingsClient() {
       )}
 
       {/* Settings Tab Navigation */}
-      <div className="flex items-center gap-2 border-b border-slate-200 mb-8 pb-2">
+      <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 mb-8 pb-2">
         <button
           type="button"
-          onClick={() => setActiveTab("general")}
+          onClick={() => handleTabChange("general")}
           className={cn(
             "flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-2xl transition-all",
             activeTab === "general"
-              ? "bg-slate-900 text-white shadow-md"
-              : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+              ? "bg-teal-600 text-white shadow-md shadow-teal-600/20"
+              : "text-slate-600 hover:text-teal-600 hover:bg-teal-50"
           )}
         >
           <SettingsIcon className="w-4 h-4" />
@@ -222,20 +246,39 @@ export default function HotelSettingsClient() {
         </button>
         <button
           type="button"
-          onClick={() => setActiveTab("legal")}
+          onClick={() => handleTabChange("legal")}
           className={cn(
             "flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-2xl transition-all",
             activeTab === "legal"
-              ? "bg-slate-900 text-white shadow-md"
-              : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+              ? "bg-teal-600 text-white shadow-md shadow-teal-600/20"
+              : "text-slate-600 hover:text-teal-600 hover:bg-teal-50"
           )}
         >
           <Scale className="w-4 h-4 text-emerald-400" />
           <span>Terms & Policies</span>
         </button>
+        <button
+          type="button"
+          onClick={() => handleTabChange("delete-account")}
+          className={cn(
+            "flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-2xl transition-all",
+            activeTab === "delete-account"
+              ? "bg-rose-600 text-white shadow-md"
+              : "text-rose-600 hover:text-rose-700 hover:bg-rose-50"
+          )}
+        >
+          <UserX className="w-4 h-4" />
+          <span>Delete Account</span>
+        </button>
       </div>
 
-      {activeTab === "legal" ? (
+      {activeTab === "delete-account" ? (
+        <DeleteAccountTabContent
+          role="SELLER_HOTEL"
+          panelName="Hotel & Property Host Account"
+          panelSlug="hotel-seller"
+        />
+      ) : activeTab === "legal" ? (
         <LegalPolicyTabContent
           role="SELLER_HOTEL"
           isAcceptedOnboarding={!!seller?.agreement?.agreedToTerms}

@@ -18,7 +18,8 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/ui/avatar"
 import { Button } from "@/ui/button"
 import { Sheet, SheetContent, SheetTrigger } from "@/ui/sheet"
-import { LogOut, User, LayoutDashboard, ShoppingCart, Store, Menu, Wallet, Megaphone, Building2, Utensils, MapPin } from "lucide-react"
+import { LogOut, User, LayoutDashboard, ShoppingCart, Store, Menu, Wallet, Megaphone, Building2, Utensils, MapPin, HelpCircle, FileText } from "lucide-react"
+import { DashboardFooter } from "@/components/layout/dashboard-footer"
 
 function NavItem({ href, label, icon }: { href: string; label: string; icon?: ReactNode }) {
   const pathname = usePathname()
@@ -57,6 +58,8 @@ const navContent = (
     <NavItem href="/customer/hotel-bookings" label="Hotel Bookings" icon={<Building2 className="h-4 w-4" />} />
     <NavItem href="/customer/addresses" label="Addresses" icon={<MapPin className="h-4 w-4" />} />
     <NavItem href="/customer/settings" label="Profile" icon={<User className="h-4 w-4" />} />
+    <NavItem href="/customer/support" label="Support Desk" icon={<HelpCircle className="h-4 w-4" />} />
+    <NavItem href="/terms" label="All Terms" icon={<FileText className="h-4 w-4" />} />
     <NavItem href="/browse" label="Browse Marketplace" icon={<Store className="h-4 w-4" />} />
   </>
 )
@@ -144,6 +147,7 @@ export function CustomerLayoutClient({
           </div>
         </header>
         <main className="flex-1">{children}</main>
+        <DashboardFooter panelName="Customer Portal" />
       </div>
     </div>
   )

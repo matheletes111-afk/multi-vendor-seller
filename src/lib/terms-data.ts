@@ -14,12 +14,12 @@ export interface LegalDocument {
 }
 
 export const LEGAL_DOCUMENTS: LegalDocument[] = [
-  // 1. Web Footer Terms & Conditions
+  // 1. Terms & Conditions
   {
     id: "footer-terms-and-conditions",
     slug: "terms-and-conditions",
-    title: "Terms and Conditions (Web Footer)",
-    source: "Web Footer Page",
+    title: "Terms and Conditions",
+    source: "MEEEM Core Policy",
     lastUpdated: "July 10, 2026",
     summary: "General platform terms of use, marketplace transactions, account conduct, and liability terms.",
     category: "core",
@@ -27,12 +27,12 @@ export const LEGAL_DOCUMENTS: LegalDocument[] = [
     content: "<div class=\"legal-document\">\n  <h1 style=\"font-size: 22px; font-weight: 800; color: #0f172a; margin-bottom: 12px;\">Terms and Conditions</h1>\n  <h2 style=\"font-size: 16px; font-weight: 700; color: #1e293b; margin: 16px 0 8px 0;\">TERMS AND CONDITIONS - MEEEM MARKETPLACE</h2>\n  <p style=\"font-size: 14px; line-height: 1.6; color: #334155; margin: 6px 0;\">Last Updated: July 10, 2026</p>\n  <p style=\"font-size: 14px; line-height: 1.6; color: #334155; margin: 6px 0;\">Welcome to MEEEM Marketplace. Please read these Terms and Conditions carefully before using our platform, which includes our website, mobile applications, and related e-commerce and services systems.</p>\n  <h2 style=\"font-size: 16px; font-weight: 700; color: #1e293b; margin: 16px 0 8px 0;\">1. Acceptance of Terms</h2>\n  <p style=\"font-size: 14px; line-height: 1.6; color: #334155; margin: 6px 0;\">By accessing, browsing, or using MEEEM Marketplace (referred to as \"the Platform,\" \"we,\" \"us,\" or \"our\"), you agree to be bound by these Terms and Conditions, all applicable laws and regulations, and agree that you are responsible for compliance with any applicable local laws.</p>\n  <h2 style=\"font-size: 16px; font-weight: 700; color: #1e293b; margin: 16px 0 8px 0;\">2. User Accounts and Security</h2>\n  <p style=\"font-size: 14px; line-height: 1.6; color: #334155; margin: 6px 0;\">To access certain features of the Platform (such as buying, listing products/services, booking hotels, or ordering food), you must register and maintain an active user account.</p>\n  <h2 style=\"font-size: 16px; font-weight: 700; color: #1e293b; margin: 16px 0 8px 0;\">3. Marketplace Transactions</h2>\n  <p style=\"font-size: 14px; line-height: 1.6; color: #334155; margin: 6px 0;\">MEEEM Marketplace facilitates transactions between buyers and independent sellers (Product Sellers, Service Providers, Hotels, and Restaurants).</p>\n  <h2 style=\"font-size: 16px; font-weight: 700; color: #1e293b; margin: 16px 0 8px 0;\">4. User Conduct</h2>\n  <p style=\"font-size: 14px; line-height: 1.6; color: #334155; margin: 6px 0;\">You agree to use the Platform only for lawful purposes.</p>\n  <h2 style=\"font-size: 16px; font-weight: 700; color: #1e293b; margin: 16px 0 8px 0;\">5. Intellectual Property Rights</h2>\n  <p style=\"font-size: 14px; line-height: 1.6; color: #334155; margin: 6px 0;\">All content on the Platform is the property of MEEEM Marketplace or its content suppliers and is protected by international copyright laws.</p>\n  <h2 style=\"font-size: 16px; font-weight: 700; color: #1e293b; margin: 16px 0 8px 0;\">6. Limitation of Liability</h2>\n  <p style=\"font-size: 14px; line-height: 1.6; color: #334155; margin: 6px 0;\">MEEEM Marketplace shall not be liable for any direct, indirect, incidental, special, or consequential damages resulting from platform use.</p>\n  <h2 style=\"font-size: 16px; font-weight: 700; color: #1e293b; margin: 16px 0 8px 0;\">7. Changes to Terms</h2>\n  <p style=\"font-size: 14px; line-height: 1.6; color: #334155; margin: 6px 0;\">We reserve the right to revise or update these Terms and Conditions at any time.</p>\n  <h2 style=\"font-size: 16px; font-weight: 700; color: #1e293b; margin: 16px 0 8px 0;\">8. Contact Us</h2>\n  <p style=\"font-size: 14px; line-height: 1.6; color: #334155; margin: 6px 0;\">Email: info@meeemsl.com / Support@meeemsl.com</p>\n  <p style=\"font-size: 14px; line-height: 1.6; color: #334155; margin: 6px 0;\">Address: Freetown, Sierra Leone</p>\n</div>",
     rawText: "TERMS AND CONDITIONS - MEEEM MARKETPLACE\nLast Updated: July 10, 2026\n\nWelcome to MEEEM Marketplace. Please read these Terms and Conditions carefully before using our platform, which includes our website, mobile applications, and related e-commerce and services systems.\n\n1. Acceptance of Terms\nBy accessing, browsing, or using MEEEM Marketplace (referred to as \"the Platform,\" \"we,\" \"us,\" or \"our\"), you agree to be bound by these Terms and Conditions, all applicable laws and regulations, and agree that you are responsible for compliance with any applicable local laws.\n\n2. User Accounts and Security\nTo access certain features of the Platform (such as buying, listing products/services, booking hotels, or ordering food), you must register and maintain an active user account.\n\n3. Marketplace Transactions\nMEEEM Marketplace facilitates transactions between buyers and independent sellers (Product Sellers, Service Providers, Hotels, and Restaurants).\n\n4. User Conduct\nYou agree to use the Platform only for lawful purposes.\n\n5. Intellectual Property Rights\nAll content on the Platform is the property of MEEEM Marketplace or its content suppliers and is protected by international copyright laws.\n\n6. Limitation of Liability\nMEEEM Marketplace shall not be liable for any direct, indirect, incidental, special, or consequential damages resulting from platform use.\n\n7. Changes to Terms\nWe reserve the right to revise or update these Terms and Conditions at any time.\n\n8. Contact Us\nEmail: info@meeemsl.com / Support@meeemsl.com\nAddress: Freetown, Sierra Leone",
   },
-  // 2. Web Footer Privacy Policy
+  // 2. Privacy Policy
   {
     id: "footer-privacy-policy",
     slug: "privacy-policy",
-    title: "Privacy Policy (Web Footer)",
-    source: "Web Footer Page",
+    title: "Privacy Policy",
+    source: "MEEEM Core Policy",
     lastUpdated: "July 10, 2026",
     summary: "Platform privacy disclosures, user data rights, transaction tracking, and cookie policies.",
     category: "core",
