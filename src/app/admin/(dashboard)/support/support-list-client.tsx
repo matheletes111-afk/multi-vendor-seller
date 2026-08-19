@@ -20,6 +20,9 @@ import {
   Filter,
   Inbox,
   MessageSquare,
+  Globe,
+  Smartphone,
+  Layers,
 } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/ui/card"
 import { Button } from "@/ui/button"
@@ -30,6 +33,7 @@ import { cn } from "@/lib/utils"
 interface SupportTicketSummary {
   id: string
   ticketId: string
+  source?: string | null // "IN_APP" | "PUBLIC"
   userType: "CUSTOMER" | "SELLER_PRODUCT" | "SELLER_SERVICE" | "SELLER_RESTAURANT" | "SELLER_HOTEL"
   name: string
   email: string
@@ -46,6 +50,8 @@ interface Stats {
   open: number
   inProgress: number
   closed: number
+  inApp: number
+  public: number
 }
 
 const USER_TYPE_LABELS: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
@@ -78,8 +84,12 @@ const USER_TYPE_LABELS: Record<string, { label: string; icon: React.ReactNode; c
 
 export function AdminSupportListClient() {
   const [tickets, setTickets] = useState<SupportTicketSummary[]>([])
-  const [stats, setStats] = useState<Stats>({ total: 0, open: 0, inProgress: 0, closed: 0 })
+  const [stats, setStats] = useState<Stats>({ total: 0, open: 0, inProgress: 0, closed: 0, inApp: 0, public: 0 })
   const [isLoading, setIsLoading] = useState(true)
+  
+  // 2 Main Source Tabs: "ALL" | "IN_APP" | "PUBLIC"
+  const [sourceTab, setSourceTab] = useState<"ALL" | "IN_APP" | "PUBLIC">("ALL")
+  
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState("ALL")
   const [userTypeFilter, setUserTypeFilter] = useState("ALL")
@@ -88,6 +98,7 @@ export function AdminSupportListClient() {
     try {
       setIsLoading(true)
       const params = new URLSearchParams()
+      if (sourceTab !== "ALL") params.set("source", sourceTab)
       if (statusFilter !== "ALL") params.set("status", statusFilter)
       if (userTypeFilter !== "ALL") params.set("userType", userTypeFilter)
       if (searchQuery.trim()) params.set("query", searchQuery.trim())
@@ -96,21 +107,21 @@ export function AdminSupportListClient() {
       const data = await res.json().catch(() => ({}))
       if (res.ok) {
         setTickets(data.tickets || [])
-        setStats(data.stats || { total: 0, open: 0, inProgress: 0, closed: 0 })
+        setStats(data.stats || { total: 0, open: 0, inProgress: 0, closed: 0, inApp: 0, public: 0 })
       }
     } catch (err) {
       console.error("Failed to load support tickets:", err)
     } finally {
       setIsLoading(false)
     }
-  }, [statusFilter, userTypeFilter, searchQuery])
+  }, [sourceTab, statusFilter, userTypeFilter, searchQuery])
 
   useEffect(() => {
     fetchTickets()
   }, [fetchTickets])
 
   return (
-    <div className="container mx-auto py-8 max-w-7xl space-y-8 px-4 sm:px-6">
+    <div className="container mx-auto py-8 max-w-7xl space-y-6 px-4 sm:px-6">
       
       {/* Header Banner */}
       <div className="rounded-3xl border border-indigo-200/80 bg-gradient-to-r from-blue-700 via-indigo-600 to-indigo-800 p-6 sm:p-8 text-white shadow-md flex flex-col md:flex-row md:items-center justify-between gap-6">
@@ -124,7 +135,7 @@ export function AdminSupportListClient() {
                 Customer & Seller Support Hub
               </h1>
               <p className="text-xs sm:text-sm text-indigo-100 mt-0.5">
-                Manage in-app customer & seller chat conversations, public inquiries, email replies, and ticket statuses.
+                Manage in-app customer & seller chat conversations, public website inquiries, email replies, and resolution workflows.
               </p>
             </div>
           </div>
@@ -141,14 +152,68 @@ export function AdminSupportListClient() {
         </Button>
       </div>
 
+      {/* 2 MAIN SOURCE TABS: In-App Support Tickets vs Public Website Inquiries */}
+      <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 pb-2">
+        <button
+          type="button"
+          onClick={() => setSourceTab("ALL")}
+          className={cn(
+            "px-5 py-2.5 rounded-2xl text-xs sm:text-sm font-extrabold transition-all flex items-center gap-2",
+            sourceTab === "ALL"
+              ? "bg-slate-900 text-white shadow-sm"
+              : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200"
+          )}
+        >
+          <Layers className="w-4 h-4" />
+          <span>All Support Requests</span>
+          <span className={cn("text-xs px-2 py-0.5 rounded-full font-bold", sourceTab === "ALL" ? "bg-white/20 text-white" : "bg-slate-100 text-slate-700")}>
+            {stats.total}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setSourceTab("IN_APP")}
+          className={cn(
+            "px-5 py-2.5 rounded-2xl text-xs sm:text-sm font-extrabold transition-all flex items-center gap-2",
+            sourceTab === "IN_APP"
+              ? "bg-indigo-600 text-white shadow-sm"
+              : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200"
+          )}
+        >
+          <Smartphone className="w-4 h-4" />
+          <span>In-App Support Tickets</span>
+          <span className={cn("text-xs px-2 py-0.5 rounded-full font-bold", sourceTab === "IN_APP" ? "bg-white/20 text-white" : "bg-indigo-50 text-indigo-700")}>
+            {stats.inApp}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setSourceTab("PUBLIC")}
+          className={cn(
+            "px-5 py-2.5 rounded-2xl text-xs sm:text-sm font-extrabold transition-all flex items-center gap-2",
+            sourceTab === "PUBLIC"
+              ? "bg-blue-600 text-white shadow-sm"
+              : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200"
+          )}
+        >
+          <Globe className="w-4 h-4" />
+          <span>Public Website Inquiries</span>
+          <span className={cn("text-xs px-2 py-0.5 rounded-full font-bold", sourceTab === "PUBLIC" ? "bg-white/20 text-white" : "bg-blue-50 text-blue-700")}>
+            {stats.public}
+          </span>
+        </button>
+      </div>
+
       {/* Stats Cards Row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="rounded-2xl border-slate-200 bg-white p-5 shadow-xs">
           <span className="text-xs font-bold uppercase tracking-wider text-slate-500 block">
-            Total Tickets
+            Total in Category
           </span>
           <p className="text-2xl sm:text-3xl font-extrabold text-slate-900 mt-1">
-            {stats.total}
+            {sourceTab === "ALL" ? stats.total : sourceTab === "IN_APP" ? stats.inApp : stats.public}
           </p>
         </Card>
 
@@ -234,7 +299,7 @@ export function AdminSupportListClient() {
         <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-100">
           <span className="text-xs font-bold uppercase tracking-wider text-slate-500 mr-1 flex items-center gap-1">
             <Filter className="w-3.5 h-3.5" />
-            <span>User Role:</span>
+            <span>Role:</span>
           </span>
           {[
             { id: "ALL", label: "All Roles" },
@@ -273,9 +338,11 @@ export function AdminSupportListClient() {
         ) : tickets.length === 0 ? (
           <div className="py-16 text-center text-slate-500 space-y-3">
             <Inbox className="w-12 h-12 text-slate-300 mx-auto" />
-            <h3 className="text-base font-bold text-slate-800">No support tickets found</h3>
+            <h3 className="text-base font-bold text-slate-800">
+              No {sourceTab === "IN_APP" ? "in-app support tickets" : sourceTab === "PUBLIC" ? "public website inquiries" : "support tickets"} found
+            </h3>
             <p className="text-xs text-slate-500 max-w-sm mx-auto">
-              No support tickets matched your current search and filter criteria.
+              No tickets matched your current tab, search, and filter criteria.
             </p>
           </div>
         ) : (
@@ -284,6 +351,7 @@ export function AdminSupportListClient() {
               <thead className="bg-slate-50/80 text-xs font-bold uppercase tracking-wider text-slate-500 border-b border-slate-200">
                 <tr>
                   <th className="px-6 py-4">Ticket ID</th>
+                  <th className="px-6 py-4">Source</th>
                   <th className="px-6 py-4">User Role</th>
                   <th className="px-6 py-4">Requester</th>
                   <th className="px-6 py-4">Subject & Message</th>
@@ -298,6 +366,7 @@ export function AdminSupportListClient() {
                   const isPending = ticket.status === "PENDING" || ticket.status === "OPEN"
                   const isResolved = ticket.status === "RESOLVED"
                   const isClosed = ticket.status === "CLOSED"
+                  const isInApp = ticket.source === "IN_APP"
 
                   return (
                     <tr key={ticket.id} className="hover:bg-slate-50/60 transition-colors">
@@ -306,6 +375,21 @@ export function AdminSupportListClient() {
                         <span className="font-mono text-xs font-bold text-indigo-700 bg-indigo-50 px-2.5 py-1 rounded-lg border border-indigo-100">
                           {ticket.ticketId}
                         </span>
+                      </td>
+
+                      {/* Source */}
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {isInApp ? (
+                          <Badge variant="outline" className="bg-indigo-50 text-indigo-700 border-indigo-200 text-xs font-semibold inline-flex items-center gap-1">
+                            <Smartphone className="w-3 h-3" />
+                            <span>In-App</span>
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 text-xs font-semibold inline-flex items-center gap-1">
+                            <Globe className="w-3 h-3" />
+                            <span>Public</span>
+                          </Badge>
+                        )}
                       </td>
 
                       {/* User Type */}

@@ -46,6 +46,7 @@ interface Reply {
 interface SupportTicket {
   id: string
   ticketId: string
+  source?: string | null
   userType: "CUSTOMER" | "SELLER_PRODUCT" | "SELLER_SERVICE" | "SELLER_RESTAURANT" | "SELLER_HOTEL"
   name: string
   email: string
@@ -294,6 +295,15 @@ export function AdminSupportDetailClient({ ticketIdOrDbId }: { ticketIdOrDbId: s
               <span className="font-mono text-xs font-extrabold text-indigo-700 bg-indigo-50 px-3 py-1 rounded-xl border border-indigo-200">
                 {ticket.ticketId}
               </span>
+              {ticket.source === "IN_APP" ? (
+                <Badge variant="outline" className="bg-indigo-50 text-indigo-700 border-indigo-200 text-xs font-semibold">
+                  In-App Ticket
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 text-xs font-semibold">
+                  Public Website
+                </Badge>
+              )}
               <Badge variant="outline" className={`inline-flex items-center gap-1.5 text-xs font-semibold ${roleMeta.color}`}>
                 {roleMeta.icon}
                 <span>{roleMeta.label}</span>
