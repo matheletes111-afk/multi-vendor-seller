@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
     const { serviceId } = await request.json()
     if (!serviceId) return NextResponse.json({ success: false, error: "Service ID is required" }, { status: 400 })
 
-    const [service, ratingAgg, reviewsWithCommentsCount] = await Promise.all([
+    const [service, ratingAgg, reviewsWithCommentsCount, ratingGroups] = await Promise.all([
       prisma.service.findUnique({
         where: { id: serviceId },
         select: {
@@ -44,10 +44,22 @@ export async function POST(request: NextRequest) {
             { comment: "" }
           ]
         }
+      }),
+      prisma.review.groupBy({
+        by: ["rating"],
+        where: { serviceId },
+        _count: { rating: true }
       })
     ])
 
     if (!service) return NextResponse.json({ success: false, error: "Service not found" }, { status: 404 })
+
+    const breakdown: Record<string, number> = { "5": 0, "4": 0, "3": 0, "2": 0, "1": 0 }
+    ratingGroups.forEach(g => {
+      if (g.rating >= 1 && g.rating <= 5) {
+        breakdown[String(g.rating)] = g._count.rating
+      }
+    })
 
     // Extract unique images for gallery
     const reviewGallery: string[] = []
@@ -79,12 +91,18 @@ export async function POST(request: NextRequest) {
       }
     })
 
+    const avgVal = parseFloat(Number(ratingAgg._avg.rating ?? 0).toFixed(1))
+
     return NextResponse.json({
       success: true,
       data: {
-        averageRating: Number(ratingAgg._avg.rating ?? 0).toFixed(1),
+        averageRating: avgVal,
         totalRatings: service._count.reviews,
+        reviewsCount: service._count.reviews,
+        reviewCount: service._count.reviews,
+        totalReviews: service._count.reviews,
         totalReviewsWithComments: reviewsWithCommentsCount,
+        breakdown,
         reviewGallery: Array.from(new Set(reviewGallery)),
         detailedReviews
       }

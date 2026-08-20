@@ -3,15 +3,16 @@ import { UserRole } from "@prisma/client"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 
-/** Stale Prisma client types: run `npx prisma generate` after WishlistItem gained `serviceId` / `service`. */
 const wishlistItem = prisma.wishlistItem as any
 
 export const dynamic = "force-dynamic"
 
-type WishlistItemApi = {
+export type WishlistItemApi = {
   wishlistItemId: string
   productId: string | null
   serviceId: string | null
+  hotelId: string | null
+  foodItemId: string | null
   createdAt: string
   product: {
     id: string
@@ -27,9 +28,27 @@ type WishlistItemApi = {
     image: string | null
     price: number | null
   } | null
+  hotel: {
+    id: string
+    name: string
+    slug: string
+    image: string | null
+    price: number | null
+    city: string | null
+    starRating: number
+  } | null
+  foodItem: {
+    id: string
+    name: string
+    image: string | null
+    price: number | null
+    isVeg: boolean
+    category?: string
+    restaurantName?: string
+  } | null
 }
 
-function toFirstImage(raw: unknown): string | null {
+export function toFirstImage(raw: unknown): string | null {
   if (!raw) return null
   if (Array.isArray(raw)) {
     const first = raw.find((value) => typeof value === "string" && value.trim())
@@ -50,10 +69,12 @@ function toFirstImage(raw: unknown): string | null {
   return null
 }
 
-function toItemApi(item: {
+export function toItemApi(item: {
   id: string
   productId: string | null
   serviceId: string | null
+  hotelId: string | null
+  foodItemId: string | null
   createdAt: Date
   product: {
     id: string
@@ -70,18 +91,54 @@ function toItemApi(item: {
     basePrice: number | null
     discount: number
   } | null
+  hotel?: {
+    id: string
+    name: string
+    images: unknown
+    logo: string | null
+    banner: string | null
+    city: string | null
+    starRating: number
+    rooms: Array<{ price: number }>
+  } | null
+  foodItem?: {
+    id: string
+    name: string
+    images: unknown
+    price: number
+    isVeg: boolean
+    category: string
+    restaurantSeller?: {
+      businessInfo?: { businessName: string | null } | null
+      user?: { name: string | null } | null
+    } | null
+  } | null
 }): WishlistItemApi {
-  const productPrice = item.product?.variants[0]
+  const productPrice = item.product?.variants?.[0]
     ? Math.max(0, item.product.variants[0].price - (item.product.variants[0].discount ?? 0))
     : null
   const servicePrice = item.service?.basePrice != null
     ? Math.max(0, item.service.basePrice - (item.service.discount ?? 0))
     : null
 
+  let hotelPrice: number | null = null
+  if (item.hotel?.rooms && item.hotel.rooms.length > 0) {
+    const validPrices = item.hotel.rooms.map((r) => r.price).filter((p) => typeof p === "number" && !isNaN(p))
+    if (validPrices.length > 0) {
+      hotelPrice = Math.min(...validPrices)
+    }
+  }
+
+  const hotelImage = item.hotel ? (toFirstImage(item.hotel.images) || item.hotel.logo || item.hotel.banner) : null
+  const foodImage = item.foodItem ? toFirstImage(item.foodItem.images) : null
+  const restaurantName = item.foodItem?.restaurantSeller?.businessInfo?.businessName || item.foodItem?.restaurantSeller?.user?.name || undefined
+
   return {
     wishlistItemId: item.id,
     productId: item.productId,
     serviceId: item.serviceId,
+    hotelId: item.hotelId,
+    foodItemId: item.foodItemId,
     createdAt: item.createdAt.toISOString(),
     product: item.product
       ? {
@@ -101,7 +158,91 @@ function toItemApi(item: {
           price: servicePrice,
         }
       : null,
+    hotel: item.hotel
+      ? {
+          id: item.hotel.id,
+          name: item.hotel.name,
+          slug: item.hotel.id,
+          image: hotelImage,
+          price: hotelPrice,
+          city: item.hotel.city,
+          starRating: item.hotel.starRating || 0,
+        }
+      : null,
+    foodItem: item.foodItem
+      ? {
+          id: item.foodItem.id,
+          name: item.foodItem.name,
+          image: foodImage,
+          price: item.foodItem.price,
+          isVeg: item.foodItem.isVeg,
+          category: item.foodItem.category,
+          restaurantName,
+        }
+      : null,
   }
+}
+
+export const wishlistInclude = {
+  product: {
+    where: { isDeleted: false },
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+      images: true,
+      variants: {
+        select: { price: true, discount: true },
+        orderBy: { price: "asc" },
+        take: 1,
+      },
+    },
+  },
+  service: {
+    where: { isDeleted: false },
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+      images: true,
+      basePrice: true,
+      discount: true,
+    },
+  },
+  hotel: {
+    where: { isDeleted: false },
+    select: {
+      id: true,
+      name: true,
+      images: true,
+      logo: true,
+      banner: true,
+      city: true,
+      starRating: true,
+      rooms: {
+        where: { isDeleted: false, isActive: true },
+        select: { price: true },
+        orderBy: { price: "asc" },
+      },
+    },
+  },
+  foodItem: {
+    where: { isDeleted: false },
+    select: {
+      id: true,
+      name: true,
+      images: true,
+      price: true,
+      isVeg: true,
+      category: true,
+      restaurantSeller: {
+        select: {
+          businessInfo: { select: { businessName: true } },
+          user: { select: { name: true } },
+        },
+      },
+    },
+  },
 }
 
 function unauthorized() {
@@ -119,35 +260,19 @@ export async function GET() {
 
   const rows = await wishlistItem.findMany({
     where: { userId: session.user.id },
-    include: {
-      product: {
-        select: {
-          id: true,
-          name: true,
-          slug: true,
-          images: true,
-          variants: {
-            select: { price: true, discount: true },
-            orderBy: { price: "asc" },
-            take: 1,
-          },
-        },
-      },
-      service: {
-        select: {
-          id: true,
-          name: true,
-          slug: true,
-          images: true,
-          basePrice: true,
-          discount: true,
-        },
-      },
-    },
+    include: wishlistInclude,
     orderBy: { createdAt: "desc" },
   })
 
-  const items = rows.map(toItemApi)
+  const validRows = rows.filter(
+    (r: any) =>
+      (r.productId && r.product) ||
+      (r.serviceId && r.service) ||
+      (r.hotelId && r.hotel) ||
+      (r.foodItemId && r.foodItem)
+  )
+
+  const items = validRows.map(toItemApi)
   return NextResponse.json({ items, count: items.length })
 }
 
@@ -163,42 +288,56 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 })
   }
 
-  const productId = typeof (body as { productId?: unknown })?.productId === "string"
-    ? (body as { productId: string }).productId.trim()
-    : null
-  const serviceId = typeof (body as { serviceId?: unknown })?.serviceId === "string"
-    ? (body as { serviceId: string }).serviceId.trim()
-    : null
+  const productId = typeof (body as any)?.productId === "string" ? (body as any).productId.trim() : null
+  const serviceId = typeof (body as any)?.serviceId === "string" ? (body as any).serviceId.trim() : null
+  const hotelId = typeof (body as any)?.hotelId === "string" ? (body as any).hotelId.trim() : null
+  const foodItemId = typeof (body as any)?.foodItemId === "string" ? (body as any).foodItemId.trim() : null
 
-  if (!productId && !serviceId) {
-    return NextResponse.json({ error: "productId or serviceId is required" }, { status: 400 })
+  const targetCount = [productId, serviceId, hotelId, foodItemId].filter(Boolean).length
+  if (targetCount === 0) {
+    return NextResponse.json(
+      { error: "Target ID (productId, serviceId, hotelId, or foodItemId) is required" },
+      { status: 400 }
+    )
   }
-  if (productId && serviceId) {
-    return NextResponse.json({ error: "Cannot add both productId and serviceId" }, { status: 400 })
+  if (targetCount > 1) {
+    return NextResponse.json({ error: "Cannot specify multiple target IDs in one request" }, { status: 400 })
   }
 
+  // Validate existence & active status
   if (productId) {
     const product = await prisma.product.findFirst({
       where: { id: productId, isActive: true, isDeleted: false },
       select: { id: true },
     })
-    if (!product) {
-      return NextResponse.json({ error: "Product not found" }, { status: 404 })
-    }
+    if (!product) return NextResponse.json({ error: "Product not found" }, { status: 404 })
   } else if (serviceId) {
     const service = await prisma.service.findFirst({
       where: { id: serviceId, isActive: true, isDeleted: false },
       select: { id: true },
     })
-    if (!service) {
-      return NextResponse.json({ error: "Service not found" }, { status: 404 })
-    }
+    if (!service) return NextResponse.json({ error: "Service not found" }, { status: 404 })
+  } else if (hotelId) {
+    const hotel = await prisma.hotel.findFirst({
+      where: { id: hotelId, isActive: true, isDeleted: false },
+      select: { id: true },
+    })
+    if (!hotel) return NextResponse.json({ error: "Hotel not found" }, { status: 404 })
+  } else if (foodItemId) {
+    const food = await prisma.foodItem.findFirst({
+      where: { id: foodItemId, isActive: true, isDeleted: false },
+      select: { id: true },
+    })
+    if (!food) return NextResponse.json({ error: "Food item not found" }, { status: 404 })
   }
 
   const existing = await wishlistItem.findFirst({
     where: {
       userId: session.user.id,
-      ...(productId ? { productId, serviceId: null } : { serviceId: serviceId!, productId: null }),
+      ...(productId ? { productId } : {}),
+      ...(serviceId ? { serviceId } : {}),
+      ...(hotelId ? { hotelId } : {}),
+      ...(foodItemId ? { foodItemId } : {}),
     },
   })
 
@@ -213,32 +352,10 @@ export async function POST(request: NextRequest) {
       userId: session.user.id,
       productId: productId ?? null,
       serviceId: serviceId ?? null,
+      hotelId: hotelId ?? null,
+      foodItemId: foodItemId ?? null,
     },
-    include: {
-      product: {
-        select: {
-          id: true,
-          name: true,
-          slug: true,
-          images: true,
-          variants: {
-            select: { price: true, discount: true },
-            orderBy: { price: "asc" },
-            take: 1,
-          },
-        },
-      },
-      service: {
-        select: {
-          id: true,
-          name: true,
-          slug: true,
-          images: true,
-          basePrice: true,
-          discount: true,
-        },
-      },
-    },
+    include: wishlistInclude,
   })
   const count = await wishlistItem.count({ where: { userId: session.user.id } })
   return NextResponse.json({ ok: true, action: "added" as const, item: toItemApi(created), count })
@@ -256,27 +373,27 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 })
   }
 
-  const productId = typeof (body as { productId?: unknown })?.productId === "string"
-    ? (body as { productId: string }).productId.trim()
-    : null
-  const serviceId = typeof (body as { serviceId?: unknown })?.serviceId === "string"
-    ? (body as { serviceId: string }).serviceId.trim()
-    : null
+  const productId = typeof (body as any)?.productId === "string" ? (body as any).productId.trim() : null
+  const serviceId = typeof (body as any)?.serviceId === "string" ? (body as any).serviceId.trim() : null
+  const hotelId = typeof (body as any)?.hotelId === "string" ? (body as any).hotelId.trim() : null
+  const foodItemId = typeof (body as any)?.foodItemId === "string" ? (body as any).foodItemId.trim() : null
 
-  if (!productId && !serviceId) {
-    return NextResponse.json({ error: "productId or serviceId is required" }, { status: 400 })
-  }
-  if (productId && serviceId) {
-    return NextResponse.json({ error: "Cannot send both productId and serviceId" }, { status: 400 })
+  const targetCount = [productId, serviceId, hotelId, foodItemId].filter(Boolean).length
+  if (targetCount === 0) {
+    return NextResponse.json({ error: "Target ID is required" }, { status: 400 })
   }
 
   const existing = await wishlistItem.findFirst({
     where: {
       userId: session.user.id,
-      ...(productId ? { productId, serviceId: null } : { serviceId: serviceId!, productId: null }),
+      ...(productId ? { productId } : {}),
+      ...(serviceId ? { serviceId } : {}),
+      ...(hotelId ? { hotelId } : {}),
+      ...(foodItemId ? { foodItemId } : {}),
     },
     select: { id: true },
   })
+
   if (!existing) {
     return NextResponse.json({ error: "Wishlist item not found" }, { status: 404 })
   }

@@ -56,7 +56,7 @@ export async function GET(request: NextRequest) {
         city: r.businessInfo?.city || "Dubai",
         locationText: r.businessInfo?.landmark || r.businessInfo?.street || "Downtown",
         rating,
-        reviewCount: allRatings.length || 42 + index * 12,
+        reviewCount: allRatings.length,
         deliveryTimeRange,
         offerTag,
       }

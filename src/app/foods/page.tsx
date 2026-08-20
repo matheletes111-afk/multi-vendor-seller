@@ -23,6 +23,7 @@ import { PublicLayout } from "@/components/site-layout"
 import { FoodDetailModal } from "@/components/foods/food-detail-modal"
 import { PageLoader } from "@/components/ui/page-loader"
 import { formatCurrency } from "@/lib/utils"
+import { WishlistButton } from "@/components/product/WishlistButton"
 
 function getYoutubeThumbnailUrl(url?: string | null): string | null {
   if (!url) return null
@@ -235,6 +236,16 @@ function FoodScrollStrip({
                   <div className={`absolute top-1.5 left-1.5 h-4 w-4 rounded-sm border-2 flex items-center justify-center ${food.isVeg ? "border-emerald-600 bg-white" : "border-red-600 bg-white"}`}>
                     <div className={`h-2 w-2 rounded-full ${food.isVeg ? "bg-emerald-600" : "bg-red-600"}`} />
                   </div>
+                  <div className="absolute top-1 right-1 z-10 scale-75 origin-top-right">
+                    <WishlistButton
+                      foodItemId={food.id}
+                      name={food.name}
+                      image={img}
+                      price={food.price}
+                      isVeg={food.isVeg}
+                      category={food.category}
+                    />
+                  </div>
                 </div>
 
                 {/* Food Info */}
@@ -310,10 +321,15 @@ function RestaurantCard({
               <h3 className="font-black text-slate-900 text-base leading-tight group-hover:text-emerald-600 transition-colors line-clamp-2">
                 {resto.businessName}
               </h3>
-              {/* Rating pill */}
-              <div className="flex items-center gap-0.5 bg-emerald-600 text-white text-[11px] font-black px-2 py-0.5 rounded-lg shrink-0 shadow-xs">
-                <Star className="h-2.5 w-2.5 fill-current" />
-                <span>{resto.averageRating > 0 ? resto.averageRating : "New"}</span>
+              {/* Rating pill + User Count */}
+              <div className="flex items-center gap-1.5 shrink-0">
+                <div className="flex items-center gap-0.5 bg-emerald-600 text-white text-[10px] sm:text-[11px] font-extrabold px-1.5 py-0.5 rounded shadow-2xs">
+                  <span>{(resto.averageRating || 0).toFixed(1)}</span>
+                  <Star className="h-2.5 w-2.5 fill-current" />
+                </div>
+                <span className="text-[11px] font-medium text-slate-500">
+                  ({(resto.totalReviews || 0).toLocaleString()})
+                </span>
               </div>
             </div>
 
@@ -691,6 +707,19 @@ function RestaurantsDirectoryPageContent() {
                             <div className="absolute top-1 left-1 h-3.5 w-3.5 rounded-xs border-2 border-emerald-600 bg-white flex items-center justify-center">
                               <div className="h-1.5 w-1.5 rounded-full bg-emerald-600" />
                             </div>
+                            {food.id && !food.id.startsWith("fb_") && (
+                              <div className="absolute top-1 right-1 z-10 scale-75 origin-top-right">
+                                <WishlistButton
+                                  foodItemId={food.id}
+                                  name={food.name}
+                                  image={imgUrl}
+                                  price={food.price}
+                                  isVeg={food.isVeg}
+                                  category={food.category}
+                                  restaurantName={food.restaurantName}
+                                />
+                              </div>
+                            )}
                           </div>
                           <span className="mt-1.5 text-[11px] font-bold text-slate-900 line-clamp-1 group-hover:text-emerald-600">
                             {food.name}
@@ -756,6 +785,19 @@ function RestaurantsDirectoryPageContent() {
                             <div className="absolute top-1 left-1 h-3.5 w-3.5 rounded-xs border-2 border-red-600 bg-white flex items-center justify-center">
                               <div className="h-1.5 w-1.5 rounded-full bg-red-600" />
                             </div>
+                            {food.id && !food.id.startsWith("fb_") && (
+                              <div className="absolute top-1 right-1 z-10 scale-75 origin-top-right">
+                                <WishlistButton
+                                  foodItemId={food.id}
+                                  name={food.name}
+                                  image={imgUrl}
+                                  price={food.price}
+                                  isVeg={food.isVeg}
+                                  category={food.category}
+                                  restaurantName={food.restaurantName}
+                                />
+                              </div>
+                            )}
                           </div>
                           <span className="mt-1.5 text-[11px] font-bold text-slate-900 line-clamp-1 group-hover:text-rose-600">
                             {food.name}

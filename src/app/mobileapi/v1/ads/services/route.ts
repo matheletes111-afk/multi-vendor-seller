@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
       const s = ad.service
       const price = s ? Math.max(0, (s.basePrice || 0) - (s.discount || 0)) : 0
       const totalRating = s?.reviews.reduce((acc, r) => acc + r.rating, 0) || 0
-      const rating = s?.reviews.length ? parseFloat((totalRating / s.reviews.length).toFixed(1)) : 4.9
+      const rating = s?.reviews.length ? parseFloat((totalRating / s.reviews.length).toFixed(1)) : 0
 
       return {
         ad_id: ad.id,
@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
         service_id: ad.serviceId,
         price,
         rating,
-        review_count: s?.reviews.length || 38,
+        review_count: s?.reviews.length || 0,
         cta_text: "Book Service",
         click_url: `/services/${ad.serviceId}`,
       }

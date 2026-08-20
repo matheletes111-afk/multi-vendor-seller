@@ -25,6 +25,9 @@ type EnrichedProduct = {
   discount: number
   finalPrice: number
   avgRating: number
+  averageRating?: number
+  reviewsCount?: number
+  totalReviews?: number
   soldCount: number
   brand: string | null
   stock: number
@@ -379,6 +382,9 @@ export async function GET(request: NextRequest) {
         discount,
         finalPrice,
         avgRating: ratingByProduct[p.id]?.avg ?? 0,
+        averageRating: ratingByProduct[p.id]?.avg ?? 0,
+        reviewsCount: p._count?.reviews ?? 0,
+        totalReviews: p._count?.reviews ?? 0,
         soldCount: soldByProduct[p.id] ?? 0,
         brand: extractBrand(v?.attributes),
         stock,

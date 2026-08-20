@@ -34,6 +34,7 @@ import {
 } from "@/ui/select"
 import { cn, formatCurrency } from "@/lib/utils"
 import { PageLoader } from "@/components/ui/page-loader"
+import { WishlistButton } from "@/components/product/WishlistButton"
 
 export interface ServiceCategory {
   id: string
@@ -1029,18 +1030,24 @@ function ServiceHomeContent() {
                           )}
                         </div>
 
-                        {/* Rating / New Badge */}
-                        {service.rating && service.rating > 0 ? (
-                          <div className="absolute bottom-3 left-3 flex items-center gap-1 rounded-full bg-white/90 px-2.5 py-1 text-xs font-bold text-slate-900 backdrop-blur-md shadow-sm">
-                            <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
-                            <span>{service.rating.toFixed(1)}</span>
-                            <span className="text-[10px] text-slate-500">({service.reviewCount || 0})</span>
-                          </div>
-                        ) : (
-                          <div className="absolute bottom-3 left-3 flex items-center gap-1 rounded-full bg-slate-950/75 px-2.5 py-0.5 text-[10px] font-extrabold text-amber-300 backdrop-blur-md border border-amber-400/30 shadow-sm">
-                            <span>New Service</span>
-                          </div>
-                        )}
+                        {/* Top Right Wishlist */}
+                        <div className="absolute right-3 top-3 z-10">
+                          <WishlistButton
+                            serviceId={service.id}
+                            name={service.name}
+                            image={coverImg}
+                            price={service.basePrice}
+                          />
+                        </div>
+
+                        {/* Rating Badge - Flipkart Style */}
+                        <div className="absolute bottom-3 left-3 flex items-center gap-1.5 rounded-full bg-white/95 px-2 py-0.5 text-xs font-bold text-slate-900 backdrop-blur-md shadow-sm">
+                          <span className="inline-flex items-center gap-0.5 rounded bg-emerald-600 px-1.5 py-0.5 text-[10px] font-extrabold text-white shadow-2xs">
+                            <span>{(service.rating || 0).toFixed(1)}</span>
+                            <Star className="h-2.5 w-2.5 fill-white text-white" />
+                          </span>
+                          <span className="text-[11px] text-slate-600 font-semibold">({(service.reviewCount || 0).toLocaleString()})</span>
+                        </div>
                       </div>
 
                       {/* Card Content Body */}

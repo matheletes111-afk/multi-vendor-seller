@@ -70,6 +70,7 @@ export function AdminLayoutClient({
         </div>
         <div className="space-y-0.5">
           <NavItem href="/admin" label="Dashboard" icon={<LayoutDashboard className="h-4 w-4" />} />
+          <NavItem href="/admin/all-sellers" label="All Sellers" icon={<Users className="h-4 w-4" />} />
           <NavItem href="/admin/support" label="Support Tickets" icon={<LifeBuoy className="h-4 w-4" />} />
           <NavItem href="/admin/banners" label="Banners" icon={<ImageIcon className="h-4 w-4" />} />
           <NavItem href="/admin/subscriptions" label="Subscriptions" icon={<CreditCard className="h-4 w-4" />} />

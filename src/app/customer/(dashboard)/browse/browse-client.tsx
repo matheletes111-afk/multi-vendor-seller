@@ -97,7 +97,8 @@ export function BrowseClient() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { status, data: session } = useSession()
-  const canUseWishlist = status === "authenticated" && session?.user?.role === UserRole.CUSTOMER
+  const isCustomer = session?.user?.role === UserRole.CUSTOMER
+  const canUseWishlist = status === "unauthenticated" || (status === "authenticated" && isCustomer)
 
   const categoryId = searchParams.get("categoryId")
   const catsParam = searchParams.get("cats")

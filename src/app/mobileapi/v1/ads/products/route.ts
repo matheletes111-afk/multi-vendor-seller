@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
       const variant = p?.variants[0]
       const price = variant ? Math.max(0, variant.price - (variant.discount || 0)) : 0
       const totalRating = p?.reviews.reduce((acc, r) => acc + r.rating, 0) || 0
-      const rating = p?.reviews.length ? parseFloat((totalRating / p.reviews.length).toFixed(1)) : 4.9
+      const rating = p?.reviews.length ? parseFloat((totalRating / p.reviews.length).toFixed(1)) : 0
 
       return {
         ad_id: ad.id,
@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
         product_id: ad.productId,
         price,
         rating,
-        review_count: p?.reviews.length || 24,
+        review_count: p?.reviews.length || 0,
         cta_text: "Shop Now",
         click_url: `/products/${ad.productId}`,
       }

@@ -950,7 +950,7 @@ export function SiteHeader() {
             </Link>
           )}
 
-          {canUseWishlist && !isCustomNav && (
+          {canUseWishlist && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
@@ -1019,50 +1019,109 @@ export function SiteHeader() {
                   <div className="px-3 py-4 text-sm text-slate-600">No items in wishlist yet.</div>
                 ) : (
                   <div className="max-h-80 overflow-y-auto">
-                    {topWishlistItems.map((item) => (
-                      <DropdownMenuItem key={item.wishlistItemId} asChild className="p-0">
-                        <div className="flex items-center gap-2 px-3 py-2.5">
-                          <Link
-                            href={item.productId ? `/product/${item.productId}` : `/service/${item.serviceId}`}
-                            className="flex min-w-0 flex-1 items-center gap-3"
-                          >
-                            <div className="h-12 w-12 shrink-0 overflow-hidden rounded-md bg-slate-100">
-                              {(item.product?.image || item.service?.image) ? (
-                                /* eslint-disable-next-line @next/next/no-img-element */
-                                <img src={item.product?.image || item.service?.image || ""} alt={item.product?.name || item.service?.name || ""} className="h-full w-full object-cover" />
-                              ) : (
-                                <div className="flex h-full w-full items-center justify-center text-slate-400">
-                                  <Heart className="h-4 w-4" />
-                                </div>
-                              )}
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <p className="line-clamp-2 text-sm font-medium text-slate-900">
-                                {item.product?.name || item.service?.name || (item.productId ? "View Product" : "View Service")}
-                              </p>
-                              {typeof (item.product?.price || item.service?.price) === "number" && (
-                                <p className="text-xs font-semibold text-blue-600">{formatCurrency(item.product?.price || item.service?.price || 0)}</p>
-                              )}
-                            </div>
-                          </Link>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 shrink-0 text-slate-500 hover:bg-rose-50 hover:text-rose-600"
-                            onClick={(event) => {
-                              event.preventDefault()
-                              event.stopPropagation()
-                              void removeWishlist(item.productId ?? undefined, item.serviceId ?? undefined)
-                            }}
-                            aria-label={`Remove ${item.product?.name || item.service?.name} from wishlist`}
-                            title="Remove from wishlist"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </DropdownMenuItem>
-                    ))}
+                    {topWishlistItems.map((item) => {
+                      const itemHref = item.productId
+                        ? `/product/${item.productId}`
+                        : item.serviceId
+                          ? `/service/${item.serviceId}`
+                          : item.hotelId
+                            ? `/hotels/${item.hotelId}`
+                            : `/foods/${item.foodItemId}`
+
+                      const itemImage =
+                        item.product?.image ||
+                        item.service?.image ||
+                        item.hotel?.image ||
+                        item.foodItem?.image ||
+                        null
+
+                      const itemName =
+                        item.product?.name ||
+                        item.service?.name ||
+                        item.hotel?.name ||
+                        item.foodItem?.name ||
+                        (item.productId
+                          ? "View Product"
+                          : item.serviceId
+                            ? "View Service"
+                            : item.hotelId
+                              ? "View Hotel"
+                              : "View Food")
+
+                      const itemPrice =
+                        item.product?.price ??
+                        item.service?.price ??
+                        item.hotel?.price ??
+                        item.foodItem?.price ??
+                        null
+
+                      const subtext = item.hotel
+                        ? `${item.hotel.city ? `${item.hotel.city} · ` : ""}⭐ ${item.hotel.starRating || 0}★`
+                        : item.foodItem
+                          ? `${item.foodItem.isVeg ? "🟢 Veg" : "🔴 Non-Veg"}${item.foodItem.restaurantName ? ` · ${item.foodItem.restaurantName}` : ""}`
+                          : null
+
+                      return (
+                        <DropdownMenuItem key={item.wishlistItemId} asChild className="p-0">
+                          <div className="flex items-center gap-2 px-3 py-2.5">
+                            <Link
+                              href={itemHref}
+                              className="flex min-w-0 flex-1 items-center gap-3"
+                            >
+                              <div className="h-12 w-12 shrink-0 overflow-hidden rounded-md bg-slate-100">
+                                {itemImage ? (
+                                  /* eslint-disable-next-line @next/next/no-img-element */
+                                  <img
+                                    src={itemImage}
+                                    alt={itemName}
+                                    className="h-full w-full object-cover"
+                                  />
+                                ) : (
+                                  <div className="flex h-full w-full items-center justify-center text-slate-400">
+                                    <Heart className="h-4 w-4" />
+                                  </div>
+                                )}
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <p className="line-clamp-1 text-sm font-medium text-slate-900">
+                                  {itemName}
+                                </p>
+                                {subtext && (
+                                  <p className="text-[10px] text-slate-500 line-clamp-1">
+                                    {subtext}
+                                  </p>
+                                )}
+                                {typeof itemPrice === "number" && (
+                                  <p className="text-xs font-semibold text-blue-600">
+                                    {formatCurrency(itemPrice)}
+                                  </p>
+                                )}
+                              </div>
+                            </Link>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 shrink-0 text-slate-500 hover:bg-rose-50 hover:text-rose-600"
+                              onClick={(event) => {
+                                event.preventDefault()
+                                event.stopPropagation()
+                                void removeWishlist(
+                                  item.productId ?? undefined,
+                                  item.serviceId ?? undefined,
+                                  item.hotelId ?? undefined,
+                                  item.foodItemId ?? undefined
+                                )
+                              }}
+                              aria-label={`Remove ${itemName} from wishlist`}
+                              title="Remove from wishlist"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </DropdownMenuItem>
+                      )
+                    })}
                   </div>
                 )}
                 <DropdownMenuSeparator />

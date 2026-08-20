@@ -9,7 +9,7 @@ import {
   clearGuestWishlistFromStorage,
 } from "./guest-wishlist"
 
-type WishlistProduct = {
+export type WishlistProduct = {
   id: string
   name: string
   slug: string
@@ -17,21 +17,45 @@ type WishlistProduct = {
   price: number | null
 }
 
-type WishlistService = {
+export type WishlistService = {
   id: string
   name: string
   slug: string
   image: string | null
   price: number | null
+}
+
+export type WishlistHotel = {
+  id: string
+  name: string
+  slug?: string
+  image: string | null
+  price: number | null
+  city?: string | null
+  starRating?: number
+}
+
+export type WishlistFoodItem = {
+  id: string
+  name: string
+  image: string | null
+  price: number | null
+  isVeg?: boolean
+  category?: string
+  restaurantName?: string
 }
 
 export type WishlistItem = {
   wishlistItemId: string
   productId: string | null
   serviceId: string | null
+  hotelId: string | null
+  foodItemId: string | null
   createdAt: string
   product: WishlistProduct | null
   service: WishlistService | null
+  hotel: WishlistHotel | null
+  foodItem: WishlistFoodItem | null
 }
 
 type WishlistResponse = {
@@ -50,6 +74,11 @@ export type WishlistMeta = {
   name?: string
   image?: string | null
   price?: number | null
+  city?: string | null
+  starRating?: number
+  isVeg?: boolean
+  category?: string
+  restaurantName?: string
 }
 
 type WishlistContextValue = {
@@ -57,16 +86,25 @@ type WishlistContextValue = {
   count: number
   loading: boolean
   canUseWishlist: boolean
-  isWishlisted: (productId?: string, serviceId?: string) => boolean
+  isWishlisted: (
+    productId?: string,
+    serviceId?: string,
+    hotelId?: string,
+    foodItemId?: string
+  ) => boolean
   refreshWishlist: () => Promise<void>
   toggleWishlist: (
     productId?: string,
     serviceId?: string,
+    hotelId?: string,
+    foodItemId?: string,
     details?: WishlistMeta
   ) => Promise<{ action: "added" | "removed" } | { error: string }>
   removeWishlist: (
     productId?: string,
-    serviceId?: string
+    serviceId?: string,
+    hotelId?: string,
+    foodItemId?: string
   ) => Promise<{ action: "removed" } | { error: string }>
 }
 
@@ -103,16 +141,34 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
         // Sync guest items if any were stored before customer login
         const guestItems = getGuestWishlistFromStorage()
         if (guestItems.length > 0) {
-          for (const gItem of guestItems) {
-            if (gItem.productId || gItem.serviceId) {
+          const syncPayload = guestItems.map((g) => ({
+            productId: g.productId ?? undefined,
+            serviceId: g.serviceId ?? undefined,
+            hotelId: g.hotelId ?? undefined,
+            foodItemId: g.foodItemId ?? undefined,
+          }))
+
+          await fetch("/api/customer/wishlist/sync", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({ items: syncPayload }),
+          }).catch(async () => {
+            // Fallback: single POST calls
+            for (const gItem of guestItems) {
               await fetch("/api/customer/wishlist", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 credentials: "include",
-                body: JSON.stringify({ productId: gItem.productId, serviceId: gItem.serviceId }),
+                body: JSON.stringify({
+                  productId: gItem.productId,
+                  serviceId: gItem.serviceId,
+                  hotelId: gItem.hotelId,
+                  foodItemId: gItem.foodItemId,
+                }),
               }).catch(() => {})
             }
-          }
+          })
           clearGuestWishlistFromStorage()
         }
 
@@ -139,15 +195,24 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
     void refreshWishlist()
   }, [refreshWishlist])
 
+  const matchesItem = (
+    item: WishlistItem,
+    productId?: string,
+    serviceId?: string,
+    hotelId?: string,
+    foodItemId?: string
+  ) => {
+    if (productId) return item.productId === productId
+    if (serviceId) return item.serviceId === serviceId
+    if (hotelId) return item.hotelId === hotelId
+    if (foodItemId) return item.foodItemId === foodItemId
+    return false
+  }
+
   const isWishlisted = useCallback(
-    (productId?: string, serviceId?: string) => {
-      if (productId) {
-        return items.some((item) => item.productId === productId && item.serviceId == null)
-      }
-      if (serviceId) {
-        return items.some((item) => item.serviceId === serviceId && item.productId == null)
-      }
-      return false
+    (productId?: string, serviceId?: string, hotelId?: string, foodItemId?: string) => {
+      if (!productId && !serviceId && !hotelId && !foodItemId) return false
+      return items.some((item) => matchesItem(item, productId, serviceId, hotelId, foodItemId))
     },
     [items]
   )
@@ -156,22 +221,24 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
     async (
       productId?: string,
       serviceId?: string,
+      hotelId?: string,
+      foodItemId?: string,
       details?: WishlistMeta
     ): Promise<{ action: "added" | "removed" } | { error: string }> => {
       if (!canUseWishlist) return { error: "Wishlist is only available for shoppers and guests." }
-      if (!productId && !serviceId) return { error: "productId or serviceId is required" }
-      if (productId && serviceId) return { error: "Cannot add both productId and serviceId" }
+      const idsCount = [productId, serviceId, hotelId, foodItemId].filter(Boolean).length
+      if (idsCount === 0) return { error: "Target ID (productId, serviceId, hotelId, or foodItemId) is required" }
+      if (idsCount > 1) return { error: "Cannot specify multiple target IDs in one request" }
 
       if (isGuest) {
         const currentGuestItems = getGuestWishlistFromStorage()
-        const matchesTarget = (item: WishlistItem) =>
-          productId
-            ? item.productId === productId && item.serviceId == null
-            : item.serviceId === serviceId && item.productId == null
-
-        const existing = currentGuestItems.find(matchesTarget)
+        const existing = currentGuestItems.find((i) =>
+          matchesItem(i, productId, serviceId, hotelId, foodItemId)
+        )
         if (existing) {
-          const nextGuest = currentGuestItems.filter((i) => !matchesTarget(i))
+          const nextGuest = currentGuestItems.filter(
+            (i) => !matchesItem(i, productId, serviceId, hotelId, foodItemId)
+          )
           setGuestWishlistInStorage(nextGuest)
           setItems(nextGuest)
           setCount(nextGuest.length)
@@ -181,6 +248,8 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
             wishlistItemId: `guest-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
             productId: productId ?? null,
             serviceId: serviceId ?? null,
+            hotelId: hotelId ?? null,
+            foodItemId: foodItemId ?? null,
             createdAt: new Date().toISOString(),
             product: productId
               ? {
@@ -200,6 +269,28 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
                   price: details?.price ?? null,
                 }
               : null,
+            hotel: hotelId
+              ? {
+                  id: hotelId,
+                  name: details?.name || "Hotel",
+                  slug: "",
+                  image: details?.image ?? null,
+                  price: details?.price ?? null,
+                  city: details?.city ?? null,
+                  starRating: details?.starRating ?? 0,
+                }
+              : null,
+            foodItem: foodItemId
+              ? {
+                  id: foodItemId,
+                  name: details?.name || "Food Item",
+                  image: details?.image ?? null,
+                  price: details?.price ?? null,
+                  isVeg: details?.isVeg ?? true,
+                  category: details?.category,
+                  restaurantName: details?.restaurantName,
+                }
+              : null,
           }
           const nextGuest = [newItem, ...currentGuestItems]
           setGuestWishlistInStorage(nextGuest)
@@ -215,7 +306,7 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
-          body: JSON.stringify({ productId, serviceId }),
+          body: JSON.stringify({ productId, serviceId, hotelId, foodItemId }),
         })
         if (!response.ok) {
           const errorData = (await response.json().catch(() => ({}))) as { error?: string }
@@ -226,15 +317,13 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
         const action = data.action === "removed" ? "removed" : "added"
 
         setItems((prev) => {
-          const matchesTarget = (item: WishlistItem) =>
-            productId
-              ? item.productId === productId && item.serviceId == null
-              : item.serviceId === serviceId && item.productId == null
           if (action === "removed") {
-            return prev.filter((item) => !matchesTarget(item))
+            return prev.filter((item) => !matchesItem(item, productId, serviceId, hotelId, foodItemId))
           }
           if (!data.item) return prev
-          const withoutExisting = prev.filter((item) => !matchesTarget(item))
+          const withoutExisting = prev.filter(
+            (item) => !matchesItem(item, productId, serviceId, hotelId, foodItemId)
+          )
           return [data.item, ...withoutExisting]
         })
         if (typeof data.count === "number") {
@@ -253,17 +342,16 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
   )
 
   const removeWishlist = useCallback(
-    async (productId?: string, serviceId?: string) => {
+    async (productId?: string, serviceId?: string, hotelId?: string, foodItemId?: string) => {
       if (!canUseWishlist) return { error: "Wishlist is only available for shoppers and guests." }
-      if (!productId && !serviceId) return { error: "productId or serviceId is required" }
+      const idsCount = [productId, serviceId, hotelId, foodItemId].filter(Boolean).length
+      if (idsCount === 0) return { error: "Target ID is required" }
 
       if (isGuest) {
         const currentGuestItems = getGuestWishlistFromStorage()
-        const matchesTarget = (item: WishlistItem) =>
-          productId
-            ? item.productId === productId && item.serviceId == null
-            : item.serviceId === serviceId && item.productId == null
-        const nextGuest = currentGuestItems.filter((i) => !matchesTarget(i))
+        const nextGuest = currentGuestItems.filter(
+          (i) => !matchesItem(i, productId, serviceId, hotelId, foodItemId)
+        )
         setGuestWishlistInStorage(nextGuest)
         setItems(nextGuest)
         setCount(nextGuest.length)
@@ -276,7 +364,7 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
           method: "DELETE",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
-          body: JSON.stringify({ productId, serviceId }),
+          body: JSON.stringify({ productId, serviceId, hotelId, foodItemId }),
         })
         if (!response.ok) {
           const errorData = (await response.json().catch(() => ({}))) as { error?: string }
@@ -284,11 +372,7 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
         }
         const data = (await response.json()) as ToggleResponse
         setItems((prev) =>
-          prev.filter((item) =>
-            productId
-              ? !(item.productId === productId && item.serviceId == null)
-              : !(item.serviceId === serviceId && item.productId == null)
-          )
+          prev.filter((item) => !matchesItem(item, productId, serviceId, hotelId, foodItemId))
         )
         if (typeof data.count === "number") setCount(data.count)
         else setCount((prev) => Math.max(0, prev - 1))
