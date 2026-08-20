@@ -1,0 +1,868 @@
+================================================================================
+  MEEEM MOBILE API DOCUMENTATION: UNIFIED REVIEWS & RATINGS SYSTEM
+  (STEP-BY-STEP INTEGRATION FOR ALL 4 VERTICALS & 4 SELLER PANELS)
+================================================================================
+
+Target Audience: Mobile App Developers (React Native, Flutter, iOS Swift, Android Kotlin)
+Version: 2.0
+Date: August 2026
+
+--------------------------------------------------------------------------------
+TABLE OF CONTENTS
+--------------------------------------------------------------------------------
+1. System Overview & Authentication
+2. PART 1: Details Page Reviews (Customer & Guest View)
+   - 1.1 Product Details Page Reviews
+   - 1.2 Service Details Page Reviews
+   - 1.3 Hotel Details Page Reviews
+   - 1.4 Food Item & Restaurant Details Page Reviews
+3. PART 2: Customer Submit & Edit Reviews
+   - 2.1 Product & Service Reviews Submission (Delivered Orders)
+   - 2.2 Hotel Stay Reviews Submission (Confirmed Bookings)
+   - 2.3 Food Item Reviews Submission
+4. PART 3: Seller Panel Reviews (4 Seller Types)
+   - 3.1 Product Seller Panel (SELLER_PRODUCT)
+   - 3.2 Service Seller Panel (SELLER_SERVICE)
+   - 3.3 Hotel Seller Panel (SELLER_HOTEL)
+   - 3.4 Restaurant Seller Panel (SELLER_RESTAURANT)
+5. Status Codes, Validation & Error Handling
+6. Mobile Developer Integration Checklist
+
+================================================================================
+1. SYSTEM OVERVIEW & AUTHENTICATION
+================================================================================
+The reviews system covers 4 business verticals:
+  • Vertical 1: Marketplace Products
+  • Vertical 2: Home & Professional Services
+  • Vertical 3: Hotels, Stays & Resorts
+  • Vertical 4: Food & Restaurant Dishes
+
+Authentication Headers:
+  • Public / Guest: Detail page review viewing does not require auth tokens.
+  • Customer Actions (Write/Edit Reviews):
+      Authorization: Bearer <customer_jwt_token>
+  • Seller Actions (Seller Panel Reviews):
+      Authorization: Bearer <seller_jwt_token>
+
+================================================================================
+2. PART 1: DETAILS PAGE REVIEWS (CUSTOMER & GUEST VIEW)
+================================================================================
+
+--------------------------------------------------------------------------------
+1.1 PRODUCT DETAILS PAGE REVIEWS
+--------------------------------------------------------------------------------
+
+A) Basic Summary in Product Detail:
+   Endpoint: GET /mobileapi/product/:id
+   Auth: Not required (Public / Guest)
+   Response snippet:
+   {
+     "success": true,
+     "data": {
+       "id": "prod_101",
+       "name": "Wireless Noise-Canceling Headphones",
+       "_count": {
+         "reviews": 24
+       }
+     }
+   }
+
+B) Full Product Reviews & Media Breakdown:
+   Endpoint: POST /mobileapi/product/reviews
+   Auth: Not required (Public / Guest)
+   Content-Type: application/json
+   
+   Request Body:
+   {
+     "productId": "prod_101"
+   }
+
+   Response (200 OK):
+   {
+     "success": true,
+     "data": {
+       "averageRating": "4.8",
+       "totalRatings": 24,
+       "totalReviewsWithComments": 18,
+       "reviewGallery": [
+         "https://cdn.meeem.com/reviews/headphones_photo1.jpg",
+         "https://cdn.meeem.com/reviews/headphones_photo2.jpg"
+       ],
+       "detailedReviews": [
+         {
+           "id": "rev_001",
+           "rating": 5,
+           "comment": "Exceptional sound clarity and battery life!",
+           "images": [
+             "https://cdn.meeem.com/reviews/headphones_photo1.jpg"
+           ],
+           "createdAt": "2026-08-18T10:15:30.000Z",
+           "isVerified": true,
+           "reviewerName": "Sarah Johnson",
+           "reviewerImage": "https://cdn.meeem.com/avatars/user1.jpg",
+           "variantInfo": "Color: Matte Black, Size: Standard"
+         }
+       ]
+     }
+   }
+
+--------------------------------------------------------------------------------
+1.2 SERVICE DETAILS PAGE REVIEWS
+--------------------------------------------------------------------------------
+
+A) Quick Summary in Service Detail:
+   Endpoint: GET /mobileapi/services/:id
+   Auth: Not required (Public / Guest)
+   Response snippet:
+   {
+     "success": true,
+     "data": {
+       "service": {
+         "id": "serv_202",
+         "name": "Home Deep Cleaning Service",
+         "reviewCount": 15,
+         "averageRating": 4.9,
+         "reviews": [
+           {
+             "id": "rev_002",
+             "rating": 5,
+             "comment": "Super clean and punctual professionals!",
+             "images": [],
+             "createdAt": "2026-08-17T14:20:00.000Z",
+             "isVerified": true,
+             "reviewerName": "David K."
+           }
+         ]
+       }
+     }
+   }
+
+B) Full Service Reviews & Media Breakdown:
+   Endpoint: POST /mobileapi/services/reviews
+   Auth: Not required (Public / Guest)
+   Content-Type: application/json
+
+   Request Body:
+   {
+     "serviceId": "serv_202"
+   }
+
+   Response (200 OK):
+   {
+     "success": true,
+     "data": {
+       "averageRating": "4.9",
+       "totalRatings": 15,
+       "totalReviewsWithComments": 12,
+       "reviewGallery": [
+         "https://cdn.meeem.com/reviews/cleaning_after.jpg"
+       ],
+       "detailedReviews": [
+         {
+           "id": "rev_002",
+           "rating": 5,
+           "comment": "Super clean and punctual professionals!",
+           "images": [
+             "https://cdn.meeem.com/reviews/cleaning_after.jpg"
+           ],
+           "createdAt": "2026-08-17T14:20:00.000Z",
+           "isVerified": true,
+           "reviewerName": "David K.",
+           "reviewerImage": "https://cdn.meeem.com/avatars/user2.jpg",
+           "variantInfo": "Package: 3 BHK Complete Deep Clean"
+         }
+       ]
+     }
+   }
+
+--------------------------------------------------------------------------------
+1.3 HOTEL DETAILS PAGE REVIEWS
+--------------------------------------------------------------------------------
+
+Endpoint: GET /mobileapi/customer/hotels/:id
+Auth: Not required (Public / Guest)
+
+Response (200 OK):
+{
+  "success": true,
+  "data": {
+    "id": "hotel_303",
+    "name": "Luxury Oceanfront Resort & Spa",
+    "averageRating": 4.7,
+    "totalReviews": 38,
+    "reviews": [
+      {
+        "id": "h_rev_001",
+        "userId": "usr_cust_10",
+        "userName": "Emily Watson",
+        "rating": 5,
+        "comment": "Amazing sea view and great breakfast buffet!",
+        "createdAt": "2026-08-16T18:00:00.000Z"
+      }
+    ]
+  }
+}
+
+--------------------------------------------------------------------------------
+1.4 FOOD ITEM & RESTAURANT DETAILS PAGE REVIEWS
+--------------------------------------------------------------------------------
+
+A) Single Food Item Reviews:
+   Endpoint: GET /mobileapi/customer/foods/:id
+   Auth: Not required (Public / Guest)
+
+   Response (200 OK):
+   {
+     "success": true,
+     "data": {
+       "id": "food_404",
+       "name": "Paneer Butter Masala Combo",
+       "averageRating": 4.9,
+       "totalReviews": 42,
+       "reviews": [
+         {
+           "id": "f_rev_001",
+           "userId": "usr_cust_22",
+           "userName": "Alex Rivera",
+           "rating": 5,
+           "comment": "Rich gravy and super soft paneer!",
+           "createdAt": "2026-08-18T19:30:00.000Z"
+         }
+       ]
+     }
+   }
+
+B) Restaurant Full Menu with Food Reviews:
+   Endpoint: GET /mobileapi/restaurants/:id
+   Auth: Not required (Public / Guest)
+
+   Response (200 OK):
+   {
+     "success": true,
+     "data": {
+       "id": "rest_505",
+       "name": "Royal Spices Kitchen",
+       "foods": [
+         {
+           "id": "food_404",
+           "name": "Paneer Butter Masala Combo",
+           "price": 45000,
+           "averageRating": 4.9,
+           "totalReviews": 42,
+           "reviews": [
+             {
+               "id": "f_rev_001",
+               "userName": "Alex Rivera",
+               "rating": 5,
+               "comment": "Rich gravy and super soft paneer!",
+               "createdAt": "2026-08-18T19:30:00.000Z"
+             }
+           ]
+         }
+       ]
+     }
+   }
+
+================================================================================
+3. PART 2: CUSTOMER SUBMIT & EDIT REVIEWS
+================================================================================
+
+--------------------------------------------------------------------------------
+2.1 PRODUCT & SERVICE REVIEWS SUBMISSION (DELIVERED ORDERS)
+--------------------------------------------------------------------------------
+Customers can review Products and Services once their order item is marked as DELIVERED.
+The order details API (`/mobileapi/customer/orders/:id`) returns:
+  • `canReview`: true/false
+  • `review`: null or existing review object
+
+A) Submit New Product / Service Review:
+   Endpoint: POST /mobileapi/customer/reviewrating
+   Headers:
+     Authorization: Bearer <customer_jwt_token>
+     Content-Type: multipart/form-data  (or application/x-www-form-urlencoded)
+
+   Form-Data Fields:
+     • `orderItemId` (String, required): The ID of the delivered order item.
+     • `rating` (Integer 1-5, required): Star rating score.
+     • `comment` (String, optional): Review text up to 2000 characters.
+     • `images` (File / Blob / URL, optional, max 5): Photos taken by customer.
+
+   Response (201 Created):
+   {
+     "success": true,
+     "message": "Review submitted successfully",
+     "data": {
+       "reviewId": "rev_001"
+     }
+   }
+
+B) Edit / Update Existing Product / Service Review:
+   Endpoint: PATCH /mobileapi/customer/reviewrating
+   Headers:
+     Authorization: Bearer <customer_jwt_token>
+     Content-Type: multipart/form-data
+
+   Form-Data Fields:
+     • `orderItemId` (String, required)
+     • `rating` (Integer 1-5, required)
+     • `comment` (String, optional)
+     • `images` (File / Blob / URL, optional, max 5)
+
+   Response (200 OK):
+   {
+     "success": true,
+     "message": "Review updated successfully",
+     "data": {
+       "reviewId": "rev_001"
+     }
+   }
+
+--------------------------------------------------------------------------------
+2.2 HOTEL STAY REVIEWS SUBMISSION (CONFIRMED BOOKINGS)
+--------------------------------------------------------------------------------
+Customers who have booked a hotel can submit a review for that hotel.
+
+A) Submit Hotel Review:
+   Endpoint: POST /mobileapi/customer/hotels/:id/reviews
+   URL Param `:id`: The Hotel ID (e.g. `hotel_303`)
+   Headers:
+     Authorization: Bearer <customer_jwt_token>
+     Content-Type: application/json
+
+   Request Body:
+   {
+     "rating": 5,
+     "comment": "Had a fantastic 3-day stay, beachfront room was spotless!",
+     "imageUrls": [
+       "https://cdn.meeem.com/uploads/hotel_stay_pic1.jpg"
+     ]
+   }
+
+   Response (201 Created):
+   {
+     "success": true,
+     "message": "Review submitted successfully",
+     "data": {
+       "id": "h_rev_001"
+     }
+   }
+
+B) Edit Hotel Review:
+   Endpoint: PUT /mobileapi/customer/hotels/:id/reviews
+   URL Param `:id`: The Hotel ID
+   Headers:
+     Authorization: Bearer <customer_jwt_token>
+     Content-Type: application/json
+
+   Request Body:
+   {
+     "rating": 4,
+     "comment": "Updated: Stay was great, pool maintenance could improve.",
+     "imageUrls": []
+   }
+
+   Response (200 OK):
+   {
+     "success": true,
+     "message": "Review updated successfully",
+     "data": {
+       "id": "h_rev_001"
+     }
+   }
+
+--------------------------------------------------------------------------------
+2.3 FOOD ITEM REVIEWS SUBMISSION
+--------------------------------------------------------------------------------
+Customers can submit and update reviews for individual food items.
+
+A) Submit Food Item Review:
+   Endpoint: POST /mobileapi/customer/foods/:id/reviews
+   URL Param `:id`: The Food Item ID (e.g. `food_404`)
+   Headers:
+     Authorization: Bearer <customer_jwt_token>
+     Content-Type: application/json
+
+   Request Body:
+   {
+     "rating": 5,
+     "comment": "Delicious spices and served piping hot!",
+     "imageUrls": [
+       "https://cdn.meeem.com/uploads/curry_plate.jpg"
+     ]
+   }
+
+   Response (201 Created):
+   {
+     "success": true,
+     "data": {
+       "id": "f_rev_001",
+       "userId": "usr_cust_22",
+       "foodItemId": "food_404",
+       "rating": 5,
+       "comment": "Delicious spices and served piping hot!",
+       "images": ["https://cdn.meeem.com/uploads/curry_plate.jpg"],
+       "createdAt": "2026-08-19T14:50:00.000Z"
+     }
+   }
+
+B) Edit Food Item Review:
+   Endpoint: PUT /mobileapi/customer/foods/:id/reviews
+   URL Param `:id`: The Food Item ID
+   Headers:
+     Authorization: Bearer <customer_jwt_token>
+     Content-Type: application/json
+
+   Request Body:
+   {
+     "rating": 5,
+     "comment": "Updated: Ordered again today, still the best curry in town!",
+     "imageUrls": []
+   }
+
+   Response (200 OK):
+   {
+     "success": true,
+     "data": {
+       "id": "f_rev_001",
+       "foodItemId": "food_404",
+       "rating": 5,
+       "comment": "Updated: Ordered again today, still the best curry in town!"
+     }
+   }
+
+================================================================================
+4. PART 3: SELLER PANEL REVIEWS (4 SELLER TYPES)
+================================================================================
+
+--------------------------------------------------------------------------------
+3.1 PRODUCT SELLER PANEL (SELLER_PRODUCT)
+--------------------------------------------------------------------------------
+
+A) List Products with Reviews Summary:
+   Endpoint: GET /mobileapi/product-seller/reviews?page=1&perPage=10
+   Headers:
+     Authorization: Bearer <seller_jwt_token>
+
+   Response (200 OK):
+   {
+     "success": true,
+     "data": [
+       {
+         "productId": "prod_101",
+         "productName": "Wireless Noise-Canceling Headphones",
+         "productImage": "https://cdn.meeem.com/products/headphones.jpg",
+         "avgRating": "4.8",
+         "reviewCount": 24,
+         "latestReviewAt": "2026-08-18T10:15:30.000Z"
+       }
+     ],
+     "pagination": {
+       "totalCount": 1,
+       "totalPages": 1,
+       "page": 1,
+       "perPage": 10
+     }
+   }
+
+B) View All Customer Reviews for a Specific Product:
+   Endpoint: GET /mobileapi/product-seller/reviews/:id
+   URL Param `:id`: Product ID
+   Headers:
+     Authorization: Bearer <seller_jwt_token>
+
+   Response (200 OK):
+   {
+     "success": true,
+     "data": {
+       "productId": "prod_101",
+       "productName": "Wireless Noise-Canceling Headphones",
+       "productImage": "https://cdn.meeem.com/products/headphones.jpg",
+       "avgRating": "4.8",
+       "reviewCount": 24,
+       "reviews": [
+         {
+           "id": "rev_001",
+           "rating": 5,
+           "comment": "Exceptional sound clarity and battery life!",
+           "images": [
+             "https://cdn.meeem.com/reviews/headphones_photo1.jpg"
+           ],
+           "createdAt": "2026-08-18T10:15:30.000Z",
+           "isVerified": true,
+           "customerName": "Sarah Johnson",
+           "customerEmail": "sarah@example.com",
+           "customerImage": "https://cdn.meeem.com/avatars/user1.jpg",
+           "orderNumber": "ORD-2026-8891",
+           "sellerStoreName": "ElectroTech Store",
+           "variantInfo": "Color: Matte Black"
+         }
+       ]
+     }
+   }
+
+--------------------------------------------------------------------------------
+3.2 SERVICE SELLER PANEL (SELLER_SERVICE)
+--------------------------------------------------------------------------------
+
+A) List Services with Reviews Summary:
+   Endpoint: GET /mobileapi/service-seller/reviews?page=1&perPage=10
+   Headers:
+     Authorization: Bearer <seller_jwt_token>
+
+   Response (200 OK):
+   {
+     "success": true,
+     "data": [
+       {
+         "serviceId": "serv_202",
+         "serviceName": "Home Deep Cleaning Service",
+         "serviceImage": "https://cdn.meeem.com/services/cleaning.jpg",
+         "avgRating": "4.9",
+         "reviewCount": 15,
+         "latestReviewAt": "2026-08-17T14:20:00.000Z"
+       }
+     ],
+     "pagination": {
+       "totalCount": 1,
+       "totalPages": 1,
+       "page": 1,
+       "perPage": 10
+     }
+   }
+
+B) View All Customer Reviews for a Specific Service:
+   Endpoint: GET /mobileapi/service-seller/reviews/:id
+   URL Param `:id`: Service ID
+   Headers:
+     Authorization: Bearer <seller_jwt_token>
+
+   Response (200 OK):
+   {
+     "success": true,
+     "data": {
+       "serviceId": "serv_202",
+       "serviceName": "Home Deep Cleaning Service",
+       "serviceImage": "https://cdn.meeem.com/services/cleaning.jpg",
+       "avgRating": "4.9",
+       "reviewCount": 15,
+       "reviews": [
+         {
+           "id": "rev_002",
+           "rating": 5,
+           "comment": "Super clean and punctual professionals!",
+           "images": [
+             "https://cdn.meeem.com/reviews/cleaning_after.jpg"
+           ],
+           "createdAt": "2026-08-17T14:20:00.000Z",
+           "isVerified": true,
+           "customerName": "David K.",
+           "customerEmail": "david@example.com",
+           "customerImage": "https://cdn.meeem.com/avatars/user2.jpg",
+           "orderNumber": "SRV-2026-1044",
+           "sellerStoreName": "Prime Cleaners",
+           "variantInfo": "Package: 3 BHK Complete Deep Clean"
+         }
+       ]
+     }
+   }
+
+--------------------------------------------------------------------------------
+3.3 HOTEL SELLER PANEL (SELLER_HOTEL)
+--------------------------------------------------------------------------------
+
+A) List Hotels with Reviews Summary:
+   Endpoint: GET /mobileapi/hotel-seller/reviews
+   Headers:
+     Authorization: Bearer <seller_jwt_token>
+
+   Response (200 OK):
+   {
+     "success": true,
+     "data": [
+       {
+         "hotelId": "hotel_303",
+         "hotelName": "Luxury Oceanfront Resort & Spa",
+         "hotelImage": "https://cdn.meeem.com/hotels/resort-ocean.jpg",
+         "avgRating": "4.7",
+         "reviewCount": 38,
+         "latestReviewAt": "2026-08-16T18:00:00.000Z"
+       }
+     ]
+   }
+
+B) View All Guest Reviews for a Specific Hotel:
+   Endpoint: GET /mobileapi/hotel-seller/reviews/:id
+   URL Param `:id`: Hotel ID
+   Headers:
+     Authorization: Bearer <seller_jwt_token>
+
+   Response (200 OK):
+   {
+     "success": true,
+     "data": {
+       "hotelId": "hotel_303",
+       "hotelName": "Luxury Oceanfront Resort & Spa",
+       "hotelImage": "https://cdn.meeem.com/hotels/resort-ocean.jpg",
+       "avgRating": "4.7",
+       "reviewCount": 38,
+       "reviews": [
+         {
+           "id": "h_rev_001",
+           "rating": 5,
+           "comment": "Amazing sea view and great breakfast buffet!",
+           "images": [
+             "https://cdn.meeem.com/uploads/hotel_stay_pic1.jpg"
+           ],
+           "createdAt": "2026-08-16T18:00:00.000Z",
+           "userName": "Emily Watson",
+           "userEmail": "emily@example.com"
+         }
+       ]
+     }
+   }
+
+--------------------------------------------------------------------------------
+3.4 RESTAURANT SELLER PANEL (SELLER_RESTAURANT)
+--------------------------------------------------------------------------------
+
+A) List Dishes with Reviews Summary:
+   Endpoint: GET /mobileapi/restaurant-seller/reviews
+   Headers:
+     Authorization: Bearer <seller_jwt_token>
+
+   Response (200 OK):
+   {
+     "success": true,
+     "data": [
+       {
+         "foodItemId": "food_404",
+         "foodItemName": "Paneer Butter Masala Combo",
+         "foodItemImage": "https://cdn.meeem.com/foods/paneer-masala.jpg",
+         "foodItemCategory": "Curry",
+         "avgRating": "4.9",
+         "reviewCount": 42,
+         "latestReviewAt": "2026-08-18T19:30:00.000Z"
+       }
+     ]
+   }
+
+B) View All Customer Reviews for a Specific Food Item:
+   Endpoint: GET /mobileapi/restaurant-seller/reviews/:id
+   URL Param `:id`: Food Item ID
+   Headers:
+     Authorization: Bearer <seller_jwt_token>
+
+   Response (200 OK):
+   {
+     "success": true,
+     "data": {
+       "foodItemId": "food_404",
+       "foodItemName": "Paneer Butter Masala Combo",
+       "foodItemImage": "https://cdn.meeem.com/foods/paneer-masala.jpg",
+       "avgRating": "4.9",
+       "reviewCount": 42,
+       "reviews": [
+         {
+           "id": "f_rev_001",
+           "rating": 5,
+           "comment": "Rich gravy and super soft paneer!",
+           "images": [
+             "https://cdn.meeem.com/uploads/curry_plate.jpg"
+           ],
+           "createdAt": "2026-08-18T19:30:00.000Z",
+           "customerName": "Alex Rivera",
+           "customerEmail": "alex@example.com"
+         }
+       ]
+     }
+   }
+
+================================================================================
+5. STATUS CODES, VALIDATION & ERROR HANDLING
+================================================================================
+
+Common HTTP Status Codes:
+  • 200 OK: Request succeeded and payload returned.
+  • 201 Created: Review created successfully.
+  • 400 Bad Request:
+      - Missing required fields (orderItemId, rating, etc.)
+      - Rating is not an integer between 1 and 5.
+      - Item is not yet delivered / booked.
+  • 401 Unauthorized: Missing or invalid JWT token.
+  • 403 Forbidden:
+      - User role mismatch (e.g. non-seller calling seller endpoint).
+      - Seller plan does not allow receiving reviews.
+  • 404 Not Found: Entity (Product, Service, Hotel, Food, or Review) does not exist.
+  • 409 Conflict: Review already submitted for this order item / booking. Use PUT/PATCH to edit.
+
+================================================================================
+6. MOBILE DEVELOPER INTEGRATION CHECKLIST
+================================================================================
+[✓] Check 1 (Product Details): Show average rating, review count, and full review list using `POST /mobileapi/product/reviews`.
+[✓] Check 2 (Service Details): Show rating badge and full reviews using `POST /mobileapi/services/reviews`.
+[✓] Check 3 (Hotel Details): Display guest reviews from `GET /mobileapi/customer/hotels/:id`.
+[✓] Check 4 (Food & Restaurant): Display dish reviews in food detail and restaurant menu cards.
+[✓] Check 5 (Customer Submit/Edit): Enable 5-star picker + comment + image upload for delivered orders and confirmed stays.
+[✓] Check 6 (Product Seller Panel): Display review summary grid and drill down into per-product review lists.
+[✓] Check 7 (Service Seller Panel): Display service review summary grid and customer feedback list.
+[✓] Check 8 (Hotel Seller Panel): Display hotel review cards and guest ratings.
+[✓] Check 9 (Restaurant Seller Panel): Display dish ratings and customer dining reviews.
+
+================================================================================
+7. GAP ANALYSIS & RECENT BACKEND ENHANCEMENTS (AUGUST 2026)
+================================================================================
+
+Below is the complete gap analysis comparing the previous backend state with the updated, standardized mobile architecture:
+
++----------------------------------+----------------------------------+------------------------------------+
+| Feature / Screen                 | Previous State (Gap)             | Updated Backend State (Resolved)   |
++----------------------------------+----------------------------------+------------------------------------+
+| 1. Star Breakdown Progress Bars  | Missing `breakdown` object; only | Added `breakdown: {"5": N, ...}`   |
+|    (Product & Service Reviews)   | returned overall `averageRating`.| to `POST /mobileapi/product/reviews|
+|                                  | Mobile had to guess bar lengths. | and `POST /mobileapi/services/rev` |
++----------------------------------+----------------------------------+------------------------------------+
+| 2. Product Detail Root Ratings   | Only returned `_count.reviews`.  | Exposes `averageRating` (float),   |
+|    (`GET /mobileapi/product/:id`)| Missing root-level avg rating.   | `totalRatings` & `reviewsCount` on |
+|                                  |                                  | root `data` object.                |
++----------------------------------+----------------------------------+------------------------------------+
+| 3. Order Details Review Action   | Hardcoded `review: null` and     | Dynamically returns `canReview`    |
+|    (Order Details View)          | `canReview: false` in items list.| (boolean) and the `review` object  |
+|                                  |                                  | with rating, images, and date.     |
++----------------------------------+----------------------------------+------------------------------------+
+| 4. Hotel Detail Direct Routes    | Only existed at nested route     | Added direct `/mobileapi/hotels/:id|
+|    & Rating Breakdown            | `/mobileapi/customer/hotels/:id`.| and `/mobileapi/hotels/:id/reviews`|
+|                                  | Missing rating breakdown.        | with 5★..1★ breakdown & avatar.    |
++----------------------------------+----------------------------------+------------------------------------+
+| 5. Food & Dish Direct Routes     | Only existed at nested route     | Added direct `/mobileapi/food/:id` |
+|    & Rating Breakdown            | `/mobileapi/customer/foods/:id`. | and `/mobileapi/foods/:id` with    |
+|                                  | Missing rating breakdown.        | 5★..1★ breakdown & user avatar.    |
++----------------------------------+----------------------------------+------------------------------------+
+| 6. Category Route Alias          | Only existed at plural route     | Added `/mobileapi/category/:id`    |
+|    (`CategoryListView`)          | `/mobileapi/categories/:id`.     | alias forwarding to category API.  |
++----------------------------------+----------------------------------+------------------------------------+
+| 7. Dual-Field Compatibility      | Some list endpoints returned     | All browse/category items now have |
+|    (Browse & Search Cards)       | `avgRating` while others had     | `averageRating`, `avgRating`,      |
+|                                  | `averageRating`.                 | `reviewsCount`, and `totalReviews`.|
++----------------------------------+----------------------------------+------------------------------------+
+
+
+================================================================================
+8. MOBILE DEVELOPER KNOWLEDGE TRANSFER (KT) & INTEGRATION GUIDE
+================================================================================
+
+This section provides mobile developers (Flutter / React Native / iOS / Android) with copy-paste payload examples and field mapping instructions.
+
+--------------------------------------------------------------------------------
+8.1 STAR BREAKDOWN PROGRESS BARS (5★ .. 1★)
+--------------------------------------------------------------------------------
+
+When calling:
+  • `POST /mobileapi/product/reviews`
+  • `POST /mobileapi/services/reviews`
+  • `GET /mobileapi/hotels/:id` (or `/mobileapi/hotels/:id/reviews`)
+  • `GET /mobileapi/food/:id`
+
+The response now includes the `breakdown` map:
+```json
+"breakdown": {
+  "5": 28,
+  "4": 12,
+  "3": 4,
+  "2": 1,
+  "1": 0
+}
+```
+
+How to calculate percentage in Mobile UI (e.g. Flutter / React Native):
+```dart
+int total = data.totalRatings > 0 ? data.totalRatings : 1;
+double star5Percent = (data.breakdown['5'] ?? 0) / total;
+double star4Percent = (data.breakdown['4'] ?? 0) / total;
+double star3Percent = (data.breakdown['3'] ?? 0) / total;
+double star2Percent = (data.breakdown['2'] ?? 0) / total;
+double star1Percent = (data.breakdown['1'] ?? 0) / total;
+```
+
+--------------------------------------------------------------------------------
+8.2 ORDER ITEMS: "RATE ITEM" VS "EDIT REVIEW" IN ORDER DETAILS
+--------------------------------------------------------------------------------
+
+Endpoint: `GET /mobileapi/customer/orders/products/details/:id`
+Headers: `Authorization: Bearer <customer_jwt_token>`
+
+Each item in `items[]` now contains:
+```json
+{
+  "id": "item_9876",
+  "productNameSnapshot": "Sony WH-1000XM5",
+  "itemStatus": "DELIVERED",
+  "canReview": false, // true ONLY if delivered AND not yet reviewed
+  "review": {         // null if not yet reviewed
+    "id": "rev_5432",
+    "rating": 5,
+    "comment": "Outstanding noise cancellation and sound!",
+    "images": [
+      "https://cdn.meeem.com/review-images/photo1.jpg"
+    ],
+    "isVerified": true,
+    "createdAt": "2026-08-19T14:20:00.000Z"
+  }
+}
+```
+
+Mobile UI Rendering Logic:
+```dart
+if (item.review != null) {
+  // 1. Show existing star rating (item.review.rating)
+  // 2. Show "Edit Review" button -> opens ReviewBottomSheet in Edit mode
+} else if (item.canReview == true) {
+  // 1. Show "Rate & Review this product" action button
+  // 2. Tapping opens ReviewBottomSheet with orderItemId: item.id
+} else {
+  // Order is still processing/shipped -> hide review button
+}
+```
+
+--------------------------------------------------------------------------------
+8.3 DIRECT ROUTE SHORTCUTS & ALIASES FOR MOBILE
+--------------------------------------------------------------------------------
+
+Mobile developers can now use clean, direct REST URLs without worrying about prefixing `/customer/`:
+
+1. Hotels:
+   • `GET /mobileapi/hotels/:id`  (Fetches hotel details + reviews + breakdown)
+   • `GET /mobileapi/hotels/:id/reviews` (Fetches hotel customer reviews)
+   • `POST /mobileapi/hotels/:id/reviews` (Submit new hotel review)
+
+2. Food & Restaurant Dishes:
+   • `GET /mobileapi/food/:id`  (Fetches dish details + reviews + breakdown)
+   • `GET /mobileapi/foods/:id` (Alias for above)
+   • `POST /mobileapi/customer/foods/:id/reviews` (Submit new food review)
+
+3. Categories:
+   • `GET /mobileapi/category/:id` (Alias for `/mobileapi/categories/:id`)
+
+4. Product Browse & Search:
+   • `POST /mobileapi/browse` / `GET /mobileapi/browse`
+   • Products in `products[]` contain BOTH `averageRating` (double) and `reviewsCount` (int).
+
+--------------------------------------------------------------------------------
+8.4 QUICK REFERENCE SUMMARY TABLE FOR MOBILE APPS
+--------------------------------------------------------------------------------
++-------------------+---------------------------------------------+------------------------------------+
+| Screen / Action   | Endpoint to Call                            | Key Fields to Bind In UI           |
++-------------------+---------------------------------------------+------------------------------------+
+| Product Details   | GET /mobileapi/product/:id                  | averageRating, reviewsCount, data  |
+| Product Reviews   | POST /mobileapi/product/reviews             | breakdown, reviewGallery, reviews  |
+| Service Details   | GET /mobileapi/services/:id                 | service.averageRating, reviewCount |
+| Service Reviews   | POST /mobileapi/services/reviews            | breakdown, reviewGallery, reviews  |
+| Hotel Details     | GET /mobileapi/hotels/:id                   | averageRating, starRating, reviews |
+| Food Item Details | GET /mobileapi/food/:id                     | averageRating, breakdown, reviews  |
+| Order Details     | GET /mobileapi/customer/orders/products/... | item.canReview, item.review        |
+| Submit Review     | POST /mobileapi/customer/reviewrating       | multipart: orderItemId, rating, ...|
++-------------------+---------------------------------------------+------------------------------------+
+
+================================================================================
+END OF DOCUMENTATION & MOBILE KT GUIDE
+================================================================================
+

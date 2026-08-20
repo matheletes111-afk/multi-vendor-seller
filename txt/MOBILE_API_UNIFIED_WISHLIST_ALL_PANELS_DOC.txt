@@ -1,0 +1,564 @@
+================================================================================
+  MEEEM ALL-IN-ONE MOBILE API DOCUMENTATION: UNIFIED CUSTOMER WISHLIST
+  (PANEL-WISE BREAKDOWN: PRODUCTS, SERVICES, HOTELS, FOODS & GUEST SYNC)
+================================================================================
+
+Target Audience: Mobile App Developers (React Native, Flutter, iOS Swift, Android Kotlin)
+Version: 2.0 (Unified Multi-Vertical Architecture)
+Last Updated: August 2026
+
+--------------------------------------------------------------------------------
+1. ARCHITECTURE & OVERVIEW
+--------------------------------------------------------------------------------
+The Meeem mobile app features a unified customer wishlist that works across all 4 
+business verticals (panels):
+  • Panel 1: Marketplace Products
+  • Panel 2: Home & Professional Services
+  • Panel 3: Hotels, Stays & Resorts
+  • Panel 4: Restaurants & Food Items
+
+Core Functionalities:
+  1. Guest Offline Wishlist: Unauthenticated guests can tap the Heart icon on any 
+     product, service, hotel, or food dish. Items are stored in local mobile storage 
+     (AsyncStorage / MMKV / SQLite).
+  2. Automatic Login Sync / Migration: When the guest registers or logs in as a 
+     customer, the mobile app calls the `/sync` endpoint to transfer all local guest 
+     items into the customer's cloud database in a single batch.
+  3. Real-Time Badge Count in Header: Every panel header displays a live Wishlist 
+     badge count reflecting the total items across all 4 verticals.
+  4. Unified Endpoints: Uses a single set of REST endpoints with entity-specific IDs.
+
+Base URLs:
+  • Primary: /mobileapi/customer/wishlist
+  • Aliases: /mobileapi/wishlist
+  • Sync:    /mobileapi/customer/wishlist/sync (and /mobileapi/wishlist/sync)
+
+Authentication:
+  For authenticated requests, pass the customer JWT token in any of these headers:
+    Authorization: Bearer <customer_jwt_token>
+    x-auth-token: <customer_jwt_token>
+    x-customer-token: <customer_jwt_token>
+    x-user-id: <user_id>
+
+Note: Only CUSTOMER role users and unauthenticated guests can use the wishlist. 
+Sellers (Product, Service, Hotel, Restaurant) and Admin cannot use customer wishlists.
+
+================================================================================
+2. PANEL-WISE SPECIFICATIONS & INTEGRATION
+================================================================================
+
+--------------------------------------------------------------------------------
+PANEL 1: MARKETPLACE / PRODUCTS
+--------------------------------------------------------------------------------
+Applicable Pages:
+  • Marketplace Home (`/`)
+  • Product Browse / Category Listings (`/browse`)
+  • Product Details Page (`/product/[id]`)
+
+How It Works:
+  • Target Key: `productId` (String)
+  • When user taps the Heart icon on a product card or product detail screen:
+    - If Logged In: Call `POST /mobileapi/customer/wishlist` with `{"productId": "<id>"}`
+    - If Guest: Save `{ "productId": "<id>" }` to local storage.
+
+Request Payload:
+  POST /mobileapi/customer/wishlist
+  {
+    "productId": "prod_101"
+  }
+
+Product Response Object inside Wishlist:
+  {
+    "wishlistItemId": "cly_wish_prod_001",
+    "productId": "prod_101",
+    "serviceId": null,
+    "hotelId": null,
+    "foodItemId": null,
+    "createdAt": "2026-08-19T14:30:00.000Z",
+    "product": {
+      "id": "prod_101",
+      "name": "Wireless Noise-Canceling Headphones",
+      "slug": "wireless-noise-canceling-headphones",
+      "image": "https://cdn.meeem.com/products/headphones.jpg",
+      "price": 250000
+    },
+    "service": null,
+    "hotel": null,
+    "foodItem": null
+  }
+
+--------------------------------------------------------------------------------
+PANEL 2: SERVICES / HOME & PROFESSIONAL SERVICES
+--------------------------------------------------------------------------------
+Applicable Pages:
+  • Services Home (`/service`)
+  • Service Category Browse & Filters
+  • Service Details Page (`/service/[id]`)
+
+How It Works:
+  • Target Key: `serviceId` (String)
+  • When user taps the Heart icon on any Service card or detail screen:
+    - If Logged In: Call `POST /mobileapi/customer/wishlist` with `{"serviceId": "<id>"}`
+    - If Guest: Save `{ "serviceId": "<id>" }` to local storage.
+
+Request Payload:
+  POST /mobileapi/customer/wishlist
+  {
+    "serviceId": "serv_202"
+  }
+
+Service Response Object inside Wishlist:
+  {
+    "wishlistItemId": "cly_wish_serv_002",
+    "productId": null,
+    "serviceId": "serv_202",
+    "hotelId": null,
+    "foodItemId": null,
+    "createdAt": "2026-08-19T14:35:00.000Z",
+    "product": null,
+    "service": {
+      "id": "serv_202",
+      "name": "Home Deep Cleaning & Sanitization",
+      "slug": "home-deep-cleaning-sanitization",
+      "image": "https://cdn.meeem.com/services/cleaning.jpg",
+      "price": 350000
+    },
+    "hotel": null,
+    "foodItem": null
+  }
+
+--------------------------------------------------------------------------------
+PANEL 3: HOTELS / STAYS & RESORTS
+--------------------------------------------------------------------------------
+Applicable Pages:
+  • Hotels Home (`/hotels`)
+  • City Spotlight & Luxury Stays Cards
+  • Hotel Search & Filter Grid
+  • Hotel Details & Rooms Page (`/hotels/[id]`)
+
+How It Works:
+  • Target Key: `hotelId` (String)
+  • When user taps the Heart icon on any Hotel card or hero banner:
+    - If Logged In: Call `POST /mobileapi/customer/wishlist` with `{"hotelId": "<id>"}`
+    - If Guest: Save `{ "hotelId": "<id>" }` to local storage.
+
+Request Payload:
+  POST /mobileapi/customer/wishlist
+  {
+    "hotelId": "hotel_303"
+  }
+
+Hotel Response Object inside Wishlist:
+  {
+    "wishlistItemId": "cly_wish_hotel_003",
+    "productId": null,
+    "serviceId": null,
+    "hotelId": "hotel_303",
+    "foodItemId": null,
+    "createdAt": "2026-08-19T14:40:00.000Z",
+    "product": null,
+    "service": null,
+    "hotel": {
+      "id": "hotel_303",
+      "name": "Luxury Oceanfront Resort & Spa",
+      "slug": "hotel_303",
+      "image": "https://cdn.meeem.com/hotels/resort-ocean.jpg",
+      "price": 850000,
+      "city": "Freetown",
+      "starRating": 5
+    },
+    "foodItem": null
+  }
+  * Note: `price` is automatically computed as the lowest active room price for that hotel.
+
+--------------------------------------------------------------------------------
+PANEL 4: FOODS / RESTAURANTS & DINING
+--------------------------------------------------------------------------------
+Applicable Pages:
+  • Foods Home (`/foods`)
+  • Pure Veg & Non-Veg Featured Delights Grid
+  • Restaurant Listing Cards & Food Strips
+  • Food Item Details Modal & Page (`/foods/[id]`)
+  • Restaurant Full Menu Page (`/foods/restaurant/[id]`)
+
+How It Works:
+  • Target Key: `foodItemId` (String)
+  • When user taps the Heart icon on any Dish card or Food modal:
+    - If Logged In: Call `POST /mobileapi/customer/wishlist` with `{"foodItemId": "<id>"}`
+    - If Guest: Save `{ "foodItemId": "<id>" }` to local storage.
+
+Request Payload:
+  POST /mobileapi/customer/wishlist
+  {
+    "foodItemId": "food_404"
+  }
+
+Food Item Response Object inside Wishlist:
+  {
+    "wishlistItemId": "cly_wish_food_004",
+    "productId": null,
+    "serviceId": null,
+    "hotelId": null,
+    "foodItemId": "food_404",
+    "createdAt": "2026-08-19T14:45:00.000Z",
+    "product": null,
+    "service": null,
+    "hotel": null,
+    "foodItem": {
+      "id": "food_404",
+      "name": "Paneer Butter Masala Combo",
+      "image": "https://cdn.meeem.com/foods/paneer-masala.jpg",
+      "price": 45000,
+      "isVeg": true,
+      "category": "Curry",
+      "restaurantName": "Royal Spices Kitchen"
+    }
+  }
+
+================================================================================
+3. PANEL HEADERS & LIVE BADGE COUNT
+================================================================================
+Every panel header in the mobile app must display the Heart Icon + Badge Count:
+  • If Logged In:
+    - On App Launch or Tab Switch: Call `GET /mobileapi/customer/wishlist`
+    - Read `data.count` and display on the header heart badge.
+    - If `data.count === 0`, badge is hidden or shows 0.
+    - When user adds/removes any item, update the badge count directly from the 
+      `data.count` returned in the POST/DELETE response.
+  • If Guest (Unauthenticated):
+    - Read the length of the local `guest_wishlist` array.
+    - Display `guestItems.length` on the header heart badge.
+
+================================================================================
+4. GUEST MODE & AUTOMATIC LOGIN TRANSFER (/sync)
+================================================================================
+
+Complete Mobile Workflow:
+
+Step 1: Guest Browsing (No Login)
+  - User browses any panel (Products, Services, Hotels, Foods).
+  - User taps the Heart icon on an item.
+  - The app stores it in local storage:
+    Key: "guest_wishlist"
+    Value: [
+      { "productId": "prod_101" },
+      { "serviceId": "serv_202" },
+      { "hotelId": "hotel_303" },
+      { "foodItemId": "food_404" }
+    ]
+
+Step 2: Customer Logs In or Registers
+  - Customer completes login or registration and receives JWT auth token.
+  - Mobile app checks `AsyncStorage.getItem("guest_wishlist")`.
+  - If array is NOT empty:
+      Call `POST /mobileapi/customer/wishlist/sync` with `{ "items": guestItems }`
+      Headers: `Authorization: Bearer <customer_jwt_token>`
+  - On API Success:
+      1. Clear local storage: `AsyncStorage.removeItem("guest_wishlist")`
+      2. Store `data.items` and `data.count` into app global state / Redux / Zustand.
+      3. Update header badge count across all panels.
+
+================================================================================
+5. COMPLETE API ENDPOINTS REFERENCE
+================================================================================
+
+--------------------------------------------------------------------------------
+ENDPOINT 1: GET /mobileapi/customer/wishlist (or GET /mobileapi/wishlist)
+--------------------------------------------------------------------------------
+Purpose: Retrieve all wishlist items across all 4 panels for the logged-in customer.
+
+Headers:
+  Authorization: Bearer <customer_jwt_token>
+
+Response (200 OK):
+{
+  "success": true,
+  "message": "Wishlist fetched",
+  "data": {
+    "items": [
+      {
+        "wishlistItemId": "cly_wish_prod_001",
+        "productId": "prod_101",
+        "serviceId": null,
+        "hotelId": null,
+        "foodItemId": null,
+        "createdAt": "2026-08-19T14:30:00.000Z",
+        "product": {
+          "id": "prod_101",
+          "name": "Wireless Noise-Canceling Headphones",
+          "slug": "wireless-noise-canceling-headphones",
+          "image": "https://cdn.meeem.com/products/headphones.jpg",
+          "price": 250000
+        },
+        "service": null,
+        "hotel": null,
+        "foodItem": null
+      },
+      {
+        "wishlistItemId": "cly_wish_serv_002",
+        "productId": null,
+        "serviceId": "serv_202",
+        "hotelId": null,
+        "foodItemId": null,
+        "createdAt": "2026-08-19T14:35:00.000Z",
+        "product": null,
+        "service": {
+          "id": "serv_202",
+          "name": "Home Deep Cleaning & Sanitization",
+          "slug": "home-deep-cleaning-sanitization",
+          "image": "https://cdn.meeem.com/services/cleaning.jpg",
+          "price": 350000
+        },
+        "hotel": null,
+        "foodItem": null
+      },
+      {
+        "wishlistItemId": "cly_wish_hotel_003",
+        "productId": null,
+        "serviceId": null,
+        "hotelId": "hotel_303",
+        "foodItemId": null,
+        "createdAt": "2026-08-19T14:40:00.000Z",
+        "product": null,
+        "service": null,
+        "hotel": {
+          "id": "hotel_303",
+          "name": "Luxury Oceanfront Resort & Spa",
+          "slug": "hotel_303",
+          "image": "https://cdn.meeem.com/hotels/resort-ocean.jpg",
+          "price": 850000,
+          "city": "Freetown",
+          "starRating": 5
+        },
+        "foodItem": null
+      },
+      {
+        "wishlistItemId": "cly_wish_food_004",
+        "productId": null,
+        "serviceId": null,
+        "hotelId": null,
+        "foodItemId": "food_404",
+        "createdAt": "2026-08-19T14:45:00.000Z",
+        "product": null,
+        "service": null,
+        "hotel": null,
+        "foodItem": {
+          "id": "food_404",
+          "name": "Paneer Butter Masala Combo",
+          "image": "https://cdn.meeem.com/foods/paneer-masala.jpg",
+          "price": 45000,
+          "isVeg": true,
+          "category": "Curry",
+          "restaurantName": "Royal Spices Kitchen"
+        }
+      }
+    ],
+    "count": 4
+  }
+}
+
+Response (Empty Wishlist - 200 OK):
+{
+  "success": true,
+  "message": "Wishlist fetched",
+  "data": {
+    "items": [],
+    "count": 0
+  }
+}
+
+--------------------------------------------------------------------------------
+ENDPOINT 2: POST /mobileapi/customer/wishlist (or POST /mobileapi/wishlist)
+--------------------------------------------------------------------------------
+Purpose: Toggle item in wishlist (Adds if not present, Removes if present).
+
+Headers:
+  Authorization: Bearer <customer_jwt_token>
+  Content-Type: application/json
+
+Request Body (Send EXACTLY ONE target key):
+  Option A (Product):  { "productId": "prod_101" }
+  Option B (Service):  { "serviceId": "serv_202" }
+  Option C (Hotel):    { "hotelId": "hotel_303" }
+  Option D (Food):     { "foodItemId": "food_404" }
+
+Response (Item Added - 200 OK):
+{
+  "success": true,
+  "message": "Wishlist updated",
+  "data": {
+    "action": "added",
+    "item": {
+      "wishlistItemId": "cly_wish_hotel_003",
+      "productId": null,
+      "serviceId": null,
+      "hotelId": "hotel_303",
+      "foodItemId": null,
+      "createdAt": "2026-08-19T14:40:00.000Z",
+      "product": null,
+      "service": null,
+      "hotel": {
+        "id": "hotel_303",
+        "name": "Luxury Oceanfront Resort & Spa",
+        "slug": "hotel_303",
+        "image": "https://cdn.meeem.com/hotels/resort-ocean.jpg",
+        "price": 850000,
+        "city": "Freetown",
+        "starRating": 5
+      },
+      "foodItem": null
+    },
+    "count": 4
+  }
+}
+
+Response (Item Removed - 200 OK):
+{
+  "success": true,
+  "message": "Wishlist updated",
+  "data": {
+    "action": "removed",
+    "item": null,
+    "count": 3
+  }
+}
+
+--------------------------------------------------------------------------------
+ENDPOINT 3: DELETE /mobileapi/customer/wishlist (or DELETE /mobileapi/wishlist)
+--------------------------------------------------------------------------------
+Purpose: Remove a specific target item from customer wishlist.
+
+Headers:
+  Authorization: Bearer <customer_jwt_token>
+  Content-Type: application/json
+
+Request Body (Send EXACTLY ONE target key):
+  {
+    "hotelId": "hotel_303"
+  }
+
+Response (200 OK):
+{
+  "success": true,
+  "message": "Item removed from wishlist",
+  "data": {
+    "action": "removed",
+    "item": null,
+    "count": 2
+  }
+}
+
+--------------------------------------------------------------------------------
+ENDPOINT 4: POST /mobileapi/customer/wishlist/sync (or POST /mobileapi/wishlist/sync)
+--------------------------------------------------------------------------------
+Purpose: Bulk transfer guest items to customer database upon login.
+
+Headers:
+  Authorization: Bearer <customer_jwt_token>
+  Content-Type: application/json
+
+Request Body:
+{
+  "items": [
+    { "productId": "prod_101" },
+    { "serviceId": "serv_202" },
+    { "hotelId": "hotel_303" },
+    { "foodItemId": "food_404" }
+  ]
+}
+
+Response (200 OK):
+{
+  "success": true,
+  "message": "Wishlist synced successfully",
+  "data": {
+    "items": [
+      {
+        "wishlistItemId": "cly_wish_prod_001",
+        "productId": "prod_101",
+        "serviceId": null,
+        "hotelId": null,
+        "foodItemId": null,
+        "createdAt": "2026-08-19T14:30:00.000Z",
+        "product": {
+          "id": "prod_101",
+          "name": "Wireless Noise-Canceling Headphones",
+          "slug": "wireless-noise-canceling-headphones",
+          "image": "https://cdn.meeem.com/products/headphones.jpg",
+          "price": 250000
+        },
+        "service": null,
+        "hotel": null,
+        "foodItem": null
+      },
+      {
+        "wishlistItemId": "cly_wish_hotel_003",
+        "productId": null,
+        "serviceId": null,
+        "hotelId": "hotel_303",
+        "foodItemId": null,
+        "createdAt": "2026-08-19T14:40:00.000Z",
+        "product": null,
+        "service": null,
+        "hotel": {
+          "id": "hotel_303",
+          "name": "Luxury Oceanfront Resort & Spa",
+          "slug": "hotel_303",
+          "image": "https://cdn.meeem.com/hotels/resort-ocean.jpg",
+          "price": 850000,
+          "city": "Freetown",
+          "starRating": 5
+        },
+        "foodItem": null
+      }
+    ],
+    "count": 2
+  }
+}
+
+================================================================================
+6. ERROR HANDLING & STATUS CODES
+================================================================================
+
+Status Code 401 (Unauthorized):
+  Triggered when JWT token is missing, expired, or user is not CUSTOMER role.
+  {
+    "success": false,
+    "error": "Unauthorized. Valid customer token required."
+  }
+
+Status Code 400 (Bad Request - Missing ID):
+  Triggered when request body does not contain any entity ID.
+  {
+    "success": false,
+    "error": "productId, serviceId, hotelId, or foodItemId is required"
+  }
+
+Status Code 400 (Bad Request - Multiple IDs):
+  Triggered when request body contains more than one ID (e.g. productId AND hotelId).
+  {
+    "success": false,
+    "error": "Cannot specify multiple target IDs in one request"
+  }
+
+Status Code 404 (Not Found):
+  Triggered when the entity does not exist or has been deleted/disabled.
+  {
+    "success": false,
+    "error": "Product not found"
+  }
+  (or "Service not found", "Hotel not found", "Food item not found", "Wishlist item not found")
+
+================================================================================
+7. SUMMARY CHECKLIST FOR MOBILE DEVELOPER
+================================================================================
+[✓] Check 1: Header Heart Icon & Badge count implemented on all 4 panel headers.
+[✓] Check 2: Heart tap on Product/Service/Hotel/Food card toggles local storage for guests.
+[✓] Check 3: Customer Login/Register triggers `POST /mobileapi/customer/wishlist/sync` with guest items.
+[✓] Check 4: Local storage is cleared after successful sync.
+[✓] Check 5: Heart tap for authenticated user calls `POST /mobileapi/customer/wishlist` and updates badge count from `data.count`.
+[✓] Check 6: Wishlist screen displays 4-tab or unified view with proper image, price, rating, and veg status.
+
+================================================================================
+END OF DOCUMENTATION
+================================================================================

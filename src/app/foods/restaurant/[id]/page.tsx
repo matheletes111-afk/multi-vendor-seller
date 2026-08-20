@@ -11,6 +11,7 @@ import { formatCurrency, extractFoodImages } from "@/lib/utils"
 import { PublicLayout } from "@/components/site-layout"
 import { FoodDetailModal } from "@/components/foods/food-detail-modal"
 import { PageLoader } from "@/components/ui/page-loader"
+import { WishlistButton } from "@/components/product/WishlistButton"
 
 type FoodItem = {
   id: string
@@ -407,6 +408,19 @@ export default function RestaurantMenuPage() {
                         {/* Veg/Non-veg dot */}
                         <div className={`absolute top-2.5 left-2.5 h-5 w-5 border-2 rounded-md flex items-center justify-center bg-white/95 backdrop-blur-xs shadow-md ${food.isVeg ? "border-emerald-600" : "border-rose-600"}`}>
                           <span className={`h-2 w-2 rounded-full ${food.isVeg ? "bg-emerald-600" : "bg-rose-600"}`} />
+                        </div>
+
+                        {/* Top Right Wishlist Button */}
+                        <div className="absolute top-2.5 right-2.5 z-10 scale-90 sm:scale-100">
+                          <WishlistButton
+                            foodItemId={food.id}
+                            name={food.name}
+                            image={itemImg}
+                            price={food.price}
+                            isVeg={food.isVeg}
+                            category={food.category}
+                            restaurantName={restaurant?.businessName}
+                          />
                         </div>
                       </div>
                     )

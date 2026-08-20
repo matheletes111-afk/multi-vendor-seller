@@ -68,12 +68,26 @@ export async function GET(
       return v
     })
 
+    const [ratingAgg] = await Promise.all([
+      prisma.review.aggregate({
+        where: { productId: id },
+        _avg: { rating: true },
+      }),
+    ])
+
+    const averageRating = parseFloat(Number(ratingAgg._avg.rating ?? 0).toFixed(1))
+    const reviewsCount = product._count?.reviews ?? 0
+
     return NextResponse.json({
       success: true,
       data: {
         ...product,
         variants: cleanVariants,
         brand,
+        averageRating,
+        totalRatings: reviewsCount,
+        reviewsCount,
+        totalReviews: reviewsCount,
       }
     } as any)
 

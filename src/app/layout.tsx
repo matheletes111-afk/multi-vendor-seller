@@ -1,12 +1,9 @@
 import type { Metadata } from "next"
-import { Inter } from "next/font/google"
 import { ThemeProvider } from "@/app/theme-provider"
 import { CartProvider } from "@/app/cart/cart-context"
 import { WishlistProvider } from "@/app/wishlist/wishlist-context"
 import { SessionProvider } from "@/components/session-provider"
 import "./globals.css"
-
-const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
   title: "Multivendor Marketplace",
@@ -23,7 +20,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={inter.className}>
+      <body className="font-sans antialiased">
         <ThemeProvider
           attribute="class"
           defaultTheme="light"

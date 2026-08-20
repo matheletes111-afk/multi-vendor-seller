@@ -50,6 +50,9 @@ type ServiceDetailData = {
   seller: { store: { name: string } | null } | null
   serviceSeller: ServiceSellerPayload | null
   reviewCount: number
+  reviewsCount?: number
+  totalRatings?: number
+  totalReviews?: number
   averageRating: number
   reviews: Array<{
     id: string
@@ -209,7 +212,10 @@ export async function GET(
         : null,
       serviceSeller: seller ? mapServiceSeller(seller) : null,
       reviewCount: service._count.reviews,
-      averageRating: Number(ratingAgg._avg.rating ?? 0),
+      reviewsCount: service._count.reviews,
+      totalRatings: service._count.reviews,
+      totalReviews: service._count.reviews,
+      averageRating: parseFloat(Number(ratingAgg._avg.rating ?? 0).toFixed(1)),
       reviews,
       sellerAds: (service as any).sellerAds,
     }

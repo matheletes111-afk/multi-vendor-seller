@@ -7,6 +7,7 @@ import { Input } from "@/ui/input"
 import { Textarea } from "@/ui/textarea"
 import { formatCurrency } from "@/lib/utils"
 import { Star, Plus, Minus, X, ShoppingBag, MessageSquare, Sparkles, ChevronLeft, ChevronRight, Image as ImageIcon, Edit2, Lock, Check } from "lucide-react"
+import { WishlistButton } from "@/components/product/WishlistButton"
 
 type FoodReview = {
   id: string
@@ -283,13 +284,28 @@ export function FoodDetailModal({
             </div>
           )}
 
-          {/* Close button */}
-          <button
-            onClick={onClose}
-            className="absolute top-4 right-4 z-20 h-9 w-9 rounded-full bg-black/50 hover:bg-black/80 text-white flex items-center justify-center backdrop-blur-md shadow-lg transition-all"
-          >
-            <X className="h-5 w-5" />
-          </button>
+          {/* Top Right Action buttons (Wishlist & Close) */}
+          <div className="absolute top-4 right-4 z-20 flex items-center gap-2">
+            {food && (
+              <WishlistButton
+                foodItemId={food.id}
+                name={food.name}
+                image={images[0]}
+                price={food.price}
+                isVeg={food.isVeg}
+                category={food.category}
+                restaurantName={food.restaurantName}
+                className="h-9 w-9 bg-black/50 hover:bg-black/80 text-white backdrop-blur-md shadow-lg border-none"
+                iconClassName="text-white"
+              />
+            )}
+            <button
+              onClick={onClose}
+              className="h-9 w-9 rounded-full bg-black/50 hover:bg-black/80 text-white flex items-center justify-center backdrop-blur-md shadow-lg transition-all"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
         </div>
 
         {/* Scrollable Content Body */}

@@ -468,6 +468,7 @@ model Hotel {
   sellerAds         SellerAd[]
   bookings          HotelBooking[]
   reviews           HotelReview[]
+  wishlistItems     WishlistItem[]
 
   @@map("hotels")
 }
@@ -1078,18 +1079,22 @@ model Product {
 }
 
 model WishlistItem {
-  id        String   @id @default(cuid())
-  userId    String
-  productId String?
-  serviceId String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id         String    @id @default(cuid())
+  userId     String
+  productId  String?
+  serviceId  String?
+  hotelId    String?
+  foodItemId String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 
-  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  product Product? @relation(fields: [productId], references: [id], onDelete: Cascade)
-  service Service? @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product  Product?  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  service  Service?  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  hotel    Hotel?    @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  foodItem FoodItem? @relation(fields: [foodItemId], references: [id], onDelete: Cascade)
 
-  @@unique([userId, productId, serviceId])
+  @@unique([userId, productId, serviceId, hotelId, foodItemId])
   @@index([userId])
   @@map("wishlist_items")
 }
@@ -1526,6 +1531,7 @@ model FoodItem {
   reviews            FoodReview[]
   orderItems         FoodOrderItem[]
   sellerAds          SellerAd[]
+  wishlistItems      WishlistItem[]
 
   @@map("food_items")
 }

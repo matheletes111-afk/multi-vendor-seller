@@ -10,6 +10,7 @@ import { formatCurrency, extractFoodImages } from "@/lib/utils"
 import { useSession } from "next-auth/react"
 import { GoogleMapView } from "@/components/google-map-view"
 import { ReviewImageModal } from "@/components/reviews/review-image-modal"
+import { WishlistButton } from "@/components/product/WishlistButton"
 
 type Room = {
   id: string
@@ -211,6 +212,18 @@ export default function HotelDetailsPage() {
           <div className="relative aspect-[16/9] rounded-[2rem] overflow-hidden bg-slate-100 shadow-md">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={mainImage} alt={hotel.name} className="object-cover h-full w-full" />
+            <div className="absolute top-6 right-6 z-10">
+              <WishlistButton
+                hotelId={hotel.id}
+                name={hotel.name}
+                image={mainImage}
+                price={hotel.rooms && hotel.rooms.length > 0 ? Math.min(...hotel.rooms.map((r) => r.price)) : null}
+                city={hotel.city}
+                starRating={hotel.starRating}
+                className="h-11 w-11 shadow-lg"
+                iconClassName="h-5 w-5"
+              />
+            </div>
             <div className="absolute bottom-6 left-6 right-6 bg-white/95 backdrop-blur-md p-6 rounded-2xl shadow-lg border border-white/20 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div className="space-y-1.5">
                 <h1 className="text-2xl sm:text-3xl font-black text-slate-900 leading-tight">{hotel.name}</h1>

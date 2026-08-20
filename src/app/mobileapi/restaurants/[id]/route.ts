@@ -110,6 +110,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       success: true,
       data: {
         id: restaurant.id,
+        name: restaurant.businessInfo?.businessName || restaurant.user.name || "Restaurant",
         businessName: restaurant.businessInfo?.businessName || restaurant.user.name || "Restaurant",
         cuisines,
         logo: restaurant.logo || null,
@@ -121,6 +122,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         landmark: restaurant.businessInfo?.landmark || "",
         averageRating,
         totalReviews: totalReviewsCount,
+        reviewsCount: totalReviewsCount,
         foods: formattedFoods
       }
     })

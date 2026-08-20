@@ -137,14 +137,15 @@ export function BrowseProductCard({
                 <span className="text-[11px] sm:text-xs text-gray-400 line-through">{formatCurrency(product.basePrice)}</span>
               )}
             </div>
-            {product._count.reviews > 0 && (
-              <div className="mt-1 flex items-center gap-1 text-[11px] sm:text-xs text-gray-600">
-                <Stars rating={product.avgRating} />
-                <span>
-                  ({product._count.reviews})
-                </span>
-              </div>
-            )}
+            <div className="mt-1.5 flex items-center gap-1.5 text-[11px] sm:text-xs">
+              <span className="inline-flex items-center gap-0.5 rounded bg-emerald-600 px-1.5 py-0.5 text-[10px] sm:text-[11px] font-extrabold text-white shadow-2xs">
+                <span>{(product.avgRating || 0).toFixed(1)}</span>
+                <Star className="h-2.5 w-2.5 fill-white text-white" />
+              </span>
+              <span className="text-[11px] text-slate-500 font-medium">
+                ({(product._count?.reviews || 0).toLocaleString()})
+              </span>
+            </div>
             {product.soldCount > 0 && (
               <p className="mt-0.5 text-[11px] sm:text-xs text-gray-500">{product.soldCount} sold</p>
             )}

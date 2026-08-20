@@ -12,6 +12,7 @@ import { useSession } from "next-auth/react"
 import { PublicLayout } from "@/components/site-layout"
 import { ReviewImageModal } from "@/components/reviews/review-image-modal"
 import { PageLoader } from "@/components/ui/page-loader"
+import { WishlistButton } from "@/components/product/WishlistButton"
 
 type FoodReviewItem = {
   id: string
@@ -272,6 +273,19 @@ export default function FoodDetailsPage() {
               }`}>
                 {food.isVeg ? "Veg" : "Non-Veg"}
               </span>
+              <div className="absolute top-8 right-8 z-10">
+                <WishlistButton
+                  foodItemId={food.id}
+                  name={food.name}
+                  image={foodImages[0]}
+                  price={food.price}
+                  isVeg={food.isVeg}
+                  category={food.category}
+                  restaurantName={food.restaurantName}
+                  className="h-11 w-11 shadow-lg"
+                  iconClassName="h-5 w-5"
+                />
+              </div>
             </div>
 
             {/* Thumbnail selector */}

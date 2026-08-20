@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
         }
 
         const totalRating = s.reviews.reduce((acc, r) => acc + r.rating, 0)
-        const rating = s.reviews.length > 0 ? parseFloat((totalRating / s.reviews.length).toFixed(1)) : 4.9
+        const rating = s.reviews.length > 0 ? parseFloat((totalRating / s.reviews.length).toFixed(1)) : 0
 
         const badgeText = discountPercentage > 0
           ? `${discountPercentage}% OFF`

@@ -11,6 +11,7 @@ import { PageLoader } from "@/components/ui/page-loader"
 import { PublicLayout } from "@/components/site-layout"
 import { formatCurrency, extractFoodImages, cn } from "@/lib/utils"
 import { getYoutubeThumbnailUrl } from "@/lib/youtube"
+import { WishlistButton } from "@/components/product/WishlistButton"
 
 type Room = {
   id: string
@@ -23,6 +24,9 @@ type Hotel = {
   name: string
   description: string | null
   starRating: number
+  averageRating?: number
+  totalReviews?: number
+  reviewCount?: number
   address: string | null
   city: string | null
   state: string | null
@@ -435,6 +439,16 @@ function HotelsBrowsePageContent() {
                               alt={hotel.name}
                               className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
                             />
+                            <div className="absolute top-1 right-1 z-10 scale-75 origin-top-right">
+                              <WishlistButton
+                                hotelId={hotel.id}
+                                name={hotel.name}
+                                image={imgUrl}
+                                price={minRoomPrice}
+                                city={hotel.city}
+                                starRating={hotel.starRating}
+                              />
+                            </div>
                           </div>
                           <span className="mt-1.5 text-[11px] font-bold text-slate-900 line-clamp-1 group-hover:text-emerald-600">
                             {hotel.name}
@@ -490,6 +504,16 @@ function HotelsBrowsePageContent() {
                               alt={hotel.name}
                               className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
                             />
+                            <div className="absolute top-1 right-1 z-10 scale-75 origin-top-right">
+                              <WishlistButton
+                                hotelId={hotel.id}
+                                name={hotel.name}
+                                image={imgUrl}
+                                price={minRoomPrice}
+                                city={hotel.city}
+                                starRating={hotel.starRating}
+                              />
+                            </div>
                           </div>
                           <span className="mt-1.5 text-[11px] font-bold text-slate-900 line-clamp-1 group-hover:text-emerald-600">
                             {hotel.name}
@@ -545,6 +569,16 @@ function HotelsBrowsePageContent() {
                               alt={hotel.name}
                               className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
                             />
+                            <div className="absolute top-1 right-1 z-10 scale-75 origin-top-right">
+                              <WishlistButton
+                                hotelId={hotel.id}
+                                name={hotel.name}
+                                image={imgUrl}
+                                price={minRoomPrice}
+                                city={hotel.city}
+                                starRating={hotel.starRating}
+                              />
+                            </div>
                           </div>
                           <span className="mt-1.5 text-[11px] font-bold text-slate-900 line-clamp-1 group-hover:text-amber-600">
                             {hotel.name}
@@ -600,6 +634,16 @@ function HotelsBrowsePageContent() {
                               alt={hotel.name}
                               className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
                             />
+                            <div className="absolute top-1 right-1 z-10 scale-75 origin-top-right">
+                              <WishlistButton
+                                hotelId={hotel.id}
+                                name={hotel.name}
+                                image={imgUrl}
+                                price={minRoomPrice}
+                                city={hotel.city}
+                                starRating={hotel.starRating}
+                              />
+                            </div>
                           </div>
                           <span className="mt-1.5 text-[11px] font-bold text-slate-900 line-clamp-1 group-hover:text-teal-600">
                             {hotel.name}
@@ -962,24 +1006,49 @@ function HotelsBrowsePageContent() {
 
                   return (
                     <Card key={hotel.id} className="rounded-[2rem] overflow-hidden border-none shadow-md hover:shadow-xl transition-all duration-300 flex flex-col h-full group bg-white">
-                      <Link href={`/hotels/${hotel.id}`} className="relative aspect-[4/3] bg-slate-100 overflow-hidden shrink-0 block cursor-pointer">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={coverImage}
-                          alt={hotel.name}
-                          className="object-cover h-full w-full group-hover:scale-105 transition-transform duration-500"
-                        />
+                      <div className="relative aspect-[4/3] bg-slate-100 overflow-hidden shrink-0 block">
+                        <Link href={`/hotels/${hotel.id}`} className="cursor-pointer block size-full">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={coverImage}
+                            alt={hotel.name}
+                            className="object-cover h-full w-full group-hover:scale-105 transition-transform duration-500"
+                          />
+                        </Link>
+                        <div className="absolute top-4 left-4 z-10">
+                          <WishlistButton
+                            hotelId={hotel.id}
+                            name={hotel.name}
+                            image={coverImage}
+                            price={startingPrice}
+                            city={hotel.city}
+                            starRating={hotel.starRating}
+                          />
+                        </div>
                         <div className="absolute top-4 right-4 flex items-center gap-1 bg-white/95 backdrop-blur px-2.5 py-1 rounded-full text-xs font-bold text-slate-800 shadow-sm">
                           <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400 shrink-0" />
                           <span>{hotel.starRating || "N/A"} Star</span>
                         </div>
-                      </Link>
+                      </div>
 
                       <CardContent className="p-6 flex flex-col flex-1">
                         <div className="flex-1 space-y-3">
-                          <div className="flex items-start gap-1.5 text-xs font-semibold text-emerald-600">
-                            <MapPin className="h-3.5 w-3.5 shrink-0" />
-                            <span className="truncate">{hotel.city || "Sierra Leone"}</span>
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-start gap-1.5 text-xs font-semibold text-emerald-600">
+                              <MapPin className="h-3.5 w-3.5 shrink-0" />
+                              <span className="truncate">{hotel.city || "Sierra Leone"}</span>
+                            </div>
+
+                            {/* Flipkart-Style Rating Badge */}
+                            <div className="flex items-center gap-1.5">
+                              <span className="inline-flex items-center gap-0.5 rounded bg-emerald-600 px-1.5 py-0.5 text-[10px] font-extrabold text-white shadow-2xs">
+                                <span>{(hotel.averageRating || 0).toFixed(1)}</span>
+                                <Star className="h-2.5 w-2.5 fill-white text-white" />
+                              </span>
+                              <span className="text-[11px] font-medium text-slate-500">
+                                ({(hotel.totalReviews || hotel.reviewCount || 0).toLocaleString()})
+                              </span>
+                            </div>
                           </div>
 
                           <Link href={`/hotels/${hotel.id}`} className="block group-hover:text-emerald-700 transition-colors">

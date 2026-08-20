@@ -56,6 +56,9 @@ export async function GET(request: NextRequest) {
           rooms: {
             where: { isActive: true, isDeleted: false },
             orderBy: { price: "asc" }
+          },
+          reviews: {
+            select: { rating: true }
           }
         },
         orderBy: { createdAt: "desc" }
@@ -80,8 +83,17 @@ export async function GET(request: NextRequest) {
 
     const formattedHotels = hotels.map((h) => {
       const extractedImages = extractFoodImages(h.images)
+      const reviewCount = h.reviews?.length ?? 0
+      const totalRating = h.reviews?.reduce((acc, r) => acc + r.rating, 0) ?? 0
+      const averageRating = reviewCount > 0 ? parseFloat((totalRating / reviewCount).toFixed(1)) : 0
+
+      const { reviews, ...restHotel } = h
       return {
-        ...h,
+        ...restHotel,
+        averageRating,
+        totalReviews: reviewCount,
+        reviewCount,
+        reviewsCount: reviewCount,
         images: extractedImages,
         rooms: h.rooms.map((r) => ({
           ...r,

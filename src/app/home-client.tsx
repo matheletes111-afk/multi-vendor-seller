@@ -29,6 +29,7 @@ import {
   Flame,
   Clock,
   History,
+  Star,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { getYoutubeEmbedUrl, getYoutubeThumbnailUrl } from "@/lib/youtube";
@@ -693,9 +694,14 @@ export function HomeClient() {
                                 <span className="text-xs sm:text-sm font-black text-blue-600 truncate whitespace-nowrap">
                                   {formatCurrency(finalPrice)}
                                 </span>
-                                <div className="flex items-center gap-0.5 text-[10px] font-semibold text-amber-600 shrink-0">
-                                  <StarRow rating={p.averageRating ?? 4.9} size="h-3 w-3" />
-                                  <span>{(p.averageRating ?? 4.9).toFixed(1)}</span>
+                                <div className="flex items-center gap-1 shrink-0">
+                                  <span className="inline-flex items-center gap-0.5 rounded bg-emerald-600 px-1.5 py-0.5 text-[9px] font-extrabold text-white shadow-2xs">
+                                    <span>{(p.averageRating ?? 4.9).toFixed(1)}</span>
+                                    <Star className="h-2 w-2 fill-white text-white" />
+                                  </span>
+                                  {p._count?.reviews ? (
+                                    <span className="text-[9px] text-slate-500 font-medium">({p._count.reviews})</span>
+                                  ) : null}
                                 </div>
                               </div>
                               <AddToCartButton
@@ -1471,10 +1477,17 @@ export function HomeClient() {
                                   <span className="text-xs font-black text-blue-600 truncate whitespace-nowrap">
                                     {formatCurrency(finalPrice)}
                                   </span>
-                                  <div className="flex items-center gap-0.5 text-[10px] font-semibold text-amber-600 shrink-0">
-                                    <StarRow rating={p.averageRating ?? 4.9} size="h-3 w-3" />
-                                    <span>{(p.averageRating ?? 4.9).toFixed(1)}</span>
-                                  </div>
+                                  {(p.averageRating || 0) > 0 ? (
+                                    <div className="flex items-center gap-1 shrink-0">
+                                      <span className="inline-flex items-center gap-0.5 rounded bg-emerald-600 px-1.5 py-0.5 text-[9px] font-extrabold text-white shadow-2xs">
+                                        <span>{p.averageRating!.toFixed(1)}</span>
+                                        <Star className="h-2 w-2 fill-white text-white" />
+                                      </span>
+                                      {p._count?.reviews ? (
+                                        <span className="text-[9px] text-slate-500 font-medium">({p._count.reviews})</span>
+                                      ) : null}
+                                    </div>
+                                  ) : null}
                                 </div>
                               </div>
 

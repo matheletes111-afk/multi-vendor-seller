@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
       const h = ad.hotel
       const price = h?.rooms[0]?.price || 499
       const totalRating = h?.reviews.reduce((acc, r) => acc + r.rating, 0) || 0
-      const rating = h?.reviews.length ? parseFloat((totalRating / h.reviews.length).toFixed(1)) : 4.9
+      const rating = h?.reviews.length ? parseFloat((totalRating / h.reviews.length).toFixed(1)) : (h?.starRating || 0)
 
       return {
         ad_id: ad.id,
@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
         starting_price_per_night: price,
         currency: "AED",
         rating,
-        review_count: h?.reviews.length || 76,
+        review_count: h?.reviews.length || 0,
         cta_text: "Book Stay",
         click_url: `/hotels/${ad.hotelId}`,
       }

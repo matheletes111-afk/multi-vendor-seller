@@ -71,6 +71,16 @@ export async function listCustomerOrders({
             },
             orderBy: { createdAt: "asc" },
           },
+          review: {
+            select: {
+              id: true,
+              rating: true,
+              comment: true,
+              images: true,
+              isVerified: true,
+              createdAt: true,
+            },
+          },
         },
       },
     },
@@ -95,6 +105,19 @@ export async function listCustomerOrders({
         !!row.productId && row.productVariant?.replacementAllowed === true && returnAvailable
       const request = row.returnRequest
 
+      const reviewData = row.review
+        ? {
+            id: row.review.id,
+            rating: row.review.rating,
+            comment: row.review.comment,
+            images: Array.isArray(row.review.images)
+              ? row.review.images.filter((v): v is string => typeof v === "string")
+              : [],
+            isVerified: row.review.isVerified,
+            createdAt: (row.review as any).createdAt ? (row.review as any).createdAt.toISOString() : undefined,
+          }
+        : null
+
       return {
         id: row.id,
         sellerId: row.sellerId,
@@ -113,8 +136,8 @@ export async function listCustomerOrders({
         imageUrl,
         serviceSlotStartTime: slot?.startTime ? slot.startTime.toISOString() : null,
         serviceSlotEndTime: slot?.endTime ? slot.endTime.toISOString() : null,
-        review: null,
-        canReview: false,
+        review: reviewData,
+        canReview: row.itemStatus === "DELIVERED" && !row.review && !!(row.productId || row.serviceId),
         shippingAmount: row.shippingAmount,
         commissionAmount: row.commissionAmount,
         commissionRateSnapshot: row.commissionRateSnapshot,
@@ -310,6 +333,7 @@ export async function getCustomerOrderDetail({
               comment: true,
               images: true,
               isVerified: true,
+              createdAt: true,
             },
           },
         },
@@ -369,6 +393,7 @@ export async function getCustomerOrderDetail({
               ? row.review.images.filter((v): v is string => typeof v === "string")
               : [],
             isVerified: row.review.isVerified,
+            createdAt: (row.review as any).createdAt ? (row.review as any).createdAt.toISOString() : undefined,
           }
         : null,
       canReview:

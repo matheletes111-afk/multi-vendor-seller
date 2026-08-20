@@ -128,7 +128,11 @@ export async function GET(request: NextRequest) {
     let services = rawServices.map((s) => ({
       ...s,
       rating: ratingMap[s.id] || 0, // 0 if unreviewed
+      averageRating: ratingMap[s.id] || 0,
       reviewCount: s._count.reviews || 0,
+      reviewsCount: s._count.reviews || 0,
+      totalReviews: s._count.reviews || 0,
+      totalRatings: s._count.reviews || 0,
       bookingsCount: s._count.orderItems || 0,
     }))
 
