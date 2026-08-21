@@ -124,18 +124,18 @@ export function SellerFilterToolbar({
   )
 
   return (
-    <div className="space-y-4 rounded-3xl border border-slate-200/80 bg-white dark:bg-slate-900 dark:border-slate-800 p-4 sm:p-5 shadow-sm transition-all">
+    <div className="space-y-4 rounded-3xl border border-slate-200/80 bg-white dark:bg-slate-900 dark:border-slate-800 p-4 sm:p-5 shadow-sm transition-all max-w-full">
       {/* Top Search & Primary Filters Row */}
-      <div className="grid gap-3 grid-cols-1 md:grid-cols-12 items-center">
-        {/* Search Bar */}
-        <div className="relative md:col-span-4 lg:col-span-4">
+      <div className="flex flex-col xl:flex-row items-stretch xl:items-center gap-3">
+        {/* Search Bar - Takes available flex space */}
+        <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
           <Input
             value={localSearch}
             onChange={(e) => setLocalSearch(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Search name, email, store, city, phone..."
-            className="pl-9.5 pr-20 h-10 rounded-2xl bg-slate-50/80 dark:bg-slate-950/60 border-slate-200 dark:border-slate-800 text-xs sm:text-sm focus-visible:ring-2 focus-visible:ring-blue-500/30"
+            className="pl-9.5 pr-20 h-10 rounded-2xl bg-slate-50/80 dark:bg-slate-950/60 border-slate-200 dark:border-slate-800 text-xs sm:text-sm focus-visible:ring-2 focus-visible:ring-blue-500/30 w-full"
           />
           <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-1">
             {localSearch && (
@@ -167,66 +167,69 @@ export function SellerFilterToolbar({
           </div>
         </div>
 
-        {/* Timeframe Selector (Daily, Weekly, Monthly, Specific Date, Custom) */}
-        <div className="md:col-span-3 lg:col-span-3">
-          <Select
-            value={timeframe || "all"}
-            onValueChange={(val) => {
-              onTimeframeChange(val)
-              if (val !== "specific") onSpecificDateChange("")
-              if (val !== "custom") {
-                onStartDateChange("")
-                onEndDateChange("")
-              }
-            }}
-          >
-            <SelectTrigger className="h-10 rounded-2xl bg-slate-50/80 dark:bg-slate-950/60 border-slate-200 dark:border-slate-800 text-xs font-medium">
-              <Calendar className="h-3.5 w-3.5 mr-1.5 text-blue-600 dark:text-blue-400 shrink-0" />
-              <SelectValue placeholder="Date / Timeframe" />
-            </SelectTrigger>
-            <SelectContent className="rounded-2xl">
-              <SelectItem value="all">📅 All Time (Any Date)</SelectItem>
-              <SelectItem value="today">⚡ Daily (Registered Today)</SelectItem>
-              <SelectItem value="weekly">📆 Weekly (Last 7 Days)</SelectItem>
-              <SelectItem value="monthly">🗓️ Monthly (Last 30 Days)</SelectItem>
-              <SelectItem value="specific">🎯 Specific Single Date</SelectItem>
-              <SelectItem value="custom">⏳ Custom Date Range</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+        {/* 3 Filters Group - 3 equal responsive columns on sm+ */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 xl:w-[560px] shrink-0">
+          {/* Timeframe Selector (Daily, Weekly, Monthly, Specific Date, Custom) */}
+          <div className="min-w-0">
+            <Select
+              value={timeframe || "all"}
+              onValueChange={(val) => {
+                onTimeframeChange(val)
+                if (val !== "specific") onSpecificDateChange("")
+                if (val !== "custom") {
+                  onStartDateChange("")
+                  onEndDateChange("")
+                }
+              }}
+            >
+              <SelectTrigger className="h-10 w-full rounded-2xl bg-slate-50/80 dark:bg-slate-950/60 border-slate-200 dark:border-slate-800 text-xs font-medium px-3 truncate">
+                <Calendar className="h-4 w-4 mr-1.5 text-blue-600 dark:text-blue-400 shrink-0" />
+                <SelectValue placeholder="Date Range" />
+              </SelectTrigger>
+              <SelectContent className="rounded-2xl">
+                <SelectItem value="all">📅 All Time (Any Date)</SelectItem>
+                <SelectItem value="today">⚡ Daily (Registered Today)</SelectItem>
+                <SelectItem value="weekly">📆 Weekly (Last 7 Days)</SelectItem>
+                <SelectItem value="monthly">🗓️ Monthly (Last 30 Days)</SelectItem>
+                <SelectItem value="specific">🎯 Specific Single Date</SelectItem>
+                <SelectItem value="custom">⏳ Custom Date Range</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
-        {/* Document Status Selector */}
-        <div className="md:col-span-2.5 lg:col-span-2.5">
-          <Select value={docStatus || "ALL"} onValueChange={onDocStatusChange}>
-            <SelectTrigger className="h-10 rounded-2xl bg-slate-50/80 dark:bg-slate-950/60 border-slate-200 dark:border-slate-800 text-xs font-medium">
-              <ShieldCheck className="h-3.5 w-3.5 mr-1.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-              <SelectValue placeholder="Documents" />
-            </SelectTrigger>
-            <SelectContent className="rounded-2xl">
-              <SelectItem value="ALL">All Document States</SelectItem>
-              <SelectItem value="COMPLETE">✅ Complete / Verified Only</SelectItem>
-              <SelectItem value="INCOMPLETE">⚠️ Incomplete / Missing Only</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+          {/* Document Status Selector */}
+          <div className="min-w-0">
+            <Select value={docStatus || "ALL"} onValueChange={onDocStatusChange}>
+              <SelectTrigger className="h-10 w-full rounded-2xl bg-slate-50/80 dark:bg-slate-950/60 border-slate-200 dark:border-slate-800 text-xs font-medium px-3 truncate">
+                <ShieldCheck className="h-4 w-4 mr-1.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                <SelectValue placeholder="Documents" />
+              </SelectTrigger>
+              <SelectContent className="rounded-2xl">
+                <SelectItem value="ALL">All Documents</SelectItem>
+                <SelectItem value="COMPLETE">✅ Complete / Verified</SelectItem>
+                <SelectItem value="INCOMPLETE">⚠️ Incomplete / Missing</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
-        {/* Status Filter */}
-        <div className="md:col-span-2.5 lg:col-span-2.5">
-          <Select value={status || "ALL"} onValueChange={onStatusChange}>
-            <SelectTrigger className="h-10 rounded-2xl bg-slate-50/80 dark:bg-slate-950/60 border-slate-200 dark:border-slate-800 text-xs font-medium">
-              <Filter className="h-3.5 w-3.5 mr-1.5 text-purple-600 dark:text-purple-400 shrink-0" />
-              <SelectValue placeholder="Approval Status" />
-            </SelectTrigger>
-            <SelectContent className="rounded-2xl">
-              <SelectItem value="ALL">All Statuses</SelectItem>
-              <SelectItem value="PENDING">Pending Review</SelectItem>
-              <SelectItem value="APPROVED">Approved / Active</SelectItem>
-              <SelectItem value="SUSPENDED">Suspended</SelectItem>
-              <SelectItem value="ONBOARDING">In Onboarding</SelectItem>
-              <SelectItem value="CORRECTION_NEEDED">Correction Needed</SelectItem>
-              <SelectItem value="REJECTED">Rejected</SelectItem>
-            </SelectContent>
-          </Select>
+          {/* Status Filter */}
+          <div className="min-w-0">
+            <Select value={status || "ALL"} onValueChange={onStatusChange}>
+              <SelectTrigger className="h-10 w-full rounded-2xl bg-slate-50/80 dark:bg-slate-950/60 border-slate-200 dark:border-slate-800 text-xs font-medium px-3 truncate">
+                <Filter className="h-4 w-4 mr-1.5 text-purple-600 dark:text-purple-400 shrink-0" />
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent className="rounded-2xl">
+                <SelectItem value="ALL">All Statuses</SelectItem>
+                <SelectItem value="PENDING">Pending Review</SelectItem>
+                <SelectItem value="APPROVED">Approved / Active</SelectItem>
+                <SelectItem value="SUSPENDED">Suspended</SelectItem>
+                <SelectItem value="ONBOARDING">In Onboarding</SelectItem>
+                <SelectItem value="CORRECTION_NEEDED">Correction Needed</SelectItem>
+                <SelectItem value="REJECTED">Rejected</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       </div>
 
