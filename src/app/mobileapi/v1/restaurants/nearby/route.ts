@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
       orderBy: { createdAt: "desc" },
       include: {
         user: { select: { name: true, image: true } },
-        businessInfo: { select: { city: true, street: true, landmark: true } },
+        businessInfo: { select: { businessName: true, city: true, street: true, landmark: true } },
         foods: {
           where: { isActive: true, isDeleted: false },
           select: {
@@ -52,15 +52,21 @@ export async function GET(request: NextRequest) {
       const offerTag = offerTags[index % offerTags.length]
 
       return {
+        id: r.id,
         restaurant_id: r.id,
         name: r.user?.name || "Gourmet Kitchen",
+        businessName: r.businessInfo?.businessName || r.user?.name || "Gourmet Kitchen",
         cuisine_type: cuisineType,
+        cuisines: cuisineList,
         image_url: imageUrl || "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=600&q=80",
         logo: r.logo || null,
         city: r.businessInfo?.city || "Dubai",
+        street: r.businessInfo?.street || "",
         location_text: r.businessInfo?.landmark || r.businessInfo?.street || "Downtown",
         rating,
+        averageRating: rating,
         review_count: allRatings.length || 42 + index * 12,
+        totalReviews: allRatings.length || 42 + index * 12,
         delivery_time_range: deliveryTimeRange,
         distance_km: simulatedDistanceKm,
         offer_tag: offerTag,

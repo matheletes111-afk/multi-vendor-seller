@@ -8,12 +8,15 @@ import {
   validateProductOrServiceSellerApproval,
   validateHotelSellerApproval,
   validateRestaurantSellerApproval,
+  evaluateSellerDocuments,
+  SellerDocumentEvaluation,
 } from "@/lib/seller-approval-validation"
 import {
   sendSellerApprovalEmail,
   sendSellerSuspensionEmail,
 } from "@/lib/email"
 import { getPresignedUrlOrOriginal } from "@/lib/s3-presigned"
+import { buildDateRangeFilter } from "@/lib/admin-date-filters"
 
 export interface UnifiedSellerItem {
   id: string
@@ -40,6 +43,7 @@ export interface UnifiedSellerItem {
   logo?: string | null
   banner?: string | null
   commissionRate?: number | null
+  documentEvaluation?: SellerDocumentEvaluation
   raw: any
 }
 
@@ -59,18 +63,21 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get("search")?.trim() || searchParams.get("q")?.trim() || ""
     const sellerTypeParam = (searchParams.get("sellerType") || searchParams.get("type") || "ALL").toUpperCase()
     const statusParam = (searchParams.get("status") || searchParams.get("tab") || "ALL").toUpperCase()
+    const timeframe = searchParams.get("timeframe")?.trim()
+    const specificDate = searchParams.get("specificDate")?.trim()
     const startDate = searchParams.get("startDate")?.trim()
     const endDate = searchParams.get("endDate")?.trim()
+    const docStatus = (searchParams.get("docStatus") || "ALL").toUpperCase()
+    const sortBy = (searchParams.get("sortBy") || "createdAt").toLowerCase()
+    const sortOrder = (searchParams.get("sortOrder") || "desc").toLowerCase() as "asc" | "desc"
 
     // ── Build Date Filter ──
-    const dateFilter: { gte?: Date; lte?: Date } = {}
-    if (startDate) dateFilter.gte = new Date(startDate)
-    if (endDate) {
-      const end = new Date(endDate)
-      end.setHours(23, 59, 59, 999)
-      dateFilter.lte = end
-    }
-    const hasDateFilter = Object.keys(dateFilter).length > 0
+    const dateFilter = buildDateRangeFilter({
+      timeframe,
+      specificDate,
+      startDate,
+      endDate,
+    })
 
     // ── Status helper ──
     const getStatusWhere = (status: string) => {
@@ -104,7 +111,7 @@ export async function GET(request: NextRequest) {
     // 1. Product & Service Seller where clause
     const sellerWhere: Prisma.SellerWhereInput = {
       ...statusWhere,
-      ...(hasDateFilter ? { createdAt: dateFilter } : {}),
+      ...(dateFilter ? { createdAt: dateFilter } : {}),
       ...(sellerTypeParam === "PRODUCT"
         ? { type: "PRODUCT" }
         : sellerTypeParam === "SERVICE"
@@ -119,15 +126,19 @@ export async function GET(request: NextRequest) {
         { user: { phone: { contains: search, mode: "insensitive" } } },
         { store: { name: { contains: search, mode: "insensitive" } } },
         { store: { city: { contains: search, mode: "insensitive" } } },
+        { store: { state: { contains: search, mode: "insensitive" } } },
         { businessInfo: { businessName: { contains: search, mode: "insensitive" } } },
         { businessInfo: { city: { contains: search, mode: "insensitive" } } },
+        { businessInfo: { businessRegNumber: { contains: search, mode: "insensitive" } } },
+        { businessInfo: { taxIdNumber: { contains: search, mode: "insensitive" } } },
+        { kyc: { idNumber: { contains: search, mode: "insensitive" } } },
       ]
     }
 
     // 2. Hotel Seller where clause
     const hotelWhere: Prisma.HotelSellerWhereInput = {
       ...statusWhere,
-      ...(hasDateFilter ? { createdAt: dateFilter } : {}),
+      ...(dateFilter ? { createdAt: dateFilter } : {}),
     }
 
     if (search) {
@@ -137,14 +148,18 @@ export async function GET(request: NextRequest) {
         { user: { phone: { contains: search, mode: "insensitive" } } },
         { businessInfo: { businessName: { contains: search, mode: "insensitive" } } },
         { businessInfo: { city: { contains: search, mode: "insensitive" } } },
+        { businessInfo: { businessRegNumber: { contains: search, mode: "insensitive" } } },
+        { businessInfo: { taxIdNumber: { contains: search, mode: "insensitive" } } },
+        { kyc: { idNumber: { contains: search, mode: "insensitive" } } },
         { hotels: { some: { name: { contains: search, mode: "insensitive" } } } },
+        { hotels: { some: { city: { contains: search, mode: "insensitive" } } } },
       ]
     }
 
     // 3. Restaurant Seller where clause
     const restaurantWhere: Prisma.RestaurantSellerWhereInput = {
       ...statusWhere,
-      ...(hasDateFilter ? { createdAt: dateFilter } : {}),
+      ...(dateFilter ? { createdAt: dateFilter } : {}),
     }
 
     if (search) {
@@ -154,6 +169,11 @@ export async function GET(request: NextRequest) {
         { user: { phone: { contains: search, mode: "insensitive" } } },
         { businessInfo: { businessName: { contains: search, mode: "insensitive" } } },
         { businessInfo: { city: { contains: search, mode: "insensitive" } } },
+        { businessInfo: { state: { contains: search, mode: "insensitive" } } },
+        { businessInfo: { businessRegNumber: { contains: search, mode: "insensitive" } } },
+        { businessInfo: { taxIdNumber: { contains: search, mode: "insensitive" } } },
+        { kyc: { idNumber: { contains: search, mode: "insensitive" } } },
+        { kyc: { foodLicenseNumber: { contains: search, mode: "insensitive" } } },
       ]
     }
 
@@ -172,9 +192,6 @@ export async function GET(request: NextRequest) {
       approvedProductCount,
       approvedHotelCount,
       approvedRestaurantCount,
-      filteredSellerCount,
-      filteredHotelCount,
-      filteredRestaurantCount,
     ] = await Promise.all([
       prisma.seller.count({ where: { type: "PRODUCT" } }),
       prisma.seller.count({ where: { type: "SERVICE" } }),
@@ -189,23 +206,13 @@ export async function GET(request: NextRequest) {
       prisma.seller.count({ where: { isApproved: true, isSuspended: false } }),
       prisma.hotelSeller.count({ where: { isApproved: true, isSuspended: false } }),
       prisma.restaurantSeller.count({ where: { isApproved: true, isSuspended: false } }),
-      (queryProduct || queryService) ? prisma.seller.count({ where: sellerWhere }) : 0,
-      queryHotel ? prisma.hotelSeller.count({ where: hotelWhere }) : 0,
-      queryRestaurant ? prisma.restaurantSeller.count({ where: restaurantWhere }) : 0,
     ])
 
-    const totalCount = filteredSellerCount + filteredHotelCount + filteredRestaurantCount
-    const totalPages = Math.ceil(totalCount / perPage)
-
-    // ── Fetch rows ──
-    // Fetch sufficient records to merge and sort properly
-    const fetchLimit = skip + take
-
+    // Fetch records to merge, document-evaluate, filter, and sort
     const [sellersRaw, hotelSellersRaw, restaurantSellersRaw] = (await Promise.all([
       (queryProduct || queryService)
         ? prisma.seller.findMany({
             where: sellerWhere,
-            take: fetchLimit,
             include: {
               user: true,
               store: true,
@@ -230,7 +237,6 @@ export async function GET(request: NextRequest) {
       queryHotel
         ? prisma.hotelSeller.findMany({
             where: hotelWhere,
-            take: fetchLimit,
             include: {
               user: true,
               businessInfo: true,
@@ -246,7 +252,6 @@ export async function GET(request: NextRequest) {
       queryRestaurant
         ? prisma.restaurantSeller.findMany({
             where: restaurantWhere,
-            take: fetchLimit,
             include: {
               user: true,
               businessInfo: true,
@@ -262,12 +267,13 @@ export async function GET(request: NextRequest) {
         : [],
     ])) as [any[], any[], any[]]
 
-    // ── Normalize to unified items ──
+    // ── Normalize to unified items with document evaluations ──
     const unifiedList: UnifiedSellerItem[] = []
 
     // 1. Sellers (Product / Service)
     for (const s of sellersRaw) {
       const isProduct = s.type === "PRODUCT"
+      const docEval = evaluateSellerDocuments(s, isProduct ? "PRODUCT" : "SERVICE")
       unifiedList.push({
         id: s.id,
         sellerType: isProduct ? "PRODUCT" : "SERVICE",
@@ -285,7 +291,7 @@ export async function GET(request: NextRequest) {
         adminFeedback: s.adminFeedback,
         createdAt: s.createdAt,
         updatedAt: s.updatedAt,
-        subscriptionPlan: s.subscription?.plan?.name || null,
+        subscriptionPlan: s.subscription?.plan?.displayName || s.subscription?.plan?.name || null,
         itemsCount: isProduct ? (s._count?.products ?? 0) : (s._count?.services ?? 0),
         ordersCount: s._count?.orders ?? 0,
         city: s.store?.city || s.businessInfo?.city || null,
@@ -293,12 +299,14 @@ export async function GET(request: NextRequest) {
         logo: s.store?.logo || null,
         banner: s.store?.banner || null,
         commissionRate: s.commissionRate,
+        documentEvaluation: docEval,
         raw: s,
       })
     }
 
     // 2. Hotel Sellers
     for (const h of hotelSellersRaw) {
+      const docEval = evaluateSellerDocuments(h, "HOTEL")
       unifiedList.push({
         id: h.id,
         sellerType: "HOTEL",
@@ -316,19 +324,21 @@ export async function GET(request: NextRequest) {
         adminFeedback: h.adminFeedback,
         createdAt: h.createdAt,
         updatedAt: h.updatedAt,
-        subscriptionPlan: h.subscription?.plan?.name || null,
+        subscriptionPlan: h.subscription?.plan?.displayName || h.subscription?.plan?.name || null,
         itemsCount: h.hotels?.length ?? 0,
         city: h.businessInfo?.city || h.hotels?.[0]?.city || null,
         state: h.businessInfo?.state || h.hotels?.[0]?.state || null,
         logo: h.logo || null,
         banner: h.banner || null,
         commissionRate: h.commissionRate,
+        documentEvaluation: docEval,
         raw: h,
       })
     }
 
     // 3. Restaurant Sellers
     for (const r of restaurantSellersRaw) {
+      const docEval = evaluateSellerDocuments(r, "RESTAURANT")
       unifiedList.push({
         id: r.id,
         sellerType: "RESTAURANT",
@@ -346,7 +356,7 @@ export async function GET(request: NextRequest) {
         adminFeedback: r.adminFeedback,
         createdAt: r.createdAt,
         updatedAt: r.updatedAt,
-        subscriptionPlan: r.subscription?.plan?.name || null,
+        subscriptionPlan: r.subscription?.plan?.displayName || r.subscription?.plan?.name || null,
         itemsCount: r.foods?.length ?? 0,
         ordersCount: r.foodOrders?.length ?? 0,
         city: r.businessInfo?.city || null,
@@ -354,15 +364,82 @@ export async function GET(request: NextRequest) {
         logo: r.logo || null,
         banner: r.banner || null,
         commissionRate: r.commissionRate,
+        documentEvaluation: docEval,
         raw: r,
       })
     }
 
-    // Sort descending by registration date
-    unifiedList.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    // ── Filter by Document Completeness if requested ──
+    let filteredList = unifiedList
+    if (docStatus === "COMPLETE") {
+      filteredList = filteredList.filter((item) => item.documentEvaluation?.isComplete === true)
+    } else if (docStatus === "INCOMPLETE") {
+      filteredList = filteredList.filter((item) => item.documentEvaluation?.isComplete === false)
+    }
+
+    // ── Multi-Column Sorting ──
+    const modifier = sortOrder === "asc" ? 1 : -1
+    filteredList.sort((a, b) => {
+      switch (sortBy) {
+        case "name": {
+          const valA = (a.userName || a.userEmail || "").toLowerCase()
+          const valB = (b.userName || b.userEmail || "").toLowerCase()
+          return valA.localeCompare(valB) * modifier
+        }
+        case "email": {
+          const valA = (a.userEmail || "").toLowerCase()
+          const valB = (b.userEmail || "").toLowerCase()
+          return valA.localeCompare(valB) * modifier
+        }
+        case "store":
+        case "storename":
+        case "businessname": {
+          const valA = (a.storeName || a.businessName || "").toLowerCase()
+          const valB = (b.storeName || b.businessName || "").toLowerCase()
+          return valA.localeCompare(valB) * modifier
+        }
+        case "sellertype":
+        case "type": {
+          return a.sellerType.localeCompare(b.sellerType) * modifier
+        }
+        case "status": {
+          const valA = a.isSuspended ? "SUSPENDED" : a.isApproved ? "APPROVED" : a.status || "PENDING"
+          const valB = b.isSuspended ? "SUSPENDED" : b.isApproved ? "APPROVED" : b.status || "PENDING"
+          return valA.localeCompare(valB) * modifier
+        }
+        case "plan":
+        case "subscription":
+        case "subscriptionplan": {
+          const valA = (a.subscriptionPlan || "Free").toLowerCase()
+          const valB = (b.subscriptionPlan || "Free").toLowerCase()
+          return valA.localeCompare(valB) * modifier
+        }
+        case "commission":
+        case "commissionrate": {
+          const valA = a.commissionRate ?? -1
+          const valB = b.commissionRate ?? -1
+          return (valA - valB) * modifier
+        }
+        case "documents":
+        case "docstatus": {
+          const valA = a.documentEvaluation?.isComplete ? 1 : 0
+          const valB = b.documentEvaluation?.isComplete ? 1 : 0
+          if (valA !== valB) return (valA - valB) * modifier
+          return ((b.documentEvaluation?.missingCount ?? 0) - (a.documentEvaluation?.missingCount ?? 0)) * modifier
+        }
+        case "date":
+        case "createdat":
+        default: {
+          return (new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()) * modifier
+        }
+      }
+    })
+
+    const totalCount = filteredList.length
+    const totalPages = Math.ceil(totalCount / perPage)
 
     // Slice to current page
-    const pagedItems = unifiedList.slice(skip, skip + take)
+    const pagedItems = filteredList.slice(skip, skip + take)
 
     // Presign document URLs for items on this page
     await Promise.all(

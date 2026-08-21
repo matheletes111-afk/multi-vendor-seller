@@ -4,6 +4,8 @@ import { prisma } from "@/lib/prisma"
 import { UserRole } from "@prisma/client"
 import { sendVerificationOtpEmail } from "@/lib/email"
 
+import { getAppBaseUrl, sendEmailVerificationSms } from "@/lib/twilio-sms"
+
 const OTP_EXPIRY_MS = 10 * 60 * 1000
 const COOLDOWN_MS = 60 * 1000 // 1 min
 
@@ -17,7 +19,7 @@ export async function POST(request: Request) {
     }
     const user = await prisma.user.findFirst({
       where: { email, role: UserRole.ADMIN },
-      select: { id: true, name: true, isEmailVerified: true, emailOtpSentAt: true },
+      select: { id: true, name: true, phone: true, phoneCountryCode: true, isEmailVerified: true, emailOtpSentAt: true },
     })
     if (!user) {
       return NextResponse.json({ error: "No admin account found with this email." }, { status: 404 })
@@ -39,8 +41,22 @@ export async function POST(request: Request) {
       where: { id: user.id },
       data: { verifyEmailOtp: otp, emailVerificationExpires, emailOtpSentAt: now },
     })
-    await sendVerificationOtpEmail({ to: email, otp, name: user.name })
-    return NextResponse.json({ message: "OTP sent to your email." }, { status: 200 })
+
+    const baseUrl = getAppBaseUrl(request)
+    const verificationLink = `${baseUrl}/api/verify-email?token=${otp}`
+
+    await Promise.allSettled([
+      sendVerificationOtpEmail({ to: email, otp, name: user.name, verificationLink }),
+      sendEmailVerificationSms({
+        to: user.phone,
+        countryCode: user.phoneCountryCode,
+        verificationLink,
+        otp,
+        name: user.name,
+      }),
+    ])
+
+    return NextResponse.json({ message: "OTP sent to your email and mobile number." }, { status: 200 })
   } catch (error) {
     console.error("Admin send-otp error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })

@@ -99,12 +99,65 @@ export function HotelOnboardingClient() {
     formData.append("step", currentStep.toString())
 
     try {
-      let res: Response
+      if (currentStep === 2) {
+        const hasBusReg = (formData.get("busRegCert") as File)?.size > 0 || seller?.businessInfo?.busRegCertUrl || previews["busRegCert"]
+        const hasCityCouncil = (formData.get("cityCouncilCert") as File)?.size > 0 || seller?.businessInfo?.cityCouncilCertUrl || previews["cityCouncilCert"]
+        const hasAddressProof = (formData.get("addressProof") as File)?.size > 0 || seller?.businessInfo?.addressProofUrl || previews["addressProof"]
+        const hasGstCert = !haveGst || (formData.get("gstTinCert") as File)?.size > 0 || seller?.businessInfo?.gstTinCertUrl || previews["gstTinCert"]
+
+        if (!hasBusReg || !hasCityCouncil || !hasAddressProof || !hasGstCert) {
+          setError("Please upload all mandatory business documents (Registration Certificate, City Council Certificate, Proof of Address) before proceeding.")
+          setSaving(false)
+          return
+        }
+      }
+
+      if (currentStep === 3) {
+        const hasIdFront = (formData.get("idFront") as File)?.size > 0 || seller?.kyc?.idFrontUrl || previews["idFront"]
+        const hasIdBack = (formData.get("idBack") as File)?.size > 0 || seller?.kyc?.idBackUrl || previews["idBack"]
+        const hasSelfie = (formData.get("selfie") as File)?.size > 0 || seller?.kyc?.selfieUrl || previews["selfie"]
+
+        if (!hasIdFront || !hasIdBack || !hasSelfie) {
+          setError("Please upload all required identity documents: ID Front, ID Back, and Face Verification (Selfie).")
+          setSaving(false)
+          return
+        }
+      }
+
       if (currentStep === 4) {
+        const hasLogo = (formData.get("logo") as File)?.size > 0 || seller?.logo || previews["logo"]
+        const hasBanner = (formData.get("banner") as File)?.size > 0 || seller?.banner || previews["banner"]
+        const hasMainPhoto = (formData.get("mainPhoto") as File)?.size > 0 || seller?.mainPhoto || previews["mainPhoto"]
+
+        if (!hasLogo || !hasBanner || !hasMainPhoto) {
+          setError("Please upload Property Logo, Property Banner, and Main Property Photo.")
+          setSaving(false)
+          return
+        }
+
+        if (selectedCategories.length === 0) {
+          setError("Please select at least one property category.")
+          setSaving(false)
+          return
+        }
+
         // Handle multi-select categories for Step 4
         formData.delete("category") // Remove single values if any
         selectedCategories.forEach(cat => formData.append("categories", cat))
       }
+
+      if (currentStep === 5) {
+        const hasPassbook = (formData.get("passbook") as File)?.size > 0 || seller?.bankDetails?.passbookUrl || previews["passbook"]
+        const hasBankLetter = (formData.get("bankLetter") as File)?.size > 0 || seller?.bankDetails?.bankLetterUrl || previews["bankLetter"]
+
+        if (!hasPassbook && !hasBankLetter) {
+          setError("Please upload a Bank Passbook, Cancelled Check, or Official Bank Account Letter.")
+          setSaving(false)
+          return
+        }
+      }
+
+      let res: Response
 
       if (currentStep === 6) {
         if (hearAboutUs === "Other" && !hearAboutUsOther.trim()) {
@@ -429,18 +482,18 @@ export function HotelOnboardingClient() {
                   <div className="grid grid-cols-2 gap-4 pt-4 border-t">
                     <div className="space-y-2">
                       <Label>ID Front *</Label>
-                      <Input name="idFront" type="file" accept="image/*" onChange={(e) => handleFileChange(e, "idFront")} />
+                      <Input name="idFront" type="file" accept="image/*" required={!seller.kyc?.idFrontUrl} onChange={(e) => handleFileChange(e, "idFront")} />
                       {renderFilePreview("idFront", seller.kyc?.idFrontUrl, "ID Front")}
                     </div>
                     <div className="space-y-2">
-                      <Label>ID Back</Label>
-                      <Input name="idBack" type="file" accept="image/*" onChange={(e) => handleFileChange(e, "idBack")} />
+                      <Label>ID Back *</Label>
+                      <Input name="idBack" type="file" accept="image/*" required={!seller.kyc?.idBackUrl} onChange={(e) => handleFileChange(e, "idBack")} />
                       {renderFilePreview("idBack", seller.kyc?.idBackUrl, "ID Back")}
                     </div>
                   </div>
                   <div className="space-y-2 pt-4 border-t">
                     <Label>Selfie Verification *</Label>
-                    <Input name="selfie" type="file" accept="image/*" onChange={(e) => handleFileChange(e, "selfie")} />
+                    <Input name="selfie" type="file" accept="image/*" required={!seller.kyc?.selfieUrl} onChange={(e) => handleFileChange(e, "selfie")} />
                     {renderFilePreview("selfie", seller.kyc?.selfieUrl, "Selfie")}
                   </div>
                 </div>
@@ -491,18 +544,18 @@ export function HotelOnboardingClient() {
                   <div className="grid grid-cols-2 gap-4 pt-4 border-t">
                     <div className="space-y-2">
                       <Label>Property Logo *</Label>
-                      <Input name="logo" type="file" accept="image/*" onChange={(e) => handleFileChange(e, "logo")} />
+                      <Input name="logo" type="file" accept="image/*" required={!seller.logo} onChange={(e) => handleFileChange(e, "logo")} />
                       {renderFilePreview("logo", seller.logo, "Logo")}
                     </div>
                     <div className="space-y-2">
                       <Label>Property Banner *</Label>
-                      <Input name="banner" type="file" accept="image/*" onChange={(e) => handleFileChange(e, "banner")} />
+                      <Input name="banner" type="file" accept="image/*" required={!seller.banner} onChange={(e) => handleFileChange(e, "banner")} />
                       {renderFilePreview("banner", seller.banner, "Banner")}
                     </div>
                   </div>
                   <div className="space-y-2 pt-4 border-t">
                     <Label>Main Property Photo *</Label>
-                    <Input name="mainPhoto" type="file" accept="image/*" onChange={(e) => handleFileChange(e, "mainPhoto")} />
+                    <Input name="mainPhoto" type="file" accept="image/*" required={!seller.mainPhoto} onChange={(e) => handleFileChange(e, "mainPhoto")} />
                     {renderFilePreview("mainPhoto", seller.mainPhoto, "Main Photo")}
                   </div>
                 </div>
@@ -551,7 +604,7 @@ export function HotelOnboardingClient() {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2 pt-4 border-t">
                       <Label>Passbook / Cancelled Check Proof *</Label>
-                      <Input name="passbook" type="file" accept="image/*,.pdf" onChange={(e) => handleFileChange(e, "passbook")} />
+                      <Input name="passbook" type="file" accept="image/*,.pdf" required={!seller.bankDetails?.passbookUrl && !seller.bankDetails?.bankLetterUrl} onChange={(e) => handleFileChange(e, "passbook")} />
                       {renderFilePreview("passbook", seller.bankDetails?.passbookUrl, "Bank Proof")}
                     </div>
                     <div className="space-y-2 pt-4 border-t">

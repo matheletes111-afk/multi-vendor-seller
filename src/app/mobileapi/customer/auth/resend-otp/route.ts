@@ -3,6 +3,7 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { UserRole } from "@prisma/client"
 import { sendVerificationOtpEmail } from "@/lib/email"
+import { getAppBaseUrl, sendEmailVerificationSms } from "@/lib/twilio-sms"
 
 // Constants
 const OTP_EXPIRY_MS = 10 * 60 * 1000 // 10 minutes
@@ -96,10 +97,12 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
         id: true,
         email: true,
         name: true,
+        phone: true,
+        phoneCountryCode: true,
         isEmailVerified: true,
         emailOtpSentAt: true,
       }
-    }) as UserWithOtpInfo | null
+    }) as (UserWithOtpInfo & { phone?: string | null; phoneCountryCode?: string | null }) | null
 
     if (!user) {
       return NextResponse.json<ErrorResponse>(
@@ -154,22 +157,28 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
       }
     })
 
-    // Send OTP email
+    // Send OTP email & SMS
+    const baseUrl = getAppBaseUrl(request)
+    const verificationLink = `${baseUrl}/api/verify-email?token=${newOtp}`
+
     try {
-      await sendVerificationOtpEmail({
-        to: email,
-        otp: newOtp,
-        name: user.name,
-      })
-    } catch (emailError) {
-      console.error("Failed to send OTP email:", emailError)
-      return NextResponse.json<ErrorResponse>(
-        { 
-          success: false,
-          error: "Failed to send OTP email. Please try again." 
-        },
-        { status: 500 }
-      )
+      await Promise.allSettled([
+        sendVerificationOtpEmail({
+          to: email,
+          otp: newOtp,
+          name: user.name,
+          verificationLink,
+        }),
+        sendEmailVerificationSms({
+          to: user.phone,
+          countryCode: user.phoneCountryCode,
+          verificationLink,
+          otp: newOtp,
+          name: user.name,
+        }),
+      ])
+    } catch (sendError) {
+      console.error("Failed to send OTP email/SMS:", sendError)
     }
 
     // Return success response

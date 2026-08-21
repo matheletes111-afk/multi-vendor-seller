@@ -1,6 +1,6 @@
 "use client"
 
-import { Fragment, useState, useEffect, useCallback } from "react"
+import React, { Fragment, useState, useEffect, useCallback } from "react"
 import Link from "next/link"
 import { useSearchParams, useRouter } from "next/navigation"
 import { Button } from "@/ui/button"
@@ -26,6 +26,8 @@ import { Alert, AlertDescription } from "@/ui/alert"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/ui/dialog"
 import { Textarea } from "@/ui/textarea"
 import { SellerDetailsView } from "@/components/admin/sellers/seller-details-view"
+import { SellerFilterToolbar } from "@/components/admin/sellers/seller-filter-toolbar"
+import { SellerDocumentBadge } from "@/components/admin/sellers/seller-document-badge"
 import {
   Users,
   CheckCircle,
@@ -44,6 +46,7 @@ import {
   Hash,
   ShieldCheck,
   ChevronDown,
+  ChevronUp,
   X,
   User,
   MapPin,
@@ -54,26 +57,42 @@ import {
   Scale,
   Fingerprint,
   Calendar,
-  Filter
+  Filter,
+  Package,
+  Wrench,
+  ExternalLink,
+  Percent,
 } from "lucide-react"
 
 export function SellersClient() {
   const searchParams = useSearchParams()
   const router = useRouter()
+
   const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10) || 1)
   const perPage = Math.min(50, Math.max(1, parseInt(searchParams.get("perPage") ?? "10", 10) || 10))
   const tab = searchParams.get("tab") ?? "all"
   const searchQ = searchParams.get("search") ?? ""
-  const typeFilter = searchParams.get("type") ?? "ALL"
+  const typeFilter = (searchParams.get("type") || "ALL").toUpperCase()
+  const statusParam = (searchParams.get("status") || tab).toUpperCase()
+  const timeframeParam = searchParams.get("timeframe") ?? "all"
+  const specificDateParam = searchParams.get("specificDate") ?? ""
   const startParam = searchParams.get("startDate") ?? ""
   const endParam = searchParams.get("endDate") ?? ""
+  const docStatusParam = (searchParams.get("docStatus") || "ALL").toUpperCase()
+  const sortByParam = searchParams.get("sortBy") ?? "createdAt"
+  const sortOrderParam = (searchParams.get("sortOrder") ?? "desc") as "asc" | "desc"
 
-  // Local state for the search input to avoid re-rendering on every keystroke
+  // Local state
   const [searchInput, setSearchInput] = useState(searchQ)
+  const [localType, setLocalType] = useState(typeFilter)
+  const [localStatus, setLocalStatus] = useState(statusParam)
+  const [localTimeframe, setLocalTimeframe] = useState(timeframeParam)
+  const [localSpecificDate, setLocalSpecificDate] = useState(specificDateParam)
   const [startDate, setStartDate] = useState(startParam)
   const [endDate, setEndDate] = useState(endParam)
-  const [localType, setLocalType] = useState(typeFilter)
-  const [localTab, setLocalTab] = useState(tab)
+  const [localDocStatus, setLocalDocStatus] = useState(docStatusParam)
+  const [localSortBy, setLocalSortBy] = useState(sortByParam)
+  const [localSortOrder, setLocalSortOrder] = useState<"asc" | "desc">(sortOrderParam)
 
   const [plans, setPlans] = useState<any[]>([])
   const [isMounted, setIsMounted] = useState(false)
@@ -108,6 +127,19 @@ export function SellersClient() {
   const [isCommissionDialogOpen, setIsCommissionDialogOpen] = useState(false)
   const [commissionValue, setCommissionValue] = useState<number | "">("")
 
+  // URL updating helper
+  const updateUrlParams = useCallback((newParams: Record<string, string | undefined>) => {
+    const current = new URLSearchParams(searchParams.toString())
+    Object.entries(newParams).forEach(([key, val]) => {
+      if (val && val !== "ALL" && val !== "all") {
+        current.set(key, val)
+      } else {
+        current.delete(key)
+      }
+    })
+    router.push(`/admin/sellers?${current.toString()}`)
+  }, [router, searchParams])
+
   const loadSellers = useCallback(
     (opts?: { showLoading?: boolean }) => {
       const showLoading = opts?.showLoading !== false
@@ -115,13 +147,22 @@ export function SellersClient() {
         setLoading(true)
         setError(null)
       }
-      const tabQs = tab === "all" ? "" : `&tab=${encodeURIComponent(tab)}`
-      const searchQs = searchQ ? `&search=${encodeURIComponent(searchQ)}` : ""
-      const typeQs = typeFilter !== "ALL" ? `&type=${encodeURIComponent(typeFilter)}` : ""
-      const startQs = startParam ? `&startDate=${encodeURIComponent(startParam)}` : ""
-      const endQs = endParam ? `&endDate=${encodeURIComponent(endParam)}` : ""
 
-      return fetch(`/api/admin/sellers?page=${page}&perPage=${perPage}${tabQs}${searchQs}${typeQs}${startQs}${endQs}`)
+      const params = new URLSearchParams()
+      params.set("page", page.toString())
+      params.set("perPage", perPage.toString())
+      if (searchQ) params.set("search", searchQ)
+      if (typeFilter !== "ALL") params.set("type", typeFilter)
+      if (statusParam !== "ALL" && statusParam !== "all") params.set("status", statusParam)
+      if (timeframeParam !== "all") params.set("timeframe", timeframeParam)
+      if (specificDateParam) params.set("specificDate", specificDateParam)
+      if (startParam) params.set("startDate", startParam)
+      if (endParam) params.set("endDate", endParam)
+      if (docStatusParam !== "ALL") params.set("docStatus", docStatusParam)
+      if (sortByParam) params.set("sortBy", sortByParam)
+      if (sortOrderParam) params.set("sortOrder", sortOrderParam)
+
+      return fetch(`/api/admin/sellers?${params.toString()}`)
         .then((res) => {
           if (!res.ok) throw new Error("Failed to fetch sellers")
           return res.json()
@@ -136,67 +177,52 @@ export function SellersClient() {
           if (showLoading) setLoading(false)
         })
     },
-    [page, perPage, tab, searchQ, typeFilter, startParam, endParam]
+    [page, perPage, searchQ, typeFilter, statusParam, timeframeParam, specificDateParam, startParam, endParam, docStatusParam, sortByParam, sortOrderParam]
   )
 
   useEffect(() => {
-    let cancelled = false
-    setLoading(true)
-    setError(null)
-    const tabQs = tab === "all" ? "" : `&tab=${encodeURIComponent(tab)}`
-    const searchQs = searchQ ? `&search=${encodeURIComponent(searchQ)}` : ""
-    const typeQs = typeFilter !== "ALL" ? `&type=${encodeURIComponent(typeFilter)}` : ""
-    const startQs = startParam ? `&startDate=${encodeURIComponent(startParam)}` : ""
-    const endQs = endParam ? `&endDate=${encodeURIComponent(endParam)}` : ""
+    loadSellers()
+  }, [loadSellers])
 
-    fetch(`/api/admin/sellers?page=${page}&perPage=${perPage}${tabQs}${searchQs}${typeQs}${startQs}${endQs}`)
-      .then((res) => {
-        if (!res.ok) throw new Error("Failed to fetch sellers")
-        return res.json()
-      })
-      .then((json) => {
-        if (!cancelled) setData(json)
-      })
-      .catch((e) => {
-        if (!cancelled) setError(e.message)
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [page, perPage, tab, searchQ, typeFilter, startParam, endParam])
-
-  // Sync local state with URL params (useful when browser back/forward buttons used)
+  // Sync local state with URL params
   useEffect(() => {
     setSearchInput(searchQ)
     setStartDate(startParam)
     setEndDate(endParam)
     setLocalType(typeFilter)
-    setLocalTab(tab)
-  }, [searchQ, startParam, endParam, typeFilter, tab])
+    setLocalStatus(statusParam)
+    setLocalTimeframe(timeframeParam)
+    setLocalSpecificDate(specificDateParam)
+    setLocalDocStatus(docStatusParam)
+    setLocalSortBy(sortByParam)
+    setLocalSortOrder(sortOrderParam)
+  }, [searchQ, startParam, endParam, typeFilter, statusParam, timeframeParam, specificDateParam, docStatusParam, sortByParam, sortOrderParam])
 
-  const params = {
-    tab: tab === "all" ? undefined : tab,
-    search: searchQ || undefined,
-    type: typeFilter === "ALL" ? undefined : typeFilter,
-    startDate: startParam || undefined,
-    endDate: endParam || undefined,
-    error: errorParam || undefined,
-    success: successParam || undefined,
+  const handleSort = (field: string) => {
+    const newOrder = localSortBy === field && localSortOrder === "asc" ? "desc" : "asc"
+    setLocalSortBy(field)
+    setLocalSortOrder(newOrder)
+    updateUrlParams({
+      page: "1",
+      sortBy: field,
+      sortOrder: newOrder,
+    })
   }
 
-  const handleSearch = () => {
-    const paramObj = {
-      ...params,
-      search: searchInput || undefined,
+  const handleApplyFilters = () => {
+    updateUrlParams({
+      page: "1",
+      search: searchInput.trim() || undefined,
+      type: localType,
+      status: localStatus,
+      timeframe: localTimeframe,
+      specificDate: localSpecificDate || undefined,
       startDate: startDate || undefined,
       endDate: endDate || undefined,
-      type: localType === "ALL" ? undefined : localType,
-      tab: localTab === "all" ? undefined : localTab
-    }
-    router.push(buildAdminPageUrl("/admin/sellers", 1, paramObj))
+      docStatus: localDocStatus,
+      sortBy: localSortBy,
+      sortOrder: localSortOrder,
+    })
   }
 
   const handleClear = () => {
@@ -204,7 +230,12 @@ export function SellersClient() {
     setStartDate("")
     setEndDate("")
     setLocalType("ALL")
-    setLocalTab("all")
+    setLocalStatus("ALL")
+    setLocalTimeframe("all")
+    setLocalSpecificDate("")
+    setLocalDocStatus("ALL")
+    setLocalSortBy("createdAt")
+    setLocalSortOrder("desc")
     router.push("/admin/sellers")
   }
 
@@ -215,9 +246,9 @@ export function SellersClient() {
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || "Failed")
       await loadSellers({ showLoading: false })
-      router.push(buildAdminPageUrl("/admin/sellers", page, { ...params, success: "approved", error: undefined }))
+      updateUrlParams({ success: "approved", error: undefined })
     } catch (e: any) {
-      router.push(buildAdminPageUrl("/admin/sellers", page, { ...params, error: e.message, success: undefined }))
+      updateUrlParams({ error: e.message, success: undefined })
     } finally {
       setActionLoading(null)
     }
@@ -230,9 +261,9 @@ export function SellersClient() {
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || "Failed")
       await loadSellers({ showLoading: false })
-      router.push(buildAdminPageUrl("/admin/sellers", page, { ...params, success: "suspended", error: undefined }))
+      updateUrlParams({ success: "suspended", error: undefined })
     } catch (e: any) {
-      router.push(buildAdminPageUrl("/admin/sellers", page, { ...params, error: e.message, success: undefined }))
+      updateUrlParams({ error: e.message, success: undefined })
     } finally {
       setActionLoading(null)
     }
@@ -245,9 +276,9 @@ export function SellersClient() {
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || "Failed")
       await loadSellers({ showLoading: false })
-      router.push(buildAdminPageUrl("/admin/sellers", page, { ...params, success: "unsuspended", error: undefined }))
+      updateUrlParams({ success: "unsuspended", error: undefined })
     } catch (e: any) {
-      router.push(buildAdminPageUrl("/admin/sellers", page, { ...params, error: e.message, success: undefined }))
+      updateUrlParams({ error: e.message, success: undefined })
     } finally {
       setActionLoading(null)
     }
@@ -259,14 +290,14 @@ export function SellersClient() {
       const res = await fetch(`/api/admin/sellers/${sellerId}/status`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action, feedback })
+        body: JSON.stringify({ action, feedback }),
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || "Failed")
       await loadSellers({ showLoading: false })
-      router.push(buildAdminPageUrl("/admin/sellers", page, { ...params, success: `${action}_success`, error: undefined }))
+      updateUrlParams({ success: `${action}_success`, error: undefined })
     } catch (e: any) {
-      router.push(buildAdminPageUrl("/admin/sellers", page, { ...params, error: e.message, success: undefined }))
+      updateUrlParams({ error: e.message, success: undefined })
     } finally {
       setActionLoading(null)
     }
@@ -284,7 +315,6 @@ export function SellersClient() {
       if (!res.ok) throw new Error(json.error || "Failed")
       await loadSellers({ showLoading: false })
       setIsCommissionDialogOpen(false)
-      router.refresh()
     } catch (e: any) {
       setError(e.message)
     } finally {
@@ -292,350 +322,321 @@ export function SellersClient() {
     }
   }
 
-
-
-  const sellerTabs = [
-    { id: "all", label: "All Sellers", icon: Users },
-    { id: "pending", label: "Review Pending", icon: AlertCircle },
-    { id: "approved", label: "Fully Approved", icon: CheckCircle },
-    { id: "suspended", label: "Suspended", icon: Ban },
-  ] as const
-
   if (!isMounted) return <PageLoader />
 
   return (
-    <div className="container mx-auto p-6 space-y-8 animate-in fade-in duration-700">
+    <div className="container mx-auto p-4 sm:p-6 space-y-6 animate-in fade-in duration-500">
+      {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-medium text-foreground">Product and Service Sellers</h1>
-          <p className="text-muted-foreground mt-1 text-sm font-medium">Moderate product and service seller accounts, onboarding applications and performance</p>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
+            Product & Service Sellers
+          </h1>
+          <p className="text-muted-foreground mt-1 text-xs sm:text-sm font-medium">
+            Review and moderate physical product sellers and on-demand service providers.
+          </p>
         </div>
         <div className="flex items-center gap-2">
           {data && (
-            <Badge variant="outline" className="px-3 py-1 text-xs font-medium rounded-full shadow-sm bg-background border-primary/20 text-primary">
-              {data.totalCount} Total Product/Service Sellers
+            <Badge variant="outline" className="px-3 py-1 text-xs font-semibold rounded-full shadow-sm bg-background border-primary/20 text-primary">
+              {data.totalCount} Total Sellers
             </Badge>
           )}
         </div>
       </div>
 
-      {params.error && (
-        <Alert variant="destructive" className="border-none shadow-xl bg-destructive/10 text-destructive animate-in slide-in-from-top-4 duration-500">
-          <AlertCircle className="h-5 w-5" />
-          <AlertDescription className="font-medium">{decodeURIComponent(params.error)}</AlertDescription>
+      {errorParam && (
+        <Alert variant="destructive" className="rounded-2xl border-none shadow-md bg-destructive/10 text-destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription className="font-medium">{decodeURIComponent(errorParam)}</AlertDescription>
         </Alert>
       )}
-      {params.success && (
-        <Alert className="border-none shadow-xl bg-green-500/10 text-green-600 animate-in slide-in-from-top-4 duration-500">
-          <CheckCircle className="h-5 w-5" />
-          <AlertDescription className="font-medium uppercase tracking-widest text-xs">Action completed: {params.success}</AlertDescription>
+      {successParam && (
+        <Alert className="rounded-2xl border-none shadow-md bg-emerald-500/10 text-emerald-700 dark:text-emerald-300">
+          <CheckCircle className="h-4 w-4 text-emerald-600" />
+          <AlertDescription className="font-medium text-xs">Action completed: {successParam}</AlertDescription>
         </Alert>
       )}
 
-      <Card className="border-none shadow-2xl overflow-hidden rounded-3xl bg-gradient-to-br from-background via-background to-muted/20">
-        <CardHeader className="pb-4">
-          <div className="flex items-center gap-2 mb-4 px-4 pt-2">
-            <Filter className="h-4 w-4 text-primary" />
-            <CardTitle className="text-sm font-semibold uppercase tracking-wider">Search & Filters</CardTitle>
-          </div>
+      {/* Enhanced Filter Toolbar */}
+      <SellerFilterToolbar
+        search={searchInput}
+        onSearchChange={setSearchInput}
+        onSearchSubmit={handleApplyFilters}
+        timeframe={localTimeframe}
+        onTimeframeChange={(tf) => {
+          setLocalTimeframe(tf)
+          updateUrlParams({
+            page: "1",
+            timeframe: tf,
+            specificDate: tf === "specific" ? localSpecificDate : undefined,
+            startDate: tf === "custom" ? startDate : undefined,
+            endDate: tf === "custom" ? endDate : undefined,
+          })
+        }}
+        specificDate={localSpecificDate}
+        onSpecificDateChange={(d) => {
+          setLocalSpecificDate(d)
+          updateUrlParams({ page: "1", timeframe: "specific", specificDate: d })
+        }}
+        startDate={startDate}
+        onStartDateChange={(sd) => {
+          setStartDate(sd)
+          updateUrlParams({ page: "1", timeframe: "custom", startDate: sd, endDate })
+        }}
+        endDate={endDate}
+        onEndDateChange={(ed) => {
+          setEndDate(ed)
+          updateUrlParams({ page: "1", timeframe: "custom", startDate, endDate: ed })
+        }}
+        docStatus={localDocStatus}
+        onDocStatusChange={(ds) => {
+          setLocalDocStatus(ds)
+          updateUrlParams({ page: "1", docStatus: ds })
+        }}
+        status={localStatus}
+        onStatusChange={(st) => {
+          setLocalStatus(st)
+          updateUrlParams({ page: "1", status: st })
+        }}
+        sellerType={localType}
+        onSellerTypeChange={(t) => {
+          setLocalType(t)
+          updateUrlParams({ page: "1", type: t })
+        }}
+        sellerTypeOptions={[
+          { value: "ALL", label: "All Categories", icon: <Users className="h-3.5 w-3.5" /> },
+          { value: "PRODUCT", label: "Products", icon: <Package className="h-3.5 w-3.5" /> },
+          { value: "SERVICE", label: "Services", icon: <Wrench className="h-3.5 w-3.5" /> },
+        ]}
+        sortBy={localSortBy}
+        onSortByChange={(sb) => {
+          setLocalSortBy(sb)
+          updateUrlParams({ page: "1", sortBy: sb })
+        }}
+        sortOrder={localSortOrder}
+        onSortOrderChange={(so) => {
+          setLocalSortOrder(so)
+          updateUrlParams({ page: "1", sortOrder: so })
+        }}
+        onReset={handleClear}
+        totalCount={data?.totalCount}
+        loading={loading}
+      />
 
-          <div className="px-4 pb-4">
-            {/* FILTER FLEX WRAP */}
-            <div className="flex flex-wrap items-end gap-x-6 gap-y-4">
-              {/* Name Search */}
-              <div className="space-y-1.5 font-medium flex-1 min-w-[280px] max-w-[400px]">
-                <Label className="text-xs text-muted-foreground uppercase tracking-wider ml-1">Search Seller</Label>
-                <div className="relative">
-                  <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Name, email, or store..."
-                    className="pl-9 bg-background/50 border-muted rounded-xl h-10"
-                    value={searchInput}
-                    onChange={(e) => setSearchInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") handleSearch()
-                    }}
-                  />
-                </div>
-              </div>
-
-              {/* Date Filters */}
-              <div className="space-y-1.5 font-medium min-w-[320px]">
-                <Label className="text-xs text-muted-foreground uppercase tracking-wider ml-1">Registration Date</Label>
-                <div className="flex items-center gap-2">
-                  <div className="relative w-[150px]">
-                    <Calendar className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground opacity-70" />
-                    <Input
-                      type="date"
-                      className="pl-9 bg-background/50 border-muted rounded-xl text-xs h-10 w-full"
-                      value={startDate}
-                      onChange={(e) => setStartDate(e.target.value)}
-                    />
-                  </div>
-                  <span className="text-muted-foreground">−</span>
-                  <div className="relative w-[150px]">
-                    <Calendar className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground opacity-70" />
-                    <Input
-                      type="date"
-                      className="pl-9 bg-background/50 border-muted rounded-xl text-xs h-10 w-full"
-                      value={endDate}
-                      onChange={(e) => setEndDate(e.target.value)}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Seller Type Select */}
-              <div className="space-y-1.5 font-medium min-w-[180px]">
-                <Label className="text-xs text-muted-foreground uppercase tracking-wider ml-1">Seller Type</Label>
-                <Select
-                  value={localType}
-                  onValueChange={setLocalType}
-                >
-                  <SelectTrigger className="bg-background/50 border-muted rounded-xl h-10">
-                    <SelectValue placeholder="All Categories" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ALL">All Types</SelectItem>
-                    <SelectItem value="PRODUCT">Product Sellers</SelectItem>
-                    <SelectItem value="SERVICE">Service Providers</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Status Select */}
-              <div className="space-y-1.5 font-medium min-w-[180px]">
-                <Label className="text-xs text-muted-foreground uppercase tracking-wider ml-1">Status</Label>
-                <Select
-                  value={localTab}
-                  onValueChange={setLocalTab}
-                >
-                  <SelectTrigger className="bg-background/50 border-muted rounded-xl h-10">
-                    <SelectValue placeholder="All Statuses" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Sellers</SelectItem>
-                    <SelectItem value="pending">Review Pending</SelectItem>
-                    <SelectItem value="approved">Fully Approved</SelectItem>
-                    <SelectItem value="suspended">Suspended</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Actions */}
-              <div className="flex items-center gap-2 py-0.5">
-                <Button
-                  onClick={handleSearch}
-                  className="rounded-xl px-6 h-10 gap-2 font-bold shadow-lg shadow-primary/20"
-                >
-                  <Search className="h-4 w-4" />
-                  Apply Search
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={handleClear}
-                  className="rounded-xl px-4 h-10 gap-2 font-medium"
-                >
-                  <X className="h-4 w-4" />
-                  Reset
-                </Button>
-              </div>
-            </div>
-          </div>
-        </CardHeader>
+      {/* Main Table Card */}
+      <Card className="rounded-3xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm overflow-hidden">
         <CardContent className="p-0">
           {loading ? (
-            <div className="py-32">
-              <PageLoader message="Curating seller list…" />
+            <div className="py-24">
+              <PageLoader message="Loading product & service sellers..." />
             </div>
           ) : error ? (
             <div className="py-24 text-center px-6">
               <AlertCircle className="h-10 w-10 text-destructive mx-auto mb-4" />
               <p className="text-destructive font-medium">{error}</p>
-              <Button variant="outline" className="mt-4 rounded-full font-medium" onClick={() => loadSellers()}>Try Again</Button>
+              <Button variant="outline" className="mt-4 rounded-xl font-medium" onClick={() => loadSellers()}>
+                Try Again
+              </Button>
             </div>
           ) : !data ? null : (
             <>
               <div className="overflow-x-auto">
                 <Table>
-                  <TableHeader className="bg-muted/30 border-none transition-none">
-                    <TableRow className="hover:bg-transparent border-none">
-                      <TableHead className="py-4 pl-8 text-xs font-semibold text-muted-foreground/80">Name / Email</TableHead>
-                      <TableHead className="text-xs font-semibold text-muted-foreground/80">Store Name</TableHead>
-                      <TableHead className="text-xs font-semibold text-muted-foreground/80">Seller Type</TableHead>
-                      <TableHead className="text-xs font-semibold text-muted-foreground/80">Status</TableHead>
-                      <TableHead className="text-xs font-semibold text-muted-foreground/80">Subscription Plan</TableHead>
-                      <TableHead className="text-xs font-semibold text-muted-foreground/80">Commission Rate</TableHead>
-                      <TableHead className="text-right pr-8 text-xs font-semibold text-muted-foreground/80">Actions</TableHead>
+                  <TableHeader className="bg-slate-50/80 dark:bg-slate-950/50">
+                    <TableRow className="border-slate-100 dark:border-slate-800">
+                      <TableHead className="py-4 pl-6 min-w-[200px]">Name / Email</TableHead>
+                      <TableHead className="min-w-[160px]">Store / Business</TableHead>
+                      <TableHead className="min-w-[120px]">Seller Type</TableHead>
+                      <TableHead className="min-w-[120px]">Plan</TableHead>
+                      <TableHead className="min-w-[120px]">Commission</TableHead>
+                      <TableHead className="min-w-[130px]">Documents</TableHead>
+                      <TableHead className="min-w-[130px]">Status</TableHead>
+                      <TableHead className="min-w-[120px]">Joined Date</TableHead>
+                      <TableHead className="text-right pr-6 min-w-[140px]">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {data.sellers.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={7} className="text-center py-24">
-                          <Users className="h-12 w-12 text-muted-foreground/20 mx-auto mb-4" />
-                          <p className="text-muted-foreground font-medium uppercase tracking-[0.2em] text-xs">No matching sellers identified</p>
+                        <TableCell colSpan={9} className="text-center py-24">
+                          <Users className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3" />
+                          <p className="text-muted-foreground font-semibold text-sm">No matching sellers found</p>
+                          <p className="text-xs text-slate-400 mt-1">Try clearing or adjusting your search filters.</p>
                         </TableCell>
                       </TableRow>
                     ) : (
                       data.sellers.map((seller: any) => {
                         const isExpanded = expandedSellerId === seller.id
+                        const displayName = seller.store?.name || seller.businessInfo?.businessName || seller.user?.name || "Unnamed Seller"
+
                         return (
                           <Fragment key={seller.id}>
-                            <TableRow className={cn(
-                              "group transition-all hover:bg-muted/20 border-b border-muted/30",
-                              isExpanded && "bg-muted/10 shadow-inner"
-                            )}>
-                              <TableCell className="py-5 pl-8 font-medium">
+                            <TableRow
+                              className={cn(
+                                "group transition-colors hover:bg-slate-50/70 dark:hover:bg-slate-800/40 border-slate-100 dark:border-slate-800",
+                                isExpanded && "bg-slate-50 dark:bg-slate-800/60"
+                              )}
+                            >
+                              {/* Name / Email */}
+                              <TableCell className="py-4 pl-6 font-medium">
                                 <div className="flex flex-col">
-                                  <span>{seller.user?.name || "Unnamed Entity"}</span>
-                                  <span className="text-[10px] text-muted-foreground/70 font-mono tracking-tighter font-medium">{seller.user?.email}</span>
-                                  {(seller.agreement?.hearAboutUs || seller.hearAboutUs) && (
-                                    <div className="mt-1 flex items-center gap-1">
-                                      <span className="text-[9px] text-purple-700 dark:text-purple-300 font-semibold bg-purple-50 dark:bg-purple-950/50 px-2 py-0.5 rounded-md border border-purple-200 dark:border-purple-800/50 truncate max-w-[200px]" title={seller.agreement?.hearAboutUs || seller.hearAboutUs}>
-                                        Source: {seller.agreement?.hearAboutUs || seller.hearAboutUs}
-                                      </span>
-                                    </div>
+                                  <span className="font-semibold text-slate-900 dark:text-slate-100 text-sm">
+                                    {seller.user?.name || "Unnamed Entity"}
+                                  </span>
+                                  <span className="text-xs text-muted-foreground font-mono truncate max-w-[180px]">
+                                    {seller.user?.email}
+                                  </span>
+                                  {seller.user?.phone && (
+                                    <span className="text-[11px] text-slate-400">
+                                      {seller.user.phone}
+                                    </span>
                                   )}
                                 </div>
                               </TableCell>
+
+                              {/* Store / Business */}
                               <TableCell>
                                 <div className="flex items-center gap-2">
-                                  <div className="p-1.5 bg-orange-500/5 rounded-lg border border-orange-500/10">
-                                    <Store className="h-3.5 w-3.5 text-orange-500" />
+                                  <div className="p-1.5 bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-400 rounded-lg">
+                                    <Store className="h-3.5 w-3.5" />
                                   </div>
-                                  <span className="font-medium text-sm line-clamp-1">{seller.store?.name || "—"}</span>
+                                  <div className="min-w-0">
+                                    <p className="font-semibold text-sm text-slate-800 dark:text-slate-200 truncate max-w-[150px]">
+                                      {displayName}
+                                    </p>
+                                    {(seller.store?.city || seller.businessInfo?.city) && (
+                                      <p className="text-[11px] text-muted-foreground truncate max-w-[140px]">
+                                        {[seller.store?.city || seller.businessInfo?.city, seller.store?.state || seller.businessInfo?.district].filter(Boolean).join(", ")}
+                                      </p>
+                                    )}
+                                  </div>
                                 </div>
                               </TableCell>
+
+                              {/* Seller Type */}
                               <TableCell>
-                                <Badge variant="secondary" className="rounded-full text-[10px] font-medium px-3 py-0.5 border-none shadow-sm uppercase tracking-wider bg-indigo-500/10 text-indigo-600">
-                                  {seller.type}
+                                <Badge
+                                  variant="secondary"
+                                  className={cn(
+                                    "rounded-full text-xs font-semibold px-2.5 py-0.5",
+                                    seller.type === "PRODUCT"
+                                      ? "bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300"
+                                      : "bg-purple-50 text-purple-700 dark:bg-purple-950 dark:text-purple-300"
+                                  )}
+                                >
+                                  {seller.type === "PRODUCT" ? "🛍️ Product" : "🛠️ Service"}
                                 </Badge>
                               </TableCell>
+
+                              {/* Subscription Plan */}
                               <TableCell>
-                                <div className="flex flex-wrap gap-1.5">
-                                  <Badge
-                                    className={cn(
-                                      "rounded-full text-[9px] font-medium uppercase tracking-widest px-2 py-0.5 border-none shadow-sm",
-                                      seller.isApproved ? "bg-green-500 text-white" : "bg-blue-500 text-white"
-                                    )}
-                                  >
-                                    {seller.isApproved ? "Approved" : "Review Stage"}
+                                {seller.subscription?.plan?.displayName || seller.subscription?.plan?.name ? (
+                                  <Badge variant="outline" className="text-xs font-semibold px-2 py-0.5 rounded-lg bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 border-blue-200">
+                                    {seller.subscription.plan.displayName || seller.subscription.plan.name}
                                   </Badge>
-                                  {seller.isSuspended && (
-                                    <Badge className="bg-destructive text-white rounded-full text-[9px] font-medium uppercase tracking-widest px-2 py-0.5 border-none shadow-sm">
-                                      Suspended
-                                    </Badge>
-                                  )}
-                                </div>
-                              </TableCell>
-                              <TableCell>
-                                {seller.subscription?.plan?.displayName ? (
-                                  <div className="flex items-center gap-2">
-                                    <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-                                    <span className="text-xs font-medium text-primary/80 uppercase">{seller.subscription.plan.displayName}</span>
-                                  </div>
                                 ) : (
-                                  <span className="text-[10px] font-medium text-muted-foreground uppercase opacity-40">None</span>
+                                  <span className="text-xs text-muted-foreground">Free</span>
                                 )}
                               </TableCell>
+
+                              {/* Commission Rate */}
                               <TableCell>
                                 {seller.commissionRate != null ? (
                                   <div
-                                    className="flex items-center gap-2 cursor-pointer group/comm"
+                                    className="cursor-pointer inline-flex items-center gap-1 group/comm"
                                     onClick={() => {
                                       setSelectedSellerId(seller.id)
                                       setCommissionValue(seller.commissionRate)
                                       setIsCommissionDialogOpen(true)
                                     }}
+                                    title="Click to edit commission rate"
                                   >
-                                    <Badge className="bg-amber-500/10 text-amber-600 border-none rounded-full px-2.5 font-bold text-[10px] shadow-sm group-hover/comm:bg-amber-500 group-hover/comm:text-white transition-all">
+                                    <Badge className="bg-purple-50 text-purple-700 dark:bg-purple-950 dark:text-purple-300 rounded-lg px-2 py-0.5 font-bold text-xs group-hover/comm:bg-purple-600 group-hover/comm:text-white transition-colors">
                                       {seller.commissionRate}%
                                     </Badge>
                                   </div>
                                 ) : (
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-7 px-3 text-[10px] font-bold uppercase tracking-widest text-primary hover:bg-primary/10 bg-primary/5 border border-primary/20 rounded-full transition-all"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setSelectedSellerId(seller.id)
-                                      setCommissionValue(seller.commissionRate || "")
-                                      setIsCommissionDialogOpen(true)
-                                    }}
-                                  >
-                                    Assign
-                                  </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-6 px-2.5 text-[11px] font-semibold text-purple-700 bg-purple-50/70 border-purple-200/80 hover:bg-purple-100 hover:text-purple-800 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-800 rounded-lg cursor-pointer transition-colors"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    setSelectedSellerId(seller.id)
+                                    setCommissionValue("")
+                                    setIsCommissionDialogOpen(true)
+                                  }}
+                                >
+                                  Assign
+                                </Button>
                                 )}
                               </TableCell>
-                              <TableCell className="text-right pr-8">
-                                <div className="flex justify-end items-center gap-2">
+
+                              {/* Documents */}
+                              <TableCell>
+                                <SellerDocumentBadge evaluation={seller.documentEvaluation} />
+                              </TableCell>
+
+                              {/* Status */}
+                              <TableCell>
+                                <div className="flex flex-wrap gap-1">
+                                  <Badge
+                                    className={cn(
+                                      "rounded-full text-[10px] font-semibold uppercase px-2 py-0.5",
+                                      seller.isApproved ? "bg-emerald-600 text-white" : "bg-amber-500 text-white"
+                                    )}
+                                  >
+                                    {seller.isApproved ? "Approved" : "Review Stage"}
+                                  </Badge>
+                                  {seller.isSuspended && (
+                                    <Badge className="bg-rose-600 text-white rounded-full text-[10px] font-semibold uppercase px-2 py-0.5">
+                                      Suspended
+                                    </Badge>
+                                  )}
+                                </div>
+                              </TableCell>
+
+                              {/* Joined Date */}
+                              <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                                {new Date(seller.createdAt).toLocaleDateString("en-US", {
+                                  month: "short",
+                                  day: "numeric",
+                                  year: "numeric",
+                                })}
+                              </TableCell>
+
+                              {/* Actions */}
+                              <TableCell className="text-right pr-6">
+                                <div className="flex justify-end items-center gap-1.5">
+                                  <Link
+                                    href={`/admin/sellers/${seller.id}`}
+                                    className="inline-flex items-center justify-center h-8 px-2.5 rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50/50 text-blue-700 dark:text-blue-300 hover:bg-blue-100 text-xs font-semibold gap-1 transition-colors"
+                                    title="View Full Details"
+                                  >
+                                    <Eye className="h-3.5 w-3.5" />
+                                    <span>View</span>
+                                  </Link>
+
                                   <Button
                                     type="button"
                                     size="icon"
                                     variant="ghost"
-                                    className={cn(
-                                      "h-8 w-8 rounded-full transition-all duration-300",
-                                      isExpanded ? "bg-primary text-primary-foreground rotate-180" : "hover:bg-primary/10 hover:text-primary"
-                                    )}
+                                    className="h-8 w-8 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500"
                                     onClick={() => setExpandedSellerId(isExpanded ? null : seller.id)}
+                                    title="Toggle quick preview"
                                   >
-                                    <ChevronDown className="h-4 w-4" />
+                                    {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                                   </Button>
-
-                                  <Link
-                                    href={`/admin/sellers/${seller.id}`}
-                                    className="flex items-center justify-center h-8 w-8 rounded-full border border-primary/20 bg-primary/5 text-primary hover:bg-primary/10 transition-all shadow-sm"
-                                    title="View Full Details"
-                                  >
-                                    <Eye className="h-4 w-4" />
-                                  </Link>
-
-                                  <div className="flex items-center gap-2 transition-all duration-300">
-                                    {!seller.isApproved && (
-                                      <Button
-                                        type="button"
-                                        size="sm"
-                                        className="h-8 rounded-full font-medium uppercase tracking-widest text-[9px] bg-green-500 hover:bg-green-600"
-                                        disabled={actionLoading === seller.id}
-                                        onClick={() => handleApprove(seller.id)}
-                                      >
-                                        Approve
-                                      </Button>
-                                    )}
-                                    {seller.isSuspended ? (
-                                      <Button
-                                        type="button"
-                                        size="sm"
-                                        variant="outline"
-                                        className="h-8 rounded-full font-medium uppercase tracking-widest text-[9px] border-blue-500 text-blue-500 hover:bg-blue-50"
-                                        disabled={actionLoading === seller.id}
-                                        onClick={() => handleUnsuspend(seller.id)}
-                                      >
-                                        Unsuspend
-                                      </Button>
-                                    ) : (
-                                      <Button
-                                        type="button"
-                                        size="sm"
-                                        variant="destructive"
-                                        className="h-8 rounded-full font-medium uppercase tracking-widest text-[9px] shadow-lg shadow-destructive/10"
-                                        disabled={actionLoading === seller.id}
-                                        onClick={() => handleSuspend(seller.id)}
-                                      >
-                                        Suspend
-                                      </Button>
-                                    )}
-                                  </div>
                                 </div>
                               </TableCell>
                             </TableRow>
 
+                            {/* Expanded Review */}
                             {isExpanded && (
-                              <TableRow className="bg-muted/5 border-b border-muted/30">
-                                <TableCell colSpan={7} className="p-0">
-                                  <div className="p-8">
+                              <TableRow className="bg-slate-50/90 dark:bg-slate-900/90 border-b border-slate-200 dark:border-slate-800">
+                                <TableCell colSpan={9} className="p-6">
+                                  <div className="rounded-2xl bg-white dark:bg-slate-950 p-6 border border-slate-200 dark:border-slate-800 shadow-sm space-y-6">
                                     <SellerDetailsView
                                       seller={{ ...seller, plans }}
                                       actionLoading={actionLoading}
@@ -670,132 +671,183 @@ export function SellersClient() {
                 </Table>
               </div>
 
-              {/* Correction Dialog */}
-              <Dialog open={isCorrectionDialogOpen} onOpenChange={setIsCorrectionDialogOpen}>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Request Correction</DialogTitle>
-                    <DialogDescription>
-                      Inform the seller about missing or incorrect information. They will be notified to update their details.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="py-4">
-                    <Label htmlFor="feedback">Adjustment Feedback</Label>
-                    <Textarea
-                      id="feedback"
-                      placeholder="e.g. Please re-upload your clear bank passbook..."
-                      className="mt-2"
-                      value={feedbackText}
-                      onChange={(e) => setFeedbackText(e.target.value)}
-                    />
-                  </div>
-                  <DialogFooter>
-                    <Button variant="outline" onClick={() => setIsCorrectionDialogOpen(false)}>Cancel</Button>
-                    <Button
-                      disabled={actionLoading === selectedSellerId}
-                      onClick={async () => {
-                        if (selectedSellerId) {
-                          await handleAdminAction(selectedSellerId, "correction", feedbackText)
-                          setIsCorrectionDialogOpen(false)
-                        }
-                      }}
-                    >
-                      {actionLoading === selectedSellerId ? "Sending..." : "Send Request"}
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-
-              {/* Reject Dialog */}
-              <Dialog open={isRejectDialogOpen} onOpenChange={setIsRejectDialogOpen}>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle className="text-destructive">Reject Seller Application</DialogTitle>
-                    <DialogDescription>
-                      Are you sure you want to permanently reject this seller? This action cannot be undone and will prevent the seller from operating on the platform.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <DialogFooter>
-                    <Button variant="outline" onClick={() => setIsRejectDialogOpen(false)}>Cancel</Button>
-                    <Button
-                      variant="destructive"
-                      disabled={actionLoading === selectedSellerId}
-                      onClick={async () => {
-                        if (selectedSellerId) {
-                          await handleAdminAction(selectedSellerId, "reject")
-                          setIsRejectDialogOpen(false)
-                        }
-                      }}
-                    >
-                      {actionLoading === selectedSellerId ? "Rejecting..." : "Reject Permanently"}
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-
-              {/* Commission Dialog */}
-              <Dialog open={isCommissionDialogOpen} onOpenChange={setIsCommissionDialogOpen}>
-                <DialogContent className="sm:max-w-[400px] border-none shadow-2xl rounded-[2rem]">
-                  <DialogHeader>
-                    <div className="flex items-center gap-3 mb-2">
-                      <div className="p-2 bg-amber-500/10 rounded-xl">
-                        <Globe className="h-5 w-5 text-amber-600" />
-                      </div>
-                      <DialogTitle className="text-xl font-medium">Assign Seller Commission</DialogTitle>
-                    </div>
-                    <DialogDescription className="text-sm font-medium opacity-60">
-                      Set a custom commission rate for this specific seller. This will override the platform base rate.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="py-8 space-y-4">
-                    <div className="space-y-3">
-                      <Label htmlFor="commRate" className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground ml-1">Override Rate (%)</Label>
-                      <div className="relative">
-                        <div className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground/40 font-bold">%</div>
-                        <Input
-                          id="commRate"
-                          type="number"
-                          placeholder="e.g. 12.5"
-                          step="0.1"
-                          value={commissionValue}
-                          onChange={(e) => setCommissionValue(e.target.value ? parseFloat(e.target.value) : "")}
-                          className="pl-12 border-muted bg-muted/20 rounded-2xl h-14 focus-visible:ring-amber-500 font-bold text-lg shadow-inner"
-                        />
-                      </div>
-                      <p className="text-[9px] text-muted-foreground/60 ml-1 italic">* Leave empty or set to 0 to use platform default.</p>
-                    </div>
-                  </div>
-                  <DialogFooter className="gap-3">
-                    <Button variant="ghost" className="rounded-full px-6 font-medium text-xs uppercase tracking-widest" onClick={() => setIsCommissionDialogOpen(false)}>Cancel</Button>
-                    <Button
-                      className="bg-amber-500 hover:bg-amber-600 rounded-full px-8 h-12 font-medium uppercase tracking-[0.1em] text-[10px] shadow-lg shadow-amber-500/20"
-                      disabled={actionLoading === selectedSellerId}
-                      onClick={() => {
-                        if (selectedSellerId) {
-                          handleUpdateCommission(selectedSellerId, commissionValue === "" ? null : Number(commissionValue))
-                        }
-                      }}
-                    >
-                      {actionLoading === selectedSellerId ? "Synchronizing..." : "Update Commission"}
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-
-              <div className="p-8 bg-muted/10 border-t border-muted/20 rounded-b-3xl">
-                <AdminPagination
-                  basePath="/admin/sellers"
-                  currentPage={page}
-                  totalPages={data.totalPages}
-                  totalCount={data.totalCount}
-                  pageSize={perPage}
-                  params={params}
-                />
-              </div>
+              {/* Pagination */}
+              {data.totalPages > 1 && (
+                <div className="p-4 border-t border-slate-100 dark:border-slate-800">
+                  <AdminPagination
+                    basePath="/admin/sellers"
+                    currentPage={page}
+                    totalPages={data.totalPages}
+                    totalCount={data.totalCount}
+                    pageSize={perPage}
+                    params={searchParams}
+                  />
+                </div>
+              )}
             </>
           )}
         </CardContent>
       </Card>
+
+      {/* Correction Dialog */}
+      <Dialog open={isCorrectionDialogOpen} onOpenChange={setIsCorrectionDialogOpen}>
+        <DialogContent className="sm:max-w-[420px] rounded-3xl p-6">
+          <DialogHeader>
+            <div className="flex items-center gap-3 mb-1">
+              <div className="p-2.5 rounded-2xl bg-orange-50 dark:bg-orange-950/50 text-orange-600 dark:text-orange-400 border border-orange-100 dark:border-orange-900/50">
+                <AlertCircle className="h-5 w-5" />
+              </div>
+              <div>
+                <DialogTitle className="text-base font-bold text-slate-900 dark:text-slate-100">
+                  Request Correction
+                </DialogTitle>
+                <DialogDescription className="text-xs text-muted-foreground mt-0.5">
+                  Inform the seller about missing or invalid documents to update.
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+          <div className="py-3 space-y-2">
+            <Label htmlFor="feedback" className="text-xs font-semibold">Correction Memo</Label>
+            <Textarea
+              id="feedback"
+              placeholder="e.g. Please re-upload your business registration certificate with a clear official seal..."
+              className="text-xs rounded-2xl min-h-[100px]"
+              value={feedbackText}
+              onChange={(e) => setFeedbackText(e.target.value)}
+            />
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" size="sm" onClick={() => setIsCorrectionDialogOpen(false)} className="rounded-2xl text-xs font-medium">
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              className="rounded-2xl bg-orange-600 hover:bg-orange-700 text-white font-bold text-xs"
+              disabled={actionLoading === selectedSellerId || !feedbackText.trim()}
+              onClick={async () => {
+                if (selectedSellerId) {
+                  await handleAdminAction(selectedSellerId, "correction", feedbackText)
+                  setIsCorrectionDialogOpen(false)
+                }
+              }}
+            >
+              Send Correction Request
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reject Dialog */}
+      <Dialog open={isRejectDialogOpen} onOpenChange={setIsRejectDialogOpen}>
+        <DialogContent className="rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>Reject Application</DialogTitle>
+            <DialogDescription className="text-xs">
+              Are you sure you want to reject this seller? This action will mark their account as rejected.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-2">
+            <Label htmlFor="reject-feedback" className="text-xs font-semibold">Rejection Reason</Label>
+            <Textarea
+              id="reject-feedback"
+              placeholder="Reason for rejection..."
+              className="mt-2 text-xs rounded-xl"
+              value={feedbackText}
+              onChange={(e) => setFeedbackText(e.target.value)}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setIsRejectDialogOpen(false)} className="rounded-xl">
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              className="rounded-xl font-bold"
+              disabled={actionLoading === selectedSellerId}
+              onClick={async () => {
+                if (selectedSellerId) {
+                  await handleAdminAction(selectedSellerId, "reject", feedbackText)
+                  setIsRejectDialogOpen(false)
+                }
+              }}
+            >
+              Reject Seller
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Commission Dialog */}
+      <Dialog open={isCommissionDialogOpen} onOpenChange={setIsCommissionDialogOpen}>
+        <DialogContent className="sm:max-w-[420px] rounded-3xl p-6">
+          <DialogHeader>
+            <div className="flex items-center gap-3 mb-1">
+              <div className="p-2.5 rounded-2xl bg-purple-50 dark:bg-purple-950/50 text-purple-600 dark:text-purple-400 border border-purple-100 dark:border-purple-900/50">
+                <Percent className="h-5 w-5" />
+              </div>
+              <div>
+                <DialogTitle className="text-base font-bold text-slate-900 dark:text-slate-100">
+                  Assign Custom Commission Rate
+                </DialogTitle>
+                <DialogDescription className="text-xs text-muted-foreground mt-0.5">
+                  Override the platform default commission rate for this specific seller.
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+          <div className="py-4 space-y-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="commRate" className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                Commission Percentage (%)
+              </Label>
+              <div className="relative">
+                <Input
+                  id="commRate"
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.1"
+                  placeholder="e.g. 12.5"
+                  className="rounded-2xl text-sm pr-9 h-11"
+                  value={commissionValue}
+                  onChange={(e) => setCommissionValue(e.target.value === "" ? "" : parseFloat(e.target.value))}
+                />
+                <div className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none font-semibold text-xs">
+                  %
+                </div>
+              </div>
+            </div>
+
+            <div className="p-3 bg-slate-50 dark:bg-slate-950/60 rounded-2xl border border-slate-100 dark:border-slate-800/80 space-y-1">
+              <p className="text-[11px] text-muted-foreground">
+                💡 Leave empty to use platform default commission settings.
+              </p>
+              <p className="text-[11px] text-muted-foreground">
+                📌 Custom rates take immediate effect on all new customer orders.
+              </p>
+            </div>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" size="sm" onClick={() => setIsCommissionDialogOpen(false)} className="rounded-2xl text-xs font-medium">
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              className="rounded-2xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs"
+              disabled={actionLoading === selectedSellerId}
+              onClick={() => {
+                if (selectedSellerId) {
+                  handleUpdateCommission(selectedSellerId, commissionValue === "" ? null : Number(commissionValue))
+                }
+              }}
+            >
+              {actionLoading === selectedSellerId ? "Saving..." : "Save Commission Rate"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

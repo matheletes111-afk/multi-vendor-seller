@@ -496,10 +496,14 @@ export async function GET(request: NextRequest) {
       seller: p.seller,
       variants: p.variants,
       _count: p._count,
+      price: p.finalPrice,
       basePrice: p.basePrice,
       discount: p.discount,
       finalPrice: p.finalPrice,
       avgRating: p.avgRating,
+      averageRating: p.avgRating,
+      reviewsCount: p._count?.reviews ?? 0,
+      totalReviews: p._count?.reviews ?? 0,
       soldCount: p.soldCount,
       brand: p.brand,
       stock: p.stock,
@@ -548,3 +552,40 @@ export async function GET(request: NextRequest) {
     }, { status: 500 })
   }
 }
+
+/** POST /mobileapi/browse: Accepts JSON filter body and forwards to browse query engine. */
+export async function POST(request: NextRequest) {
+  try {
+    let body: Record<string, any> = {}
+    try {
+      body = await request.json()
+    } catch {
+      body = {}
+    }
+
+    const url = new URL(request.url)
+    Object.entries(body).forEach(([k, v]) => {
+      if (v !== undefined && v !== null && !url.searchParams.has(k)) {
+        if (Array.isArray(v)) {
+          url.searchParams.set(k, v.join(","))
+        } else {
+          url.searchParams.set(k, String(v))
+        }
+      }
+    })
+
+    const getReq = new NextRequest(url.toString(), {
+      method: "GET",
+      headers: request.headers,
+    })
+
+    return GET(getReq)
+  } catch (error) {
+    console.error("Browse POST API error:", error)
+    return NextResponse.json({
+      success: false,
+      error: error instanceof Error ? error.message : "Internal server error"
+    }, { status: 500 })
+  }
+}
+

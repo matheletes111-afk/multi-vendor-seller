@@ -43,6 +43,8 @@ export async function GET(request: Request) {
     [UserRole.CUSTOMER]: "/customer/login",
     [UserRole.SELLER_PRODUCT]: "/product-seller/login",
     [UserRole.SELLER_SERVICE]: "/service-seller/login",
+    [UserRole.SELLER_HOTEL]: "/hotel-seller/login",
+    [UserRole.SELLER_RESTAURANT]: "/restaurant-seller/login",
   }
   const loginPath = loginPaths[user.role] ?? "/customer/login"
   return NextResponse.redirect(origin + loginPath + "?verified=1")

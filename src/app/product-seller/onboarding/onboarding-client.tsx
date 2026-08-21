@@ -152,14 +152,58 @@ export function ProductOnboardingClient() {
     formData.append("step", currentStep.toString())
 
     try {
+      // Step-by-step document completeness client-side verification
+      if (currentStep === 2) {
+        const hasBusReg = (formData.get("busRegCert") as File)?.size > 0 || seller?.businessInfo?.busRegCertUrl || previews["busRegCert"]
+        const hasCityCouncil = (formData.get("cityCouncilCert") as File)?.size > 0 || seller?.businessInfo?.cityCouncilCertUrl || previews["cityCouncilCert"]
+        const hasAddressProof = (formData.get("addressProof") as File)?.size > 0 || seller?.businessInfo?.addressProofUrl || previews["addressProof"]
+        const hasGstCert = !haveGst || (formData.get("gstTinCert") as File)?.size > 0 || seller?.businessInfo?.gstTinCertUrl || previews["gstTinCert"]
+
+        if (!hasBusReg || !hasCityCouncil || !hasAddressProof || !hasGstCert) {
+          setError("Please upload all mandatory business documents (Registration Certificate, City Council Certificate, Proof of Address) before proceeding.")
+          setSaving(false)
+          return
+        }
+      }
+
+      if (currentStep === 3) {
+        const hasIdFront = (formData.get("idFront") as File)?.size > 0 || seller?.kyc?.idFrontUrl || previews["idFront"]
+        const hasIdBack = (formData.get("idBack") as File)?.size > 0 || seller?.kyc?.idBackUrl || previews["idBack"]
+        const hasSelfie = (formData.get("selfie") as File)?.size > 0 || seller?.kyc?.selfieUrl || previews["selfie"]
+
+        if (!hasIdFront || !hasIdBack || !hasSelfie) {
+          setError("Please upload all required identity documents: ID Front, ID Back, and Face Verification (Selfie).")
+          setSaving(false)
+          return
+        }
+      }
+
+      if (currentStep === 4) {
+        const hasPassbook = (formData.get("bankPassbook") as File)?.size > 0 || seller?.bankDetails?.passbookUrl || previews["bankPassbook"]
+        const hasBankLetter = (formData.get("bankLetter") as File)?.size > 0 || seller?.bankDetails?.bankLetterUrl || previews["bankLetter"]
+
+        if (!hasPassbook && !hasBankLetter) {
+          setError("Please upload a Bank Passbook, Cancelled Check, or Official Bank Account Letter.")
+          setSaving(false)
+          return
+        }
+      }
+
       let res: Response
       if (currentStep === 5 || currentStep === 6) {
         // JSON submission for steps without files
         const data: any = {}
         if (currentStep === 5) {
-          // If Step 5 has files or suggestions, we use FormData
           const logo = formData.get("storeLogo") as File | null
           const banner = formData.get("storeBanner") as File | null
+          const hasLogo = (logo && logo.size > 0) || seller?.store?.logo || previews["storeLogo"]
+          const hasBanner = (banner && banner.size > 0) || seller?.store?.banner || previews["storeBanner"]
+
+          if (!hasLogo || !hasBanner) {
+            setError("Please upload both Store Logo and Store Banner to complete store setup.")
+            setSaving(false)
+            return
+          }
           
           const hasFiles = (logo && logo.size > 0) || (banner && banner.size > 0) || suggestionsList.length > 0
 
@@ -575,12 +619,12 @@ export function ProductOnboardingClient() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6 bg-slate-50 rounded-2xl border border-slate-100">
                     <div className="space-y-2">
                       <Label htmlFor="idFront" className="flex items-center gap-2"><ImageIcon className="h-4 w-4" /> Upload ID Front *</Label>
-                      <Input id="idFront" name="idFront" type="file" accept="image/*" onChange={(e) => handleFileChange(e, "idFront")} />
+                      <Input id="idFront" name="idFront" type="file" accept="image/*" required={!seller.kyc?.idFrontUrl} onChange={(e) => handleFileChange(e, "idFront")} />
                       {renderFilePreview("idFront", seller.kyc?.idFrontUrl, "ID Front")}
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="idBack" className="flex items-center gap-2"><ImageIcon className="h-4 w-4" /> Upload ID Back</Label>
-                      <Input id="idBack" name="idBack" type="file" accept="image/*" onChange={(e) => handleFileChange(e, "idBack")} />
+                      <Label htmlFor="idBack" className="flex items-center gap-2"><ImageIcon className="h-4 w-4" /> Upload ID Back *</Label>
+                      <Input id="idBack" name="idBack" type="file" accept="image/*" required={!seller.kyc?.idBackUrl} onChange={(e) => handleFileChange(e, "idBack")} />
                       {renderFilePreview("idBack", seller.kyc?.idBackUrl, "ID Back")}
                     </div>
                   </div>
@@ -593,9 +637,9 @@ export function ProductOnboardingClient() {
                         <Upload className="h-6 w-6 text-purple-600" />
                       </div>
                       <div className="flex-1">
-                        <p className="text-sm font-medium mb-1">Selfie Verification</p>
+                        <p className="text-sm font-medium mb-1">Selfie Verification *</p>
                         <p className="text-xs text-slate-500 mb-3">Upload a clear photo of yourself holding your ID card (optional) or just a selfie.</p>
-                        <Input id="selfie" name="selfie" type="file" accept="image/*" className="cursor-pointer" onChange={(e) => handleFileChange(e, "selfie")} />
+                        <Input id="selfie" name="selfie" type="file" accept="image/*" className="cursor-pointer" required={!seller.kyc?.selfieUrl} onChange={(e) => handleFileChange(e, "selfie")} />
                         {renderFilePreview("selfie", seller.kyc?.selfieUrl, "Selfie Check")}
                       </div>
                     </div>
@@ -650,7 +694,7 @@ export function ProductOnboardingClient() {
                     <div className="space-y-2 p-6 bg-slate-50 rounded-2xl border border-slate-100">
                       <Label htmlFor="bankPassbook" className="text-sm font-semibold mb-2 block">Bank Document Proof *</Label>
                       <p className="text-xs text-slate-500 mb-3">Upload passbook front page or cancelled check</p>
-                      <Input id="bankPassbook" name="bankPassbook" type="file" accept="image/*,.pdf" onChange={(e) => handleFileChange(e, "bankPassbook")} />
+                      <Input id="bankPassbook" name="bankPassbook" type="file" accept="image/*,.pdf" required={!seller.bankDetails?.passbookUrl && !seller.bankDetails?.bankLetterUrl} onChange={(e) => handleFileChange(e, "bankPassbook")} />
                       {renderFilePreview("bankPassbook", seller.bankDetails?.passbookUrl, "Bank Document")}
                     </div>
                     <div className="space-y-2 p-6 bg-slate-50 rounded-2xl border border-slate-100">
@@ -723,14 +767,14 @@ export function ProductOnboardingClient() {
                       <div className="space-y-2">
                         <Label htmlFor="storeLogo" className="flex items-center gap-2"><ImageIcon className="h-4 w-4" /> Store Logo *</Label>
                         <div className="mt-1 p-4 border-2 border-dashed rounded-2xl bg-purple-50/30 border-purple-100 transition-colors hover:bg-purple-50/50">
-                          <Input id="storeLogo" name="storeLogo" type="file" accept="image/*" className="cursor-pointer" onChange={(e) => handleFileChange(e, "storeLogo")} />
+                          <Input id="storeLogo" name="storeLogo" type="file" accept="image/*" className="cursor-pointer" required={!seller.store?.logo} onChange={(e) => handleFileChange(e, "storeLogo")} />
                           {renderFilePreview("storeLogo", seller.store?.logo, "Store Logo")}
                         </div>
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="storeBanner" className="flex items-center gap-2"><ImageIcon className="h-4 w-4" /> Store Banner *</Label>
                         <div className="mt-1 p-4 border-2 border-dashed rounded-2xl bg-purple-50/30 border-purple-100 transition-colors hover:bg-purple-50/50">
-                          <Input id="storeBanner" name="storeBanner" type="file" accept="image/*" className="cursor-pointer" onChange={(e) => handleFileChange(e, "storeBanner")} />
+                          <Input id="storeBanner" name="storeBanner" type="file" accept="image/*" className="cursor-pointer" required={!seller.store?.banner} onChange={(e) => handleFileChange(e, "storeBanner")} />
                           {renderFilePreview("storeBanner", seller.store?.banner, "Store Banner")}
                         </div>
                       </div>

@@ -7,6 +7,7 @@ import path from "path"
 import { generateSlug } from "@/lib/utils"
 import { sendSellerWelcomeEmail, sendAdminNewSellerAlertEmail } from "@/lib/email"
 import { formatHearAboutUs } from "@/lib/onboarding-constants"
+import { evaluateSellerDocuments } from "@/lib/seller-approval-validation"
 
 
 export async function GET() {
@@ -148,9 +149,23 @@ export async function POST(request: NextRequest) {
           })
         }
       } else if (jsonBody?.data) {
+        if (jsonBody.data.busRegCertUrl) busRegCertUrl = jsonBody.data.busRegCertUrl
         if (jsonBody.data.cityCouncilCertUrl) cityCouncilCertUrl = jsonBody.data.cityCouncilCertUrl
         if (jsonBody.data.gstTinCertUrl) gstTinCertUrl = jsonBody.data.gstTinCertUrl
         if (jsonBody.data.addressProofUrl) addressProofUrl = jsonBody.data.addressProofUrl
+      }
+
+      if (!busRegCertUrl) {
+        return NextResponse.json({ error: "Business Registration Certificate is mandatory." }, { status: 400 })
+      }
+      if (!cityCouncilCertUrl) {
+        return NextResponse.json({ error: "City Council Certificate is mandatory." }, { status: 400 })
+      }
+      if (!addressProofUrl) {
+        return NextResponse.json({ error: "Proof of Address is mandatory." }, { status: 400 })
+      }
+      if (haveGst && !gstTinCertUrl) {
+        return NextResponse.json({ error: "GST TIN Certificate is mandatory when selling with GST." }, { status: 400 })
       }
 
       await (prisma as any).sellerBusinessInfo.upsert({
@@ -212,6 +227,16 @@ export async function POST(request: NextRequest) {
         }
       }
 
+      if (!idFrontUrl) {
+        return NextResponse.json({ error: "National ID / Passport Front document is mandatory." }, { status: 400 })
+      }
+      if (!idBackUrl) {
+        return NextResponse.json({ error: "National ID / Passport Back document is mandatory." }, { status: 400 })
+      }
+      if (!selfieUrl) {
+        return NextResponse.json({ error: "Selfie / Face Verification is mandatory." }, { status: 400 })
+      }
+
       await (prisma as any).sellerKYC.upsert({
         where: { sellerId: seller.id },
         update: { ...data, idFrontUrl, idBackUrl, selfieUrl } as any,
@@ -253,6 +278,10 @@ export async function POST(request: NextRequest) {
             prefix: "bank-letter",
           })
         }
+      }
+
+      if (!passbookUrl && !bankLetterUrl) {
+        return NextResponse.json({ error: "Bank document proof (Passbook or Bank Letter) is mandatory." }, { status: 400 })
       }
 
       await (prisma as any).sellerBankDetails.upsert({
@@ -418,6 +447,12 @@ export async function POST(request: NextRequest) {
         }
       }
 
+      const finalLogo = storeData.logo || seller.store?.logo
+      const finalBanner = storeData.banner || seller.store?.banner
+      if (!finalLogo || !finalBanner) {
+        return NextResponse.json({ error: "Both Store Logo and Store Banner are mandatory." }, { status: 400 })
+      }
+
       if (seller.store) {
         await prisma.store.update({
           where: { id: seller.store.id },
@@ -456,6 +491,18 @@ export async function POST(request: NextRequest) {
         update: agreementData as any,
         create: { ...agreementData, sellerId: seller.id } as any,
       })
+
+      // Strict validation before marking complete
+      const verifySeller = await prisma.seller.findUnique({
+        where: { id: seller.id },
+        include: { businessInfo: true, kyc: true, bankDetails: true, agreement: true, store: true } as any
+      })
+      const docEval = evaluateSellerDocuments(verifySeller, "PRODUCT")
+      if (!docEval.isComplete) {
+        return NextResponse.json({
+          error: `Cannot complete onboarding: Missing required documents: ${docEval.missingDocuments.join(", ")}`
+        }, { status: 400 })
+      }
 
       // Completion!
       await (prisma as any).seller.update({

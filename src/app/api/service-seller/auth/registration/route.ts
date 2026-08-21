@@ -9,6 +9,7 @@ import { validatePhoneAndCountryCode } from "@/lib/phone-validation"
 import { validatePassword } from "@/lib/password-validation"
 import { sanitizeInput } from "@/lib/html-sanitization"
 import { checkDisallowedName } from "@/lib/name-validation"
+import { getAppBaseUrl, sendEmailVerificationSms } from "@/lib/twilio-sms"
 
 const OTP_EXPIRY_MS = 10 * 60 * 1000 // 10 min
 
@@ -69,11 +70,24 @@ export async function POST(request: Request) {
     const seller = await prisma.seller.create({ data: { userId: user.id, type: "SERVICE" } })
     await activateFreePlan(seller.id)
 
-    await sendVerificationOtpEmail({
-      to: email,
-      otp: verifyEmailOtp,
-      name: sanitizedName,
-    })
+    const baseUrl = getAppBaseUrl(request)
+    const verificationLink = `${baseUrl}/api/verify-email?token=${verifyEmailOtp}`
+
+    await Promise.allSettled([
+      sendVerificationOtpEmail({
+        to: email,
+        otp: verifyEmailOtp,
+        name: sanitizedName,
+        verificationLink,
+      }),
+      sendEmailVerificationSms({
+        to: normalizedPhone,
+        countryCode: normalizedPhoneCountryCode,
+        verificationLink,
+        otp: verifyEmailOtp,
+        name: sanitizedName,
+      }),
+    ])
 
     return NextResponse.json({ message: "Please verify your email with the OTP sent.", userId: user.id, verifyUrl: "/service-seller/verify-otp" }, { status: 201 })
   } catch (error) {

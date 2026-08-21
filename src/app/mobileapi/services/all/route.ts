@@ -83,14 +83,51 @@ export async function GET(request: NextRequest): Promise<NextResponse<SuccessRes
         duration: true,
         createdAt: true,
         updatedAt: true,
-        seller: { select: { store: { select: { name: true } } } },
+        seller: {
+          select: {
+            store: { select: { name: true } },
+            user: { select: { name: true } },
+          },
+        },
+        _count: { select: { reviews: true } },
       },
     })
 
-    const mapped: ServiceItem[] = services.map((s) => ({
-      ...s,
-      images: getServiceDisplayImageUrls({ images: s.images, galleryImages: s.galleryImages }),
-    }))
+    const serviceIds = services.map((s) => s.id)
+    const ratingAggs =
+      serviceIds.length > 0
+        ? await prisma.review.groupBy({
+            by: ["serviceId"],
+            where: { serviceId: { in: serviceIds } },
+            _avg: { rating: true },
+          })
+        : []
+
+    const ratingMap = Object.fromEntries(
+      ratingAggs.map((r) => [r.serviceId, parseFloat(Number(r._avg.rating ?? 0).toFixed(1))])
+    ) as Record<string, number>
+
+    const mapped = services.map((s) => {
+      const basePrice = s.basePrice || 0
+      const discount = s.discount || 0
+      const finalPrice = Math.max(0, basePrice - discount)
+      const reviewsCount = s._count?.reviews ?? 0
+      const averageRating = ratingMap[s.id] ?? 0.0
+
+      return {
+        ...s,
+        service_id: s.id,
+        title: s.name,
+        provider_name: s.seller?.user?.name || s.seller?.store?.name || "Sparkle Cleaners",
+        price: finalPrice,
+        original_price: discount > 0 ? basePrice : basePrice || null,
+        rating: averageRating,
+        review_count: reviewsCount,
+        averageRating,
+        reviewCount: reviewsCount,
+        images: getServiceDisplayImageUrls({ images: s.images, galleryImages: s.galleryImages }),
+      }
+    })
 
     const total = await prisma.service.count({ where })
 

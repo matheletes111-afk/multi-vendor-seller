@@ -4,6 +4,8 @@ import { UserRole } from "@prisma/client"
 import { prisma } from "@/lib/prisma"
 import { sendPasswordResetOtpEmail } from "@/lib/email"
 
+import { getAppBaseUrl, sendPasswordResetSms } from "@/lib/twilio-sms"
+
 const OTP_EXPIRY_MS = 10 * 60 * 1000
 const COOLDOWN_MS = 60 * 1000
 
@@ -22,6 +24,8 @@ export async function POST(request: Request) {
       select: {
         id: true,
         name: true,
+        phone: true,
+        phoneCountryCode: true,
         isEmailVerified: true,
         emailOtpSentAt: true,
       },
@@ -54,7 +58,19 @@ export async function POST(request: Request) {
       },
     })
 
-    await sendPasswordResetOtpEmail({ to: email, otp, name: user.name })
+    const baseUrl = getAppBaseUrl(request)
+    const resetLink = `${baseUrl}/customer/reset-password?email=${encodeURIComponent(email)}`
+
+    await Promise.allSettled([
+      sendPasswordResetOtpEmail({ to: email, otp, name: user.name, resetLink }),
+      sendPasswordResetSms({
+        to: user.phone,
+        countryCode: user.phoneCountryCode,
+        otp,
+        name: user.name,
+        resetLink,
+      }),
+    ])
 
     return NextResponse.json(
       { message: "If an account exists for this email, OTP has been sent." },

@@ -7,6 +7,7 @@ import { sendVerificationOtpEmail } from "@/lib/email"
 import { validatePhoneAndCountryCode } from "@/lib/phone-validation"
 import { validatePassword } from "@/lib/password-validation"
 import { sanitizeInput } from "@/lib/html-sanitization"
+import { getAppBaseUrl, sendEmailVerificationSms } from "@/lib/twilio-sms"
 
 // Constants
 const OTP_EXPIRY_MS = 10 * 60 * 1000 // 10 minutes
@@ -181,28 +182,28 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
       }
     })
 
-    // Send verification email
+    // Send verification email & SMS
+    const baseUrl = getAppBaseUrl(request)
+    const verificationLink = `${baseUrl}/api/verify-email?token=${verifyEmailOtp}`
+
     try {
-      await sendVerificationOtpEmail({
-        to: email,
-        otp: verifyEmailOtp,
-        name: sanitizedName,
-      })
-    } catch (emailError) {
-      console.error("Failed to send verification email:", emailError)
-      // Still return success but note email failure
-      return NextResponse.json<SuccessResponse>(
-        { 
-          success: true,
-          message: "Registration successful but failed to send verification email. Please contact support.",
-          data: {
-            userId: user.id,
-            verifyUrl: "/mobileapi/customer/verify-otp",
-            user
-          }
-        },
-        { status: 201 }
-      )
+      await Promise.allSettled([
+        sendVerificationOtpEmail({
+          to: email,
+          otp: verifyEmailOtp,
+          name: sanitizedName,
+          verificationLink,
+        }),
+        sendEmailVerificationSms({
+          to: normalizedPhone,
+          countryCode: normalizedPhoneCountryCode,
+          verificationLink,
+          otp: verifyEmailOtp,
+          name: sanitizedName,
+        }),
+      ])
+    } catch (sendError) {
+      console.error("Failed to send verification email/SMS:", sendError)
     }
 
     // Return success response (matching login pattern)

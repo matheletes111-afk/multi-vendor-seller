@@ -6,6 +6,7 @@ import { UserRole } from "@prisma/client";
 import path from "path";
 import { generateSlug } from "@/lib/utils";
 import { HEAR_ABOUT_US_OPTIONS, formatHearAboutUs } from "@/lib/onboarding-constants";
+import { evaluateSellerDocuments } from "@/lib/seller-approval-validation";
 
 /**
  * GET /mobileapi/service-seller/onboarding
@@ -93,6 +94,10 @@ export async function POST(request: NextRequest) {
                 gstCustomerName: haveGst ? jsonBody.data.gstCustomerName : null,
                 latitude: jsonBody.data?.latitude != null && !isNaN(Number(jsonBody.data.latitude)) ? Number(jsonBody.data.latitude) : null,
                 longitude: jsonBody.data?.longitude != null && !isNaN(Number(jsonBody.data.longitude)) ? Number(jsonBody.data.longitude) : null,
+                busRegCertUrl: jsonBody.data?.busRegCertUrl || seller.businessInfo?.busRegCertUrl || null,
+                cityCouncilCertUrl: jsonBody.data?.cityCouncilCertUrl || seller.businessInfo?.cityCouncilCertUrl || null,
+                gstTinCertUrl: jsonBody.data?.gstTinCertUrl || seller.businessInfo?.gstTinCertUrl || null,
+                addressProofUrl: jsonBody.data?.addressProofUrl || seller.businessInfo?.addressProofUrl || null,
             };
 
             if (formData) {
@@ -153,6 +158,19 @@ export async function POST(request: NextRequest) {
                 }
             }
 
+            if (!businessData.busRegCertUrl) {
+                return NextResponse.json({ success: false, error: "Business Registration Certificate / Trade License is mandatory." }, { status: 400 });
+            }
+            if (!businessData.cityCouncilCertUrl) {
+                return NextResponse.json({ success: false, error: "City Council Certificate is mandatory." }, { status: 400 });
+            }
+            if (!businessData.addressProofUrl) {
+                return NextResponse.json({ success: false, error: "Proof of Address is mandatory." }, { status: 400 });
+            }
+            if (haveGst && !businessData.gstTinCertUrl) {
+                return NextResponse.json({ success: false, error: "GST TIN Certificate is mandatory when selling with GST." }, { status: 400 });
+            }
+
             await prisma.seller.update({
                 where: { id: seller.id },
                 data: {
@@ -198,6 +216,24 @@ export async function POST(request: NextRequest) {
                 }
             }
 
+            const finalIdFront = kycData.idFrontUrl || seller.kyc?.idFrontUrl;
+            const finalIdBack = kycData.idBackUrl || seller.kyc?.idBackUrl;
+            const finalSelfie = kycData.selfieUrl || seller.kyc?.selfieUrl;
+
+            if (!finalIdFront) {
+                return NextResponse.json({ success: false, error: "National ID / Passport Front document is mandatory." }, { status: 400 });
+            }
+            if (!finalIdBack) {
+                return NextResponse.json({ success: false, error: "National ID / Passport Back document is mandatory." }, { status: 400 });
+            }
+            if (!finalSelfie) {
+                return NextResponse.json({ success: false, error: "Selfie / Face Verification is mandatory." }, { status: 400 });
+            }
+
+            kycData.idFrontUrl = finalIdFront;
+            kycData.idBackUrl = finalIdBack;
+            kycData.selfieUrl = finalSelfie;
+
             await prisma.seller.update({
                 where: { id: seller.id },
                 data: {
@@ -220,7 +256,11 @@ export async function POST(request: NextRequest) {
                 mobileMoneyOption: formData.get("mobileMoneyOption") as string,
                 passbookUrl: seller.bankDetails?.passbookUrl || null,
                 bankLetterUrl: seller.bankDetails?.bankLetterUrl || null,
-            } : { ...jsonBody.data };
+            } : {
+                ...jsonBody.data,
+                passbookUrl: jsonBody.data?.passbookUrl || seller.bankDetails?.passbookUrl || null,
+                bankLetterUrl: jsonBody.data?.bankLetterUrl || seller.bankDetails?.bankLetterUrl || null,
+            };
 
             if (formData) {
                 const passbook = formData.get("bankPassbook") as File | null;
@@ -244,6 +284,16 @@ export async function POST(request: NextRequest) {
                     });
                 }
             }
+
+            const finalPassbook = bankData.passbookUrl || seller.bankDetails?.passbookUrl || null;
+            const finalBankLetter = bankData.bankLetterUrl || seller.bankDetails?.bankLetterUrl || null;
+
+            if (!finalPassbook && !finalBankLetter) {
+                return NextResponse.json({ success: false, error: "Bank document proof (Passbook or Bank Letter) is mandatory." }, { status: 400 });
+            }
+
+            bankData.passbookUrl = finalPassbook;
+            bankData.bankLetterUrl = finalBankLetter;
 
             await prisma.seller.update({
                 where: { id: seller.id },
@@ -421,6 +471,20 @@ export async function POST(request: NextRequest) {
                 }
             }
 
+            const finalLogo = storeData.logo || seller.store?.logo;
+            const finalBanner = storeData.banner || seller.store?.banner;
+
+            if (!finalLogo || !finalBanner) {
+                return NextResponse.json({ success: false, error: "Both Service Store Logo and Banner are mandatory." }, { status: 400 });
+            }
+
+            if (!categoryIds || categoryIds.length === 0) {
+                return NextResponse.json({ success: false, error: "Please select at least one service category." }, { status: 400 });
+            }
+
+            storeData.logo = finalLogo;
+            storeData.banner = finalBanner;
+
             await prisma.seller.update({
                 where: { id: seller.id },
                 data: {
@@ -460,11 +524,30 @@ export async function POST(request: NextRequest) {
             await prisma.seller.update({
                 where: { id: seller.id },
                 data: {
+                    agreement: { upsert: { create: { ...agreementData }, update: { ...agreementData } } },
+                },
+            });
+
+            // Strict validation before marking complete
+            const verifySeller = await prisma.seller.findUnique({
+                where: { id: seller.id },
+                include: { businessInfo: true, kyc: true, bankDetails: true, agreement: true, store: true } as any,
+            });
+            const docEval = evaluateSellerDocuments(verifySeller, "SERVICE");
+            if (!docEval.isComplete) {
+                return NextResponse.json({
+                    success: false,
+                    error: `Cannot complete onboarding: Missing required documents: ${docEval.missingDocuments.join(", ")}`,
+                }, { status: 400 });
+            }
+
+            await prisma.seller.update({
+                where: { id: seller.id },
+                data: {
                     onboardingCompleted: true,
                     onboardingStep: 6,
                     status: "PENDING", // Reset to pending for admin review
                     adminFeedback: null, // Clear old correction feedback
-                    agreement: { upsert: { create: { ...agreementData }, update: { ...agreementData } } },
                 },
             });
         }

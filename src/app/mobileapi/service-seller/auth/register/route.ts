@@ -8,6 +8,7 @@ import { activateFreePlan } from "@/lib/subscriptions"
 import { validatePhoneAndCountryCode } from "@/lib/phone-validation"
 import { validatePassword } from "@/lib/password-validation"
 import { sanitizeInput } from "@/lib/html-sanitization"
+import { getAppBaseUrl, sendEmailVerificationSms } from "@/lib/twilio-sms"
 
 // Constants
 const OTP_EXPIRY_MS = 10 * 60 * 1000 // 10 minutes
@@ -230,37 +231,28 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
       )
     }
 
-    // Send OTP email
+    // Send OTP email & SMS
+    const baseUrl = getAppBaseUrl(request)
+    const verificationLink = `${baseUrl}/api/verify-email?token=${verifyEmailOtp}`
+
     try {
-      await sendVerificationOtpEmail({
-        to: email,
-        otp: verifyEmailOtp,
-        name: sanitizedName,
-      })
-    } catch (emailError) {
-      console.error("Failed to send verification email:", emailError)
-      // Still return success but note email failure
-      return NextResponse.json<SuccessResponse>(
-        { 
-          success: true,
-          message: "Registration successful but failed to send verification email. Please contact support.",
-          data: {
-            userId: user.id,
-            email: user.email,
-            name: user.name,
-            role: user.role,
-            sellerType: "service",
-            requiresVerification: true,
-            verificationDetails: {
-              method: "OTP",
-              expiresIn: OTP_EXPIRY_MS / 1000,
-              resendCooldown: 60,
-            },
-            verifyUrl: "/mobileapi/service-seller/verify-otp"
-          }
-        },
-        { status: 201 }
-      )
+      await Promise.allSettled([
+        sendVerificationOtpEmail({
+          to: email,
+          otp: verifyEmailOtp,
+          name: sanitizedName,
+          verificationLink,
+        }),
+        sendEmailVerificationSms({
+          to: normalizedPhone,
+          countryCode: normalizedPhoneCountryCode,
+          verificationLink,
+          otp: verifyEmailOtp,
+          name: sanitizedName,
+        }),
+      ])
+    } catch (sendError) {
+      console.error("Failed to send verification email/SMS:", sendError)
     }
 
     // Return success response

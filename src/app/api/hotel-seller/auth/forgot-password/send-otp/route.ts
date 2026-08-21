@@ -4,6 +4,8 @@ import { UserRole } from "@prisma/client"
 import { prisma } from "@/lib/prisma"
 import { sendPasswordResetOtpEmail } from "@/lib/email"
 
+import { getAppBaseUrl, sendPasswordResetSms } from "@/lib/twilio-sms"
+
 const OTP_EXPIRY_MS = 10 * 60 * 1000
 const COOLDOWN_MS = 60 * 1000
 
@@ -16,7 +18,7 @@ export async function POST(request: Request) {
 
     const user = await prisma.user.findFirst({
       where: { email, role: UserRole.SELLER_HOTEL },
-      select: { id: true, name: true, isEmailVerified: true, emailOtpSentAt: true },
+      select: { id: true, name: true, phone: true, phoneCountryCode: true, isEmailVerified: true, emailOtpSentAt: true },
     })
 
     if (!user || !user.isEmailVerified) {
@@ -34,7 +36,21 @@ export async function POST(request: Request) {
       where: { id: user.id },
       data: { verifyEmailOtp: otp, emailVerificationExpires: new Date(Date.now() + OTP_EXPIRY_MS), emailOtpSentAt: now },
     })
-    await sendPasswordResetOtpEmail({ to: email, otp, name: user.name })
+
+    const baseUrl = getAppBaseUrl(request)
+    const resetLink = `${baseUrl}/hotel-seller/reset-password?email=${encodeURIComponent(email)}`
+
+    await Promise.allSettled([
+      sendPasswordResetOtpEmail({ to: email, otp, name: user.name, resetLink }),
+      sendPasswordResetSms({
+        to: user.phone,
+        countryCode: user.phoneCountryCode,
+        otp,
+        name: user.name,
+        resetLink,
+      }),
+    ])
+
     return NextResponse.json({ message: "If an account exists for this email, OTP has been sent." }, { status: 200 })
   } catch (error) {
     console.error("Hotel seller forgot-password send-otp error:", error)
