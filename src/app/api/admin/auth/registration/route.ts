@@ -5,6 +5,8 @@ import bcrypt from "bcryptjs"
 import { UserRole } from "@prisma/client"
 import { sendVerificationOtpEmail } from "@/lib/email"
 
+import { getAppBaseUrl, sendEmailVerificationSms } from "@/lib/twilio-sms"
+
 const OTP_EXPIRY_MS = 10 * 60 * 1000 // 10 min
 
 /** POST /api/admin/auth/registration — Admin panel registration. */
@@ -42,11 +44,24 @@ export async function POST(request: Request) {
       },
     })
 
-    await sendVerificationOtpEmail({
-      to: email,
-      otp: verifyEmailOtp,
-      name: name ?? null,
-    })
+    const baseUrl = getAppBaseUrl(request)
+    const verificationLink = `${baseUrl}/api/verify-email?token=${verifyEmailOtp}`
+
+    await Promise.allSettled([
+      sendVerificationOtpEmail({
+        to: email,
+        otp: verifyEmailOtp,
+        name: name ?? null,
+        verificationLink,
+      }),
+      sendEmailVerificationSms({
+        to: normalizedPhone,
+        countryCode: normalizedPhoneCountryCode,
+        verificationLink,
+        otp: verifyEmailOtp,
+        name: name ?? null,
+      }),
+    ])
 
     return NextResponse.json({ message: "Please verify your email with the OTP sent.", userId: user.id, verifyUrl: "/admin/verify-otp" }, { status: 201 })
   } catch (error) {

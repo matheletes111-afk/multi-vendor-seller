@@ -67,7 +67,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         rating: r.rating,
         comment: r.comment,
         images: Array.isArray((r as any).images) ? (r as any).images : [],
-        createdAt: r.createdAt
+        createdAt: r.createdAt.toISOString()
       }))
     }
 

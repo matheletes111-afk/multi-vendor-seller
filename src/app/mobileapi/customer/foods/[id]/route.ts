@@ -28,7 +28,9 @@ export async function GET(
           include: {
             user: {
               select: {
-                name: true
+                id: true,
+                name: true,
+                image: true
               }
             }
           }
@@ -42,7 +44,7 @@ export async function GET(
 
     const reviewCount = food.reviews.length
     const totalRating = food.reviews.reduce((acc, r) => acc + r.rating, 0)
-    const averageRating = reviewCount > 0 ? parseFloat((totalRating / reviewCount).toFixed(1)) : 0
+    const averageRating = reviewCount > 0 ? parseFloat((totalRating / reviewCount).toFixed(1)) : 0.0
 
     const breakdown: Record<string, number> = { "5": 0, "4": 0, "3": 0, "2": 0, "1": 0 }
     food.reviews.forEach((r) => {
@@ -72,7 +74,7 @@ export async function GET(
         rating: r.rating,
         comment: r.comment,
         images: Array.isArray((r as any).images) ? (r as any).images : [],
-        createdAt: r.createdAt
+        createdAt: r.createdAt.toISOString()
       }))
     }
 

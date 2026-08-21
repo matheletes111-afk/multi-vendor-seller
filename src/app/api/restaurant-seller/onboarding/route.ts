@@ -7,6 +7,7 @@ import { UserRole } from "@prisma/client"
 import { activateRestaurantFreePlan } from "@/lib/subscriptions"
 import { sendSellerWelcomeEmail, sendAdminNewSellerAlertEmail } from "@/lib/email"
 import { formatHearAboutUs } from "@/lib/onboarding-constants"
+import { evaluateSellerDocuments } from "@/lib/seller-approval-validation"
 
 
 
@@ -149,6 +150,19 @@ export async function POST(request: NextRequest) {
         if (jsonBody.data.addressProofUrl) addressProofUrl = jsonBody.data.addressProofUrl
       }
 
+      if (!busRegCertUrl) {
+        return NextResponse.json({ error: "Business Registration Certificate is mandatory." }, { status: 400 })
+      }
+      if (!cityCouncilCertUrl) {
+        return NextResponse.json({ error: "City Council Certificate is mandatory." }, { status: 400 })
+      }
+      if (!addressProofUrl) {
+        return NextResponse.json({ error: "Proof of Address is mandatory." }, { status: 400 })
+      }
+      if (haveGst && !gstTinCertUrl) {
+        return NextResponse.json({ error: "GST TIN Certificate is mandatory when selling with GST." }, { status: 400 })
+      }
+
       await prisma.restaurantBusinessInfo.upsert({ where: { restaurantSellerId: seller.id }, update: { ...businessData, busRegCertUrl, cityCouncilCertUrl, gstTinCertUrl, addressProofUrl }, create: { ...businessData, busRegCertUrl, cityCouncilCertUrl, gstTinCertUrl, addressProofUrl, restaurantSellerId: seller.id } })
 
     } else if (step === 3) {
@@ -176,6 +190,19 @@ export async function POST(request: NextRequest) {
         if (license && license.size > 0) foodLicenseUrl = await uploadPublicFile({ folder: "restaurant-onboarding/kyc", ext: path.extname(license.name) || ".pdf", contentType: license.type || "application/pdf", buffer: Buffer.from(await license.arrayBuffer()), prefix: "restaurant-food-license" })
       }
 
+      if (!idFrontUrl) {
+        return NextResponse.json({ error: "National ID / Passport Front document is mandatory." }, { status: 400 })
+      }
+      if (!idBackUrl) {
+        return NextResponse.json({ error: "National ID / Passport Back document is mandatory." }, { status: 400 })
+      }
+      if (!foodLicenseUrl) {
+        return NextResponse.json({ error: "Food Hygiene / Food License document is mandatory." }, { status: 400 })
+      }
+      if (!selfieUrl) {
+        return NextResponse.json({ error: "Selfie / Face Verification is mandatory." }, { status: 400 })
+      }
+
       await prisma.restaurantKYC.upsert({ where: { restaurantSellerId: seller.id }, update: { ...kycData, idFrontUrl, idBackUrl, selfieUrl, foodLicenseUrl }, create: { ...kycData, idFrontUrl, idBackUrl, selfieUrl, foodLicenseUrl, restaurantSellerId: seller.id } })
 
     } else if (step === 4) {
@@ -196,6 +223,10 @@ export async function POST(request: NextRequest) {
         if (logo && logo.size > 0) logoUrl = await uploadPublicFile({ folder: "restaurant-onboarding/property", ext: path.extname(logo.name) || ".jpg", contentType: logo.type || "image/jpeg", buffer: Buffer.from(await logo.arrayBuffer()), prefix: "restaurant-logo" })
         if (banner && banner.size > 0) bannerUrl = await uploadPublicFile({ folder: "restaurant-onboarding/property", ext: path.extname(banner.name) || ".jpg", contentType: banner.type || "image/jpeg", buffer: Buffer.from(await banner.arrayBuffer()), prefix: "restaurant-banner" })
         if (photo && photo.size > 0) mainPhotoUrl = await uploadPublicFile({ folder: "restaurant-onboarding/property", ext: path.extname(photo.name) || ".jpg", contentType: photo.type || "image/jpeg", buffer: Buffer.from(await photo.arrayBuffer()), prefix: "restaurant-main-photo" })
+      }
+
+      if (!logoUrl || !bannerUrl || !mainPhotoUrl) {
+        return NextResponse.json({ error: "Restaurant Logo, Restaurant Banner, and Main Restaurant Photo are all mandatory." }, { status: 400 })
       }
 
       await prisma.restaurantSeller.update({
@@ -236,6 +267,10 @@ export async function POST(request: NextRequest) {
         }
       }
 
+      if (!passbookUrl && !bankLetterUrl) {
+        return NextResponse.json({ error: "Bank document proof (Passbook or Bank Letter) is mandatory." }, { status: 400 })
+      }
+
       await prisma.restaurantBankDetails.upsert({ where: { restaurantSellerId: seller.id }, update: { ...bankData, passbookUrl, bankLetterUrl }, create: { ...bankData, passbookUrl, bankLetterUrl, restaurantSellerId: seller.id } })
 
     } else if (step === 6) {
@@ -251,6 +286,18 @@ export async function POST(request: NextRequest) {
       }
 
       await prisma.restaurantAgreement.upsert({ where: { restaurantSellerId: seller.id }, update: agreementData, create: { ...agreementData, restaurantSellerId: seller.id } })
+
+      // Strict validation before marking complete
+      const verifySeller = await prisma.restaurantSeller.findUnique({
+        where: { id: seller.id },
+        include: { businessInfo: true, kyc: true, bankDetails: true, agreement: true }
+      })
+      const docEval = evaluateSellerDocuments(verifySeller, "RESTAURANT")
+      if (!docEval.isComplete) {
+        return NextResponse.json({
+          error: `Cannot complete onboarding: Missing required documents: ${docEval.missingDocuments.join(", ")}`
+        }, { status: 400 })
+      }
 
       await prisma.restaurantSeller.update({ where: { id: seller.id }, data: { onboardingCompleted: true, onboardingStep: 7, status: "PENDING", adminFeedback: null } })
 

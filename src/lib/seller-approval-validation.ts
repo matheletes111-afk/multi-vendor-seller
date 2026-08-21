@@ -98,6 +98,17 @@ export function validateProductOrServiceSellerApproval(seller: any): ApprovalVal
     }
   }
 
+  // 8. Strict Document Completeness Verification
+  const docEval = evaluateSellerDocuments(seller, seller.type || "PRODUCT");
+  if (!docEval.isComplete) {
+    for (const doc of docEval.missingDocuments) {
+      const msg = `Required Document Missing: ${doc}`;
+      if (!missingItems.includes(msg)) {
+        missingItems.push(msg);
+      }
+    }
+  }
+
   return {
     canApprove: missingItems.length === 0,
     missingItems,
@@ -191,6 +202,17 @@ export function validateHotelSellerApproval(seller: any): ApprovalValidationResu
     }
     if (!seller.agreement.agreedToPrivacy) {
       missingItems.push("Privacy Policy & Data Compliance not accepted");
+    }
+  }
+
+  // 7. Strict Document Completeness Verification
+  const docEval = evaluateSellerDocuments(seller, "HOTEL");
+  if (!docEval.isComplete) {
+    for (const doc of docEval.missingDocuments) {
+      const msg = `Required Document Missing: ${doc}`;
+      if (!missingItems.includes(msg)) {
+        missingItems.push(msg);
+      }
     }
   }
 
@@ -293,8 +315,178 @@ export function validateRestaurantSellerApproval(seller: any): ApprovalValidatio
     }
   }
 
+  // 7. Strict Document Completeness Verification
+  const docEval = evaluateSellerDocuments(seller, "RESTAURANT");
+  if (!docEval.isComplete) {
+    for (const doc of docEval.missingDocuments) {
+      const msg = `Required Document Missing: ${doc}`;
+      if (!missingItems.includes(msg)) {
+        missingItems.push(msg);
+      }
+    }
+  }
+
   return {
     canApprove: missingItems.length === 0,
     missingItems,
   };
 }
+
+export interface DocumentItemStatus {
+  name: string;
+  category: "identity" | "business" | "financial" | "media" | "legal";
+  isUploaded: boolean;
+  url?: string | null;
+}
+
+export interface SellerDocumentEvaluation {
+  isComplete: boolean;
+  totalRequired: number;
+  uploadedCount: number;
+  missingCount: number;
+  missingDocuments: string[];
+  documentsList: DocumentItemStatus[];
+}
+
+/**
+ * Comprehensive document completeness evaluation for Product, Service, Hotel, and Restaurant sellers.
+ * Checks all required legal, identity, corporate, media, and banking documentation.
+ */
+export function evaluateSellerDocuments(seller: any, sellerType?: string): SellerDocumentEvaluation {
+  if (!seller) {
+    return {
+      isComplete: false,
+      totalRequired: 0,
+      uploadedCount: 0,
+      missingCount: 0,
+      missingDocuments: ["No seller data"],
+      documentsList: [],
+    };
+  }
+
+  const normalizedType = (sellerType || seller.type || seller.sellerType || "PRODUCT").toString().toUpperCase();
+  const docs: DocumentItemStatus[] = [];
+
+  // 1. Business Certificates
+  const busInfo = seller.businessInfo || seller.raw?.businessInfo;
+  docs.push({
+    name: "Business Registration Certificate",
+    category: "business",
+    isUploaded: !!busInfo?.busRegCertUrl?.trim(),
+    url: busInfo?.busRegCertUrl,
+  });
+  docs.push({
+    name: "City Council Certificate",
+    category: "business",
+    isUploaded: !!busInfo?.cityCouncilCertUrl?.trim(),
+    url: busInfo?.cityCouncilCertUrl,
+  });
+  docs.push({
+    name: "Proof of Address",
+    category: "business",
+    isUploaded: !!busInfo?.addressProofUrl?.trim(),
+    url: busInfo?.addressProofUrl,
+  });
+
+  // 2. Identity / KYC
+  const kyc = seller.kyc || seller.raw?.kyc;
+  docs.push({
+    name: "ID / Passport Front",
+    category: "identity",
+    isUploaded: !!kyc?.idFrontUrl?.trim(),
+    url: kyc?.idFrontUrl,
+  });
+  docs.push({
+    name: "ID / Passport Back",
+    category: "identity",
+    isUploaded: !!kyc?.idBackUrl?.trim(),
+    url: kyc?.idBackUrl,
+  });
+  docs.push({
+    name: "Selfie with ID",
+    category: "identity",
+    isUploaded: !!kyc?.selfieUrl?.trim(),
+    url: kyc?.selfieUrl,
+  });
+
+  // 3. Bank / Financial Proof
+  const bank = seller.bankDetails || seller.raw?.bankDetails;
+  const hasBankDoc = !!bank?.passbookUrl?.trim() || !!bank?.bankLetterUrl?.trim();
+  docs.push({
+    name: "Bank Passbook / Verification Letter",
+    category: "financial",
+    isUploaded: hasBankDoc,
+    url: bank?.passbookUrl || bank?.bankLetterUrl,
+  });
+
+  // 4. Media / Special License based on type
+  if (normalizedType === "HOTEL") {
+    docs.push({
+      name: "Hotel Logo",
+      category: "media",
+      isUploaded: !!(seller.logo?.trim() || seller.raw?.logo?.trim()),
+      url: seller.logo || seller.raw?.logo,
+    });
+    docs.push({
+      name: "Hotel Banner",
+      category: "media",
+      isUploaded: !!(seller.banner?.trim() || seller.raw?.banner?.trim()),
+      url: seller.banner || seller.raw?.banner,
+    });
+    docs.push({
+      name: "Main Property Photo",
+      category: "media",
+      isUploaded: !!(seller.mainPhoto?.trim() || seller.raw?.mainPhoto?.trim()),
+      url: seller.mainPhoto || seller.raw?.mainPhoto,
+    });
+  } else if (normalizedType === "RESTAURANT") {
+    docs.push({
+      name: "Food Hygiene / Sanitation License",
+      category: "business",
+      isUploaded: !!kyc?.foodLicenseUrl?.trim() || !!kyc?.foodLicenseNumber?.trim(),
+      url: kyc?.foodLicenseUrl,
+    });
+    docs.push({
+      name: "Restaurant Logo",
+      category: "media",
+      isUploaded: !!(seller.logo?.trim() || seller.raw?.logo?.trim()),
+      url: seller.logo || seller.raw?.logo,
+    });
+    docs.push({
+      name: "Restaurant Banner",
+      category: "media",
+      isUploaded: !!(seller.banner?.trim() || seller.raw?.banner?.trim()),
+      url: seller.banner || seller.raw?.banner,
+    });
+    docs.push({
+      name: "Main Cuisine / Restaurant Photo",
+      category: "media",
+      isUploaded: !!(seller.mainPhoto?.trim() || seller.raw?.mainPhoto?.trim()),
+      url: seller.mainPhoto || seller.raw?.mainPhoto,
+    });
+  }
+
+  // 5. Legal Agreement
+  const agreement = seller.agreement || seller.raw?.agreement;
+  const isAgreementSigned = !!agreement?.agreedToTerms && !!agreement?.agreedToPrivacy;
+  docs.push({
+    name: "Signed Legal Agreement",
+    category: "legal",
+    isUploaded: isAgreementSigned,
+    url: null,
+  });
+
+  const totalRequired = docs.length;
+  const uploadedCount = docs.filter((d) => d.isUploaded).length;
+  const missingDocs = docs.filter((d) => !d.isUploaded).map((d) => d.name);
+
+  return {
+    isComplete: missingDocs.length === 0,
+    totalRequired,
+    uploadedCount,
+    missingCount: missingDocs.length,
+    missingDocuments: missingDocs,
+    documentsList: docs,
+  };
+}
+

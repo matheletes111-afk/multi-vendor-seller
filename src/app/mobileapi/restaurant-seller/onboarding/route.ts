@@ -6,6 +6,7 @@ import { UserRole } from "@prisma/client";
 import path from "path";
 import { activateRestaurantFreePlan } from "@/lib/subscriptions";
 import { HEAR_ABOUT_US_OPTIONS, formatHearAboutUs } from "@/lib/onboarding-constants";
+import { evaluateSellerDocuments } from "@/lib/seller-approval-validation";
 
 /**
  * GET /mobileapi/restaurant-seller/onboarding
@@ -156,9 +157,23 @@ export async function POST(request: NextRequest) {
                     });
                 }
             } else if (jsonBody?.data) {
+                if (jsonBody.data.busRegCertUrl) busRegCertUrl = jsonBody.data.busRegCertUrl;
                 if (jsonBody.data.cityCouncilCertUrl) cityCouncilCertUrl = jsonBody.data.cityCouncilCertUrl;
                 if (jsonBody.data.gstTinCertUrl) gstTinCertUrl = jsonBody.data.gstTinCertUrl;
                 if (jsonBody.data.addressProofUrl) addressProofUrl = jsonBody.data.addressProofUrl;
+            }
+
+            if (!busRegCertUrl) {
+                return NextResponse.json({ success: false, error: "Business Registration Certificate is mandatory." }, { status: 400 });
+            }
+            if (!cityCouncilCertUrl) {
+                return NextResponse.json({ success: false, error: "City Council Certificate is mandatory." }, { status: 400 });
+            }
+            if (!addressProofUrl) {
+                return NextResponse.json({ success: false, error: "Proof of Address is mandatory." }, { status: 400 });
+            }
+            if (haveGst && !gstTinCertUrl) {
+                return NextResponse.json({ success: false, error: "GST TIN Certificate is mandatory when selling with GST." }, { status: 400 });
             }
 
             await prisma.restaurantBusinessInfo.upsert({
@@ -228,6 +243,27 @@ export async function POST(request: NextRequest) {
                         prefix: "restaurant-food-license",
                     });
                 }
+            } else if (jsonBody?.data) {
+                if (jsonBody.data.idFrontUrl) idFrontUrl = jsonBody.data.idFrontUrl;
+                if (jsonBody.data.idBackUrl) idBackUrl = jsonBody.data.idBackUrl;
+                if (jsonBody.data.selfieUrl) selfieUrl = jsonBody.data.selfieUrl;
+                if (jsonBody.data.foodLicenseUrl) foodLicenseUrl = jsonBody.data.foodLicenseUrl;
+            }
+
+            if (!idFrontUrl) {
+                return NextResponse.json({ success: false, error: "National ID / Passport Front document is mandatory." }, { status: 400 });
+            }
+            if (!idBackUrl) {
+                return NextResponse.json({ success: false, error: "National ID / Passport Back document is mandatory." }, { status: 400 });
+            }
+            if (!foodLicenseUrl) {
+                return NextResponse.json({ success: false, error: "Food Hygiene / Food License document is mandatory." }, { status: 400 });
+            }
+            if (!kycData.foodLicenseNumber) {
+                return NextResponse.json({ success: false, error: "Food License Number is mandatory." }, { status: 400 });
+            }
+            if (!selfieUrl) {
+                return NextResponse.json({ success: false, error: "Selfie / Face Verification is mandatory." }, { status: 400 });
             }
 
             await prisma.restaurantKYC.upsert({
@@ -285,6 +321,22 @@ export async function POST(request: NextRequest) {
                         prefix: "restaurant-main-photo",
                     });
                 }
+            } else if (jsonBody?.data) {
+                if (jsonBody.data.logo) logoUrl = jsonBody.data.logo;
+                if (jsonBody.data.banner) bannerUrl = jsonBody.data.banner;
+                if (jsonBody.data.mainPhoto) mainPhotoUrl = jsonBody.data.mainPhoto;
+            }
+
+            if (!logoUrl || !bannerUrl || !mainPhotoUrl) {
+                return NextResponse.json({ success: false, error: "Restaurant Logo, Restaurant Banner, and Main Restaurant Photo are all mandatory." }, { status: 400 });
+            }
+
+            if (!cuisines || cuisines.length === 0) {
+                return NextResponse.json({ success: false, error: "Please select at least one primary cuisine." }, { status: 400 });
+            }
+
+            if (!services || services.length === 0) {
+                return NextResponse.json({ success: false, error: "Please select at least one service type." }, { status: 400 });
             }
 
             await prisma.restaurantSeller.update({
@@ -337,6 +389,13 @@ export async function POST(request: NextRequest) {
                         prefix: "restaurant-bank-letter",
                     });
                 }
+            } else if (jsonBody?.data) {
+                if (jsonBody.data.passbookUrl) passbookUrl = jsonBody.data.passbookUrl;
+                if (jsonBody.data.bankLetterUrl) bankLetterUrl = jsonBody.data.bankLetterUrl;
+            }
+
+            if (!passbookUrl && !bankLetterUrl) {
+                return NextResponse.json({ success: false, error: "Bank document proof (Passbook or Bank Letter) is mandatory." }, { status: 400 });
             }
 
             await prisma.restaurantBankDetails.upsert({
@@ -373,6 +432,19 @@ export async function POST(request: NextRequest) {
                 update: agreementData,
                 create: { ...agreementData, restaurantSellerId: seller.id },
             });
+
+            // Strict validation before marking complete
+            const verifySeller = await prisma.restaurantSeller.findUnique({
+                where: { id: seller.id },
+                include: { businessInfo: true, kyc: true, bankDetails: true, agreement: true }
+            });
+            const docEval = evaluateSellerDocuments(verifySeller, "RESTAURANT");
+            if (!docEval.isComplete) {
+                return NextResponse.json({
+                    success: false,
+                    error: `Cannot complete onboarding: Missing required documents: ${docEval.missingDocuments.join(", ")}`,
+                }, { status: 400 });
+            }
 
             await prisma.restaurantSeller.update({
                 where: { id: seller.id },

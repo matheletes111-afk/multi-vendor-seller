@@ -165,6 +165,11 @@ export async function GET(
             }
           }
         },
+        _count: {
+          select: {
+            reviews: true,
+          },
+        },
         variants: {
           orderBy: { price: "asc" },
           select: {
@@ -174,6 +179,20 @@ export async function GET(
         },
       },
     })
+
+    const productIds = products.map((p) => p.id)
+    const ratingAggs =
+      productIds.length > 0
+        ? await prisma.review.groupBy({
+            by: ["productId"],
+            where: { productId: { in: productIds } },
+            _avg: { rating: true },
+          })
+        : []
+
+    const ratingMap = Object.fromEntries(
+      ratingAggs.map((r) => [r.productId, parseFloat(Number(r._avg.rating ?? 0).toFixed(1))])
+    ) as Record<string, number>
 
     // Get total products count
     const productsCount = await prisma.product.count({
@@ -189,7 +208,7 @@ export async function GET(
     })
 
     // Transform products to include min/max price and discount
-    const transformedProducts: Product[] = products.map(product => {
+    const transformedProducts = products.map(product => {
       const prices = product.variants.map(v => v.price)
       const minPrice = prices.length > 0 ? Math.min(...prices) : 0
       const maxPrice = prices.length > 0 ? Math.max(...prices) : 0
@@ -199,6 +218,13 @@ export async function GET(
         .map(v => v.discount)
       const bestDiscount = discounts.length > 0 ? Math.max(...discounts as number[]) : null
 
+      const firstVariant = product.variants[0]
+      const basePrice = firstVariant?.price ?? 0
+      const disc = firstVariant?.discount ?? 0
+      const finalPrice = Math.max(0, basePrice - disc)
+      const reviewsCount = product._count?.reviews ?? 0
+      const averageRating = ratingMap[product.id] ?? 0.0
+
       return {
         id: product.id,
         name: product.name,
@@ -207,12 +233,16 @@ export async function GET(
         isFeatured: product.isFeatured,
         createdAt: product.createdAt,
         category: product.category,
-        subcategory: product.subcategory, // Now this will have data
+        subcategory: product.subcategory,
         seller: product.seller,
         variants: product.variants.slice(0, 1),
+        price: finalPrice,
         minPrice,
         maxPrice,
         discount: bestDiscount,
+        averageRating,
+        reviewsCount,
+        totalReviews: reviewsCount,
       }
     })
 

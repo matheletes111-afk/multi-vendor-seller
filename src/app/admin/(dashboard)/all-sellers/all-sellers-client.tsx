@@ -61,10 +61,15 @@ import {
   Sparkles,
   AlertTriangle,
   Info,
+  DollarSign,
+  Percent,
 } from "lucide-react"
 import { SellerDetailsView } from "@/components/admin/sellers/seller-details-view"
 import { HotelSellerDetailsView } from "@/components/admin/sellers/hotel-seller-details-view"
 import { RestaurantSellerDetailsView } from "@/components/admin/sellers/restaurant-seller-details-view"
+import { SellerFilterToolbar } from "@/components/admin/sellers/seller-filter-toolbar"
+import { SellerDocumentBadge } from "@/components/admin/sellers/seller-document-badge"
+import { buildAdminPageUrl } from "@/lib/admin-pagination"
 import type { UnifiedSellerItem } from "@/app/api/admin/all-sellers/route"
 
 export function AllSellersClient() {
@@ -76,15 +81,25 @@ export function AllSellersClient() {
   const searchQ = searchParams.get("search") ?? ""
   const sellerTypeParam = (searchParams.get("sellerType") || searchParams.get("type") || "ALL").toUpperCase()
   const statusParam = (searchParams.get("status") || "ALL").toUpperCase()
+  const timeframeParam = searchParams.get("timeframe") ?? "all"
+  const specificDateParam = searchParams.get("specificDate") ?? ""
   const startParam = searchParams.get("startDate") ?? ""
   const endParam = searchParams.get("endDate") ?? ""
+  const docStatusParam = (searchParams.get("docStatus") || "ALL").toUpperCase()
+  const sortByParam = searchParams.get("sortBy") ?? "createdAt"
+  const sortOrderParam = (searchParams.get("sortOrder") ?? "desc") as "asc" | "desc"
 
   // Local filter states
   const [searchInput, setSearchInput] = useState(searchQ)
   const [localType, setLocalType] = useState(sellerTypeParam)
   const [localStatus, setLocalStatus] = useState(statusParam)
+  const [localTimeframe, setLocalTimeframe] = useState(timeframeParam)
+  const [localSpecificDate, setLocalSpecificDate] = useState(specificDateParam)
   const [startDate, setStartDate] = useState(startParam)
   const [endDate, setEndDate] = useState(endParam)
+  const [localDocStatus, setLocalDocStatus] = useState(docStatusParam)
+  const [localSortBy, setLocalSortBy] = useState(sortByParam)
+  const [localSortOrder, setLocalSortOrder] = useState<"asc" | "desc">(sortOrderParam)
 
   // Data states
   const [data, setData] = useState<{
@@ -131,6 +146,24 @@ export function AllSellersClient() {
   const [rejectTarget, setRejectTarget] = useState<UnifiedSellerItem | null>(null)
   const [feedbackText, setFeedbackText] = useState("")
 
+  // Commission Dialog state
+  const [isCommissionDialogOpen, setIsCommissionDialogOpen] = useState(false)
+  const [commissionTarget, setCommissionTarget] = useState<UnifiedSellerItem | null>(null)
+  const [commissionValue, setCommissionValue] = useState<number | "">("")
+
+  // Update URL helper with full param persistence
+  const updateUrlParams = useCallback((newParams: Record<string, string | undefined>) => {
+    const current = new URLSearchParams(searchParams.toString())
+    Object.entries(newParams).forEach(([key, val]) => {
+      if (val && val !== "ALL" && val !== "all") {
+        current.set(key, val)
+      } else {
+        current.delete(key)
+      }
+    })
+    router.push(`/admin/all-sellers?${current.toString()}`)
+  }, [router, searchParams])
+
   // Fetch sellers
   const loadSellers = useCallback((showLoader = true) => {
     if (showLoader) {
@@ -144,8 +177,13 @@ export function AllSellersClient() {
     if (searchQ) params.set("search", searchQ)
     if (sellerTypeParam !== "ALL") params.set("sellerType", sellerTypeParam)
     if (statusParam !== "ALL") params.set("status", statusParam)
+    if (timeframeParam !== "all") params.set("timeframe", timeframeParam)
+    if (specificDateParam) params.set("specificDate", specificDateParam)
     if (startParam) params.set("startDate", startParam)
     if (endParam) params.set("endDate", endParam)
+    if (docStatusParam !== "ALL") params.set("docStatus", docStatusParam)
+    if (sortByParam) params.set("sortBy", sortByParam)
+    if (sortOrderParam) params.set("sortOrder", sortOrderParam)
 
     fetch(`/api/admin/all-sellers?${params.toString()}`)
       .then((res) => {
@@ -161,7 +199,7 @@ export function AllSellersClient() {
       .finally(() => {
         if (showLoader) setLoading(false)
       })
-  }, [page, perPage, searchQ, sellerTypeParam, statusParam, startParam, endParam])
+  }, [page, perPage, searchQ, sellerTypeParam, statusParam, timeframeParam, specificDateParam, startParam, endParam, docStatusParam, sortByParam, sortOrderParam])
 
   useEffect(() => {
     loadSellers()
@@ -172,22 +210,42 @@ export function AllSellersClient() {
     setSearchInput(searchQ)
     setLocalType(sellerTypeParam)
     setLocalStatus(statusParam)
+    setLocalTimeframe(timeframeParam)
+    setLocalSpecificDate(specificDateParam)
     setStartDate(startParam)
     setEndDate(endParam)
-  }, [searchQ, sellerTypeParam, statusParam, startParam, endParam])
+    setLocalDocStatus(docStatusParam)
+    setLocalSortBy(sortByParam)
+    setLocalSortOrder(sortOrderParam)
+  }, [searchQ, sellerTypeParam, statusParam, timeframeParam, specificDateParam, startParam, endParam, docStatusParam, sortByParam, sortOrderParam])
+
+  // Sorting handler
+  const handleSort = (field: string) => {
+    const newOrder = localSortBy === field && localSortOrder === "asc" ? "desc" : "asc"
+    setLocalSortBy(field)
+    setLocalSortOrder(newOrder)
+    updateUrlParams({
+      page: "1",
+      sortBy: field,
+      sortOrder: newOrder,
+    })
+  }
 
   // Apply filters
   const handleApplyFilters = () => {
-    const params = new URLSearchParams()
-    params.set("page", "1")
-    params.set("perPage", perPage.toString())
-    if (searchInput.trim()) params.set("search", searchInput.trim())
-    if (localType !== "ALL") params.set("sellerType", localType)
-    if (localStatus !== "ALL") params.set("status", localStatus)
-    if (startDate) params.set("startDate", startDate)
-    if (endDate) params.set("endDate", endDate)
-
-    router.push(`/admin/all-sellers?${params.toString()}`)
+    updateUrlParams({
+      page: "1",
+      search: searchInput.trim() || undefined,
+      sellerType: localType,
+      status: localStatus,
+      timeframe: localTimeframe,
+      specificDate: localSpecificDate || undefined,
+      startDate: startDate || undefined,
+      endDate: endDate || undefined,
+      docStatus: localDocStatus,
+      sortBy: localSortBy,
+      sortOrder: localSortOrder,
+    })
   }
 
   // Reset filters
@@ -195,10 +253,16 @@ export function AllSellersClient() {
     setSearchInput("")
     setLocalType("ALL")
     setLocalStatus("ALL")
+    setLocalTimeframe("all")
+    setLocalSpecificDate("")
     setStartDate("")
     setEndDate("")
+    setLocalDocStatus("ALL")
+    setLocalSortBy("createdAt")
+    setLocalSortOrder("desc")
     router.push(`/admin/all-sellers`)
   }
+
 
   // Selection handlers
   const handleToggleSelectOne = (seller: UnifiedSellerItem) => {
@@ -264,6 +328,36 @@ export function AllSellersClient() {
       setCorrectionTarget(null)
       setRejectTarget(null)
       setFeedbackText("")
+    }
+  }
+
+  // Update commission handler
+  const handleUpdateCommission = async (target: UnifiedSellerItem, rate: number | null) => {
+    setActionLoading(target.id)
+    try {
+      let endpoint = ""
+      if (target.sellerType === "HOTEL") {
+        endpoint = `/api/admin/hotel-sellers/${target.id}/commission`
+      } else if (target.sellerType === "RESTAURANT") {
+        endpoint = `/api/admin/restaurant-sellers/${target.id}/commission`
+      } else {
+        endpoint = `/api/admin/sellers/${target.id}/commission`
+      }
+
+      const res = await fetch(endpoint, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ commissionRate: rate }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || "Failed to update commission rate")
+      await loadSellers(false)
+      setIsCommissionDialogOpen(false)
+      setCommissionTarget(null)
+    } catch (e: any) {
+      setError(e.message)
+    } finally {
+      setActionLoading(null)
     }
   }
 
@@ -408,18 +502,18 @@ export function AllSellersClient() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50/50 dark:bg-slate-950/50 p-4 sm:p-6 lg:p-8 space-y-8">
+    <div className="min-h-screen bg-slate-50/50 dark:bg-slate-950/50 p-3 sm:p-5 lg:p-6 space-y-6 max-w-full overflow-x-hidden">
       {/* ── Page Header ── */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-slate-900 p-4 sm:p-6 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm">
         <div className="space-y-1">
           <div className="flex items-center gap-2.5">
-            <div className="h-10 w-10 rounded-2xl bg-blue-600/10 dark:bg-blue-500/20 flex items-center justify-center text-blue-600 dark:text-blue-400">
+            <div className="h-10 w-10 rounded-2xl bg-blue-600/10 dark:bg-blue-500/20 flex items-center justify-center text-blue-600 dark:text-blue-400 shrink-0">
               <Users className="h-5 w-5" />
             </div>
             <div>
-              <h1 className="text-2xl font-black tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2">
+              <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2">
                 All 4 Sellers Master
-                <Badge variant="secondary" className="text-xs font-semibold rounded-full px-2 py-0.5">
+                <Badge variant="secondary" className="text-[11px] font-semibold rounded-full px-2 py-0.5">
                   Master Directory
                 </Badge>
               </h1>
@@ -430,13 +524,13 @@ export function AllSellersClient() {
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 shrink-0">
           <Button
             variant="outline"
             size="sm"
             onClick={() => loadSellers()}
             disabled={loading}
-            className="rounded-2xl h-10 px-4 border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 gap-2 font-medium"
+            className="rounded-2xl h-9.5 px-4 border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 gap-2 font-medium text-xs sm:text-sm"
           >
             <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
             Refresh
@@ -445,7 +539,7 @@ export function AllSellersClient() {
       </div>
 
       {/* ── KPI Stats Cards ── */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3 sm:gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-7 gap-2.5 sm:gap-3">
         {/* Total All */}
         <Card
           onClick={() => {
@@ -453,15 +547,15 @@ export function AllSellersClient() {
             setLocalStatus("ALL")
             router.push("/admin/all-sellers")
           }}
-          className="cursor-pointer border-slate-200 dark:border-slate-800 hover:border-blue-500/50 transition-all hover:shadow-md rounded-2xl bg-white dark:bg-slate-900"
+          className="cursor-pointer border-slate-200 dark:border-slate-800 hover:border-blue-500/50 transition-all hover:shadow-md rounded-2xl bg-white dark:bg-slate-900 min-w-0"
         >
-          <CardContent className="p-4 space-y-1">
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">All Sellers</p>
-            <div className="flex items-baseline justify-between">
-              <span className="text-2xl font-black text-slate-900 dark:text-slate-100">
+          <CardContent className="p-3 sm:p-4 space-y-0.5">
+            <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider truncate">All Sellers</p>
+            <div className="flex items-baseline justify-between gap-1">
+              <span className="text-xl sm:text-2xl font-black text-slate-900 dark:text-slate-100">
                 {data?.stats?.totalAll ?? "—"}
               </span>
-              <Users className="h-4 w-4 text-blue-500" />
+              <Users className="h-4 w-4 text-blue-500 shrink-0" />
             </div>
           </CardContent>
         </Card>
@@ -474,15 +568,15 @@ export function AllSellersClient() {
             params.set("sellerType", "PRODUCT")
             router.push(`/admin/all-sellers?${params.toString()}`)
           }}
-          className="cursor-pointer border-slate-200 dark:border-slate-800 hover:border-blue-500/50 transition-all hover:shadow-md rounded-2xl bg-white dark:bg-slate-900"
+          className="cursor-pointer border-slate-200 dark:border-slate-800 hover:border-blue-500/50 transition-all hover:shadow-md rounded-2xl bg-white dark:bg-slate-900 min-w-0"
         >
-          <CardContent className="p-4 space-y-1">
-            <p className="text-xs font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-wider">Products</p>
-            <div className="flex items-baseline justify-between">
-              <span className="text-2xl font-black text-slate-900 dark:text-slate-100">
+          <CardContent className="p-3 sm:p-4 space-y-0.5">
+            <p className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-wider truncate">Products</p>
+            <div className="flex items-baseline justify-between gap-1">
+              <span className="text-xl sm:text-2xl font-black text-slate-900 dark:text-slate-100">
                 {data?.stats?.totalProduct ?? "—"}
               </span>
-              <Package className="h-4 w-4 text-blue-500" />
+              <Package className="h-4 w-4 text-blue-500 shrink-0" />
             </div>
           </CardContent>
         </Card>
@@ -495,15 +589,15 @@ export function AllSellersClient() {
             params.set("sellerType", "SERVICE")
             router.push(`/admin/all-sellers?${params.toString()}`)
           }}
-          className="cursor-pointer border-slate-200 dark:border-slate-800 hover:border-purple-500/50 transition-all hover:shadow-md rounded-2xl bg-white dark:bg-slate-900"
+          className="cursor-pointer border-slate-200 dark:border-slate-800 hover:border-purple-500/50 transition-all hover:shadow-md rounded-2xl bg-white dark:bg-slate-900 min-w-0"
         >
-          <CardContent className="p-4 space-y-1">
-            <p className="text-xs font-semibold text-purple-600 dark:text-purple-400 uppercase tracking-wider">Services</p>
-            <div className="flex items-baseline justify-between">
-              <span className="text-2xl font-black text-slate-900 dark:text-slate-100">
+          <CardContent className="p-3 sm:p-4 space-y-0.5">
+            <p className="text-[11px] font-semibold text-purple-600 dark:text-purple-400 uppercase tracking-wider truncate">Services</p>
+            <div className="flex items-baseline justify-between gap-1">
+              <span className="text-xl sm:text-2xl font-black text-slate-900 dark:text-slate-100">
                 {data?.stats?.totalService ?? "—"}
               </span>
-              <Wrench className="h-4 w-4 text-purple-500" />
+              <Wrench className="h-4 w-4 text-purple-500 shrink-0" />
             </div>
           </CardContent>
         </Card>
@@ -516,15 +610,15 @@ export function AllSellersClient() {
             params.set("sellerType", "HOTEL")
             router.push(`/admin/all-sellers?${params.toString()}`)
           }}
-          className="cursor-pointer border-slate-200 dark:border-slate-800 hover:border-emerald-500/50 transition-all hover:shadow-md rounded-2xl bg-white dark:bg-slate-900"
+          className="cursor-pointer border-slate-200 dark:border-slate-800 hover:border-emerald-500/50 transition-all hover:shadow-md rounded-2xl bg-white dark:bg-slate-900 min-w-0"
         >
-          <CardContent className="p-4 space-y-1">
-            <p className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Hotels</p>
-            <div className="flex items-baseline justify-between">
-              <span className="text-2xl font-black text-slate-900 dark:text-slate-100">
+          <CardContent className="p-3 sm:p-4 space-y-0.5">
+            <p className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider truncate">Hotels</p>
+            <div className="flex items-baseline justify-between gap-1">
+              <span className="text-xl sm:text-2xl font-black text-slate-900 dark:text-slate-100">
                 {data?.stats?.totalHotel ?? "—"}
               </span>
-              <Building2 className="h-4 w-4 text-emerald-500" />
+              <Building2 className="h-4 w-4 text-emerald-500 shrink-0" />
             </div>
           </CardContent>
         </Card>
@@ -537,15 +631,15 @@ export function AllSellersClient() {
             params.set("sellerType", "RESTAURANT")
             router.push(`/admin/all-sellers?${params.toString()}`)
           }}
-          className="cursor-pointer border-slate-200 dark:border-slate-800 hover:border-amber-500/50 transition-all hover:shadow-md rounded-2xl bg-white dark:bg-slate-900"
+          className="cursor-pointer border-slate-200 dark:border-slate-800 hover:border-amber-500/50 transition-all hover:shadow-md rounded-2xl bg-white dark:bg-slate-900 min-w-0"
         >
-          <CardContent className="p-4 space-y-1">
-            <p className="text-xs font-semibold text-amber-600 dark:text-amber-400 uppercase tracking-wider">Restaurants</p>
-            <div className="flex items-baseline justify-between">
-              <span className="text-2xl font-black text-slate-900 dark:text-slate-100">
+          <CardContent className="p-3 sm:p-4 space-y-0.5">
+            <p className="text-[11px] font-semibold text-amber-600 dark:text-amber-400 uppercase tracking-wider truncate">Restaurants</p>
+            <div className="flex items-baseline justify-between gap-1">
+              <span className="text-xl sm:text-2xl font-black text-slate-900 dark:text-slate-100">
                 {data?.stats?.totalRestaurant ?? "—"}
               </span>
-              <UtensilsCrossed className="h-4 w-4 text-amber-500" />
+              <UtensilsCrossed className="h-4 w-4 text-amber-500 shrink-0" />
             </div>
           </CardContent>
         </Card>
@@ -558,15 +652,15 @@ export function AllSellersClient() {
             params.set("status", "PENDING")
             router.push(`/admin/all-sellers?${params.toString()}`)
           }}
-          className="cursor-pointer border-amber-200 dark:border-amber-900/50 hover:border-amber-500 transition-all hover:shadow-md rounded-2xl bg-amber-50/40 dark:bg-amber-950/20"
+          className="cursor-pointer border-amber-200 dark:border-amber-900/50 hover:border-amber-500 transition-all hover:shadow-md rounded-2xl bg-amber-50/40 dark:bg-amber-950/20 min-w-0"
         >
-          <CardContent className="p-4 space-y-1">
-            <p className="text-xs font-semibold text-amber-700 dark:text-amber-400 uppercase tracking-wider">Pending Review</p>
-            <div className="flex items-baseline justify-between">
-              <span className="text-2xl font-black text-amber-700 dark:text-amber-400">
+          <CardContent className="p-3 sm:p-4 space-y-0.5">
+            <p className="text-[11px] font-semibold text-amber-700 dark:text-amber-400 uppercase tracking-wider truncate">Pending Review</p>
+            <div className="flex items-baseline justify-between gap-1">
+              <span className="text-xl sm:text-2xl font-black text-amber-700 dark:text-amber-400">
                 {data?.stats?.totalPending ?? "—"}
               </span>
-              <Clock className="h-4 w-4 text-amber-600" />
+              <Clock className="h-4 w-4 text-amber-600 shrink-0" />
             </div>
           </CardContent>
         </Card>
@@ -579,15 +673,15 @@ export function AllSellersClient() {
             params.set("status", "SUSPENDED")
             router.push(`/admin/all-sellers?${params.toString()}`)
           }}
-          className="cursor-pointer border-rose-200 dark:border-rose-900/50 hover:border-rose-500 transition-all hover:shadow-md rounded-2xl bg-rose-50/40 dark:bg-rose-950/20"
+          className="cursor-pointer border-rose-200 dark:border-rose-900/50 hover:border-rose-500 transition-all hover:shadow-md rounded-2xl bg-rose-50/40 dark:bg-rose-950/20 min-w-0"
         >
-          <CardContent className="p-4 space-y-1">
-            <p className="text-xs font-semibold text-rose-700 dark:text-rose-400 uppercase tracking-wider">Suspended</p>
-            <div className="flex items-baseline justify-between">
-              <span className="text-2xl font-black text-rose-700 dark:text-rose-400">
+          <CardContent className="p-3 sm:p-4 space-y-0.5">
+            <p className="text-[11px] font-semibold text-rose-700 dark:text-rose-400 uppercase tracking-wider truncate">Suspended</p>
+            <div className="flex items-baseline justify-between gap-1">
+              <span className="text-xl sm:text-2xl font-black text-rose-700 dark:text-rose-400">
                 {data?.stats?.totalSuspended ?? "—"}
               </span>
-              <Ban className="h-4 w-4 text-rose-600" />
+              <Ban className="h-4 w-4 text-rose-600 shrink-0" />
             </div>
           </CardContent>
         </Card>
@@ -606,123 +700,73 @@ export function AllSellersClient() {
         </Alert>
       )}
 
-      {/* ── Search & Filter Controls ── */}
-      <Card className="rounded-3xl border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm overflow-hidden">
-        <CardHeader className="pb-4">
-          <div className="flex items-center gap-2">
-            <Filter className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-            <CardTitle className="text-sm font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">
-              Filter & Search All Sellers
-            </CardTitle>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 sm:gap-4 items-end">
-            {/* Search */}
-            <div className="lg:col-span-4 space-y-1.5">
-              <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                Keyword Search
-              </Label>
-              <div className="relative">
-                <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
-                <Input
-                  placeholder="Search name, store, email, phone, city..."
-                  className="pl-9 h-11 rounded-2xl border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/50"
-                  value={searchInput}
-                  onChange={(e) => setSearchInput(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleApplyFilters()}
-                />
-              </div>
-            </div>
-
-            {/* Seller Type */}
-            <div className="lg:col-span-2 space-y-1.5">
-              <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                Seller Type
-              </Label>
-              <Select value={localType} onValueChange={setLocalType}>
-                <SelectTrigger className="h-11 rounded-2xl border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/50">
-                  <SelectValue placeholder="All 4 Types" />
-                </SelectTrigger>
-                <SelectContent className="rounded-2xl">
-                  <SelectItem value="ALL">All 4 Sellers</SelectItem>
-                  <SelectItem value="PRODUCT">🛍️ Product Sellers</SelectItem>
-                  <SelectItem value="SERVICE">🛠️ Service Sellers</SelectItem>
-                  <SelectItem value="HOTEL">🏨 Hotel Sellers</SelectItem>
-                  <SelectItem value="RESTAURANT">🍽️ Restaurant Sellers</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Status */}
-            <div className="lg:col-span-2 space-y-1.5">
-              <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                Approval Status
-              </Label>
-              <Select value={localStatus} onValueChange={setLocalStatus}>
-                <SelectTrigger className="h-11 rounded-2xl border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/50">
-                  <SelectValue placeholder="All Status" />
-                </SelectTrigger>
-                <SelectContent className="rounded-2xl">
-                  <SelectItem value="ALL">All Statuses</SelectItem>
-                  <SelectItem value="APPROVED">Approved / Active</SelectItem>
-                  <SelectItem value="PENDING">Pending Review</SelectItem>
-                  <SelectItem value="SUSPENDED">Suspended</SelectItem>
-                  <SelectItem value="ONBOARDING">Incomplete Onboarding</SelectItem>
-                  <SelectItem value="CORRECTION">Correction Needed</SelectItem>
-                  <SelectItem value="REJECTED">Rejected</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Date Range */}
-            <div className="lg:col-span-4 space-y-1.5">
-              <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                Registered Date
-              </Label>
-              <div className="flex items-center gap-2">
-                <div className="relative flex-1">
-                  <Calendar className="absolute left-2.5 top-3 h-4 w-4 text-slate-400" />
-                  <Input
-                    type="date"
-                    className="pl-8 h-11 text-xs rounded-2xl border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/50"
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                  />
-                </div>
-                <span className="text-slate-400 text-xs font-medium">to</span>
-                <div className="relative flex-1">
-                  <Calendar className="absolute left-2.5 top-3 h-4 w-4 text-slate-400" />
-                  <Input
-                    type="date"
-                    className="pl-8 h-11 text-xs rounded-2xl border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/50"
-                    value={endDate}
-                    onChange={(e) => setEndDate(e.target.value)}
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleResetFilters}
-              className="h-10 px-5 rounded-2xl border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 font-medium"
-            >
-              <X className="h-4 w-4 mr-1.5" /> Reset
-            </Button>
-            <Button
-              size="sm"
-              onClick={handleApplyFilters}
-              className="h-10 px-6 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-md shadow-blue-600/20"
-            >
-              <Search className="h-4 w-4 mr-1.5" /> Apply Filters
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+      {/* ── Enhanced Filter Toolbar ── */}
+      <SellerFilterToolbar
+        search={searchInput}
+        onSearchChange={setSearchInput}
+        onSearchSubmit={handleApplyFilters}
+        timeframe={localTimeframe}
+        onTimeframeChange={(tf) => {
+          setLocalTimeframe(tf)
+          updateUrlParams({
+            page: "1",
+            timeframe: tf,
+            specificDate: tf === "specific" ? localSpecificDate : undefined,
+            startDate: tf === "custom" ? startDate : undefined,
+            endDate: tf === "custom" ? endDate : undefined,
+          })
+        }}
+        specificDate={localSpecificDate}
+        onSpecificDateChange={(d) => {
+          setLocalSpecificDate(d)
+          updateUrlParams({ page: "1", timeframe: "specific", specificDate: d })
+        }}
+        startDate={startDate}
+        onStartDateChange={(sd) => {
+          setStartDate(sd)
+          updateUrlParams({ page: "1", timeframe: "custom", startDate: sd, endDate })
+        }}
+        endDate={endDate}
+        onEndDateChange={(ed) => {
+          setEndDate(ed)
+          updateUrlParams({ page: "1", timeframe: "custom", startDate, endDate: ed })
+        }}
+        docStatus={localDocStatus}
+        onDocStatusChange={(ds) => {
+          setLocalDocStatus(ds)
+          updateUrlParams({ page: "1", docStatus: ds })
+        }}
+        status={localStatus}
+        onStatusChange={(st) => {
+          setLocalStatus(st)
+          updateUrlParams({ page: "1", status: st })
+        }}
+        sellerType={localType}
+        onSellerTypeChange={(t) => {
+          setLocalType(t)
+          updateUrlParams({ page: "1", sellerType: t })
+        }}
+        sellerTypeOptions={[
+          { value: "ALL", label: "All 4 Types", icon: <Users className="h-3.5 w-3.5" /> },
+          { value: "PRODUCT", label: "Products", icon: <Package className="h-3.5 w-3.5" /> },
+          { value: "SERVICE", label: "Services", icon: <Wrench className="h-3.5 w-3.5" /> },
+          { value: "HOTEL", label: "Hotels", icon: <Building2 className="h-3.5 w-3.5" /> },
+          { value: "RESTAURANT", label: "Restaurants", icon: <UtensilsCrossed className="h-3.5 w-3.5" /> },
+        ]}
+        sortBy={localSortBy}
+        onSortByChange={(sb) => {
+          setLocalSortBy(sb)
+          updateUrlParams({ page: "1", sortBy: sb })
+        }}
+        sortOrder={localSortOrder}
+        onSortOrderChange={(so) => {
+          setLocalSortOrder(so)
+          updateUrlParams({ page: "1", sortOrder: so })
+        }}
+        onReset={handleResetFilters}
+        totalCount={data?.totalCount}
+        loading={loading}
+      />
 
       {/* ── Bulk Actions Floating Toolbar ── */}
       {selectedCount > 0 && (
@@ -839,12 +883,14 @@ export function AllSellersClient() {
                       />
                     </TableHead>
                     <TableHead className="min-w-[220px]">Seller / Business</TableHead>
-                    <TableHead className="min-w-[150px]">Category Type</TableHead>
-                    <TableHead className="min-w-[200px]">Contact & Location</TableHead>
-                    <TableHead className="min-w-[110px]">Portfolio</TableHead>
-                    <TableHead className="min-w-[140px]">Status</TableHead>
+                    <TableHead className="min-w-[130px]">Type</TableHead>
+                    <TableHead className="min-w-[180px]">Contact & Location</TableHead>
+                    <TableHead className="min-w-[110px]">Plan</TableHead>
+                    <TableHead className="min-w-[120px]">Commission</TableHead>
+                    <TableHead className="min-w-[140px]">Documents</TableHead>
+                    <TableHead className="min-w-[130px]">Status</TableHead>
                     <TableHead className="min-w-[120px]">Joined Date</TableHead>
-                    <TableHead className="text-right pr-6 min-w-[140px]">Actions</TableHead>
+                    <TableHead className="text-right pr-6 min-w-[130px]">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
 
@@ -878,29 +924,24 @@ export function AllSellersClient() {
                             <div className="flex items-center gap-3">
                               <Avatar className="h-10 w-10 rounded-2xl border border-slate-200 dark:border-slate-800">
                                 {seller.logo ? (
-                                  <AvatarImage src={seller.logo} alt={displayName} className="object-cover" />
+                                   <AvatarImage src={seller.logo} alt={displayName} className="object-cover" />
                                 ) : null}
                                 <AvatarFallback className="rounded-2xl font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs">
                                   {initials}
                                 </AvatarFallback>
                               </Avatar>
-                              <div className="space-y-0.5">
+                              <div className="space-y-0.5 min-w-0">
                                 <Link
                                   href={getSellerDetailUrl(seller)}
                                   target="_blank"
-                                  className="font-bold text-sm text-slate-900 dark:text-slate-100 hover:text-blue-600 dark:hover:text-blue-400 hover:underline inline-flex items-center gap-1 leading-tight group"
+                                  className="font-bold text-sm text-slate-900 dark:text-slate-100 hover:text-blue-600 dark:hover:text-blue-400 hover:underline inline-flex items-center gap-1 leading-tight group truncate max-w-[200px]"
                                   title="View full seller profile & details"
                                 >
-                                  {displayName}
-                                  <ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity text-slate-400" />
+                                  <span className="truncate">{displayName}</span>
+                                  <ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 shrink-0" />
                                 </Link>
                                 {seller.userName && seller.userName !== seller.businessName && (
-                                  <p className="text-xs text-slate-500 font-medium">{seller.userName}</p>
-                                )}
-                                {seller.subscriptionPlan && (
-                                  <Badge variant="outline" className="text-[10px] px-1.5 py-0 rounded font-normal text-slate-500">
-                                    Plan: {seller.subscriptionPlan}
-                                  </Badge>
+                                  <p className="text-xs text-slate-500 font-medium truncate max-w-[180px]">{seller.userName}</p>
                                 )}
                               </div>
                             </div>
@@ -913,7 +954,7 @@ export function AllSellersClient() {
                           <TableCell>
                             <div className="space-y-1 text-xs text-slate-600 dark:text-slate-300">
                               {seller.userEmail && (
-                                <div className="flex items-center gap-1.5 truncate max-w-[200px]" title={seller.userEmail}>
+                                <div className="flex items-center gap-1.5 truncate max-w-[170px]" title={seller.userEmail}>
                                   <Mail className="h-3.5 w-3.5 text-slate-400 shrink-0" />
                                   <span className="truncate">{seller.userEmail}</span>
                                 </div>
@@ -927,30 +968,67 @@ export function AllSellersClient() {
                               {(seller.city || seller.state) && (
                                 <div className="flex items-center gap-1.5 text-slate-500">
                                   <MapPin className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-                                  <span>{[seller.city, seller.state].filter(Boolean).join(", ")}</span>
+                                  <span className="truncate max-w-[160px]">{[seller.city, seller.state].filter(Boolean).join(", ")}</span>
                                 </div>
                               )}
                             </div>
                           </TableCell>
 
-                          {/* Inventory / Count */}
+                          {/* Subscription Plan */}
                           <TableCell>
-                            <div className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                              {seller.sellerType === "PRODUCT" && `${seller.itemsCount} Products`}
-                              {seller.sellerType === "SERVICE" && `${seller.itemsCount} Services`}
-                              {seller.sellerType === "HOTEL" && `${seller.itemsCount} Hotels`}
-                              {seller.sellerType === "RESTAURANT" && `${seller.itemsCount} Dishes`}
-                            </div>
-                            {seller.ordersCount !== undefined && seller.ordersCount > 0 && (
-                              <p className="text-[11px] text-slate-500">{seller.ordersCount} Orders</p>
+                            {seller.subscriptionPlan ? (
+                              <Badge variant="outline" className="text-xs font-semibold px-2 py-0.5 rounded-lg bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 border-blue-200">
+                                {seller.subscriptionPlan}
+                              </Badge>
+                            ) : (
+                              <span className="text-xs text-slate-400">Free</span>
                             )}
+                          </TableCell>
+
+                          {/* Commission Rate */}
+                          <TableCell>
+                            {seller.commissionRate != null ? (
+                              <div
+                                className="cursor-pointer inline-flex items-center gap-1 group/comm"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setCommissionTarget(seller)
+                                  setCommissionValue(seller.commissionRate ?? "")
+                                  setIsCommissionDialogOpen(true)
+                                }}
+                                title="Click to edit custom commission rate"
+                              >
+                                <Badge className="bg-purple-50 text-purple-700 dark:bg-purple-950 dark:text-purple-300 rounded-lg px-2 py-0.5 font-bold text-xs group-hover/comm:bg-purple-600 group-hover/comm:text-white transition-colors cursor-pointer">
+                                  {seller.commissionRate}%
+                                </Badge>
+                              </div>
+                            ) : (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-6 px-2.5 text-[11px] font-semibold text-purple-700 bg-purple-50/70 border-purple-200/80 hover:bg-purple-100 hover:text-purple-800 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-800 rounded-lg cursor-pointer transition-colors"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setCommissionTarget(seller)
+                                  setCommissionValue("")
+                                  setIsCommissionDialogOpen(true)
+                                }}
+                              >
+                                Assign
+                              </Button>
+                            )}
+                          </TableCell>
+
+                          {/* Document Status */}
+                          <TableCell>
+                            <SellerDocumentBadge evaluation={seller.documentEvaluation} />
                           </TableCell>
 
                           {/* Status */}
                           <TableCell>{renderStatusBadge(seller)}</TableCell>
 
                           {/* Registered Date */}
-                          <TableCell className="text-xs text-slate-500 font-medium">
+                          <TableCell className="text-xs text-slate-500 font-medium whitespace-nowrap">
                             {new Date(seller.createdAt).toLocaleDateString("en-US", {
                               month: "short",
                               day: "numeric",
@@ -961,7 +1039,6 @@ export function AllSellersClient() {
                           {/* Actions */}
                           <TableCell className="text-right pr-6">
                             <div className="flex items-center justify-end gap-1.5">
-                              {/* Direct Link to Seller's Details Page */}
                               <Link href={getSellerDetailUrl(seller)} target="_blank">
                                 <Button
                                   variant="outline"
@@ -975,7 +1052,6 @@ export function AllSellersClient() {
                                 </Button>
                               </Link>
 
-                              {/* Toggle Inline Preview */}
                               <Button
                                 variant="ghost"
                                 size="sm"
@@ -984,13 +1060,9 @@ export function AllSellersClient() {
                                 title="Toggle quick preview"
                               >
                                 {isExpanded ? (
-                                  <>
-                                    <ChevronUp className="h-3.5 w-3.5" />
-                                  </>
+                                  <ChevronUp className="h-3.5 w-3.5" />
                                 ) : (
-                                  <>
-                                    <ChevronDown className="h-3.5 w-3.5" />
-                                  </>
+                                  <ChevronDown className="h-3.5 w-3.5" />
                                 )}
                               </Button>
                             </div>
@@ -1000,7 +1072,7 @@ export function AllSellersClient() {
                         {/* ── Expanded Detail View ── */}
                         {isExpanded && (
                           <TableRow className="bg-slate-50/90 dark:bg-slate-900/90 border-b border-slate-200 dark:border-slate-800">
-                            <TableCell colSpan={8} className="p-6">
+                            <TableCell colSpan={10} className="p-6">
                               <div className="rounded-2xl bg-white dark:bg-slate-950 p-6 border border-slate-200 dark:border-slate-800 shadow-sm space-y-6">
                                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-4">
                                   <div className="flex items-center gap-2.5">
@@ -1018,7 +1090,6 @@ export function AllSellersClient() {
                                   </div>
 
                                   <div className="flex flex-wrap items-center gap-2">
-                                    {/* Direct Link to Seller Details Page from Expanded Header */}
                                     <Link href={getSellerDetailUrl(seller)} target="_blank">
                                       <Button
                                         variant="outline"
@@ -1032,9 +1103,19 @@ export function AllSellersClient() {
                                     {!seller.isApproved && (
                                       <Button
                                         size="sm"
-                                        disabled={actionLoading === seller.id}
+                                        disabled={actionLoading === seller.id || seller.documentEvaluation?.isComplete === false}
                                         onClick={() => executeSingleStatusAction(seller, "approve")}
-                                        className="h-8 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs shadow-sm gap-1"
+                                        className={cn(
+                                          "h-8 px-3 rounded-xl font-semibold text-xs shadow-sm gap-1 transition-all",
+                                          seller.documentEvaluation?.isComplete === false
+                                            ? "bg-slate-200 text-slate-400 dark:bg-slate-800 dark:text-slate-500 cursor-not-allowed shadow-none"
+                                            : "bg-emerald-600 hover:bg-emerald-700 text-white"
+                                        )}
+                                        title={
+                                          seller.documentEvaluation?.isComplete === false
+                                            ? `Cannot approve: ${seller.documentEvaluation.missingCount} required documents are missing (${seller.documentEvaluation.missingDocuments.join(", ")})`
+                                            : "Approve Seller"
+                                        }
                                       >
                                         <Check className="h-3.5 w-3.5" /> Approve Seller
                                       </Button>
@@ -1159,14 +1240,7 @@ export function AllSellersClient() {
                 totalPages={data.totalPages}
                 totalCount={data.totalCount}
                 pageSize={perPage}
-                params={{
-                  search: searchQ || undefined,
-                  sellerType: sellerTypeParam !== "ALL" ? sellerTypeParam : undefined,
-                  status: statusParam !== "ALL" ? statusParam : undefined,
-                  startDate: startParam || undefined,
-                  endDate: endParam || undefined,
-                  perPage: perPage !== 10 ? perPage.toString() : undefined,
-                }}
+                params={searchParams}
               />
             </div>
           )}
@@ -1208,13 +1282,45 @@ export function AllSellersClient() {
           </DialogHeader>
 
           <div className="space-y-4 py-2">
+            {bulkActionType === "approve" && (() => {
+              const incompleteSelected = Array.from(selectedMap.values()).filter((s) => s.documentEvaluation?.isComplete === false)
+              if (incompleteSelected.length === 0) return null
+              return (
+                <div className="p-3.5 rounded-2xl bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-900/60 text-xs text-amber-800 dark:text-amber-200 space-y-1">
+                  <div className="font-bold flex items-center gap-1.5">
+                    <AlertCircle className="h-4 w-4 text-amber-600 shrink-0" />
+                    <span>{incompleteSelected.length} of {selectedCount} selected sellers have missing documents</span>
+                  </div>
+                  <p className="text-[11px] text-amber-700 dark:text-amber-300">
+                    Sellers with incomplete documents cannot be approved and will fail validation.
+                  </p>
+                </div>
+              )
+            })()}
+
             <div className="max-h-48 overflow-y-auto space-y-1.5 p-3 rounded-2xl bg-slate-50 dark:bg-slate-900 border text-xs">
               {Array.from(selectedMap.values()).map((s) => (
                 <div key={s.id} className="flex items-center justify-between py-1 border-b border-slate-200/50 dark:border-slate-800 last:border-none">
-                  <span className="font-medium truncate max-w-[240px]">
-                    {s.businessName || s.userName || "Seller"}
-                  </span>
+                  <div className="flex flex-col truncate max-w-[220px]">
+                    <span className="font-medium truncate">
+                      {s.businessName || s.userName || "Seller"}
+                    </span>
+                    {s.documentEvaluation?.isComplete === false && (
+                      <span className="text-[10px] text-rose-600 dark:text-rose-400 font-semibold truncate">
+                        ⚠️ {s.documentEvaluation.missingCount} doc(s) missing
+                      </span>
+                    )}
+                  </div>
                   <div className="flex items-center gap-2">
+                    {s.documentEvaluation?.isComplete === false ? (
+                      <Badge variant="outline" className="text-[9px] bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/60 dark:text-rose-300">
+                        Incomplete
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-[9px] bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300">
+                        Docs Ready
+                      </Badge>
+                    )}
                     {renderTypeBadge(s.sellerType)}
                   </div>
                 </div>
@@ -1391,6 +1497,98 @@ export function AllSellersClient() {
               className="rounded-2xl text-xs font-bold"
             >
               Confirm Rejection
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Commission Dialog ── */}
+      <Dialog
+        open={isCommissionDialogOpen}
+        onOpenChange={(open) => {
+          setIsCommissionDialogOpen(open)
+          if (!open) setCommissionTarget(null)
+        }}
+      >
+        <DialogContent className="sm:max-w-[420px] rounded-3xl p-6">
+          <DialogHeader>
+            <div className="flex items-center gap-3 mb-1">
+              <div className="p-2.5 rounded-2xl bg-purple-50 dark:bg-purple-950/50 text-purple-600 dark:text-purple-400 border border-purple-100 dark:border-purple-900/50">
+                <Percent className="h-5 w-5" />
+              </div>
+              <div>
+                <DialogTitle className="text-base font-bold text-slate-900 dark:text-slate-100">
+                  Set Custom Commission Rate
+                </DialogTitle>
+                <DialogDescription className="text-xs text-muted-foreground mt-0.5">
+                  {commissionTarget ? (
+                    <span>
+                      For <strong className="text-foreground">{commissionTarget.businessName || commissionTarget.userName || commissionTarget.userEmail}</strong> ({commissionTarget.sellerType.toLowerCase()})
+                    </span>
+                  ) : (
+                    "Override the platform default commission rate for this seller."
+                  )}
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+
+          <div className="py-4 space-y-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="commRate" className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                Commission Percentage (%)
+              </Label>
+              <div className="relative">
+                <Input
+                  id="commRate"
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.1"
+                  placeholder="e.g. 12.5"
+                  className="rounded-2xl text-sm pr-9 h-11"
+                  value={commissionValue}
+                  onChange={(e) => setCommissionValue(e.target.value === "" ? "" : parseFloat(e.target.value))}
+                />
+                <div className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none font-semibold text-xs">
+                  %
+                </div>
+              </div>
+            </div>
+
+            <div className="p-3 bg-slate-50 dark:bg-slate-950/60 rounded-2xl border border-slate-100 dark:border-slate-800/80 space-y-1">
+              <p className="text-[11px] text-muted-foreground">
+                💡 Leave empty to use platform default commission settings.
+              </p>
+              <p className="text-[11px] text-muted-foreground">
+                📌 Custom rates take immediate effect on all new customer orders & bookings.
+              </p>
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setIsCommissionDialogOpen(false)
+                setCommissionTarget(null)
+              }}
+              className="rounded-2xl text-xs font-medium"
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              className="rounded-2xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs"
+              disabled={actionLoading === commissionTarget?.id}
+              onClick={() => {
+                if (commissionTarget) {
+                  handleUpdateCommission(commissionTarget, commissionValue === "" ? null : Number(commissionValue))
+                }
+              }}
+            >
+              {actionLoading === commissionTarget?.id ? "Saving..." : "Save Commission Rate"}
             </Button>
           </DialogFooter>
         </DialogContent>

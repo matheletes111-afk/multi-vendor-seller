@@ -7,6 +7,7 @@ import { UserRole } from "@prisma/client"
 import { activateHotelFreePlan } from "@/lib/subscriptions"
 import { sendSellerWelcomeEmail, sendAdminNewSellerAlertEmail } from "@/lib/email"
 import { formatHearAboutUs } from "@/lib/onboarding-constants"
+import { evaluateSellerDocuments } from "@/lib/seller-approval-validation"
 
 export async function GET() {
   try {
@@ -202,6 +203,19 @@ export async function POST(request: NextRequest) {
         if (jsonBody.data.addressProofUrl) addressProofUrl = jsonBody.data.addressProofUrl
       }
 
+      if (!busRegCertUrl) {
+        return NextResponse.json({ error: "Business Registration Certificate is mandatory." }, { status: 400 })
+      }
+      if (!cityCouncilCertUrl) {
+        return NextResponse.json({ error: "City Council Certificate is mandatory." }, { status: 400 })
+      }
+      if (!addressProofUrl) {
+        return NextResponse.json({ error: "Proof of Address is mandatory." }, { status: 400 })
+      }
+      if (haveGst && !gstTinCertUrl) {
+        return NextResponse.json({ error: "GST TIN Certificate is mandatory when selling with GST." }, { status: 400 })
+      }
+
       await prisma.hotelBusinessInfo.upsert({
         where: { hotelSellerId: seller.id },
         update: { ...businessData, busRegCertUrl, cityCouncilCertUrl, gstTinCertUrl, addressProofUrl },
@@ -257,6 +271,16 @@ export async function POST(request: NextRequest) {
         if (jsonBody.data.selfieUrl) selfieUrl = jsonBody.data.selfieUrl
       }
 
+      if (!idFrontUrl) {
+        return NextResponse.json({ error: "National ID / Passport Front document is mandatory." }, { status: 400 })
+      }
+      if (!idBackUrl) {
+        return NextResponse.json({ error: "National ID / Passport Back document is mandatory." }, { status: 400 })
+      }
+      if (!selfieUrl) {
+        return NextResponse.json({ error: "Selfie / Face Verification is mandatory." }, { status: 400 })
+      }
+
       await prisma.hotelKYC.upsert({
         where: { hotelSellerId: seller.id },
         update: { ...kycData, idFrontUrl, idBackUrl, selfieUrl },
@@ -305,6 +329,10 @@ export async function POST(request: NextRequest) {
             prefix: "hotel-main-photo",
           })
         }
+      }
+
+      if (!logoUrl || !bannerUrl || !mainPhotoUrl) {
+        return NextResponse.json({ error: "Property Logo, Property Banner, and Main Property Photo are all mandatory." }, { status: 400 })
       }
 
       await prisma.hotelSeller.update({
@@ -357,6 +385,10 @@ export async function POST(request: NextRequest) {
         }
       }
 
+      if (!passbookUrl && !bankLetterUrl) {
+        return NextResponse.json({ error: "Bank document proof (Passbook or Bank Letter) is mandatory." }, { status: 400 })
+      }
+
       await prisma.hotelBankDetails.upsert({
         where: { hotelSellerId: seller.id },
         update: { ...bankData, passbookUrl, bankLetterUrl },
@@ -380,6 +412,18 @@ export async function POST(request: NextRequest) {
         update: agreementData,
         create: { ...agreementData, hotelSellerId: seller.id },
       })
+
+      // Strict validation before marking complete
+      const verifySeller = await prisma.hotelSeller.findUnique({
+        where: { id: seller.id },
+        include: { businessInfo: true, kyc: true, bankDetails: true, agreement: true }
+      })
+      const docEval = evaluateSellerDocuments(verifySeller, "HOTEL")
+      if (!docEval.isComplete) {
+        return NextResponse.json({
+          error: `Cannot complete onboarding: Missing required documents: ${docEval.missingDocuments.join(", ")}`
+        }, { status: 400 })
+      }
 
       // Completion!
       await prisma.hotelSeller.update({

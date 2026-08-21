@@ -1,0 +1,652 @@
+================================================================================
+  MEEEM MOBILE APP MASTER RATINGS & REVIEWS API REFERENCE MANUAL
+  (COMPREHENSIVE SPECIFICATION ACROSS ALL 4 VERTICALS & REVIEW WORKFLOWS)
+================================================================================
+
+Target Audience: Mobile App Developers (Flutter / React Native / iOS / Android) & Backend Engineers
+Specification Version: 3.0 (Master Unified API Standard)
+Date: August 2026
+
+--------------------------------------------------------------------------------
+TABLE OF CONTENTS
+--------------------------------------------------------------------------------
+1. Standard Conventions & Data Formats
+2. Vertical 1: Marketplace & Products
+   2.1 Product Listing & Search Results
+   2.2 Product Details Page
+   2.3 Full Product Reviews & Media Gallery
+3. Vertical 2: Home & Professional Services
+   3.1 Services Listings & Home Feeds
+   3.2 Service Details Page
+   3.3 Full Service Reviews & Breakdown
+4. Vertical 3: Hotels & Accommodations
+   4.1 Hotels Listing, Search & Feeds
+   4.2 Hotel Details Page
+   4.3 Hotel Reviews & Breakdown
+5. Vertical 4: Restaurants & Food Delivery
+   5.1 Restaurants Listing & Nearby Spots
+   5.2 Restaurant Menu Dishes
+   5.3 Single Dish Details & Reviews
+6. Customer Review Submission APIs
+   6.1 Products & Services Review Submission (Delivered Order Item)
+   6.2 Hotel Stay Review Submission (Confirmed Booking)
+   6.3 Restaurant Food Dish Review Submission
+7. Error Handling, HTTP Status Codes & Troubleshooting
+
+================================================================================
+1. STANDARD CONVENTIONS & DATA FORMATS
+================================================================================
+
+Standard Field Formats:
+• Rating Score (averageRating / rating): Double / Float (e.g. 4.8, range 0.0 to 5.0, rounded to 1 decimal place).
+• Total Reviews Count (reviewsCount / reviewCount / totalReviews): Integer (e.g. 38, count of all reviews).
+• Hotel Star Classification (starRating / star_rating): Integer (1 to 5).
+• Timestamps (createdAt / updatedAt): ISO 8601 String (e.g. "2026-08-18T10:15:30.000Z").
+• Media Lists (images / reviewGallery): Array of HTTPS CDN URL strings.
+• Review Star Breakdown: Key-value map of star ratings "1" through "5" mapping to review counts.
+
+Standard Breakdown Format:
+{
+  "5": 28,
+  "4": 7,
+  "3": 2,
+  "2": 1,
+  "1": 0
+}
+
+================================================================================
+2. VERTICAL 1: MARKETPLACE & PRODUCTS
+================================================================================
+
+--------------------------------------------------------------------------------
+2.1 Product Listing & Search Results
+--------------------------------------------------------------------------------
+Endpoints:
+  • GET  /mobileapi/category/:id
+  • GET  /mobileapi/subcategory/:id
+  • POST /mobileapi/browse
+  • GET  /mobileapi/search
+
+Authentication: None (Public / Guest)
+
+Query Parameters (for GET /mobileapi/search):
+  • q: Search keyword string
+  • page: Page number (default: 1)
+  • limit: Items per page (default: 20, max: 100)
+  • categoryId: (Optional) Filter by category UUID
+  • subcategoryId: (Optional) Filter by subcategory UUID
+
+Response Schema (Per Product Item in Array):
+{
+  "id": "prod_101",
+  "name": "Wireless Noise-Canceling Headphones",
+  "slug": "wireless-noise-canceling-headphones",
+  "images": [
+    "https://cdn.meeem.com/products/prod_101_1.jpg",
+    "https://cdn.meeem.com/products/prod_101_2.jpg"
+  ],
+  "price": 299.00,
+  "originalPrice": 349.00,
+  "discountPercentage": 14,
+  "averageRating": 4.5,
+  "reviewsCount": 24,
+  "totalReviews": 24,
+  "category": {
+    "id": "cat_audio",
+    "name": "Electronics & Audio",
+    "slug": "electronics-audio"
+  },
+  "seller": {
+    "id": "seller_01",
+    "store": {
+      "name": "ElectroTech Store",
+      "logo": "https://cdn.meeem.com/sellers/electrotech.jpg"
+    }
+  },
+  "inStock": true
+}
+
+--------------------------------------------------------------------------------
+2.2 Product Details Page
+--------------------------------------------------------------------------------
+Endpoint: GET /mobileapi/product/:id
+Authentication: None (Public / Guest)
+
+Response Schema:
+{
+  "success": true,
+  "data": {
+    "id": "prod_101",
+    "name": "Wireless Noise-Canceling Headphones",
+    "slug": "wireless-noise-canceling-headphones",
+    "description": "High-fidelity active noise canceling headphones with 40-hour battery life.",
+    "images": [
+      "https://cdn.meeem.com/products/prod_101_1.jpg",
+      "https://cdn.meeem.com/products/prod_101_2.jpg"
+    ],
+    "averageRating": 4.5,
+    "totalRatings": 24,
+    "reviewsCount": 24,
+    "_count": {
+      "reviews": 24
+    },
+    "variants": [
+      {
+        "id": "var_101",
+        "name": "Matte Black",
+        "price": 299.00,
+        "discount": 50.00,
+        "stock": 15
+      }
+    ]
+  }
+}
+
+--------------------------------------------------------------------------------
+2.3 Full Product Reviews & Media Gallery
+--------------------------------------------------------------------------------
+Endpoint: POST /mobileapi/product/reviews
+Authentication: None (Public / Guest)
+
+Request Payload (JSON):
+{
+  "productId": "prod_101"
+}
+
+Response Schema:
+{
+  "success": true,
+  "data": {
+    "averageRating": 4.5,
+    "totalRatings": 24,
+    "totalReviewsWithComments": 16,
+    "breakdown": {
+      "5": 15,
+      "4": 5,
+      "3": 2,
+      "2": 1,
+      "1": 1
+    },
+    "reviewGallery": [
+      "https://cdn.meeem.com/reviews/headphones_1.jpg",
+      "https://cdn.meeem.com/reviews/headphones_2.jpg"
+    ],
+    "detailedReviews": [
+      {
+        "id": "rev_001",
+        "rating": 5,
+        "comment": "Exceptional sound clarity and battery life!",
+        "reviewerName": "Sarah Johnson",
+        "reviewerImage": "https://cdn.meeem.com/avatars/user1.jpg",
+        "variantInfo": "Color: Matte Black",
+        "isVerified": true,
+        "images": [
+          "https://cdn.meeem.com/reviews/headphones_1.jpg"
+        ],
+        "createdAt": "2026-08-18T10:15:30.000Z"
+      }
+    ]
+  }
+}
+
+================================================================================
+3. VERTICAL 2: HOME & PROFESSIONAL SERVICES
+================================================================================
+
+--------------------------------------------------------------------------------
+3.1 Services Listings & Home Feeds (Popular, Deals, Promotions)
+--------------------------------------------------------------------------------
+Endpoints:
+  • GET /mobileapi/v1/services
+  • GET /mobileapi/v1/deals/services
+  • GET /mobileapi/v1/services/promotions
+  • GET /mobileapi/v1/recommendations/services
+  • GET /mobileapi/services/all
+
+Authentication: None (Public / Guest)
+
+Response Schema (Per Service Item in Array):
+{
+  "service_id": "srv_201",
+  "title": "Sofa & Carpet Vacuum Shampoo Cleaning",
+  "slug": "sofa-carpet-vacuum-cleaning",
+  "provider_name": "Sparkle Cleaners",
+  "price": 520,
+  "current_price": 520,
+  "original_price": 530,
+  "discount_percentage": 2,
+  "duration_mins": 90,
+  "rating": 4.8,
+  "averageRating": 4.8,
+  "review_count": 18,
+  "reviewCount": 18,
+  "image_url": "https://cdn.meeem.com/services/carpet_clean.jpg"
+}
+
+--------------------------------------------------------------------------------
+3.2 Service Details Page
+--------------------------------------------------------------------------------
+Endpoint: GET /mobileapi/services/:id
+Authentication: None (Public / Guest)
+
+Response Schema:
+{
+  "success": true,
+  "data": {
+    "service": {
+      "id": "srv_201",
+      "name": "Sofa & Carpet Vacuum Shampoo Cleaning",
+      "slug": "sofa-carpet-vacuum-cleaning",
+      "description": "Deep industrial shampoo and sanitization for home sofas and carpets.",
+      "basePrice": 530,
+      "discount": 10,
+      "duration": 90,
+      "averageRating": 4.8,
+      "reviewCount": 18,
+      "reviews": [
+        {
+          "id": "s_rev_01",
+          "rating": 5,
+          "comment": "Super clean and punctual professionals!",
+          "reviewerName": "David K.",
+          "createdAt": "2026-08-17T14:20:00.000Z"
+        }
+      ]
+    }
+  }
+}
+
+--------------------------------------------------------------------------------
+3.3 Full Service Reviews & Breakdown
+--------------------------------------------------------------------------------
+Endpoint: POST /mobileapi/services/reviews
+Authentication: None (Public / Guest)
+
+Request Payload (JSON):
+{
+  "serviceId": "srv_201"
+}
+
+Response Schema:
+{
+  "success": true,
+  "data": {
+    "averageRating": 4.8,
+    "totalRatings": 18,
+    "totalReviewsWithComments": 12,
+    "breakdown": {
+      "5": 14,
+      "4": 3,
+      "3": 1,
+      "2": 0,
+      "1": 0
+    },
+    "reviewGallery": [
+      "https://cdn.meeem.com/reviews/carpet_clean_1.jpg",
+      "https://cdn.meeem.com/reviews/carpet_clean_2.jpg"
+    ],
+    "detailedReviews": [
+      {
+        "id": "s_rev_01",
+        "rating": 5,
+        "comment": "Super clean and punctual professionals!",
+        "reviewerName": "David K.",
+        "reviewerImage": "https://cdn.meeem.com/avatars/user2.jpg",
+        "isVerified": true,
+        "images": [
+          "https://cdn.meeem.com/reviews/carpet_clean_1.jpg"
+        ],
+        "createdAt": "2026-08-17T14:20:00.000Z"
+      }
+    ]
+  }
+}
+
+================================================================================
+4. VERTICAL 3: HOTELS & ACCOMMODATIONS
+================================================================================
+
+--------------------------------------------------------------------------------
+4.1 Hotels Listing, Search & Feeds (Nearby / Top Rated)
+--------------------------------------------------------------------------------
+Endpoints:
+  • GET /mobileapi/customer/hotels
+  • GET /mobileapi/v1/hotels
+  • GET /mobileapi/v1/hotels/nearby
+  • GET /mobileapi/v1/recommendations/hotels
+
+Authentication: None (Public / Guest)
+
+Query Parameters (for GET /mobileapi/customer/hotels):
+  • city: City filter string (e.g. "Dubai", "Bengaluru")
+  • rating: Minimum star rating integer (e.g. 4)
+  • minPrice / maxPrice: Room price filter range
+  • q: Search keyword string
+
+Response Schema (Per Hotel Item in Array):
+{
+  "hotel_id": "hotel_801",
+  "id": "hotel_801",
+  "name": "Nandi Hills Serene Resort & Spa",
+  "city": "Bengaluru",
+  "address": "Nandi Hills Road, Devanahalli",
+  "starting_price_per_night": 11500,
+  "star_rating": 5,
+  "starRating": 5,
+  "rating": 4.8,
+  "averageRating": 4.8,
+  "review_count": 38,
+  "totalReviews": 38,
+  "reviewsCount": 38,
+  "coverImage": "https://cdn.meeem.com/hotels/resort_front.jpg"
+}
+
+--------------------------------------------------------------------------------
+4.2 Hotel Details Page
+--------------------------------------------------------------------------------
+Endpoint: GET /mobileapi/customer/hotels/:id
+Authentication: None (Public / Guest)
+
+Response Schema:
+{
+  "success": true,
+  "data": {
+    "id": "hotel_801",
+    "name": "Nandi Hills Serene Resort & Spa",
+    "city": "Bengaluru",
+    "address": "Nandi Hills Road, Devanahalli",
+    "starRating": 5,
+    "averageRating": 4.8,
+    "totalReviews": 38,
+    "reviewCount": 38,
+    "reviewsCount": 38,
+    "breakdown": {
+      "5": 28,
+      "4": 7,
+      "3": 2,
+      "2": 1,
+      "1": 0
+    },
+    "rooms": [
+      {
+        "id": "room_01",
+        "name": "Deluxe Garden View King Room",
+        "price": 11500,
+        "maxGuests": 2
+      }
+    ],
+    "reviews": [
+      {
+        "id": "h_rev_001",
+        "userId": "usr_10",
+        "userName": "Emily Watson",
+        "userAvatar": "https://cdn.meeem.com/avatars/emily.jpg",
+        "rating": 5,
+        "comment": "Amazing stay and great hospitality!",
+        "images": [
+          "https://cdn.meeem.com/reviews/resort_view.jpg"
+        ],
+        "createdAt": "2026-08-16T18:00:00.000Z"
+      }
+    ]
+  }
+}
+
+--------------------------------------------------------------------------------
+4.3 Hotel Reviews & Breakdown
+--------------------------------------------------------------------------------
+Endpoints:
+  • GET /mobileapi/customer/hotels/:id/reviews
+  • GET /mobileapi/hotels/:id/reviews
+
+Authentication: None (Public / Guest)
+
+Response Schema:
+{
+  "success": true,
+  "data": {
+    "id": "hotel_801",
+    "name": "Nandi Hills Serene Resort & Spa",
+    "starRating": 5,
+    "averageRating": 4.8,
+    "totalReviews": 38,
+    "reviewCount": 38,
+    "reviewsCount": 38,
+    "breakdown": {
+      "5": 28,
+      "4": 7,
+      "3": 2,
+      "2": 1,
+      "1": 0
+    },
+    "reviews": [
+      {
+        "id": "h_rev_001",
+        "userId": "usr_10",
+        "userName": "Emily Watson",
+        "userAvatar": "https://cdn.meeem.com/avatars/emily.jpg",
+        "rating": 5,
+        "comment": "Amazing stay and great hospitality!",
+        "images": [
+          "https://cdn.meeem.com/reviews/resort_view.jpg"
+        ],
+        "createdAt": "2026-08-16T18:00:00.000Z"
+      }
+    ]
+  }
+}
+
+================================================================================
+5. VERTICAL 4: RESTAURANTS & FOOD DELIVERY
+================================================================================
+
+--------------------------------------------------------------------------------
+5.1 Restaurants Listing & Nearby Food Spots
+--------------------------------------------------------------------------------
+Endpoints:
+  • GET /mobileapi/restaurants
+  • GET /mobileapi/v1/restaurants/nearby
+
+Authentication: None (Public / Guest)
+
+Response Schema (Per Restaurant Item in Array):
+{
+  "id": "rest_101",
+  "restaurant_id": "rest_101",
+  "businessName": "Bella Italia Ristorante",
+  "name": "Bella Italia Ristorante",
+  "cuisines": ["Italian", "Pasta", "Pizza", "Mains"],
+  "cuisine_type": "Italian, Pasta, Pizza",
+  "city": "Dubai",
+  "street": "Main Street",
+  "location_text": "Downtown Dubai",
+  "averageRating": 4.7,
+  "rating": 4.7,
+  "totalReviews": 85,
+  "review_count": 85,
+  "image_url": "https://cdn.meeem.com/restaurants/bella_italia.jpg",
+  "delivery_time_range": "25-35 mins",
+  "distance_km": 1.5,
+  "offer_tag": "Free Delivery"
+}
+
+--------------------------------------------------------------------------------
+5.2 Restaurant Menu Dishes
+--------------------------------------------------------------------------------
+Endpoint: GET /mobileapi/customer/foods?restaurantSellerId=:id
+Authentication: None (Public / Guest)
+
+Query Parameters:
+  • restaurantSellerId: (Required) Restaurant Seller UUID
+  • category: (Optional) Food category filter string
+  • rating: (Optional) Minimum rating filter float
+
+Response Schema (Per Dish Item in Array):
+{
+  "id": "food_401",
+  "restaurantSellerId": "rest_101",
+  "name": "Lasagna al Forno",
+  "price": 75.00,
+  "category": "Mains",
+  "isVeg": false,
+  "image": "https://cdn.meeem.com/foods/lasagna.jpg",
+  "averageRating": 4.8,
+  "totalReviews": 24,
+  "restaurantName": "Bella Italia Ristorante",
+  "restaurantCity": "Dubai"
+}
+
+--------------------------------------------------------------------------------
+5.3 Single Dish Details & Reviews
+--------------------------------------------------------------------------------
+Endpoints:
+  • GET /mobileapi/customer/foods/:id
+  • GET /mobileapi/customer/foods/:id/reviews
+  • GET /mobileapi/foods/:id
+  • GET /mobileapi/foods/:id/reviews
+
+Authentication: None (Public / Guest)
+
+Response Schema:
+{
+  "success": true,
+  "data": {
+    "id": "food_401",
+    "name": "Lasagna al Forno",
+    "price": 75.00,
+    "category": "Mains",
+    "isVeg": false,
+    "image": "https://cdn.meeem.com/foods/lasagna.jpg",
+    "averageRating": 4.8,
+    "totalReviews": 24,
+    "reviewCount": 24,
+    "reviewsCount": 24,
+    "breakdown": {
+      "5": 18,
+      "4": 4,
+      "3": 2,
+      "2": 0,
+      "1": 0
+    },
+    "reviews": [
+      {
+        "id": "f_rev_001",
+        "userId": "usr_22",
+        "userName": "Alex Rivera",
+        "userAvatar": "https://cdn.meeem.com/avatars/alex.jpg",
+        "rating": 5,
+        "comment": "Authentic taste and perfectly cooked layers!",
+        "images": [
+          "https://cdn.meeem.com/reviews/lasagna_plate.jpg"
+        ],
+        "createdAt": "2026-08-18T19:30:00.000Z"
+      }
+    ]
+  }
+}
+
+================================================================================
+6. CUSTOMER REVIEW SUBMISSION APIS
+================================================================================
+
+--------------------------------------------------------------------------------
+6.1 Products & Services Review Submission (Delivered Order Item)
+--------------------------------------------------------------------------------
+Endpoint: POST /mobileapi/customer/reviewrating
+Authentication: Bearer <Customer Access Token> (Required)
+Content-Type: multipart/form-data
+
+Form-Data Parameters:
+  • orderItemId (string, required): Order Item UUID
+  • rating (integer, required): 1 to 5
+  • comment (string, optional): Review text (max 1000 chars)
+  • images (file[], optional): Up to 5 image files (jpeg/png/webp)
+
+Success Response (HTTP 201):
+{
+  "success": true,
+  "message": "Review submitted successfully",
+  "data": {
+    "id": "rev_001",
+    "rating": 5,
+    "comment": "Exceptional sound clarity and battery life!",
+    "images": ["https://cdn.meeem.com/reviews/headphones_1.jpg"],
+    "createdAt": "2026-08-18T10:15:30.000Z"
+  }
+}
+
+--------------------------------------------------------------------------------
+6.2 Hotel Stay Review Submission (Confirmed Booking)
+--------------------------------------------------------------------------------
+Endpoint: POST /mobileapi/customer/hotels/:id/reviews
+Edit Endpoint: PUT /mobileapi/customer/hotels/:id/reviews
+Authentication: Bearer <Customer Access Token> (Required)
+Content-Type: application/json
+
+Request Payload (JSON):
+{
+  "rating": 5,
+  "comment": "Amazing stay and great hospitality!",
+  "imageUrls": [
+    "https://cdn.meeem.com/reviews/resort_view.jpg"
+  ]
+}
+
+Success Response (HTTP 201):
+{
+  "success": true,
+  "message": "Review submitted successfully",
+  "data": {
+    "id": "h_rev_001"
+  }
+}
+
+--------------------------------------------------------------------------------
+6.3 Restaurant Food Dish Review Submission
+--------------------------------------------------------------------------------
+Endpoint: POST /mobileapi/customer/foods/:id/reviews
+Edit Endpoint: PUT /mobileapi/customer/foods/:id/reviews
+Authentication: Bearer <Customer Access Token> (Required)
+Content-Type: application/json
+
+Request Payload (JSON):
+{
+  "rating": 5,
+  "comment": "Authentic taste and perfectly cooked layers!",
+  "imageUrls": [
+    "https://cdn.meeem.com/reviews/lasagna_plate.jpg"
+  ]
+}
+
+Success Response (HTTP 201):
+{
+  "success": true,
+  "data": {
+    "id": "f_rev_001",
+    "rating": 5,
+    "comment": "Authentic taste and perfectly cooked layers!",
+    "images": [
+      "https://cdn.meeem.com/reviews/lasagna_plate.jpg"
+    ]
+  }
+}
+
+================================================================================
+7. ERROR HANDLING & HTTP STATUS CODES
+================================================================================
+
+Standard Error Response Schema:
+{
+  "success": false,
+  "error": "Descriptive error message"
+}
+
+HTTP Status Codes:
+• 200 OK: Request succeeded and data returned.
+• 201 Created: Review created successfully.
+• 400 Bad Request: Missing or invalid parameters (e.g. rating not between 1 and 5).
+• 401 Unauthorized: Bearer token missing, expired, or invalid.
+• 403 Forbidden: Customer does not have permission (e.g. order not delivered or booking not confirmed).
+• 404 Not Found: Entity (Product, Service, Hotel, Food Item, or Review) does not exist.
+• 409 Conflict: Review already submitted by user (use PUT to edit).
+• 500 Internal Server Error: Unexpected server failure.

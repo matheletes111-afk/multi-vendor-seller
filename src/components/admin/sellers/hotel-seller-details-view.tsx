@@ -30,6 +30,7 @@ import {
   ShieldCheck,
   UserCheck
 } from "lucide-react"
+import { evaluateSellerDocuments } from "@/lib/seller-approval-validation"
 
 interface HotelSellerDetailsViewProps {
   seller: any
@@ -299,31 +300,84 @@ export function HotelSellerDetailsView({
       </div>
 
       {/* Footer Actions */}
-      <div className="flex flex-col md:flex-row items-center justify-between gap-8 p-6 bg-muted/10 rounded-[2rem] border-2 border-dashed border-muted/50 mt-4">
-          <div className="flex items-center gap-6">
-            <div className="space-y-1">
-              <div className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground/60 flex items-center gap-2">Onboarding Progress {seller.onboardingCompleted && <CheckCircle className="h-3 w-3 text-emerald-500" />}</div>
-              <div className="text-sm font-medium flex items-center gap-2"><Badge variant="outline" className="border-indigo-200 bg-indigo-50 text-indigo-700 uppercase font-black text-[9px] tracking-widest">Step {seller.onboardingStep} of 6</Badge></div>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            {seller.isSuspended && (
-               <Badge className="bg-red-100 text-red-700 border-red-200 px-4 py-2 rounded-2xl font-black uppercase tracking-widest text-[10px] animate-pulse">Account Suspended</Badge>
-            )}
-            {!seller.isApproved && (
-              <div className="flex items-center gap-3">
-                <Button className="rounded-full bg-blue-600 hover:bg-blue-700 font-bold px-6 uppercase tracking-widest text-[10px] h-10" disabled={!!actionLoading} onClick={() => onOpenCorrection?.(seller.id)}>Send Correction</Button>
-                <Button className="rounded-full bg-green-500 hover:bg-green-600 font-bold px-8 uppercase tracking-widest text-[10px] h-10" disabled={!!actionLoading} onClick={() => onApprove?.(seller.id)}>Approve Partner</Button>
-                <Button className="rounded-full bg-red-600 hover:bg-red-700 font-bold px-6 uppercase tracking-widest text-[10px] h-10" disabled={!!actionLoading} onClick={() => onOpenReject?.(seller.id)}>Reject</Button>
+      {(() => {
+        const docEval = evaluateSellerDocuments(seller, "HOTEL")
+        return (
+          <>
+            {!seller.isApproved && !docEval.isComplete && (
+              <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/60 flex items-start gap-3 mt-4">
+                <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <p className="text-xs font-bold text-amber-900 dark:text-amber-200">
+                    Approval Blocked: {docEval.missingCount} Required Document(s) Missing
+                  </p>
+                  <p className="text-[11px] text-amber-700 dark:text-amber-300">
+                    Missing: <span className="font-semibold">{docEval.missingDocuments.join(", ")}</span>. All required business, identity, property media, and legal agreement documents must be completed by the hotel partner before approval.
+                  </p>
+                </div>
               </div>
             )}
-            {seller.isSuspended ? (
-              <Button className="rounded-full font-bold px-8 bg-emerald-600 hover:bg-emerald-700 text-white uppercase tracking-widest text-[10px] h-10 shadow-lg shadow-emerald-100" disabled={!!actionLoading} onClick={() => onUnsuspend?.(seller.id)}>Activate Partner</Button>
-            ) : (
-              seller.isApproved && <Button variant="destructive" className="rounded-full font-bold px-8 uppercase tracking-widest text-[10px] h-10" disabled={!!actionLoading} onClick={() => onSuspend?.(seller.id)}>Suspend Partner</Button>
-            )}
-          </div>
-      </div>
+
+            <div className="flex flex-col md:flex-row items-center justify-between gap-8 p-6 bg-muted/10 rounded-[2rem] border-2 border-dashed border-muted/50 mt-4">
+              <div className="flex items-center gap-6">
+                <div className="space-y-1">
+                  <div className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground/60 flex items-center gap-2">
+                    Onboarding Progress {seller.onboardingCompleted && <CheckCircle className="h-3 w-3 text-emerald-500" />}
+                  </div>
+                  <div className="text-sm font-medium flex items-center gap-2">
+                    <Badge variant="outline" className="border-indigo-200 bg-indigo-50 text-indigo-700 uppercase font-black text-[9px] tracking-widest">
+                      Step {seller.onboardingStep} of 6
+                    </Badge>
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                {seller.isSuspended && (
+                  <Badge className="bg-red-100 text-red-700 border-red-200 px-4 py-2 rounded-2xl font-black uppercase tracking-widest text-[10px] animate-pulse">
+                    Account Suspended
+                  </Badge>
+                )}
+                {!seller.isApproved && (
+                  <div className="flex items-center gap-3">
+                    <Button
+                      className="rounded-full bg-blue-600 hover:bg-blue-700 font-bold px-6 uppercase tracking-widest text-[10px] h-10"
+                      disabled={!!actionLoading}
+                      onClick={() => onOpenCorrection?.(seller.id)}
+                    >
+                      Send Correction
+                    </Button>
+                    <Button
+                      className={cn(
+                        "rounded-full font-bold px-8 uppercase tracking-widest text-[10px] h-10 transition-all",
+                        !docEval.isComplete
+                          ? "bg-slate-200 text-slate-400 dark:bg-slate-800 dark:text-slate-500 cursor-not-allowed shadow-none"
+                          : "bg-green-600 hover:bg-green-700 text-white"
+                      )}
+                      disabled={!!actionLoading || !docEval.isComplete}
+                      onClick={() => onApprove?.(seller.id)}
+                      title={!docEval.isComplete ? `Cannot approve: ${docEval.missingCount} required documents missing (${docEval.missingDocuments.join(", ")})` : "Approve Partner"}
+                    >
+                      Approve Partner
+                    </Button>
+                    <Button
+                      className="rounded-full bg-red-600 hover:bg-red-700 font-bold px-6 uppercase tracking-widest text-[10px] h-10"
+                      disabled={!!actionLoading}
+                      onClick={() => onOpenReject?.(seller.id)}
+                    >
+                      Reject
+                    </Button>
+                  </div>
+                )}
+                {seller.isSuspended ? (
+                  <Button className="rounded-full font-bold px-8 bg-emerald-600 hover:bg-emerald-700 text-white uppercase tracking-widest text-[10px] h-10 shadow-lg shadow-emerald-100" disabled={!!actionLoading} onClick={() => onUnsuspend?.(seller.id)}>Activate Partner</Button>
+                ) : (
+                  seller.isApproved && <Button variant="destructive" className="rounded-full font-bold px-8 uppercase tracking-widest text-[10px] h-10" disabled={!!actionLoading} onClick={() => onSuspend?.(seller.id)}>Suspend Partner</Button>
+                )}
+              </div>
+            </div>
+          </>
+        )
+      })()}
     </div>
   )
 }

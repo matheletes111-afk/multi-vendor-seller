@@ -1,0 +1,220 @@
+================================================================================
+  MEEEM MULTI-CHANNEL EMAIL & SMS VERIFICATION & FORGOT PASSWORD SPECIFICATION
+  (COMPREHENSIVE API GUIDE FOR ALL 4 SELLERS, CUSTOMER & ADMIN PANELS)
+================================================================================
+
+Target Audience: Mobile App Developers (Flutter / React Native / iOS / Android), Web Frontend Engineers & Backend Team
+Version: 3.0 (Master Unified Email & SMS Verification Standard)
+Date: August 2026
+
+--------------------------------------------------------------------------------
+TABLE OF CONTENTS
+--------------------------------------------------------------------------------
+1. System Overview & Multi-Channel Verification Architecture
+2. Universal Verification Link & Redirect Router
+3. Customer Panel (Web & Mobile API)
+   3.1 Registration (Email + SMS Dispatch)
+   3.2 Resend OTP / Verification
+   3.3 Forgot Password (Email + SMS Dispatch)
+4. Product Seller Panel (Web & Mobile API)
+   4.1 Registration (Email + SMS Dispatch)
+   4.2 Resend OTP / Verification
+   4.3 Forgot Password (Email + SMS Dispatch)
+5. Service Seller Panel (Web & Mobile API)
+   5.1 Registration (Email + SMS Dispatch)
+   5.2 Resend OTP / Verification
+   5.3 Forgot Password (Email + SMS Dispatch)
+6. Hotel Seller Panel (Web & Mobile API)
+   6.1 Registration (Email + SMS Dispatch)
+   6.2 Resend OTP / Verification
+   6.3 Forgot Password (Email + SMS Dispatch)
+7. Restaurant Seller Panel (Web & Mobile API)
+   7.1 Registration (Email + SMS Dispatch)
+   7.2 Resend OTP / Verification
+   7.3 Forgot Password (Email + SMS Dispatch)
+8. Universal Resend Verification Endpoint
+9. Phone Number Normalization & E.164 Standard
+
+================================================================================
+1. SYSTEM OVERVIEW & MULTI-CHANNEL ARCHITECTURE
+================================================================================
+When a customer or seller registers or requests a password reset:
+1. An email is dispatched containing the 6-digit OTP code AND a direct one-click email verification link button.
+2. In parallel, an SMS is dispatched to the user's mobile number containing the direct verification link (and OTP code).
+3. Clicking the link verifies the email instantly in the browser and redirects the user directly to their respective login panel with `?verified=1`.
+4. Users can also copy/type the 6-digit OTP code directly into the app or web UI.
+
+SMS Message Format:
+• Email Verification:
+  "Hi {Name}, Welcome to Meeem! Verify your email with OTP: {OTP} or click: {verificationLink}"
+• Password Reset:
+  "Hi {Name}, Your Meeem password reset OTP is: {OTP}. It expires in 10 minutes. Reset link: {resetLink}"
+
+================================================================================
+2. UNIVERSAL VERIFICATION LINK & REDIRECT ROUTER
+================================================================================
+Endpoint: GET /api/verify-email?token={verifyEmailOtp}
+Authentication: None (Public / Browser Direct)
+
+Behavior:
+1. Validates `verifyEmailOtp` against database records.
+2. If token is valid and not expired:
+   - Sets `isEmailVerified: true`
+   - Clears `verifyEmailOtp` and `emailVerificationExpires`
+   - Redirects user based on their UserRole:
+     • CUSTOMER          -> /customer/login?verified=1
+     • SELLER_PRODUCT    -> /product-seller/login?verified=1
+     • SELLER_SERVICE    -> /service-seller/login?verified=1
+     • SELLER_HOTEL      -> /hotel-seller/login?verified=1
+     • SELLER_RESTAURANT -> /restaurant-seller/login?verified=1
+     • ADMIN             -> /admin/login?verified=1
+
+================================================================================
+3. CUSTOMER PANEL
+================================================================================
+
+3.1 Customer Registration
+--------------------------
+Web:    POST /api/customer/auth/registration
+Mobile: POST /mobileapi/customer/auth/register
+
+Request Body (JSON):
+{
+  "name": "Alex Rivera",
+  "email": "alex@example.com",
+  "password": "SecurePassword123!",
+  "phone": "501234567",
+  "phoneCountryCode": "+971"
+}
+
+Backend Actions:
+• Hashes password and creates User record with `isEmailVerified: false`
+• Generates 6-digit `verifyEmailOtp` (valid for 10 minutes)
+• Dispatches Email: Contains OTP + Verification link
+• Dispatches SMS to +971501234567: Contains OTP + Verification link
+
+Response (201 Created):
+{
+  "success": true,
+  "message": "Please verify your email with the OTP sent.",
+  "userId": "usr_cuid_123",
+  "verifyUrl": "/customer/verify-otp"
+}
+
+3.2 Customer Resend OTP / Verification
+---------------------------------------
+Web:    POST /api/customer/auth/send-otp
+Mobile: POST /mobileapi/customer/auth/resend-otp
+
+Request Body (JSON):
+{
+  "email": "alex@example.com"
+}
+
+Backend Actions:
+• Generates new 6-digit OTP
+• Dispatches Email + SMS to user's registered phone number
+
+3.3 Customer Forgot Password
+----------------------------
+Web:    POST /api/customer/auth/forgot-password/send-otp
+Mobile: POST /mobileapi/customer/auth/forgot-password/send-otp
+
+Request Body (JSON):
+{
+  "email": "alex@example.com"
+}
+
+Backend Actions:
+• Generates new 6-digit reset OTP
+• Dispatches Email + SMS with reset link and OTP
+
+================================================================================
+4. PRODUCT SELLER PANEL (SELLER_PRODUCT)
+================================================================================
+
+4.1 Registration
+Web:    POST /api/product-seller/auth/registration
+Mobile: POST /mobileapi/product-seller/auth/register
+
+4.2 Resend OTP
+Web:    POST /api/product-seller/auth/send-otp
+Mobile: POST /mobileapi/product-seller/auth/resend-otp
+
+4.3 Forgot Password
+Web:    POST /api/product-seller/auth/forgot-password/send-otp
+Mobile: POST /mobileapi/product-seller/auth/forgot-password/send-otp
+
+================================================================================
+5. SERVICE SELLER PANEL (SELLER_SERVICE)
+================================================================================
+
+5.1 Registration
+Web:    POST /api/service-seller/auth/registration
+Mobile: POST /mobileapi/service-seller/auth/register
+
+5.2 Resend OTP
+Web:    POST /api/service-seller/auth/send-otp
+Mobile: POST /mobileapi/service-seller/auth/resend-otp
+
+5.3 Forgot Password
+Web:    POST /api/service-seller/auth/forgot-password/send-otp
+Mobile: POST /mobileapi/service-seller/auth/forgot-password/send-otp
+
+================================================================================
+6. HOTEL SELLER PANEL (SELLER_HOTEL)
+================================================================================
+
+6.1 Registration
+Web:    POST /api/hotel-seller/auth/registration
+Mobile: POST /mobileapi/hotel-seller/auth/register
+
+6.2 Resend OTP
+Web:    POST /api/hotel-seller/auth/send-otp
+Mobile: POST /mobileapi/hotel-seller/auth/resend-otp
+
+6.3 Forgot Password
+Web:    POST /api/hotel-seller/auth/forgot-password/send-otp
+Mobile: POST /mobileapi/hotel-seller/auth/forgot-password/send-otp
+
+================================================================================
+7. RESTAURANT SELLER PANEL (SELLER_RESTAURANT)
+================================================================================
+
+7.1 Registration
+Web:    POST /api/restaurant-seller/auth/registration
+Mobile: POST /mobileapi/restaurant-seller/auth/register
+
+7.2 Resend OTP
+Web:    POST /api/restaurant-seller/auth/send-otp
+Mobile: POST /mobileapi/restaurant-seller/auth/resend-otp
+
+7.3 Forgot Password
+Web:    POST /api/restaurant-seller/auth/forgot-password/send-otp
+Mobile: POST /mobileapi/restaurant-seller/auth/forgot-password/send-otp
+
+================================================================================
+8. UNIVERSAL RESEND VERIFICATION ENDPOINT
+================================================================================
+Endpoint: POST /api/resend-verification
+Authentication: None (Public)
+
+Request Body (JSON):
+{
+  "email": "user@example.com"
+}
+
+Behavior:
+• Looks up user by email
+• Generates secure 32-byte hex verification token
+• Dispatches verification email
+• Dispatches verification SMS with direct link to user's registered phone number
+
+================================================================================
+9. PHONE NUMBER NORMALIZATION & E.164 STANDARD
+================================================================================
+The SMS subsystem automatically normalizes phone numbers and country codes:
+• "501234567" + "+971" -> "+971501234567"
+• "0501234567" + "+971" -> "+971501234567" (leading zeros stripped)
+• "+971501234567" -> "+971501234567" (preserved)
+• Invalid/missing numbers: Gracefully skipped with warning, user registration succeeds without blockage.

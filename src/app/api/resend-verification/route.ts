@@ -3,6 +3,8 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { sendVerificationEmail } from "@/lib/email"
 
+import { getAppBaseUrl, sendEmailVerificationSms } from "@/lib/twilio-sms"
+
 /** POST /api/resend-verification — Resend verification email. Body: { email } */
 export async function POST(request: Request) {
   try {
@@ -13,7 +15,7 @@ export async function POST(request: Request) {
     }
     const user = await prisma.user.findUnique({
       where: { email: email.trim() },
-      select: { id: true, name: true, isEmailVerified: true },
+      select: { id: true, name: true, phone: true, phoneCountryCode: true, isEmailVerified: true },
     })
     if (!user) {
       return NextResponse.json({ error: "No account found with this email." }, { status: 404 })
@@ -23,21 +25,29 @@ export async function POST(request: Request) {
     }
     const verifyEmailOtp = randomBytes(32).toString("hex")
     const emailVerificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000)
-    const origin = new URL(request.url).origin
-    const verificationLink = `${origin}/api/verify-email?token=${verifyEmailOtp}`
+    const baseUrl = getAppBaseUrl(request)
+    const verificationLink = `${baseUrl}/api/verify-email?token=${verifyEmailOtp}`
 
     await prisma.user.update({
       where: { id: user.id },
       data: { verifyEmailOtp, emailVerificationExpires },
     })
 
-    await sendVerificationEmail({
-      to: email.trim(),
-      verificationLink,
-      name: user.name,
-    })
+    await Promise.allSettled([
+      sendVerificationEmail({
+        to: email.trim(),
+        verificationLink,
+        name: user.name,
+      }),
+      sendEmailVerificationSms({
+        to: user.phone,
+        countryCode: user.phoneCountryCode,
+        verificationLink,
+        name: user.name,
+      }),
+    ])
 
-    return NextResponse.json({ message: "Verification email sent. Please check your inbox." }, { status: 200 })
+    return NextResponse.json({ message: "Verification email and SMS sent. Please check your inbox or phone." }, { status: 200 })
   } catch (error) {
     console.error("Resend verification error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })

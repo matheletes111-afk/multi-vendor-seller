@@ -60,3 +60,118 @@ export async function sendSmsViaTwilio({ to, body }: SendSmsInput): Promise<void
     throw new Error(`Twilio SMS failed: ${res.status} ${data}`)
   }
 }
+
+export function getAppBaseUrl(request?: Request | { headers: Headers | { get(name: string): string | null }; url?: string }): string {
+  if (request) {
+    try {
+      const headers = "headers" in request ? request.headers : undefined
+      const forwardedProto = headers?.get?.("x-forwarded-proto") || "https"
+      const forwardedHost = headers?.get?.("x-forwarded-host") || headers?.get?.("host")
+      if (forwardedHost) {
+        return `${forwardedProto}://${forwardedHost}`
+      }
+      if ("url" in request && request.url) {
+        const url = new URL(request.url)
+        return url.origin
+      }
+    } catch {}
+  }
+  return (
+    process.env.NEXTAUTH_URL?.trim() ||
+    process.env.NEXT_PUBLIC_APP_URL?.trim() ||
+    "https://meeem.com"
+  )
+}
+
+export function formatFullPhoneNumber(phone?: string | null, countryCode?: string | null): string {
+  if (!phone) return ""
+  let cleanPhone = phone.trim()
+  if (cleanPhone.startsWith("+")) {
+    return cleanPhone
+  }
+  const cleanDigits = cleanPhone.replace(/\D/g, "")
+  if (!cleanDigits) return ""
+
+  if (countryCode) {
+    let cleanCode = countryCode.trim()
+    if (!cleanCode.startsWith("+")) cleanCode = `+${cleanCode.replace(/\D/g, "")}`
+    // If phone already starts with code digits (e.g. 971501234567 and code is +971)
+    const codeDigits = cleanCode.replace(/\D/g, "")
+    if (cleanDigits.startsWith(codeDigits)) {
+      return `+${cleanDigits}`
+    }
+    // Remove leading zeros from phone if any
+    const phoneNoLeadingZero = cleanDigits.replace(/^0+/, "")
+    return `${cleanCode}${phoneNoLeadingZero}`
+  }
+
+  return `+${cleanDigits}`
+}
+
+export async function sendEmailVerificationSms({
+  to,
+  countryCode,
+  verificationLink,
+  otp,
+  name,
+}: {
+  to?: string | null
+  countryCode?: string | null
+  verificationLink?: string
+  otp?: string
+  name?: string | null
+}): Promise<void> {
+  const fullPhone = formatFullPhoneNumber(to, countryCode)
+  if (!fullPhone) {
+    return
+  }
+
+  const greeting = name ? `Hi ${name}, ` : ""
+  let body = ""
+  if (verificationLink && otp) {
+    body = `${greeting}Welcome to Meeem! Verify your email with OTP: ${otp} or click: ${verificationLink}`
+  } else if (verificationLink) {
+    body = `${greeting}Welcome to Meeem! Please verify your email by clicking: ${verificationLink}`
+  } else if (otp) {
+    body = `${greeting}Your Meeem email verification code is: ${otp}`
+  } else {
+    return
+  }
+
+  try {
+    await sendSmsViaTwilio({ to: fullPhone, body })
+  } catch (error) {
+    console.warn(`[SMS] Failed to send email verification SMS to ${fullPhone}:`, error)
+  }
+}
+
+export async function sendPasswordResetSms({
+  to,
+  countryCode,
+  otp,
+  name,
+  resetLink,
+}: {
+  to?: string | null
+  countryCode?: string | null
+  otp: string
+  name?: string | null
+  resetLink?: string
+}): Promise<void> {
+  const fullPhone = formatFullPhoneNumber(to, countryCode)
+  if (!fullPhone) {
+    return
+  }
+
+  const greeting = name ? `Hi ${name}, ` : ""
+  let body = `${greeting}Your Meeem password reset OTP is: ${otp}. It expires in 10 minutes.`
+  if (resetLink) {
+    body += ` Reset link: ${resetLink}`
+  }
+
+  try {
+    await sendSmsViaTwilio({ to: fullPhone, body })
+  } catch (error) {
+    console.warn(`[SMS] Failed to send password reset SMS to ${fullPhone}:`, error)
+  }
+}

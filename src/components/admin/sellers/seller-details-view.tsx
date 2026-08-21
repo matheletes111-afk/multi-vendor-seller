@@ -27,6 +27,7 @@ import {
   CheckCircle,
   Globe,
 } from "lucide-react"
+import { evaluateSellerDocuments } from "@/lib/seller-approval-validation"
 
 interface SellerDetailsViewProps {
   seller: any
@@ -387,46 +388,70 @@ export function SellerDetailsView({
           </CardContent>
         </Card>
 
-        {/* ACTION INFRASTRUCTURE */}
-        <div className="md:col-span-2 2xl:col-span-3 flex flex-col md:flex-row items-center justify-between gap-8 p-6 bg-muted/10 rounded-2xl border-2 border-dashed border-muted/50 mt-4">
-          <div className="flex items-center gap-6">
-            <div className="space-y-1 relative group">
-              <div className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground/60 flex items-center gap-2">
-                Onboarding Progress
-                {seller.onboardingCompleted && <CheckCircle className="h-3 w-3 text-emerald-500" />}
-              </div>
-              <div className="text-sm font-medium flex items-center gap-2">
-                <Badge variant="outline" className="border-indigo-200 bg-indigo-50 text-indigo-700">Step {seller.onboardingStep} of 5</Badge>
-              </div>
-            </div>
-          </div>
+        {/* Action Infrastructure */}
+        {(() => {
+          const docEval = evaluateSellerDocuments(seller, seller?.type || "PRODUCT")
+          return (
+            <>
+              {!seller.isApproved && !docEval.isComplete && (
+                <div className="md:col-span-2 2xl:col-span-3 p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/60 flex items-start gap-3 mt-4">
+                  <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                  <div className="space-y-1">
+                    <p className="text-xs font-bold text-amber-900 dark:text-amber-200">
+                      Approval Blocked: {docEval.missingCount} Required Document(s) Missing
+                    </p>
+                    <p className="text-[11px] text-amber-700 dark:text-amber-300">
+                      Missing: <span className="font-semibold">{docEval.missingDocuments.join(", ")}</span>. All required identity, business, financial, and legal agreement documents must be completed by the seller before admin approval is permitted.
+                    </p>
+                  </div>
+                </div>
+              )}
 
-          <div className="flex items-center gap-3">
-            {!seller.isApproved && (
-              <div className="flex items-center gap-3">
-                <Button
-                  className="rounded-full bg-blue-600 hover:bg-blue-700 font-bold px-6 border-none shadow-lg shadow-blue-500/20 uppercase tracking-widest text-[10px] h-9"
-                  disabled={actionLoading === seller.id}
-                  onClick={() => onOpenCorrection?.(seller.id)}
-                >
-                  Send for Correction
-                </Button>
-                <Button
-                  className="rounded-full font-bold px-8 border-none shadow-lg shadow-green-500/20 uppercase tracking-widest text-[10px] bg-green-500 hover:bg-green-600 h-9"
-                  disabled={actionLoading === seller.id}
-                  onClick={() => onApprove?.(seller.id)}
-                >
-                  Confirm & Approve
-                </Button>
-                <Button
-                  className="rounded-full bg-red-600 hover:bg-red-700 font-bold px-6 border-none shadow-lg shadow-red-500/20 uppercase tracking-widest text-[10px] h-9"
-                  disabled={actionLoading === seller.id}
-                  onClick={() => onOpenReject?.(seller.id)}
-                >
-                  Reject Application
-                </Button>
-              </div>
-            )}
+              <div className="md:col-span-2 2xl:col-span-3 flex flex-col md:flex-row items-center justify-between gap-8 p-6 bg-muted/10 rounded-2xl border-2 border-dashed border-muted/50 mt-4">
+                <div className="flex items-center gap-6">
+                  <div className="space-y-1 relative group">
+                    <div className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground/60 flex items-center gap-2">
+                      Onboarding Progress
+                      {seller.onboardingCompleted && <CheckCircle className="h-3 w-3 text-emerald-500" />}
+                    </div>
+                    <div className="text-sm font-medium flex items-center gap-2">
+                      <Badge variant="outline" className="border-indigo-200 bg-indigo-50 text-indigo-700">Step {seller.onboardingStep} of 5</Badge>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  {!seller.isApproved && (
+                    <div className="flex items-center gap-3">
+                      <Button
+                        className="rounded-full bg-blue-600 hover:bg-blue-700 font-bold px-6 border-none shadow-lg shadow-blue-500/20 uppercase tracking-widest text-[10px] h-9"
+                        disabled={actionLoading === seller.id}
+                        onClick={() => onOpenCorrection?.(seller.id)}
+                      >
+                        Send for Correction
+                      </Button>
+                      <Button
+                        className={cn(
+                          "rounded-full font-bold px-8 border-none uppercase tracking-widest text-[10px] h-9 transition-all",
+                          !docEval.isComplete
+                            ? "bg-slate-200 text-slate-400 dark:bg-slate-800 dark:text-slate-500 cursor-not-allowed shadow-none"
+                            : "shadow-lg shadow-green-500/20 bg-green-600 hover:bg-green-700 text-white"
+                        )}
+                        disabled={actionLoading === seller.id || !docEval.isComplete}
+                        onClick={() => onApprove?.(seller.id)}
+                        title={!docEval.isComplete ? `Cannot approve: ${docEval.missingCount} required documents missing (${docEval.missingDocuments.join(", ")})` : "Confirm & Approve"}
+                      >
+                        Confirm & Approve
+                      </Button>
+                      <Button
+                        className="rounded-full bg-red-600 hover:bg-red-700 font-bold px-6 border-none shadow-lg shadow-red-500/20 uppercase tracking-widest text-[10px] h-9"
+                        disabled={actionLoading === seller.id}
+                        onClick={() => onOpenReject?.(seller.id)}
+                      >
+                        Reject Application
+                      </Button>
+                    </div>
+                  )}
             
             <div className="flex items-center gap-3">
                <Button
@@ -437,27 +462,30 @@ export function SellerDetailsView({
                 Set Commission
               </Button>
 
-              {seller.isSuspended ? (
-                <Button
-                  className="rounded-full font-bold px-8 border-none shadow-lg shadow-indigo-500/20 uppercase tracking-widest text-[10px] bg-indigo-500 hover:bg-indigo-600 h-9"
-                  disabled={actionLoading === seller.id}
-                  onClick={() => onUnsuspend?.(seller.id)}
-                >
-                  Unsuspend Seller
-                </Button>
-              ) : (
-                <Button
-                  className="rounded-full font-bold px-8 border-none shadow-lg shadow-destructive/20 uppercase tracking-widest text-[10px] bg-destructive hover:bg-destructive/90 h-9"
-                  disabled={actionLoading === seller.id}
-                  onClick={() => onSuspend?.(seller.id)}
-                >
-                  Suspend Seller
-                </Button>
-              )}
+                  {seller.isSuspended ? (
+                    <Button
+                      className="rounded-full font-bold px-8 border-none shadow-lg shadow-indigo-500/20 uppercase tracking-widest text-[10px] bg-indigo-500 hover:bg-indigo-600 h-9"
+                      disabled={actionLoading === seller.id}
+                      onClick={() => onUnsuspend?.(seller.id)}
+                    >
+                      Unsuspend Seller
+                    </Button>
+                  ) : (
+                    <Button
+                      className="rounded-full font-bold px-8 border-none shadow-lg shadow-destructive/20 uppercase tracking-widest text-[10px] bg-destructive hover:bg-destructive/90 h-9"
+                      disabled={actionLoading === seller.id}
+                      onClick={() => onSuspend?.(seller.id)}
+                    >
+                      Suspend Seller
+                    </Button>
+                  )}
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
-      </div>
+          </>
+        )
+      })()}
     </div>
+  </div>
   )
 }

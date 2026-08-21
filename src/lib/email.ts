@@ -95,12 +95,29 @@ export async function sendVerificationOtpEmail({
   to,
   otp,
   name,
+  verificationLink,
 }: {
   to: string
   otp: string
   name?: string | null
+  verificationLink?: string
 }) {
   const subject = "Your verification code"
+  const linkSection = verificationLink
+    ? `
+        <div style="text-align: center; margin: 24px 0 16px;">
+          <a href="${verificationLink}" 
+             style="background-color: #007bff; color: white; padding: 12px 28px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold; font-size: 15px;">
+            Verify Email Address
+          </a>
+        </div>
+        <p style="color: #666; font-size: 13px; margin-bottom: 8px;">Or copy and paste this link:</p>
+        <p style="color: #007bff; word-break: break-all; font-size: 12px; margin-bottom: 20px;">
+          ${verificationLink}
+        </p>
+      `
+    : ""
+
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
       <div style="background-color: #f8f9fa; padding: 30px; border-radius: 10px;">
@@ -114,6 +131,7 @@ export async function sendVerificationOtpEmail({
         <p style="font-size: 28px; font-weight: bold; letter-spacing: 8px; color: #007bff; margin: 24px 0;">
           ${otp}
         </p>
+        ${linkSection}
         <p style="color: #999; font-size: 12px;">
           This code will expire in 10 minutes. Do not share it with anyone.
         </p>
@@ -127,12 +145,29 @@ export async function sendPasswordResetOtpEmail({
   to,
   otp,
   name,
+  resetLink,
 }: {
   to: string
   otp: string
   name?: string | null
+  resetLink?: string
 }) {
   const subject = "Your password reset code"
+  const linkSection = resetLink
+    ? `
+        <div style="text-align: center; margin: 24px 0 16px;">
+          <a href="${resetLink}" 
+             style="background-color: #007bff; color: white; padding: 12px 28px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold; font-size: 15px;">
+            Reset Password
+          </a>
+        </div>
+        <p style="color: #666; font-size: 13px; margin-bottom: 8px;">Or copy and paste this link:</p>
+        <p style="color: #007bff; word-break: break-all; font-size: 12px; margin-bottom: 20px;">
+          ${resetLink}
+        </p>
+      `
+    : ""
+
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
       <div style="background-color: #f8f9fa; padding: 30px; border-radius: 10px;">
@@ -146,6 +181,7 @@ export async function sendPasswordResetOtpEmail({
         <p style="font-size: 28px; font-weight: bold; letter-spacing: 8px; color: #007bff; margin: 24px 0;">
           ${otp}
         </p>
+        ${linkSection}
         <p style="color: #999; font-size: 12px;">
           This code will expire in 10 minutes. Do not share it with anyone.
         </p>

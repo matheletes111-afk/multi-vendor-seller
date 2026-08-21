@@ -57,6 +57,9 @@ export async function GET(request: NextRequest) {
           rooms: {
             where: { isActive: true, isDeleted: false },
             orderBy: { price: "asc" }
+          },
+          reviews: {
+            select: { rating: true }
           }
         },
         orderBy: { createdAt: "desc" }
@@ -75,11 +78,35 @@ export async function GET(request: NextRequest) {
       })
     ])
 
+    const formattedHotels = hotels.map((h) => {
+      const startingPrice = h.rooms.length > 0 ? h.rooms[0].price : 0
+      const totalReviews = h.reviews.length
+      const totalRating = h.reviews.reduce((acc, r) => acc + r.rating, 0)
+      const avgRating = totalReviews > 0 ? parseFloat((totalRating / totalReviews).toFixed(1)) : 0.0
+
+      return {
+        ...h,
+        hotel_id: h.id,
+        id: h.id,
+        name: h.name,
+        city: h.city || "",
+        address: h.address || "",
+        starting_price_per_night: startingPrice,
+        star_rating: h.starRating ?? 0,
+        starRating: h.starRating ?? 0,
+        rating: avgRating,
+        averageRating: avgRating,
+        review_count: totalReviews,
+        totalReviews,
+        reviewsCount: totalReviews,
+      }
+    })
+
     const citiesList = distinctCities
       .map((h) => h.city)
       .filter((c): c is string => !!c && c.trim() !== "")
 
-    return NextResponse.json({ success: true, data: hotels, cities: citiesList })
+    return NextResponse.json({ success: true, data: formattedHotels, cities: citiesList })
   } catch (error) {
     console.error("Error fetching mobile hotels list:", error)
     return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 })

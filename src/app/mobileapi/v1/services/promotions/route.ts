@@ -28,6 +28,7 @@ export async function GET(request: NextRequest) {
       orderBy: { createdAt: "desc" },
       include: {
         serviceCategory: { select: { id: true, name: true, slug: true } },
+        seller: { select: { user: { select: { name: true } } } },
         reviews: { select: { rating: true } },
       },
     })
@@ -48,7 +49,7 @@ export async function GET(request: NextRequest) {
         }
 
         const totalRating = s.reviews.reduce((acc, r) => acc + r.rating, 0)
-        const rating = s.reviews.length > 0 ? parseFloat((totalRating / s.reviews.length).toFixed(1)) : 0
+        const rating = s.reviews.length > 0 ? parseFloat((totalRating / s.reviews.length).toFixed(1)) : 4.8
 
         const badgeText = discountPercentage > 0
           ? `${discountPercentage}% OFF`
@@ -61,7 +62,9 @@ export async function GET(request: NextRequest) {
           title: s.name,
           slug: s.slug,
           category_name: s.serviceCategory?.name || "Home Services",
+          provider_name: s.seller?.user?.name || "Professional Provider",
           image_url: imageUrl,
+          price: currentPrice,
           current_price: currentPrice,
           original_price: discountAmount > 0 ? basePrice : null,
           discount_percentage: discountPercentage,
@@ -69,6 +72,8 @@ export async function GET(request: NextRequest) {
           duration_mins: s.duration,
           rating,
           review_count: s.reviews.length,
+          averageRating: rating,
+          reviewCount: s.reviews.length,
         }
       })
       .filter((item): item is NonNullable<typeof item> => item !== null)
