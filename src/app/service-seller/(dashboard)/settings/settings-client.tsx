@@ -107,6 +107,13 @@ export function ServiceSettingsClient() {
             }
           })
           setServiceCategories(merged)
+          if (s.isApproved) {
+            if (typeof window !== "undefined" && window.location.search.includes("error=AccountPendingApproval")) {
+              const url = new URL(window.location.href)
+              url.searchParams.delete("error")
+              window.history.replaceState({}, "", url.pathname + (url.search ? url.search : ""))
+            }
+          }
         }
       } finally {
         setLoading(false)
@@ -121,7 +128,8 @@ export function ServiceSettingsClient() {
   const getErrorMessage = (err: string | null) => {
     if (!err) return null
     if (err === "AccountPendingApproval") {
-        return "Your account application is currently pending review by our administration team. You will be notified once your account is fully verified and ready for listing services."
+      if (seller?.isApproved) return null
+      return "Your account application is currently pending review by our administration team. You will be notified once your account is fully verified and ready for listing services."
     }
     return err
   }
@@ -246,7 +254,7 @@ export function ServiceSettingsClient() {
         </Alert>
       )}
 
-      {(paramsError || error) && (
+      {(getErrorMessage(paramsError) || error) && (
         <Alert variant="destructive" className="mb-6">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>{getErrorMessage(paramsError) || error}</AlertDescription>

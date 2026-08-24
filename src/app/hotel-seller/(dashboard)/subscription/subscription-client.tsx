@@ -158,12 +158,16 @@ export function HotelSubscriptionClient() {
 
                     <ul className="space-y-3 mb-6 pt-4 border-t border-slate-50 font-medium text-slate-600">
                       <li className="text-sm flex justify-between">
-                        <span>Rooms:</span> 
-                        <span className="font-bold text-slate-800">{plan.maxRooms === null ? "Unlimited" : plan.maxRooms}</span>
+                        <span>Total Hotels:</span> 
+                        <span className="font-bold text-slate-800">{plan.maxProducts === null ? "Unlimited" : plan.maxProducts}</span>
                       </li>
                       <li className="text-sm flex justify-between">
-                        <span>Listable Services:</span> 
-                        <span className="font-bold text-slate-800">{plan.maxProducts === null ? "Unlimited" : plan.maxProducts}</span>
+                        <span>Total Rooms:</span> 
+                        <span className="font-bold text-slate-800">{plan.maxRooms === null || plan.maxRooms === undefined ? "Unlimited" : plan.maxRooms}</span>
+                      </li>
+                      <li className="text-sm flex justify-between">
+                        <span>Orders / Bookings:</span> 
+                        <span className="font-bold text-slate-800">{plan.maxOrders === null ? "Unlimited" : `${plan.maxOrders}/mo`}</span>
                       </li>
                     </ul>
 

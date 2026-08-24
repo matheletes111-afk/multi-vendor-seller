@@ -93,6 +93,13 @@ export function SettingsClient() {
             }
           })
           setCategories(merged)
+          if (s.isApproved) {
+            if (typeof window !== "undefined" && window.location.search.includes("error=AccountPendingApproval")) {
+              const url = new URL(window.location.href)
+              url.searchParams.delete("error")
+              window.history.replaceState({}, "", url.pathname + (url.search ? url.search : ""))
+            }
+          }
         }
       } finally {
         setLoading(false)
@@ -107,6 +114,7 @@ export function SettingsClient() {
   const getErrorMessage = (err: string | null) => {
     if (!err) return null
     if (err === "AccountPendingApproval") {
+      if (seller?.isApproved) return null
       return "Your account is currently pending approval by our administration team. You will be notified once your account has been verified and active."
     }
     return err
@@ -238,7 +246,7 @@ export function SettingsClient() {
         </Alert>
       )}
 
-      {(paramsError || error) && (
+      {(getErrorMessage(paramsError) || error) && (
         <Alert variant="destructive" className="mb-6">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>{getErrorMessage(paramsError) || error}</AlertDescription>
