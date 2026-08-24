@@ -387,6 +387,14 @@ export function evaluateSellerDocuments(seller: any, sellerType?: string): Selle
     isUploaded: !!busInfo?.addressProofUrl?.trim(),
     url: busInfo?.addressProofUrl,
   });
+  if (busInfo?.haveGst) {
+    docs.push({
+      name: "GST / TIN Certificate",
+      category: "business",
+      isUploaded: !!busInfo?.gstTinCertUrl?.trim(),
+      url: busInfo?.gstTinCertUrl,
+    });
+  }
 
   // 2. Identity / KYC
   const kyc = seller.kyc || seller.raw?.kyc;
@@ -463,6 +471,22 @@ export function evaluateSellerDocuments(seller: any, sellerType?: string): Selle
       category: "media",
       isUploaded: !!(seller.mainPhoto?.trim() || seller.raw?.mainPhoto?.trim()),
       url: seller.mainPhoto || seller.raw?.mainPhoto,
+    });
+  } else {
+    // PRODUCT or SERVICE sellers
+    const store = seller.store || seller.raw?.store;
+    const isProduct = normalizedType === "PRODUCT";
+    docs.push({
+      name: isProduct ? "Store Logo" : "Service Provider Logo",
+      category: "media",
+      isUploaded: !!(store?.logo?.trim() || seller.logo?.trim() || seller.raw?.logo?.trim()),
+      url: store?.logo || seller.logo || seller.raw?.logo,
+    });
+    docs.push({
+      name: isProduct ? "Store Banner" : "Service Provider Banner",
+      category: "media",
+      isUploaded: !!(store?.banner?.trim() || seller.banner?.trim() || seller.raw?.banner?.trim()),
+      url: store?.banner || seller.banner || seller.raw?.banner,
     });
   }
 

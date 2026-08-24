@@ -216,7 +216,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         if (sellerInfo.onboardingStep !== undefined)
           token.onboardingStep = sellerInfo.onboardingStep
       } else if (token?.id) {
-        // If not Edge runtime, verify password hash against database to invalidate outdated sessions
+        // If not Edge runtime, verify password hash and sync seller status against database
         if (process.env.NEXT_RUNTIME !== "edge") {
           try {
             const dbUser = await prisma.user.findUnique({
@@ -237,8 +237,45 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
               token.error = "SessionInvalidated"
               return token
             }
+
+            // Real-time seller status synchronization:
+            // Whenever an admin approves, rejects, or suspends a seller in the database,
+            // refreshing the page or navigating automatically synchronizes the JWT token and session.
+            if (
+              token.role === UserRole.SELLER_PRODUCT ||
+              token.role === UserRole.SELLER_SERVICE ||
+              token.role === UserRole.SELLER_HOTEL ||
+              token.role === UserRole.SELLER_RESTAURANT
+            ) {
+              let seller: any = null
+              if (token.role === UserRole.SELLER_HOTEL) {
+                seller = await prisma.hotelSeller.findUnique({
+                  where: { userId: token.id as string },
+                  select: { isApproved: true, isSuspended: true, onboardingCompleted: true, onboardingStep: true } as any
+                })
+              } else if (token.role === UserRole.SELLER_RESTAURANT) {
+                seller = await prisma.restaurantSeller.findUnique({
+                  where: { userId: token.id as string },
+                  select: { isApproved: true, isSuspended: true, onboardingCompleted: true, onboardingStep: true } as any
+                })
+              } else {
+                seller = await prisma.seller.findUnique({
+                  where: { userId: token.id as string },
+                  select: { isApproved: true, isSuspended: true, onboardingCompleted: true, onboardingStep: true } as any
+                })
+              }
+
+              if (seller) {
+                if (seller.isApproved !== undefined) token.isApproved = seller.isApproved
+                if (seller.isSuspended !== undefined) token.isSuspended = seller.isSuspended
+                if (seller.onboardingCompleted !== undefined)
+                  token.onboardingCompleted = seller.onboardingCompleted
+                if (seller.onboardingStep !== undefined)
+                  token.onboardingStep = seller.onboardingStep
+              }
+            }
           } catch (error) {
-            console.error("Error verifying password in jwt callback:", error)
+            console.error("Error verifying user / seller status in jwt callback:", error)
           }
         }
 
@@ -248,8 +285,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           token.role === UserRole.SELLER_HOTEL ||
           token.role === UserRole.SELLER_RESTAURANT
         ) {
-          // Robustness: rely on the token's current state for the Edge runtime (middleware).
-          // Real-time re-validation should happen in Node-safe layouts/pages, not in the JWT callback.
           if (token.onboardingCompleted === undefined) {
             token.onboardingCompleted = false
           }

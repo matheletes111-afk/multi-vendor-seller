@@ -22,7 +22,9 @@ export function SellerSubscriptionDetailsCard({
 
   const getLimitLabel = (p: any) => {
     if (sellerType === "HOTEL") {
-      return p.maxRooms != null ? `${p.maxRooms} Rooms Max` : "Unlimited Rooms"
+      const hotels = p.maxProducts != null ? `${p.maxProducts} Hotels` : "Unlimited Hotels"
+      const rooms = p.maxRooms != null ? `${p.maxRooms} Rooms` : "Unlimited Rooms"
+      return `${hotels}, ${rooms}`
     }
     if (sellerType === "RESTAURANT") {
       return p.maxProducts != null ? `${p.maxProducts} Menu Items Max` : "Unlimited Menu Items"
