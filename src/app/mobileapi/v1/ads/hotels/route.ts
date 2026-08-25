@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
       const h = ad.hotel
       const price = h?.rooms[0]?.price || 499
       const totalRating = h?.reviews.reduce((acc, r) => acc + r.rating, 0) || 0
-      const rating = h?.reviews.length ? parseFloat((totalRating / h.reviews.length).toFixed(1)) : (h?.starRating || 0)
+      const rating = h?.reviews.length ? parseFloat((totalRating / h.reviews.length).toFixed(1)) : 0
 
       return {
         ad_id: ad.id,
@@ -37,10 +37,16 @@ export async function GET(request: NextRequest) {
         image_url: ad.mobileCreativeUrl || ad.creativeUrl,
         hotel_id: ad.hotelId,
         city: h?.city || "Dubai",
+        star_rating: h?.starRating || 0,
+        starRating: h?.starRating || 0,
         starting_price_per_night: price,
         currency: "AED",
         rating,
+        averageRating: rating,
         review_count: h?.reviews.length || 0,
+        reviewCount: h?.reviews.length || 0,
+        totalReviews: h?.reviews.length || 0,
+        reviewsCount: h?.reviews.length || 0,
         cta_text: "Book Stay",
         click_url: `/hotels/${ad.hotelId}`,
       }
@@ -59,8 +65,12 @@ export async function GET(request: NextRequest) {
           city: "Dubai",
           starting_price_per_night: 899,
           currency: "AED",
-          rating: 4.9,
-          review_count: 145,
+          rating: 0.0,
+          averageRating: 0.0,
+          review_count: 0,
+          reviewCount: 0,
+          totalReviews: 0,
+          reviewsCount: 0,
           cta_text: "Book Stay",
           click_url: "/hotels/palm-jumeirah-villa",
         },

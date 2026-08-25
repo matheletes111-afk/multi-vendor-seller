@@ -58,21 +58,28 @@ export async function GET(request: NextRequest) {
       const startingPrice = h.rooms.length > 0 ? h.rooms[0].price : 299
 
       const totalRating = h.reviews.reduce((acc, r) => acc + r.rating, 0)
-      const rating = h.reviews.length > 0 ? parseFloat((totalRating / h.reviews.length).toFixed(1)) : 4.7
+      const rating = h.reviews.length > 0 ? parseFloat((totalRating / h.reviews.length).toFixed(1)) : 0.0
 
       return {
+        id: h.id,
         hotel_id: h.id,
         name: h.name,
         description: h.description || "",
-        star_rating: h.starRating,
+        star_rating: h.starRating ?? 0,
+        starRating: h.starRating ?? 0,
         city: h.city || "Dubai",
         address: h.address || "",
         image_url: imageUrl,
+        coverImage: imageUrl,
         logo: h.logo || null,
         starting_price_per_night: startingPrice,
         currency: "AED",
         rating,
+        averageRating: rating,
         review_count: h.reviews.length,
+        reviewCount: h.reviews.length,
+        totalReviews: h.reviews.length,
+        reviewsCount: h.reviews.length,
         amenities: Array.isArray(h.amenities) ? h.amenities : [],
       }
     })

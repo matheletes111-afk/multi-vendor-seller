@@ -61,7 +61,7 @@ export async function GET(request: NextRequest) {
       }
 
       const totalRating = s.reviews.reduce((acc, r) => acc + r.rating, 0)
-      const rating = s.reviews.length > 0 ? parseFloat((totalRating / s.reviews.length).toFixed(1)) : 4.8
+      const rating = s.reviews.length > 0 ? parseFloat((totalRating / s.reviews.length).toFixed(1)) : 0.0
 
       return {
         service_id: s.id,
@@ -77,7 +77,11 @@ export async function GET(request: NextRequest) {
         discount_tag: discountTag,
         duration_mins: s.duration,
         rating,
+        averageRating: rating,
         review_count: s.reviews.length,
+        reviewCount: s.reviews.length,
+        totalReviews: s.reviews.length,
+        reviewsCount: s.reviews.length,
       }
     })
 

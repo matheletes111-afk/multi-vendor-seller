@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
         }
 
         const totalRating = p.reviews.reduce((acc, r) => acc + r.rating, 0)
-        const rating = p.reviews.length > 0 ? parseFloat((totalRating / p.reviews.length).toFixed(1)) : 4.8
+        const rating = p.reviews.length > 0 ? parseFloat((totalRating / p.reviews.length).toFixed(1)) : 0.0
 
         const stockStatus =
           variant.stock <= 0
@@ -65,19 +65,27 @@ export async function GET(request: NextRequest) {
 
         return {
           deal_id: `deal_prod_${p.id}_${index}`,
+          id: p.id,
           product_id: p.id,
           title: p.name,
+          name: p.name,
           slug: p.slug,
           category_name: p.category?.name || "General",
           image_url: imageUrl,
+          price: currentPrice,
           current_price: currentPrice,
           original_price: originalPrice,
+          originalPrice,
           discount_percentage: discountPercentage,
           discount_badge: `${discountPercentage}% OFF`,
           deal_ends_at: dealEndsAt,
           stock_status: stockStatus,
           rating,
+          averageRating: rating,
           review_count: p.reviews.length,
+          reviewCount: p.reviews.length,
+          totalReviews: p.reviews.length,
+          reviewsCount: p.reviews.length,
         }
       })
       .filter((item): item is NonNullable<typeof item> => item !== null)

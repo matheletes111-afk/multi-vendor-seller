@@ -55,20 +55,29 @@ export async function GET(request: NextRequest) {
         }
 
         const totalRating = p.reviews.reduce((acc, r) => acc + r.rating, 0)
-        const rating = p.reviews.length > 0 ? parseFloat((totalRating / p.reviews.length).toFixed(1)) : 4.8
+        const rating = p.reviews.length > 0 ? parseFloat((totalRating / p.reviews.length).toFixed(1)) : 0.0
 
         return {
+          id: p.id,
           product_id: p.id,
           title: p.name,
+          name: p.name,
           slug: p.slug,
           category_name: p.category?.name || "General",
           thumbnail,
+          thumbnail_url: thumbnail,
           current_price: currentPrice,
+          price: currentPrice,
           original_price: originalPrice,
+          originalPrice,
           discount_percentage: discountPercentage,
           discount_tag: `${discountPercentage}% OFF`,
           rating,
+          averageRating: rating,
           review_count: p.reviews.length,
+          reviewCount: p.reviews.length,
+          totalReviews: p.reviews.length,
+          reviewsCount: p.reviews.length,
           stock_status: variant.stock > 0 ? "IN_STOCK" : "OUT_OF_STOCK",
         }
       })

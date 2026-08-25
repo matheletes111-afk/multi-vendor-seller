@@ -74,22 +74,32 @@ export async function GET(request: NextRequest) {
       }
 
       const totalRating = p.reviews.reduce((acc, r) => acc + r.rating, 0)
-      const rating = p.reviews.length > 0 ? parseFloat((totalRating / p.reviews.length).toFixed(1)) : 4.5
+      const rating = p.reviews.length > 0 ? parseFloat((totalRating / p.reviews.length).toFixed(1)) : 0.0
       const totalStock = p.variants.reduce((acc, v) => acc + v.stock, 0)
 
       return {
+        id: p.id,
         product_id: p.id,
         title: p.name,
+        name: p.name,
         slug: p.slug,
         category: p.category ? { id: p.category.id, name: p.category.name, slug: p.category.slug } : null,
         subcategory: p.subcategory ? { id: p.subcategory.id, name: p.subcategory.name, slug: p.subcategory.slug } : null,
         thumbnail_url: thumbnail,
+        images: Array.isArray(p.images) ? p.images : thumbnail ? [thumbnail] : [],
+        price: finalPrice,
         current_price: finalPrice,
         original_price: discountAmount > 0 ? originalPrice : null,
+        originalPrice: discountAmount > 0 ? originalPrice : null,
         discount_tag: discountTag,
         rating,
+        averageRating: rating,
         review_count: p.reviews.length,
+        reviewCount: p.reviews.length,
+        totalReviews: p.reviews.length,
+        reviewsCount: p.reviews.length,
         in_stock: totalStock > 0,
+        inStock: totalStock > 0,
       }
     })
 

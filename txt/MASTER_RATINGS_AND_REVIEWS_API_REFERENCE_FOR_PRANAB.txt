@@ -4,13 +4,22 @@
 ================================================================================
 
 Target Audience: Mobile App Developers (Flutter / React Native / iOS / Android) & Backend Engineers
-Specification Version: 3.0 (Master Unified API Standard)
-Date: August 2026
+Specification Version: 4.0 (Live Ratings Edition — All Static Fallbacks Removed)
+Last Updated: August 2026
+
+IMPORTANT NOTICE TO MOBILE DEVELOPER:
+  All rating and review count fields across every listing/feed/recommendation
+  endpoint now return LIVE computed values from the database.
+  - When an item has NO reviews yet: rating = 0.0, review_count = 0
+  - When an item HAS reviews: rating = computed average (e.g. 4.3)
+  Do NOT assume any item will have a pre-filled rating. Always handle 0.0.
 
 --------------------------------------------------------------------------------
 TABLE OF CONTENTS
 --------------------------------------------------------------------------------
 1. Standard Conventions & Data Formats
+   1.1 Live Rating Computation Standard
+   1.2 Dual-Compatibility Field Standard
 2. Vertical 1: Marketplace & Products
    2.1 Product Listing & Search Results
    2.2 Product Details Page
@@ -37,15 +46,50 @@ TABLE OF CONTENTS
 1. STANDARD CONVENTIONS & DATA FORMATS
 ================================================================================
 
-Standard Field Formats:
-• Rating Score (averageRating / rating): Double / Float (e.g. 4.8, range 0.0 to 5.0, rounded to 1 decimal place).
-• Total Reviews Count (reviewsCount / reviewCount / totalReviews): Integer (e.g. 38, count of all reviews).
-• Hotel Star Classification (starRating / star_rating): Integer (1 to 5).
-• Timestamps (createdAt / updatedAt): ISO 8601 String (e.g. "2026-08-18T10:15:30.000Z").
-• Media Lists (images / reviewGallery): Array of HTTPS CDN URL strings.
-• Review Star Breakdown: Key-value map of star ratings "1" through "5" mapping to review counts.
+1.1 Live Rating Computation Standard
+--------------------------------------
+All listing and feed endpoints compute ratings dynamically from the database:
 
-Standard Breakdown Format:
+  averageRating = SUM(reviews[].rating) / COUNT(reviews)
+  
+  - Result is rounded to 1 decimal place (e.g. 4.3, not 4.27)
+  - If an entity has 0 reviews: averageRating = 0.0, reviewCount = 0
+  - Values are NEVER hardcoded, cached, or assumed
+
+Standard Field Formats:
+  - Rating Score (rating / averageRating): Float, range 0.0–5.0, 1 decimal place
+  - Review Count (review_count / reviewCount / totalReviews / reviewsCount): Integer
+  - Hotel Star Classification (starRating / star_rating): Integer (1–5)
+    NOTE: starRating (property classification) is SEPARATE from averageRating (review score)
+  - Timestamps (createdAt / updatedAt): ISO 8601 String
+  - Media Lists (images / reviewGallery): Array of HTTPS CDN URL strings
+  - Review Star Breakdown: Key-value map, keys "1" through "5"
+
+1.2 Dual-Compatibility Field Standard
+---------------------------------------
+Every listing item includes rating fields under MULTIPLE key names so that
+both snake_case and camelCase consumers receive the exact same live value:
+
+{
+  "rating": 4.3,
+  "averageRating": 4.3,
+  "review_count": 12,
+  "reviewCount": 12,
+  "totalReviews": 12,
+  "reviewsCount": 12
+}
+
+When 0 reviews exist:
+{
+  "rating": 0.0,
+  "averageRating": 0.0,
+  "review_count": 0,
+  "reviewCount": 0,
+  "totalReviews": 0,
+  "reviewsCount": 0
+}
+
+Standard Breakdown Format (detail pages only):
 {
   "5": 28,
   "4": 7,
@@ -62,6 +106,10 @@ Standard Breakdown Format:
 2.1 Product Listing & Search Results
 --------------------------------------------------------------------------------
 Endpoints:
+  • GET  /mobileapi/v1/products           ← UPDATED: live ratings
+  • GET  /mobileapi/v1/products/promotions ← UPDATED: live ratings
+  • GET  /mobileapi/v1/deals/products      ← UPDATED: live ratings
+  • GET  /mobileapi/v1/recommendations/products ← UPDATED: live ratings
   • GET  /mobileapi/category/:id
   • GET  /mobileapi/subcategory/:id
   • POST /mobileapi/browse
@@ -69,41 +117,56 @@ Endpoints:
 
 Authentication: None (Public / Guest)
 
-Query Parameters (for GET /mobileapi/search):
-  • q: Search keyword string
+Query Parameters (for /mobileapi/v1/products):
+  • category: Category ID, slug, or name
+  • subcategory: Subcategory ID, slug, or name
   • page: Page number (default: 1)
-  • limit: Items per page (default: 20, max: 100)
-  • categoryId: (Optional) Filter by category UUID
-  • subcategoryId: (Optional) Filter by subcategory UUID
+  • limit: Items per page (default: 10, max: 50)
 
 Response Schema (Per Product Item in Array):
 {
   "id": "prod_101",
+  "product_id": "prod_101",
   "name": "Wireless Noise-Canceling Headphones",
+  "title": "Wireless Noise-Canceling Headphones",
   "slug": "wireless-noise-canceling-headphones",
+  "thumbnail_url": "https://cdn.meeem.com/products/prod_101_1.jpg",
   "images": [
     "https://cdn.meeem.com/products/prod_101_1.jpg",
     "https://cdn.meeem.com/products/prod_101_2.jpg"
   ],
   "price": 299.00,
+  "current_price": 299.00,
+  "original_price": 349.00,
   "originalPrice": 349.00,
-  "discountPercentage": 14,
-  "averageRating": 4.5,
-  "reviewsCount": 24,
-  "totalReviews": 24,
+  "discount_tag": "14% OFF",
   "category": {
     "id": "cat_audio",
     "name": "Electronics & Audio",
     "slug": "electronics-audio"
   },
-  "seller": {
-    "id": "seller_01",
-    "store": {
-      "name": "ElectroTech Store",
-      "logo": "https://cdn.meeem.com/sellers/electrotech.jpg"
-    }
-  },
+  "rating": 4.5,
+  "averageRating": 4.5,
+  "review_count": 24,
+  "reviewCount": 24,
+  "totalReviews": 24,
+  "reviewsCount": 24,
+  "in_stock": true,
   "inStock": true
+}
+
+Response Envelope:
+{
+  "success": true,
+  "data": {
+    "products": [ ...items ],
+    "pagination": {
+      "current_page": 1,
+      "total_pages": 5,
+      "total_items": 48,
+      "has_more": true
+    }
+  }
 }
 
 --------------------------------------------------------------------------------
@@ -197,30 +260,61 @@ Response Schema:
 3.1 Services Listings & Home Feeds (Popular, Deals, Promotions)
 --------------------------------------------------------------------------------
 Endpoints:
-  • GET /mobileapi/v1/services
+  • GET /mobileapi/v1/services                    ← UPDATED: live ratings
   • GET /mobileapi/v1/deals/services
-  • GET /mobileapi/v1/services/promotions
-  • GET /mobileapi/v1/recommendations/services
-  • GET /mobileapi/services/all
+  • GET /mobileapi/v1/services/promotions         ← UPDATED: live ratings
+  • GET /mobileapi/v1/recommendations/services    ← UPDATED: live ratings
+  • GET /mobileapi/services/all                   ← UPDATED: live ratings (groupBy avg)
 
 Authentication: None (Public / Guest)
+
+Query Parameters (for /mobileapi/v1/services):
+  • category: Category ID, slug, or name
+  • page: Page number (default: 1)
+  • limit: Items per page (default: 10, max: 50)
 
 Response Schema (Per Service Item in Array):
 {
   "service_id": "srv_201",
+  "id": "srv_201",
   "title": "Sofa & Carpet Vacuum Shampoo Cleaning",
   "slug": "sofa-carpet-vacuum-cleaning",
-  "provider_name": "Sparkle Cleaners",
+  "category": {
+    "id": "cat_cleaning",
+    "name": "Home Cleaning",
+    "slug": "home-cleaning"
+  },
+  "provider_name": "Professional Provider",
+  "image_url": "https://cdn.meeem.com/services/carpet_clean.jpg",
   "price": 520,
   "current_price": 520,
   "original_price": 530,
-  "discount_percentage": 2,
+  "discount_tag": "2% OFF",
   "duration_mins": 90,
   "rating": 4.8,
   "averageRating": 4.8,
   "review_count": 18,
   "reviewCount": 18,
-  "image_url": "https://cdn.meeem.com/services/carpet_clean.jpg"
+  "totalReviews": 18,
+  "reviewsCount": 18
+}
+
+NOTE: provider_name is populated from the seller's real user name.
+      Falls back to "Professional Provider" if name is unavailable.
+      The old hardcoded fallback "Sparkle Cleaners" has been REMOVED.
+
+Response Envelope (for /mobileapi/v1/services):
+{
+  "success": true,
+  "data": {
+    "services": [ ...items ],
+    "pagination": {
+      "current_page": 1,
+      "total_pages": 3,
+      "total_items": 26,
+      "has_more": true
+    }
+  }
 }
 
 --------------------------------------------------------------------------------
@@ -307,38 +401,114 @@ Response Schema:
 ================================================================================
 
 --------------------------------------------------------------------------------
-4.1 Hotels Listing, Search & Feeds (Nearby / Top Rated)
+4.1 Hotels Listing, Search & Feeds (Nearby, Featured, Top-Rated, Deals)
 --------------------------------------------------------------------------------
 Endpoints:
-  • GET /mobileapi/customer/hotels
-  • GET /mobileapi/v1/hotels
-  • GET /mobileapi/v1/hotels/nearby
-  • GET /mobileapi/v1/recommendations/hotels
+  • GET /mobileapi/v1/hotels                      ← UPDATED: live ratings
+  • GET /mobileapi/v1/hotels/nearby               ← UPDATED: live ratings, no fake counts
+  • GET /mobileapi/v1/hotels/featured             ← NEW ENDPOINT (added Aug 2026)
+  • GET /mobileapi/v1/hotels/top-rated            ← NEW ENDPOINT (added Aug 2026)
+  • GET /mobileapi/v1/deals/hotels                ← NEW ENDPOINT (added Aug 2026)
+  • GET /mobileapi/v1/ads/hotels                  ← UPDATED: live review rating separate from star rating
+  • GET /mobileapi/v1/recommendations/hotels      ← UPDATED: live ratings
+  • GET /mobileapi/hotels/all                     ← NEW ENDPOINT (added Aug 2026)
+  • GET /mobileapi/customer/hotels                (existing hotel booking endpoint)
 
 Authentication: None (Public / Guest)
 
-Query Parameters (for GET /mobileapi/customer/hotels):
+Query Parameters (for /mobileapi/v1/hotels):
   • city: City filter string (e.g. "Dubai", "Bengaluru")
-  • rating: Minimum star rating integer (e.g. 4)
-  • minPrice / maxPrice: Room price filter range
-  • q: Search keyword string
+  • star_rating: Property star class filter (1–5 integer)
+  • page: Page number (default: 1)
+  • limit: Items per page (default: 10, max: 50)
+
+Query Parameters (for /mobileapi/v1/hotels/featured):
+  • city: City filter string (optional)
+  • limit: Items per page (default: 10, max: 50)
+
+Query Parameters (for /mobileapi/v1/hotels/top-rated):
+  • city: City filter string (optional)
+  • limit: Items per page (default: 10, max: 50)
+
+Query Parameters (for /mobileapi/v1/deals/hotels):
+  • limit: Items per page (default: 10, max: 50)
+
+Query Parameters (for /mobileapi/hotels/all):
+  • city: City filter (optional)
+  • q / search: Keyword search (optional)
+  • activeOnly: Boolean, default true
+  • limit: Items per page (default: 50, max: 200)
+
+IMPORTANT — Star Rating vs Review Rating:
+  star_rating / starRating = Property star classification (1–5 stars, set by admin)
+  rating / averageRating   = Customer review average (0.0–5.0, computed from reviews)
+  These are TWO DIFFERENT fields. Do NOT confuse them.
 
 Response Schema (Per Hotel Item in Array):
 {
-  "hotel_id": "hotel_801",
   "id": "hotel_801",
+  "hotel_id": "hotel_801",
   "name": "Nandi Hills Serene Resort & Spa",
+  "description": "Luxury resort nestled in lush greenery.",
   "city": "Bengaluru",
   "address": "Nandi Hills Road, Devanahalli",
-  "starting_price_per_night": 11500,
+  "location_text": "Nandi Hills Road, Bengaluru",
   "star_rating": 5,
   "starRating": 5,
+  "image_url": "https://cdn.meeem.com/hotels/resort_front.jpg",
+  "coverImage": "https://cdn.meeem.com/hotels/resort_front.jpg",
+  "logo": null,
+  "starting_price_per_night": 11500,
+  "price_per_night": 11500,
+  "currency": "AED",
   "rating": 4.8,
   "averageRating": 4.8,
   "review_count": 38,
+  "reviewCount": 38,
   "totalReviews": 38,
   "reviewsCount": 38,
-  "coverImage": "https://cdn.meeem.com/hotels/resort_front.jpg"
+  "amenities": ["Pool", "Spa", "WiFi", "Parking"],
+  "badge_text": "FEATURED"
+}
+
+Additional fields in /mobileapi/v1/deals/hotels response:
+{
+  "deal_id": "deal_hotel_hotel_801_0",
+  "original_price": 11500,
+  "current_price": 9775,
+  "discount_percentage": 15,
+  "discount_badge": "15% OFF",
+  "deal_ends_at": "2026-08-25T23:59:59.999Z"
+}
+
+Response Envelope (for feeds with pagination):
+{
+  "success": true,
+  "data": {
+    "hotels": [ ...items ],
+    "pagination": {
+      "current_page": 1,
+      "total_pages": 4,
+      "total_items": 35,
+      "has_more": true
+    }
+  }
+}
+
+Response Envelope (for /mobileapi/hotels/all):
+{
+  "success": true,
+  "message": "Hotels fetched successfully",
+  "data": {
+    "hotels": [ ...items ],
+    "total": 35
+  }
+}
+
+Response Envelope (for /mobileapi/v1/hotels/featured, /top-rated, /deals/hotels):
+{
+  "success": true,
+  "data": [ ...items ]
 }
 
 --------------------------------------------------------------------------------
@@ -444,56 +614,178 @@ Response Schema:
 5.1 Restaurants Listing & Nearby Food Spots
 --------------------------------------------------------------------------------
 Endpoints:
-  • GET /mobileapi/restaurants
-  • GET /mobileapi/v1/restaurants/nearby
+  • GET /mobileapi/restaurants                    ← UPDATED: live ratings
+  • GET /mobileapi/v1/restaurants                 ← UPDATED: live ratings
+  • GET /mobileapi/v1/restaurants/nearby          ← UPDATED: live ratings, no fake counts
+  • GET /mobileapi/v1/recommendations/food        ← UPDATED: live ratings
+  • GET /mobileapi/v1/foods                       ← NEW ENDPOINT (added Aug 2026)
+  • GET /mobileapi/v1/ads/food                    ← UPDATED: live ratings
+  • GET /mobileapi/restaurant/:id                 ← NEW ENDPOINT — alias for restaurants/:id
+  • GET /mobileapi/restaurant/seller/:id          ← NEW ENDPOINT — alias for restaurants/:id
 
 Authentication: None (Public / Guest)
 
-Response Schema (Per Restaurant Item in Array):
+Query Parameters (for /mobileapi/restaurants):
+  • q: Search keyword (business name or user name)
+  • cuisine: Cuisine type filter (e.g. "Italian"). Use "ALL" to skip filter.
+  • category: Food category filter (e.g. "Pizza"). Use "ALL" to skip filter.
+
+Query Parameters (for /mobileapi/v1/restaurants/nearby):
+  • lat: User latitude (optional, used for proximity sorting)
+  • lng: User longitude (optional)
+  • limit: Max results (default: 6, max: 50)
+
+Query Parameters (for /mobileapi/v1/foods):
+  • category: Food category filter
+  • restaurantSellerId: Filter by specific restaurant
+  • isVeg: true / 1 for vegetarian filter
+  • page: Page number (default: 1)
+  • limit: Items per page (default: 20, max: 50)
+
+Response Schema (Per Restaurant Item from /mobileapi/restaurants):
 {
   "id": "rest_101",
   "restaurant_id": "rest_101",
-  "businessName": "Bella Italia Ristorante",
   "name": "Bella Italia Ristorante",
+  "businessName": "Bella Italia Ristorante",
   "cuisines": ["Italian", "Pasta", "Pizza", "Mains"],
   "cuisine_type": "Italian, Pasta, Pizza",
   "city": "Dubai",
   "street": "Main Street",
   "location_text": "Downtown Dubai",
-  "averageRating": 4.7,
-  "rating": 4.7,
-  "totalReviews": 85,
-  "review_count": 85,
+  "logo": null,
+  "banner": null,
+  "mainPhoto": null,
   "image_url": "https://cdn.meeem.com/restaurants/bella_italia.jpg",
+  "rating": 4.7,
+  "averageRating": 4.7,
+  "review_count": 85,
+  "reviewCount": 85,
+  "totalReviews": 85,
+  "reviewsCount": 85,
+  "hasVeg": true,
+  "hasNonVeg": true,
   "delivery_time_range": "25-35 mins",
   "distance_km": 1.5,
   "offer_tag": "Free Delivery"
 }
 
---------------------------------------------------------------------------------
-5.2 Restaurant Menu Dishes
---------------------------------------------------------------------------------
-Endpoint: GET /mobileapi/customer/foods?restaurantSellerId=:id
-Authentication: None (Public / Guest)
-
-Query Parameters:
-  • restaurantSellerId: (Required) Restaurant Seller UUID
-  • category: (Optional) Food category filter string
-  • rating: (Optional) Minimum rating filter float
-
-Response Schema (Per Dish Item in Array):
+Response Schema (Per Food Item from /mobileapi/v1/foods):
 {
   "id": "food_401",
+  "food_id": "food_401",
   "restaurantSellerId": "rest_101",
+  "restaurant_seller_id": "rest_101",
+  "title": "Lasagna al Forno",
   "name": "Lasagna al Forno",
-  "price": 75.00,
+  "description": "Classic oven-baked lasagna with rich bechamel.",
   "category": "Mains",
+  "price": 75.00,
+  "is_veg": false,
   "isVeg": false,
   "image": "https://cdn.meeem.com/foods/lasagna.jpg",
-  "averageRating": 4.8,
-  "totalReviews": 24,
+  "image_url": "https://cdn.meeem.com/foods/lasagna.jpg",
+  "restaurant_name": "Bella Italia Ristorante",
   "restaurantName": "Bella Italia Ristorante",
-  "restaurantCity": "Dubai"
+  "restaurant_logo": null,
+  "restaurantCity": "Dubai",
+  "rating": 4.8,
+  "averageRating": 4.8,
+  "review_count": 24,
+  "reviewCount": 24,
+  "totalReviews": 24,
+  "reviewsCount": 24,
+  "delivery_time": "25-35 mins"
+}
+
+Response Envelope (for /mobileapi/v1/foods, /mobileapi/v1/restaurants):
+{
+  "success": true,
+  "data": {
+    "food_items": [ ...items ],
+    "pagination": {
+      "current_page": 1,
+      "total_pages": 3,
+      "total_items": 50,
+      "has_more": true
+    }
+  }
+}
+
+Response Envelope (for /mobileapi/v1/foods with flat array):
+{
+  "success": true,
+  "data": [ ...items ],
+  "pagination": {
+    "current_page": 1,
+    "total_pages": 3,
+    "total_items": 50,
+    "has_more": true
+  }
+}
+
+Response Envelope (for /mobileapi/restaurants):
+{
+  "success": true,
+  "data": [ ...restaurantItems ],
+  "cuisines": ["Italian", "Indian", "Chinese"]
+}
+
+--------------------------------------------------------------------------------
+5.2 Restaurant Details & Menu
+--------------------------------------------------------------------------------
+Endpoints:
+  • GET /mobileapi/restaurants/:id
+  • GET /mobileapi/restaurant/:id             ← ALIAS (same response)
+  • GET /mobileapi/restaurant/seller/:id      ← ALIAS (same response)
+
+Authentication: None (Public / Guest)
+
+NOTE: All three URL patterns return the identical response.
+      The restaurant rating is computed across ALL food item reviews
+      belonging to that restaurant.
+
+Response Schema:
+{
+  "success": true,
+  "data": {
+    "id": "rest_101",
+    "name": "Bella Italia Ristorante",
+    "businessName": "Bella Italia Ristorante",
+    "cuisines": ["Italian", "Pasta", "Pizza"],
+    "logo": null,
+    "banner": null,
+    "mainPhoto": null,
+    "street": "Main Street",
+    "city": "Dubai",
+    "state": "",
+    "landmark": "Near Dubai Mall",
+    "averageRating": 4.7,
+    "totalReviews": 85,
+    "reviewsCount": 85,
+    "foods": [
+      {
+        "id": "food_401",
+        "name": "Lasagna al Forno",
+        "description": "Classic oven-baked lasagna.",
+        "price": 75.00,
+        "image": "https://cdn.meeem.com/foods/lasagna.jpg",
+        "category": "Mains",
+        "isVeg": false,
+        "averageRating": 4.8,
+        "totalReviews": 24,
+        "reviews": [
+          {
+            "id": "f_rev_001",
+            "userName": "Alex Rivera",
+            "rating": 5,
+            "comment": "Authentic taste!",
+            "createdAt": "2026-08-18T19:30:00.000Z"
+          }
+        ]
+      }
+    ]
+  }
 }
 
 --------------------------------------------------------------------------------
@@ -650,3 +942,48 @@ HTTP Status Codes:
 • 404 Not Found: Entity (Product, Service, Hotel, Food Item, or Review) does not exist.
 • 409 Conflict: Review already submitted by user (use PUT to edit).
 • 500 Internal Server Error: Unexpected server failure.
+
+================================================================================
+8. CHANGELOG — WHAT CHANGED IN VERSION 4.0
+================================================================================
+
+August 2026 — Live Ratings Edition:
+
+BUGS FIXED:
+  • Removed ALL hardcoded static rating fallbacks (4.8, 4.7, 4.6, 4.5) from:
+    - /mobileapi/v1/services
+    - /mobileapi/v1/services/promotions      (also fixed fallback block)
+    - /mobileapi/v1/recommendations/services
+    - /mobileapi/services/all
+    - /mobileapi/v1/hotels
+    - /mobileapi/v1/hotels/nearby            (also fixed fallback block, removed || 38)
+    - /mobileapi/v1/recommendations/hotels
+    - /mobileapi/v1/ads/hotels               (also fixed fallback block)
+    - /mobileapi/v1/restaurants
+    - /mobileapi/v1/restaurants/nearby       (also fixed fallback block, removed || 42 + index*12)
+    - /mobileapi/v1/recommendations/food
+    - /mobileapi/v1/ads/food                 (also fixed fallback block, removed || 52)
+    - /mobileapi/restaurants
+    - /mobileapi/customer/foods
+    - /mobileapi/v1/products
+    - /mobileapi/v1/products/promotions
+    - /mobileapi/v1/deals/products
+    - /mobileapi/v1/recommendations/products
+
+NEW ENDPOINTS ADDED:
+  • GET /mobileapi/v1/hotels/featured       — Featured hotels, sorted by star rating
+  • GET /mobileapi/v1/hotels/top-rated      — Hotels sorted by live review rating
+  • GET /mobileapi/v1/deals/hotels          — Hotel deals of the day with discounted prices
+  • GET /mobileapi/hotels/all               — All hotels list with search/city filter
+  • GET /mobileapi/v1/foods                 — Food items browse with category/veg/restaurant filters
+  • GET /mobileapi/restaurant/:id           — Alias for /mobileapi/restaurants/:id
+  • GET /mobileapi/restaurant/seller/:id    — Alias for /mobileapi/restaurants/:id
+
+STANDARD CHANGES:
+  • All list items now include dual-compat rating fields:
+    rating, averageRating, review_count, reviewCount, totalReviews, reviewsCount
+  • star_rating / starRating separated from review rating on hotel endpoints
+  • Provider name "Sparkle Cleaners" hardcoded fallback replaced with "Professional Provider"
+  • Zero web application pages were modified — changes are backend API only
+
+================================================================================

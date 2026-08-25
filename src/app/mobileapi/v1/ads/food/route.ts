@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
       const fi = ad.foodItem
       const price = fi ? fi.price : 0
       const totalRating = fi?.reviews.reduce((acc, r) => acc + r.rating, 0) || 0
-      const rating = fi?.reviews.length ? parseFloat((totalRating / fi.reviews.length).toFixed(1)) : 4.8
+      const rating = fi?.reviews.length ? parseFloat((totalRating / fi.reviews.length).toFixed(1)) : 0
 
       return {
         ad_id: ad.id,
@@ -45,7 +45,11 @@ export async function GET(request: NextRequest) {
         restaurant_name: ad.restaurantSeller?.user?.name || "Featured Kitchen",
         price,
         rating,
-        review_count: fi?.reviews.length || 52,
+        averageRating: rating,
+        review_count: fi?.reviews.length || 0,
+        reviewCount: fi?.reviews.length || 0,
+        totalReviews: fi?.reviews.length || 0,
+        reviewsCount: fi?.reviews.length || 0,
         cta_text: "Order Now",
         click_url: ad.foodItemId ? `/food/${ad.foodItemId}` : `/restaurants/${ad.restaurantSellerId}`,
       }
@@ -63,8 +67,12 @@ export async function GET(request: NextRequest) {
           food_id: "food_spotlight_1",
           restaurant_name: "The Gourmet Burger Club",
           price: 49,
-          rating: 4.9,
-          review_count: 110,
+          rating: 0.0,
+          averageRating: 0.0,
+          review_count: 0,
+          reviewCount: 0,
+          totalReviews: 0,
+          reviewsCount: 0,
           cta_text: "Order Now",
           click_url: "/food/truffle-burger",
         },

@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
       // Collect all food item ratings to calculate restaurant average rating
       const allRatings = r.foods.flatMap((f) => f.reviews.map((rev) => rev.rating))
       const totalRating = allRatings.reduce((acc, curr) => acc + curr, 0)
-      const rating = allRatings.length > 0 ? parseFloat((totalRating / allRatings.length).toFixed(1)) : 4.8
+      const rating = allRatings.length > 0 ? parseFloat((totalRating / allRatings.length).toFixed(1)) : 0.0
 
       const simulatedDistanceKm = parseFloat((1.2 + (index * 0.8)).toFixed(1))
       const deliveryTimeRange = `${20 + index * 5}-${30 + index * 5} mins`
@@ -65,8 +65,10 @@ export async function GET(request: NextRequest) {
         location_text: r.businessInfo?.landmark || r.businessInfo?.street || "Downtown",
         rating,
         averageRating: rating,
-        review_count: allRatings.length || 42 + index * 12,
-        totalReviews: allRatings.length || 42 + index * 12,
+        review_count: allRatings.length,
+        reviewCount: allRatings.length,
+        totalReviews: allRatings.length,
+        reviewsCount: allRatings.length,
         delivery_time_range: deliveryTimeRange,
         distance_km: simulatedDistanceKm,
         offer_tag: offerTag,
@@ -84,8 +86,12 @@ export async function GET(request: NextRequest) {
           logo: null,
           city: "Dubai",
           location_text: "Dubai Marina",
-          rating: 4.8,
-          review_count: 124,
+          rating: 0.0,
+          averageRating: 0.0,
+          review_count: 0,
+          reviewCount: 0,
+          totalReviews: 0,
+          reviewsCount: 0,
           delivery_time_range: "20-30 mins",
           distance_km: 1.5,
           offer_tag: "Free Delivery",
@@ -98,8 +104,12 @@ export async function GET(request: NextRequest) {
           logo: null,
           city: "Dubai",
           location_text: "Downtown Dubai",
-          rating: 4.9,
-          review_count: 98,
+          rating: 0.0,
+          averageRating: 0.0,
+          review_count: 0,
+          reviewCount: 0,
+          totalReviews: 0,
+          reviewsCount: 0,
           delivery_time_range: "25-35 mins",
           distance_km: 2.3,
           offer_tag: "20% OFF",

@@ -118,13 +118,15 @@ export async function GET(request: NextRequest): Promise<NextResponse<SuccessRes
         ...s,
         service_id: s.id,
         title: s.name,
-        provider_name: s.seller?.user?.name || s.seller?.store?.name || "Sparkle Cleaners",
+        provider_name: s.seller?.user?.name || s.seller?.store?.name || "Professional Provider",
         price: finalPrice,
         original_price: discount > 0 ? basePrice : basePrice || null,
         rating: averageRating,
-        review_count: reviewsCount,
         averageRating,
+        review_count: reviewsCount,
         reviewCount: reviewsCount,
+        totalReviews: reviewsCount,
+        reviewsCount: reviewsCount,
         images: getServiceDisplayImageUrls({ images: s.images, galleryImages: s.galleryImages }),
       }
     })

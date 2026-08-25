@@ -44,22 +44,32 @@ export async function GET(request: NextRequest) {
       }
 
       const totalRating = p.reviews.reduce((acc, r) => acc + r.rating, 0)
-      const rating = p.reviews.length > 0 ? parseFloat((totalRating / p.reviews.length).toFixed(1)) : 4.8
+      const rating = p.reviews.length > 0 ? parseFloat((totalRating / p.reviews.length).toFixed(1)) : 0.0
 
       const badge = discountAmount > 0 ? `${Math.round((discountAmount / originalPrice) * 100)}% OFF` : null
 
       return {
         id: p.id,
+        product_id: p.id,
         title: p.name,
+        name: p.name,
         slug: p.slug,
         category: p.category?.name || "General",
         image: imageUrl,
+        image_url: imageUrl,
         price: currentPrice,
+        current_price: currentPrice,
         original_price: discountAmount > 0 ? originalPrice : null,
+        originalPrice: discountAmount > 0 ? originalPrice : null,
         rating,
+        averageRating: rating,
         review_count: p.reviews.length,
+        reviewCount: p.reviews.length,
+        totalReviews: p.reviews.length,
+        reviewsCount: p.reviews.length,
         badge,
         in_stock: variant ? variant.stock > 0 : true,
+        inStock: variant ? variant.stock > 0 : true,
       }
     })
 
