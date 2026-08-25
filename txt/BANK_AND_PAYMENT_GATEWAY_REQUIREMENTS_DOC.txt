@@ -1,0 +1,204 @@
+================================================================================
+           MEEEM MULTI-VENDOR MARKETPLACE — SIERRA LEONE
+       BANK & PAYMENT GATEWAY (FLOT) INTEGRATION REQUIREMENTS
+================================================================================
+Document Version : 1.0
+Project Scope    : Multi-Vendor Platform (Products, Hotels, Food, Services, Ads & Subscriptions)
+Location         : Sierra Leone (Currency: SLE - Sierra Leonean Leones)
+================================================================================
+
+1. EXECUTIVE SUMMARY & PLATFORM OBJECTIVE
+--------------------------------------------------------------------------------
+The MEEEM multi-vendor platform connects buyers with sellers across multiple
+verticals (e-commerce products, hotel bookings, restaurant food, and home/pro services).
+
+To guarantee buyer protection, regulatory compliance, fraud prevention, and seamless
+automated commission accounting, all customer order payments must be held safely in
+escrow and automatically split upon order delivery/completion.
+
+This document outlines:
+1. The 3-Account financial architecture.
+2. The automated split-on-delivery workflow.
+3. The exact banking requirements and services needed from the commercial bank.
+4. The technical onboarding requirements from Flot Payment Gateway (flotme.ai).
+
+
+================================================================================
+2. THE 3-ACCOUNT FINANCIAL ARCHITECTURE
+================================================================================
+To prevent tax confusion, ensure audited escrow protection, and keep operating
+income separate from customer funds, the business requires three dedicated
+corporate bank accounts:
+
+--------------------------------------------------------------------------------
+ACCOUNT 1: ESCROW & ORDER RECONCILIATION ACCOUNT (Holding / Transit)
+--------------------------------------------------------------------------------
+* Purpose:
+  - Receives 100% of customer payments for all product orders, hotel bookings,
+    food orders, and service bookings via the Flot payment gateway.
+* Behavior:
+  - Funds in this account are treated as escrow/in-transit and DO NOT belong to the
+    platform until services or goods are delivered.
+  - If a customer cancels an unfulfilled order, refunds are issued directly from this account.
+* Payout Trigger:
+  - When an order status becomes "DELIVERED" or "COMPLETED", the system calculates the split:
+    a) Seller Net Share is released to the seller (Bank BBAN / Mobile Money).
+    b) Platform Commission Share is transferred to Account 2.
+
+--------------------------------------------------------------------------------
+ACCOUNT 2: PLATFORM COMMISSION & OPERATIONS ACCOUNT (Revenue / Operating)
+--------------------------------------------------------------------------------
+* Purpose:
+  - Receives the platform's net commission cuts from fulfilled marketplace orders.
+* Examples of Commission Splits:
+  - Physical Products: 9% Commission (91% to seller, 9% to Account 2).
+  - Hotel Bookings:   19% Commission (81% to hotel, 19% to Account 2).
+  - Restaurant/Food:   Custom seller commission rate.
+  - Services:          Custom service provider commission rate.
+* Behavior:
+  - Represents the legal gross revenue of the marketplace business for accounting,
+    operational expenses, salaries, and corporate taxes.
+
+--------------------------------------------------------------------------------
+ACCOUNT 3: SUBSCRIPTIONS & ADVERTISING REVENUE ACCOUNT (Direct Platform Income)
+--------------------------------------------------------------------------------
+* Purpose:
+  - Receives direct payments from registered merchants for:
+    a) Monthly / Annual Seller Subscription Plans (Standard / Premium tiers).
+    b) Sponsored Banner & CPC (Cost-Per-Click) Advertising Wallet Top-ups.
+* Behavior:
+  - These transactions do not involve third-party seller payouts or delivery escrows.
+  - Customer/Seller payments for subscriptions and ads land directly in Account 3
+    as immediate platform income.
+
+
+================================================================================
+3. TRANSACTION & SPLIT FLOW LIFECYCLE
+================================================================================
+
++-------------------------------------------------------------------------------+
+| PHASE 1: CUSTOMER CHECKOUT                                                    |
+| 1. Customer purchases a product (e.g. SLE 1,000) or books a hotel.           |
+| 2. Customer pays via Flot (Visa/Mastercard, Flot Wallet, Mobile Money).       |
+| 3. Gateway settles 100% (SLE 1,000) directly into ACCOUNT 1 (Escrow).        |
+| 4. System marks Order as "PAID" / "PROCESSING". No payout is released yet.    |
++-------------------------------------------------------------------------------+
+                                      |
+                                      v
++-------------------------------------------------------------------------------+
+| PHASE 2: ORDER DELIVERY / COMPLETION                                          |
+| 1. Item is shipped and customer confirms delivery (or booking checked out).   |
+| 2. Order status flips to "DELIVERED" / "COMPLETED".                           |
+| 3. Split Calculation Engine runs:                                             |
+|    - E.g. Product: SLE 910 (91%) -> Seller Net Balance                        |
+|                    SLE 90  (9%)  -> Transferred to ACCOUNT 2 (Commission)    |
+|    - E.g. Hotel:   SLE 810 (81%) -> Hotel Seller Net Balance                  |
+|                    SLE 190 (19%) -> Transferred to ACCOUNT 2 (Commission)    |
++-------------------------------------------------------------------------------+
+                                      |
+                                      v
++-------------------------------------------------------------------------------+
+| PHASE 3: SELLER DISBURSEMENT / WITHDRAWAL                                     |
+| 1. Seller withdraws or system runs scheduled payout batch (e.g. weekly).      |
+| 2. Payout is disbursed from ACCOUNT 1 directly to:                            |
+|    - Seller's Bank Account (BBAN)                                             |
+|    - Or Mobile Money Wallet (Orange Money / Africell Money)                   |
++-------------------------------------------------------------------------------+
+
+
+================================================================================
+4. WHAT WE NEED FROM THE COMMERCIAL BANK (Zenith / Sky Bank)
+================================================================================
+Please request the following specific products and services from the corporate
+relationship manager:
+
+[ ] 1. Open / Designate 3 Dedicated Corporate Accounts in SLE (Leones):
+       - Account 1: "MEEEM E-Commerce - Escrow & Order Reconciliation"
+       - Account 2: "MEEEM E-Commerce - Commission & Operations"
+       - Account 3: "MEEEM E-Commerce - Subscriptions & Advertising"
+
+[ ] 2. Provide Full Banking Details for All 3 Accounts:
+       - Account Name
+       - Account Number
+       - 18-digit BBAN (Basic Bank Account Number)
+       - Bank Swift Code / Branch Code
+
+[ ] 3. Corporate Internet Banking & Multi-User Workflow:
+       - Corporate online portal with Maker / Checker approval workflow.
+       - Daily automated electronic bank statement export (CSV / Excel / PDF).
+
+[ ] 4. Outbound Payout / Disbursement Facilities:
+       - Local ACH / RTGS / Direct Credit transfer capability to disburse funds
+         from Account 1 to third-party seller accounts across all Sierra Leone banks.
+       - Mobile Money corporate bulk disbursement integration (Orange Money / Africell Money)
+         if provided through the bank.
+
+[ ] 5. Internal Sweeping / Scheduled Transfer Facility (Optional / Recommended):
+       - Standing authorization to move commission sums from Account 1 to Account 2.
+
+
+================================================================================
+5. WHAT WE NEED FROM FLOT PAYMENT GATEWAY (flotme.ai)
+================================================================================
+Flot is the primary fintech gateway handling card, mobile money, and in-app wallet
+collections in Sierra Leone.
+
+[ ] 1. Corporate Merchant Onboarding & KYC:
+       - Register company with Flot (Open Hubb SL Limited / flotme.ai).
+       - Upgrade merchant profile to maximum KYC tier for high volume limits.
+
+[ ] 2. Multi-Wallet Settlement Linkage:
+       - Flot Staff must link **Account 1** as the primary settlement destination
+         for customer order payment links.
+       - Flot Staff must link **Account 3** for subscription and ad top-up payment links.
+
+[ ] 3. Payment Channels Activation:
+       - In-App Flot Wallet.
+       - Visa & Mastercard (Local and International cards).
+       - Mobile Money rails & QR.
+
+[ ] 4. Developer Technical Credentials to be Provided to Dev Team:
+       - Flot Merchant ID (`merchantId`).
+       - Webhook authentication credentials (Basic Auth Username & Password).
+       - Key Pair Exchange: Development team will generate an RSA-4096 Key Pair,
+         keep the private key secure on the production server, and provide the
+         Base64-encoded Public Key to Flot Staff.
+
+
+================================================================================
+7. WHAT WE NEED TO PROCEED  (Minimum Required — Simple)
+================================================================================
+
+HOW BANK AND FLOT WORK TOGETHER:
+  Flot is the tool that collects money from the customer (via card, mobile money,
+  wallet). After collecting, Flot automatically sends that money to your bank account.
+  So: Customer pays on Flot → Flot sends money → lands in your Bank Account 1.
+  We only implement the Flot API. The bank just holds the money.
+
+--------------------------------------------------------------------------------
+
+WE NEED 3 THINGS ONLY TO START:
+
+1. FROM YOUR BANK:
+   Open 3 corporate bank accounts and give us the BBAN number for each:
+   - Account 1 BBAN → for customer order payments (Flot will deposit here)
+   - Account 2 BBAN → for platform commission (internal transfer from Account 1)
+   - Account 3 BBAN → for subscriptions & ads (Flot will deposit here directly)
+
+2. FROM FLOT  (after you register on flotme.ai):
+   - Register your business and complete KYC on Flot.
+   - Give Flot your Account 1 BBAN (orders) and Account 3 BBAN (subscriptions/ads).
+   - Ask Flot to give you your Merchant ID.
+   - Then give that Merchant ID to the development team.
+
+3. FROM YOU  (client decision):
+   - Choose any Webhook Username and Password.
+     (You share this with both Flot staff and the development team.)
+
+--------------------------------------------------------------------------------
+THAT IS ALL WE NEED. DEVELOPERS HANDLE EVERYTHING ELSE.
+--------------------------------------------------------------------------------
+
+================================================================================
+End of Document
+================================================================================
