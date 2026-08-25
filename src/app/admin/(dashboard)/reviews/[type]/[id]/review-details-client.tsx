@@ -7,7 +7,7 @@ import { Button } from "@/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/ui/card"
 import { PageLoader } from "@/components/ui/page-loader"
 import { formatDate } from "@/lib/utils"
-import { MessageSquare, Star, ArrowLeft } from "lucide-react"
+import { MessageSquare, Star, ArrowLeft, Trash2 } from "lucide-react"
 
 type ReviewDetail = {
   id: string
@@ -37,6 +37,7 @@ export function AdminReviewDetailsClient({ type, id }: { type: string; id: strin
   const [data, setData] = useState<AdminReviewDetailsResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
 
   useEffect(() => {
     const controller = new AbortController()
@@ -57,6 +58,32 @@ export function AdminReviewDetailsClient({ type, id }: { type: string; id: strin
 
     return () => controller.abort()
   }, [type, id])
+
+  async function handleDelete(reviewId: string) {
+    if (!confirm("Are you sure you want to delete this review? This cannot be undone.")) return
+    setDeletingId(reviewId)
+    try {
+      const res = await fetch(`/api/admin/reviews/${type}/${id}/${reviewId}`, {
+        method: "DELETE",
+        credentials: "include",
+      })
+      if (!res.ok) throw new Error("Failed to delete review")
+      // Remove from local state immediately
+      setData((prev) =>
+        prev
+          ? {
+              ...prev,
+              reviews: prev.reviews.filter((r) => r.id !== reviewId),
+              reviewCount: prev.reviewCount - 1,
+            }
+          : prev
+      )
+    } catch {
+      alert("Failed to delete review. Please try again.")
+    } finally {
+      setDeletingId(null)
+    }
+  }
 
   if (loading && !data) return <PageLoader variant="detail" message="Loading reviews…" />
   if (error) {
@@ -119,9 +146,25 @@ export function AdminReviewDetailsClient({ type, id }: { type: string; id: strin
                       <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-500" />
                       {r.rating}/5
                     </Badge>
-                    {r.isVerified && <span className="text-xs text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">Verified</span>}
+                    {r.isVerified && (
+                      <span className="text-xs text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                        Verified
+                      </span>
+                    )}
                   </span>
-                  <span className="text-xs text-muted-foreground">{formatDate(r.createdAt)}</span>
+                  <span className="flex items-center gap-3">
+                    <span className="text-xs text-muted-foreground">{formatDate(r.createdAt)}</span>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10 rounded-lg"
+                      disabled={deletingId === r.id}
+                      onClick={() => handleDelete(r.id)}
+                      title="Delete review"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </span>
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3 pt-4">
@@ -142,11 +185,21 @@ export function AdminReviewDetailsClient({ type, id }: { type: string; id: strin
                     </div>
                   </div>
                 </div>
-                {r.comment ? <p className="whitespace-pre-wrap text-sm text-slate-700 font-medium pl-12">{r.comment}</p> : <p className="text-sm text-muted-foreground italic pl-12">No text comment</p>}
+                {r.comment ? (
+                  <p className="whitespace-pre-wrap text-sm text-slate-700 font-medium pl-12">{r.comment}</p>
+                ) : (
+                  <p className="text-sm text-muted-foreground italic pl-12">No text comment</p>
+                )}
                 {r.images.length > 0 && (
                   <div className="flex flex-wrap gap-2 pl-12 pt-1">
                     {r.images.map((url, idx) => (
-                      <a key={`${r.id}-${idx}`} href={url} target="_blank" rel="noreferrer" className="block relative h-20 w-20 rounded-xl overflow-hidden border border-slate-200 shadow-sm hover:opacity-90 transition-opacity">
+                      <a
+                        key={`${r.id}-${idx}`}
+                        href={url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="block relative h-20 w-20 rounded-xl overflow-hidden border border-slate-200 shadow-sm hover:opacity-90 transition-opacity"
+                      >
                         <img src={url} alt={`Review image ${idx + 1}`} className="h-full w-full object-cover" />
                       </a>
                     ))}
