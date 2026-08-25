@@ -94,16 +94,24 @@ export async function GET(request: NextRequest) {
 
       return {
         id: r.id,
+        restaurant_id: r.id,
+        name: r.businessInfo?.businessName || r.user.name || "Restaurant",
         businessName: r.businessInfo?.businessName || r.user.name || "Restaurant",
         cuisines,
+        cuisine_type: cuisines.join(", "),
         logo: r.logo || null,
         banner: r.banner || null,
         mainPhoto: r.mainPhoto || null,
+        image_url: r.mainPhoto || r.banner || r.logo || r.user.image || null,
         street: r.businessInfo?.street || "",
         city: r.businessInfo?.city || "",
         state: r.businessInfo?.state || "",
+        rating: averageRating,
         averageRating,
+        review_count: totalReviewsCount,
+        reviewCount: totalReviewsCount,
         totalReviews: totalReviewsCount,
+        reviewsCount: totalReviewsCount,
         hasVeg: r.foods.some(f => f.isVeg),
         hasNonVeg: r.foods.some(f => !f.isVeg)
       }

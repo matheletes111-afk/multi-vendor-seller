@@ -45,21 +45,29 @@ export async function GET(request: NextRequest) {
 
       const startingPrice = h.rooms.length > 0 ? h.rooms[0].price : 399
       const totalRating = h.reviews.reduce((acc, r) => acc + r.rating, 0)
-      const rating = h.reviews.length > 0 ? parseFloat((totalRating / h.reviews.length).toFixed(1)) : 4.8
+      const rating = h.reviews.length > 0 ? parseFloat((totalRating / h.reviews.length).toFixed(1)) : 0.0
 
       const badges = ["NEARBY RESORT", "POPULAR CHOICE", "FREE CANCELLATION", "TOP RATED"]
       const badgeText = badges[index % badges.length]
 
       return {
+        id: h.id,
         hotel_id: h.id,
         name: h.name,
         location_text: `${h.address || "Downtown"}, ${h.city || "Dubai"}`,
         city: h.city || "Dubai",
-        star_rating: h.starRating,
+        star_rating: h.starRating ?? 0,
+        starRating: h.starRating ?? 0,
         image_url: imageUrl || "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=600&q=80",
+        coverImage: imageUrl || "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=600&q=80",
         rating,
-        review_count: h.reviews.length || 38,
+        averageRating: rating,
+        review_count: h.reviews.length,
+        reviewCount: h.reviews.length,
+        totalReviews: h.reviews.length,
+        reviewsCount: h.reviews.length,
         price_per_night: startingPrice,
+        starting_price_per_night: startingPrice,
         currency: "AED",
         badge_text: badgeText,
         booking_cta: "View Rooms",
@@ -76,8 +84,12 @@ export async function GET(request: NextRequest) {
           city: "Dubai",
           star_rating: 5,
           image_url: "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=600&q=80",
-          rating: 4.9,
-          review_count: 142,
+          rating: 0.0,
+          averageRating: 0.0,
+          review_count: 0,
+          reviewCount: 0,
+          totalReviews: 0,
+          reviewsCount: 0,
           price_per_night: 599,
           currency: "AED",
           badge_text: "POPULAR CHOICE",
@@ -90,8 +102,12 @@ export async function GET(request: NextRequest) {
           city: "Dubai",
           star_rating: 5,
           image_url: "https://images.unsplash.com/photo-1582719508461-905c673771fd?auto=format&fit=crop&w=600&q=80",
-          rating: 4.8,
-          review_count: 86,
+          rating: 0.0,
+          averageRating: 0.0,
+          review_count: 0,
+          reviewCount: 0,
+          totalReviews: 0,
+          reviewsCount: 0,
           price_per_night: 449,
           currency: "AED",
           badge_text: "FREE CANCELLATION",

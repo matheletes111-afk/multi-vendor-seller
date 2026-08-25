@@ -38,22 +38,30 @@ export async function GET(request: NextRequest) {
       }
 
       const totalRating = fi.reviews.reduce((acc, r) => acc + r.rating, 0)
-      const rating = fi.reviews.length > 0 ? parseFloat((totalRating / fi.reviews.length).toFixed(1)) : 4.7
+      const rating = fi.reviews.length > 0 ? parseFloat((totalRating / fi.reviews.length).toFixed(1)) : 0.0
 
       const badges = ["BESTSELLER", "FREE DELIVERY", "POPULAR DISH", "MUST TRY"]
       const badge = badges[index % badges.length]
 
       return {
         id: fi.id,
+        food_id: fi.id,
         title: fi.name,
+        name: fi.name,
         description: fi.description || "",
         category: fi.category,
         restaurant_name: fi.restaurantSeller.user?.name || "Gourmet Kitchen",
         is_veg: fi.isVeg,
+        isVeg: fi.isVeg,
         image: imageUrl,
+        image_url: imageUrl,
         price: fi.price,
         rating,
+        averageRating: rating,
         review_count: fi.reviews.length,
+        reviewCount: fi.reviews.length,
+        totalReviews: fi.reviews.length,
+        reviewsCount: fi.reviews.length,
         delivery_time: "20-30 mins",
         badge,
       }

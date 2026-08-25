@@ -101,10 +101,17 @@ export async function GET(request: NextRequest) {
       }
       return {
         ...restFood,
+        food_id: f.id,
         image: firstImage,
+        image_url: firstImage,
+        rating: averageRating,
         averageRating,
+        review_count: totalReviews,
+        reviewCount: totalReviews,
         totalReviews,
+        reviewsCount: totalReviews,
         restaurantId: restaurantSeller.id,
+        restaurant_id: restaurantSeller.id,
         restaurantName: restaurantSeller.businessInfo?.businessName || restaurantSeller.user.name || "Restaurant",
         restaurantCity: restaurantSeller.businessInfo?.city || ""
       }

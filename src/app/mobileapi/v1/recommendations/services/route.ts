@@ -43,22 +43,29 @@ export async function GET(request: NextRequest) {
       }
 
       const totalRating = s.reviews.reduce((acc, r) => acc + r.rating, 0)
-      const rating = s.reviews.length > 0 ? parseFloat((totalRating / s.reviews.length).toFixed(1)) : 4.8
+      const rating = s.reviews.length > 0 ? parseFloat((totalRating / s.reviews.length).toFixed(1)) : 0.0
 
       const badge = discountAmount > 0 ? `${Math.round((discountAmount / basePrice) * 100)}% OFF` : null
 
       return {
         id: s.id,
+        service_id: s.id,
         title: s.name,
         slug: s.slug,
         category: s.serviceCategory?.name || "Services",
         provider_name: s.seller.user?.name || "Professional Provider",
         image: imageUrl,
+        image_url: imageUrl,
         price: currentPrice,
+        current_price: currentPrice,
         original_price: discountAmount > 0 ? basePrice : null,
         duration_mins: s.duration,
         rating,
+        averageRating: rating,
         review_count: s.reviews.length,
+        reviewCount: s.reviews.length,
+        totalReviews: s.reviews.length,
+        reviewsCount: s.reviews.length,
         badge,
       }
     })

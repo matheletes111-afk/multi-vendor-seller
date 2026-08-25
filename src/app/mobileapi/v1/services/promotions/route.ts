@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
         }
 
         const totalRating = s.reviews.reduce((acc, r) => acc + r.rating, 0)
-        const rating = s.reviews.length > 0 ? parseFloat((totalRating / s.reviews.length).toFixed(1)) : 4.8
+        const rating = s.reviews.length > 0 ? parseFloat((totalRating / s.reviews.length).toFixed(1)) : 0.0
 
         const badgeText = discountPercentage > 0
           ? `${discountPercentage}% OFF`
@@ -71,9 +71,11 @@ export async function GET(request: NextRequest) {
           discount_tag: badgeText,
           duration_mins: s.duration,
           rating,
-          review_count: s.reviews.length,
           averageRating: rating,
+          review_count: s.reviews.length,
           reviewCount: s.reviews.length,
+          totalReviews: s.reviews.length,
+          reviewsCount: s.reviews.length,
         }
       })
       .filter((item): item is NonNullable<typeof item> => item !== null)
@@ -93,8 +95,12 @@ export async function GET(request: NextRequest) {
           discount_percentage: 47,
           discount_tag: "47% OFF",
           duration_mins: 60,
-          rating: 4.9,
-          review_count: 84,
+          rating: 0.0,
+          averageRating: 0.0,
+          review_count: 0,
+          reviewCount: 0,
+          totalReviews: 0,
+          reviewsCount: 0,
         },
         {
           service_id: "srv_promo_2",
@@ -107,8 +113,12 @@ export async function GET(request: NextRequest) {
           discount_percentage: 50,
           discount_tag: "50% OFF",
           duration_mins: 45,
-          rating: 4.8,
-          review_count: 42,
+          rating: 0.0,
+          averageRating: 0.0,
+          review_count: 0,
+          reviewCount: 0,
+          totalReviews: 0,
+          reviewsCount: 0,
         },
       ]
       return NextResponse.json({
