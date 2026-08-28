@@ -25,6 +25,7 @@ export async function GET(request: NextRequest) {
 
     const search = searchParams.get("search")?.trim() || searchParams.get("q")?.trim() || ""
     const statusParam = (searchParams.get("status") || "ALL").toUpperCase()
+    const sourceParam = (searchParams.get("source") || searchParams.get("registrationSource") || "ALL").toUpperCase()
     const zoneFilter = searchParams.get("zone")?.trim() || ""
     const locationFilter = searchParams.get("location")?.trim() || ""
     const timeframe = searchParams.get("timeframe")?.trim()
@@ -68,6 +69,14 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    if (sourceParam && sourceParam !== "ALL") {
+      if (sourceParam === "ADMIN" || sourceParam === "ADMIN_CREATED") {
+        where.rider = { ...where.rider, createdByAdmin: true }
+      } else if (sourceParam === "SELF" || sourceParam === "SELF_REGISTERED") {
+        where.rider = { ...where.rider, createdByAdmin: false }
+      }
+    }
+
     const hasCustomZoneOrLoc = Boolean(zoneFilter || locationFilter)
 
     let total = 0
@@ -99,7 +108,6 @@ export async function GET(request: NextRequest) {
           return zones.includes(zoneFilter)
         })
       }
-
       if (locationFilter) {
         filtered = filtered.filter((u) => {
           const locs = (u.rider?.selectedLocations as string[]) || []
@@ -212,6 +220,7 @@ export async function POST(request: NextRequest) {
             isApproved: true,
             isSuspended: false,
             status: "APPROVED",
+            createdByAdmin: true,
             onboardingCompleted: false,
             isFirstLogin: true,
           },

@@ -68,6 +68,7 @@ export async function POST(request: NextRequest) {
     let phone: string | null = null
     let phoneCountryCode: string | null = null
     let vehicleTypes: string[] = []
+    let vehicleName: string | null = null
     let vehicleNumber: string | null = null
     let drivingLicenseNo: string | null = null
     let selectedZones: string[] = []
@@ -86,6 +87,7 @@ export async function POST(request: NextRequest) {
       name = formData.get("name") as string | null
       phone = formData.get("phone") as string | null
       phoneCountryCode = formData.get("phoneCountryCode") as string | null
+      vehicleName = formData.get("vehicleName") as string | null
       vehicleNumber = formData.get("vehicleNumber") as string | null
       drivingLicenseNo = formData.get("drivingLicenseNo") as string | null
       currentPassword = formData.get("currentPassword") as string | null
@@ -178,6 +180,7 @@ export async function POST(request: NextRequest) {
       name = body.name || null
       phone = body.phone || null
       phoneCountryCode = body.phoneCountryCode || null
+      vehicleName = body.vehicleName || null
       const singleVehicle = (body.vehicleType as string | null)?.trim()
       if (singleVehicle) {
         vehicleTypes = [singleVehicle]
@@ -236,6 +239,7 @@ export async function POST(request: NextRequest) {
       where: { userId },
       data: {
         vehicleTypes: vehicleTypes,
+        vehicleName: vehicleName?.trim() || null,
         vehicleNumber: vehicleNumber?.trim() || null,
         drivingLicenseNo: drivingLicenseNo?.trim() || null,
         profileImage: profileImageUrl,

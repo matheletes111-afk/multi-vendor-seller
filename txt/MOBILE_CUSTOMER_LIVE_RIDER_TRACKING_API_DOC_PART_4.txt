@@ -105,10 +105,15 @@ SUCCESS RESPONSE (200 OK):
       "deliveryProofImage": null,
       "rider": {
         "id": "cuid_rider_888",
+        "userId": "cuid_user_888",
         "name": "Ibrahim Koroma",
+        "email": "rider.ibrahim@example.com",
         "phone": "76123456",
+        "phoneCountryCode": "+232",
         "image": "https://.../rider-pfp.jpg",
+        "vehicleName": "Honda CB Shine 125",
         "vehicleNumber": "SL-3829-B",
+        "drivingLicenseNo": "DL-10928374",
         "vehicleTypes": ["2_WHEELER"],
         "isOnline": true
       },
@@ -424,7 +429,7 @@ checkout (e.g. Seller A: Electronics Store & Seller B: Fashion Boutique):
         "sellerStoreName": "Apex Electronics",
         "status": "OUT_FOR_DELIVERY",
         "deliveryOtp": "582910",
-        "rider": { "name": "Musa Bangura", "phone": "78111222", "vehicleNumber": "SL-101-A" },
+        "rider": { "name": "Musa Bangura", "phone": "78111222", "phoneCountryCode": "+232", "vehicleName": "Honda Ace 125", "vehicleNumber": "SL-101-A" },
         "currentLocation": { "latitude": 8.4842, "longitude": -13.2341, "heading": 120 },
         "pickupLocation": { "name": "Apex Electronics", "latitude": 8.4850, "longitude": -13.2300 },
         "socketRoom": "order:cuid_order_123"
@@ -441,7 +446,7 @@ checkout (e.g. Seller A: Electronics Store & Seller B: Fashion Boutique):
         "sellerStoreName": "Zara Fashions",
         "status": "AT_PICKUP",
         "deliveryOtp": "941203",
-        "rider": { "name": "Ibrahim Koroma", "phone": "76333444", "vehicleNumber": "SL-202-B" },
+        "rider": { "name": "Ibrahim Koroma", "phone": "76333444", "phoneCountryCode": "+232", "vehicleName": "TVS King Tricycle", "vehicleNumber": "SL-202-B" },
         "currentLocation": { "latitude": 8.4750, "longitude": -13.2200, "heading": 45 },
         "pickupLocation": { "name": "Zara Fashions", "latitude": 8.4700, "longitude": -13.2150 },
         "socketRoom": "order:cuid_order_123"

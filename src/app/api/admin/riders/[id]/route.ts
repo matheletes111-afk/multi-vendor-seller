@@ -71,6 +71,7 @@ export async function PATCH(
       selectedZones,
       selectedLocations,
       vehicleTypes,
+      vehicleName,
       vehicleNumber,
       drivingLicenseNo,
     } = body
@@ -128,6 +129,7 @@ export async function PATCH(
     if (selectedZones !== undefined) riderUpdates.selectedZones = selectedZones
     if (selectedLocations !== undefined) riderUpdates.selectedLocations = selectedLocations
     if (vehicleTypes !== undefined) riderUpdates.vehicleTypes = vehicleTypes
+    if (vehicleName !== undefined) riderUpdates.vehicleName = vehicleName ? String(vehicleName).trim() : null
     if (vehicleNumber !== undefined) riderUpdates.vehicleNumber = vehicleNumber
     if (drivingLicenseNo !== undefined) riderUpdates.drivingLicenseNo = drivingLicenseNo
 

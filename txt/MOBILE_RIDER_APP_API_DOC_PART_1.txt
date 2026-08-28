@@ -274,15 +274,16 @@ Auth Required: Yes (`Authorization: Bearer <accessToken>`)
 FORM-DATA / JSON PARAMETERS:
 - `newPassword` (String, optional): Permanent password if rider was invited by Admin with temp password.
 - `name` (String, optional): Full name.
-- `phone` (String, optional): Mobile phone.
+- `phone` (String, optional): Mobile phone number.
 - `phoneCountryCode` (String, optional): e.g., "+232".
-- `vehicleType` (String, required): Single vehicle type operated by rider. Allowed values: `"2_WHEELER"`, `"3_WHEELER"`, `"4_WHEELER"`. (Note: Riders can only select and operate 1 vehicle).
+- `vehicleType` (String, required): Single vehicle type operated by rider. Allowed values: `"2_WHEELER"`, `"3_WHEELER"`, `"4_WHEELER"`, `"BICYCLE"`. (Note: Riders select 1 primary vehicle).
 - `vehicleTypes` (JSON String array, optional for backwards compatibility): e.g., `["2_WHEELER"]`.
-- `vehicleNumber` (String, optional): Registration / license plate number.
-- `drivingLicenseNo` (String, optional): Driver's license ID.
+- `vehicleName` (String, optional): Vehicle Brand / Model / Name (e.g. "Honda CB Shine 125", "TVS King Tricycle", "Toyota Corolla", "Trek Mountain Bike").
+- `vehicleNumber` (String, optional): Registration / license plate number (e.g. "SL-AA-9988").
+- `drivingLicenseNo` (String, optional): Driver's license ID number (e.g. "DL-10928374").
 - `selectedZones` (JSON String array): e.g., `["ZONE 1", "ZONE 2"]`.
 - `selectedLocations` (JSON String array): e.g., `["NO 2 RIVER", "BAW BAW", "LAKKA"]`.
-- `profileImage` (File binary): Rider face photo (JPEG / PNG).
+- `profileImage` (File binary): Rider portrait photo (JPEG / PNG / WEBP).
 - `drivingLicenseDoc` (File binary): License document (PDF / JPEG / PNG).
 - `nationalIdDoc` (File binary): ID Card / Passport (PDF / JPEG / PNG).
 - `vehicleInsuranceDoc` (File binary): Insurance certificate (PDF / JPEG / PNG).
@@ -301,6 +302,7 @@ SUCCESS RESPONSE (200 OK):
       "isFirstLogin": false,
       "vehicleType": "2_WHEELER",
       "vehicleTypes": ["2_WHEELER"],
+      "vehicleName": "Honda CB Shine 125",
       "vehicleNumber": "SL-AA-9988",
       "drivingLicenseNo": "DL-10928374",
       "profileImage": "https://...",
@@ -341,7 +343,9 @@ SUCCESS RESPONSE (200 OK):
       "isApproved": true,
       "isSuspended": false,
       "status": "APPROVED",
+      "vehicleType": "2_WHEELER",
       "vehicleTypes": ["2_WHEELER"],
+      "vehicleName": "Honda CB Shine 125",
       "vehicleNumber": "SL-AA-9988",
       "drivingLicenseNo": "DL-10928374",
       "profileImage": "https://...",
@@ -363,6 +367,7 @@ REQUEST PAYLOAD:
   "name": "Ibrahim S. Koroma",
   "phone": "76999999",
   "vehicleType": "2_WHEELER",
+  "vehicleName": "Honda CB Shine 125 Super",
   "vehicleNumber": "SL-AA-9988-NEW"
 }
 
@@ -371,7 +376,16 @@ SUCCESS RESPONSE (200 OK):
   "success": true,
   "message": "Profile updated successfully.",
   "data": {
-    "rider": { ... }
+    "rider": {
+      "id": "cm7rider0001",
+      "isApproved": true,
+      "isSuspended": false,
+      "status": "APPROVED",
+      "vehicleTypes": ["2_WHEELER"],
+      "vehicleName": "Honda CB Shine 125 Super",
+      "vehicleNumber": "SL-AA-9988-NEW",
+      "drivingLicenseNo": "DL-10928374"
+    }
   }
 }
 

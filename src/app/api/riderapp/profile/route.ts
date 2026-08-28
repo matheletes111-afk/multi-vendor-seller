@@ -69,6 +69,7 @@ export async function PATCH(request: Request) {
       phone,
       phoneCountryCode,
       vehicleTypes,
+      vehicleName,
       vehicleNumber,
       drivingLicenseNo,
       profileImage,
@@ -97,6 +98,7 @@ export async function PATCH(request: Request) {
 
     const riderUpdates: any = {}
     if (vehicleTypes !== undefined) riderUpdates.vehicleTypes = vehicleTypes
+    if (vehicleName !== undefined) riderUpdates.vehicleName = vehicleName ? String(vehicleName).trim() : null
     if (vehicleNumber !== undefined) riderUpdates.vehicleNumber = vehicleNumber ? String(vehicleNumber).trim() : null
     if (drivingLicenseNo !== undefined) riderUpdates.drivingLicenseNo = drivingLicenseNo ? String(drivingLicenseNo).trim() : null
     if (profileImage !== undefined) riderUpdates.profileImage = profileImage || null

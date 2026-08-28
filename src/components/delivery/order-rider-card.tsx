@@ -250,67 +250,112 @@ export function OrderRiderCard({
             {/* Rider Identity Header */}
             <div className="flex items-start justify-between gap-3">
               <div className="flex items-center gap-3">
-                <Avatar className="h-10 w-10 border shrink-0">
-                  <AvatarImage src={riderUser?.image || rider?.profileImage || ""} />
-                  <AvatarFallback className="bg-blue-600 text-white font-bold text-xs">
+                <Avatar className="h-12 w-12 border-2 border-primary/20 shrink-0 shadow-xs">
+                  <AvatarImage src={rider?.profileImage || riderUser?.image || ""} />
+                  <AvatarFallback className="bg-blue-600 text-white font-bold text-sm">
                     {riderUser?.name?.[0] || "R"}
                   </AvatarFallback>
                 </Avatar>
                 <div className="min-w-0">
-                  <div className="font-bold text-xs text-foreground truncate">
+                  <div className="font-bold text-sm text-foreground truncate flex items-center gap-1.5">
                     {riderUser?.name || "Delivery Rider"}
+                    {rider?.isOnline ? (
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block shrink-0" title="Online" />
+                    ) : (
+                      <span className="w-2 h-2 rounded-full bg-slate-400 inline-block shrink-0" title="Offline" />
+                    )}
                   </div>
-                  <div className="text-[11px] text-muted-foreground truncate">
-                    {rider?.vehicleNumber ? `Plate: ${rider.vehicleNumber}` : "Registered Rider"}
+                  <div className="text-xs text-muted-foreground truncate flex items-center gap-1 mt-0.5">
+                    <Bike className="w-3 h-3 text-blue-600 shrink-0" />
+                    <span>{rider?.vehicleName || (Array.isArray(rider?.vehicleTypes) ? rider.vehicleTypes[0] : null) || "Standard Delivery"}</span>
                   </div>
                 </div>
               </div>
 
               <Badge
                 className={cn(
-                  "text-[10px] font-bold px-2.5 py-0.5 rounded-full capitalize",
+                  "text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wide",
                   isOffered
-                    ? "bg-amber-500 text-white"
+                    ? "bg-amber-500 text-white shadow-amber-500/20"
                     : isDelivered
-                    ? "bg-green-600 text-white"
-                    : "bg-blue-600 text-white"
+                    ? "bg-emerald-600 text-white shadow-emerald-600/20"
+                    : "bg-blue-600 text-white shadow-blue-600/20"
                 )}
               >
                 {activeAssignment.status.replace(/_/g, " ")}
               </Badge>
             </div>
 
-            {/* Rider Details & Telemetry */}
-            <div className="grid grid-cols-2 gap-2 pt-2 border-t border-border/60 text-xs">
-              <div>
+            {/* Comprehensive Rider & Vehicle Specs Grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-3 border-t border-border/60 text-xs">
+              <div className="p-2 rounded-xl bg-muted/40 border border-border/40">
+                <span className="text-[10px] text-muted-foreground uppercase font-bold block">
+                  Vehicle Plate
+                </span>
+                <span className="font-semibold text-foreground truncate block">
+                  {rider?.vehicleNumber || "Not Provided"}
+                </span>
+              </div>
+
+              <div className="p-2 rounded-xl bg-muted/40 border border-border/40">
+                <span className="text-[10px] text-muted-foreground uppercase font-bold block">
+                  Driver's License
+                </span>
+                <span className="font-semibold text-foreground truncate block">
+                  {rider?.drivingLicenseNo || "Verified on File"}
+                </span>
+              </div>
+
+              <div className="p-2 rounded-xl bg-muted/40 border border-border/40">
                 <span className="text-[10px] text-muted-foreground uppercase font-bold block">
                   Proximity
                 </span>
-                <span className="font-semibold text-foreground">
+                <span className="font-semibold text-blue-600 block">
                   {activeAssignment.distanceKm ? `${activeAssignment.distanceKm} km away` : "Nearby"}
-                </span>
-              </div>
-              <div>
-                <span className="text-[10px] text-muted-foreground uppercase font-bold block">
-                  Mode
-                </span>
-                <span className="font-semibold text-foreground capitalize">
-                  {activeAssignment.dispatchMode?.toLowerCase().replace(/_/g, " ")}
                 </span>
               </div>
             </div>
 
-            {/* Phone & Reassign Buttons */}
-            <div className="pt-2 flex items-center gap-2">
+            {/* Handover OTP if applicable */}
+            {activeAssignment.deliveryOtp && !isDelivered && (
+              <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-900 dark:text-amber-200 text-xs flex items-center justify-between">
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider block text-amber-700 dark:text-amber-400">
+                    Delivery Handover OTP
+                  </span>
+                  <span className="text-base font-mono font-extrabold tracking-widest text-amber-800 dark:text-amber-200">
+                    {activeAssignment.deliveryOtp}
+                  </span>
+                </div>
+                <span className="text-[11px] text-muted-foreground text-right">
+                  Give code to customer at doorstep
+                </span>
+              </div>
+            )}
+
+            {/* Contact & Reassign Actions */}
+            <div className="pt-2 flex flex-wrap items-center gap-2">
               {riderUser?.phone && (
-                <a href={`tel:${riderUser.phone}`} className="flex-1">
+                <a
+                  href={`tel:${riderUser.phoneCountryCode || "+232"}${riderUser.phone}`}
+                  className="flex-1 min-w-[130px]"
+                >
                   <Button
                     variant="outline"
                     size="sm"
-                    className="w-full text-xs rounded-xl gap-1.5 font-semibold text-blue-600 border-blue-200 dark:border-blue-900"
+                    className="w-full text-xs rounded-xl gap-1.5 font-semibold text-blue-600 border-blue-200 dark:border-blue-900 hover:bg-blue-50 dark:hover:bg-blue-950/40"
                   >
-                    <Phone className="w-3.5 h-3.5" /> Call Rider ({riderUser.phone})
+                    <Phone className="w-3.5 h-3.5" /> Call ({riderUser.phoneCountryCode || "+232"} {riderUser.phone})
                   </Button>
+                </a>
+              )}
+              {riderUser?.email && (
+                <a
+                  href={`mailto:${riderUser.email}`}
+                  className="inline-flex items-center justify-center h-8 px-3 rounded-xl border text-xs font-semibold text-muted-foreground hover:text-foreground bg-background hover:bg-muted"
+                  title={riderUser.email}
+                >
+                  Email Rider
                 </a>
               )}
               {canManage && !isDelivered && (
@@ -337,7 +382,7 @@ export function OrderRiderCard({
                   shippingAddress={shippingAddress}
                   destinationLat={destinationLat}
                   destinationLng={destinationLng}
-                  height="260px"
+                  height="280px"
                 />
               </div>
             )}
@@ -469,9 +514,16 @@ export function OrderRiderCard({
                             </AvatarFallback>
                           </Avatar>
                           <div className="min-w-0">
-                            <div className="font-bold text-foreground truncate">{r.name}</div>
+                            <div className="font-bold text-foreground truncate flex items-center gap-1.5">
+                              {r.name}
+                              {r.vehicleName && (
+                                <span className="text-[10px] font-normal text-blue-600 dark:text-blue-400">
+                                  ({r.vehicleName})
+                                </span>
+                              )}
+                            </div>
                             <div className="text-[10px] text-muted-foreground truncate">
-                              {r.phone || "No phone"} {r.vehicleNumber ? `• ${r.vehicleNumber}` : ""}
+                              {r.phoneCountryCode || "+232"} {r.phone || "No phone"} {r.vehicleNumber ? `• ${r.vehicleNumber}` : ""}
                             </div>
                           </div>
                         </div>

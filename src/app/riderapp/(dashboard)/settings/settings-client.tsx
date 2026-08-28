@@ -43,6 +43,7 @@ export function RiderSettingsClient({ user: initialUser }: { user: any }) {
 
   // Vehicle Fields
   const [vehicleTypes, setVehicleTypes] = useState<string[]>([])
+  const [vehicleName, setVehicleName] = useState("")
   const [vehicleNumber, setVehicleNumber] = useState("")
   const [drivingLicenseNo, setDrivingLicenseNo] = useState("")
 
@@ -86,6 +87,7 @@ export function RiderSettingsClient({ user: initialUser }: { user: any }) {
             setRiderStatus(json.rider.status)
             setAdminFeedback(json.rider.adminFeedback || null)
             setVehicleTypes(json.rider.vehicleTypes || [])
+            setVehicleName(json.rider.vehicleName || "")
             setVehicleNumber(json.rider.vehicleNumber || "")
             setDrivingLicenseNo(json.rider.drivingLicenseNo || "")
             setNationalIdUrl(json.rider.nationalIdDoc || null)
@@ -132,6 +134,7 @@ export function RiderSettingsClient({ user: initialUser }: { user: any }) {
       formData.append("phoneCountryCode", phoneCountryCode.trim())
       formData.append("vehicleType", selectedVehicle)
       formData.append("vehicleTypes", JSON.stringify([selectedVehicle]))
+      formData.append("vehicleName", vehicleName.trim())
       formData.append("vehicleNumber", vehicleNumber.trim())
       formData.append("drivingLicenseNo", drivingLicenseNo.trim())
       formData.append("selectedZones", JSON.stringify(selectedZones))
@@ -336,9 +339,20 @@ export function RiderSettingsClient({ user: initialUser }: { user: any }) {
               />
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold">Vehicle Plate / Registration Number</Label>
+                <Label className="text-xs font-semibold">Vehicle Brand / Model</Label>
+                <Input
+                  type="text"
+                  placeholder="e.g. Honda CB Shine 125"
+                  value={vehicleName}
+                  onChange={(e) => setVehicleName(e.target.value)}
+                  className="rounded-xl text-xs h-10"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold">Vehicle Plate Number</Label>
                 <Input
                   type="text"
                   placeholder="e.g. SL-204-AB"

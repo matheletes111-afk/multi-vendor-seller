@@ -125,6 +125,7 @@ export async function POST(request: Request) {
             isApproved: true,
             isSuspended: false,
             status: "APPROVED",
+            createdByAdmin: false,
             onboardingCompleted: false,
             isFirstLogin: false,
           },

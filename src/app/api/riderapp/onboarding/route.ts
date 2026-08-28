@@ -32,6 +32,7 @@ export async function POST(request: Request) {
     let phone: string | null = null
     let phoneCountryCode: string | null = null
     let vehicleTypes: string[] = []
+    let vehicleName: string | null = null
     let vehicleNumber: string | null = null
     let drivingLicenseNo: string | null = null
     let selectedZones: string[] = []
@@ -49,6 +50,7 @@ export async function POST(request: Request) {
       name = formData.get("name") as string | null
       phone = formData.get("phone") as string | null
       phoneCountryCode = formData.get("phoneCountryCode") as string | null
+      vehicleName = formData.get("vehicleName") as string | null
       vehicleNumber = formData.get("vehicleNumber") as string | null
       drivingLicenseNo = formData.get("drivingLicenseNo") as string | null
 
@@ -98,42 +100,42 @@ export async function POST(request: Request) {
       }
 
       // Handle driving license document
-      const dlFile = formData.get("drivingLicenseDoc") as File | null
-      if (dlFile && typeof dlFile === "object" && dlFile.size > 0) {
-        const buffer = Buffer.from(await dlFile.arrayBuffer())
-        const ext = dlFile.name.substring(dlFile.name.lastIndexOf(".")) || ".pdf"
+      const drivingLicenseFile = formData.get("drivingLicenseDoc") as File | null
+      if (drivingLicenseFile && typeof drivingLicenseFile === "object" && drivingLicenseFile.size > 0) {
+        const buffer = Buffer.from(await drivingLicenseFile.arrayBuffer())
+        const ext = drivingLicenseFile.name.substring(drivingLicenseFile.name.lastIndexOf(".")) || ".pdf"
         drivingLicenseDocUrl = await uploadPublicFile({
           folder: "riders/documents",
           ext,
-          contentType: dlFile.type || "application/pdf",
+          contentType: drivingLicenseFile.type || "application/pdf",
           buffer,
           prefix: `rider-dl-${userId.slice(0, 8)}`,
         })
       }
 
       // Handle national ID document
-      const nidFile = formData.get("nationalIdDoc") as File | null
-      if (nidFile && typeof nidFile === "object" && nidFile.size > 0) {
-        const buffer = Buffer.from(await nidFile.arrayBuffer())
-        const ext = nidFile.name.substring(nidFile.name.lastIndexOf(".")) || ".pdf"
+      const nationalIdFile = formData.get("nationalIdDoc") as File | null
+      if (nationalIdFile && typeof nationalIdFile === "object" && nationalIdFile.size > 0) {
+        const buffer = Buffer.from(await nationalIdFile.arrayBuffer())
+        const ext = nationalIdFile.name.substring(nationalIdFile.name.lastIndexOf(".")) || ".pdf"
         nationalIdDocUrl = await uploadPublicFile({
           folder: "riders/documents",
           ext,
-          contentType: nidFile.type || "application/pdf",
+          contentType: nationalIdFile.type || "application/pdf",
           buffer,
           prefix: `rider-nid-${userId.slice(0, 8)}`,
         })
       }
 
-      // Handle insurance document
-      const insFile = formData.get("vehicleInsuranceDoc") as File | null
-      if (insFile && typeof insFile === "object" && insFile.size > 0) {
-        const buffer = Buffer.from(await insFile.arrayBuffer())
-        const ext = insFile.name.substring(insFile.name.lastIndexOf(".")) || ".pdf"
+      // Handle vehicle insurance document
+      const vehicleInsuranceFile = formData.get("vehicleInsuranceDoc") as File | null
+      if (vehicleInsuranceFile && typeof vehicleInsuranceFile === "object" && vehicleInsuranceFile.size > 0) {
+        const buffer = Buffer.from(await vehicleInsuranceFile.arrayBuffer())
+        const ext = vehicleInsuranceFile.name.substring(vehicleInsuranceFile.name.lastIndexOf(".")) || ".pdf"
         vehicleInsuranceDocUrl = await uploadPublicFile({
           folder: "riders/documents",
           ext,
-          contentType: insFile.type || "application/pdf",
+          contentType: vehicleInsuranceFile.type || "application/pdf",
           buffer,
           prefix: `rider-ins-${userId.slice(0, 8)}`,
         })
@@ -144,6 +146,7 @@ export async function POST(request: Request) {
       name = body.name || null
       phone = body.phone || null
       phoneCountryCode = body.phoneCountryCode || null
+      vehicleName = body.vehicleName || null
       const singleVehicle = (body.vehicleType as string | null)?.trim()
       if (singleVehicle) {
         vehicleTypes = [singleVehicle]
@@ -196,6 +199,7 @@ export async function POST(request: Request) {
         onboardingCompleted: true,
         isFirstLogin: false,
         vehicleTypes: vehicleTypes,
+        vehicleName: vehicleName?.trim() || null,
         vehicleNumber: vehicleNumber?.trim() || null,
         drivingLicenseNo: drivingLicenseNo?.trim() || null,
         profileImage: profileImageUrl,
@@ -213,6 +217,7 @@ export async function POST(request: Request) {
         status: user.rider?.status === "REJECTED" ? "PENDING" : user.rider?.status || "APPROVED",
         adminFeedback: null, // Clear past feedback on resubmit
         vehicleTypes: vehicleTypes,
+        vehicleName: vehicleName?.trim() || null,
         vehicleNumber: vehicleNumber?.trim() || null,
         drivingLicenseNo: drivingLicenseNo?.trim() || null,
         profileImage: profileImageUrl,

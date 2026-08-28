@@ -1776,11 +1776,13 @@ model Rider {
   isApproved          Boolean      @default(true)
   isSuspended         Boolean      @default(false)
   status              RiderStatus  @default(PENDING)
+  createdByAdmin      Boolean      @default(false)
   onboardingCompleted Boolean      @default(false)
   isFirstLogin        Boolean      @default(true)
   adminFeedback       String?      @db.Text
 
   vehicleTypes        Json         @default("[]") // ["2_WHEELER", "3_WHEELER", "4_WHEELER"]
+  vehicleName         String?      // e.g. "Honda CB Shine 125", "TVS King", "Toyota Corolla"
   vehicleNumber       String?
   drivingLicenseNo    String?
 

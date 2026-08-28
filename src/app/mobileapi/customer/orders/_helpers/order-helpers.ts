@@ -301,7 +301,9 @@ export async function getCustomerOrderDetail({
               user: {
                 select: {
                   name: true,
+                  email: true,
                   phone: true,
+                  phoneCountryCode: true,
                   image: true,
                 },
               },

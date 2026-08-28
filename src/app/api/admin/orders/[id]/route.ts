@@ -49,7 +49,9 @@ export async function GET(
               user: {
                 select: {
                   name: true,
+                  email: true,
                   phone: true,
+                  phoneCountryCode: true,
                   image: true,
                 },
               },

@@ -51,6 +51,7 @@ export function RiderOnboardingClient({ user: initialUser }: { user: any }) {
   const [profileImageFile, setProfileImageFile] = useState<File | null>(null)
   const [profileImageUrl, setProfileImageUrl] = useState<string | null>(initialUser?.image || null)
   const [vehicleTypes, setVehicleTypes] = useState<string[]>(["2_WHEELER"])
+  const [vehicleName, setVehicleName] = useState("")
   const [vehicleNumber, setVehicleNumber] = useState("")
   const [drivingLicenseNo, setDrivingLicenseNo] = useState("")
 
@@ -86,6 +87,7 @@ export function RiderOnboardingClient({ user: initialUser }: { user: any }) {
             setRiderStatus(data.rider.status)
             setAdminFeedback(data.rider.adminFeedback || null)
             if (data.rider.vehicleTypes?.length) setVehicleTypes(data.rider.vehicleTypes)
+            if (data.rider.vehicleName) setVehicleName(data.rider.vehicleName)
             if (data.rider.vehicleNumber) setVehicleNumber(data.rider.vehicleNumber)
             if (data.rider.drivingLicenseNo) setDrivingLicenseNo(data.rider.drivingLicenseNo)
             if (data.rider.nationalIdDoc) setNationalIdUrl(data.rider.nationalIdDoc)
@@ -160,6 +162,7 @@ export function RiderOnboardingClient({ user: initialUser }: { user: any }) {
       formData.append("phoneCountryCode", phoneCountryCode.trim())
       formData.append("vehicleType", selectedVehicle)
       formData.append("vehicleTypes", JSON.stringify([selectedVehicle]))
+      formData.append("vehicleName", vehicleName.trim())
       formData.append("vehicleNumber", vehicleNumber.trim())
       formData.append("drivingLicenseNo", drivingLicenseNo.trim())
       formData.append("selectedZones", JSON.stringify(selectedZones))
@@ -427,9 +430,20 @@ export function RiderOnboardingClient({ user: initialUser }: { user: any }) {
                   />
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
                   <div className="space-y-1.5">
-                    <Label className="text-xs font-semibold">Vehicle Plate / Registration Number</Label>
+                    <Label className="text-xs font-semibold">Vehicle Brand / Model</Label>
+                    <Input
+                      type="text"
+                      placeholder="e.g. Honda CB Shine 125"
+                      value={vehicleName}
+                      onChange={(e) => setVehicleName(e.target.value)}
+                      className="rounded-xl text-xs h-11"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold">Vehicle Plate Number</Label>
                     <Input
                       type="text"
                       placeholder="e.g. SL-984-BD"

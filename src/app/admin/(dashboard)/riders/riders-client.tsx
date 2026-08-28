@@ -76,9 +76,11 @@ interface RiderItem {
     isApproved: boolean
     isSuspended: boolean
     status: "PENDING" | "APPROVED" | "SUSPENDED" | "REJECTED"
+    createdByAdmin: boolean
     onboardingCompleted: boolean
     isFirstLogin: boolean
     vehicleTypes: string[]
+    vehicleName: string | null
     vehicleNumber: string | null
     drivingLicenseNo: string | null
     profileImage: string | null
@@ -104,6 +106,7 @@ export function RidersClient() {
   // Filters
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState("ALL")
+  const [sourceFilter, setSourceFilter] = useState("ALL")
   const [zoneFilter, setZoneFilter] = useState("ALL")
   const [locationFilter, setLocationFilter] = useState("")
 
@@ -128,6 +131,7 @@ export function RidersClient() {
   const [editCountryCode, setEditCountryCode] = useState("+232")
   const [editStatus, setEditStatus] = useState<"PENDING" | "APPROVED" | "SUSPENDED" | "REJECTED">("APPROVED")
   const [editVehicleTypes, setEditVehicleTypes] = useState<string[]>([])
+  const [editVehicleName, setEditVehicleName] = useState("")
   const [editVehicleNumber, setEditVehicleNumber] = useState("")
   const [editDrivingLicenseNo, setEditDrivingLicenseNo] = useState("")
   const [editSelectedZones, setEditSelectedZones] = useState<string[]>([])
@@ -149,6 +153,7 @@ export function RidersClient() {
         perPage: perPage.toString(),
         status: statusFilter,
       })
+      if (sourceFilter !== "ALL") params.append("source", sourceFilter)
       if (search.trim()) params.append("search", search.trim())
       if (zoneFilter !== "ALL") params.append("zone", zoneFilter)
       if (locationFilter.trim()) params.append("location", locationFilter.trim())
@@ -165,7 +170,7 @@ export function RidersClient() {
     } finally {
       setLoading(false)
     }
-  }, [page, perPage, statusFilter, search, zoneFilter, locationFilter])
+  }, [page, perPage, statusFilter, sourceFilter, search, zoneFilter, locationFilter])
 
   useEffect(() => {
     fetchRiders()
@@ -179,6 +184,7 @@ export function RidersClient() {
     setEditCountryCode(rider.phoneCountryCode || "+232")
     setEditStatus(rider.rider?.status || "APPROVED")
     setEditVehicleTypes(rider.rider?.vehicleTypes || [])
+    setEditVehicleName(rider.rider?.vehicleName || "")
     setEditVehicleNumber(rider.rider?.vehicleNumber || "")
     setEditDrivingLicenseNo(rider.rider?.drivingLicenseNo || "")
     setEditSelectedZones(rider.rider?.selectedZones || [])
@@ -248,6 +254,7 @@ export function RidersClient() {
           phoneCountryCode: editCountryCode,
           status: editStatus,
           vehicleTypes: editVehicleTypes,
+          vehicleName: editVehicleName,
           vehicleNumber: editVehicleNumber,
           drivingLicenseNo: editDrivingLicenseNo,
           selectedZones: editSelectedZones,
@@ -379,7 +386,7 @@ export function RidersClient() {
 
       {/* Filter and Search Bar */}
       <div className="p-4 bg-card rounded-2xl border shadow-xs space-y-3">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
           {/* Search */}
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -393,6 +400,26 @@ export function RidersClient() {
               }}
               className="pl-9 h-10 rounded-xl text-xs"
             />
+          </div>
+
+          {/* Registration Source Filter */}
+          <div>
+            <Select
+              value={sourceFilter}
+              onValueChange={(val) => {
+                setSourceFilter(val)
+                setPage(1)
+              }}
+            >
+              <SelectTrigger className="h-10 rounded-xl text-xs">
+                <SelectValue placeholder="Registration Source" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">All Sources</SelectItem>
+                <SelectItem value="ADMIN">Created by Admin</SelectItem>
+                <SelectItem value="SELF">Self Registered</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Status Filter */}
@@ -455,25 +482,53 @@ export function RidersClient() {
           </div>
         </div>
 
-        {/* Status Pills */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pt-1 pb-0.5">
-          {["ALL", "APPROVED", "PENDING", "SUSPENDED", "REJECTED"].map((s) => (
-            <button
-              key={s}
-              onClick={() => {
-                setStatusFilter(s)
-                setPage(1)
-              }}
-              className={cn(
-                "px-3 py-1 text-xs font-semibold rounded-lg transition-colors shrink-0",
-                statusFilter === s
-                  ? "bg-blue-600 text-white shadow-xs"
-                  : "bg-muted hover:bg-muted/80 text-muted-foreground"
-              )}
-            >
-              {s === "ALL" ? "All Riders" : s}
-            </button>
-          ))}
+        {/* Filter Pills */}
+        <div className="flex flex-wrap items-center justify-between gap-2 pt-1 pb-0.5 border-t border-border/40">
+          <div className="flex items-center gap-1.5 overflow-x-auto">
+            <span className="text-[11px] font-semibold text-muted-foreground mr-1">Status:</span>
+            {["ALL", "APPROVED", "PENDING", "SUSPENDED", "REJECTED"].map((s) => (
+              <button
+                key={s}
+                onClick={() => {
+                  setStatusFilter(s)
+                  setPage(1)
+                }}
+                className={cn(
+                  "px-3 py-1 text-xs font-semibold rounded-lg transition-colors shrink-0",
+                  statusFilter === s
+                    ? "bg-blue-600 text-white shadow-xs"
+                    : "bg-muted hover:bg-muted/80 text-muted-foreground"
+                )}
+              >
+                {s === "ALL" ? "All Statuses" : s}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex items-center gap-1.5 overflow-x-auto">
+            <span className="text-[11px] font-semibold text-muted-foreground mr-1">Source:</span>
+            {[
+              { label: "All Sources", value: "ALL" },
+              { label: "Admin Created", value: "ADMIN" },
+              { label: "Self Registered", value: "SELF" },
+            ].map((src) => (
+              <button
+                key={src.value}
+                onClick={() => {
+                  setSourceFilter(src.value)
+                  setPage(1)
+                }}
+                className={cn(
+                  "px-3 py-1 text-xs font-semibold rounded-lg transition-colors shrink-0",
+                  sourceFilter === src.value
+                    ? "bg-purple-600 text-white shadow-xs"
+                    : "bg-muted hover:bg-muted/80 text-muted-foreground"
+                )}
+              >
+                {src.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -485,6 +540,7 @@ export function RidersClient() {
               <tr>
                 <th className="p-4 pl-5">Rider</th>
                 <th className="p-4">Contact</th>
+                <th className="p-4">Registration Source</th>
                 <th className="p-4">Vehicles</th>
                 <th className="p-4">Delivery Zones</th>
                 <th className="p-4">Status</th>
@@ -495,14 +551,14 @@ export function RidersClient() {
             <tbody className="divide-y divide-border/60">
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="p-8 text-center text-muted-foreground">
+                  <td colSpan={8} className="p-8 text-center text-muted-foreground">
                     <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-blue-600" />
                     Loading riders directory...
                   </td>
                 </tr>
               ) : riders.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="p-12 text-center text-muted-foreground">
+                  <td colSpan={8} className="p-12 text-center text-muted-foreground">
                     <Bike className="w-10 h-10 mx-auto mb-3 text-slate-300 dark:text-slate-700" />
                     <p className="font-semibold text-foreground text-sm">No riders found</p>
                     <p className="text-xs mt-1">Try adjusting your search terms or filters.</p>
@@ -514,6 +570,7 @@ export function RidersClient() {
                   const locs = (r.rider?.selectedLocations as string[]) || []
                   const vehicles = (r.rider?.vehicleTypes as string[]) || []
                   const devices = (r.rider?.deviceTokens as any[]) || []
+                  const isAdminCreated = Boolean(r.rider?.createdByAdmin)
 
                   return (
                     <tr key={r.id} className="hover:bg-muted/30 transition-colors">
@@ -555,6 +612,20 @@ export function RidersClient() {
                             </div>
                           )}
                         </div>
+                      </td>
+
+                      <td className="p-4">
+                        {isAdminCreated ? (
+                          <Badge variant="outline" className="text-[11px] font-semibold bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/40 dark:text-purple-300 gap-1 inline-flex items-center">
+                            <ShieldAlert className="w-3 h-3 text-purple-600" />
+                            Admin Created
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-[11px] font-semibold bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 gap-1 inline-flex items-center">
+                            <User className="w-3 h-3 text-emerald-600" />
+                            Self Registered
+                          </Badge>
+                        )}
                       </td>
 
                       <td className="p-4">
@@ -814,11 +885,22 @@ export function RidersClient() {
       <Dialog open={editModalOpen} onOpenChange={setEditModalOpen}>
         <DialogContent className="max-w-4xl w-[95vw] max-h-[90vh] flex flex-col p-6 rounded-2xl overflow-hidden">
           <DialogHeader className="pb-3 border-b">
-            <DialogTitle className="text-lg font-bold flex items-center justify-between">
-              <span className="flex items-center gap-2">
+            <DialogTitle className="text-lg font-bold flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <Bike className="w-5 h-5 text-blue-600" />
-                Manage Rider: {selectedRider?.name || selectedRider?.email}
-              </span>
+                <span>Manage Rider: {selectedRider?.name || selectedRider?.email}</span>
+                {selectedRider?.rider?.createdByAdmin ? (
+                  <Badge variant="outline" className="text-[11px] font-semibold bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/40 dark:text-purple-300 gap-1 inline-flex items-center">
+                    <ShieldAlert className="w-3 h-3 text-purple-600" />
+                    Created by Admin
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="text-[11px] font-semibold bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 gap-1 inline-flex items-center">
+                    <User className="w-3 h-3 text-emerald-600" />
+                    Self Registered
+                  </Badge>
+                )}
+              </div>
               {selectedRider && getStatusBadge(editStatus, editStatus === "SUSPENDED")}
             </DialogTitle>
           </DialogHeader>
@@ -905,9 +987,20 @@ export function RidersClient() {
                   />
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div className="space-y-1.5">
-                    <Label className="text-xs font-semibold">Vehicle Number / Plate</Label>
+                    <Label className="text-xs font-semibold">Vehicle Brand / Model</Label>
+                    <Input
+                      type="text"
+                      placeholder="e.g. Honda CB Shine 125"
+                      value={editVehicleName}
+                      onChange={(e) => setEditVehicleName(e.target.value)}
+                      className="rounded-xl text-xs h-10"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold">Vehicle Plate Number</Label>
                     <Input
                       type="text"
                       placeholder="e.g. SL-204-AB"

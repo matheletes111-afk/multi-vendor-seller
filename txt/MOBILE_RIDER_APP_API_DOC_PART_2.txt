@@ -437,18 +437,25 @@ RESPONSE INCLUDES `deliveryAssignments`:
     {
       "id": "cuid_assignment_id",
       "status": "ACCEPTED", // or "AT_PICKUP", "PICKED_UP", "OUT_FOR_DELIVERY", "DELIVERED"
-      "dispatchMode": "AUTO_CASCADE", // or "MANUAL_SELLER"
+      "dispatchMode": "AUTO_CASCADE", // or "MANUAL_SELLER" / "MANUAL_ADMIN"
       "distanceKm": 2.4,
       "offeredAt": "2026-08-26T14:00:00.000Z",
       "acceptedAt": "2026-08-26T14:00:25.000Z",
       "rider": {
         "id": "cuid_rider_id",
+        "vehicleName": "Honda CB Shine 125",
         "vehicleNumber": "SL-1234-AB",
+        "drivingLicenseNo": "DL-10928374",
+        "vehicleTypes": ["2_WHEELER"],
+        "profileImage": "https://.../rider_photo.png",
         "currentLatitude": 8.484,
         "currentLongitude": -13.234,
+        "isOnline": true,
         "user": {
           "name": "Ibrahim Koroma",
-          "phone": "+23276112233",
+          "email": "rider.ibrahim@example.com",
+          "phone": "76112233",
+          "phoneCountryCode": "+232",
           "image": "https://.../rider_photo.png"
         }
       }
@@ -480,10 +487,15 @@ SUCCESS RESPONSE (200 OK):
   "data": [
     {
       "id": "cuid_rider_id",
+      "userId": "cuid_user_id",
       "name": "Ibrahim Koroma",
-      "phone": "+23276112233",
+      "email": "rider.ibrahim@example.com",
+      "phone": "76112233",
+      "phoneCountryCode": "+232",
       "image": "https://.../rider_photo.png",
+      "vehicleName": "TVS King Tricycle",
       "vehicleNumber": "SL-1234-AB",
+      "drivingLicenseNo": "DL-10928374",
       "vehicleTypes": ["3_WHEELER", "4_WHEELER"],
       "isVehicleMatch": true, // Matches package AI requirement
       "isOnline": true,
@@ -491,7 +503,8 @@ SUCCESS RESPONSE (200 OK):
       "selectedZones": ["Western Area"],
       "selectedLocations": ["Lumley", "Lakka", "Wilkinson Road"],
       "currentLatitude": 8.484,
-      "currentLongitude": -13.234
+      "currentLongitude": -13.234,
+      "lastLocationUpdate": "2026-08-28T10:15:30.000Z"
     }
   ]
 }
