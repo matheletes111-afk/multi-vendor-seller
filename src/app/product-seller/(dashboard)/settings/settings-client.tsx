@@ -19,6 +19,7 @@ import { ProfilePictureInput } from "@/components/profile-picture-input"
 import { LegalPolicyTabContent } from "@/components/legal/legal-policy-tab-content"
 import { DeleteAccountTabContent } from "@/components/account/delete-account-tab-content"
 import { cn } from "@/lib/utils"
+import { validatePhoneAndCountryCode } from "@/lib/phone-validation"
 
 export function SettingsClient() {
   const router = useRouter()
@@ -135,13 +136,9 @@ export function SettingsClient() {
         setSaving(null)
         return
       }
-      if (!/^\+?[0-9]+$/.test(phoneCountryCode)) {
-        setError("Country code must contain only numbers (optionally starting with +).")
-        setSaving(null)
-        return
-      }
-      if (!/^[0-9]+$/.test(phone)) {
-        setError("Phone number must contain only numbers.")
+      const validation = validatePhoneAndCountryCode(phone, phoneCountryCode)
+      if (!validation.isValid) {
+        setError(validation.error || "Please enter a valid phone number and country code.")
         setSaving(null)
         return
       }

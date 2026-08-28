@@ -8,6 +8,7 @@ import { uploadPublicFile } from "@/lib/upload-public-file"
 import { validatePassword } from "@/lib/password-validation"
 import { sanitizeInput } from "@/lib/html-sanitization"
 import { checkDisallowedName } from "@/lib/name-validation"
+import { validatePhoneAndCountryCode } from "@/lib/phone-validation"
 
 function getImageExtFromContentType(contentType?: string | null) {
   const ct = (contentType || "").toLowerCase()
@@ -63,19 +64,15 @@ export async function PUT(request: NextRequest) {
   }
 
   const contentType = request.headers.get("content-type") ?? ""
-  const getRequiredPhoneFieldsError = (phone: string | null | undefined, countryCode: string | null | undefined) => {
-    const normalizedPhone = (phone ?? "").trim()
-    const normalizedCountryCode = (countryCode ?? "").trim()
-    if (!normalizedPhone || !normalizedCountryCode) {
-      return "Phone and country code are required."
+  const validatePhoneFields = (phone: string | null | undefined, countryCode: string | null | undefined) => {
+    if (!phone?.trim() || !countryCode?.trim()) {
+      return { error: "Phone and country code are required." }
     }
-    if (!/^\+?[0-9]+$/.test(normalizedCountryCode)) {
-      return "Country code must contain only numbers (optionally starting with +)."
+    const validation = validatePhoneAndCountryCode(phone, countryCode)
+    if (!validation.isValid) {
+      return { error: validation.error || "Invalid phone number or country code." }
     }
-    if (!/^[0-9]+$/.test(normalizedPhone)) {
-      return "Phone number must contain only numbers."
-    }
-    return null
+    return { cleanedPhone: validation.cleanedPhone, cleanedCountryCode: validation.cleanedCountryCode }
   }
 
   if (contentType.includes("multipart/form-data")) {
@@ -92,10 +89,12 @@ export async function PUT(request: NextRequest) {
 
     const userData: { name?: string; image?: string | null; phone?: string | null; phoneCountryCode?: string | null; password?: string } = {}
     if (name !== undefined) userData.name = name
-    if (phone !== undefined) userData.phone = phone || null
-    if (phoneCountryCode !== undefined) userData.phoneCountryCode = phoneCountryCode || null
-    const phoneError = getRequiredPhoneFieldsError(userData.phone, userData.phoneCountryCode)
-    if (phoneError) return NextResponse.json({ error: phoneError }, { status: 400 })
+    if (phone || phoneCountryCode) {
+      const phoneRes = validatePhoneFields(phone, phoneCountryCode)
+      if (phoneRes.error) return NextResponse.json({ error: phoneRes.error }, { status: 400 })
+      userData.phone = phoneRes.cleanedPhone
+      userData.phoneCountryCode = phoneRes.cleanedCountryCode
+    }
     if (password) {
       const passwordValidation = validatePassword(password)
       if (!passwordValidation.isValid) {
@@ -406,10 +405,12 @@ export async function PUT(request: NextRequest) {
       userData.name = typeof body.user.name === "string" ? sanitizeInput(body.user.name) : undefined
     }
     if (body.user.image !== undefined) userData.image = body.user.image
-    if (body.user.phone !== undefined) userData.phone = body.user.phone || null
-    if (body.user.phoneCountryCode !== undefined) userData.phoneCountryCode = body.user.phoneCountryCode || null
-    const phoneError = getRequiredPhoneFieldsError(userData.phone, userData.phoneCountryCode)
-    if (phoneError) return NextResponse.json({ error: phoneError }, { status: 400 })
+    if (body.user.phone !== undefined || body.user.phoneCountryCode !== undefined) {
+      const phoneRes = validatePhoneFields(body.user.phone, body.user.phoneCountryCode)
+      if (phoneRes.error) return NextResponse.json({ error: phoneRes.error }, { status: 400 })
+      userData.phone = phoneRes.cleanedPhone
+      userData.phoneCountryCode = phoneRes.cleanedCountryCode
+    }
     if (body.user.password !== undefined) {
       if (typeof body.user.password !== "string") {
         return NextResponse.json({ error: "Password must be a string" }, { status: 400 })

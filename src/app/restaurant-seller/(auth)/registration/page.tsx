@@ -115,7 +115,7 @@ export default function RestaurantSellerRegistrationPage() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="phone">Phone Number</Label>
-              <Input id="phone" name="phone" type="tel" placeholder="9876543210" pattern="^[0-9]+$" title="Phone number must contain only numbers." required className="rounded-xl" />
+              <Input id="phone" name="phone" type="tel" placeholder="e.g. 088994462 or 9876543210" pattern="^[0-9\s\-()]+$" title="Phone number must contain only numbers." required className="rounded-xl" />
             </div>
           </div>
 

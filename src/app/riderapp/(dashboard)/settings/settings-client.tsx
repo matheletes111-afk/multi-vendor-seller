@@ -25,6 +25,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/tabs"
 import { DocUploadPreview } from "@/app/riderapp/components/doc-upload-preview"
 import { VehicleTypeSelector } from "@/app/riderapp/components/vehicle-type-selector"
 import { ZoneLocationPicker } from "@/app/riderapp/components/zone-location-picker"
+import { validatePhoneAndCountryCode } from "@/lib/phone-validation"
 
 export function RiderSettingsClient({ user: initialUser }: { user: any }) {
   const { update } = useSession()
@@ -120,6 +121,14 @@ export function RiderSettingsClient({ user: initialUser }: { user: any }) {
       }
       if (newPassword !== confirmPassword) {
         setError("New passwords do not match.")
+        return
+      }
+    }
+
+    if (phone.trim() || phoneCountryCode.trim()) {
+      const pVal = validatePhoneAndCountryCode(phone, phoneCountryCode)
+      if (!pVal.isValid) {
+        setError(pVal.error || "Please enter a valid mobile number and country code.")
         return
       }
     }

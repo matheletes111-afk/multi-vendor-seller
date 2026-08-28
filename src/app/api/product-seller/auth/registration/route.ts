@@ -5,7 +5,7 @@ import bcrypt from "bcryptjs"
 import { UserRole } from "@prisma/client"
 import { sendVerificationOtpEmail } from "@/lib/email"
 import { activateFreePlan } from "@/lib/subscriptions"
-import { validatePhoneAndCountryCode } from "@/lib/phone-validation"
+import { validatePhoneAndCountryCode, getEquivalentPhoneVariants } from "@/lib/phone-validation"
 import { validatePassword } from "@/lib/password-validation"
 import { sanitizeInput } from "@/lib/html-sanitization"
 import { checkDisallowedName } from "@/lib/name-validation"
@@ -44,7 +44,8 @@ export async function POST(request: Request) {
     if (existingUser) {
       return NextResponse.json({ error: "Email or mobile number is already registered" }, { status: 400 })
     }
-    const existingPhone = await prisma.user.findFirst({ where: { phone: normalizedPhone } })
+    const phoneVariants = getEquivalentPhoneVariants(normalizedPhone, normalizedPhoneCountryCode)
+    const existingPhone = await prisma.user.findFirst({ where: { phone: { in: phoneVariants } } })
     if (existingPhone) {
       return NextResponse.json({ error: "Email or mobile number is already registered" }, { status: 400 })
     }

@@ -92,8 +92,8 @@ export function CustomerAddressesClient() {
 
     const cleanPhone = formState.phone.trim().replace(/(?!^\+)[^\d]/g, "")
     const digitsOnly = cleanPhone.replace(/\D/g, "")
-    if (!digitsOnly || digitsOnly.length < 7 || digitsOnly.length > 15) {
-      setError("Phone number must contain only numbers (between 7 and 15 digits, e.g. +23288123456). Letters, asterisks (*), and symbols are not allowed.")
+    if (!digitsOnly || digitsOnly.length < 6 || digitsOnly.length > 15) {
+      setError("Phone number must contain between 6 and 15 digits (e.g. +23288123456 or 088994462). Letters, asterisks (*), and symbols are not allowed.")
       return
     }
 
@@ -402,11 +402,11 @@ export function CustomerAddressesClient() {
                     }}
                     placeholder="e.g. +23288123456"
                     required
-                    pattern="^\+?[0-9]{7,15}$"
-                    title="Phone number must contain only numbers (7 to 15 digits, optional leading +)."
+                    pattern="^\+?[0-9]{6,15}$"
+                    title="Phone number must contain only numbers (6 to 15 digits, optional leading +)."
                     className="rounded-xl border-slate-200"
                   />
-                  <p className="text-[11px] text-muted-foreground font-medium">Numbers only (7–15 digits, optional leading +). Letters and symbols like * are automatically blocked.</p>
+                  <p className="text-[11px] text-muted-foreground font-medium">Numbers only (6–15 digits, optional leading +). Letters and symbols like * are automatically blocked.</p>
                 </div>
               </div>
 

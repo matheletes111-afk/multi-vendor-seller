@@ -436,7 +436,7 @@ export default function RoomBookingPage() {
                       <Input
                         type="tel"
                         required
-                        placeholder="e.g. +23288123456"
+                        placeholder="e.g. +23288123456 or 088994462"
                         value={guestPhone}
                         onChange={(e) => setGuestPhone(e.target.value)}
                         className="h-11 rounded-xl border-slate-200 bg-slate-50 focus-visible:ring-emerald-500/20 text-slate-800 font-semibold text-sm"

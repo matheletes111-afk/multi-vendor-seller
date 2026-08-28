@@ -79,7 +79,7 @@ export default function HotelSellerRegistrationPage() {
               </div>
               <div>
                 <Label htmlFor="phone" className="mb-1.5 block text-sm font-medium text-gray-700">Phone</Label>
-                <Input id="phone" type="tel" inputMode="numeric" placeholder="Phone number" value={phone} onChange={(e) => setPhone(e.target.value.replace(/[^\d]/g, ""))} pattern="^[0-9]+$" title="Phone number must contain only numbers." required disabled={loading} className="rounded-xl border-gray-200" />
+                <Input id="phone" type="tel" inputMode="numeric" placeholder="e.g. 088994462 or 88994462" value={phone} onChange={(e) => setPhone(e.target.value.replace(/[^0-9\s\-()]/g, ""))} pattern="^[0-9\s\-()]+$" title="Phone number must contain only numbers." required disabled={loading} className="rounded-xl border-gray-200" />
               </div>
             </div>
             <div>

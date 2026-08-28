@@ -339,7 +339,7 @@ export function SupportPortalClient() {
                           required
                           value={mobile}
                           onChange={(e) => setMobile(e.target.value)}
-                          placeholder="+232 XX XXXXXX"
+                          placeholder="e.g. +232 88 123456 or 088994462"
                           className="h-11 rounded-xl text-sm border-slate-200"
                         />
                       </div>

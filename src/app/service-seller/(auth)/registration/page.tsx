@@ -136,10 +136,10 @@ export default function ServiceSellerRegistrationPage() {
                   id="phone"
                   type="tel"
                   inputMode="numeric"
-                  placeholder="Phone number"
+                  placeholder="e.g. 088994462 or 88994462"
                   value={phone}
-                  onChange={(e) => setPhone(e.target.value.replace(/[^\d]/g, ""))}
-                  pattern="^[0-9]+$"
+                  onChange={(e) => setPhone(e.target.value.replace(/[^0-9\s\-()]/g, ""))}
+                  pattern="^[0-9\s\-()]+$"
                   title="Phone number must contain only numbers."
                   required
                   disabled={loading}

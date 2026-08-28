@@ -14,16 +14,59 @@ const TWILIO_PHONE_NUMBER = process.env.TWILIO_PHONE_NUMBER?.trim() ?? ""
  */
 const TWILIO_MESSAGING_SERVICE_SID = process.env.MSG_SERVICESID?.trim() ?? ""
 
-export function normalizePhoneNumber(input: string): string {
+export function normalizePhoneNumber(input: string, defaultCountryCode: string = "+232"): string {
   const trimmed = input.trim()
-  const hasPlus = trimmed.startsWith("+")
-  const digits = trimmed.replace(/\D/g, "")
+  if (!trimmed) return ""
+  const clean = trimmed.replace(/[\s\-().,/_]/g, "")
+  const hasPlus = clean.startsWith("+")
+  const digits = clean.replace(/\D/g, "")
   if (!digits) return ""
-  return hasPlus ? `+${digits}` : digits
+
+  if (hasPlus) {
+    // If entered as +232088994462, check 1 to 3 digit country codes and remove the leading 0 after CC
+    for (let ccLen = 1; ccLen <= 3; ccLen++) {
+      if (digits.length > ccLen + 6) {
+        const cc = digits.slice(0, ccLen)
+        const rest = digits.slice(ccLen)
+        if (rest.startsWith("0")) {
+          return `+${cc}${rest.replace(/^0+/, "")}`
+        }
+      }
+    }
+    return `+${digits}`
+  }
+
+  // If entered with country code but no + (e.g. 232088994462 or 23288994462 or 919876543210):
+  if (!digits.startsWith("0") && digits.length >= 10) {
+    for (let ccLen = 1; ccLen <= 3; ccLen++) {
+      if (digits.length > ccLen + 6) {
+        const cc = digits.slice(0, ccLen)
+        const rest = digits.slice(ccLen)
+        if (rest.startsWith("0")) {
+          return `+${cc}${rest.replace(/^0+/, "")}`
+        }
+      }
+    }
+    return `+${digits}`
+  }
+
+  // If entered as a local number with leading zero (e.g. 088994462 / 076123456):
+  const ccDigits = defaultCountryCode.replace(/\D/g, "")
+  if (digits.startsWith("0")) {
+    const withoutZero = digits.replace(/^0+/, "")
+    return `+${ccDigits}${withoutZero}`
+  }
+
+  // If entered as 8-digit local number without leading zero (e.g. 88994462):
+  if (digits.length <= 9) {
+    return `+${ccDigits}${digits}`
+  }
+
+  return `+${digits}`
 }
 
 export function isValidE164(phone: string): boolean {
-  return /^\+[1-9]\d{7,14}$/.test(phone)
+  return /^\+[1-9]\d{6,14}$/.test(phone)
 }
 
 export async function sendSmsViaTwilio({ to, body }: SendSmsInput): Promise<void> {
@@ -87,25 +130,31 @@ export function formatFullPhoneNumber(phone?: string | null, countryCode?: strin
   if (!phone) return ""
   let cleanPhone = phone.trim()
   if (cleanPhone.startsWith("+")) {
-    return cleanPhone
+    return normalizePhoneNumber(cleanPhone)
   }
   const cleanDigits = cleanPhone.replace(/\D/g, "")
   if (!cleanDigits) return ""
 
   if (countryCode) {
     let cleanCode = countryCode.trim()
-    if (!cleanCode.startsWith("+")) cleanCode = `+${cleanCode.replace(/\D/g, "")}`
-    // If phone already starts with code digits (e.g. 971501234567 and code is +971)
     const codeDigits = cleanCode.replace(/\D/g, "")
-    if (cleanDigits.startsWith(codeDigits)) {
-      return `+${cleanDigits}`
+    if (!codeDigits) {
+      return `+${cleanDigits.replace(/^0+/, "")}`
     }
+    cleanCode = `+${codeDigits}`
+
+    // If phone already starts with code digits (e.g. 232088994462 or 23288994462)
+    if (cleanDigits.startsWith(codeDigits) && cleanDigits.length >= codeDigits.length + 6) {
+      const rest = cleanDigits.slice(codeDigits.length).replace(/^0+/, "")
+      return `${cleanCode}${rest}`
+    }
+
     // Remove leading zeros from phone if any
     const phoneNoLeadingZero = cleanDigits.replace(/^0+/, "")
     return `${cleanCode}${phoneNoLeadingZero}`
   }
 
-  return `+${cleanDigits}`
+  return `+${cleanDigits.replace(/^0+/, "")}`
 }
 
 export async function sendEmailVerificationSms({

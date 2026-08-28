@@ -91,10 +91,14 @@ export async function PATCH(
     if (phone !== undefined && phoneCountryCode !== undefined) {
       if (phone && phoneCountryCode) {
         const phoneValidation = validatePhoneAndCountryCode(phone, phoneCountryCode)
-        if (phoneValidation.isValid) {
-          userUpdates.phone = phoneValidation.cleanedPhone
-          userUpdates.phoneCountryCode = phoneValidation.cleanedCountryCode
+        if (!phoneValidation.isValid) {
+          return NextResponse.json(
+            { error: phoneValidation.error || "Invalid mobile number or country code." },
+            { status: 400 }
+          )
         }
+        userUpdates.phone = phoneValidation.cleanedPhone
+        userUpdates.phoneCountryCode = phoneValidation.cleanedCountryCode
       } else {
         userUpdates.phone = phone || null
         userUpdates.phoneCountryCode = phoneCountryCode || null

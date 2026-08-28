@@ -845,7 +845,7 @@ export function RidersClient() {
                 <Label className="text-xs font-semibold">Mobile Number *</Label>
                 <Input
                   type="tel"
-                  placeholder="76 123456"
+                  placeholder="e.g. 088994462 or 76123456"
                   value={createPhone}
                   onChange={(e) => setCreatePhone(e.target.value)}
                   required

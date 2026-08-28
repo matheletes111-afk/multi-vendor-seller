@@ -487,8 +487,8 @@ export function ServiceBookClient({
                         }}
                         placeholder="e.g. +23288123456"
                         required
-                        pattern="^\+?[0-9]{7,15}$"
-                        title="Phone number must contain only numbers (7 to 15 digits)."
+                        pattern="^\+?[0-9]{6,15}$"
+                        title="Phone number must contain only numbers (6 to 15 digits)."
                         className="min-h-10 sm:min-h-9"
                       />
                     </div>

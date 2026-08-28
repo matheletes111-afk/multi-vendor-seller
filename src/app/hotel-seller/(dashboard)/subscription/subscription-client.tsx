@@ -32,6 +32,7 @@ type Subscription = {
 const formatPlanDuration = (durationDays?: number) => {
   const days = durationDays || 30
   if (days === 30) return "/month"
+  if (days === 60) return "/2 months"
   if (days === 90) return "/3 months"
   if (days === 180) return "/6 months"
   if (days === 365) return "/year"

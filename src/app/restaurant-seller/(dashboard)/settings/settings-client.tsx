@@ -17,6 +17,7 @@ import { ProfilePictureInput } from "@/components/profile-picture-input"
 import { LegalPolicyTabContent } from "@/components/legal/legal-policy-tab-content"
 import { DeleteAccountTabContent } from "@/components/account/delete-account-tab-content"
 import { cn } from "@/lib/utils"
+import { validatePhoneAndCountryCode } from "@/lib/phone-validation"
 
 const CUISINES = [
   "Italian", "Indian", "Chinese", "Japanese", "Mexican", "Thai", "French", "American", "Mediterranean", "Continental", "Pizza", "Pasta", "Biryani", "Burgers", "Fast Food", "Salads", "Desserts", "Bakeries", "Beverages", "Arabic", "Turkish", "Lebanese", "Greek", "Spanish", "Korean", "Vietnamese", "African", "Caribbean", "Brazilian", "Steakhouse", "Seafood", "Sushi", "BBQ", "Sandwiches", "Healthy", "Vegan", "Ice Cream", "Coffee & Tea", "Juices", "Other"
@@ -134,13 +135,9 @@ export default function RestaurantSettingsClient() {
             setSaving(null)
             return
         }
-        if (!/^\+?[0-9]+$/.test(phoneCountryCode)) {
-            setError("Country code must contain only numbers (optionally starting with +).")
-            setSaving(null)
-            return
-        }
-        if (!/^[0-9]+$/.test(phone)) {
-            setError("Phone number must contain only numbers.")
+        const validation = validatePhoneAndCountryCode(phone, phoneCountryCode)
+        if (!validation.isValid) {
+            setError(validation.error || "Please enter a valid phone number and country code.")
             setSaving(null)
             return
         }
