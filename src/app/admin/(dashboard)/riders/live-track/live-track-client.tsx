@@ -304,6 +304,8 @@ export function LiveTrackClient() {
 
     if (socket.connected) {
       onConnect()
+    } else {
+      socket.connect()
     }
 
     // Periodic background sync every 12 seconds
@@ -364,6 +366,13 @@ export function LiveTrackClient() {
 
     return () => {
       isCancelled = true
+    }
+  }, [])
+
+  // Dynamically update Google Map type when user toggles Roadmap / Satellite
+  useEffect(() => {
+    if (mapInstanceRef.current && window.google?.maps) {
+      mapInstanceRef.current.setMapTypeId(mapType)
     }
   }, [mapType])
 
