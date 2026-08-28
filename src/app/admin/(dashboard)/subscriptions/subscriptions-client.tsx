@@ -447,7 +447,7 @@ export function SubscriptionsClient() {
                 <CardContent className="space-y-4">
                   <div className="flex items-baseline gap-1">
                     <span className="text-4xl font-medium">{formatCurrency(plan.price)}</span>
-                    {plan.price > 0 && <span className="text-muted-foreground font-medium text-sm">{formatPlanDuration(plan.duration)}</span>}
+                    <span className="text-muted-foreground font-medium text-sm">{formatPlanDuration(plan.duration)}</span>
                   </div>
 
                   <div className="grid grid-cols-2 gap-2 text-sm">
