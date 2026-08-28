@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import {
+  getValidSubscription,
+  getValidHotelSubscription,
+  getValidRestaurantSubscription,
+  createPlanSnapshot,
+} from "@/lib/subscriptions"
 
 export async function GET(request: NextRequest) {
   try {
@@ -14,23 +20,21 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized / Seller User ID required" }, { status: 401 })
     }
 
-    // Fetch seller subscription across types
+    // Fetch seller across types
     const [prodSeller, hotelSeller, restSeller] = await Promise.all([
-      prisma.seller.findUnique({
-        where: { userId },
-        include: { subscription: { include: { plan: true } } }
-      }),
-      prisma.hotelSeller.findUnique({
-        where: { userId },
-        include: { subscription: { include: { plan: true } } }
-      }),
-      prisma.restaurantSeller.findUnique({
-        where: { userId },
-        include: { subscription: { include: { plan: true } } }
-      })
+      prisma.seller.findUnique({ where: { userId } }),
+      prisma.hotelSeller.findUnique({ where: { userId } }),
+      prisma.restaurantSeller.findUnique({ where: { userId } }),
     ])
 
-    const currentSub = prodSeller?.subscription || hotelSeller?.subscription || restSeller?.subscription || null
+    let currentSub: any = null
+    if (prodSeller) {
+      currentSub = await getValidSubscription(prodSeller.id)
+    } else if (hotelSeller) {
+      currentSub = await getValidHotelSubscription(hotelSeller.id)
+    } else if (restSeller) {
+      currentSub = await getValidRestaurantSubscription(restSeller.id)
+    }
 
     // Fetch all subscription coupon redemptions for this seller
     const usages = await prisma.couponUsage.findMany({
@@ -49,27 +53,34 @@ export async function GET(request: NextRequest) {
 
     if (currentSub) {
       const activeUsage = usages.find(u => u.subscriptionId === currentSub.id)
+      const snapshot = currentSub.planSnapshot || createPlanSnapshot(currentSub.plan)
+      const planDetails = (snapshot as any) || currentSub.plan
+      const basePlanPrice = currentSub.paidPrice !== null && currentSub.paidPrice !== undefined
+        ? currentSub.paidPrice
+        : (planDetails?.price ?? currentSub.plan?.price ?? 0)
       let couponDiscount = 0
       if (activeUsage?.coupon) {
         if (activeUsage.coupon.discountType === "PERCENTAGE") {
-          couponDiscount = (currentSub.plan.price * activeUsage.coupon.discountValue) / 100
+          couponDiscount = (basePlanPrice * activeUsage.coupon.discountValue) / 100
         } else {
-          couponDiscount = Math.min(activeUsage.coupon.discountValue, currentSub.plan.price)
+          couponDiscount = Math.min(activeUsage.coupon.discountValue, basePlanPrice)
         }
       }
 
       historyList.push({
         id: currentSub.id,
-        planName: currentSub.plan.displayName,
-        planType: currentSub.plan.name,
-        price: currentSub.plan.price,
+        planName: planDetails?.displayName || currentSub.plan.displayName,
+        planType: planDetails?.name || currentSub.plan.name,
+        price: basePlanPrice,
+        paidPrice: currentSub.paidPrice ?? null,
+        planSnapshot: snapshot,
         status: currentSub.status,
         periodStart: currentSub.currentPeriodStart,
         periodEnd: currentSub.currentPeriodEnd,
         createdAt: currentSub.createdAt,
         couponCode: activeUsage?.coupon?.code || null,
         couponDiscount,
-        finalPaidAmount: Math.max(0, currentSub.plan.price - couponDiscount),
+        finalPaidAmount: Math.max(0, basePlanPrice - couponDiscount),
         isCurrent: true
       })
     }
@@ -82,6 +93,8 @@ export async function GET(request: NextRequest) {
         planName: usage.coupon ? `Seller Coupon (${usage.coupon.code})` : "Subscription Payment",
         planType: "COUPON_REDEMPTION",
         price: usage.coupon ? usage.coupon.discountValue : 0,
+        paidPrice: 0,
+        planSnapshot: null,
         status: "COMPLETED",
         createdAt: usage.createdAt,
         couponCode: usage.coupon?.code || null,
@@ -91,13 +104,19 @@ export async function GET(request: NextRequest) {
       })
     })
 
+    const snapshot = currentSub ? (currentSub.planSnapshot || createPlanSnapshot(currentSub.plan)) : null
+    const currentPlanDetails = (snapshot as any) || currentSub?.plan || null
+    const basePlanPrice = currentSub ? (currentSub.paidPrice !== null && currentSub.paidPrice !== undefined ? currentSub.paidPrice : (currentPlanDetails?.price ?? currentSub.plan?.price ?? 0)) : 0
+
     return NextResponse.json({
       history: historyList,
       currentSubscription: currentSub ? {
         id: currentSub.id,
         status: currentSub.status,
-        planName: currentSub.plan.displayName,
-        price: currentSub.plan.price,
+        planName: currentPlanDetails?.displayName || currentSub.plan.displayName,
+        price: basePlanPrice,
+        paidPrice: currentSub.paidPrice ?? null,
+        planSnapshot: snapshot,
         currentPeriodEnd: currentSub.currentPeriodEnd
       } : null
     })

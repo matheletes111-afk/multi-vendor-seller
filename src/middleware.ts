@@ -59,6 +59,11 @@ export async function middleware(request: NextRequest) {
     "/restaurant-seller/login/phone-otp/verify",
     "/restaurant-seller/forgot-password",
     "/restaurant-seller/reset-password",
+    "/riderapp/login",
+    "/riderapp/registration",
+    "/riderapp/verify-email",
+    "/riderapp/forgot-password",
+    "/riderapp/reset-password",
   ]
   if (allowedAuthPaths.some((p) => path === p || path.startsWith(p + "?"))) {
     return NextResponse.next()
@@ -91,6 +96,8 @@ export async function middleware(request: NextRequest) {
         return NextResponse.redirect(new URL("/restaurant-seller", request.url))
       case UserRole.CUSTOMER:
         return NextResponse.redirect(new URL("/customer", request.url))
+      case UserRole.RIDER:
+        return NextResponse.redirect(new URL("/riderapp", request.url))
       default:
         return NextResponse.redirect(new URL("/", request.url))
     }
@@ -223,6 +230,53 @@ export async function middleware(request: NextRequest) {
     }
   }
 
+  // Rider routes (/riderapp)
+  if (path.startsWith("/riderapp")) {
+    const isPublicRiderAuth =
+      path === "/riderapp/login" ||
+      path === "/riderapp/registration" ||
+      path === "/riderapp/verify-email" ||
+      path === "/riderapp/forgot-password" ||
+      path === "/riderapp/reset-password" ||
+      path.startsWith("/riderapp/login?") ||
+      path.startsWith("/riderapp/registration?") ||
+      path.startsWith("/riderapp/verify-email?") ||
+      path.startsWith("/riderapp/forgot-password?") ||
+      path.startsWith("/riderapp/reset-password?")
+
+    if (isPublicRiderAuth) {
+      return NextResponse.next()
+    }
+
+    if (!session?.user) {
+      return NextResponse.redirect(new URL("/riderapp/login", request.url))
+    }
+
+    if (session.user.role !== UserRole.RIDER) {
+      return NextResponse.redirect(new URL("/riderapp/login?error=InvalidRole", request.url))
+    }
+
+    const u = session.user as {
+      onboardingCompleted?: boolean
+      isFirstLogin?: boolean
+      isApproved?: boolean
+      isSuspended?: boolean
+      status?: string
+    }
+
+    if (u.isSuspended === true || u.status === "SUSPENDED") {
+      return NextResponse.redirect(new URL("/riderapp/login?error=AccountSuspended", request.url))
+    }
+
+    const normalizedPath = path.endsWith("/") ? path.slice(0, -1) : path
+    const isOnboardingRoute = normalizedPath === "/riderapp/onboarding" || normalizedPath.startsWith("/riderapp/onboarding/")
+
+    // Force onboarding if not completed
+    if (!u.onboardingCompleted && !isOnboardingRoute) {
+      return NextResponse.redirect(new URL("/riderapp/onboarding", request.url))
+    }
+  }
+
   return NextResponse.next()
 }
 
@@ -239,6 +293,8 @@ export const config = {
     "/hotel-seller/:path*",
     "/restaurant-seller",
     "/restaurant-seller/:path*",
+    "/riderapp",
+    "/riderapp/:path*",
     "/api/protected/:path*",
   ],
 }

@@ -56,6 +56,7 @@ import {
   ORDER_CANCEL_BLOCKED_DELIVERED,
   ORDER_ITEM_LOCKED_AFTER_DELIVERED,
 } from "@/lib/order-cancel-guard"
+import { OrderRiderCard } from "@/components/delivery/order-rider-card"
 
 const MAX_PROOF_BYTES = 5 * 1024 * 1024
 const TIMELINE_PREVIEW = 5
@@ -531,8 +532,10 @@ export function ProductSellerOrderDetailClient({ orderId }: { orderId: string })
 
                         {(() => {
                           const effectiveUnitPrice = item.quantity > 0 && item.subtotal > 0 ? item.subtotal / item.quantity : item.price
-                          const grossTotalVal = (item.subtotalInclGst ?? item.subtotal + item.gstAmount) + item.shippingAmount
-                          const netPayoutVal = Math.max(0, grossTotalVal - item.commissionAmount)
+                          const grossItemVal = (item.subtotalInclGst ?? item.subtotal + item.gstAmount)
+                          const deliveryBoyCharge = item.shippingAmount || 0
+                          const platformFee = item.commissionAmount || 0
+                          const netPayoutVal = Math.max(0, grossItemVal - platformFee - deliveryBoyCharge)
 
                           return (
                             <>
@@ -552,12 +555,12 @@ export function ProductSellerOrderDetailClient({ orderId }: { orderId: string })
                                   </p>
                                 </div>
                                 <div className="space-y-1 min-w-[110px]">
-                                  <p className="text-[10px] uppercase font-black text-muted-foreground tracking-wider">Delivery Charge</p>
-                                  <p className="text-base font-bold tabular-nums text-orange-600">{formatCurrency(item.shippingAmount)}</p>
+                                  <p className="text-[10px] uppercase font-black text-muted-foreground tracking-wider">Delivery Boy Charge</p>
+                                  <p className="text-base font-bold tabular-nums text-orange-600">{formatCurrency(deliveryBoyCharge)}</p>
                                 </div>
                                 <div className="space-y-1 min-w-[120px]">
-                                  <p className="text-[10px] uppercase font-black text-muted-foreground tracking-wider">Gross Total</p>
-                                  <p className="text-lg font-black tabular-nums text-foreground">{formatCurrency(grossTotalVal)}</p>
+                                  <p className="text-[10px] uppercase font-black text-muted-foreground tracking-wider">Item Total</p>
+                                  <p className="text-lg font-black tabular-nums text-foreground">{formatCurrency(grossItemVal)}</p>
                                 </div>
                               </div>
 
@@ -573,23 +576,30 @@ export function ProductSellerOrderDetailClient({ orderId }: { orderId: string })
                                   </Badge>
                                 </div>
 
-                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-1">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-1">
                                   <div className="space-y-1 bg-slate-800/60 p-3 rounded-xl border border-slate-700/50">
-                                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Gross Order Value</span>
+                                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Item Gross Value</span>
                                     <p className="text-base font-bold text-slate-100 tabular-nums">
-                                      {formatCurrency(grossTotalVal)}
+                                      {formatCurrency(grossItemVal)}
                                     </p>
                                   </div>
 
                                   <div className="space-y-1 bg-rose-500/10 p-3 rounded-xl border border-rose-500/20">
                                     <span className="text-[10px] font-bold uppercase tracking-wider text-rose-300 block">Platform Fee ({item.commissionRateSnapshot}%)</span>
                                     <p className="text-base font-bold text-rose-400 tabular-nums">
-                                      -{formatCurrency(item.commissionAmount)}
+                                      -{formatCurrency(platformFee)}
+                                    </p>
+                                  </div>
+
+                                  <div className="space-y-1 bg-amber-500/10 p-3 rounded-xl border border-amber-500/20">
+                                    <span className="text-[10px] font-bold uppercase tracking-wider text-amber-300 block">Delivery Boy Fee</span>
+                                    <p className="text-base font-bold text-amber-400 tabular-nums">
+                                      -{formatCurrency(deliveryBoyCharge)}
                                     </p>
                                   </div>
 
                                   <div className="space-y-1 bg-emerald-500/15 p-3 rounded-xl border border-emerald-500/30">
-                                    <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-300 block">Net Seller Payout</span>
+                                    <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-300 block">Net Seller Revenue</span>
                                     <p className="text-lg font-black text-emerald-400 tabular-nums">
                                       {formatCurrency(netPayoutVal)}
                                     </p>
@@ -1236,6 +1246,25 @@ export function ProductSellerOrderDetailClient({ orderId }: { orderId: string })
                     </div>
                   </div>
                 </div>
+
+                {/* Assigned Delivery Rider Card & Live GPS Map */}
+                <OrderRiderCard
+                  orderId={order.id}
+                  orderNumber={order.orderNumber}
+                  orderStatus={order.status}
+                  deliveryAssignments={order.deliveryAssignments}
+                  shippingAddress={{
+                    fullName: order.shippingFullName,
+                    phone: order.shippingPhone,
+                    addressLine1: order.shippingAddressLine1,
+                    addressLine2: order.shippingAddressLine2,
+                    city: order.shippingCity,
+                    state: order.shippingState,
+                    postalCode: order.shippingPostalCode,
+                    country: order.shippingCountry,
+                  }}
+                  onRefresh={fetchOrder}
+                />
 
                 {/* Delivery Section */}
                 <div className="space-y-4">

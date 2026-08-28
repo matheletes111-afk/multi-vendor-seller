@@ -293,6 +293,23 @@ export async function getCustomerOrderDetail({
     },
     include: {
       seller: { include: { store: true } },
+      deliveryAssignments: {
+        include: {
+          seller: { include: { store: true } },
+          rider: {
+            include: {
+              user: {
+                select: {
+                  name: true,
+                  phone: true,
+                  image: true,
+                },
+              },
+            },
+          },
+        },
+        orderBy: { attemptNumber: "desc" },
+      },
       items: {
         include: {
           seller: { include: { store: { select: { name: true } } } },
@@ -468,8 +485,74 @@ export async function getCustomerOrderDetail({
     current.itemCount += 1
     sellerGroupMap.set(key, current)
   }
+  const assignments = (order as any).deliveryAssignments || []
+
+  function mapAssignmentToTracking(assignment: any) {
+    if (!assignment) return null
+    const r = assignment.rider
+    const rUser = r?.user
+    const pickupStoreName =
+      assignment.seller?.store?.name ||
+      order?.items?.find((i) => i.sellerId === assignment.sellerId)?.seller?.store?.name ||
+      order?.seller?.store?.name ||
+      "Seller Store"
+
+    return {
+      assignmentId: assignment.id,
+      sellerId: assignment.sellerId,
+      sellerStoreName: pickupStoreName,
+      status: assignment.status,
+      dispatchMode: assignment.dispatchMode,
+      distanceKm: assignment.distanceKm,
+      deliveryOtp: assignment.deliveryOtp,
+      deliveryProofImage: assignment.deliveryProofImage,
+      rider: {
+        id: r?.id,
+        name: rUser?.name || "Delivery Rider",
+        phone: rUser?.phone || null,
+        image: rUser?.image || r?.profileImage || null,
+        vehicleNumber: r?.vehicleNumber || null,
+        vehicleTypes: r?.vehicleTypes || [],
+        isOnline: r?.isOnline ?? true,
+      },
+      currentLocation: {
+        latitude: r?.currentLatitude || assignment.riderLatitudeAtOffer || null,
+        longitude: r?.currentLongitude || assignment.riderLongitudeAtOffer || null,
+        heading: r?.heading || 0,
+        speed: r?.speed || 0,
+        lastLocationUpdate: r?.lastLocationUpdate ? r.lastLocationUpdate.toISOString() : null,
+      },
+      pickupLocation: {
+        name: pickupStoreName,
+        latitude: assignment.sellerLatitude || null,
+        longitude: assignment.sellerLongitude || null,
+      },
+      destinationLocation: {
+        fullName: order?.shippingFullName || null,
+        phone: order?.shippingPhone || null,
+        addressLine1: order?.shippingAddressLine1 || null,
+        addressLine2: order?.shippingAddressLine2 || null,
+        city: order?.shippingCity || null,
+        state: order?.shippingState || null,
+        postalCode: order?.shippingPostalCode || null,
+        country: order?.shippingCountry || null,
+      },
+      socketRoom: `order:${order?.id}`,
+    }
+  }
+
+  const ACTIVE_STATUSES = ["OFFERED", "ACCEPTED", "AT_PICKUP", "PICKED_UP", "OUT_FOR_DELIVERY", "DELIVERED"]
+
   const sellerGroups = [...sellerGroupMap.values()].map((group) => {
     const statusSummary = summarizeSellerItemStatuses(group.statuses)
+    // Find active assignment for this specific seller package
+    const groupAssignment = assignments.find(
+      (a: any) =>
+        ACTIVE_STATUSES.includes(a.status) &&
+        (a.sellerId === group.sellerId || (!a.sellerId && assignments.length === 1))
+    )
+    const activeDeliveryTracking = mapAssignmentToTracking(groupAssignment)
+
     return {
       sellerId: group.sellerId,
       sellerStoreName: group.sellerStoreName,
@@ -483,8 +566,14 @@ export async function getCustomerOrderDetail({
       itemStatuses: statusSummary.counts,
       derivedStatus: statusSummary.derivedStatus,
       itemCount: group.itemCount,
+      activeDeliveryTracking,
     }
   })
+
+  // Collect all active tracking objects across all assigned sellers
+  const activeAssignments = assignments.filter((a: any) => ACTIVE_STATUSES.includes(a.status))
+  const activeDeliveryTrackings = activeAssignments.map((a: any) => mapAssignmentToTracking(a)).filter(Boolean)
+  const activeDeliveryTracking = activeDeliveryTrackings[0] || null
 
   return {
     id: order.id,
@@ -510,6 +599,9 @@ export async function getCustomerOrderDetail({
     items,
     couponCode: order.couponCode,
     couponDiscount: order.couponDiscount,
+    deliveryAssignments: assignments,
+    activeDeliveryTracking,
+    activeDeliveryTrackings,
   }
 }
 

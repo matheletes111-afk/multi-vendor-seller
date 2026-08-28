@@ -100,6 +100,38 @@ const providers: any[] = [
         }
       }
 
+      if (user.role === UserRole.RIDER) {
+        const rider = await prisma.rider.findUnique({
+          where: { userId: user.id },
+          select: {
+            isApproved: true,
+            isSuspended: true,
+            onboardingCompleted: true,
+            isFirstLogin: true,
+            status: true,
+          },
+        })
+
+        // Require valid rider record and block suspended riders
+        if (!rider || rider.isSuspended || rider.status === "SUSPENDED") {
+          return null
+        }
+
+        return {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          role: user.role,
+          image: user.image,
+          passwordHash: user.password,
+          isApproved: rider.isApproved,
+          isSuspended: rider.isSuspended,
+          onboardingCompleted: rider.onboardingCompleted,
+          isFirstLogin: rider.isFirstLogin,
+          status: rider.status || "PENDING",
+        }
+      }
+
       return {
         id: user.id,
         email: user.email,
@@ -166,6 +198,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         if (session.isApproved !== undefined) token.isApproved = session.isApproved
         if (session.isSuspended !== undefined) token.isSuspended = session.isSuspended
         if (session.onboardingStep !== undefined) token.onboardingStep = session.onboardingStep
+        if (session.isFirstLogin !== undefined) token.isFirstLogin = session.isFirstLogin
+        if (session.status !== undefined) token.status = session.status
         return token
       }
 
@@ -215,6 +249,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           token.onboardingCompleted = sellerInfo.onboardingCompleted
         if (sellerInfo.onboardingStep !== undefined)
           token.onboardingStep = sellerInfo.onboardingStep
+        if (sellerInfo.isFirstLogin !== undefined)
+          token.isFirstLogin = sellerInfo.isFirstLogin
+        if (sellerInfo.status !== undefined)
+          token.status = sellerInfo.status
       } else if (token?.id) {
         // If not Edge runtime, verify password hash and sync seller status against database
         if (process.env.NEXT_RUNTIME !== "edge") {
@@ -274,8 +312,22 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                   token.onboardingStep = seller.onboardingStep
               }
             }
+
+            if (token.role === UserRole.RIDER) {
+              const rider = await prisma.rider.findUnique({
+                where: { userId: token.id as string },
+                select: { isApproved: true, isSuspended: true, onboardingCompleted: true, isFirstLogin: true, status: true },
+              })
+              if (rider) {
+                token.isApproved = rider.isApproved
+                token.isSuspended = rider.isSuspended || rider.status === "SUSPENDED"
+                token.onboardingCompleted = rider.onboardingCompleted
+                token.isFirstLogin = rider.isFirstLogin
+                token.status = rider.status
+              }
+            }
           } catch (error) {
-            console.error("Error verifying user / seller status in jwt callback:", error)
+            console.error("Error verifying user / seller / rider status in jwt callback:", error)
           }
         }
 
@@ -283,7 +335,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           token.role === UserRole.SELLER_PRODUCT ||
           token.role === UserRole.SELLER_SERVICE ||
           token.role === UserRole.SELLER_HOTEL ||
-          token.role === UserRole.SELLER_RESTAURANT
+          token.role === UserRole.SELLER_RESTAURANT ||
+          token.role === UserRole.RIDER
         ) {
           if (token.onboardingCompleted === undefined) {
             token.onboardingCompleted = false
@@ -309,13 +362,16 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           session.user.onboardingCompleted = token.onboardingCompleted as boolean
         if (token.onboardingStep !== undefined)
           session.user.onboardingStep = token.onboardingStep as number
+        if (token.isFirstLogin !== undefined)
+          session.user.isFirstLogin = token.isFirstLogin as boolean
+        if (token.status !== undefined)
+          session.user.status = token.status as string
       }
       return session
     },
     redirect({ url, baseUrl }) {
-      // Use callbackUrl from signIn("google", { callbackUrl: "/product-seller" }) so seller panels get the right redirect
+      // Use callbackUrl from signIn so panels get the right redirect
       try {
-        // Allow our OAuth post-process endpoint as a safe intermediate redirect.
         if (typeof url === "string" && url.startsWith("/api/auth/oauth-postprocess")) {
           return `${baseUrl.replace(/\/$/, "")}${url}`
         }
@@ -323,7 +379,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         const parsed = url.startsWith("/") ? new URL(url, baseUrl) : new URL(url)
         const callbackUrl = parsed.searchParams.get("callbackUrl") ?? parsed.searchParams.get("redirect")
         if (callbackUrl && typeof callbackUrl === "string" && isSafeRedirectUrl(callbackUrl, baseUrl)) {
-          const allowed = ["/customer", "/product-seller", "/service-seller", "/admin", "/dashboard"]
+          const allowed = ["/customer", "/product-seller", "/service-seller", "/hotel-seller", "/restaurant-seller", "/riderapp", "/admin", "/dashboard"]
           if (allowed.some((p) => callbackUrl === p || callbackUrl.startsWith(p + "/"))) {
             return `${baseUrl.replace(/\/$/, "")}${callbackUrl}`
           }

@@ -19,6 +19,9 @@ type Booking = {
   adults: number
   children: number
   totalPrice: number
+  commissionRate?: number
+  commissionAmount?: number
+  sellerNet?: number
   status: string
   createdAt: string
   room: {
@@ -208,7 +211,9 @@ function HotelSellerBookingsClient() {
                   <th className="px-6 py-4">Check In</th>
                   <th className="px-6 py-4">Check Out</th>
                   <th className="px-6 py-4 text-center">Rooms</th>
-                  <th className="px-6 py-4">Total Paid</th>
+                  <th className="px-6 py-4">Total Value</th>
+                  <th className="px-6 py-4">Commission</th>
+                  <th className="px-6 py-4">Net Payout</th>
                   <th className="px-6 py-4">Booked On</th>
                   <th className="px-6 py-4 text-center">Status</th>
                   <th className="px-6 py-4 text-center">Actions</th>
@@ -240,6 +245,13 @@ function HotelSellerBookingsClient() {
                     </td>
                     <td className="px-6 py-4 text-slate-900 font-black">
                       {formatCurrency(booking.totalPrice)}
+                    </td>
+                    <td className="px-6 py-4">
+                      <p className="text-amber-700 text-xs font-bold">-{formatCurrency(booking.commissionAmount ?? 0)}</p>
+                      <p className="text-[10px] text-slate-400 font-semibold">({booking.commissionRate ?? 0}%)</p>
+                    </td>
+                    <td className="px-6 py-4 text-emerald-700 font-black">
+                      {formatCurrency(booking.sellerNet ?? booking.totalPrice)}
                     </td>
                     <td className="px-6 py-4 text-slate-500 text-xs font-semibold">
                       {new Date(booking.createdAt).toLocaleDateString()}
@@ -339,9 +351,21 @@ function HotelSellerBookingsClient() {
                 <span>Booking Date:</span>
                 <span className="font-bold text-slate-900">{new Date(selectedBooking.createdAt).toLocaleString()}</span>
               </div>
-              <div className="flex justify-between">
-                <span>Total Cost Paid:</span>
-                <span className="font-black text-emerald-600 text-base">{formatCurrency(selectedBooking.totalPrice)}</span>
+
+              {/* Settlement & Commission Breakdown */}
+              <div className="pt-3 border-t border-slate-200/80 space-y-2">
+                <div className="flex justify-between text-xs">
+                  <span>Gross Booking Value:</span>
+                  <span className="font-bold text-slate-900">{formatCurrency(selectedBooking.totalPrice)}</span>
+                </div>
+                <div className="flex justify-between text-xs text-amber-700">
+                  <span>Platform Commission ({selectedBooking.commissionRate ?? 0}%):</span>
+                  <span className="font-bold">-{formatCurrency(selectedBooking.commissionAmount ?? 0)}</span>
+                </div>
+                <div className="flex justify-between pt-1.5 border-t border-slate-200/60">
+                  <span className="font-bold text-slate-900">Seller Net Payout:</span>
+                  <span className="font-black text-emerald-600 text-base">{formatCurrency(selectedBooking.sellerNet ?? selectedBooking.totalPrice)}</span>
+                </div>
               </div>
             </div>
 

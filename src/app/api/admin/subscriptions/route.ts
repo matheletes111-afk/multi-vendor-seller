@@ -140,7 +140,7 @@ export async function GET(request: NextRequest) {
         prisma.hotelSubscription.count({ where: { ...searchWhere, status: "ACTIVE" } }),
         prisma.hotelSubscription.findMany({
           where: searchWhere,
-          select: { plan: { select: { price: true } } },
+          select: { paidPrice: true, plan: { select: { price: true } } },
         }),
         prisma.hotelSubscription.groupBy({ 
           by: ["planId"], 
@@ -198,7 +198,7 @@ export async function GET(request: NextRequest) {
         prisma.restaurantSubscription.count({ where: { ...searchWhere, status: "ACTIVE" } }),
         prisma.restaurantSubscription.findMany({
           where: searchWhere,
-          select: { plan: { select: { price: true } } },
+          select: { paidPrice: true, plan: { select: { price: true } } },
         }),
         prisma.restaurantSubscription.groupBy({ 
           by: ["planId"], 
@@ -257,7 +257,7 @@ export async function GET(request: NextRequest) {
         prisma.subscription.count({ where: { ...searchWhere, status: "ACTIVE" } }),
         prisma.subscription.findMany({
           where: searchWhere,
-          select: { plan: { select: { price: true } } },
+          select: { paidPrice: true, plan: { select: { price: true } } },
         }),
         prisma.subscription.groupBy({ 
           by: ["planId"], 
@@ -291,19 +291,27 @@ export async function GET(request: NextRequest) {
 
     const enrichedSubscriptions = subscriptions.map((s) => {
       const usage = usageMap[s.id]
+      const planSnapshot = (s.planSnapshot as any) || s.plan
+      const catalogPrice = planSnapshot?.price ?? (s.plan?.price || 0)
       let couponDiscount = 0
       if (usage?.coupon) {
         if (usage.coupon.discountType === "PERCENTAGE") {
-          couponDiscount = (s.plan.price * usage.coupon.discountValue) / 100
+          couponDiscount = (catalogPrice * usage.coupon.discountValue) / 100
         } else {
-          couponDiscount = Math.min(usage.coupon.discountValue, s.plan.price)
+          couponDiscount = Math.min(usage.coupon.discountValue, catalogPrice)
         }
       }
+      const finalPaidAmount = s.paidPrice !== null && s.paidPrice !== undefined
+        ? s.paidPrice
+        : Math.max(0, catalogPrice - couponDiscount)
+
       return {
         ...s,
+        catalogPrice,
+        paidPrice: s.paidPrice !== null && s.paidPrice !== undefined ? s.paidPrice : catalogPrice,
         couponCode: usage?.coupon?.code || null,
         couponDiscount,
-        finalPaidAmount: Math.max(0, s.plan.price - couponDiscount)
+        finalPaidAmount,
       }
     })
 
@@ -320,7 +328,10 @@ export async function GET(request: NextRequest) {
       return timeB - timeA
     })
 
-    const totalRevenue = filteredForRevenue.reduce((sum, s) => sum + (s.plan?.price || 0), 0)
+    const totalRevenue = filteredForRevenue.reduce((sum, s) => {
+      const p = s.paidPrice !== null && s.paidPrice !== undefined ? s.paidPrice : (s.plan?.price || 0)
+      return sum + p
+    }, 0)
     const planCountMap = Object.fromEntries(planCounts.map((p: any) => [p.planId, p._count]))
     const planActiveMap = Object.fromEntries(planActiveCounts.map((p: any) => [p.planId, p._count]))
     const totalPages = Math.ceil(totalCount / perPage)

@@ -2,8 +2,7 @@ import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { isRestaurantSeller } from "@/lib/rbac"
-
-import { activateRestaurantFreePlan } from "@/lib/subscriptions"
+import { activateRestaurantFreePlan, getValidRestaurantSubscription } from "@/lib/subscriptions"
 
 export async function GET() {
   try {
@@ -14,25 +13,13 @@ export async function GET() {
 
     const seller = await prisma.restaurantSeller.findUnique({
       where: { userId: session.user.id },
-      include: {
-        subscription: {
-          include: {
-            plan: true,
-          },
-        },
-      },
     })
 
-    let subscription = seller?.subscription || null
+    let subscription = seller ? await getValidRestaurantSubscription(seller.id) : null
 
     if (!subscription && seller) {
-      const newSub = await activateRestaurantFreePlan(seller.id)
-      if (newSub) {
-        subscription = await prisma.restaurantSubscription.findUnique({
-          where: { restaurantSellerId: seller.id },
-          include: { plan: true },
-        })
-      }
+      await activateRestaurantFreePlan(seller.id)
+      subscription = await getValidRestaurantSubscription(seller.id)
     }
 
     let appliedCoupon: any = null

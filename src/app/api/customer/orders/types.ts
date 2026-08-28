@@ -68,11 +68,13 @@ export type CustomerOrderSellerGroupApi = {
     subtotal: number
     tax: number
     shipping: number
+    commission: number
     total: number
   }
   itemStatuses: Record<string, number>
   derivedStatus: string
   itemCount: number
+  activeDeliveryTracking?: any
 }
 
 export type OrderDetailApi = {
@@ -108,4 +110,7 @@ export type OrderDetailApi = {
   items: OrderDetailItemApi[]
   couponCode?: string | null
   couponDiscount?: number
+  deliveryAssignments?: any[]
+  activeDeliveryTracking?: any
+  activeDeliveryTrackings?: any[]
 }

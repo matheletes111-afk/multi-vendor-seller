@@ -2,8 +2,7 @@ import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { isHotelSeller } from "@/lib/rbac"
-
-import { activateHotelFreePlan } from "@/lib/subscriptions"
+import { activateHotelFreePlan, getValidHotelSubscription } from "@/lib/subscriptions"
 
 export async function GET() {
   try {
@@ -14,25 +13,13 @@ export async function GET() {
 
     const seller = await prisma.hotelSeller.findUnique({
       where: { userId: session.user.id },
-      include: {
-        subscription: {
-          include: {
-            plan: true,
-          },
-        },
-      },
     })
 
-    let subscription = seller?.subscription || null
+    let subscription = seller ? await getValidHotelSubscription(seller.id) : null
 
     if (!subscription && seller) {
-      const newSub = await activateHotelFreePlan(seller.id)
-      if (newSub) {
-        subscription = await prisma.hotelSubscription.findUnique({
-          where: { hotelSellerId: seller.id },
-          include: { plan: true },
-        })
-      }
+      await activateHotelFreePlan(seller.id)
+      subscription = await getValidHotelSubscription(seller.id)
     }
 
     let appliedCoupon: any = null

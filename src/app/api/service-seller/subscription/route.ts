@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { isSeller } from "@/lib/rbac"
+import { getValidSubscription, activateFreePlan } from "@/lib/subscriptions"
 
 export async function GET() {
   const session = await auth()
@@ -12,16 +13,16 @@ export async function GET() {
 
   const seller = await prisma.seller.findUnique({
     where: { userId: session.user.id },
-    include: {
-      subscription: {
-        include: {
-          plan: true,
-        },
-      },
-    },
   })
 
-  const subscription = seller?.subscription || null
+  if (!seller) return NextResponse.json(null)
+
+  let subscription = await getValidSubscription(seller.id)
+  if (!subscription) {
+    await activateFreePlan(seller.id)
+    subscription = await getValidSubscription(seller.id)
+  }
+
   if (!subscription) return NextResponse.json(null)
 
   const usage = await prisma.couponUsage.findFirst({
@@ -31,18 +32,19 @@ export async function GET() {
 
   let appliedCoupon: any = null
   if (usage?.coupon) {
+    const planPrice = subscription.plan?.price ?? 0
     let discountAmount = 0
     if (usage.coupon.discountType === "PERCENTAGE") {
-      discountAmount = (subscription.plan.price * usage.coupon.discountValue) / 100
+      discountAmount = (planPrice * usage.coupon.discountValue) / 100
     } else {
-      discountAmount = Math.min(usage.coupon.discountValue, subscription.plan.price)
+      discountAmount = Math.min(usage.coupon.discountValue, planPrice)
     }
     appliedCoupon = {
       code: usage.coupon.code,
       discountType: usage.coupon.discountType,
       discountValue: usage.coupon.discountValue,
       discountAmount,
-      finalPaidAmount: Math.max(0, subscription.plan.price - discountAmount)
+      finalPaidAmount: Math.max(0, planPrice - discountAmount)
     }
   }
 

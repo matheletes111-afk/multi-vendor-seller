@@ -74,17 +74,18 @@ export async function GET() {
     })
   ])
 
-  const grossSales = (revenueAgg._sum.subtotalInclGst ?? 0) + (revenueAgg._sum.shippingAmount ?? 0)
-  const pendingSales = (pendingRevenueAgg._sum.subtotalInclGst ?? 0) + (pendingRevenueAgg._sum.shippingAmount ?? 0)
+  const grossSales = revenueAgg._sum.subtotalInclGst ?? 0
+  const deliveryBoyCharges = revenueAgg._sum.shippingAmount ?? 0
+  const pendingSales = pendingRevenueAgg._sum.subtotalInclGst ?? 0
   const platformCommission = revenueAgg._sum.commissionAmount ?? 0
-  const netEarnings = Math.max(0, grossSales - platformCommission)
+  const netEarnings = Math.max(0, grossSales - platformCommission - deliveryBoyCharges)
   const netBalance = Number(seller.netBalance)
   const balanceCreditsTotal = Number(creditsAgg._sum.amount ?? 0)
   const balanceDebitsTotal = Number(debitsAgg._sum.amount ?? 0)
 
   return NextResponse.json({
     subscription: subscription ? { ...subscription, plan: subscription.plan } : null,
-    commissionRate: seller.commissionRate ?? globalSetting?.baseCommission ?? 0,
+    commissionRate: seller.commissionRate ?? globalSetting?.productBaseCommission ?? globalSetting?.baseCommission ?? 10.0,
     isGlobalRate: seller.commissionRate === null || seller.commissionRate === undefined,
     totalProducts,
     totalOrders,
@@ -96,6 +97,8 @@ export async function GET() {
     grossSalesFormatted: formatCurrency(grossSales),
     platformCommission,
     platformCommissionFormatted: formatCurrency(platformCommission),
+    deliveryBoyCharges,
+    deliveryBoyChargesFormatted: formatCurrency(deliveryBoyCharges),
     netEarnings,
     netEarningsFormatted: formatCurrency(netEarnings),
     netBalance,

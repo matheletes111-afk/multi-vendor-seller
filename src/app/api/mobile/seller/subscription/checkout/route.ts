@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { validateSellerCoupon, recordSellerCouponUsage } from "@/lib/coupons"
+import { createPlanSnapshot } from "@/lib/subscriptions"
 
 export async function POST(request: NextRequest) {
   try {
@@ -46,6 +47,7 @@ export async function POST(request: NextRequest) {
     const finalAmount = Math.max(0, plan.price - discountAmount)
     const now = new Date()
     const periodEnd = new Date(now.getTime() + (plan.duration || 30) * 24 * 60 * 60 * 1000)
+    const snapshot = createPlanSnapshot(plan)
 
     let createdSubId = ""
 
@@ -58,12 +60,16 @@ export async function POST(request: NextRequest) {
         create: {
           hotelSellerId: hotelSeller.id,
           planId: plan.id,
+          paidPrice: finalAmount, // Store actual paid amount (after coupon discount)
+          planSnapshot: snapshot,
           status: "ACTIVE",
           currentPeriodStart: now,
           currentPeriodEnd: periodEnd,
         },
         update: {
           planId: plan.id,
+          paidPrice: finalAmount, // Store actual paid amount (after coupon discount)
+          planSnapshot: snapshot,
           status: "ACTIVE",
           currentPeriodStart: now,
           currentPeriodEnd: periodEnd,
@@ -79,12 +85,16 @@ export async function POST(request: NextRequest) {
         create: {
           restaurantSellerId: restSeller.id,
           planId: plan.id,
+          paidPrice: finalAmount, // Store actual paid amount (after coupon discount)
+          planSnapshot: snapshot,
           status: "ACTIVE",
           currentPeriodStart: now,
           currentPeriodEnd: periodEnd,
         },
         update: {
           planId: plan.id,
+          paidPrice: finalAmount, // Store actual paid amount (after coupon discount)
+          planSnapshot: snapshot,
           status: "ACTIVE",
           currentPeriodStart: now,
           currentPeriodEnd: periodEnd,
@@ -100,12 +110,16 @@ export async function POST(request: NextRequest) {
         create: {
           sellerId: seller.id,
           planId: plan.id,
+          paidPrice: finalAmount, // Store actual paid amount (after coupon discount)
+          planSnapshot: snapshot,
           status: "ACTIVE",
           currentPeriodStart: now,
           currentPeriodEnd: periodEnd,
         },
         update: {
           planId: plan.id,
+          paidPrice: finalAmount, // Store actual paid amount (after coupon discount)
+          planSnapshot: snapshot,
           status: "ACTIVE",
           currentPeriodStart: now,
           currentPeriodEnd: periodEnd,

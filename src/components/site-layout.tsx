@@ -1428,6 +1428,8 @@ export function SiteFooter() {
                   <li><Link href="/service-seller/login" className={linkClass}>Service Seller Login</Link></li>
                   <li><Link href="/hotel-seller/login" className={linkClass}>Hotel Seller Login</Link></li>
                   <li><Link href="/restaurant-seller/login" className={linkClass}>Restaurant Seller Login</Link></li>
+                  <li><Link href="/riderapp/login" className={linkClass}>Rider Portal Login</Link></li>
+                  <li><Link href="/riderapp/registration" className={linkClass}>Become a Delivery Rider</Link></li>
                 </>
               )}
               <li className="mt-1 border-t border-slate-200/50 pt-1.5 dark:border-slate-700/50">

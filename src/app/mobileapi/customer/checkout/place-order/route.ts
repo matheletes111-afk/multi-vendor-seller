@@ -51,7 +51,6 @@ function getItemName(item: CartItemForCheckout): { productName: string | null; s
   return { productName: null, serviceName: null }
 }
 
-const COMMISSION_RATE = 10
 
 /** POST /mobileapi/customer/checkout/place-order — create one order with item-level seller ownership. Auth: Bearer token (customer). */
 export async function POST(request: NextRequest) {
@@ -257,13 +256,30 @@ export async function POST(request: NextRequest) {
 
   const totalAmount = Math.max(0, subtotal + tax + shipping - couponDiscount)
 
+  const sellerIds = Array.from(new Set(normalizedItems.map((r) => r.sellerId).filter(Boolean))) as string[]
+  const sellerRecords = await prisma.seller.findMany({
+    where: { id: { in: sellerIds } },
+    select: { id: true, type: true, commissionRate: true },
+  })
+  const sellerMap = new Map<string, { type: string; commissionRate: number | null }>()
+  for (const s of sellerRecords) {
+    sellerMap.set(s.id, { type: s.type, commissionRate: s.commissionRate })
+  }
+
+  const defaultProductRate = (globalSetting as any)?.productBaseCommission ?? (globalSetting as any)?.baseCommission ?? 10.0
+  const defaultServiceRate = (globalSetting as any)?.serviceBaseCommission ?? (globalSetting as any)?.baseCommission ?? 10.0
+
   let totalOrderCommission = 0
   const itemCommissionData = normalizedItems.map((row, idx) => {
     const lineTotalInclGst = row.item.totalPriceInclGst ?? row.item.totalPrice + row.item.totalGst
     const itemShippingAmount = lineShippingFees[idx]
-    const itemCommissionAmount = (lineTotalInclGst + itemShippingAmount) * (COMMISSION_RATE / 100)
+    const sellerInfo = row.sellerId ? sellerMap.get(row.sellerId) : null
+    const isService = row.item.serviceId != null
+    const fallbackCategoryRate = isService ? defaultServiceRate : defaultProductRate
+    const effectiveRate = sellerInfo?.commissionRate ?? fallbackCategoryRate
+    const itemCommissionAmount = (lineTotalInclGst + itemShippingAmount) * (effectiveRate / 100)
     totalOrderCommission += itemCommissionAmount
-    return { itemShippingAmount, itemCommissionAmount }
+    return { itemShippingAmount, itemCommissionAmount, effectiveRate }
   })
 
   const order = await prisma.$transaction(async (tx) => {
@@ -282,7 +298,7 @@ export async function POST(request: NextRequest) {
         dimensionShippingFee: shippingBreakup.dimensionShippingFee,
         regionShippingFee: shippingBreakup.regionShippingFee,
         commission: totalOrderCommission,
-        commissionRate: COMMISSION_RATE,
+        commissionRate: itemCommissionData.length > 0 ? itemCommissionData[0].effectiveRate : defaultProductRate,
         paymentStatus: "PENDING",
         paymentMethod: "COD",
         shippingFullName: address.fullName,
@@ -336,7 +352,7 @@ export async function POST(request: NextRequest) {
         itemStatus: "PENDING",
         shippingAmount: itemData.itemShippingAmount,
         commissionAmount: itemData.itemCommissionAmount,
-        commissionRateSnapshot: COMMISSION_RATE,
+        commissionRateSnapshot: itemData.effectiveRate,
       },
     })
 

@@ -3,24 +3,29 @@ import { sendEmail } from "./email"
 import { sendSmsViaTwilio, normalizePhoneNumber } from "./twilio-sms"
 
 /**
- * Generates a 6-digit Delivery OTP and sends it to the customer via Email and SMS.
+ * Generates or uses an existing 6-digit Delivery OTP and sends it to the customer via Email and SMS.
  */
 export async function sendDeliveryOtp({
   toEmail,
   toPhone,
   orderNumber,
   customerName,
+  otp: providedOtp,
+  sellerStoreName,
 }: {
   toEmail: string
   toPhone: string | null
   orderNumber: string
   customerName: string | null
+  otp?: string | null
+  sellerStoreName?: string | null
 }) {
-  const otp = randomInt(100000, 999999).toString()
+  const otp = providedOtp?.trim() || randomInt(100000, 999999).toString()
   const expiry = new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 hours
 
-  const subject = `Your order ${orderNumber} is out for delivery`
-  const message = `Your order #${orderNumber} is out for delivery. Share OTP ${otp} with the delivery partner to receive your package.`
+  const storeInfo = sellerStoreName ? ` from ${sellerStoreName}` : ""
+  const subject = `Your package${storeInfo} for Order #${orderNumber} is out for delivery`
+  const message = `Your package${storeInfo} for Order #${orderNumber} is out for delivery. Share OTP ${otp} with the delivery partner to receive your package.`
 
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
@@ -30,7 +35,7 @@ export async function sendDeliveryOtp({
           ${customerName ? `Hi ${customerName},` : "Hi there,"}
         </p>
         <p style="color: #666; line-height: 1.6;">
-          Your order <strong>#${orderNumber}</strong> is out for delivery!
+          Your package${storeInfo} for order <strong>#${orderNumber}</strong> is out for delivery!
         </p>
         <p style="color: #666; line-height: 1.6;">
           Please share the following 6-digit OTP with the delivery partner to receive your package:

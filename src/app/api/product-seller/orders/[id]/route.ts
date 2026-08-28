@@ -25,6 +25,7 @@ import {
 import { applySellerCreditForOrderLineDelivered } from "@/lib/seller-order-line-settlement"
 import { sendDeliveryOtp } from "@/lib/delivery-otp"
 import { calculateShippingBreakup } from "@/lib/shipping-calculator"
+import { triggerOrderAutoDispatch } from "@/lib/delivery-dispatch"
 
 function isValidSellerStatus(s: string): s is PatchOrderStatusPayload["status"] {
   return SELLER_ORDER_STATUSES.includes(s as PatchOrderStatusPayload["status"])
@@ -51,6 +52,22 @@ export async function GET(
       where: { id: orderId, items: { some: { sellerId: seller.id, productId: { not: null } } } },
       include: {
         customer: true,
+        deliveryAssignments: {
+          include: {
+            rider: {
+              include: {
+                user: {
+                  select: {
+                    name: true,
+                    phone: true,
+                    image: true,
+                  },
+                },
+              },
+            },
+          },
+          orderBy: { attemptNumber: "desc" },
+        },
         items: {
           where: { sellerId: seller.id, productId: { not: null } },
           include: {
@@ -184,6 +201,63 @@ export async function GET(
   })
 
   const sellerShippingTotal = order.items.reduce((sum, item) => sum + item.shippingAmount, 0)
+  const sellerCommissionTotal = order.items.reduce((sum, item) => sum + item.commissionAmount, 0)
+  const sellerGrossTotal =
+    order.items.reduce(
+      (sum, item) => sum + (item.subtotalInclGst ?? item.subtotal + item.gstAmount),
+      0
+    ) - sellerCouponDiscount
+  const sellerNetPayout = Math.max(0, sellerGrossTotal - sellerCommissionTotal - sellerShippingTotal)
+
+  const assignments = order.deliveryAssignments || []
+  const activeAssignment = assignments.find((a: any) =>
+    ["OFFERED", "ACCEPTED", "AT_PICKUP", "PICKED_UP", "OUT_FOR_DELIVERY", "DELIVERED"].includes(a.status)
+  )
+
+  let activeDeliveryTracking: any = null
+  if (activeAssignment) {
+    const r = activeAssignment.rider
+    const rUser = r?.user
+    activeDeliveryTracking = {
+      assignmentId: activeAssignment.id,
+      status: activeAssignment.status,
+      dispatchMode: activeAssignment.dispatchMode,
+      distanceKm: activeAssignment.distanceKm,
+      deliveryOtp: activeAssignment.deliveryOtp,
+      deliveryProofImage: activeAssignment.deliveryProofImage,
+      rider: {
+        id: r?.id,
+        name: rUser?.name || "Delivery Rider",
+        phone: rUser?.phone || null,
+        image: rUser?.image || r?.profileImage || null,
+        vehicleNumber: r?.vehicleNumber || null,
+        vehicleTypes: r?.vehicleTypes || [],
+        isOnline: r?.isOnline ?? true,
+      },
+      currentLocation: {
+        latitude: r?.currentLatitude || activeAssignment.riderLatitudeAtOffer || null,
+        longitude: r?.currentLongitude || activeAssignment.riderLongitudeAtOffer || null,
+        heading: r?.heading || 0,
+        speed: r?.speed || 0,
+        lastLocationUpdate: r?.lastLocationUpdate ? r.lastLocationUpdate.toISOString() : null,
+      },
+      pickupLocation: {
+        latitude: activeAssignment.sellerLatitude || null,
+        longitude: activeAssignment.sellerLongitude || null,
+      },
+      destinationLocation: {
+        fullName: order.shippingFullName,
+        phone: order.shippingPhone,
+        addressLine1: order.shippingAddressLine1,
+        addressLine2: order.shippingAddressLine2,
+        city: order.shippingCity,
+        state: order.shippingState,
+        postalCode: order.shippingPostalCode,
+        country: order.shippingCountry,
+      },
+      socketRoom: `order:${order.id}`,
+    }
+  }
 
   const body: SellerOrderDetailApi = {
     id: order.id,
@@ -194,6 +268,9 @@ export async function GET(
     subtotal: sellerSubtotal,
     tax: order.items.reduce((sum, item) => sum + item.gstAmount, 0),
     shipping: sellerShippingTotal,
+    deliveryBoyCharges: sellerShippingTotal,
+    sellerNet: sellerNetPayout,
+    netEarnings: sellerNetPayout,
     weightShippingFee: sellerShippingBreakup.weightShippingFee,
     dimensionShippingFee: sellerShippingBreakup.dimensionShippingFee,
     regionShippingFee: sellerShippingBreakup.regionShippingFee,
@@ -203,7 +280,7 @@ export async function GET(
       regionShippingFee: sellerShippingBreakup.regionShippingFee,
       totalShippingFee: sellerShippingTotal,
     },
-    commission: order.items.reduce((sum, item) => sum + item.commissionAmount, 0),
+    commission: sellerCommissionTotal,
     commissionRate: order.commissionRate,
     paymentMethod: order.paymentMethod,
     paymentStatus: order.paymentStatus,
@@ -223,6 +300,8 @@ export async function GET(
     items,
     couponCode: order.couponCode,
     couponDiscount: sellerCouponDiscount,
+    deliveryAssignments: order.deliveryAssignments,
+    activeDeliveryTracking,
   }
   return NextResponse.json(body)
 }
@@ -413,6 +492,13 @@ export async function PATCH(
     }
   } catch (emailErr) {
     console.error("Failed to send status update email:", emailErr)
+  }
+
+  // Auto-dispatch delivery rider when seller confirms or processes order
+  if (status === "CONFIRMED" || status === "PROCESSING" || status === "SHIPPED") {
+    triggerOrderAutoDispatch(orderId, seller.id).catch((err) =>
+      console.error("[AutoDispatch] Trigger failed:", err?.message || err)
+    )
   }
 
   return NextResponse.json({ success: true, status, updatedItemIds: targetItemIds })

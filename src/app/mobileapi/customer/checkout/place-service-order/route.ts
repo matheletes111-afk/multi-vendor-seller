@@ -9,7 +9,6 @@ import { validateCoupon } from "@/lib/coupons"
 
 export const dynamic = "force-dynamic"
 
-const COMMISSION_RATE = 10
 const GST_RATE = 0.15
 
 type SuccessResponse = {
@@ -139,8 +138,18 @@ export async function POST(request: NextRequest) {
     couponDiscount = validationResult.discountAmount || 0
   }
 
+  const [globalSetting, sellerRecord] = await Promise.all([
+    prisma.globalSetting.findFirst(),
+    service.sellerId ? prisma.seller.findUnique({ where: { id: service.sellerId }, select: { commissionRate: true } }) : null,
+  ])
+  const effectiveCommissionRate =
+    sellerRecord?.commissionRate ??
+    (globalSetting as any)?.serviceBaseCommission ??
+    (globalSetting as any)?.baseCommission ??
+    10.0
+
   const totalAmount = Math.max(0, subtotal + totalGst - couponDiscount)
-  const commission = totalAmount * (COMMISSION_RATE / 100)
+  const commission = totalAmount * (effectiveCommissionRate / 100)
 
   const order = await prisma.$transaction(async (tx) => {
     const orderNumber = await allocateNextOrderNumberTx(tx)
@@ -155,7 +164,7 @@ export async function POST(request: NextRequest) {
         tax: totalGst,
         shipping: 0,
         commission,
-        commissionRate: COMMISSION_RATE,
+        commissionRate: effectiveCommissionRate,
         paymentStatus: "PENDING",
         paymentMethod: "COD",
         shippingFullName: address.fullName,
@@ -203,7 +212,7 @@ export async function POST(request: NextRequest) {
       itemStatus: "PENDING",
       shippingAmount: 0,
       commissionAmount: commission,
-      commissionRateSnapshot: COMMISSION_RATE,
+      commissionRateSnapshot: effectiveCommissionRate,
     },
   })
 

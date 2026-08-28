@@ -24,9 +24,10 @@ const ROLE_DEFAULT_NEXT: Record<UserRole, string> = {
   [UserRole.SELLER_HOTEL]: "/hotel-seller",
   [UserRole.SELLER_RESTAURANT]: "/restaurant-seller",
   [UserRole.ADMIN]: "/admin",
+  [UserRole.RIDER]: "/riderapp",
 }
 
-const ALLOWED_NEXT_PREFIXES = ["/customer", "/product-seller", "/service-seller", "/hotel-seller", "/restaurant-seller", "/admin", "/dashboard", "/"]
+const ALLOWED_NEXT_PREFIXES = ["/customer", "/product-seller", "/service-seller", "/hotel-seller", "/restaurant-seller", "/riderapp", "/admin", "/dashboard", "/"]
 
 function isAllowedNextPath(next: string) {
   if (!next || typeof next !== "string") return false

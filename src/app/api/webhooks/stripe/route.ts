@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server"
 import { stripe } from "@/lib/stripe"
 import { prisma } from "@/lib/prisma"
 import { headers } from "next/headers"
+import { createPlanSnapshot } from "@/lib/subscriptions"
+import { recordSellerCouponUsage } from "@/lib/coupons"
 
 export async function POST(request: NextRequest) {
   const body = await request.text()
@@ -33,10 +35,29 @@ export async function POST(request: NextRequest) {
         if (metadata?.sellerId && metadata?.planId) {
           // Handle subscription creation
           const subscription = await stripe.subscriptions.retrieve(session.subscription)
+          const plan = await prisma.plan.findUnique({ where: { id: metadata.planId } })
+          const snapshot = plan ? createPlanSnapshot(plan) : undefined
 
-          await prisma.subscription.upsert({
+          let paidPrice = plan?.price ?? 0
+          if (metadata.couponId) {
+            const coupon = await prisma.coupon.findUnique({ where: { id: metadata.couponId } })
+            if (coupon && plan) {
+              let discountAmount = 0
+              if (coupon.discountType === "PERCENTAGE") {
+                discountAmount = (plan.price * coupon.discountValue) / 100
+              } else {
+                discountAmount = Math.min(coupon.discountValue, plan.price)
+              }
+              paidPrice = Math.max(0, plan.price - discountAmount)
+            }
+          }
+
+          const sub = await prisma.subscription.upsert({
             where: { sellerId: metadata.sellerId },
             update: {
+              planId: metadata.planId,
+              paidPrice,
+              planSnapshot: snapshot,
               status: subscription.status === "active" ? "ACTIVE" : "TRIALING",
               stripeCustomerId: subscription.customer as string,
               stripeSubscriptionId: subscription.id,
@@ -47,6 +68,8 @@ export async function POST(request: NextRequest) {
             create: {
               sellerId: metadata.sellerId,
               planId: metadata.planId,
+              paidPrice,
+              planSnapshot: snapshot,
               status: subscription.status === "active" ? "ACTIVE" : "TRIALING",
               stripeCustomerId: subscription.customer as string,
               stripeSubscriptionId: subscription.id,
@@ -55,6 +78,17 @@ export async function POST(request: NextRequest) {
               currentPeriodEnd: new Date(subscription.current_period_end * 1000),
             },
           })
+
+          if (metadata.couponId) {
+            const seller = await prisma.seller.findUnique({ where: { id: metadata.sellerId } })
+            if (seller) {
+              await recordSellerCouponUsage({
+                couponId: metadata.couponId,
+                userId: seller.userId,
+                subscriptionId: sub.id
+              })
+            }
+          }
         }
         break
       }

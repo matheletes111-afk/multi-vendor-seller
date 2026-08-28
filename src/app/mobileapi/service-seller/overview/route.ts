@@ -109,12 +109,17 @@ export async function GET(request: NextRequest) {
 
     const netBalance = Number(seller.netBalance)
 
+    const activeCommissionRate = seller.commissionRate ?? globalSetting?.serviceBaseCommission ?? globalSetting?.baseCommission ?? 10.0
+    const isGlobalRate = seller.commissionRate === null || seller.commissionRate === undefined
+
     return NextResponse.json({
       success: true,
       data: {
+        commissionRate: activeCommissionRate,
+        isGlobalRate,
         stats: {
-          commissionRate: seller.commissionRate ?? globalSetting?.baseCommission ?? 0,
-          isGlobalRate: seller.commissionRate === null || seller.commissionRate === undefined,
+          commissionRate: activeCommissionRate,
+          isGlobalRate,
           totalServices,
           totalOrders,
           sellerGrossTotal,

@@ -5,6 +5,7 @@ import { isServiceSeller } from "@/lib/rbac"
 import { createSubscriptionSession } from "@/lib/stripe"
 import { SubscriptionPlan, SubscriptionStatus } from "@prisma/client"
 import { validateSellerCoupon, recordSellerCouponUsage } from "@/lib/coupons"
+import { createPlanSnapshot } from "@/lib/subscriptions"
 
 export async function POST(request: NextRequest) {
   const session = await auth()
@@ -40,6 +41,7 @@ export async function POST(request: NextRequest) {
   if (!plan) return NextResponse.json({ error: "Plan not found" }, { status: 404 })
 
   let appliedCoupon: any = null
+  let discountAmount = 0
   if (couponCode && couponCode.trim()) {
     const couponValidation = await validateSellerCoupon({
       code: couponCode.trim(),
@@ -50,18 +52,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: couponValidation.error }, { status: 400 })
     }
     appliedCoupon = couponValidation.coupon
+    discountAmount = couponValidation.discountAmount || 0
   }
 
+  const finalPaidPrice = Math.max(0, plan.price - discountAmount)
   const testMode = body.test === true
   const now = new Date()
   const durationDays = plan.duration || 30
   const currentPeriodEnd = new Date(now.getTime() + durationDays * 24 * 60 * 60 * 1000)
+  const snapshot = createPlanSnapshot(plan)
 
   if (testMode) {
     const sub = await prisma.subscription.upsert({
       where: { sellerId: seller.id },
       update: {
         planId: plan.id,
+        paidPrice: finalPaidPrice,
+        planSnapshot: snapshot,
         status: SubscriptionStatus.ACTIVE,
         currentPeriodStart: now,
         currentPeriodEnd,
@@ -70,6 +77,8 @@ export async function POST(request: NextRequest) {
       create: {
         sellerId: seller.id,
         planId: plan.id,
+        paidPrice: finalPaidPrice,
+        planSnapshot: snapshot,
         status: SubscriptionStatus.ACTIVE,
         currentPeriodStart: now,
         currentPeriodEnd,

@@ -7,9 +7,9 @@ import { LegalPolicyTabContent } from "@/components/legal/legal-policy-tab-conte
 import { Trash2, ArrowRight } from "lucide-react"
 import Link from "next/link"
 
-export function TermsClient() {
+export function TermsClient({ defaultSlug }: { defaultSlug?: string } = {}) {
   const searchParams = useSearchParams()
-  const docSlug = searchParams.get("doc") || undefined
+  const docSlug = searchParams.get("doc") || defaultSlug || undefined
   const isEmbed = searchParams.get("embed") === "true"
 
   const content = (

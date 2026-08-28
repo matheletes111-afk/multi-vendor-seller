@@ -101,4 +101,9 @@ export type SellerOrderDetailApi = {
   items: SellerOrderDetailItemApi[]
   couponCode?: string | null
   couponDiscount?: number
+  deliveryAssignments?: any[]
+  deliveryBoyCharges?: number
+  sellerNet?: number
+  netEarnings?: number
+  activeDeliveryTracking?: any
 }

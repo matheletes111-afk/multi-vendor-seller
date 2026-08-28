@@ -13,10 +13,21 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
 
-  const seller = await prisma.seller.findUnique({
-    where: { userId: authStatus.userId },
-    select: { id: true },
-  })
+  const [seller, globalSetting] = await Promise.all([
+    prisma.seller.findUnique({
+      where: { userId: authStatus.userId },
+      select: { id: true, commissionRate: true },
+    }),
+    (prisma as any).globalSetting.findFirst({
+      select: { baseCommission: true, productBaseCommission: true },
+    }) as Promise<{ baseCommission?: number; productBaseCommission?: number } | null>,
+  ])
+
+  const commissionRate =
+    (seller as any)?.commissionRate ??
+    (globalSetting as any)?.productBaseCommission ??
+    (globalSetting as any)?.baseCommission ??
+    10.0
 
   if (!seller) {
     return NextResponse.json({ error: "Seller not found" }, { status: 404 })
@@ -131,11 +142,17 @@ export async function GET(request: NextRequest) {
     if (order.couponDiscount && order.subtotal > 0) {
       sellerCouponDiscount = Number(((order.couponDiscount * sellerSubtotal) / order.subtotal).toFixed(2))
     }
+    const grossAmount = Math.max(0, sellerItems.reduce((sum, item) => sum + (item.subtotalInclGst ?? item.subtotal + item.gstAmount) + item.shippingAmount, 0) - sellerCouponDiscount)
+    const commissionAmount = Math.round(grossAmount * (commissionRate / 100) * 100) / 100
+    const sellerNet = Math.max(0, Math.round((grossAmount - commissionAmount) * 100) / 100)
     return {
       id: order.id,
       orderNumber: order.orderNumber,
       status: deriveOrderStatus(sellerItems.map((item) => item.itemStatus)),
-      totalAmount: Math.max(0, sellerItems.reduce((sum, item) => sum + (item.subtotalInclGst ?? item.subtotal + item.gstAmount) + item.shippingAmount, 0) - sellerCouponDiscount),
+      totalAmount: grossAmount,
+      commissionRate,
+      commissionAmount,
+      sellerNet,
       subtotal: sellerSubtotal,
       tax: sellerItems.reduce((sum, item) => sum + item.gstAmount, 0),
       shipping: sellerItems.reduce((sum, item) => sum + item.shippingAmount, 0),
@@ -163,6 +180,7 @@ export async function GET(request: NextRequest) {
 
   return NextResponse.json({
     orders: serialized,
+    commissionRate,
     totalCount,
     totalPages,
     page,

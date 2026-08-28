@@ -42,6 +42,22 @@ export async function GET(
     include: {
       customer: { select: { name: true, email: true, phone: true, phoneCountryCode: true } },
       seller: { include: { store: { select: { name: true } } } },
+      deliveryAssignments: {
+        include: {
+          rider: {
+            include: {
+              user: {
+                select: {
+                  name: true,
+                  phone: true,
+                  image: true,
+                },
+              },
+            },
+          },
+        },
+        orderBy: { attemptNumber: "desc" },
+      },
       items: {
         include: {
           seller: { include: { store: { select: { name: true } }, user: { select: { name: true, email: true, phone: true, phoneCountryCode: true } } } },
@@ -223,6 +239,16 @@ export async function GET(
       totalShippingFee: order.shipping,
     },
     commission: order.items.reduce((sum, item) => sum + item.commissionAmount, 0),
+    // Delivery boy charges = shipping on product items only (not services/hotels/restaurants)
+    deliveryBoyCharges: order.items
+      .filter((item) => item.productId != null)
+      .reduce((sum, item) => sum + item.shippingAmount, 0),
+    sellerNetPayout: Math.max(
+      0,
+      order.items.reduce((sum, item) => sum + (item.subtotalInclGst ?? item.subtotal + item.gstAmount), 0) -
+      order.items.reduce((sum, item) => sum + item.commissionAmount, 0) -
+      order.items.filter((item) => item.productId != null).reduce((sum, item) => sum + item.shippingAmount, 0)
+    ),
     commissionRate: order.commissionRate,
     paymentMethod: order.paymentMethod,
     paymentStatus: order.paymentStatus,
@@ -244,6 +270,7 @@ export async function GET(
     items,
     couponCode: order.couponCode,
     couponDiscount: order.couponDiscount,
+    deliveryAssignments: order.deliveryAssignments,
   }
   return NextResponse.json(body)
 }

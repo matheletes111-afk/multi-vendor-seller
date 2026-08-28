@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useSearchParams } from "next/navigation"
-import { Eye, EyeOff, User, Mail, Phone, Lock, ShieldCheck, Globe, Smartphone, Plus, Trash2, Ban, X, Box, Search, ChevronLeft, ChevronRight, Filter, Scale, Settings as SettingsIcon } from "lucide-react"
+import { Eye, EyeOff, User, Mail, Phone, Lock, ShieldCheck, Globe, Smartphone, Plus, Trash2, Ban, X, Box, Search, ChevronLeft, ChevronRight, Filter, Scale, Settings as SettingsIcon, Percent, ShoppingBag, UtensilsCrossed, Building2, Wrench } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/ui/card"
 import { Button } from "@/ui/button"
 import { Input } from "@/ui/input"
@@ -28,6 +28,10 @@ type AdminProfile = {
   globalSettings?: {
     id: string
     baseCommission: number
+    productBaseCommission?: number
+    restaurantBaseCommission?: number
+    hotelBaseCommission?: number
+    serviceBaseCommission?: number
     deliveryChargeRanges?: {
       minWeight: number
       maxWeight: number
@@ -59,6 +63,11 @@ export function AdminSettingsClient() {
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [showCurrentPassword, setShowCurrentPassword] = useState(false)
+  const [baseCommission, setBaseCommission] = useState<string>("10.0")
+  const [productBaseCommission, setProductBaseCommission] = useState<string>("10.0")
+  const [restaurantBaseCommission, setRestaurantBaseCommission] = useState<string>("10.0")
+  const [hotelBaseCommission, setHotelBaseCommission] = useState<string>("10.0")
+  const [serviceBaseCommission, setServiceBaseCommission] = useState<string>("10.0")
   const [ranges, setRanges] = useState<{ minWeight: string; maxWeight: string; charge: string }[]>([])
   const [dimensionRanges, setDimensionRanges] = useState<{ minDimension: string; maxDimension: string; charge: string }[]>([])
   const [regionCharges, setRegionCharges] = useState<{ region: string; charge: string }[]>([])
@@ -87,6 +96,16 @@ export function AdminSettingsClient() {
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
         setUser(data)
+        if (data?.globalSettings) {
+          const gs = data.globalSettings
+          if (gs.baseCommission !== undefined && gs.baseCommission !== null) {
+            setBaseCommission(String(gs.baseCommission))
+          }
+          setProductBaseCommission(String(gs.productBaseCommission ?? gs.baseCommission ?? 10.0))
+          setRestaurantBaseCommission(String(gs.restaurantBaseCommission ?? gs.baseCommission ?? 10.0))
+          setHotelBaseCommission(String(gs.hotelBaseCommission ?? gs.baseCommission ?? 10.0))
+          setServiceBaseCommission(String(gs.serviceBaseCommission ?? gs.baseCommission ?? 10.0))
+        }
         if (data?.globalSettings?.deliveryChargeRanges) {
           const loadedRanges = data.globalSettings.deliveryChargeRanges.map((r: any) => ({
             minWeight: String(r.minWeight),
@@ -322,6 +341,36 @@ export function AdminSettingsClient() {
     const form = e.currentTarget
     const fd = new FormData(form)
 
+    const baseCommParsed = parseFloat(baseCommission)
+    if (isNaN(baseCommParsed) || baseCommParsed < 0 || baseCommParsed > 100) {
+      setError("Platform Base Commission fallback must be a valid percentage between 0% and 100%.")
+      return
+    }
+
+    const prodCommParsed = parseFloat(productBaseCommission)
+    if (isNaN(prodCommParsed) || prodCommParsed < 0 || prodCommParsed > 100) {
+      setError("Product Sellers Base Commission must be a valid percentage between 0% and 100%.")
+      return
+    }
+
+    const restCommParsed = parseFloat(restaurantBaseCommission)
+    if (isNaN(restCommParsed) || restCommParsed < 0 || restCommParsed > 100) {
+      setError("Restaurant Sellers Base Commission must be a valid percentage between 0% and 100%.")
+      return
+    }
+
+    const hotelCommParsed = parseFloat(hotelBaseCommission)
+    if (isNaN(hotelCommParsed) || hotelCommParsed < 0 || hotelCommParsed > 100) {
+      setError("Hotel Sellers Base Commission must be a valid percentage between 0% and 100%.")
+      return
+    }
+
+    const svcCommParsed = parseFloat(serviceBaseCommission)
+    if (isNaN(svcCommParsed) || svcCommParsed < 0 || svcCommParsed > 100) {
+      setError("Service Sellers Base Commission must be a valid percentage between 0% and 100%.")
+      return
+    }
+
     const validation = validateClientRanges(ranges)
     if (!validation.valid) {
       setError(validation.error)
@@ -339,6 +388,12 @@ export function AdminSettingsClient() {
       setError(regValidation.error)
       return
     }
+
+    fd.set("baseCommission", String(baseCommParsed))
+    fd.set("productBaseCommission", String(prodCommParsed))
+    fd.set("restaurantBaseCommission", String(restCommParsed))
+    fd.set("hotelBaseCommission", String(hotelCommParsed))
+    fd.set("serviceBaseCommission", String(svcCommParsed))
 
     fd.append("deliveryChargeRanges", JSON.stringify(ranges.map(r => ({
       minWeight: parseFloat(r.minWeight),
@@ -531,7 +586,294 @@ export function AdminSettingsClient() {
                 </div>
               </div>
             </CardContent>
-          </Card>          {/* Delivery Charges Calculation Logic Explainer Banner */}
+          </Card>
+
+          {/* Platform Category Base Commission Rates Header & Grid */}
+          <div className="space-y-6">
+            <div className="rounded-[2.5rem] bg-gradient-to-r from-amber-600 via-orange-600 to-rose-600 p-8 text-white shadow-2xl space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="p-3 bg-white/20 rounded-2xl backdrop-blur-md border border-white/30">
+                  <Percent className="h-6 w-6 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold tracking-tight">Platform Base Commission by Seller Type</h3>
+                  <p className="text-xs text-white/80 font-medium mt-0.5">
+                    Configure separate default commission rates for Product, Restaurant, Hotel, and Service sellers.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid gap-6 md:grid-cols-2">
+              {/* 1. Product Sellers Base Commission */}
+              <Card className="border-none shadow-xl overflow-hidden rounded-[2rem] bg-gradient-to-br from-background via-background to-amber-500/5 border-l-4 border-amber-500">
+                <CardHeader className="pb-4 border-b border-muted/30">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2.5 bg-amber-500/10 rounded-xl">
+                        <ShoppingBag className="h-5 w-5 text-amber-600" />
+                      </div>
+                      <div>
+                        <CardTitle className="text-base font-bold text-slate-900 dark:text-slate-100">1. Product Sellers</CardTitle>
+                        <CardDescription className="text-[11px] text-muted-foreground">Marketplace products & physical retail goods</CardDescription>
+                      </div>
+                    </div>
+                    <Badge variant="outline" className="bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/20 font-bold text-[10px]">
+                      Active: {productBaseCommission || "0"}%
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-6 space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="productBaseCommission" className="text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground flex items-center justify-between">
+                      <span>Default Commission Rate</span>
+                      <span className="text-amber-600 font-mono text-[9px] font-bold">0.0% – 100.0%</span>
+                    </Label>
+                    <div className="relative">
+                      <div className="absolute left-4 top-1/2 -translate-y-1/2 text-amber-600 font-extrabold text-sm pointer-events-none">%</div>
+                      <Input
+                        id="productBaseCommission"
+                        name="productBaseCommission"
+                        type="number"
+                        step="0.1"
+                        min="0"
+                        max="100"
+                        placeholder="10.0"
+                        value={productBaseCommission}
+                        onChange={(e) => setProductBaseCommission(e.target.value)}
+                        className="pl-11 h-11 border-muted bg-background rounded-xl font-bold text-sm text-amber-700 dark:text-amber-300 focus-visible:ring-amber-500 shadow-inner"
+                        required
+                      />
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                    <span className="text-[9px] text-muted-foreground font-semibold">Presets:</span>
+                    {["0", "5", "10", "12.5", "15", "20"].map((preset) => (
+                      <button
+                        key={preset}
+                        type="button"
+                        onClick={() => setProductBaseCommission(preset)}
+                        className={cn(
+                          "px-2 py-0.5 text-[10px] font-bold rounded-lg border transition-all",
+                          productBaseCommission === preset
+                            ? "bg-amber-500 text-white border-amber-500 shadow-xs"
+                            : "bg-background border-muted text-muted-foreground hover:border-amber-500 hover:text-amber-700"
+                        )}
+                      >
+                        {preset}%
+                      </button>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* 2. Restaurant Sellers Base Commission */}
+              <Card className="border-none shadow-xl overflow-hidden rounded-[2rem] bg-gradient-to-br from-background via-background to-rose-500/5 border-l-4 border-rose-500">
+                <CardHeader className="pb-4 border-b border-muted/30">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2.5 bg-rose-500/10 rounded-xl">
+                        <UtensilsCrossed className="h-5 w-5 text-rose-600" />
+                      </div>
+                      <div>
+                        <CardTitle className="text-base font-bold text-slate-900 dark:text-slate-100">2. Restaurant Sellers</CardTitle>
+                        <CardDescription className="text-[11px] text-muted-foreground">Food orders, takeaway & restaurant delivery</CardDescription>
+                      </div>
+                    </div>
+                    <Badge variant="outline" className="bg-rose-500/10 text-rose-700 dark:text-rose-300 border-rose-500/20 font-bold text-[10px]">
+                      Active: {restaurantBaseCommission || "0"}%
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-6 space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="restaurantBaseCommission" className="text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground flex items-center justify-between">
+                      <span>Default Commission Rate</span>
+                      <span className="text-rose-600 font-mono text-[9px] font-bold">0.0% – 100.0%</span>
+                    </Label>
+                    <div className="relative">
+                      <div className="absolute left-4 top-1/2 -translate-y-1/2 text-rose-600 font-extrabold text-sm pointer-events-none">%</div>
+                      <Input
+                        id="restaurantBaseCommission"
+                        name="restaurantBaseCommission"
+                        type="number"
+                        step="0.1"
+                        min="0"
+                        max="100"
+                        placeholder="10.0"
+                        value={restaurantBaseCommission}
+                        onChange={(e) => setRestaurantBaseCommission(e.target.value)}
+                        className="pl-11 h-11 border-muted bg-background rounded-xl font-bold text-sm text-rose-700 dark:text-rose-300 focus-visible:ring-rose-500 shadow-inner"
+                        required
+                      />
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                    <span className="text-[9px] text-muted-foreground font-semibold">Presets:</span>
+                    {["0", "5", "10", "12.5", "15", "20"].map((preset) => (
+                      <button
+                        key={preset}
+                        type="button"
+                        onClick={() => setRestaurantBaseCommission(preset)}
+                        className={cn(
+                          "px-2 py-0.5 text-[10px] font-bold rounded-lg border transition-all",
+                          restaurantBaseCommission === preset
+                            ? "bg-rose-500 text-white border-rose-500 shadow-xs"
+                            : "bg-background border-muted text-muted-foreground hover:border-rose-500 hover:text-rose-700"
+                        )}
+                      >
+                        {preset}%
+                      </button>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* 3. Hotel Sellers Base Commission */}
+              <Card className="border-none shadow-xl overflow-hidden rounded-[2rem] bg-gradient-to-br from-background via-background to-blue-500/5 border-l-4 border-blue-500">
+                <CardHeader className="pb-4 border-b border-muted/30">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2.5 bg-blue-500/10 rounded-xl">
+                        <Building2 className="h-5 w-5 text-blue-600" />
+                      </div>
+                      <div>
+                        <CardTitle className="text-base font-bold text-slate-900 dark:text-slate-100">3. Hotel Sellers</CardTitle>
+                        <CardDescription className="text-[11px] text-muted-foreground">Hotel room bookings & lodging reservations</CardDescription>
+                      </div>
+                    </div>
+                    <Badge variant="outline" className="bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-500/20 font-bold text-[10px]">
+                      Active: {hotelBaseCommission || "0"}%
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-6 space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="hotelBaseCommission" className="text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground flex items-center justify-between">
+                      <span>Default Commission Rate</span>
+                      <span className="text-blue-600 font-mono text-[9px] font-bold">0.0% – 100.0%</span>
+                    </Label>
+                    <div className="relative">
+                      <div className="absolute left-4 top-1/2 -translate-y-1/2 text-blue-600 font-extrabold text-sm pointer-events-none">%</div>
+                      <Input
+                        id="hotelBaseCommission"
+                        name="hotelBaseCommission"
+                        type="number"
+                        step="0.1"
+                        min="0"
+                        max="100"
+                        placeholder="10.0"
+                        value={hotelBaseCommission}
+                        onChange={(e) => setHotelBaseCommission(e.target.value)}
+                        className="pl-11 h-11 border-muted bg-background rounded-xl font-bold text-sm text-blue-700 dark:text-blue-300 focus-visible:ring-blue-500 shadow-inner"
+                        required
+                      />
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                    <span className="text-[9px] text-muted-foreground font-semibold">Presets:</span>
+                    {["0", "5", "10", "12.5", "15", "20"].map((preset) => (
+                      <button
+                        key={preset}
+                        type="button"
+                        onClick={() => setHotelBaseCommission(preset)}
+                        className={cn(
+                          "px-2 py-0.5 text-[10px] font-bold rounded-lg border transition-all",
+                          hotelBaseCommission === preset
+                            ? "bg-blue-500 text-white border-blue-500 shadow-xs"
+                            : "bg-background border-muted text-muted-foreground hover:border-blue-500 hover:text-blue-700"
+                        )}
+                      >
+                        {preset}%
+                      </button>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* 4. Service Sellers Base Commission */}
+              <Card className="border-none shadow-xl overflow-hidden rounded-[2rem] bg-gradient-to-br from-background via-background to-purple-500/5 border-l-4 border-purple-500">
+                <CardHeader className="pb-4 border-b border-muted/30">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2.5 bg-purple-500/10 rounded-xl">
+                        <Wrench className="h-5 w-5 text-purple-600" />
+                      </div>
+                      <div>
+                        <CardTitle className="text-base font-bold text-slate-900 dark:text-slate-100">4. Service Sellers</CardTitle>
+                        <CardDescription className="text-[11px] text-muted-foreground">Appointments, hourly gigs & fixed services</CardDescription>
+                      </div>
+                    </div>
+                    <Badge variant="outline" className="bg-purple-500/10 text-purple-700 dark:text-purple-300 border-purple-500/20 font-bold text-[10px]">
+                      Active: {serviceBaseCommission || "0"}%
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-6 space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="serviceBaseCommission" className="text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground flex items-center justify-between">
+                      <span>Default Commission Rate</span>
+                      <span className="text-purple-600 font-mono text-[9px] font-bold">0.0% – 100.0%</span>
+                    </Label>
+                    <div className="relative">
+                      <div className="absolute left-4 top-1/2 -translate-y-1/2 text-purple-600 font-extrabold text-sm pointer-events-none">%</div>
+                      <Input
+                        id="serviceBaseCommission"
+                        name="serviceBaseCommission"
+                        type="number"
+                        step="0.1"
+                        min="0"
+                        max="100"
+                        placeholder="10.0"
+                        value={serviceBaseCommission}
+                        onChange={(e) => setServiceBaseCommission(e.target.value)}
+                        className="pl-11 h-11 border-muted bg-background rounded-xl font-bold text-sm text-purple-700 dark:text-purple-300 focus-visible:ring-purple-500 shadow-inner"
+                        required
+                      />
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                    <span className="text-[9px] text-muted-foreground font-semibold">Presets:</span>
+                    {["0", "5", "10", "12.5", "15", "20"].map((preset) => (
+                      <button
+                        key={preset}
+                        type="button"
+                        onClick={() => setServiceBaseCommission(preset)}
+                        className={cn(
+                          "px-2 py-0.5 text-[10px] font-bold rounded-lg border transition-all",
+                          serviceBaseCommission === preset
+                            ? "bg-purple-500 text-white border-purple-500 shadow-xs"
+                            : "bg-background border-muted text-muted-foreground hover:border-purple-500 hover:text-purple-700"
+                        )}
+                      >
+                        {preset}%
+                      </button>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Commission Hierarchy Info Card */}
+            <div className="p-6 rounded-[2rem] bg-amber-500/10 border border-amber-500/20 space-y-2">
+              <h4 className="text-xs font-bold text-amber-900 dark:text-amber-200 flex items-center gap-1.5">
+                <span>⚙️</span> How 4-Tier Commission Hierarchy Works
+              </h4>
+              <ul className="text-[11px] text-amber-950/80 dark:text-amber-200/80 space-y-1.5 leading-relaxed font-medium list-disc list-inside">
+                <li>
+                  <strong>Individual Seller Override:</strong> If you assign a specific rate on a seller profile in Admin Sellers list, that custom rate overrides the category base rate.
+                </li>
+                <li>
+                  <strong>Category Base Rate:</strong> If a seller doesn&apos;t have an individual custom rate set, the corresponding category base commission above (Product: <strong>{productBaseCommission || "0"}%</strong>, Restaurant: <strong>{restaurantBaseCommission || "0"}%</strong>, Hotel: <strong>{hotelBaseCommission || "0"}%</strong>, Service: <strong>{serviceBaseCommission || "0"}%</strong>) automatically applies.
+                </li>
+                <li>
+                  <strong>Order Snapshots:</strong> Each created order / booking records a snapshot of the effective commission rate at checkout time.
+                </li>
+              </ul>
+            </div>
+          </div>
+
+          {/* Delivery Charges Calculation Logic Explainer Banner */}
           <div className="rounded-[2.5rem] bg-gradient-to-r from-blue-600 via-indigo-600 to-teal-600 p-8 text-white shadow-2xl space-y-4">
             <div className="flex items-center gap-3">
               <div className="p-3 bg-white/20 rounded-2xl backdrop-blur-md border border-white/30">

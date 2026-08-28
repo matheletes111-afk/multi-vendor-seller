@@ -4,6 +4,12 @@
 
 1. API OVERVIEW (TOTAL 10 DOCUMENTS)
 --------------------------------------------------------------------------------
+NOTE FOR MOBILE DEVELOPERS: ZERO CODE CHANGES REQUIRED!
+The backend automatically injects the live Admin-configured 4-tier category base
+commission rates and fallback guarantees directly into the existing `content` (HTML)
+and `rawText` (plain text) fields. Your existing WebViews and HtmlWidgets will
+instantly display the updated, dynamic terms and conditions out-of-the-box.
+
 All 10 legal and policy documents (2 from website footer + 8 from `terms/` folder)
 are available through dedicated endpoints and through a universal dynamic endpoint:
 
@@ -122,13 +128,19 @@ Endpoint: GET /mobileapi/legal/:slug   (or any dedicated endpoint)
 HTTP 200 OK:
 {
   "success": true,
-  "id": "vendor-agreement",
-  "slug": "vendor-agreement",
-  "title": "MEEEM Vendor (Seller) & Service Provider Agreement",
-  "source": "MEEEM Vendor (Seller) & Service Provider Agreement .docx",
+  "id": "terms-and-conditions",
+  "slug": "terms-and-conditions",
+  "title": "Terms and Conditions",
+  "source": "MEEEM Core Policy",
   "lastUpdated": "August 2026",
-  "content": "<div class=\"legal-document\">...(full HTML)...</div>",
-  "rawText": "MEEEM VENDOR AGREEMENT\n\n1. DEFINITIONS..."
+  "baseCommissions": {
+    "product": 10.0,
+    "restaurant": 10.0,
+    "hotel": 10.0,
+    "service": 10.0
+  },
+  "content": "<div class=\"legal-document\">...(full dynamic HTML with live rates & category table)...</div>",
+  "rawText": "TERMS AND CONDITIONS - MEEEM MARKETPLACE\n\n1. ACCEPTANCE OF TERMS..."
 }
 
 HTTP 404 (unknown slug):
@@ -137,8 +149,10 @@ HTTP 404 (unknown slug):
   "error": "Document not found"
 }
 
-IMPORTANT: Always check `response['success'] == true` before reading `content`.
-Use `rawText` as a plain-text fallback if HTML rendering fails.
+IMPORTANT:
+- Always check `response['success'] == true` before reading `content`.
+- Use `rawText` as a plain-text fallback if HTML rendering fails.
+- The `baseCommissions` field contains the live Admin-configured percentage rates for all 4 seller verticals.
 
 
 6. FLUTTER IMPLEMENTATION — SELLER ONBOARDING AGREEMENT STEP

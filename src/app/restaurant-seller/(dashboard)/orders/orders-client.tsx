@@ -20,6 +20,9 @@ type Order = {
   id: string
   orderNumber: string
   totalAmount: number
+  commissionRate?: number
+  commissionAmount?: number
+  sellerNet?: number
   status: "PENDING" | "CONFIRMED" | "PROCESSING" | "SHIPPED" | "OUT_FOR_DELIVERY" | "DELIVERED" | "CANCELLED" | "REFUNDED" | "EXCHANGED"
   createdAt: string
   deliveryFullName: string
@@ -206,11 +209,25 @@ export function RestaurantOrdersClient() {
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-6 shrink-0 justify-between md:justify-end">
+                    <div className="flex items-center gap-4 sm:gap-6 shrink-0 justify-between md:justify-end">
                       <div className="text-right">
                         <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Value</p>
                         <p className="text-base font-black text-slate-900 mt-0.5">{formatCurrency(order.totalAmount)}</p>
                       </div>
+
+                      {order.commissionAmount !== undefined && (
+                        <div className="text-right hidden sm:block">
+                          <p className="text-xs font-bold text-amber-600 uppercase tracking-wider">Commission ({order.commissionRate ?? 0}%)</p>
+                          <p className="text-sm font-black text-amber-700 mt-0.5">-{formatCurrency(order.commissionAmount)}</p>
+                        </div>
+                      )}
+
+                      {order.sellerNet !== undefined && (
+                        <div className="text-right hidden sm:block">
+                          <p className="text-xs font-bold text-emerald-600 uppercase tracking-wider">Net Payout</p>
+                          <p className="text-base font-black text-emerald-700 mt-0.5">{formatCurrency(order.sellerNet)}</p>
+                        </div>
+                      )}
 
                       <div className="h-9 w-9 rounded-xl bg-slate-50 flex items-center justify-center text-slate-500 border border-slate-100">
                         {isExpanded ? <ChevronUp className="h-4.5 w-4.5" /> : <ChevronDown className="h-4.5 w-4.5" />}
@@ -220,6 +237,25 @@ export function RestaurantOrdersClient() {
 
                   {isExpanded && (
                     <div className="border-t border-slate-100 bg-slate-50/20 p-6 space-y-6">
+                      {/* Financial Settlement Breakdown */}
+                      <div className="bg-white border border-slate-100 rounded-2xl p-4 shadow-sm">
+                        <h4 className="text-xs font-black text-slate-400 uppercase tracking-wider mb-3">Settlement & Commission Breakdown</h4>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                          <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-100">
+                            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Gross Order Total</p>
+                            <p className="text-lg font-black text-slate-900 mt-1">{formatCurrency(order.totalAmount)}</p>
+                          </div>
+                          <div className="p-3.5 bg-amber-50/60 border border-amber-100 rounded-xl">
+                            <p className="text-[11px] font-bold text-amber-700 uppercase tracking-wider">Platform Fee ({order.commissionRate ?? 0}%)</p>
+                            <p className="text-lg font-black text-amber-800 mt-1">-{formatCurrency(order.commissionAmount ?? 0)}</p>
+                          </div>
+                          <div className="p-3.5 bg-emerald-50/60 border border-emerald-100 rounded-xl">
+                            <p className="text-[11px] font-bold text-emerald-700 uppercase tracking-wider">Seller Net Credited</p>
+                            <p className="text-lg font-black text-emerald-800 mt-1">{formatCurrency(order.sellerNet ?? order.totalAmount)}</p>
+                          </div>
+                        </div>
+                      </div>
+
                       {/* Workflow Actions */}
                       {order.status !== "DELIVERED" && order.status !== "CANCELLED" && (
                         <div className="bg-white border border-slate-100 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-4 shadow-sm">

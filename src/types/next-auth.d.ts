@@ -1,4 +1,4 @@
-import { UserRole } from "@prisma/client"
+import { UserRole, RiderStatus } from "@prisma/client"
 import "next-auth"
 import "next-auth/jwt"
 
@@ -15,6 +15,8 @@ declare module "next-auth" {
       isSuspended?: boolean
       onboardingCompleted?: boolean
       onboardingStep?: number
+      isFirstLogin?: boolean
+      status?: RiderStatus | string
     }
   }
 
@@ -28,6 +30,8 @@ declare module "next-auth" {
     isSuspended?: boolean
     onboardingCompleted?: boolean
     onboardingStep?: number
+    isFirstLogin?: boolean
+    status?: RiderStatus | string
   }
 }
 
@@ -40,6 +44,8 @@ declare module "next-auth/jwt" {
     isSuspended?: boolean
     onboardingCompleted?: boolean
     onboardingStep?: number
+    isFirstLogin?: boolean
+    status?: RiderStatus | string
     passwordHash?: string | null
     error?: string
   }

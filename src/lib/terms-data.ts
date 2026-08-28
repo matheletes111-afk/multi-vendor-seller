@@ -13,6 +13,171 @@ export interface LegalDocument {
   rawText: string
 }
 
+export interface PlatformCategoryCommissionRates {
+  productBaseCommission: number
+  restaurantBaseCommission: number
+  hotelBaseCommission: number
+  serviceBaseCommission: number
+}
+
+export const DEFAULT_COMMISSION_RATES: PlatformCategoryCommissionRates = {
+  productBaseCommission: 10.0,
+  restaurantBaseCommission: 10.0,
+  hotelBaseCommission: 10.0,
+  serviceBaseCommission: 10.0,
+}
+
+export function generateDynamicTermsContent(rates: Partial<PlatformCategoryCommissionRates> = {}) {
+  const productRate = rates.productBaseCommission ?? 10.0
+  const restaurantRate = rates.restaurantBaseCommission ?? 10.0
+  const hotelRate = rates.hotelBaseCommission ?? 10.0
+  const serviceRate = rates.serviceBaseCommission ?? 10.0
+
+  const content = `<div class="legal-document">
+  <h1 style="font-size: 22px; font-weight: 800; color: #0f172a; margin-bottom: 12px;">Terms and Conditions</h1>
+  <h2 style="font-size: 16px; font-weight: 700; color: #1e293b; margin: 16px 0 8px 0;">TERMS AND CONDITIONS - MEEEM MARKETPLACE</h2>
+  <p style="font-size: 14px; line-height: 1.6; color: #334155; margin: 6px 0;">Last Updated: August 2026</p>
+  <p style="font-size: 14px; line-height: 1.6; color: #334155; margin: 6px 0;">Welcome to MEEEM Marketplace. Please read these Terms and Conditions carefully before using our platform, which connects buyers, retail vendors, restaurants, hotel hosts, service providers, and verified delivery partners across web and mobile applications.</p>
+
+  <h2 style="font-size: 16px; font-weight: 700; color: #1e293b; margin: 16px 0 8px 0;">1. Acceptance of Terms</h2>
+  <p style="font-size: 14px; line-height: 1.6; color: #334155; margin: 6px 0;">By accessing, browsing, registering, or operating an account on MEEEM Marketplace (referred to as "the Platform," "we," "us," or "our"), you agree to be legally bound by these Terms and Conditions and all applicable laws and regulations.</p>
+
+  <h2 style="font-size: 16px; font-weight: 700; color: #1e293b; margin: 16px 0 8px 0;">2. User Accounts and Verification</h2>
+  <p style="font-size: 14px; line-height: 1.6; color: #334155; margin: 6px 0;">To access features such as purchasing, selling products, offering on-demand services, hosting hotel rooms, or delivering orders, you must maintain an authenticated account. Sellers and delivery riders undergo mandatory identity and business verification to maintain marketplace safety.</p>
+
+  <h2 style="font-size: 16px; font-weight: 700; color: #1e293b; margin: 16px 0 8px 0;">3. Multi-Vendor Marketplace Operations</h2>
+  <p style="font-size: 14px; line-height: 1.6; color: #334155; margin: 6px 0;">MEEEM Marketplace empowers four distinct business categories to list, market, and fulfill their offerings seamlessly:</p>
+  <ul style="font-size: 14px; line-height: 1.6; color: #334155; margin: 6px 0; padding-left: 20px;">
+    <li><strong>Product Sellers:</strong> Physical goods, electronics, fashion, groceries, and retail inventory.</li>
+    <li><strong>Restaurant & Food Merchants:</strong> Fresh meals, beverages, dining, and fast takeaway catering.</li>
+    <li><strong>Hotel & Hospitality Hosts:</strong> Room bookings, resort accommodations, and guest reservations.</li>
+    <li><strong>Service Providers:</strong> Home maintenance, professional consultations, beauty, repair, and specialized on-demand trades.</li>
+  </ul>
+
+  <h2 style="font-size: 16px; font-weight: 700; color: #1e293b; margin: 16px 0 8px 0;">4. Platform Base Commissions, Tiered Rates & Transparent Payouts</h2>
+  <p style="font-size: 14px; line-height: 1.6; color: #334155; margin: 6px 0;">MEEEM operates on a seller-first, transparent commission model designed to foster merchant growth and maximize your earnings with zero hidden maintenance fees:</p>
+  
+  <h3 style="font-size: 15px; font-weight: 700; color: #0284c7; margin: 12px 0 6px 0;">A. Admin-Configured Category Base Commission Rates</h3>
+  <p style="font-size: 14px; line-height: 1.6; color: #334155; margin: 6px 0;">Platform Administrators centrally configure competitive, fair Base Commission percentages tailored specifically to each of the 4 business verticals:</p>
+
+  <div style="margin: 14px 0; border: 1px solid #cbd5e1; border-radius: 10px; overflow: hidden; background: #ffffff;">
+    <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 13px;">
+      <thead>
+        <tr style="background: #f1f5f9; border-bottom: 2px solid #cbd5e1;">
+          <th style="padding: 10px 14px; font-weight: 700; color: #0f172a;">Seller Business Category</th>
+          <th style="padding: 10px 14px; font-weight: 700; color: #0f172a;">Active Base Commission Rate</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr style="border-bottom: 1px solid #f1f5f9;">
+          <td style="padding: 10px 14px; font-weight: 600; color: #1e293b;">📦 Product Sellers (Retail & Consumer Goods)</td>
+          <td style="padding: 10px 14px; font-weight: 800; color: #2563eb; font-size: 14px;">${productRate}%</td>
+        </tr>
+        <tr style="border-bottom: 1px solid #f1f5f9;">
+          <td style="padding: 10px 14px; font-weight: 600; color: #1e293b;">🍽️ Restaurant & Food Vendors (Meals & Dining)</td>
+          <td style="padding: 10px 14px; font-weight: 800; color: #2563eb; font-size: 14px;">${restaurantRate}%</td>
+        </tr>
+        <tr style="border-bottom: 1px solid #f1f5f9;">
+          <td style="padding: 10px 14px; font-weight: 600; color: #1e293b;">🏨 Hotel & Lodging Hosts (Rooms & Resorts)</td>
+          <td style="padding: 10px 14px; font-weight: 800; color: #2563eb; font-size: 14px;">${hotelRate}%</td>
+        </tr>
+        <tr>
+          <td style="padding: 10px 14px; font-weight: 600; color: #1e293b;">🛠️ Service Providers (On-Demand & Skilled Trades)</td>
+          <td style="padding: 10px 14px; font-weight: 800; color: #2563eb; font-size: 14px;">${serviceRate}%</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3 style="font-size: 15px; font-weight: 700; color: #0284c7; margin: 12px 0 6px 0;">B. Personalized Promotional Rates & Volume Overrides</h3>
+  <p style="font-size: 14px; line-height: 1.6; color: #334155; margin: 6px 0;">To reward high-performing merchants, exclusive brands, and growing local businesses, Platform Administrators can assign customized, reduced promotional commission rates directly to individual sellers from the Admin Management Panel.</p>
+
+  <h3 style="font-size: 15px; font-weight: 700; color: #0284c7; margin: 12px 0 6px 0;">C. Real-Time Net Earnings & Zero Hidden Fees</h3>
+  <p style="font-size: 14px; line-height: 1.6; color: #334155; margin: 6px 0;">For every completed order, item, or booking, the platform displays the exact breakdown in real-time:</p>
+  <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; margin: 10px 0; font-family: monospace; font-size: 13px; color: #0f172a;">
+    Seller Net Payout = Order Item Subtotal - (Order Item Subtotal &times; Applied Commission Rate)
+  </div>
+  <p style="font-size: 14px; line-height: 1.6; color: #334155; margin: 6px 0;">Sellers have live visibility into their gross revenue, commission deductions, and net settlements across both the Web Seller Dashboard and the Mobile Seller Applications.</p>
+
+  <h2 style="font-size: 16px; font-weight: 700; color: #1e293b; margin: 16px 0 8px 0;">5. Delivery Logistics & Live GPS Tracking</h2>
+  <p style="font-size: 14px; line-height: 1.6; color: #334155; margin: 6px 0;">MEEEM provides verified dispatch riders with single-vehicle operations (2-Wheelers, 3-Wheelers, or 4-Wheelers) and real-time GPS telemetry tracking. Buyers, Sellers, and Administrators can view live moving rider locations and delivery OTP handovers directly on the platform map.</p>
+
+  <h2 style="font-size: 16px; font-weight: 700; color: #1e293b; margin: 16px 0 8px 0;">6. User & Merchant Conduct</h2>
+  <p style="font-size: 14px; line-height: 1.6; color: #334155; margin: 6px 0;">All users and sellers agree to conduct business lawfully, maintain product quality standards, fulfill orders promptly, and refrain from prohibited or fraudulent activities.</p>
+
+  <h2 style="font-size: 16px; font-weight: 700; color: #1e293b; margin: 16px 0 8px 0;">7. Intellectual Property Rights</h2>
+  <p style="font-size: 14px; line-height: 1.6; color: #334155; margin: 6px 0;">All platform software, branding, UI designs, and digital content are protected by copyright and intellectual property laws.</p>
+
+  <h2 style="font-size: 16px; font-weight: 700; color: #1e293b; margin: 16px 0 8px 0;">8. Limitation of Liability</h2>
+  <p style="font-size: 14px; line-height: 1.6; color: #334155; margin: 6px 0;">MEEEM Marketplace operates as an intermediary marketplace platform connecting independent merchants with buyers and is not directly liable for independent seller warranties beyond platform return policies.</p>
+
+  <h2 style="font-size: 16px; font-weight: 700; color: #1e293b; margin: 16px 0 8px 0;">9. Amendments & Policy Updates</h2>
+  <p style="font-size: 14px; line-height: 1.6; color: #334155; margin: 6px 0;">We reserve the right to update these Terms and Conditions to reflect platform innovations or regulatory standards. Continued use of the platform constitutes agreement to updated terms.</p>
+
+  <h2 style="font-size: 16px; font-weight: 700; color: #1e293b; margin: 16px 0 8px 0;">10. Contact & Merchant Support</h2>
+  <p style="font-size: 14px; line-height: 1.6; color: #334155; margin: 6px 0;">Email: info@meeemsl.com / Support@meeemsl.com</p>
+  <p style="font-size: 14px; line-height: 1.6; color: #334155; margin: 6px 0;">Address: Freetown, Sierra Leone</p>
+</div>`
+
+  const rawText = `TERMS AND CONDITIONS - MEEEM MARKETPLACE
+Last Updated: August 2026
+
+Welcome to MEEEM Marketplace. Please read these Terms and Conditions carefully before using our platform, which connects buyers, retail vendors, restaurants, hotel hosts, service providers, and verified delivery partners across web and mobile applications.
+
+1. Acceptance of Terms
+By accessing, browsing, registering, or operating an account on MEEEM Marketplace (referred to as "the Platform," "we," "us," or "our"), you agree to be legally bound by these Terms and Conditions and all applicable laws and regulations.
+
+2. User Accounts and Verification
+To access features such as purchasing, selling products, offering on-demand services, hosting hotel rooms, or delivering orders, you must maintain an authenticated account. Sellers and delivery riders undergo mandatory identity and business verification to maintain marketplace safety.
+
+3. Multi-Vendor Marketplace Operations
+MEEEM Marketplace empowers four distinct business categories to list, market, and fulfill their offerings seamlessly:
+- Product Sellers: Physical goods, electronics, fashion, groceries, and retail inventory.
+- Restaurant & Food Merchants: Fresh meals, beverages, dining, and fast takeaway catering.
+- Hotel & Hospitality Hosts: Room bookings, resort accommodations, and guest reservations.
+- Service Providers: Home maintenance, professional consultations, beauty, repair, and specialized on-demand trades.
+
+4. Platform Base Commissions, Tiered Rates & Transparent Payouts
+MEEEM operates on a seller-first, transparent commission model designed to foster merchant growth and maximize your earnings with zero hidden maintenance fees:
+
+A. Admin-Configured Category Base Commission Rates
+- Product Sellers (Retail & Consumer Goods): ${productRate}% Base Commission Rate
+- Restaurant & Food Vendors (Meals & Dining): ${restaurantRate}% Base Commission Rate
+- Hotel & Lodging Hosts (Rooms & Resorts): ${hotelRate}% Base Commission Rate
+- Service Providers (On-Demand & Skilled Trades): ${serviceRate}% Base Commission Rate
+
+B. Personalized Promotional Rates & Volume Overrides
+To reward high-performing merchants, exclusive brands, and growing local businesses, Platform Administrators can assign customized, reduced promotional commission rates directly to individual sellers from the Admin Management Panel.
+
+C. Real-Time Net Earnings & Zero Hidden Fees
+For every completed order, item, or booking, the platform displays the exact breakdown in real-time:
+Seller Net Payout = Order Item Subtotal - (Order Item Subtotal * Applied Commission Rate)
+Sellers have live visibility into their gross revenue, commission deductions, and net settlements across both the Web Seller Dashboard and the Mobile Seller Applications.
+
+5. Delivery Logistics & Live GPS Tracking
+MEEEM provides verified dispatch riders with single-vehicle operations (2-Wheelers, 3-Wheelers, or 4-Wheelers) and real-time GPS telemetry tracking. Buyers, Sellers, and Administrators can view live moving rider locations and delivery OTP handovers directly on the platform map.
+
+6. User & Merchant Conduct
+All users and sellers agree to conduct business lawfully, maintain product quality standards, fulfill orders promptly, and refrain from prohibited or fraudulent activities.
+
+7. Intellectual Property Rights
+All platform software, branding, UI designs, and digital content are protected by copyright and intellectual property laws.
+
+8. Limitation of Liability
+MEEEM Marketplace operates as an intermediary marketplace platform connecting independent merchants with buyers and is not directly liable for independent seller warranties beyond platform return policies.
+
+9. Amendments & Policy Updates
+We reserve the right to update these Terms and Conditions to reflect platform innovations or regulatory standards. Continued use of the platform constitutes agreement to updated terms.
+
+10. Contact & Merchant Support
+Email: info@meeemsl.com / Support@meeemsl.com
+Address: Freetown, Sierra Leone`
+
+  return { content, rawText }
+}
+
+const defaultTerms = generateDynamicTermsContent(DEFAULT_COMMISSION_RATES)
+
 export const LEGAL_DOCUMENTS: LegalDocument[] = [
   // 1. Terms & Conditions
   {
@@ -20,12 +185,12 @@ export const LEGAL_DOCUMENTS: LegalDocument[] = [
     slug: "terms-and-conditions",
     title: "Terms and Conditions",
     source: "MEEEM Core Policy",
-    lastUpdated: "July 10, 2026",
-    summary: "General platform terms of use, marketplace transactions, account conduct, and liability terms.",
+    lastUpdated: "August 2026",
+    summary: "General platform terms of use, 4-tier category base commissions, marketplace transactions, account conduct, and liability terms.",
     category: "core",
     applicableRoles: ["ADMIN", "SELLER_PRODUCT", "SELLER_SERVICE", "SELLER_HOTEL", "SELLER_RESTAURANT", "CUSTOMER"],
-    content: "<div class=\"legal-document\">\n  <h1 style=\"font-size: 22px; font-weight: 800; color: #0f172a; margin-bottom: 12px;\">Terms and Conditions</h1>\n  <h2 style=\"font-size: 16px; font-weight: 700; color: #1e293b; margin: 16px 0 8px 0;\">TERMS AND CONDITIONS - MEEEM MARKETPLACE</h2>\n  <p style=\"font-size: 14px; line-height: 1.6; color: #334155; margin: 6px 0;\">Last Updated: July 10, 2026</p>\n  <p style=\"font-size: 14px; line-height: 1.6; color: #334155; margin: 6px 0;\">Welcome to MEEEM Marketplace. Please read these Terms and Conditions carefully before using our platform, which includes our website, mobile applications, and related e-commerce and services systems.</p>\n  <h2 style=\"font-size: 16px; font-weight: 700; color: #1e293b; margin: 16px 0 8px 0;\">1. Acceptance of Terms</h2>\n  <p style=\"font-size: 14px; line-height: 1.6; color: #334155; margin: 6px 0;\">By accessing, browsing, or using MEEEM Marketplace (referred to as \"the Platform,\" \"we,\" \"us,\" or \"our\"), you agree to be bound by these Terms and Conditions, all applicable laws and regulations, and agree that you are responsible for compliance with any applicable local laws.</p>\n  <h2 style=\"font-size: 16px; font-weight: 700; color: #1e293b; margin: 16px 0 8px 0;\">2. User Accounts and Security</h2>\n  <p style=\"font-size: 14px; line-height: 1.6; color: #334155; margin: 6px 0;\">To access certain features of the Platform (such as buying, listing products/services, booking hotels, or ordering food), you must register and maintain an active user account.</p>\n  <h2 style=\"font-size: 16px; font-weight: 700; color: #1e293b; margin: 16px 0 8px 0;\">3. Marketplace Transactions</h2>\n  <p style=\"font-size: 14px; line-height: 1.6; color: #334155; margin: 6px 0;\">MEEEM Marketplace facilitates transactions between buyers and independent sellers (Product Sellers, Service Providers, Hotels, and Restaurants).</p>\n  <h2 style=\"font-size: 16px; font-weight: 700; color: #1e293b; margin: 16px 0 8px 0;\">4. User Conduct</h2>\n  <p style=\"font-size: 14px; line-height: 1.6; color: #334155; margin: 6px 0;\">You agree to use the Platform only for lawful purposes.</p>\n  <h2 style=\"font-size: 16px; font-weight: 700; color: #1e293b; margin: 16px 0 8px 0;\">5. Intellectual Property Rights</h2>\n  <p style=\"font-size: 14px; line-height: 1.6; color: #334155; margin: 6px 0;\">All content on the Platform is the property of MEEEM Marketplace or its content suppliers and is protected by international copyright laws.</p>\n  <h2 style=\"font-size: 16px; font-weight: 700; color: #1e293b; margin: 16px 0 8px 0;\">6. Limitation of Liability</h2>\n  <p style=\"font-size: 14px; line-height: 1.6; color: #334155; margin: 6px 0;\">MEEEM Marketplace shall not be liable for any direct, indirect, incidental, special, or consequential damages resulting from platform use.</p>\n  <h2 style=\"font-size: 16px; font-weight: 700; color: #1e293b; margin: 16px 0 8px 0;\">7. Changes to Terms</h2>\n  <p style=\"font-size: 14px; line-height: 1.6; color: #334155; margin: 6px 0;\">We reserve the right to revise or update these Terms and Conditions at any time.</p>\n  <h2 style=\"font-size: 16px; font-weight: 700; color: #1e293b; margin: 16px 0 8px 0;\">8. Contact Us</h2>\n  <p style=\"font-size: 14px; line-height: 1.6; color: #334155; margin: 6px 0;\">Email: info@meeemsl.com / Support@meeemsl.com</p>\n  <p style=\"font-size: 14px; line-height: 1.6; color: #334155; margin: 6px 0;\">Address: Freetown, Sierra Leone</p>\n</div>",
-    rawText: "TERMS AND CONDITIONS - MEEEM MARKETPLACE\nLast Updated: July 10, 2026\n\nWelcome to MEEEM Marketplace. Please read these Terms and Conditions carefully before using our platform, which includes our website, mobile applications, and related e-commerce and services systems.\n\n1. Acceptance of Terms\nBy accessing, browsing, or using MEEEM Marketplace (referred to as \"the Platform,\" \"we,\" \"us,\" or \"our\"), you agree to be bound by these Terms and Conditions, all applicable laws and regulations, and agree that you are responsible for compliance with any applicable local laws.\n\n2. User Accounts and Security\nTo access certain features of the Platform (such as buying, listing products/services, booking hotels, or ordering food), you must register and maintain an active user account.\n\n3. Marketplace Transactions\nMEEEM Marketplace facilitates transactions between buyers and independent sellers (Product Sellers, Service Providers, Hotels, and Restaurants).\n\n4. User Conduct\nYou agree to use the Platform only for lawful purposes.\n\n5. Intellectual Property Rights\nAll content on the Platform is the property of MEEEM Marketplace or its content suppliers and is protected by international copyright laws.\n\n6. Limitation of Liability\nMEEEM Marketplace shall not be liable for any direct, indirect, incidental, special, or consequential damages resulting from platform use.\n\n7. Changes to Terms\nWe reserve the right to revise or update these Terms and Conditions at any time.\n\n8. Contact Us\nEmail: info@meeemsl.com / Support@meeemsl.com\nAddress: Freetown, Sierra Leone",
+    content: defaultTerms.content,
+    rawText: defaultTerms.rawText,
   },
   // 2. Privacy Policy
   {
@@ -195,6 +360,16 @@ export const MEEEM_CYBERSECURITY_DOC = LEGAL_DOCUMENTS[6];
 export const EXCHANGE_POLICY_DOC = LEGAL_DOCUMENTS[7];
 export const VENDOR_AGREEMENT_DOC = LEGAL_DOCUMENTS[8];
 export const PAYMENT_SETTLING_DOC = LEGAL_DOCUMENTS[9];
+
+export function getDynamicTermsAndConditionsDoc(rates: Partial<PlatformCategoryCommissionRates> = {}): LegalDocument {
+  const base = LEGAL_DOCUMENTS[0];
+  const { content, rawText } = generateDynamicTermsContent(rates);
+  return {
+    ...base,
+    content,
+    rawText,
+  };
+}
 
 /**
  * Returns legal documents filtered by user role.

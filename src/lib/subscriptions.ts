@@ -61,21 +61,39 @@ export async function getValidSubscription(sellerId: string) {
   
   // 1. Handle Initialization: If no period end is set, initialize with the plan's duration
   if (!subscription.currentPeriodEnd) {
-    return await applyRenewal(subscription.id, subscription.createdAt, subscription.plan.duration || 30)
+    const durationDays = subscription.plan.duration || (subscription.plan.price === 0 ? 60 : 30)
+    const periodEnd = new Date(subscription.createdAt.getTime() + durationDays * 24 * 60 * 60 * 1000)
+    return await prisma.subscription.update({
+      where: { id: subscription.id },
+      data: {
+        currentPeriodStart: subscription.createdAt,
+        currentPeriodEnd: periodEnd,
+        status: "ACTIVE",
+      },
+      include: { plan: true },
+    })
   }
 
   // 2. Handle Expiration / Auto-renewal
   if (now > subscription.currentPeriodEnd) {
     if (subscription.plan.price === 0) {
-      // FREE PLAN logic: Max 3 months from creation
-      const threeMonthsAfterStart = new Date(subscription.createdAt)
-      threeMonthsAfterStart.setMonth(threeMonthsAfterStart.getMonth() + 3)
+      // FREE PLAN logic: Allowed based on plan's duration (e.g. 60 days / 2 months)
+      const durationDays = subscription.plan.duration || 60
+      const allowedWindowEnd = new Date(subscription.createdAt.getTime() + durationDays * 24 * 60 * 60 * 1000)
       
-      if (now < threeMonthsAfterStart) {
-        // Still within 3-month window, auto-renew using plan's duration
-        return await applyRenewal(subscription.id, subscription.currentPeriodEnd, subscription.plan.duration || 30)
+      if (now < allowedWindowEnd) {
+        // Still within allowed window, align end to allowedWindowEnd
+        return await prisma.subscription.update({
+          where: { id: subscription.id },
+          data: {
+            currentPeriodStart: subscription.currentPeriodStart || subscription.createdAt,
+            currentPeriodEnd: allowedWindowEnd,
+            status: "ACTIVE"
+          },
+          include: { plan: true }
+        })
       } else {
-        // Expired (over 3 months total)
+        // Expired (over allowed duration total)
         if (subscription.status !== "CANCELED") {
           return await prisma.subscription.update({
             where: { id: subscription.id },
@@ -208,6 +226,23 @@ export function canReceiveReviews(sellerId: string, subscription: { plan: { name
   return PLAN_LIMITS[subscription.plan.name].canReceiveReviews
 }
 
+export function createPlanSnapshot(plan: any): Record<string, any> | undefined {
+  if (!plan) return undefined
+  return {
+    id: plan.id,
+    name: plan.name,
+    type: plan.type,
+    displayName: plan.displayName,
+    description: plan.description ?? null,
+    price: plan.price,
+    duration: plan.duration ?? 30,
+    maxProducts: plan.maxProducts ?? null,
+    maxOrders: plan.maxOrders ?? null,
+    maxRooms: plan.maxRooms ?? null,
+    features: plan.features ?? {},
+  }
+}
+
 /** 
  * Automatically activates the free plan (0 RS) for a new seller. 
  * Used during registration/onboarding.
@@ -217,13 +252,14 @@ export async function activateFreePlan(sellerId: string) {
     const freePlan = await prisma.plan.findFirst({ where: { price: 0, type: PlanType.PRODUCT_SERVICE } })
     if (!freePlan) return null
     const now = new Date()
-    const oneMonthLater = new Date(now)
-    oneMonthLater.setMonth(oneMonthLater.getMonth() + 1)
+    const durationDays = freePlan.duration || 60
+    const periodEnd = new Date(now.getTime() + durationDays * 24 * 60 * 60 * 1000)
+    const snapshot = createPlanSnapshot(freePlan)
 
     return await prisma.subscription.upsert({
       where: { sellerId },
-      create: { sellerId, planId: freePlan.id, status: "ACTIVE", currentPeriodStart: now, currentPeriodEnd: oneMonthLater },
-      update: { planId: freePlan.id, status: "ACTIVE", currentPeriodStart: now, currentPeriodEnd: oneMonthLater },
+      create: { sellerId, planId: freePlan.id, paidPrice: 0, planSnapshot: snapshot, status: "ACTIVE", currentPeriodStart: now, currentPeriodEnd: periodEnd },
+      update: { planId: freePlan.id, paidPrice: 0, planSnapshot: snapshot, status: "ACTIVE", currentPeriodStart: now, currentPeriodEnd: periodEnd },
     })
   } catch (error) {
     console.error(`[activateFreePlan] Error:`, error)
@@ -236,13 +272,14 @@ export async function activateHotelFreePlan(hotelSellerId: string) {
     const freePlan = await prisma.plan.findFirst({ where: { price: 0, type: PlanType.HOTEL } })
     if (!freePlan) return null
     const now = new Date()
-    const oneMonthLater = new Date(now)
-    oneMonthLater.setMonth(oneMonthLater.getMonth() + 1)
+    const durationDays = freePlan.duration || 60
+    const periodEnd = new Date(now.getTime() + durationDays * 24 * 60 * 60 * 1000)
+    const snapshot = createPlanSnapshot(freePlan)
 
     return await prisma.hotelSubscription.upsert({
       where: { hotelSellerId },
-      create: { hotelSellerId, planId: freePlan.id, status: "ACTIVE", currentPeriodStart: now, currentPeriodEnd: oneMonthLater },
-      update: { planId: freePlan.id, status: "ACTIVE", currentPeriodStart: now, currentPeriodEnd: oneMonthLater },
+      create: { hotelSellerId, planId: freePlan.id, paidPrice: 0, planSnapshot: snapshot, status: "ACTIVE", currentPeriodStart: now, currentPeriodEnd: periodEnd },
+      update: { planId: freePlan.id, paidPrice: 0, planSnapshot: snapshot, status: "ACTIVE", currentPeriodStart: now, currentPeriodEnd: periodEnd },
     })
   } catch (error) {
     console.error(`[activateHotelFreePlan] Error:`, error)
@@ -255,13 +292,14 @@ export async function activateRestaurantFreePlan(restaurantSellerId: string) {
     const freePlan = await prisma.plan.findFirst({ where: { price: 0, type: PlanType.RESTAURANT } })
     if (!freePlan) return null
     const now = new Date()
-    const oneMonthLater = new Date(now)
-    oneMonthLater.setMonth(oneMonthLater.getMonth() + 1)
+    const durationDays = freePlan.duration || 60
+    const periodEnd = new Date(now.getTime() + durationDays * 24 * 60 * 60 * 1000)
+    const snapshot = createPlanSnapshot(freePlan)
 
     return await prisma.restaurantSubscription.upsert({
       where: { restaurantSellerId },
-      create: { restaurantSellerId, planId: freePlan.id, status: "ACTIVE", currentPeriodStart: now, currentPeriodEnd: oneMonthLater },
-      update: { planId: freePlan.id, status: "ACTIVE", currentPeriodStart: now, currentPeriodEnd: oneMonthLater },
+      create: { restaurantSellerId, planId: freePlan.id, paidPrice: 0, planSnapshot: snapshot, status: "ACTIVE", currentPeriodStart: now, currentPeriodEnd: periodEnd },
+      update: { planId: freePlan.id, paidPrice: 0, planSnapshot: snapshot, status: "ACTIVE", currentPeriodStart: now, currentPeriodEnd: periodEnd },
     })
   } catch (error) {
     console.error(`[activateRestaurantFreePlan] Error:`, error)
@@ -280,16 +318,34 @@ export async function getValidHotelSubscription(hotelSellerId: string) {
   const now = new Date()
   
   if (!subscription.currentPeriodEnd) {
-    return await applyHotelRenewal(subscription.id, subscription.createdAt, subscription.plan.duration || 30)
+    const durationDays = subscription.plan.duration || (subscription.plan.price === 0 ? 60 : 30)
+    const periodEnd = new Date(subscription.createdAt.getTime() + durationDays * 24 * 60 * 60 * 1000)
+    return await prisma.hotelSubscription.update({
+      where: { id: subscription.id },
+      data: {
+        currentPeriodStart: subscription.createdAt,
+        currentPeriodEnd: periodEnd,
+        status: "ACTIVE",
+      },
+      include: { plan: true },
+    })
   }
 
   if (now > subscription.currentPeriodEnd) {
     if (subscription.plan.price === 0) {
-      const threeMonthsAfterStart = new Date(subscription.createdAt)
-      threeMonthsAfterStart.setMonth(threeMonthsAfterStart.getMonth() + 3)
+      const durationDays = subscription.plan.duration || 60
+      const allowedWindowEnd = new Date(subscription.createdAt.getTime() + durationDays * 24 * 60 * 60 * 1000)
       
-      if (now < threeMonthsAfterStart) {
-        return await applyHotelRenewal(subscription.id, subscription.currentPeriodEnd, subscription.plan.duration || 30)
+      if (now < allowedWindowEnd) {
+        return await prisma.hotelSubscription.update({
+          where: { id: subscription.id },
+          data: {
+            currentPeriodStart: subscription.currentPeriodStart || subscription.createdAt,
+            currentPeriodEnd: allowedWindowEnd,
+            status: "ACTIVE"
+          },
+          include: { plan: true }
+        })
       } else {
         if (subscription.status !== "CANCELED") {
           return await prisma.hotelSubscription.update({
@@ -338,16 +394,34 @@ export async function getValidRestaurantSubscription(restaurantSellerId: string)
   const now = new Date()
   
   if (!subscription.currentPeriodEnd) {
-    return await applyRestaurantRenewal(subscription.id, subscription.createdAt, subscription.plan.duration || 30)
+    const durationDays = subscription.plan.duration || (subscription.plan.price === 0 ? 60 : 30)
+    const periodEnd = new Date(subscription.createdAt.getTime() + durationDays * 24 * 60 * 60 * 1000)
+    return await prisma.restaurantSubscription.update({
+      where: { id: subscription.id },
+      data: {
+        currentPeriodStart: subscription.createdAt,
+        currentPeriodEnd: periodEnd,
+        status: "ACTIVE",
+      },
+      include: { plan: true },
+    })
   }
 
   if (now > subscription.currentPeriodEnd) {
     if (subscription.plan.price === 0) {
-      const threeMonthsAfterStart = new Date(subscription.createdAt)
-      threeMonthsAfterStart.setMonth(threeMonthsAfterStart.getMonth() + 3)
+      const durationDays = subscription.plan.duration || 60
+      const allowedWindowEnd = new Date(subscription.createdAt.getTime() + durationDays * 24 * 60 * 60 * 1000)
       
-      if (now < threeMonthsAfterStart) {
-        return await applyRestaurantRenewal(subscription.id, subscription.currentPeriodEnd, subscription.plan.duration || 30)
+      if (now < allowedWindowEnd) {
+        return await prisma.restaurantSubscription.update({
+          where: { id: subscription.id },
+          data: {
+            currentPeriodStart: subscription.currentPeriodStart || subscription.createdAt,
+            currentPeriodEnd: allowedWindowEnd,
+            status: "ACTIVE"
+          },
+          include: { plan: true }
+        })
       } else {
         if (subscription.status !== "CANCELED") {
           return await prisma.restaurantSubscription.update({

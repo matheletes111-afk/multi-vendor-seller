@@ -206,10 +206,11 @@ export function CreatePlanClient() {
                   className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                   required
                 >
-                  <option value="30">Monthly</option>
-                  <option value="90">3 Months</option>
-                  <option value="180">6 Months</option>
-                  <option value="365">Yearly</option>
+                  <option value="30">Monthly (30 Days)</option>
+                  <option value="60">2 Months (60 Days)</option>
+                  <option value="90">3 Months (90 Days)</option>
+                  <option value="180">6 Months (180 Days)</option>
+                  <option value="365">Yearly (365 Days)</option>
                 </select>
               </div>
             </div>

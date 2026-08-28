@@ -17,6 +17,7 @@ enum UserRole {
   SELLER_HOTEL
   SELLER_RESTAURANT
   ADMIN
+  RIDER
 }
 
 enum SellerType {
@@ -123,6 +124,7 @@ model User {
   seller        Seller?
   hotelSeller   HotelSeller?
   restaurantSeller RestaurantSeller?
+  rider         Rider?
   orders        Order[]
   hotelBookings HotelBooking[]
   reviews       Review[]
@@ -292,6 +294,7 @@ model Seller {
   orderItems   OrderItem[]
   sellerAds    SellerAd[]
   balanceTransactions SellerBalanceTransaction[]
+  deliveryAssignments RiderDeliveryAssignment[]
 
   selectedCategories    Category[]      @relation("SellerCategories")
   selectedServiceCategories ServiceCategory[] @relation("SellerServiceCategories")
@@ -626,6 +629,8 @@ model HotelSubscription {
   status            SubscriptionStatus @default(TRIALING)
   currentPeriodStart DateTime?
   currentPeriodEnd   DateTime?
+  paidPrice          Float?
+  planSnapshot       Json?
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
 
@@ -770,6 +775,8 @@ model RestaurantSubscription {
   status            SubscriptionStatus @default(TRIALING)
   currentPeriodStart DateTime?
   currentPeriodEnd   DateTime?
+  paidPrice          Float?
+  planSnapshot       Json?
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
 
@@ -929,6 +936,8 @@ model Subscription {
   currentPeriodStart DateTime?
   currentPeriodEnd   DateTime?
   cancelAtPeriodEnd  Boolean           @default(false)
+  paidPrice          Float?
+  planSnapshot       Json?
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
 
@@ -1279,6 +1288,7 @@ model Order {
   items      OrderItem[]
   payments   Payment[]
   commissions Commission[]
+  deliveryAssignments RiderDeliveryAssignment[]
 
   @@index([customerId])
   @@index([sellerId])
@@ -1493,6 +1503,10 @@ model AdManagement {
 model GlobalSetting {
   id                            String   @id @default(cuid())
   baseCommission                Float    @default(10.0)
+  productBaseCommission         Float    @default(10.0)
+  restaurantBaseCommission      Float    @default(10.0)
+  hotelBaseCommission           Float    @default(10.0)
+  serviceBaseCommission         Float    @default(10.0)
   deliveryChargeRanges          Json?
   dimensionDeliveryChargeRanges Json?
   regionDeliveryCharges         Json?
@@ -1747,4 +1761,122 @@ model SupportTicketReply {
   @@index([ticketId])
   @@index([isReadByAdmin])
   @@map("support_ticket_replies")
+}
+
+enum RiderStatus {
+  PENDING
+  APPROVED
+  SUSPENDED
+  REJECTED
+}
+
+model Rider {
+  id                  String       @id @default(cuid())
+  userId              String       @unique
+  isApproved          Boolean      @default(true)
+  isSuspended         Boolean      @default(false)
+  status              RiderStatus  @default(PENDING)
+  onboardingCompleted Boolean      @default(false)
+  isFirstLogin        Boolean      @default(true)
+  adminFeedback       String?      @db.Text
+
+  vehicleTypes        Json         @default("[]") // ["2_WHEELER", "3_WHEELER", "4_WHEELER"]
+  vehicleNumber       String?
+  drivingLicenseNo    String?
+
+  profileImage        String?      // Image URL
+  drivingLicenseDoc   String?      // PDF or Image URL
+  nationalIdDoc       String?      // PDF or Image URL
+  vehicleInsuranceDoc String?      // PDF or Image URL
+  otherDocs           Json         @default("[]")
+
+  selectedZones       Json         @default("[]") // ["ZONE 1", "ZONE 2"]
+  selectedLocations   Json         @default("[]") // ["NO 2 RIVER", "BAW BAW"]
+
+  deviceTokens        Json         @default("[]") // [{ token, platform, userAgent, lastActiveAt }]
+  adminNotes          String?      @db.Text
+
+  // Live GPS Telemetry
+  currentLatitude     Float?
+  currentLongitude    Float?
+  heading             Float?
+  speed               Float?
+  lastLocationUpdate  DateTime?
+  isOnline            Boolean      @default(true)
+
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+
+  user                User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deliveryAssignments RiderDeliveryAssignment[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([isApproved])
+  @@index([isOnline])
+  @@map("riders")
+}
+
+enum DeliveryAssignmentStatus {
+  OFFERED             // Push notification sent to rider, 60s timer running
+  ACCEPTED            // Rider accepted the delivery
+  REJECTED            // Rider manually rejected
+  TIMED_OUT           // 60s acceptance window expired
+  AT_PICKUP           // Rider reached seller shop
+  PICKED_UP           // Rider collected items (OrderItem -> SHIPPED)
+  OUT_FOR_DELIVERY    // Rider on way to customer
+  DELIVERED           // Delivery completed with OTP & proof
+  CANCELLED_BY_RIDER  // Rider had emergency / vehicle issue / no-show
+  REASSIGNED_BY_ADMIN // Admin or Seller manually reassigned
+  FAILED              // Customer unreachable / delivery failed
+}
+
+enum DispatchMode {
+  AUTO_CASCADE        // Automatic proximity waterfall
+  MANUAL_SELLER       // Seller manually selected rider
+  MANUAL_ADMIN        // Admin manually selected rider
+}
+
+model RiderDeliveryAssignment {
+  id                    String                   @id @default(cuid())
+  orderId               String
+  orderItemId           String?                  // Optional specific product line
+  riderId               String
+  sellerId              String
+  status                DeliveryAssignmentStatus @default(OFFERED)
+  dispatchMode          DispatchMode             @default(AUTO_CASCADE)
+  attemptNumber         Int                      @default(1)
+
+  // Geolocation & Distance Snapshots
+  sellerLatitude        Float?
+  sellerLongitude       Float?
+  riderLatitudeAtOffer  Float?
+  riderLongitudeAtOffer Float?
+  distanceKm            Float?                   // Distance from seller shop to rider when offered
+
+  // Timestamps & SLA Tracking
+  offeredAt             DateTime                 @default(now())
+  expiresAt             DateTime?                // 60 seconds from offer
+  acceptedAt            DateTime?
+  pickedUpAt            DateTime?
+  deliveredAt           DateTime?
+  cancelledAt           DateTime?
+
+  // Security & Proof of Delivery
+  deliveryOtp           String?
+  deliveryOtpExpires    DateTime?
+  deliveryProofImage    String?
+  cancellationReason    String?
+  adminNotes            String?
+
+  // Relations
+  order                 Order                    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  rider                 Rider                    @relation(fields: [riderId], references: [id], onDelete: Cascade)
+  seller                Seller                   @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@index([riderId])
+  @@index([sellerId])
+  @@index([status])
+  @@map("rider_delivery_assignments")
 }
