@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma"
 import { isRestaurantSeller } from "@/lib/rbac"
 import { SubscriptionPlan, SubscriptionStatus } from "@prisma/client"
 import { validateSellerCoupon, recordSellerCouponUsage } from "@/lib/coupons"
+import { createPlanSnapshot } from "@/lib/subscriptions"
 
 export async function POST(request: NextRequest) {
   try {
@@ -42,6 +43,7 @@ export async function POST(request: NextRequest) {
     if (!plan) return NextResponse.json({ error: "Plan not found" }, { status: 404 })
 
     let appliedCoupon: any = null
+    let discountAmount = 0
     if (couponCode && couponCode.trim()) {
       const couponValidation = await validateSellerCoupon({
         code: couponCode.trim(),
@@ -52,17 +54,22 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: couponValidation.error }, { status: 400 })
       }
       appliedCoupon = couponValidation.coupon
+      discountAmount = couponValidation.discountAmount || 0
     }
 
+    const finalPaidPrice = Math.max(0, plan.price - discountAmount)
     const now = new Date()
     const durationDays = plan.duration || 30
     const currentPeriodEnd = new Date(now.getTime() + durationDays * 24 * 60 * 60 * 1000)
+    const snapshot = createPlanSnapshot(plan)
 
     // Local / Test mode upsert subscription directly
     const sub = await prisma.restaurantSubscription.upsert({
       where: { restaurantSellerId: seller.id },
       update: {
         planId: plan.id,
+        paidPrice: finalPaidPrice,
+        planSnapshot: snapshot,
         status: SubscriptionStatus.ACTIVE,
         currentPeriodStart: now,
         currentPeriodEnd,
@@ -70,6 +77,8 @@ export async function POST(request: NextRequest) {
       create: {
         restaurantSellerId: seller.id,
         planId: plan.id,
+        paidPrice: finalPaidPrice,
+        planSnapshot: snapshot,
         status: SubscriptionStatus.ACTIVE,
         currentPeriodStart: now,
         currentPeriodEnd,

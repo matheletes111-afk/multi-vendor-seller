@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useMemo } from "react"
+import React, { useState, useMemo, useEffect } from "react"
 import Link from "next/link"
 import {
   FileText,
@@ -47,7 +47,43 @@ export function LegalPolicyTabContent({
   isAcceptedOnboarding = true,
   className,
 }: LegalPolicyTabContentProps) {
-  const allDocs = useMemo(() => getLegalDocumentsForRole(role), [role])
+  const [dynamicTermsDoc, setDynamicTermsDoc] = useState<LegalDocument | null>(null)
+
+  useEffect(() => {
+    let active = true
+    async function loadDynamicTerms() {
+      try {
+        const res = await fetch("/mobileapi/terms-and-conditions")
+        if (res.ok && active) {
+          const json = await res.json()
+          if (json.content && json.rawText) {
+            setDynamicTermsDoc({
+              id: "footer-terms-and-conditions",
+              slug: "terms-and-conditions",
+              title: json.title || "Terms and Conditions",
+              source: "MEEEM Core Policy",
+              lastUpdated: json.lastUpdated || "August 2026",
+              summary: "General platform terms of use, 4-tier category base commissions, marketplace transactions, account conduct, and liability terms.",
+              category: "core",
+              applicableRoles: ["ADMIN", "SELLER_PRODUCT", "SELLER_SERVICE", "SELLER_HOTEL", "SELLER_RESTAURANT", "CUSTOMER"],
+              content: json.content,
+              rawText: json.rawText,
+            })
+          }
+        }
+      } catch (err) {
+        // Fallback gracefully
+      }
+    }
+    loadDynamicTerms()
+    return () => { active = false }
+  }, [])
+
+  const allDocs = useMemo(() => {
+    const raw = getLegalDocumentsForRole(role)
+    if (!dynamicTermsDoc) return raw
+    return raw.map((doc) => (doc.slug === "terms-and-conditions" ? dynamicTermsDoc : doc))
+  }, [role, dynamicTermsDoc])
   
   const [selectedSlug, setSelectedSlug] = useState<string>(() => {
     if (initialSlug && allDocs.some((d) => d.slug === initialSlug)) {

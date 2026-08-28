@@ -35,6 +35,7 @@ export async function applySellerCreditForOrderLineDelivered(
       subtotal: true,
       gstAmount: true,
       shippingAmount: true,
+      commissionAmount: true,
       itemStatus: true,
     },
   })
@@ -42,7 +43,9 @@ export async function applySellerCreditForOrderLineDelivered(
   if (!item.productId && !item.serviceId) return
 
   const lineIncl = originalOrderItemLineTotalInclGst(item)
-  const creditAmount = roundMoney(lineIncl + item.shippingAmount)
+  const comm = typeof item.commissionAmount === "number" ? item.commissionAmount : 0
+  const deliveryBoyCharge = item.productId ? (item.shippingAmount || 0) : 0
+  const creditAmount = roundMoney(Math.max(0, lineIncl - comm - deliveryBoyCharge))
   if (creditAmount <= EPS) return
 
   await tx.seller.update({
@@ -57,7 +60,9 @@ export async function applySellerCreditForOrderLineDelivered(
       reason: SELLER_BALANCE_REASON_ORDER_LINE_DELIVERED,
       orderItemId: item.id,
       orderId: item.orderId,
-      note: "Seller credit when line marked delivered (line incl. GST + shipping)",
+      note: item.productId
+        ? `Seller net credit: Item incl. GST (${roundMoney(lineIncl)}) − platform commission (${roundMoney(comm)}) − delivery boy charge (${roundMoney(deliveryBoyCharge)})`
+        : `Seller net credit: Service line incl. GST (${roundMoney(lineIncl)}) − platform commission (${roundMoney(comm)})`,
     },
   })
 }

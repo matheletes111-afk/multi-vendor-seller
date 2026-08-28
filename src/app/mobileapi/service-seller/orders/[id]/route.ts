@@ -86,6 +86,8 @@ export async function GET(
       gstAmount: row.gstAmount,
       subtotalInclGst: row.subtotalInclGst,
       imageUrl,
+      commissionRateSnapshot: row.commissionRateSnapshot,
+      commissionAmount: row.commissionAmount,
       serviceSlotStartTime: slot?.startTime ? slot.startTime.toISOString() : null,
       serviceSlotEndTime: slot?.endTime ? slot.endTime.toISOString() : null,
       deliveryProofImage: row.deliveryProofImage ?? null,

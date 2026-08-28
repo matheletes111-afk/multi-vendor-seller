@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
       success: true,
       data: {
         subscription,
-        commissionRate: seller.commissionRate ?? globalSetting?.baseCommission ?? 10.0,
+        commissionRate: seller.commissionRate ?? globalSetting?.hotelBaseCommission ?? globalSetting?.baseCommission ?? 10.0,
         isGlobalRate: seller.commissionRate === null || seller.commissionRate === undefined,
         totalHotels: activeHotelsCount,
         totalRooms: roomsCount,

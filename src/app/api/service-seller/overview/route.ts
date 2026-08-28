@@ -74,7 +74,7 @@ export async function GET() {
 
   return NextResponse.json({
     subscription: subscription ? { ...subscription, plan: subscription.plan } : null,
-    commissionRate: seller.commissionRate ?? globalSetting?.baseCommission ?? 0,
+    commissionRate: seller.commissionRate ?? globalSetting?.serviceBaseCommission ?? globalSetting?.baseCommission ?? 10.0,
     isGlobalRate: seller.commissionRate === null || seller.commissionRate === undefined,
     totalServices,
     totalOrders,

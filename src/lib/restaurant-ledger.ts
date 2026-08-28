@@ -24,13 +24,31 @@ export async function creditRestaurantSellerForDelivery(
   })
   if (existing) return
 
-  const amount = order.totalAmount
+  const [seller, globalSetting] = await Promise.all([
+    tx.restaurantSeller.findUnique({
+      where: { id: restaurantSellerId },
+      select: { commissionRate: true },
+    }),
+    (tx as any).globalSetting.findFirst({
+      select: { baseCommission: true, restaurantBaseCommission: true },
+    }) as Promise<{ baseCommission?: number; restaurantBaseCommission?: number } | null>,
+  ])
 
-  // Increment seller netBalance
+  const commissionPct =
+    seller?.commissionRate ??
+    globalSetting?.restaurantBaseCommission ??
+    globalSetting?.baseCommission ??
+    10.0
+
+  const grossAmount = order.totalAmount
+  const commissionAmount = Math.round(grossAmount * (commissionPct / 100) * 100) / 100
+  const netAmount = Math.max(0, Math.round((grossAmount - commissionAmount) * 100) / 100)
+
+  // Increment seller netBalance with net amount after commission
   await tx.restaurantSeller.update({
     where: { id: restaurantSellerId },
     data: {
-      netBalance: { increment: amount }
+      netBalance: { increment: netAmount }
     }
   })
 
@@ -38,11 +56,12 @@ export async function creditRestaurantSellerForDelivery(
   await tx.restaurantBalanceTransaction.create({
     data: {
       restaurantSellerId,
-      amount,
+      amount: netAmount,
       kind: "CREDIT",
       reason: RESTAURANT_REVENUE_REASON_ORDER_DELIVERED,
       foodOrderId,
-      note: `Credited for order delivery: #${order.orderNumber}`
+      note: `Credited for order delivery: #${order.orderNumber} (Gross: $${grossAmount.toFixed(2)}, Commission ${commissionPct}%: -$${commissionAmount.toFixed(2)})`
     }
   })
 }
+

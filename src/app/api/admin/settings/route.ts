@@ -199,7 +199,20 @@ export async function GET() {
 
   let globalSettings = await (prisma as any).globalSetting.findFirst()
   if (!globalSettings) {
-    globalSettings = await (prisma as any).globalSetting.create({ data: { baseCommission: 10.0 } })
+    globalSettings = await (prisma as any).globalSetting.create({
+      data: {
+        baseCommission: 10.0,
+        productBaseCommission: 10.0,
+        restaurantBaseCommission: 10.0,
+        hotelBaseCommission: 10.0,
+        serviceBaseCommission: 10.0,
+      }
+    })
+  } else {
+    globalSettings.productBaseCommission = globalSettings.productBaseCommission ?? globalSettings.baseCommission ?? 10.0
+    globalSettings.restaurantBaseCommission = globalSettings.restaurantBaseCommission ?? globalSettings.baseCommission ?? 10.0
+    globalSettings.hotelBaseCommission = globalSettings.hotelBaseCommission ?? globalSettings.baseCommission ?? 10.0
+    globalSettings.serviceBaseCommission = globalSettings.serviceBaseCommission ?? globalSettings.baseCommission ?? 10.0
   }
 
   return NextResponse.json({ ...user, globalSettings })
@@ -235,10 +248,25 @@ export async function PUT(request: NextRequest) {
     password?: string
   } = {}
   let baseCommission: number | undefined = undefined
+  let productBaseCommission: number | undefined = undefined
+  let restaurantBaseCommission: number | undefined = undefined
+  let hotelBaseCommission: number | undefined = undefined
+  let serviceBaseCommission: number | undefined = undefined
   let deliveryChargeRanges: any = undefined
   let dimensionDeliveryChargeRanges: any = undefined
   let regionDeliveryCharges: any = undefined
   let disallowedNames: string[] | undefined = undefined
+
+  function parseCommission(val: unknown, label: string): { parsed?: number; error?: string } {
+    if (val === undefined || val === null || (typeof val === "string" && val.trim() === "")) {
+      return {}
+    }
+    const num = typeof val === "number" ? val : parseFloat(String(val))
+    if (isNaN(num) || num < 0 || num > 100) {
+      return { error: `${label} must be a valid percentage between 0% and 100%` }
+    }
+    return { parsed: num }
+  }
 
   if (contentType.includes("multipart/form-data")) {
     const formData = await request.formData()
@@ -249,8 +277,25 @@ export async function PUT(request: NextRequest) {
     const password = ((formData.get("password") as string | null) ?? "").trim()
     const currentPassword = ((formData.get("currentPassword") as string | null) ?? "").trim()
     
-    const baseCommissionStr = formData.get("baseCommission") as string | null
-    if (baseCommissionStr !== null) baseCommission = parseFloat(baseCommissionStr)
+    const baseCommRes = parseCommission(formData.get("baseCommission"), "Platform base commission")
+    if (baseCommRes.error) return NextResponse.json({ error: baseCommRes.error }, { status: 400 })
+    if (baseCommRes.parsed !== undefined) baseCommission = baseCommRes.parsed
+
+    const prodCommRes = parseCommission(formData.get("productBaseCommission"), "Product seller base commission")
+    if (prodCommRes.error) return NextResponse.json({ error: prodCommRes.error }, { status: 400 })
+    if (prodCommRes.parsed !== undefined) productBaseCommission = prodCommRes.parsed
+
+    const restCommRes = parseCommission(formData.get("restaurantBaseCommission"), "Restaurant seller base commission")
+    if (restCommRes.error) return NextResponse.json({ error: restCommRes.error }, { status: 400 })
+    if (restCommRes.parsed !== undefined) restaurantBaseCommission = restCommRes.parsed
+
+    const hotelCommRes = parseCommission(formData.get("hotelBaseCommission"), "Hotel seller base commission")
+    if (hotelCommRes.error) return NextResponse.json({ error: hotelCommRes.error }, { status: 400 })
+    if (hotelCommRes.parsed !== undefined) hotelBaseCommission = hotelCommRes.parsed
+
+    const svcCommRes = parseCommission(formData.get("serviceBaseCommission"), "Service seller base commission")
+    if (svcCommRes.error) return NextResponse.json({ error: svcCommRes.error }, { status: 400 })
+    if (svcCommRes.parsed !== undefined) serviceBaseCommission = svcCommRes.parsed
 
     const deliveryChargeRangesStr = formData.get("deliveryChargeRanges") as string | null
     if (deliveryChargeRangesStr !== null) {
@@ -354,6 +399,10 @@ export async function PUT(request: NextRequest) {
       password?: string
       currentPassword?: string
       baseCommission?: number
+      productBaseCommission?: number
+      restaurantBaseCommission?: number
+      hotelBaseCommission?: number
+      serviceBaseCommission?: number
       deliveryChargeRanges?: any
       dimensionDeliveryChargeRanges?: any
       regionDeliveryCharges?: any
@@ -365,7 +414,27 @@ export async function PUT(request: NextRequest) {
     if (body.image !== undefined) userData.image = body.image
     if (body.phone !== undefined) userData.phone = body.phone || null
     if (body.phoneCountryCode !== undefined) userData.phoneCountryCode = body.phoneCountryCode || null
-    if (body.baseCommission !== undefined) baseCommission = body.baseCommission
+
+    const baseCommRes = parseCommission(body.baseCommission, "Platform base commission")
+    if (baseCommRes.error) return NextResponse.json({ error: baseCommRes.error }, { status: 400 })
+    if (baseCommRes.parsed !== undefined) baseCommission = baseCommRes.parsed
+
+    const prodCommRes = parseCommission(body.productBaseCommission, "Product seller base commission")
+    if (prodCommRes.error) return NextResponse.json({ error: prodCommRes.error }, { status: 400 })
+    if (prodCommRes.parsed !== undefined) productBaseCommission = prodCommRes.parsed
+
+    const restCommRes = parseCommission(body.restaurantBaseCommission, "Restaurant seller base commission")
+    if (restCommRes.error) return NextResponse.json({ error: restCommRes.error }, { status: 400 })
+    if (restCommRes.parsed !== undefined) restaurantBaseCommission = restCommRes.parsed
+
+    const hotelCommRes = parseCommission(body.hotelBaseCommission, "Hotel seller base commission")
+    if (hotelCommRes.error) return NextResponse.json({ error: hotelCommRes.error }, { status: 400 })
+    if (hotelCommRes.parsed !== undefined) hotelBaseCommission = hotelCommRes.parsed
+
+    const svcCommRes = parseCommission(body.serviceBaseCommission, "Service seller base commission")
+    if (svcCommRes.error) return NextResponse.json({ error: svcCommRes.error }, { status: 400 })
+    if (svcCommRes.parsed !== undefined) serviceBaseCommission = svcCommRes.parsed
+
     if (body.deliveryChargeRanges !== undefined) deliveryChargeRanges = body.deliveryChargeRanges
     if (body.dimensionDeliveryChargeRanges !== undefined) dimensionDeliveryChargeRanges = body.dimensionDeliveryChargeRanges
     if (body.regionDeliveryCharges !== undefined) regionDeliveryCharges = body.regionDeliveryCharges
@@ -442,10 +511,24 @@ export async function PUT(request: NextRequest) {
     validatedRegionCharges = sorted
   }
 
-  if (baseCommission !== undefined || validatedRanges !== undefined || validatedDimensionRanges !== undefined || validatedRegionCharges !== undefined || disallowedNames !== undefined) {
+  if (
+    baseCommission !== undefined ||
+    productBaseCommission !== undefined ||
+    restaurantBaseCommission !== undefined ||
+    hotelBaseCommission !== undefined ||
+    serviceBaseCommission !== undefined ||
+    validatedRanges !== undefined ||
+    validatedDimensionRanges !== undefined ||
+    validatedRegionCharges !== undefined ||
+    disallowedNames !== undefined
+  ) {
     const globalSettings = await (prisma as any).globalSetting.findFirst()
     const updateData: any = {}
     if (baseCommission !== undefined) updateData.baseCommission = baseCommission
+    if (productBaseCommission !== undefined) updateData.productBaseCommission = productBaseCommission
+    if (restaurantBaseCommission !== undefined) updateData.restaurantBaseCommission = restaurantBaseCommission
+    if (hotelBaseCommission !== undefined) updateData.hotelBaseCommission = hotelBaseCommission
+    if (serviceBaseCommission !== undefined) updateData.serviceBaseCommission = serviceBaseCommission
     if (validatedRanges !== undefined) updateData.deliveryChargeRanges = validatedRanges
     if (validatedDimensionRanges !== undefined) updateData.dimensionDeliveryChargeRanges = validatedDimensionRanges
     if (validatedRegionCharges !== undefined) updateData.regionDeliveryCharges = validatedRegionCharges
@@ -460,6 +543,10 @@ export async function PUT(request: NextRequest) {
       await (prisma as any).globalSetting.create({
         data: {
           baseCommission: baseCommission !== undefined ? baseCommission : 10.0,
+          productBaseCommission: productBaseCommission !== undefined ? productBaseCommission : 10.0,
+          restaurantBaseCommission: restaurantBaseCommission !== undefined ? restaurantBaseCommission : 10.0,
+          hotelBaseCommission: hotelBaseCommission !== undefined ? hotelBaseCommission : 10.0,
+          serviceBaseCommission: serviceBaseCommission !== undefined ? serviceBaseCommission : 10.0,
           deliveryChargeRanges: validatedRanges !== undefined ? validatedRanges : [],
           dimensionDeliveryChargeRanges: validatedDimensionRanges !== undefined ? validatedDimensionRanges : [],
           regionDeliveryCharges: validatedRegionCharges !== undefined ? validatedRegionCharges : [],

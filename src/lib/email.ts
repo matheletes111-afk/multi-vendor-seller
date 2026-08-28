@@ -885,4 +885,122 @@ ${replyMessage}
   return sendEmail({ to, subject: emailSubject, html })
 }
 
+export async function sendRiderWelcomeEmail({
+  to,
+  name,
+  temporaryPassword,
+  loginUrl,
+}: {
+  to: string
+  name?: string | null
+  temporaryPassword: string
+  loginUrl: string
+}) {
+  const subject = "Welcome to MEEEM Delivery Network - Your Rider Account Details"
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; color: #1e293b; background-color: #f8fafc;">
+      <div style="background-color: #ffffff; border-radius: 16px; border: 1px solid #e2e8f0; padding: 32px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
+        <div style="text-align: center; margin-bottom: 24px;">
+          <div style="display: inline-block; background-color: #eff6ff; border-radius: 50%; padding: 12px; margin-bottom: 12px;">
+            <span style="font-size: 28px;">🚴</span>
+          </div>
+          <h2 style="color: #0f172a; margin: 0 0 8px 0; font-size: 22px; font-weight: 700;">Welcome to MEEEM Delivery!</h2>
+          <p style="color: #64748b; margin: 0; font-size: 14px;">Your rider account has been created by the administrator.</p>
+        </div>
+
+        <p style="font-size: 15px; line-height: 1.6; margin-top: 0;">Hi <strong>${name || "Rider"}</strong>,</p>
+        <p style="font-size: 15px; line-height: 1.6; color: #334155;">
+          You can now log in to the <strong>MEEEM Rider Portal</strong> using your credentials below:
+        </p>
+
+        <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; margin: 24px 0;">
+          <div style="margin-bottom: 12px;">
+            <span style="font-size: 13px; color: #64748b; display: block; margin-bottom: 4px;">Login Email</span>
+            <strong style="font-size: 16px; color: #0f172a; font-family: monospace;">${to}</strong>
+          </div>
+          <div>
+            <span style="font-size: 13px; color: #64748b; display: block; margin-bottom: 4px;">Auto-generated Password</span>
+            <code style="display: inline-block; background-color: #e0e7ff; color: #3730a3; padding: 6px 14px; border-radius: 6px; font-size: 17px; font-weight: 700; letter-spacing: 1px;">${temporaryPassword}</code>
+          </div>
+        </div>
+
+        <div style="background-color: #fef3c7; border: 1px solid #fde68a; border-radius: 8px; padding: 12px 16px; margin: 20px 0; font-size: 13px; color: #92400e;">
+          ⚠️ <strong>First Login Notice:</strong> When you log in for the first time, you will be prompted to change your password, upload your profile photo & documents, and select your preferred delivery zones.
+        </div>
+
+        <div style="text-align: center; margin: 32px 0;">
+          <a href="${loginUrl}" 
+             style="background-color: #2563eb; color: #ffffff; padding: 14px 36px; text-decoration: none; border-radius: 10px; display: inline-block; font-weight: 700; font-size: 15px; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);">
+            Access Rider Portal
+          </a>
+        </div>
+
+        <p style="color: #64748b; line-height: 1.5; font-size: 13px; text-align: center;">
+          Or open this link in your browser:<br/>
+          <a href="${loginUrl}" style="color: #2563eb; word-break: break-all; font-size: 12px;">${loginUrl}</a>
+        </p>
+
+        <div style="border-top: 1px solid #e2e8f0; padding-top: 20px; margin-top: 28px; font-size: 12px; color: #94a3b8; text-align: center;">
+          <p style="margin: 0 0 4px 0;"><strong>MEEEM Marketplace & Logistics</strong></p>
+          <p style="margin: 0;">Support: <a href="mailto:support@meeemsl.com" style="color: #2563eb; text-decoration: none;">support@meeemsl.com</a></p>
+        </div>
+      </div>
+    </div>
+  `
+  return sendEmail({ to, subject, html })
+}
+
+export async function sendRiderVerificationEmail({
+  to,
+  verificationLink,
+  name,
+  otp,
+}: {
+  to: string
+  verificationLink: string
+  name?: string | null
+  otp?: string | null
+}) {
+  const subject = "Verify Your Email - MEEEM Rider Portal"
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+      <div style="background-color: #f8f9fa; padding: 30px; border-radius: 10px;">
+        <h2 style="color: #333; margin-bottom: 20px;">Welcome to MEEEM Delivery Network</h2>
+        <p style="color: #666; line-height: 1.6;">
+          ${name ? `Hi ${name},` : "Hi there,"}
+        </p>
+        <p style="color: #666; line-height: 1.6;">
+          Thank you for registering as a delivery rider. Please verify your email address by entering the 6-digit code below or clicking the verification button:
+        </p>
+        ${
+          otp
+            ? `
+        <div style="background-color: #eff6ff; border: 1px dashed #3b82f6; border-radius: 8px; padding: 15px; margin: 20px 0; text-align: center;">
+          <p style="margin: 0 0 5px 0; font-size: 13px; color: #1e40af; font-weight: 600;">YOUR 6-DIGIT VERIFICATION CODE</p>
+          <div style="font-size: 32px; font-weight: bold; letter-spacing: 6px; color: #1d4ed8; font-family: monospace;">${otp}</div>
+        </div>
+        `
+            : ""
+        }
+        <div style="text-align: center; margin: 25px 0;">
+          <a href="${verificationLink}" 
+             style="background-color: #2563eb; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
+            Verify Email & Login
+          </a>
+        </div>
+        <p style="color: #666; line-height: 1.6; font-size: 14px;">
+          Or copy and paste this link into your browser:
+        </p>
+        <p style="color: #2563eb; word-break: break-all; font-size: 12px;">
+          ${verificationLink}
+        </p>
+        <p style="color: #999; font-size: 12px; margin-top: 30px;">
+          This code and link will expire in 10 minutes.
+        </p>
+      </div>
+    </div>
+  `
+  return sendEmail({ to, subject, html })
+}
+
 

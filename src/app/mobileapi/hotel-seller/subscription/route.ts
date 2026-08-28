@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { verifyMobileHotelRestaurantAuth } from "@/lib/mobile-hotel-restaurant-auth-server"
 import { UserRole, SubscriptionPlan, SubscriptionStatus } from "@prisma/client"
+import { createPlanSnapshot, getValidHotelSubscription } from "@/lib/subscriptions"
 
 /**
  * GET current subscription and available plans for hotel seller.
@@ -11,17 +12,13 @@ export async function GET(request: NextRequest) {
   if (!auth.success) return auth.errorResponse
 
   try {
-    const subscription = await prisma.hotelSubscription.findUnique({
-      where: { hotelSellerId: auth.seller.id },
-      include: {
-        plan: true,
-      },
-    })
-
-    const plans = await prisma.plan.findMany({
-      where: { type: "HOTEL" },
-      orderBy: { price: "asc" },
-    })
+    const [subscription, plans] = await Promise.all([
+      getValidHotelSubscription(auth.seller.id),
+      prisma.plan.findMany({
+        where: { type: "HOTEL" },
+        orderBy: { price: "asc" },
+      }),
+    ])
 
     return NextResponse.json({
       currentSubscription: subscription || null,
@@ -76,10 +73,13 @@ export async function POST(request: NextRequest) {
     const durationDays = plan.duration || 30
     const currentPeriodEnd = new Date(now.getTime() + durationDays * 24 * 60 * 60 * 1000)
 
+    const snapshot = createPlanSnapshot(plan)
     const updatedSubscription = await prisma.hotelSubscription.upsert({
       where: { hotelSellerId: auth.seller.id },
       update: {
         planId: plan.id,
+        paidPrice: plan.price,
+        planSnapshot: snapshot,
         status: SubscriptionStatus.ACTIVE,
         currentPeriodStart: now,
         currentPeriodEnd,
@@ -87,6 +87,8 @@ export async function POST(request: NextRequest) {
       create: {
         hotelSellerId: auth.seller.id,
         planId: plan.id,
+        paidPrice: plan.price,
+        planSnapshot: snapshot,
         status: SubscriptionStatus.ACTIVE,
         currentPeriodStart: now,
         currentPeriodEnd,

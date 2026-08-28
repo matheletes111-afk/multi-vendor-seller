@@ -59,7 +59,7 @@ export async function GET(request: NextRequest) {
     })
 
     const totalRevenue = revenueAggregate._sum.totalAmount || 0.0
-    const commissionPct = seller.commissionRate ?? globalSetting?.baseCommission ?? 10.0
+    const commissionPct = seller.commissionRate ?? globalSetting?.restaurantBaseCommission ?? globalSetting?.baseCommission ?? 10.0
     const netBalance = totalRevenue * (1 - commissionPct / 100)
 
     return NextResponse.json({

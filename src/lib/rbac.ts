@@ -34,3 +34,7 @@ export function isRestaurantSeller(user: SessionUser | null): boolean {
   return hasRole(user, UserRole.SELLER_RESTAURANT)
 }
 
+export function isRider(user: SessionUser | null): boolean {
+  return hasRole(user, UserRole.RIDER)
+}
+

@@ -1,14 +1,17 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { History, Tag, CheckCircle2, Calendar, CreditCard, Loader2 } from "lucide-react"
+import { History, Tag, CheckCircle2, Calendar, CreditCard, Loader2, Eye } from "lucide-react"
 import { formatCurrency } from "@/lib/utils"
+import { PlanSnapshotModal } from "@/components/subscription/plan-snapshot-modal"
 
 export type SubscriptionHistoryItem = {
   id: string
   planName: string
   planType: string
   price: number
+  paidPrice?: number | null
+  planSnapshot?: any | null
   status: string
   periodStart?: string | Date | null
   periodEnd?: string | Date | null
@@ -22,6 +25,7 @@ export type SubscriptionHistoryItem = {
 export function SellerSubscriptionHistoryTable() {
   const [history, setHistory] = useState<SubscriptionHistoryItem[]>([])
   const [loading, setLoading] = useState(true)
+  const [selectedSubForSnapshot, setSelectedSubForSnapshot] = useState<SubscriptionHistoryItem | null>(null)
 
   useEffect(() => {
     fetch("/api/seller/subscription/history")
@@ -72,6 +76,7 @@ export function SellerSubscriptionHistoryTable() {
               <th className="px-6 py-4">Applied Coupon</th>
               <th className="px-6 py-4">Paid Amount</th>
               <th className="px-6 py-4">Date</th>
+              <th className="px-6 py-4 text-right">Details</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -122,11 +127,31 @@ export function SellerSubscriptionHistoryTable() {
                     <span>{new Date(item.createdAt).toLocaleDateString()}</span>
                   </div>
                 </td>
+                <td className="px-6 py-4 text-right">
+                  {item.planSnapshot || item.planType !== "COUPON_REDEMPTION" ? (
+                    <button
+                      onClick={() => setSelectedSubForSnapshot(item)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/50 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 rounded-xl transition-all border border-indigo-200 dark:border-indigo-800/60 shadow-sm"
+                    >
+                      <Eye className="h-3.5 w-3.5" />
+                      <span>View Plan</span>
+                    </button>
+                  ) : (
+                    <span className="text-xs text-slate-400 font-medium">—</span>
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+
+      <PlanSnapshotModal
+        isOpen={!!selectedSubForSnapshot}
+        onClose={() => setSelectedSubForSnapshot(null)}
+        subscription={selectedSubForSnapshot}
+      />
     </div>
   )
 }
+

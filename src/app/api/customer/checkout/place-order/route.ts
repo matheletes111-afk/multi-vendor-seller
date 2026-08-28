@@ -59,7 +59,7 @@ async function resolveCommissionRates(
   // yet be reflected in the generated Prisma client types.
   const [globalRows, sellerRows] = await Promise.all([
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (prisma as any).globalSetting.findFirst() as Promise<{ baseCommission: number } | null>,
+    (prisma as any).globalSetting.findFirst() as Promise<{ baseCommission?: number; productBaseCommission?: number } | null>,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (prisma as any).seller.findMany({
       where: { id: { in: sellerIds } },
@@ -67,7 +67,7 @@ async function resolveCommissionRates(
     }) as Promise<{ id: string; commissionRate: number | null }[]>,
   ])
 
-  const baseRate: number = globalRows?.baseCommission ?? DEFAULT_RATE
+  const baseRate: number = globalRows?.productBaseCommission ?? globalRows?.baseCommission ?? DEFAULT_RATE
   const sellerMap = new Map<string, number>()
   for (const s of sellerRows) {
     sellerMap.set(s.id, s.commissionRate ?? baseRate)

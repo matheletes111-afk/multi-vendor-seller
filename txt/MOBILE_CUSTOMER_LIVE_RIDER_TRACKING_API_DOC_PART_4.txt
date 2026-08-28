@@ -1,0 +1,472 @@
+================================================================================
+MEEEM CUSTOMER MOBILE APP — REAL-TIME RIDER TRACKING & HANDOVER API DOC (PART 4)
+================================================================================
+Title: Customer Live Delivery Tracking, Handover OTP & Visual Proof Verification
+Version: 1.0.0
+Target Audience: Customer Mobile App Developers (Flutter / Kotlin / Swift / React Native)
+Base URL: https://<domain>/mobileapi/customer
+WebSocket Server: https://<domain>:3001 (or https://<domain>/socket.io)
+Authentication: Authorization: Bearer <customerAccessToken>
+
+--------------------------------------------------------------------------------
+TABLE OF CONTENTS
+--------------------------------------------------------------------------------
+1. EXECUTIVE SUMMARY & CUSTOMER EXPERIENCE FLOW
+2. CUSTOMER ORDER DETAILS API (`GET /mobileapi/customer/orders/products/details/:id`)
+   2.1 Request Headers & Auth
+   2.2 Complete JSON Response Schema with `activeDeliveryTracking` & `deliveryOtp`
+3. SECURE CUSTOMER 6-DIGIT DELIVERY OTP HANDOVER WORKFLOW
+   3.1 OTP Generation & Life-Cycle
+   3.2 UI Design & Presentation Guidelines for Mobile Apps
+4. REAL-TIME RIDER GPS TRACKING (WEBSOCKET & MAP INTEGRATION)
+   4.1 Socket.IO Setup & Room Joining (`join_order`)
+   4.2 Live Telemetry Listening (`order:rider_moved`)
+   4.3 Map Animation & Bearing Rotation
+5. VISUAL DELIVERY PROOF PHOTO VERIFICATION
+   5.1 Displaying the Completed Delivery Proof Photo
+6. COMPLETE SAMPLE FLUTTER CUSTOMER TRACKING SCREEN
+7. CUSTOMER MOBILE APP DEVELOPER CHECKLIST
+
+================================================================================
+1. EXECUTIVE SUMMARY & CUSTOMER EXPERIENCE FLOW
+================================================================================
+When a customer places a physical product order on MEEEM, they experience a
+transparent, end-to-end delivery tracking interface:
+
+1. **Assigned State (`ACCEPTED` / `AT_PICKUP` / `PICKED_UP`)**:
+   - Customer sees the assigned rider's profile photo, name, phone, and vehicle plate.
+   - Status updates in real-time ("Rider is on the way to pick up your order").
+
+2. **Out for Delivery State (`OUT_FOR_DELIVERY`)**:
+   - The map becomes live, showing the rider's motorcycle moving along the route.
+   - A highlighted **6-Digit Customer Handover OTP Card** appears prominently.
+   - Estimated distance remaining and live vehicle speed are displayed.
+
+3. **Delivered State (`DELIVERED`)**:
+   - The customer verifies the package and shares the 6-digit OTP with the rider.
+   - Once confirmed, the screen refreshes to show "Delivered Successfully" along
+     with the **Visual Delivery Proof Photo** captured by the rider.
+
+================================================================================
+2. CUSTOMER ORDER DETAILS API
+================================================================================
+
+--------------------------------------------------------------------------------
+2.1 Request Headers & Auth
+--------------------------------------------------------------------------------
+Endpoint: GET /mobileapi/customer/orders/products/details/:id
+Headers:
+  Authorization: Bearer <customerAccessToken>
+  Content-Type: application/json
+
+--------------------------------------------------------------------------------
+2.2 Complete JSON Response Schema
+--------------------------------------------------------------------------------
+SUCCESS RESPONSE (200 OK):
+{
+  "success": true,
+  "message": "Order details fetched successfully",
+  "data": {
+    "id": "cuid_order_123",
+    "orderNumber": "meeem00000125",
+    "status": "OUT_FOR_DELIVERY",
+    "totalAmount": 120.00,
+    "subtotal": 100.00,
+    "tax": 0.00,
+    "shipping": 20.00,
+    "paymentMethod": "COD",
+    "paymentStatus": "PENDING",
+    "shippingFullName": "Alpha Sesay",
+    "shippingPhone": "78112233",
+    "shippingAddressLine1": "14 Lumley Beach Road",
+    "shippingCity": "Freetown",
+    "shippingState": "Western Area",
+    "shippingCountry": "Sierra Leone",
+    "createdAt": "2026-08-28T09:30:00.000Z",
+    "sellerStoreName": "Apex Electronics",
+    "items": [
+      {
+        "id": "cuid_item_1",
+        "productNameSnapshot": "Noise Cancelling Headphones",
+        "quantity": 1,
+        "price": 100.00,
+        "subtotal": 100.00,
+        "itemStatus": "OUT_FOR_DELIVERY",
+        "imageUrl": "https://.../headphones.jpg",
+        "deliveryProofImage": null
+      }
+    ],
+    "activeDeliveryTracking": {
+      "assignmentId": "cuid_assign_999",
+      "status": "OUT_FOR_DELIVERY",
+      "dispatchMode": "AUTO_CASCADE",
+      "distanceKm": 2.4,
+      "deliveryOtp": "582910",
+      "deliveryProofImage": null,
+      "rider": {
+        "id": "cuid_rider_888",
+        "userId": "cuid_user_888",
+        "name": "Ibrahim Koroma",
+        "email": "rider.ibrahim@example.com",
+        "phone": "76123456",
+        "phoneCountryCode": "+232",
+        "image": "https://.../rider-pfp.jpg",
+        "vehicleName": "Honda CB Shine 125",
+        "vehicleNumber": "SL-3829-B",
+        "drivingLicenseNo": "DL-10928374",
+        "vehicleTypes": ["2_WHEELER"],
+        "isOnline": true
+      },
+      "currentLocation": {
+        "latitude": 8.484245,
+        "longitude": -13.234125,
+        "heading": 145.0,
+        "speed": 28.5,
+        "lastLocationUpdate": "2026-08-28T10:15:30.000Z"
+      },
+      "pickupLocation": {
+        "name": "Apex Electronics Store",
+        "latitude": 8.485100,
+        "longitude": -13.235500
+      },
+      "destinationLocation": {
+        "fullName": "Alpha Sesay",
+        "phone": "78112233",
+        "addressLine1": "14 Lumley Beach Road",
+        "city": "Freetown",
+        "state": "Western Area",
+        "country": "Sierra Leone"
+      },
+      "socketRoom": "order:cuid_order_123"
+    },
+    "deliveryAssignments": [ ... ]
+  }
+}
+
+================================================================================
+3. SECURE CUSTOMER 6-DIGIT DELIVERY OTP HANDOVER WORKFLOW
+================================================================================
+
+--------------------------------------------------------------------------------
+3.1 OTP Generation & Life-Cycle
+--------------------------------------------------------------------------------
+- When the delivery transitions to `OUT_FOR_DELIVERY`, the backend generates a
+  unique 6-digit security code (e.g., `582910`).
+- The OTP is accessible via `data.activeDeliveryTracking.deliveryOtp`.
+- The rider MUST enter this exact 6-digit code in the Rider App to successfully
+  mark the order as `DELIVERED`.
+
+--------------------------------------------------------------------------------
+3.2 UI Design & Presentation Guidelines for Customer Mobile App
+--------------------------------------------------------------------------------
+When `activeDeliveryTracking.status === "OUT_FOR_DELIVERY"`:
+Render a prominent security card above the map:
+
+┌────────────────────────────────────────────────────────────────────────┐
+│ 🔐 SECURE DELIVERY HANDOVER CODE                                       │
+│                                                                        │
+│                   [  5  8  2  9  1  0  ]                              │
+│                                                                        │
+│ ℹ️ Share this 6-digit code with the rider when receiving your parcel. │
+│ Do not share this code over phone calls prior to arrival.              │
+└────────────────────────────────────────────────────────────────────────┘
+
+================================================================================
+4. REAL-TIME RIDER GPS TRACKING (WEBSOCKET & MAP INTEGRATION)
+================================================================================
+
+--------------------------------------------------------------------------------
+4.1 Socket.IO Setup & Room Joining
+--------------------------------------------------------------------------------
+SOCKET SERVER ENDPOINTS:
+- WebSocket URL: `https://<domain>:3001` (or `wss://<domain>/socket.io`)
+- Health Check: `GET https://<domain>:3001/health` (or `GET http://localhost:3001/health`)
+  Returns: `{"status": "ok", "service": "meeem-socket-server"}`
+  Use for Docker, PM2, and load balancer uptime monitoring.
+- Internal Location Relay: `POST https://<domain>:3001/internal/location`
+  Body: `{"riderId": "...", "orderId": "...", "latitude": 12.34, "longitude": 56.78, "heading": 90, "speed": 25}`
+  Returns: `{"success": true}`
+  Relays REST GPS updates instantly to `order:<orderId>` and `admin:fleet` socket rooms.
+
+1. Connect to WebSocket:
+   ```dart
+   final socket = IO.io('https://<domain>:3001', <String, dynamic>{
+     'transports': ['websocket'],
+     'autoConnect': true,
+   });
+   ```
+
+2. Join the Order Room:
+   ```dart
+   socket.onConnect((_) {
+     socket.emit('join_order', { 'orderId': orderId });
+   });
+   ```
+
+--------------------------------------------------------------------------------
+4.2 Live Telemetry Listening (`order:rider_moved`)
+--------------------------------------------------------------------------------
+```dart
+socket.on('order:rider_moved', (data) {
+  // Filter for multi-vendor orders: match currently tracked rider
+  final String? activeRiderId = activeDeliveryTracking?['rider']?['id'];
+  if (activeRiderId != null && data['riderId'] != null && data['riderId'] != activeRiderId) {
+    return; // Ignore telemetry from other riders delivering other packages in the same order
+  }
+
+  final double lat = (data['latitude'] as num).toDouble();
+  final double lng = (data['longitude'] as num).toDouble();
+  final double heading = (data['heading'] ?? 0.0).toDouble();
+  final double speed = (data['speed'] ?? 0.0).toDouble();
+
+  // Smoothly move the rider marker on the map
+  animateRiderMarker(LatLng(lat, lng), heading);
+});
+```
+
+--------------------------------------------------------------------------------
+4.3 Map Animation & Bearing Rotation
+--------------------------------------------------------------------------------
+* Use a custom motorcycle icon for the rider.
+* Rotate the marker based on `heading` (bearing angle).
+* Draw a polyline connecting the Rider $\rightarrow$ Customer Address.
+
+================================================================================
+5. VISUAL DELIVERY PROOF PHOTO VERIFICATION
+================================================================================
+When `order.status === "DELIVERED"` and `activeDeliveryTracking.deliveryProofImage`
+is available:
+- Display a "Delivery Proof" card with the photo captured at handover.
+- Tapping the photo opens a full-screen image viewer with timestamp and confirmation badge.
+
+================================================================================
+6. SAMPLE FLUTTER CUSTOMER TRACKING SCREEN
+================================================================================
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:socket_io_client/socket_io_client.dart' as IO;
+import 'package:url_launcher/url_launcher.dart';
+
+class CustomerLiveTrackingView extends StatefulWidget {
+  final Map<String, dynamic> trackingData;
+
+  const CustomerLiveTrackingView({Key? key, required this.trackingData}) : super(key: key);
+
+  @override
+  _CustomerLiveTrackingViewState createState() => _CustomerLiveTrackingViewState();
+}
+
+class _CustomerLiveTrackingViewState extends State<CustomerLiveTrackingView> {
+  late IO.Socket _socket;
+  LatLng? _riderLocation;
+  double _heading = 0.0;
+
+  @override
+  void initState() {
+    super.initState();
+    final curr = widget.trackingData['currentLocation'];
+    if (curr != null && curr['latitude'] != null) {
+      _riderLocation = LatLng(curr['latitude'], curr['longitude']);
+      _heading = (curr['heading'] ?? 0.0).toDouble();
+    }
+    _initSocket();
+  }
+
+  void _initSocket() {
+    _socket = IO.io('https://<domain>:3001', <String, dynamic>{
+      'transports': ['websocket'],
+      'autoConnect': true,
+    });
+
+    _socket.onConnect((_) {
+      final orderId = widget.trackingData['socketRoom']?.replaceFirst('order:', '');
+      if (orderId != null) {
+        _socket.emit('join_order', {'orderId': orderId});
+      }
+    });
+
+    _socket.on('order:rider_moved', (data) {
+      final activeRiderId = widget.trackingData['rider']?['id'];
+      if (activeRiderId != null && data['riderId'] != null && data['riderId'] != activeRiderId) {
+        return; // Ignore other riders in multi-vendor order
+      }
+
+      if (mounted && data['latitude'] != null && data['longitude'] != null) {
+        setState(() {
+          _riderLocation = LatLng(data['latitude'], data['longitude']);
+          _heading = (data['heading'] ?? 0.0).toDouble();
+        });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _socket.disconnect();
+    _socket.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final rider = widget.trackingData['rider'];
+    final otp = widget.trackingData['deliveryOtp'];
+    final status = widget.trackingData['status'];
+
+    return Column(
+      children: [
+        // Rider Profile & Contact Bar
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4)],
+          ),
+          child: Row(
+            children: [
+              CircleAvatar(
+                backgroundImage: rider['image'] != null ? NetworkImage(rider['image']) : null,
+                child: rider['image'] == null ? const Icon(Icons.person) : null,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(rider['name'] ?? 'Delivery Rider', style: const TextStyle(fontWeight: FontWeight.bold)),
+                    Text('Plate: ${rider['vehicleNumber'] ?? 'N/A'}', style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                  ],
+                ),
+              ),
+              if (rider['phone'] != null)
+                IconButton(
+                  icon: const Icon(Icons.phone, color: Colors.green),
+                  onPressed: () => launchUrl(Uri.parse('tel:${rider['phone']}')),
+                ),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 12),
+
+        // OTP Card (When Out For Delivery)
+        if (status == 'OUT_FOR_DELIVERY' && otp != null)
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xFFEFF6FF),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0xFFBFDBFE)),
+            ),
+            child: Column(
+              children: [
+                const Text('CUSTOMER DELIVERY OTP', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFF1D4ED8))),
+                const SizedBox(height: 8),
+                Text(otp, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.black, letterSpacing: 6, color: Color(0xFF1E40AF))),
+                const SizedBox(height: 4),
+                const Text('Share this code with your rider upon parcel arrival.', style: TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+}
+```
+
+================================================================================
+7. CUSTOMER MOBILE APP DEVELOPER CHECKLIST
+================================================================================
+[ ] Order Details: Parse `data.activeDeliveryTracking` and `data.sellerGroups[].activeDeliveryTracking`.
+[ ] Multi-Seller Support: Iterate `data.activeDeliveryTrackings` to render separate tracking cards per seller package.
+[ ] OTP Display: Render prominent 6-digit OTP code per package when `status == "OUT_FOR_DELIVERY"`.
+[ ] Rider Card: Render Rider photo, name, vehicle number, and Call button.
+[ ] Real-time Map: Connect to Socket.IO, join `order:<id>`, listen to `order:rider_moved`.
+[ ] Map Markers: Render Rider (bearing rotatable) and Customer drop-off pin.
+[ ] Delivery Proof: Render `deliveryProofImage` after status becomes `DELIVERED`.
+
+================================================================================
+8. MULTI-SELLER MULTI-RIDER DELIVERY TRACKING ARCHITECTURE
+================================================================================
+
+--------------------------------------------------------------------------------
+8.1 Multi-Vendor Checkout Scenario
+--------------------------------------------------------------------------------
+When a customer purchases items from multiple distinct product sellers in a single
+checkout (e.g. Seller A: Electronics Store & Seller B: Fashion Boutique):
+1. **Independent Rider Dispatch**:
+   - Backend auto-dispatches Rider 1 to Seller A's shop.
+   - Backend auto-dispatches Rider 2 to Seller B's shop.
+2. **Independent Milestones & Telemetry**:
+   - Rider 1 can be `OUT_FOR_DELIVERY` while Rider 2 is still `AT_PICKUP`.
+   - Each rider has a unique 6-digit Customer Handover OTP.
+3. **Independent Delivery Proof & Settlement**:
+   - When Rider 1 verifies OTP and marks `DELIVERED`, only Seller A's items are marked
+     delivered and credited to Seller A. Seller B's package continues tracking until Rider 2 delivers.
+
+--------------------------------------------------------------------------------
+8.2 Multi-Seller JSON Response Structure
+--------------------------------------------------------------------------------
+`GET /mobileapi/customer/orders/products/details/:id` returns:
+
+```json
+{
+  "id": "cuid_order_123",
+  "orderNumber": "meeem00000125",
+  "status": "PROCESSING",
+  "sellerGroups": [
+    {
+      "sellerId": "cuid_seller_a",
+      "sellerStoreName": "Apex Electronics",
+      "summary": { "subtotal": 100, "tax": 0, "shipping": 20, "commission": 10, "total": 120 },
+      "derivedStatus": "OUT_FOR_DELIVERY",
+      "activeDeliveryTracking": {
+        "assignmentId": "cuid_assign_1",
+        "sellerId": "cuid_seller_a",
+        "sellerStoreName": "Apex Electronics",
+        "status": "OUT_FOR_DELIVERY",
+        "deliveryOtp": "582910",
+        "rider": { "name": "Musa Bangura", "phone": "78111222", "phoneCountryCode": "+232", "vehicleName": "Honda Ace 125", "vehicleNumber": "SL-101-A" },
+        "currentLocation": { "latitude": 8.4842, "longitude": -13.2341, "heading": 120 },
+        "pickupLocation": { "name": "Apex Electronics", "latitude": 8.4850, "longitude": -13.2300 },
+        "socketRoom": "order:cuid_order_123"
+      }
+    },
+    {
+      "sellerId": "cuid_seller_b",
+      "sellerStoreName": "Zara Fashions",
+      "summary": { "subtotal": 150, "tax": 0, "shipping": 20, "commission": 15, "total": 170 },
+      "derivedStatus": "AT_PICKUP",
+      "activeDeliveryTracking": {
+        "assignmentId": "cuid_assign_2",
+        "sellerId": "cuid_seller_b",
+        "sellerStoreName": "Zara Fashions",
+        "status": "AT_PICKUP",
+        "deliveryOtp": "941203",
+        "rider": { "name": "Ibrahim Koroma", "phone": "76333444", "phoneCountryCode": "+232", "vehicleName": "TVS King Tricycle", "vehicleNumber": "SL-202-B" },
+        "currentLocation": { "latitude": 8.4750, "longitude": -13.2200, "heading": 45 },
+        "pickupLocation": { "name": "Zara Fashions", "latitude": 8.4700, "longitude": -13.2150 },
+        "socketRoom": "order:cuid_order_123"
+      }
+    }
+  ],
+  "activeDeliveryTrackings": [ /* Array of all active tracking objects */ ],
+  "activeDeliveryTracking": { /* First active tracking object (backwards compatibility) */ }
+}
+```
+
+--------------------------------------------------------------------------------
+8.3 Mobile UI Implementation Pattern: Multi-Package Carousel / Tabs
+--------------------------------------------------------------------------------
+When `data.activeDeliveryTrackings.length > 1`:
+- Display a top package switcher / tabs:
+  `[ Package 1: Apex Electronics (Out For Delivery) ]` | `[ Package 2: Zara Fashions (At Pickup) ]`
+- Tapping a package switches the live Google Map view, rider profile bar, and 6-digit OTP card
+  to that specific delivery.
+- Both riders stream telemetry simultaneously into `order:<orderId>` room. Filter marker animations
+  by `data.riderId` to update both rider icons on screen!
+================================================================================
+

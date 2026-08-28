@@ -1,5 +1,6 @@
 import { initializeApp, getApps, cert } from "firebase-admin/app"
 import { getAuth } from "firebase-admin/auth"
+import { getMessaging } from "firebase-admin/messaging"
 
 export function getCleanPrivateKey(): string | undefined {
   let key = process.env.FIREBASE_PRIVATE_KEY || process.env.FIREBASE_PRIVATE_KEY_BASE64
@@ -84,6 +85,23 @@ export function getFirebaseAuth() {
     return getAuth()
   } catch (error) {
     console.error("[Firebase Admin] Failed to get Auth instance:", error)
+    return null
+  }
+}
+
+export function getFirebaseMessaging() {
+  if (!appInitialized && getApps().length === 0) {
+    initFirebase()
+  }
+
+  if (getApps().length === 0) {
+    return null
+  }
+
+  try {
+    return getMessaging()
+  } catch (error) {
+    console.error("[Firebase Admin] Failed to get Messaging instance:", error)
     return null
   }
 }

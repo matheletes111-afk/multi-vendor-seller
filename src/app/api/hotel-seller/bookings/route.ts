@@ -11,12 +11,25 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const seller = await prisma.hotelSeller.findUnique({
-      where: { userId: session.user.id }
-    })
+    const [seller, globalSetting] = await Promise.all([
+      prisma.hotelSeller.findUnique({
+        where: { userId: session.user.id },
+        select: { id: true, commissionRate: true }
+      }),
+      (prisma as any).globalSetting.findFirst({
+        select: { baseCommission: true, hotelBaseCommission: true }
+      }) as Promise<{ baseCommission?: number; hotelBaseCommission?: number } | null>
+    ])
+
     if (!seller) {
       return NextResponse.json({ error: "Hotel Seller not found" }, { status: 404 })
     }
+
+    const commissionRate =
+      seller.commissionRate ??
+      globalSetting?.hotelBaseCommission ??
+      globalSetting?.baseCommission ??
+      10.0
 
     const { searchParams } = new URL(request.url)
     const { skip, take, page, perPage } = getPaginationFromSearchParams({
@@ -60,11 +73,23 @@ export async function GET(request: NextRequest) {
       prisma.hotelBooking.count({ where: whereCondition })
     ])
 
+    const formatted = bookings.map(b => {
+      const commissionAmount = Math.round(b.totalPrice * (commissionRate / 100) * 100) / 100
+      const sellerNet = Math.max(0, Math.round((b.totalPrice - commissionAmount) * 100) / 100)
+      return {
+        ...b,
+        commissionRate,
+        commissionAmount,
+        sellerNet,
+      }
+    })
+
     const totalPages = Math.ceil(totalCount / perPage)
 
     return NextResponse.json({
       success: true,
-      data: bookings,
+      commissionRate,
+      data: formatted,
       totalCount,
       totalPages,
       page,

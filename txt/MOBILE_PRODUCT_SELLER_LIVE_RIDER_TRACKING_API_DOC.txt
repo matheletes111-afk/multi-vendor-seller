@@ -1,0 +1,483 @@
+================================================================================
+MEEEM PRODUCT SELLER MOBILE APP — REAL-TIME RIDER TRACKING API DOCUMENTATION
+================================================================================
+Title: Product Seller Real-Time Delivery Rider Tracking & Dispatch Integration
+Version: 1.0.0
+Target Audience: Mobile Developers (Flutter / Kotlin / Swift / React Native)
+Base URL: https://<domain>/mobileapi/product-seller
+WebSocket Server: https://<domain>:3001 (or https://<domain>/socket.io)
+Authentication: Authorization: Bearer <sellerAccessToken>
+
+--------------------------------------------------------------------------------
+TABLE OF CONTENTS
+--------------------------------------------------------------------------------
+1. ARCHITECTURAL OVERVIEW
+2. SELLER ORDER DETAILS API (`GET /mobileapi/product-seller/orders/:id`)
+   2.1 Request Headers & Parameters
+   2.2 Complete JSON Response Schema with `activeDeliveryTracking`
+3. REAL-TIME RIDER GPS TELEMETRY INTEGRATION
+   3.1 Primary Streaming Channel: Socket.IO WebSocket
+   3.2 Socket Connection & Room Subscription (`join_order`)
+   3.3 Live Position Broadcast Event (`order:rider_moved`)
+   3.4 Fallback Polling Strategy (REST API)
+4. MOBILE MAP UI IMPLEMENTATION GUIDELINES
+   4.1 Multi-Point Map Rendering (Store -> Rider -> Customer)
+   4.2 Custom Map Markers & Heading Bearing Rotation
+   4.3 Dynamic Polyline Route Line
+   4.4 Distance & Telemetry Badge Widget
+5. RIDER DISPATCH & MANAGEMENT APIS
+   5.1 Available Online Riders List (`GET /mobileapi/product-seller/riders/available`)
+   5.2 Direct Manual Assignment & Auto-Dispatch (`POST /mobileapi/product-seller/orders/:id/assign-rider`)
+6. SAMPLE MOBILE CODE IMPLEMENTATIONS
+   6.1 Flutter (Dart) Socket.IO & Google Maps Example
+   6.2 React Native / Kotlin / Swift Integration Notes
+7. MOBILE DEVELOPER VERIFICATION CHECKLIST
+
+================================================================================
+1. ARCHITECTURAL OVERVIEW
+================================================================================
+The MEEEM Product Seller mobile app provides merchants with complete, real-time
+visibility over their package deliveries.
+
+When an order is assigned to a delivery rider (via automated proximity cascade
+or merchant manual assignment), the seller can:
+1. View the assigned rider's name, phone, photo, vehicle number, and plate.
+2. Track the live moving rider icon on Google Maps in real-time (<50ms latency).
+3. Monitor current telemetry: Speed (km/h), Bearing Heading (0-360°), and straight-line
+   distance (km) from store to drop-off.
+4. Directly call or message the rider.
+5. Reassign or trigger auto-dispatch if a rider becomes unresponsive.
+
+================================================================================
+2. SELLER ORDER DETAILS API
+================================================================================
+
+--------------------------------------------------------------------------------
+2.1 Request Headers & Parameters
+--------------------------------------------------------------------------------
+Endpoint: GET /mobileapi/product-seller/orders/:id
+Headers:
+  Authorization: Bearer <accessToken>
+  Content-Type: application/json
+
+--------------------------------------------------------------------------------
+2.2 Complete JSON Response Schema
+--------------------------------------------------------------------------------
+SUCCESS RESPONSE (200 OK):
+{
+  "id": "cuid_order_123",
+  "orderNumber": "meeem00000125",
+  "status": "OUT_FOR_DELIVERY",
+  "totalAmount": 120.00,
+  "subtotal": 100.00,
+  "tax": 0.00,
+  "shipping": 20.00,
+  "deliveryBoyCharges": 20.00,
+  "commission": 10.00,
+  "commissionRate": 10.0,
+  "sellerNet": 70.00,
+  "netEarnings": 70.00,
+  "paymentMethod": "COD",
+  "paymentStatus": "PENDING",
+  "shippingFullName": "Alpha Sesay",
+  "shippingPhone": "78112233",
+  "shippingAddressLine1": "14 Lumley Beach Road",
+  "shippingCity": "Freetown",
+  "shippingState": "Western Area",
+  "shippingCountry": "Sierra Leone",
+  "createdAt": "2026-08-28T09:30:00.000Z",
+  "customer": {
+    "name": "Alpha Sesay",
+    "email": "alpha.sesay@example.com",
+    "phone": "78112233"
+  },
+  "items": [
+    {
+      "id": "cuid_item_1",
+      "productId": "cuid_prod_1",
+      "productNameSnapshot": "Noise Cancelling Headphones",
+      "quantity": 1,
+      "price": 100.00,
+      "subtotal": 100.00,
+      "subtotalInclGst": 100.00,
+      "shippingAmount": 20.00,
+      "commissionAmount": 10.00,
+      "itemStatus": "OUT_FOR_DELIVERY",
+      "sellerNetPayout": 70.00
+    }
+  ],
+  "activeDeliveryTracking": {
+    "assignmentId": "cuid_assign_999",
+    "status": "OUT_FOR_DELIVERY",
+    "dispatchMode": "AUTO_CASCADE",
+    "distanceKm": 2.4,
+    "deliveryOtp": "582910",
+    "deliveryProofImage": null,
+    "rider": {
+      "id": "cuid_rider_888",
+      "userId": "cuid_user_888",
+      "name": "Ibrahim Koroma",
+      "email": "rider.ibrahim@example.com",
+      "phone": "76123456",
+      "phoneCountryCode": "+232",
+      "image": "https://.../rider-pfp.jpg",
+      "vehicleName": "Honda CB Shine 125",
+      "vehicleNumber": "SL-3829-B",
+      "drivingLicenseNo": "DL-10928374",
+      "vehicleTypes": ["2_WHEELER"],
+      "isOnline": true
+    },
+    "currentLocation": {
+      "latitude": 8.484245,
+      "longitude": -13.234125,
+      "heading": 145.0,
+      "speed": 28.5,
+      "lastLocationUpdate": "2026-08-28T10:15:30.000Z"
+    },
+    "pickupLocation": {
+      "name": "Apex Electronics Store",
+      "latitude": 8.485100,
+      "longitude": -13.235500
+    },
+    "destinationLocation": {
+      "fullName": "Alpha Sesay",
+      "phone": "78112233",
+      "addressLine1": "14 Lumley Beach Road",
+      "city": "Freetown",
+      "state": "Western Area",
+      "country": "Sierra Leone"
+    },
+    "socketRoom": "order:cuid_order_123"
+  },
+  "deliveryAssignments": [ ... ]
+}
+
+================================================================================
+3. REAL-TIME RIDER GPS TELEMETRY INTEGRATION
+================================================================================
+
+--------------------------------------------------------------------------------
+3.1 Primary Streaming Channel: Socket.IO WebSocket
+--------------------------------------------------------------------------------
+The backend broadcasts rider position updates over WebSockets directly to the
+room subscribed for this order.
+
+- WebSocket Server URL: `https://<domain>:3001` (or `https://<domain>` with Socket.IO path)
+- Protocol: Socket.IO v4+
+- Event Format: JSON
+- Health Check: `GET https://<domain>:3001/health`
+  Returns: `{"status": "ok", "service": "meeem-socket-server"}`
+  (Useful for DevOps, Docker, PM2, and load balancer uptime health monitoring)
+- Internal Location Relay: `POST https://<domain>:3001/internal/location`
+  Body: `{"riderId": "...", "orderId": "...", "latitude": 12.34, "longitude": 56.78, "heading": 90, "speed": 25}`
+  (Relays REST location updates into `order:<orderId>` and `admin:fleet` socket rooms)
+
+--------------------------------------------------------------------------------
+3.2 Socket Connection & Room Subscription
+--------------------------------------------------------------------------------
+When the seller opens the Order Details page on mobile:
+
+1. Establish Socket.IO connection:
+   ```dart
+   final socket = IO.io('https://<domain>:3001', <String, dynamic>{
+     'transports': ['websocket'],
+     'autoConnect': false,
+     'auth': { 'token': 'Bearer <sellerAccessToken>' }
+   });
+   socket.connect();
+   ```
+
+2. Join Order Room upon connection:
+   ```dart
+   socket.onConnect((_) {
+     socket.emit('join_order', { 'orderId': orderId });
+     print('Subscribed to live tracking room for order: $orderId');
+   });
+   ```
+
+--------------------------------------------------------------------------------
+3.3 Live Position Broadcast Event (`order:rider_moved`)
+--------------------------------------------------------------------------------
+Listen for live coordinate updates from the server:
+
+```dart
+socket.on('order:rider_moved', (data) {
+  // Guard for multi-vendor orders: ensure event belongs to currently tracked rider
+  final String? activeRiderId = activeDeliveryTracking?['rider']?['id'];
+  if (activeRiderId != null && data['riderId'] != null && data['riderId'] != activeRiderId) {
+    return; // Ignore updates from other riders delivering separate packages for the same order
+  }
+
+  final double lat = data['latitude'];
+  final double lng = data['longitude'];
+  final double heading = (data['heading'] ?? 0).toDouble();
+  final double speed = (data['speed'] ?? 0).toDouble();
+  final int timestamp = data['timestamp'] ?? DateTime.now().millisecondsSinceEpoch;
+
+  // Update Rider Marker position & rotate bearing on Google Maps
+  updateRiderMarker(LatLng(lat, lng), heading, speed);
+});
+```
+
+BROADCAST EVENT PAYLOAD SCHEMA:
+{
+  "orderId": "cuid_order_123",
+  "riderId": "cuid_rider_888",
+  "latitude": 8.484245,
+  "longitude": -13.234125,
+  "heading": 145.0,
+  "speed": 28.5,
+  "timestamp": 1724838930000
+}
+
+--------------------------------------------------------------------------------
+3.4 Fallback Polling Strategy (REST API)
+--------------------------------------------------------------------------------
+If the mobile device switches between WiFi and 4G/5G causing a temporary socket
+disconnect:
+- Poll `GET /mobileapi/product-seller/orders/:id` every 10 to 15 seconds.
+- Extract `activeDeliveryTracking.currentLocation` and update the map marker.
+
+================================================================================
+4. MOBILE MAP UI IMPLEMENTATION GUIDELINES
+================================================================================
+
+--------------------------------------------------------------------------------
+4.1 Multi-Point Map Rendering
+--------------------------------------------------------------------------------
+Render 3 distinct anchors on the Google Maps view:
+1. **Store Marker** (Blue Store Icon):
+   `activeDeliveryTracking.pickupLocation.latitude / longitude`
+2. **Rider Moving Marker** (Rotatable Bike / Scooter Icon):
+   `activeDeliveryTracking.currentLocation.latitude / longitude`
+3. **Destination Marker** (Red Destination Pin):
+   Geocoded from `activeDeliveryTracking.destinationLocation`
+
+--------------------------------------------------------------------------------
+4.2 Custom Map Markers & Bearing Rotation
+--------------------------------------------------------------------------------
+* Smoothly interpolate marker positions between updates using `LatLngTween` or
+  animation controllers (duration: 1000ms).
+* Rotate the vehicle marker to match `heading` (0° = North, 90° = East, 180° = South, 270° = West).
+
+--------------------------------------------------------------------------------
+4.3 Dynamic Polyline Route Line
+--------------------------------------------------------------------------------
+Draw a vibrant blue polyline between the Rider position and the Destination:
+- Color: `#2563EB` (Primary Blue)
+- Width: 4dp
+- Points: `[ RiderLatLng, DestinationLatLng ]`
+
+--------------------------------------------------------------------------------
+4.4 Distance & Telemetry Badge Widget
+--------------------------------------------------------------------------------
+Above the map, render a compact telemetry HUD:
+┌────────────────────────────────────────────────────────────────────────┐
+│ 🏍️ Ibrahim Koroma • Plate: SL-3829-B                                  │
+│ 📍 2.4 km from store • Speed: 28.5 km/h • 🟢 Online & Transmitting    │
+└────────────────────────────────────────────────────────────────────────┘
+
+================================================================================
+5. RIDER DISPATCH & MANAGEMENT APIS
+================================================================================
+
+--------------------------------------------------------------------------------
+5.1 Available Online Riders List with AI Vehicle Matching
+--------------------------------------------------------------------------------
+Endpoint: GET /mobileapi/product-seller/riders/available?orderId=<orderId>
+Headers:
+  Authorization: Bearer <accessToken>
+
+QUERY PARAMETERS:
+- `orderId` (optional, string): If provided, the backend evaluates items via Gemini AI
+  and returns the required vehicle category along with `isVehicleMatch: true/false` per rider.
+
+SUCCESS RESPONSE (200 OK):
+{
+  "success": true,
+  "aiVehicleRecommendation": {
+    "requiredVehicle": "4_WHEELER",
+    "compatibleVehicles": ["3_WHEELER", "4_WHEELER"],
+    "reason": "Heavy/Bulky cargo detected (~55.0kg, 165cm): Requires 3-Wheeler or 4-Wheeler vehicle.",
+    "estimatedWeightKg": 55.0,
+    "confidence": "AI_MODEL"
+  },
+  "data": [
+    {
+      "id": "cuid_rider_1",
+      "userId": "cuid_user_1",
+      "name": "Ibrahim Koroma",
+      "email": "rider.ibrahim@example.com",
+      "phone": "76123456",
+      "phoneCountryCode": "+232",
+      "image": "https://.../rider.jpg",
+      "vehicleName": "Toyota Corolla",
+      "vehicleNumber": "SL-3829-B",
+      "drivingLicenseNo": "DL-10928374",
+      "vehicleTypes": ["4_WHEELER"],
+      "isVehicleMatch": true,
+      "isOnline": true,
+      "isBusy": false
+    },
+    {
+      "id": "cuid_rider_2",
+      "userId": "cuid_user_2",
+      "name": "Musa Bangura",
+      "email": "musa.bangura@example.com",
+      "phone": "78987654",
+      "phoneCountryCode": "+232",
+      "image": "https://.../rider2.jpg",
+      "vehicleName": "Honda Ace 125",
+      "vehicleNumber": "SL-101-A",
+      "drivingLicenseNo": "DL-55443322",
+      "vehicleTypes": ["2_WHEELER"],
+      "isVehicleMatch": false,
+      "isOnline": true,
+      "isBusy": false
+    }
+  ]
+}
+
+--------------------------------------------------------------------------------
+5.2 Direct Manual Assignment & Auto-Dispatch
+--------------------------------------------------------------------------------
+Endpoint: POST /mobileapi/product-seller/orders/:id/assign-rider
+Headers:
+  Authorization: Bearer <accessToken>
+  Content-Type: application/json
+
+A. Trigger Proximity Waterfall (Auto-Dispatch):
+{
+  "action": "auto_dispatch"
+}
+
+B. Directly Assign a Specific Rider:
+{
+  "riderId": "cuid_rider_1"
+}
+
+SUCCESS RESPONSE (200 OK):
+{
+  "success": true,
+  "message": "Rider assigned successfully",
+  "assignment": {
+    "id": "cuid_assignment_id",
+    "status": "ACCEPTED",
+    "riderId": "cuid_rider_1"
+  }
+}
+
+================================================================================
+6. SAMPLE FLUTTER CODE IMPLEMENTATION
+================================================================================
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:socket_io_client/socket_io_client.dart' as IO;
+
+class SellerOrderTrackingMap extends StatefulWidget {
+  final String orderId;
+  final LatLng initialRiderLocation;
+  final LatLng storeLocation;
+  final LatLng customerLocation;
+
+  const SellerOrderTrackingMap({
+    Key? key,
+    required this.orderId,
+    required this.initialRiderLocation,
+    required this.storeLocation,
+    required this.customerLocation,
+  }) : super(key: key);
+
+  @override
+  _SellerOrderTrackingMapState createState() => _SellerOrderTrackingMapState();
+}
+
+class _SellerOrderTrackingMapState extends State<SellerOrderTrackingMap> {
+  late GoogleMapController _mapController;
+  late IO.Socket _socket;
+  LatLng? _riderPos;
+  double _heading = 0.0;
+  double _speed = 0.0;
+
+  @override
+  void initState() {
+    super.initState();
+    _riderPos = widget.initialRiderLocation;
+    _initSocket();
+  }
+
+  void _initSocket() {
+    _socket = IO.io('https://<domain>:3001', <String, dynamic>{
+      'transports': ['websocket'],
+      'autoConnect': true,
+    });
+
+    _socket.onConnect((_) {
+      _socket.emit('join_order', {'orderId': widget.orderId});
+    });
+
+    _socket.on('order:rider_moved', (data) {
+      // Filter out telemetry from other riders if multi-vendor order has multiple packages
+      if (mounted && data['latitude'] != null && data['longitude'] != null) {
+        setState(() {
+          _riderPos = LatLng(data['latitude'], data['longitude']);
+          _heading = (data['heading'] ?? 0).toDouble();
+          _speed = (data['speed'] ?? 0).toDouble();
+        });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _socket.disconnect();
+    _socket.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final markers = <Marker>{
+      Marker(
+        markerId: const MarkerId('store'),
+        position: widget.storeLocation,
+        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+        infoWindow: const InfoWindow(title: 'Your Store (Pickup)'),
+      ),
+      Marker(
+        markerId: const MarkerId('customer'),
+        position: widget.customerLocation,
+        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
+        infoWindow: const InfoWindow(title: 'Customer Destination'),
+      ),
+      if (_riderPos != null)
+        Marker(
+          markerId: const MarkerId('rider'),
+          position: _riderPos!,
+          rotation: _heading,
+          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue),
+          infoWindow: InfoWindow(title: 'Rider (${_speed.toStringAsFixed(1)} km/h)'),
+        ),
+    };
+
+    return GoogleMap(
+      initialCameraPosition: CameraPosition(target: widget.storeLocation, zoom: 14),
+      markers: markers,
+      onMapCreated: (controller) => _mapController = controller,
+    );
+  }
+}
+```
+
+================================================================================
+7. MOBILE DEVELOPER VERIFICATION CHECKLIST
+================================================================================
+[ ] Order Details: Parse `activeDeliveryTracking` when present.
+[ ] Map Component: Render Store, Customer, and Rider markers.
+[ ] WebSocket: Connect to Socket.IO, emit `join_order`, listen to `order:rider_moved`.
+[ ] Telemetry HUD: Display rider name, phone, plate, speed, and distance.
+[ ] Quick Actions: Add direct phone call (`tel:`) button for assigned rider.
+[ ] Fallback: Implement 15s REST polling fallback if socket disconnects.
+================================================================================

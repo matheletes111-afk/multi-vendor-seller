@@ -34,12 +34,15 @@ import {
   Calendar,
   X,
   ArrowRight,
-  Search
+  Search,
+  Eye
 } from "lucide-react"
+import { PlanSnapshotModal } from "@/components/subscription/plan-snapshot-modal"
 
 const formatPlanDuration = (durationDays?: number) => {
   const days = durationDays || 30
   if (days === 30) return "/month"
+  if (days === 60) return "/2 months"
   if (days === 90) return "/3 months"
   if (days === 180) return "/6 months"
   if (days === 365) return "/year"
@@ -49,6 +52,7 @@ const formatPlanDuration = (durationDays?: number) => {
 const formatPlanDurationShort = (durationDays?: number) => {
   const days = durationDays || 30
   if (days === 30) return " /mo"
+  if (days === 60) return " /2mo"
   if (days === 90) return " /3mo"
   if (days === 180) return " /6mo"
   if (days === 365) return " /yr"
@@ -59,6 +63,7 @@ export function SubscriptionsClient() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const pathname = usePathname()
+  const [selectedSubForSnapshot, setSelectedSubForSnapshot] = useState<any | null>(null)
 
   const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10) || 1)
   const perPage = Math.min(50, Math.max(1, parseInt(searchParams.get("perPage") ?? "10", 10) || 10))
@@ -532,13 +537,14 @@ export function SubscriptionsClient() {
                 <TableHead>Status</TableHead>
                 <TableHead>Price</TableHead>
                 <TableHead>Period</TableHead>
-                <TableHead className="pr-6">Created At</TableHead>
+                <TableHead>Created At</TableHead>
+                <TableHead className="pr-6 text-right">Details</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {subscriptions.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-20">
+                  <TableCell colSpan={8} className="text-center py-20">
                     <div className="flex flex-col items-center gap-2 text-muted-foreground">
                       <Filter className="w-12 h-12 opacity-20" />
                       <p className="text-lg font-medium">No results found for current filters</p>
@@ -596,24 +602,33 @@ export function SubscriptionsClient() {
                     </TableCell>
                     <TableCell>
                       <div className="font-medium">
-                        {subscription.couponCode ? (
-                          <div>
-                            <span className="line-through text-muted-foreground text-xs mr-1">{formatCurrency(subscription.plan?.price ?? 0)}</span>
-                            <span className="text-emerald-600 font-bold">{formatCurrency(subscription.finalPaidAmount ?? subscription.plan?.price)}</span>
-                            <div className="text-[10px] text-purple-600 font-semibold bg-purple-50 dark:bg-purple-950/40 px-1.5 py-0.5 rounded inline-block mt-0.5">
-                              Coupon: {subscription.couponCode} (-{formatCurrency(subscription.couponDiscount)})
+                        {(() => {
+                          const originalPrice = subscription.catalogPrice !== null && subscription.catalogPrice !== undefined
+                            ? subscription.catalogPrice
+                            : (subscription.plan?.price ?? 0)
+                          const finalPrice = subscription.finalPaidAmount !== null && subscription.finalPaidAmount !== undefined
+                            ? subscription.finalPaidAmount
+                            : (subscription.paidPrice ?? originalPrice)
+
+                          return subscription.couponCode ? (
+                            <div>
+                              <span className="line-through text-muted-foreground text-xs mr-1">{formatCurrency(originalPrice)}</span>
+                              <span className="text-emerald-600 font-bold">{formatCurrency(finalPrice)}</span>
+                              <div className="text-[10px] text-purple-600 font-semibold bg-purple-50 dark:bg-purple-950/40 px-1.5 py-0.5 rounded inline-block mt-0.5">
+                                Coupon: {subscription.couponCode} (-{formatCurrency(subscription.couponDiscount || 0)})
+                              </div>
                             </div>
-                          </div>
-                        ) : (
-                          <>
-                            {formatCurrency(subscription.plan?.price ?? 0)}
-                            {(subscription.plan?.price ?? 0) > 0 && (
-                              <span className="text-muted-foreground text-xs font-normal">
-                                {formatPlanDurationShort(subscription.plan?.duration)}
-                              </span>
-                            )}
-                          </>
-                        )}
+                          ) : (
+                            <>
+                              {formatCurrency(finalPrice)}
+                              {finalPrice > 0 && (
+                                <span className="text-muted-foreground text-xs font-normal">
+                                  {formatPlanDurationShort(subscription.plan?.duration)}
+                                </span>
+                              )}
+                            </>
+                          )
+                        })()}
                       </div>
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground font-medium">
@@ -621,8 +636,19 @@ export function SubscriptionsClient() {
                         ? `${formatDate(subscription.currentPeriodStart)} – ${formatDate(subscription.currentPeriodEnd)}`
                         : "—"}
                     </TableCell>
-                    <TableCell className="text-sm text-muted-foreground pr-6 font-medium">
+                    <TableCell className="text-sm text-muted-foreground font-medium">
                       {formatDate(subscription.createdAt)}
+                    </TableCell>
+                    <TableCell className="pr-6 text-right">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-8 px-2.5 text-xs text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 rounded-xl font-bold flex items-center gap-1.5 ml-auto border border-indigo-100 dark:border-indigo-900/50 shadow-sm"
+                        onClick={() => setSelectedSubForSnapshot(subscription)}
+                      >
+                        <Eye className="h-3.5 w-3.5" />
+                        <span>Plan Details</span>
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))
@@ -630,6 +656,11 @@ export function SubscriptionsClient() {
             </TableBody>
           </Table>
         </CardContent>
+        <PlanSnapshotModal
+          isOpen={!!selectedSubForSnapshot}
+          onClose={() => setSelectedSubForSnapshot(null)}
+          subscription={selectedSubForSnapshot}
+        />
         {totalCount > 0 && (
           <div className="border-t p-6 bg-muted/10">
             <AdminPagination

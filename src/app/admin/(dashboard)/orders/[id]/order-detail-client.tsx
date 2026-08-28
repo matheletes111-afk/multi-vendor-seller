@@ -52,6 +52,7 @@ import {
   ORDER_CANCEL_BLOCKED_DELIVERED,
   ORDER_ITEM_LOCKED_AFTER_DELIVERED,
 } from "@/lib/order-cancel-guard"
+import { OrderRiderCard } from "@/components/delivery/order-rider-card"
 
 type ReturnAction = "ACCEPT" | "REJECT" | "PICKUP_COMPLETED" | "REFUND_COMPLETED" | "EXCHANGE_TOP_UP_RECEIVED"
 
@@ -696,6 +697,25 @@ export function AdminOrderDetailClient({ orderId }: { orderId: string }) {
                    </div>
                 </div>
               </div>
+
+              {/* Assigned Delivery Rider Card & Live GPS Map */}
+              <OrderRiderCard
+                orderId={order.id}
+                orderNumber={order.orderNumber}
+                orderStatus={order.status}
+                deliveryAssignments={order.deliveryAssignments}
+                shippingAddress={{
+                  fullName: order.shippingFullName,
+                  phone: order.shippingPhone,
+                  addressLine1: order.shippingAddressLine1,
+                  addressLine2: order.shippingAddressLine2,
+                  city: order.shippingCity,
+                  state: order.shippingState,
+                  postalCode: order.shippingPostalCode,
+                  country: order.shippingCountry,
+                }}
+                onRefresh={fetchOrder}
+              />
 
               {/* Delivery Address Card Improvement */}
               <div className="rounded-[2.5rem] bg-foreground/5 border border-foreground/5 p-8 space-y-5 group hover:bg-foreground/[0.08] transition-all">

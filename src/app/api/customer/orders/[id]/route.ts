@@ -27,6 +27,25 @@ export async function GET(
       where: { id: orderId, customerId: session.user.id },
       include: {
         seller: { include: { store: true } },
+        deliveryAssignments: {
+          include: {
+            seller: { include: { store: true } },
+            rider: {
+              include: {
+                user: {
+                  select: {
+                    name: true,
+                    email: true,
+                    phone: true,
+                    phoneCountryCode: true,
+                    image: true,
+                  },
+                },
+              },
+            },
+          },
+          orderBy: { attemptNumber: "desc" },
+        },
         items: {
           include: {
             seller: { include: { store: { select: { name: true } } } },
@@ -198,6 +217,7 @@ export async function GET(
       subtotal: number
       tax: number
       shipping: number
+      commission: number
       total: number
       statuses: import("@prisma/client").OrderStatus[]
       itemCount: number
@@ -212,6 +232,7 @@ export async function GET(
       subtotal: 0,
       tax: 0,
       shipping: 0,
+      commission: 0,
       total: 0,
       statuses: [],
       itemCount: 0,
@@ -219,6 +240,7 @@ export async function GET(
     current.subtotal += item.subtotal
     current.tax += item.gstAmount
     current.shipping += item.shippingAmount
+    current.commission += item.commissionAmount
     current.total += (item.subtotalInclGst ?? item.subtotal + item.gstAmount) + item.shippingAmount
     current.statuses.push(item.itemStatus)
     current.itemCount += 1
@@ -248,6 +270,66 @@ export async function GET(
       regionCharges,
     })
 
+    const groupAssignment = (order.deliveryAssignments || []).find(
+      (a: any) =>
+        ["OFFERED", "ACCEPTED", "AT_PICKUP", "PICKED_UP", "OUT_FOR_DELIVERY", "DELIVERED"].includes(a.status) &&
+        (a.sellerId === group.sellerId || (!a.sellerId && (order.deliveryAssignments || []).length === 1))
+    )
+
+    let activeDeliveryTracking: any = null
+    if (groupAssignment) {
+      const r = groupAssignment.rider
+      const rUser = r?.user
+      const pickupStoreName =
+        groupAssignment.seller?.store?.name ||
+        group.sellerStoreName ||
+        order.seller?.store?.name ||
+        "Seller Store"
+
+      activeDeliveryTracking = {
+        assignmentId: groupAssignment.id,
+        sellerId: groupAssignment.sellerId,
+        sellerStoreName: pickupStoreName,
+        status: groupAssignment.status,
+        dispatchMode: groupAssignment.dispatchMode,
+        distanceKm: groupAssignment.distanceKm,
+        deliveryOtp: groupAssignment.deliveryOtp,
+        deliveryProofImage: groupAssignment.deliveryProofImage,
+        rider: {
+          id: r?.id,
+          name: rUser?.name || "Delivery Rider",
+          phone: rUser?.phone || null,
+          image: rUser?.image || r?.profileImage || null,
+          vehicleNumber: r?.vehicleNumber || null,
+          vehicleTypes: r?.vehicleTypes || [],
+          isOnline: r?.isOnline ?? true,
+        },
+        currentLocation: {
+          latitude: r?.currentLatitude || groupAssignment.riderLatitudeAtOffer || null,
+          longitude: r?.currentLongitude || groupAssignment.riderLongitudeAtOffer || null,
+          heading: r?.heading || 0,
+          speed: r?.speed || 0,
+          lastLocationUpdate: r?.lastLocationUpdate ? r.lastLocationUpdate.toISOString() : null,
+        },
+        pickupLocation: {
+          name: pickupStoreName,
+          latitude: groupAssignment.sellerLatitude || null,
+          longitude: groupAssignment.sellerLongitude || null,
+        },
+        destinationLocation: {
+          fullName: order.shippingFullName,
+          phone: order.shippingPhone,
+          addressLine1: order.shippingAddressLine1,
+          addressLine2: order.shippingAddressLine2,
+          city: order.shippingCity,
+          state: order.shippingState,
+          postalCode: order.shippingPostalCode,
+          country: order.shippingCountry,
+        },
+        socketRoom: `order:${order.id}`,
+      }
+    }
+
     return {
       sellerId: group.sellerId,
       sellerStoreName: group.sellerStoreName,
@@ -255,14 +337,25 @@ export async function GET(
         subtotal: group.subtotal,
         tax: group.tax,
         shipping: group.shipping,
+        commission: group.commission,
         total: group.total,
       },
       shippingBreakup: breakup,
       itemStatuses: statusSummary.counts,
       derivedStatus: statusSummary.derivedStatus,
       itemCount: group.itemCount,
+      activeDeliveryTracking,
     }
   })
+
+  const ACTIVE_STATUSES = ["OFFERED", "ACCEPTED", "AT_PICKUP", "PICKED_UP", "OUT_FOR_DELIVERY", "DELIVERED"]
+  const activeAssignments = (order.deliveryAssignments || []).filter((a: any) =>
+    ACTIVE_STATUSES.includes(a.status)
+  )
+  const activeDeliveryTrackings = sellerGroups
+    .map((g) => g.activeDeliveryTracking)
+    .filter(Boolean)
+  const activeDeliveryTracking = activeDeliveryTrackings[0] || null
 
   const body: OrderDetailApi = {
     id: order.id,
@@ -297,6 +390,9 @@ export async function GET(
     items,
     couponCode: order.couponCode,
     couponDiscount: order.couponDiscount,
+    deliveryAssignments: order.deliveryAssignments,
+    activeDeliveryTracking,
+    activeDeliveryTrackings,
   }
 
   return NextResponse.json(body)

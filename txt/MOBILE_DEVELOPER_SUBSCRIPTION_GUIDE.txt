@@ -1,0 +1,345 @@
+================================================================================
+MOBILE DEVELOPER INTEGRATION GUIDE: SUBSCRIPTION PLAN SNAPSHOT & HISTORICAL PRICING
+================================================================================
+
+Date: August 2026
+Applies to: All 4 Seller Apps (Product, Service, Hotel, Restaurant)
+Target Platforms: Flutter / React Native / iOS / Android
+
+================================================================================
+TABLE OF CONTENTS:
+1. EXECUTIVE SUMMARY: WHAT CHANGED & WHY
+2. CHECKLIST OF EXACT CHANGES MOBILE DEVELOPER MUST MAKE
+3. FIELD DEFINITIONS & NULLABILITY GUIDE
+4. API ENDPOINTS, PAYLOADS & JSON RESPONSES
+5. UI / UX SPECIFICATION FOR "VIEW PLAN DETAILS" POPUP / BOTTOM SHEET
+6. REGISTRATION & ONBOARDING (NO MOBILE CHANGES NEEDED)
+================================================================================
+
+
+--------------------------------------------------------------------------------
+1. EXECUTIVE SUMMARY: WHAT CHANGED & WHY
+--------------------------------------------------------------------------------
+1. Historical Price & Plan Snapshot:
+   - When a seller buys or activates a plan, the server permanently stores:
+     a) `paidPrice`: The exact amount paid at that moment (Number/Float).
+     b) `planSnapshot`: A frozen JSON copy of the full plan details (name, price,
+        duration, feature limits, quotas, etc.) at the time of purchase.
+   - Even if the admin later modifies catalog plan prices or features in the Admin 
+     Panel, the seller's past purchase history and invoices remain 100% accurate.
+
+2. Free Plan 2-Month Duration (60 Days):
+   - The default Free Plan is configured for 2 MONTHS (`duration: 60` days).
+   - The backend automatically returns `periodStart` and `periodEnd` reflecting 
+     the exact 60-day window.
+
+
+--------------------------------------------------------------------------------
+2. CHECKLIST OF EXACT CHANGES MOBILE DEVELOPER MUST MAKE
+--------------------------------------------------------------------------------
+
+[ ] CHANGE 1: Update Subscription & History Data Models
+    - Add `paidPrice` (Number / Float) to your models.
+    - Add `planSnapshot` (JSON Object / Map) to your models.
+
+[ ] CHANGE 2: Subscription History Screen UI
+    - In your Subscription History list, display `item.paidPrice ?? item.price` as the 
+      historical plan price.
+    - If `item.couponCode` exists, display the coupon code and discount (`item.couponDiscount`).
+    - Display `item.finalPaidAmount` as the final amount charged.
+    - Add a "View Plan Details" button (or Eye / Info Icon) on each history row.
+
+[ ] CHANGE 3: Add "View Plan Details" Popup / Modal / BottomSheet
+    - On every row in the Subscription History list (and on the Current Subscription card), 
+      when tapped, open a modal / bottom sheet showing the details from `item.planSnapshot`.
+
+[ ] CHANGE 4: Fallback Handling
+    - If `planSnapshot` is null (for older legacy records), fallback to reading 
+      from `item.plan` or `item.planName` so the app never crashes.
+
+
+--------------------------------------------------------------------------------
+3. FIELD DEFINITIONS & NULLABILITY GUIDE
+--------------------------------------------------------------------------------
+Inside `planSnapshot`:
+- `id` (String): Unique plan ID.
+- `name` (String): Plan key identifier (e.g. "FREE", "BRONZE", "SILVER", "GOLD", "PLATINUM").
+- `displayName` (String): User-facing plan title (e.g. "Gold Plan (Product & Service)").
+- `description` (String | null): Brief plan description.
+- `price` (Number): Original catalog plan price.
+- `duration` (Number): Validity in days (e.g., 30 = Monthly, 60 = 2 Months, 90 = 3 Months, 365 = 1 Year).
+- `maxProducts` (Number | null): Product/Service upload limit (`null` means Unlimited).
+- `maxOrders` (Number | null): Order quota limit (`null` means Unlimited).
+- `maxRooms` (Number | null): Hotel room limit (`null` means Unlimited).
+- `features` (Object | null): Key-value pairs of included features (e.g. `{"customBadge": true, "analytics": "basic"}`).
+
+
+--------------------------------------------------------------------------------
+4. API ENDPOINTS, PAYLOADS & JSON RESPONSES
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+ENDPOINT A: Get Subscription History & Current Subscription
+--------------------------------------------------------------------------------
+Method: GET
+Endpoint: /api/mobile/seller/subscription/history
+Headers:
+  Authorization: Bearer <SELLER_ACCESS_TOKEN>
+Optional Query Parameter:
+  ?userId=<SELLER_USER_ID> (Used if authentication token is not passed in headers)
+
+Request Payload:
+  None (GET request)
+
+Success Response (200 OK):
+{
+  "history": [
+    {
+      "id": "sub_cm7123abc",
+      "planName": "Free Starter",
+      "planType": "FREE",
+      "price": 0,
+      "paidPrice": 0,
+      "status": "ACTIVE",
+      "periodStart": "2026-08-01T00:00:00.000Z",
+      "periodEnd": "2026-10-01T00:00:00.000Z",
+      "createdAt": "2026-08-01T10:30:00.000Z",
+      "couponCode": null,
+      "couponDiscount": 0,
+      "finalPaidAmount": 0,
+      "isCurrent": true,
+      "planSnapshot": {
+        "id": "cmjmsche6000013d110nwhjzi",
+        "name": "FREE",
+        "type": "PRODUCT_SERVICE",
+        "displayName": "Free Starter",
+        "description": "Perfect for getting started (2 Months Free)",
+        "price": 0,
+        "duration": 60,
+        "maxProducts": 10,
+        "maxOrders": 50,
+        "maxRooms": null,
+        "features": {
+          "orders": 10,
+          "products": 5,
+          "reviews": false,
+          "featured": false,
+          "analytics": "basic"
+        }
+      }
+    }
+  ],
+  "currentSubscription": {
+    "id": "sub_cm7123abc",
+    "status": "ACTIVE",
+    "planName": "Free Starter",
+    "price": 0,
+    "paidPrice": 0,
+    "planSnapshot": {
+      "id": "cmjmsche6000013d110nwhjzi",
+      "name": "FREE",
+      "type": "PRODUCT_SERVICE",
+      "displayName": "Free Starter",
+      "description": "Perfect for getting started (2 Months Free)",
+      "price": 0,
+      "duration": 60,
+      "maxProducts": 10,
+      "maxOrders": 50,
+      "maxRooms": null,
+      "features": {
+        "orders": 10,
+        "products": 5,
+        "reviews": false,
+        "featured": false,
+        "analytics": "basic"
+      }
+    },
+    "currentPeriodEnd": "2026-10-01T00:00:00.000Z"
+  }
+}
+
+--------------------------------------------------------------------------------
+ENDPOINT B: Get Current Plan & Available Catalog Plans
+--------------------------------------------------------------------------------
+Method: GET
+Role-Specific Endpoints:
+  - Product Seller:    GET /mobileapi/product-seller/subscription
+  - Service Seller:    GET /mobileapi/service-seller/subscription
+  - Hotel Seller:      GET /mobileapi/hotel-seller/subscription
+  - Restaurant Seller: GET /mobileapi/restaurant-seller/subscription
+
+Unified Endpoint (Any Seller Type):
+  - GET /api/mobile/seller/subscription (Supports ?userId=<SELLER_USER_ID>)
+
+Headers:
+  Authorization: Bearer <SELLER_ACCESS_TOKEN>
+
+Request Payload:
+  None (GET request)
+
+Success Response (200 OK):
+{
+  "currentSubscription": {
+    "id": "sub_cm7123abc",
+    "planId": "plan_gold_001",
+    "status": "ACTIVE",
+    "paidPrice": 1999,
+    "planSnapshot": {
+      "id": "plan_gold_001",
+      "name": "GOLD",
+      "type": "PRODUCT_SERVICE",
+      "displayName": "Gold Plan",
+      "description": "Up to 500 products with priority search placement",
+      "price": 1999,
+      "duration": 60,
+      "maxProducts": 500,
+      "maxOrders": null,
+      "maxRooms": null,
+      "features": {
+        "customBadge": true,
+        "prioritySupport": true,
+        "analytics": true
+      }
+    },
+    "currentPeriodStart": "2026-08-01T00:00:00.000Z",
+    "currentPeriodEnd": "2026-10-01T00:00:00.000Z",
+    "plan": {
+      "id": "plan_gold_001",
+      "name": "GOLD",
+      "price": 1999,
+      "duration": 60
+    }
+  },
+  "availablePlans": [
+    {
+      "id": "cmjmsche6000013d110nwhjzi",
+      "name": "FREE",
+      "type": "PRODUCT_SERVICE",
+      "displayName": "Free Starter",
+      "description": "Perfect for getting started",
+      "price": 0,
+      "duration": 60,
+      "maxProducts": 10,
+      "maxOrders": 50,
+      "maxRooms": null,
+      "features": { ... }
+    },
+    {
+      "id": "plan_gold_001",
+      "name": "GOLD",
+      "type": "PRODUCT_SERVICE",
+      "displayName": "Gold Plan",
+      "description": "Up to 500 products with priority search placement",
+      "price": 1999,
+      "duration": 60,
+      "maxProducts": 500,
+      "maxOrders": null,
+      "maxRooms": null,
+      "features": { ... }
+    }
+  ]
+}
+
+--------------------------------------------------------------------------------
+ENDPOINT C: Purchase / Switch Plan via Mobile Checkout (with Coupons)
+--------------------------------------------------------------------------------
+Method: POST
+Endpoint: /api/mobile/seller/subscription/checkout
+Headers:
+  Authorization: Bearer <SELLER_ACCESS_TOKEN>
+  Content-Type: application/json
+
+Request Payload:
+{
+  "planId": "plan_gold_001",
+  "couponCode": "WELCOME10",
+  "sellerType": "PRODUCT"
+}
+* Note: sellerType can be "PRODUCT", "SERVICE", "HOTEL", or "RESTAURANT"
+
+Success Response (200 OK):
+{
+  "success": true,
+  "message": "Subscription activated successfully",
+  "subscriptionId": "sub_cm7123abc",
+  "paidAmount": 1799,
+  "discountAmount": 200,
+  "couponCode": "WELCOME10"
+}
+
+--------------------------------------------------------------------------------
+ENDPOINT D: Direct Plan Switch (Test / Instant Activation Mode)
+--------------------------------------------------------------------------------
+Method: POST
+Endpoints:
+  - Product:    POST /mobileapi/product-seller/subscription
+  - Service:    POST /mobileapi/service-seller/subscription
+  - Hotel:      POST /mobileapi/hotel-seller/subscription
+  - Restaurant: POST /mobileapi/restaurant-seller/subscription
+
+Headers:
+  Authorization: Bearer <SELLER_ACCESS_TOKEN>
+  Content-Type: application/json
+
+Request Payload:
+{
+  "planId": "plan_gold_001"
+}
+
+Success Response (200 OK):
+{
+  "success": true,
+  "message": "Subscription updated successfully",
+  "subscription": { ... },
+  "url": null
+}
+
+
+--------------------------------------------------------------------------------
+5. UI / UX SPECIFICATION FOR "VIEW PLAN DETAILS" POPUP / BOTTOM SHEET
+--------------------------------------------------------------------------------
+
+When the seller taps "View Plan Details" on any subscription card/item, show a
+clean modal/bottomsheet with:
+
++-------------------------------------------------------------+
+|  [Sparkle Icon]  Purchased Plan Snapshot      [ACTIVE Badge]|
+|  Free Starter (2 Months Free)                               |
+|  Perfect for getting started                                |
++-------------------------------------------------------------+
+|                                                             |
+|  [Historical Price]      [Final Paid]       [Category]      |
+|  ₹0.00 (Free)            ₹0.00              PRODUCT_SERVICE |
+|  2 Months (60 Days)      No Coupon          Tier: FREE      |
+|                                                             |
+|  ALLOCATED PLAN QUOTAS & LIMITS                             |
+|  * Max Products: 10 Items                                   |
+|  * Max Orders:   50 Orders                                  |
+|  * Max Rooms:    N/A (or "Unlimited" if null)               |
+|                                                             |
+|  INCLUDED PLAN FEATURES                                     |
+|  [v] orders: 10                                             |
+|  [v] products: 5                                            |
+|  [v] analytics: basic                                       |
+|                                                             |
+|  VALIDITY DATES                                             |
+|  Period: 01/08/2026 - 01/10/2026 (60 Days)                  |
+|  Purchased On: 01/08/2026 10:30 AM                          |
+|                                                             |
+|                                         [ Close Button ]    |
++-------------------------------------------------------------+
+
+
+--------------------------------------------------------------------------------
+6. REGISTRATION & ONBOARDING (NO MOBILE CHANGES NEEDED)
+--------------------------------------------------------------------------------
+When a seller registers via mobile (`/mobileapi/.../auth/register` or social login),
+the backend automatically assigns the 2-Month Free plan (`duration: 60`, `paidPrice: 0`) 
+with the complete `planSnapshot`. 
+
+The mobile app does NOT need to make any special API calls during registration; 
+it works automatically out of the box.
+
+================================================================================
+END OF GUIDE
+================================================================================

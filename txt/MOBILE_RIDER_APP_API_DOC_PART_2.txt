@@ -1,0 +1,584 @@
+================================================================================
+MEEEM DELIVERY NETWORK — RIDER & SELLER MOBILE APP API DOCUMENTATION (PART 2)
+================================================================================
+Version: 1.1.0
+Base URL (Rider): https://<domain>/mobileapi/rider
+Base URL (Product Seller): https://<domain>/mobileapi/product-seller
+WebSocket Server: https://<domain>:3001 (or https://<domain>/socket.io)
+Authentication Scheme: Bearer Token (JWT)
+Header: Authorization: Bearer <accessToken>
+Target Platforms: Android (Kotlin / Flutter / React Native), iOS (Swift / Flutter / React Native)
+
+--------------------------------------------------------------------------------
+TABLE OF CONTENTS
+--------------------------------------------------------------------------------
+1. REAL-TIME GPS TELEMETRY & WEBSOCKET STREAMING
+   1.1 Primary Real-Time Streaming (Socket.IO)
+   1.2 Fallback Background Telemetry (REST API)
+2. FCM PUSH NOTIFICATIONS & 60-SECOND OFFER FLOW
+   2.1 New Delivery Offer Push Notification Payload (Automated Waterfall)
+   2.2 Direct Manual Assignment Push Notification Payload (Admin / Seller Assigned)
+   2.3 Mobile UI Timer & Auto-Expire Strategy
+3. DELIVERY ORDERS RETRIEVAL (RIDER APP)
+   3.1 Get Filtered Orders List (Active / Offered / Completed)
+   3.2 Get Single Delivery Order Snapshot & Route Details
+4. OFFER ACCEPTANCE & DECLINE WORKFLOW
+   4.1 Accept Delivery Assignment
+   4.2 Decline Delivery Offer (Waterfall Cascade)
+5. DELIVERY MILESTONES & OTP HANDOVER EXECUTION
+   5.1 Milestone Transitions (AT_PICKUP, PICKED_UP, OUT_FOR_DELIVERY)
+   5.2 Complete Delivery (Customer OTP Verification & Photo Proof)
+6. EMERGENCY CANCELLATION & AUTO-REASSIGNMENT
+   6.1 Cancel Delivery with Reason
+7. PRODUCT SELLER MOBILE APP INTEGRATION (VIEW RIDER & REASSIGNMENT)
+   7.1 View Assigned Rider Details in Order Detail (`GET /mobileapi/product-seller/orders/:id`)
+   7.2 Fetch Available Online Riders List (`GET /mobileapi/product-seller/riders/available`)
+   7.3 Manually Assign / Reassign Rider or Trigger Auto-Dispatch (`POST /mobileapi/product-seller/orders/:id/assign-rider`)
+   7.4 Scenario Guide: What Happens When a Zone Has Zero Available Riders
+8. GLOBAL STATUS DICTIONARY & ERROR CODES
+
+================================================================================
+1. REAL-TIME GPS TELEMETRY & WEBSOCKET STREAMING
+================================================================================
+
+--------------------------------------------------------------------------------
+1.1 Primary Real-Time Streaming (Socket.IO)
+--------------------------------------------------------------------------------
+When the rider is active or has an ongoing delivery, stream GPS coordinates
+every 3 to 5 seconds over the persistent Socket.IO connection.
+
+Server URL: https://<domain>:3001
+Client Library:
+- Flutter: `socket_io_client`
+- React Native / Kotlin / Swift: Standard Socket.IO client
+
+AUTHENTICATION ON CONNECTION:
+{
+  "auth": {
+    "riderId": "cuid_rider_id_or_user_id",
+    "token": "Bearer <accessToken>"
+  }
+}
+
+EMIT EVENT: "rider:location_update"
+
+PAYLOAD:
+{
+  "riderId": "cuid_rider_id",       // Rider ID from /profile
+  "orderId": "cuid_active_order_id", // Pass null if rider is idle/roaming
+  "latitude": 8.484245,
+  "longitude": -13.234125,
+  "heading": 145.2,                 // Heading direction in degrees (0-360)
+  "speed": 28.5                     // Speed in km/h
+}
+
+NOTE:
+- The server instantly broadcasts this position to the Customer & Seller map (<50ms).
+- The server automatically throttles database writes to once every 30 seconds to protect PostgreSQL performance.
+
+--------------------------------------------------------------------------------
+1.2 Fallback Background Telemetry (REST API)
+--------------------------------------------------------------------------------
+If the Socket.IO connection drops due to mobile network switching, post to this
+endpoint as a background fallback.
+
+Endpoint: POST /mobileapi/rider/location
+Headers:
+  Authorization: Bearer <accessToken>
+  Content-Type: application/json
+
+REQUEST PAYLOAD:
+{
+  "latitude": 8.484245,
+  "longitude": -13.234125,
+  "heading": 145.2,
+  "speed": 28.5,
+  "isOnline": true
+}
+
+SUCCESS RESPONSE (200 OK):
+{
+  "success": true,
+  "message": "Location updated successfully",
+  "data": {
+    "id": "cuid_rider_id",
+    "currentLatitude": 8.484245,
+    "currentLongitude": -13.234125,
+    "isOnline": true,
+    "lastLocationUpdate": "2026-08-26T14:30:00.000Z"
+  }
+}
+
+================================================================================
+2. FCM PUSH NOTIFICATIONS & 60-SECOND OFFER FLOW
+================================================================================
+
+--------------------------------------------------------------------------------
+2.1 New Delivery Offer Push Notification Payload (Automated Waterfall)
+--------------------------------------------------------------------------------
+When a product seller order is ready, the nearest free rider receives a high-priority
+FCM push notification.
+
+NOTIFICATION PAYLOAD RECEIVED ON MOBILE:
+{
+  "notification": {
+    "title": "📦 New Delivery Assignment Offer!",
+    "body": "Pickup from Electronics Hub (2.1 km away). Tap to accept within 60s!"
+  },
+  "data": {
+    "type": "NEW_OFFER",
+    "orderId": "cuid_order_id",
+    "orderNumber": "meeem00000042",
+    "assignmentId": "cuid_assignment_id",
+    "timeout": "60",
+    "click_action": "FLUTTER_NOTIFICATION_CLICK"
+  }
+}
+
+--------------------------------------------------------------------------------
+2.2 Direct Manual Assignment Push Notification Payload (Admin / Seller Assigned)
+--------------------------------------------------------------------------------
+When an Admin or Seller manually assigns an order to the rider:
+
+NOTIFICATION PAYLOAD RECEIVED ON MOBILE:
+{
+  "notification": {
+    "title": "🛵 Direct Delivery Assignment",
+    "body": "You have been directly assigned delivery for Order #meeem00000042."
+  },
+  "data": {
+    "type": "MANUAL_ASSIGN",
+    "orderId": "cuid_order_id",
+    "orderNumber": "meeem00000042",
+    "assignmentId": "cuid_assignment_id",
+    "click_action": "FLUTTER_NOTIFICATION_CLICK"
+  }
+}
+
+--------------------------------------------------------------------------------
+2.3 Mobile UI Timer Strategy
+--------------------------------------------------------------------------------
+1. When receiving `type: "NEW_OFFER"`, display an urgent banner / modal with a 60-second countdown bar.
+2. If the rider accepts within 60s, call `POST /mobileapi/rider/orders/:id/accept`.
+3. If 60s expires without action, dismiss the modal (the backend waterfall automatically advances to candidate #2).
+
+================================================================================
+3. DELIVERY ORDERS RETRIEVAL (RIDER APP)
+================================================================================
+
+--------------------------------------------------------------------------------
+3.1 Get Filtered Orders List
+--------------------------------------------------------------------------------
+Endpoint: GET /mobileapi/rider/orders?tab=active
+Query Parameters:
+- `tab`: "active" (default) | "offered" | "completed" | "all"
+Headers: Authorization: Bearer <accessToken>
+
+SUCCESS RESPONSE (200 OK):
+{
+  "success": true,
+  "tab": "active",
+  "count": 1,
+  "data": [
+    {
+      "id": "cuid_assignment_id",
+      "orderId": "cuid_order_id",
+      "status": "ACCEPTED",
+      "dispatchMode": "AUTO_CASCADE",
+      "distanceKm": 2.1,
+      "offeredAt": "2026-08-26T14:00:00.000Z",
+      "acceptedAt": "2026-08-26T14:00:25.000Z",
+      "deliveryOtp": "582910",
+      "order": {
+        "id": "cuid_order_id",
+        "orderNumber": "meeem00000042",
+        "totalAmount": 450000,
+        "paymentMethod": "COD",
+        "shippingFullName": "Fatmata Koroma",
+        "shippingPhone": "+23276123456",
+        "shippingAddressLine1": "14 Wilkinson Road",
+        "shippingCity": "Freetown",
+        "seller": {
+          "store": { "name": "MEEEM Super Store" },
+          "businessInfo": {
+            "businessName": "MEEEM Super Store Ltd",
+            "pocContact": "+23277987654",
+            "street": "25 Siaka Stevens St",
+            "city": "Freetown",
+            "latitude": 8.484,
+            "longitude": -13.234
+          }
+        },
+        "items": [
+          {
+            "id": "cuid_item_1",
+            "quantity": 1,
+            "price": 450000,
+            "productNameSnapshot": "Samsung Galaxy A54",
+            "product": {
+              "name": "Samsung Galaxy A54",
+              "images": ["https://.../phone.png"]
+            }
+          }
+        ]
+      }
+NOTE (MULTI-VENDOR ITEM ISOLATION):
+- In multi-vendor orders containing items from multiple distinct sellers, each seller's package
+  is dispatched as a separate delivery assignment.
+- The `order.items` list and `order.seller` details returned to the rider are strictly isolated
+  to the specific items and physical store location assigned to this rider!
+
+--------------------------------------------------------------------------------
+3.2 Get Single Delivery Order Detail
+--------------------------------------------------------------------------------
+Endpoint: GET /mobileapi/rider/orders/:id
+(Where :id is assignment ID or order ID)
+Headers: Authorization: Bearer <accessToken>
+
+SUCCESS RESPONSE (200 OK):
+{
+  "success": true,
+  "data": {
+    "id": "cuid_assignment_id",
+    "orderId": "cuid_order_id",
+    "status": "ACCEPTED",
+    "dispatchMode": "AUTO_CASCADE",
+    "distanceKm": 2.1,
+    "offeredAt": "2026-08-26T14:00:00.000Z",
+    "acceptedAt": "2026-08-26T14:00:25.000Z",
+    "deliveryOtp": "582910",
+    "order": {
+      "id": "cuid_order_id",
+      "orderNumber": "meeem00000042",
+      "totalAmount": 450000,
+      "subtotal": 430000,
+      "shipping": 20000,
+      "paymentMethod": "COD",
+      "paymentStatus": "PENDING",
+      "shippingFullName": "Fatmata Koroma",
+      "shippingPhone": "+23276123456",
+      "shippingAddressLine1": "14 Wilkinson Road",
+      "shippingAddressLine2": "Near Total Station",
+      "shippingCity": "Freetown",
+      "seller": {
+        "store": { "name": "MEEEM Super Store" },
+        "businessInfo": {
+          "businessName": "MEEEM Super Store Ltd",
+          "pocContact": "+23277987654",
+          "street": "25 Siaka Stevens St",
+          "city": "Freetown",
+          "latitude": 8.484245,
+          "longitude": -13.234125
+        }
+      },
+      "items": [
+        {
+          "id": "cuid_item_1",
+          "quantity": 1,
+          "price": 450000,
+          "itemStatus": "PROCESSING",
+          "productNameSnapshot": "Samsung Galaxy A54",
+          "product": {
+            "name": "Samsung Galaxy A54",
+            "images": ["https://.../phone.png"]
+          }
+        }
+      ]
+    }
+  }
+}
+
+================================================================================
+4. OFFER ACCEPTANCE & DECLINE WORKFLOW
+================================================================================
+
+--------------------------------------------------------------------------------
+4.1 Accept Delivery Assignment
+--------------------------------------------------------------------------------
+Endpoint: POST /mobileapi/rider/orders/:id/accept
+Headers:
+  Authorization: Bearer <accessToken>
+  Content-Type: application/json
+
+SUCCESS RESPONSE (200 OK):
+{
+  "success": true,
+  "message": "Delivery assignment accepted successfully",
+  "data": {
+    "assignment": {
+      "id": "cuid_assignment_id",
+      "status": "ACCEPTED",
+      "acceptedAt": "2026-08-26T14:01:00.000Z"
+    },
+    "deliveryOtp": "582910"
+  }
+}
+
+ERROR RESPONSE (400 Bad Request — e.g. Expired offer):
+{
+  "success": false,
+  "error": "Offer expired (60s limit reached)"
+}
+
+--------------------------------------------------------------------------------
+4.2 Decline Delivery Offer (Cascades to Next Rider)
+--------------------------------------------------------------------------------
+Endpoint: POST /mobileapi/rider/orders/:id/reject
+Headers:
+  Authorization: Bearer <accessToken>
+  Content-Type: application/json
+
+REQUEST PAYLOAD:
+{
+  "reason": "Vehicle maintenance / too far"
+}
+
+SUCCESS RESPONSE (200 OK):
+{
+  "success": true,
+  "message": "Offer rejected. Cascaded to next available rider."
+}
+
+================================================================================
+5. DELIVERY MILESTONES & OTP HANDOVER EXECUTION
+================================================================================
+
+--------------------------------------------------------------------------------
+5.1 Milestone Status Updates
+--------------------------------------------------------------------------------
+Endpoint: POST /mobileapi/rider/orders/:id/status
+Headers:
+  Authorization: Bearer <accessToken>
+  Content-Type: application/json
+
+VALID STATUS TRANSITIONS:
+1. `AT_PICKUP`: Rider has arrived at the Seller's store.
+   REQUEST: { "status": "AT_PICKUP" }
+
+2. `PICKED_UP`: Rider collected packages from the store.
+   REQUEST: { "status": "PICKED_UP" }
+
+3. `OUT_FOR_DELIVERY`: Rider starts delivery journey towards the customer.
+   REQUEST: { "status": "OUT_FOR_DELIVERY" }
+
+4. `DELIVERED`: Handover to customer with 6-digit OTP verification.
+   REQUEST:
+   {
+     "status": "DELIVERED",
+     "otp": "582910",
+     "proofImage": "data:image/jpeg;base64,/9j/4AAQSkZJRg..." // Base64 data string OR https URL
+   }
+
+SUCCESS RESPONSE (200 OK):
+{
+  "success": true,
+  "message": "Delivery status updated to DELIVERED",
+  "data": {
+    "id": "cuid_assignment_id",
+    "status": "DELIVERED",
+    "deliveredAt": "2026-08-26T14:45:00.000Z"
+  }
+}
+
+ERROR RESPONSE (400 Bad Request — Wrong OTP):
+{
+  "success": false,
+  "error": "Invalid Delivery OTP provided by customer"
+}
+
+================================================================================
+6. EMERGENCY CANCELLATION & AUTO-REASSIGNMENT
+================================================================================
+
+--------------------------------------------------------------------------------
+6.1 Cancel Delivery with Emergency Reason
+--------------------------------------------------------------------------------
+If a rider experiences a vehicle breakdown or emergency after accepting:
+
+Endpoint: POST /mobileapi/rider/orders/:id/status
+Headers:
+  Authorization: Bearer <accessToken>
+  Content-Type: application/json
+
+REQUEST PAYLOAD:
+{
+  "status": "CANCELLED_BY_RIDER",
+  "cancellationReason": "Motorbike tire puncture"
+}
+
+SUCCESS RESPONSE (200 OK):
+{
+  "success": true,
+  "cancelled": true,
+  "message": "Delivery cancelled and auto-reassigned to nearest available rider."
+}
+
+NOTE:
+- The system automatically triggers the waterfall auto-dispatch from scratch.
+- The cancelling rider is excluded from the candidate pool for this order.
+- Admin and Seller receive immediate notifications of the re-dispatch.
+
+================================================================================
+7. PRODUCT SELLER MOBILE APP INTEGRATION (VIEW RIDER & REASSIGNMENT)
+================================================================================
+
+--------------------------------------------------------------------------------
+7.1 View Assigned Rider Details in Order Detail
+--------------------------------------------------------------------------------
+Endpoint: GET /mobileapi/product-seller/orders/:id
+Headers: Authorization: Bearer <sellerAccessToken>
+
+RESPONSE INCLUDES `deliveryAssignments`:
+{
+  "id": "cuid_order_id",
+  "orderNumber": "meeem00000042",
+  "status": "CONFIRMED",
+  "deliveryAssignments": [
+    {
+      "id": "cuid_assignment_id",
+      "status": "ACCEPTED", // or "AT_PICKUP", "PICKED_UP", "OUT_FOR_DELIVERY", "DELIVERED"
+      "dispatchMode": "AUTO_CASCADE", // or "MANUAL_SELLER" / "MANUAL_ADMIN"
+      "distanceKm": 2.4,
+      "offeredAt": "2026-08-26T14:00:00.000Z",
+      "acceptedAt": "2026-08-26T14:00:25.000Z",
+      "rider": {
+        "id": "cuid_rider_id",
+        "vehicleName": "Honda CB Shine 125",
+        "vehicleNumber": "SL-1234-AB",
+        "drivingLicenseNo": "DL-10928374",
+        "vehicleTypes": ["2_WHEELER"],
+        "profileImage": "https://.../rider_photo.png",
+        "currentLatitude": 8.484,
+        "currentLongitude": -13.234,
+        "isOnline": true,
+        "user": {
+          "name": "Ibrahim Koroma",
+          "email": "rider.ibrahim@example.com",
+          "phone": "76112233",
+          "phoneCountryCode": "+232",
+          "image": "https://.../rider_photo.png"
+        }
+      }
+    }
+  ]
+}
+
+--------------------------------------------------------------------------------
+7.2 Fetch Available Online Riders with AI Vehicle Matching
+--------------------------------------------------------------------------------
+Endpoint: GET /mobileapi/product-seller/riders/available?orderId=<orderId>&zone=Freetown
+Headers: Authorization: Bearer <sellerAccessToken>
+
+QUERY PARAMETERS:
+- `orderId` (optional): If provided, Gemini AI analyzes order items (weights & dimensions)
+  and classifies the package into `"2_WHEELER"` (<=15kg), `"3_WHEELER"` (15-60kg), or `"4_WHEELER"` (>60kg).
+- `zone` (optional): Filters riders registered in that geographic zone.
+
+SUCCESS RESPONSE (200 OK):
+{
+  "success": true,
+  "aiVehicleRecommendation": {
+    "requiredVehicle": "3_WHEELER",
+    "compatibleVehicles": ["3_WHEELER", "4_WHEELER"],
+    "reason": "Medium cargo detected (~25.0kg, 75cm): Requires 3-Wheeler or 4-Wheeler vehicle.",
+    "estimatedWeightKg": 25.0,
+    "confidence": "AI_MODEL"
+  },
+  "data": [
+    {
+      "id": "cuid_rider_id",
+      "userId": "cuid_user_id",
+      "name": "Ibrahim Koroma",
+      "email": "rider.ibrahim@example.com",
+      "phone": "76112233",
+      "phoneCountryCode": "+232",
+      "image": "https://.../rider_photo.png",
+      "vehicleName": "TVS King Tricycle",
+      "vehicleNumber": "SL-1234-AB",
+      "drivingLicenseNo": "DL-10928374",
+      "vehicleTypes": ["3_WHEELER", "4_WHEELER"],
+      "isVehicleMatch": true, // Matches package AI requirement
+      "isOnline": true,
+      "isBusy": false, // false = idle and free for immediate pickup
+      "selectedZones": ["Western Area"],
+      "selectedLocations": ["Lumley", "Lakka", "Wilkinson Road"],
+      "currentLatitude": 8.484,
+      "currentLongitude": -13.234,
+      "lastLocationUpdate": "2026-08-28T10:15:30.000Z"
+    }
+  ]
+}
+
+--------------------------------------------------------------------------------
+7.3 Manually Assign / Reassign Rider or Trigger Auto-Dispatch
+--------------------------------------------------------------------------------
+Endpoint: POST /mobileapi/product-seller/orders/:id/assign-rider
+Headers:
+  Authorization: Bearer <sellerAccessToken>
+  Content-Type: application/json
+
+DIFFERENCE BETWEEN "AUTO-DISPATCH" AND "ASSIGN RIDER":
+┌──────────────────────┬─────────────────────────────────────────────────────────────┐
+│ ⚡ Auto-Dispatch     │ • System algorithm chooses closest free online rider by GPS.│
+│ (action: "auto_dispatch") • Sends a 60-second offer to rider with acceptance timer. │
+│                      │ • If rejected/timeout, automatically cascades to 2nd rider. │
+├──────────────────────┼─────────────────────────────────────────────────────────────┤
+│ 👤 Manual Assign     │ • Seller/Admin directly chooses a specific rider from list. │
+│ (riderId: "cuid_...")│ • Immediately sets status to ACCEPTED (skips 60s timer).    │
+│                      │ • Sends high-priority push notification to that rider.      │
+└──────────────────────┴─────────────────────────────────────────────────────────────┘
+
+OPTION A: Trigger Automated Proximity Waterfall Dispatch:
+{
+  "action": "auto_dispatch"
+}
+
+OPTION B: Manually Select a Specific Rider:
+{
+  "riderId": "cuid_rider_id",
+  "notes": "Seller requested Ibrahim for express pickup"
+}
+
+SUCCESS RESPONSE (200 OK):
+{
+  "success": true,
+  "message": "Rider assigned successfully",
+  "data": {
+    "id": "cuid_assignment_id",
+    "orderId": "cuid_order_id",
+    "riderId": "cuid_rider_id",
+    "status": "ACCEPTED",
+    "dispatchMode": "MANUAL_SELLER"
+  }
+}
+
+--------------------------------------------------------------------------------
+7.4 Scenario Guide: What Happens When a Zone Has Zero Available Riders?
+--------------------------------------------------------------------------------
+1. **Primary Dual-Filter Match**: The auto-dispatch engine first searches for online, approved riders whose `selectedLocations` list includes the customer's delivery location (e.g., "Lakka", "Lumley").
+2. **Automatic Fallback Expansion**: If NO idle riders are registered in that specific zone (`eligibleRiders.length === 0`), the engine **automatically expands** to ALL free online riders and ranks them strictly by Haversine GPS distance from the Seller's shop.
+3. **If Absolutely Zero Riders Are Free/Online System-Wide**:
+   - The engine logs: `"No free candidates for order #..."` and returns `candidatesCount: 0`.
+   - The order remains safely in `CONFIRMED` or `PROCESSING` state without breaking.
+   - On the Seller & Admin panels (Web and Mobile), the Order details show:
+     `Status: No Rider Assigned` along with **"Auto-Dispatch"** and **"Assign Rider"** buttons.
+   - As soon as any rider finishes an ongoing delivery or logs in online, the Seller or Admin can tap **"Auto-Dispatch"** (or select a rider from the available riders list) with 1 click!
+
+================================================================================
+8. GLOBAL STATUS DICTIONARY & ERROR CODES
+================================================================================
+
+| Status | Meaning | Next Available Action |
+|---|---|---|
+| `OFFERED` | Push offer sent, 60s timer running | Call `/accept` or `/reject` |
+| `ACCEPTED` | Rider accepted offer | Move to store ➔ Call `AT_PICKUP` |
+| `AT_PICKUP` | Rider arrived at seller store | Collect items ➔ Call `PICKED_UP` |
+| `PICKED_UP` | Order collected from seller | Start journey ➔ Call `OUT_FOR_DELIVERY` |
+| `OUT_FOR_DELIVERY` | Rider on way to customer | Ask OTP ➔ Call `DELIVERED` with OTP |
+| `DELIVERED` | Delivery verified and completed | Archived in history |
+| `CANCELLED_BY_RIDER` | Rider cancelled | Auto-reassigned to next rider |
+| `TIMED_OUT` | 60s offer expired | Automatically offered to next rider |
+
+================================================================================
+END OF DOCUMENTATION (PART 2)
+================================================================================

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { getMobileSellerAuth } from "../../_helpers/seller-auth"
 import { UserRole, SubscriptionPlan, SubscriptionStatus } from "@prisma/client"
+import { createPlanSnapshot, getValidSubscription } from "@/lib/subscriptions"
 
 /**
  * GET current subscription and available plans for product seller.
@@ -15,26 +16,22 @@ export async function GET(request: NextRequest) {
   try {
     const seller = await prisma.seller.findUnique({
       where: { userId: auth.userId },
-      include: {
-        subscription: {
-          include: {
-            plan: true,
-          },
-        },
-      },
     })
 
     if (!seller) {
       return NextResponse.json({ error: "Seller not found" }, { status: 404 })
     }
 
-    const plans = await prisma.plan.findMany({
-      where: { type: "PRODUCT_SERVICE" },
-      orderBy: { price: "asc" },
-    })
+    const [subscription, plans] = await Promise.all([
+      getValidSubscription(seller.id),
+      prisma.plan.findMany({
+        where: { type: "PRODUCT_SERVICE" },
+        orderBy: { price: "asc" },
+      }),
+    ])
 
     return NextResponse.json({
-      currentSubscription: seller.subscription || null,
+      currentSubscription: subscription || null,
       availablePlans: plans,
     })
   } catch (error) {
@@ -97,10 +94,13 @@ export async function POST(request: NextRequest) {
     const durationDays = plan.duration || 30
     const currentPeriodEnd = new Date(now.getTime() + durationDays * 24 * 60 * 60 * 1000)
 
+    const snapshot = createPlanSnapshot(plan)
     const updatedSubscription = await prisma.subscription.upsert({
       where: { sellerId: seller.id },
       update: {
         planId: plan.id,
+        paidPrice: plan.price,
+        planSnapshot: snapshot,
         status: SubscriptionStatus.ACTIVE,
         currentPeriodStart: now,
         currentPeriodEnd,
@@ -109,6 +109,8 @@ export async function POST(request: NextRequest) {
       create: {
         sellerId: seller.id,
         planId: plan.id,
+        paidPrice: plan.price,
+        planSnapshot: snapshot,
         status: SubscriptionStatus.ACTIVE,
         currentPeriodStart: now,
         currentPeriodEnd,

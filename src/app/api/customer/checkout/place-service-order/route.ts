@@ -14,14 +14,14 @@ async function resolveSellerCommissionRate(sellerId: string): Promise<number> {
   const DEFAULT_RATE = 10
   const [globalRows, sellerRows] = await Promise.all([
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (prisma as any).globalSetting.findFirst() as Promise<{ baseCommission: number } | null>,
+    (prisma as any).globalSetting.findFirst() as Promise<{ baseCommission?: number; serviceBaseCommission?: number } | null>,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (prisma as any).seller.findFirst({
       where: { id: sellerId },
       select: { commissionRate: true },
     }) as Promise<{ commissionRate: number | null } | null>,
   ])
-  const baseRate: number = globalRows?.baseCommission ?? DEFAULT_RATE
+  const baseRate: number = globalRows?.serviceBaseCommission ?? globalRows?.baseCommission ?? DEFAULT_RATE
   return sellerRows?.commissionRate ?? baseRate
 }
 
