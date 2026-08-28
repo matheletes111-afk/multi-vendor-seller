@@ -3,8 +3,9 @@ import { UserRole } from "@prisma/client"
 import { prisma } from "@/lib/prisma"
 import bcrypt from "bcryptjs"
 import crypto from "crypto"
-import { validatePhoneAndCountryCode } from "@/lib/phone-validation"
+import { validatePhoneAndCountryCode, getEquivalentPhoneVariants } from "@/lib/phone-validation"
 import { sendRiderVerificationEmail } from "@/lib/email"
+import { getAppBaseUrl, sendEmailVerificationSms } from "@/lib/twilio-sms"
 
 export async function POST(request: Request) {
   try {
@@ -41,6 +42,19 @@ export async function POST(request: Request) {
       }
       cleanedPhone = phoneValidation.cleanedPhone || null
       cleanedCountryCode = phoneValidation.cleanedCountryCode || null
+
+      if (cleanedPhone) {
+        const phoneVariants = getEquivalentPhoneVariants(cleanedPhone, cleanedCountryCode)
+        const existingPhone = await prisma.user.findFirst({
+          where: { phone: { in: phoneVariants } },
+        })
+        if (existingPhone) {
+          return NextResponse.json(
+            { error: "An account with this phone number already exists" },
+            { status: 400 }
+          )
+        }
+      }
     }
 
     // Check if email already exists

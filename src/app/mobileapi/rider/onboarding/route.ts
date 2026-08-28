@@ -3,6 +3,7 @@ import { getMobileRiderAuth } from "@/app/mobileapi/_helpers/rider-auth"
 import { prisma } from "@/lib/prisma"
 import bcrypt from "bcryptjs"
 import { uploadPublicFile } from "@/lib/upload-public-file"
+import { validatePhoneAndCountryCode } from "@/lib/phone-validation"
 
 export async function POST(request: NextRequest) {
   try {
@@ -176,8 +177,14 @@ export async function POST(request: NextRequest) {
 
     if (name?.trim()) userUpdates.name = name.trim()
     if (profileImageUrl) userUpdates.image = profileImageUrl
-    if (phone?.trim()) userUpdates.phone = phone.trim()
-    if (phoneCountryCode?.trim()) userUpdates.phoneCountryCode = phoneCountryCode.trim()
+    if (phone?.trim() || phoneCountryCode?.trim()) {
+      const pVal = validatePhoneAndCountryCode(phone || "", phoneCountryCode || "")
+      if (!pVal.isValid) {
+        return NextResponse.json({ success: false, error: pVal.error || "Invalid phone number or country code" }, { status: 400 })
+      }
+      userUpdates.phone = pVal.cleanedPhone
+      userUpdates.phoneCountryCode = pVal.cleanedCountryCode
+    }
 
     if (newPassword && newPassword.trim().length >= 6) {
       userUpdates.password = await bcrypt.hash(newPassword.trim(), 10)

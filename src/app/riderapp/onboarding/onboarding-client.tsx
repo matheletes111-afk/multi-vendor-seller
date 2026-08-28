@@ -29,6 +29,7 @@ import { DocUploadPreview } from "@/app/riderapp/components/doc-upload-preview"
 import { VehicleTypeSelector } from "@/app/riderapp/components/vehicle-type-selector"
 import { ZoneLocationPicker } from "@/app/riderapp/components/zone-location-picker"
 import { cn } from "@/lib/utils"
+import { validatePhoneAndCountryCode } from "@/lib/phone-validation"
 
 export function RiderOnboardingClient({ user: initialUser }: { user: any }) {
   const router = useRouter()
@@ -130,6 +131,11 @@ export function RiderOnboardingClient({ user: initialUser }: { user: any }) {
         setError("Please enter your mobile phone number.")
         return
       }
+      const pVal = validatePhoneAndCountryCode(phone, phoneCountryCode)
+      if (!pVal.isValid) {
+        setError(pVal.error || "Please enter a valid mobile number and country code.")
+        return
+      }
       if (vehicleTypes.length === 0 || !vehicleTypes[0]) {
         setError("Please select the single vehicle type you operate.")
         return
@@ -149,6 +155,12 @@ export function RiderOnboardingClient({ user: initialUser }: { user: any }) {
       return
     }
 
+    const pVal = validatePhoneAndCountryCode(phone, phoneCountryCode)
+    if (!pVal.isValid) {
+      setError(pVal.error || "Please enter a valid mobile number and country code.")
+      return
+    }
+
     setSubmitting(true)
 
     try {
@@ -158,8 +170,8 @@ export function RiderOnboardingClient({ user: initialUser }: { user: any }) {
         formData.append("newPassword", newPassword.trim())
       }
       formData.append("name", name.trim())
-      formData.append("phone", phone.trim())
-      formData.append("phoneCountryCode", phoneCountryCode.trim())
+      formData.append("phone", pVal.cleanedPhone || phone.trim())
+      formData.append("phoneCountryCode", pVal.cleanedCountryCode || phoneCountryCode.trim())
       formData.append("vehicleType", selectedVehicle)
       formData.append("vehicleTypes", JSON.stringify([selectedVehicle]))
       formData.append("vehicleName", vehicleName.trim())
@@ -392,7 +404,7 @@ export function RiderOnboardingClient({ user: initialUser }: { user: any }) {
                       <Label className="text-xs font-semibold">Mobile Number *</Label>
                       <Input
                         type="tel"
-                        placeholder="76 123456"
+                        placeholder="e.g. 088994462 or 76123456"
                         value={phone}
                         onChange={(e) => setPhone(e.target.value)}
                         required

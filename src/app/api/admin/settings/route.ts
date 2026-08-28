@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma"
 import { isAdmin } from "@/lib/rbac"
 import { uploadPublicFile } from "@/lib/upload-public-file"
 import { sanitizeInput } from "@/lib/html-sanitization"
+import { validatePhoneAndCountryCode } from "@/lib/phone-validation"
 
 interface DeliveryRangeInput {
   minWeight: number
@@ -225,19 +226,15 @@ export async function PUT(request: NextRequest) {
   }
 
   const contentType = request.headers.get("content-type") ?? ""
-  const getRequiredPhoneFieldsError = (phone: string | null | undefined, countryCode: string | null | undefined) => {
-    const normalizedPhone = (phone ?? "").trim()
-    const normalizedCountryCode = (countryCode ?? "").trim()
-    if (!normalizedPhone || !normalizedCountryCode) {
-      return "Phone and country code are required."
+  const validatePhoneFields = (phone: string | null | undefined, countryCode: string | null | undefined) => {
+    if (!phone?.trim() || !countryCode?.trim()) {
+      return { error: "Phone and country code are required." }
     }
-    if (!/^\+?[0-9]+$/.test(normalizedCountryCode)) {
-      return "Country code must contain only numbers (optionally starting with +)."
+    const validation = validatePhoneAndCountryCode(phone, countryCode)
+    if (!validation.isValid) {
+      return { error: validation.error || "Invalid phone number or country code." }
     }
-    if (!/^[0-9]+$/.test(normalizedPhone)) {
-      return "Phone number must contain only numbers."
-    }
-    return null
+    return { cleanedPhone: validation.cleanedPhone, cleanedCountryCode: validation.cleanedCountryCode }
   }
 
   const userData: {
@@ -339,11 +336,12 @@ export async function PUT(request: NextRequest) {
     const profileImageFile = formData.get("profileImage") as File | null
 
     if (name !== undefined) userData.name = name
-    userData.phone = phone || null
-    userData.phoneCountryCode = phoneCountryCode || null
-    
-    const phoneError = getRequiredPhoneFieldsError(userData.phone, userData.phoneCountryCode)
-    if (phoneError) return NextResponse.json({ error: phoneError }, { status: 400 })
+    if (phone || phoneCountryCode) {
+      const phoneRes = validatePhoneFields(phone, phoneCountryCode)
+      if (phoneRes.error) return NextResponse.json({ error: phoneRes.error }, { status: 400 })
+      userData.phone = phoneRes.cleanedPhone
+      userData.phoneCountryCode = phoneRes.cleanedCountryCode
+    }
 
     if (password) {
       if (password.length < 6) {
@@ -442,8 +440,12 @@ export async function PUT(request: NextRequest) {
       disallowedNames = body.disallowedNames.map(s => String(s).trim()).filter(Boolean)
     }
 
-    const phoneError = getRequiredPhoneFieldsError(userData.phone, userData.phoneCountryCode)
-    if (phoneError) return NextResponse.json({ error: phoneError }, { status: 400 })
+    if (body.phone !== undefined || body.phoneCountryCode !== undefined) {
+      const phoneRes = validatePhoneFields(body.phone, body.phoneCountryCode)
+      if (phoneRes.error) return NextResponse.json({ error: phoneRes.error }, { status: 400 })
+      userData.phone = phoneRes.cleanedPhone
+      userData.phoneCountryCode = phoneRes.cleanedCountryCode
+    }
 
     if (body.password !== undefined) {
       const password = body.password.trim()

@@ -255,8 +255,8 @@ export function CustomerSettingsClient() {
                   type="tel"
                   inputMode="numeric"
                   defaultValue={user.phone || ""}
-                  placeholder="Phone number"
-                  pattern="^[0-9]+$"
+                  placeholder="e.g. 088994462 or 88994462"
+                  pattern="^[0-9\s\-()]+$"
                   title="Phone number must contain only numbers."
                   required
                 />

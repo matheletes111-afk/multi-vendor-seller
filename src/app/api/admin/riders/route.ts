@@ -5,7 +5,7 @@ import { isAdmin } from "@/lib/rbac"
 import { UserRole } from "@prisma/client"
 import bcrypt from "bcryptjs"
 import crypto from "crypto"
-import { validatePhoneAndCountryCode } from "@/lib/phone-validation"
+import { validatePhoneAndCountryCode, getEquivalentPhoneVariants } from "@/lib/phone-validation"
 import { sendRiderWelcomeEmail } from "@/lib/email"
 import { getPaginationFromSearchParams } from "@/lib/admin-pagination"
 import { buildDateRangeFilter } from "@/lib/admin-date-filters"
@@ -190,7 +190,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Check if user already exists
+    // Check if user already exists by email or phone
     const existing = await prisma.user.findUnique({
       where: { email: cleanEmail },
     })
@@ -198,6 +198,18 @@ export async function POST(request: NextRequest) {
     if (existing) {
       return NextResponse.json(
         { error: "An account with this email address already exists." },
+        { status: 400 }
+      )
+    }
+
+    const phoneVariants = getEquivalentPhoneVariants(phoneValidation.cleanedPhone, phoneValidation.cleanedCountryCode)
+    const existingPhone = await prisma.user.findFirst({
+      where: { phone: { in: phoneVariants } },
+    })
+
+    if (existingPhone) {
+      return NextResponse.json(
+        { error: "An account with this mobile number already exists." },
         { status: 400 }
       )
     }

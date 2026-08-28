@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { UserRole } from "@prisma/client"
+import { validatePhoneAndCountryCode } from "@/lib/phone-validation"
 
 // GET /api/riderapp/profile — Fetch current logged-in rider profile
 export async function GET() {
@@ -85,8 +86,19 @@ export async function PATCH(request: Request) {
     } = {}
 
     if (name !== undefined) userUpdates.name = String(name).trim()
-    if (phone !== undefined) userUpdates.phone = phone ? String(phone).trim() : null
-    if (phoneCountryCode !== undefined) userUpdates.phoneCountryCode = phoneCountryCode ? String(phoneCountryCode).trim() : null
+    if (phone !== undefined || phoneCountryCode !== undefined) {
+      if (phone && phoneCountryCode) {
+        const pVal = validatePhoneAndCountryCode(String(phone), String(phoneCountryCode))
+        if (!pVal.isValid) {
+          return NextResponse.json({ error: pVal.error || "Invalid phone number or country code" }, { status: 400 })
+        }
+        userUpdates.phone = pVal.cleanedPhone
+        userUpdates.phoneCountryCode = pVal.cleanedCountryCode
+      } else {
+        userUpdates.phone = phone ? String(phone).trim() : null
+        userUpdates.phoneCountryCode = phoneCountryCode ? String(phoneCountryCode).trim() : null
+      }
+    }
     if (profileImage !== undefined) userUpdates.image = profileImage || null
 
     if (Object.keys(userUpdates).length > 0) {

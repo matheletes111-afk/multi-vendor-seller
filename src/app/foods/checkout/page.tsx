@@ -541,8 +541,8 @@ function CheckoutContent() {
                         const sanitized = e.target.value.replace(/(?!^\+)[^\d]/g, "")
                         setPhone(sanitized)
                       }}
-                      pattern="^\+?[0-9]{7,15}$"
-                      title="Phone number must contain only numbers (7 to 15 digits)."
+                      pattern="^\+?[0-9]{6,15}$"
+                      title="Phone number must contain only numbers (6 to 15 digits)."
                       className="rounded-xl border-slate-200 text-sm h-10"
                     />
                   </div>

@@ -8,6 +8,7 @@ import { uploadPublicFile } from "@/lib/upload-public-file"
 import { validatePassword } from "@/lib/password-validation"
 import { sanitizeInput } from "@/lib/html-sanitization"
 import { checkDisallowedName } from "@/lib/name-validation"
+import { validatePhoneAndCountryCode } from "@/lib/phone-validation"
 
 function getImageExtFromContentType(contentType?: string | null) {
   const ct = (contentType || "").toLowerCase()
@@ -116,17 +117,13 @@ export async function PUT(request: NextRequest) {
             if (!nameCheck.isAllowed) return NextResponse.json({ error: nameCheck.error }, { status: 400 })
             userData.name = name
         }
-        if (phone) {
-            if (!/^[0-9]+$/.test(phone)) {
-                return NextResponse.json({ error: "Phone number must contain only numbers." }, { status: 400 })
+        if (phone || phoneCountryCode) {
+            const validation = validatePhoneAndCountryCode(phone || "", phoneCountryCode || "")
+            if (!validation.isValid) {
+                return NextResponse.json({ error: validation.error || "Invalid phone number or country code." }, { status: 400 })
             }
-            userData.phone = phone
-        }
-        if (phoneCountryCode) {
-            if (!/^\+?[0-9]+$/.test(phoneCountryCode)) {
-                return NextResponse.json({ error: "Country code must contain only numbers (optionally starting with +)." }, { status: 400 })
-            }
-            userData.phoneCountryCode = phoneCountryCode
+            userData.phone = validation.cleanedPhone
+            userData.phoneCountryCode = validation.cleanedCountryCode
         }
         if (password) {
             const passwordValidation = validatePassword(password)
