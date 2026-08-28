@@ -156,12 +156,11 @@ export function ServiceOnboardingClient() {
       // Step-by-step document completeness client-side verification
       if (currentStep === 2) {
         const hasBusReg = (formData.get("busRegCert") as File)?.size > 0 || seller?.businessInfo?.busRegCertUrl || previews["busRegCert"]
-        const hasCityCouncil = (formData.get("cityCouncilCert") as File)?.size > 0 || seller?.businessInfo?.cityCouncilCertUrl || previews["cityCouncilCert"]
         const hasAddressProof = (formData.get("addressProof") as File)?.size > 0 || seller?.businessInfo?.addressProofUrl || previews["addressProof"]
         const hasGstCert = !haveGst || (formData.get("gstTinCert") as File)?.size > 0 || seller?.businessInfo?.gstTinCertUrl || previews["gstTinCert"]
 
-        if (!hasBusReg || !hasCityCouncil || !hasAddressProof || !hasGstCert) {
-          setError("Please upload all mandatory business documents (Registration Certificate, City Council Certificate, Proof of Address) before proceeding.")
+        if (!hasBusReg || !hasAddressProof || !hasGstCert) {
+          setError("Please upload mandatory business documents (Registration Certificate, Proof of Address) before proceeding.")
           setSaving(false)
           return
         }
@@ -180,11 +179,18 @@ export function ServiceOnboardingClient() {
       }
 
       if (currentStep === 4) {
-        const hasPassbook = (formData.get("bankPassbook") as File)?.size > 0 || seller?.bankDetails?.passbookUrl || previews["bankPassbook"]
-        const hasBankLetter = (formData.get("bankLetter") as File)?.size > 0 || seller?.bankDetails?.bankLetterUrl || previews["bankLetter"]
+        const bankName = (formData.get("bankName") as string)?.trim()
+        const accountNumber = (formData.get("accountNumber") as string)?.trim()
+        const bbanNumber = (formData.get("bbanNumber") as string)?.trim()
+        const mobileMoney = (formData.get("mobileMoneyOption") as string)?.trim()
 
-        if (!hasPassbook && !hasBankLetter) {
-          setError("Please upload a Bank Passbook, Cancelled Check, or Official Bank Account Letter.")
+        if (!bankName && !mobileMoney) {
+          setError("Please provide your Bank Name or Mobile Money option.")
+          setSaving(false)
+          return
+        }
+        if (!accountNumber && !bbanNumber && !mobileMoney) {
+          setError("Please provide your Bank Account Number or BBAN Number.")
           setSaving(false)
           return
         }
@@ -197,10 +203,9 @@ export function ServiceOnboardingClient() {
           const logo = formData.get("storeLogo") as File | null
           const banner = formData.get("storeBanner") as File | null
           const hasLogo = (logo && logo.size > 0) || seller?.store?.logo || previews["storeLogo"]
-          const hasBanner = (banner && banner.size > 0) || seller?.store?.banner || previews["storeBanner"]
 
-          if (!hasLogo || !hasBanner) {
-            setError("Please upload both Service Store Logo and Banner to complete profile setup.")
+          if (!hasLogo) {
+            setError("Please upload a Service Store Logo or Profile Photo to complete profile setup.")
             setSaving(false)
             return
           }
@@ -550,9 +555,9 @@ export function ServiceOnboardingClient() {
                     </div>
                   </div>
                   <div className="space-y-2 pt-2">
-                    <Label htmlFor="cityCouncilCert" className="text-sm font-semibold">City Council Certificate *</Label>
+                    <Label htmlFor="cityCouncilCert" className="text-sm font-semibold">City Council Certificate (Optional)</Label>
                     <div className="mt-2 p-6 border-2 border-dashed rounded-2xl bg-purple-50/30 border-purple-100 transition-colors hover:bg-purple-50/50 text-center">
-                      <Input id="cityCouncilCert" name="cityCouncilCert" type="file" accept=".pdf,.jpg,.jpeg,.png" className="cursor-pointer" required={!seller.businessInfo?.cityCouncilCertUrl} onChange={(e) => handleFileChange(e, "cityCouncilCert")} />
+                      <Input id="cityCouncilCert" name="cityCouncilCert" type="file" accept=".pdf,.jpg,.jpeg,.png" className="cursor-pointer" onChange={(e) => handleFileChange(e, "cityCouncilCert")} />
                       {renderFilePreview("cityCouncilCert", seller.businessInfo?.cityCouncilCertUrl, "City Council Certificate")}
                       <p className="text-[10px] text-slate-400 mt-2">Upload PDF or Image (Max 5MB)</p>
                     </div>
@@ -711,12 +716,12 @@ export function ServiceOnboardingClient() {
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2 p-6 bg-slate-50 rounded-2xl border border-slate-100">
-                      <Label htmlFor="bankPassbook" className="text-sm font-semibold block mb-2">Cancelled Check or Passbook Photo *</Label>
-                      <Input id="bankPassbook" name="bankPassbook" type="file" accept="image/*,.pdf" className="cursor-pointer" required={!seller.bankDetails?.passbookUrl && !seller.bankDetails?.bankLetterUrl} onChange={(e) => handleFileChange(e, "bankPassbook")} />
+                      <Label htmlFor="bankPassbook" className="text-sm font-semibold block mb-2">Cancelled Check or Passbook Photo (Optional)</Label>
+                      <Input id="bankPassbook" name="bankPassbook" type="file" accept="image/*,.pdf" className="cursor-pointer" onChange={(e) => handleFileChange(e, "bankPassbook")} />
                       {renderFilePreview("bankPassbook", seller.bankDetails?.passbookUrl, "Bank Document")}
                     </div>
                     <div className="space-y-2 p-6 bg-slate-50 rounded-2xl border border-slate-100">
-                      <Label htmlFor="bankLetter" className="text-sm font-semibold block mb-2">Attach Bank Letter with Acc number *</Label>
+                      <Label htmlFor="bankLetter" className="text-sm font-semibold block mb-2">Attach Bank Letter with Acc number (Optional)</Label>
                       <Input id="bankLetter" name="bankLetter" type="file" accept="image/*,.pdf" className="cursor-pointer" onChange={(e) => handleFileChange(e, "bankLetter")} />
                       {renderFilePreview("bankLetter", seller.bankDetails?.bankLetterUrl, "Bank Letter")}
                     </div>
@@ -796,9 +801,9 @@ export function ServiceOnboardingClient() {
                         </div>
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="storeBanner" className="flex items-center gap-2"><ImageIcon className="h-4 w-4" /> Store Banner *</Label>
+                        <Label htmlFor="storeBanner" className="flex items-center gap-2"><ImageIcon className="h-4 w-4" /> Store Banner (Optional)</Label>
                         <div className="mt-1 p-4 border-2 border-dashed rounded-2xl bg-purple-50/30 border-purple-100 transition-colors hover:bg-purple-50/50">
-                          <Input id="storeBanner" name="storeBanner" type="file" accept="image/*" className="cursor-pointer" required={!seller.store?.banner} onChange={(e) => handleFileChange(e, "storeBanner")} />
+                          <Input id="storeBanner" name="storeBanner" type="file" accept="image/*" className="cursor-pointer" onChange={(e) => handleFileChange(e, "storeBanner")} />
                           {renderFilePreview("storeBanner", seller.store?.banner, "Store Banner")}
                         </div>
                       </div>

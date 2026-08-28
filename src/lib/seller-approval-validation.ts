@@ -35,9 +35,6 @@ export function validateProductOrServiceSellerApproval(seller: any): ApprovalVal
     if (!seller.businessInfo.busRegCertUrl?.trim()) {
       missingItems.push("Business Registration Certificate upload is missing");
     }
-    if (!seller.businessInfo.cityCouncilCertUrl?.trim()) {
-      missingItems.push("City Council Certificate upload is missing");
-    }
     if (!seller.businessInfo.addressProofUrl?.trim()) {
       missingItems.push("Proof of Address document upload is missing");
     }
@@ -65,13 +62,9 @@ export function validateProductOrServiceSellerApproval(seller: any): ApprovalVal
   if (!seller.bankDetails) {
     missingItems.push("Bank / Payout details are missing");
   } else {
-    const hasAccount = !!seller.bankDetails.accountNumber?.trim() || !!seller.bankDetails.mobileMoneyOption?.trim();
+    const hasAccount = !!seller.bankDetails.accountNumber?.trim() || !!seller.bankDetails.bbanNumber?.trim() || !!seller.bankDetails.mobileMoneyOption?.trim();
     if (!hasAccount) {
-      missingItems.push("Bank account number or Mobile Money payout number is missing");
-    }
-    const hasBankProof = !!seller.bankDetails.passbookUrl?.trim() || !!seller.bankDetails.bankLetterUrl?.trim();
-    if (!hasBankProof) {
-      missingItems.push("Bank passbook or verification letter upload is missing");
+      missingItems.push("Bank account number, BBAN, or Mobile Money payout number is missing");
     }
   }
 
@@ -142,9 +135,6 @@ export function validateHotelSellerApproval(seller: any): ApprovalValidationResu
     if (!seller.businessInfo.busRegCertUrl?.trim()) {
       missingItems.push("Business Registration Certificate upload is missing");
     }
-    if (!seller.businessInfo.cityCouncilCertUrl?.trim()) {
-      missingItems.push("City Council Certificate upload is missing");
-    }
     if (!seller.businessInfo.addressProofUrl?.trim()) {
       missingItems.push("Proof of Address document upload is missing");
     }
@@ -172,9 +162,6 @@ export function validateHotelSellerApproval(seller: any): ApprovalValidationResu
   if (!seller.logo?.trim()) {
     missingItems.push("Hotel Logo upload is missing");
   }
-  if (!seller.banner?.trim()) {
-    missingItems.push("Hotel Banner upload is missing");
-  }
   if (!seller.mainPhoto?.trim()) {
     missingItems.push("Main Property photo upload is missing");
   }
@@ -183,13 +170,9 @@ export function validateHotelSellerApproval(seller: any): ApprovalValidationResu
   if (!seller.bankDetails) {
     missingItems.push("Bank / Payout details are missing");
   } else {
-    const hasAccount = !!seller.bankDetails.accountNumber?.trim() || !!seller.bankDetails.mobileMoneyOption?.trim();
+    const hasAccount = !!seller.bankDetails.accountNumber?.trim() || !!seller.bankDetails.bbanNumber?.trim() || !!seller.bankDetails.mobileMoneyOption?.trim();
     if (!hasAccount) {
-      missingItems.push("Bank account number or Mobile Money payout number is missing");
-    }
-    const hasBankProof = !!seller.bankDetails.passbookUrl?.trim() || !!seller.bankDetails.bankLetterUrl?.trim();
-    if (!hasBankProof) {
-      missingItems.push("Bank passbook or verification letter upload is missing");
+      missingItems.push("Bank account number, BBAN, or Mobile Money payout number is missing");
     }
   }
 
@@ -225,7 +208,7 @@ export function validateHotelSellerApproval(seller: any): ApprovalValidationResu
 /**
  * Validates whether a Restaurant Seller can be approved by Admin.
  * Checks for complete onboarding, business documents, KYC documents, Food License,
- * culinary media (logo, banner, main photo), bank details, and signed agreement.
+ * culinary media (logo, main photo), bank details, and signed agreement.
  */
 export function validateRestaurantSellerApproval(seller: any): ApprovalValidationResult {
   const missingItems: string[] = [];
@@ -248,9 +231,6 @@ export function validateRestaurantSellerApproval(seller: any): ApprovalValidatio
     }
     if (!seller.businessInfo.busRegCertUrl?.trim()) {
       missingItems.push("Business Registration Certificate upload is missing");
-    }
-    if (!seller.businessInfo.cityCouncilCertUrl?.trim()) {
-      missingItems.push("City Council Certificate upload is missing");
     }
     if (!seller.businessInfo.addressProofUrl?.trim()) {
       missingItems.push("Proof of Address document upload is missing");
@@ -282,9 +262,6 @@ export function validateRestaurantSellerApproval(seller: any): ApprovalValidatio
   if (!seller.logo?.trim()) {
     missingItems.push("Restaurant Logo upload is missing");
   }
-  if (!seller.banner?.trim()) {
-    missingItems.push("Restaurant Banner upload is missing");
-  }
   if (!seller.mainPhoto?.trim()) {
     missingItems.push("Main Restaurant / Cuisine photo upload is missing");
   }
@@ -293,13 +270,9 @@ export function validateRestaurantSellerApproval(seller: any): ApprovalValidatio
   if (!seller.bankDetails) {
     missingItems.push("Bank / Payout details are missing");
   } else {
-    const hasAccount = !!seller.bankDetails.accountNumber?.trim() || !!seller.bankDetails.mobileMoneyOption?.trim();
+    const hasAccount = !!seller.bankDetails.accountNumber?.trim() || !!seller.bankDetails.bbanNumber?.trim() || !!seller.bankDetails.mobileMoneyOption?.trim();
     if (!hasAccount) {
-      missingItems.push("Bank account number or Mobile Money payout number is missing");
-    }
-    const hasBankProof = !!seller.bankDetails.passbookUrl?.trim() || !!seller.bankDetails.bankLetterUrl?.trim();
-    if (!hasBankProof) {
-      missingItems.push("Bank passbook or verification letter upload is missing");
+      missingItems.push("Bank account number, BBAN, or Mobile Money payout number is missing");
     }
   }
 
@@ -336,6 +309,7 @@ export interface DocumentItemStatus {
   name: string;
   category: "identity" | "business" | "financial" | "media" | "legal";
   isUploaded: boolean;
+  isOptional?: boolean;
   url?: string | null;
 }
 
@@ -379,6 +353,7 @@ export function evaluateSellerDocuments(seller: any, sellerType?: string): Selle
     name: "City Council Certificate",
     category: "business",
     isUploaded: !!busInfo?.cityCouncilCertUrl?.trim(),
+    isOptional: true,
     url: busInfo?.cityCouncilCertUrl,
   });
   docs.push({
@@ -417,13 +392,14 @@ export function evaluateSellerDocuments(seller: any, sellerType?: string): Selle
     url: kyc?.selfieUrl,
   });
 
-  // 3. Bank / Financial Proof
+  // 3. Bank / Financial Proof (Optional upload, text fields used for payout)
   const bank = seller.bankDetails || seller.raw?.bankDetails;
   const hasBankDoc = !!bank?.passbookUrl?.trim() || !!bank?.bankLetterUrl?.trim();
   docs.push({
     name: "Bank Passbook / Verification Letter",
     category: "financial",
     isUploaded: hasBankDoc,
+    isOptional: true,
     url: bank?.passbookUrl || bank?.bankLetterUrl,
   });
 
@@ -439,6 +415,7 @@ export function evaluateSellerDocuments(seller: any, sellerType?: string): Selle
       name: "Hotel Banner",
       category: "media",
       isUploaded: !!(seller.banner?.trim() || seller.raw?.banner?.trim()),
+      isOptional: true,
       url: seller.banner || seller.raw?.banner,
     });
     docs.push({
@@ -464,6 +441,7 @@ export function evaluateSellerDocuments(seller: any, sellerType?: string): Selle
       name: "Restaurant Banner",
       category: "media",
       isUploaded: !!(seller.banner?.trim() || seller.raw?.banner?.trim()),
+      isOptional: true,
       url: seller.banner || seller.raw?.banner,
     });
     docs.push({
@@ -486,6 +464,7 @@ export function evaluateSellerDocuments(seller: any, sellerType?: string): Selle
       name: isProduct ? "Store Banner" : "Service Provider Banner",
       category: "media",
       isUploaded: !!(store?.banner?.trim() || seller.banner?.trim() || seller.raw?.banner?.trim()),
+      isOptional: true,
       url: store?.banner || seller.banner || seller.raw?.banner,
     });
   }
@@ -500,9 +479,10 @@ export function evaluateSellerDocuments(seller: any, sellerType?: string): Selle
     url: null,
   });
 
-  const totalRequired = docs.length;
-  const uploadedCount = docs.filter((d) => d.isUploaded).length;
-  const missingDocs = docs.filter((d) => !d.isUploaded).map((d) => d.name);
+  const requiredDocs = docs.filter((d) => !d.isOptional);
+  const totalRequired = requiredDocs.length;
+  const uploadedCount = requiredDocs.filter((d) => d.isUploaded).length;
+  const missingDocs = requiredDocs.filter((d) => !d.isUploaded).map((d) => d.name);
 
   return {
     isComplete: missingDocs.length === 0,

@@ -287,10 +287,23 @@ export function SellerDetailsView({
                   </div>
                 </div>
 
-                <div className="flex flex-col p-3 bg-white rounded-xl border border-emerald-500/10 shadow-inner">
-                  <span className="text-[9px] font-medium text-muted-foreground/60 mb-1">Account Signature</span>
-                  <span className="text-sm font-mono font-medium tracking-tight text-emerald-800">{seller.bankDetails?.accountNumber || "—"}</span>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="flex flex-col p-3 bg-white rounded-xl border border-emerald-500/10 shadow-inner">
+                    <span className="text-[9px] font-medium text-muted-foreground/60 mb-1">Account Number</span>
+                    <span className="text-xs font-mono font-medium tracking-tight text-emerald-800 truncate">{seller.bankDetails?.accountNumber || "—"}</span>
+                  </div>
+                  <div className="flex flex-col p-3 bg-white rounded-xl border border-emerald-500/10 shadow-inner">
+                    <span className="text-[9px] font-medium text-muted-foreground/60 mb-1">BBAN Number</span>
+                    <span className="text-xs font-mono font-medium tracking-tight text-emerald-800 truncate">{seller.bankDetails?.bbanNumber || "—"}</span>
+                  </div>
                 </div>
+
+                {seller.bankDetails?.mobileMoneyOption && (
+                  <div className="flex flex-col p-2.5 bg-white/80 rounded-xl border border-emerald-500/10 text-xs">
+                    <span className="text-[9px] font-medium text-muted-foreground/60">Mobile Money</span>
+                    <span className="font-medium text-emerald-800">{seller.bankDetails.mobileMoneyOption}</span>
+                  </div>
+                )}
               </div>
             </div>
 

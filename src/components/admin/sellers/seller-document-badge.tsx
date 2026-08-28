@@ -97,17 +97,21 @@ export function SellerDocumentBadge({ evaluation, className, compact = false, sh
                     "flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg text-xs transition-colors",
                     doc.isUploaded
                       ? "bg-slate-50 dark:bg-slate-900/50 text-slate-700 dark:text-slate-300"
+                      : doc.isOptional
+                      ? "bg-slate-50/50 dark:bg-slate-900/30 text-slate-500 border border-slate-200/50 dark:border-slate-800"
                       : "bg-amber-50/50 dark:bg-amber-950/20 text-amber-900 dark:text-amber-200 border border-amber-200/50 dark:border-amber-900/40"
                   )}
                 >
                   <div className="flex items-center gap-2 min-w-0">
                     {doc.isUploaded ? (
                       <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                    ) : doc.isOptional ? (
+                      <span className="h-1.5 w-1.5 rounded-full bg-slate-400 shrink-0 ml-1 mr-1" />
                     ) : (
                       <AlertCircle className="h-3.5 w-3.5 text-amber-600 shrink-0" />
                     )}
-                    <span className={cn("truncate font-medium", !doc.isUploaded && "font-semibold")}>
-                      {doc.name}
+                    <span className={cn("truncate font-medium", !doc.isUploaded && !doc.isOptional && "font-semibold")}>
+                      {doc.name} {doc.isOptional && <span className="text-[10px] text-muted-foreground font-normal">(Optional)</span>}
                     </span>
                   </div>
 
@@ -122,8 +126,11 @@ export function SellerDocumentBadge({ evaluation, className, compact = false, sh
                       View <ExternalLink className="h-3 w-3" />
                     </a>
                   ) : (
-                    <span className="text-[10px] font-bold text-amber-700 dark:text-amber-400 shrink-0">
-                      {doc.isUploaded ? "Verified" : "Missing"}
+                    <span className={cn(
+                      "text-[10px] font-bold shrink-0",
+                      doc.isUploaded ? "text-emerald-600" : doc.isOptional ? "text-slate-400 font-normal" : "text-amber-700 dark:text-amber-400"
+                    )}>
+                      {doc.isUploaded ? "Verified" : doc.isOptional ? "Not uploaded" : "Missing"}
                     </span>
                   )}
                 </div>

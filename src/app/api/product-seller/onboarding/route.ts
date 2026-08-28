@@ -158,9 +158,6 @@ export async function POST(request: NextRequest) {
       if (!busRegCertUrl) {
         return NextResponse.json({ error: "Business Registration Certificate is mandatory." }, { status: 400 })
       }
-      if (!cityCouncilCertUrl) {
-        return NextResponse.json({ error: "City Council Certificate is mandatory." }, { status: 400 })
-      }
       if (!addressProofUrl) {
         return NextResponse.json({ error: "Proof of Address is mandatory." }, { status: 400 })
       }
@@ -280,10 +277,6 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      if (!passbookUrl && !bankLetterUrl) {
-        return NextResponse.json({ error: "Bank document proof (Passbook or Bank Letter) is mandatory." }, { status: 400 })
-      }
-
       await (prisma as any).sellerBankDetails.upsert({
         where: { sellerId: seller.id },
         update: { ...data, passbookUrl, bankLetterUrl } as any,
@@ -299,116 +292,87 @@ export async function POST(request: NextRequest) {
       for (let i = 0; i < suggestionCount; i++) {
         const suggestedId = formData ? formData.get(`suggestion_id_${i}`) as string : jsonBody.data[`suggestion_id_${i}`]
         const suggestedName = formData ? formData.get(`suggestion_name_${i}`) as string : jsonBody.data[`suggestion_name_${i}`]
-        const suggestedDesc = formData ? formData.get(`suggestion_description_${i}`) as string : jsonBody.data[`suggestion_description_${i}`]
+        const suggestedDescription = formData ? formData.get(`suggestion_description_${i}`) as string : jsonBody.data[`suggestion_description_${i}`]
+        
+        let imageUrl: string | undefined = undefined
+        let iconUrl: string | undefined = undefined
 
-        if (suggestedName || suggestedId) {
-          // Check if category already exists
-          let existing = null
-          if (suggestedId) {
-            existing = await prisma.category.findUnique({ where: { id: suggestedId } })
-          }
-
-          if (!existing && suggestedName) {
-            existing = await prisma.category.findFirst({
-              where: {
-                OR: [
-                  { name: { equals: suggestedName, mode: 'insensitive' } },
-                  { slug: generateSlug(suggestedName) }
-                ]
-              }
+        if (formData) {
+          const imgFile = formData.get(`suggestion_image_${i}`) as File | null
+          if (imgFile && imgFile.size > 0) {
+            imageUrl = await uploadPublicFile({
+              folder: "categories/suggestions",
+              ext: path.extname(imgFile.name) || ".jpg",
+              contentType: imgFile.type || "image/jpeg",
+              buffer: Buffer.from(await imgFile.arrayBuffer()),
+              prefix: "cat-sug-img",
             })
           }
-
-          if (existing) {
-            if (existing.isActive === false) {
-              // Update existing suggestion if it's still pending
-              let imageUrl = existing.image
-              let mobileIconUrl = existing.mobileIcon
-
-              if (formData) {
-                const img = formData.get(`suggestion_image_${i}`) as File | null
-                const icon = formData.get(`suggestion_mobile_icon_${i}`) as File | null
-                if (img && img.size > 0) {
-                  imageUrl = await uploadPublicFile({
-                    folder: "categories",
-                    ext: path.extname(img.name) || ".jpg",
-                    contentType: img.type || "image/jpeg",
-                    buffer: Buffer.from(await img.arrayBuffer()),
-                    prefix: "category",
-                  })
-                }
-                if (icon && icon.size > 0) {
-                  mobileIconUrl = await uploadPublicFile({
-                    folder: "categories",
-                    ext: path.extname(icon.name) || ".png",
-                    contentType: icon.type || "image/png",
-                    buffer: Buffer.from(await icon.arrayBuffer()),
-                    prefix: "mobile",
-                  })
-                }
-              }
-
-              await prisma.category.update({
-                where: { id: existing.id },
-                data: {
-                  name: suggestedName || existing.name,
-                  slug: suggestedName ? generateSlug(suggestedName) : existing.slug,
-                  description: suggestedDesc,
-                  image: imageUrl,
-                  mobileIcon: mobileIconUrl,
-                }
-              })
-            }
-            if (!categoryIds.includes(existing.id)) {
-              categoryIds.push(existing.id)
-            }
-          } else {
-            let imageUrl = ""
-            let mobileIconUrl = ""
-
-            if (formData) {
-              const img = formData.get(`suggestion_image_${i}`) as File | null
-              const icon = formData.get(`suggestion_mobile_icon_${i}`) as File | null
-              if (img && img.size > 0) {
-                imageUrl = await uploadPublicFile({
-                  folder: "categories",
-                  ext: path.extname(img.name) || ".jpg",
-                  contentType: img.type || "image/jpeg",
-                  buffer: Buffer.from(await img.arrayBuffer()),
-                  prefix: "category",
-                })
-              }
-              if (icon && icon.size > 0) {
-                mobileIconUrl = await uploadPublicFile({
-                  folder: "categories",
-                  ext: path.extname(icon.name) || ".png",
-                  contentType: icon.type || "image/png",
-                  buffer: Buffer.from(await icon.arrayBuffer()),
-                  prefix: "mobile",
-                })
-              }
-            }
-
-            const newCat = await prisma.category.create({
-              data: {
-                name: suggestedName,
-                slug: generateSlug(suggestedName),
-                description: suggestedDesc,
-                image: imageUrl,
-                mobileIcon: mobileIconUrl,
-                isActive: false,
-                isFeatured: false,
-              }
+          const iconFile = formData.get(`suggestion_mobile_icon_${i}`) as File | null
+          if (iconFile && iconFile.size > 0) {
+            iconUrl = await uploadPublicFile({
+              folder: "categories/suggestions",
+              ext: path.extname(iconFile.name) || ".png",
+              contentType: iconFile.type || "image/png",
+              buffer: Buffer.from(await iconFile.arrayBuffer()),
+              prefix: "cat-sug-ico",
             })
-            categoryIds.push(newCat.id)
           }
+        } else if (jsonBody?.data) {
+          imageUrl = jsonBody.data[`suggestion_image_${i}`]
+          iconUrl = jsonBody.data[`suggestion_mobile_icon_${i}`]
+        }
+
+        if (suggestedId) {
+          await (prisma as any).categorySuggestion.update({
+            where: { id: suggestedId },
+            data: {
+              name: suggestedName,
+              description: suggestedDescription,
+              ...(imageUrl && { imageUrl }),
+              ...(iconUrl && { iconUrl }),
+            },
+          })
+        } else if (suggestedName) {
+          await (prisma as any).categorySuggestion.create({
+            data: {
+              sellerId: seller.id,
+              name: suggestedName,
+              description: suggestedDescription,
+              imageUrl,
+              iconUrl,
+            },
+          })
         }
       }
 
       const storeData: any = formData ? {
         name: formData.get("storeName") as string,
         description: formData.get("description") as string,
-      } : { ...jsonBody.data }
+        address: formData.get("address") as string,
+        city: formData.get("city") as string,
+        state: formData.get("state") as string,
+        country: formData.get("country") as string,
+        postalCode: formData.get("postalCode") as string,
+        deliveryType: formData.get("deliveryType") as string,
+        shippingFee: parseFloat(formData.get("shippingFee") as string) || 0,
+        currency: formData.get("currency") as string,
+        returnPolicy: formData.get("returnPolicy") as string,
+      } : {
+        name: jsonBody.data.storeName,
+        description: jsonBody.data.description,
+        address: jsonBody.data.address,
+        city: jsonBody.data.city,
+        state: jsonBody.data.state,
+        country: jsonBody.data.country,
+        postalCode: jsonBody.data.postalCode,
+        deliveryType: jsonBody.data.deliveryType,
+        shippingFee: parseFloat(jsonBody.data.shippingFee) || 0,
+        currency: jsonBody.data.currency,
+        returnPolicy: jsonBody.data.returnPolicy,
+        lat: jsonBody.data.lat,
+        lng: jsonBody.data.lng,
+      }
 
       if (formData) {
         const logo = formData.get("storeLogo") as File | null
@@ -431,12 +395,8 @@ export async function POST(request: NextRequest) {
             prefix: "store-banner",
           })
         }
-        const latRaw = formData.get("storeLat")
-        const lngRaw = formData.get("storeLng")
-        const addressRaw = formData.get("storeAddress")
-
-        if (addressRaw) storeData.address = addressRaw as string
-
+        const latRaw = formData.get("lat")
+        const lngRaw = formData.get("lng")
         if (latRaw && lngRaw) {
           const lat = parseFloat(latRaw as string)
           const lng = parseFloat(lngRaw as string)
@@ -448,9 +408,8 @@ export async function POST(request: NextRequest) {
       }
 
       const finalLogo = storeData.logo || seller.store?.logo
-      const finalBanner = storeData.banner || seller.store?.banner
-      if (!finalLogo || !finalBanner) {
-        return NextResponse.json({ error: "Both Store Logo and Store Banner are mandatory." }, { status: 400 })
+      if (!finalLogo) {
+        return NextResponse.json({ error: "Store Logo is mandatory." }, { status: 400 })
       }
 
       if (seller.store) {

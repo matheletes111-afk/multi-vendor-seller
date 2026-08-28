@@ -166,9 +166,6 @@ export async function POST(request: NextRequest) {
             if (!busRegCertUrl) {
                 return NextResponse.json({ success: false, error: "Business Registration Certificate is mandatory." }, { status: 400 });
             }
-            if (!cityCouncilCertUrl) {
-                return NextResponse.json({ success: false, error: "City Council Certificate is mandatory." }, { status: 400 });
-            }
             if (!addressProofUrl) {
                 return NextResponse.json({ success: false, error: "Proof of Address is mandatory." }, { status: 400 });
             }
@@ -327,8 +324,8 @@ export async function POST(request: NextRequest) {
                 if (jsonBody.data.mainPhoto) mainPhotoUrl = jsonBody.data.mainPhoto;
             }
 
-            if (!logoUrl || !bannerUrl || !mainPhotoUrl) {
-                return NextResponse.json({ success: false, error: "Restaurant Logo, Restaurant Banner, and Main Restaurant Photo are all mandatory." }, { status: 400 });
+            if (!logoUrl || !mainPhotoUrl) {
+                return NextResponse.json({ success: false, error: "Restaurant Logo and Main Restaurant Photo are mandatory." }, { status: 400 });
             }
 
             if (!cuisines || cuisines.length === 0) {
@@ -392,10 +389,6 @@ export async function POST(request: NextRequest) {
             } else if (jsonBody?.data) {
                 if (jsonBody.data.passbookUrl) passbookUrl = jsonBody.data.passbookUrl;
                 if (jsonBody.data.bankLetterUrl) bankLetterUrl = jsonBody.data.bankLetterUrl;
-            }
-
-            if (!passbookUrl && !bankLetterUrl) {
-                return NextResponse.json({ success: false, error: "Bank document proof (Passbook or Bank Letter) is mandatory." }, { status: 400 });
             }
 
             await prisma.restaurantBankDetails.upsert({

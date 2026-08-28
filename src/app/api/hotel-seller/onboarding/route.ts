@@ -206,9 +206,6 @@ export async function POST(request: NextRequest) {
       if (!busRegCertUrl) {
         return NextResponse.json({ error: "Business Registration Certificate is mandatory." }, { status: 400 })
       }
-      if (!cityCouncilCertUrl) {
-        return NextResponse.json({ error: "City Council Certificate is mandatory." }, { status: 400 })
-      }
       if (!addressProofUrl) {
         return NextResponse.json({ error: "Proof of Address is mandatory." }, { status: 400 })
       }
@@ -331,8 +328,8 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      if (!logoUrl || !bannerUrl || !mainPhotoUrl) {
-        return NextResponse.json({ error: "Property Logo, Property Banner, and Main Property Photo are all mandatory." }, { status: 400 })
+      if (!logoUrl || !mainPhotoUrl) {
+        return NextResponse.json({ error: "Property Logo and Main Property Photo are mandatory." }, { status: 400 })
       }
 
       await prisma.hotelSeller.update({
@@ -383,10 +380,6 @@ export async function POST(request: NextRequest) {
             prefix: "hotel-bank-letter",
           })
         }
-      }
-
-      if (!passbookUrl && !bankLetterUrl) {
-        return NextResponse.json({ error: "Bank document proof (Passbook or Bank Letter) is mandatory." }, { status: 400 })
       }
 
       await prisma.hotelBankDetails.upsert({

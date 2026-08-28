@@ -451,7 +451,7 @@ export function SettingsClient() {
                 </div>
               </div>
               <div className="space-y-2">
-                <Label>City Council Certificate</Label>
+                <Label>City Council Certificate (Optional)</Label>
                 <div className="flex items-center gap-3">
                   <Input name="cityCouncilCert" type="file" className="max-w-xs" />
                   {seller.businessInfo?.cityCouncilCertUrl && <a href={seller.businessInfo.cityCouncilCertUrl} target="_blank" className="text-primary hover:underline text-sm flex items-center gap-1"><FileText className="h-4 w-4" /> View Current</a>}
@@ -519,14 +519,14 @@ export function SettingsClient() {
               </div>
               <div className="grid md:grid-cols-2 gap-4 pt-2">
                 <div className="space-y-2">
-                  <Label>Passbook / Check Copy</Label>
+                  <Label>Passbook / Check Copy (Optional)</Label>
                   <div className="flex items-center gap-3">
                     <Input name="bankPassbook" type="file" />
                     {seller.bankDetails?.passbookUrl && <a href={seller.bankDetails.passbookUrl} target="_blank" className="text-primary hover:underline text-sm flex items-center gap-1"><FileText className="h-4 w-4" /> View Current</a>}
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label>Bank Letter with Account No.</Label>
+                  <Label>Bank Letter with Account No. (Optional)</Label>
                   <div className="flex items-center gap-3">
                     <Input name="bankLetter" type="file" />
                     {seller.bankDetails?.bankLetterUrl && <a href={seller.bankDetails.bankLetterUrl} target="_blank" className="text-primary hover:underline text-sm flex items-center gap-1"><FileText className="h-4 w-4" /> View Current</a>}
@@ -583,7 +583,7 @@ export function SettingsClient() {
                   </div>
                 </div>
                 <div className="space-y-3">
-                  <Label className="font-bold">Store Banner</Label>
+                  <Label className="font-bold">Store Banner (Optional)</Label>
                   <div className="mt-1 flex flex-col items-center gap-4 p-6 border-2 border-dashed rounded-xl bg-slate-50/50 border-slate-200">
                     {(previews.storeBanner || seller.store?.banner) ? (
                       <div className="relative w-full aspect-[3/1] rounded-lg overflow-hidden border shadow-sm">
