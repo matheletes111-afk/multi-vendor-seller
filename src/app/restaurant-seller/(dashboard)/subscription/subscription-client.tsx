@@ -152,7 +152,7 @@ export function RestaurantSubscriptionClient() {
                           <span className="text-base font-medium text-slate-400">{formatPlanDuration(plan.duration)}</span>
                         </div>
                       ) : (
-                        <p className="text-4xl font-black text-slate-800">{formatCurrency(plan.price)}{plan.price > 0 && <span className="text-base font-medium text-slate-400">{formatPlanDuration(plan.duration)}</span>}</p>
+                        <p className="text-4xl font-black text-slate-800">{formatCurrency(plan.price)}<span className="text-base font-medium text-slate-400">{formatPlanDuration(plan.duration)}</span></p>
                       )}
                     </div>
 
