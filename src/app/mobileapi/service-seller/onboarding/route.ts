@@ -161,9 +161,6 @@ export async function POST(request: NextRequest) {
             if (!businessData.busRegCertUrl) {
                 return NextResponse.json({ success: false, error: "Business Registration Certificate / Trade License is mandatory." }, { status: 400 });
             }
-            if (!businessData.cityCouncilCertUrl) {
-                return NextResponse.json({ success: false, error: "City Council Certificate is mandatory." }, { status: 400 });
-            }
             if (!businessData.addressProofUrl) {
                 return NextResponse.json({ success: false, error: "Proof of Address is mandatory." }, { status: 400 });
             }
@@ -288,10 +285,6 @@ export async function POST(request: NextRequest) {
             const finalPassbook = bankData.passbookUrl || seller.bankDetails?.passbookUrl || null;
             const finalBankLetter = bankData.bankLetterUrl || seller.bankDetails?.bankLetterUrl || null;
 
-            if (!finalPassbook && !finalBankLetter) {
-                return NextResponse.json({ success: false, error: "Bank document proof (Passbook or Bank Letter) is mandatory." }, { status: 400 });
-            }
-
             bankData.passbookUrl = finalPassbook;
             bankData.bankLetterUrl = finalBankLetter;
 
@@ -360,7 +353,7 @@ export async function POST(request: NextRequest) {
             }
 
             
-            const suggestionCountRaw = formData ? formData.get("suggestionCount") : jsonBody.data.suggestionCount;
+            const suggestionCountRaw = formData ? formData.get("suggestionCount") : jsonBody.data?.suggestionCount;
             const suggestionCount = parseInt(suggestionCountRaw as string) || 0;
 
             for (let i = 0; i < suggestionCount; i++) {
@@ -474,8 +467,8 @@ export async function POST(request: NextRequest) {
             const finalLogo = storeData.logo || seller.store?.logo;
             const finalBanner = storeData.banner || seller.store?.banner;
 
-            if (!finalLogo || !finalBanner) {
-                return NextResponse.json({ success: false, error: "Both Service Store Logo and Banner are mandatory." }, { status: 400 });
+            if (!finalLogo) {
+                return NextResponse.json({ success: false, error: "Service Store Logo is mandatory." }, { status: 400 });
             }
 
             if (!categoryIds || categoryIds.length === 0) {

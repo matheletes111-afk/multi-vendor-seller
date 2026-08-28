@@ -178,9 +178,6 @@ export async function POST(request: NextRequest) {
       if (!businessData.busRegCertUrl) {
         return NextResponse.json({ success: false, error: "Business Registration Certificate is mandatory." }, { status: 400 });
       }
-      if (!businessData.cityCouncilCertUrl) {
-        return NextResponse.json({ success: false, error: "City Council Certificate is mandatory." }, { status: 400 });
-      }
       if (!businessData.addressProofUrl) {
         return NextResponse.json({ success: false, error: "Proof of Address is mandatory." }, { status: 400 });
       }
@@ -311,10 +308,6 @@ export async function POST(request: NextRequest) {
       const finalPassbook = bankData.passbookUrl || seller.bankDetails?.passbookUrl || null;
       const finalBankLetter = bankData.bankLetterUrl || seller.bankDetails?.bankLetterUrl || null;
 
-      if (!finalPassbook && !finalBankLetter) {
-        return NextResponse.json({ success: false, error: "Bank document proof (Passbook or Bank Letter) is mandatory." }, { status: 400 });
-      }
-
       bankData.passbookUrl = finalPassbook;
       bankData.bankLetterUrl = finalBankLetter;
 
@@ -333,62 +326,71 @@ export async function POST(request: NextRequest) {
     }
 
     else if (mobileStep === 4) {
-      // Step 4: Store Setup
+      // Step 4: Store Setup & Categories
+      let categoryIds = formData ? formData.getAll("categoryIds") : (jsonBody.data.categoryIds || []);
+      
       const storeData: any = formData ? {
         name: formData.get("storeName") as string,
         description: formData.get("description") as string,
-      } : { ...jsonBody.data };
+        address: formData.get("address") as string,
+        city: formData.get("city") as string,
+        state: formData.get("state") as string,
+        country: formData.get("country") as string,
+        postalCode: formData.get("postalCode") as string,
+        deliveryType: formData.get("deliveryType") as string,
+        shippingFee: parseFloat(formData.get("shippingFee") as string) || 0,
+        currency: formData.get("currency") as string,
+        returnPolicy: formData.get("returnPolicy") as string,
+      } : {
+        name: jsonBody.data.storeName,
+        description: jsonBody.data.description,
+        address: jsonBody.data.address,
+        city: jsonBody.data.city,
+        state: jsonBody.data.state,
+        country: jsonBody.data.country,
+        postalCode: jsonBody.data.postalCode,
+        deliveryType: jsonBody.data.deliveryType,
+        shippingFee: parseFloat(jsonBody.data.shippingFee) || 0,
+        currency: jsonBody.data.currency,
+        returnPolicy: jsonBody.data.returnPolicy,
+        lat: jsonBody.data.lat,
+        lng: jsonBody.data.lng,
+      };
 
       if (formData) {
-        const logoFile = formData.get("storeLogo") as File | null;
-        const bannerFile = formData.get("storeBanner") as File | null;
-
-        if (logoFile && logoFile.size > 0) {
+        const logo = formData.get("storeLogo") as File | null;
+        const banner = formData.get("storeBanner") as File | null;
+        if (logo && logo.size > 0) {
           storeData.logo = await uploadPublicFile({
             folder: "onboarding/store",
-            ext: path.extname(logoFile.name) || ".jpg",
-            contentType: logoFile.type || "image/jpeg",
-            buffer: Buffer.from(await logoFile.arrayBuffer()),
+            ext: path.extname(logo.name) || ".jpg",
+            contentType: logo.type || "image/jpeg",
+            buffer: Buffer.from(await logo.arrayBuffer()),
             prefix: "store-logo",
           });
         }
-        if (bannerFile && bannerFile.size > 0) {
+        if (banner && banner.size > 0) {
           storeData.banner = await uploadPublicFile({
             folder: "onboarding/store",
-            ext: path.extname(bannerFile.name) || ".jpg",
-            contentType: bannerFile.type || "image/jpeg",
-            buffer: Buffer.from(await bannerFile.arrayBuffer()),
+            ext: path.extname(banner.name) || ".jpg",
+            contentType: banner.type || "image/jpeg",
+            buffer: Buffer.from(await banner.arrayBuffer()),
             prefix: "store-banner",
           });
         }
-
-        const latRaw = formData.get("storeLat") as string | null;
-        const lngRaw = formData.get("storeLng") as string | null;
-        const addressRaw = formData.get("storeAddress") as string | null;
-
-        if (addressRaw) storeData.address = addressRaw;
-
+        const latRaw = formData.get("lat");
+        const lngRaw = formData.get("lng");
         if (latRaw && lngRaw) {
-          const lat = parseFloat(latRaw);
-          const lng = parseFloat(lngRaw);
+          const lat = parseFloat(latRaw as string);
+          const lng = parseFloat(lngRaw as string);
           if (!isNaN(lat) && !isNaN(lng)) {
             storeData.lat = lat;
             storeData.lng = lng;
           }
         }
-      } else {
-        if (jsonBody.data.storeLat != undefined && jsonBody.data.storeLng != undefined) {
-          storeData.lat = parseFloat(jsonBody.data.storeLat)
-          storeData.lng = parseFloat(jsonBody.data.storeLng)
-        }
-        if (jsonBody.data.storeAddress != undefined) {
-          storeData.address = String(jsonBody.data.storeAddress)
-        }
       }
 
-      let categoryIds = formData ? formData.getAll("categoryIds") : (jsonBody.data.categoryIds || []);
-      
-      const suggestionCountRaw = formData ? formData.get("suggestionCount") : jsonBody.data.suggestionCount;
+      const suggestionCountRaw = formData ? formData.get("suggestionCount") : jsonBody.data?.suggestionCount;
       const suggestionCount = parseInt(suggestionCountRaw as string) || 0;
 
       for (let i = 0; i < suggestionCount; i++) {
@@ -397,7 +399,6 @@ export async function POST(request: NextRequest) {
         const suggestedDesc = formData ? formData.get(`suggestion_description_${i}`) as string : jsonBody.data[`suggestion_description_${i}`];
 
         if (suggestedName || suggestedId) {
-          // Check if category already exists
           let existing = null;
           if (suggestedId) {
             existing = await prisma.category.findUnique({ where: { id: suggestedId } });
@@ -416,7 +417,6 @@ export async function POST(request: NextRequest) {
 
           if (existing) {
             if (existing.isActive === false) {
-              // Update existing suggestion if it's still pending
               let imageUrl = existing.image;
               let mobileIconUrl = existing.mobileIcon;
 
@@ -503,8 +503,8 @@ export async function POST(request: NextRequest) {
       const finalLogo = storeData.logo || seller.store?.logo;
       const finalBanner = storeData.banner || seller.store?.banner;
 
-      if (!finalLogo || !finalBanner) {
-        return NextResponse.json({ success: false, error: "Both Store Logo and Store Banner are mandatory." }, { status: 400 });
+      if (!finalLogo) {
+        return NextResponse.json({ success: false, error: "Store Logo is mandatory." }, { status: 400 });
       }
 
       if (!categoryIds || categoryIds.length === 0) {

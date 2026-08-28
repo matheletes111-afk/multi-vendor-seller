@@ -101,12 +101,11 @@ export function HotelOnboardingClient() {
     try {
       if (currentStep === 2) {
         const hasBusReg = (formData.get("busRegCert") as File)?.size > 0 || seller?.businessInfo?.busRegCertUrl || previews["busRegCert"]
-        const hasCityCouncil = (formData.get("cityCouncilCert") as File)?.size > 0 || seller?.businessInfo?.cityCouncilCertUrl || previews["cityCouncilCert"]
         const hasAddressProof = (formData.get("addressProof") as File)?.size > 0 || seller?.businessInfo?.addressProofUrl || previews["addressProof"]
         const hasGstCert = !haveGst || (formData.get("gstTinCert") as File)?.size > 0 || seller?.businessInfo?.gstTinCertUrl || previews["gstTinCert"]
 
-        if (!hasBusReg || !hasCityCouncil || !hasAddressProof || !hasGstCert) {
-          setError("Please upload all mandatory business documents (Registration Certificate, City Council Certificate, Proof of Address) before proceeding.")
+        if (!hasBusReg || !hasAddressProof || !hasGstCert) {
+          setError("Please upload mandatory business documents (Registration Certificate, Proof of Address) before proceeding.")
           setSaving(false)
           return
         }
@@ -126,11 +125,10 @@ export function HotelOnboardingClient() {
 
       if (currentStep === 4) {
         const hasLogo = (formData.get("logo") as File)?.size > 0 || seller?.logo || previews["logo"]
-        const hasBanner = (formData.get("banner") as File)?.size > 0 || seller?.banner || previews["banner"]
         const hasMainPhoto = (formData.get("mainPhoto") as File)?.size > 0 || seller?.mainPhoto || previews["mainPhoto"]
 
-        if (!hasLogo || !hasBanner || !hasMainPhoto) {
-          setError("Please upload Property Logo, Property Banner, and Main Property Photo.")
+        if (!hasLogo || !hasMainPhoto) {
+          setError("Please upload Property Logo and Main Property Photo.")
           setSaving(false)
           return
         }
@@ -147,11 +145,18 @@ export function HotelOnboardingClient() {
       }
 
       if (currentStep === 5) {
-        const hasPassbook = (formData.get("passbook") as File)?.size > 0 || seller?.bankDetails?.passbookUrl || previews["passbook"]
-        const hasBankLetter = (formData.get("bankLetter") as File)?.size > 0 || seller?.bankDetails?.bankLetterUrl || previews["bankLetter"]
+        const bankName = (formData.get("bankName") as string)?.trim()
+        const accountNumber = (formData.get("accountNumber") as string)?.trim()
+        const bbanNumber = (formData.get("bbanNumber") as string)?.trim()
+        const mobileMoney = (formData.get("mobileMoneyOption") as string)?.trim()
 
-        if (!hasPassbook && !hasBankLetter) {
-          setError("Please upload a Bank Passbook, Cancelled Check, or Official Bank Account Letter.")
+        if (!bankName && !mobileMoney) {
+          setError("Please provide your Bank Name or Mobile Money option.")
+          setSaving(false)
+          return
+        }
+        if (!accountNumber && !bbanNumber && !mobileMoney) {
+          setError("Please provide your Bank Account Number or BBAN Number.")
           setSaving(false)
           return
         }
@@ -434,8 +439,8 @@ export function HotelOnboardingClient() {
                     {renderFilePreview("busRegCert", seller.businessInfo?.busRegCertUrl, "Reg Certificate")}
                   </div>
                   <div className="space-y-2 pt-4 border-t">
-                    <Label htmlFor="cityCouncilCert">City Council Certificate *</Label>
-                    <Input id="cityCouncilCert" name="cityCouncilCert" type="file" accept=".pdf,.jpg,.jpeg,.png" required={!seller.businessInfo?.cityCouncilCertUrl} onChange={(e) => handleFileChange(e, "cityCouncilCert")} />
+                    <Label htmlFor="cityCouncilCert">City Council Certificate (Optional)</Label>
+                    <Input id="cityCouncilCert" name="cityCouncilCert" type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={(e) => handleFileChange(e, "cityCouncilCert")} />
                     {renderFilePreview("cityCouncilCert", seller.businessInfo?.cityCouncilCertUrl, "City Council Certificate")}
                   </div>
                   <div className="space-y-2 pt-4 border-t">
@@ -548,8 +553,8 @@ export function HotelOnboardingClient() {
                       {renderFilePreview("logo", seller.logo, "Logo")}
                     </div>
                     <div className="space-y-2">
-                      <Label>Property Banner *</Label>
-                      <Input name="banner" type="file" accept="image/*" required={!seller.banner} onChange={(e) => handleFileChange(e, "banner")} />
+                      <Label>Property Banner (Optional)</Label>
+                      <Input name="banner" type="file" accept="image/*" onChange={(e) => handleFileChange(e, "banner")} />
                       {renderFilePreview("banner", seller.banner, "Banner")}
                     </div>
                   </div>
@@ -603,12 +608,12 @@ export function HotelOnboardingClient() {
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2 pt-4 border-t">
-                      <Label>Passbook / Cancelled Check Proof *</Label>
-                      <Input name="passbook" type="file" accept="image/*,.pdf" required={!seller.bankDetails?.passbookUrl && !seller.bankDetails?.bankLetterUrl} onChange={(e) => handleFileChange(e, "passbook")} />
+                      <Label>Passbook / Cancelled Check Proof (Optional)</Label>
+                      <Input name="passbook" type="file" accept="image/*,.pdf" onChange={(e) => handleFileChange(e, "passbook")} />
                       {renderFilePreview("passbook", seller.bankDetails?.passbookUrl, "Bank Proof")}
                     </div>
                     <div className="space-y-2 pt-4 border-t">
-                      <Label>Attach Bank Letter with Acc number *</Label>
+                      <Label>Attach Bank Letter with Acc number (Optional)</Label>
                       <Input name="bankLetter" type="file" accept="image/*,.pdf" onChange={(e) => handleFileChange(e, "bankLetter")} />
                       {renderFilePreview("bankLetter", seller.bankDetails?.bankLetterUrl, "Bank Letter")}
                     </div>
