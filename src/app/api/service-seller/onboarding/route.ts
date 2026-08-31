@@ -16,7 +16,7 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  const seller = await prisma.seller.findUnique({
+  const seller = (await prisma.seller.findUnique({
     where: { userId: session.user.id },
     include: {
       businessInfo: true,
@@ -25,8 +25,54 @@ export async function GET() {
       agreement: true,
       store: true,
       selectedServiceCategories: true,
+      user: {
+        select: { image: true, name: true, email: true }
+      }
     } as any,
-  })
+  })) as any
+
+  if (seller) {
+    const { getPresignedUrlOrOriginal } = await import("@/lib/s3-presigned")
+    if (seller.user?.image) {
+      seller.user.image = await getPresignedUrlOrOriginal(seller.user.image)
+    }
+    if (seller.store?.logo) {
+      seller.store.logo = await getPresignedUrlOrOriginal(seller.store.logo)
+    }
+    if (seller.store?.banner) {
+      seller.store.banner = await getPresignedUrlOrOriginal(seller.store.banner)
+    }
+    if (seller.businessInfo) {
+      const [busReg, cityCouncil, gstTin, addrProof] = await Promise.all([
+        getPresignedUrlOrOriginal(seller.businessInfo.busRegCertUrl),
+        getPresignedUrlOrOriginal(seller.businessInfo.cityCouncilCertUrl),
+        getPresignedUrlOrOriginal(seller.businessInfo.gstTinCertUrl),
+        getPresignedUrlOrOriginal(seller.businessInfo.addressProofUrl)
+      ])
+      seller.businessInfo.busRegCertUrl = busReg
+      seller.businessInfo.cityCouncilCertUrl = cityCouncil
+      seller.businessInfo.gstTinCertUrl = gstTin
+      seller.businessInfo.addressProofUrl = addrProof
+    }
+    if (seller.kyc) {
+      const [idFront, idBack, selfie] = await Promise.all([
+        getPresignedUrlOrOriginal(seller.kyc.idFrontUrl),
+        getPresignedUrlOrOriginal(seller.kyc.idBackUrl),
+        getPresignedUrlOrOriginal(seller.kyc.selfieUrl)
+      ])
+      seller.kyc.idFrontUrl = idFront
+      seller.kyc.idBackUrl = idBack
+      seller.kyc.selfieUrl = selfie
+    }
+    if (seller.bankDetails) {
+      const [passbook, bankLetter] = await Promise.all([
+        getPresignedUrlOrOriginal(seller.bankDetails.passbookUrl),
+        getPresignedUrlOrOriginal(seller.bankDetails.bankLetterUrl)
+      ])
+      seller.bankDetails.passbookUrl = passbook
+      seller.bankDetails.bankLetterUrl = bankLetter
+    }
+  }
 
   return NextResponse.json(seller)
 }
@@ -274,6 +320,13 @@ export async function POST(request: NextRequest) {
             prefix: "bank-letter",
           })
         }
+      } else if (jsonBody?.data) {
+        if (jsonBody.data.passbookUrl) passbookUrl = jsonBody.data.passbookUrl
+        if (jsonBody.data.bankLetterUrl) bankLetterUrl = jsonBody.data.bankLetterUrl
+      }
+
+      if (!passbookUrl) {
+        return NextResponse.json({ error: "Bank Passbook / Cheque Copy is mandatory." }, { status: 400 })
       }
 
       await (prisma as any).sellerBankDetails.upsert({

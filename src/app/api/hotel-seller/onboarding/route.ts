@@ -35,6 +35,9 @@ export async function GET() {
 
     try {
       const { getPresignedUrlOrOriginal } = await import("@/lib/s3-presigned")
+      if (seller.user?.image) {
+        seller.user.image = await getPresignedUrlOrOriginal(seller.user.image)
+      }
       seller.logo = await getPresignedUrlOrOriginal(seller.logo)
       seller.banner = await getPresignedUrlOrOriginal(seller.banner)
       seller.mainPhoto = await getPresignedUrlOrOriginal(seller.mainPhoto)
@@ -380,6 +383,13 @@ export async function POST(request: NextRequest) {
             prefix: "hotel-bank-letter",
           })
         }
+      } else if (jsonBody?.data) {
+        if (jsonBody.data.passbookUrl) passbookUrl = jsonBody.data.passbookUrl
+        if (jsonBody.data.bankLetterUrl) bankLetterUrl = jsonBody.data.bankLetterUrl
+      }
+
+      if (!passbookUrl) {
+        return NextResponse.json({ error: "Bank Passbook / Cheque Copy is mandatory." }, { status: 400 })
       }
 
       await prisma.hotelBankDetails.upsert({

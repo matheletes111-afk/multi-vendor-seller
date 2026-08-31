@@ -201,6 +201,13 @@ export function ProductOnboardingClient() {
           setSaving(false)
           return
         }
+
+        const hasPassbook = (formData.get("bankPassbook") as File)?.size > 0 || seller?.bankDetails?.passbookUrl || previews["bankPassbook"]
+        if (!hasPassbook) {
+          setError("Please upload your Bank Passbook or Cheque Copy.")
+          setSaving(false)
+          return
+        }
       }
 
       let res: Response
@@ -576,9 +583,9 @@ export function ProductOnboardingClient() {
                     </div>
                   </div>
                   <div className="space-y-2 pt-2">
-                    <Label htmlFor="gstTinCert" className="text-sm font-semibold">GST TIN Certificate *</Label>
+                    <Label htmlFor="gstTinCert" className="text-sm font-semibold">GST TIN Certificate {haveGst ? "*" : "(Optional)"}</Label>
                     <div className="mt-2 p-6 border-2 border-dashed rounded-2xl bg-purple-50/30 border-purple-100 transition-colors hover:bg-purple-50/50">
-                      <Input id="gstTinCert" name="gstTinCert" type="file" accept=".pdf,.jpg,.jpeg,.png" className="cursor-pointer" required={!seller.businessInfo?.gstTinCertUrl} onChange={(e) => handleFileChange(e, "gstTinCert")} />
+                      <Input id="gstTinCert" name="gstTinCert" type="file" accept=".pdf,.jpg,.jpeg,.png" className="cursor-pointer" required={haveGst && !seller.businessInfo?.gstTinCertUrl} onChange={(e) => handleFileChange(e, "gstTinCert")} />
                       {renderFilePreview("gstTinCert", seller.businessInfo?.gstTinCertUrl, "GST TIN Certificate")}
                     </div>
                   </div>
@@ -725,10 +732,10 @@ export function ProductOnboardingClient() {
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2 p-6 bg-slate-50 rounded-2xl border border-slate-100">
-                      <Label htmlFor="bankPassbook" className="text-sm font-semibold mb-2 block">Bank Document Proof (Optional)</Label>
+                      <Label htmlFor="bankPassbook" className="text-sm font-semibold mb-2 block">Bank Passbook / Cheque Copy *</Label>
                       <p className="text-xs text-slate-500 mb-3">Upload passbook front page or cancelled check</p>
-                      <Input id="bankPassbook" name="bankPassbook" type="file" accept="image/*,.pdf" onChange={(e) => handleFileChange(e, "bankPassbook")} />
-                      {renderFilePreview("bankPassbook", seller.bankDetails?.passbookUrl, "Bank Document")}
+                      <Input id="bankPassbook" name="bankPassbook" type="file" accept="image/*,.pdf" required={!seller.bankDetails?.passbookUrl} onChange={(e) => handleFileChange(e, "bankPassbook")} />
+                      {renderFilePreview("bankPassbook", seller.bankDetails?.passbookUrl, "Bank Passbook")}
                     </div>
                     <div className="space-y-2 p-6 bg-slate-50 rounded-2xl border border-slate-100">
                       <Label htmlFor="bankLetter" className="text-sm font-semibold mb-2 block">Bank Letter with Account No. (Optional)</Label>

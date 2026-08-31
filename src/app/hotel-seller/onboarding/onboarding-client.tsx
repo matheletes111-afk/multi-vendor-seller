@@ -168,6 +168,13 @@ export function HotelOnboardingClient() {
           setSaving(false)
           return
         }
+
+        const hasPassbook = (formData.get("passbook") as File)?.size > 0 || seller?.bankDetails?.passbookUrl || previews["passbook"]
+        if (!hasPassbook) {
+          setError("Please upload your Bank Passbook or Cheque Copy.")
+          setSaving(false)
+          return
+        }
       }
 
       let res: Response
@@ -456,8 +463,8 @@ export function HotelOnboardingClient() {
                     {renderFilePreview("cityCouncilCert", seller.businessInfo?.cityCouncilCertUrl, "City Council Certificate")}
                   </div>
                   <div className="space-y-2 pt-4 border-t">
-                    <Label htmlFor="gstTinCert">GST TIN Certificate *</Label>
-                    <Input id="gstTinCert" name="gstTinCert" type="file" accept=".pdf,.jpg,.jpeg,.png" required={!seller.businessInfo?.gstTinCertUrl} onChange={(e) => handleFileChange(e, "gstTinCert")} />
+                    <Label htmlFor="gstTinCert">GST TIN Certificate {haveGst ? "*" : "(Optional)"}</Label>
+                    <Input id="gstTinCert" name="gstTinCert" type="file" accept=".pdf,.jpg,.jpeg,.png" required={haveGst && !seller.businessInfo?.gstTinCertUrl} onChange={(e) => handleFileChange(e, "gstTinCert")} />
                     {renderFilePreview("gstTinCert", seller.businessInfo?.gstTinCertUrl, "GST TIN Certificate")}
                   </div>
                   <div className="space-y-2 pt-4 border-t">
@@ -620,12 +627,12 @@ export function HotelOnboardingClient() {
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2 pt-4 border-t">
-                      <Label>Passbook / Cancelled Check Proof (Optional)</Label>
-                      <Input name="passbook" type="file" accept="image/*,.pdf" onChange={(e) => handleFileChange(e, "passbook")} />
+                      <Label>Bank Passbook / Cheque Copy *</Label>
+                      <Input name="passbook" type="file" accept="image/*,.pdf" required={!seller.bankDetails?.passbookUrl} onChange={(e) => handleFileChange(e, "passbook")} />
                       {renderFilePreview("passbook", seller.bankDetails?.passbookUrl, "Bank Proof")}
                     </div>
                     <div className="space-y-2 pt-4 border-t">
-                      <Label>Attach Bank Letter with Acc number (Optional)</Label>
+                      <Label>Bank Letter / Reference (Optional)</Label>
                       <Input name="bankLetter" type="file" accept="image/*,.pdf" onChange={(e) => handleFileChange(e, "bankLetter")} />
                       {renderFilePreview("bankLetter", seller.bankDetails?.bankLetterUrl, "Bank Letter")}
                     </div>

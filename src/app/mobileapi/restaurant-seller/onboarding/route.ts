@@ -391,6 +391,10 @@ export async function POST(request: NextRequest) {
                 if (jsonBody.data.bankLetterUrl) bankLetterUrl = jsonBody.data.bankLetterUrl;
             }
 
+            if (!passbookUrl) {
+                return NextResponse.json({ success: false, error: "Bank Passbook / Cheque Copy is mandatory." }, { status: 400 });
+            }
+
             await prisma.restaurantBankDetails.upsert({
                 where: { restaurantSellerId: seller.id },
                 update: { ...bankData, passbookUrl, bankLetterUrl },

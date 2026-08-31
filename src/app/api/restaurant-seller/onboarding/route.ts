@@ -24,6 +24,9 @@ export async function GET() {
 
   if (seller) {
     const { getPresignedUrlOrOriginal } = await import("@/lib/s3-presigned")
+    if (seller.user?.image) {
+      seller.user.image = await getPresignedUrlOrOriginal(seller.user.image)
+    }
     seller.logo = await getPresignedUrlOrOriginal(seller.logo)
     seller.banner = await getPresignedUrlOrOriginal(seller.banner)
     seller.mainPhoto = await getPresignedUrlOrOriginal(seller.mainPhoto)
@@ -262,6 +265,13 @@ export async function POST(request: NextRequest) {
         if (fileBL && fileBL.size > 0) {
           bankLetterUrl = await uploadPublicFile({ folder: "restaurant-onboarding/bank", ext: path.extname(fileBL.name) || ".pdf", contentType: fileBL.type || "application/pdf", buffer: Buffer.from(await fileBL.arrayBuffer()), prefix: "restaurant-bank-letter" })
         }
+      } else if (jsonBody?.data) {
+        if (jsonBody.data.passbookUrl) passbookUrl = jsonBody.data.passbookUrl
+        if (jsonBody.data.bankLetterUrl) bankLetterUrl = jsonBody.data.bankLetterUrl
+      }
+
+      if (!passbookUrl) {
+        return NextResponse.json({ error: "Bank Passbook / Cheque Copy is mandatory." }, { status: 400 })
       }
 
       await prisma.restaurantBankDetails.upsert({ where: { restaurantSellerId: seller.id }, update: { ...bankData, passbookUrl, bankLetterUrl }, create: { ...bankData, passbookUrl, bankLetterUrl, restaurantSellerId: seller.id } })
