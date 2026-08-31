@@ -399,32 +399,24 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      const storeData: any = formData ? {
-        name: formData.get("storeName") as string,
-        description: formData.get("description") as string,
-        address: formData.get("address") as string,
-        city: formData.get("city") as string,
-        state: formData.get("state") as string,
-        country: formData.get("country") as string,
-        postalCode: formData.get("postalCode") as string,
-        deliveryType: formData.get("deliveryType") as string,
-        shippingFee: parseFloat(formData.get("shippingFee") as string) || 0,
-        currency: formData.get("currency") as string,
-        returnPolicy: formData.get("returnPolicy") as string,
-      } : {
-        name: jsonBody.data.storeName,
-        description: jsonBody.data.description,
-        address: jsonBody.data.address,
-        city: jsonBody.data.city,
-        state: jsonBody.data.state,
-        country: jsonBody.data.country,
-        postalCode: jsonBody.data.postalCode,
-        deliveryType: jsonBody.data.deliveryType,
-        shippingFee: parseFloat(jsonBody.data.shippingFee) || 0,
-        currency: jsonBody.data.currency,
-        returnPolicy: jsonBody.data.returnPolicy,
-        lat: jsonBody.data.lat,
-        lng: jsonBody.data.lng,
+      const zipCodeRaw = (formData ? (formData.get("zipCode") || formData.get("postalCode")) : (jsonBody?.data?.zipCode || jsonBody?.data?.postalCode)) as string | null
+      const latRaw = formData ? formData.get("lat") : jsonBody?.data?.lat
+      const lngRaw = formData ? formData.get("lng") : jsonBody?.data?.lng
+      const parsedLat = latRaw ? parseFloat(latRaw as string) : null
+      const parsedLng = lngRaw ? parseFloat(lngRaw as string) : null
+
+      const storeData: any = {
+        name: (formData ? (formData.get("storeName") || formData.get("name")) : (jsonBody?.data?.storeName || jsonBody?.data?.name)) as string || "My Store",
+        description: (formData ? formData.get("description") : jsonBody?.data?.description) as string | null || null,
+        address: (formData ? formData.get("address") : jsonBody?.data?.address) as string | null || null,
+        city: (formData ? formData.get("city") : jsonBody?.data?.city) as string | null || null,
+        state: (formData ? formData.get("state") : jsonBody?.data?.state) as string | null || null,
+        country: (formData ? formData.get("country") : jsonBody?.data?.country) as string | null || null,
+        zipCode: zipCodeRaw || null,
+        phone: (formData ? formData.get("phone") : jsonBody?.data?.phone) as string | null || null,
+        website: (formData ? formData.get("website") : jsonBody?.data?.website) as string | null || null,
+        ...(parsedLat !== null && !isNaN(parsedLat) ? { lat: parsedLat } : {}),
+        ...(parsedLng !== null && !isNaN(parsedLng) ? { lng: parsedLng } : {}),
       }
 
       if (formData) {
@@ -448,16 +440,9 @@ export async function POST(request: NextRequest) {
             prefix: "store-banner",
           })
         }
-        const latRaw = formData.get("lat")
-        const lngRaw = formData.get("lng")
-        if (latRaw && lngRaw) {
-          const lat = parseFloat(latRaw as string)
-          const lng = parseFloat(lngRaw as string)
-          if (!isNaN(lat) && !isNaN(lng)) {
-            storeData.lat = lat
-            storeData.lng = lng
-          }
-        }
+      } else if (jsonBody?.data) {
+        if (jsonBody.data.logo) storeData.logo = jsonBody.data.logo
+        if (jsonBody.data.banner) storeData.banner = jsonBody.data.banner
       }
 
       const finalLogo = storeData.logo || seller.store?.logo
