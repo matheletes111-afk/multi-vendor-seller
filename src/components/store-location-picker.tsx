@@ -161,6 +161,30 @@ export function StoreLocationPicker({
     }
   }, [])
 
+  useEffect(() => {
+    if (initialLat != null && initialLng != null && !isNaN(Number(initialLat)) && !isNaN(Number(initialLng))) {
+      const numLat = Number(initialLat)
+      const numLng = Number(initialLng)
+      setLat(numLat)
+      setLng(numLng)
+      if (initialAddress) {
+        setAddress(initialAddress)
+        if (inputRef.current) inputRef.current.value = initialAddress
+      }
+      if (mapInstanceRef.current && window.google?.maps) {
+        mapInstanceRef.current.setCenter({ lat: numLat, lng: numLng })
+        mapInstanceRef.current.setZoom(15)
+      }
+      if (markerRef.current && window.google?.maps) {
+        markerRef.current.setPosition({ lat: numLat, lng: numLng })
+        markerRef.current.setVisible(true)
+      }
+    } else if (initialAddress) {
+      setAddress(initialAddress)
+      if (inputRef.current) inputRef.current.value = initialAddress
+    }
+  }, [initialLat, initialLng, initialAddress])
+
   const clearLocation = () => {
     setLat(null)
     setLng(null)
@@ -175,6 +199,9 @@ export function StoreLocationPicker({
       <input type="hidden" name="storeLat" value={lat ?? ""} />
       <input type="hidden" name="storeLng" value={lng ?? ""} />
       <input type="hidden" name="storeAddress" value={address ?? ""} />
+      <input type="hidden" name="lat" value={lat ?? ""} />
+      <input type="hidden" name="lng" value={lng ?? ""} />
+      <input type="hidden" name="address" value={address ?? ""} />
 
       {/* Search Box */}
       <div className="relative">

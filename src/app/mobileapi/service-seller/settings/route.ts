@@ -131,9 +131,9 @@ export async function PUT(request: NextRequest) {
       if (nationIdNumber !== null) sellerUpdateData.nationIdentityNumber = nationIdNumber.trim() || null
 
       // 3. Store Visuals & Coordinates (Multipart specific fields to match Web)
-      const storeLat = fd.get("storeLat") as string | null
-      const storeLng = fd.get("storeLng") as string | null
-      const storeAddress = fd.get("storeAddress") as string | null
+      const storeLat = (fd.get("storeLat") || fd.get("lat")) as string | null
+      const storeLng = (fd.get("storeLng") || fd.get("lng")) as string | null
+      const storeAddress = (fd.get("storeAddress") || fd.get("address")) as string | null
       const storeLogo = fd.get("storeLogo") as File | null
       const storeBanner = fd.get("storeBanner") as File | null
 

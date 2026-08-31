@@ -297,9 +297,9 @@ export async function PUT(request: NextRequest) {
         })
     }
 
-    const latRaw = fd.get("storeLat") as string | null
-    const lngRaw = fd.get("storeLng") as string | null
-    const addressRaw = fd.get("storeAddress") as string | null
+    const latRaw = (fd.get("storeLat") || fd.get("lat")) as string | null
+    const lngRaw = (fd.get("storeLng") || fd.get("lng")) as string | null
+    const addressRaw = (fd.get("storeAddress") || fd.get("address")) as string | null
 
     if (addressRaw) storeUpdates.address = addressRaw
 
