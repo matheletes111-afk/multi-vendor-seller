@@ -60,14 +60,16 @@ export function DocUploadPreview({
     if (!file) return
 
     let processedFile = file
-    if (file.type.startsWith("image/") || /\.(jpe?g|png|webp)$/i.test(file.name)) {
+    if (file.type.startsWith("image/") || /\.(jpe?g|png|webp|heic|heif)$/i.test(file.name)) {
       try {
         const { compressImage } = await import("@/lib/image-compressor")
         processedFile = await compressImage(file, 1200, 1200, 0.8)
       } catch (err) {
         console.error("Compression error:", err)
       }
-    } else if (processedFile.size > 4.5 * 1024 * 1024) {
+    }
+
+    if (processedFile.size > 4.5 * 1024 * 1024) {
       setError(`File size exceeds 4.5MB limit. Please upload a smaller document.`)
       return
     }

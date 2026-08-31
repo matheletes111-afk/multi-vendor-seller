@@ -45,7 +45,7 @@ export function ProfilePictureInput({
     setPreviewUrl(null);
     if (!file) return;
 
-    if (!file.type.startsWith("image/")) {
+    if (!file.type.startsWith("image/") && !/\.(jpe?g|png|webp|heic|heif)$/i.test(file.name)) {
       alert("Please select an image file (e.g. JPG, PNG)");
       e.target.value = "";
       return;
@@ -62,9 +62,14 @@ export function ProfilePictureInput({
       }
 
       if (fileInputRef.current) {
-        const dataTransfer = new DataTransfer();
-        dataTransfer.items.add(compressed);
-        fileInputRef.current.files = dataTransfer.files;
+        try {
+          const dataTransfer = new DataTransfer();
+          dataTransfer.items.add(compressed);
+          fileInputRef.current.files = dataTransfer.files;
+        } catch (dtErr) {
+          // Mobile Safari / WebKit read-only property handling
+          console.warn("Could not set files via DataTransfer:", dtErr);
+        }
       }
       setPreviewUrl(URL.createObjectURL(compressed));
     } catch (error) {

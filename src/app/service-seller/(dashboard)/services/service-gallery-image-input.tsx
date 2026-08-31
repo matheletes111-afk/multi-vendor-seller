@@ -47,9 +47,13 @@ export function ServiceGalleryImageInput({
       )
 
       if (fileInputRef.current) {
-        const dataTransfer = new DataTransfer()
-        compressedFiles.forEach((file) => dataTransfer.items.add(file))
-        fileInputRef.current.files = dataTransfer.files
+        try {
+          const dataTransfer = new DataTransfer()
+          compressedFiles.forEach((file) => dataTransfer.items.add(file))
+          fileInputRef.current.files = dataTransfer.files
+        } catch (dtErr) {
+          console.warn("Could not set files via DataTransfer:", dtErr)
+        }
       }
 
       const next: string[] = []

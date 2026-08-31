@@ -155,7 +155,7 @@ export function ServiceOnboardingClient() {
 
     // Ensure compressed preview files for inputs in the current form are attached
     Object.entries(previews).forEach(([key, val]) => {
-      if (val?.file && (form.elements.namedItem(key) || form.querySelector(`[name="${key}"]`))) {
+      if (val?.file) {
         formData.set(key, val.file)
       }
     })
@@ -163,9 +163,9 @@ export function ServiceOnboardingClient() {
     try {
       // Step-by-step document completeness client-side verification
       if (currentStep === 2) {
-        const hasBusReg = (formData.get("busRegCert") as File)?.size > 0 || seller?.businessInfo?.busRegCertUrl || previews["busRegCert"]
-        const hasAddressProof = (formData.get("addressProof") as File)?.size > 0 || seller?.businessInfo?.addressProofUrl || previews["addressProof"]
-        const hasGstCert = !haveGst || (formData.get("gstTinCert") as File)?.size > 0 || seller?.businessInfo?.gstTinCertUrl || previews["gstTinCert"]
+        const hasBusReg = (formData.get("busRegCert") as File)?.size > 0 || seller?.businessInfo?.busRegCertUrl || previews["busRegCert"]?.file
+        const hasAddressProof = (formData.get("addressProof") as File)?.size > 0 || seller?.businessInfo?.addressProofUrl || previews["addressProof"]?.file
+        const hasGstCert = !haveGst || (formData.get("gstTinCert") as File)?.size > 0 || seller?.businessInfo?.gstTinCertUrl || previews["gstTinCert"]?.file
 
         if (!hasBusReg || !hasAddressProof || !hasGstCert) {
           setError("Please upload mandatory business documents (Registration Certificate, Proof of Address) before proceeding.")
@@ -175,9 +175,9 @@ export function ServiceOnboardingClient() {
       }
 
       if (currentStep === 3) {
-        const hasIdFront = (formData.get("idFront") as File)?.size > 0 || seller?.kyc?.idFrontUrl || previews["idFront"]
-        const hasIdBack = (formData.get("idBack") as File)?.size > 0 || seller?.kyc?.idBackUrl || previews["idBack"]
-        const hasSelfie = (formData.get("selfie") as File)?.size > 0 || seller?.kyc?.selfieUrl || previews["selfie"]
+        const hasIdFront = (formData.get("idFront") as File)?.size > 0 || seller?.kyc?.idFrontUrl || previews["idFront"]?.file
+        const hasIdBack = (formData.get("idBack") as File)?.size > 0 || seller?.kyc?.idBackUrl || previews["idBack"]?.file
+        const hasSelfie = (formData.get("selfie") as File)?.size > 0 || seller?.kyc?.selfieUrl || previews["selfie"]?.file
 
         if (!hasIdFront || !hasIdBack || !hasSelfie) {
           setError("Please upload all required identity documents: ID Front, ID Back, and Face Verification (Selfie).")
@@ -203,7 +203,7 @@ export function ServiceOnboardingClient() {
           return
         }
 
-        const hasPassbook = (formData.get("bankPassbook") as File)?.size > 0 || seller?.bankDetails?.passbookUrl || previews["bankPassbook"]
+        const hasPassbook = (formData.get("bankPassbook") as File)?.size > 0 || seller?.bankDetails?.passbookUrl || previews["bankPassbook"]?.file
         if (!hasPassbook) {
           setError("Please upload your Bank Passbook or Cheque Copy.")
           setSaving(false)
@@ -217,7 +217,7 @@ export function ServiceOnboardingClient() {
         if (currentStep === 5) {
           const logo = formData.get("storeLogo") as File | null
           const banner = formData.get("storeBanner") as File | null
-          const hasLogo = (logo && logo.size > 0) || seller?.store?.logo || previews["storeLogo"]
+          const hasLogo = (logo && logo.size > 0) || seller?.store?.logo || previews["storeLogo"]?.file
 
           if (!hasLogo) {
             setError("Please upload a Service Store Logo or Profile Photo to complete profile setup.")
@@ -225,7 +225,7 @@ export function ServiceOnboardingClient() {
             return
           }
           
-          const hasFiles = (logo && logo.size > 0) || (banner && banner.size > 0) || suggestionsList.length > 0
+          const hasFiles = (logo && logo.size > 0) || (banner && banner.size > 0) || suggestionsList.length > 0 || !!previews["storeLogo"]?.file || !!previews["storeBanner"]?.file
 
           if (hasFiles) {
             // Append suggestions to formData
@@ -343,24 +343,38 @@ export function ServiceOnboardingClient() {
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, key: string) => {
     const rawFile = e.target.files?.[0]
     if (!rawFile) return
+    setError(null)
 
     let file: File = rawFile
 
-    if (rawFile.type.startsWith("image/") || /\.(jpe?g|png|webp)$/i.test(rawFile.name)) {
+    if (rawFile.type.startsWith("image/") || /\.(jpe?g|png|webp|heic|heif)$/i.test(rawFile.name)) {
       try {
         const { compressImage } = await import("@/lib/image-compressor")
         const compressed = await compressImage(rawFile, 1200, 1200, 0.8)
         file = compressed
 
-        const dataTransfer = new DataTransfer()
-        dataTransfer.items.add(compressed)
-        e.target.files = dataTransfer.files
+        try {
+          const dataTransfer = new DataTransfer()
+          dataTransfer.items.add(compressed)
+          e.target.files = dataTransfer.files
+        } catch (dtErr) {
+          // Mobile Safari / WebKit read-only property handling
+          console.warn("Could not set e.target.files via DataTransfer:", dtErr)
+        }
       } catch (err) {
         console.error("Image compression error:", err)
       }
-    } else if (rawFile.size > 4.5 * 1024 * 1024) {
-      alert("File size exceeds 4.5 MB limit. Please upload a smaller document.")
+    }
+
+    if (file.size > 4.5 * 1024 * 1024) {
+      setError("File size exceeds 4.5 MB limit. Please select or compress a smaller file.")
       e.target.value = ""
+      setPreviews(prev => {
+        const copy = { ...prev }
+        if (copy[key]) URL.revokeObjectURL(copy[key].url)
+        delete copy[key]
+        return copy
+      })
       return
     }
 
@@ -824,7 +838,7 @@ export function ServiceOnboardingClient() {
                       <div className="space-y-2">
                         <Label htmlFor="storeLogo" className="flex items-center gap-2"><ImageIcon className="h-4 w-4" /> Store Logo *</Label>
                         <div className="mt-1 p-4 border-2 border-dashed rounded-2xl bg-purple-50/30 border-purple-100 transition-colors hover:bg-purple-50/50">
-                          <Input id="storeLogo" name="storeLogo" type="file" accept="image/*" className="cursor-pointer" required={!seller.store?.logo} onChange={(e) => handleFileChange(e, "storeLogo")} />
+                          <Input id="storeLogo" name="storeLogo" type="file" accept="image/*" className="cursor-pointer" required={!seller.store?.logo && !previews["storeLogo"]} onChange={(e) => handleFileChange(e, "storeLogo")} />
                           {renderFilePreview("storeLogo", seller.store?.logo, "Store Logo")}
                         </div>
                       </div>
