@@ -8,6 +8,7 @@ import { signOut } from "next-auth/react"
 import {
   LayoutDashboard,
   Package,
+  Wallet,
   Settings,
   LogOut,
   Menu,
@@ -113,6 +114,7 @@ export function RiderLayoutClient({
           </div>
           <NavItem href="/riderapp" label="Dashboard" icon={<LayoutDashboard className="w-4 h-4" />} />
           <NavItem href="/riderapp/orders" label="Delivery Orders" icon={<Package className="w-4 h-4" />} />
+          <NavItem href="/riderapp/revenue" label="My Revenue" icon={<Wallet className="w-4 h-4" />} />
           <NavItem href="/riderapp/settings" label="Settings & Profile" icon={<Settings className="w-4 h-4" />} />
         </div>
       </div>

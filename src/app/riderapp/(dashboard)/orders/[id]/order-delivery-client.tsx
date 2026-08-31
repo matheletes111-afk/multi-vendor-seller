@@ -33,7 +33,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/ui/dialog"
-import { cn } from "@/lib/utils"
+import { cn, formatCurrency } from "@/lib/utils"
 
 export function RiderOrderDeliveryClient({ assignmentId }: { assignmentId: string }) {
   const router = useRouter()
@@ -366,7 +366,7 @@ export function RiderOrderDeliveryClient({ assignmentId }: { assignmentId: strin
                 <div className="text-[11px] text-muted-foreground">Qty: {item.quantity || 1}</div>
               </div>
               <div className="font-semibold text-foreground">
-                Le {Number(item.price || 0).toLocaleString()}
+                {formatCurrency(Number(item.price || 0))}
               </div>
             </div>
           ))}
@@ -376,13 +376,13 @@ export function RiderOrderDeliveryClient({ assignmentId }: { assignmentId: strin
           <div className="flex items-center justify-between text-muted-foreground">
             <span>Customer Order Total</span>
             <span className="text-foreground">
-              Le {Number(order?.totalAmount || 0).toLocaleString()}
+              {formatCurrency(Number(order?.totalAmount || 0))}
             </span>
           </div>
           <div className="flex items-center justify-between p-3 rounded-2xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900 text-emerald-800 dark:text-emerald-300">
             <span>Your Delivery Fee Earning</span>
             <span className="text-base font-black text-emerald-600 dark:text-emerald-400">
-              Le {Number(order?.shipping || order?.items?.reduce((s: number, i: any) => s + (i.shippingAmount || 0), 0) || 0).toLocaleString()}
+              {formatCurrency(Number((assignment as any).earningForThisDelivery || order?.items?.reduce((s: number, i: any) => s + (i.shippingAmount || 0), 0) || order?.shipping || 0))}
             </span>
           </div>
         </div>

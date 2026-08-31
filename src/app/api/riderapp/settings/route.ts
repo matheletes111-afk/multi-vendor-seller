@@ -49,7 +49,7 @@ export async function GET() {
             select: {
               shipping: true,
               items: {
-                select: { shippingAmount: true },
+                select: { id: true, sellerId: true, shippingAmount: true },
               },
             },
           },
@@ -57,14 +57,16 @@ export async function GET() {
       })
 
       completedDeliveriesCount = completedAssignments.length
-      // Each delivery earns the order-level shipping total (delivery fee)
       totalEarnings = completedAssignments.reduce((sum, a) => {
-        // Use order.shipping (set at checkout) as the definitive delivery fee
-        const orderShipping = Number(a.order?.shipping ?? 0)
-        if (orderShipping > 0) return sum + orderShipping
-        // Fallback: sum item-level shippingAmounts
-        const itemsShipping = a.order?.items?.reduce((s: number, i: any) => s + (Number(i.shippingAmount) || 0), 0) ?? 0
-        return sum + itemsShipping
+        const assignedItems = (a.order?.items || []).filter(
+          (item) => (a.orderItemId ? item.id === a.orderItemId : !a.sellerId || item.sellerId === a.sellerId)
+        )
+        const itemsShippingSum = assignedItems.reduce(
+          (s: number, i: any) => s + (Number(i.shippingAmount) || 0),
+          0
+        )
+        const fee = itemsShippingSum > 0 ? itemsShippingSum : Number(a.order?.shipping || 0)
+        return sum + fee
       }, 0)
 
       activeDeliveriesCount = await prisma.riderDeliveryAssignment.count({

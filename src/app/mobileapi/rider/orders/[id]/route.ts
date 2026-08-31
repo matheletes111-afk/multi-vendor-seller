@@ -85,9 +85,15 @@ export async function GET(
     const filteredItems = assignment.order.items.filter(
       (item) => !assignment.sellerId || item.sellerId === assignment.sellerId
     )
+    const itemsShippingSum = filteredItems.reduce(
+      (sum, item) => sum + (Number(item.shippingAmount) || 0),
+      0
+    )
+    const earningForThisDelivery = itemsShippingSum > 0 ? itemsShippingSum : Number(assignment.order?.shipping || 0)
 
     const responseData = {
       ...assignment,
+      earningForThisDelivery,
       order: {
         ...assignment.order,
         seller: assignment.seller || assignment.order.seller,

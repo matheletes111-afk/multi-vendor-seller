@@ -3,25 +3,49 @@ import { NextResponse } from "next/server"
 import { UserRole } from "@prisma/client"
 import { prisma } from "@/lib/prisma"
 import { sendPasswordResetOtpEmail } from "@/lib/email"
-import { getAppBaseUrl, sendPasswordResetSms } from "@/lib/twilio-sms"
+import { getAppBaseUrl, sendPasswordResetSms, isValidE164, normalizePhoneNumber } from "@/lib/twilio-sms"
+import { getCandidateCountryCodePhonePairs } from "@/lib/phone-otp-lookup"
 
 const OTP_EXPIRY_MS = 10 * 60 * 1000
 const COOLDOWN_MS = 60 * 1000
 
-/** POST /api/riderapp/auth/forgot-password/send-otp — Body: { email } */
+/** POST /api/riderapp/auth/forgot-password/send-otp — Body: { email } or { phone } */
 export async function POST(request: Request) {
   try {
     const body = await request.json().catch(() => ({}))
     const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : ""
+    const phoneInput = typeof body.phone === "string" ? body.phone.trim() : ""
+    const normalizedPhone = phoneInput ? normalizePhoneNumber(phoneInput) : ""
 
-    if (!email) {
-      return NextResponse.json({ error: "Email is required." }, { status: 400 })
+    if (!email && !normalizedPhone) {
+      return NextResponse.json({ error: "Email or phone number is required." }, { status: 400 })
+    }
+
+    const whereOr: any[] = []
+    if (email) {
+      whereOr.push({ email })
+    }
+    if (normalizedPhone) {
+      const phoneDigits = normalizedPhone.replace(/^\+/, "")
+      const splitPairs = getCandidateCountryCodePhonePairs(normalizedPhone)
+      whereOr.push(
+        { phone: normalizedPhone },
+        { phone: phoneDigits },
+        ...splitPairs.map((pair) => ({
+          phoneCountryCode: pair.countryCode,
+          phone: pair.phone,
+        }))
+      )
     }
 
     const user = await prisma.user.findFirst({
-      where: { email, role: UserRole.RIDER },
+      where: {
+        role: UserRole.RIDER,
+        OR: whereOr,
+      },
       select: {
         id: true,
+        email: true,
         name: true,
         phone: true,
         phoneCountryCode: true,
@@ -39,7 +63,7 @@ export async function POST(request: Request) {
     // Keep response generic to prevent account enumeration if not found
     if (!user || user.rider?.isSuspended || user.rider?.status === "SUSPENDED") {
       return NextResponse.json(
-        { message: "If an active rider account exists for this email, a reset OTP has been sent." },
+        { message: "If an active rider account exists, a reset OTP has been sent." },
         { status: 200 }
       )
     }

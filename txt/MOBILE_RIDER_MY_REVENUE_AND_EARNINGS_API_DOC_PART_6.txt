@@ -1,0 +1,511 @@
+================================================================================
+MEEEM DELIVERY NETWORK — RIDER MOBILE APP API DOCUMENTATION (PART 6)
+================================================================================
+Title: Rider "My Revenue" & Delivery Earnings Engine (Web & Mobile API Integration)
+Version: 1.0.0
+Base URL: https://<domain>/mobileapi/rider
+Web Endpoint: https://<domain>/api/riderapp/revenue
+Authentication Scheme: Bearer Token (JWT)
+Header: Authorization: Bearer <accessToken>
+Target Platforms: Flutter (Dart), React Native (TypeScript), Android (Kotlin), iOS (Swift)
+
+--------------------------------------------------------------------------------
+TABLE OF CONTENTS
+--------------------------------------------------------------------------------
+1. EXECUTIVE SUMMARY & FINANCIAL ARCHITECTURE
+2. CORE REVENUE CALCULATION RULES & STATUS LOGIC
+   2.1 Delivered vs. In-Progress Realized Revenue Matrix
+   2.2 Multi-Vendor Order Partitioning & Delivery Charge Allocation
+3. RIDER REVENUE API REFERENCE (`GET /mobileapi/rider/revenue`)
+   3.1 Request Headers & Query Parameters
+   3.2 Complete JSON Response Schema
+   3.3 Detailed Response Field Definitions
+   3.4 Query Filter Scenarios (Delivered, In-Progress, Periods)
+4. RIDER SETTINGS & DASHBOARD STATS INTEGRATION (`GET /mobileapi/rider/settings`)
+5. MOBILE UI/UX IMPLEMENTATION GUIDE (FLUTTER / REACT NATIVE)
+   5.1 Header & Lifetime Earnings KPI Cards
+   5.2 Interactive Status Tabs & Period Filters
+   5.3 Delivery Card Layout with Order Items Preview
+   5.4 Total Amount Display Rule (Delivered Realized vs. In-Progress Pending)
+6. COMPLETE END-TO-END DELIVERY & REVENUE SETTLEMENT LIFECYCLE
+7. DART / FLUTTER & TYPESCRIPT DATA MODELS & SERVICE
+8. MOBILE DEVELOPER VERIFICATION CHECKLIST
+
+================================================================================
+1. EXECUTIVE SUMMARY & FINANCIAL ARCHITECTURE
+================================================================================
+In the MEEEM Delivery Network, the Rider is a key logistics partner who earns
+a dedicated delivery fee for fulfilling customer order packages.
+
+The "My Revenue" module provides complete transparency to the delivery rider
+regarding:
+1. Every order package assigned to them (including the store pickup and customer drop).
+2. The specific order items contained inside the package (title, quantity, price,
+   and allocated shipping fee).
+3. The delivery charge allocated for that package.
+4. The fulfillment status (In Progress vs. Delivered).
+5. The REALIZED TOTAL AMOUNT:
+   - CRITICAL REQUIREMENT: For In-Progress orders (`ACCEPTED`, `AT_PICKUP`,
+     `PICKED_UP`, `OUT_FOR_DELIVERY`), the delivery fee is marked as "Pending".
+     The realized total amount is NOT finalized or credited until the delivery
+     is completed with customer OTP verification.
+   - For Delivered orders (`DELIVERED`), the total amount is realized, confirmed,
+     and displayed in the rider's total earnings.
+
+Both the Web Rider Portal (`/riderapp/revenue`) and Mobile API
+(`GET /mobileapi/rider/revenue`) use the exact same calculation engine and
+business rules.
+
+================================================================================
+2. CORE REVENUE CALCULATION RULES & STATUS LOGIC
+================================================================================
+
+--------------------------------------------------------------------------------
+2.1 Delivered vs. In-Progress Realized Revenue Matrix
+--------------------------------------------------------------------------------
++-------------------+--------------------+------------------+---------------------+
+| Assignment Status | Status Category    | Delivery Charge  | Total Amount Earned |
++-------------------+--------------------+------------------+---------------------+
+| OFFERED           | PENDING OFFER      | Estimated Fee    | null (0)            |
+| ACCEPTED          | IN_PROGRESS        | Allocated Fee    | null (Pending)      |
+| AT_PICKUP         | IN_PROGRESS        | Allocated Fee    | null (Pending)      |
+| PICKED_UP         | IN_PROGRESS        | Allocated Fee    | null (Pending)      |
+| OUT_FOR_DELIVERY  | IN_PROGRESS        | Allocated Fee    | null (Pending)      |
+| DELIVERED         | DELIVERED          | Final Fee        | Allocated Fee (NLe) |
+| CANCELLED/FAILED  | CANCELLED          | NLe 0            | null (0)            |
++-------------------+--------------------+------------------+---------------------+
+
+KEY TAKEAWAY FOR MOBILE UI:
+- `totalDeliveredRevenue` in `summary`: Sum of `deliveryCharge` across all `DELIVERED` assignments.
+- `pendingInProgressRevenue` in `summary`: Sum of `deliveryCharge` across all active `IN_PROGRESS` assignments.
+- `deliveries[i].totalAmount`: Populated as a number (e.g. `25000`) ONLY when `isDelivered == true`. When `isDelivered == false`, `totalAmount` is `null` to indicate pending delivery.
+
+--------------------------------------------------------------------------------
+2.2 Multi-Vendor Order Partitioning & Delivery Charge Allocation
+--------------------------------------------------------------------------------
+When a customer orders products from multiple sellers in a single checkout:
+- Each seller's package is assigned to a delivery rider via a dedicated `RiderDeliveryAssignment` (keyed by `orderId` and `sellerId`).
+- Each `orderItem` in the order has its own `shippingAmount` allocated during checkout.
+- For a rider assignment:
+  - `assignedItems = order.items.filter(item => !assignment.sellerId || item.sellerId === assignment.sellerId)`
+  - `deliveryCharge = sum(assignedItems.shippingAmount)` (fallback to `order.shipping` only if line shipping was not split).
+- This guarantees zero double-counting across multi-vendor dispatch.
+
+================================================================================
+3. RIDER REVENUE API REFERENCE (`GET /mobileapi/rider/revenue`)
+================================================================================
+
+--------------------------------------------------------------------------------
+3.1 Request Headers & Query Parameters
+--------------------------------------------------------------------------------
+Endpoint: GET /mobileapi/rider/revenue
+Content-Type: application/json
+Auth Required: Yes (`Authorization: Bearer <accessToken>`)
+
+QUERY PARAMETERS:
++-----------+----------+-------------------------------------------------------+
+| Parameter | Type     | Description & Supported Values                        |
++-----------+----------+-------------------------------------------------------+
+| `status`  | string   | `all` (default) - All active & completed deliveries   |
+|           |          | `delivered` - Only delivered and settled deliveries   |
+|           |          | `inprogress` - Only active in-progress drops          |
+| `period`  | string   | `all` (default) - Lifetime records                    |
+|           |          | `today` - Deliveries from today                       |
+|           |          | `week` - Deliveries in the last 7 days                |
+|           |          | `month` - Deliveries in the current month             |
+| `search`  | string   | Optional search query (matches order #, store, etc.)  |
++-----------+----------+-------------------------------------------------------+
+
+Example URLs:
+- `GET /mobileapi/rider/revenue`
+- `GET /mobileapi/rider/revenue?status=delivered&period=today`
+- `GET /mobileapi/rider/revenue?status=inprogress`
+- `GET /mobileapi/rider/revenue?search=meeem00000012`
+
+--------------------------------------------------------------------------------
+3.2 Complete JSON Response Schema
+--------------------------------------------------------------------------------
+HTTP Status: 200 OK
+
+```json
+{
+  "success": true,
+  "data": {
+    "summary": {
+      "totalDeliveredRevenue": 125000,
+      "pendingInProgressRevenue": 35000,
+      "deliveredCount": 5,
+      "inProgressCount": 2,
+      "totalDeliveriesCount": 7,
+      "currency": "NLe"
+    },
+    "filters": {
+      "status": "all",
+      "period": "all",
+      "search": ""
+    },
+    "count": 7,
+    "deliveries": [
+      {
+        "id": "cly1234567890",
+        "assignmentId": "cly1234567890",
+        "orderId": "order_abc123",
+        "orderNumber": "meeem00000042",
+        "status": "DELIVERED",
+        "statusCategory": "DELIVERED",
+        "isDelivered": true,
+        "offeredAt": "2026-08-31T09:15:00.000Z",
+        "acceptedAt": "2026-08-31T09:15:30.000Z",
+        "pickedUpAt": "2026-08-31T09:35:00.000Z",
+        "deliveredAt": "2026-08-31T10:05:00.000Z",
+        "deliveryOtp": "482910",
+        "deliveryProofImage": "https://<domain>/uploads/delivery-proofs/proof-123.jpg",
+        "distanceKm": 4.2,
+        "deliveryCharge": 25000,
+        "totalAmount": 25000,
+        "store": {
+          "id": "seller_xyz",
+          "name": "Kroo Town Electronics",
+          "phone": "+23276112233",
+          "address": "14 Kroo Town Road, Central, Freetown"
+        },
+        "customer": {
+          "id": "user_cust_01",
+          "name": "Amadu Kamara",
+          "phone": "+23278990011",
+          "dropAddress": "22 Siaka Stevens Street, Freetown"
+        },
+        "items": [
+          {
+            "id": "item_line_01",
+            "productId": "prod_phone_case",
+            "name": "Heavy Duty Shockproof Case",
+            "variantName": "Black / iPhone 15 Pro",
+            "quantity": 1,
+            "price": 120000,
+            "shippingAmount": 15000,
+            "image": "https://<domain>/uploads/products/case.jpg"
+          },
+          {
+            "id": "item_line_02",
+            "productId": "prod_screen_guard",
+            "name": "9H Tempered Glass Screen Protector",
+            "variantName": "Pack of 2",
+            "quantity": 2,
+            "price": 60000,
+            "shippingAmount": 10000,
+            "image": "https://<domain>/uploads/products/glass.jpg"
+          }
+        ],
+        "totalItemsCount": 3
+      },
+      {
+        "id": "cly9876543210",
+        "assignmentId": "cly9876543210",
+        "orderId": "order_def456",
+        "orderNumber": "meeem00000045",
+        "status": "OUT_FOR_DELIVERY",
+        "statusCategory": "IN_PROGRESS",
+        "isDelivered": false,
+        "offeredAt": "2026-08-31T11:00:00.000Z",
+        "acceptedAt": "2026-08-31T11:00:45.000Z",
+        "pickedUpAt": "2026-08-31T11:20:00.000Z",
+        "deliveredAt": null,
+        "deliveryOtp": null,
+        "deliveryProofImage": null,
+        "distanceKm": 6.1,
+        "deliveryCharge": 35000,
+        "totalAmount": null,
+        "store": {
+          "id": "seller_abc",
+          "name": "Lumley Fashion Store",
+          "phone": "+23277889900",
+          "address": "55 Lumley Beach Road, Freetown"
+        },
+        "customer": {
+          "id": "user_cust_02",
+          "name": "Fatmata Sesay",
+          "phone": "+23276554433",
+          "dropAddress": "12 Wilkinson Road, Freetown"
+        },
+        "items": [
+          {
+            "id": "item_line_03",
+            "productId": "prod_dress",
+            "name": "Summer Floral Midi Dress",
+            "variantName": "Medium / Yellow",
+            "quantity": 1,
+            "price": 250000,
+            "shippingAmount": 35000,
+            "image": "https://<domain>/uploads/products/dress.jpg"
+          }
+        ],
+        "totalItemsCount": 1
+      }
+    ]
+  }
+}
+```
+
+--------------------------------------------------------------------------------
+3.3 Detailed Response Field Definitions
+--------------------------------------------------------------------------------
+TOP-LEVEL OBJECTS:
+- `summary.totalDeliveredRevenue` (number): Confirmed sum of delivery fees earned from all completed drops.
+- `summary.pendingInProgressRevenue` (number): Potential delivery fees currently in transit.
+- `summary.deliveredCount` (integer): Number of completed deliveries.
+- `summary.inProgressCount` (integer): Number of ongoing deliveries.
+- `summary.totalDeliveriesCount` (integer): Total active + completed tasks.
+
+EACH DELIVERY ENTRY (`deliveries[i]`):
+- `id` / `assignmentId` (string): Unique identifier of the delivery assignment.
+- `orderNumber` (string): Human-readable reference (e.g. `meeem00000042`).
+- `status` (string): Raw status (`ACCEPTED`, `AT_PICKUP`, `PICKED_UP`, `OUT_FOR_DELIVERY`, `DELIVERED`).
+- `statusCategory` (string): High-level bucket: `"DELIVERED"` vs. `"IN_PROGRESS"`.
+- `isDelivered` (boolean): `true` when drop is complete and OTP verified.
+- `deliveryCharge` (number): Total delivery fee allocated for this specific store package.
+- `totalAmount` (number | null): Realized earnings for this delivery.
+  * IF `isDelivered == true`: Returns the positive earned amount (`NLe 25,000`).
+  * IF `isDelivered == false`: Returns `null`.
+- `store` (object): Store name, phone, and pickup address.
+- `customer` (object): Customer name, phone, and drop address.
+- `items` (array): List of items inside this package with title, variant, quantity, unit price, and item-level shipping fee.
+
+================================================================================
+4. RIDER SETTINGS & DASHBOARD STATS INTEGRATION (`GET /mobileapi/rider/settings`)
+================================================================================
+The rider settings endpoint also provides the lifetime revenue summary so the
+app can display quick earnings stats on the Home / Profile screen without
+making a second network call:
+
+Endpoint: GET /mobileapi/rider/settings
+Response snippet:
+```json
+{
+  "success": true,
+  "data": {
+    "user": { ... },
+    "rider": { ... },
+    "stats": {
+      "completedDeliveriesCount": 5,
+      "totalEarnings": 125000,
+      "activeDeliveriesCount": 2
+    },
+    "registeredDevices": [ ... ]
+  }
+}
+```
+
+================================================================================
+5. MOBILE UI/UX IMPLEMENTATION GUIDE (FLUTTER / REACT NATIVE)
+================================================================================
+
+--------------------------------------------------------------------------------
+5.1 Header & Lifetime Earnings KPI Cards
+--------------------------------------------------------------------------------
+Render 2 primary KPI summary cards at the top of the "My Revenue" screen:
+1. Total Delivered Revenue Card:
+   - Green / Emerald Gradient Background
+   - Icon: `Wallet` or `Cash`
+   - Large Bold Number: `NLe 125,000`
+   - Caption: `5 Completed Deliveries` with a green checkmark
+2. In-Progress Potential Card:
+   - Blue / Indigo Soft Background
+   - Icon: `Clock` or `Truck`
+   - Large Bold Number: `NLe 35,000`
+   - Caption: `2 Active In-Transit Drops` (Pulsing blue indicator)
+
+--------------------------------------------------------------------------------
+5.2 Interactive Status Tabs & Period Filters
+--------------------------------------------------------------------------------
+- Status Tabs:
+  * `All Deliveries (7)`
+  * `Delivered (5)`
+  * `In Progress (2)`
+- Period Filter Chips:
+  * `All Time` | `Today` | `This Week` | `This Month`
+- Search bar allowing the rider to filter by Order # (e.g. `42`) or Store name.
+
+--------------------------------------------------------------------------------
+5.3 Delivery Card Layout with Order Items Preview
+--------------------------------------------------------------------------------
+Each delivery card in the list should display:
+1. Header:
+   - `#meeem00000042`
+   - Date & Time
+   - Status Badge:
+     * Green Badge: `Delivered` (with checkmark icon)
+     * Blue Badge: `In Progress - Out for Delivery` (with clock icon)
+2. Locations:
+   - Store Pickup (Store Name & Address with Blue Store Icon)
+   - Customer Drop (Customer Name & Address with Green Pin Icon)
+3. Package Items Accordion / Preview:
+   - `Items in this package (3)`
+   - `1x Heavy Duty Shockproof Case (Black / iPhone 15 Pro) — NLe 15,000`
+   - `2x 9H Tempered Glass Screen Protector (Pack of 2) — NLe 10,000`
+4. Footer & Realized Total Amount:
+   - Left side: `Delivery Charge: NLe 25,000`
+   - Right side (CRITICAL DISPLAY RULE):
+     * IF `delivery.isDelivered == true`:
+       Render Large Green Pill / Badge: `Total Earned: NLe 25,000`
+     * IF `delivery.isDelivered == false`:
+       Render Amber Badge: `Pending (Upon Delivery)`
+       (Do not show finalized earned amount before delivery is verified).
+
+================================================================================
+6. COMPLETE END-TO-END DELIVERY & REVENUE SETTLEMENT LIFECYCLE
+================================================================================
+1. Order Placed:
+   Customer places order. System splits shipping fee by seller line items.
+2. Rider Offer & Acceptance:
+   Rider receives offer, accepts (`ACCEPTED`). Status is `IN_PROGRESS`.
+   Revenue module shows `Delivery Charge: NLe 25,000`, `Status: In Progress`,
+   `Total Amount: Pending Delivery`.
+3. Pickup & En Route:
+   Rider collects package from store (`PICKED_UP`) and heads to customer
+   (`OUT_FOR_DELIVERY`). Real-time GPS streams to customer and seller.
+4. Customer Delivery & 6-Digit OTP:
+   Customer provides 6-digit OTP to rider.
+   Rider submits OTP and optional delivery photo proof to:
+   `POST /mobileapi/rider/orders/:id/status` with `{ "status": "DELIVERED", "otp": "482910" }`.
+5. Atomic Settlement:
+   - Server marks assignment `DELIVERED`.
+   - Server settles seller credit (order item price − commission − rider delivery fee).
+   - Server records rider delivery completion timestamp.
+   - Revenue module instantly shifts status to `DELIVERED`, updates
+     `Total Delivered Revenue`, and displays `Total Earned: NLe 25,000`.
+
+================================================================================
+7. DART / FLUTTER & TYPESCRIPT DATA MODELS & SERVICE
+================================================================================
+
+--------------------------------------------------------------------------------
+7.1 TypeScript / React Native Data Model
+--------------------------------------------------------------------------------
+```typescript
+export interface RiderRevenueSummary {
+  totalDeliveredRevenue: number
+  pendingInProgressRevenue: number
+  deliveredCount: number
+  inProgressCount: number
+  totalDeliveriesCount: number
+  currency: string
+}
+
+export interface RevenueOrderItem {
+  id: string
+  productId: string | null
+  name: string
+  variantName: string | null
+  quantity: number
+  price: number
+  shippingAmount: number
+  image: string | null
+}
+
+export interface RiderRevenueDelivery {
+  id: string
+  assignmentId: string
+  orderId: string
+  orderNumber: string
+  status: string
+  statusCategory: "DELIVERED" | "IN_PROGRESS"
+  isDelivered: boolean
+  offeredAt: string
+  acceptedAt: string | null
+  pickedUpAt: string | null
+  deliveredAt: string | null
+  deliveryOtp: string | null
+  deliveryProofImage: string | null
+  distanceKm: number | null
+  deliveryCharge: number
+  totalAmount: number | null // null when in progress, number when delivered
+  store: {
+    id: string | null
+    name: string
+    phone: string | null
+    address: string
+  }
+  customer: {
+    id: string | null
+    name: string
+    phone: string | null
+    dropAddress: string
+  }
+  items: RevenueOrderItem[]
+  totalItemsCount: number
+}
+
+export interface RiderRevenueApiResponse {
+  success: boolean
+  data: {
+    summary: RiderRevenueSummary
+    filters: {
+      status: string
+      period: string
+      search: string
+    }
+    count: number
+    deliveries: RiderRevenueDelivery[]
+  }
+}
+```
+
+--------------------------------------------------------------------------------
+7.2 Flutter (Dart) Service Example
+--------------------------------------------------------------------------------
+```dart
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+
+class RiderRevenueService {
+  final String baseUrl;
+  final String authToken;
+
+  RiderRevenueService({required this.baseUrl, required this.authToken});
+
+  Future<Map<String, dynamic>> fetchRevenue({
+    String status = 'all',
+    String period = 'all',
+    String search = '',
+  }) async {
+    final queryParams = {
+      'status': status,
+      'period': period,
+      if (search.isNotEmpty) 'search': search,
+    };
+
+    final uri = Uri.parse('$baseUrl/mobileapi/rider/revenue')
+        .replace(queryParameters: queryParams);
+
+    final response = await http.get(
+      uri,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $authToken',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      final decoded = json.decode(response.body);
+      if (decoded['success'] == true) {
+        return decoded['data'];
+      }
+    }
+    throw Exception('Failed to load rider revenue');
+  }
+}
+```
+
+================================================================================
+8. MOBILE DEVELOPER VERIFICATION CHECKLIST
+================================================================================
+[ ] 1. Add "My Revenue" menu option in Mobile Rider Navigation drawer / bottom bar.
+[ ] 2. Integrate `GET /mobileapi/rider/revenue` with Bearer auth token.
+[ ] 3. Display Top KPI Summary cards for "Total Delivered Revenue" and "In-Progress Potential".
+[ ] 4. Implement Status Tabs: All, Delivered, In Progress.
+[ ] 5. Implement Period Filter Chips: All Time, Today, Week, Month.
+[ ] 6. For each delivery card, list all items in the package with quantities and item-level delivery fees.
+[ ] 7. Ensure Total Realized Amount is rendered in Green for `DELIVERED` orders, and marked as `Pending Delivery` for active orders.
+[ ] 8. Verify OTP delivery completion immediately refreshes the revenue screen and credits the total earnings.
+================================================================================

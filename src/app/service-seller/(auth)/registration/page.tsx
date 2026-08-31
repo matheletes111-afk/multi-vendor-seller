@@ -12,12 +12,13 @@ import { AlertCircle, Eye, EyeOff } from "lucide-react"
 
 import { validatePhoneAndCountryCode } from "@/lib/phone-validation"
 import { validatePassword } from "@/lib/password-validation"
+import { CountryCodeSelect } from "@/ui/country-code-select"
 
 export default function ServiceSellerRegistrationPage() {
   const router = useRouter()
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
-  const [phoneCountryCode, setPhoneCountryCode] = useState("")
+  const [phoneCountryCode, setPhoneCountryCode] = useState("+232")
   const [phone, setPhone] = useState("")
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
@@ -113,19 +114,13 @@ export default function ServiceSellerRegistrationPage() {
                 className="rounded-xl border-gray-200"
               />
             </div>
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_2fr]">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-[110px_1fr]">
               <div>
                 <Label htmlFor="phoneCountryCode" className="mb-1.5 block text-sm font-medium text-gray-700">Country code</Label>
-                <Input
+                <CountryCodeSelect
                   id="phoneCountryCode"
-                  type="tel"
-                  inputMode="numeric"
-                  placeholder="+1"
                   value={phoneCountryCode}
-                  onChange={(e) => setPhoneCountryCode(e.target.value.replace(/(?!^\+)[^\d]/g, ""))}
-                  pattern="^\+?[0-9]+$"
-                  title="Country code must contain only numbers (optionally starting with +)."
-                  required
+                  onChange={(code) => setPhoneCountryCode(code)}
                   disabled={loading}
                   className="rounded-xl border-gray-200"
                 />

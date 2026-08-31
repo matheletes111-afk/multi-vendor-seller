@@ -5,6 +5,7 @@ import { Tag, CheckCircle2, XCircle, Loader2 } from "lucide-react"
 import { Button } from "@/ui/button"
 import { Input } from "@/ui/input"
 import { AvailableCoupons } from "@/components/coupons/available-coupons"
+import { formatCurrency } from "@/lib/utils"
 
 export interface AppliedSellerCoupon {
   id: string
@@ -91,7 +92,7 @@ export function SellerCouponInput({ amount, onCouponApplied, disabled = false }:
           <div className="flex items-center gap-2 text-emerald-800 dark:text-emerald-300 font-semibold">
             <CheckCircle2 className="h-4 w-4 text-emerald-600" />
             <span>
-              Coupon <strong>{appliedCoupon.code}</strong> applied (-NLe {appliedCoupon.discountAmount.toFixed(2)})
+              Coupon <strong>{appliedCoupon.code}</strong> applied (-{formatCurrency(appliedCoupon.discountAmount)})
             </span>
           </div>
           <button

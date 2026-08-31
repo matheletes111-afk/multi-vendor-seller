@@ -12,6 +12,7 @@ import { ProfilePictureInput } from "@/components/profile-picture-input"
 import { validatePassword } from "@/lib/password-validation"
 import { LegalPolicyTabContent } from "@/components/legal/legal-policy-tab-content"
 import { DeleteAccountTabContent } from "@/components/account/delete-account-tab-content"
+import { CountryCodeSelect } from "@/ui/country-code-select"
 import { cn } from "@/lib/utils"
 
 type UserProfile = {
@@ -232,18 +233,13 @@ export function CustomerSettingsClient() {
               <Label htmlFor="name">Name</Label>
               <Input id="name" name="name" defaultValue={user.name || ""} placeholder="Your name" />
             </div>
-            <div className="grid gap-4 md:grid-cols-[1fr_2fr]">
+            <div className="grid gap-4 md:grid-cols-[130px_1fr]">
               <div className="space-y-2">
                 <Label htmlFor="phoneCountryCode">Country code</Label>
-                <Input
+                <CountryCodeSelect
                   id="phoneCountryCode"
                   name="phoneCountryCode"
-                  type="tel"
-                  inputMode="numeric"
-                  defaultValue={user.phoneCountryCode || ""}
-                  placeholder="+1"
-                  pattern="^\+?[0-9]+$"
-                  title="Country code must contain only numbers (optionally starting with +)."
+                  defaultValue={user.phoneCountryCode || "+232"}
                   required
                 />
               </div>

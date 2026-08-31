@@ -53,7 +53,7 @@ export async function GET(request: NextRequest) {
         rating,
         reviewCount: h.reviews.length,
         pricePerNight: startingPrice,
-        currency: "AED",
+        currency: "NLe",
         badgeText,
       }
     })
@@ -70,7 +70,7 @@ export async function GET(request: NextRequest) {
           rating: 4.9,
           reviewCount: 142,
           pricePerNight: 750,
-          currency: "AED",
+          currency: "NLe",
           badgeText: "HOT",
         },
         {
@@ -83,7 +83,7 @@ export async function GET(request: NextRequest) {
           rating: 4.8,
           reviewCount: 86,
           pricePerNight: 520,
-          currency: "AED",
+          currency: "NLe",
           badgeText: "HOT",
         },
       ]

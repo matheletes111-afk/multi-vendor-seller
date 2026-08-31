@@ -21,7 +21,7 @@ import {
 } from "lucide-react"
 import { Button } from "@/ui/button"
 import { Badge } from "@/ui/badge"
-import { cn } from "@/lib/utils"
+import { cn, formatCurrency } from "@/lib/utils"
 
 export function RiderDashboardClient({ user: initialUser }: { user: any }) {
   const [data, setData] = useState<any>(null)
@@ -135,7 +135,7 @@ export function RiderDashboardClient({ user: initialUser }: { user: any }) {
             </div>
           </div>
           <div className="text-2xl font-black text-foreground">
-            Le {Number(data?.stats?.totalEarnings || 0).toLocaleString()}
+            {formatCurrency(Number(data?.stats?.totalEarnings || 0))}
           </div>
           <p className="text-[11px] text-emerald-600 font-semibold">
             {data?.stats?.completedDeliveriesCount || 0} completed deliveries

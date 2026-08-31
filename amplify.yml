@@ -32,6 +32,8 @@ frontend:
         - echo "AUTH_TOKEN_TWILIO=$AUTH_TOKEN_TWILIO" >> .env
         - echo "MSG_SERVICESID=$MSG_SERVICESID" >> .env
         - echo "MAP_KEY=$MAP_KEY" >> .env
+        - echo "INTERNAL_API_SECRET=$INTERNAL_API_SECRET" >> .env
+        - echo "CRON_SECRET=$CRON_SECRET" >> .env
         - echo "FIREBASE_PROJECT_ID=$FIREBASE_PROJECT_ID" >> .env
         - echo "FIREBASE_CLIENT_EMAIL=$FIREBASE_CLIENT_EMAIL" >> .env
         - echo "FIREBASE_PRIVATE_KEY=$FIREBASE_PRIVATE_KEY" >> .env

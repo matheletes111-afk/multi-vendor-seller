@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma"
+import { formatCurrency } from "@/lib/utils"
 
 export interface CouponItem {
   productId?: string
@@ -103,7 +104,7 @@ export async function validateCoupon(params: {
   }
 
   if (applicableSubtotal < coupon.minOrderValue) {
-    return { valid: false, error: `Minimum order value of NLe ${coupon.minOrderValue.toFixed(2)} not met for this coupon` }
+    return { valid: false, error: `Minimum order value of ${formatCurrency(coupon.minOrderValue)} not met for this coupon` }
   }
 
   // Global usage limit check
@@ -172,7 +173,7 @@ export async function validateSellerCoupon(params: {
   }
 
   if (amount < coupon.minOrderValue) {
-    return { valid: false, error: `Minimum amount of NLe ${coupon.minOrderValue.toFixed(2)} required for this coupon` }
+    return { valid: false, error: `Minimum amount of ${formatCurrency(coupon.minOrderValue)} required for this coupon` }
   }
 
   // Global count check

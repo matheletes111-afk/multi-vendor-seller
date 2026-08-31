@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
         mobile_icon: cat.mobileIcon || null,
         discount_tag: discountTag,
         starting_price: startingPrice,
-        currency: "AED",
+        currency: "NLe",
         deep_link: `/services?category=${encodeURIComponent(cat.slug)}`,
       }
     })
@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
           image_url: "https://images.unsplash.com/photo-1621905251189-08b45d6a269e?auto=format&fit=crop&w=400&q=80",
           discount_tag: "UP TO 30% OFF",
           starting_price: 79,
-          currency: "AED",
+          currency: "NLe",
           deep_link: "/services?category=ac-maintenance",
         },
         {
@@ -64,7 +64,7 @@ export async function GET(request: NextRequest) {
           image_url: "https://images.unsplash.com/photo-1581578731548-c64695cc6952?auto=format&fit=crop&w=400&q=80",
           discount_tag: "POPULAR",
           starting_price: 99,
-          currency: "AED",
+          currency: "NLe",
           deep_link: "/services?category=home-cleaning",
         },
         {
@@ -74,7 +74,7 @@ export async function GET(request: NextRequest) {
           image_url: "https://images.unsplash.com/photo-1585704032915-c3400ca199e7?auto=format&fit=crop&w=400&q=80",
           discount_tag: "EXPRESS SERVICE",
           starting_price: 49,
-          currency: "AED",
+          currency: "NLe",
           deep_link: "/services?category=plumbing",
         },
         {
@@ -84,7 +84,7 @@ export async function GET(request: NextRequest) {
           image_url: "https://images.unsplash.com/photo-1621905252507-b35492cc74b4?auto=format&fit=crop&w=400&q=80",
           discount_tag: "TOP RATED",
           starting_price: 59,
-          currency: "AED",
+          currency: "NLe",
           deep_link: "/services?category=electrical",
         },
       ]

@@ -3,17 +3,21 @@ import bcrypt from "bcryptjs"
 import { UserRole } from "@prisma/client"
 import { prisma } from "@/lib/prisma"
 import { checkOtpRateLimit, recordOtpFailure, resetOtpRateLimit } from "@/lib/rate-limit"
+import { getCandidateCountryCodePhonePairs } from "@/lib/phone-otp-lookup"
+import { normalizePhoneNumber } from "@/lib/twilio-sms"
 
 export async function POST(request: Request) {
   try {
     const body = await request.json().catch(() => ({}))
     const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : ""
+    const phoneInput = typeof body.phone === "string" ? body.phone.trim() : ""
+    const normalizedPhone = phoneInput ? normalizePhoneNumber(phoneInput) : ""
     const otp = typeof body.otp === "string" ? body.otp.trim() : ""
     const newPassword = typeof body.newPassword === "string" ? body.newPassword : ""
 
-    if (!email || !otp || !newPassword) {
+    if ((!email && !normalizedPhone) || !otp || !newPassword) {
       return NextResponse.json(
-        { success: false, error: "Email, OTP and new password are required." },
+        { success: false, error: "Email or phone, OTP and new password are required." },
         { status: 400 }
       )
     }
@@ -25,7 +29,7 @@ export async function POST(request: Request) {
       )
     }
 
-    const rateLimitKey = `${email}:mobile-rider-reset-password`
+    const rateLimitKey = `${email || normalizedPhone}:mobile-rider-reset-password`
     const rateCheck = await checkOtpRateLimit(rateLimitKey)
     if (!rateCheck.allowed) {
       const minutesLeft = Math.ceil(rateCheck.blockTimeLeftMs / 60000)
@@ -35,10 +39,31 @@ export async function POST(request: Request) {
       )
     }
 
+    const whereOr: any[] = []
+    if (email) {
+      whereOr.push({ email })
+    }
+    if (normalizedPhone) {
+      const phoneDigits = normalizedPhone.replace(/^\+/, "")
+      const splitPairs = getCandidateCountryCodePhonePairs(normalizedPhone)
+      whereOr.push(
+        { phone: normalizedPhone },
+        { phone: phoneDigits },
+        ...splitPairs.map((pair) => ({
+          phoneCountryCode: pair.countryCode,
+          phone: pair.phone,
+        }))
+      )
+    }
+
     const user = await prisma.user.findFirst({
-      where: { email, role: UserRole.RIDER },
+      where: {
+        role: UserRole.RIDER,
+        OR: whereOr,
+      },
       select: {
         id: true,
+        email: true,
         isEmailVerified: true,
         verifyEmailOtp: true,
         emailVerificationExpires: true,
@@ -53,7 +78,7 @@ export async function POST(request: Request) {
 
     if (!user || user.rider?.isSuspended || user.rider?.status === "SUSPENDED") {
       await recordOtpFailure(rateLimitKey)
-      return NextResponse.json({ success: false, error: "Invalid email or OTP code." }, { status: 400 })
+      return NextResponse.json({ success: false, error: "Invalid email/phone or OTP code." }, { status: 400 })
     }
 
     const now = new Date()

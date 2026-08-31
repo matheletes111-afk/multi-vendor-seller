@@ -889,7 +889,7 @@ function ServiceHomeContent() {
               <div className="flex items-center gap-2">
                 <Input
                   type="number"
-                  placeholder="Min NLe"
+                  placeholder="Min Price"
                   value={minPrice}
                   onChange={(e: React.ChangeEvent<HTMLInputElement>) => setMinPrice(e.target.value)}
                   className="h-9 w-24 rounded-lg border-slate-200 text-xs focus-visible:ring-amber-500 font-medium"
@@ -897,7 +897,7 @@ function ServiceHomeContent() {
                 <span className="text-xs text-slate-400">-</span>
                 <Input
                   type="number"
-                  placeholder="Max NLe"
+                  placeholder="Max Price"
                   value={maxPrice}
                   onChange={(e: React.ChangeEvent<HTMLInputElement>) => setMaxPrice(e.target.value)}
                   className="h-9 w-24 rounded-lg border-slate-200 text-xs focus-visible:ring-amber-500 font-medium"

@@ -68,7 +68,7 @@ export async function GET(request: NextRequest) {
         coverImage: imageUrl,
         price_per_night: startingPrice,
         starting_price_per_night: startingPrice,
-        currency: "AED",
+        currency: "NLe",
         rating,
         averageRating: rating,
         review_count: h.reviews.length,

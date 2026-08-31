@@ -16,7 +16,7 @@ TABLE OF CONTENTS
 1. EXECUTIVE ARCHITECTURAL SUMMARY & WEB-MOBILE SYNC STATUS
 2. REVENUE & FINANCIAL SEGREGATION ENGINE
    2.1 The Multi-Vendor Revenue Formula
-   2.2 Concrete Financial Example Breakdown (Le 100 Item)
+   2.2 Concrete Financial Example Breakdown (NLe 100 Item)
    2.3 Multi-Category Comparison Table (Product vs Service vs Hotel vs Restaurant)
 3. PRODUCT SELLER MOBILE APP IMPLEMENTATION
    3.1 Overview Dashboard API (`GET /mobileapi/product-seller/overview`)
@@ -76,22 +76,22 @@ Where:
 - [Delivery Boy Earning]: Equals the allocated Delivery Fee.
 
 --------------------------------------------------------------------------------
-2.2 Concrete Financial Example Breakdown (Le 100 Product Item)
+2.2 Concrete Financial Example Breakdown (NLe 100 Product Item)
 --------------------------------------------------------------------------------
 Suppose:
-- Product Item Price: Le 100.00
+- Product Item Price: NLe 100.00
 - Platform Commission Rate: 10%
-- Platform Commission Amount: Le 10.00
-- Delivery Boy Charge: Le 20.00
+- Platform Commission Amount: NLe 10.00
+- Delivery Boy Charge: NLe 20.00
 
 Settlement Distribution:
 ┌──────────────────────────────┬─────────────┬─────────────────────────────────┐
 │ Entity                       │ Amount      │ Note                            │
 ├──────────────────────────────┼─────────────┼─────────────────────────────────┤
-│ Customer Payment             │ Le 120.00   │ Le 100 (Product) + Le 20 (Ship) │
-│ Platform Fee (Commission)    │ Le 10.00    │ Retained by MEEEM platform      │
-│ Delivery Boy (Rider) Earning │ Le 20.00    │ Credited to Rider delivery fee  │
-│ Product Seller Net Revenue   │ Le 70.00    │ Credited to Seller Net Balance  │
+│ Customer Payment             │ NLe 120.00   │ NLe 100 (Product) + NLe 20 (Ship) │
+│ Platform Fee (Commission)    │ NLe 10.00    │ Retained by MEEEM platform      │
+│ Delivery Boy (Rider) Earning │ NLe 20.00    │ Credited to Rider delivery fee  │
+│ Product Seller Net Revenue   │ NLe 70.00    │ Credited to Seller Net Balance  │
 └──────────────────────────────┴─────────────┴─────────────────────────────────┘
 
 --------------------------------------------------------------------------------
@@ -101,9 +101,9 @@ Settlement Distribution:
 │ Category          │ Delivery Boy Fee? │ Seller Net Revenue Formula           │
 ├───────────────────┼───────────────────┼──────────────────────────────────────┤
 │ Product Seller    │ YES (Deducted)    │ Gross Item - Commission - Delivery   │
-│ Service Seller    │ NO (Le 0.00)      │ Service Price - Commission           │
-│ Hotel Seller      │ NO (Le 0.00)      │ Room Total - Commission              │
-│ Restaurant Seller │ NO (Le 0.00)      │ Food Order Total - Commission        │
+│ Service Seller    │ NO (NLe 0.00)      │ Service Price - Commission           │
+│ Hotel Seller      │ NO (NLe 0.00)      │ Room Total - Commission              │
+│ Restaurant Seller │ NO (NLe 0.00)      │ Food Order Total - Commission        │
 └───────────────────┴───────────────────┴──────────────────────────────────────┘
 
 ================================================================================
@@ -129,21 +129,21 @@ SUCCESS RESPONSE (200 OK):
       "totalProducts": 42,
       "totalOrders": 128,
       "totalRevenue": 15400.00,
-      "totalRevenueFormatted": "Le 15,400.00",
+      "totalRevenueFormatted": "NLe 15,400.00",
       "grossSales": 15400.00,
-      "grossSalesFormatted": "Le 15,400.00",
+      "grossSalesFormatted": "NLe 15,400.00",
       "platformCommission": 1540.00,
-      "platformCommissionFormatted": "Le 1,540.00",
+      "platformCommissionFormatted": "NLe 1,540.00",
       "deliveryBoyCharges": 3080.00,
-      "deliveryBoyChargesFormatted": "Le 3,080.00",
+      "deliveryBoyChargesFormatted": "NLe 3,080.00",
       "netEarnings": 10780.00,
-      "netEarningsFormatted": "Le 10,780.00",
+      "netEarningsFormatted": "NLe 10,780.00",
       "netBalance": 10780.00,
-      "netBalanceFormatted": "Le 10,780.00",
+      "netBalanceFormatted": "NLe 10,780.00",
       "balanceCreditsTotal": 10780.00,
-      "balanceCreditsFormatted": "Le 10,780.00",
+      "balanceCreditsFormatted": "NLe 10,780.00",
       "balanceDebitsTotal": 0.00,
-      "balanceDebitsFormatted": "Le 0.00",
+      "balanceDebitsFormatted": "NLe 0.00",
       "totalAdClicks": 350
     },
     "subscription": {
@@ -249,7 +249,7 @@ On the Seller Order Details Screen:
   │ 🧾 SELLER EARNINGS & PAYOUT BREAKDOWN (Commission: 10%)               │
   ├──────────────────┬──────────────────┬─────────────────┬────────────────┤
   │ Item Gross Value │ Platform Fee     │ Delivery Charge │ Net Revenue    │
-  │ Le 100.00        │ -Le 10.00        │ -Le 20.00       │ Le 70.00       │
+  │ NLe 100.00        │ -NLe 10.00        │ -NLe 20.00       │ NLe 70.00       │
   │ (Slate Card)     │ (Rose Badge)     │ (Amber Badge)   │ (Green Bold)   │
   └──────────────────┴──────────────────┴─────────────────┴────────────────┘
 - If `deliveryProofImage` is present on the order item, render a clickable thumbnail
@@ -398,7 +398,7 @@ SUCCESS RESPONSE (200 OK):
 4.4 UI Implementation Guidelines for Rider Mobile App
 --------------------------------------------------------------------------------
 1. Order Card Badge:
-   Display: `Delivery Earning: Le 20.00` in emerald green on every delivery card.
+   Display: `Delivery Earning: NLe 20.00` in emerald green on every delivery card.
 2. Stepper Component:
    [1. Accept Offer] -> [2. Arrive at Store] -> [3. Collect Package] -> [4. Out for Delivery] -> [5. Verify OTP & Complete]
 3. OTP Modal:
@@ -447,9 +447,9 @@ When `order.status === "DELIVERED"`:
 ================================================================================
 
 Step 1: Customer Places Product Order
-  - Item Price: Le 100, Shipping: Le 20, Total: Le 120.
-  - Item `shippingAmount` recorded as Le 20.00.
-  - Item `commissionAmount` recorded as Le 10.00.
+  - Item Price: NLe 100, Shipping: NLe 20, Total: NLe 120.
+  - Item `shippingAmount` recorded as NLe 20.00.
+  - Item `commissionAmount` recorded as NLe 10.00.
 
 Step 2: Proximity Waterfall Dispatch
   - Backend queries approved, online, idle riders in seller's zone.
@@ -470,19 +470,19 @@ Step 5: Handover, OTP Verification & Photo Upload
 
 Step 6: Instant Automated Financial Settlement
   - Backend immediately calls `applySellerCreditForOrderLineDelivered`.
-  - Seller net balance is credited with: Le 100 - Le 10 - Le 20 = Le 70.00.
-  - Delivery boy retains their Le 20.00 delivery earning.
-  - Platform retains Le 10.00 commission.
+  - Seller net balance is credited with: NLe 100 - NLe 10 - NLe 20 = NLe 70.00.
+  - Delivery boy retains their NLe 20.00 delivery earning.
+  - Platform retains NLe 10.00 commission.
   - Real-time balances update on all mobile apps and web dashboards.
 
 ================================================================================
 7. MOBILE DEVELOPER CHECKLIST (FLUTTER / KOTLIN / SWIFT)
 ================================================================================
-[ ] Rider App: Display `Delivery Earning: Le XX.XX` on all order cards.
+[ ] Rider App: Display `Delivery Earning: NLe XX.XX` on all order cards.
 [ ] Rider App: Display `Total Earnings` and `Completed Deliveries` on Dashboard.
 [ ] Rider App: In delivery modal, allow camera capture / upload for `proofImage`.
 [ ] Product Seller App: On Order Details, display the 4-column financial breakdown:
-    Gross Value (Le 100) | Platform Fee (-Le 10) | Delivery Charge (-Le 20) | Net Payout (Le 70).
+    Gross Value (NLe 100) | Platform Fee (-NLe 10) | Delivery Charge (-NLe 20) | Net Payout (NLe 70).
 [ ] Product Seller App: On Overview screen, display `deliveryBoyCharges` and `netEarnings`.
 [ ] Customer App: Display 6-digit OTP when order is Out for Delivery.
 [ ] Customer App: Display Rider's proof of delivery image upon completion.

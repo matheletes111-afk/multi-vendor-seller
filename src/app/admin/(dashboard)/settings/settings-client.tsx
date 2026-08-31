@@ -12,6 +12,7 @@ import { Alert, AlertDescription } from "@/ui/alert"
 import { PageLoader } from "@/components/ui/page-loader"
 import { ProfilePictureInput } from "@/components/profile-picture-input"
 import { LegalPolicyTabContent } from "@/components/legal/legal-policy-tab-content"
+import { CountryCodeSelect } from "@/ui/country-code-select"
 import { cn } from "@/lib/utils"
 
 import { LOCATION_ZONES, ALL_LOCATION_REGIONS, getZoneForRegion } from "@/lib/location-zones"
@@ -572,10 +573,13 @@ export function AdminSettingsClient() {
               <div className="grid gap-8 md:grid-cols-2">
                 <div className="space-y-3">
                   <Label htmlFor="phoneCountryCode" className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground ml-1">Global Prefix</Label>
-                  <div className="relative">
-                    <Globe className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50" />
-                    <Input id="phoneCountryCode" name="phoneCountryCode" type="tel" defaultValue={user.phoneCountryCode || ""} placeholder="+234" className="pl-12 border-muted bg-muted/20 rounded-2xl h-12" required />
-                  </div>
+                  <CountryCodeSelect
+                    id="phoneCountryCode"
+                    name="phoneCountryCode"
+                    defaultValue={user.phoneCountryCode || "+232"}
+                    required
+                    className="border-muted bg-muted/20 rounded-2xl h-12"
+                  />
                 </div>
                 <div className="space-y-3">
                   <Label htmlFor="phone" className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground ml-1">Secure Line</Label>

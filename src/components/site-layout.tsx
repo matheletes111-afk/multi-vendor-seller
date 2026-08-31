@@ -918,7 +918,7 @@ export function SiteHeader() {
                   isFoodSection
                     ? "text-amber-950 hover:bg-amber-950/10"
                     : isHotelSection
-                      ? "text-white hover:bg-white/20"
+                      ? "text-emerald-950 hover:bg-emerald-950/10"
                       : "text-slate-900 hover:bg-slate-900/10"
                 )}
                 aria-label="Orders"
@@ -935,7 +935,7 @@ export function SiteHeader() {
                 isFoodSection
                   ? "text-amber-950 hover:bg-amber-950/10"
                   : isHotelSection
-                    ? "text-white hover:bg-white/20"
+                    ? "text-emerald-950 hover:bg-emerald-950/10"
                     : "text-slate-900 hover:bg-slate-900/10"
               )}
               aria-label={`Cart, ${totalItems} items`}
@@ -961,14 +961,14 @@ export function SiteHeader() {
                     isFoodSection
                       ? "text-amber-950 hover:bg-amber-950/10"
                       : isHotelSection
-                        ? "text-white hover:bg-white/20"
+                        ? "text-emerald-950 hover:bg-emerald-950/10"
                         : "text-slate-900 hover:bg-slate-900/10"
                   )}
                   aria-label={`Wishlist, ${wishlistCount} items`}
                 >
                   <span className="relative">
                     <Heart className="h-5 w-5 shrink-0 sm:h-6 sm:w-6" />
-                    <span className="absolute -right-1 -top-1 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-rose-400 px-0.5 text-[9px] font-bold text-black sm:-right-2 sm:-top-2 sm:h-4 sm:min-w-4 sm:px-1 sm:text-[10px]">
+                    <span className="absolute -right-1 -top-1 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-rose-500 px-0.5 text-[9px] font-bold text-white sm:-right-2 sm:-top-2 sm:h-4 sm:min-w-4 sm:px-1 sm:text-[10px]">
                       {wishlistCount > 99 ? "99+" : wishlistCount}
                     </span>
                   </span>
@@ -1420,6 +1420,12 @@ export function SiteFooter() {
                       Logout
                     </button>
                   </li>
+                  <li className="mt-1 border-t border-slate-200/50 pt-1.5 dark:border-slate-700/50">
+                    <Link href="/riderapp/login" className={linkClass}>Delivery Rider Login</Link>
+                  </li>
+                  <li>
+                    <Link href="/riderapp/registration" className={linkClass}>Register as Delivery Rider</Link>
+                  </li>
                 </>
               ) : (
                 <>
@@ -1428,8 +1434,8 @@ export function SiteFooter() {
                   <li><Link href="/service-seller/login" className={linkClass}>Service Seller Login</Link></li>
                   <li><Link href="/hotel-seller/login" className={linkClass}>Hotel Seller Login</Link></li>
                   <li><Link href="/restaurant-seller/login" className={linkClass}>Restaurant Seller Login</Link></li>
-                  <li><Link href="/riderapp/login" className={linkClass}>Rider Portal Login</Link></li>
-                  <li><Link href="/riderapp/registration" className={linkClass}>Become a Delivery Rider</Link></li>
+                  <li><Link href="/riderapp/login" className={linkClass}>Delivery Rider Login</Link></li>
+                  <li><Link href="/riderapp/registration" className={linkClass}>Register as Delivery Rider</Link></li>
                 </>
               )}
               <li className="mt-1 border-t border-slate-200/50 pt-1.5 dark:border-slate-700/50">

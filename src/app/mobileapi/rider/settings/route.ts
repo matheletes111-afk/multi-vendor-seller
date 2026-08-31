@@ -20,6 +20,49 @@ export async function GET(request: NextRequest) {
     const { user, rider } = authResult
     const vehicleTypeResult = (rider?.vehicleTypes as string[])?.[0] || "2_WHEELER"
 
+    let completedDeliveriesCount = 0
+    let totalEarnings = 0
+    let activeDeliveriesCount = 0
+
+    if (rider?.id) {
+      const completedAssignments = await prisma.riderDeliveryAssignment.findMany({
+        where: {
+          riderId: rider.id,
+          status: "DELIVERED",
+        },
+        include: {
+          order: {
+            select: {
+              shipping: true,
+              items: {
+                select: { id: true, sellerId: true, shippingAmount: true },
+              },
+            },
+          },
+        },
+      })
+
+      completedDeliveriesCount = completedAssignments.length
+      totalEarnings = completedAssignments.reduce((sum, a) => {
+        const assignedItems = (a.order?.items || []).filter(
+          (item) => (a.orderItemId ? item.id === a.orderItemId : !a.sellerId || item.sellerId === a.sellerId)
+        )
+        const itemsShippingSum = assignedItems.reduce(
+          (s: number, i: any) => s + (Number(i.shippingAmount) || 0),
+          0
+        )
+        const fee = itemsShippingSum > 0 ? itemsShippingSum : Number(a.order?.shipping || 0)
+        return sum + fee
+      }, 0)
+
+      activeDeliveriesCount = await prisma.riderDeliveryAssignment.count({
+        where: {
+          riderId: rider.id,
+          status: { in: ["ACCEPTED", "AT_PICKUP", "PICKED_UP", "OUT_FOR_DELIVERY"] },
+        },
+      })
+    }
+
     return NextResponse.json({
       success: true,
       data: {
@@ -28,6 +71,11 @@ export async function GET(request: NextRequest) {
           ...rider,
           vehicleType: vehicleTypeResult,
         } : null,
+        stats: {
+          completedDeliveriesCount,
+          totalEarnings,
+          activeDeliveriesCount,
+        },
         registeredDevices: Array.isArray(rider?.deviceTokens) ? rider.deviceTokens : [],
       },
     })

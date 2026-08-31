@@ -12,7 +12,8 @@
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
     "db:generate": "prisma generate",
-    "db:seed": "tsx prisma/seed.ts"
+    "db:seed": "tsx prisma/seed.ts",
+    "cron:onboarding-reminders": "tsx scripts/send-onboarding-reminders.ts"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.7.0",

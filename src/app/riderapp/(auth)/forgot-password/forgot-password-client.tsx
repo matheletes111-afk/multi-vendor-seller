@@ -11,7 +11,7 @@ import { Label } from "@/ui/label"
 
 export function RiderForgotPasswordClient() {
   const router = useRouter()
-  const [email, setEmail] = useState("")
+  const [identifier, setIdentifier] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [successMsg, setSuccessMsg] = useState<string | null>(null)
@@ -22,11 +22,18 @@ export function RiderForgotPasswordClient() {
     setSuccessMsg(null)
     setLoading(true)
 
+    const raw = identifier.trim()
+    const isEmail = raw.includes("@")
+
     try {
       const res = await fetch("/api/riderapp/auth/forgot-password/send-otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim().toLowerCase() }),
+        body: JSON.stringify(
+          isEmail
+            ? { email: raw.toLowerCase() }
+            : { phone: raw }
+        ),
       })
 
       const data = await res.json()
@@ -37,7 +44,10 @@ export function RiderForgotPasswordClient() {
 
       setSuccessMsg(data.message || "OTP sent successfully! Redirecting...")
       setTimeout(() => {
-        router.push(`/riderapp/reset-password?email=${encodeURIComponent(email.trim().toLowerCase())}`)
+        const queryParam = isEmail
+          ? `email=${encodeURIComponent(raw.toLowerCase())}`
+          : `phone=${encodeURIComponent(raw)}`
+        router.push(`/riderapp/reset-password?${queryParam}`)
       }, 1200)
     } catch (err: any) {
       setError(err.message || "An unexpected error occurred.")
@@ -69,7 +79,7 @@ export function RiderForgotPasswordClient() {
             Forgot your password?
           </h2>
           <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">
-            Enter your registered rider email address to receive a 6-digit verification code.
+            Enter your registered rider email or phone number to receive a 6-digit verification code.
           </p>
         </div>
       </div>
@@ -92,15 +102,15 @@ export function RiderForgotPasswordClient() {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                Registered Email Address
+                Registered Email Address or Phone Number
               </Label>
               <div className="relative">
                 <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <Input
-                  type="email"
-                  placeholder="rider@example.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  type="text"
+                  placeholder="rider@example.com or +23276123456"
+                  value={identifier}
+                  onChange={(e) => setIdentifier(e.target.value)}
                   required
                   disabled={loading}
                   className="pl-10 h-11 rounded-xl text-xs bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700"
