@@ -509,9 +509,16 @@ export function RiderOrderDeliveryClient({ assignmentId }: { assignmentId: strin
                 capture="environment"
                 id="rider-proof-upload"
                 className="hidden"
-                onChange={(e) => {
-                  const file = e.target.files?.[0]
-                  if (file) {
+                onChange={async (e) => {
+                  const rawFile = e.target.files?.[0]
+                  if (rawFile) {
+                    let file = rawFile
+                    try {
+                      const { compressImage } = await import("@/lib/image-compressor")
+                      file = await compressImage(rawFile, 1200, 1200, 0.8)
+                    } catch (err) {
+                      console.error("Compression error:", err)
+                    }
                     const reader = new FileReader()
                     reader.onload = () => setProofImageBase64(reader.result as string)
                     reader.readAsDataURL(file)

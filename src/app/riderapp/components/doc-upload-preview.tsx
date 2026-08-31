@@ -55,22 +55,30 @@ export function DocUploadPreview({
     }
   }, [value, selectedFile])
 
-  const handleFile = (file: File | null) => {
+  const handleFile = async (file: File | null) => {
     setError(null)
     if (!file) return
 
-    if (file.size > maxSizeMb * 1024 * 1024) {
-      setError(`File size exceeds ${maxSizeMb}MB limit.`)
+    let processedFile = file
+    if (file.type.startsWith("image/") || /\.(jpe?g|png|webp)$/i.test(file.name)) {
+      try {
+        const { compressImage } = await import("@/lib/image-compressor")
+        processedFile = await compressImage(file, 1200, 1200, 0.8)
+      } catch (err) {
+        console.error("Compression error:", err)
+      }
+    } else if (processedFile.size > 4.5 * 1024 * 1024) {
+      setError(`File size exceeds 4.5MB limit. Please upload a smaller document.`)
       return
     }
 
-    const type = file.type || (file.name.endsWith(".pdf") ? "application/pdf" : "image/jpeg")
+    const type = processedFile.type || (processedFile.name.endsWith(".pdf") ? "application/pdf" : "image/jpeg")
     setMimeType(type)
-    setSelectedFile(file)
+    setSelectedFile(processedFile)
 
-    const objectUrl = URL.createObjectURL(file)
+    const objectUrl = URL.createObjectURL(processedFile)
     setPreviewUrl(objectUrl)
-    onChange(file, objectUrl)
+    onChange(processedFile, objectUrl)
   }
 
   const handleRemove = (e: React.MouseEvent) => {

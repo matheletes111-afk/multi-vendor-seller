@@ -120,8 +120,16 @@ export default function RestaurantSettingsClient() {
     setError(null)
     setSuccess(null)
 
-    const formData = new FormData(e.currentTarget)
+    const form = e.currentTarget
+    const formData = new FormData(form)
     formData.append("section", section)
+    
+    // Attach compressed preview files for inputs in this section form
+    Object.entries(previews).forEach(([k, val]) => {
+      if (val?.file && (form.elements.namedItem(k) || form.querySelector(`[name="${k}"]`))) {
+        formData.set(k, val.file)
+      }
+    })
     
     if (section === "property") {
         selectedCuisines.forEach(c => formData.append("cuisines", c))
@@ -174,24 +182,33 @@ export default function RestaurantSettingsClient() {
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, key: string) => {
     const rawFile = e.target.files?.[0]
-    if (rawFile) {
-      let file: File = rawFile
-      if (["logo", "banner", "mainPhoto"].includes(key)) {
-        try {
-          const { compressImage } = await import("@/lib/image-compressor")
-          const compressed = await compressImage(rawFile)
-          file = compressed
-          
-          const dataTransfer = new DataTransfer()
-          dataTransfer.items.add(compressed)
-          e.target.files = dataTransfer.files
-        } catch (err) {
-          console.error("Compression error:", err)
-        }
+    if (!rawFile) return
+
+    let file: File = rawFile
+
+    if (rawFile.type.startsWith("image/") || /\.(jpe?g|png|webp)$/i.test(rawFile.name)) {
+      try {
+        const { compressImage } = await import("@/lib/image-compressor")
+        const compressed = await compressImage(rawFile, 1200, 1200, 0.8)
+        file = compressed
+
+        const dataTransfer = new DataTransfer()
+        dataTransfer.items.add(compressed)
+        e.target.files = dataTransfer.files
+      } catch (err) {
+        console.error("Compression error:", err)
       }
-      const url = URL.createObjectURL(file)
-      setPreviews(prev => ({ ...prev, [key]: { file, url } }))
+    } else if (rawFile.size > 4.5 * 1024 * 1024) {
+      alert("File size exceeds 4.5 MB limit. Please upload a smaller document.")
+      e.target.value = ""
+      return
     }
+
+    const url = URL.createObjectURL(file)
+    setPreviews(prev => {
+      if (prev[key]) URL.revokeObjectURL(prev[key].url)
+      return { ...prev, [key]: { file, url } }
+    })
   }
 
   if (loading || !seller) return <PageLoader message="Loading restaurant settings…" />
@@ -423,28 +440,28 @@ export default function RestaurantSettingsClient() {
                <div className="pt-2">
                   <Label>Registration Certificate</Label>
                   <div className="flex items-center gap-3 mt-1">
-                     <Input name="busRegCert" type="file" className="max-w-xs" />
+                     <Input name="busRegCert" type="file" className="max-w-xs" onChange={(e) => handleFileChange(e, "busRegCert")} />
                      {seller.businessInfo?.busRegCertUrl && <a href={seller.businessInfo.busRegCertUrl} target="_blank" className="text-primary hover:underline text-sm flex items-center gap-1"><FileText className="h-4 w-4" /> View Current</a>}
                   </div>
                </div>
                <div className="pt-2">
                   <Label>City Council Certificate (Optional)</Label>
                   <div className="flex items-center gap-3 mt-1">
-                     <Input name="cityCouncilCert" type="file" className="max-w-xs" />
+                     <Input name="cityCouncilCert" type="file" className="max-w-xs" onChange={(e) => handleFileChange(e, "cityCouncilCert")} />
                      {seller.businessInfo?.cityCouncilCertUrl && <a href={seller.businessInfo.cityCouncilCertUrl} target="_blank" className="text-primary hover:underline text-sm flex items-center gap-1"><FileText className="h-4 w-4" /> View Current</a>}
                   </div>
                </div>
                <div className="pt-2">
                   <Label>GST TIN Certificate</Label>
                   <div className="flex items-center gap-3 mt-1">
-                     <Input name="gstTinCert" type="file" className="max-w-xs" />
+                     <Input name="gstTinCert" type="file" className="max-w-xs" onChange={(e) => handleFileChange(e, "gstTinCert")} />
                      {seller.businessInfo?.gstTinCertUrl && <a href={seller.businessInfo.gstTinCertUrl} target="_blank" className="text-primary hover:underline text-sm flex items-center gap-1"><FileText className="h-4 w-4" /> View Current</a>}
                   </div>
                </div>
                <div className="pt-2">
                   <Label>Proof of Address (Edsa, Guma, etc.)</Label>
                   <div className="flex items-center gap-3 mt-1">
-                     <Input name="addressProof" type="file" className="max-w-xs" />
+                     <Input name="addressProof" type="file" className="max-w-xs" onChange={(e) => handleFileChange(e, "addressProof")} />
                      {seller.businessInfo?.addressProofUrl && <a href={seller.businessInfo.addressProofUrl} target="_blank" className="text-primary hover:underline text-sm flex items-center gap-1"><FileText className="h-4 w-4" /> View Current</a>}
                   </div>
                </div>
@@ -630,14 +647,14 @@ export default function RestaurantSettingsClient() {
                     <div className="space-y-2">
                        <Label>Passbook / Check Copy (Optional)</Label>
                        <div className="flex items-center gap-3 mt-1">
-                          <Input name="passbook" type="file" />
+                          <Input name="passbook" type="file" onChange={(e) => handleFileChange(e, "passbook")} />
                           {seller.bankDetails?.passbookUrl && <a href={seller.bankDetails.passbookUrl} target="_blank" className="text-primary hover:underline text-sm flex items-center gap-1"><FileText className="h-4 w-4" /> View Current</a>}
                        </div>
                     </div>
                     <div className="space-y-2">
                        <Label>Bank Letter with Account No. (Optional)</Label>
                        <div className="flex items-center gap-3 mt-1">
-                          <Input name="bankLetter" type="file" />
+                          <Input name="bankLetter" type="file" onChange={(e) => handleFileChange(e, "bankLetter")} />
                           {seller.bankDetails?.bankLetterUrl && <a href={seller.bankDetails.bankLetterUrl} target="_blank" className="text-primary hover:underline text-sm flex items-center gap-1"><FileText className="h-4 w-4" /> View Current</a>}
                        </div>
                     </div>
