@@ -246,6 +246,13 @@ export function ServiceOnboardingClient() {
             data.name = formData.get("storeName")
             data.description = formData.get("description")
             data.categoryIds = formData.getAll("categoryIds")
+            data.lat = formData.get("lat") || formData.get("storeLat")
+            data.lng = formData.get("lng") || formData.get("storeLng")
+            data.address = formData.get("address") || formData.get("storeAddress")
+            data.zipCode = formData.get("zipCode") || formData.get("postalCode")
+            data.city = formData.get("city")
+            data.state = formData.get("state")
+            data.country = formData.get("country")
             res = await fetch("/api/service-seller/onboarding", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
