@@ -828,7 +828,7 @@ export function ProductOnboardingClient() {
                       <div className="space-y-2">
                         <Label htmlFor="storeLogo" className="flex items-center gap-2"><ImageIcon className="h-4 w-4" /> Store Logo *</Label>
                         <div className="mt-1 p-4 border-2 border-dashed rounded-2xl bg-purple-50/30 border-purple-100 transition-colors hover:bg-purple-50/50">
-                          <Input id="storeLogo" name="storeLogo" type="file" accept="image/*" className="cursor-pointer" required={!seller.store?.logo} onChange={(e) => handleFileChange(e, "storeLogo")} />
+                          <Input id="storeLogo" name="storeLogo" type="file" accept="image/*" className="cursor-pointer" required={!seller.store?.logo && !previews["storeLogo"]} onChange={(e) => handleFileChange(e, "storeLogo")} />
                           {renderFilePreview("storeLogo", seller.store?.logo, "Store Logo")}
                         </div>
                       </div>

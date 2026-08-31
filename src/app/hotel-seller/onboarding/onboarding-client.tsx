@@ -583,7 +583,7 @@ export function HotelOnboardingClient() {
                   <div className="grid grid-cols-2 gap-4 pt-4 border-t">
                     <div className="space-y-2">
                       <Label>Property Logo *</Label>
-                      <Input name="logo" type="file" accept="image/*" required={!seller.logo} onChange={(e) => handleFileChange(e, "logo")} />
+                      <Input name="logo" type="file" accept="image/*" required={!seller.logo && !previews["logo"]} onChange={(e) => handleFileChange(e, "logo")} />
                       {renderFilePreview("logo", seller.logo, "Logo")}
                     </div>
                     <div className="space-y-2">
@@ -594,7 +594,7 @@ export function HotelOnboardingClient() {
                   </div>
                   <div className="space-y-2 pt-4 border-t">
                     <Label>Main Property Photo *</Label>
-                    <Input name="mainPhoto" type="file" accept="image/*" required={!seller.mainPhoto} onChange={(e) => handleFileChange(e, "mainPhoto")} />
+                    <Input name="mainPhoto" type="file" accept="image/*" required={!seller.mainPhoto && !previews["mainPhoto"]} onChange={(e) => handleFileChange(e, "mainPhoto")} />
                     {renderFilePreview("mainPhoto", seller.mainPhoto, "Main Photo")}
                   </div>
                 </div>
