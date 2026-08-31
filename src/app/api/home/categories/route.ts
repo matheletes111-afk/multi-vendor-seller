@@ -7,7 +7,10 @@ export async function GET() {
     const categories = await prisma.category.findMany({
       where: {
         isActive: true,
-        products: { some: { isActive: true } },
+        OR: [
+          { subcategories: { some: { isActive: true } } },
+          { products: { some: { isActive: true } } },
+        ],
       },
       include: {
         subcategories: {
