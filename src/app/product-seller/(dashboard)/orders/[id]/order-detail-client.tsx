@@ -264,18 +264,25 @@ export function ProductSellerOrderDetailClient({ orderId }: { orderId: string })
     [order],
   )
 
-  const assignProofFile = (itemId: string, file: File | undefined) => {
+  const assignProofFile = async (itemId: string, file: File | undefined) => {
     if (!file) return
-    if (file.size > MAX_PROOF_BYTES) {
-      setStatusError("Image must be 5MB or smaller.")
-      return
-    }
     if (!file.type.startsWith("image/")) {
       setStatusError("Please upload an image file (e.g. JPG or PNG).")
       return
     }
+    let processedFile = file
+    try {
+      const { compressImage } = await import("@/lib/image-compressor")
+      processedFile = await compressImage(file, 1200, 1200, 0.8)
+    } catch (err) {
+      console.error("Compression error:", err)
+    }
+    if (processedFile.size > MAX_PROOF_BYTES) {
+      setStatusError("Image must be 5MB or smaller.")
+      return
+    }
     setStatusError(null)
-    setDeliveryProofFiles((prev) => ({ ...prev, [itemId]: file }))
+    setDeliveryProofFiles((prev) => ({ ...prev, [itemId]: processedFile }))
     setDeliveryProofDrafts((prev) => ({ ...prev, [itemId]: "" }))
   }
 

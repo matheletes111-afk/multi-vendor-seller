@@ -112,8 +112,16 @@ export function RestaurantOnboardingClient() {
     setSaving(true)
     setError(null)
 
-    const formData = new FormData(e.currentTarget as HTMLFormElement)
+    const form = e.currentTarget as HTMLFormElement
+    const formData = new FormData(form)
     formData.append("step", currentStep.toString())
+
+    // Ensure compressed preview files for inputs in the current form are attached
+    Object.entries(previews).forEach(([key, val]) => {
+      if (val?.file && (form.elements.namedItem(key) || form.querySelector(`[name="${key}"]`))) {
+        formData.set(key, val.file)
+      }
+    })
 
     try {
       if (currentStep === 2) {
@@ -277,6 +285,10 @@ export function RestaurantOnboardingClient() {
         } catch (err) {
           console.error("Compression error:", err)
         }
+      } else if (rawFile.size > 4.5 * 1024 * 1024) {
+        alert("File size exceeds 4.5 MB limit. Please upload a smaller document.")
+        e.target.value = ""
+        return
       }
       const url = URL.createObjectURL(file)
       setPreviews(prev => {

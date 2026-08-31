@@ -148,8 +148,16 @@ export function ProductOnboardingClient() {
     setSaving(true)
     setError(null)
 
-    const formData = new FormData(e.currentTarget as HTMLFormElement)
+    const form = e.currentTarget as HTMLFormElement
+    const formData = new FormData(form)
     formData.append("step", currentStep.toString())
+
+    // Ensure compressed preview files for inputs in the current form are attached
+    Object.entries(previews).forEach(([key, val]) => {
+      if (val?.file && (form.elements.namedItem(key) || form.querySelector(`[name="${key}"]`))) {
+        formData.set(key, val.file)
+      }
+    })
 
     try {
       // Step-by-step document completeness client-side verification
@@ -319,16 +327,36 @@ export function ProductOnboardingClient() {
 
   if (loading) return <PageLoader message="Preparing your onboarding..." />
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, key: string) => {
-    const file = e.target.files?.[0]
-    if (file) {
-      const url = URL.createObjectURL(file)
-      setPreviews(prev => {
-        // Revoke old object URL to avoid leaks
-        if (prev[key]) URL.revokeObjectURL(prev[key].url)
-        return { ...prev, [key]: { file, url } }
-      })
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, key: string) => {
+    const rawFile = e.target.files?.[0]
+    if (!rawFile) return
+
+    let file: File = rawFile
+
+    if (rawFile.type.startsWith("image/") || /\.(jpe?g|png|webp)$/i.test(rawFile.name)) {
+      try {
+        const { compressImage } = await import("@/lib/image-compressor")
+        const compressed = await compressImage(rawFile, 1200, 1200, 0.8)
+        file = compressed
+
+        const dataTransfer = new DataTransfer()
+        dataTransfer.items.add(compressed)
+        e.target.files = dataTransfer.files
+      } catch (err) {
+        console.error("Image compression error:", err)
+      }
+    } else if (rawFile.size > 4.5 * 1024 * 1024) {
+      alert("File size exceeds 4.5 MB limit. Please upload a smaller document.")
+      e.target.value = ""
+      return
     }
+
+    const url = URL.createObjectURL(file)
+    setPreviews(prev => {
+      // Revoke old object URL to avoid leaks
+      if (prev[key]) URL.revokeObjectURL(prev[key].url)
+      return { ...prev, [key]: { file, url } }
+    })
   }
 
   const renderFilePreview = (key: string, url?: string, label?: string) => {
@@ -859,9 +887,18 @@ export function ProductOnboardingClient() {
                                   type="file"
                                   accept="image/*"
                                   className="h-11 rounded-xl border-purple-100 bg-white cursor-pointer"
-                                  onChange={(e) => {
-                                    const file = e.target.files?.[0]
-                                    if (file) {
+                                  onChange={async (e) => {
+                                    const rawFile = e.target.files?.[0]
+                                    if (rawFile) {
+                                      let file: File = rawFile
+                                      if (rawFile.type.startsWith("image/")) {
+                                        try {
+                                          const { compressImage } = await import("@/lib/image-compressor")
+                                          file = await compressImage(rawFile, 1000, 600, 0.8)
+                                        } catch (err) {
+                                          console.error("Compression error:", err)
+                                        }
+                                      }
                                       setTempSuggestion(prev => ({ 
                                         ...prev, 
                                         image: file, 
@@ -887,9 +924,18 @@ export function ProductOnboardingClient() {
                                   type="file"
                                   accept="image/*"
                                   className="h-11 rounded-xl border-purple-100 bg-white cursor-pointer"
-                                  onChange={(e) => {
-                                    const file = e.target.files?.[0]
-                                    if (file) {
+                                  onChange={async (e) => {
+                                    const rawFile = e.target.files?.[0]
+                                    if (rawFile) {
+                                      let file: File = rawFile
+                                      if (rawFile.type.startsWith("image/")) {
+                                        try {
+                                          const { compressImage } = await import("@/lib/image-compressor")
+                                          file = await compressImage(rawFile, 200, 200, 0.85)
+                                        } catch (err) {
+                                          console.error("Compression error:", err)
+                                        }
+                                      }
                                       setTempSuggestion(prev => ({ 
                                         ...prev, 
                                         icon: file, 
