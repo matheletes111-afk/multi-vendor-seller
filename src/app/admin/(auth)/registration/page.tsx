@@ -9,12 +9,13 @@ import { Input } from "@/ui/input"
 import { Label } from "@/ui/label"
 import { Alert, AlertDescription } from "@/ui/alert"
 import { AlertCircle, Eye, EyeOff } from "lucide-react"
+import { CountryCodeSelect } from "@/ui/country-code-select"
 
 export default function AdminRegistrationPage() {
   const router = useRouter()
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
-  const [phoneCountryCode, setPhoneCountryCode] = useState("")
+  const [phoneCountryCode, setPhoneCountryCode] = useState("+232")
   const [phone, setPhone] = useState("")
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
@@ -57,9 +58,21 @@ export default function AdminRegistrationPage() {
           <div className="space-y-5">
             <div><Label htmlFor="name" className="mb-1.5 block text-sm font-medium text-gray-700">Full Name</Label><Input id="name" type="text" placeholder="John Doe" value={name} onChange={(e) => setName(e.target.value)} required disabled={loading} className="rounded-xl border-gray-200" /></div>
             <div><Label htmlFor="email" className="mb-1.5 block text-sm font-medium text-gray-700">Email</Label><Input id="email" type="email" placeholder="example@gmail.com" value={email} onChange={(e) => setEmail(e.target.value)} required disabled={loading} className="rounded-xl border-gray-200" /></div>
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_2fr]">
-              <div><Label htmlFor="phoneCountryCode" className="mb-1.5 block text-sm font-medium text-gray-700">Country code</Label><Input id="phoneCountryCode" type="tel" inputMode="numeric" placeholder="+1" value={phoneCountryCode} onChange={(e) => setPhoneCountryCode(e.target.value.replace(/(?!^\+)[^\d]/g, ""))} pattern="^\+?[0-9]+$" title="Country code must contain only numbers (optionally starting with +)." required disabled={loading} className="rounded-xl border-gray-200" /></div>
-              <div><Label htmlFor="phone" className="mb-1.5 block text-sm font-medium text-gray-700">Phone</Label><Input id="phone" type="tel" inputMode="numeric" placeholder="e.g. 088994462 or 88994462" value={phone} onChange={(e) => setPhone(e.target.value.replace(/[^0-9\s\-()]/g, ""))} pattern="^[0-9\s\-()]+$" title="Phone number must contain only numbers." required disabled={loading} className="rounded-xl border-gray-200" /></div>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-[110px_1fr]">
+              <div>
+                <Label htmlFor="phoneCountryCode" className="mb-1.5 block text-sm font-medium text-gray-700">Country code</Label>
+                <CountryCodeSelect
+                  id="phoneCountryCode"
+                  value={phoneCountryCode}
+                  onChange={(code) => setPhoneCountryCode(code)}
+                  disabled={loading}
+                  className="rounded-xl border-gray-200"
+                />
+              </div>
+              <div>
+                <Label htmlFor="phone" className="mb-1.5 block text-sm font-medium text-gray-700">Phone</Label>
+                <Input id="phone" type="tel" inputMode="numeric" placeholder="e.g. 088994462 or 88994462" value={phone} onChange={(e) => setPhone(e.target.value.replace(/[^0-9\s\-()]/g, ""))} pattern="^[0-9\s\-()]+$" title="Phone number must contain only numbers." required disabled={loading} className="rounded-xl border-gray-200" />
+              </div>
             </div>
             <div><Label htmlFor="password" className="mb-1.5 block text-sm font-medium text-gray-700">Password</Label><div className="relative"><Input id="password" type={showPassword ? "text" : "password"} placeholder="**********" value={password} onChange={(e) => setPassword(e.target.value)} required disabled={loading} className="rounded-xl border-gray-200 pr-10" /><button type="button" tabIndex={-1} onClick={() => setShowPassword((p) => !p)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" aria-label={showPassword ? "Hide password" : "Show password"}>{showPassword ? <EyeOff size={18} /> : <Eye size={18} />}</button></div></div>
             <div><Label htmlFor="confirmPassword" className="mb-1.5 block text-sm font-medium text-gray-700">Confirm Password</Label><div className="relative"><Input id="confirmPassword" type={showConfirmPassword ? "text" : "password"} placeholder="**********" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required disabled={loading} className="rounded-xl border-gray-200 pr-10" /><button type="button" tabIndex={-1} onClick={() => setShowConfirmPassword((p) => !p)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" aria-label={showConfirmPassword ? "Hide password" : "Show password"}>{showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}</button></div></div>

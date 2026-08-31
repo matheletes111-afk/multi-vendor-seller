@@ -10,6 +10,7 @@ import { Button } from "@/ui/button"
 import { Input } from "@/ui/input"
 import { Label } from "@/ui/label"
 import { Alert, AlertDescription } from "@/ui/alert"
+import { CountryCodeSelect } from "@/ui/country-code-select"
 import { getCartFromStorage, setCartInStorage } from "@/app/cart/cart-types"
 
 type PhoneOtpLoginConfig = {
@@ -21,12 +22,14 @@ type PhoneOtpLoginConfig = {
   requestPath: string
   verifyPath: string
   defaultCallbackUrl: string
+  registrationPath?: string
 }
 
 export function PhoneOtpLoginRequestForm({ config }: { config: PhoneOtpLoginConfig }) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const callbackUrl = searchParams.get("callbackUrl") || config.defaultCallbackUrl
+  const [countryCode, setCountryCode] = useState("+232")
   const [phone, setPhone] = useState("")
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
@@ -34,19 +37,37 @@ export function PhoneOtpLoginRequestForm({ config }: { config: PhoneOtpLoginConf
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
+    const rawPhone = phone.trim()
+    if (!rawPhone) {
+      setError("Please enter your phone number.")
+      return
+    }
+
+    let fullPhoneNumber = rawPhone
+    if (!rawPhone.startsWith("+")) {
+      const digits = rawPhone.replace(/\D/g, "")
+      const noLeadingZero = digits.replace(/^0+/, "")
+      const ccDigits = countryCode.replace(/\D/g, "")
+      if (noLeadingZero.startsWith(ccDigits)) {
+        fullPhoneNumber = `+${noLeadingZero}`
+      } else {
+        fullPhoneNumber = `${countryCode}${noLeadingZero}`
+      }
+    }
+
     setLoading(true)
     try {
       const res = await fetch(config.sendOtpApi, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone: phone.trim() }),
+        body: JSON.stringify({ phone: fullPhoneNumber }),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
         setError(data.error || "Failed to send OTP.")
         return
       }
-      const q = new URLSearchParams({ phone: phone.trim(), callbackUrl })
+      const q = new URLSearchParams({ phone: fullPhoneNumber, callbackUrl })
       router.push(`${config.verifyPath}?${q.toString()}`)
     } catch {
       setError("Something went wrong. Please try again.")
@@ -65,7 +86,7 @@ export function PhoneOtpLoginRequestForm({ config }: { config: PhoneOtpLoginConf
         </div>
         <div className="mb-6 sm:mb-8">
           <h1 className="text-left text-xl font-semibold text-gray-900 sm:text-2xl">{config.panelTitle} Phone OTP Login</h1>
-          <p className="mt-1 text-left text-sm text-gray-500">Enter your mobile number with country code to receive OTP.</p>
+          <p className="mt-1 text-left text-sm text-gray-500">Select your country code and enter your mobile number to receive OTP.</p>
         </div>
         <form onSubmit={handleSendOtp}>
           {error && (
@@ -75,9 +96,30 @@ export function PhoneOtpLoginRequestForm({ config }: { config: PhoneOtpLoginConf
             </Alert>
           )}
           <div className="space-y-5">
-            <div>
-              <Label htmlFor="phone" className="mb-1.5 block text-sm font-medium text-gray-700">Phone Number</Label>
-              <Input id="phone" type="tel" placeholder="+919876543210" value={phone} onChange={(e) => setPhone(e.target.value)} required disabled={loading} className="rounded-xl border-gray-200" />
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-[115px_1fr]">
+              <div>
+                <Label htmlFor="countryCode" className="mb-1.5 block text-sm font-medium text-gray-700">Country code</Label>
+                <CountryCodeSelect
+                  id="countryCode"
+                  value={countryCode}
+                  onChange={(code) => setCountryCode(code)}
+                  disabled={loading}
+                  className="rounded-xl border-gray-200"
+                />
+              </div>
+              <div>
+                <Label htmlFor="phone" className="mb-1.5 block text-sm font-medium text-gray-700">Phone Number</Label>
+                <Input
+                  id="phone"
+                  type="tel"
+                  placeholder="e.g. 76 123456 or 9876543210"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  required
+                  disabled={loading}
+                  className="rounded-xl border-gray-200"
+                />
+              </div>
             </div>
             <div className="text-center">
               <Button type="submit" disabled={loading} className="mx-auto w-full rounded-full sm:max-w-[240px]">
@@ -86,11 +128,21 @@ export function PhoneOtpLoginRequestForm({ config }: { config: PhoneOtpLoginConf
               </Button>
             </div>
           </div>
-          <p className="mt-6 text-center text-sm text-gray-600">
-            <Link href={`${config.loginPath}${callbackUrl ? `?callbackUrl=${encodeURIComponent(callbackUrl)}` : ""}`} className="font-medium text-blue-600 hover:underline">
-              Back to password login
-            </Link>
-          </p>
+          <div className="mt-6 space-y-2 text-center text-sm text-gray-600">
+            <p>
+              <Link href={`${config.loginPath}${callbackUrl ? `?callbackUrl=${encodeURIComponent(callbackUrl)}` : ""}`} className="font-medium text-blue-600 hover:underline">
+                Back to password login
+              </Link>
+            </p>
+            {config.registrationPath && (
+              <p className="text-xs text-gray-500 pt-2 border-t border-gray-100">
+                Don't have an account?{" "}
+                <Link href={config.registrationPath} className="font-bold text-blue-600 hover:underline">
+                  Register here
+                </Link>
+              </p>
+            )}
+          </div>
         </form>
       </div>
     </div>

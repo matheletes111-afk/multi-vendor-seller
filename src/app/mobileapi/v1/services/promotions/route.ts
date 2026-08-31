@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
         const badgeText = discountPercentage > 0
           ? `${discountPercentage}% OFF`
           : maxPriceFilter
-          ? `UNDER AED ${Math.round(maxPriceFilter)}`
+          ? `UNDER NLe ${Math.round(maxPriceFilter)}`
           : "SPECIAL DEAL"
 
         return {

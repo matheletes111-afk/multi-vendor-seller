@@ -19,6 +19,7 @@ import { LegalPolicyTabContent } from "@/components/legal/legal-policy-tab-conte
 import { DeleteAccountTabContent } from "@/components/account/delete-account-tab-content"
 import { cn } from "@/lib/utils"
 import { validatePhoneAndCountryCode } from "@/lib/phone-validation"
+import { CountryCodeSelect } from "@/ui/country-code-select"
 
 export function ServiceSettingsClient() {
   const router = useRouter()
@@ -330,10 +331,16 @@ export function ServiceSettingsClient() {
                   <div className="space-y-2"><Label>Email</Label><Input value={seller.user.email} disabled className="bg-muted" /></div>
                   <div className="space-y-2"><Label>Provider Name</Label><Input name="name" defaultValue={seller.user.name || ""} /></div>
                </div>
-               <div className="grid md:grid-cols-2 gap-4">
-                  <div className="space-y-2"><Label>Country Code</Label><Input name="phoneCountryCode" defaultValue={seller.user.phoneCountryCode || ""} /></div>
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Country Code</Label>
+                    <CountryCodeSelect
+                      name="phoneCountryCode"
+                      defaultValue={seller.user.phoneCountryCode || "+232"}
+                    />
+                  </div>
                   <div className="space-y-2"><Label>Phone Number</Label><Input name="phone" defaultValue={seller.user.phone || ""} /></div>
-               </div>
+                </div>
                <div className="grid md:grid-cols-1 gap-4">
                   <div className="space-y-2">
                     <Label className="text-emerald-800 font-semibold">National Identity Number (NIN) *</Label>

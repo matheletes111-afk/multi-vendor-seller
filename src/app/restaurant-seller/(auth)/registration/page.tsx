@@ -14,6 +14,7 @@ import { AlertCircle, Eye, EyeOff } from "lucide-react"
 
 import { validatePhoneAndCountryCode } from "@/lib/phone-validation"
 import { validatePassword } from "@/lib/password-validation"
+import { CountryCodeSelect } from "@/ui/country-code-select"
 
 export default function RestaurantSellerRegistrationPage() {
   const router = useRouter()
@@ -108,10 +109,16 @@ export default function RestaurantSellerRegistrationPage() {
             <Input id="email" name="email" type="email" placeholder="john@restaurant.com" required className="rounded-xl" />
           </div>
 
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_2fr]">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-[110px_1fr]">
             <div className="space-y-2">
               <Label htmlFor="phoneCountryCode">Country Code</Label>
-              <Input id="phoneCountryCode" name="phoneCountryCode" type="tel" placeholder="+1" defaultValue="+91" pattern="^\+?[0-9]+$" title="Country code must contain only numbers (optionally starting with +)." required className="rounded-xl" />
+              <CountryCodeSelect
+                id="phoneCountryCode"
+                name="phoneCountryCode"
+                defaultValue="+232"
+                required
+                className="rounded-xl"
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="phone">Phone Number</Label>

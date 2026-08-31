@@ -65,7 +65,7 @@ export async function GET(request: NextRequest) {
         logo: h.logo || null,
         starting_price_per_night: startingPrice,
         price_per_night: startingPrice,
-        currency: "AED",
+        currency: "NLe",
         rating,
         averageRating: rating,
         review_count: h.reviews.length,

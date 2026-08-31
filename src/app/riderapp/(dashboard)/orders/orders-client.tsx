@@ -19,7 +19,7 @@ import {
 } from "lucide-react"
 import { Button } from "@/ui/button"
 import { Badge } from "@/ui/badge"
-import { cn } from "@/lib/utils"
+import { cn, formatCurrency } from "@/lib/utils"
 
 export function RiderOrdersClient() {
   const [tab, setTab] = useState<"active" | "offered" | "completed" | "all">("active")
@@ -289,7 +289,7 @@ export function RiderOrdersClient() {
                   <div className="flex items-center gap-2">
                     <span className="text-muted-foreground">Delivery Earning:</span>
                     <span className="font-bold text-emerald-600 dark:text-emerald-400">
-                      Le {Number(order?.shipping || order?.items?.reduce((s: number, i: any) => s + (i.shippingAmount || 0), 0) || 0).toLocaleString()}
+                      {formatCurrency(Number((assignment as any).earningForThisDelivery || order?.items?.reduce((s: number, i: any) => s + (i.shippingAmount || 0), 0) || order?.shipping || 0))}
                     </span>
                   </div>
                 </div>

@@ -13,6 +13,8 @@ export function RiderResetPasswordClient() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const email = (searchParams.get("email") || "").trim()
+  const phone = (searchParams.get("phone") || "").trim()
+  const identifier = email || phone
 
   const [otp, setOtp] = useState("")
   const [newPassword, setNewPassword] = useState("")
@@ -28,13 +30,13 @@ export function RiderResetPasswordClient() {
     setError(null)
     setSuccessMsg(null)
 
-    if (!email) {
-      setError("Email is missing. Please request a new OTP.")
+    if (!identifier) {
+      setError("Email or phone number is missing. Please request a new OTP.")
       return
     }
 
     if (otp.length !== 6) {
-      setError("Please enter the 6-digit OTP code sent to your email.")
+      setError("Please enter the 6-digit OTP code sent to your email or phone.")
       return
     }
 
@@ -55,7 +57,8 @@ export function RiderResetPasswordClient() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          email: email.toLowerCase(),
+          email: email ? email.toLowerCase() : undefined,
+          phone: phone || undefined,
           otp,
           newPassword,
         }),
@@ -78,7 +81,7 @@ export function RiderResetPasswordClient() {
   }
 
   const handleResendOtp = async () => {
-    if (!email || resending || loading) return
+    if (!identifier || resending || loading) return
     setError(null)
     setSuccessMsg(null)
     setResending(true)
@@ -87,7 +90,10 @@ export function RiderResetPasswordClient() {
       const res = await fetch("/api/riderapp/auth/forgot-password/send-otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.toLowerCase() }),
+        body: JSON.stringify({
+          email: email ? email.toLowerCase() : undefined,
+          phone: phone || undefined,
+        }),
       })
 
       const data = await res.json()
@@ -95,7 +101,7 @@ export function RiderResetPasswordClient() {
         throw new Error(data.error || "Failed to resend OTP.")
       }
 
-      setSuccessMsg(data.message || "New OTP code sent to your email.")
+      setSuccessMsg(data.message || "New OTP code sent.")
     } catch (err: any) {
       setError(err.message || "Failed to resend OTP.")
     } finally {
@@ -103,14 +109,14 @@ export function RiderResetPasswordClient() {
     }
   }
 
-  if (!email) {
+  if (!identifier) {
     return (
       <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8">
         <div className="sm:mx-auto sm:w-full sm:max-w-md text-center bg-white dark:bg-slate-900 p-8 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
           <AlertCircle className="w-10 h-10 text-amber-500 mx-auto" />
-          <h3 className="text-base font-bold text-slate-900 dark:text-white">Email Address Required</h3>
+          <h3 className="text-base font-bold text-slate-900 dark:text-white">Account Identification Required</h3>
           <p className="text-xs text-slate-600 dark:text-slate-400">
-            Please initiate password recovery by entering your email address first.
+            Please initiate password recovery by entering your email or phone number first.
           </p>
           <Link href="/riderapp/forgot-password">
             <Button className="w-full rounded-xl text-xs bg-blue-600 hover:bg-blue-700 text-white">
@@ -146,7 +152,7 @@ export function RiderResetPasswordClient() {
             Create new password
           </h2>
           <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">
-            Enter the 6-digit code sent to <span className="font-semibold text-foreground">{email}</span> and your new password.
+            Enter the 6-digit code sent to <span className="font-semibold text-foreground">{identifier}</span> and your new password.
           </p>
         </div>
       </div>

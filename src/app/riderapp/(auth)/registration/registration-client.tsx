@@ -7,6 +7,7 @@ import { Bike, Mail, Lock, User, Phone, ArrowRight, AlertCircle, RefreshCw, Chec
 import { Input } from "@/ui/input"
 import { Button } from "@/ui/button"
 import { Label } from "@/ui/label"
+import { CountryCodeSelect } from "@/ui/country-code-select"
 
 export function RiderRegistrationClient() {
   const [name, setName] = useState("")
@@ -178,22 +179,19 @@ export function RiderRegistrationClient() {
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-2">
-              <div className="col-span-1 space-y-1.5">
+            <div className="grid grid-cols-[105px_1fr] gap-2">
+              <div className="space-y-1.5">
                 <Label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
                   Code *
                 </Label>
-                <Input
-                  type="text"
+                <CountryCodeSelect
                   value={phoneCountryCode}
-                  onChange={(e) => setPhoneCountryCode(e.target.value)}
-                  placeholder="+232"
-                  required
+                  onChange={(code) => setPhoneCountryCode(code)}
                   disabled={loading}
                   className="h-11 rounded-xl text-xs bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700"
                 />
               </div>
-              <div className="col-span-2 space-y-1.5">
+              <div className="space-y-1.5">
                 <Label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
                   Mobile Number *
                 </Label>

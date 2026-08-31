@@ -89,8 +89,15 @@ export async function GET(request: NextRequest) {
       const filteredItems = a.order.items.filter(
         (item) => !a.sellerId || item.sellerId === a.sellerId
       )
+      const itemsShippingSum = filteredItems.reduce(
+        (sum, item) => sum + (Number(item.shippingAmount) || 0),
+        0
+      )
+      const earningForThisDelivery = itemsShippingSum > 0 ? itemsShippingSum : Number(a.order?.shipping || 0)
+
       return {
         ...a,
+        earningForThisDelivery,
         order: {
           ...a.order,
           seller: a.seller || a.order.seller,

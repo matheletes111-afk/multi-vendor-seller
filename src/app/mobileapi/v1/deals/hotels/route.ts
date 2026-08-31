@@ -69,7 +69,7 @@ export async function GET(request: NextRequest) {
           discount_percentage: discountPercentage,
           discount_badge: `${discountPercentage}% OFF`,
           deal_ends_at: dealEndsAt,
-          currency: "AED",
+          currency: "NLe",
           rating,
           averageRating: rating,
           review_count: h.reviews.length,

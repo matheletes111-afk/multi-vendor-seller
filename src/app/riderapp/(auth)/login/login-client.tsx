@@ -5,7 +5,7 @@ import Link from "next/link"
 import Image from "next/image"
 import { useRouter, useSearchParams } from "next/navigation"
 import { signIn } from "next-auth/react"
-import { Bike, Mail, Lock, ArrowRight, AlertCircle, RefreshCw, CheckCircle2 } from "lucide-react"
+import { Bike, Mail, Lock, Phone, ArrowRight, AlertCircle, RefreshCw, CheckCircle2 } from "lucide-react"
 import { Input } from "@/ui/input"
 import { Button } from "@/ui/button"
 import { Label } from "@/ui/label"
@@ -173,21 +173,43 @@ export function RiderLoginClient() {
                 </>
               ) : (
                 <>
-                  Sign In to Rider Portal
+                  Sign In with Password
                   <ArrowRight className="w-4 h-4" />
                 </>
               )}
             </Button>
           </form>
 
+          <div className="relative my-2">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-slate-200 dark:border-slate-800" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-white dark:bg-slate-900 px-2 text-slate-500 text-[11px] font-semibold">
+                Or sign in with
+              </span>
+            </div>
+          </div>
+
+          <Link href="/riderapp/login/phone-otp" className="block">
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full h-11 rounded-xl border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/60 font-semibold text-xs transition-all flex items-center justify-center gap-2"
+            >
+              <Phone className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+              Sign In via Mobile SMS OTP
+            </Button>
+          </Link>
+
           <div className="pt-4 border-t border-slate-200 dark:border-slate-800 text-center space-y-2">
             <p className="text-xs text-slate-600 dark:text-slate-400">
-              Want to deliver with MEEEM?{" "}
+              Want to earn with MEEEM?{" "}
               <Link
                 href="/riderapp/registration"
                 className="font-bold text-blue-600 hover:text-blue-700 hover:underline"
               >
-                Register as a Rider
+                Register as a Delivery Rider
               </Link>
             </p>
           </div>

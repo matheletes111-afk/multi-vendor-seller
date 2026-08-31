@@ -281,101 +281,158 @@ export async function handleRiderAcceptAssignment(
   assignmentId: string,
   riderId: string
 ) {
-  const assignment = await prisma.riderDeliveryAssignment.findUnique({
-    where: { id: assignmentId },
-    include: {
-      seller: {
+  try {
+    const txResult = await prisma.$transaction(async (tx) => {
+      const assignment = await tx.riderDeliveryAssignment.findUnique({
+        where: { id: assignmentId },
         include: {
-          businessInfo: true,
-          store: true,
-          user: true,
+          seller: {
+            include: {
+              businessInfo: true,
+              store: true,
+              user: true,
+            },
+          },
+          order: {
+            include: {
+              seller: { include: { businessInfo: true, store: true, user: true } },
+              customer: true,
+            },
+          },
+          rider: { include: { user: true } },
         },
-      },
-      order: {
-        include: {
-          seller: { include: { businessInfo: true, store: true, user: true } },
-          customer: true,
+      })
+
+      if (!assignment) {
+        return { success: false, error: "Assignment not found" }
+      }
+
+      if (assignment.riderId !== riderId) {
+        return { success: false, error: "Unauthorized assignment" }
+      }
+
+      if (assignment.status !== DeliveryAssignmentStatus.OFFERED) {
+        return {
+          success: false,
+          error: `Assignment is no longer available (Status: ${assignment.status})`,
+        }
+      }
+
+      // Check 60-second offer timeout
+      if (assignment.expiresAt && assignment.expiresAt < new Date()) {
+        await tx.riderDeliveryAssignment.update({
+          where: { id: assignmentId },
+          data: { status: DeliveryAssignmentStatus.TIMED_OUT },
+        })
+        return {
+          success: false,
+          error: "Offer expired (60s limit reached)",
+          isExpired: true,
+          orderId: assignment.orderId,
+          sellerId: assignment.sellerId,
+        }
+      }
+
+      // Concurrency Guard: Check if another rider already claimed/accepted this seller package
+      const alreadyClaimed = await tx.riderDeliveryAssignment.findFirst({
+        where: {
+          orderId: assignment.orderId,
+          sellerId: assignment.sellerId,
+          status: {
+            in: [
+              DeliveryAssignmentStatus.ACCEPTED,
+              DeliveryAssignmentStatus.AT_PICKUP,
+              DeliveryAssignmentStatus.PICKED_UP,
+              DeliveryAssignmentStatus.OUT_FOR_DELIVERY,
+              DeliveryAssignmentStatus.DELIVERED,
+            ],
+          },
+          id: { not: assignmentId },
         },
-      },
-      rider: { include: { user: true } },
-    },
-  })
+      })
 
-  if (!assignment) {
-    return { success: false, message: "Assignment not found" }
-  }
+      if (alreadyClaimed) {
+        await tx.riderDeliveryAssignment.update({
+          where: { id: assignmentId },
+          data: { status: DeliveryAssignmentStatus.TIMED_OUT },
+        })
+        return {
+          success: false,
+          error: "This delivery order has already been accepted by another rider.",
+        }
+      }
 
-  if (assignment.riderId !== riderId) {
-    return { success: false, message: "Unauthorized assignment" }
-  }
+      // Generate 6-digit Customer Delivery OTP
+      const deliveryOtp = Math.floor(100000 + Math.random() * 900000).toString()
 
-  if (assignment.status !== DeliveryAssignmentStatus.OFFERED) {
-    return {
-      success: false,
-      message: `Assignment is no longer available (Status: ${assignment.status})`,
+      const updatedAssignment = await tx.riderDeliveryAssignment.update({
+        where: { id: assignmentId },
+        data: {
+          status: DeliveryAssignmentStatus.ACCEPTED,
+          acceptedAt: new Date(),
+          deliveryOtp,
+        },
+      })
+
+      // Invalidate all other lingering OFFERED assignments for this specific seller package
+      await tx.riderDeliveryAssignment.updateMany({
+        where: {
+          orderId: assignment.orderId,
+          sellerId: assignment.sellerId,
+          id: { not: assignmentId },
+          status: DeliveryAssignmentStatus.OFFERED,
+        },
+        data: { status: DeliveryAssignmentStatus.TIMED_OUT },
+      })
+
+      // Sync order status to PROCESSING if currently PENDING or CONFIRMED
+      if (assignment.order.status === OrderStatus.PENDING || assignment.order.status === OrderStatus.CONFIRMED) {
+        await tx.order.update({
+          where: { id: assignment.orderId },
+          data: { status: OrderStatus.PROCESSING },
+        })
+      }
+
+      return {
+        success: true,
+        assignment: updatedAssignment,
+        deliveryOtp,
+        order: assignment.order,
+        seller: assignment.seller,
+        rider: assignment.rider,
+      }
+    })
+
+    if (!txResult.success) {
+      if ((txResult as any).isExpired) {
+        triggerOrderAutoDispatch((txResult as any).orderId, (txResult as any).sellerId || undefined)
+      }
+      return { success: false, message: (txResult as any).error }
     }
-  }
 
-  if (assignment.expiresAt && assignment.expiresAt < new Date()) {
-    // Mark as TIMED_OUT and cascade for this seller package specifically
-    await prisma.riderDeliveryAssignment.update({
-      where: { id: assignmentId },
-      data: { status: DeliveryAssignmentStatus.TIMED_OUT },
-    })
-    triggerOrderAutoDispatch(assignment.orderId, assignment.sellerId || undefined)
-    return { success: false, message: "Offer expired (60s limit reached)" }
-  }
+    // Notify seller via email that rider has accepted pickup (outside transaction)
+    const targetSellerUser = txResult.seller?.user || txResult.order?.seller?.user
+    if (targetSellerUser?.email) {
+      const riderName = txResult.rider?.user?.name || "A delivery rider"
+      sendEmail({
+        to: targetSellerUser.email,
+        subject: `Rider Assigned for Order #${txResult.order?.orderNumber}`,
+        text: `Rider ${riderName} has accepted delivery for Order #${txResult.order?.orderNumber} and is heading to your store.`,
+      }).catch(() => null)
+    }
 
-  // Generate 6-digit Customer Delivery OTP
-  const deliveryOtp = Math.floor(100000 + Math.random() * 900000).toString()
+    console.log(
+      `[Dispatch] Rider ${txResult.rider?.user?.name} ACCEPTED delivery for Order #${txResult.order?.orderNumber}`
+    )
 
-  const updatedAssignment = await prisma.riderDeliveryAssignment.update({
-    where: { id: assignmentId },
-    data: {
-      status: DeliveryAssignmentStatus.ACCEPTED,
-      acceptedAt: new Date(),
-      deliveryOtp,
-    },
-  })
-
-  // Cancel any other lingering OFFERED assignments for this specific seller package
-  await prisma.riderDeliveryAssignment.updateMany({
-    where: {
-      orderId: assignment.orderId,
-      sellerId: assignment.sellerId,
-      id: { not: assignmentId },
-      status: DeliveryAssignmentStatus.OFFERED,
-    },
-    data: { status: DeliveryAssignmentStatus.TIMED_OUT },
-  })
-
-  // Sync order status if needed
-  if (assignment.order.status === OrderStatus.PENDING || assignment.order.status === OrderStatus.CONFIRMED) {
-    await prisma.order.update({
-      where: { id: assignment.orderId },
-      data: { status: OrderStatus.PROCESSING },
-    })
-  }
-
-  // Notify seller via email that rider has accepted pickup
-  const targetSellerUser = assignment.seller?.user || assignment.order.seller?.user
-  if (targetSellerUser?.email) {
-    const riderName = assignment.rider.user?.name || "A delivery rider"
-    sendEmail({
-      to: targetSellerUser.email,
-      subject: `Rider Assigned for Order #${assignment.order.orderNumber}`,
-      text: `Rider ${riderName} has accepted delivery for Order #${assignment.order.orderNumber} and is heading to your store.`,
-    }).catch(() => null)
-  }
-
-  console.log(
-    `[Dispatch] Rider ${assignment.rider.user?.name} ACCEPTED delivery for Order #${assignment.order.orderNumber}`
-  )
-
-  return {
-    success: true,
-    assignment: updatedAssignment,
-    deliveryOtp,
+    return {
+      success: true,
+      assignment: txResult.assignment,
+      deliveryOtp: txResult.deliveryOtp,
+    }
+  } catch (error: any) {
+    console.error("[Dispatch] Concurrency error in handleRiderAcceptAssignment:", error)
+    return { success: false, message: error?.message || "Failed to accept assignment" }
   }
 }
 
@@ -451,7 +508,9 @@ export async function handleRiderStatusUpdate(
 
   const currentStatus = assignment.status
 
-  const itemFilter = assignment.sellerId
+  const itemFilter = assignment.orderItemId
+    ? { id: assignment.orderItemId }
+    : assignment.sellerId
     ? { orderId: assignment.orderId, sellerId: assignment.sellerId, productId: { not: null } }
     : { orderId: assignment.orderId, productId: { not: null } }
 

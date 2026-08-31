@@ -3,7 +3,8 @@ import { NextResponse } from "next/server"
 import { UserRole } from "@prisma/client"
 import { prisma } from "@/lib/prisma"
 import { sendPasswordResetOtpEmail } from "@/lib/email"
-import { getAppBaseUrl, sendPasswordResetSms } from "@/lib/twilio-sms"
+import { getAppBaseUrl, sendPasswordResetSms, isValidE164, normalizePhoneNumber } from "@/lib/twilio-sms"
+import { getCandidateCountryCodePhonePairs } from "@/lib/phone-otp-lookup"
 
 const OTP_EXPIRY_MS = 10 * 60 * 1000
 const COOLDOWN_MS = 60 * 1000
@@ -12,15 +13,38 @@ export async function POST(request: Request) {
   try {
     const body = await request.json().catch(() => ({}))
     const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : ""
+    const phoneInput = typeof body.phone === "string" ? body.phone.trim() : ""
+    const normalizedPhone = phoneInput ? normalizePhoneNumber(phoneInput) : ""
 
-    if (!email) {
-      return NextResponse.json({ success: false, error: "Email is required." }, { status: 400 })
+    if (!email && !normalizedPhone) {
+      return NextResponse.json({ success: false, error: "Email or phone number is required." }, { status: 400 })
+    }
+
+    const whereOr: any[] = []
+    if (email) {
+      whereOr.push({ email })
+    }
+    if (normalizedPhone) {
+      const phoneDigits = normalizedPhone.replace(/^\+/, "")
+      const splitPairs = getCandidateCountryCodePhonePairs(normalizedPhone)
+      whereOr.push(
+        { phone: normalizedPhone },
+        { phone: phoneDigits },
+        ...splitPairs.map((pair) => ({
+          phoneCountryCode: pair.countryCode,
+          phone: pair.phone,
+        }))
+      )
     }
 
     const user = await prisma.user.findFirst({
-      where: { email, role: UserRole.RIDER },
+      where: {
+        role: UserRole.RIDER,
+        OR: whereOr,
+      },
       select: {
         id: true,
+        email: true,
         name: true,
         phone: true,
         phoneCountryCode: true,
@@ -40,8 +64,8 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           success: true,
-          message: "If an active rider account exists for this email, a reset OTP has been sent.",
-          data: { email, expiresIn: OTP_EXPIRY_MS / 1000 },
+          message: "If an active rider account exists, a reset OTP has been sent.",
+          data: { email: email || user?.email || "", expiresIn: OTP_EXPIRY_MS / 1000 },
         },
         { status: 200 }
       )

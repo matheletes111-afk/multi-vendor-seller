@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { formatCurrency } from "@/lib/utils"
 
 /**
  * GET /mobileapi/seller/coupons/available
@@ -40,7 +41,7 @@ export async function GET(request: NextRequest) {
       const discountLabel =
         coupon.discountType === "PERCENTAGE"
           ? `${coupon.discountValue}% OFF`
-          : `NLe ${coupon.discountValue.toFixed(2)} OFF`
+          : `${formatCurrency(coupon.discountValue)} OFF`
 
       const expiryFormatted = new Date(coupon.endDate).toLocaleDateString("en-US", {
         month: "short",

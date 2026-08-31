@@ -1,4 +1,5 @@
 import sgMail from "@sendgrid/mail"
+import { formatCurrency } from "@/lib/utils"
 
 export async function sendEmail({
   to,
@@ -253,8 +254,8 @@ export async function sendOrderConfirmationEmail({
       (item) => `
       <tr>
         <td style="padding: 10px; border-bottom: 1px solid #eee;">${item.name} (x${item.quantity})</td>
-        <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: right;">$${item.price.toFixed(2)}</td>
-        <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: right;">$${item.subtotal.toFixed(2)}</td>
+        <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: right;">${formatCurrency(item.price)}</td>
+        <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: right;">${formatCurrency(item.subtotal)}</td>
       </tr>
     `
     )
@@ -282,10 +283,10 @@ export async function sendOrderConfirmationEmail({
         </table>
 
         <div style="text-align: right; margin-top: 15px; color: #555;">
-          <p style="margin: 5px 0;">Subtotal: <strong>$${subtotal.toFixed(2)}</strong></p>
-          <p style="margin: 5px 0;">GST/Tax: <strong>$${tax.toFixed(2)}</strong></p>
-          <p style="margin: 5px 0;">Shipping: <strong>$${shipping.toFixed(2)}</strong></p>
-          <h3 style="margin: 10px 0; color: #007bff;">Total: $${totalAmount.toFixed(2)}</h3>
+          <p style="margin: 5px 0;">Subtotal: <strong>${formatCurrency(subtotal)}</strong></p>
+          <p style="margin: 5px 0;">GST/Tax: <strong>${formatCurrency(tax)}</strong></p>
+          <p style="margin: 5px 0;">Shipping: <strong>${formatCurrency(shipping)}</strong></p>
+          <h3 style="margin: 10px 0; color: #007bff;">Total: ${formatCurrency(totalAmount)}</h3>
         </div>
 
         <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #dee2e6;">
@@ -324,7 +325,7 @@ export async function sendSellerNewOrderEmail({
       (item) => `
       <tr>
         <td style="padding: 10px; border-bottom: 1px solid #eee;">${item.name} (x${item.quantity})</td>
-        <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: right;">$${item.subtotal.toFixed(2)}</td>
+        <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: right;">${formatCurrency(item.subtotal)}</td>
       </tr>
     `
     )
@@ -385,7 +386,7 @@ export async function sendAdminNewOrderEmail({
       <tr>
         <td style="padding: 10px; border-bottom: 1px solid #eee;">${item.name} (x${item.quantity})</td>
         <td style="padding: 10px; border-bottom: 1px solid #eee;">${item.sellerStoreName}</td>
-        <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: right;">$${item.subtotal.toFixed(2)}</td>
+        <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: right;">${formatCurrency(item.subtotal)}</td>
       </tr>
     `
     )
@@ -413,8 +414,8 @@ export async function sendAdminNewOrderEmail({
         </table>
 
         <div style="text-align: right; margin-top: 15px; color: #555;">
-          <p style="margin: 5px 0;">Total Amount: <strong>$${totalAmount.toFixed(2)}</strong></p>
-          <p style="margin: 5px 0; color: #28a745;">Commission Earned: <strong>$${commissionAmount.toFixed(2)}</strong></p>
+          <p style="margin: 5px 0;">Total Amount: <strong>${formatCurrency(totalAmount)}</strong></p>
+          <p style="margin: 5px 0; color: #28a745;">Commission Earned: <strong>${formatCurrency(commissionAmount)}</strong></p>
         </div>
       </div>
     </div>
@@ -478,8 +479,8 @@ export async function sendFoodOrderConfirmationEmail({
       (item) => `
       <tr>
         <td style="padding: 10px; border-bottom: 1px solid #eee;">${item.name} (x${item.quantity})</td>
-        <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: right;">$${item.price.toFixed(2)}</td>
-        <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: right;">$${item.subtotal.toFixed(2)}</td>
+        <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: right;">${formatCurrency(item.price)}</td>
+        <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: right;">${formatCurrency(item.subtotal)}</td>
       </tr>
     `
     )
@@ -507,7 +508,7 @@ export async function sendFoodOrderConfirmationEmail({
         </table>
 
         <div style="text-align: right; margin-top: 15px; color: #555;">
-          <h3 style="margin: 10px 0; color: #007bff;">Total paid: $${totalAmount.toFixed(2)}</h3>
+          <h3 style="margin: 10px 0; color: #007bff;">Total paid: ${formatCurrency(totalAmount)}</h3>
         </div>
 
         <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #dee2e6;">
@@ -651,7 +652,7 @@ export async function sendHotelBookingConfirmationEmail({
           <p style="margin: 5px 0; color: #555;"><strong>Check-in:</strong> ${checkInDate}</p>
           <p style="margin: 5px 0; color: #555;"><strong>Check-out:</strong> ${checkOutDate}</p>
           <p style="margin: 5px 0; color: #555;"><strong>Guest:</strong> ${guestName} (${guestPhone})</p>
-          <h3 style="margin: 15px 0 0 0; color: #007bff;">Total Price: $${totalPrice.toFixed(2)}</h3>
+          <h3 style="margin: 15px 0 0 0; color: #007bff;">Total Price: ${formatCurrency(totalPrice)}</h3>
         </div>
       </div>
     </div>
@@ -696,7 +697,7 @@ export async function sendHotelNewBookingEmail({
           <p style="margin: 5px 0; color: #555;"><strong>Check-in:</strong> ${checkInDate}</p>
           <p style="margin: 5px 0; color: #555;"><strong>Check-out:</strong> ${checkOutDate}</p>
           <p style="margin: 5px 0; color: #555;"><strong>Guest:</strong> ${guestName} (${guestPhone})</p>
-          <h3 style="margin: 15px 0 0 0; color: #007bff;">Total Revenue: $${totalPrice.toFixed(2)}</h3>
+          <h3 style="margin: 15px 0 0 0; color: #007bff;">Total Revenue: ${formatCurrency(totalPrice)}</h3>
         </div>
       </div>
     </div>
@@ -1001,6 +1002,246 @@ export async function sendRiderVerificationEmail({
     </div>
   `
   return sendEmail({ to, subject, html })
+}
+
+// ── SELLER ONBOARDING & PENDING DOCUMENTS REMINDER EMAIL ──────────────────────
+export async function sendSellerOnboardingReminderEmail({
+  to,
+  sellerName,
+  businessName,
+  sellerType,
+  onboardingUrl,
+  missingDocuments = [],
+  missingSteps = [],
+  currentStep = 2,
+  totalSteps = 6,
+  freeMonths = 2,
+}: {
+  to: string
+  sellerName?: string | null
+  businessName?: string | null
+  sellerType?: "PRODUCT" | "SERVICE" | "HOTEL" | "RESTAURANT" | string
+  onboardingUrl: string
+  missingDocuments?: string[]
+  missingSteps?: string[]
+  currentStep?: number
+  totalSteps?: number
+  freeMonths?: number
+}) {
+  const displayName = sellerName?.trim() || businessName?.trim() || "Valued Partner"
+  const typeLabel =
+    sellerType === "HOTEL"
+      ? "Hotel & Hospitality Partner"
+      : sellerType === "RESTAURANT"
+      ? "Restaurant & Food Partner"
+      : sellerType === "SERVICE"
+      ? "Service Provider"
+      : "Product Seller"
+
+  const subject = `Action Required: Complete your onboarding for ${freeMonths} Months Free Access on MEEEM!`
+
+  // Build missing documents list HTML
+  const missingDocsHtml =
+    missingDocuments.length > 0
+      ? missingDocuments
+          .map(
+            (doc) => `
+        <li style="margin-bottom: 8px; color: #b45309; font-size: 14px; line-height: 1.5;">
+          <strong style="color: #92400e;">• ${doc}</strong>
+        </li>`
+          )
+          .join("")
+      : `
+        <li style="margin-bottom: 8px; color: #b45309; font-size: 14px; line-height: 1.5;">
+          <strong style="color: #92400e;">• Business verification documents pending review</strong>
+        </li>`
+
+  // Build missing steps HTML if available
+  const missingStepsHtml =
+    missingSteps.length > 0
+      ? `
+      <div style="margin-top: 14px; padding-top: 12px; border-top: 1px dashed #fde68a;">
+        <p style="margin: 0 0 6px 0; font-size: 13px; font-weight: 600; color: #78350f;">Pending Setup Steps:</p>
+        <ul style="margin: 0; padding-left: 18px; color: #92400e; font-size: 13px;">
+          ${missingSteps.map((s) => `<li style="margin-bottom: 4px;">${s}</li>`).join("")}
+        </ul>
+      </div>`
+      : ""
+
+  const html = `
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>${subject}</title>
+    </head>
+    <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 0; background-color: #f1f5f9; color: #1e293b;">
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color: #f1f5f9; padding: 24px 12px;">
+        <tr>
+          <td align="center">
+            <table role="presentation" width="100%" style="max-width: 600px; background-color: #ffffff; border-radius: 16px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.03);">
+              
+              <!-- HEADER -->
+              <tr>
+                <td style="background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4338ca 100%); padding: 32px 28px; text-align: center;">
+                  <div style="display: inline-block; background-color: rgba(255, 255, 255, 0.15); border-radius: 24px; padding: 6px 16px; margin-bottom: 14px; border: 1px solid rgba(255, 255, 255, 0.25);">
+                    <span style="color: #fef08a; font-size: 13px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase;">
+                      🎁 Exclusive Partner Offer • ${freeMonths} Months Free
+                    </span>
+                  </div>
+                  <h1 style="color: #ffffff; margin: 0 0 8px 0; font-size: 24px; font-weight: 800; line-height: 1.3;">
+                    Complete Your Onboarding
+                  </h1>
+                  <p style="color: #c7d2fe; margin: 0; font-size: 15px; font-weight: 500;">
+                    MEEEM Multi-Vendor Marketplace (${typeLabel})
+                  </p>
+                </td>
+              </tr>
+
+              <!-- BODY CONTENT -->
+              <tr>
+                <td style="padding: 32px 28px;">
+                  
+                  <p style="font-size: 16px; line-height: 1.6; margin: 0 0 16px 0; color: #0f172a;">
+                    Dear <strong>${displayName}</strong>,
+                  </p>
+                  
+                  <p style="font-size: 15px; line-height: 1.65; color: #334155; margin: 0 0 20px 0;">
+                    We noticed that your seller profile setup on <strong>MEEEM</strong> is currently incomplete and some mandatory verification documents are still pending.
+                  </p>
+
+                  <!-- PROMO CALLOUT BANNER -->
+                  <div style="background: linear-gradient(135deg, #ecfdf5 0%, #f0fdf4 100%); border: 1px solid #86efac; border-radius: 12px; padding: 20px; margin: 20px 0 24px 0;">
+                    <div style="display: flex; align-items: flex-start;">
+                      <div>
+                        <h3 style="margin: 0 0 8px 0; color: #166534; font-size: 17px; font-weight: 700;">
+                          🚀 Unlock ${freeMonths} Months of 100% Free Full Access!
+                        </h3>
+                        <p style="margin: 0; font-size: 14px; line-height: 1.6; color: #15803d;">
+                          Submit your remaining documents today to activate your store and get <strong>${freeMonths} months of zero platform subscription fees</strong>, nationwide catalog visibility, verified partner status, and full access to our promotional tools!
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- PENDING DOCUMENTS & CHECKLIST BOX -->
+                  <div style="background-color: #fffbeb; border: 1px solid #fde68a; border-radius: 12px; padding: 20px; margin: 24px 0;">
+                    <div style="display: flex; align-items: center; margin-bottom: 12px;">
+                      <span style="font-size: 18px; margin-right: 8px;">⚠️</span>
+                      <h4 style="margin: 0; color: #92400e; font-size: 15px; font-weight: 700;">
+                        Pending Documents & Requirements
+                      </h4>
+                    </div>
+                    <p style="margin: 0 0 12px 0; font-size: 13px; color: #78350f;">
+                      To get approved by our compliance team, please upload or complete the following items:
+                    </p>
+                    <ul style="margin: 0; padding-left: 18px;">
+                      ${missingDocsHtml}
+                    </ul>
+                    ${missingStepsHtml}
+                  </div>
+
+                  <!-- BENEFITS LIST -->
+                  <div style="margin: 28px 0 24px 0;">
+                    <h4 style="margin: 0 0 14px 0; font-size: 15px; font-weight: 700; color: #0f172a;">
+                      Why finish your onboarding on MEEEM?
+                    </h4>
+                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                      <tr>
+                        <td style="padding: 6px 0; vertical-align: top; width: 24px; color: #4338ca; font-weight: bold;">✓</td>
+                        <td style="padding: 6px 0; font-size: 14px; color: #334155; line-height: 1.5;">
+                          <strong>Zero Risk:</strong> Enjoy ${freeMonths} full months of free storefront access and feature-rich seller tools.
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 6px 0; vertical-align: top; width: 24px; color: #4338ca; font-weight: bold;">✓</td>
+                        <td style="padding: 6px 0; font-size: 14px; color: #334155; line-height: 1.5;">
+                          <strong>Fast Customer Reach:</strong> Instantly showcase your offerings to thousands of ready-to-buy shoppers.
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 6px 0; vertical-align: top; width: 24px; color: #4338ca; font-weight: bold;">✓</td>
+                        <td style="padding: 6px 0; font-size: 14px; color: #334155; line-height: 1.5;">
+                          <strong>Direct Payouts:</strong> Automated, transparent disbursements directly to your Bank or Mobile Money wallet.
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 6px 0; vertical-align: top; width: 24px; color: #4338ca; font-weight: bold;">✓</td>
+                        <td style="padding: 6px 0; font-size: 14px; color: #334155; line-height: 1.5;">
+                          <strong>Dedicated Partner Support:</strong> Comprehensive assistance from our merchant success team.
+                        </td>
+                      </tr>
+                    </table>
+                  </div>
+
+                  <!-- CTA BUTTON -->
+                  <div style="text-align: center; margin: 32px 0 28px 0;">
+                    <a href="${onboardingUrl}" 
+                       style="background: linear-gradient(135deg, #4338ca 0%, #3730a3 100%); color: #ffffff; padding: 15px 36px; text-decoration: none; border-radius: 10px; display: inline-block; font-weight: 700; font-size: 16px; letter-spacing: 0.3px; box-shadow: 0 4px 14px rgba(67, 56, 202, 0.35);">
+                      Complete Onboarding & Claim ${freeMonths} Months Free →
+                    </a>
+                  </div>
+
+                  <p style="font-size: 13px; color: #64748b; text-align: center; margin: 0 0 24px 0; line-height: 1.5;">
+                    Or paste this URL in your browser:<br/>
+                    <a href="${onboardingUrl}" style="color: #4338ca; word-break: break-all; font-size: 12px;">${onboardingUrl}</a>
+                  </p>
+
+                  <!-- SUPPORT BOX -->
+                  <div style="border-top: 1px solid #e2e8f0; padding-top: 20px; margin-top: 24px; font-size: 13px; color: #64748b; line-height: 1.6;">
+                    <p style="margin: 0 0 6px 0;">
+                      <strong>Need help uploading your documents?</strong>
+                    </p>
+                    <p style="margin: 0;">
+                      Our vendor support team is here to assist you every step of the way. Simply reply to this email or contact us at <a href="mailto:support@meeemsl.com" style="color: #4338ca; text-decoration: none; font-weight: 600;">support@meeemsl.com</a>.
+                    </p>
+                  </div>
+
+                </td>
+              </tr>
+
+              <!-- FOOTER -->
+              <tr>
+                <td style="background-color: #f8fafc; border-top: 1px solid #e2e8f0; padding: 24px 28px; text-align: center; font-size: 12px; color: #94a3b8; line-height: 1.6;">
+                  <p style="margin: 0 0 4px 0; font-weight: 600; color: #64748b;">MEEEM E-commerce & Multi-Vendor Marketplace</p>
+                  <p style="margin: 0 0 8px 0;">Empowering local businesses and merchants nationwide</p>
+                  <p style="margin: 0;">
+                    <a href="https://meeemsl.com" style="color: #64748b; text-decoration: none;">meeemsl.com</a> • <a href="mailto:support@meeemsl.com" style="color: #64748b; text-decoration: none;">support@meeemsl.com</a>
+                  </p>
+                </td>
+              </tr>
+
+            </table>
+          </td>
+        </tr>
+      </table>
+    </body>
+    </html>
+  `
+
+  const text = `
+Hi ${displayName},
+
+We noticed that your seller onboarding on MEEEM (${typeLabel}) is still incomplete.
+
+EXCLUSIVE OFFER: Complete your onboarding today to unlock ${freeMonths} MONTHS OF 100% FREE ACCESS with zero platform subscription fees!
+
+Pending Documents & Requirements to upload:
+${missingDocuments.length > 0 ? missingDocuments.map((d) => `- ${d}`).join("\n") : "- Business verification documents pending review"}
+${missingSteps.length > 0 ? `\nPending Steps:\n${missingSteps.map((s) => `- ${s}`).join("\n")}` : ""}
+
+Complete your onboarding now:
+${onboardingUrl}
+
+If you need any help, contact our support team at support@meeemsl.com.
+
+Best regards,
+MEEEM Vendor Support Team
+https://meeemsl.com
+  `.trim()
+
+  return sendEmail({ to, subject, html, text })
 }
 
 

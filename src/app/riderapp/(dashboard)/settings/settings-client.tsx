@@ -26,6 +26,7 @@ import { DocUploadPreview } from "@/app/riderapp/components/doc-upload-preview"
 import { VehicleTypeSelector } from "@/app/riderapp/components/vehicle-type-selector"
 import { ZoneLocationPicker } from "@/app/riderapp/components/zone-location-picker"
 import { validatePhoneAndCountryCode } from "@/lib/phone-validation"
+import { CountryCodeSelect } from "@/ui/country-code-select"
 
 export function RiderSettingsClient({ user: initialUser }: { user: any }) {
   const { update } = useSession()
@@ -293,17 +294,16 @@ export function RiderSettingsClient({ user: initialUser }: { user: any }) {
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-2">
-              <div className="col-span-1 space-y-1.5">
+            <div className="grid grid-cols-[105px_1fr] gap-2">
+              <div className="space-y-1.5">
                 <Label className="text-xs font-semibold">Country Code</Label>
-                <Input
-                  type="text"
+                <CountryCodeSelect
                   value={phoneCountryCode}
-                  onChange={(e) => setPhoneCountryCode(e.target.value)}
+                  onChange={(code) => setPhoneCountryCode(code)}
                   className="rounded-xl text-xs h-10"
                 />
               </div>
-              <div className="col-span-2 space-y-1.5">
+              <div className="space-y-1.5">
                 <Label className="text-xs font-semibold">Mobile Number</Label>
                 <Input
                   type="tel"

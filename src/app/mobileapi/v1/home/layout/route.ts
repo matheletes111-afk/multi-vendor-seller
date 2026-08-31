@@ -108,7 +108,7 @@ export async function GET(request: NextRequest) {
       },
       {
         type: "SERVICES_UNDER_PRICE",
-        title: "Best Service under AED 99",
+        title: "Best Service under NLe 99",
         endpoint: "/mobileapi/v1/services/promotions?max_price=99",
       },
       {

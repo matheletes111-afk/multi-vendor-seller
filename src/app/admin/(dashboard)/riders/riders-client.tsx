@@ -59,6 +59,7 @@ import { LOCATION_ZONES } from "@/lib/location-zones"
 import { ZoneLocationPicker } from "@/app/riderapp/components/zone-location-picker"
 import { VehicleTypeSelector } from "@/app/riderapp/components/vehicle-type-selector"
 import { DocUploadPreview } from "@/app/riderapp/components/doc-upload-preview"
+import { CountryCodeSelect } from "@/ui/country-code-select"
 import { cn } from "@/lib/utils"
 
 interface RiderItem {
@@ -829,19 +830,16 @@ export function RidersClient() {
               />
             </div>
 
-            <div className="grid grid-cols-3 gap-2">
-              <div className="col-span-1 space-y-1.5">
+            <div className="grid grid-cols-[105px_1fr] gap-2">
+              <div className="space-y-1.5">
                 <Label className="text-xs font-semibold">Code *</Label>
-                <Input
-                  type="text"
+                <CountryCodeSelect
                   value={createCountryCode}
-                  onChange={(e) => setCreateCountryCode(e.target.value)}
-                  placeholder="+232"
-                  required
+                  onChange={(code) => setCreateCountryCode(code)}
                   className="rounded-xl text-xs h-10"
                 />
               </div>
-              <div className="col-span-2 space-y-1.5">
+              <div className="space-y-1.5">
                 <Label className="text-xs font-semibold">Mobile Number *</Label>
                 <Input
                   type="tel"
@@ -957,17 +955,16 @@ export function RidersClient() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-3 gap-2">
-                  <div className="col-span-1 space-y-1.5">
+                <div className="grid grid-cols-[105px_1fr] gap-2">
+                  <div className="space-y-1.5">
                     <Label className="text-xs font-semibold">Country Code</Label>
-                    <Input
-                      type="text"
+                    <CountryCodeSelect
                       value={editCountryCode}
-                      onChange={(e) => setEditCountryCode(e.target.value)}
+                      onChange={(code) => setEditCountryCode(code)}
                       className="rounded-xl text-xs h-10"
                     />
                   </div>
-                  <div className="col-span-2 space-y-1.5">
+                  <div className="space-y-1.5">
                     <Label className="text-xs font-semibold">Phone Number</Label>
                     <Input
                       type="tel"

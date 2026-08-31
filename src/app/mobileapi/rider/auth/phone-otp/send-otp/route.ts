@@ -1,0 +1,123 @@
+import { randomInt } from "crypto"
+import { NextResponse } from "next/server"
+import { UserRole } from "@prisma/client"
+import { prisma } from "@/lib/prisma"
+import { getCandidateCountryCodePhonePairs } from "@/lib/phone-otp-lookup"
+import { isValidE164, normalizePhoneNumber, sendSmsViaTwilio } from "@/lib/twilio-sms"
+
+const OTP_EXPIRY_MS = 10 * 60 * 1000
+const COOLDOWN_MS = 60 * 1000
+
+/** POST /mobileapi/rider/auth/phone-otp/send-otp — Body: { phone } */
+export async function POST(request: Request) {
+  try {
+    const body = await request.json().catch(() => ({}))
+    const phoneInput = typeof body.phone === "string" ? body.phone : ""
+    const normalizedPhone = normalizePhoneNumber(phoneInput)
+
+    if (!isValidE164(normalizedPhone)) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Enter a valid phone number with country code. Example: +23276123456 or +919876543210",
+        },
+        { status: 400 }
+      )
+    }
+
+    const phoneDigits = normalizedPhone.replace(/^\+/, "")
+    const splitPairs = getCandidateCountryCodePhonePairs(normalizedPhone)
+    const user = await prisma.user.findFirst({
+      where: {
+        role: UserRole.RIDER,
+        OR: [
+          { phone: normalizedPhone },
+          { phone: phoneDigits },
+          ...splitPairs.map((pair) => ({
+            phoneCountryCode: pair.countryCode,
+            phone: pair.phone,
+          })),
+        ],
+      },
+      select: {
+        id: true,
+        name: true,
+        phone: true,
+        phoneCountryCode: true,
+        email: true,
+        isEmailVerified: true,
+        emailOtpSentAt: true,
+        rider: {
+          select: {
+            id: true,
+            isSuspended: true,
+            status: true,
+          },
+        },
+      },
+    })
+
+    if (!user) {
+      return NextResponse.json(
+        { success: false, error: "No rider account found with this phone number." },
+        { status: 404 }
+      )
+    }
+
+    if (user.rider?.isSuspended || user.rider?.status === "SUSPENDED") {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Your rider account has been suspended. Please contact support.",
+          isSuspended: true,
+          authStatus: "SUSPENDED",
+        },
+        { status: 403 }
+      )
+    }
+
+    const now = new Date()
+    if (user.emailOtpSentAt && now.getTime() - user.emailOtpSentAt.getTime() < COOLDOWN_MS) {
+      const waitSec = Math.ceil((COOLDOWN_MS - (now.getTime() - user.emailOtpSentAt.getTime())) / 1000)
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Please wait ${waitSec} seconds before requesting another OTP.`,
+        },
+        { status: 429 }
+      )
+    }
+
+    const otp = randomInt(100000, 999999).toString()
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        verifyEmailOtp: otp,
+        emailVerificationExpires: new Date(Date.now() + OTP_EXPIRY_MS),
+        emailOtpSentAt: now,
+      },
+    })
+
+    await sendSmsViaTwilio({
+      to: normalizedPhone,
+      body: `Your MEEEM Rider login OTP is ${otp}. Valid for 10 minutes. Do not share this code.`,
+    })
+
+    return NextResponse.json(
+      {
+        success: true,
+        message: "Login OTP sent to your phone.",
+        data: {
+          phone: normalizedPhone,
+          expiresIn: OTP_EXPIRY_MS / 1000,
+          resendCooldown: 60,
+        },
+      },
+      { status: 200 }
+    )
+  } catch (error) {
+    console.error("Mobile rider phone-otp send error:", error)
+    return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 })
+  }
+}
