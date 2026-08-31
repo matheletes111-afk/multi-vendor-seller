@@ -437,9 +437,31 @@ export function HomeClient() {
     return () => el.removeEventListener("scroll", onScroll);
   }, [ads.length]);
 
-  // Mobile: show up to 4 featured categories; desktop: same or first 4 of all
-  const latestCategories =
-    featuredCategories.length > 0 ? featuredCategories : categories.slice(0, 4);
+  // Mobile & Desktop: always guarantee 4 featured/top categories with complete subcategory grids
+  const latestCategories = useMemo(() => {
+    const list: Category[] = [];
+    const seenIds = new Set<string>();
+
+    for (const cat of featuredCategories) {
+      if (!seenIds.has(cat.id)) {
+        list.push(cat);
+        seenIds.add(cat.id);
+        if (list.length >= 4) break;
+      }
+    }
+
+    if (list.length < 4) {
+      for (const cat of categories) {
+        if (!seenIds.has(cat.id)) {
+          list.push(cat);
+          seenIds.add(cat.id);
+          if (list.length >= 4) break;
+        }
+      }
+    }
+
+    return list;
+  }, [featuredCategories, categories]);
 
   const serviceFirstImage = (images: unknown): string | null => {
     if (Array.isArray(images) && images.length > 0 && typeof images[0] === "string") return images[0];
@@ -552,49 +574,82 @@ export function HomeClient() {
 
             {/* Category cards — overlapping lower 30% empty background wave area of hero banner with 2-side outer gaps */}
             <section className="w-full max-w-[1440px] mx-auto px-6 sm:px-8 lg:px-12 mt-4 sm:-mt-28 md:-mt-32 lg:-mt-36 xl:-mt-40 relative z-20 pb-6 sm:pb-8 flex items-center justify-center">
-              {latestCategories.length > 0 ? (
+              {categoriesLoading ? (
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-4 w-full">
-                  {latestCategories.map((cat, catIdx) => (
-                    <Card key={cat.id} className="overflow-hidden border border-slate-200/60 bg-white p-4 sm:p-5 shadow-lg transition-shadow hover:shadow-xl rounded-none flex flex-col justify-between">
-                      <CardContent className="p-0 flex flex-col h-full justify-between">
-                        <div>
-                          <h3 className="mb-3 font-extrabold text-slate-900 text-lg sm:text-xl tracking-tight leading-snug line-clamp-2 h-14 flex items-center">
-                            {getAmazonHeadline(cat.name, catIdx)}
-                          </h3>
-                          <div className="grid grid-cols-2 gap-2.5 flex-1">
-                            {cat.subcategories.slice(0, 4).map((sub, subIdx) => {
-                              const SubIcon = SUB_PLACEHOLDER_ICONS[subIdx % SUB_PLACEHOLDER_ICONS.length];
-                              return (
-                                <Link
-                                  key={sub.id}
-                                  href={`/browse?subcategoryId=${sub.id}`}
-                                  className="group flex flex-col bg-white p-0 transition-all hover:opacity-95"
-                                >
-                                  <div className="relative aspect-square w-full overflow-hidden rounded-none bg-white flex items-center justify-center p-0 border-0 shadow-none">
-                                    {(() => {
-                                      const src = isMobileViewport && sub.mobileIcon ? sub.mobileIcon : sub.image;
-                                      return src ? (
-                                        <img src={src} alt={sub.name} className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300" />
-                                      ) : (
-                                        <SubIcon className="h-10 w-10 text-slate-400" />
-                                      );
-                                    })()}
-                                  </div>
-                                  <span className="mt-1.5 text-xs font-medium text-slate-800 line-clamp-2 leading-tight group-hover:text-blue-600 group-hover:underline">{sub.name}</span>
-                                </Link>
-                              );
-                            })}
-                          </div>
-                        </div>
-                        <Link
-                          href={`/browse?categoryId=${cat.id}`}
-                          className="mt-4 block text-xs font-bold text-blue-600 hover:text-amber-700 hover:underline"
-                        >
-                          See all offers
-                        </Link>
-                      </CardContent>
-                    </Card>
+                  {[0, 1, 2, 3].map((i) => (
+                    <div key={i} className="h-[360px] rounded-none border border-slate-200/60 bg-white p-5 shadow-lg animate-pulse flex flex-col justify-between">
+                      <div className="h-6 w-3/4 bg-slate-200 rounded" />
+                      <div className="grid grid-cols-2 gap-2.5 my-4">
+                        <div className="aspect-square bg-slate-100 rounded" />
+                        <div className="aspect-square bg-slate-100 rounded" />
+                        <div className="aspect-square bg-slate-100 rounded" />
+                        <div className="aspect-square bg-slate-100 rounded" />
+                      </div>
+                      <div className="h-4 w-1/3 bg-slate-200 rounded" />
+                    </div>
                   ))}
+                </div>
+              ) : latestCategories.length > 0 ? (
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-4 w-full">
+                  {latestCategories.map((cat, catIdx) => {
+                    const subs = cat.subcategories || [];
+                    const displaySubs = [...subs.slice(0, 4)];
+                    while (displaySubs.length < 4) {
+                      const placeholderIdx = displaySubs.length;
+                      const placeholderTitles = ["Top Deals", "Popular Picks", "New Arrivals", "Trending"];
+                      displaySubs.push({
+                        id: `fallback_${cat.id}_${placeholderIdx}`,
+                        name: placeholderTitles[placeholderIdx % placeholderTitles.length],
+                        slug: `fallback-${placeholderIdx}`,
+                        image: PRODUCT_FALLBACK_IMAGES[(catIdx * 4 + placeholderIdx) % PRODUCT_FALLBACK_IMAGES.length],
+                        mobileIcon: null,
+                      });
+                    }
+
+                    return (
+                      <Card key={cat.id} className="overflow-hidden border border-slate-200/60 bg-white p-4 sm:p-5 shadow-lg transition-shadow hover:shadow-xl rounded-none flex flex-col justify-between">
+                        <CardContent className="p-0 flex flex-col h-full justify-between">
+                          <div>
+                            <h3 className="mb-3 font-extrabold text-slate-900 text-lg sm:text-xl tracking-tight leading-snug line-clamp-2 h-14 flex items-center">
+                              {getAmazonHeadline(cat.name, catIdx)}
+                            </h3>
+                            <div className="grid grid-cols-2 gap-2.5 flex-1">
+                              {displaySubs.map((sub, subIdx) => {
+                                const SubIcon = SUB_PLACEHOLDER_ICONS[subIdx % SUB_PLACEHOLDER_ICONS.length];
+                                const isFallback = sub.id.startsWith("fallback_");
+                                const href = isFallback ? `/browse?categoryId=${cat.id}` : `/browse?subcategoryId=${sub.id}`;
+                                return (
+                                  <Link
+                                    key={sub.id}
+                                    href={href}
+                                    className="group flex flex-col bg-white p-0 transition-all hover:opacity-95"
+                                  >
+                                    <div className="relative aspect-square w-full overflow-hidden rounded-none bg-white flex items-center justify-center p-0 border-0 shadow-none">
+                                      {(() => {
+                                        const src = isMobileViewport && sub.mobileIcon ? sub.mobileIcon : sub.image;
+                                        return src ? (
+                                          <img src={src} alt={sub.name} className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                                        ) : (
+                                          <SubIcon className="h-10 w-10 text-slate-400" />
+                                        );
+                                      })()}
+                                    </div>
+                                    <span className="mt-1.5 text-xs font-medium text-slate-800 line-clamp-2 leading-tight group-hover:text-blue-600 group-hover:underline">{sub.name}</span>
+                                  </Link>
+                                );
+                              })}
+                            </div>
+                          </div>
+                          <Link
+                            href={`/browse?categoryId=${cat.id}`}
+                            className="mt-4 block text-xs font-bold text-blue-600 hover:text-amber-700 hover:underline"
+                          >
+                            See all offers
+                          </Link>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
                 </div>
               ) : null}
             </section>
