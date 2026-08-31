@@ -146,73 +146,112 @@ export async function compressImage(
     }
   }
 
-  // Only compress JPEGs, PNGs, and WebPs. Keep GIFs (animations) intact.
-  const compressableTypes = ["image/jpeg", "image/png", "image/webp"]
-  if (!compressableTypes.includes(file.type)) {
+  const fileName = file.name || ""
+  const isImageByExt = /\.(jpe?g|png|webp|heic|heif|bmp|tiff?)$/i.test(fileName)
+  const isImageByType = (file.type || "").startsWith("image/")
+  const isGif = file.type === "image/gif" || /\.gif$/i.test(fileName)
+  const isSvg = file.type === "image/svg+xml" || /\.svg$/i.test(fileName)
+
+  // Only bypass non-images, animated GIFs, or SVGs
+  if (isGif || isSvg || (!isImageByType && !isImageByExt)) {
     return file
   }
 
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.readAsDataURL(file)
-    reader.onload = (event) => {
-      const img = new Image()
-      img.src = event.target?.result as string
-      img.onload = () => {
-        let width = img.width
-        let height = img.height
-
-        // Calculate dimensions to maintain aspect ratio
-        if (width > maxWidth || height > maxHeight) {
-          if (width > height) {
-            height = Math.round((height * maxWidth) / width)
-            width = maxWidth
-          } else {
-            width = Math.round((width * maxHeight) / height)
-            height = maxHeight
-          }
-        }
-
-        const canvas = document.createElement("canvas")
-        canvas.width = width
-        canvas.height = height
-
-        const ctx = canvas.getContext("2d")
-        if (!ctx) {
-          resolve(file)
-          return
-        }
-
-        ctx.drawImage(img, 0, 0, width, height)
-
-        const outputType = file.type === "image/webp" ? "image/webp" : "image/jpeg"
-
-        canvas.toBlob(
-          (blob) => {
-            if (!blob) {
-              resolve(file)
-              return
-            }
-
-            const compressedFile = new File([blob], file.name, {
-              type: outputType,
-              lastModified: Date.now(),
-            })
-
-            // Only use compressed file if it's actually smaller
-            if (compressedFile.size >= file.size) {
-              resolve(file)
-            } else {
-              resolve(compressedFile)
-            }
-          },
-          outputType,
-          quality
-        )
-      }
-      img.onerror = () => reject(new Error("Failed to load image."))
+  return new Promise((resolve) => {
+    let objectUrl = ""
+    try {
+      objectUrl = URL.createObjectURL(file)
+    } catch (_) {
+      // If Object URL creation fails, fallback to original file
+      resolve(file)
+      return
     }
-    reader.onerror = () => reject(new Error("Failed to read image file."))
+
+    const cleanup = () => {
+      try {
+        if (objectUrl) URL.revokeObjectURL(objectUrl)
+      } catch (_) {}
+    }
+
+    const img = new Image()
+
+    img.onload = () => {
+      let width = img.naturalWidth || img.width
+      let height = img.naturalHeight || img.height
+
+      if (!width || !height) {
+        cleanup()
+        resolve(file)
+        return
+      }
+
+      // Calculate dimensions to maintain aspect ratio
+      if (width > maxWidth || height > maxHeight) {
+        if (width > height) {
+          height = Math.round((height * maxWidth) / width)
+          width = maxWidth
+        } else {
+          width = Math.round((width * maxHeight) / height)
+          height = maxHeight
+        }
+      }
+
+      const canvas = document.createElement("canvas")
+      canvas.width = width
+      canvas.height = height
+
+      const ctx = canvas.getContext("2d")
+      if (!ctx) {
+        cleanup()
+        resolve(file)
+        return
+      }
+
+      try {
+        ctx.drawImage(img, 0, 0, width, height)
+      } catch (_) {
+        cleanup()
+        resolve(file)
+        return
+      }
+      cleanup()
+
+      const isWebp = file.type === "image/webp" || /\.webp$/i.test(fileName)
+      const outputType = isWebp ? "image/webp" : "image/jpeg"
+      const cleanName = fileName.replace(/\.[^/.]+$/, "") || "photo"
+      const outputName = `${cleanName}.${isWebp ? "webp" : "jpg"}`
+
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) {
+            resolve(file)
+            return
+          }
+
+          const compressedFile = new File([blob], outputName, {
+            type: outputType,
+            lastModified: Date.now(),
+          })
+
+          // Use compressed file if smaller, or if converted from an uncompressed/mobile format
+          if (compressedFile.size < file.size || outputType !== file.type) {
+            resolve(compressedFile)
+          } else {
+            resolve(file)
+          }
+        },
+        outputType,
+        quality
+      )
+    }
+
+    img.onerror = () => {
+      cleanup()
+      // If browser cannot decode image (e.g., proprietary RAW format), return original
+      resolve(file)
+    }
+
+    img.src = objectUrl
   })
 }
 

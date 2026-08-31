@@ -46,9 +46,13 @@ export function ServiceMasterImageInput({
       
       // Update the file input files with the compressed file
       if (fileInputRef.current) {
-        const dataTransfer = new DataTransfer()
-        dataTransfer.items.add(compressed)
-        fileInputRef.current.files = dataTransfer.files
+        try {
+          const dataTransfer = new DataTransfer()
+          dataTransfer.items.add(compressed)
+          fileInputRef.current.files = dataTransfer.files
+        } catch (dtErr) {
+          console.warn("Could not set files via DataTransfer:", dtErr)
+        }
       }
 
       const u = URL.createObjectURL(compressed)

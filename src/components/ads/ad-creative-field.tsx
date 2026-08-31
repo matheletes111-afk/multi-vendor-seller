@@ -92,9 +92,13 @@ export function AdCreativeField({ label = "Creative (image or video) *", require
         const { compressImage } = await import("@/lib/image-compressor")
         file = await compressImage(file)
         if (imageFileRef.current) {
-          const dataTransfer = new DataTransfer()
-          dataTransfer.items.add(file)
-          imageFileRef.current.files = dataTransfer.files
+          try {
+            const dataTransfer = new DataTransfer()
+            dataTransfer.items.add(file)
+            imageFileRef.current.files = dataTransfer.files
+          } catch (dtErr) {
+            console.warn("Could not set files via DataTransfer:", dtErr)
+          }
         }
       } catch {
         // Fallback

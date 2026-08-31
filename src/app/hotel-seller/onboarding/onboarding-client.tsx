@@ -101,16 +101,16 @@ export function HotelOnboardingClient() {
 
     // Ensure compressed preview files for inputs in the current form are attached
     Object.entries(previews).forEach(([key, val]) => {
-      if (val?.file && (form.elements.namedItem(key) || form.querySelector(`[name="${key}"]`))) {
+      if (val?.file) {
         formData.set(key, val.file)
       }
     })
 
     try {
       if (currentStep === 2) {
-        const hasBusReg = (formData.get("busRegCert") as File)?.size > 0 || seller?.businessInfo?.busRegCertUrl || previews["busRegCert"]
-        const hasAddressProof = (formData.get("addressProof") as File)?.size > 0 || seller?.businessInfo?.addressProofUrl || previews["addressProof"]
-        const hasGstCert = !haveGst || (formData.get("gstTinCert") as File)?.size > 0 || seller?.businessInfo?.gstTinCertUrl || previews["gstTinCert"]
+        const hasBusReg = (formData.get("busRegCert") as File)?.size > 0 || seller?.businessInfo?.busRegCertUrl || previews["busRegCert"]?.file
+        const hasAddressProof = (formData.get("addressProof") as File)?.size > 0 || seller?.businessInfo?.addressProofUrl || previews["addressProof"]?.file
+        const hasGstCert = !haveGst || (formData.get("gstTinCert") as File)?.size > 0 || seller?.businessInfo?.gstTinCertUrl || previews["gstTinCert"]?.file
 
         if (!hasBusReg || !hasAddressProof || !hasGstCert) {
           setError("Please upload mandatory business documents (Registration Certificate, Proof of Address) before proceeding.")
@@ -120,9 +120,9 @@ export function HotelOnboardingClient() {
       }
 
       if (currentStep === 3) {
-        const hasIdFront = (formData.get("idFront") as File)?.size > 0 || seller?.kyc?.idFrontUrl || previews["idFront"]
-        const hasIdBack = (formData.get("idBack") as File)?.size > 0 || seller?.kyc?.idBackUrl || previews["idBack"]
-        const hasSelfie = (formData.get("selfie") as File)?.size > 0 || seller?.kyc?.selfieUrl || previews["selfie"]
+        const hasIdFront = (formData.get("idFront") as File)?.size > 0 || seller?.kyc?.idFrontUrl || previews["idFront"]?.file
+        const hasIdBack = (formData.get("idBack") as File)?.size > 0 || seller?.kyc?.idBackUrl || previews["idBack"]?.file
+        const hasSelfie = (formData.get("selfie") as File)?.size > 0 || seller?.kyc?.selfieUrl || previews["selfie"]?.file
 
         if (!hasIdFront || !hasIdBack || !hasSelfie) {
           setError("Please upload all required identity documents: ID Front, ID Back, and Face Verification (Selfie).")
@@ -132,8 +132,8 @@ export function HotelOnboardingClient() {
       }
 
       if (currentStep === 4) {
-        const hasLogo = (formData.get("logo") as File)?.size > 0 || seller?.logo || previews["logo"]
-        const hasMainPhoto = (formData.get("mainPhoto") as File)?.size > 0 || seller?.mainPhoto || previews["mainPhoto"]
+        const hasLogo = (formData.get("logo") as File)?.size > 0 || seller?.logo || previews["logo"]?.file
+        const hasMainPhoto = (formData.get("mainPhoto") as File)?.size > 0 || seller?.mainPhoto || previews["mainPhoto"]?.file
 
         if (!hasLogo || !hasMainPhoto) {
           setError("Please upload Property Logo and Main Property Photo.")
@@ -169,7 +169,7 @@ export function HotelOnboardingClient() {
           return
         }
 
-        const hasPassbook = (formData.get("passbook") as File)?.size > 0 || seller?.bankDetails?.passbookUrl || previews["passbook"]
+        const hasPassbook = (formData.get("passbook") as File)?.size > 0 || seller?.bankDetails?.passbookUrl || previews["passbook"]?.file
         if (!hasPassbook) {
           setError("Please upload your Bank Passbook or Cheque Copy.")
           setSaving(false)
@@ -261,31 +261,46 @@ export function HotelOnboardingClient() {
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, key: string) => {
     const rawFile = e.target.files?.[0]
-    if (rawFile) {
-      let file: File = rawFile
-      if (rawFile.type.startsWith("image/")) {
+    if (!rawFile) return
+    setError(null)
+
+    let file: File = rawFile
+    if (rawFile.type.startsWith("image/") || /\.(jpe?g|png|webp|heic|heif)$/i.test(rawFile.name)) {
+      try {
+        const { compressImage } = await import("@/lib/image-compressor")
+        const compressed = await compressImage(rawFile, 1200, 1200, 0.8)
+        file = compressed
+        
         try {
-          const { compressImage } = await import("@/lib/image-compressor")
-          const compressed = await compressImage(rawFile)
-          file = compressed
-          
           const dataTransfer = new DataTransfer()
           dataTransfer.items.add(compressed)
           e.target.files = dataTransfer.files
-        } catch (err) {
-          console.error("Compression error:", err)
+        } catch (dtErr) {
+          // Mobile Safari / WebKit read-only property handling
+          console.warn("Could not set e.target.files via DataTransfer:", dtErr)
         }
-      } else if (rawFile.size > 4.5 * 1024 * 1024) {
-        alert("File size exceeds 4.5 MB limit. Please upload a smaller document.")
-        e.target.value = ""
-        return
+      } catch (err) {
+        console.error("Compression error:", err)
       }
-      const url = URL.createObjectURL(file)
-      setPreviews(prev => {
-        if (prev[key]) URL.revokeObjectURL(prev[key].url)
-        return { ...prev, [key]: { file, url } }
-      })
     }
+
+    if (file.size > 4.5 * 1024 * 1024) {
+      setError("File size exceeds 4.5 MB limit. Please select or compress a smaller file.")
+      e.target.value = ""
+      setPreviews(prev => {
+        const copy = { ...prev }
+        if (copy[key]) URL.revokeObjectURL(copy[key].url)
+        delete copy[key]
+        return copy
+      })
+      return
+    }
+
+    const url = URL.createObjectURL(file)
+    setPreviews(prev => {
+      if (prev[key]) URL.revokeObjectURL(prev[key].url)
+      return { ...prev, [key]: { file, url } }
+    })
   }
 
   const renderFilePreview = (key: string, url?: string, label?: string) => {

@@ -171,24 +171,37 @@ export default function HotelSettingsClient() {
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, key: string) => {
     const rawFile = e.target.files?.[0]
     if (!rawFile) return
+    setError(null)
 
     let file: File = rawFile
 
-    if (rawFile.type.startsWith("image/") || /\.(jpe?g|png|webp)$/i.test(rawFile.name)) {
+    if (rawFile.type.startsWith("image/") || /\.(jpe?g|png|webp|heic|heif)$/i.test(rawFile.name)) {
       try {
         const { compressImage } = await import("@/lib/image-compressor")
         const compressed = await compressImage(rawFile, 1200, 1200, 0.8)
         file = compressed
 
-        const dataTransfer = new DataTransfer()
-        dataTransfer.items.add(compressed)
-        e.target.files = dataTransfer.files
+        try {
+          const dataTransfer = new DataTransfer()
+          dataTransfer.items.add(compressed)
+          e.target.files = dataTransfer.files
+        } catch (dtErr) {
+          console.warn("Could not set e.target.files via DataTransfer:", dtErr)
+        }
       } catch (err) {
         console.error("Compression error:", err)
       }
-    } else if (rawFile.size > 4.5 * 1024 * 1024) {
-      alert("File size exceeds 4.5 MB limit. Please upload a smaller document.")
+    }
+
+    if (file.size > 4.5 * 1024 * 1024) {
+      setError("File size exceeds 4.5 MB limit. Please select or compress a smaller file.")
       e.target.value = ""
+      setPreviews(prev => {
+        const copy = { ...prev }
+        if (copy[key]) URL.revokeObjectURL(copy[key].url)
+        delete copy[key]
+        return copy
+      })
       return
     }
 

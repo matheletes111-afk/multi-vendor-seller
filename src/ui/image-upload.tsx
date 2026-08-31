@@ -31,9 +31,13 @@ export function ImageUpload({ onImageSelect, currentImage }: ImageUploadProps) {
         }
 
         if (fileInputRef.current) {
-          const dataTransfer = new DataTransfer()
-          dataTransfer.items.add(compressed)
-          fileInputRef.current.files = dataTransfer.files
+          try {
+            const dataTransfer = new DataTransfer()
+            dataTransfer.items.add(compressed)
+            fileInputRef.current.files = dataTransfer.files
+          } catch (dtErr) {
+            console.warn("Could not set files via DataTransfer:", dtErr)
+          }
         }
 
         setFileName(compressed.name)
