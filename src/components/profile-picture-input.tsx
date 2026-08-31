@@ -19,6 +19,8 @@ interface ProfilePictureInputProps {
   /** Show optional "Or image URL" field */
   showUrlField?: boolean;
   size?: "sm" | "md" | "lg";
+  /** Callback when image is selected and compressed */
+  onImageChange?: (file: File | null) => void;
 }
 
 const sizeClasses = {
@@ -33,6 +35,7 @@ export function ProfilePictureInput({
   urlInputName = "image",
   showUrlField = false,
   size = "md",
+  onImageChange,
 }: ProfilePictureInputProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -43,11 +46,15 @@ export function ProfilePictureInput({
     const file = e.target.files?.[0];
     if (previewUrl) URL.revokeObjectURL(previewUrl);
     setPreviewUrl(null);
-    if (!file) return;
+    if (!file) {
+      onImageChange?.(null);
+      return;
+    }
 
     if (!file.type.startsWith("image/") && !/\.(jpe?g|png|webp|heic|heif)$/i.test(file.name)) {
       alert("Please select an image file (e.g. JPG, PNG)");
       e.target.value = "";
+      onImageChange?.(null);
       return;
     }
 
@@ -58,6 +65,7 @@ export function ProfilePictureInput({
       if (compressed.size > MAX_BYTES) {
         alert(`Image must be under ${MAX_MB} MB`);
         e.target.value = "";
+        onImageChange?.(null);
         return;
       }
 
@@ -72,18 +80,22 @@ export function ProfilePictureInput({
         }
       }
       setPreviewUrl(URL.createObjectURL(compressed));
+      onImageChange?.(compressed);
     } catch (error) {
       if (error instanceof Error && error.message.includes("dimensions exceed")) {
         alert(error.message);
         e.target.value = "";
+        onImageChange?.(null);
         return;
       }
       if (file.size > MAX_BYTES) {
         alert(`Image must be under ${MAX_MB} MB`);
         e.target.value = "";
+        onImageChange?.(null);
         return;
       }
       setPreviewUrl(URL.createObjectURL(file));
+      onImageChange?.(file);
     }
   };
 

@@ -125,6 +125,15 @@ export function RestaurantOnboardingClient() {
 
     try {
       if (currentStep === 2) {
+        const profileFile = formData.get("profileImage") as File | null
+        const hasProfilePic = (profileFile && profileFile.size > 0) || seller?.user?.image || previews["profileImage"]?.file
+
+        if (!hasProfilePic) {
+          setError("Please upload your Profile Picture before proceeding.")
+          setSaving(false)
+          return
+        }
+
         const hasBusReg = (formData.get("busRegCert") as File)?.size > 0 || seller?.businessInfo?.busRegCertUrl || previews["busRegCert"]?.file
         const hasAddressProof = (formData.get("addressProof") as File)?.size > 0 || seller?.businessInfo?.addressProofUrl || previews["addressProof"]?.file
         const hasGstCert = !haveGst || (formData.get("gstTinCert") as File)?.size > 0 || seller?.businessInfo?.gstTinCertUrl || previews["gstTinCert"]?.file
@@ -404,7 +413,22 @@ export function RestaurantOnboardingClient() {
                 </div>
                 <div className="p-6 border-2 border-dashed rounded-3xl bg-slate-50 flex flex-col items-center">
                   <Label className="mb-4 font-bold">Profile Picture *</Label>
-                  <ProfilePictureInput currentImage={seller.user?.image} fileInputName="profileImage" urlInputName="image" />
+                  <ProfilePictureInput
+                    currentImage={seller.user?.image}
+                    fileInputName="profileImage"
+                    urlInputName="image"
+                    onImageChange={(file) => {
+                      if (file) {
+                        setPreviews((prev) => ({ ...prev, profileImage: { file, url: URL.createObjectURL(file) } }))
+                      } else {
+                        setPreviews((prev) => {
+                          const copy = { ...prev }
+                          delete copy.profileImage
+                          return copy
+                        })
+                      }
+                    }}
+                  />
                 </div>
                 <div className="space-y-4">
                   <div className="space-y-2">

@@ -163,6 +163,15 @@ export function ServiceOnboardingClient() {
     try {
       // Step-by-step document completeness client-side verification
       if (currentStep === 2) {
+        const profileFile = formData.get("profileImage") as File | null
+        const hasProfilePic = (profileFile && profileFile.size > 0) || seller?.user?.image || previews["profileImage"]?.file
+
+        if (!hasProfilePic) {
+          setError("Please upload your Profile Picture before proceeding.")
+          setSaving(false)
+          return
+        }
+
         const hasBusReg = (formData.get("busRegCert") as File)?.size > 0 || seller?.businessInfo?.busRegCertUrl || previews["busRegCert"]?.file
         const hasAddressProof = (formData.get("addressProof") as File)?.size > 0 || seller?.businessInfo?.addressProofUrl || previews["addressProof"]?.file
         const hasGstCert = !haveGst || (formData.get("gstTinCert") as File)?.size > 0 || seller?.businessInfo?.gstTinCertUrl || previews["gstTinCert"]?.file
@@ -523,7 +532,22 @@ export function ServiceOnboardingClient() {
                 <div className="space-y-6">
                   <div className="flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-3xl bg-emerald-50/20 border-emerald-100 mb-6">
                     <Label className="text-lg font-bold mb-4 text-emerald-800">Provider Profile Picture *</Label>
-                    <ProfilePictureInput currentImage={seller.user?.image} fileInputName="profileImage" urlInputName="image" />
+                    <ProfilePictureInput
+                      currentImage={seller.user?.image}
+                      fileInputName="profileImage"
+                      urlInputName="image"
+                      onImageChange={(file) => {
+                        if (file) {
+                          setPreviews((prev) => ({ ...prev, profileImage: { file, url: URL.createObjectURL(file) } }))
+                        } else {
+                          setPreviews((prev) => {
+                            const copy = { ...prev }
+                            delete copy.profileImage
+                            return copy
+                          })
+                        }
+                      }}
+                    />
                     <p className="text-[10px] text-slate-400 mt-2 italic">This photo will be visible to customers on your service profile.</p>
                   </div>
 

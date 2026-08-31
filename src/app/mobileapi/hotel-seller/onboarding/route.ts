@@ -412,7 +412,7 @@ export async function POST(request: NextRequest) {
             // Strict validation before marking complete
             const verifySeller = await prisma.hotelSeller.findUnique({
                 where: { id: seller.id },
-                include: { businessInfo: true, kyc: true, bankDetails: true, agreement: true }
+                include: { businessInfo: true, kyc: true, bankDetails: true, agreement: true, user: true }
             });
             const docEval = evaluateSellerDocuments(verifySeller, "HOTEL");
             if (!docEval.isComplete) {
