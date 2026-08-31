@@ -195,6 +195,9 @@ export function ProductOnboardingClient() {
       }
 
       if (currentStep === 4) {
+        const preferredPayout = (formData.get("preferredPayoutMethod") as string)?.trim() || "Bank Transfer"
+        formData.set("preferredPayoutMethod", preferredPayout)
+
         const bankName = (formData.get("bankName") as string)?.trim()
         const accountNumber = (formData.get("accountNumber") as string)?.trim()
         const bbanNumber = (formData.get("bbanNumber") as string)?.trim()
@@ -805,7 +808,7 @@ export function ProductOnboardingClient() {
                       <Label className="text-sm font-semibold">Preferred Payout Method *</Label>
                       <div className="flex gap-6">
                         <label className="flex items-center gap-3 p-4 border rounded-xl cursor-pointer hover:bg-slate-50 flex-1 transition-all">
-                          <input type="radio" name="preferredPayoutMethod" value="Bank Transfer" className="w-4 h-4 accent-purple-600" defaultChecked={seller.bankDetails?.preferredPayoutMethod === "Bank Transfer"} />
+                          <input type="radio" name="preferredPayoutMethod" value="Bank Transfer" className="w-4 h-4 accent-purple-600" defaultChecked={!seller.bankDetails?.preferredPayoutMethod || seller.bankDetails?.preferredPayoutMethod === "Bank Transfer"} />
                           <span className="text-sm font-medium text-slate-700">Bank Transfer</span>
                         </label>
                         <label className="flex items-center gap-3 p-4 border rounded-xl cursor-pointer hover:bg-slate-50 flex-1 transition-all">

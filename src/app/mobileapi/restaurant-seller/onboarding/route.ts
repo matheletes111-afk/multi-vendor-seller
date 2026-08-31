@@ -360,7 +360,7 @@ export async function POST(request: NextRequest) {
                 bbanNumber: (formData?.get("bbanNumber") as string) || jsonBody?.data?.bbanNumber,
                 branchName: (formData?.get("branchName") as string) || jsonBody?.data?.branchName,
                 mobileMoneyOption: (formData?.get("mobileMoneyOption") as string) || jsonBody?.data?.mobileMoneyOption,
-                preferredPayoutMethod: (formData?.get("preferredPayoutMethod") as string) || jsonBody?.data?.preferredPayoutMethod,
+                preferredPayoutMethod: ((formData?.get("preferredPayoutMethod") as string)?.trim()) || jsonBody?.data?.preferredPayoutMethod || "Bank Transfer",
             };
 
             let passbookUrl = seller.bankDetails?.passbookUrl;
