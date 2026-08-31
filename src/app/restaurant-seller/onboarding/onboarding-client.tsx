@@ -181,6 +181,9 @@ export function RestaurantOnboardingClient() {
       }
 
       if (currentStep === 5) {
+        const preferredPayout = (formData.get("preferredPayoutMethod") as string)?.trim() || "Bank Transfer"
+        formData.set("preferredPayoutMethod", preferredPayout)
+
         const bankName = (formData.get("bankName") as string)?.trim()
         const accountNumber = (formData.get("accountNumber") as string)?.trim()
         const bbanNumber = (formData.get("bbanNumber") as string)?.trim()
@@ -731,7 +734,7 @@ export function RestaurantOnboardingClient() {
                       <Label className="font-semibold block">Preferred Payout Method *</Label>
                       <div className="flex gap-4">
                         <label className="flex items-center gap-2 cursor-pointer">
-                          <input type="radio" name="preferredPayoutMethod" value="Bank Transfer" defaultChecked={seller.bankDetails?.preferredPayoutMethod === "Bank Transfer"} />
+                          <input type="radio" name="preferredPayoutMethod" value="Bank Transfer" defaultChecked={!seller.bankDetails?.preferredPayoutMethod || seller.bankDetails?.preferredPayoutMethod === "Bank Transfer"} />
                           <span>Bank Transfer</span>
                         </label>
                         <label className="flex items-center gap-2 cursor-pointer">

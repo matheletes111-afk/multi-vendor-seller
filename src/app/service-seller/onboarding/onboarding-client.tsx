@@ -196,6 +196,9 @@ export function ServiceOnboardingClient() {
       }
 
       if (currentStep === 4) {
+        const preferredPayout = (formData.get("preferredPayoutMethod") as string)?.trim() || "Bank Transfer"
+        formData.set("preferredPayoutMethod", preferredPayout)
+
         const bankName = (formData.get("bankName") as string)?.trim()
         const accountNumber = (formData.get("accountNumber") as string)?.trim()
         const bbanNumber = (formData.get("bbanNumber") as string)?.trim()
@@ -810,10 +813,10 @@ export function ServiceOnboardingClient() {
                       <div className="grid grid-cols-2 gap-4">
                         <label className={cn(
                           "flex items-center gap-3 p-4 border rounded-xl cursor-pointer transition-all hover:bg-slate-50",
-                          seller.bankDetails?.preferredPayoutMethod === "Bank Transfer" ? "bg-teal-50 border-teal-500 ring-1 ring-teal-500" : "bg-white"
+                          (!seller.bankDetails?.preferredPayoutMethod || seller.bankDetails?.preferredPayoutMethod === "Bank Transfer") ? "bg-teal-50 border-teal-500 ring-1 ring-teal-500" : "bg-white"
                         )}>
-                          <input type="radio" name="preferredPayoutMethod" value="Bank Transfer" className="h-4 w-4 accent-teal-600" defaultChecked={seller.bankDetails?.preferredPayoutMethod === "Bank Transfer"} />
-                          <span className={cn("text-sm font-medium", seller.bankDetails?.preferredPayoutMethod === "Bank Transfer" ? "text-teal-700" : "text-slate-600")}>Bank Transfer</span>
+                          <input type="radio" name="preferredPayoutMethod" value="Bank Transfer" className="h-4 w-4 accent-teal-600" defaultChecked={!seller.bankDetails?.preferredPayoutMethod || seller.bankDetails?.preferredPayoutMethod === "Bank Transfer"} />
+                          <span className={cn("text-sm font-medium", (!seller.bankDetails?.preferredPayoutMethod || seller.bankDetails?.preferredPayoutMethod === "Bank Transfer") ? "text-teal-700" : "text-slate-600")}>Bank Transfer</span>
                         </label>
                         <label className={cn(
                           "flex items-center gap-3 p-4 border rounded-xl cursor-pointer transition-all hover:bg-slate-50",

@@ -242,6 +242,7 @@ export async function POST(request: NextRequest) {
 
         else if (mobileStep === 3) {
             // Step 3: Bank
+            const rawMethod = (formData ? (formData.get("preferredPayoutMethod") as string) : jsonBody.data?.preferredPayoutMethod)?.trim()
             const bankData: any = formData ? {
                 bankName: formData.get("bankName") as string,
                 bankAddress: formData.get("bankAddress") as string,
@@ -249,12 +250,13 @@ export async function POST(request: NextRequest) {
                 accountNumber: formData.get("accountNumber") as string,
                 bbanNumber: formData.get("bbanNumber") as string,
                 branchName: formData.get("branchName") as string,
-                preferredPayoutMethod: formData.get("preferredPayoutMethod") as string,
+                preferredPayoutMethod: rawMethod || "Bank Transfer",
                 mobileMoneyOption: formData.get("mobileMoneyOption") as string,
                 passbookUrl: seller.bankDetails?.passbookUrl || null,
                 bankLetterUrl: seller.bankDetails?.bankLetterUrl || null,
             } : {
                 ...jsonBody.data,
+                preferredPayoutMethod: rawMethod || "Bank Transfer",
                 passbookUrl: jsonBody.data?.passbookUrl || seller.bankDetails?.passbookUrl || null,
                 bankLetterUrl: jsonBody.data?.bankLetterUrl || seller.bankDetails?.bankLetterUrl || null,
             };
