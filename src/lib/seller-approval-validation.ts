@@ -392,15 +392,21 @@ export function evaluateSellerDocuments(seller: any, sellerType?: string): Selle
     url: kyc?.selfieUrl,
   });
 
-  // 3. Bank / Financial Proof (Optional upload, text fields used for payout)
+  // 3. Bank / Financial Proof
   const bank = seller.bankDetails || seller.raw?.bankDetails;
-  const hasBankDoc = !!bank?.passbookUrl?.trim() || !!bank?.bankLetterUrl?.trim();
   docs.push({
-    name: "Bank Passbook / Verification Letter",
+    name: "Bank Passbook / Cheque Copy",
     category: "financial",
-    isUploaded: hasBankDoc,
+    isUploaded: !!bank?.passbookUrl?.trim(),
+    isOptional: false,
+    url: bank?.passbookUrl,
+  });
+  docs.push({
+    name: "Bank Verification Letter",
+    category: "financial",
+    isUploaded: !!bank?.bankLetterUrl?.trim(),
     isOptional: true,
-    url: bank?.passbookUrl || bank?.bankLetterUrl,
+    url: bank?.bankLetterUrl,
   });
 
   // 4. Media / Special License based on type

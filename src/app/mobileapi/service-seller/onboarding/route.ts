@@ -285,6 +285,10 @@ export async function POST(request: NextRequest) {
             const finalPassbook = bankData.passbookUrl || seller.bankDetails?.passbookUrl || null;
             const finalBankLetter = bankData.bankLetterUrl || seller.bankDetails?.bankLetterUrl || null;
 
+            if (!finalPassbook) {
+                return NextResponse.json({ success: false, error: "Bank Passbook / Cheque Copy is mandatory." }, { status: 400 });
+            }
+
             bankData.passbookUrl = finalPassbook;
             bankData.bankLetterUrl = finalBankLetter;
 

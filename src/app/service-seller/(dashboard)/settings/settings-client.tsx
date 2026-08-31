@@ -537,7 +537,7 @@ export function ServiceSettingsClient() {
                  </div>
                  <div className="grid md:grid-cols-2 gap-4 pt-2">
                     <div className="space-y-2">
-                       <Label>Passbook / Check Copy (Optional)</Label>
+                       <Label>Bank Passbook / Cheque Copy</Label>
                        <div className="flex items-center gap-3">
                          <Input name="bankPassbook" type="file" onChange={(e) => handleFileChange(e, "bankPassbook")} />
                          {seller.bankDetails?.passbookUrl && <a href={seller.bankDetails.passbookUrl} target="_blank" className="text-primary hover:underline text-sm flex items-center gap-1"><FileText className="h-4 w-4" /> View Current</a>}
