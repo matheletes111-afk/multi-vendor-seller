@@ -94,7 +94,7 @@ export async function POST(request: NextRequest) {
 
     const seller = await prisma.hotelSeller.findUnique({
       where: { userId: session.user.id },
-      include: { businessInfo: true, kyc: true, bankDetails: true, agreement: true }
+      include: { businessInfo: true, kyc: true, bankDetails: true, agreement: true, user: true }
     })
 
     if (!seller) {
@@ -135,10 +135,11 @@ export async function POST(request: NextRequest) {
       }
 
       // Handle User Profile Image
+      let userImage = seller.user?.image
       if (formData) {
         const profileImageFile = formData.get("profileImage") as File | null
         if (profileImageFile && profileImageFile.size > 0) {
-          const imageUrl = await uploadPublicFile({
+          userImage = await uploadPublicFile({
             folder: "profile",
             ext: path.extname(profileImageFile.name) || ".jpg",
             contentType: profileImageFile.type || "image/jpeg",
@@ -147,9 +148,19 @@ export async function POST(request: NextRequest) {
           })
           await prisma.user.update({
             where: { id: session.user.id },
-            data: { image: imageUrl },
+            data: { image: userImage },
           })
         }
+      } else if (jsonBody?.data?.image) {
+        userImage = jsonBody.data.image
+        await prisma.user.update({
+          where: { id: session.user.id },
+          data: { image: userImage },
+        })
+      }
+
+      if (!userImage) {
+        return NextResponse.json({ error: "Profile Picture is mandatory." }, { status: 400 })
       }
 
       // Handle Business Reg Certificate
@@ -419,7 +430,7 @@ export async function POST(request: NextRequest) {
       // Strict validation before marking complete
       const verifySeller = await prisma.hotelSeller.findUnique({
         where: { id: seller.id },
-        include: { businessInfo: true, kyc: true, bankDetails: true, agreement: true }
+        include: { businessInfo: true, kyc: true, bankDetails: true, agreement: true, user: true }
       })
       const docEval = evaluateSellerDocuments(verifySeller, "HOTEL")
       if (!docEval.isComplete) {

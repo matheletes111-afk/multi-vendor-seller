@@ -528,7 +528,7 @@ export async function POST(request: NextRequest) {
             // Strict validation before marking complete
             const verifySeller = await prisma.seller.findUnique({
                 where: { id: seller.id },
-                include: { businessInfo: true, kyc: true, bankDetails: true, agreement: true, store: true } as any,
+                include: { businessInfo: true, kyc: true, bankDetails: true, agreement: true, store: true, user: true } as any,
             });
             const docEval = evaluateSellerDocuments(verifySeller, "SERVICE");
             if (!docEval.isComplete) {

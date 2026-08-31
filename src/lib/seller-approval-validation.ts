@@ -372,6 +372,14 @@ export function evaluateSellerDocuments(seller: any, sellerType?: string): Selle
   }
 
   // 2. Identity / KYC
+  const user = seller.user || seller.raw?.user;
+  docs.push({
+    name: "User Profile Picture",
+    category: "identity",
+    isUploaded: !!user?.image?.trim(),
+    url: user?.image,
+  });
+
   const kyc = seller.kyc || seller.raw?.kyc;
   docs.push({
     name: "ID / Passport Front",

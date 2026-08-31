@@ -85,7 +85,7 @@ export async function POST(request: NextRequest) {
 
   const seller = await prisma.seller.findUnique({
     where: { userId: session.user.id },
-    include: { store: true, businessInfo: true, kyc: true, bankDetails: true } as any
+    include: { store: true, businessInfo: true, kyc: true, bankDetails: true, user: true } as any
   }) as any
 
   if (!seller) {
@@ -130,10 +130,11 @@ export async function POST(request: NextRequest) {
         gstCustomerName: haveGst ? jsonBody.data.gstCustomerName : null,
       }
 
+      let userImage = seller.user?.image
       if (formData) {
         const profileImageFile = formData.get("profileImage") as File | null
         if (profileImageFile && profileImageFile.size > 0) {
-          const imageUrl = await uploadPublicFile({
+          userImage = await uploadPublicFile({
             folder: "profile",
             ext: path.extname(profileImageFile.name) || ".jpg",
             contentType: profileImageFile.type || "image/jpeg",
@@ -142,9 +143,19 @@ export async function POST(request: NextRequest) {
           })
           await prisma.user.update({
             where: { id: session.user.id },
-            data: { image: imageUrl },
+            data: { image: userImage },
           })
         }
+      } else if (jsonBody?.data?.image) {
+        userImage = jsonBody.data.image
+        await prisma.user.update({
+          where: { id: session.user.id },
+          data: { image: userImage },
+        })
+      }
+
+      if (!userImage) {
+        return NextResponse.json({ error: "Profile Picture is mandatory." }, { status: 400 })
       }
 
       let busRegCertUrl = seller.businessInfo?.busRegCertUrl
@@ -491,7 +502,7 @@ export async function POST(request: NextRequest) {
       // Strict validation before marking complete
       const verifySeller = await prisma.seller.findUnique({
         where: { id: seller.id },
-        include: { businessInfo: true, kyc: true, bankDetails: true, agreement: true, store: true } as any
+        include: { businessInfo: true, kyc: true, bankDetails: true, agreement: true, store: true, user: true } as any
       })
       const docEval = evaluateSellerDocuments(verifySeller, "SERVICE")
       if (!docEval.isComplete) {
