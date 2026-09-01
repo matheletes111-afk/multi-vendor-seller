@@ -1117,7 +1117,7 @@ export function ProductOnboardingClient() {
                 <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100 space-y-3 mb-6">
                   <div>
                     <Label htmlFor="hearAboutUs" className="text-base font-bold text-slate-800">
-                      Where did you hear about our platform?
+                      How did you hear about us?
                     </Label>
                     <p className="text-xs text-slate-500 mt-0.5">
                       Please select how you first learned about Meeem.
