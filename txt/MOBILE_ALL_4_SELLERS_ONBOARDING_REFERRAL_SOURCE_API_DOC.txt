@@ -1,8 +1,8 @@
 ================================================================================
-MOBILE API DOCUMENTATION: "WHERE DID YOU HEAR ABOUT US" & "OTHER" TEXT FIELD (ALL 4 PANELS)
+MOBILE API DOCUMENTATION: "HOW DID YOU HEAR ABOUT US?" & "OTHER" TEXT FIELD (ALL 4 PANELS)
 ================================================================================
 
-This document details the Mobile API implementation for the Referral Source ("Where did you hear about our platform?") feature across all 4 Seller Panels:
+This document details the Mobile API implementation for the Referral Source ("How did you hear about us?") feature across all 4 Seller Panels:
 1. Product Seller  (/mobileapi/product-seller/onboarding)
 2. Service Seller  (/mobileapi/service-seller/onboarding)
 3. Restaurant Seller (/mobileapi/restaurant-seller/onboarding)
@@ -11,7 +11,7 @@ This document details the Mobile API implementation for the Referral Source ("Wh
 --------------------------------------------------------------------------------
 KEY REQUIREMENTS & UI SPECIFICATION:
 --------------------------------------------------------------------------------
-1. Referral Dropdown ("Where did you hear about our platform?"):
+1. Referral Dropdown ("How did you hear about us?"):
    - Displays all items in `hearAboutUsOptions`.
    - "Other" is placed as the LAST item in the dropdown.
 2. Dynamic "Other" Text Box:
@@ -711,7 +711,7 @@ class _OnboardingAgreementStepScreenState
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      "Where did you hear about our platform?",
+                      "How did you hear about us?",
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
