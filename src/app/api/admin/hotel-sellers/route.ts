@@ -77,6 +77,7 @@ export async function GET(request: NextRequest) {
           { kyc: { idNumber: { contains: search, mode: "insensitive" } } },
           { hotels: { some: { name: { contains: search, mode: "insensitive" } } } },
           { hotels: { some: { city: { contains: search, mode: "insensitive" } } } },
+          { agreement: { hearAboutUs: { contains: search, mode: "insensitive" } } },
         ],
       }
     }

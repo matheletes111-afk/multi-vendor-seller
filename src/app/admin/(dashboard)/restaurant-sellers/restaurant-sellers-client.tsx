@@ -170,10 +170,11 @@ export function RestaurantSellersClient() {
     })
   }
 
-  const handleApplyFilters = () => {
+  const handleApplyFilters = (overrideSearch?: string) => {
+    const effectiveSearch = typeof overrideSearch === "string" ? overrideSearch : searchInput
     updateUrlParams({
       page: "1",
-      search: searchInput.trim() || undefined,
+      search: effectiveSearch.trim() || undefined,
       status: localStatus,
       timeframe: localTimeframe,
       specificDate: localSpecificDate || undefined,
