@@ -44,6 +44,8 @@ export interface UnifiedSellerItem {
   banner?: string | null
   commissionRate?: number | null
   documentEvaluation?: SellerDocumentEvaluation
+  referredBy?: string | null
+  hearAboutUs?: string | null
   raw: any
 }
 
@@ -132,6 +134,7 @@ export async function GET(request: NextRequest) {
         { businessInfo: { businessRegNumber: { contains: search, mode: "insensitive" } } },
         { businessInfo: { taxIdNumber: { contains: search, mode: "insensitive" } } },
         { kyc: { idNumber: { contains: search, mode: "insensitive" } } },
+        { agreement: { hearAboutUs: { contains: search, mode: "insensitive" } } },
       ]
     }
 
@@ -153,6 +156,7 @@ export async function GET(request: NextRequest) {
         { kyc: { idNumber: { contains: search, mode: "insensitive" } } },
         { hotels: { some: { name: { contains: search, mode: "insensitive" } } } },
         { hotels: { some: { city: { contains: search, mode: "insensitive" } } } },
+        { agreement: { hearAboutUs: { contains: search, mode: "insensitive" } } },
       ]
     }
 
@@ -174,6 +178,7 @@ export async function GET(request: NextRequest) {
         { businessInfo: { taxIdNumber: { contains: search, mode: "insensitive" } } },
         { kyc: { idNumber: { contains: search, mode: "insensitive" } } },
         { kyc: { foodLicenseNumber: { contains: search, mode: "insensitive" } } },
+        { agreement: { hearAboutUs: { contains: search, mode: "insensitive" } } },
       ]
     }
 
@@ -300,6 +305,8 @@ export async function GET(request: NextRequest) {
         banner: s.store?.banner || null,
         commissionRate: s.commissionRate,
         documentEvaluation: docEval,
+        referredBy: s.agreement?.hearAboutUs || null,
+        hearAboutUs: s.agreement?.hearAboutUs || null,
         raw: s,
       })
     }
@@ -332,6 +339,8 @@ export async function GET(request: NextRequest) {
         banner: h.banner || null,
         commissionRate: h.commissionRate,
         documentEvaluation: docEval,
+        referredBy: h.agreement?.hearAboutUs || null,
+        hearAboutUs: h.agreement?.hearAboutUs || null,
         raw: h,
       })
     }
@@ -365,6 +374,8 @@ export async function GET(request: NextRequest) {
         banner: r.banner || null,
         commissionRate: r.commissionRate,
         documentEvaluation: docEval,
+        referredBy: r.agreement?.hearAboutUs || null,
+        hearAboutUs: r.agreement?.hearAboutUs || null,
         raw: r,
       })
     }

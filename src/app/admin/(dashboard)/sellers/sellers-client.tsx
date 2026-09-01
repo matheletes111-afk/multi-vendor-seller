@@ -209,10 +209,11 @@ export function SellersClient() {
     })
   }
 
-  const handleApplyFilters = () => {
+  const handleApplyFilters = (overrideSearch?: string) => {
+    const effectiveSearch = typeof overrideSearch === "string" ? overrideSearch : searchInput
     updateUrlParams({
       page: "1",
-      search: searchInput.trim() || undefined,
+      search: effectiveSearch.trim() || undefined,
       type: localType,
       status: localStatus,
       timeframe: localTimeframe,

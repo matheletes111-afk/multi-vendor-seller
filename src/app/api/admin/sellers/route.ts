@@ -82,6 +82,7 @@ export async function GET(request: NextRequest) {
           { businessInfo: { businessRegNumber: { contains: search, mode: "insensitive" } } },
           { businessInfo: { taxIdNumber: { contains: search, mode: "insensitive" } } },
           { kyc: { idNumber: { contains: search, mode: "insensitive" } } },
+          { agreement: { hearAboutUs: { contains: search, mode: "insensitive" } } },
         ],
       }
     }

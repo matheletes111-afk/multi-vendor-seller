@@ -24,7 +24,7 @@ import { cn } from "@/lib/utils"
 export interface SellerFilterToolbarProps {
   search: string
   onSearchChange: (val: string) => void
-  onSearchSubmit: () => void
+  onSearchSubmit: (submittedSearch?: string) => void
 
   timeframe: string
   onTimeframeChange: (val: string) => void
@@ -95,7 +95,7 @@ export function SellerFilterToolbar({
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
       onSearchChange(localSearch)
-      onSearchSubmit()
+      onSearchSubmit(localSearch)
     }
   }
 
@@ -129,13 +129,16 @@ export function SellerFilterToolbar({
       <div className="flex flex-col xl:flex-row items-stretch xl:items-center gap-3">
         {/* Search Bar - Takes available flex space */}
         <div className="relative flex-1 min-w-[200px]">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
           <Input
             value={localSearch}
-            onChange={(e) => setLocalSearch(e.target.value)}
+            onChange={(e) => {
+              setLocalSearch(e.target.value)
+              onSearchChange(e.target.value)
+            }}
             onKeyDown={handleKeyDown}
             placeholder="Search name, email, store, city, phone..."
-            className="pl-9.5 pr-20 h-10 rounded-2xl bg-slate-50/80 dark:bg-slate-950/60 border-slate-200 dark:border-slate-800 text-xs sm:text-sm focus-visible:ring-2 focus-visible:ring-blue-500/30 w-full"
+            className="pl-10 pr-20 h-10 rounded-2xl bg-slate-50/80 dark:bg-slate-950/60 border-slate-200 dark:border-slate-800 text-xs sm:text-sm focus-visible:ring-2 focus-visible:ring-blue-500/30 w-full"
           />
           <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-1">
             {localSearch && (
@@ -144,7 +147,7 @@ export function SellerFilterToolbar({
                 onClick={() => {
                   setLocalSearch("")
                   onSearchChange("")
-                  onSearchSubmit()
+                  onSearchSubmit("")
                 }}
                 className="p-1 rounded-md text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
                 title="Clear search"
@@ -158,7 +161,7 @@ export function SellerFilterToolbar({
               variant="secondary"
               onClick={() => {
                 onSearchChange(localSearch)
-                onSearchSubmit()
+                onSearchSubmit(localSearch)
               }}
               className="h-7 px-2.5 text-xs font-semibold rounded-xl bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-950 dark:text-blue-300"
             >

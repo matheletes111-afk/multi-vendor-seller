@@ -232,10 +232,11 @@ export function AllSellersClient() {
   }
 
   // Apply filters
-  const handleApplyFilters = () => {
+  const handleApplyFilters = (overrideSearch?: string) => {
+    const effectiveSearch = typeof overrideSearch === "string" ? overrideSearch : searchInput
     updateUrlParams({
       page: "1",
-      search: searchInput.trim() || undefined,
+      search: effectiveSearch.trim() || undefined,
       sellerType: localType,
       status: localStatus,
       timeframe: localTimeframe,
@@ -889,6 +890,7 @@ export function AllSellersClient() {
                     <TableHead className="min-w-[120px]">Commission</TableHead>
                     <TableHead className="min-w-[140px]">Documents</TableHead>
                     <TableHead className="min-w-[130px]">Status</TableHead>
+                    <TableHead className="min-w-[150px]">Referred By</TableHead>
                     <TableHead className="min-w-[120px]">Joined Date</TableHead>
                     <TableHead className="text-right pr-6 min-w-[130px]">Actions</TableHead>
                   </TableRow>
@@ -1027,6 +1029,21 @@ export function AllSellersClient() {
                           {/* Status */}
                           <TableCell>{renderStatusBadge(seller)}</TableCell>
 
+                          {/* Referred By */}
+                          <TableCell>
+                            {seller.referredBy ? (
+                              <Badge
+                                variant="outline"
+                                className="text-xs font-medium px-2 py-0.5 rounded-lg bg-slate-50 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border-slate-200 dark:border-slate-700 max-w-[160px] truncate inline-block"
+                                title={seller.referredBy}
+                              >
+                                {seller.referredBy}
+                              </Badge>
+                            ) : (
+                              <span className="text-xs text-slate-400 italic">—</span>
+                            )}
+                          </TableCell>
+
                           {/* Registered Date */}
                           <TableCell className="text-xs text-slate-500 font-medium whitespace-nowrap">
                             {new Date(seller.createdAt).toLocaleDateString("en-US", {
@@ -1072,7 +1089,7 @@ export function AllSellersClient() {
                         {/* ── Expanded Detail View ── */}
                         {isExpanded && (
                           <TableRow className="bg-slate-50/90 dark:bg-slate-900/90 border-b border-slate-200 dark:border-slate-800">
-                            <TableCell colSpan={10} className="p-6">
+                            <TableCell colSpan={11} className="p-6">
                               <div className="rounded-2xl bg-white dark:bg-slate-950 p-6 border border-slate-200 dark:border-slate-800 shadow-sm space-y-6">
                                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-4">
                                   <div className="flex items-center gap-2.5">
