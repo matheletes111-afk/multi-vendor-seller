@@ -1,10 +1,10 @@
 "use client"
 
-import React, { useState } from "react"
+import React, { useState, useEffect } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { useRouter, useSearchParams } from "next/navigation"
-import { signIn } from "next-auth/react"
+import { getCsrfToken, signIn } from "next-auth/react"
 import { Bike, Mail, Lock, Phone, ArrowRight, AlertCircle, RefreshCw, CheckCircle2, Eye, EyeOff } from "lucide-react"
 import { Input } from "@/ui/input"
 import { Button } from "@/ui/button"
@@ -17,7 +17,12 @@ export function RiderLoginClient() {
   const [email, setEmail] = useState(searchParams.get("email") || "")
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
+  const [csrfToken, setCsrfToken] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [needsVerification, setNeedsVerification] = useState(false)
+  const [resendLoading, setResendLoading] = useState(false)
+  const [resendSuccess, setResendSuccess] = useState<string | null>(null)
+  const [resendCooldown, setResendCooldown] = useState(0)
   const [error, setError] = useState<string | null>(() => {
     const err = searchParams.get("error")
     if (err === "AccountSuspended") return "Your rider account has been suspended. Please contact support."
@@ -25,9 +30,45 @@ export function RiderLoginClient() {
     return null
   })
 
+  useEffect(() => {
+    getCsrfToken().then(setCsrfToken)
+  }, [])
+
+  const handleResendVerification = async () => {
+    if (resendCooldown > 0 || resendLoading || !email.trim()) return
+    setResendLoading(true)
+    setResendSuccess(null)
+    try {
+      const res = await fetch("/api/riderapp/auth/resend-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim().toLowerCase() }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || "Failed to resend verification code.")
+      setResendSuccess(data.message || "A new 6-digit verification code has been sent.")
+      setResendCooldown(60)
+      const timer = setInterval(() => {
+        setResendCooldown((prev) => {
+          if (prev <= 1) {
+            clearInterval(timer)
+            return 0
+          }
+          return prev - 1
+        })
+      }, 1000)
+    } catch (err: any) {
+      setError(err.message || "Failed to resend verification code.")
+    } finally {
+      setResendLoading(false)
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
+    setNeedsVerification(false)
+    setResendSuccess(null)
     setLoading(true)
 
     try {
@@ -37,12 +78,17 @@ export function RiderLoginClient() {
         body: JSON.stringify({
           email: email.trim().toLowerCase(),
           password,
+          csrfToken: csrfToken ?? undefined,
         }),
+        credentials: "include",
       })
 
       const data = await res.json()
 
       if (!res.ok) {
+        if (data.needsVerification) {
+          setNeedsVerification(true)
+        }
         throw new Error(data.error || "Failed to sign in. Please check your credentials.")
       }
 
@@ -110,10 +156,33 @@ export function RiderLoginClient() {
             </div>
           )}
 
+          {resendSuccess && (
+            <div className="p-3.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 text-xs border border-emerald-200 dark:border-emerald-900/50 flex items-start gap-2.5">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+              <span>{resendSuccess}</span>
+            </div>
+          )}
+
           {error && (
-            <div className="p-3.5 rounded-2xl bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-300 text-xs border border-red-200 dark:border-red-900/50 flex items-start gap-2.5">
-              <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
-              <span>{error}</span>
+            <div className="p-3.5 rounded-2xl bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-300 text-xs border border-red-200 dark:border-red-900/50 flex flex-col gap-1.5">
+              <div className="flex items-start gap-2.5">
+                <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+                <span>{error}</span>
+              </div>
+              {needsVerification && (
+                <button
+                  type="button"
+                  onClick={handleResendVerification}
+                  disabled={resendLoading || resendCooldown > 0}
+                  className="text-xs font-semibold text-blue-600 hover:text-blue-700 underline text-left ml-6 disabled:opacity-50"
+                >
+                  {resendCooldown > 0
+                    ? `Resend code available in ${resendCooldown}s`
+                    : resendLoading
+                    ? "Resending code..."
+                    : "Resend verification code to your email"}
+                </button>
+              )}
             </div>
           )}
 

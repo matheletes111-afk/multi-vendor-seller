@@ -69,8 +69,12 @@ export async function POST(request: Request) {
     let normalizedPhone: string | null = null
     let normalizedPhoneCountryCode: string | null = null
 
-    if (phone || phoneCountryCode) {
-      const validation = validatePhoneAndCountryCode(phone || "", phoneCountryCode || "")
+    const hasPhone = typeof phone === "string" && phone.trim().length > 0
+    if (hasPhone) {
+      const code = typeof phoneCountryCode === "string" && phoneCountryCode.trim().length > 0
+        ? phoneCountryCode.trim()
+        : "+232"
+      const validation = validatePhoneAndCountryCode(phone.trim(), code)
       if (!validation.isValid) {
         return NextResponse.json(
           { success: false, error: validation.error! },
@@ -86,7 +90,7 @@ export async function POST(request: Request) {
       })
       if (existingPhone) {
         return NextResponse.json(
-          { success: false, error: "Email or phone number is already registered" },
+          { success: false, error: "Phone number is already registered" },
           { status: 400 }
         )
       }
@@ -95,12 +99,89 @@ export async function POST(request: Request) {
     const cleanEmail = email.toLowerCase().trim()
     const existingUser = await prisma.user.findUnique({
       where: { email: cleanEmail },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        phone: true,
+        phoneCountryCode: true,
+        isEmailVerified: true,
+        role: true,
+        rider: true,
+      },
     })
 
     if (existingUser) {
+      if (existingUser.isEmailVerified) {
+        return NextResponse.json(
+          { success: false, error: "An account with this email is already registered. Please log in." },
+          { status: 400 }
+        )
+      }
+
+      // Rider exists but email is not yet verified (e.g. retrying registration): Resend fresh 6-digit OTP
+      const verifyEmailOtp = randomInt(100000, 999999).toString()
+      const emailVerificationExpires = new Date(Date.now() + OTP_EXPIRY_MS)
+      const now = new Date()
+
+      await prisma.user.update({
+        where: { id: existingUser.id },
+        data: {
+          verifyEmailOtp,
+          emailVerificationExpires,
+          emailOtpSentAt: now,
+        },
+      })
+
+      const baseUrl = getAppBaseUrl(request)
+      const verificationLink = `${baseUrl}/riderapp/verify-email?token=${verifyEmailOtp}&email=${encodeURIComponent(cleanEmail)}`
+
+      try {
+        const emailPromise = sendRiderVerificationEmail({
+          to: cleanEmail,
+          name: existingUser.name || sanitizedName || "Delivery Rider",
+          verificationLink,
+          otp: verifyEmailOtp,
+        })
+        const smsPromise = existingUser.phone
+          ? sendEmailVerificationSms({
+              to: existingUser.phone,
+              countryCode: existingUser.phoneCountryCode,
+              verificationLink,
+              otp: verifyEmailOtp,
+              name: existingUser.name,
+            })
+          : Promise.resolve()
+
+        const [emailRes] = await Promise.allSettled([emailPromise, smsPromise])
+        if (emailRes.status === "rejected") {
+          console.error("Failed to send rider verification email (rejected):", emailRes.reason)
+        } else if (emailRes.status === "fulfilled" && !(emailRes.value as any)?.success) {
+          console.error("Failed to send rider verification email:", (emailRes.value as any)?.error)
+        }
+      } catch (sendError) {
+        console.error("Failed to send rider verification email/sms on retry:", sendError)
+      }
+
       return NextResponse.json(
-        { success: false, error: "Email or phone number is already registered" },
-        { status: 400 }
+        {
+          success: true,
+          message: "Registration already in progress. A fresh 6-digit OTP has been sent to your email.",
+          data: {
+            userId: existingUser.id,
+            email: existingUser.email,
+            name: existingUser.name,
+            role: existingUser.role,
+            requiresVerification: true,
+            verificationDetails: {
+              method: "OTP",
+              expiresIn: OTP_EXPIRY_MS / 1000,
+              resendCooldown: 60,
+            },
+            verifyUrl: "/mobileapi/rider/auth/verify-otp",
+          },
+        },
+        { status: 200 }
       )
     }
 
@@ -144,21 +225,28 @@ export async function POST(request: Request) {
     const verificationLink = `${baseUrl}/riderapp/verify-email?token=${verifyEmailOtp}&email=${encodeURIComponent(cleanEmail)}`
 
     try {
-      await Promise.allSettled([
-        sendRiderVerificationEmail({
-          to: cleanEmail,
-          name: sanitizedName || "Delivery Rider",
-          verificationLink,
-          otp: verifyEmailOtp,
-        }),
-        sendEmailVerificationSms({
-          to: normalizedPhone,
-          countryCode: normalizedPhoneCountryCode,
-          verificationLink,
-          otp: verifyEmailOtp,
-          name: sanitizedName,
-        }),
-      ])
+      const emailPromise = sendRiderVerificationEmail({
+        to: cleanEmail,
+        name: sanitizedName || "Delivery Rider",
+        verificationLink,
+        otp: verifyEmailOtp,
+      })
+      const smsPromise = normalizedPhone
+        ? sendEmailVerificationSms({
+            to: normalizedPhone,
+            countryCode: normalizedPhoneCountryCode,
+            verificationLink,
+            otp: verifyEmailOtp,
+            name: sanitizedName,
+          })
+        : Promise.resolve()
+
+      const [emailRes] = await Promise.allSettled([emailPromise, smsPromise])
+      if (emailRes.status === "rejected") {
+        console.error("Failed to send rider verification email (rejected):", emailRes.reason)
+      } else if (emailRes.status === "fulfilled" && !(emailRes.value as any)?.success) {
+        console.error("Failed to send rider verification email:", (emailRes.value as any)?.error)
+      }
     } catch (sendError) {
       console.error("Failed to send rider verification email/sms:", sendError)
     }

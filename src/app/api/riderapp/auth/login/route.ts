@@ -2,7 +2,7 @@ import { NextResponse, NextRequest } from "next/server"
 import { UserRole } from "@prisma/client"
 import { prisma } from "@/lib/prisma"
 import bcrypt from "bcryptjs"
-import { POST as nextAuthPost } from "@/app/api/nextauth/[...nextauth]/route"
+import { POST as nextAuthPost, GET as nextAuthGet } from "@/app/api/nextauth/[...nextauth]/route"
 import { getSafeRedirectUrl } from "@/lib/safe-redirect"
 
 const ROLE_LABELS: Record<string, string> = {
@@ -86,15 +86,38 @@ export async function POST(request: Request) {
     const origin = new URL(request.url).origin
     const host = request.headers.get("host") ?? new URL(request.url).host
     const validatedCallbackUrl = getSafeRedirectUrl(callbackUrl, "/riderapp", origin)
+
+    let effectiveCsrfToken = csrfToken
+    let cookie = request.headers.get("cookie") ?? ""
+
+    if (!effectiveCsrfToken || !cookie.includes("authjs.csrf-token")) {
+      try {
+        const csrfReq = new NextRequest(`${origin}/api/nextauth/csrf`, {
+          headers: { Host: host, ...(cookie ? { Cookie: cookie } : {}) },
+        })
+        const csrfRes = await nextAuthGet(csrfReq as any)
+        const csrfData = await csrfRes.json().catch(() => ({}))
+        if (csrfData?.csrfToken) {
+          effectiveCsrfToken = csrfData.csrfToken
+        }
+        const setCookies = csrfRes.headers.getSetCookie?.() || []
+        if (setCookies.length > 0) {
+          const cookiePairs = setCookies.map((c) => c.split(";")[0].trim())
+          cookie = cookie ? `${cookie}; ${cookiePairs.join("; ")}` : cookiePairs.join("; ")
+        }
+      } catch (err) {
+        console.warn("Failed to auto-fetch CSRF token for rider login:", err)
+      }
+    }
+
     const form = new URLSearchParams({
       email: cleanEmail,
       password: password as string,
       role: UserRole.RIDER,
       callbackUrl: validatedCallbackUrl,
-      ...(csrfToken && { csrfToken }),
+      ...(effectiveCsrfToken && { csrfToken: effectiveCsrfToken }),
     })
 
-    const cookie = request.headers.get("cookie") ?? ""
     const nextauthRequest = new NextRequest(`${origin}/api/nextauth/callback/credentials`, {
       method: "POST",
       headers: {

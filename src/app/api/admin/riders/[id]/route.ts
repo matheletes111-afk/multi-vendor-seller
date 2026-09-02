@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { isAdmin } from "@/lib/rbac"
 import { validatePhoneAndCountryCode } from "@/lib/phone-validation"
+import { sendRiderSuspensionEmail } from "@/lib/email"
 
 export async function GET(
   request: NextRequest,
@@ -217,6 +218,22 @@ export async function PATCH(
       where: { userId: user.id },
       data: riderUpdates,
     })
+
+    if (
+      riderUpdates.isSuspended !== undefined &&
+      riderUpdates.isSuspended !== user.rider.isSuspended &&
+      user.email
+    ) {
+      try {
+        await sendRiderSuspensionEmail({
+          to: user.email,
+          name: user.name ?? "Delivery Rider",
+          isSuspended: riderUpdates.isSuspended,
+        })
+      } catch (emailErr) {
+        console.error("Failed to send rider suspension email:", emailErr)
+      }
+    }
 
     return NextResponse.json({
       success: true,

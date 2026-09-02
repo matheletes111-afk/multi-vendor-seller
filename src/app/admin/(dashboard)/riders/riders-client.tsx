@@ -24,6 +24,7 @@ import {
   Eye,
   SlidersHorizontal,
   ExternalLink,
+  Ban,
 } from "lucide-react"
 import { Button } from "@/ui/button"
 import { Input } from "@/ui/input"
@@ -149,6 +150,8 @@ export function RidersClient() {
 
   // Resend Invite State
   const [resendLoading, setResendLoading] = useState(false)
+  // Suspend Action State
+  const [suspendLoadingId, setSuspendLoadingId] = useState<string | null>(null)
 
   const fetchRiders = useCallback(async () => {
     try {
@@ -313,6 +316,40 @@ export function RidersClient() {
       alert(err.message || "Failed to resend credentials.")
     } finally {
       setResendLoading(false)
+    }
+  }
+
+  // Handle Quick Suspend / Unsuspend Rider
+  const handleToggleSuspend = async (riderItem: RiderItem, suspend: boolean) => {
+    const actionLabel = suspend ? "suspend" : "unsuspend"
+    const confirmMessage = suspend
+      ? `Are you sure you want to suspend rider "${riderItem.name || riderItem.email}"? The rider will be immediately blocked from logging into the rider portal.`
+      : `Are you sure you want to unsuspend rider "${riderItem.name || riderItem.email}"? Their active access will be restored.`
+
+    if (!window.confirm(confirmMessage)) return
+
+    try {
+      setSuspendLoadingId(riderItem.id)
+      const res = await fetch(`/api/admin/riders/${riderItem.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          status: suspend ? "SUSPENDED" : "APPROVED",
+          isSuspended: suspend,
+          ...(suspend ? {} : { isApproved: true }),
+        }),
+      })
+
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data.error || `Failed to ${actionLabel} rider.`)
+      }
+
+      await fetchRiders()
+    } catch (err: any) {
+      alert(err.message || `Failed to ${actionLabel} rider.`)
+    } finally {
+      setSuspendLoadingId(null)
     }
   }
 
@@ -684,16 +721,55 @@ export function RidersClient() {
                             Manage
                           </Button>
 
+                          {/* Quick Suspend / Unsuspend Button in Row */}
+                          {r.rider?.isSuspended || r.rider?.status === "SUSPENDED" ? (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              disabled={suspendLoadingId === r.id}
+                              onClick={() => handleToggleSuspend(r, false)}
+                              className="h-8 px-2.5 text-xs rounded-lg text-emerald-600 border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700 dark:border-emerald-900/50 dark:hover:bg-emerald-950/30"
+                              title="Unsuspend / Reactivate Rider"
+                            >
+                              {suspendLoadingId === r.id ? (
+                                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                              ) : (
+                                <>
+                                  <CheckCircle2 className="w-3.5 h-3.5 mr-1 text-emerald-600" />
+                                  Unsuspend
+                                </>
+                              )}
+                            </Button>
+                          ) : (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              disabled={suspendLoadingId === r.id}
+                              onClick={() => handleToggleSuspend(r, true)}
+                              className="h-8 px-2.5 text-xs rounded-lg text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 dark:border-red-900/50 dark:hover:bg-red-950/30"
+                              title="Suspend Rider"
+                            >
+                              {suspendLoadingId === r.id ? (
+                                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                              ) : (
+                                <>
+                                  <Ban className="w-3.5 h-3.5 mr-1 text-red-600" />
+                                  Suspend
+                                </>
+                              )}
+                            </Button>
+                          )}
+
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-lg">
                                 <MoreVertical className="w-4 h-4" />
                               </Button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-48 rounded-xl">
+                            <DropdownMenuContent align="end" className="w-52 rounded-xl">
                               <DropdownMenuLabel className="text-xs">Rider Actions</DropdownMenuLabel>
                               <DropdownMenuItem onClick={() => openEditModal(r)}>
-                                <Eye className="w-3.5 h-3.5 mr-2" />
+                                <Eye className="w-3.5 h-3.5 mr-2 text-slate-500" />
                                 View Full Profile
                               </DropdownMenuItem>
                               {!r.rider?.onboardingCompleted && (
@@ -705,7 +781,26 @@ export function RidersClient() {
                                   Resend Credentials
                                 </DropdownMenuItem>
                               )}
-
+                              <DropdownMenuSeparator />
+                              {r.rider?.isSuspended || r.rider?.status === "SUSPENDED" ? (
+                                <DropdownMenuItem
+                                  onClick={() => handleToggleSuspend(r, false)}
+                                  disabled={suspendLoadingId === r.id}
+                                  className="text-emerald-600 focus:text-emerald-700 focus:bg-emerald-50 dark:focus:bg-emerald-950/30 cursor-pointer"
+                                >
+                                  <CheckCircle2 className="w-3.5 h-3.5 mr-2 text-emerald-600" />
+                                  Unsuspend Rider
+                                </DropdownMenuItem>
+                              ) : (
+                                <DropdownMenuItem
+                                  onClick={() => handleToggleSuspend(r, true)}
+                                  disabled={suspendLoadingId === r.id}
+                                  className="text-red-600 focus:text-red-700 focus:bg-red-50 dark:focus:bg-red-950/30 cursor-pointer"
+                                >
+                                  <Ban className="w-3.5 h-3.5 mr-2 text-red-600" />
+                                  Suspend Rider
+                                </DropdownMenuItem>
+                              )}
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </div>
@@ -1221,6 +1316,30 @@ export function RidersClient() {
                   <Send className="w-3.5 h-3.5 mr-1" />
                   Resend Credentials Email
                 </Button>
+              ) : selectedRider ? (
+                editStatus === "SUSPENDED" ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setEditStatus("APPROVED")}
+                    className="text-xs rounded-xl border-emerald-300 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-800 dark:text-emerald-400"
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
+                    Unsuspend Rider
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setEditStatus("SUSPENDED")}
+                    className="text-xs rounded-xl border-red-300 text-red-700 hover:bg-red-50 dark:border-red-800 dark:text-red-400"
+                  >
+                    <Ban className="w-3.5 h-3.5 mr-1" />
+                    Suspend Rider
+                  </Button>
+                )
               ) : (
                 <div />
               )}
