@@ -178,13 +178,11 @@ export async function POST(request: Request) {
       // Handle profile image upload
       const profileImageFile = formData.get("profileImage") as File | null
       if (profileImageFile && typeof profileImageFile === "object" && profileImageFile.size > 0) {
-        const buffer = Buffer.from(await profileImageFile.arrayBuffer())
-        const ext = profileImageFile.name.substring(profileImageFile.name.lastIndexOf(".")) || ".jpg"
         profileImageUrl = await uploadPublicFile({
-          folder: "riders/profiles",
-          ext,
+          folder: "profile",
+          ext: path.extname(profileImageFile.name) || ".jpg",
           contentType: profileImageFile.type || "image/jpeg",
-          buffer,
+          buffer: Buffer.from(await profileImageFile.arrayBuffer()),
           prefix: `rider-pfp-${userId.slice(0, 8)}`,
         })
       }

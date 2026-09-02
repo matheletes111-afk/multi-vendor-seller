@@ -12,11 +12,19 @@ export async function sendEmail({
   html?: string
   text?: string
 }) {
-  const apiKey = process.env.SENDGRID_API_KEY?.trim()
-  const from = process.env.SENDGRID_FROM_EMAIL?.trim()
-  if (!apiKey || !from) {
-    console.warn("SendGrid not configured: SENDGRID_API_KEY or SENDGRID_FROM_EMAIL missing or empty")
-    return { success: false, error: new Error("Email not configured") }
+  const apiKey =
+    process.env.SENDGRID_API_KEY?.trim() ||
+    process.env.AMPLIFY_SENDGRID_API_KEY?.trim()
+  const from =
+    process.env.SENDGRID_FROM_EMAIL?.trim() ||
+    process.env.AMPLIFY_SENDGRID_FROM_EMAIL?.trim() ||
+    process.env.FROM_EMAIL?.trim() ||
+    process.env.EMAIL_FROM?.trim() ||
+    "noreply@meeemsl.com"
+
+  if (!apiKey) {
+    console.warn("SendGrid not configured: SENDGRID_API_KEY (or AMPLIFY_SENDGRID_API_KEY) missing or empty")
+    return { success: false, error: new Error("Email service is not configured on the server.") }
   }
   sgMail.setApiKey(apiKey)
   try {

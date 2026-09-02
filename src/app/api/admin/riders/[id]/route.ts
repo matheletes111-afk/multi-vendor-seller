@@ -193,7 +193,7 @@ export async function PATCH(
 
     // Document & Image Updates
     if (profileImage !== undefined) {
-      const resolvedProfile = await resolveDocUrl(profileImage, "riders/profiles", `pfp-${user.id.slice(0, 8)}`)
+      const resolvedProfile = await resolveDocUrl(profileImage, "profile", `pfp-${user.id.slice(0, 8)}`)
       riderUpdates.profileImage = resolvedProfile
       userUpdates.image = resolvedProfile
     }
