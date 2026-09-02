@@ -13,5 +13,10 @@ export default async function RiderOnboardingPage() {
     redirect("/riderapp/login")
   }
 
+  const u = session.user as { onboardingCompleted?: boolean; isFirstLogin?: boolean }
+  if (u.onboardingCompleted && !u.isFirstLogin) {
+    redirect("/riderapp")
+  }
+
   return <RiderOnboardingClient user={session.user} />
 }

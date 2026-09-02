@@ -3,6 +3,7 @@ import { getMobileRiderAuth } from "@/app/mobileapi/_helpers/rider-auth"
 import { prisma } from "@/lib/prisma"
 import bcrypt from "bcryptjs"
 import { uploadPublicFile } from "@/lib/upload-public-file"
+import { generateMobileTokens } from "@/lib/mobile-jwt"
 
 // GET /mobileapi/rider/settings — Fetch full settings
 export async function GET(request: NextRequest) {
@@ -300,6 +301,16 @@ export async function POST(request: NextRequest) {
     })
 
     const updatedVehicleType = (updatedRider.vehicleTypes as string[])?.[0] || "2_WHEELER"
+    const finalPasswordHash = userUpdates.password || user.password
+    let tokens = undefined
+    if (userUpdates.password) {
+      tokens = generateMobileTokens({
+        userId,
+        email: user.email,
+        role: user.role,
+        passwordHash: finalPasswordHash,
+      })
+    }
 
     return NextResponse.json({
       success: true,
@@ -309,6 +320,7 @@ export async function POST(request: NextRequest) {
           ...updatedRider,
           vehicleType: updatedVehicleType,
         },
+        ...(tokens && { tokens }),
       },
     })
   } catch (error) {

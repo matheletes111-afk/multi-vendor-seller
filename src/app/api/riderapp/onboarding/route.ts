@@ -240,6 +240,7 @@ export async function POST(request: Request) {
       success: true,
       message: "Onboarding completed successfully!",
       rider,
+      passwordHash: userUpdates.password || undefined,
     })
   } catch (error) {
     console.error("Rider onboarding error:", error)

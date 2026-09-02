@@ -200,6 +200,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         if (session.onboardingStep !== undefined) token.onboardingStep = session.onboardingStep
         if (session.isFirstLogin !== undefined) token.isFirstLogin = session.isFirstLogin
         if (session.status !== undefined) token.status = session.status
+        if (session.passwordHash !== undefined) token.passwordHash = session.passwordHash
         return token
       }
 
@@ -271,9 +272,14 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
               (tokenHasPassword && dbUser.password !== token.passwordHash) ||
               (dbHasPassword && dbUser.password !== token.passwordHash)
             ) {
-              token.id = ""
-              token.error = "SessionInvalidated"
-              return token
+              // If rider is completing first-time onboarding password setup, sync the new hash instead of invalidating
+              if (token.role === UserRole.RIDER && (token.isFirstLogin || !token.onboardingCompleted) && dbUser?.password) {
+                token.passwordHash = dbUser.password
+              } else {
+                token.id = ""
+                token.error = "SessionInvalidated"
+                return token
+              }
             }
 
             // Real-time seller status synchronization:

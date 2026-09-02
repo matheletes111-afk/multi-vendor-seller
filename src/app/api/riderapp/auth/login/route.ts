@@ -84,7 +84,7 @@ export async function POST(request: Request) {
     }
 
     const origin = new URL(request.url).origin
-    const host = new URL(request.url).host
+    const host = request.headers.get("host") ?? new URL(request.url).host
     const validatedCallbackUrl = getSafeRedirectUrl(callbackUrl, "/riderapp", origin)
     const form = new URLSearchParams({
       email: cleanEmail,
@@ -99,61 +99,65 @@ export async function POST(request: Request) {
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
-        cookie,
-        host,
-        "x-forwarded-host": host,
-        "x-forwarded-proto": new URL(request.url).protocol.replace(":", ""),
         "X-Auth-Return-Redirect": "1",
+        Host: host,
+        ...(cookie && { Cookie: cookie }),
       },
       body: form.toString(),
     })
 
-    const nextauthResponse = await nextAuthPost(nextauthRequest)
+    const nextauthResponse = await nextAuthPost(nextauthRequest as any)
 
-    if (nextauthResponse.status === 401) {
-      return NextResponse.json(
-        { error: "Invalid email or password" },
-        { status: 401 }
-      )
+    const location = nextauthResponse.headers.get("Location") ?? ""
+    let nextAuthUrl = location
+    if (!nextAuthUrl) {
+      try {
+        const resBody = await nextauthResponse.clone().json().catch(() => ({}))
+        nextAuthUrl = typeof resBody?.url === "string" ? resBody.url : ""
+      } catch {
+        /* ignore */
+      }
     }
 
-    const resContentType = nextauthResponse.headers.get("content-type") ?? ""
-    if (resContentType.includes("application/json")) {
-      const data = await nextauthResponse.json()
-      const rawUrl = data?.url ?? validatedCallbackUrl
-      const finalUrl = getSafeRedirectUrl(rawUrl, "/riderapp", origin)
-      const res = NextResponse.json({
+    const isErrorRedirect =
+      nextAuthUrl.includes("error=") ||
+      nextAuthUrl.includes("login") ||
+      nextAuthUrl.includes("registration")
+
+    if (isErrorRedirect) {
+      let msg = "Invalid email or password."
+      try {
+        const err = new URL(nextAuthUrl, origin).searchParams.get("error")
+        if (err === "MissingCSRF") {
+          msg = "Session expired. Please refresh and try again."
+        } else if (err === "CredentialsSignin") {
+          msg = "Invalid email or password."
+        } else if (err) {
+          msg = err
+        }
+      } catch {
+        /* use default */
+      }
+      return NextResponse.json({ error: msg }, { status: 401 })
+    }
+
+    const targetUrl =
+      rider?.isFirstLogin || !rider?.onboardingCompleted
+        ? "/riderapp/onboarding"
+        : getSafeRedirectUrl(nextAuthUrl || callbackUrl, "/riderapp", origin)
+
+    const headers = new Headers()
+    nextauthResponse.headers.getSetCookie?.().forEach((c: string) => headers.append("Set-Cookie", c))
+
+    return NextResponse.json(
+      {
         success: true,
-        url: finalUrl,
+        url: targetUrl,
         isFirstLogin: rider?.isFirstLogin ?? true,
         onboardingCompleted: rider?.onboardingCompleted ?? false,
-      })
-      nextauthResponse.headers.forEach((value, key) => {
-        if (key.toLowerCase() === "set-cookie") {
-          res.headers.append("set-cookie", value)
-        }
-      })
-      return res
-    }
-
-    const locationHeader = nextauthResponse.headers.get("location")
-    if (locationHeader) {
-      const finalUrl = getSafeRedirectUrl(locationHeader, "/riderapp", origin)
-      const res = NextResponse.json({
-        success: true,
-        url: finalUrl,
-        isFirstLogin: rider?.isFirstLogin ?? true,
-        onboardingCompleted: rider?.onboardingCompleted ?? false,
-      })
-      nextauthResponse.headers.forEach((value, key) => {
-        if (key.toLowerCase() === "set-cookie") {
-          res.headers.append("set-cookie", value)
-        }
-      })
-      return res
-    }
-
-    return NextResponse.json({ success: true, url: validatedCallbackUrl })
+      },
+      { status: 200, headers }
+    )
   } catch (error) {
     console.error("Rider login API error:", error)
     return NextResponse.json(

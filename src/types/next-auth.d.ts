@@ -17,6 +17,7 @@ declare module "next-auth" {
       onboardingStep?: number
       isFirstLogin?: boolean
       status?: RiderStatus | string
+      passwordHash?: string | null
     }
   }
 
@@ -32,6 +33,7 @@ declare module "next-auth" {
     onboardingStep?: number
     isFirstLogin?: boolean
     status?: RiderStatus | string
+    passwordHash?: string | null
   }
 }
 

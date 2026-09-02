@@ -61,7 +61,7 @@ export async function getValidSubscription(sellerId: string) {
   
   // 1. Handle Initialization: If no period end is set, initialize with the plan's duration
   if (!subscription.currentPeriodEnd) {
-    const durationDays = subscription.plan.duration || (subscription.plan.price === 0 ? 60 : 30)
+    const durationDays = subscription.plan.duration || (subscription.plan.price === 0 ? 90 : 30)
     const periodEnd = new Date(subscription.createdAt.getTime() + durationDays * 24 * 60 * 60 * 1000)
     return await prisma.subscription.update({
       where: { id: subscription.id },
@@ -77,8 +77,8 @@ export async function getValidSubscription(sellerId: string) {
   // 2. Handle Expiration / Auto-renewal
   if (now > subscription.currentPeriodEnd) {
     if (subscription.plan.price === 0) {
-      // FREE PLAN logic: Allowed based on plan's duration (e.g. 60 days / 2 months)
-      const durationDays = subscription.plan.duration || 60
+      // FREE PLAN logic: Allowed based on plan's duration (e.g. 90 days / 3 months)
+      const durationDays = subscription.plan.duration || 90
       const allowedWindowEnd = new Date(subscription.createdAt.getTime() + durationDays * 24 * 60 * 60 * 1000)
       
       if (now < allowedWindowEnd) {
@@ -252,7 +252,7 @@ export async function activateFreePlan(sellerId: string) {
     const freePlan = await prisma.plan.findFirst({ where: { price: 0, type: PlanType.PRODUCT_SERVICE } })
     if (!freePlan) return null
     const now = new Date()
-    const durationDays = freePlan.duration || 60
+    const durationDays = freePlan.duration || 90
     const periodEnd = new Date(now.getTime() + durationDays * 24 * 60 * 60 * 1000)
     const snapshot = createPlanSnapshot(freePlan)
 
@@ -272,7 +272,7 @@ export async function activateHotelFreePlan(hotelSellerId: string) {
     const freePlan = await prisma.plan.findFirst({ where: { price: 0, type: PlanType.HOTEL } })
     if (!freePlan) return null
     const now = new Date()
-    const durationDays = freePlan.duration || 60
+    const durationDays = freePlan.duration || 90
     const periodEnd = new Date(now.getTime() + durationDays * 24 * 60 * 60 * 1000)
     const snapshot = createPlanSnapshot(freePlan)
 
@@ -292,7 +292,7 @@ export async function activateRestaurantFreePlan(restaurantSellerId: string) {
     const freePlan = await prisma.plan.findFirst({ where: { price: 0, type: PlanType.RESTAURANT } })
     if (!freePlan) return null
     const now = new Date()
-    const durationDays = freePlan.duration || 60
+    const durationDays = freePlan.duration || 90
     const periodEnd = new Date(now.getTime() + durationDays * 24 * 60 * 60 * 1000)
     const snapshot = createPlanSnapshot(freePlan)
 
@@ -318,7 +318,7 @@ export async function getValidHotelSubscription(hotelSellerId: string) {
   const now = new Date()
   
   if (!subscription.currentPeriodEnd) {
-    const durationDays = subscription.plan.duration || (subscription.plan.price === 0 ? 60 : 30)
+    const durationDays = subscription.plan.duration || (subscription.plan.price === 0 ? 90 : 30)
     const periodEnd = new Date(subscription.createdAt.getTime() + durationDays * 24 * 60 * 60 * 1000)
     return await prisma.hotelSubscription.update({
       where: { id: subscription.id },
@@ -333,7 +333,7 @@ export async function getValidHotelSubscription(hotelSellerId: string) {
 
   if (now > subscription.currentPeriodEnd) {
     if (subscription.plan.price === 0) {
-      const durationDays = subscription.plan.duration || 60
+      const durationDays = subscription.plan.duration || 90
       const allowedWindowEnd = new Date(subscription.createdAt.getTime() + durationDays * 24 * 60 * 60 * 1000)
       
       if (now < allowedWindowEnd) {
@@ -394,7 +394,7 @@ export async function getValidRestaurantSubscription(restaurantSellerId: string)
   const now = new Date()
   
   if (!subscription.currentPeriodEnd) {
-    const durationDays = subscription.plan.duration || (subscription.plan.price === 0 ? 60 : 30)
+    const durationDays = subscription.plan.duration || (subscription.plan.price === 0 ? 90 : 30)
     const periodEnd = new Date(subscription.createdAt.getTime() + durationDays * 24 * 60 * 60 * 1000)
     return await prisma.restaurantSubscription.update({
       where: { id: subscription.id },
@@ -409,7 +409,7 @@ export async function getValidRestaurantSubscription(restaurantSellerId: string)
 
   if (now > subscription.currentPeriodEnd) {
     if (subscription.plan.price === 0) {
-      const durationDays = subscription.plan.duration || 60
+      const durationDays = subscription.plan.duration || 90
       const allowedWindowEnd = new Date(subscription.createdAt.getTime() + durationDays * 24 * 60 * 60 * 1000)
       
       if (now < allowedWindowEnd) {
