@@ -84,6 +84,22 @@ export async function POST(request: Request) {
       }
 
       // User exists but is not verified: refresh 6-digit OTP and resend email
+      // Also ensure rider row exists (guard against partial creation)
+      const existingRider = await prisma.rider.findUnique({ where: { userId: existingUser.id } })
+      if (!existingRider) {
+        await prisma.rider.create({
+          data: {
+            userId: existingUser.id,
+            isApproved: true,
+            isSuspended: false,
+            status: "PENDING",
+            createdByAdmin: false,
+            onboardingCompleted: false,
+            isFirstLogin: true,
+          },
+        })
+      }
+
       const verifyEmailOtp = crypto.randomInt(100000, 999999).toString()
       const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000)
 

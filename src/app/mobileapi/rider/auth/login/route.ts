@@ -81,14 +81,32 @@ export async function POST(request: Request) {
       )
     }
 
-    if (!user.rider) {
-      return NextResponse.json(
-        { success: false, error: "Rider profile not found. Please contact support." },
-        { status: 403 }
-      )
+    // Auto-heal: if rider row is missing for a verified user, create it rather than hard-blocking
+    let riderProfile = user.rider
+    if (!riderProfile) {
+      try {
+        riderProfile = await prisma.rider.create({
+          data: {
+            userId: user.id,
+            isApproved: true,
+            isSuspended: false,
+            status: "APPROVED",
+            createdByAdmin: false,
+            onboardingCompleted: false,
+            isFirstLogin: true,
+          },
+        })
+        console.warn(`Auto-healed missing rider row for userId=${user.id} during login.`)
+      } catch (healErr) {
+        console.error("Failed to auto-heal missing rider row during login:", healErr)
+        return NextResponse.json(
+          { success: false, error: "Rider profile not found. Please contact support." },
+          { status: 403 }
+        )
+      }
     }
 
-    if (user.rider.isSuspended || user.rider.status === "SUSPENDED") {
+    if (riderProfile.isSuspended || riderProfile.status === "SUSPENDED") {
       return NextResponse.json(
         {
           success: false,
@@ -104,8 +122,8 @@ export async function POST(request: Request) {
     if (deviceToken || deviceId) {
       try {
         const tokenToStore = deviceToken || deviceId!
-        const existingTokens: any[] = Array.isArray(user.rider.deviceTokens)
-          ? (user.rider.deviceTokens as any[])
+        const existingTokens: any[] = Array.isArray(riderProfile.deviceTokens)
+          ? (riderProfile.deviceTokens as any[])
           : []
 
         const now = new Date().toISOString()
@@ -123,7 +141,7 @@ export async function POST(request: Request) {
         const updatedTokens = [newEntry, ...otherTokens].slice(0, 10) // Keep latest 10 devices
 
         await prisma.rider.update({
-          where: { id: user.rider.id },
+          where: { id: riderProfile.id },
           data: { deviceTokens: updatedTokens },
         })
       } catch (tokenErr) {
@@ -140,7 +158,7 @@ export async function POST(request: Request) {
       platform,
     })
 
-    const { password: _, rider, ...userWithoutPassword } = user
+    const { password: _, rider: _rider, ...userWithoutPassword } = user
 
     return NextResponse.json(
       {
@@ -149,18 +167,18 @@ export async function POST(request: Request) {
         data: {
           user: userWithoutPassword,
           rider: {
-            id: rider.id,
-            isApproved: rider.isApproved,
-            isSuspended: rider.isSuspended,
-            status: rider.status,
-            onboardingCompleted: rider.onboardingCompleted,
-            isFirstLogin: rider.isFirstLogin,
-            vehicleTypes: rider.vehicleTypes,
-            vehicleNumber: rider.vehicleNumber,
-            drivingLicenseNo: rider.drivingLicenseNo,
-            profileImage: rider.profileImage,
-            selectedZones: rider.selectedZones,
-            selectedLocations: rider.selectedLocations,
+            id: riderProfile.id,
+            isApproved: riderProfile.isApproved,
+            isSuspended: riderProfile.isSuspended,
+            status: riderProfile.status,
+            onboardingCompleted: riderProfile.onboardingCompleted,
+            isFirstLogin: riderProfile.isFirstLogin,
+            vehicleTypes: riderProfile.vehicleTypes,
+            vehicleNumber: riderProfile.vehicleNumber,
+            drivingLicenseNo: riderProfile.drivingLicenseNo,
+            profileImage: riderProfile.profileImage,
+            selectedZones: riderProfile.selectedZones,
+            selectedLocations: riderProfile.selectedLocations,
           },
           tokens,
           sessionInfo: {

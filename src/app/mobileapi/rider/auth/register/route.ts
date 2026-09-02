@@ -192,7 +192,7 @@ export async function POST(request: Request) {
           message: "Registration successful. Please verify your email with the 6-digit OTP sent.",
           data: {
             userId: existingUser.id,
-            riderId: rider.id,
+            riderId: rider.id ?? null,
             email: existingUser.email,
             name: sanitizedName || existingUser.name,
             role: UserRole.RIDER,
@@ -253,6 +253,18 @@ export async function POST(request: Request) {
       },
     })
 
+    // Guard: rider must have been created atomically with the user
+    if (!user.rider?.id) {
+      // Attempt recovery — fetch the rider row in case the select missed it
+      const healedRider = await prisma.rider.findUnique({ where: { userId: user.id } })
+      if (!healedRider) {
+        console.error(`Rider row missing after user.create for userId=${user.id}`)
+        throw new Error("Rider profile could not be created. Please try again.")
+      }
+      // Attach healed rider so the response is correct
+      ;(user as any).rider = healedRider
+    }
+
     const baseUrl = getAppBaseUrl(request)
     const verificationLink = `${baseUrl}/riderapp/verify-email?token=${verifyEmailOtp}&email=${encodeURIComponent(cleanEmail)}`
 
@@ -289,7 +301,7 @@ export async function POST(request: Request) {
         message: "Registration successful. Please verify your email with the 6-digit OTP sent.",
         data: {
           userId: user.id,
-          riderId: user.rider?.id,
+          riderId: user.rider?.id ?? null,
           email: user.email,
           name: user.name,
           role: user.role,
