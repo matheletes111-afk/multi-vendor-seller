@@ -27,6 +27,7 @@ import {
   DialogTitle,
 } from "@/ui/dialog"
 import { cn } from "@/lib/utils"
+import { RadioGroup, RadioGroupItem } from "@/ui/radio-group"
 
 import { OrderLiveTrackingMap } from "./order-live-tracking-map"
 
@@ -83,7 +84,7 @@ export function OrderRiderCard({
   )
 
   const [aiVehicleRecommendation, setAiVehicleRecommendation] = useState<any>(null)
-  const [onlyMatchedVehicles, setOnlyMatchedVehicles] = useState(false)
+  const [vehicleFilterMode, setVehicleFilterMode] = useState<"matched" | "all">("matched")
 
   const activeAssignment = activeAssignments[activePackageIdx] || activeAssignments[0] || null
 
@@ -184,7 +185,7 @@ export function OrderRiderCard({
       (r.vehicleNumber && r.vehicleNumber.toLowerCase().includes(searchRider.toLowerCase()))
 
     if (!matchesSearch) return false
-    if (onlyMatchedVehicles && r.isVehicleMatch === false) return false
+    if (vehicleFilterMode === "matched" && r.isVehicleMatch === false) return false
     return true
   })
 
@@ -406,7 +407,7 @@ export function OrderRiderCard({
           <div className="space-y-4 py-2">
             {/* AI Vehicle Recommendation Banner */}
             {aiVehicleRecommendation && (
-              <div className="p-3 rounded-2xl bg-indigo-50/80 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800 space-y-1.5">
+              <div className="p-3.5 rounded-2xl bg-indigo-50/90 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800 space-y-2.5">
                 <div className="flex items-center justify-between text-xs">
                   <span className="font-bold flex items-center gap-1.5 text-indigo-900 dark:text-indigo-200">
                     <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
@@ -419,22 +420,81 @@ export function OrderRiderCard({
                 <p className="text-[11px] text-indigo-700 dark:text-indigo-300 leading-relaxed">
                   {aiVehicleRecommendation.reason}
                 </p>
-                <div className="flex items-center justify-between pt-1">
-                  <span className="text-[10px] text-indigo-600 dark:text-indigo-400">
-                    Est. Weight: ~{aiVehicleRecommendation.estimatedWeightKg?.toFixed(1)} kg
+                <div className="text-[10px] text-indigo-600 dark:text-indigo-400 font-medium">
+                  Est. Weight: ~{aiVehicleRecommendation.estimatedWeightKg?.toFixed(1)} kg
+                </div>
+
+                {/* Radio Button Filter Controls */}
+                <div className="pt-2 border-t border-indigo-200/70 dark:border-indigo-800/70 space-y-2">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-900 dark:text-indigo-200 block">
+                    Vehicle Filter Mode:
                   </span>
-                  <button
-                    type="button"
-                    onClick={() => setOnlyMatchedVehicles(!onlyMatchedVehicles)}
-                    className={cn(
-                      "text-[10px] font-bold px-2 py-0.5 rounded-lg border transition-all",
-                      onlyMatchedVehicles
-                        ? "bg-indigo-600 text-white border-indigo-600"
-                        : "bg-white dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 border-indigo-200"
-                    )}
+
+                  <RadioGroup
+                    value={vehicleFilterMode}
+                    onValueChange={(val) => setVehicleFilterMode(val as "matched" | "all")}
+                    className="grid grid-cols-1 sm:grid-cols-2 gap-2"
                   >
-                    {onlyMatchedVehicles ? "Showing Matched Only" : "Filter Compatible Vehicles"}
-                  </button>
+                    <label
+                      htmlFor="radio-filter-matched"
+                      className={cn(
+                        "flex items-center gap-2.5 p-2 rounded-xl border cursor-pointer transition-all text-xs",
+                        vehicleFilterMode === "matched"
+                          ? "bg-indigo-100 dark:bg-indigo-900/60 border-indigo-500 shadow-xs font-semibold text-indigo-950 dark:text-indigo-100 ring-1 ring-indigo-400"
+                          : "bg-white/80 dark:bg-indigo-950/20 border-indigo-200/80 text-muted-foreground hover:bg-indigo-50/50"
+                      )}
+                    >
+                      <RadioGroupItem value="matched" id="radio-filter-matched" />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1">
+                          <span className="text-[11px] leading-tight font-bold">Compatible Only</span>
+                          <span className="text-[8px] px-1 py-0.2 rounded bg-indigo-600 text-white font-bold uppercase">
+                            Rec
+                          </span>
+                        </div>
+                        <span className="text-[9px] block text-indigo-600 dark:text-indigo-400 opacity-90 truncate">
+                          {aiVehicleRecommendation.requiredVehicle.replace("_", " ")} only
+                        </span>
+                      </div>
+                    </label>
+
+                    <label
+                      htmlFor="radio-filter-all"
+                      className={cn(
+                        "flex items-center gap-2.5 p-2 rounded-xl border cursor-pointer transition-all text-xs",
+                        vehicleFilterMode === "all"
+                          ? "bg-indigo-100 dark:bg-indigo-900/60 border-indigo-500 shadow-xs font-semibold text-indigo-950 dark:text-indigo-100 ring-1 ring-indigo-400"
+                          : "bg-white/80 dark:bg-indigo-950/20 border-indigo-200/80 text-muted-foreground hover:bg-indigo-50/50"
+                      )}
+                    >
+                      <RadioGroupItem value="all" id="radio-filter-all" />
+                      <div className="flex-1 min-w-0">
+                        <span className="text-[11px] leading-tight font-bold block">Show All Vehicles</span>
+                        <span className="text-[9px] block text-muted-foreground opacity-90 truncate">
+                          All riders (2W, 3W, 4W)
+                        </span>
+                      </div>
+                    </label>
+                  </RadioGroup>
+
+                  {/* Important Explanatory Note */}
+                  <div className="p-2 rounded-xl bg-white/80 dark:bg-indigo-900/30 border border-indigo-100 dark:border-indigo-800/60 text-[10px] leading-relaxed flex items-start gap-1.5 shadow-2xs">
+                    {vehicleFilterMode === "matched" ? (
+                      <>
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
+                        <span className="text-indigo-900 dark:text-indigo-200">
+                          <strong>Active Filter:</strong> Showing only riders equipped for {aiVehicleRecommendation.requiredVehicle.replace("_", " ")} cargo (~{aiVehicleRecommendation.estimatedWeightKg?.toFixed(1)}kg) for safe transit.
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
+                        <span className="text-amber-900 dark:text-amber-200">
+                          <strong>Important Note:</strong> Displaying all riders. Assigning heavy or oversized cargo to a 2-Wheeler (motorbike) may lead to rider refusal or delivery cancellation.
+                        </span>
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
             )}
@@ -487,10 +547,17 @@ export function OrderRiderCard({
                     Loading riders...
                   </div>
                 ) : filteredRiders.length === 0 ? (
-                  <div className="py-6 text-center text-xs text-muted-foreground">
-                    {onlyMatchedVehicles
-                      ? "No approved riders with compatible vehicle found."
-                      : "No approved riders found."}
+                  <div className="py-6 text-center text-xs text-muted-foreground space-y-1">
+                    <p className="font-semibold">
+                      {vehicleFilterMode === "matched"
+                        ? "No approved riders with compatible vehicle found."
+                        : "No approved riders found."}
+                    </p>
+                    {vehicleFilterMode === "matched" && riders.length > 0 && (
+                      <p className="text-[11px] text-amber-600 dark:text-amber-400">
+                        ({riders.length} rider(s) available in other vehicle categories. Select &quot;Show All Vehicles&quot; above to view them.)
+                      </p>
+                    )}
                   </div>
                 ) : (
                   filteredRiders.map((r) => {

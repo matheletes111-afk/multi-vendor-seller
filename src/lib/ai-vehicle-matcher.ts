@@ -72,14 +72,30 @@ export function getHeuristicVehicleMatch(items: MatchableItem[]): VehicleMatchRe
     const d = item.depth ?? item.productVariant?.depth ?? 0
     const maxSide = Math.max(h, w, d)
 
-    if (weight > 0) {
-      totalWeight += weight * qty
-    }
-    if (maxSide > 0) {
-      maxDimension = Math.max(maxDimension, maxSide)
-    }
+    const isHairDryerOrPersonalCare =
+      title.includes("hair dryer") ||
+      title.includes("hairdryer") ||
+      title.includes("blow dryer") ||
+      title.includes("hair styler") ||
+      title.includes("hair straightener") ||
+      title.includes("curler") ||
+      title.includes("trimmer") ||
+      title.includes("shaver") ||
+      title.includes("clipper")
 
-    const isAccessoryOrToy =
+    const isSmallHandheldOrAccessory =
+      isHairDryerOrPersonalCare ||
+      title.includes("watch") ||
+      title.includes("smartwatch") ||
+      title.includes("phone") ||
+      title.includes("mobile") ||
+      title.includes("tablet") ||
+      title.includes("ipad") ||
+      title.includes("earbud") ||
+      title.includes("earphone") ||
+      title.includes("headphone") ||
+      title.includes("airpod") ||
+      title.includes("headset") ||
       title.includes("case") ||
       title.includes("cover") ||
       title.includes("toy") ||
@@ -88,35 +104,66 @@ export function getHeuristicVehicleMatch(items: MatchableItem[]): VehicleMatchRe
       title.includes("sticker") ||
       title.includes("lube") ||
       title.includes("accessory") ||
-      title.includes("mini")
+      title.includes("mini") ||
+      title.includes("charger") ||
+      title.includes("perfume") ||
+      title.includes("cosmetic")
+
+    // Anomaly sanitizer: If a small consumer product has an absurd recorded weight
+    // (e.g. 60 entered meaning 60 grams or decagrams, or 85 entered meaning 85mm),
+    // clamp it to realistic consumer package limits so it doesn't trigger 4-Wheeler freight.
+    let effectiveWeight = weight
+    let effectiveMaxSide = maxSide
+
+    if (isSmallHandheldOrAccessory) {
+      if (effectiveWeight > 5) {
+        effectiveWeight = Math.min(1.0, effectiveWeight / 100)
+        if (effectiveWeight <= 0) effectiveWeight = 0.5
+      }
+      if (effectiveMaxSide > 45) {
+        effectiveMaxSide = Math.min(25, effectiveMaxSide / 10)
+      }
+    }
+
+    if (effectiveWeight > 0) {
+      totalWeight += effectiveWeight * qty
+    }
+    if (effectiveMaxSide > 0) {
+      maxDimension = Math.max(maxDimension, effectiveMaxSide)
+    }
 
     // Heavy & Large Cargo (Refrigerators, Washing machines, Beds, Sofas, Heavy Generators)
-    if (
-      !isAccessoryOrToy &&
+    // Exclude hair dryers from "dryer", exclude tablets from "table", exclude bedsheets from "bed"
+    const isHeavyFreight =
+      !isSmallHandheldOrAccessory &&
       (title.includes("fridge") ||
         title.includes("refrigerator") ||
         title.includes("freezer") ||
         title.includes("washing machine") ||
-        title.includes("washer") ||
-        title.includes("dryer") ||
+        (/\bwasher\b/.test(title) && !title.includes("car")) ||
+        title.includes("tumble dryer") ||
+        title.includes("clothes dryer") ||
+        (/\bdryer\b/.test(title) && !isHairDryerOrPersonalCare) ||
         title.includes("sofa") ||
         title.includes("couch") ||
-        title.includes("bed") ||
-        title.includes("mattress") ||
+        (/\b(bed frame|mattress|double bed|single bed|bunk bed)\b/.test(title) &&
+          !title.includes("sheet") &&
+          !title.includes("cover")) ||
         title.includes("wardrobe") ||
         title.includes("dining table") ||
         title.includes("generator") ||
         title.includes("treadmill") ||
         title.includes("cupboard"))
-    ) {
+
+    if (isHeavyFreight) {
       requiresHeavy4Wheeler = true
       detectedKeywords.push(title)
-      if (weight === 0) totalWeight += 50 * qty
-      if (maxSide === 0) maxDimension = Math.max(maxDimension, 160)
+      if (effectiveWeight === 0) totalWeight += 50 * qty
+      if (effectiveMaxSide === 0) maxDimension = Math.max(maxDimension, 160)
     }
     // Medium Cargo (TVs, Microwaves, ACs, Desks, Chairs, Monitors, Dishwashers, Ovens, Bicycles)
     else if (
-      !isAccessoryOrToy &&
+      !isSmallHandheldOrAccessory &&
       (title.includes("tv") ||
         title.includes("television") ||
         title.includes("microwave") ||
@@ -125,10 +172,10 @@ export function getHeuristicVehicleMatch(items: MatchableItem[]): VehicleMatchRe
         title.includes("aircon") ||
         title.includes("oven") ||
         title.includes("dishwasher") ||
-        title.includes("desk") ||
+        title.includes("office desk") ||
+        title.includes("study desk") ||
         title.includes("office chair") ||
         title.includes("dining chair") ||
-        title.includes("table") ||
         title.includes("bicycle") ||
         title.includes("exercise bike") ||
         title.includes("stationary bike") ||
@@ -137,13 +184,13 @@ export function getHeuristicVehicleMatch(items: MatchableItem[]): VehicleMatchRe
     ) {
       requiresMedium3Wheeler = true
       detectedKeywords.push(title)
-      if (weight === 0) totalWeight += 15 * qty
-      if (maxSide === 0) maxDimension = Math.max(maxDimension, 80)
+      if (effectiveWeight === 0) totalWeight += 15 * qty
+      if (effectiveMaxSide === 0) maxDimension = Math.max(maxDimension, 80)
     }
     // Small lightweight items
     else {
-      if (weight === 0) totalWeight += 0.8 * qty
-      if (maxSide === 0) maxDimension = Math.max(maxDimension, 25)
+      if (effectiveWeight === 0) totalWeight += 0.5 * qty
+      if (effectiveMaxSide === 0) maxDimension = Math.max(maxDimension, 20)
     }
   }
 
@@ -169,7 +216,7 @@ export function getHeuristicVehicleMatch(items: MatchableItem[]): VehicleMatchRe
     }
   }
 
-  // Small rule (Default for phones, clothes, cosmetics, small electronics)
+  // Small rule (Default for watches, phones, hair dryers, clothes, cosmetics, small electronics)
   return {
     requiredVehicle: "2_WHEELER",
     compatibleVehicles: ["2_WHEELER"],
@@ -223,9 +270,13 @@ export async function determineRequiredVehicleForItems(
 Analyze the following items for a delivery order package and classify the REQUIRED vehicle type.
 
 Vehicle Types:
-- "2_WHEELER": Small/light items (phones, clothes, laptops, books, cosmetics, small electronics <= 15kg).
-- "3_WHEELER": Medium cargo/appliances (TVs, microwaves, small desks, air conditioners 15kg to 60kg).
-- "4_WHEELER": Large/heavy cargo (refrigerators, washing machines, beds, sofas, heavy appliances > 60kg or height > 140cm).
+- "2_WHEELER": Small/lightweight items (smartwatches, watches, hair dryers, styling tools, phones, earbuds, clothes, books, cosmetics, small electronics <= 15kg).
+- "3_WHEELER": Medium cargo/appliances (TVs, microwaves, desktop PCs, office chairs, air conditioners 15kg to 60kg).
+- "4_WHEELER": Large/heavy freight (refrigerators, washing machines, beds, sofas, heavy commercial generators > 60kg or height > 140cm).
+
+IMPORTANT ANOMALY CHECK:
+Watch out for data-entry unit errors (e.g., grams entered as kg, such as entering 60 for a 60g or 600g hair dryer, watch, or phone; or millimeters entered as centimeters).
+A watch, smartphone, hair dryer, or handheld personal item NEVER weighs 60 kg! If an item is obviously a handheld consumer product, treat its weight as realistic (~0.1kg - 0.8kg) and classify it as "2_WHEELER".
 
 Items:
 ${JSON.stringify(itemSummaries, null, 2)}
