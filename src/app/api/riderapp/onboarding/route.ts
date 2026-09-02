@@ -3,8 +3,22 @@ import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { UserRole } from "@prisma/client"
 import bcrypt from "bcryptjs"
+import path from "path"
 import { uploadPublicFile } from "@/lib/upload-public-file"
 import { validatePhoneAndCountryCode } from "@/lib/phone-validation"
+
+function getSafeFileExt(file: File, fallbackExt: string): string {
+  const ext = path.extname(file.name || "").toLowerCase()
+  if (ext && ext.length >= 2 && ext.length <= 6) return ext
+  if (file.type) {
+    const t = file.type.toLowerCase()
+    if (t.includes("png")) return ".png"
+    if (t.includes("jpeg") || t.includes("jpg")) return ".jpg"
+    if (t.includes("webp")) return ".webp"
+    if (t.includes("pdf")) return ".pdf"
+  }
+  return fallbackExt
+}
 
 export async function POST(request: Request) {
   try {
@@ -89,57 +103,77 @@ export async function POST(request: Request) {
       // Handle profile image upload
       const profileImageFile = formData.get("profileImage") as File | null
       if (profileImageFile && typeof profileImageFile === "object" && profileImageFile.size > 0) {
-        const buffer = Buffer.from(await profileImageFile.arrayBuffer())
-        const ext = profileImageFile.name.substring(profileImageFile.name.lastIndexOf(".")) || ".jpg"
-        profileImageUrl = await uploadPublicFile({
-          folder: "riders/profiles",
-          ext,
-          contentType: profileImageFile.type || "image/jpeg",
-          buffer,
-          prefix: `rider-pfp-${userId.slice(0, 8)}`,
-        })
+        try {
+          const buffer = Buffer.from(await profileImageFile.arrayBuffer())
+          const ext = getSafeFileExt(profileImageFile, ".jpg")
+          profileImageUrl = await uploadPublicFile({
+            folder: "riders/profiles",
+            ext,
+            contentType: profileImageFile.type || "image/jpeg",
+            buffer,
+            prefix: `rider-pfp-${userId.slice(0, 8)}`,
+          })
+        } catch (err: any) {
+          console.error("Error uploading profile image:", err)
+          throw new Error(`Profile image upload failed: ${err.message || err}`)
+        }
       }
 
       // Handle driving license document
       const drivingLicenseFile = formData.get("drivingLicenseDoc") as File | null
       if (drivingLicenseFile && typeof drivingLicenseFile === "object" && drivingLicenseFile.size > 0) {
-        const buffer = Buffer.from(await drivingLicenseFile.arrayBuffer())
-        const ext = drivingLicenseFile.name.substring(drivingLicenseFile.name.lastIndexOf(".")) || ".pdf"
-        drivingLicenseDocUrl = await uploadPublicFile({
-          folder: "riders/documents",
-          ext,
-          contentType: drivingLicenseFile.type || "application/pdf",
-          buffer,
-          prefix: `rider-dl-${userId.slice(0, 8)}`,
-        })
+        try {
+          const buffer = Buffer.from(await drivingLicenseFile.arrayBuffer())
+          const ext = getSafeFileExt(drivingLicenseFile, ".pdf")
+          drivingLicenseDocUrl = await uploadPublicFile({
+            folder: "riders/documents",
+            ext,
+            contentType: drivingLicenseFile.type || "application/pdf",
+            buffer,
+            prefix: `rider-dl-${userId.slice(0, 8)}`,
+          })
+        } catch (err: any) {
+          console.error("Error uploading driving license document:", err)
+          throw new Error(`Driving license document upload failed: ${err.message || err}`)
+        }
       }
 
       // Handle national ID document
       const nationalIdFile = formData.get("nationalIdDoc") as File | null
       if (nationalIdFile && typeof nationalIdFile === "object" && nationalIdFile.size > 0) {
-        const buffer = Buffer.from(await nationalIdFile.arrayBuffer())
-        const ext = nationalIdFile.name.substring(nationalIdFile.name.lastIndexOf(".")) || ".pdf"
-        nationalIdDocUrl = await uploadPublicFile({
-          folder: "riders/documents",
-          ext,
-          contentType: nationalIdFile.type || "application/pdf",
-          buffer,
-          prefix: `rider-nid-${userId.slice(0, 8)}`,
-        })
+        try {
+          const buffer = Buffer.from(await nationalIdFile.arrayBuffer())
+          const ext = getSafeFileExt(nationalIdFile, ".pdf")
+          nationalIdDocUrl = await uploadPublicFile({
+            folder: "riders/documents",
+            ext,
+            contentType: nationalIdFile.type || "application/pdf",
+            buffer,
+            prefix: `rider-nid-${userId.slice(0, 8)}`,
+          })
+        } catch (err: any) {
+          console.error("Error uploading national ID document:", err)
+          throw new Error(`National ID document upload failed: ${err.message || err}`)
+        }
       }
 
       // Handle vehicle insurance document
       const vehicleInsuranceFile = formData.get("vehicleInsuranceDoc") as File | null
       if (vehicleInsuranceFile && typeof vehicleInsuranceFile === "object" && vehicleInsuranceFile.size > 0) {
-        const buffer = Buffer.from(await vehicleInsuranceFile.arrayBuffer())
-        const ext = vehicleInsuranceFile.name.substring(vehicleInsuranceFile.name.lastIndexOf(".")) || ".pdf"
-        vehicleInsuranceDocUrl = await uploadPublicFile({
-          folder: "riders/documents",
-          ext,
-          contentType: vehicleInsuranceFile.type || "application/pdf",
-          buffer,
-          prefix: `rider-ins-${userId.slice(0, 8)}`,
-        })
+        try {
+          const buffer = Buffer.from(await vehicleInsuranceFile.arrayBuffer())
+          const ext = getSafeFileExt(vehicleInsuranceFile, ".pdf")
+          vehicleInsuranceDocUrl = await uploadPublicFile({
+            folder: "riders/documents",
+            ext,
+            contentType: vehicleInsuranceFile.type || "application/pdf",
+            buffer,
+            prefix: `rider-ins-${userId.slice(0, 8)}`,
+          })
+        } catch (err: any) {
+          console.error("Error uploading vehicle insurance document:", err)
+          throw new Error(`Vehicle insurance document upload failed: ${err.message || err}`)
+        }
       }
     } else {
       const body = await request.json()
@@ -242,10 +276,11 @@ export async function POST(request: Request) {
       rider,
       passwordHash: userUpdates.password || undefined,
     })
-  } catch (error) {
+  } catch (error: any) {
     console.error("Rider onboarding error:", error)
+    const msg = error?.message || "An error occurred while saving onboarding details. Please try again."
     return NextResponse.json(
-      { error: "An error occurred while saving onboarding details. Please try again." },
+      { error: msg },
       { status: 500 }
     )
   }

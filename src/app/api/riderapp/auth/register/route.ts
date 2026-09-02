@@ -96,8 +96,8 @@ export async function POST(request: Request) {
         },
       })
 
-      const origin = new URL(request.url).origin
-      const verificationLink = `${origin}/riderapp/verify-email?token=${verifyEmailOtp}&email=${encodeURIComponent(cleanEmail)}`
+      const baseUrl = getAppBaseUrl(request)
+      const verificationLink = `${baseUrl}/riderapp/verify-email?token=${verifyEmailOtp}&email=${encodeURIComponent(cleanEmail)}`
 
       try {
         const emailPromise = sendRiderVerificationEmail({
@@ -162,8 +162,8 @@ export async function POST(request: Request) {
       },
     })
 
-    const origin = new URL(request.url).origin
-    const verificationLink = `${origin}/riderapp/verify-email?token=${verifyEmailOtp}&email=${encodeURIComponent(cleanEmail)}`
+    const baseUrl = getAppBaseUrl(request)
+    const verificationLink = `${baseUrl}/riderapp/verify-email?token=${verifyEmailOtp}&email=${encodeURIComponent(cleanEmail)}`
 
     // Send verification email & SMS
     try {

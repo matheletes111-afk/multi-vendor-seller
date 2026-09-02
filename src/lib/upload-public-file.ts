@@ -1,4 +1,6 @@
 import { randomUUID } from "crypto"
+import path from "path"
+import fs from "fs/promises"
 import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3"
 
 type UploadArgs = {
@@ -471,47 +473,67 @@ export async function uploadPublicFile(args: UploadArgs): Promise<string> {
 
   const fileName = `${prefix}-${Date.now()}-${randomUUID()}${safeExt}`
 
-  const region = process.env.AMPLIFY_AWS_REGION
-  const bucket = process.env.S3_BUCKET || process.env.AMPLIFY_AWS_S3_BUCKET_NAME
-  const accessKeyId = process.env.AMPLIFY_AWS_ACCESS_KEY_ID
-  const secretAccessKey = process.env.AMPLIFY_AWS_SECRET_ACCESS_KEY
+  const region =
+    process.env.AMPLIFY_AWS_REGION ||
+    process.env.AWS_REGION ||
+    process.env.AWS_DEFAULT_REGION ||
+    "us-east-1"
+  const bucket =
+    process.env.S3_BUCKET ||
+    process.env.AMPLIFY_AWS_S3_BUCKET_NAME ||
+    process.env.AWS_S3_BUCKET_NAME ||
+    process.env.AWS_BUCKET ||
+    process.env.AWS_S3_BUCKET
+  const accessKeyId =
+    process.env.AMPLIFY_AWS_ACCESS_KEY_ID ||
+    process.env.AWS_ACCESS_KEY_ID
+  const secretAccessKey =
+    process.env.AMPLIFY_AWS_SECRET_ACCESS_KEY ||
+    process.env.AWS_SECRET_ACCESS_KEY
 
-  if (!region || !bucket || !accessKeyId || !secretAccessKey) {
-    throw new Error(
-      `Missing S3 env vars. Set AMPLIFY_AWS_REGION, AMPLIFY_AWS_S3_BUCKET_NAME, AMPLIFY_AWS_ACCESS_KEY_ID, and AMPLIFY_AWS_SECRET_ACCESS_KEY on the server.`
-    )
+  if (region && bucket && accessKeyId && secretAccessKey) {
+    const key = `uploads/${folder}/${fileName}`
+    const client = new S3Client({
+      region,
+      credentials: {
+        accessKeyId,
+        secretAccessKey,
+      },
+    })
+
+    try {
+      await client.send(
+        new PutObjectCommand({
+          Bucket: bucket,
+          Key: key,
+          Body: buffer,
+          ContentType: finalContentType,
+        })
+      )
+
+      const publicBaseUrl = (process.env.S3_PUBLIC_BASE_URL || "").trim()
+      if (publicBaseUrl) {
+        return `${publicBaseUrl.replace(/\/+$/, "")}/${key}`
+      }
+      return `https://${bucket}.s3.${region}.amazonaws.com/${key}`
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      console.warn(`S3 upload failed (${msg}), falling back to local storage for: ${key}`)
+    }
+  } else {
+    console.warn("S3 credentials not fully configured, falling back to local public storage.")
   }
 
-  const key = `uploads/${folder}/${fileName}`
-  const client = new S3Client({
-    region,
-    credentials: {
-      accessKeyId,
-      secretAccessKey,
-    },
-  })
-
+  // Graceful local fallback to public/uploads directory
   try {
-    await client.send(
-      new PutObjectCommand({
-        Bucket: bucket,
-        Key: key,
-        Body: buffer,
-        ContentType: finalContentType,
-      })
-    )
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
-    throw new Error(`S3 upload failed: ${msg}`)
+    const localDir = path.join(process.cwd(), "public", "uploads", folder)
+    await fs.mkdir(localDir, { recursive: true })
+    const localFilePath = path.join(localDir, fileName)
+    await fs.writeFile(localFilePath, buffer)
+    return `/uploads/${folder}/${fileName}`
+  } catch (localErr) {
+    const localMsg = localErr instanceof Error ? localErr.message : String(localErr)
+    throw new Error(`Upload failed (both S3 and local storage): ${localMsg}`)
   }
-
-  const publicBaseUrl = (process.env.S3_PUBLIC_BASE_URL || "").trim()
-  if (publicBaseUrl) {
-    return `${publicBaseUrl.replace(/\/+$/, "")}/${key}`
-  }
-
-  // Default public URL format (requires bucket/object to be publicly readable OR served via CDN later).
-  // Note: For us-east-1, the regional endpoint still works.
-  return `https://${bucket}.s3.${region}.amazonaws.com/${key}`
 }
 

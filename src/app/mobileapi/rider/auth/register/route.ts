@@ -88,7 +88,7 @@ export async function POST(request: Request) {
       const existingPhone = await prisma.user.findFirst({
         where: { phone: { in: phoneVariants } },
       })
-      if (existingPhone) {
+      if (existingPhone && existingPhone.email !== email.toLowerCase().trim()) {
         return NextResponse.json(
           { success: false, error: "Phone number is already registered" },
           { status: 400 }
@@ -119,7 +119,23 @@ export async function POST(request: Request) {
         )
       }
 
-      // Rider exists but email is not yet verified (e.g. retrying registration): Resend fresh 6-digit OTP
+      // Ensure rider profile exists in riders table
+      let rider = existingUser.rider
+      if (!rider) {
+        rider = await prisma.rider.create({
+          data: {
+            userId: existingUser.id,
+            isApproved: true,
+            isSuspended: false,
+            status: "APPROVED",
+            createdByAdmin: false,
+            onboardingCompleted: false,
+            isFirstLogin: true,
+          },
+        })
+      }
+
+      const hashedPassword = await bcrypt.hash(password, 10)
       const verifyEmailOtp = randomInt(100000, 999999).toString()
       const emailVerificationExpires = new Date(Date.now() + OTP_EXPIRY_MS)
       const now = new Date()
@@ -127,6 +143,11 @@ export async function POST(request: Request) {
       await prisma.user.update({
         where: { id: existingUser.id },
         data: {
+          role: UserRole.RIDER,
+          password: hashedPassword,
+          name: sanitizedName || existingUser.name,
+          phone: normalizedPhone || existingUser.phone,
+          phoneCountryCode: normalizedPhoneCountryCode || existingUser.phoneCountryCode,
           verifyEmailOtp,
           emailVerificationExpires,
           emailOtpSentAt: now,
@@ -139,17 +160,19 @@ export async function POST(request: Request) {
       try {
         const emailPromise = sendRiderVerificationEmail({
           to: cleanEmail,
-          name: existingUser.name || sanitizedName || "Delivery Rider",
+          name: sanitizedName || existingUser.name || "Delivery Rider",
           verificationLink,
           otp: verifyEmailOtp,
         })
-        const smsPromise = existingUser.phone
+        const targetPhone = normalizedPhone || existingUser.phone
+        const targetCountryCode = normalizedPhoneCountryCode || existingUser.phoneCountryCode
+        const smsPromise = targetPhone
           ? sendEmailVerificationSms({
-              to: existingUser.phone,
-              countryCode: existingUser.phoneCountryCode,
+              to: targetPhone,
+              countryCode: targetCountryCode,
               verificationLink,
               otp: verifyEmailOtp,
-              name: existingUser.name,
+              name: sanitizedName || existingUser.name,
             })
           : Promise.resolve()
 
@@ -166,12 +189,13 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           success: true,
-          message: "Registration already in progress. A fresh 6-digit OTP has been sent to your email.",
+          message: "Registration successful. Please verify your email with the 6-digit OTP sent.",
           data: {
             userId: existingUser.id,
+            riderId: rider.id,
             email: existingUser.email,
-            name: existingUser.name,
-            role: existingUser.role,
+            name: sanitizedName || existingUser.name,
+            role: UserRole.RIDER,
             requiresVerification: true,
             verificationDetails: {
               method: "OTP",
@@ -181,7 +205,7 @@ export async function POST(request: Request) {
             verifyUrl: "/mobileapi/rider/auth/verify-otp",
           },
         },
-        { status: 200 }
+        { status: 201 }
       )
     }
 
@@ -209,7 +233,7 @@ export async function POST(request: Request) {
             status: "APPROVED",
             createdByAdmin: false,
             onboardingCompleted: false,
-            isFirstLogin: false,
+            isFirstLogin: true,
           },
         },
       },
@@ -218,6 +242,14 @@ export async function POST(request: Request) {
         email: true,
         name: true,
         role: true,
+        rider: {
+          select: {
+            id: true,
+            status: true,
+            onboardingCompleted: true,
+            isApproved: true,
+          },
+        },
       },
     })
 
@@ -257,6 +289,7 @@ export async function POST(request: Request) {
         message: "Registration successful. Please verify your email with the 6-digit OTP sent.",
         data: {
           userId: user.id,
+          riderId: user.rider?.id,
           email: user.email,
           name: user.name,
           role: user.role,
@@ -271,10 +304,10 @@ export async function POST(request: Request) {
       },
       { status: 201 }
     )
-  } catch (error) {
+  } catch (error: any) {
     console.error("Mobile rider registration error:", error)
     return NextResponse.json(
-      { success: false, error: "Internal server error during registration." },
+      { success: false, error: error?.message || "Internal server error during registration." },
       { status: 500 }
     )
   }
