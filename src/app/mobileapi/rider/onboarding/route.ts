@@ -2,9 +2,23 @@ import { NextRequest, NextResponse } from "next/server"
 import { getMobileRiderAuth } from "@/app/mobileapi/_helpers/rider-auth"
 import { prisma } from "@/lib/prisma"
 import bcrypt from "bcryptjs"
+import path from "path"
 import { uploadPublicFile } from "@/lib/upload-public-file"
 import { validatePhoneAndCountryCode } from "@/lib/phone-validation"
 import { generateMobileTokens } from "@/lib/mobile-jwt"
+
+function getSafeFileExt(file: File, fallbackExt: string): string {
+  const ext = path.extname(file.name || "").toLowerCase()
+  if (ext && ext.length >= 2 && ext.length <= 6) return ext
+  if (file.type) {
+    const t = file.type.toLowerCase()
+    if (t.includes("png")) return ".png"
+    if (t.includes("jpeg") || t.includes("jpg")) return ".jpg"
+    if (t.includes("webp")) return ".webp"
+    if (t.includes("pdf")) return ".pdf"
+  }
+  return fallbackExt
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -90,57 +104,77 @@ export async function POST(request: NextRequest) {
       // Handle profile image file upload
       const profileImageFile = formData.get("profileImage") as File | null
       if (profileImageFile && typeof profileImageFile === "object" && profileImageFile.size > 0) {
-        const buffer = Buffer.from(await profileImageFile.arrayBuffer())
-        const ext = profileImageFile.name.substring(profileImageFile.name.lastIndexOf(".")) || ".jpg"
-        profileImageUrl = await uploadPublicFile({
-          folder: "riders/profiles",
-          ext,
-          contentType: profileImageFile.type || "image/jpeg",
-          buffer,
-          prefix: `rider-pfp-${userId.slice(0, 8)}`,
-        })
+        try {
+          const buffer = Buffer.from(await profileImageFile.arrayBuffer())
+          const ext = getSafeFileExt(profileImageFile, ".jpg")
+          profileImageUrl = await uploadPublicFile({
+            folder: "riders/profiles",
+            ext,
+            contentType: profileImageFile.type || "image/jpeg",
+            buffer,
+            prefix: `rider-pfp-${userId.slice(0, 8)}`,
+          })
+        } catch (err: any) {
+          console.error("Error uploading profile image:", err)
+          throw new Error(`Profile image upload failed: ${err.message || err}`)
+        }
       }
 
       // Handle driving license document upload
       const dlFile = formData.get("drivingLicenseDoc") as File | null
       if (dlFile && typeof dlFile === "object" && dlFile.size > 0) {
-        const buffer = Buffer.from(await dlFile.arrayBuffer())
-        const ext = dlFile.name.substring(dlFile.name.lastIndexOf(".")) || ".pdf"
-        drivingLicenseDocUrl = await uploadPublicFile({
-          folder: "riders/documents",
-          ext,
-          contentType: dlFile.type || "application/pdf",
-          buffer,
-          prefix: `rider-dl-${userId.slice(0, 8)}`,
-        })
+        try {
+          const buffer = Buffer.from(await dlFile.arrayBuffer())
+          const ext = getSafeFileExt(dlFile, ".pdf")
+          drivingLicenseDocUrl = await uploadPublicFile({
+            folder: "riders/documents",
+            ext,
+            contentType: dlFile.type || "application/pdf",
+            buffer,
+            prefix: `rider-dl-${userId.slice(0, 8)}`,
+          })
+        } catch (err: any) {
+          console.error("Error uploading driving license document:", err)
+          throw new Error(`Driving license document upload failed: ${err.message || err}`)
+        }
       }
 
       // Handle national ID document upload
       const nidFile = formData.get("nationalIdDoc") as File | null
       if (nidFile && typeof nidFile === "object" && nidFile.size > 0) {
-        const buffer = Buffer.from(await nidFile.arrayBuffer())
-        const ext = nidFile.name.substring(nidFile.name.lastIndexOf(".")) || ".pdf"
-        nationalIdDocUrl = await uploadPublicFile({
-          folder: "riders/documents",
-          ext,
-          contentType: nidFile.type || "application/pdf",
-          buffer,
-          prefix: `rider-nid-${userId.slice(0, 8)}`,
-        })
+        try {
+          const buffer = Buffer.from(await nidFile.arrayBuffer())
+          const ext = getSafeFileExt(nidFile, ".pdf")
+          nationalIdDocUrl = await uploadPublicFile({
+            folder: "riders/documents",
+            ext,
+            contentType: nidFile.type || "application/pdf",
+            buffer,
+            prefix: `rider-nid-${userId.slice(0, 8)}`,
+          })
+        } catch (err: any) {
+          console.error("Error uploading national ID document:", err)
+          throw new Error(`National ID document upload failed: ${err.message || err}`)
+        }
       }
 
       // Handle vehicle insurance document upload
       const insFile = formData.get("vehicleInsuranceDoc") as File | null
       if (insFile && typeof insFile === "object" && insFile.size > 0) {
-        const buffer = Buffer.from(await insFile.arrayBuffer())
-        const ext = insFile.name.substring(insFile.name.lastIndexOf(".")) || ".pdf"
-        vehicleInsuranceDocUrl = await uploadPublicFile({
-          folder: "riders/documents",
-          ext,
-          contentType: insFile.type || "application/pdf",
-          buffer,
-          prefix: `rider-ins-${userId.slice(0, 8)}`,
-        })
+        try {
+          const buffer = Buffer.from(await insFile.arrayBuffer())
+          const ext = getSafeFileExt(insFile, ".pdf")
+          vehicleInsuranceDocUrl = await uploadPublicFile({
+            folder: "riders/documents",
+            ext,
+            contentType: insFile.type || "application/pdf",
+            buffer,
+            prefix: `rider-ins-${userId.slice(0, 8)}`,
+          })
+        } catch (err: any) {
+          console.error("Error uploading vehicle insurance document:", err)
+          throw new Error(`Vehicle insurance document upload failed: ${err.message || err}`)
+        }
       }
     } else {
       const body = await request.json().catch(() => ({}))
@@ -255,10 +289,11 @@ export async function POST(request: NextRequest) {
         onboardingCompleted: true,
       },
     })
-  } catch (error) {
+  } catch (error: any) {
     console.error("Mobile rider onboarding error:", error)
+    const msg = error?.message || "An error occurred while saving onboarding details."
     return NextResponse.json(
-      { success: false, error: "An error occurred while saving onboarding details." },
+      { success: false, error: msg },
       { status: 500 }
     )
   }

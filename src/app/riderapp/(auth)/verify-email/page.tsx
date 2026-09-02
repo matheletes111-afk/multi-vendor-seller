@@ -1,3 +1,4 @@
+import { Suspense } from "react"
 import { RiderVerifyEmailClient } from "./verify-email-client"
 
 export const metadata = {
@@ -6,5 +7,9 @@ export const metadata = {
 }
 
 export default function RiderVerifyEmailPage() {
-  return <RiderVerifyEmailClient />
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}>
+      <RiderVerifyEmailClient />
+    </Suspense>
+  )
 }

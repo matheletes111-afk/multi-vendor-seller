@@ -45,7 +45,8 @@ export async function GET(request: Request) {
     [UserRole.SELLER_SERVICE]: "/service-seller/login",
     [UserRole.SELLER_HOTEL]: "/hotel-seller/login",
     [UserRole.SELLER_RESTAURANT]: "/restaurant-seller/login",
+    [UserRole.RIDER]: "/riderapp/login",
   }
   const loginPath = loginPaths[user.role] ?? "/customer/login"
-  return NextResponse.redirect(origin + loginPath + "?verified=1")
+  return NextResponse.redirect(origin + loginPath + `?verified=1&email=${encodeURIComponent(user.email)}`)
 }
