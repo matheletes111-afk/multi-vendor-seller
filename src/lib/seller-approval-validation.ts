@@ -373,11 +373,12 @@ export function evaluateSellerDocuments(seller: any, sellerType?: string): Selle
 
   // 2. Identity / KYC
   const user = seller.user || seller.raw?.user;
+  const profileImageUrl = user?.image || seller.image || seller.profilePicture || seller.raw?.image || null;
   docs.push({
     name: "User Profile Picture",
     category: "identity",
-    isUploaded: !!user?.image?.trim(),
-    url: user?.image,
+    isUploaded: !!profileImageUrl?.trim(),
+    url: profileImageUrl,
   });
 
   const kyc = seller.kyc || seller.raw?.kyc;
