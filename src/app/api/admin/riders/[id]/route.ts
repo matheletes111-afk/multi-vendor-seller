@@ -15,8 +15,10 @@ export async function GET(
     }
 
     const { id } = await context.params
-    const user = await prisma.user.findUnique({
-      where: { id },
+    const user = await prisma.user.findFirst({
+      where: {
+        OR: [{ id }, { rider: { id } }],
+      },
       select: {
         id: true,
         name: true,
@@ -76,8 +78,10 @@ export async function PATCH(
       drivingLicenseNo,
     } = body
 
-    const user = await prisma.user.findUnique({
-      where: { id },
+    const user = await prisma.user.findFirst({
+      where: {
+        OR: [{ id }, { rider: { id } }],
+      },
       include: { rider: true },
     })
 
@@ -138,7 +142,7 @@ export async function PATCH(
     if (drivingLicenseNo !== undefined) riderUpdates.drivingLicenseNo = drivingLicenseNo
 
     const updatedRider = await prisma.rider.update({
-      where: { userId: id },
+      where: { userId: user.id },
       data: riderUpdates,
     })
 
@@ -153,27 +157,3 @@ export async function PATCH(
   }
 }
 
-export async function DELETE(
-  request: NextRequest,
-  context: { params: Promise<{ id: string }> }
-) {
-  try {
-    const session = await auth()
-    if (!session?.user || !isAdmin(session.user)) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
-
-    const { id } = await context.params
-    await prisma.user.delete({
-      where: { id },
-    })
-
-    return NextResponse.json({
-      success: true,
-      message: "Rider account deleted successfully.",
-    })
-  } catch (error) {
-    console.error("Admin delete rider error:", error)
-    return NextResponse.json({ error: "Failed to delete rider." }, { status: 500 })
-  }
-}

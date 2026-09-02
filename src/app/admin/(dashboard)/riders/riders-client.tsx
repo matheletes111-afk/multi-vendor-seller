@@ -8,7 +8,6 @@ import {
   RefreshCw,
   MoreVertical,
   Edit,
-  Trash2,
   Send,
   CheckCircle2,
   XCircle,
@@ -115,7 +114,6 @@ export function RidersClient() {
   const [createModalOpen, setCreateModalOpen] = useState(false)
   const [editModalOpen, setEditModalOpen] = useState(false)
   const [selectedRider, setSelectedRider] = useState<RiderItem | null>(null)
-  const [deleteModalOpen, setDeleteModalOpen] = useState(false)
 
   // Create Form State
   const [createName, setCreateName] = useState("")
@@ -300,21 +298,6 @@ export function RidersClient() {
     }
   }
 
-  // Handle Delete Rider
-  const handleDeleteRider = async () => {
-    if (!selectedRider) return
-    try {
-      const res = await fetch(`/api/admin/riders/${selectedRider.id}`, {
-        method: "DELETE",
-      })
-      if (res.ok) {
-        setDeleteModalOpen(false)
-        fetchRiders()
-      }
-    } catch (err) {
-      console.error("Delete rider error:", err)
-    }
-  }
 
   const getStatusBadge = (status?: string, isSuspended?: boolean) => {
     if (isSuspended || status === "SUSPENDED") {
@@ -702,17 +685,7 @@ export function RidersClient() {
                                 <Send className="w-3.5 h-3.5 mr-2 text-blue-600" />
                                 Resend Credentials
                               </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem
-                                onClick={() => {
-                                  setSelectedRider(r)
-                                  setDeleteModalOpen(true)
-                                }}
-                                className="text-red-600 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-950/20"
-                              >
-                                <Trash2 className="w-3.5 h-3.5 mr-2" />
-                                Delete Account
-                              </DropdownMenuItem>
+
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </div>
@@ -1160,41 +1133,6 @@ export function RidersClient() {
               </div>
             </DialogFooter>
           </form>
-        </DialogContent>
-      </Dialog>
-
-      {/* DELETE CONFIRMATION DIALOG */}
-      <Dialog open={deleteModalOpen} onOpenChange={setDeleteModalOpen}>
-        <DialogContent className="max-w-md w-[95vw] rounded-2xl p-6">
-          <DialogHeader>
-            <DialogTitle className="text-lg font-bold text-red-600 flex items-center gap-2">
-              <Trash2 className="w-5 h-5" />
-              Delete Rider Account?
-            </DialogTitle>
-            <DialogDescription className="text-xs text-muted-foreground">
-              Are you sure you want to permanently delete the rider account for <strong>{selectedRider?.name || selectedRider?.email}</strong>? This action cannot be undone.
-            </DialogDescription>
-          </DialogHeader>
-
-          <DialogFooter className="pt-3">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setDeleteModalOpen(false)}
-              className="rounded-xl text-xs"
-            >
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              variant="destructive"
-              onClick={handleDeleteRider}
-              className="rounded-xl text-xs gap-1.5"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-              Confirm Delete
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
