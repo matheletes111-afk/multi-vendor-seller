@@ -293,6 +293,8 @@ Headers:
 QUERY PARAMETERS:
 - `orderId` (optional, string): If provided, the backend evaluates items via Gemini AI
   and returns the required vehicle category along with `isVehicleMatch: true/false` per rider.
+- `includeOffline` (optional, boolean, default: false): When false (default), only riders
+  who are currently online (`isOnline: true`) are returned for dispatch. Pass `true` to view offline riders.
 
 SUCCESS RESPONSE (200 OK):
 {
@@ -449,6 +451,37 @@ D. ASCII WIREFRAME OF MOBILE DISPATCH BOTTOM SHEET:
 │                                                        │
 │  [ Cancel ]               [ Confirm Manual Assign ]    │
 └────────────────────────────────────────────────────────┘
+
+--------------------------------------------------------------------------------
+5.4 Multi-Vendor & Self-Delivery Lifecycle Rules
+--------------------------------------------------------------------------------
+1. MANDATORY OUT_FOR_DELIVERY STEP:
+   - To prevent fraudulent deliveries, mobile apps cannot transition directly from
+     CONFIRMED/PROCESSING/SHIPPED to DELIVERED.
+   - Status must transition through OUT_FOR_DELIVERY first, triggering automatic SMS
+     and Email OTP generation to the customer with store branding:
+     "Your package from [Store Name] for Order #[orderNumber] is out for delivery. Share OTP..."
+   - Direct jumps to DELIVERED will be rejected with HTTP 400 Bad Request:
+     "Items must be marked OUT_FOR_DELIVERY first so the customer receives their delivery OTP before marking DELIVERED."
+
+2. MULTI-VENDOR CART SEPARATION:
+   - When a customer orders items from Seller A and Seller B in the same checkout:
+     * Seller A only sees and updates Seller A's line items.
+     * Seller B only sees and updates Seller B's line items.
+     * Two separate delivery assignments/riders are created (one per physical shop).
+     * The customer receives distinct OTPs branded with each store's name.
+     * The parent Order only marks DELIVERED and COMPLETED when all items across all sellers are fulfilled.
+
+3. SELLER SELF-DELIVERY CLEANUP:
+   - If a seller chooses to deliver an order directly without a rider, marking the
+     items DELIVERED in the Seller Panel automatically closes any pending or offered
+     rider assignments, preventing ghost offers on riders' mobile apps.
+
+4. 30-MINUTE NO-SHOW / PICKUP TIMEOUT SWEEPER:
+   - Riders who accept an order must arrive at the store (AT_PICKUP) and pick up the
+     parcel (PICKED_UP) within 30 minutes of acceptance.
+   - If 30 minutes elapse without parcel pickup, the sweeper automatically cancels
+     the assignment (CANCELLED_BY_RIDER) and triggers an immediate waterfall re-dispatch.
 
 ================================================================================
 6. SAMPLE MOBILE CODE IMPLEMENTATIONS
