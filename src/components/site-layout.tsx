@@ -1420,12 +1420,6 @@ export function SiteFooter() {
                       Logout
                     </button>
                   </li>
-                  <li className="mt-1 border-t border-slate-200/50 pt-1.5 dark:border-slate-700/50">
-                    <Link href="/riderapp/login" className={linkClass}>Delivery Rider Login</Link>
-                  </li>
-                  <li>
-                    <Link href="/riderapp/registration" className={linkClass}>Register as Delivery Rider</Link>
-                  </li>
                 </>
               ) : (
                 <>

@@ -72,6 +72,42 @@ export function RiderRegistrationClient() {
     }
   }
 
+  const [resendLoading, setResendLoading] = useState(false)
+  const [resendMessage, setResendMessage] = useState<string | null>(null)
+  const [resendCooldown, setResendCooldown] = useState(0)
+
+  const handleResendOtp = async () => {
+    if (resendCooldown > 0 || resendLoading) return
+    setResendLoading(true)
+    setResendMessage(null)
+
+    try {
+      const res = await fetch("/api/riderapp/auth/resend-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim().toLowerCase() }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || "Failed to resend code.")
+
+      setResendMessage(data.message || "A new verification code has been sent.")
+      setResendCooldown(60)
+      const timer = setInterval(() => {
+        setResendCooldown((prev) => {
+          if (prev <= 1) {
+            clearInterval(timer)
+            return 0
+          }
+          return prev - 1
+        })
+      }, 1000)
+    } catch (err: any) {
+      setResendMessage(err.message || "Failed to resend verification code.")
+    } finally {
+      setResendLoading(false)
+    }
+  }
+
   if (isSubmitted) {
     return (
       <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8">
@@ -86,19 +122,38 @@ export function RiderRegistrationClient() {
             </h3>
 
             <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-              We have sent a verification link to <strong>{email}</strong>. Please check your inbox and click the verification button to activate your rider account.
+              We have sent a 6-digit verification code and link to <strong>{email}</strong>. Please check your inbox and click the verification button or use the code to activate your rider account.
             </p>
+
+            {resendMessage && (
+              <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-xl text-xs text-emerald-800 dark:text-emerald-200">
+                {resendMessage}
+              </div>
+            )}
 
             <div className="p-3 bg-blue-50/50 dark:bg-blue-950/30 rounded-xl text-xs text-blue-800 dark:text-blue-200 border border-blue-200 dark:border-blue-900/50">
               💡 After verifying, log in to set up your delivery areas and profile.
             </div>
 
-            <div className="pt-2">
-              <Link href="/riderapp/login">
+            <div className="space-y-2 pt-2">
+              <Link href="/riderapp/login" className="block">
                 <Button className="w-full h-11 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs">
                   Proceed to Rider Login
                 </Button>
               </Link>
+
+              <button
+                type="button"
+                onClick={handleResendOtp}
+                disabled={resendLoading || resendCooldown > 0}
+                className="text-xs text-slate-500 hover:text-blue-600 disabled:opacity-50 transition-colors pt-1 font-medium"
+              >
+                {resendCooldown > 0
+                  ? `Resend code available in ${resendCooldown}s`
+                  : resendLoading
+                  ? "Resending verification..."
+                  : "Didn't receive the email? Resend verification code"}
+              </button>
             </div>
           </div>
         </div>

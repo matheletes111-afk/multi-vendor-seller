@@ -840,6 +840,33 @@ export async function sendSellerSuspensionEmail({
   return sendEmail({ to, subject, html })
 }
 
+export async function sendRiderSuspensionEmail({
+  to,
+  name,
+  isSuspended,
+}: {
+  to: string
+  name: string
+  isSuspended: boolean
+}) {
+  const subject = isSuspended
+    ? "Your Delivery Rider Account Has Been Suspended"
+    : "Your Delivery Rider Account Has Been Reactivated"
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+      <div style="background-color: #f8f9fa; padding: 30px; border-radius: 10px; border: 1px solid ${isSuspended ? "#dc3545" : "#28a745"};">
+        <h2 style="color: ${isSuspended ? "#dc3545" : "#28a745"}; margin-bottom: 20px;">Rider Account Status Update</h2>
+        <p style="color: #666; line-height: 1.6;">Hi ${name},</p>
+        <p style="color: #666; line-height: 1.6;">
+          Your delivery rider account has been <strong>${isSuspended ? "SUSPENDED" : "REACTIVATED"}</strong> by the administration team.
+        </p>
+        ${!isSuspended ? `<p style="color: #666; line-height: 1.6;">You can now log in and resume accepting delivery requests on the platform.</p>` : `<p style="color: #666; line-height: 1.6;">Please contact support if you believe this is an error or have questions.</p>`}
+      </div>
+    </div>
+  `
+  return sendEmail({ to, subject, html })
+}
+
 export async function sendSupportTicketReplyEmail({
   to,
   recipientName,

@@ -5,8 +5,8 @@ import { UserRole } from "@prisma/client"
 import { sendRiderVerificationEmail } from "@/lib/email"
 import { getAppBaseUrl, sendEmailVerificationSms } from "@/lib/twilio-sms"
 
-const OTP_EXPIRY_MS = 10 * 60 * 1000
-const COOLDOWN_MS = 60 * 1000
+const OTP_EXPIRY_MS = 24 * 60 * 60 * 1000 // 24 hours
+const COOLDOWN_MS = 60 * 1000 // 60 seconds
 
 export async function POST(request: Request) {
   try {
@@ -15,7 +15,7 @@ export async function POST(request: Request) {
 
     if (!email) {
       return NextResponse.json(
-        { success: false, error: "Email is required" },
+        { success: false, error: "Email is required." },
         { status: 400 }
       )
     }
@@ -35,7 +35,7 @@ export async function POST(request: Request) {
 
     if (!user) {
       return NextResponse.json(
-        { success: false, error: "Rider account not found." },
+        { success: false, error: "Rider account not found for this email." },
         { status: 404 }
       )
     }
@@ -43,8 +43,8 @@ export async function POST(request: Request) {
     if (user.isEmailVerified) {
       return NextResponse.json({
         success: true,
-        message: "Email is already verified.",
-        data: { email: user.email, isEmailVerified: true },
+        message: "Your email is already verified. You can sign in now.",
+        isEmailVerified: true,
       })
     }
 
@@ -52,7 +52,7 @@ export async function POST(request: Request) {
     if (user.emailOtpSentAt && now.getTime() - user.emailOtpSentAt.getTime() < COOLDOWN_MS) {
       const waitSec = Math.ceil((COOLDOWN_MS - (now.getTime() - user.emailOtpSentAt.getTime())) / 1000)
       return NextResponse.json(
-        { success: false, error: `Please wait ${waitSec} seconds before requesting another OTP.` },
+        { success: false, error: `Please wait ${waitSec} seconds before requesting another code.` },
         { status: 429 }
       )
     }
@@ -73,45 +73,39 @@ export async function POST(request: Request) {
     const verificationLink = `${baseUrl}/riderapp/verify-email?token=${verifyEmailOtp}&email=${encodeURIComponent(user.email)}`
 
     try {
-      const emailPromise = sendRiderVerificationEmail({
-        to: user.email,
-        name: user.name || "Delivery Rider",
-        verificationLink,
-        otp: verifyEmailOtp,
-      })
-      const smsPromise = user.phone
-        ? sendEmailVerificationSms({
-            to: user.phone,
-            countryCode: user.phoneCountryCode,
-            verificationLink,
-            otp: verifyEmailOtp,
-            name: user.name,
-          })
-        : Promise.resolve()
-
-      const [emailRes] = await Promise.allSettled([emailPromise, smsPromise])
-      if (emailRes.status === "rejected") {
-        console.error("Failed to resend rider verification email (rejected):", emailRes.reason)
-      } else if (emailRes.status === "fulfilled" && !(emailRes.value as any)?.success) {
-        console.error("Failed to resend rider verification email:", (emailRes.value as any)?.error)
-      }
+      await Promise.allSettled([
+        sendRiderVerificationEmail({
+          to: user.email,
+          name: user.name || "Delivery Rider",
+          verificationLink,
+          otp: verifyEmailOtp,
+        }),
+        ...(user.phone
+          ? [
+              sendEmailVerificationSms({
+                to: user.phone,
+                countryCode: user.phoneCountryCode,
+                verificationLink,
+                otp: verifyEmailOtp,
+                name: user.name,
+              }),
+            ]
+          : []),
+      ])
     } catch (sendError) {
-      console.error("Failed to resend rider verification:", sendError)
+      console.error("Failed to resend rider verification email/sms:", sendError)
     }
 
     return NextResponse.json({
       success: true,
-      message: "New verification code has been sent.",
-      data: {
-        email: user.email,
-        expiresIn: OTP_EXPIRY_MS / 1000,
-        resendCooldown: 60,
-      },
+      message: "A new 6-digit verification code and link has been sent to your email.",
+      email: user.email,
+      resendCooldown: 60,
     })
   } catch (error) {
-    console.error("Mobile rider resend-otp error:", error)
+    console.error("Rider resend-otp error:", error)
     return NextResponse.json(
-      { success: false, error: "Internal server error." },
+      { success: false, error: "Failed to resend verification code. Please try again." },
       { status: 500 }
     )
   }

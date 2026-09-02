@@ -4,11 +4,12 @@ import { prisma } from "@/lib/prisma"
 export async function POST(request: Request) {
   try {
     const body = await request.json()
-    const { token, email } = body
+    const { token, otp, email } = body
+    const code = (token || otp || "").trim()
 
-    if (!token || !email) {
+    if (!code || !email) {
       return NextResponse.json(
-        { error: "Token and email are required" },
+        { error: "Verification code and email are required" },
         { status: 400 }
       )
     }
@@ -38,9 +39,9 @@ export async function POST(request: Request) {
       })
     }
 
-    if (user.verifyEmailOtp !== token) {
+    if (user.verifyEmailOtp !== code) {
       return NextResponse.json(
-        { error: "Invalid verification link or token" },
+        { error: "Invalid verification code or link" },
         { status: 400 }
       )
     }
