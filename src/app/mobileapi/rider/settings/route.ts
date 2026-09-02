@@ -1,3 +1,4 @@
+import path from "path"
 import { NextRequest, NextResponse } from "next/server"
 import { getMobileRiderAuth } from "@/app/mobileapi/_helpers/rider-auth"
 import { prisma } from "@/lib/prisma"
