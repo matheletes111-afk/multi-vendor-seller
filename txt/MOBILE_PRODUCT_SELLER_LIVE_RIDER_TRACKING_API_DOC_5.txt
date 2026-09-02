@@ -28,9 +28,11 @@ TABLE OF CONTENTS
 5. RIDER DISPATCH & MANAGEMENT APIS
    5.1 Available Online Riders List (`GET /mobileapi/product-seller/riders/available`)
    5.2 Direct Manual Assignment & Auto-Dispatch (`POST /mobileapi/product-seller/orders/:id/assign-rider`)
+   5.3 Dispatch BottomSheet / Modal UI/UX Guidelines (Radio Filter & Safety Notes)
 6. SAMPLE MOBILE CODE IMPLEMENTATIONS
    6.1 Flutter (Dart) Socket.IO & Google Maps Example
-   6.2 React Native / Kotlin / Swift Integration Notes
+   6.2 Flutter (Dart) Dispatch BottomSheet with Radio Filter & Explanatory Note
+   6.3 React Native / Kotlin / Swift Integration Notes
 7. MOBILE DEVELOPER VERIFICATION CHECKLIST
 
 ================================================================================
@@ -338,6 +340,19 @@ SUCCESS RESPONSE (200 OK):
   ]
 }
 
+SUCCESS RESPONSE FOR STANDARD/LIGHTWEIGHT PARCEL (e.g. Smartwatch, Phone, Hair Dryer <= 15kg):
+{
+  "success": true,
+  "aiVehicleRecommendation": {
+    "requiredVehicle": "2_WHEELER",
+    "compatibleVehicles": ["2_WHEELER", "3_WHEELER", "4_WHEELER"],
+    "reason": "Small & lightweight consumer parcel (~0.6kg): Dispatches to 2-Wheeler (Motorbike/Scooter).",
+    "estimatedWeightKg": 0.6,
+    "confidence": "AI_MODEL"
+  },
+  "data": [ ... ]
+}
+
 --------------------------------------------------------------------------------
 5.2 Direct Manual Assignment & Auto-Dispatch
 --------------------------------------------------------------------------------
@@ -367,9 +382,81 @@ SUCCESS RESPONSE (200 OK):
   }
 }
 
+--------------------------------------------------------------------------------
+5.3 DISPATCH BOTTOM SHEET / MODAL UI/UX GUIDELINES
+--------------------------------------------------------------------------------
+When presenting the "Dispatch / Reassign Delivery Rider" interface on mobile:
+
+A. VEHICLE FILTER UI/UX RULE (RADIO BUTTONS INSTEAD OF TOGGLE BUTTON):
+   - CRITICAL: DO NOT use a single toggle button that switches between labels
+     (e.g., "Filter Compatible" vs "Showing Matched Only"). Mobile users find
+     this ambiguous and cannot discern whether the filter is currently active
+     or waiting to be tapped.
+   - MANDATORY: Use explicit Radio Buttons (or a 2-segment pill control):
+     * [◉] Option 1: "Compatible Only (Rec.)"
+       - Subtitle: "[Required Vehicle] only" (e.g., "4 WHEELER only")
+       - Filters rider list where `rider.isVehicleMatch == true`
+     * [○] Option 2: "Show All Vehicles"
+       - Subtitle: "All riders (2W, 3W, 4W)"
+       - Displays all available riders regardless of vehicle category
+
+B. DYNAMIC IMPORTANT NOTE CALLOUT:
+   Directly beneath the radio buttons, render a dynamic contextual note card so the
+   seller is fully informed of their selected filter state:
+   - When "Compatible Only" is active:
+     [Icon: Green CheckCircle]
+     "Active Filter: Showing only riders equipped for <Vehicle> cargo (~<Weight>kg)
+      for safe transit."
+   - When "Show All Vehicles" is active:
+     [Icon: Amber AlertTriangle]
+     "Important Note: Displaying all riders. Assigning heavy or oversized cargo
+      to a 2-Wheeler (motorbike) may lead to rider refusal or delivery cancellation."
+
+C. EMPTY STATE GUIDANCE:
+   If "Compatible Only" returns 0 riders, but riders exist in other vehicle categories:
+   - DO NOT just say "No riders found".
+   - Render: "No approved riders with compatible vehicle found.
+     (X rider(s) available in other vehicle categories. Select 'Show All Vehicles'
+      above to view them.)"
+
+D. ASCII WIREFRAME OF MOBILE DISPATCH BOTTOM SHEET:
+┌────────────────────────────────────────────────────────┐
+│  🛵 Dispatch / Reassign Delivery Rider             [✕] │
+│  Choose auto-dispatch waterfall or select manually     │
+│                                                        │
+│  ┌──────────────────────────────────────────────────┐  │
+│  │ ✨ AI Vehicle Requirement: 4 WHEELER    [~60.1kg]│  │
+│  │ Heavy cargo detected: Requires 3W or 4W vehicle. │  │
+│  │                                                  │  │
+│  │ VEHICLE FILTER MODE:                             │  │
+│  │ ┌────────────────────────┐┌────────────────────┐ │  │
+│  │ │ ◉ Compatible Only (Rec)││ ○ Show All Vehicles│ │  │
+│  │ │   4 WHEELER only       ││   All riders (2W..)│ │  │
+│  │ └────────────────────────┘└────────────────────┘ │  │
+│  │                                                  │  │
+│  │ 🟢 Active Filter: Showing riders equipped for    │  │
+│  │    4 WHEELER cargo (~60.1kg) for safe transit.   │  │
+│  └──────────────────────────────────────────────────┘  │
+│                                                        │
+│  ┌──────────────────────────────────────────────────┐  │
+│  │ Option A: Automated Waterfall Dispatch           │  │
+│  │ [ 🔄 Start Auto-Dispatch Engine                ] │  │
+│  └──────────────────────────────────────────────────┘  │
+│                                                        │
+│  ─────────── OR SELECT RIDER MANUALLY ───────────────  │
+│  [ 🔍 Search by rider name, phone, vehicle...      ]  │
+│  [ List of riders with AI Match / Capacity badges  ]  │
+│                                                        │
+│  [ Cancel ]               [ Confirm Manual Assign ]    │
+└────────────────────────────────────────────────────────┘
+
 ================================================================================
-6. SAMPLE FLUTTER CODE IMPLEMENTATION
+6. SAMPLE MOBILE CODE IMPLEMENTATIONS
 ================================================================================
+
+--------------------------------------------------------------------------------
+6.1 Flutter (Dart) Socket.IO & Google Maps Example
+--------------------------------------------------------------------------------
 
 ```dart
 import 'package:flutter/material.dart';
@@ -471,6 +558,180 @@ class _SellerOrderTrackingMapState extends State<SellerOrderTrackingMap> {
 }
 ```
 
+--------------------------------------------------------------------------------
+6.2 Flutter (Dart) Dispatch BottomSheet with Radio Filter & Explanatory Note
+--------------------------------------------------------------------------------
+
+```dart
+enum VehicleFilterMode { matched, all }
+
+class RiderDispatchBottomSheet extends StatefulWidget {
+  final String orderId;
+  final Map<String, dynamic>? aiVehicleRecommendation;
+  final List<Map<String, dynamic>> allRiders;
+  final Function(String riderId) onAssign;
+
+  const RiderDispatchBottomSheet({
+    Key? key,
+    required this.orderId,
+    required this.aiVehicleRecommendation,
+    required this.allRiders,
+    required this.onAssign,
+  }) : super(key: key);
+
+  @override
+  _RiderDispatchBottomSheetState createState() => _RiderDispatchBottomSheetState();
+}
+
+class _RiderDispatchBottomSheetState extends State<RiderDispatchBottomSheet> {
+  VehicleFilterMode _filterMode = VehicleFilterMode.matched;
+  String? _selectedRiderId;
+
+  @override
+  Widget build(BuildContext context) {
+    final ai = widget.aiVehicleRecommendation;
+    final String reqVehicle = (ai?['requiredVehicle'] ?? 'Standard').replaceAll('_', ' ');
+    final double estWeight = (ai?['estimatedWeightKg'] ?? 0.0).toDouble();
+
+    // Filter riders based on radio selection
+    final visibleRiders = widget.allRiders.where((r) {
+      if (_filterMode == VehicleFilterMode.matched && r['isVehicleMatch'] == false) {
+        return false;
+      }
+      return true;
+    }).toList();
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // AI Vehicle Requirement Header Card
+          if (ai != null) ...[
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.indigo.shade50,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.indigo.shade200),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('✨ AI Vehicle Requirement: $reqVehicle',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.indigo)),
+                      Text('~${estWeight.toStringAsFixed(1)} kg',
+                          style: TextStyle(fontSize: 11, color: Colors.indigo.shade700)),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(ai['reason'] ?? '', style: TextStyle(fontSize: 11, color: Colors.indigo.shade800)),
+                  const Divider(height: 16),
+
+                  // Radio Button Group
+                  const Text('VEHICLE FILTER MODE:',
+                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Colors.indigo)),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: RadioListTile<VehicleFilterMode>(
+                          dense: true,
+                          contentPadding: EdgeInsets.zero,
+                          title: const Text('Compatible Only', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                          subtitle: Text('$reqVehicle only', style: const TextStyle(fontSize: 10)),
+                          value: VehicleFilterMode.matched,
+                          groupValue: _filterMode,
+                          onChanged: (val) => setState(() => _filterMode = val!),
+                        ),
+                      ),
+                      Expanded(
+                        child: RadioListTile<VehicleFilterMode>(
+                          dense: true,
+                          contentPadding: EdgeInsets.zero,
+                          title: const Text('Show All', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                          subtitle: const Text('All riders (2W, 3W, 4W)', style: const TextStyle(fontSize: 10)),
+                          value: VehicleFilterMode.all,
+                          groupValue: _filterMode,
+                          onChanged: (val) => setState(() => _filterMode = val!),
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  // Contextual Safety Explanatory Note Callout
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: _filterMode == VehicleFilterMode.matched ? Colors.white : Colors.amber.shade50,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: _filterMode == VehicleFilterMode.matched ? Colors.indigo.shade100 : Colors.amber.shade300,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          _filterMode == VehicleFilterMode.matched ? Icons.check_circle : Icons.warning_amber_rounded,
+                          size: 14,
+                          color: _filterMode == VehicleFilterMode.matched ? Colors.green : Colors.amber.shade900,
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            _filterMode == VehicleFilterMode.matched
+                                ? 'Active Filter: Showing only riders equipped for $reqVehicle cargo (~${estWeight.toStringAsFixed(1)}kg) for safe transit.'
+                                : 'Important Note: Displaying all riders. Assigning heavy/oversized cargo to a 2-Wheeler (motorbike) may lead to rider refusal or delivery cancellation.',
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: _filterMode == VehicleFilterMode.matched ? Colors.indigo.shade900 : Colors.amber.shade900,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+
+          // Empty State Guidance
+          if (visibleRiders.isEmpty) ...[
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 24),
+              child: Center(
+                child: Column(
+                  children: [
+                    const Text('No approved riders with compatible vehicle found.',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                    if (_filterMode == VehicleFilterMode.matched && widget.allRiders.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        '(${widget.allRiders.length} rider(s) available in other categories. Select "Show All" above to view them.)',
+                        style: TextStyle(fontSize: 11, color: Colors.amber.shade900),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+```
+
 ================================================================================
 7. MOBILE DEVELOPER VERIFICATION CHECKLIST
 ================================================================================
@@ -480,4 +741,7 @@ class _SellerOrderTrackingMapState extends State<SellerOrderTrackingMap> {
 [ ] Telemetry HUD: Display rider name, phone, plate, speed, and distance.
 [ ] Quick Actions: Add direct phone call (`tel:`) button for assigned rider.
 [ ] Fallback: Implement 15s REST polling fallback if socket disconnects.
+[ ] Dispatch UI: Use explicit Radio Buttons for Vehicle Filter ("Compatible Only" vs "Show All").
+[ ] Safety Note: Display contextual active filter note (Green for compatible, Amber warning for all).
+[ ] Empty State: Show helpful redirection message if 0 compatible riders exist.
 ================================================================================
