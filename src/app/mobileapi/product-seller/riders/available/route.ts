@@ -46,11 +46,14 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    const includeOffline = searchParams.get("includeOffline") === "true"
+
     const riders = await prisma.rider.findMany({
       where: {
         isApproved: true,
         isSuspended: false,
         status: "APPROVED",
+        ...(includeOffline ? {} : { isOnline: true }),
       },
       include: {
         user: {

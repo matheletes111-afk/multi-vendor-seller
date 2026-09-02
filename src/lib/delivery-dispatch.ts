@@ -67,12 +67,22 @@ export async function triggerOrderAutoDispatch(orderId: string, targetSellerId?:
     const results: any[] = []
 
     for (const sellerId of sellerIds) {
-      // Check if there is already an active accepted or in-progress assignment for this seller
-      const activeAssignment = order.deliveryAssignments.find(
-        (a) =>
-          a.sellerId === sellerId &&
-          ["ACCEPTED", "AT_PICKUP", "PICKED_UP", "OUT_FOR_DELIVERY", "OFFERED"].includes(a.status)
-      )
+      // Check if there is already an active accepted or in-progress assignment for this seller (Live DB query to prevent race conditions)
+      const activeAssignment = await prisma.riderDeliveryAssignment.findFirst({
+        where: {
+          orderId: order.id,
+          sellerId: sellerId,
+          status: {
+            in: [
+              DeliveryAssignmentStatus.ACCEPTED,
+              DeliveryAssignmentStatus.AT_PICKUP,
+              DeliveryAssignmentStatus.PICKED_UP,
+              DeliveryAssignmentStatus.OUT_FOR_DELIVERY,
+              DeliveryAssignmentStatus.OFFERED,
+            ],
+          },
+        },
+      })
 
       if (activeAssignment) {
         results.push({
@@ -95,14 +105,16 @@ export async function triggerOrderAutoDispatch(orderId: string, targetSellerId?:
       const sellerLat = sellerInfo?.businessInfo?.latitude || null
       const sellerLng = sellerInfo?.businessInfo?.longitude || null
 
-      // List of riders already offered/attempted for this seller on this order (to avoid repeats)
-      const previousRiderIds = order.deliveryAssignments
-        .filter(
-          (a) =>
-            a.sellerId === sellerId &&
-            ["REJECTED", "TIMED_OUT", "OFFERED", "CANCELLED_BY_RIDER"].includes(a.status)
-        )
-        .map((a) => a.riderId)
+      // List of riders already offered/attempted for this seller on this order (Live DB query — stale cache causes infinite re-dispatch to same rider)
+      const previousAssignments = await prisma.riderDeliveryAssignment.findMany({
+        where: {
+          orderId: order.id,
+          sellerId: sellerId,
+          status: { in: ["REJECTED", "TIMED_OUT", "CANCELLED_BY_RIDER"] },
+        },
+        select: { riderId: true },
+      })
+      const previousRiderIds = previousAssignments.map((a) => a.riderId)
 
       // Match customer delivery location name or zone
       const customerLocation = (order.shippingCity || order.shippingAddressLine1 || "").trim()
@@ -555,10 +567,14 @@ export async function handleRiderStatusUpdate(
       if (currentStatus !== DeliveryAssignmentStatus.PICKED_UP) {
         return { success: false, message: `Cannot move to OUT_FOR_DELIVERY from ${currentStatus}` }
       }
-      // Update items for this seller package to OUT_FOR_DELIVERY
+      // Update items for this seller package to OUT_FOR_DELIVERY and synchronize delivery OTP
       await prisma.orderItem.updateMany({
         where: itemFilter,
-        data: { itemStatus: "OUT_FOR_DELIVERY" as any },
+        data: {
+          itemStatus: "OUT_FOR_DELIVERY" as any,
+          deliveryOtp: assignment.deliveryOtp || null,
+          deliveryOtpExpires: new Date(Date.now() + 24 * 60 * 60 * 1000),
+        } as any,
       })
 
       // Multi-seller safe parent order status sync
@@ -907,25 +923,32 @@ export async function processStaleAssignmentsAndNoShows() {
     await triggerOrderAutoDispatch(offer.orderId, offer.sellerId || undefined)
   }
 
-  // 2. No-Show Check: ACCEPTED for > 30 minutes without reaching AT_PICKUP
+  // 2. No-Show / Pickup Timeout: ACCEPTED or AT_PICKUP for > 30 minutes without advancing to PICKED_UP
   const thirtyMinsAgo = new Date(Date.now() - NO_SHOW_TIMEOUT_MINUTES * 60 * 1000)
   const noShows = await prisma.riderDeliveryAssignment.findMany({
     where: {
-      status: DeliveryAssignmentStatus.ACCEPTED,
+      status: {
+        in: [DeliveryAssignmentStatus.ACCEPTED, DeliveryAssignmentStatus.AT_PICKUP],
+      },
       acceptedAt: { lt: thirtyMinsAgo },
     },
   })
 
   for (const noShow of noShows) {
+    const isAtPickup = noShow.status === DeliveryAssignmentStatus.AT_PICKUP
+    const reason = isAtPickup
+      ? "Pickup timeout (failed to collect parcel within 30m of acceptance)"
+      : "No-show timeout (failed to arrive at store within 30m of acceptance)"
+
     await prisma.riderDeliveryAssignment.update({
       where: { id: noShow.id },
       data: {
         status: DeliveryAssignmentStatus.CANCELLED_BY_RIDER,
-        cancellationReason: "No-show timeout (failed to arrive at store within 30m)",
+        cancellationReason: reason,
         cancelledAt: now,
       },
     })
-    console.log(`[Sweeper] No-show detected for assignment ${noShow.id} (Seller: ${noShow.sellerId}). Re-dispatching...`)
+    console.log(`[Sweeper] ${reason} for assignment ${noShow.id} (Seller: ${noShow.sellerId}). Re-dispatching...`)
     await triggerOrderAutoDispatch(noShow.orderId, noShow.sellerId || undefined)
   }
 

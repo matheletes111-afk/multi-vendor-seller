@@ -474,19 +474,26 @@ export async function PATCH(
     }
   }
 
-  // OTP Verification for moving from OUT_FOR_DELIVERY to DELIVERED
+  // OTP Verification for moving to DELIVERED (must have passed through OUT_FOR_DELIVERY)
   if (status === "DELIVERED") {
     for (const item of (ownItems as any[])) {
-      if (item.itemStatus === "OUT_FOR_DELIVERY") {
-        if (!otpInput) {
-          return NextResponse.json({ error: "OTP is required for delivery", itemId: item.id }, { status: 400 })
-        }
-        if (item.deliveryOtp !== otpInput) {
-          return NextResponse.json({ error: "Invalid delivery OTP", itemId: item.id }, { status: 400 })
-        }
-        if (item.deliveryOtpExpires && new Date() > item.deliveryOtpExpires) {
-          return NextResponse.json({ error: "Delivery OTP has expired", itemId: item.id }, { status: 400 })
-        }
+      if (item.itemStatus !== "OUT_FOR_DELIVERY") {
+        return NextResponse.json(
+          {
+            error: "Items must be marked OUT_FOR_DELIVERY first so the customer receives their delivery OTP before marking DELIVERED.",
+            itemId: item.id,
+          },
+          { status: 400 }
+        )
+      }
+      if (!otpInput) {
+        return NextResponse.json({ error: "OTP is required for delivery", itemId: item.id }, { status: 400 })
+      }
+      if (item.deliveryOtp !== otpInput) {
+        return NextResponse.json({ error: "Invalid delivery OTP", itemId: item.id }, { status: 400 })
+      }
+      if (item.deliveryOtpExpires && new Date() > item.deliveryOtpExpires) {
+        return NextResponse.json({ error: "Delivery OTP has expired", itemId: item.id }, { status: 400 })
       }
     }
   }
@@ -494,10 +501,16 @@ export async function PATCH(
   // Handle OUT_FOR_DELIVERY: Generate and Send OTP
   let otpData: { otp: string; expiry: Date } | null = null
   if (status === "OUT_FOR_DELIVERY") {
-    const fullOrder = await prisma.order.findUnique({
-      where: { id: orderId },
-      include: { customer: { select: { email: true, phone: true, phoneCountryCode: true, name: true } } }
-    })
+    const [fullOrder, sellerStore] = await Promise.all([
+      prisma.order.findUnique({
+        where: { id: orderId },
+        include: { customer: { select: { email: true, phone: true, phoneCountryCode: true, name: true } } },
+      }),
+      prisma.store.findUnique({
+        where: { sellerId: seller.id },
+        select: { name: true },
+      }),
+    ])
     if (!fullOrder || !fullOrder.customer) {
       return NextResponse.json({ error: "Customer details not found for OTP" }, { status: 404 })
     }
@@ -512,6 +525,7 @@ export async function PATCH(
       toPhone: combinedPhone,
       orderNumber: fullOrder.orderNumber,
       customerName: fullOrder.customer.name,
+      sellerStoreName: sellerStore?.name || "Seller Store",
     })
   }
 
@@ -540,6 +554,36 @@ export async function PATCH(
       if (status === "DELIVERED") {
         for (const id of targetItemIds) {
           await applySellerCreditForOrderLineDelivered(tx, id)
+        }
+
+        // Clean up any pending/active rider assignments for this seller package
+        await tx.riderDeliveryAssignment.updateMany({
+          where: {
+            orderId,
+            sellerId: seller.id,
+            status: { in: ["OFFERED", "ACCEPTED", "AT_PICKUP"] },
+          },
+          data: {
+            status: "DELIVERED",
+            deliveredAt: new Date(),
+            deliveryProofImage: deliveryProofImage || undefined,
+            adminNotes: "Fulfilled directly via Seller Panel (Mobile)",
+          },
+        })
+
+        // Check if all items across all sellers in the order are delivered
+        const allItems = await tx.orderItem.findMany({
+          where: { orderId },
+          select: { itemStatus: true },
+        })
+        const allDelivered = allItems.every((i) =>
+          ["DELIVERED", "CANCELLED", "REFUNDED"].includes(i.itemStatus)
+        )
+        if (allDelivered) {
+          await tx.order.update({
+            where: { id: orderId },
+            data: { status: "DELIVERED", paymentStatus: "COMPLETED" },
+          })
         }
       }
     })
