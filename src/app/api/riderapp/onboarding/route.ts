@@ -107,7 +107,7 @@ export async function POST(request: Request) {
           const buffer = Buffer.from(await profileImageFile.arrayBuffer())
           const ext = getSafeFileExt(profileImageFile, ".jpg")
           profileImageUrl = await uploadPublicFile({
-            folder: "riders/profiles",
+            folder: "profile",
             ext,
             contentType: profileImageFile.type || "image/jpeg",
             buffer,

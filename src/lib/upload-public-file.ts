@@ -473,23 +473,32 @@ export async function uploadPublicFile(args: UploadArgs): Promise<string> {
 
   const fileName = `${prefix}-${Date.now()}-${randomUUID()}${safeExt}`
 
-  const region =
+  const region = (
     process.env.AMPLIFY_AWS_REGION ||
     process.env.AWS_REGION ||
     process.env.AWS_DEFAULT_REGION ||
     "us-east-1"
-  const bucket =
+  ).trim()
+  const bucket = (
     process.env.S3_BUCKET ||
     process.env.AMPLIFY_AWS_S3_BUCKET_NAME ||
     process.env.AWS_S3_BUCKET_NAME ||
     process.env.AWS_BUCKET ||
-    process.env.AWS_S3_BUCKET
-  const accessKeyId =
+    process.env.AWS_S3_BUCKET ||
+    ""
+  ).trim()
+  const accessKeyId = (
     process.env.AMPLIFY_AWS_ACCESS_KEY_ID ||
-    process.env.AWS_ACCESS_KEY_ID
-  const secretAccessKey =
+    process.env.AWS_ACCESS_KEY_ID ||
+    ""
+  ).trim()
+  const secretAccessKey = (
     process.env.AMPLIFY_AWS_SECRET_ACCESS_KEY ||
-    process.env.AWS_SECRET_ACCESS_KEY
+    process.env.AWS_SECRET_ACCESS_KEY ||
+    ""
+  ).trim()
+
+  let s3Error: string | null = null
 
   if (region && bucket && accessKeyId && secretAccessKey) {
     const key = `uploads/${folder}/${fileName}`
@@ -518,13 +527,19 @@ export async function uploadPublicFile(args: UploadArgs): Promise<string> {
       return `https://${bucket}.s3.${region}.amazonaws.com/${key}`
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
-      console.warn(`S3 upload failed (${msg}), falling back to local storage for: ${key}`)
+      s3Error = `S3 upload failed: ${msg}`
+      console.error(`S3 upload error for bucket '${bucket}' key '${key}':`, err)
     }
   } else {
-    console.warn("S3 credentials not fully configured, falling back to local public storage.")
+    const missing: string[] = []
+    if (!bucket) missing.push("S3_BUCKET / AMPLIFY_AWS_S3_BUCKET_NAME")
+    if (!accessKeyId) missing.push("AWS_ACCESS_KEY_ID / AMPLIFY_AWS_ACCESS_KEY_ID")
+    if (!secretAccessKey) missing.push("AWS_SECRET_ACCESS_KEY / AMPLIFY_AWS_SECRET_ACCESS_KEY")
+    s3Error = `S3 credentials incomplete on server. Missing: ${missing.join(", ")}`
+    console.warn(s3Error)
   }
 
-  // Graceful local fallback to public/uploads directory
+  // Graceful local fallback to public/uploads directory (for local dev environments)
   try {
     const localDir = path.join(process.cwd(), "public", "uploads", folder)
     await fs.mkdir(localDir, { recursive: true })
@@ -533,7 +548,9 @@ export async function uploadPublicFile(args: UploadArgs): Promise<string> {
     return `/uploads/${folder}/${fileName}`
   } catch (localErr) {
     const localMsg = localErr instanceof Error ? localErr.message : String(localErr)
-    throw new Error(`Upload failed (both S3 and local storage): ${localMsg}`)
+    throw new Error(
+      `Upload failed: ${s3Error || "S3 upload failed"} | Local storage fallback also failed: ${localMsg}`
+    )
   }
 }
 
