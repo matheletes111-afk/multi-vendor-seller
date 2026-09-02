@@ -17,8 +17,10 @@ export async function POST(
     }
 
     const { id } = await context.params
-    const user = await prisma.user.findUnique({
-      where: { id },
+    const user = await prisma.user.findFirst({
+      where: {
+        OR: [{ id }, { rider: { id } }],
+      },
       include: { rider: true },
     })
 
@@ -26,14 +28,22 @@ export async function POST(
       return NextResponse.json({ error: "Rider not found" }, { status: 404 })
     }
 
+    if (user.rider.onboardingCompleted) {
+      return NextResponse.json(
+        { error: "Rider has already completed onboarding. Login credentials cannot be resent." },
+        { status: 400 }
+      )
+    }
+
     // Generate new temporary password
     const temporaryPassword = crypto.randomBytes(5).toString("hex") + "!9A"
     const hashedPassword = await bcrypt.hash(temporaryPassword, 10)
 
     await prisma.user.update({
-      where: { id },
+      where: { id: user.id },
       data: {
         password: hashedPassword,
+        isEmailVerified: true,
         rider: {
           update: {
             isFirstLogin: true,

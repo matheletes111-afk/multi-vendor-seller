@@ -271,9 +271,14 @@ export async function middleware(request: NextRequest) {
     const normalizedPath = path.endsWith("/") ? path.slice(0, -1) : path
     const isOnboardingRoute = normalizedPath === "/riderapp/onboarding" || normalizedPath.startsWith("/riderapp/onboarding/")
 
-    // Force onboarding if not completed
-    if (!u.onboardingCompleted && !isOnboardingRoute) {
+    // Force onboarding if not completed or if first login
+    if ((!u.onboardingCompleted || u.isFirstLogin) && !isOnboardingRoute) {
       return NextResponse.redirect(new URL("/riderapp/onboarding", request.url))
+    }
+
+    // If onboarding is completed and not first login, redirect /onboarding to dashboard
+    if (u.onboardingCompleted && !u.isFirstLogin && isOnboardingRoute) {
+      return NextResponse.redirect(new URL("/riderapp", request.url))
     }
   }
 

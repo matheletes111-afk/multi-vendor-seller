@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma"
 import bcrypt from "bcryptjs"
 import { uploadPublicFile } from "@/lib/upload-public-file"
 import { validatePhoneAndCountryCode } from "@/lib/phone-validation"
+import { generateMobileTokens } from "@/lib/mobile-jwt"
 
 export async function POST(request: NextRequest) {
   try {
@@ -234,6 +235,13 @@ export async function POST(request: NextRequest) {
     })
 
     const vehicleTypeResult = (updatedRider.vehicleTypes as string[])?.[0] || "2_WHEELER"
+    const finalPasswordHash = userUpdates.password || user.password
+    const tokens = generateMobileTokens({
+      userId,
+      email: user.email,
+      role: user.role,
+      passwordHash: finalPasswordHash,
+    })
 
     return NextResponse.json({
       success: true,
@@ -243,6 +251,7 @@ export async function POST(request: NextRequest) {
           ...updatedRider,
           vehicleType: vehicleTypeResult,
         },
+        tokens,
         onboardingCompleted: true,
       },
     })

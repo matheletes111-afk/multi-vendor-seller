@@ -58,8 +58,8 @@ import { LOCATION_ZONES } from "@/lib/location-zones"
 import { ZoneLocationPicker } from "@/app/riderapp/components/zone-location-picker"
 import { VehicleTypeSelector } from "@/app/riderapp/components/vehicle-type-selector"
 import { DocUploadPreview } from "@/app/riderapp/components/doc-upload-preview"
-import { CountryCodeSelect } from "@/ui/country-code-select"
 import { cn } from "@/lib/utils"
+import { CountryCodeSelect } from "@/ui/country-code-select"
 
 interface RiderItem {
   id: string
@@ -137,6 +137,12 @@ export function RidersClient() {
   const [editSelectedLocations, setEditSelectedLocations] = useState<string[]>([])
   const [editAdminFeedback, setEditAdminFeedback] = useState("")
   const [editAdminNotes, setEditAdminNotes] = useState("")
+  const [editOnboardingCompleted, setEditOnboardingCompleted] = useState(false)
+  const [editPassword, setEditPassword] = useState("")
+  const [editNationalIdDoc, setEditNationalIdDoc] = useState<string | null>(null)
+  const [editDrivingLicenseDoc, setEditDrivingLicenseDoc] = useState<string | null>(null)
+  const [editVehicleInsuranceDoc, setEditVehicleInsuranceDoc] = useState<string | null>(null)
+  const [editProfileImage, setEditProfileImage] = useState<string | null>(null)
   const [editLoading, setEditLoading] = useState(false)
   const [editError, setEditError] = useState<string | null>(null)
   const [editSuccess, setEditSuccess] = useState<string | null>(null)
@@ -190,6 +196,12 @@ export function RidersClient() {
     setEditSelectedLocations(rider.rider?.selectedLocations || [])
     setEditAdminFeedback(rider.rider?.adminFeedback || "")
     setEditAdminNotes(rider.rider?.adminNotes || "")
+    setEditOnboardingCompleted(rider.rider?.onboardingCompleted ?? false)
+    setEditPassword("")
+    setEditNationalIdDoc(rider.rider?.nationalIdDoc || null)
+    setEditDrivingLicenseDoc(rider.rider?.drivingLicenseDoc || null)
+    setEditVehicleInsuranceDoc(rider.rider?.vehicleInsuranceDoc || null)
+    setEditProfileImage(rider.image || rider.rider?.profileImage || null)
     setEditError(null)
     setEditSuccess(null)
     setEditModalOpen(true)
@@ -260,6 +272,12 @@ export function RidersClient() {
           selectedLocations: editSelectedLocations,
           adminFeedback: editAdminFeedback,
           adminNotes: editAdminNotes,
+          onboardingCompleted: editOnboardingCompleted,
+          password: editPassword.trim().length >= 6 ? editPassword.trim() : undefined,
+          nationalIdDoc: editNationalIdDoc,
+          drivingLicenseDoc: editDrivingLicenseDoc,
+          vehicleInsuranceDoc: editVehicleInsuranceDoc,
+          profileImage: editProfileImage,
         }),
       })
 
@@ -678,13 +696,15 @@ export function RidersClient() {
                                 <Eye className="w-3.5 h-3.5 mr-2" />
                                 View Full Profile
                               </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() => handleResendInvite(r.id)}
-                                disabled={resendLoading}
-                              >
-                                <Send className="w-3.5 h-3.5 mr-2 text-blue-600" />
-                                Resend Credentials
-                              </DropdownMenuItem>
+                              {!r.rider?.onboardingCompleted && (
+                                <DropdownMenuItem
+                                  onClick={() => handleResendInvite(r.id)}
+                                  disabled={resendLoading}
+                                >
+                                  <Send className="w-3.5 h-3.5 mr-2 text-blue-600" />
+                                  Resend Credentials
+                                </DropdownMenuItem>
+                              )}
 
                             </DropdownMenuContent>
                           </DropdownMenu>
@@ -1006,6 +1026,51 @@ export function RidersClient() {
                   />
                 </div>
 
+                {/* Direct Password Reset (Optional) */}
+                <div className="space-y-1.5 pt-1">
+                  <Label className="text-xs font-semibold">Set New Password (Optional)</Label>
+                  <Input
+                    type="password"
+                    placeholder="Leave blank to keep existing password..."
+                    value={editPassword}
+                    onChange={(e) => setEditPassword(e.target.value)}
+                    className="rounded-xl text-xs h-10"
+                  />
+                  <p className="text-[11px] text-muted-foreground">
+                    Enter at least 6 characters to immediately change the rider&apos;s login password.
+                  </p>
+                </div>
+
+                {/* Onboarding Status Toggle */}
+                <div className="flex items-center justify-between p-3.5 rounded-xl border bg-muted/30">
+                  <div className="space-y-0.5">
+                    <Label className="text-xs font-semibold cursor-pointer" htmlFor="editOnboardingCompleted">
+                      Onboarding Status: {editOnboardingCompleted ? "Completed" : "Pending / Incomplete"}
+                    </Label>
+                    <p className="text-[11px] text-muted-foreground">
+                      {editOnboardingCompleted
+                        ? "Completed — Rider has finished all profile setup & document uploads."
+                        : "Incomplete — Rider will be prompted to finish onboarding upon login."}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    id="editOnboardingCompleted"
+                    onClick={() => setEditOnboardingCompleted((prev) => !prev)}
+                    className={cn(
+                      "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden",
+                      editOnboardingCompleted ? "bg-emerald-600" : "bg-gray-200 dark:bg-gray-700"
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        "pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out",
+                        editOnboardingCompleted ? "translate-x-5" : "translate-x-0"
+                      )}
+                    />
+                  </button>
+                </div>
+
                 {/* Internal Admin Notes */}
                 <div className="space-y-1.5">
                   <Label className="text-xs font-semibold">Internal Admin Notes (Private)</Label>
@@ -1022,36 +1087,80 @@ export function RidersClient() {
               {/* DOCUMENTS TAB */}
               <TabsContent value="documents" className="space-y-4 pt-3">
                 <div className="p-3 bg-muted/40 rounded-xl text-xs text-muted-foreground">
-                  View uploaded verification documents. Click <strong>Preview</strong> on any item to view the full PDF or image in high resolution.
+                  View and update rider verification documents. You can preview existing files or click to upload replacement documents.
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <DocUploadPreview
                     label="National ID / Passport"
-                    value={selectedRider?.rider?.nationalIdDoc}
-                    disabled
-                    onChange={() => {}}
+                    value={editNationalIdDoc}
+                    onChange={(file) => {
+                      if (!file) {
+                        setEditNationalIdDoc(null)
+                        return
+                      }
+                      const reader = new FileReader()
+                      reader.onload = () => {
+                        if (typeof reader.result === "string") {
+                          setEditNationalIdDoc(reader.result)
+                        }
+                      }
+                      reader.readAsDataURL(file)
+                    }}
                   />
 
                   <DocUploadPreview
                     label="Driving License"
-                    value={selectedRider?.rider?.drivingLicenseDoc}
-                    disabled
-                    onChange={() => {}}
+                    value={editDrivingLicenseDoc}
+                    onChange={(file) => {
+                      if (!file) {
+                        setEditDrivingLicenseDoc(null)
+                        return
+                      }
+                      const reader = new FileReader()
+                      reader.onload = () => {
+                        if (typeof reader.result === "string") {
+                          setEditDrivingLicenseDoc(reader.result)
+                        }
+                      }
+                      reader.readAsDataURL(file)
+                    }}
                   />
 
                   <DocUploadPreview
                     label="Vehicle Insurance / Registration"
-                    value={selectedRider?.rider?.vehicleInsuranceDoc}
-                    disabled
-                    onChange={() => {}}
+                    value={editVehicleInsuranceDoc}
+                    onChange={(file) => {
+                      if (!file) {
+                        setEditVehicleInsuranceDoc(null)
+                        return
+                      }
+                      const reader = new FileReader()
+                      reader.onload = () => {
+                        if (typeof reader.result === "string") {
+                          setEditVehicleInsuranceDoc(reader.result)
+                        }
+                      }
+                      reader.readAsDataURL(file)
+                    }}
                   />
 
                   <DocUploadPreview
                     label="Profile Photo"
-                    value={selectedRider?.image || selectedRider?.rider?.profileImage}
-                    disabled
-                    onChange={() => {}}
+                    value={editProfileImage}
+                    onChange={(file) => {
+                      if (!file) {
+                        setEditProfileImage(null)
+                        return
+                      }
+                      const reader = new FileReader()
+                      reader.onload = () => {
+                        if (typeof reader.result === "string") {
+                          setEditProfileImage(reader.result)
+                        }
+                      }
+                      reader.readAsDataURL(file)
+                    }}
                   />
                 </div>
               </TabsContent>
@@ -1100,17 +1209,21 @@ export function RidersClient() {
             </Tabs>
 
             <DialogFooter className="pt-3 border-t flex flex-row items-center justify-between gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => selectedRider && handleResendInvite(selectedRider.id)}
-                disabled={resendLoading}
-                className="text-xs text-blue-600 hover:text-blue-700"
-              >
-                <Send className="w-3.5 h-3.5 mr-1" />
-                Resend Credentials Email
-              </Button>
+              {!selectedRider?.rider?.onboardingCompleted && !editOnboardingCompleted ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => selectedRider && handleResendInvite(selectedRider.id)}
+                  disabled={resendLoading}
+                  className="text-xs text-blue-600 hover:text-blue-700"
+                >
+                  <Send className="w-3.5 h-3.5 mr-1" />
+                  Resend Credentials Email
+                </Button>
+              ) : (
+                <div />
+              )}
 
               <div className="flex items-center gap-2">
                 <Button

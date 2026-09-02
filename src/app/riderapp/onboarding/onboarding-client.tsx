@@ -20,6 +20,8 @@ import {
   FileCheck,
   Truck,
   Sparkles,
+  Eye,
+  EyeOff,
 } from "lucide-react"
 import { Input } from "@/ui/input"
 import { Button } from "@/ui/button"
@@ -44,6 +46,8 @@ export function RiderOnboardingClient({ user: initialUser }: { user: any }) {
   // Step 1: Password
   const [newPassword, setNewPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
+  const [showNewPassword, setShowNewPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const isFirstLogin = initialUser?.isFirstLogin ?? true
 
   // Step 2: Profile & Vehicle
@@ -212,6 +216,7 @@ export function RiderOnboardingClient({ user: initialUser }: { user: any }) {
           image: profileImageUrl,
           onboardingCompleted: true,
           isFirstLogin: false,
+          passwordHash: data.passwordHash || undefined,
         })
       }
 
@@ -336,24 +341,46 @@ export function RiderOnboardingClient({ user: initialUser }: { user: any }) {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
                   <div className="space-y-1.5">
                     <Label className="text-xs font-semibold">New Password</Label>
-                    <Input
-                      type="password"
-                      placeholder="At least 6 characters"
-                      value={newPassword}
-                      onChange={(e) => setNewPassword(e.target.value)}
-                      className="rounded-xl text-xs h-11"
-                    />
+                    <div className="relative">
+                      <Input
+                        type={showNewPassword ? "text" : "password"}
+                        placeholder="At least 6 characters"
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        className="rounded-xl text-xs h-11 pr-10"
+                      />
+                      <button
+                        type="button"
+                        tabIndex={-1}
+                        onClick={() => setShowNewPassword((p) => !p)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+                        aria-label={showNewPassword ? "Hide password" : "Show password"}
+                      >
+                        {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
                   </div>
 
                   <div className="space-y-1.5">
                     <Label className="text-xs font-semibold">Confirm Password</Label>
-                    <Input
-                      type="password"
-                      placeholder="Re-enter password"
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      className="rounded-xl text-xs h-11"
-                    />
+                    <div className="relative">
+                      <Input
+                        type={showConfirmPassword ? "text" : "password"}
+                        placeholder="Re-enter password"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        className="rounded-xl text-xs h-11 pr-10"
+                      />
+                      <button
+                        type="button"
+                        tabIndex={-1}
+                        onClick={() => setShowConfirmPassword((p) => !p)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+                        aria-label={showConfirmPassword ? "Hide confirm password" : "Show confirm password"}
+                      >
+                        {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
                   </div>
                 </div>
 
