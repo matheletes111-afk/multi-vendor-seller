@@ -38,6 +38,12 @@ export async function sendEmail({
       from,
       subject,
       content,
+      trackingSettings: {
+        clickTracking: {
+          enable: false,
+          enableText: false,
+        },
+      },
     }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const result = await sgMail.send(msg as any)
