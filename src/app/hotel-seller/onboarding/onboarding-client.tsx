@@ -192,12 +192,17 @@ export function HotelOnboardingClient() {
       let res: Response
 
       if (currentStep === 6) {
+        // Step 6: Agreement
+        if (!hearAboutUs || !hearAboutUs.trim()) {
+          setError("Please select how you heard about us.")
+          setSaving(false)
+          return
+        }
         if (hearAboutUs === "Other" && !hearAboutUsOther.trim()) {
           setError("Please specify where you heard about our platform.")
           setSaving(false)
           return
         }
-        // Step 6: Agreement
         const rawSelected = hearAboutUs || (formData.get("hearAboutUs") as string) || null
         const rawOther = hearAboutUsOther || (formData.get("hearAboutUsOther") as string) || null
         const data = {
@@ -718,8 +723,8 @@ export function HotelOnboardingClient() {
 
                 <div className="space-y-3 p-6 bg-slate-50 rounded-3xl border">
                   <div>
-                    <Label htmlFor="hearAboutUs" className="text-base font-bold text-slate-800">
-                      How did you hear about us?
+                    <Label htmlFor="hearAboutUs" className="text-base font-bold text-slate-800 flex items-center gap-1">
+                      How did you hear about us? <span className="text-rose-500">*</span>
                     </Label>
                     <p className="text-xs text-slate-500 mt-0.5">
                       Please select how you first learned about Meeem.

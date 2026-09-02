@@ -22,7 +22,7 @@ export async function POST(
     const seller = await prisma.seller.findUnique({
       where: { id },
       include: {
-        user: { select: { email: true, name: true } },
+        user: true,
         store: true,
         businessInfo: true,
         kyc: true,
@@ -50,7 +50,7 @@ export async function POST(
 
     await prisma.seller.update({
       where: { id },
-      data: { isApproved: true, onboardingCompleted: true, status: "APPROVED", isSuspended: false },
+      data: { isApproved: true, onboardingCompleted: true, status: "APPROVED", isSuspended: false, adminFeedback: null },
     })
 
     // ── Send Email Notification ───────────────────────────────────────────────

@@ -273,6 +273,11 @@ export function ProductOnboardingClient() {
           }
         } else {
           // Step 6
+          if (!hearAboutUs || !hearAboutUs.trim()) {
+            setError("Please select how you heard about us.")
+            setSaving(false)
+            return
+          }
           if (hearAboutUs === "Other" && !hearAboutUsOther.trim()) {
             setError("Please specify where you heard about our platform.")
             setSaving(false)
@@ -1116,8 +1121,8 @@ export function ProductOnboardingClient() {
                 
                 <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100 space-y-3 mb-6">
                   <div>
-                    <Label htmlFor="hearAboutUs" className="text-base font-bold text-slate-800">
-                      How did you hear about us?
+                    <Label htmlFor="hearAboutUs" className="text-base font-bold text-slate-800 flex items-center gap-1">
+                      How did you hear about us? <span className="text-rose-500">*</span>
                     </Label>
                     <p className="text-xs text-slate-500 mt-0.5">
                       Please select how you first learned about Meeem.

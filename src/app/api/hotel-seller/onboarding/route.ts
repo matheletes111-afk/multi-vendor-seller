@@ -414,6 +414,13 @@ export async function POST(request: NextRequest) {
       const rawHearAboutUs = (jsonBody?.data?.hearAboutUs || jsonBody?.hearAboutUs || (formData?.get("hearAboutUs") as string)) || null
       const rawHearAboutUsOther = (jsonBody?.data?.hearAboutUsOther || jsonBody?.hearAboutUsOther || (formData?.get("hearAboutUsOther") as string)) || null
 
+      if (!rawHearAboutUs || !rawHearAboutUs.trim()) {
+        return NextResponse.json({ error: "Please select how you heard about us." }, { status: 400 })
+      }
+      if (rawHearAboutUs.trim() === "Other" && (!rawHearAboutUsOther || !rawHearAboutUsOther.trim())) {
+        return NextResponse.json({ error: "Please specify where you heard about our platform." }, { status: 400 })
+      }
+
       const agreementData = {
         agreedToTerms: !!(jsonBody?.data?.agreedToTerms ?? (formData?.get("agreedToTerms") === "true" || formData?.get("agreedToTerms") === "on")),
         agreedToCommission: !!(jsonBody?.data?.agreedToCommission ?? (formData?.get("agreedToCommission") === "true" || formData?.get("agreedToCommission") === "on")),
