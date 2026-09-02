@@ -198,13 +198,13 @@ export async function PATCH(
       userUpdates.image = resolvedProfile
     }
     if (nationalIdDoc !== undefined) {
-      riderUpdates.nationalIdDoc = await resolveDocUrl(nationalIdDoc, "riders/docs", `nid-${user.id.slice(0, 8)}`)
+      riderUpdates.nationalIdDoc = await resolveDocUrl(nationalIdDoc, "onboarding/kyc", `nid-${user.id.slice(0, 8)}`)
     }
     if (drivingLicenseDoc !== undefined) {
-      riderUpdates.drivingLicenseDoc = await resolveDocUrl(drivingLicenseDoc, "riders/docs", `dl-${user.id.slice(0, 8)}`)
+      riderUpdates.drivingLicenseDoc = await resolveDocUrl(drivingLicenseDoc, "onboarding/kyc", `dl-${user.id.slice(0, 8)}`)
     }
     if (vehicleInsuranceDoc !== undefined) {
-      riderUpdates.vehicleInsuranceDoc = await resolveDocUrl(vehicleInsuranceDoc, "riders/docs", `ins-${user.id.slice(0, 8)}`)
+      riderUpdates.vehicleInsuranceDoc = await resolveDocUrl(vehicleInsuranceDoc, "onboarding/kyc", `ins-${user.id.slice(0, 8)}`)
     }
 
     if (Object.keys(userUpdates).length > 0) {

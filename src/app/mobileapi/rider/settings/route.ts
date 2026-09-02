@@ -192,7 +192,7 @@ export async function POST(request: NextRequest) {
         const buffer = Buffer.from(await dlFile.arrayBuffer())
         const ext = dlFile.name.substring(dlFile.name.lastIndexOf(".")) || ".pdf"
         drivingLicenseDocUrl = await uploadPublicFile({
-          folder: "riders/documents",
+          folder: "onboarding/kyc",
           ext,
           contentType: dlFile.type || "application/pdf",
           buffer,
@@ -205,7 +205,7 @@ export async function POST(request: NextRequest) {
         const buffer = Buffer.from(await nidFile.arrayBuffer())
         const ext = nidFile.name.substring(nidFile.name.lastIndexOf(".")) || ".pdf"
         nationalIdDocUrl = await uploadPublicFile({
-          folder: "riders/documents",
+          folder: "onboarding/kyc",
           ext,
           contentType: nidFile.type || "application/pdf",
           buffer,
@@ -218,7 +218,7 @@ export async function POST(request: NextRequest) {
         const buffer = Buffer.from(await insFile.arrayBuffer())
         const ext = insFile.name.substring(insFile.name.lastIndexOf(".")) || ".pdf"
         vehicleInsuranceDocUrl = await uploadPublicFile({
-          folder: "riders/documents",
+          folder: "onboarding/kyc",
           ext,
           contentType: insFile.type || "application/pdf",
           buffer,
