@@ -207,8 +207,8 @@ export function HotelSellerDetailsView({
                     <DocumentThumbnail url={seller.businessInfo?.gstTinCertUrl} title="GST TIN Cert" mimeType="application/pdf" />
                 </div>
                 <div className="flex flex-col gap-2">
-                    <span className="text-[10px] font-bold text-muted-foreground uppercase ml-1">Proof of Address</span>
-                    <DocumentThumbnail url={seller.businessInfo?.addressProofUrl} title="Proof of Address" mimeType="application/pdf" />
+                    <span className="text-[10px] font-bold text-muted-foreground uppercase ml-1">Proof of Address (Optional)</span>
+                    <DocumentThumbnail url={seller.businessInfo?.addressProofUrl} title="Proof of Address (Optional)" mimeType="application/pdf" />
                 </div>
              </div>
              <div className="pt-4 border-t space-y-2">
@@ -242,8 +242,8 @@ export function HotelSellerDetailsView({
             </div>
             <div className="pt-4 border-t grid grid-cols-2 gap-3">
                <div>
-                 <span className="text-[10px] font-bold text-muted-foreground uppercase ml-1 mb-2 block">Bank Passbook</span>
-                 <DocumentThumbnail url={seller.bankDetails?.passbookUrl || seller.bankDetails?.bankProofUrl} title="Bank Passbook" />
+                 <span className="text-[10px] font-bold text-muted-foreground uppercase ml-1 mb-2 block">Bank Passbook (Optional)</span>
+                 <DocumentThumbnail url={seller.bankDetails?.passbookUrl || seller.bankDetails?.bankProofUrl} title="Bank Passbook (Optional)" />
                </div>
                <div>
                  <span className="text-[10px] font-bold text-muted-foreground uppercase ml-1 mb-2 block">Bank Letter</span>

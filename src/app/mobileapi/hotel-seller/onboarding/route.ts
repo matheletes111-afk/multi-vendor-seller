@@ -165,9 +165,6 @@ export async function POST(request: NextRequest) {
             if (!busRegCertUrl) {
                 return NextResponse.json({ success: false, error: "Business Registration Certificate is mandatory." }, { status: 400 });
             }
-            if (!addressProofUrl) {
-                return NextResponse.json({ success: false, error: "Proof of Address is mandatory." }, { status: 400 });
-            }
             if (haveGst && !gstTinCertUrl) {
                 return NextResponse.json({ success: false, error: "GST TIN Certificate is mandatory when selling with GST." }, { status: 400 });
             }
@@ -370,9 +367,7 @@ export async function POST(request: NextRequest) {
                 if (jsonBody.data.bankLetterUrl) bankLetterUrl = jsonBody.data.bankLetterUrl;
             }
 
-            if (!passbookUrl) {
-                return NextResponse.json({ success: false, error: "Bank Passbook / Cheque Copy is mandatory." }, { status: 400 });
-            }
+
 
             await prisma.hotelBankDetails.upsert({
                 where: { hotelSellerId: seller.id },

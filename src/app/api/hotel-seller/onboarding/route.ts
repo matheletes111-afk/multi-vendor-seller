@@ -8,6 +8,7 @@ import { activateHotelFreePlan } from "@/lib/subscriptions"
 import { sendSellerWelcomeEmail, sendAdminNewSellerAlertEmail } from "@/lib/email"
 import { formatHearAboutUs } from "@/lib/onboarding-constants"
 import { evaluateSellerDocuments } from "@/lib/seller-approval-validation"
+import { validateOnboardingFile } from "@/lib/onboarding-file-validation"
 
 export async function GET() {
   try {
@@ -170,6 +171,22 @@ export async function POST(request: NextRequest) {
       let addressProofUrl = seller.businessInfo?.addressProofUrl
 
       if (formData) {
+        const docFiles = [
+          { key: "busRegCert", label: "Business Registration" },
+          { key: "cityCouncilCert", label: "City Council Certificate" },
+          { key: "gstTinCert", label: "GST TIN Certificate" },
+          { key: "addressProof", label: "Address Proof" },
+        ]
+        for (const item of docFiles) {
+          const f = formData.get(item.key) as File | null
+          if (f && f.size > 0) {
+            const val = validateOnboardingFile(f, { maxSizeMb: 4.5 })
+            if (!val.isValid) {
+              return NextResponse.json({ error: `${item.label}: ${val.error}` }, { status: 400 })
+            }
+          }
+        }
+
         const file = formData.get("busRegCert") as File | null
         if (file && file.size > 0) {
           busRegCertUrl = await uploadPublicFile({
@@ -220,9 +237,6 @@ export async function POST(request: NextRequest) {
       if (!busRegCertUrl) {
         return NextResponse.json({ error: "Business Registration Certificate is mandatory." }, { status: 400 })
       }
-      if (!addressProofUrl) {
-        return NextResponse.json({ error: "Proof of Address is mandatory." }, { status: 400 })
-      }
       if (haveGst && !gstTinCertUrl) {
         return NextResponse.json({ error: "GST TIN Certificate is mandatory when selling with GST." }, { status: 400 })
       }
@@ -248,6 +262,15 @@ export async function POST(request: NextRequest) {
         const front = formData.get("idFront") as File | null
         const back = formData.get("idBack") as File | null
         const selfie = formData.get("selfie") as File | null
+
+        for (const [f, label] of [[front, "ID Front"], [back, "ID Back"], [selfie, "Selfie Check"]] as const) {
+          if (f && f.size > 0) {
+            const val = validateOnboardingFile(f, { imagesOnly: true, maxSizeMb: 4.5 })
+            if (!val.isValid) {
+              return NextResponse.json({ error: `${label}: ${val.error}` }, { status: 400 })
+            }
+          }
+        }
 
         if (front && front.size > 0) {
           idFrontUrl = await uploadPublicFile({
@@ -313,6 +336,15 @@ export async function POST(request: NextRequest) {
         const banner = formData.get("banner") as File | null
         const photo = formData.get("mainPhoto") as File | null
 
+        for (const [f, label] of [[logo, "Property Logo"], [banner, "Property Banner"], [photo, "Main Photo"]] as const) {
+          if (f && f.size > 0) {
+            const val = validateOnboardingFile(f, { imagesOnly: true, maxSizeMb: 4.5 })
+            if (!val.isValid) {
+              return NextResponse.json({ error: `${label}: ${val.error}` }, { status: 400 })
+            }
+          }
+        }
+
         if (logo && logo.size > 0) {
           logoUrl = await uploadPublicFile({
             folder: "hotel-onboarding/property",
@@ -375,6 +407,17 @@ export async function POST(request: NextRequest) {
       let bankLetterUrl = seller.bankDetails?.bankLetterUrl
       if (formData) {
         const file = formData.get("passbook") as File | null
+        const fileBL = formData.get("bankLetter") as File | null
+
+        for (const [f, label] of [[file, "Bank Passbook"], [fileBL, "Bank Letter"]] as const) {
+          if (f && f.size > 0) {
+            const val = validateOnboardingFile(f, { maxSizeMb: 4.5 })
+            if (!val.isValid) {
+              return NextResponse.json({ error: `${label}: ${val.error}` }, { status: 400 })
+            }
+          }
+        }
+
         if (file && file.size > 0) {
           passbookUrl = await uploadPublicFile({
             folder: "hotel-onboarding/bank",
@@ -384,7 +427,6 @@ export async function POST(request: NextRequest) {
             prefix: "hotel-bank-passbook",
           })
         }
-        const fileBL = formData.get("bankLetter") as File | null
         if (fileBL && fileBL.size > 0) {
           bankLetterUrl = await uploadPublicFile({
             folder: "hotel-onboarding/bank",
@@ -399,9 +441,7 @@ export async function POST(request: NextRequest) {
         if (jsonBody.data.bankLetterUrl) bankLetterUrl = jsonBody.data.bankLetterUrl
       }
 
-      if (!passbookUrl) {
-        return NextResponse.json({ error: "Bank Passbook / Cheque Copy is mandatory." }, { status: 400 })
-      }
+
 
       await prisma.hotelBankDetails.upsert({
         where: { hotelSellerId: seller.id },

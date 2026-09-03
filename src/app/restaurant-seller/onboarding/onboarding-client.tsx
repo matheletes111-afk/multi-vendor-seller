@@ -12,11 +12,14 @@ import Checkbox from "@/ui/checkbox-v2"
 import { Alert, AlertDescription, AlertTitle } from "@/ui/alert"
 import { PageLoader } from "@/components/ui/page-loader"
 import { ProfilePictureInput } from "@/components/profile-picture-input"
-import { FileText, Image as ImageIcon, CheckCircle2, ChevronLeft, ChevronRight, Upload, Check, User, LogOut } from "lucide-react"
+import { FileText, Image as ImageIcon, CheckCircle2, ChevronLeft, ChevronRight, Upload, Check, User, LogOut, Camera, Crop, Eye, X } from "lucide-react"
 import Image from "next/image"
 import { cn } from "@/lib/utils"
 import { HEAR_ABOUT_US_OPTIONS, parseHearAboutUs, formatHearAboutUs } from "@/lib/onboarding-constants"
 import { LegalTermsModal, LegalDocType } from "@/components/legal/legal-terms-modal"
+import { validateOnboardingFile, ALLOWED_DOC_ACCEPT, ALLOWED_IMAGE_ONLY_ACCEPT, isPdfUrl, isImageUrl } from "@/lib/onboarding-file-validation"
+import { ImageCropperModal, CropAspectRatio } from "@/components/media/image-cropper-modal"
+import { CameraCaptureModal, CameraGuideType } from "@/components/media/camera-capture-modal"
 
 type Step = 2 | 3 | 4 | 5 | 6 | 7
 
@@ -37,6 +40,19 @@ export function RestaurantOnboardingClient() {
   const [currentStep, setCurrentStep] = useState<Step>(2)
   const [error, setError] = useState<string | null>(null)
   const [previews, setPreviews] = useState<Record<string, { file: File, url: string }>>({})
+  const [cameraTarget, setCameraTarget] = useState<{
+    key: string
+    label: string
+    facingMode?: "user" | "environment"
+    guideType?: CameraGuideType
+    aspectRatio?: CropAspectRatio
+  } | null>(null)
+  const [cropTarget, setCropTarget] = useState<{
+    key: string
+    file: File
+    label: string
+    aspectRatio?: CropAspectRatio
+  } | null>(null)
   const [agreements, setAgreements] = useState({
     agreedToTerms: false,
     agreedToCommission: false,
@@ -135,11 +151,10 @@ export function RestaurantOnboardingClient() {
         }
 
         const hasBusReg = (formData.get("busRegCert") as File)?.size > 0 || seller?.businessInfo?.busRegCertUrl || previews["busRegCert"]?.file
-        const hasAddressProof = (formData.get("addressProof") as File)?.size > 0 || seller?.businessInfo?.addressProofUrl || previews["addressProof"]?.file
         const hasGstCert = !haveGst || (formData.get("gstTinCert") as File)?.size > 0 || seller?.businessInfo?.gstTinCertUrl || previews["gstTinCert"]?.file
 
-        if (!hasBusReg || !hasAddressProof || !hasGstCert) {
-          setError("Please upload mandatory business documents (Registration Certificate, Proof of Address) before proceeding.")
+        if (!hasBusReg || !hasGstCert) {
+          setError("Please upload mandatory business documents (Registration Certificate) before proceeding.")
           setSaving(false)
           return
         }
@@ -200,12 +215,7 @@ export function RestaurantOnboardingClient() {
           return
         }
 
-        const hasPassbook = (formData.get("passbook") as File)?.size > 0 || seller?.bankDetails?.passbookUrl || previews["passbook"]?.file
-        if (!hasPassbook) {
-          setError("Please upload your Bank Passbook or Cheque Copy.")
-          setSaving(false)
-          return
-        }
+
       }
 
       let res: Response
@@ -293,10 +303,49 @@ export function RestaurantOnboardingClient() {
     }
   }
 
+  const handleCroppedFile = async (key: string, rawFile: File) => {
+    setError(null)
+    let file: File = rawFile
+    try {
+      const { compressImage } = await import("@/lib/image-compressor")
+      const compressed = await compressImage(rawFile, 1200, 1200, 0.8)
+      file = compressed
+    } catch (err) {
+      console.error("Compression error:", err)
+    }
+
+    if (file.size > 4.5 * 1024 * 1024) {
+      setError("File size exceeds 4.5 MB limit. Please select or compress a smaller file.")
+      return
+    }
+
+    const url = URL.createObjectURL(file)
+    setPreviews((prev) => {
+      if (prev[key]) URL.revokeObjectURL(prev[key].url)
+      return { ...prev, [key]: { file, url } }
+    })
+  }
+
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, key: string) => {
     const rawFile = e.target.files?.[0]
     if (!rawFile) return
     setError(null)
+
+    const imagesOnlyKeys = ["idFront", "idBack", "selfie", "logo", "banner", "mainPhoto", "profileImage"]
+    const isImagesOnly = imagesOnlyKeys.includes(key)
+    const validation = validateOnboardingFile(rawFile, { imagesOnly: isImagesOnly, maxSizeMb: 4.5 })
+
+    if (!validation.isValid) {
+      setError(validation.error || "Invalid file format. Only PDF and image files are allowed.")
+      e.target.value = ""
+      setPreviews(prev => {
+        const copy = { ...prev }
+        if (copy[key]) URL.revokeObjectURL(copy[key].url)
+        delete copy[key]
+        return copy
+      })
+      return
+    }
 
     let file: File = rawFile
     if (rawFile.type.startsWith("image/") || /\.(jpe?g|png|webp|heic|heif)$/i.test(rawFile.name)) {
@@ -337,29 +386,96 @@ export function RestaurantOnboardingClient() {
     })
   }
 
-  const renderFilePreview = (key: string, url?: string, label?: string) => {
+  const renderFilePreview = (key: string, url?: string, label?: string, defaultRatio: CropAspectRatio = "free") => {
     const local = previews[key]
     const displayUrl = local ? local.url : url
     if (!displayUrl) return null
 
-    const isImage = (local?.file.type.startsWith("image/")) || (url?.match(/\.(jpg|jpeg|png|webp|gif)$/i))
+    const isImage = (local?.file.type.startsWith("image/")) || isImageUrl(url)
+    const isPdf = (local?.file.type === "application/pdf") || isPdfUrl(url)
 
     return (
-      <div className="mt-3 flex items-center gap-3 p-3 border rounded-xl bg-primary/5 border-primary/20">
-        {isImage ? (
-          <div className="relative w-16 h-16 rounded-lg overflow-hidden border shadow-sm">
-            <img src={displayUrl} alt={label} className="w-full h-full object-cover" />
+      <div className="mt-3 flex items-center justify-between p-3 border rounded-xl bg-primary/5 border-primary/20">
+        <div className="flex items-center gap-3 min-w-0">
+          {isImage ? (
+            <div className="relative w-14 h-14 rounded-lg overflow-hidden border shadow-xs shrink-0">
+              <img src={displayUrl} alt={label} className="w-full h-full object-cover" />
+            </div>
+          ) : isPdf ? (
+            <div className="w-14 h-14 rounded-lg bg-red-50 flex flex-col items-center justify-center border border-red-100 text-red-600 shrink-0">
+              <FileText className="h-6 w-6" />
+              <span className="text-[8px] font-bold mt-0.5">PDF</span>
+            </div>
+          ) : (
+            <div className="w-14 h-14 rounded-lg bg-slate-50 flex items-center justify-center border border-slate-200 text-slate-600 shrink-0">
+              <FileText className="h-6 w-6" />
+            </div>
+          )}
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold truncate text-primary">{label}</p>
+            <p className="text-[10px] text-muted-foreground truncate italic">
+              {local ? `Selected: ${local.file.name}` : "File already uploaded (choose new file to replace)"}
+            </p>
           </div>
-        ) : (
-          <div className="w-16 h-16 rounded-lg bg-red-50 flex items-center justify-center border border-red-100 text-red-600">
-            <FileText className="h-8 w-8" />
-          </div>
-        )}
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold truncate text-primary">{label}</p>
-          <p className="text-[10px] text-muted-foreground truncate italic">
-            {local ? `Selected: ${local.file.name}` : "File already uploaded"}
-          </p>
+        </div>
+
+        <div className="flex items-center gap-1.5 shrink-0 ml-2">
+          {isImage && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                if (local?.file) {
+                  setCropTarget({ key, file: local.file, label: label || key, aspectRatio: defaultRatio })
+                } else if (url) {
+                  fetch(url)
+                    .then((res) => res.blob())
+                    .then((blob) => {
+                      const file = new File([blob], `${key}.jpg`, { type: blob.type || "image/jpeg" })
+                      setCropTarget({ key, file, label: label || key, aspectRatio: defaultRatio })
+                    })
+                    .catch(() => window.open(url, "_blank"))
+                }
+              }}
+              className="h-8 px-2.5 text-xs flex items-center gap-1 text-blue-600 border-blue-200 hover:bg-blue-50 shrink-0"
+              title="Crop or Rotate"
+            >
+              <Crop className="w-3.5 h-3.5" />
+              <span>Crop</span>
+            </Button>
+          )}
+
+          <a
+            href={displayUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="h-8 px-2.5 text-xs inline-flex items-center gap-1 rounded-lg border border-input bg-background hover:bg-accent text-accent-foreground shrink-0"
+            title="View document"
+          >
+            <Eye className="w-3.5 h-3.5" />
+            <span>View</span>
+          </a>
+
+          {local && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setPreviews((prev) => {
+                  const copy = { ...prev }
+                  if (copy[key]) URL.revokeObjectURL(copy[key].url)
+                  delete copy[key]
+                  return copy
+                })
+              }}
+              className="h-8 w-8 p-0 text-muted-foreground hover:text-red-600"
+              title="Remove selected file"
+            >
+              <X className="w-4 h-4" />
+            </Button>
+          )}
         </div>
       </div>
     )
@@ -375,11 +491,65 @@ export function RestaurantOnboardingClient() {
     { id: 6, title: "Agreement" },
   ]
 
+  const currentStepIndex = Math.max(0, steps.findIndex((s) => s.id === currentStep))
+  const progressPercent = Math.round(((currentStepIndex + 1) / steps.length) * 100)
+
   return (
-    <div className="min-h-screen bg-gradient-to-b from-amber-200 via-amber-50 to-orange-100/50 flex items-center justify-center p-0 md:p-4">
-      <div className="bg-white md:rounded-3xl shadow-2xl w-full max-w-6xl flex flex-col md:flex-row overflow-hidden min-h-[700px] border border-amber-100/50">
-        {/* Sidebar */}
-        <div className="w-full md:w-80 bg-gradient-to-b from-amber-950 to-slate-900 p-8 flex flex-col text-white">
+    <div className="min-h-screen bg-gradient-to-b from-amber-200 via-amber-50 to-orange-100/50 flex items-center justify-center p-0 sm:p-2 md:p-4">
+      <div className="bg-white md:rounded-3xl shadow-2xl w-full max-w-6xl flex flex-col md:flex-row md:overflow-hidden md:min-h-[700px] border border-amber-100/50">
+        {/* Mobile Header Bar */}
+        <div className="md:hidden bg-gradient-to-r from-amber-950 to-slate-900 text-white px-4 py-2.5 sticky top-0 z-20 shadow-md">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <Image src="/images/logo.png" alt="Logo" width={80} height={24} className="h-5 w-auto invert" />
+              <span className="text-[10px] font-bold text-amber-300 uppercase tracking-wider bg-amber-900/60 px-2 py-0.5 rounded-full border border-amber-800/40">
+                Restaurant
+              </span>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 px-2 text-xs text-amber-200 hover:text-white hover:bg-amber-900/40 rounded-lg flex items-center gap-1"
+              onClick={() => signOut({ callbackUrl: "/" })}
+            >
+              <LogOut className="h-3 w-3" />
+              <span>Logout</span>
+            </Button>
+          </div>
+
+          <div className="space-y-1">
+            <div className="flex items-center justify-between text-[11px]">
+              <span className="font-bold text-amber-100">
+                Step {currentStepIndex + 1} of {steps.length}: {steps[currentStepIndex]?.title}
+              </span>
+              <span className="text-amber-300 font-semibold">{progressPercent}%</span>
+            </div>
+            <div className="w-full h-1 bg-amber-950/60 rounded-full overflow-hidden border border-amber-800/40">
+              <div
+                className="h-full bg-gradient-to-r from-amber-400 to-amber-500 rounded-full transition-all duration-300"
+                style={{ width: `${progressPercent}%` }}
+              />
+            </div>
+            <div className="flex justify-between pt-0.5">
+              {steps.map((step) => (
+                <div
+                  key={step.id}
+                  className={cn(
+                    "h-1 rounded-full flex-1 mx-0.5 transition-all duration-300",
+                    currentStep > step.id
+                      ? "bg-amber-400"
+                      : currentStep === step.id
+                      ? "bg-white"
+                      : "bg-amber-900/40"
+                  )}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Desktop Sidebar */}
+        <div className="hidden md:flex md:w-80 bg-gradient-to-b from-amber-950 to-slate-900 p-8 flex-col text-white shrink-0">
           <div className="mb-12">
             <Image src="/images/logo.png" alt="Logo" width={150} height={50} className="h-10 w-auto invert" />
           </div>
@@ -410,7 +580,7 @@ export function RestaurantOnboardingClient() {
         </div>
 
         {/* Content */}
-        <div className="flex-1 p-6 md:p-12 overflow-y-auto max-h-screen md:max-h-[850px]">
+        <div className="flex-1 p-4 sm:p-6 md:p-12 md:overflow-y-auto md:max-h-[850px]">
           {error && <Alert variant="destructive" className="mb-6"><AlertTitle>Error</AlertTitle><AlertDescription>{error}</AlertDescription></Alert>}
           <div className="max-w-2xl mx-auto">
             {currentStep === 2 && (
@@ -441,13 +611,13 @@ export function RestaurantOnboardingClient() {
                 <div className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="businessName">Legal Business Name *</Label>
-                    <Input id="businessName" name="businessName" defaultValue={seller.businessInfo?.businessName || ""} required />
+                    <Input id="businessName" name="businessName" defaultValue={seller.businessInfo?.businessName || ""} required className="h-11 sm:h-12 rounded-xl" />
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="businessType">Business Type *</Label>
                       <Select name="businessType" defaultValue={seller.businessInfo?.businessType || "Individual"}>
-                        <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                        <SelectTrigger className="h-11 sm:h-12 rounded-xl"><SelectValue placeholder="Select" /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="Individual">Individual</SelectItem>
                           <SelectItem value="Proprietor">Proprietor</SelectItem>
@@ -458,17 +628,17 @@ export function RestaurantOnboardingClient() {
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="taxIdNumber">TIN / PAN Number *</Label>
-                      <Input id="taxIdNumber" name="taxIdNumber" defaultValue={seller.businessInfo?.taxIdNumber || ""} required />
+                      <Input id="taxIdNumber" name="taxIdNumber" defaultValue={seller.businessInfo?.taxIdNumber || ""} required className="h-11 sm:h-12 rounded-xl" />
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-4 pt-4 border-t">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 pt-4 border-t">
                     <div className="space-y-2">
                       <Label htmlFor="managerName">Owner / Manager Name *</Label>
-                      <Input id="managerName" name="managerName" defaultValue={seller.businessInfo?.managerName || ""} required />
+                      <Input id="managerName" name="managerName" defaultValue={seller.businessInfo?.managerName || ""} required className="h-11 sm:h-12 rounded-xl" />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="pocContact">POC Contact Number *</Label>
-                      <Input id="pocContact" name="pocContact" defaultValue={seller.businessInfo?.pocContact || ""} required />
+                      <Input id="pocContact" name="pocContact" defaultValue={seller.businessInfo?.pocContact || ""} required className="h-11 sm:h-12 rounded-xl" />
                     </div>
                   </div>
 
@@ -485,14 +655,14 @@ export function RestaurantOnboardingClient() {
                     </div>
 
                     {haveGst && (
-                      <div className="grid grid-cols-2 gap-4 p-4 bg-blue-50/50 rounded-2xl border border-blue-100 animate-in fade-in slide-in-from-top-1">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 p-4 bg-blue-50/50 rounded-2xl border border-blue-100 animate-in fade-in slide-in-from-top-1">
                         <div className="space-y-2">
                           <Label htmlFor="gstInvNo">GST Number *</Label>
-                          <Input id="gstInvNo" name="gstInvNo" defaultValue={seller.businessInfo?.gstInvNo || ""} required={haveGst} placeholder="22AAAAA0000A1Z5" />
+                          <Input id="gstInvNo" name="gstInvNo" defaultValue={seller.businessInfo?.gstInvNo || ""} required={haveGst} placeholder="22AAAAA0000A1Z5" className="h-11 sm:h-12 rounded-xl" />
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="gstCustomerName">GST Customer Name *</Label>
-                          <Input id="gstCustomerName" name="gstCustomerName" defaultValue={seller.businessInfo?.gstCustomerName || ""} required={haveGst} placeholder="Legal Entity Name" />
+                          <Input id="gstCustomerName" name="gstCustomerName" defaultValue={seller.businessInfo?.gstCustomerName || ""} required={haveGst} placeholder="Legal Entity Name" className="h-11 sm:h-12 rounded-xl" />
                         </div>
                       </div>
                     )}
@@ -500,45 +670,97 @@ export function RestaurantOnboardingClient() {
 
                   <div className="space-y-2">
                     <Label htmlFor="landmark">Landmark *</Label>
-                    <Input id="landmark" name="landmark" defaultValue={seller.businessInfo?.landmark || ""} required />
+                    <Input id="landmark" name="landmark" defaultValue={seller.businessInfo?.landmark || ""} required className="h-11 sm:h-12 rounded-xl" />
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="city">City *</Label>
-                      <Input id="city" name="city" defaultValue={seller.businessInfo?.city || ""} required />
+                      <Input id="city" name="city" defaultValue={seller.businessInfo?.city || ""} required className="h-11 sm:h-12 rounded-xl" />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="district">Area *</Label>
-                      <Input id="district" name="district" defaultValue={seller.businessInfo?.district || ""} required />
+                      <Input id="district" name="district" defaultValue={seller.businessInfo?.district || ""} required className="h-11 sm:h-12 rounded-xl" />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="state">State *</Label>
-                      <Input id="state" name="state" defaultValue={seller.businessInfo?.state || ""} required />
+                      <Input id="state" name="state" defaultValue={seller.businessInfo?.state || ""} required className="h-11 sm:h-12 rounded-xl" />
                     </div>
                   </div>
                   <div className="space-y-2 pt-4 border-t">
                     <Label htmlFor="busRegCert">Business Registration Certificate *</Label>
-                    <Input id="busRegCert" name="busRegCert" type="file" accept=".pdf,.jpg,.jpeg,.png" required={!seller.businessInfo?.busRegCertUrl} onChange={(e) => handleFileChange(e, "busRegCert")} />
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                      <Input id="busRegCert" name="busRegCert" type="file" accept={ALLOWED_DOC_ACCEPT} required={!seller.businessInfo?.busRegCertUrl && !previews["busRegCert"]?.file} onChange={(e) => handleFileChange(e, "busRegCert")} className="h-11 sm:h-12 cursor-pointer file:cursor-pointer flex-1" />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCameraTarget({ key: "busRegCert", label: "Registration Certificate", facingMode: "environment", guideType: "document" })}
+                        className="h-10 px-3.5 text-xs flex items-center justify-center gap-1.5 shrink-0 rounded-xl border-amber-300 text-amber-900 bg-amber-50/60 hover:bg-amber-100 active:scale-95 w-full sm:w-auto"
+                        title="Take photo with camera"
+                      >
+                        <Camera className="w-4 h-4 text-amber-700" />
+                        <span>Take Photo</span>
+                      </Button>
+                    </div>
                     {renderFilePreview("busRegCert", seller.businessInfo?.busRegCertUrl, "Reg Certificate")}
                   </div>
                   <div className="space-y-2 pt-4 border-t">
                     <Label htmlFor="cityCouncilCert">City Council Certificate (Optional)</Label>
-                    <Input id="cityCouncilCert" name="cityCouncilCert" type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={(e) => handleFileChange(e, "cityCouncilCert")} />
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                      <Input id="cityCouncilCert" name="cityCouncilCert" type="file" accept={ALLOWED_DOC_ACCEPT} onChange={(e) => handleFileChange(e, "cityCouncilCert")} className="h-11 sm:h-12 cursor-pointer file:cursor-pointer flex-1" />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCameraTarget({ key: "cityCouncilCert", label: "City Council Certificate", facingMode: "environment", guideType: "document" })}
+                        className="h-10 px-3.5 text-xs flex items-center justify-center gap-1.5 shrink-0 rounded-xl border-amber-300 text-amber-900 bg-amber-50/60 hover:bg-amber-100 active:scale-95 w-full sm:w-auto"
+                        title="Take photo with camera"
+                      >
+                        <Camera className="w-4 h-4 text-amber-700" />
+                        <span>Take Photo</span>
+                      </Button>
+                    </div>
                     {renderFilePreview("cityCouncilCert", seller.businessInfo?.cityCouncilCertUrl, "City Council Certificate")}
                   </div>
                   <div className="space-y-2 pt-4 border-t">
                     <Label htmlFor="gstTinCert">GST TIN Certificate {haveGst ? "*" : "(Optional)"}</Label>
-                    <Input id="gstTinCert" name="gstTinCert" type="file" accept=".pdf,.jpg,.jpeg,.png" required={haveGst && !seller.businessInfo?.gstTinCertUrl} onChange={(e) => handleFileChange(e, "gstTinCert")} />
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                      <Input id="gstTinCert" name="gstTinCert" type="file" accept={ALLOWED_DOC_ACCEPT} required={haveGst && !seller.businessInfo?.gstTinCertUrl && !previews["gstTinCert"]?.file} onChange={(e) => handleFileChange(e, "gstTinCert")} className="h-11 sm:h-12 cursor-pointer file:cursor-pointer flex-1" />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCameraTarget({ key: "gstTinCert", label: "GST TIN Certificate", facingMode: "environment", guideType: "document" })}
+                        className="h-10 px-3.5 text-xs flex items-center justify-center gap-1.5 shrink-0 rounded-xl border-amber-300 text-amber-900 bg-amber-50/60 hover:bg-amber-100 active:scale-95 w-full sm:w-auto"
+                        title="Take photo with camera"
+                      >
+                        <Camera className="w-4 h-4 text-amber-700" />
+                        <span>Take Photo</span>
+                      </Button>
+                    </div>
                     {renderFilePreview("gstTinCert", seller.businessInfo?.gstTinCertUrl, "GST TIN Certificate")}
                   </div>
                   <div className="space-y-2 pt-4 border-t">
-                    <Label htmlFor="addressProof">Proof of Address (Edsa, Guma, etc.) *</Label>
-                    <Input id="addressProof" name="addressProof" type="file" accept=".pdf,.jpg,.jpeg,.png" required={!seller.businessInfo?.addressProofUrl} onChange={(e) => handleFileChange(e, "addressProof")} />
+                    <Label htmlFor="addressProof">Proof of Address (Edsa, Guma, etc.) (Optional)</Label>
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                      <Input id="addressProof" name="addressProof" type="file" accept={ALLOWED_DOC_ACCEPT} onChange={(e) => handleFileChange(e, "addressProof")} className="h-11 sm:h-12 cursor-pointer file:cursor-pointer flex-1" />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCameraTarget({ key: "addressProof", label: "Proof of Address", facingMode: "environment", guideType: "document" })}
+                        className="h-10 px-3.5 text-xs flex items-center justify-center gap-1.5 shrink-0 rounded-xl border-amber-300 text-amber-900 bg-amber-50/60 hover:bg-amber-100 active:scale-95 w-full sm:w-auto"
+                        title="Take photo with camera"
+                      >
+                        <Camera className="w-4 h-4 text-amber-700" />
+                        <span>Take Photo</span>
+                      </Button>
+                    </div>
                     {renderFilePreview("addressProof", seller.businessInfo?.addressProofUrl, "Proof of Address")}
                   </div>
                 </div>
-                <div className="mt-8 flex justify-end">
-                  <Button type="submit" disabled={saving} className="rounded-full px-8 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-semibold shadow-lg shadow-amber-200/50 transition-all hover:scale-[1.02]">{saving ? "Saving..." : "Next Step"}</Button>
+                <div className="mt-8 sm:mt-12 flex justify-end pt-6 border-t border-slate-100">
+                  <Button type="submit" disabled={saving} className="h-11 sm:h-12 rounded-full px-8 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-semibold shadow-lg shadow-amber-200/50 transition-all hover:scale-[1.02] active:scale-95 w-full sm:w-auto">{saving ? "Saving..." : "Next Step"} <ChevronRight className="ml-2 h-4 w-4" /></Button>
                 </div>
               </form>
             )}
@@ -546,15 +768,15 @@ export function RestaurantOnboardingClient() {
             {currentStep === 3 && (
               <form onSubmit={handleNext} className="space-y-6">
                 <div>
-                  <h1 className="text-3xl font-bold">Identity & License</h1>
-                  <p className="text-slate-500 mt-2">Verification documents and Food License.</p>
+                  <h1 className="text-2xl sm:text-3xl font-bold">Identity & License</h1>
+                  <p className="text-slate-500 mt-2 text-sm">Verification documents and Food License.</p>
                 </div>
                 <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="idType">ID Type *</Label>
                       <Select name="idType" defaultValue={seller.kyc?.idType || "National ID Card"}>
-                        <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                        <SelectTrigger className="h-11 sm:h-12 rounded-xl"><SelectValue placeholder="Select" /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="National ID Card">National ID Card</SelectItem>
                           <SelectItem value="Passport">Passport</SelectItem>
@@ -564,44 +786,96 @@ export function RestaurantOnboardingClient() {
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="idNumber">ID Number *</Label>
-                      <Input id="idNumber" name="idNumber" defaultValue={seller.kyc?.idNumber || ""} required />
+                      <Input id="idNumber" name="idNumber" defaultValue={seller.kyc?.idNumber || ""} required className="h-11 sm:h-12 rounded-xl" />
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-4 pt-4 border-t">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t">
                     <div className="space-y-2">
                       <Label>ID Front *</Label>
-                      <Input name="idFront" type="file" accept="image/*" required={!seller.kyc?.idFrontUrl} onChange={(e) => handleFileChange(e, "idFront")} />
-                      {renderFilePreview("idFront", seller.kyc?.idFrontUrl, "ID Front")}
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                        <Input name="idFront" type="file" accept={ALLOWED_IMAGE_ONLY_ACCEPT} required={!seller.kyc?.idFrontUrl && !previews["idFront"]?.file} onChange={(e) => handleFileChange(e, "idFront")} className="h-11 sm:h-12 cursor-pointer file:cursor-pointer flex-1" />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCameraTarget({ key: "idFront", label: "ID Front", facingMode: "environment", guideType: "card", aspectRatio: "16:10" })}
+                          className="h-10 px-3.5 text-xs flex items-center justify-center gap-1.5 shrink-0 rounded-xl border-amber-300 text-amber-900 bg-amber-50/60 hover:bg-amber-100 active:scale-95 w-full sm:w-auto"
+                          title="Take photo with camera"
+                        >
+                          <Camera className="w-4 h-4 text-amber-700" />
+                          <span>Take Photo</span>
+                        </Button>
+                      </div>
+                      {renderFilePreview("idFront", seller.kyc?.idFrontUrl, "ID Front", "16:10")}
                     </div>
                     <div className="space-y-2">
                       <Label>ID Back *</Label>
-                      <Input name="idBack" type="file" accept="image/*" required={!seller.kyc?.idBackUrl} onChange={(e) => handleFileChange(e, "idBack")} />
-                      {renderFilePreview("idBack", seller.kyc?.idBackUrl, "ID Back")}
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                        <Input name="idBack" type="file" accept={ALLOWED_IMAGE_ONLY_ACCEPT} required={!seller.kyc?.idBackUrl && !previews["idBack"]?.file} onChange={(e) => handleFileChange(e, "idBack")} className="h-11 sm:h-12 cursor-pointer file:cursor-pointer flex-1" />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCameraTarget({ key: "idBack", label: "ID Back", facingMode: "environment", guideType: "card", aspectRatio: "16:10" })}
+                          className="h-10 px-3.5 text-xs flex items-center justify-center gap-1.5 shrink-0 rounded-xl border-amber-300 text-amber-900 bg-amber-50/60 hover:bg-amber-100 active:scale-95 w-full sm:w-auto"
+                          title="Take photo with camera"
+                        >
+                          <Camera className="w-4 h-4 text-amber-700" />
+                          <span>Take Photo</span>
+                        </Button>
+                      </div>
+                      {renderFilePreview("idBack", seller.kyc?.idBackUrl, "ID Back", "16:10")}
                     </div>
                   </div>
-                  <div className="space-y-2 pt-4 border-t bg-amber-50 p-6 rounded-3xl border border-amber-100">
+                  <div className="space-y-2 pt-4 border-t bg-amber-50/60 p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-amber-100">
                     <Label className="text-amber-900 font-bold">Food License (FSSAI/etc.) *</Label>
                     <div className="mt-2 space-y-3">
                       <div className="space-y-1">
                         <Label htmlFor="foodLicenseNumber" className="text-xs text-amber-700">License Number *</Label>
-                        <Input id="foodLicenseNumber" name="foodLicenseNumber" defaultValue={seller.kyc?.foodLicenseNumber || ""} required className="bg-white border-amber-200" />
+                        <Input id="foodLicenseNumber" name="foodLicenseNumber" defaultValue={seller.kyc?.foodLicenseNumber || ""} required className="bg-white border-amber-200 h-11 sm:h-12 rounded-xl" />
                       </div>
                       <div className="space-y-1">
                         <Label className="text-xs text-amber-700">Upload License Copy *</Label>
-                        <Input name="foodLicense" type="file" accept=".pdf,image/*" required={!seller.kyc?.foodLicenseUrl} onChange={(e) => handleFileChange(e, "foodLicense")} className="bg-white border-amber-200" />
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                          <Input name="foodLicense" type="file" accept={ALLOWED_DOC_ACCEPT} required={!seller.kyc?.foodLicenseUrl && !previews["foodLicense"]?.file} onChange={(e) => handleFileChange(e, "foodLicense")} className="bg-white border-amber-200 h-11 sm:h-12 cursor-pointer file:cursor-pointer flex-1 rounded-xl" />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setCameraTarget({ key: "foodLicense", label: "Food License", facingMode: "environment", guideType: "document" })}
+                            className="h-10 px-3.5 text-xs flex items-center justify-center gap-1.5 shrink-0 rounded-xl border-amber-300 text-amber-900 bg-white hover:bg-amber-100 active:scale-95 w-full sm:w-auto"
+                            title="Take photo with camera"
+                          >
+                            <Camera className="w-4 h-4 text-amber-700" />
+                            <span>Take Photo</span>
+                          </Button>
+                        </div>
                         {renderFilePreview("foodLicense", seller.kyc?.foodLicenseUrl, "Food License")}
                       </div>
                     </div>
                   </div>
                   <div className="space-y-2 pt-4 border-t">
                     <Label>Selfie Verification *</Label>
-                    <Input name="selfie" type="file" accept="image/*" required={!seller.kyc?.selfieUrl} onChange={(e) => handleFileChange(e, "selfie")} />
-                    {renderFilePreview("selfie", seller.kyc?.selfieUrl, "Selfie")}
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                      <Input name="selfie" type="file" accept={ALLOWED_IMAGE_ONLY_ACCEPT} required={!seller.kyc?.selfieUrl && !previews["selfie"]?.file} onChange={(e) => handleFileChange(e, "selfie")} className="h-11 sm:h-12 cursor-pointer file:cursor-pointer flex-1" />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCameraTarget({ key: "selfie", label: "Selfie", facingMode: "user", guideType: "circle", aspectRatio: "1:1" })}
+                        className="h-10 px-3.5 text-xs flex items-center justify-center gap-1.5 shrink-0 rounded-xl border-amber-300 text-amber-900 bg-amber-50/60 hover:bg-amber-100 active:scale-95 w-full sm:w-auto"
+                        title="Take selfie with camera"
+                      >
+                        <Camera className="w-4 h-4 text-amber-700" />
+                        <span>Take Selfie</span>
+                      </Button>
+                    </div>
+                    {renderFilePreview("selfie", seller.kyc?.selfieUrl, "Selfie", "1:1")}
                   </div>
                 </div>
-                <div className="mt-8 flex justify-between">
-                  <Button type="button" variant="ghost" onClick={handleBack} disabled={saving} className="rounded-full px-6 hover:bg-slate-100">Back</Button>
-                  <Button type="submit" disabled={saving} className="rounded-full px-8 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-semibold shadow-lg shadow-amber-200/50 transition-all hover:scale-[1.02]">{saving ? "Saving..." : "Next Step"}</Button>
+                <div className="mt-8 sm:mt-12 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-6 border-t border-slate-100">
+                  <Button type="button" variant="ghost" onClick={handleBack} disabled={saving} className="h-11 sm:h-12 px-6 rounded-full hover:bg-slate-100 w-full sm:w-auto"><ChevronLeft className="mr-2 h-4 w-4" /> Back</Button>
+                  <Button type="submit" disabled={saving} className="h-11 sm:h-12 rounded-full px-8 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-semibold shadow-lg shadow-amber-200/50 transition-all hover:scale-[1.02] active:scale-95 w-full sm:w-auto">{saving ? "Saving..." : "Next Step"} <ChevronRight className="ml-2 h-4 w-4" /></Button>
                 </div>
               </form>
             )}
@@ -609,15 +883,15 @@ export function RestaurantOnboardingClient() {
             {currentStep === 4 && (
               <form onSubmit={handleNext} className="space-y-6">
                 <div>
-                  <h1 className="text-3xl font-bold">Outlet Setup</h1>
-                  <p className="text-slate-500 mt-2">Details about your restaurant outlet.</p>
+                  <h1 className="text-2xl sm:text-3xl font-bold">Outlet Setup</h1>
+                  <p className="text-slate-500 mt-2 text-sm">Details about your restaurant outlet.</p>
                 </div>
                 <div className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="estimateRestaurantCount">Estimate Restaurant Count *</Label>
-                    <Input id="estimateRestaurantCount" name="estimateRestaurantCount" type="number" defaultValue={seller.estimateRestaurantCount || ""} required />
+                    <Input id="estimateRestaurantCount" name="estimateRestaurantCount" type="number" defaultValue={seller.estimateRestaurantCount || ""} required className="h-11 sm:h-12 rounded-xl" />
                   </div>
-                  <div className="grid grid-cols-2 gap-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label>Primary Cuisines (Multi-select) *</Label>
                       <div className="grid grid-cols-1 gap-2 p-4 bg-slate-50 rounded-2xl border max-h-48 overflow-y-auto">
@@ -655,27 +929,66 @@ export function RestaurantOnboardingClient() {
                       </div>
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-4 pt-4 border-t">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t">
                     <div className="space-y-2">
                       <Label>Restaurant Logo *</Label>
-                      <Input name="logo" type="file" accept="image/*" required={!seller.logo && !previews["logo"]} onChange={(e) => handleFileChange(e, "logo")} />
-                      {renderFilePreview("logo", seller.logo, "Logo")}
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                        <Input name="logo" type="file" accept={ALLOWED_IMAGE_ONLY_ACCEPT} required={!seller.logo && !previews["logo"]} onChange={(e) => handleFileChange(e, "logo")} className="h-11 sm:h-12 cursor-pointer file:cursor-pointer flex-1" />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCameraTarget({ key: "logo", label: "Restaurant Logo", facingMode: "environment", guideType: "circle", aspectRatio: "1:1" })}
+                          className="h-10 px-3.5 text-xs flex items-center justify-center gap-1.5 shrink-0 rounded-xl border-amber-300 text-amber-900 bg-amber-50/60 hover:bg-amber-100 active:scale-95 w-full sm:w-auto"
+                          title="Take photo with camera"
+                        >
+                          <Camera className="w-4 h-4 text-amber-700" />
+                          <span>Take Photo</span>
+                        </Button>
+                      </div>
+                      {renderFilePreview("logo", seller.logo, "Logo", "1:1")}
                     </div>
                     <div className="space-y-2">
                       <Label>Restaurant Banner (Optional)</Label>
-                      <Input name="banner" type="file" accept="image/*" onChange={(e) => handleFileChange(e, "banner")} />
-                      {renderFilePreview("banner", seller.banner, "Banner")}
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                        <Input name="banner" type="file" accept={ALLOWED_IMAGE_ONLY_ACCEPT} onChange={(e) => handleFileChange(e, "banner")} className="h-11 sm:h-12 cursor-pointer file:cursor-pointer flex-1" />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCameraTarget({ key: "banner", label: "Restaurant Banner", facingMode: "environment", guideType: "none", aspectRatio: "16:9" })}
+                          className="h-10 px-3.5 text-xs flex items-center justify-center gap-1.5 shrink-0 rounded-xl border-amber-300 text-amber-900 bg-amber-50/60 hover:bg-amber-100 active:scale-95 w-full sm:w-auto"
+                          title="Take photo with camera"
+                        >
+                          <Camera className="w-4 h-4 text-amber-700" />
+                          <span>Take Photo</span>
+                        </Button>
+                      </div>
+                      {renderFilePreview("banner", seller.banner, "Banner", "16:9")}
                     </div>
                   </div>
                   <div className="space-y-2 pt-4 border-t">
                     <Label>Main Restaurant Photo *</Label>
-                    <Input name="mainPhoto" type="file" accept="image/*" required={!seller.mainPhoto && !previews["mainPhoto"]} onChange={(e) => handleFileChange(e, "mainPhoto")} />
-                    {renderFilePreview("mainPhoto", seller.mainPhoto, "Main Photo")}
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                      <Input name="mainPhoto" type="file" accept={ALLOWED_IMAGE_ONLY_ACCEPT} required={!seller.mainPhoto && !previews["mainPhoto"]} onChange={(e) => handleFileChange(e, "mainPhoto")} className="h-11 sm:h-12 cursor-pointer file:cursor-pointer flex-1" />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCameraTarget({ key: "mainPhoto", label: "Main Restaurant Photo", facingMode: "environment", guideType: "none", aspectRatio: "4:3" })}
+                        className="h-10 px-3.5 text-xs flex items-center justify-center gap-1.5 shrink-0 rounded-xl border-amber-300 text-amber-900 bg-amber-50/60 hover:bg-amber-100 active:scale-95 w-full sm:w-auto"
+                        title="Take photo with camera"
+                      >
+                        <Camera className="w-4 h-4 text-amber-700" />
+                        <span>Take Photo</span>
+                      </Button>
+                    </div>
+                    {renderFilePreview("mainPhoto", seller.mainPhoto, "Main Photo", "4:3")}
                   </div>
                 </div>
-                <div className="mt-8 flex justify-between">
-                  <Button type="button" variant="ghost" onClick={handleBack} disabled={saving} className="rounded-full px-6 hover:bg-slate-100">Back</Button>
-                  <Button type="submit" disabled={saving || selectedCuisines.length === 0 || selectedServices.length === 0} className="rounded-full px-8 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-semibold shadow-lg shadow-amber-200/50 transition-all hover:scale-[1.02]">{saving ? "Saving..." : "Next Step"}</Button>
+                <div className="mt-8 sm:mt-12 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-6 border-t border-slate-100">
+                  <Button type="button" variant="ghost" onClick={handleBack} disabled={saving} className="h-11 sm:h-12 px-6 rounded-full hover:bg-slate-100 w-full sm:w-auto"><ChevronLeft className="mr-2 h-4 w-4" /> Back</Button>
+                  <Button type="submit" disabled={saving || selectedCuisines.length === 0 || selectedServices.length === 0} className="h-11 sm:h-12 rounded-full px-8 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-semibold shadow-lg shadow-amber-200/50 transition-all hover:scale-[1.02] active:scale-95 w-full sm:w-auto">{saving ? "Saving..." : "Next Step"} <ChevronRight className="ml-2 h-4 w-4" /></Button>
                 </div>
               </form>
             )}
@@ -683,76 +996,102 @@ export function RestaurantOnboardingClient() {
             {currentStep === 5 && (
               <form onSubmit={handleNext} className="space-y-6">
                 <div>
-                  <h1 className="text-3xl font-bold">Bank Details</h1>
-                  <p className="text-slate-500 mt-2">Where you want to receive payments.</p>
+                  <h1 className="text-2xl sm:text-3xl font-bold">Bank Details</h1>
+                  <p className="text-slate-500 mt-2 text-sm">Where you want to receive payments.</p>
                 </div>
                 <div className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="bankName">Bank Name *</Label>
-                    <Input id="bankName" name="bankName" defaultValue={seller.bankDetails?.bankName || ""} required />
+                    <Input id="bankName" name="bankName" defaultValue={seller.bankDetails?.bankName || ""} required className="h-11 sm:h-12 rounded-xl" />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="accountHolderName">Account Holder Name *</Label>
-                    <Input id="accountHolderName" name="accountHolderName" defaultValue={seller.bankDetails?.accountHolderName || ""} required />
+                    <Input id="accountHolderName" name="accountHolderName" defaultValue={seller.bankDetails?.accountHolderName || ""} required className="h-11 sm:h-12 rounded-xl" />
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="accountNumber">Account Number *</Label>
-                      <Input id="accountNumber" name="accountNumber" defaultValue={seller.bankDetails?.accountNumber || ""} required />
+                      <Input id="accountNumber" name="accountNumber" defaultValue={seller.bankDetails?.accountNumber || ""} required className="h-11 sm:h-12 rounded-xl" />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="bbanNumber">BBAN Number *</Label>
-                      <Input id="bbanNumber" name="bbanNumber" defaultValue={seller.bankDetails?.bbanNumber || ""} required />
+                      <Input id="bbanNumber" name="bbanNumber" defaultValue={seller.bankDetails?.bbanNumber || ""} required className="h-11 sm:h-12 rounded-xl" />
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="branchName">Branch Name / IFSC *</Label>
-                      <Input id="branchName" name="branchName" defaultValue={seller.bankDetails?.branchName || ""} required />
+                      <Input id="branchName" name="branchName" defaultValue={seller.bankDetails?.branchName || ""} required className="h-11 sm:h-12 rounded-xl" />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="bankAddress">Bank Address *</Label>
-                      <Input id="bankAddress" name="bankAddress" defaultValue={seller.bankDetails?.bankAddress || ""} required />
+                      <Input id="bankAddress" name="bankAddress" defaultValue={seller.bankDetails?.bankAddress || ""} required className="h-11 sm:h-12 rounded-xl" />
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2 pt-4 border-t">
-                      <Label>Bank Passbook / Cheque Copy *</Label>
-                      <Input name="passbook" type="file" accept="image/*,.pdf" required={!seller.bankDetails?.passbookUrl} onChange={(e) => handleFileChange(e, "passbook")} />
+                      <Label>Bank Passbook / Cheque Copy (Optional)</Label>
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                        <Input name="passbook" type="file" accept={ALLOWED_DOC_ACCEPT} onChange={(e) => handleFileChange(e, "passbook")} className="h-11 sm:h-12 cursor-pointer file:cursor-pointer flex-1" />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCameraTarget({ key: "passbook", label: "Bank Passbook", facingMode: "environment", guideType: "document" })}
+                          className="h-10 px-3.5 text-xs flex items-center justify-center gap-1.5 shrink-0 rounded-xl border-amber-300 text-amber-900 bg-amber-50/60 hover:bg-amber-100 active:scale-95 w-full sm:w-auto"
+                          title="Take photo with camera"
+                        >
+                          <Camera className="w-4 h-4 text-amber-700" />
+                          <span>Take Photo</span>
+                        </Button>
+                      </div>
                       {renderFilePreview("passbook", seller.bankDetails?.passbookUrl, "Bank Proof")}
                     </div>
                     <div className="space-y-2 pt-4 border-t">
                       <Label>Bank Letter / Reference (Optional)</Label>
-                      <Input name="bankLetter" type="file" accept="image/*,.pdf" onChange={(e) => handleFileChange(e, "bankLetter")} />
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                        <Input name="bankLetter" type="file" accept={ALLOWED_DOC_ACCEPT} onChange={(e) => handleFileChange(e, "bankLetter")} className="h-11 sm:h-12 cursor-pointer file:cursor-pointer flex-1" />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCameraTarget({ key: "bankLetter", label: "Bank Letter", facingMode: "environment", guideType: "document" })}
+                          className="h-10 px-3.5 text-xs flex items-center justify-center gap-1.5 shrink-0 rounded-xl border-amber-300 text-amber-900 bg-amber-50/60 hover:bg-amber-100 active:scale-95 w-full sm:w-auto"
+                          title="Take photo with camera"
+                        >
+                          <Camera className="w-4 h-4 text-amber-700" />
+                          <span>Take Photo</span>
+                        </Button>
+                      </div>
                       {renderFilePreview("bankLetter", seller.bankDetails?.bankLetterUrl, "Bank Letter")}
                     </div>
                   </div>
                   <div className="space-y-4 pt-4 border-t">
                     <div className="space-y-2">
                       <Label>Mobile Money Option *</Label>
-                      <select name="mobileMoneyOption" defaultValue={seller.bankDetails?.mobileMoneyOption || "Orange Money"} className="w-full h-10 px-3 border rounded-md">
+                      <select name="mobileMoneyOption" defaultValue={seller.bankDetails?.mobileMoneyOption || "Orange Money"} className="w-full h-11 sm:h-12 px-3 border rounded-xl bg-white">
                         <option value="Orange Money">Orange Money</option>
                         <option value="Africell Money">Africell Money</option>
                       </select>
                     </div>
                     <div className="space-y-2">
                       <Label className="font-semibold block">Preferred Payout Method *</Label>
-                      <div className="flex gap-4">
-                        <label className="flex items-center gap-2 cursor-pointer">
-                          <input type="radio" name="preferredPayoutMethod" value="Bank Transfer" defaultChecked={!seller.bankDetails?.preferredPayoutMethod || seller.bankDetails?.preferredPayoutMethod === "Bank Transfer"} />
-                          <span>Bank Transfer</span>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <label className="flex items-center gap-2.5 p-3 rounded-xl border border-slate-200 cursor-pointer hover:bg-amber-50/40">
+                          <input type="radio" name="preferredPayoutMethod" value="Bank Transfer" defaultChecked={!seller.bankDetails?.preferredPayoutMethod || seller.bankDetails?.preferredPayoutMethod === "Bank Transfer"} className="accent-amber-600" />
+                          <span className="text-sm font-medium">Bank Transfer</span>
                         </label>
-                        <label className="flex items-center gap-2 cursor-pointer">
-                          <input type="radio" name="preferredPayoutMethod" value="Mobile Wallet" defaultChecked={seller.bankDetails?.preferredPayoutMethod === "Mobile Wallet" || seller.bankDetails?.preferredPayoutMethod === "Mobile Money"} />
-                          <span>Mobile Money</span>
+                        <label className="flex items-center gap-2.5 p-3 rounded-xl border border-slate-200 cursor-pointer hover:bg-amber-50/40">
+                          <input type="radio" name="preferredPayoutMethod" value="Mobile Wallet" defaultChecked={seller.bankDetails?.preferredPayoutMethod === "Mobile Wallet" || seller.bankDetails?.preferredPayoutMethod === "Mobile Money"} className="accent-amber-600" />
+                          <span className="text-sm font-medium">Mobile Money</span>
                         </label>
                       </div>
                     </div>
                   </div>
                 </div>
-                <div className="mt-8 flex justify-between">
-                  <Button type="button" variant="ghost" onClick={handleBack} disabled={saving} className="rounded-full px-6 hover:bg-slate-100">Back</Button>
-                  <Button type="submit" disabled={saving} className="rounded-full px-8 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-semibold shadow-lg shadow-amber-200/50 transition-all hover:scale-[1.02]">{saving ? "Saving..." : "Next Step"}</Button>
+                <div className="mt-8 sm:mt-12 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-6 border-t border-slate-100">
+                  <Button type="button" variant="ghost" onClick={handleBack} disabled={saving} className="h-11 sm:h-12 px-6 rounded-full hover:bg-slate-100 w-full sm:w-auto"><ChevronLeft className="mr-2 h-4 w-4" /> Back</Button>
+                  <Button type="submit" disabled={saving} className="h-11 sm:h-12 rounded-full px-8 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-semibold shadow-lg shadow-amber-200/50 transition-all hover:scale-[1.02] active:scale-95 w-full sm:w-auto">{saving ? "Saving..." : "Next Step"} <ChevronRight className="ml-2 h-4 w-4" /></Button>
                 </div>
               </form>
             )}
@@ -760,11 +1099,11 @@ export function RestaurantOnboardingClient() {
             {currentStep === 6 && (
               <form onSubmit={handleNext} className="space-y-6">
                 <div>
-                  <h1 className="text-3xl font-bold">Agreement</h1>
-                  <p className="text-slate-500 mt-2">Accept our terms to finish registration.</p>
+                  <h1 className="text-2xl sm:text-3xl font-bold">Agreement</h1>
+                  <p className="text-slate-500 mt-2 text-sm">Accept our terms to finish registration.</p>
                 </div>
 
-                <div className="space-y-3 p-6 bg-slate-50 rounded-3xl border">
+                <div className="space-y-3 p-4 sm:p-6 bg-slate-50 rounded-2xl sm:rounded-3xl border">
                   <div>
                     <Label htmlFor="hearAboutUs" className="text-base font-bold text-slate-800 flex items-center gap-1">
                       How did you hear about us? <span className="text-rose-500">*</span>
@@ -782,7 +1121,7 @@ export function RestaurantOnboardingClient() {
                       }
                     }}
                   >
-                    <SelectTrigger id="hearAboutUs" className="h-12 rounded-2xl bg-white border-slate-200 text-slate-800">
+                    <SelectTrigger id="hearAboutUs" className="h-11 sm:h-12 rounded-xl sm:rounded-2xl bg-white border-slate-200 text-slate-800">
                       <SelectValue placeholder="Select an option" />
                     </SelectTrigger>
                     <SelectContent>
@@ -805,14 +1144,14 @@ export function RestaurantOnboardingClient() {
                         placeholder="e.g. Radio station, Exhibition, Friend recommendation, etc."
                         value={hearAboutUsOther}
                         onChange={(e) => setHearAboutUsOther(e.target.value)}
-                        className="h-12 rounded-2xl bg-white border-slate-200 text-slate-800 focus:border-slate-400 placeholder:text-slate-400"
+                        className="h-11 sm:h-12 rounded-xl sm:rounded-2xl bg-white border-slate-200 text-slate-800 focus:border-slate-400 placeholder:text-slate-400"
                         required
                       />
                     </div>
                   )}
                 </div>
 
-                <div className="space-y-4 p-6 bg-slate-50 rounded-3xl border border-slate-100">
+                <div className="space-y-4 p-4 sm:p-6 bg-slate-50 rounded-2xl sm:rounded-3xl border border-slate-100">
                   {[
                     {
                       id: "agreedToTerms",
@@ -844,7 +1183,7 @@ export function RestaurantOnboardingClient() {
                       <div
                         key={item.id}
                         className={cn(
-                          "p-4 rounded-2xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4",
+                          "p-3.5 sm:p-4 rounded-xl sm:rounded-2xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4",
                           isChecked
                             ? "bg-white border-emerald-300 shadow-sm"
                             : "bg-white/60 border-slate-200 hover:border-slate-300"
@@ -886,7 +1225,7 @@ export function RestaurantOnboardingClient() {
                           size="sm"
                           onClick={() => setActiveLegalModal(item.docType)}
                           className={cn(
-                            "rounded-xl text-xs font-semibold px-4 h-9 self-start sm:self-auto shrink-0 transition-colors",
+                            "rounded-xl text-xs font-semibold px-4 h-9 self-start sm:self-auto shrink-0 transition-colors w-full sm:w-auto",
                             isChecked
                               ? "border-emerald-200 text-emerald-700 hover:bg-emerald-50"
                               : "border-slate-200 text-slate-700 hover:bg-slate-50 bg-white"
@@ -899,9 +1238,9 @@ export function RestaurantOnboardingClient() {
                     )
                   })}
                 </div>
-                <div className="mt-8 flex justify-between">
-                  <Button type="button" variant="ghost" onClick={handleBack} disabled={saving} className="rounded-full px-6 hover:bg-slate-100">Back</Button>
-                  <Button type="submit" className="rounded-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-semibold px-8 shadow-lg shadow-emerald-100 transition-all hover:scale-[1.02]" disabled={saving || !Object.values(agreements).every(v => v)}>
+                <div className="mt-8 sm:mt-12 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-6 border-t border-slate-100">
+                  <Button type="button" variant="ghost" onClick={handleBack} disabled={saving} className="h-11 sm:h-12 px-6 rounded-full hover:bg-slate-100 w-full sm:w-auto"><ChevronLeft className="mr-2 h-4 w-4" /> Back</Button>
+                  <Button type="submit" className="h-11 sm:h-12 rounded-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-semibold px-8 shadow-lg shadow-emerald-100 transition-all hover:scale-[1.02] active:scale-95 w-full sm:w-auto" disabled={saving || !Object.values(agreements).every(v => v)}>
                     {saving ? "Submitting..." : "Finish Registration"}
                   </Button>
                 </div>
@@ -952,6 +1291,44 @@ export function RestaurantOnboardingClient() {
               setAgreements((prev) => ({ ...prev, agreedToCommission: true }))
             }
           }}
+        />
+      )}
+
+      {/* Central Camera Capture Modal */}
+      {cameraTarget && (
+        <CameraCaptureModal
+          open={!!cameraTarget}
+          onOpenChange={(open) => !open && setCameraTarget(null)}
+          onPhotoCaptured={(file) => {
+            const target = cameraTarget
+            setCameraTarget(null)
+            if (target) {
+              setCropTarget({
+                key: target.key,
+                file,
+                label: target.label,
+                aspectRatio: target.aspectRatio || "free",
+              })
+            }
+          }}
+          facingMode={cameraTarget.facingMode || "environment"}
+          guideType={cameraTarget.guideType || "card"}
+          title={`Take Photo - ${cameraTarget.label}`}
+        />
+      )}
+
+      {/* Central Image Cropper Modal */}
+      {cropTarget && (
+        <ImageCropperModal
+          open={!!cropTarget}
+          onOpenChange={(open) => !open && setCropTarget(null)}
+          imageFile={cropTarget.file}
+          onCropComplete={(croppedFile) => {
+            handleCroppedFile(cropTarget.key, croppedFile)
+            setCropTarget(null)
+          }}
+          aspectRatio={cropTarget.aspectRatio || "free"}
+          title={`Crop & Adjust - ${cropTarget.label}`}
         />
       )}
     </div>

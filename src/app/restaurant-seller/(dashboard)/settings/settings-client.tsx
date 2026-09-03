@@ -472,7 +472,7 @@ export default function RestaurantSettingsClient() {
                   </div>
                </div>
                <div className="pt-2">
-                  <Label>Proof of Address (Edsa, Guma, etc.)</Label>
+                  <Label>Proof of Address (Edsa, Guma, etc.) (Optional)</Label>
                   <div className="flex items-center gap-3 mt-1">
                      <Input name="addressProof" type="file" className="max-w-xs" onChange={(e) => handleFileChange(e, "addressProof")} />
                      {seller.businessInfo?.addressProofUrl && <a href={seller.businessInfo.addressProofUrl} target="_blank" className="text-primary hover:underline text-sm flex items-center gap-1"><FileText className="h-4 w-4" /> View Current</a>}
@@ -658,7 +658,7 @@ export default function RestaurantSettingsClient() {
                  </div>
                  <div className="grid md:grid-cols-2 gap-4 pt-2">
                     <div className="space-y-2">
-                       <Label>Bank Passbook / Cheque Copy</Label>
+                       <Label>Bank Passbook / Cheque Copy (Optional)</Label>
                        <div className="flex items-center gap-3 mt-1">
                           <Input name="passbook" type="file" onChange={(e) => handleFileChange(e, "passbook")} />
                           {seller.bankDetails?.passbookUrl && <a href={seller.bankDetails.passbookUrl} target="_blank" className="text-primary hover:underline text-sm flex items-center gap-1"><FileText className="h-4 w-4" /> View Current</a>}
