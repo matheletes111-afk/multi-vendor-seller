@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { Eye, EyeOff, FileText, CheckCircle2, AlertCircle, Info, Scale, Settings as SettingsIcon, UserX } from "lucide-react"
+import { Eye, EyeOff, FileText, CheckCircle2, AlertCircle, Info, Scale, Settings as SettingsIcon, UserX, Plus, Check, Pencil, X } from "lucide-react"
+import { validateOnboardingFile } from "@/lib/onboarding-file-validation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/ui/card"
 import { Button } from "@/ui/button"
 import { Input } from "@/ui/input"
@@ -21,9 +22,29 @@ import { cn } from "@/lib/utils"
 import { validatePhoneAndCountryCode } from "@/lib/phone-validation"
 import { CountryCodeSelect } from "@/ui/country-code-select"
 
+interface ServiceCategorySuggestion {
+  id?: string
+  name: string
+  description: string
+  image?: File | null
+  icon?: File | null
+  imagePreview?: string
+  iconPreview?: string
+}
+
 export function ServiceSettingsClient() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const [showSuggestionForm, setShowSuggestionForm] = useState(false)
+  const [suggestionsList, setSuggestionsList] = useState<ServiceCategorySuggestion[]>([])
+  const [tempSuggestion, setTempSuggestion] = useState<ServiceCategorySuggestion>({
+    name: "",
+    description: "",
+    image: null,
+    icon: null,
+    imagePreview: "",
+    iconPreview: "",
+  })
   const [activeTab, setActiveTab] = useState<"general" | "legal" | "delete-account">(() => {
     const tab = searchParams.get("tab")
     if (tab === "legal") return "legal"
@@ -128,6 +149,21 @@ export function ServiceSettingsClient() {
             }
           })
           setServiceCategories(merged)
+
+          // Populate suggestions list from inactive service categories
+          const suggestions = selected
+            .filter((c: any) => !c.isActive)
+            .map((c: any) => ({
+              id: c.id,
+              name: c.name,
+              description: c.description || "",
+              image: null,
+              icon: null,
+              imagePreview: c.image || "",
+              iconPreview: c.mobileIcon || "",
+            }))
+          setSuggestionsList(suggestions)
+
           if (s.isApproved) {
             if (typeof window !== "undefined" && window.location.search.includes("error=AccountPendingApproval")) {
               const url = new URL(window.location.href)
@@ -185,10 +221,21 @@ export function ServiceSettingsClient() {
         }
     }
 
+    if (section === "store" && suggestionsList.length > 0) {
+      formData.append("suggestionCount", suggestionsList.length.toString())
+      suggestionsList.forEach((sug, i) => {
+        if (sug.id) formData.append(`suggestion_id_${i}`, sug.id)
+        formData.append(`suggestion_name_${i}`, sug.name)
+        formData.append(`suggestion_description_${i}`, sug.description)
+        if (sug.image) formData.append(`suggestion_image_${i}`, sug.image)
+        if (sug.icon) formData.append(`suggestion_mobile_icon_${i}`, sug.icon)
+      })
+    }
+
     let isReloading = false
     try {
         let res: Response
-        const hasFiles = Array.from(formData.values()).some(v => v instanceof File && v.size > 0)
+        const hasFiles = section === "store" || Array.from(formData.values()).some(v => v instanceof File && v.size > 0)
 
         if (hasFiles) {
             res = await fetch("/api/service-seller/settings", { method: "PUT", body: formData })
@@ -232,9 +279,43 @@ export function ServiceSettingsClient() {
                 window.location.reload()
             }, 1500)
         } else {
-            setSuccess(`${section.charAt(0).toUpperCase() + section.slice(1)} info updated!`)
-            const refresh = await fetch("/api/service-seller/settings")
-            if (refresh.ok) setSeller(await refresh.json())
+            setSuccess(`${section.charAt(0).toUpperCase() + section.slice(1)} details updated successfully!`)
+            if (section === "store") {
+              try {
+                const [sellerRes, catsRes] = await Promise.all([
+                  fetch("/api/service-seller/settings"),
+                  fetch("/api/service-categories")
+                ])
+                if (catsRes.ok && sellerRes.ok) {
+                  const catsData = await catsRes.json()
+                  const globalCats = catsData.categories || []
+                  const s = await sellerRes.json()
+                  setSeller(s)
+                  const selected = s.selectedServiceCategories || []
+                  const merged = [...globalCats]
+                  selected.forEach((sel: any) => {
+                    if (!merged.find((c: any) => c.id === sel.id)) {
+                      merged.push(sel)
+                    }
+                  })
+                  setServiceCategories(merged)
+                  const suggestions = selected
+                    .filter((c: any) => !c.isActive)
+                    .map((c: any) => ({
+                      id: c.id,
+                      name: c.name,
+                      description: c.description || "",
+                      image: null,
+                      icon: null,
+                      imagePreview: c.image || "",
+                      iconPreview: c.mobileIcon || "",
+                    }))
+                  setSuggestionsList(suggestions)
+                }
+              } catch (syncErr) {
+                console.error("Error re-syncing service categories:", syncErr)
+              }
+            }
         }
     } catch (err: any) {
         setError(err.message)
@@ -497,7 +578,7 @@ export function ServiceSettingsClient() {
                   </div>
                </div>
                <div className="space-y-2 pt-2">
-                  <Label>Proof of Address (Edsa, Guma, etc.)</Label>
+                  <Label>Proof of Address (Edsa, Guma, etc.) (Optional)</Label>
                   <div className="flex items-center gap-3">
                      <Input name="addressProof" type="file" className="max-w-xs" onChange={(e) => handleFileChange(e, "addressProof")} />
                      {seller.businessInfo?.addressProofUrl && <a href={seller.businessInfo.addressProofUrl} target="_blank" className="text-primary hover:underline text-sm flex items-center gap-1"><FileText className="h-4 w-4" /> View Current</a>}
@@ -550,7 +631,7 @@ export function ServiceSettingsClient() {
                  </div>
                  <div className="grid md:grid-cols-2 gap-4 pt-2">
                     <div className="space-y-2">
-                       <Label>Bank Passbook / Cheque Copy</Label>
+                       <Label>Bank Passbook / Cheque Copy (Optional)</Label>
                        <div className="flex items-center gap-3">
                          <Input name="bankPassbook" type="file" onChange={(e) => handleFileChange(e, "bankPassbook")} />
                          {seller.bankDetails?.passbookUrl && <a href={seller.bankDetails.passbookUrl} target="_blank" className="text-primary hover:underline text-sm flex items-center gap-1"><FileText className="h-4 w-4" /> View Current</a>}
@@ -576,10 +657,218 @@ export function ServiceSettingsClient() {
                  <div className="space-y-2"><Label>Store Name</Label><Input name="name" defaultValue={seller.store?.name || ""} /></div>
                  <div className="space-y-2"><Label>Store Bio</Label><Textarea name="description" defaultValue={seller.store?.description || ""} rows={3} /></div>
                  
-                 <div className="space-y-3 pt-4 border-t">
-                    <Label className="font-bold">Authorized Service Categories</Label>
-                    <p className="text-xs text-muted-foreground mb-4">You can only list services in these categories. Contact admin to add more.</p>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                 <div className="space-y-4 pt-4 border-t border-slate-100">
+                     <div className="flex items-center justify-between">
+                       <div>
+                         <Label className="font-bold text-base">Authorized Service Categories</Label>
+                         <p className="text-xs text-muted-foreground mt-0.5">Select categories you plan to offer services in, or suggest a new category.</p>
+                       </div>
+                       <Button
+                         type="button"
+                         variant="outline"
+                         size="sm"
+                         className={cn(
+                           "rounded-full border-teal-200 text-teal-600 hover:bg-teal-50 transition-all gap-1.5",
+                           showSuggestionForm && "bg-teal-100 border-teal-300"
+                         )}
+                         onClick={() => setShowSuggestionForm(!showSuggestionForm)}
+                       >
+                         <Plus className="h-3.5 w-3.5" />
+                         Suggest New
+                       </Button>
+                     </div>
+
+                     {showSuggestionForm && (
+                       <div className="p-4 sm:p-6 border-2 border-dashed rounded-3xl bg-teal-50/30 border-teal-100 animate-in fade-in slide-in-from-top-4 duration-300 space-y-4">
+                         <div className="flex items-center justify-between">
+                           <div className="flex items-center gap-2">
+                             <div className="w-8 h-8 rounded-full bg-teal-600 flex items-center justify-center text-white">
+                               <Plus className="h-4 w-4" />
+                             </div>
+                             <h3 className="text-sm font-bold text-slate-800">Suggest New Service Category</h3>
+                           </div>
+                           <Button
+                             type="button"
+                             variant="ghost"
+                             size="sm"
+                             onClick={() => setShowSuggestionForm(false)}
+                             className="h-8 w-8 p-0 rounded-full hover:bg-teal-100 text-teal-600"
+                           >
+                             <X className="h-4 w-4" />
+                           </Button>
+                         </div>
+
+                         <div className="space-y-4">
+                           <div className="space-y-2">
+                             <Label>Service Category Name *</Label>
+                             <Input
+                               value={tempSuggestion.name}
+                               onChange={(e) => setTempSuggestion(prev => ({ ...prev, name: e.target.value }))}
+                               placeholder="e.g., Solar Installation, Language Tutoring"
+                               className="h-11 rounded-xl border-teal-100 focus:ring-teal-500 bg-white"
+                             />
+                           </div>
+
+                           <div className="space-y-2">
+                             <Label>Description</Label>
+                             <Textarea
+                               value={tempSuggestion.description}
+                               onChange={(e) => setTempSuggestion(prev => ({ ...prev, description: e.target.value }))}
+                               placeholder="Briefly describe what services belong in this category..."
+                               rows={2}
+                               className="rounded-xl border-teal-100 focus:ring-teal-500 bg-white"
+                             />
+                           </div>
+
+                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                             <div className="space-y-2">
+                               <Label className="text-xs font-semibold">Category Banner *</Label>
+                               <div className="relative">
+                                 <Input
+                                   type="file"
+                                   accept="image/*"
+                                   className="h-11 rounded-xl border-teal-100 bg-white cursor-pointer"
+                                   onChange={async (e) => {
+                                     const rawFile = e.target.files?.[0]
+                                     if (rawFile) {
+                                       const validation = validateOnboardingFile(rawFile, { imagesOnly: true, maxSizeMb: 4.5 })
+                                       if (!validation.isValid) {
+                                         setError(validation.error || "Only image files are allowed.")
+                                         e.target.value = ""
+                                         return
+                                       }
+                                       let file: File = rawFile
+                                       if (rawFile.type.startsWith("image/") || /\.(jpe?g|png|webp|heic|heif)$/i.test(rawFile.name)) {
+                                         try {
+                                           const { compressImage } = await import("@/lib/image-compressor")
+                                           file = await compressImage(rawFile, 500, 500, 0.8)
+                                         } catch (err) {
+                                           console.error("Compression error:", err)
+                                         }
+                                       }
+                                       setTempSuggestion(prev => ({
+                                         ...prev,
+                                         image: file,
+                                         imagePreview: URL.createObjectURL(file)
+                                       }))
+                                     }
+                                   }}
+                                 />
+                                 {tempSuggestion.imagePreview && (
+                                   <div className="mt-2 flex items-center gap-2 p-2 bg-white rounded-lg border border-teal-100 animate-in fade-in">
+                                     <img src={tempSuggestion.imagePreview} className="w-8 h-8 rounded object-cover" />
+                                     <span className="text-[10px] truncate max-w-[150px]">
+                                       {tempSuggestion.image ? tempSuggestion.image.name : "Banner Selected"}
+                                     </span>
+                                   </div>
+                                 )}
+                               </div>
+                             </div>
+
+                             <div className="space-y-2">
+                               <Label className="text-xs font-semibold">Mobile Icon (PNG) *</Label>
+                               <div className="relative">
+                                 <Input
+                                   type="file"
+                                   accept="image/*"
+                                   className="h-11 rounded-xl border-teal-100 bg-white cursor-pointer"
+                                   onChange={async (e) => {
+                                     const rawFile = e.target.files?.[0]
+                                     if (rawFile) {
+                                       const validation = validateOnboardingFile(rawFile, { imagesOnly: true, maxSizeMb: 4.5 })
+                                       if (!validation.isValid) {
+                                         setError(validation.error || "Only image files are allowed.")
+                                         e.target.value = ""
+                                         return
+                                       }
+                                       let file: File = rawFile
+                                       if (rawFile.type.startsWith("image/") || /\.(jpe?g|png|webp|heic|heif)$/i.test(rawFile.name)) {
+                                         try {
+                                           const { compressImage } = await import("@/lib/image-compressor")
+                                           file = await compressImage(rawFile, 200, 200, 0.85)
+                                         } catch (err) {
+                                           console.error("Compression error:", err)
+                                         }
+                                       }
+                                       setTempSuggestion(prev => ({
+                                         ...prev,
+                                         icon: file,
+                                         iconPreview: URL.createObjectURL(file)
+                                       }))
+                                     }
+                                   }}
+                                 />
+                                 {tempSuggestion.iconPreview && (
+                                   <div className="mt-2 flex items-center gap-2 p-2 bg-white rounded-lg border border-teal-100 animate-in fade-in">
+                                     <img src={tempSuggestion.iconPreview} className="w-8 h-8 rounded object-cover" />
+                                     <span className="text-[10px] truncate max-w-[150px]">
+                                       {tempSuggestion.icon ? tempSuggestion.icon.name : "Icon Selected"}
+                                     </span>
+                                   </div>
+                                 )}
+                               </div>
+                             </div>
+                           </div>
+
+                           <Button
+                             type="button"
+                             disabled={!tempSuggestion.name || (!tempSuggestion.image && !tempSuggestion.imagePreview) || (!tempSuggestion.icon && !tempSuggestion.iconPreview)}
+                             onClick={() => {
+                               setSuggestionsList(prev => [...prev, tempSuggestion])
+                               setTempSuggestion({ name: "", description: "", image: null, icon: null, imagePreview: "", iconPreview: "" })
+                               setShowSuggestionForm(false)
+                             }}
+                             className="w-full h-11 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-semibold"
+                           >
+                             Add Service Category Suggestion
+                           </Button>
+                         </div>
+                       </div>
+                     )}
+
+                     {suggestionsList.length > 0 && (
+                       <div className="p-4 bg-teal-50/20 border border-teal-100 rounded-2xl space-y-3">
+                         <div className="flex items-center justify-between">
+                           <span className="text-xs font-bold text-teal-900 flex items-center gap-1.5">
+                             <Check className="h-3.5 w-3.5 text-teal-600" />
+                             Suggested Categories ({suggestionsList.length})
+                           </span>
+                           <span className="text-[10px] text-teal-500">Will be saved and submitted for admin review upon updating</span>
+                         </div>
+                         <div className="flex flex-wrap gap-2">
+                           {suggestionsList.map((sug, idx) => (
+                             <div key={idx} className="flex items-center gap-3 px-4 py-2 bg-teal-50 border border-teal-200 rounded-xl text-sm font-medium text-teal-800 shadow-sm animate-in zoom-in-95">
+                               {sug.iconPreview && <img src={sug.iconPreview} className="w-5 h-5 rounded-full object-cover border border-teal-200 bg-white" />}
+                               <span className="truncate max-w-[200px]">{sug.name}</span>
+                               <div className="flex items-center gap-1 pl-2 border-l border-teal-200">
+                                 <button
+                                   type="button"
+                                   onClick={() => {
+                                     setTempSuggestion(sug)
+                                     setShowSuggestionForm(true)
+                                     setSuggestionsList(prev => prev.filter((_, i) => i !== idx))
+                                   }}
+                                   className="p-1 hover:bg-white rounded-md text-teal-500 hover:text-teal-700 transition-colors"
+                                   title="Edit Suggestion"
+                                 >
+                                   <Pencil className="h-3.5 w-3.5" />
+                                 </button>
+                                 <button
+                                   type="button"
+                                   onClick={() => setSuggestionsList(prev => prev.filter((_, i) => i !== idx))}
+                                   className="p-1 hover:bg-white rounded-md text-teal-500 hover:text-red-600 transition-colors"
+                                   title="Remove Suggestion"
+                                 >
+                                   <X className="h-3.5 w-3.5" />
+                                 </button>
+                               </div>
+                             </div>
+                           ))}
+                         </div>
+                       </div>
+                     )}
+
+                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                         {serviceCategories.map((cat: any) => (
                             <label key={cat.id} className={cn(
                                 "flex items-center gap-2 p-3 border rounded-lg cursor-pointer transition-colors",
@@ -597,6 +886,7 @@ export function ServiceSettingsClient() {
                         ))}
                     </div>
                  </div>
+
                  <div className="grid md:grid-cols-2 gap-6 pt-4 border-t">
                     <div className="space-y-3">
                         <Label className="font-bold">Service Store Logo</Label>

@@ -33,6 +33,7 @@ import { ZoneLocationPicker } from "@/app/riderapp/components/zone-location-pick
 import { cn } from "@/lib/utils"
 import { validatePhoneAndCountryCode } from "@/lib/phone-validation"
 import { CountryCodeSelect } from "@/ui/country-code-select"
+import { ALLOWED_IMAGE_ONLY_ACCEPT } from "@/lib/onboarding-file-validation"
 
 export function RiderOnboardingClient({ user: initialUser }: { user: any }) {
   const router = useRouter()
@@ -444,7 +445,7 @@ export function RiderOnboardingClient({ user: initialUser }: { user: any }) {
                   <DocUploadPreview
                     label="Rider Profile Photo"
                     description="Clear headshot/portrait photo for customer and merchant identification."
-                    accept="image/jpeg,image/png,image/webp"
+                    accept={ALLOWED_IMAGE_ONLY_ACCEPT}
                     value={profileImageUrl}
                     onChange={(file, preview) => {
                       setProfileImageFile(file)

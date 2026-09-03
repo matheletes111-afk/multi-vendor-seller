@@ -35,9 +35,6 @@ export function validateProductOrServiceSellerApproval(seller: any): ApprovalVal
     if (!seller.businessInfo.busRegCertUrl?.trim()) {
       missingItems.push("Business Registration Certificate upload is missing");
     }
-    if (!seller.businessInfo.addressProofUrl?.trim()) {
-      missingItems.push("Proof of Address document upload is missing");
-    }
   }
 
   // 4. Identity & KYC Documents (Step 3)
@@ -135,9 +132,6 @@ export function validateHotelSellerApproval(seller: any): ApprovalValidationResu
     if (!seller.businessInfo.busRegCertUrl?.trim()) {
       missingItems.push("Business Registration Certificate upload is missing");
     }
-    if (!seller.businessInfo.addressProofUrl?.trim()) {
-      missingItems.push("Proof of Address document upload is missing");
-    }
   }
 
   // 3. Identity & KYC Documents (Step 3)
@@ -231,9 +225,6 @@ export function validateRestaurantSellerApproval(seller: any): ApprovalValidatio
     }
     if (!seller.businessInfo.busRegCertUrl?.trim()) {
       missingItems.push("Business Registration Certificate upload is missing");
-    }
-    if (!seller.businessInfo.addressProofUrl?.trim()) {
-      missingItems.push("Proof of Address document upload is missing");
     }
   }
 
@@ -360,6 +351,7 @@ export function evaluateSellerDocuments(seller: any, sellerType?: string): Selle
     name: "Proof of Address",
     category: "business",
     isUploaded: !!busInfo?.addressProofUrl?.trim(),
+    isOptional: true,
     url: busInfo?.addressProofUrl,
   });
   if (busInfo?.haveGst) {
@@ -407,7 +399,7 @@ export function evaluateSellerDocuments(seller: any, sellerType?: string): Selle
     name: "Bank Passbook / Cheque Copy",
     category: "financial",
     isUploaded: !!bank?.passbookUrl?.trim(),
-    isOptional: false,
+    isOptional: true,
     url: bank?.passbookUrl,
   });
   docs.push({

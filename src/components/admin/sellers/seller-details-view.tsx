@@ -336,8 +336,8 @@ export function SellerDetailsView({
               <DocumentThumbnail url={seller.businessInfo?.busRegCertUrl} title="Business Reg Document" mimeType="application/pdf" />
               <DocumentThumbnail url={seller.businessInfo?.cityCouncilCertUrl} title="City Council Cert" mimeType="application/pdf" />
               <DocumentThumbnail url={seller.businessInfo?.gstTinCertUrl} title="GST TIN Cert" mimeType="application/pdf" />
-              <DocumentThumbnail url={seller.businessInfo?.addressProofUrl} title="Proof of Address" mimeType="application/pdf" />
-              <DocumentThumbnail url={seller.bankDetails?.passbookUrl} title="Bank Passbook" />
+              <DocumentThumbnail url={seller.businessInfo?.addressProofUrl} title="Proof of Address (Optional)" mimeType="application/pdf" />
+              <DocumentThumbnail url={seller.bankDetails?.passbookUrl} title="Bank Passbook (Optional)" />
               <DocumentThumbnail url={seller.bankDetails?.bankLetterUrl} title="Bank Letter" mimeType="application/pdf" />
             </div>
           </CardContent>

@@ -9,6 +9,7 @@ import { validatePassword } from "@/lib/password-validation"
 import { sanitizeInput } from "@/lib/html-sanitization"
 import { checkDisallowedName } from "@/lib/name-validation"
 import { validatePhoneAndCountryCode } from "@/lib/phone-validation"
+import { generateSlug } from "@/lib/utils"
 
 function getImageExtFromContentType(contentType?: string | null) {
   const ct = (contentType || "").toLowerCase()
@@ -325,6 +326,96 @@ export async function PUT(request: NextRequest) {
         }
     }
     const categoryIds = fd.getAll("categoryIds") as string[]
+
+    // Process service category suggestions if any
+    const suggestionCountRaw = fd.get("suggestionCount")
+    const suggestionCount = parseInt(suggestionCountRaw as string) || 0
+
+    for (let i = 0; i < suggestionCount; i++) {
+      const suggestedId = (fd.get(`suggestion_id_${i}`) as string)?.trim()
+      const suggestedName = (fd.get(`suggestion_name_${i}`) as string)?.trim()
+      const suggestedDesc = (fd.get(`suggestion_description_${i}`) as string)?.trim() || null
+
+      if (!suggestedName && !suggestedId) continue
+
+      let existing = null
+      if (suggestedId) {
+        existing = await prisma.serviceCategory.findUnique({ where: { id: suggestedId } })
+      }
+      if (!existing && suggestedName) {
+        existing = await prisma.serviceCategory.findFirst({
+          where: {
+            OR: [
+              { name: { equals: suggestedName, mode: "insensitive" } },
+              { slug: generateSlug(suggestedName) }
+            ]
+          }
+        })
+      }
+
+      let imageUrl = existing?.image || ""
+      let mobileIconUrl = existing?.mobileIcon || ""
+
+      const img = fd.get(`suggestion_image_${i}`) as File | null
+      const icon = fd.get(`suggestion_mobile_icon_${i}`) as File | null
+
+      if (img && img.size > 0) {
+        imageUrl = await uploadPublicFile({
+          folder: "service-categories",
+          ext: path.extname(img.name) || ".jpg",
+          contentType: img.type || "image/jpeg",
+          buffer: Buffer.from(await img.arrayBuffer()),
+          prefix: "service-category",
+        })
+      }
+
+      if (icon && icon.size > 0) {
+        mobileIconUrl = await uploadPublicFile({
+          folder: "service-categories",
+          ext: path.extname(icon.name) || ".png",
+          contentType: icon.type || "image/png",
+          buffer: Buffer.from(await icon.arrayBuffer()),
+          prefix: "mobile",
+        })
+      }
+
+      if (existing) {
+        if (existing.isActive === false) {
+          await prisma.serviceCategory.update({
+            where: { id: existing.id },
+            data: {
+              name: suggestedName || existing.name,
+              slug: suggestedName ? generateSlug(suggestedName) : existing.slug,
+              description: suggestedDesc ?? existing.description,
+              image: imageUrl || existing.image,
+              mobileIcon: mobileIconUrl || existing.mobileIcon,
+            }
+          })
+        }
+        if (!categoryIds.includes(existing.id)) {
+          categoryIds.push(existing.id)
+        }
+      } else if (suggestedName) {
+        let slug = generateSlug(suggestedName)
+        const slugExists = await prisma.serviceCategory.findUnique({ where: { slug } })
+        if (slugExists) {
+          slug = `${slug}-${Date.now()}`
+        }
+
+        const newCat = await prisma.serviceCategory.create({
+          data: {
+            name: suggestedName,
+            slug,
+            description: suggestedDesc,
+            image: imageUrl || null,
+            mobileIcon: mobileIconUrl || null,
+            isActive: false,
+          }
+        })
+        categoryIds.push(newCat.id)
+      }
+    }
+
     if (categoryIds.length > 0) {
       await prisma.seller.update({
         where: { id: seller.id },

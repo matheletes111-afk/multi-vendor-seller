@@ -161,9 +161,6 @@ export async function POST(request: NextRequest) {
             if (!businessData.busRegCertUrl) {
                 return NextResponse.json({ success: false, error: "Business Registration Certificate / Trade License is mandatory." }, { status: 400 });
             }
-            if (!businessData.addressProofUrl) {
-                return NextResponse.json({ success: false, error: "Proof of Address is mandatory." }, { status: 400 });
-            }
             if (haveGst && !businessData.gstTinCertUrl) {
                 return NextResponse.json({ success: false, error: "GST TIN Certificate is mandatory when selling with GST." }, { status: 400 });
             }
@@ -287,9 +284,7 @@ export async function POST(request: NextRequest) {
             const finalPassbook = bankData.passbookUrl || seller.bankDetails?.passbookUrl || null;
             const finalBankLetter = bankData.bankLetterUrl || seller.bankDetails?.bankLetterUrl || null;
 
-            if (!finalPassbook) {
-                return NextResponse.json({ success: false, error: "Bank Passbook / Cheque Copy is mandatory." }, { status: 400 });
-            }
+
 
             bankData.passbookUrl = finalPassbook;
             bankData.bankLetterUrl = finalBankLetter;
@@ -412,6 +407,9 @@ export async function POST(request: NextRequest) {
                                         prefix: "mobile",
                                     });
                                 }
+                            } else if (jsonBody?.data) {
+                                imageUrl = jsonBody.data[`suggestion_image_${i}`] || imageUrl;
+                                mobileIconUrl = jsonBody.data[`suggestion_mobile_icon_${i}`] || mobileIconUrl;
                             }
 
                             await prisma.serviceCategory.update({
@@ -419,9 +417,9 @@ export async function POST(request: NextRequest) {
                                 data: {
                                     name: suggestedName || existing.name,
                                     slug: suggestedName ? generateSlug(suggestedName) : existing.slug,
-                                    description: suggestedDesc,
-                                    image: imageUrl,
-                                    mobileIcon: mobileIconUrl,
+                                    description: suggestedDesc ?? existing.description,
+                                    image: imageUrl || existing.image,
+                                    mobileIcon: mobileIconUrl || existing.mobileIcon,
                                 }
                             });
                         }
@@ -453,15 +451,24 @@ export async function POST(request: NextRequest) {
                                     prefix: "mobile",
                                 });
                             }
+                        } else if (jsonBody?.data) {
+                            imageUrl = jsonBody.data[`suggestion_image_${i}`] || "";
+                            mobileIconUrl = jsonBody.data[`suggestion_mobile_icon_${i}`] || "";
+                        }
+
+                        let slug = generateSlug(suggestedName);
+                        const slugExists = await prisma.serviceCategory.findUnique({ where: { slug } });
+                        if (slugExists) {
+                            slug = `${slug}-${Date.now()}`;
                         }
 
                         const newCat = await prisma.serviceCategory.create({
                             data: {
                                 name: suggestedName,
-                                slug: generateSlug(suggestedName),
+                                slug,
                                 description: suggestedDesc,
-                                image: imageUrl,
-                                mobileIcon: mobileIconUrl,
+                                image: imageUrl || null,
+                                mobileIcon: mobileIconUrl || null,
                                 isActive: false,
                             }
                         });

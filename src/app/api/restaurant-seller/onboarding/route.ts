@@ -8,6 +8,7 @@ import { activateRestaurantFreePlan } from "@/lib/subscriptions"
 import { sendSellerWelcomeEmail, sendAdminNewSellerAlertEmail } from "@/lib/email"
 import { formatHearAboutUs } from "@/lib/onboarding-constants"
 import { evaluateSellerDocuments } from "@/lib/seller-approval-validation"
+import { validateOnboardingFile } from "@/lib/onboarding-file-validation"
 
 
 
@@ -121,6 +122,10 @@ export async function POST(request: NextRequest) {
       if (formData) {
         const profileImageFile = formData.get("profileImage") as File | null
         if (profileImageFile && profileImageFile.size > 0) {
+          const val = validateOnboardingFile(profileImageFile, { imagesOnly: true, maxSizeMb: 4.5 })
+          if (!val.isValid) {
+            return NextResponse.json({ error: `Profile Picture: ${val.error}` }, { status: 400 })
+          }
           userImage = await uploadPublicFile({ folder: "profile", ext: path.extname(profileImageFile.name) || ".jpg", contentType: profileImageFile.type || "image/jpeg", buffer: Buffer.from(await profileImageFile.arrayBuffer()), prefix: "profile" })
           await prisma.user.update({ where: { id: session.user.id }, data: { image: userImage } })
         }
@@ -139,6 +144,21 @@ export async function POST(request: NextRequest) {
       let addressProofUrl = seller.businessInfo?.addressProofUrl
 
       if (formData) {
+        const docFiles = [
+          { key: "busRegCert", label: "Business Registration" },
+          { key: "cityCouncilCert", label: "City Council Certificate" },
+          { key: "gstTinCert", label: "GST TIN Certificate" },
+          { key: "addressProof", label: "Address Proof" },
+        ]
+        for (const item of docFiles) {
+          const f = formData.get(item.key) as File | null
+          if (f && f.size > 0) {
+            const val = validateOnboardingFile(f, { maxSizeMb: 4.5 })
+            if (!val.isValid) {
+              return NextResponse.json({ error: `${item.label}: ${val.error}` }, { status: 400 })
+            }
+          }
+        }
         const file = formData.get("busRegCert") as File | null
         if (file && file.size > 0) {
           busRegCertUrl = await uploadPublicFile({ folder: "restaurant-onboarding/business", ext: path.extname(file.name) || ".pdf", contentType: file.type || "application/pdf", buffer: Buffer.from(await file.arrayBuffer()), prefix: "restaurant-bus-reg" })
@@ -156,6 +176,7 @@ export async function POST(request: NextRequest) {
           addressProofUrl = await uploadPublicFile({ folder: "restaurant-onboarding/business", ext: path.extname(fileAP.name) || ".pdf", contentType: fileAP.type || "application/pdf", buffer: Buffer.from(await fileAP.arrayBuffer()), prefix: "restaurant-address-proof" })
         }
       } else if (jsonBody?.data) {
+        if (jsonBody.data.busRegCertUrl) busRegCertUrl = jsonBody.data.busRegCertUrl
         if (jsonBody.data.cityCouncilCertUrl) cityCouncilCertUrl = jsonBody.data.cityCouncilCertUrl
         if (jsonBody.data.gstTinCertUrl) gstTinCertUrl = jsonBody.data.gstTinCertUrl
         if (jsonBody.data.addressProofUrl) addressProofUrl = jsonBody.data.addressProofUrl
@@ -163,9 +184,6 @@ export async function POST(request: NextRequest) {
 
       if (!busRegCertUrl) {
         return NextResponse.json({ error: "Business Registration Certificate is mandatory." }, { status: 400 })
-      }
-      if (!addressProofUrl) {
-        return NextResponse.json({ error: "Proof of Address is mandatory." }, { status: 400 })
       }
       if (haveGst && !gstTinCertUrl) {
         return NextResponse.json({ error: "GST TIN Certificate is mandatory when selling with GST." }, { status: 400 })
@@ -191,6 +209,21 @@ export async function POST(request: NextRequest) {
         const back = formData.get("idBack") as File | null
         const selfie = formData.get("selfie") as File | null
         const license = formData.get("foodLicense") as File | null
+
+        for (const [f, label] of [[front, "ID Front"], [back, "ID Back"], [selfie, "Selfie Check"]] as const) {
+          if (f && f.size > 0) {
+            const val = validateOnboardingFile(f, { imagesOnly: true, maxSizeMb: 4.5 })
+            if (!val.isValid) {
+              return NextResponse.json({ error: `${label}: ${val.error}` }, { status: 400 })
+            }
+          }
+        }
+        if (license && license.size > 0) {
+          const val = validateOnboardingFile(license, { maxSizeMb: 4.5 })
+          if (!val.isValid) {
+            return NextResponse.json({ error: `Food License: ${val.error}` }, { status: 400 })
+          }
+        }
 
         if (front && front.size > 0) idFrontUrl = await uploadPublicFile({ folder: "restaurant-onboarding/kyc", ext: path.extname(front.name) || ".jpg", contentType: front.type || "image/jpeg", buffer: Buffer.from(await front.arrayBuffer()), prefix: "restaurant-id-front" })
         if (back && back.size > 0) idBackUrl = await uploadPublicFile({ folder: "restaurant-onboarding/kyc", ext: path.extname(back.name) || ".jpg", contentType: back.type || "image/jpeg", buffer: Buffer.from(await back.arrayBuffer()), prefix: "restaurant-id-back" })
@@ -227,6 +260,15 @@ export async function POST(request: NextRequest) {
         const logo = formData.get("logo") as File | null
         const banner = formData.get("banner") as File | null
         const photo = formData.get("mainPhoto") as File | null
+
+        for (const [f, label] of [[logo, "Restaurant Logo"], [banner, "Restaurant Banner"], [photo, "Main Photo"]] as const) {
+          if (f && f.size > 0) {
+            const val = validateOnboardingFile(f, { imagesOnly: true, maxSizeMb: 4.5 })
+            if (!val.isValid) {
+              return NextResponse.json({ error: `${label}: ${val.error}` }, { status: 400 })
+            }
+          }
+        }
 
         if (logo && logo.size > 0) logoUrl = await uploadPublicFile({ folder: "restaurant-onboarding/property", ext: path.extname(logo.name) || ".jpg", contentType: logo.type || "image/jpeg", buffer: Buffer.from(await logo.arrayBuffer()), prefix: "restaurant-logo" })
         if (banner && banner.size > 0) bannerUrl = await uploadPublicFile({ folder: "restaurant-onboarding/property", ext: path.extname(banner.name) || ".jpg", contentType: banner.type || "image/jpeg", buffer: Buffer.from(await banner.arrayBuffer()), prefix: "restaurant-banner" })
@@ -266,10 +308,20 @@ export async function POST(request: NextRequest) {
       let bankLetterUrl = seller.bankDetails?.bankLetterUrl
       if (formData) {
         const file = formData.get("passbook") as File | null
+        const fileBL = formData.get("bankLetter") as File | null
+
+        for (const [f, label] of [[file, "Bank Passbook"], [fileBL, "Bank Letter"]] as const) {
+          if (f && f.size > 0) {
+            const val = validateOnboardingFile(f, { maxSizeMb: 4.5 })
+            if (!val.isValid) {
+              return NextResponse.json({ error: `${label}: ${val.error}` }, { status: 400 })
+            }
+          }
+        }
+
         if (file && file.size > 0) {
           passbookUrl = await uploadPublicFile({ folder: "restaurant-onboarding/bank", ext: path.extname(file.name) || ".jpg", contentType: file.type || "image/jpeg", buffer: Buffer.from(await file.arrayBuffer()), prefix: "restaurant-bank-passbook" })
         }
-        const fileBL = formData.get("bankLetter") as File | null
         if (fileBL && fileBL.size > 0) {
           bankLetterUrl = await uploadPublicFile({ folder: "restaurant-onboarding/bank", ext: path.extname(fileBL.name) || ".pdf", contentType: fileBL.type || "application/pdf", buffer: Buffer.from(await fileBL.arrayBuffer()), prefix: "restaurant-bank-letter" })
         }
@@ -278,9 +330,7 @@ export async function POST(request: NextRequest) {
         if (jsonBody.data.bankLetterUrl) bankLetterUrl = jsonBody.data.bankLetterUrl
       }
 
-      if (!passbookUrl) {
-        return NextResponse.json({ error: "Bank Passbook / Cheque Copy is mandatory." }, { status: 400 })
-      }
+
 
       await prisma.restaurantBankDetails.upsert({ where: { restaurantSellerId: seller.id }, update: { ...bankData, passbookUrl, bankLetterUrl }, create: { ...bankData, passbookUrl, bankLetterUrl, restaurantSellerId: seller.id } })
 

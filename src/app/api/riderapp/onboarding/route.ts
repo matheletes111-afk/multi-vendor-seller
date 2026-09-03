@@ -6,6 +6,7 @@ import bcrypt from "bcryptjs"
 import path from "path"
 import { uploadPublicFile } from "@/lib/upload-public-file"
 import { validatePhoneAndCountryCode } from "@/lib/phone-validation"
+import { validateOnboardingFile } from "@/lib/onboarding-file-validation"
 
 function getSafeFileExt(file: File, fallbackExt: string): string {
   const ext = path.extname(file.name || "").toLowerCase()
@@ -103,6 +104,10 @@ export async function POST(request: Request) {
       // Handle profile image upload
       const profileImageFile = formData.get("profileImage") as File | null
       if (profileImageFile && typeof profileImageFile === "object" && profileImageFile.size > 0) {
+        const val = validateOnboardingFile(profileImageFile, { imagesOnly: true, maxSizeMb: 4.5 })
+        if (!val.isValid) {
+          return NextResponse.json({ error: `Profile Picture: ${val.error}` }, { status: 400 })
+        }
         try {
           const buffer = Buffer.from(await profileImageFile.arrayBuffer())
           const ext = getSafeFileExt(profileImageFile, ".jpg")
@@ -122,6 +127,10 @@ export async function POST(request: Request) {
       // Handle driving license document
       const drivingLicenseFile = formData.get("drivingLicenseDoc") as File | null
       if (drivingLicenseFile && typeof drivingLicenseFile === "object" && drivingLicenseFile.size > 0) {
+        const val = validateOnboardingFile(drivingLicenseFile, { maxSizeMb: 4.5 })
+        if (!val.isValid) {
+          return NextResponse.json({ error: `Driving License: ${val.error}` }, { status: 400 })
+        }
         try {
           const buffer = Buffer.from(await drivingLicenseFile.arrayBuffer())
           const ext = getSafeFileExt(drivingLicenseFile, ".pdf")
@@ -141,6 +150,10 @@ export async function POST(request: Request) {
       // Handle national ID document
       const nationalIdFile = formData.get("nationalIdDoc") as File | null
       if (nationalIdFile && typeof nationalIdFile === "object" && nationalIdFile.size > 0) {
+        const val = validateOnboardingFile(nationalIdFile, { maxSizeMb: 4.5 })
+        if (!val.isValid) {
+          return NextResponse.json({ error: `National ID: ${val.error}` }, { status: 400 })
+        }
         try {
           const buffer = Buffer.from(await nationalIdFile.arrayBuffer())
           const ext = getSafeFileExt(nationalIdFile, ".pdf")
@@ -160,6 +173,10 @@ export async function POST(request: Request) {
       // Handle vehicle insurance document
       const vehicleInsuranceFile = formData.get("vehicleInsuranceDoc") as File | null
       if (vehicleInsuranceFile && typeof vehicleInsuranceFile === "object" && vehicleInsuranceFile.size > 0) {
+        const val = validateOnboardingFile(vehicleInsuranceFile, { maxSizeMb: 4.5 })
+        if (!val.isValid) {
+          return NextResponse.json({ error: `Vehicle Insurance: ${val.error}` }, { status: 400 })
+        }
         try {
           const buffer = Buffer.from(await vehicleInsuranceFile.arrayBuffer())
           const ext = getSafeFileExt(vehicleInsuranceFile, ".pdf")
