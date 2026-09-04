@@ -1321,6 +1321,7 @@ model OrderItem {
   deliveryProofImage  String?
   deliveryOtp         String?
   deliveryOtpExpires  DateTime?
+  isSelfDelivery      Boolean  @default(false)
   createdAt           DateTime @default(now())
   /// Points to the original line when this row is a Flipkart-style exchange replacement shipment.
   exchangeSourceOrderItemId String?

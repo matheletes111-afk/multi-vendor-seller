@@ -58,6 +58,7 @@ export type AdminOrderDetailItemApi = {
   deliveredAt: string | null
   deliveryOtp: string | null
   deliveryOtpExpires: string | null
+  isSelfDelivery?: boolean
   statusHistory: AdminOrderItemStatusHistoryApi[]
   returnAvailable: boolean
   replacementAllowed: boolean
@@ -73,9 +74,9 @@ export type AdminOrderDetailItemApi = {
   exchangeTopUpStatus: "NOT_REQUIRED" | "PENDING" | "COMPLETED" | null
   exchangeRefundDifferenceAmount: number
   exchangeRefundDifferenceStatus: "NOT_REQUESTED" | "PENDING" | "COMPLETED" | null
-  returnRequestStatus: string | null
-  pickupStatus: string | null
-  refundStatus: string | null
+  returnRequestStatus: "REQUESTED" | "ACCEPTED" | "REJECTED" | null
+  pickupStatus: "NOT_REQUESTED" | "PENDING" | "COMPLETED" | null
+  refundStatus: "NOT_REQUESTED" | "PENDING" | "COMPLETED" | null
 }
 
 export type AdminOrderSellerGroupApi = {
@@ -91,6 +92,7 @@ export type AdminOrderSellerGroupApi = {
   itemStatuses: Record<string, number>
   derivedStatus: string
   itemCount: number
+  isSelfDelivery?: boolean
 }
 
 export type AdminOrderListItemApi = {

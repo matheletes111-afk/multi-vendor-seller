@@ -24,7 +24,7 @@ export async function GET() {
     return NextResponse.json({ error: "Seller not found" }, { status: 404 })
   }
 
-  const [subscription, totalProducts, totalOrders, revenueAgg, pendingRevenueAgg, creditsAgg, debitsAgg, totalAdClicks] = await Promise.all([
+  const [subscription, totalProducts, totalOrders, revenueAgg, pendingRevenueAgg, riderShippingAgg, selfShippingAgg, creditsAgg, debitsAgg, totalAdClicks] = await Promise.all([
     getValidSubscription(seller.id),
     prisma.product.count({ where: { sellerId: seller.id, isActive: true, isDeleted: false } }),
     prisma.order.count({
@@ -57,6 +57,28 @@ export async function GET() {
         shippingAmount: true,
       },
     }),
+    prisma.orderItem.aggregate({
+      where: {
+        sellerId: seller.id,
+        productId: { not: null },
+        itemStatus: "DELIVERED",
+        isSelfDelivery: false,
+      },
+      _sum: {
+        shippingAmount: true,
+      },
+    }),
+    prisma.orderItem.aggregate({
+      where: {
+        sellerId: seller.id,
+        productId: { not: null },
+        itemStatus: "DELIVERED",
+        isSelfDelivery: true,
+      },
+      _sum: {
+        shippingAmount: true,
+      },
+    }),
     prisma.sellerBalanceTransaction.aggregate({
       where: { sellerId: seller.id, kind: "CREDIT" },
       _sum: { amount: true },
@@ -75,10 +97,11 @@ export async function GET() {
   ])
 
   const grossSales = revenueAgg._sum.subtotalInclGst ?? 0
-  const deliveryBoyCharges = revenueAgg._sum.shippingAmount ?? 0
+  const deliveryBoyCharges = riderShippingAgg._sum.shippingAmount ?? 0
+  const selfDeliveryShipping = selfShippingAgg._sum.shippingAmount ?? 0
   const pendingSales = pendingRevenueAgg._sum.subtotalInclGst ?? 0
   const platformCommission = revenueAgg._sum.commissionAmount ?? 0
-  const netEarnings = Math.max(0, grossSales - platformCommission - deliveryBoyCharges)
+  const netEarnings = Math.max(0, grossSales - platformCommission - deliveryBoyCharges + selfDeliveryShipping)
   const netBalance = Number(seller.netBalance)
   const balanceCreditsTotal = Number(creditsAgg._sum.amount ?? 0)
   const balanceDebitsTotal = Number(debitsAgg._sum.amount ?? 0)

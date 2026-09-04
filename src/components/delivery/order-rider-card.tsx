@@ -14,6 +14,7 @@ import {
   UserPlus,
   Search,
   Sparkles,
+  Truck,
 } from "lucide-react"
 import { Button } from "@/ui/button"
 import { Badge } from "@/ui/badge"
@@ -51,6 +52,7 @@ interface OrderRiderCardProps {
   destinationLng?: number | null
   showLiveMap?: boolean
   canManage?: boolean
+  isSelfDelivery?: boolean
   onRefresh?: () => void
 }
 
@@ -65,6 +67,7 @@ export function OrderRiderCard({
   destinationLng = null,
   showLiveMap = true,
   canManage = true,
+  isSelfDelivery = false,
   onRefresh,
 }: OrderRiderCardProps) {
   const [dispatchLoading, setDispatchLoading] = useState(false)
@@ -223,7 +226,24 @@ export function OrderRiderCard({
           </div>
         )}
 
-        {!activeAssignment ? (
+        {isSelfDelivery ? (
+          <div className="text-center py-5 space-y-3">
+            <div className="w-12 h-12 rounded-2xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 flex items-center justify-center mx-auto border border-emerald-500/20 shadow-inner">
+              <Truck className="w-6 h-6" />
+            </div>
+            <div className="space-y-1 max-w-xs mx-auto">
+              <p className="text-xs font-black text-foreground uppercase tracking-tight">Self-Delivery In-House Active</p>
+              <p className="text-[11px] text-muted-foreground leading-relaxed">
+                Platform riders are not dispatched for this order. You or your store staff are fulfilling delivery directly.
+              </p>
+            </div>
+            <div className="pt-1">
+              <Badge className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 text-[10px] font-bold py-1 px-3 rounded-full">
+                Delivery Fee Retained by Seller
+              </Badge>
+            </div>
+          </div>
+        ) : !activeAssignment ? (
           <div className="text-center py-4 space-y-3">
             <div className="w-10 h-10 rounded-2xl bg-blue-50 dark:bg-blue-950/50 text-blue-600 flex items-center justify-center mx-auto">
               <Bike className="w-5 h-5" />
