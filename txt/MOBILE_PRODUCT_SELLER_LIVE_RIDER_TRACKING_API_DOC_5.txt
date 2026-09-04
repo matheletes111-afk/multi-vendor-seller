@@ -34,6 +34,12 @@ TABLE OF CONTENTS
    6.2 Flutter (Dart) Dispatch BottomSheet with Radio Filter & Explanatory Note
    6.3 React Native / Kotlin / Swift Integration Notes
 7. MOBILE DEVELOPER VERIFICATION CHECKLIST
+8. IN-HOUSE SELF-DELIVERY (DELIVER BY MYSELF) INTEGRATION
+   8.1 Concept & Revenue Settlement (Rider vs. Self-Delivery)
+   8.2 Self-Delivery Toggle API (`PATCH /mobileapi/product-seller/orders/:id/self-delivery`)
+   8.3 Order Details API Schema Updates (`isSelfDelivery`)
+   8.4 Mobile UI/UX Guidelines for In-House Delivery Mode
+   8.5 Secure OTP & Proof-of-Delivery Verification Flow
 
 ================================================================================
 1. ARCHITECTURAL OVERVIEW
@@ -75,6 +81,7 @@ SUCCESS RESPONSE (200 OK):
   "tax": 0.00,
   "shipping": 20.00,
   "deliveryBoyCharges": 20.00,
+  "isSelfDelivery": false,
   "commission": 10.00,
   "commissionRate": 10.0,
   "sellerNet": 70.00,
@@ -104,6 +111,7 @@ SUCCESS RESPONSE (200 OK):
       "subtotalInclGst": 100.00,
       "shippingAmount": 20.00,
       "commissionAmount": 10.00,
+      "isSelfDelivery": false,
       "itemStatus": "OUT_FOR_DELIVERY",
       "sellerNetPayout": 70.00
     }
@@ -777,4 +785,225 @@ class _RiderDispatchBottomSheetState extends State<RiderDispatchBottomSheet> {
 [ ] Dispatch UI: Use explicit Radio Buttons for Vehicle Filter ("Compatible Only" vs "Show All").
 [ ] Safety Note: Display contextual active filter note (Green for compatible, Amber warning for all).
 [ ] Empty State: Show helpful redirection message if 0 compatible riders exist.
+[ ] Self-Delivery: Render toggle switch (default: OFF).
+[ ] Self-Delivery: Call PATCH /self-delivery when toggled.
+[ ] Self-Delivery: When ON, hide rider map and show In-House Delivery banner.
+[ ] Self-Delivery: Collect customer 6-digit OTP and photo upload when finalizing delivery.
 ================================================================================
+
+================================================================================
+8. IN-HOUSE SELF-DELIVERY (DELIVER BY MYSELF) INTEGRATION
+================================================================================
+
+--------------------------------------------------------------------------------
+8.1 Concept & Revenue Settlement (Rider vs. Self-Delivery)
+--------------------------------------------------------------------------------
+By default, all orders on MEEEM use the third-party delivery rider network.
+However, product sellers often have their own delivery boys or wish to personally
+deliver packages directly to nearby customers without paying third-party riders.
+
+When a seller enables "Self-Delivery":
+1. No notifications or waterfall offers are sent to delivery riders.
+2. Any pending rider offer (`OFFERED`) is immediately revoked.
+3. Live GPS telemetry map is hidden (since no rider app is involved).
+4. Revenue Settlement: The customer's delivery charge is NOT given to a rider;
+   it is CREDITED DIRECTLY to the seller's wallet!
+
+FINANCIAL SETTLEMENT COMPARISON:
++-----------------------------------+-----------------------------------+
+| Platform Rider Delivery (Default) | In-House Self-Delivery (Active)   |
++-----------------------------------+-----------------------------------+
+| Item Price (incl. GST) credited   | Item Price (incl. GST) credited   |
+| Platform commission deducted      | Platform commission deducted      |
+| Delivery fee goes to Rider        | Delivery fee goes to SELLER       |
+| Payout = Item - Commission        | Payout = Item + Delivery - Comm   |
++-----------------------------------+-----------------------------------+
+
+--------------------------------------------------------------------------------
+8.2 Self-Delivery Toggle API
+--------------------------------------------------------------------------------
+Endpoint: PATCH /mobileapi/product-seller/orders/:id/self-delivery
+Headers:
+  Authorization: Bearer <sellerAccessToken>
+  Content-Type: application/json
+
+Request Body:
+```json
+{
+  "isSelfDelivery": true
+}
+```
+
+Success Response (200 OK):
+```json
+{
+  "success": true,
+  "isSelfDelivery": true,
+  "message": "In-house self-delivery activated. Platform riders will not be notified."
+}
+```
+
+Restoring Platform Rider Mode:
+```json
+{
+  "isSelfDelivery": false
+}
+```
+
+Response (200 OK):
+```json
+{
+  "success": true,
+  "isSelfDelivery": false,
+  "message": "Platform rider delivery mode active."
+}
+```
+
+Error Cases:
+- 400 Bad Request: When the order or items are already in a terminal status
+  (`DELIVERED`, `CANCELLED`, `REFUNDED`).
+- 400 Bad Request: When an external rider has already picked up the package
+  (`PICKED_UP`, `OUT_FOR_DELIVERY`).
+- 404 Not Found: When the seller does not own items in this order.
+
+--------------------------------------------------------------------------------
+8.3 Order Details API Schema Updates (`isSelfDelivery`)
+--------------------------------------------------------------------------------
+In `GET /mobileapi/product-seller/orders/:id`:
+- Root level:
+  `"isSelfDelivery": true | false` (Indicates package-level self-delivery mode)
+- Inside `items[]`:
+  `"isSelfDelivery": true | false` (Indicates item-level mode)
+- When `isSelfDelivery == true`:
+  - `deliveryBoyCharges`: 0.00 (No deduction for third-party riders)
+  - `sellerNet` / `netEarnings`: Reflects product earnings + delivery fee - commission
+
+--------------------------------------------------------------------------------
+8.4 Mobile UI/UX Guidelines for In-House Delivery Mode
+--------------------------------------------------------------------------------
+1. Fulfillment Method Card:
+   - Place a Card above or replacing the Rider Card in the Order Details screen.
+   - Include a Switch widget:
+     Label: "Deliver by Myself (In-House)"
+     Default: OFF (false)
+   - When ON:
+     - Show emerald badge: "Self-Delivery Active".
+     - Informative text: "You or your staff are delivering directly. No platform riders will be contacted."
+     - Highlight: "Delivery fee credited to your wallet (+ Le XX.XX)".
+   - When OFF:
+     - Display normal "Delivery Rider Assignment" section with "Assign Rider" button.
+
+2. Flutter Code Snippet for Toggle:
+```dart
+Widget buildSelfDeliveryToggle(BuildContext context, OrderDetail order) {
+  return Container(
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(20),
+      border: Border.all(color: Colors.grey.shade200),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.local_shipping_outlined, color: Colors.orange.shade700, size: 20),
+                const SizedBox(width: 8),
+                const Text(
+                  'DELIVERY FULFILLMENT',
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 1.1),
+                ),
+              ],
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+              decoration: BoxDecoration(
+                color: order.isSelfDelivery ? Colors.green.shade50 : Colors.blue.shade50,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: order.isSelfDelivery ? Colors.green.shade300 : Colors.blue.shade200,
+                ),
+              ),
+              child: Text(
+                order.isSelfDelivery ? 'IN-HOUSE ACTIVE' : 'PLATFORM RIDERS',
+                style: TextStyle(
+                  fontSize: 9,
+                  fontWeight: FontWeight.bold,
+                  color: order.isSelfDelivery ? Colors.green.shade800 : Colors.blue.shade800,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Deliver by Myself / Store Staff',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    order.isSelfDelivery
+                        ? 'External riders will not be notified. Delivery charge will be credited to your account.'
+                        : 'Platform riders are dispatched automatically. Toggle ON to deliver in-house.',
+                    style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                  ),
+                ],
+              ),
+            ),
+            Switch(
+              value: order.isSelfDelivery,
+              activeColor: Colors.green.shade600,
+              onChanged: (bool value) async {
+                final success = await toggleSelfDeliveryApi(order.id, value);
+                if (success) {
+                  refreshOrderDetails();
+                }
+              },
+            ),
+          ],
+        ),
+      ],
+    ),
+  );
+}
+```
+
+--------------------------------------------------------------------------------
+8.5 Secure OTP & Proof-of-Delivery Verification Flow
+--------------------------------------------------------------------------------
+When a seller delivers an order in-house, the customer verification protocol
+remains identical to the platform rider standard to protect against fraud:
+
+1. Step 1: Advance status to `CONFIRMED` -> `PROCESSING` -> `SHIPPED`.
+2. Step 2: When the seller leaves the store towards the customer:
+   - Call `PATCH /mobileapi/product-seller/orders/:id` with `status: "OUT_FOR_DELIVERY"`.
+   - The backend automatically sends a 6-digit Delivery Token (OTP) to the
+     customer's mobile phone via SMS and Email.
+3. Step 3: At customer's doorstep:
+   - The seller requests the 6-digit OTP from the customer.
+   - The seller captures a photo proof of the parcel handover.
+4. Step 4: Seller marks delivered:
+   - Call `PATCH /mobileapi/product-seller/orders/:id` with:
+     ```json
+     {
+       "status": "DELIVERED",
+       "otp": "684920",
+       "deliveryProofImage": "https://storage.../delivery-proof-123.jpg"
+     }
+     ```
+   - Backend validates the OTP and commits the status to `DELIVERED`.
+   - Seller's net wallet is automatically credited with:
+     `Product Total (incl. GST) + Customer Delivery Fee - Platform Commission`.
+================================================================================
+

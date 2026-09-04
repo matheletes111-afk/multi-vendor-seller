@@ -53,6 +53,7 @@ export type OrderDetailItemApi = {
   deliveryProofImage: string | null
   deliveryOtp: string | null
   deliveryOtpExpires: string | null
+  isSelfDelivery?: boolean
   statusHistory: {
     status: string
     location: string | null
@@ -74,6 +75,7 @@ export type CustomerOrderSellerGroupApi = {
   itemStatuses: Record<string, number>
   derivedStatus: string
   itemCount: number
+  isSelfDelivery?: boolean
   activeDeliveryTracking?: any
 }
 

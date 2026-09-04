@@ -37,6 +37,7 @@ export async function applySellerCreditForOrderLineDelivered(
       shippingAmount: true,
       commissionAmount: true,
       itemStatus: true,
+      isSelfDelivery: true,
     },
   })
   if (!item?.sellerId || item.itemStatus !== "DELIVERED") return
@@ -44,8 +45,16 @@ export async function applySellerCreditForOrderLineDelivered(
 
   const lineIncl = originalOrderItemLineTotalInclGst(item)
   const comm = typeof item.commissionAmount === "number" ? item.commissionAmount : 0
-  const deliveryBoyCharge = item.productId ? (item.shippingAmount || 0) : 0
-  const creditAmount = roundMoney(Math.max(0, lineIncl - comm - deliveryBoyCharge))
+  const isSelf = Boolean(item.isSelfDelivery)
+  const shippingFee = item.productId ? (item.shippingAmount || 0) : 0
+
+  // For Self-Delivery: Seller fulfilled delivery in-house, so customer delivery charge is added to seller wallet.
+  // For Platform Rider: Delivery charge is deducted to compensate platform rider.
+  const creditAmount = roundMoney(
+    isSelf
+      ? Math.max(0, lineIncl + shippingFee - comm)
+      : Math.max(0, lineIncl - comm - shippingFee)
+  )
   if (creditAmount <= EPS) return
 
   await tx.seller.update({
@@ -61,7 +70,9 @@ export async function applySellerCreditForOrderLineDelivered(
       orderItemId: item.id,
       orderId: item.orderId,
       note: item.productId
-        ? `Seller net credit: Item incl. GST (${roundMoney(lineIncl)}) − platform commission (${roundMoney(comm)}) − delivery boy charge (${roundMoney(deliveryBoyCharge)})`
+        ? isSelf
+          ? `Seller net credit: Item incl. GST (${roundMoney(lineIncl)}) + delivery charge credited (${roundMoney(shippingFee)}) − platform commission (${roundMoney(comm)}) [Self-Delivery Fulfilled]`
+          : `Seller net credit: Item incl. GST (${roundMoney(lineIncl)}) − platform commission (${roundMoney(comm)}) − delivery boy charge (${roundMoney(shippingFee)})`
         : `Seller net credit: Service line incl. GST (${roundMoney(lineIncl)}) − platform commission (${roundMoney(comm)})`,
     },
   })

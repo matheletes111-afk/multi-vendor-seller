@@ -160,6 +160,7 @@ export async function listCustomerOrders({
         deliveryProofImage: row.deliveryProofImage ?? null,
         deliveryOtp: (row as any).deliveryOtp ?? null,
         deliveryOtpExpires: (row as any).deliveryOtpExpires ? (row as any).deliveryOtpExpires.toISOString() : null,
+        isSelfDelivery: Boolean((row as any).isSelfDelivery),
         statusHistory: row.statusHistory.map((h) => ({
           status: h.status,
           location: h.location ?? null,
@@ -442,6 +443,7 @@ export async function getCustomerOrderDetail({
       deliveryProofImage: row.deliveryProofImage ?? null,
       deliveryOtp: (row as any).deliveryOtp ?? null,
       deliveryOtpExpires: (row as any).deliveryOtpExpires ? (row as any).deliveryOtpExpires.toISOString() : null,
+      isSelfDelivery: Boolean((row as any).isSelfDelivery),
       statusHistory: row.statusHistory.map((h) => ({
         status: h.status,
         location: h.location ?? null,
@@ -568,6 +570,7 @@ export async function getCustomerOrderDetail({
       itemStatuses: statusSummary.counts,
       derivedStatus: statusSummary.derivedStatus,
       itemCount: group.itemCount,
+      isSelfDelivery: order.items.filter((i) => (i.sellerId ?? "unknown") === (group.sellerId ?? "unknown")).some((i) => Boolean((i as any).isSelfDelivery)),
       activeDeliveryTracking,
     }
   })

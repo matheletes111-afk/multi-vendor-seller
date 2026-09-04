@@ -162,6 +162,7 @@ export async function GET(
       deliveredAt: (row as any).deliveredAt ? (row as any).deliveredAt.toISOString() : null,
       deliveryOtp: (row as any).deliveryOtp ?? null,
       deliveryOtpExpires: (row as any).deliveryOtpExpires ? (row as any).deliveryOtpExpires.toISOString() : null,
+      isSelfDelivery: Boolean((row as any).isSelfDelivery),
       commissionAmount: row.commissionAmount ?? 0,
       commissionRateSnapshot: row.commissionRateSnapshot ?? 0,
       statusHistory: row.statusHistory.map((h) => ({
@@ -202,6 +203,7 @@ export async function GET(
     regionCharges,
   })
 
+  const isPackageSelfDelivery = order.items.length > 0 && order.items.every((i) => i.isSelfDelivery)
   const sellerShippingTotal = order.items.reduce((sum, item) => sum + item.shippingAmount, 0)
   const sellerCommissionTotal = order.items.reduce((sum, item) => sum + item.commissionAmount, 0)
   const sellerGrossTotal =
@@ -209,7 +211,12 @@ export async function GET(
       (sum, item) => sum + (item.subtotalInclGst ?? item.subtotal + item.gstAmount),
       0
     ) - sellerCouponDiscount
-  const sellerNetPayout = Math.max(0, sellerGrossTotal - sellerCommissionTotal - sellerShippingTotal)
+
+  // When self-delivery is enabled, customer-paid delivery fee is earned by seller (not deducted)
+  const deliveryBoyCharges = isPackageSelfDelivery ? 0 : sellerShippingTotal
+  const sellerNetPayout = isPackageSelfDelivery
+    ? Math.max(0, sellerGrossTotal + sellerShippingTotal - sellerCommissionTotal)
+    : Math.max(0, sellerGrossTotal - sellerCommissionTotal - sellerShippingTotal)
 
   const assignments = order.deliveryAssignments || []
   const activeAssignment = assignments.find((a: any) =>
@@ -270,7 +277,8 @@ export async function GET(
     subtotal: sellerSubtotal,
     tax: order.items.reduce((sum, item) => sum + item.gstAmount, 0),
     shipping: sellerShippingTotal,
-    deliveryBoyCharges: sellerShippingTotal,
+    deliveryBoyCharges,
+    isSelfDelivery: isPackageSelfDelivery,
     sellerNet: sellerNetPayout,
     netEarnings: sellerNetPayout,
     weightShippingFee: sellerShippingBreakup.weightShippingFee,
@@ -363,7 +371,7 @@ export async function PATCH(
 
   const ownItems = (await prisma.orderItem.findMany({
     where: { orderId, id: { in: targetItemIds }, sellerId: seller.id, productId: { not: null } },
-    select: { id: true, itemStatus: true, deliveryOtp: true, deliveryOtpExpires: true } as any,
+    select: { id: true, itemStatus: true, deliveryOtp: true, deliveryOtpExpires: true, isSelfDelivery: true } as any,
   })) as any[]
   if (ownItems.length !== targetItemIds.length) {
     return NextResponse.json({ error: "One or more items are not found for this seller" }, { status: 404 })
@@ -400,6 +408,29 @@ export async function PATCH(
     if (status !== "CANCELLED" && targetPriority <= currentPriority) {
       return NextResponse.json(
         { error: `Cannot move item from ${item.itemStatus} back to ${status}`, itemId: item.id },
+        { status: 400 }
+      )
+    }
+  }
+
+  // Guard: If a platform rider is actively in transit (PICKED_UP or OUT_FOR_DELIVERY),
+  // prevent the seller from marking the item DELIVERED or CANCELLED directly.
+  if (status === "DELIVERED" || status === "CANCELLED") {
+    const activeTransitRider = await prisma.riderDeliveryAssignment.findFirst({
+      where: {
+        orderId,
+        sellerId: seller.id,
+        status: { in: ["PICKED_UP", "OUT_FOR_DELIVERY"] },
+      },
+    })
+    if (activeTransitRider) {
+      return NextResponse.json(
+        {
+          error:
+            status === "DELIVERED"
+              ? `A delivery rider is currently in transit with this package (${activeTransitRider.status}). Delivery must be confirmed by the rider upon handover with the customer OTP.`
+              : `Cannot cancel package: A delivery rider is already in transit with this package (${activeTransitRider.status}). Please contact the rider or support.`,
+        },
         { status: 400 }
       )
     }
@@ -489,7 +520,7 @@ export async function PATCH(
           await applySellerCreditForOrderLineDelivered(tx, id)
         }
 
-        // Clean up any pending/active rider assignments for this seller package
+        // Revoke any pending/uncollected rider assignments since seller fulfilled directly in-house
         await tx.riderDeliveryAssignment.updateMany({
           where: {
             orderId,
@@ -497,9 +528,9 @@ export async function PATCH(
             status: { in: ["OFFERED", "ACCEPTED", "AT_PICKUP"] },
           },
           data: {
-            status: "DELIVERED",
-            deliveredAt: new Date(),
-            deliveryProofImage: deliveryProofImage || undefined,
+            status: "CANCELLED_BY_RIDER",
+            cancellationReason: "Fulfilled directly by seller in-house (Self-Delivery)",
+            cancelledAt: new Date(),
             adminNotes: "Fulfilled directly via Seller Panel",
           },
         })
@@ -518,6 +549,23 @@ export async function PATCH(
             data: { status: "DELIVERED", paymentStatus: "COMPLETED" },
           })
         }
+      }
+
+      if (status === "CANCELLED") {
+        // Cancel any pending rider offers or accepted assignments for this seller package
+        await tx.riderDeliveryAssignment.updateMany({
+          where: {
+            orderId,
+            sellerId: seller.id,
+            status: { in: ["OFFERED", "ACCEPTED", "AT_PICKUP"] },
+          },
+          data: {
+            status: "CANCELLED_BY_RIDER",
+            cancellationReason: "Order cancelled by seller",
+            cancelledAt: new Date(),
+            adminNotes: "Revoked assignment: Order cancelled by seller",
+          },
+        })
       }
     })
 
@@ -561,8 +609,9 @@ export async function PATCH(
     console.error("Failed to send status update email:", emailErr)
   }
 
-  // Auto-dispatch delivery rider when seller confirms or processes order
-  if (status === "CONFIRMED" || status === "PROCESSING" || status === "SHIPPED") {
+  // Auto-dispatch delivery rider when seller confirms or processes order (skip if self-delivery)
+  const isSelfDeliveryOrder = ownItems.some((i) => i.isSelfDelivery)
+  if (!isSelfDeliveryOrder && (status === "CONFIRMED" || status === "PROCESSING" || status === "SHIPPED")) {
     triggerOrderAutoDispatch(orderId, seller.id).catch((err) =>
       console.error("[AutoDispatch] Trigger failed:", err?.message || err)
     )

@@ -200,6 +200,7 @@ export async function GET(
       deliveryProofImage: row.deliveryProofImage ?? null,
       deliveryOtp: (row as any).deliveryOtp ?? null,
       deliveryOtpExpires: (row as any).deliveryOtpExpires ? (row as any).deliveryOtpExpires.toISOString() : null,
+      isSelfDelivery: Boolean((row as any).isSelfDelivery),
       statusHistory: row.statusHistory.map((h) => ({
         status: h.status,
         location: h.location ?? null,
@@ -344,6 +345,7 @@ export async function GET(
       itemStatuses: statusSummary.counts,
       derivedStatus: statusSummary.derivedStatus,
       itemCount: group.itemCount,
+      isSelfDelivery: sellerItems.some((i) => Boolean((i as any).isSelfDelivery)),
       activeDeliveryTracking,
     }
   })

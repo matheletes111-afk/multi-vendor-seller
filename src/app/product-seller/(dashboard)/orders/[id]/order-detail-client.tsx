@@ -57,6 +57,7 @@ import {
   ORDER_ITEM_LOCKED_AFTER_DELIVERED,
 } from "@/lib/order-cancel-guard"
 import { OrderRiderCard } from "@/components/delivery/order-rider-card"
+import { Switch } from "@/ui/switch"
 
 const MAX_PROOF_BYTES = 5 * 1024 * 1024
 const TIMELINE_PREVIEW = 5
@@ -172,6 +173,35 @@ export function ProductSellerOrderDetailClient({ orderId }: { orderId: string })
     title: string
     description: string
   } | null>(null)
+  const [selfDeliveryLoading, setSelfDeliveryLoading] = useState(false)
+
+  const isSelfDelivery = useMemo(() => {
+    if (!order) return false
+    return Boolean(order.isSelfDelivery ?? (order.items.length > 0 && order.items.every((i) => i.isSelfDelivery)))
+  }, [order])
+
+  const handleToggleSelfDelivery = async (checked: boolean) => {
+    try {
+      setSelfDeliveryLoading(true)
+      setStatusError(null)
+      const res = await fetch(`/api/product-seller/orders/${orderId}/self-delivery`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isSelfDelivery: checked }),
+        credentials: "include",
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to update delivery mode")
+      }
+      setSuccessMessage(data.message || (checked ? "In-house self-delivery activated!" : "Platform rider delivery mode active."))
+      await fetchOrder()
+    } catch (err: any) {
+      setStatusError(err.message || "Error updating self-delivery mode")
+    } finally {
+      setSelfDeliveryLoading(false)
+    }
+  }
 
   const uploadDeliveryProofOnSave = async (itemId: string): Promise<string> => {
     const file = deliveryProofFiles[itemId]
@@ -993,14 +1023,21 @@ export function ProductSellerOrderDetailClient({ orderId }: { orderId: string })
                 {showShipmentForm && (
                   <Card className="border-none shadow-[LRB] rounded-[3rem] overflow-hidden bg-gradient-to-tr from-background to-amber-500/5 animate-in slide-in-from-right-8 duration-700">
                     <CardHeader className="p-8 border-b border-muted/20 bg-muted/10">
-                      <div className="flex items-center gap-4">
-                         <div className="p-3 bg-amber-500/10 rounded-2xl shadow-inner">
+                      <div className="flex items-center justify-between gap-4">
+                        <div className="flex items-center gap-4">
+                          <div className="p-3 bg-amber-500/10 rounded-2xl shadow-inner">
                             <Truck className="h-7 w-7 text-amber-600" aria-hidden />
-                         </div>
-                         <div>
+                          </div>
+                          <div>
                             <CardTitle className="text-2xl font-black tracking-tight">Dispatcher Hub</CardTitle>
                             <CardDescription className="text-sm font-medium">Coordinate the final journey of this item</CardDescription>
-                         </div>
+                          </div>
+                        </div>
+                        {isSelfDelivery && (
+                          <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 text-[10px] font-bold py-1 px-3 rounded-full shrink-0">
+                            In-House Delivery Mode
+                          </Badge>
+                        )}
                       </div>
                     </CardHeader>
                     <CardContent className="p-10 space-y-10">
@@ -1254,12 +1291,69 @@ export function ProductSellerOrderDetailClient({ orderId }: { orderId: string })
                   </div>
                 </div>
 
+                {/* Delivery Fulfillment Method Toggle Section */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between px-1">
+                    <h4 className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-foreground/70">
+                      <Truck className="w-3.5 h-3.5 text-primary" /> Delivery Fulfillment Method
+                    </h4>
+                    {isSelfDelivery ? (
+                      <Badge className="bg-emerald-600 text-white font-black text-[9px] uppercase tracking-widest px-2.5 py-0.5 rounded-full shadow-xs">
+                        In-House Active
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-[9px] font-bold uppercase tracking-widest px-2.5 py-0.5 rounded-full border-blue-500/30 text-blue-600 bg-blue-50/50 dark:bg-blue-950/30">
+                        Platform Riders (Default)
+                      </Badge>
+                    )}
+                  </div>
+
+                  <div className="rounded-3xl bg-background/60 backdrop-blur-md p-5 border border-muted/30 shadow-sm space-y-4">
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="space-y-1">
+                        <label htmlFor="self-delivery-toggle" className="text-xs font-black uppercase tracking-wider text-foreground flex items-center gap-2 cursor-pointer">
+                          Deliver by Myself (In-House)
+                        </label>
+                        <p className="text-[11px] text-muted-foreground leading-relaxed">
+                          {isSelfDelivery
+                            ? "In-house delivery is active. External rider dispatch is paused, and customer delivery charge will be credited directly to your seller account."
+                            : "Platform riders are dispatched automatically. Switch ON to fulfill this delivery yourself with shop staff."}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        {selfDeliveryLoading && <Loader2 className="w-4 h-4 animate-spin text-primary" />}
+                        <Switch
+                          id="self-delivery-toggle"
+                          checked={isSelfDelivery}
+                          onCheckedChange={handleToggleSelfDelivery}
+                          disabled={selfDeliveryLoading || order.status === "DELIVERED" || order.status === "CANCELLED"}
+                        />
+                      </div>
+                    </div>
+
+                    {isSelfDelivery && (
+                      <div className="rounded-2xl bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-500/20 p-3.5 text-xs space-y-2 text-emerald-900 dark:text-emerald-200 animate-in fade-in zoom-in-95 duration-200">
+                        <div className="flex items-center gap-2 font-bold text-emerald-800 dark:text-emerald-300">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                          <span>No Platform Rider Notifications Sent</span>
+                        </div>
+                        <ul className="text-[11px] space-y-1 opacity-90 pl-5 list-disc leading-normal">
+                          <li>Customer delivery charge is added to your net seller payout.</li>
+                          <li>Advance status to <strong>OUT_FOR_DELIVERY</strong> in Dispatcher Hub to trigger the customer's secure OTP.</li>
+                          <li>Collect OTP and snap a photo upon handover to confirm delivery.</li>
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
                 {/* Assigned Delivery Rider Card & Live GPS Map */}
                 <OrderRiderCard
                   orderId={order.id}
                   orderNumber={order.orderNumber}
                   orderStatus={order.status}
                   deliveryAssignments={order.deliveryAssignments}
+                  isSelfDelivery={isSelfDelivery}
                   shippingAddress={{
                     fullName: order.shippingFullName,
                     phone: order.shippingPhone,
@@ -1332,7 +1426,12 @@ export function ProductSellerOrderDetailClient({ orderId }: { orderId: string })
                       <span className="font-bold tabular-nums text-slate-200">{formatCurrency(order.regionShippingFee ?? 0)}</span>
                     </div>
                     <div className="flex justify-between items-center text-xs pt-2.5 border-t border-slate-800 font-black">
-                      <span className="text-orange-400 uppercase tracking-wider text-[10px]">Total Delivery Charge</span>
+                      <div className="space-y-0.5">
+                        <span className="text-orange-400 uppercase tracking-wider text-[10px] block">Total Delivery Charge</span>
+                        {isSelfDelivery && (
+                          <span className="text-[10px] text-emerald-400 font-bold block">✓ Credited to Seller Account</span>
+                        )}
+                      </div>
                       <span className="text-orange-400 text-sm tabular-nums">{formatCurrency(order.shipping)}</span>
                     </div>
                   </div>

@@ -67,6 +67,30 @@ export async function triggerOrderAutoDispatch(orderId: string, targetSellerId?:
     const results: any[] = []
 
     for (const sellerId of sellerIds) {
+      // 0. Check if seller has enabled Self-Delivery (In-House) for their items in this order
+      const selfDeliveryItem = await prisma.orderItem.findFirst({
+        where: {
+          orderId: order.id,
+          sellerId: sellerId,
+          productId: { not: null },
+          isSelfDelivery: true,
+        },
+      })
+
+      if (selfDeliveryItem) {
+        console.log(
+          `[Dispatch] Order #${order.orderNumber} (Seller: ${sellerId}) has Self-Delivery enabled. Skipping rider dispatch.`
+        )
+        results.push({
+          sellerId,
+          success: true,
+          selfDelivery: true,
+          skipped: true,
+          message: "Seller has chosen Self-Delivery (In-House). Rider auto-dispatch is disabled.",
+        })
+        continue
+      }
+
       // Check if there is already an active accepted or in-progress assignment for this seller (Live DB query to prevent race conditions)
       const activeAssignment = await prisma.riderDeliveryAssignment.findFirst({
         where: {
@@ -861,6 +885,12 @@ export async function manualAssignRiderToOrder(
       acceptedAt: new Date(),
       adminNotes,
     },
+  })
+
+  // If order items had self-delivery active, set it back to false since a rider was manually assigned
+  await prisma.orderItem.updateMany({
+    where: { orderId, sellerId, productId: { not: null }, isSelfDelivery: true },
+    data: { isSelfDelivery: false },
   })
 
   // Send Push Notification to Manually Assigned Rider

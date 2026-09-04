@@ -1015,83 +1015,145 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
             const activeAssignments = (order.deliveryAssignments || []).filter((a: any) =>
               ["ACCEPTED", "AT_PICKUP", "PICKED_UP", "OUT_FOR_DELIVERY", "DELIVERED"].includes(a.status)
             )
-            if (activeAssignments.length === 0) return null
 
-            return activeAssignments.map((activeAssignment: any, idx: number) => {
-              const rider = activeAssignment.rider
-              const riderUser = rider?.user
-              const isOutForDelivery = activeAssignment.status === "OUT_FOR_DELIVERY"
-              const isDelivered = activeAssignment.status === "DELIVERED"
-              const sellerGroup = order.sellerGroups?.find((g) => g.sellerId === activeAssignment.sellerId)
-              const storeTitle = activeAssignment.seller?.store?.name || sellerGroup?.sellerStoreName || "Store Package"
+            // If platform riders are active, render rider assignment cards
+            if (activeAssignments.length > 0) {
+              return activeAssignments.map((activeAssignment: any, idx: number) => {
+                const rider = activeAssignment.rider
+                const riderUser = rider?.user
+                const isOutForDelivery = activeAssignment.status === "OUT_FOR_DELIVERY"
+                const isDelivered = activeAssignment.status === "DELIVERED"
+                const sellerGroup = order.sellerGroups?.find((g) => g.sellerId === activeAssignment.sellerId)
+                const storeTitle = activeAssignment.seller?.store?.name || sellerGroup?.sellerStoreName || "Store Package"
+
+                return (
+                  <Card key={activeAssignment.id || idx} className="border-blue-200 bg-blue-50/40 dark:bg-blue-950/20 shadow-md">
+                    <CardHeader className="pb-2">
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="flex items-center gap-2 text-base font-bold text-gray-900 dark:text-gray-100">
+                          <Bike className="h-5 w-5 text-blue-600" />
+                          {activeAssignments.length > 1 ? `Delivery: ${storeTitle}` : "Delivery Partner"}
+                        </CardTitle>
+                        <Badge className="bg-blue-600 text-white capitalize text-[10px]">
+                          {activeAssignment.status.replace(/_/g, " ").toLowerCase()}
+                        </Badge>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-3 text-sm">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-bold text-gray-900 dark:text-gray-100">
+                            {riderUser?.name || "Delivery Rider"}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {rider?.vehicleNumber ? `Vehicle: ${rider.vehicleNumber}` : "Verified Rider"}
+                          </p>
+                        </div>
+                        {riderUser?.phone && (
+                          <a href={`tel:${riderUser.phone}`}>
+                            <Button size="sm" variant="outline" className="h-8 rounded-lg text-xs gap-1 text-blue-600 border-blue-200">
+                              <Phone className="h-3.5 w-3.5" /> Call
+                            </Button>
+                          </a>
+                        )}
+                      </div>
+
+                      {activeAssignment.deliveryOtp && !isDelivered && (
+                        <div className="p-3.5 rounded-2xl bg-white dark:bg-gray-900 border border-blue-200 dark:border-blue-900 text-center space-y-1">
+                          <div className="flex items-center justify-center gap-1.5 text-xs font-semibold text-blue-700 dark:text-blue-300">
+                            <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                            {activeAssignments.length > 1 ? `Handover OTP (${storeTitle})` : "Customer Handover OTP"}
+                          </div>
+                          <div className="text-2xl font-mono font-black tracking-widest text-blue-600">
+                            {activeAssignment.deliveryOtp}
+                          </div>
+                          <p className="text-[11px] text-gray-500">
+                            Share this 6-digit code with the rider upon package arrival to confirm delivery.
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Live GPS Map View */}
+                      {activeAssignment.status !== "OFFERED" && (
+                        <div className="pt-2 border-t border-blue-200/60 dark:border-blue-900/60">
+                          <OrderLiveTrackingMap
+                            orderId={order.id}
+                            orderNumber={order.orderNumber}
+                            orderStatus={order.status}
+                            deliveryAssignments={[activeAssignment]}
+                            shippingAddress={{
+                              fullName: order.shippingFullName,
+                              phone: order.shippingPhone,
+                              addressLine1: order.shippingAddressLine1,
+                              addressLine2: order.shippingAddressLine2,
+                              city: order.shippingCity,
+                              state: order.shippingState,
+                              postalCode: order.shippingPostalCode,
+                              country: order.shippingCountry,
+                            }}
+                            height="260px"
+                          />
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                )
+              })
+            }
+
+            // In-House Store Delivery / Self-Delivery fallback
+            const relevantItems = (order.items || []).filter(
+              (i: any) => i.isSelfDelivery || i.deliveryOtp || ["PROCESSING", "SHIPPED", "OUT_FOR_DELIVERY", "DELIVERED"].includes(i.itemStatus)
+            )
+            if (relevantItems.length === 0) return null
+
+            // Group by distinct seller
+            const distinctSellers = [...new Set(relevantItems.map((i: any) => i.sellerId).filter(Boolean))]
+            const sellerList = distinctSellers.length > 0 ? distinctSellers : [null]
+
+            return sellerList.map((sId, idx) => {
+              const itemsForSeller = relevantItems.filter((i: any) => !sId || i.sellerId === sId)
+              const firstItem = itemsForSeller[0]
+              const storeTitle = firstItem?.sellerStoreName || "Store Fulfillment"
+              const isOutForDelivery = itemsForSeller.some((i: any) => i.itemStatus === "OUT_FOR_DELIVERY")
+              const isDelivered = itemsForSeller.every((i: any) => i.itemStatus === "DELIVERED")
+              const activeOtp = itemsForSeller.find((i: any) => i.deliveryOtp && i.itemStatus === "OUT_FOR_DELIVERY")?.deliveryOtp
 
               return (
-                <Card key={activeAssignment.id || idx} className="border-blue-200 bg-blue-50/40 dark:bg-blue-950/20 shadow-md">
+                <Card key={sId || idx} className="border-emerald-200 bg-emerald-50/40 dark:bg-emerald-950/20 shadow-md">
                   <CardHeader className="pb-2">
                     <div className="flex items-center justify-between">
                       <CardTitle className="flex items-center gap-2 text-base font-bold text-gray-900 dark:text-gray-100">
-                        <Bike className="h-5 w-5 text-blue-600" />
-                        {activeAssignments.length > 1 ? `Delivery: ${storeTitle}` : "Delivery Partner"}
+                        <Store className="h-5 w-5 text-emerald-600" />
+                        {sellerList.length > 1 ? `Delivery: ${storeTitle}` : "Store Delivery"}
                       </CardTitle>
-                      <Badge className="bg-blue-600 text-white capitalize text-[10px]">
-                        {activeAssignment.status.replace(/_/g, " ").toLowerCase()}
+                      <Badge className="bg-emerald-600 text-white capitalize text-[10px]">
+                        {isDelivered ? "Delivered" : isOutForDelivery ? "Out For Delivery" : "In-House Delivery"}
                       </Badge>
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-3 text-sm">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="font-bold text-gray-900 dark:text-gray-100">
-                          {riderUser?.name || "Delivery Rider"}
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          {rider?.vehicleNumber ? `Vehicle: ${rider.vehicleNumber}` : "Verified Rider"}
-                        </p>
-                      </div>
-                      {riderUser?.phone && (
-                        <a href={`tel:${riderUser.phone}`}>
-                          <Button size="sm" variant="outline" className="h-8 rounded-lg text-xs gap-1 text-blue-600 border-blue-200">
-                            <Phone className="h-3.5 w-3.5" /> Call
-                          </Button>
-                        </a>
-                      )}
+                    <div>
+                      <p className="font-bold text-gray-900 dark:text-gray-100">
+                        In-House Store Delivery
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        This package is being delivered directly by {storeTitle}&apos;s internal delivery team.
+                      </p>
                     </div>
 
-                    {activeAssignment.deliveryOtp && !isDelivered && (
-                      <div className="p-3.5 rounded-2xl bg-white dark:bg-gray-900 border border-blue-200 dark:border-blue-900 text-center space-y-1">
-                        <div className="flex items-center justify-center gap-1.5 text-xs font-semibold text-blue-700 dark:text-blue-300">
+                    {activeOtp && !isDelivered && (
+                      <div className="p-3.5 rounded-2xl bg-white dark:bg-gray-900 border border-emerald-300 dark:border-emerald-900 text-center space-y-1 shadow-xs">
+                        <div className="flex items-center justify-center gap-1.5 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
                           <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                          {activeAssignments.length > 1 ? `Handover OTP (${storeTitle})` : "Customer Handover OTP"}
+                          Customer Handover OTP
                         </div>
-                        <div className="text-2xl font-mono font-black tracking-widest text-blue-600">
-                          {activeAssignment.deliveryOtp}
+                        <div className="text-2xl font-mono font-black tracking-widest text-emerald-600">
+                          {activeOtp}
                         </div>
                         <p className="text-[11px] text-gray-500">
-                          Share this 6-digit code with the rider upon package arrival to confirm delivery.
+                          Share this 6-digit code with the store delivery person upon arrival to confirm delivery.
                         </p>
-                      </div>
-                    )}
-
-                    {/* Live GPS Map View */}
-                    {activeAssignment.status !== "OFFERED" && (
-                      <div className="pt-2 border-t border-blue-200/60 dark:border-blue-900/60">
-                        <OrderLiveTrackingMap
-                          orderId={order.id}
-                          orderNumber={order.orderNumber}
-                          orderStatus={order.status}
-                          deliveryAssignments={[activeAssignment]}
-                          shippingAddress={{
-                            fullName: order.shippingFullName,
-                            phone: order.shippingPhone,
-                            addressLine1: order.shippingAddressLine1,
-                            addressLine2: order.shippingAddressLine2,
-                            city: order.shippingCity,
-                            state: order.shippingState,
-                            postalCode: order.shippingPostalCode,
-                            country: order.shippingCountry,
-                          }}
-                          height="260px"
-                        />
                       </div>
                     )}
                   </CardContent>
