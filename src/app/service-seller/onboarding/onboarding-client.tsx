@@ -555,8 +555,13 @@ export function ServiceOnboardingClient() {
     { id: 6, title: "Agreement" },
   ]
 
-  const currentStepIndex = Math.max(0, steps.findIndex((s) => s.id === currentStep))
-  const progressPercent = Math.round(((currentStepIndex + 1) / steps.length) * 100)
+  const isCompleted = currentStep >= 7 || !!seller?.onboardingCompleted
+  const currentStepIndex = isCompleted
+    ? steps.length - 1
+    : Math.max(0, steps.findIndex((s) => s.id === currentStep))
+  const progressPercent = isCompleted
+    ? 100
+    : Math.round(((currentStepIndex + 1) / steps.length) * 100)
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-violet-300 via-purple-100 to-pink-100 flex items-center justify-center p-0 sm:p-2 md:p-4">
@@ -583,9 +588,16 @@ export function ServiceOnboardingClient() {
 
           <div className="space-y-1">
             <div className="flex items-center justify-between text-[11px]">
-              <span className="font-bold text-slate-200">
-                Step {currentStepIndex + 1} of {steps.length}: {steps[currentStepIndex]?.title}
-              </span>
+              {isCompleted ? (
+                <span className="font-bold text-teal-400 flex items-center gap-1.5">
+                  <CheckCircle2 className="h-3.5 w-3.5 text-teal-400 inline" />
+                  Registration Complete
+                </span>
+              ) : (
+                <span className="font-bold text-slate-200">
+                  Step {currentStepIndex + 1} of {steps.length}: {steps[currentStepIndex]?.title}
+                </span>
+              )}
               <span className="text-teal-400 font-semibold">{progressPercent}%</span>
             </div>
             <div className="w-full h-1 bg-slate-800 rounded-full overflow-hidden border border-slate-700">
@@ -600,7 +612,7 @@ export function ServiceOnboardingClient() {
                   key={step.id}
                   className={cn(
                     "h-1 rounded-full flex-1 mx-0.5 transition-all duration-300",
-                    currentStep > step.id
+                    isCompleted || currentStep > step.id
                       ? "bg-teal-500"
                       : currentStep === step.id
                       ? "bg-white"

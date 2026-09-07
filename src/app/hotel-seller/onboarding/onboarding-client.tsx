@@ -94,7 +94,11 @@ export function HotelOnboardingClient() {
         setSeller(sellerData)
 
         if (sellerData.onboardingCompleted) {
-          router.push("/hotel-seller")
+          if (sellerData.status === "APPROVED" || sellerData.isApproved) {
+            router.push("/hotel-seller")
+            return
+          }
+          setCurrentStep(7)
           return
         }
       } catch (err: any) {
@@ -474,8 +478,13 @@ export function HotelOnboardingClient() {
     { id: 6, title: "Agreement" },
   ]
 
-  const currentStepIndex = Math.max(0, steps.findIndex((s) => s.id === currentStep))
-  const progressPercent = Math.round(((currentStepIndex + 1) / steps.length) * 100)
+  const isCompleted = currentStep >= 7 || !!seller?.onboardingCompleted
+  const currentStepIndex = isCompleted
+    ? steps.length - 1
+    : Math.max(0, steps.findIndex((s) => s.id === currentStep))
+  const progressPercent = isCompleted
+    ? 100
+    : Math.round(((currentStepIndex + 1) / steps.length) * 100)
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-0 sm:p-2 md:p-4">
@@ -502,9 +511,16 @@ export function HotelOnboardingClient() {
 
           <div className="space-y-1">
             <div className="flex items-center justify-between text-[11px]">
-              <span className="font-bold text-slate-200">
-                Step {currentStepIndex + 1} of {steps.length}: {steps[currentStepIndex]?.title}
-              </span>
+              {isCompleted ? (
+                <span className="font-bold text-emerald-400 flex items-center gap-1.5">
+                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 inline" />
+                  Registration Complete
+                </span>
+              ) : (
+                <span className="font-bold text-slate-200">
+                  Step {currentStepIndex + 1} of {steps.length}: {steps[currentStepIndex]?.title}
+                </span>
+              )}
               <span className="text-emerald-400 font-semibold">{progressPercent}%</span>
             </div>
             <div className="w-full h-1 bg-slate-800 rounded-full overflow-hidden border border-slate-700">
@@ -519,7 +535,7 @@ export function HotelOnboardingClient() {
                   key={step.id}
                   className={cn(
                     "h-1 rounded-full flex-1 mx-0.5 transition-all duration-300",
-                    currentStep > step.id
+                    isCompleted || currentStep > step.id
                       ? "bg-emerald-500"
                       : currentStep === step.id
                       ? "bg-white"
@@ -539,20 +555,24 @@ export function HotelOnboardingClient() {
           <div className="flex-1">
             <h2 className="text-xl font-bold mb-8 text-slate-100">Hotel Onboarding</h2>
             <nav className="space-y-6">
-              {steps.map((step, idx) => (
-                <div key={step.id} className="flex items-center gap-4">
-                  <div className={cn(
-                    "w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm",
-                    currentStep > step.id ? "bg-emerald-500 text-white" :
-                      currentStep === step.id ? "bg-white text-slate-900" : "bg-slate-800 text-slate-500"
-                  )}>
-                    {currentStep > step.id ? <Check className="w-4 h-4" /> : idx + 1}
+              {steps.map((step, idx) => {
+                const isStepPassed = isCompleted || currentStep > step.id
+                const isCurrent = !isCompleted && currentStep === step.id
+                return (
+                  <div key={step.id} className="flex items-center gap-4">
+                    <div className={cn(
+                      "w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm",
+                      isStepPassed ? "bg-emerald-500 text-white" :
+                        isCurrent ? "bg-white text-slate-900" : "bg-slate-800 text-slate-500"
+                    )}>
+                      {isStepPassed ? <Check className="w-4 h-4" /> : idx + 1}
+                    </div>
+                    <span className={cn("text-sm", isCurrent ? "font-bold text-white" : isStepPassed ? "text-emerald-300" : "text-slate-500")}>
+                      {step.title}
+                    </span>
                   </div>
-                  <span className={cn("text-sm", currentStep === step.id ? "font-bold text-white" : "text-slate-500")}>
-                    {step.title}
-                  </span>
-                </div>
-              ))}
+                )
+              })}
             </nav>
           </div>
           <div className="mt-auto pt-8 border-t border-slate-800">
