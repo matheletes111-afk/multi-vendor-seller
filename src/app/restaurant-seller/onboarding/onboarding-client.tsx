@@ -111,7 +111,11 @@ export function RestaurantOnboardingClient() {
         setSeller(sellerData)
 
         if (sellerData.onboardingCompleted) {
-          router.push("/restaurant-seller")
+          if (sellerData.status === "APPROVED" || sellerData.isApproved) {
+            router.push("/restaurant-seller")
+            return
+          }
+          setCurrentStep(7)
           return
         }
       } catch (err: any) {
@@ -491,8 +495,13 @@ export function RestaurantOnboardingClient() {
     { id: 6, title: "Agreement" },
   ]
 
-  const currentStepIndex = Math.max(0, steps.findIndex((s) => s.id === currentStep))
-  const progressPercent = Math.round(((currentStepIndex + 1) / steps.length) * 100)
+  const isCompleted = currentStep >= 7 || !!seller?.onboardingCompleted
+  const currentStepIndex = isCompleted
+    ? steps.length - 1
+    : Math.max(0, steps.findIndex((s) => s.id === currentStep))
+  const progressPercent = isCompleted
+    ? 100
+    : Math.round(((currentStepIndex + 1) / steps.length) * 100)
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-amber-200 via-amber-50 to-orange-100/50 flex items-center justify-center p-0 sm:p-2 md:p-4">
@@ -519,14 +528,28 @@ export function RestaurantOnboardingClient() {
 
           <div className="space-y-1">
             <div className="flex items-center justify-between text-[11px]">
-              <span className="font-bold text-amber-100">
-                Step {currentStepIndex + 1} of {steps.length}: {steps[currentStepIndex]?.title}
+              {isCompleted ? (
+                <span className="font-bold text-amber-100 flex items-center gap-1.5">
+                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 inline" />
+                  Registration Complete
+                </span>
+              ) : (
+                <span className="font-bold text-amber-100">
+                  Step {currentStepIndex + 1} of {steps.length}: {steps[currentStepIndex]?.title}
+                </span>
+              )}
+              <span className={cn(isCompleted ? "text-emerald-400" : "text-amber-300", "font-semibold")}>
+                {progressPercent}%
               </span>
-              <span className="text-amber-300 font-semibold">{progressPercent}%</span>
             </div>
             <div className="w-full h-1 bg-amber-950/60 rounded-full overflow-hidden border border-amber-800/40">
               <div
-                className="h-full bg-gradient-to-r from-amber-400 to-amber-500 rounded-full transition-all duration-300"
+                className={cn(
+                  "h-full rounded-full transition-all duration-300",
+                  isCompleted
+                    ? "bg-gradient-to-r from-emerald-400 to-emerald-500"
+                    : "bg-gradient-to-r from-amber-400 to-amber-500"
+                )}
                 style={{ width: `${progressPercent}%` }}
               />
             </div>
@@ -536,7 +559,7 @@ export function RestaurantOnboardingClient() {
                   key={step.id}
                   className={cn(
                     "h-1 rounded-full flex-1 mx-0.5 transition-all duration-300",
-                    currentStep > step.id
+                    isCompleted || currentStep > step.id
                       ? "bg-amber-400"
                       : currentStep === step.id
                       ? "bg-white"
@@ -556,20 +579,24 @@ export function RestaurantOnboardingClient() {
           <div className="flex-1">
             <h2 className="text-xl font-bold mb-8 text-amber-50">Restaurant Onboarding</h2>
             <nav className="space-y-6">
-              {steps.map((step, idx) => (
-                <div key={step.id} className="flex items-center gap-4">
-                  <div className={cn(
-                    "w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm transition-all",
-                    currentStep > step.id ? "bg-amber-500 text-white shadow-lg shadow-amber-500/20" :
-                      currentStep === step.id ? "bg-white text-amber-950 border-2 border-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.4)]" : "bg-amber-900/30 text-amber-300/60 border border-amber-800/30"
-                  )}>
-                    {currentStep > step.id ? <Check className="w-4 h-4" /> : idx + 1}
+              {steps.map((step, idx) => {
+                const isStepPassed = isCompleted || currentStep > step.id
+                const isCurrent = !isCompleted && currentStep === step.id
+                return (
+                  <div key={step.id} className="flex items-center gap-4">
+                    <div className={cn(
+                      "w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm transition-all",
+                      isStepPassed ? "bg-amber-500 text-white shadow-lg shadow-amber-500/20" :
+                        isCurrent ? "bg-white text-amber-950 border-2 border-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.4)]" : "bg-amber-900/30 text-amber-300/60 border border-amber-800/30"
+                    )}>
+                      {isStepPassed ? <Check className="w-4 h-4" /> : idx + 1}
+                    </div>
+                    <span className={cn("text-sm transition-colors", isCurrent ? "font-bold text-white" : isStepPassed ? "text-amber-200" : "text-amber-300/60")}>
+                      {step.title}
+                    </span>
                   </div>
-                  <span className={cn("text-sm transition-colors", currentStep === step.id ? "font-bold text-white" : currentStep > step.id ? "text-amber-200" : "text-amber-300/60")}>
-                    {step.title}
-                  </span>
-                </div>
-              ))}
+                )
+              })}
             </nav>
           </div>
           <div className="mt-auto pt-8 border-t border-amber-900/40">
