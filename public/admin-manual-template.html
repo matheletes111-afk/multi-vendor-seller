@@ -66,7 +66,7 @@
       padding: 9px 18px 9px 40px;
       color: #fff;
       font-size: 13px;
-      width: 300px;
+      width: 320px;
       outline: none;
       transition: border 0.2s;
     }
@@ -143,7 +143,7 @@
       display: flex;
       align-items: center;
       gap: 10px;
-      padding: 10px 12px;
+      padding: 9px 12px;
       border-radius: 10px;
       border: 1px solid transparent;
       background: rgba(255,255,255,0.03);
@@ -227,7 +227,7 @@
       border-radius: 14px;
       display: grid;
       grid-template-columns: 1fr 40px 1fr;
-      min-height: 700px;
+      min-height: 720px;
       overflow: hidden;
       border: 1px solid #d5c9b0;
       box-shadow: inset 0 0 60px rgba(0,0,0,0.06);
@@ -252,7 +252,7 @@
       align-items: center;
       border-bottom: 1.5px solid #d5c9b0;
       padding-bottom: 12px;
-      margin-bottom: 22px;
+      margin-bottom: 20px;
     }
     .ch-badge {
       font-family: 'Cinzel', serif;
@@ -295,26 +295,26 @@
       font-size: 13px;
       color: #475569;
       line-height: 1.6;
-      margin-bottom: 20px;
+      margin-bottom: 18px;
       background: #f2eddf;
       padding: 14px 16px;
       border-radius: 12px;
       border: 1px solid #d5c9b0;
     }
 
-    .activities { display: flex; flex-direction: column; gap: 12px; flex: 1; overflow-y: auto; max-height: 480px; padding-right: 4px; }
+    .activities { display: flex; flex-direction: column; gap: 11px; flex: 1; overflow-y: auto; max-height: 500px; padding-right: 4px; }
     .act-card {
       background: var(--card-bg);
       border: 1px solid var(--card-border);
       border-radius: 12px;
-      padding: 14px 16px;
+      padding: 13px 15px;
       transition: all 0.2s;
     }
     .act-card:hover { border-color: var(--gold); box-shadow: 0 4px 14px rgba(0,0,0,0.06); }
     .act-head {
       display: flex; align-items: center; gap: 8px;
       font-size: 13.5px; font-weight: 700; color: var(--ink);
-      margin-bottom: 5px;
+      margin-bottom: 4px;
     }
     .act-head span.dot {
       width: 8px; height: 8px; border-radius: 50%;
@@ -327,7 +327,7 @@
 
     .tip-box {
       margin-top: 14px;
-      padding: 14px 16px;
+      padding: 13px 16px;
       border-radius: 12px;
       font-size: 12px;
       line-height: 1.5;
@@ -385,11 +385,11 @@
     <div class="topbar-icon">📖</div>
     <div>
       <div class="topbar-title">Admin Panel — Operational Manual</div>
-      <div class="topbar-sub">Detailed interactive guide for all 19 administration modules</div>
+      <div class="topbar-sub">Detailed interactive guide for all 23 administration modules</div>
     </div>
   </div>
   <div class="search-wrap">
-    <input type="text" id="searchInput" placeholder="Search all 19 modules (e.g. Settings, Coupons)…" oninput="handleSearch(this.value)">
+    <input type="text" id="searchInput" placeholder="Search all 23 modules (e.g. Riders, All Sellers, Settings)…" oninput="handleSearch(this.value)">
   </div>
 </header>
 
@@ -400,44 +400,48 @@
   <aside class="toc" id="tocSidebar">
     <div class="toc-heading">
       <span>📑 Table of Contents</span>
-      <span class="toc-count-badge">19 Modules</span>
+      <span class="toc-count-badge">23 Modules</span>
     </div>
 
     <div class="ch-label">Chapter I · Master Setup</div>
     <button type="button" class="toc-btn active" onclick="goTo(0)" data-idx="0"><span class="toc-num">1</span><span class="toc-txt">Dashboard Overview</span></button>
-    <button type="button" class="toc-btn" onclick="goTo(1)" data-idx="1"><span class="toc-num">2</span><span class="toc-txt">Banners & Promotions</span></button>
-    <button type="button" class="toc-btn" onclick="goTo(2)" data-idx="2"><span class="toc-num">3</span><span class="toc-txt">Subscriptions</span></button>
-    <button type="button" class="toc-btn" onclick="goTo(3)" data-idx="3"><span class="toc-num">4</span><span class="toc-txt">Seller Ads</span></button>
-    <button type="button" class="toc-btn" onclick="goTo(4)" data-idx="4"><span class="toc-num">5</span><span class="toc-txt">Reviews</span></button>
-    <button type="button" class="toc-btn" onclick="goTo(5)" data-idx="5"><span class="toc-num">6</span><span class="toc-txt">Settings & Delivery Rates</span></button>
-    <button type="button" class="toc-btn" onclick="goTo(6)" data-idx="6"><span class="toc-num">7</span><span class="toc-txt">Coupons & Discounts</span></button>
+    <button type="button" class="toc-btn" onclick="goTo(1)" data-idx="1"><span class="toc-num">2</span><span class="toc-txt">All Sellers</span></button>
+    <button type="button" class="toc-btn" onclick="goTo(2)" data-idx="2"><span class="toc-num">3</span><span class="toc-txt">Riders</span></button>
+    <button type="button" class="toc-btn" onclick="goTo(3)" data-idx="3"><span class="toc-num">4</span><span class="toc-txt">Live Rider Tracking</span></button>
+    <button type="button" class="toc-btn" onclick="goTo(4)" data-idx="4"><span class="toc-num">5</span><span class="toc-txt">Support Tickets</span></button>
+    <button type="button" class="toc-btn" onclick="goTo(5)" data-idx="5"><span class="toc-num">6</span><span class="toc-txt">Banners & Promotions</span></button>
+    <button type="button" class="toc-btn" onclick="goTo(6)" data-idx="6"><span class="toc-num">7</span><span class="toc-txt">Subscriptions</span></button>
+    <button type="button" class="toc-btn" onclick="goTo(7)" data-idx="7"><span class="toc-num">8</span><span class="toc-txt">Seller Ads</span></button>
+    <button type="button" class="toc-btn" onclick="goTo(8)" data-idx="8"><span class="toc-num">9</span><span class="toc-txt">Reviews</span></button>
+    <button type="button" class="toc-btn" onclick="goTo(9)" data-idx="9"><span class="toc-num">10</span><span class="toc-txt">Settings & Delivery Rates</span></button>
+    <button type="button" class="toc-btn" onclick="goTo(10)" data-idx="10"><span class="toc-num">11</span><span class="toc-txt">Coupons & Discounts</span></button>
 
     <div class="ch-label">Chapter II · Products & Services</div>
-    <button type="button" class="toc-btn" onclick="goTo(7)" data-idx="7"><span class="toc-num">8</span><span class="toc-txt">Product Categories</span></button>
-    <button type="button" class="toc-btn" onclick="goTo(8)" data-idx="8"><span class="toc-num">9</span><span class="toc-txt">Products</span></button>
-    <button type="button" class="toc-btn" onclick="goTo(9)" data-idx="9"><span class="toc-num">10</span><span class="toc-txt">Service Categories</span></button>
-    <button type="button" class="toc-btn" onclick="goTo(10)" data-idx="10"><span class="toc-num">11</span><span class="toc-txt">Services</span></button>
-    <button type="button" class="toc-btn" onclick="goTo(11)" data-idx="11"><span class="toc-num">12</span><span class="toc-txt">Product/Service Sellers</span></button>
-    <button type="button" class="toc-btn" onclick="goTo(12)" data-idx="12"><span class="toc-num">13</span><span class="toc-txt">Product/Service Orders</span></button>
+    <button type="button" class="toc-btn" onclick="goTo(11)" data-idx="11"><span class="toc-num">12</span><span class="toc-txt">Product Categories</span></button>
+    <button type="button" class="toc-btn" onclick="goTo(12)" data-idx="12"><span class="toc-num">13</span><span class="toc-txt">Products</span></button>
+    <button type="button" class="toc-btn" onclick="goTo(13)" data-idx="13"><span class="toc-num">14</span><span class="toc-txt">Service Categories</span></button>
+    <button type="button" class="toc-btn" onclick="goTo(14)" data-idx="14"><span class="toc-num">15</span><span class="toc-txt">Services</span></button>
+    <button type="button" class="toc-btn" onclick="goTo(15)" data-idx="15"><span class="toc-num">16</span><span class="toc-txt">Product/Service Sellers</span></button>
+    <button type="button" class="toc-btn" onclick="goTo(16)" data-idx="16"><span class="toc-num">17</span><span class="toc-txt">Product/Service Orders</span></button>
 
     <div class="ch-label">Chapter III · Hotels</div>
-    <button type="button" class="toc-btn" onclick="goTo(13)" data-idx="13"><span class="toc-num">14</span><span class="toc-txt">Hotel Sellers</span></button>
-    <button type="button" class="toc-btn" onclick="goTo(14)" data-idx="14"><span class="toc-num">15</span><span class="toc-txt">Hotels</span></button>
-    <button type="button" class="toc-btn" onclick="goTo(15)" data-idx="15"><span class="toc-num">16</span><span class="toc-txt">Hotel Bookings</span></button>
+    <button type="button" class="toc-btn" onclick="goTo(17)" data-idx="17"><span class="toc-num">18</span><span class="toc-txt">Hotel Sellers</span></button>
+    <button type="button" class="toc-btn" onclick="goTo(18)" data-idx="18"><span class="toc-num">19</span><span class="toc-txt">Hotels</span></button>
+    <button type="button" class="toc-btn" onclick="goTo(19)" data-idx="19"><span class="toc-num">20</span><span class="toc-txt">Hotel Bookings</span></button>
 
     <div class="ch-label">Chapter IV · Restaurants</div>
-    <button type="button" class="toc-btn" onclick="goTo(16)" data-idx="16"><span class="toc-num">17</span><span class="toc-txt">Restaurant Sellers</span></button>
-    <button type="button" class="toc-btn" onclick="goTo(17)" data-idx="17"><span class="toc-num">18</span><span class="toc-txt">Food Items</span></button>
-    <button type="button" class="toc-btn" onclick="goTo(18)" data-idx="18"><span class="toc-num">19</span><span class="toc-txt">Restaurant Orders</span></button>
+    <button type="button" class="toc-btn" onclick="goTo(20)" data-idx="20"><span class="toc-num">21</span><span class="toc-txt">Restaurant Sellers</span></button>
+    <button type="button" class="toc-btn" onclick="goTo(21)" data-idx="21"><span class="toc-num">22</span><span class="toc-txt">Food Items</span></button>
+    <button type="button" class="toc-btn" onclick="goTo(22)" data-idx="22"><span class="toc-num">23</span><span class="toc-txt">Restaurant Orders</span></button>
   </aside>
 
   <!-- BOOK -->
   <div class="book-outer">
     <div class="ribbons">
       <div class="ribbon r1" onclick="goTo(0)" title="Ch. I Master Setup"></div>
-      <div class="ribbon r2" onclick="goTo(7)" title="Ch. II Products"></div>
-      <div class="ribbon r3" onclick="goTo(13)" title="Ch. III Hotels"></div>
-      <div class="ribbon r4" onclick="goTo(16)" title="Ch. IV Restaurants"></div>
+      <div class="ribbon r2" onclick="goTo(11)" title="Ch. II Products & Services"></div>
+      <div class="ribbon r3" onclick="goTo(17)" title="Ch. III Hotels"></div>
+      <div class="ribbon r4" onclick="goTo(20)" title="Ch. IV Restaurants"></div>
     </div>
 
     <div class="book-inner" id="bookInner">
@@ -445,7 +449,7 @@
       <article class="page page-left">
         <div class="pg-header">
           <span class="ch-badge" id="lBadge">CHAPTER I · MASTER SETUP</span>
-          <span class="pg-num" id="lNum">Module 1 of 19</span>
+          <span class="pg-num" id="lNum">Module 1 of 23</span>
         </div>
         <div class="pg-title">
           <div class="title-icon" id="lIcon">📊</div>
@@ -493,273 +497,341 @@
 </div>
 
 <script>
-/* ===== PAGE DATA (all 19 menus) ===== */
+/* ===== PAGE DATA (all 23 menus) ===== */
 const pages = [
   /* 0 */ {
     chapter: "CHAPTER I · MASTER SETUP",
     icon: "📊",
     title: "Dashboard Overview",
-    subtitle: "The central command screen giving the admin a real-time snapshot of the entire platform's health and activity.",
+    subtitle: "The central command screen giving administrators a real-time snapshot of the entire multi-vendor ecosystem's financial health, active users, and operational queues.",
     acts: [
-      { h: "View Platform Revenue", b: "See total Gross Merchandise Value (GMV), today's revenue, weekly trends, and net commission earned by the platform from all seller types." },
-      { h: "Monitor Active Users & Sellers", b: "View counts of registered customers, approved product sellers, hotel sellers, restaurant sellers, and service providers." },
-      { h: "Review Pending Approvals", b: "Instantly see sellers awaiting KYC verification, products flagged for review, pending return/refund requests, and unmoderated reviews." },
-      { h: "Quick Navigation Widgets", b: "Click summary cards (e.g. 'Pending Sellers: 4') to jump directly into the relevant management section." }
+      { h: "Multi-Vertical Revenue Analytics", b: "Inspect total Gross Merchandise Value (GMV), subscription earnings, ad revenues, and platform commission broken down across Products, Services, Restaurants, and Hotels." },
+      { h: "Live Ecosystem Headcounts", b: "Monitor active counts of registered customers, approved product/service merchants, hotel hosts, restaurant partners, and active delivery fleet riders." },
+      { h: "Pending Approvals Triage", b: "Instantly view counters for pending seller onboarding KYC (products, hotels, restaurants), unmoderated ads, and unverified rider submissions." },
+      { h: "Resource-Saving Visibility Polling", b: "The dashboard automatically polls every 30 seconds while the browser tab is active, pausing background requests when the tab is hidden to conserve server bandwidth." },
+      { h: "Direct Drill-Down Navigation", b: "Click any summary metric or pending alert card (e.g. 'Pending Sellers: 4') to jump directly into the corresponding filtered management workspace." }
     ],
-    tip: { type: "blue", text: "<strong>Tip:</strong> The dashboard refreshes automatically every 60 seconds. Use the date range filter in the top-right corner to compare Today vs Last 7 days vs Last 30 days." }
+    tip: { type: "blue", text: "<strong>Tip:</strong> Metric cards link directly to filtered views (e.g. clicking 'Pending Sellers' filters the All Sellers directory to show only those requiring immediate review)." }
   },
   /* 1 */ {
     chapter: "CHAPTER I · MASTER SETUP",
-    icon: "🖼️",
-    title: "Banners & Promotions",
-    subtitle: "Manage all visual promotional banners that appear on the homepage carousel, mobile app hero sections, and campaign pages.",
+    icon: "👥",
+    title: "All Sellers (Unified Directory & KYC)",
+    subtitle: "Unified central directory to search, audit, verify, and moderate sellers across all four platform verticals in a single consolidated interface.",
     acts: [
-      { h: "Create a New Banner", b: "Upload a main desktop banner image, set a display title, add an optional redirect URL, and choose display position (Top Slider, Mid Strip, etc.)." },
-      { h: "Upload Dedicated Mobile Banner", b: "Upload a separate, vertically-optimized image for mobile devices (mobileBanner). If omitted, the system automatically falls back to the desktop banner image." },
-      { h: "Target Category & Service Routing", b: "Link banners directly to a Product Category, Subcategory, or Service Category for instant one-tap customer navigation." },
-      { h: "Set Active Date Range", b: "Define the start and end date for each banner so it auto-appears and disappears without manual intervention." },
-      { h: "Reorder Banner Priority", b: "Input priority numbers (1, 2, 3) to control which banner appears first in the slider." },
-      { h: "Enable or Disable a Banner", b: "Toggle any banner active/inactive instantly without deleting it — useful for seasonal promotions." },
-      { h: "Delete a Banner", b: "Permanently remove old banners that are no longer required." }
+      { h: "4-in-1 Multi-Vertical Directory", b: "Search and browse sellers across all verticals: Products, Services, Hotels, and Restaurants, with clear badges and unified profile layouts." },
+      { h: "Comprehensive Filter Toolbar", b: "Filter sellers by business vertical, approval state (Pending, Approved, Suspended, Rejected), document status (Complete, Missing, In Review), and registration date range." },
+      { h: "Integrated KYC Document Viewer", b: "Inspect uploaded identity proofs (Aadhaar, Passport, National ID), GST certificates, FSSAI licenses, and property ownership documents with high-res zoom and pan." },
+      { h: "Approval & Rejection Safeguards", b: "Validate document completeness before granting approval. Reject non-compliant applications with structured, actionable feedback sent directly to the seller." },
+      { h: "Instant Suspension & Blackout", b: "Suspend problematic vendors with a single click, instantly hiding their stores, active catalog items, menus, and hotel listings from customer view." },
+      { h: "Custom Commission Overrides", b: "Set bespoke commission percentages (%) for strategic partners, overriding global category and platform rates." }
     ],
-    tip: { type: "amber", text: "<strong>Best Sizes:</strong> Upload Desktop banners at 1200×450px and Mobile banners at 750×400px (or vertical ratio). Compressed WebP or PNG format is recommended." }
+    tip: { type: "amber", text: "<strong>Verification Rule:</strong> The system enforces document completeness before allowing approval. Ensure identity proofs, tax registrations, and bank details are fully verified." }
   },
   /* 2 */ {
     chapter: "CHAPTER I · MASTER SETUP",
-    icon: "💳",
-    title: "Subscriptions",
-    subtitle: "View and manage all seller subscription plans, payment history, and manual plan overrides for product/service sellers.",
+    icon: "🚲",
+    title: "Riders (Fleet Management)",
+    subtitle: "Onboard, verify, assign delivery zones, and manage the operational status of all platform delivery fleet personnel.",
     acts: [
-      { h: "View All Subscriptions", b: "See a list of all sellers with their current plan (Free, Basic, Pro, Premium), subscription start date, renewal date, and payment status." },
-      { h: "Filter by Status", b: "Filter subscriptions by Active, Expired, Grace Period, or Cancelled to identify sellers needing attention." },
-      { h: "Manually Upgrade / Extend a Plan", b: "Assign or extend a seller's subscription plan directly from their record (useful after offline payment verification)." },
-      { h: "View Payment History", b: "Inspect individual payment transactions linked to each subscription period including Stripe payment IDs." },
-      { h: "Cancel a Subscription", b: "Cancel a seller's plan immediately, which restricts their listing privileges based on the free-tier limits." }
+      { h: "Rider Fleet Roster & Registration", b: "View all delivery riders registered on the platform or manually register and invite new delivery agents directly from the admin panel." },
+      { h: "Driving License & Vehicle KYC", b: "Inspect and verify driving licenses, national IDs (Aadhaar), vehicle registration certificates (RC), and active vehicle insurance policies." },
+      { h: "Vehicle Classification", b: "Configure rider vehicle profiles across Motorcycle, Scooter, Electric Bike, Bicycle, Car, or Van, including vehicle license plate numbers." },
+      { h: "Service Zone & Location Mapping", b: "Assign riders to specific operational zones and local delivery hubs using the regional zone picker (LOCATION_ZONES)." },
+      { h: "Approve, Feedback or Suspend", b: "Approve verified riders to allow mobile app logins, reject with specific document correction notes, or suspend underperforming drivers." },
+      { h: "Mobile App Onboarding Tracking", b: "Monitor rider onboarding stages (isFirstLogin, onboardingCompleted), active FCM push device tokens, and contact details." }
     ],
-    tip: { type: "green", text: "<strong>Note:</strong> After manual plan changes the seller's dashboard will reflect the updated limits within a few minutes on their next page load." }
+    tip: { type: "green", text: "<strong>Zone Coverage:</strong> Assigning riders to specific zones ensures orders originating in those delivery clusters are dispatched to nearby available couriers first." }
   },
   /* 3 */ {
     chapter: "CHAPTER I · MASTER SETUP",
-    icon: "📣",
-    title: "Seller Ads",
-    subtitle: "Review and moderate all seller-created advertisement campaigns — product spotlight ads, banner campaigns, and search boosts.",
+    icon: "📡",
+    title: "Live Rider Tracking (Real-Time Telemetry)",
+    subtitle: "Live interactive map and real-time WebSocket telemetry for monitoring delivery fleet positions, active order dispatches, and rider speeds.",
     acts: [
-      { h: "View All Ad Campaigns", b: "See every seller-submitted ad with its type (Product Ad / Banner / Video), status (Pending, Active, Expired, Rejected), and budget spent." },
-      { h: "Approve or Reject an Ad", b: "Review the creative (image or video URL), check it meets community standards, then approve to make it live or reject with a reason." },
-      { h: "Set Ad Budget Limits", b: "View and adjust the budget ceiling for any campaign and monitor real-time spend vs. remaining balance." },
-      { h: "Pause or Stop an Active Ad", b: "Instantly pause any live ad if it violates guidelines or a seller requests a hold." },
-      { h: "View Ad Performance Metrics", b: "Check impressions delivered, click count, and CTR (Click-Through Rate) for any campaign." }
+      { h: "Interactive Fleet Google Map", b: "Watch all active fleet riders plotted dynamically on a live interactive Google Map with custom vehicle icons and real-time compass rotation." },
+      { h: "Live WebSocket Telemetry", b: "Receive continuous low-latency GPS pings including exact latitude/longitude, travelling speed (km/h), compass heading, and last-seen timestamps." },
+      { h: "Fleet Status Filtering", b: "Filter the live map view by operational status: Free/Idle (ready for dispatch), On Active Delivery, or Offline/No GPS lock." },
+      { h: "Active Delivery Route Polylines", b: "Click any in-transit rider to render the complete trip polyline connecting merchant pickup address, current rider coordinates, and customer drop-off." },
+      { h: "Rider Telemetry Drawer", b: "Inspect assigned order numbers, merchant address, destination city, customer contact info, phone calling links, and vehicle details in a slide-out panel." },
+      { h: "Fleet Health Summary", b: "Monitor real-time counters displaying total registered fleet, idle drivers, active deliveries underway, offline drivers, and GPS-locked devices." }
     ],
-    tip: { type: "amber", text: "<strong>Important:</strong> Video ads must be YouTube links only. The system auto-converts the URL into an embeddable format — direct file uploads are not supported." }
+    tip: { type: "blue", text: "<strong>Real-Time Updates:</strong> Position and telemetry markers refresh automatically over WebSockets. In the event of a socket drop, the system automatically falls back to secure HTTP polling." }
   },
   /* 4 */ {
     chapter: "CHAPTER I · MASTER SETUP",
-    icon: "⭐",
-    title: "Reviews",
-    subtitle: "Moderate all customer-submitted product and service reviews to ensure quality and prevent abuse on the platform.",
+    icon: "🛟",
+    title: "Support Tickets (Helpdesk & Resolution)",
+    subtitle: "Omnichannel customer service and vendor dispute management system handling inquiries from mobile apps, web portals, and public contact forms.",
     acts: [
-      { h: "View All Reviews", b: "Browse all reviews across products and services, sortable by date, star rating, seller, or verified purchase status." },
-      { h: "Approve or Reject a Review", b: "Reviews flagged by the system or reported by sellers can be manually approved or permanently removed." },
-      { h: "Mark as Verified Purchase", b: "Toggle the 'Verified Buyer' badge on any review to indicate the reviewer actually ordered the product." },
-      { h: "Filter Reported Reviews", b: "Quickly access only reviews that sellers or customers have flagged as inappropriate or fake." },
-      { h: "Delete Abusive Reviews", b: "Permanently delete reviews containing offensive language, spam links, or unrelated content." }
+      { h: "Omnichannel Ticket Inbox", b: "Centralized queue managing support requests from in-app mobile submissions, seller dashboard inquiries, and public website contact forms." },
+      { h: "User Vertical Identification", b: "Instantly identify ticket origin with color-coded badges: Customer, Product Seller, Service Provider, Restaurant Partner, or Hotel Host." },
+      { h: "Lifecycle Status Management", b: "Manage support tickets across Open/Pending, In Progress, Resolved, and Closed states with unread reply badges." },
+      { h: "Two-Way Threaded Communication", b: "Engage in threaded message conversations with customers and sellers, review uploaded issue screenshots, and send official resolution notes." },
+      { h: "Notification Dispatch", b: "Administrative replies automatically notify the ticket creator via in-app alerts and registered email notifications." },
+      { h: "Multi-Filter Search", b: "Search tickets by ticket reference ID, user email, mobile number, or subject keyword, with filters for channel and resolution state." }
     ],
-    tip: { type: "blue", text: "<strong>Tip:</strong> Use the star rating filter to find clusters of 1-star reviews on a product — this may indicate a seller quality issue requiring investigation." }
+    tip: { type: "amber", text: "<strong>Response Time:</strong> Unread ticket counts are highlighted on the dashboard. Prioritize tickets originating from active order disputes to minimize delivery cancellations." }
   },
   /* 5 */ {
     chapter: "CHAPTER I · MASTER SETUP",
-    icon: "⚙️",
-    title: "Settings & Delivery Rates",
-    subtitle: "Configure global platform rules including commission rates, shipping weight charges, and seller name validation controls.",
+    icon: "🖼️",
+    title: "Banners & Promotions",
+    subtitle: "Manage homepage carousels, mobile app hero banners, and targeted campaign promotions with deep-link category routing.",
     acts: [
-      { h: "Set Base Commission Rate", b: "Define the default commission percentage (%) the platform takes from every completed order when no seller-specific or category-specific override exists." },
-      { h: "Configure Delivery Charge Weight Brackets", b: "Set shipping cost ranges by package weight (e.g. 0–1 kg: ₹50, 1–5 kg: ₹100, 5+ kg: ₹200). These are applied automatically at checkout." },
-      { h: "Manage Disallowed Store Names", b: "Add words or phrases to the blocklist that sellers cannot use in their store names (e.g. brand names, offensive terms)." },
-      { h: "Save Settings", b: "All changes are saved immediately and take effect on the next customer request — no server restart required." }
+      { h: "Dual Desktop & Mobile Assets", b: "Upload high-res desktop banners (1200×450px) alongside vertically optimized mobile banners (750×400px) with automatic responsive fallback." },
+      { h: "Smart Category Deep-Linking", b: "Link promotional banners directly to Product Categories, Subcategories, or Service Categories for one-tap in-app browsing." },
+      { h: "Date Range Campaign Scheduling", b: "Configure start and end dates/times so seasonal and flash sale banners publish and expire automatically without manual intervention." },
+      { h: "Priority Order Sequencing", b: "Set display priority numbers (1, 2, 3...) to determine slider order on the homepage and mobile app." },
+      { h: "Instant Toggle & Preview", b: "Toggle any banner active or inactive instantly to pause campaigns without deleting creative assets." },
+      { h: "Clean Asset Removal", b: "Permanently delete obsolete banners to free up media storage and keep promotion lists clean." }
     ],
-    tip: { type: "amber", text: "<strong>Warning:</strong> Changing the base commission rate does NOT retroactively affect existing completed orders — it only applies to new orders placed after the save." }
+    tip: { type: "amber", text: "<strong>Best Sizes:</strong> Upload Desktop banners at 1200×450px and Mobile banners at 750×400px (WebP or compressed PNG) for optimal performance and crisp rendering." }
   },
   /* 6 */ {
     chapter: "CHAPTER I · MASTER SETUP",
-    icon: "🎟️",
-    title: "Coupons & Discounts",
-    subtitle: "Create and manage platform-wide promotional discount codes that customers can apply at checkout.",
+    icon: "💳",
+    title: "Subscriptions",
+    subtitle: "Configure vendor membership tiers, manage active billing plans, and execute plan overrides for marketplace sellers.",
     acts: [
-      { h: "Create a New Coupon", b: "Generate a coupon code (e.g. SAVE20), set discount type (Percentage or Fixed Amount), set the discount value, and configure start/end dates." },
-      { h: "Set Minimum Cart Value", b: "Define the minimum order amount (e.g. ₹500 minimum) required before the coupon becomes applicable." },
-      { h: "Set Maximum Discount Cap", b: "For percentage coupons, set a rupee ceiling (e.g. max ₹300 off) to prevent over-discounting on large orders." },
-      { h: "Limit Total Redemptions", b: "Cap how many times a coupon can be used across all customers (e.g. first 1000 orders only)." },
-      { h: "Limit Per-User Usage", b: "Restrict how many times a single customer can redeem the same coupon (usually set to 1)." },
-      { h: "Enable or Disable a Coupon", b: "Toggle any coupon active/inactive without deleting it — useful for pausing seasonal codes." }
+      { h: "Tiered Subscription Plans", b: "Configure Free, Basic, Pro, and Premium plans with custom product listing caps, monthly ad allowances, and featured badge perks." },
+      { h: "Subscriber Portfolio Overview", b: "Review all enrolled sellers with their current plan, billing cycles, upcoming renewal dates, and payment health." },
+      { h: "Status Filtering & Audit", b: "Filter subscriptions by Active, Expired, Grace Period, or Cancelled to proactively manage seller privileges." },
+      { h: "Manual Plan Assignments", b: "Manually upgrade, extend, or assign seller plans after verifying offline bank transfers or promotional partner sponsorships." },
+      { h: "Stripe Transaction Ledger", b: "Audit gateway payment transaction IDs, invoice generation timestamps, and billing failure records." },
+      { h: "Grace Period & Cancellation", b: "Manage grace period allowances before automated feature restrictions downgrade expired accounts to free-tier limits." }
     ],
-    tip: { type: "green", text: "<strong>Tip:</strong> Test the coupon code in an incognito browser window as a customer before announcing it publicly to verify it works as expected." }
+    tip: { type: "green", text: "<strong>Instant Sync:</strong> Plan upgrades take effect immediately across the seller's portal on their next page navigation, updating listing limits and ad allowances." }
   },
   /* 7 */ {
-    chapter: "CHAPTER II · PRODUCTS & SERVICES",
-    icon: "🗂️",
-    title: "Product Categories",
-    subtitle: "Define and manage the hierarchical category tree that sellers use to list products and customers use to browse.",
+    chapter: "CHAPTER I · MASTER SETUP",
+    icon: "📣",
+    title: "Seller Ads (Campaign Moderation)",
+    subtitle: "Review, moderate, and monitor seller-sponsored advertising campaigns across product highlights, banner spots, and video showcases.",
     acts: [
-      { h: "Add a New Category", b: "Create a top-level category (e.g. Electronics) with a name, slug, description, category image, and mobile icon." },
-      { h: "Add Subcategories & Mobile Icons", b: "Nest subcategories under parent categories (e.g. Phones under Electronics) and upload dedicated transparent PNG mobile icons for mobile app grid navigation." },
-      { h: "Set Category Commission Rate", b: "Override the global commission rate for a specific category (e.g. Jewellery at 12% instead of the default 10%)." },
-      { h: "Toggle Mandatory Weight", b: "Enable 'Weight Required' on categories where accurate shipping weight is critical (e.g. Heavy Goods). Sellers cannot publish listings without entering weight." },
-      { h: "Mark as Featured", b: "Featured categories appear at the top of the browse page and in homepage category strips." },
-      { h: "Enable or Disable a Category", b: "Deactivating a category hides it from seller listing options and customer browse immediately." }
+      { h: "Campaign Queue & Types", b: "Audit seller-created campaigns across Product Spotlight Ads, Category Banner Placements, and Embedded Video Ads." },
+      { h: "Creative Moderation", b: "Inspect headline text, graphic creatives, and YouTube video embeds to ensure compliance with marketplace advertising policies." },
+      { h: "Approve or Reject with Feedback", b: "Approve compliant ad campaigns to go live immediately, or reject non-compliant campaigns with constructive feedback." },
+      { h: "Budget Ceilings & Balance", b: "Monitor campaign budget spend limits against the seller's wallet/ad balance, preventing ad over-delivery." },
+      { h: "Pause or Halt Live Ads", b: "Instantly pause active campaigns if seller inventory runs out or if intellectual property disputes arise." },
+      { h: "Impression & CTR Analytics", b: "Evaluate delivered impressions, total click volume, and Click-Through Rate (CTR) metrics across all campaigns." }
     ],
-    tip: { type: "blue", text: "<strong>Tip:</strong> Keep category slugs short and lowercase (e.g. 'home-decor'). Slugs are used in SEO URLs and changing them later may break existing links." }
+    tip: { type: "amber", text: "<strong>Video Ads Guideline:</strong> Video campaigns accept standard YouTube URLs only; the platform automatically embeds and sanitizes the player." }
   },
   /* 8 */ {
-    chapter: "CHAPTER II · PRODUCTS & SERVICES",
-    icon: "📦",
-    title: "Products",
-    subtitle: "Monitor, inspect, and moderate all product listings submitted by sellers across the platform.",
+    chapter: "CHAPTER I · MASTER SETUP",
+    icon: "⭐",
+    title: "Reviews & Ratings",
+    subtitle: "Moderate customer feedback across products and services to maintain community trust and prevent fraudulent or abusive ratings.",
     acts: [
-      { h: "Browse All Products", b: "View all products in a paginated table filterable by seller, category, active status, date, or featured flag." },
-      { h: "View Product Details", b: "Open any product to review its full listing: name, description, category, all variants (SKU, price, stock, weight, attributes), and uploaded images." },
-      { h: "Toggle Active / Inactive", b: "Deactivate a product to immediately hide it from customer search and product detail pages without permanently deleting it." },
-      { h: "Feature a Product", b: "Mark a product as 'Featured' to elevate it in homepage featured product carousels and search results." },
-      { h: "Delete a Product", b: "Permanently remove a product listing that violates guidelines. This action is irreversible." }
+      { h: "Cross-Vertical Review Roster", b: "Browse and filter customer reviews across products, services, and vendors, sortable by submission date, rating, or flagged status." },
+      { h: "Moderation & Removal", b: "Approve pending reviews or permanently delete submissions containing profanity, competitor sabotage, or spam links." },
+      { h: "Verified Buyer Badging", b: "Verify and toggle the 'Verified Buyer' badge to confirm that the customer actually completed an order for the reviewed item." },
+      { h: "Reported Reviews Queue", b: "Quickly isolate reviews that have been flagged by merchants or automated profanity filters for expedited administrative review." },
+      { h: "Rating Trend Investigation", b: "Identify clusters of low star ratings on specific vendors or products to investigate quality issues or supply chain defects." }
     ],
-    tip: { type: "amber", text: "<strong>Note:</strong> Deactivating a product does NOT cancel existing orders that already included it. Only new purchases are blocked." }
+    tip: { type: "blue", text: "<strong>Quality Control:</strong> Use the 1-star filter tab to spot emerging product defects or seller dispatch delays before they escalate into major refund claims." }
   },
   /* 9 */ {
-    chapter: "CHAPTER II · PRODUCTS & SERVICES",
-    icon: "🗃️",
-    title: "Service Categories",
-    subtitle: "Define the service category tree used by service providers (e.g. Plumbing, Cleaning, Tutoring) to list their offerings.",
+    chapter: "CHAPTER I · MASTER SETUP",
+    icon: "⚙️",
+    title: "Settings & Delivery Rates",
+    subtitle: "Master configuration panel for multi-vertical commissions, 3-tier delivery rate matrices, store name blocklists, and legal policies.",
     acts: [
-      { h: "Add a Service Category", b: "Create categories with a name, slug, image, and mobile icon for the service marketplace section." },
-      { h: "Enable or Disable a Category", b: "Inactive service categories are hidden from the service browse page and new service listing forms." },
-      { h: "Edit Category Details", b: "Update the name, description, or images of an existing category." },
-      { h: "Delete a Category", b: "Remove unused service categories — only possible if no active services are currently listed under them." }
+      { h: "Multi-Vertical Base Commissions", b: "Set independent platform base commission percentages (%) for Products, Restaurants, Hotels, and Services (with individual seller overrides)." },
+      { h: "Weight-Bracket Delivery Matrix", b: "Configure shipping cost tiers by package weight brackets (e.g. 0–1 kg: ₹50, 1–5 kg: ₹100, 5+ kg: ₹200) applied at checkout." },
+      { h: "Dimension-Bracket Delivery Matrix", b: "Configure volumetric delivery charge tiers based on dimensional thresholds (e.g. oversized parcel surcharges)." },
+      { h: "Regional & Zone Delivery Charges", b: "Define regional shipping charges across administrative zones and delivery regions, complete with search and zone filtering." },
+      { h: "Disallowed Store Name Blocklist", b: "Maintain a banned keywords filter preventing sellers from registering misleading or trademarked store names." },
+      { h: "Legal Policy Manager", b: "Edit in-app and web legal policies (Terms & Conditions, Privacy Policy, Return/Refund Policy, Delivery Policy) with rich formatting support." },
+      { h: "Admin Profile & Security", b: "Update administrator contact info, mobile country code, profile image, and credentials." }
     ],
-    tip: { type: "green", text: "<strong>Tip:</strong> Service categories do not support subcategories currently. Each service category is a standalone top-level entry." }
+    tip: { type: "amber", text: "<strong>Commission Impact:</strong> Modifying vertical base commission rates affects new orders placed after saving. Existing completed or in-transit orders retain their historical commission rates." }
   },
   /* 10 */ {
-    chapter: "CHAPTER II · PRODUCTS & SERVICES",
-    icon: "🔧",
-    title: "Services",
-    subtitle: "View and manage all service listings submitted by service-provider sellers across all service categories.",
+    chapter: "CHAPTER I · MASTER SETUP",
+    icon: "🎟️",
+    title: "Coupons & Discounts",
+    subtitle: "Create, schedule, and enforce promotional voucher codes and checkout cart discount rules across the platform.",
     acts: [
-      { h: "Browse All Services", b: "View all active and inactive service listings with details of the seller, service category, pricing, and status." },
-      { h: "View Service Details", b: "Inspect the full service listing: service name, description, pricing model, location coverage, seller profile, and uploaded images." },
-      { h: "Toggle Active / Inactive", b: "Deactivate a service listing to hide it from customer search without deleting it." },
-      { h: "Delete a Service", b: "Permanently remove a service listing that violates platform policies or is fraudulent." }
+      { h: "Coupon Creation & Types", b: "Generate custom coupon codes (e.g. FESTIVE20) offering percentage discounts or fixed rupee reductions." },
+      { h: "Minimum Cart Spend Rules", b: "Specify minimum order purchase amounts required before a promotional code can be redeemed at checkout." },
+      { h: "Maximum Rupee Discount Cap", b: "Cap the maximum monetary discount allowed on percentage coupons to protect platform margins on large basket orders." },
+      { h: "Campaign & Per-User Limits", b: "Set total redemption quotas for the coupon campaign alongside single-use-per-customer restrictions." },
+      { h: "Active Window Scheduling", b: "Configure start and end dates to align promotional codes with marketing calendar events." },
+      { h: "Toggle Active / Inactive", b: "Instantly activate or pause promotional voucher codes without deleting historical redemption records." }
     ],
-    tip: { type: "blue", text: "<strong>Note:</strong> Services follow a booking-based model — customers raise a service request and the seller confirms. Orders appear under Product/Service Orders." }
+    tip: { type: "green", text: "<strong>Best Practice:</strong> Always test new coupon codes in an incognito window as a standard customer prior to publishing marketing newsletters or push alerts." }
   },
   /* 11 */ {
     chapter: "CHAPTER II · PRODUCTS & SERVICES",
-    icon: "🧑‍💼",
-    title: "Product & Service Sellers",
-    subtitle: "Manage the onboarding, verification, and status of all product and service sellers registered on the platform.",
+    icon: "🗂️",
+    title: "Product Categories",
+    subtitle: "Build and organize the hierarchical category taxonomy for product browsing, search indexing, and category commissions.",
     acts: [
-      { h: "View All Sellers", b: "Browse all registered product/service sellers with their onboarding status, approval state, subscription plan, and store name." },
-      { h: "Review KYC Documents", b: "Open a seller record to review uploaded identity documents (National ID, GST, etc.) submitted during onboarding." },
-      { h: "Approve a Seller", b: "After verifying KYC documents, mark the seller as Approved — this unlocks their dashboard to add products/services." },
-      { h: "Reject a Seller with Feedback", b: "Reject onboarding with a written reason that the seller sees in their dashboard (e.g. 'Invalid ID document')." },
-      { h: "Suspend a Seller", b: "Temporarily suspend a seller — their store and all listings become hidden from customers immediately." },
-      { h: "Set Custom Commission Rate", b: "Override the platform's default commission for a specific seller (e.g. 5% for a premium partner)." }
+      { h: "Top-Level & Nested Categories", b: "Create parent categories and unlimited nested subcategories with automated URL slug generation and descriptions." },
+      { h: "Dedicated Mobile Icons", b: "Upload transparent PNG icons optimized specifically for mobile app category grids alongside desktop web graphics." },
+      { h: "Category Commission Overrides", b: "Assign category-level commission rates (e.g. 15% for Electronics, 8% for Books) that automatically supersede the global base rate." },
+      { h: "Mandatory Weight Enforcement", b: "Flag categories where shipping weight entry is mandatory, preventing sellers from publishing items without verified weight data." },
+      { h: "Homepage Featured Categories", b: "Flag key categories as 'Featured' to promote them into high-converting homepage category strips and navigation menus." },
+      { h: "Deactivate or Delete", b: "Disable categories to hide them from storefront browsing while preserving historical product order links." }
     ],
-    tip: { type: "amber", text: "<strong>Important:</strong> Suspending a seller does NOT cancel their active orders. Existing orders must be handled manually through the Orders section." }
+    tip: { type: "blue", text: "<strong>SEO Slugs:</strong> Slugs are generated automatically from category names. Keep them concise and readable for optimal SEO indexing." }
   },
   /* 12 */ {
     chapter: "CHAPTER II · PRODUCTS & SERVICES",
-    icon: "🛒",
-    title: "Product & Service Orders",
-    subtitle: "Track and manage all customer orders for products and services across the full order lifecycle.",
+    icon: "📦",
+    title: "Products",
+    subtitle: "Inspect, moderate, feature, and oversee product listings submitted by sellers across all product categories.",
     acts: [
-      { h: "View All Orders", b: "Browse all orders with filters by status (Pending, Confirmed, Shipped, Delivered, Cancelled, Returned), date range, and seller." },
-      { h: "View Order Details", b: "Open any order to see customer info, ordered items, quantities, pricing, discount applied, shipping address, and payment method." },
-      { h: "Update Order Status", b: "Manually advance an order's status (e.g. from Shipped → Delivered) if the seller has not updated it." },
-      { h: "Process Return Requests", b: "Review return/refund requests raised by customers — approve or reject with a written reason." },
-      { h: "Cancel an Order", b: "Admin can cancel any order before dispatch in cases of fraud, seller non-compliance, or customer escalation." },
-      { h: "Generate Invoice", b: "View and download the invoice for any order for accounting and dispute resolution purposes." }
+      { h: "Complete Catalog Oversight", b: "Browse, search, and filter all products across sellers, categories, stock status, and moderation approval states." },
+      { h: "Variant & SKU Inspection", b: "Examine multi-variant product configurations including SKUs, prices, stock levels, weight, color/size attributes, and photo galleries." },
+      { h: "Featured Showcase Promotion", b: "Mark quality items as 'Featured' to elevate their placement on the homepage showcase and boost customer discovery." },
+      { h: "Instant Moderation Toggles", b: "Deactivate non-compliant, counterfeit, or policy-violating products immediately without deleting order history." },
+      { h: "Permanent Removal", b: "Permanently delete fraudulent or banned merchandise listings from the marketplace database." }
     ],
-    tip: { type: "blue", text: "<strong>Tip:</strong> Use the 'Return Requests' filter tab to focus only on orders needing return/refund decisions to speed up customer resolutions." }
+    tip: { type: "amber", text: "<strong>Listing Moderation:</strong> Deactivating a product removes it from customer search and category listings immediately, but preserves ongoing order fulfillment for units already purchased." }
   },
   /* 13 */ {
-    chapter: "CHAPTER III · HOTELS",
-    icon: "🏨",
-    title: "Hotel Sellers",
-    subtitle: "Manage hotel vendors who have registered on the platform to list and sell room bookings.",
+    chapter: "CHAPTER II · PRODUCTS & SERVICES",
+    icon: "🗃️",
+    title: "Service Categories",
+    subtitle: "Configure and manage the service directory hierarchy for on-demand home and professional service offerings.",
     acts: [
-      { h: "View All Hotel Sellers", b: "Browse all registered hotel vendors with their onboarding status, approval state, and hotel count." },
-      { h: "Review Hotel Seller KYC", b: "Inspect verification documents submitted by hotel owners including property ownership proofs and GSTIN." },
-      { h: "Approve or Reject a Hotel Seller", b: "Approve the hotel vendor after document verification to allow them to publish hotels, or reject with a written feedback note." },
-      { h: "Suspend a Hotel Vendor", b: "Suspend a hotel seller account — all their listed hotels and room availability are immediately hidden from customers." },
-      { h: "View Vendor Profile & Financials", b: "Check the vendor's commission rate, net earnings balance, and ad balance from a consolidated profile view." }
+      { h: "Add & Edit Service Categories", b: "Create dedicated service categories (e.g. Home Cleaning, Appliance Repair, Tutoring) with title, slug, and descriptions." },
+      { h: "Mobile App Visual Icons", b: "Upload square graphic icons tailored for the mobile service booking grid." },
+      { h: "Marketplace Visibility", b: "Toggle service categories active or inactive to reflect seasonal service demand and provider availability." },
+      { h: "Safe Category Deletion", b: "Remove obsolete service classifications safely once all dependent service offerings have been concluded." }
     ],
-    tip: { type: "green", text: "<strong>Note:</strong> Hotel sellers have a separate onboarding flow from product/service sellers. Their dashboard is at /hotel-seller and manages rooms, availability, and bookings independently." }
+    tip: { type: "green", text: "<strong>Service Taxonomy:</strong> Service categories are flat top-level classifications optimized for fast customer service booking workflows." }
   },
   /* 14 */ {
-    chapter: "CHAPTER III · HOTELS",
-    icon: "🛏️",
-    title: "Hotels",
-    subtitle: "View and moderate all hotel property listings across all hotel vendor accounts on the platform.",
+    chapter: "CHAPTER II · PRODUCTS & SERVICES",
+    icon: "🔧",
+    title: "Services",
+    subtitle: "Review, inspect, and moderate professional and home service listings submitted by verified service providers.",
     acts: [
-      { h: "Browse All Hotels", b: "View all hotel listings with property name, location (city/state), room count, listing status (Active/Inactive), and associated vendor." },
-      { h: "View Hotel Details", b: "Inspect full hotel information: name, description, address, GPS coordinates, amenities list, check-in/check-out policies, and uploaded photo gallery." },
-      { h: "View Room Types", b: "Review all room categories configured for a hotel (e.g. Deluxe, Suite, Single) with pricing, capacity, and availability status." },
-      { h: "Toggle Hotel Active Status", b: "Deactivate a hotel to hide it from the booking search without deleting it — useful while the vendor resolves compliance issues." },
-      { h: "Delete a Hotel", b: "Permanently remove a hotel listing. Only possible if no future confirmed bookings exist for that property." }
+      { h: "Service Offerings Directory", b: "View and search all listed services with provider details, category classifications, and operational status." },
+      { h: "Service Profile Audit", b: "Inspect detailed service listings: scope description, hourly/fixed pricing models, coverage areas, and service images." },
+      { h: "Provider Association Review", b: "Cross-reference service listings against the verified credentials and KYC status of the originating service provider." },
+      { h: "Visibility Controls", b: "Deactivate service listings that violate service guidelines or receive frequent customer complaints." },
+      { h: "Service Removal", b: "Permanently delete unauthorized, duplicate, or abandoned service entries." }
     ],
-    tip: { type: "amber", text: "<strong>Warning:</strong> Do not deactivate a hotel that has confirmed upcoming bookings — contact the vendor first to ensure customers are notified before any status changes." }
+    tip: { type: "blue", text: "<strong>Service Lifecycle:</strong> Customer bookings for services follow a booking-and-confirmation workflow; all generated service bookings appear under Product/Service Orders." }
   },
   /* 15 */ {
+    chapter: "CHAPTER II · PRODUCTS & SERVICES",
+    icon: "🧑‍💼",
+    title: "Product & Service Sellers",
+    subtitle: "Dedicated management workspace for onboarding verification, KYC document audits, and account statuses of product and service merchants.",
+    acts: [
+      { h: "Merchant Roster & Details", b: "Review all registered product merchants and service professionals, including store profiles, email, phone, and subscription tier." },
+      { h: "KYC Verification Dossier", b: "Examine uploaded business identity proofs, GST certificates, PAN cards, and bank account proofs submitted during onboarding." },
+      { h: "Approve with Tier Privileges", b: "Grant formal approval upon document verification, unlocking the vendor dashboard for catalog listing and sales." },
+      { h: "Rejection with Feedback", b: "Reject incomplete onboarding applications with specific feedback notes displayed directly on the seller's portal." },
+      { h: "Account Suspension", b: "Suspend non-compliant or fraudulent sellers to immediately take down their entire catalog and storefront." },
+      { h: "Bespoke Commission Settings", b: "Set custom negotiated commission percentages (%) for specific high-volume merchant partners." }
+    ],
+    tip: { type: "amber", text: "<strong>Seller Actions:</strong> Suspending a seller freezes their storefront and stops new purchases, but all historical order records remain accessible for fulfillment and refunds." }
+  },
+  /* 16 */ {
+    chapter: "CHAPTER II · PRODUCTS & SERVICES",
+    icon: "🛒",
+    title: "Product & Service Orders",
+    subtitle: "Oversee the complete order fulfillment lifecycle, delivery dispatch modes, customer OTP verification, and dispute resolutions.",
+    acts: [
+      { h: "Comprehensive Order Ledger", b: "Monitor orders across all fulfillment states: Pending, Confirmed, Shipped, Out for Delivery, Delivered, Cancelled, and Returned." },
+      { h: "Order Deep-Dive Inspection", b: "Inspect customer information, delivery address, ordered item lines, quantities, applied coupons, and payment methods." },
+      { h: "Dispatch Mode (Self vs Rider)", b: "Support both seller self-delivery and automated platform delivery rider dispatch, complete with assigned rider contact details." },
+      { h: "Secure Customer Delivery OTP", b: "Orders dispatched through delivery riders require customer OTP entry at handover to ensure proof of delivery." },
+      { h: "Item-Level Returns & Exchanges", b: "Manage customer return and replacement requests with photo evidence review, approval/rejection notes, and delivered-line lock protection." },
+      { h: "Tax Invoice Generation", b: "View, generate, and print standardized tax invoices for accounting, customer disputes, and regulatory compliance." }
+    ],
+    tip: { type: "blue", text: "<strong>Dispute Workflow:</strong> Use the 'Return Requests' tab to quickly triage returns. Customer-provided defect photos can be inspected directly before approving refund credits." }
+  },
+  /* 17 */ {
+    chapter: "CHAPTER III · HOTELS",
+    icon: "🏨",
+    title: "Hotel Sellers (Hoteliers)",
+    subtitle: "Onboard, verify, audit, and regulate hotel owners and hospitality partners operating on the platform.",
+    acts: [
+      { h: "Hotelier Partner Roster", b: "Browse all registered hotel vendors, check their onboarding state, property count, and business contact information." },
+      { h: "Hospitality KYC Verification", b: "Inspect commercial hospitality trade licenses, property ownership or lease agreements, GSTIN, and identity documentation." },
+      { h: "Approve or Reject Hoteliers", b: "Approve verified hospitality vendors to allow property listings, or reject incomplete submissions with explicit guidance." },
+      { h: "Vendor Suspension", b: "Suspend compromised hotelier accounts, immediately hiding all associated properties and blocking new room bookings." },
+      { h: "Financial & Commission Overview", b: "Review net earnings, deducted platform commissions, and ad wallet balances for each hotel partner." }
+    ],
+    tip: { type: "green", text: "<strong>Hotelier Portal:</strong> Hoteliers manage room inventories and check-in schedules from their dedicated portal at /hotel-seller." }
+  },
+  /* 18 */ {
+    chapter: "CHAPTER III · HOTELS",
+    icon: "🛏️",
+    title: "Hotels (Properties)",
+    subtitle: "Inspect, moderate, and oversee hotel property listings, room inventory configurations, and facility policies.",
+    acts: [
+      { h: "Hotel Property Directory", b: "Browse all listed hotels with property names, city/state locations, room counts, vendor linkages, and publication status." },
+      { h: "Property Profile Audit", b: "Review property descriptions, street address, exact GPS coordinates, check-in/check-out policies, and uploaded image galleries." },
+      { h: "Room Configurations & Inventory", b: "Inspect room categories (e.g. Deluxe, Executive Suite, Family Room), guest capacities, base prices, and seasonal tariffs." },
+      { h: "Amenities & Rules Verification", b: "Verify listed amenities (WiFi, Pool, Breakfast, Parking) and house rules to prevent misleading customer expectations." },
+      { h: "Listing Moderation & Suspension", b: "Deactivate non-compliant properties or delete inactive listings with no pending future reservations." }
+    ],
+    tip: { type: "amber", text: "<strong>Active Bookings Safeguard:</strong> Never deactivate a property with upcoming confirmed reservations without first coordinating guest relocations with the hotelier." }
+  },
+  /* 19 */ {
     chapter: "CHAPTER III · HOTELS",
     icon: "📅",
     title: "Hotel Bookings",
-    subtitle: "Track all customer room reservation bookings across the platform with full booking lifecycle management.",
+    subtitle: "Track guest room reservations, monitor check-in/check-out lifecycle states, and execute administrative booking cancellations.",
     acts: [
-      { h: "View All Bookings", b: "Browse all hotel bookings filterable by status (Pending, Confirmed, Checked In, Checked Out, Cancelled), date range, and hotel vendor." },
-      { h: "View Booking Details", b: "Open a booking to see the customer's name, hotel, room type, check-in/check-out dates, number of guests, total amount, and payment method." },
-      { h: "Cancel a Booking", b: "Admin can cancel a booking in cases of hotel overbooking errors, vendor disputes, or customer escalation — triggering a refund workflow." },
-      { h: "Filter by Check-in Date", b: "View all upcoming arrivals within a date range to proactively monitor hotel operations." }
+      { h: "Reservation Management Ledger", b: "Track all customer bookings across Pending, Confirmed, Checked-In, Checked-Out, and Cancelled states." },
+      { h: "Booking Details Breakdown", b: "Inspect guest names, contact phone numbers, selected hotel, room type, reservation dates, guest headcounts, and total billing." },
+      { h: "Check-In / Check-Out Monitoring", b: "Filter bookings by arrival or departure dates to monitor regional occupancy trends and verify guest check-ins." },
+      { h: "Administrative Cancellation", b: "Cancel reservations in emergency situations, property disputes, or customer escalations, recording audit trail reasons." },
+      { h: "Refund Workflow Audit", b: "Verify refund calculations and automated transaction records following approved booking cancellations." }
     ],
-    tip: { type: "blue", text: "<strong>Tip:</strong> When cancelling a booking on behalf of a customer, always note the cancellation reason in the admin notes field — this is recorded for refund audit trails." }
+    tip: { type: "blue", text: "<strong>Audit Trail:</strong> When cancelling a hotel booking administratively, always document the reason in the notes field for payment gateway reconciliation." }
   },
-  /* 16 */ {
+  /* 20 */ {
     chapter: "CHAPTER IV · RESTAURANTS",
     icon: "🍽️",
     title: "Restaurant Sellers",
-    subtitle: "Manage restaurant vendors registered on the platform who offer food delivery or dine-in ordering services.",
+    subtitle: "Onboard, verify, audit hygiene certifications, and manage food vendor partners across the platform.",
     acts: [
-      { h: "View All Restaurant Sellers", b: "Browse all registered restaurant vendors with their approval status, cuisine type, and FSSAI/hygiene compliance status." },
-      { h: "Review Restaurant KYC", b: "Check uploaded documents: FSSAI license, restaurant photos, GST registration, and owner identity proof." },
-      { h: "Approve or Reject a Restaurant", b: "Grant approval after document review to allow the restaurant to go live on the food ordering section, or reject with feedback." },
-      { h: "Suspend a Restaurant", b: "Suspend a restaurant account — their menu and ordering option disappear from customers immediately." },
-      { h: "View Restaurant Financials", b: "Check the restaurant's earned revenue, platform commission deducted, and pending settlement balance." }
+      { h: "Restaurant Vendor Directory", b: "Browse all registered food vendors with their approval state, cuisine tags, operating status, and owner details." },
+      { h: "FSSAI & Hygiene Document Review", b: "Inspect mandatory food safety licenses (FSSAI), restaurant premises photos, GST certificates, and owner identity proofs." },
+      { h: "Approve or Reject Food Partners", b: "Grant operational approval for restaurants to start receiving food orders, or return applications with feedback." },
+      { h: "Restaurant Account Suspension", b: "Suspend restaurants violating hygiene standards or service agreements, instantly delisting them from food ordering." },
+      { h: "Financial Settlement Metrics", b: "Review restaurant gross orders, food delivery commission deductions, and pending payout balances." }
     ],
-    tip: { type: "green", text: "<strong>Note:</strong> Restaurants have a separate seller portal at /restaurant-seller. Their delivery radius and operating hours are configured there, not in this admin section." }
+    tip: { type: "green", text: "<strong>Food Safety Compliance:</strong> FSSAI certification and clear kitchen photographs are mandatory for restaurant approval to ensure food safety standards." }
   },
-  /* 17 */ {
+  /* 21 */ {
     chapter: "CHAPTER IV · RESTAURANTS",
     icon: "🥗",
-    title: "Food Items",
-    subtitle: "Inspect all food menu items listed by restaurant vendors across all active restaurants.",
+    title: "Food Items (Menu Management)",
+    subtitle: "Inspect and moderate restaurant food menus, dietary classifications, pricing, and allergen declarations.",
     acts: [
-      { h: "Browse All Food Items", b: "View all food dishes across all restaurants with details on price, restaurant name, dietary flags (Veg/Non-Veg/Vegan), and active status." },
-      { h: "View Food Item Details", b: "See the full dish profile: name, description, category (Starter, Main, Dessert), base price, discount price, and photos." },
-      { h: "Toggle Food Item Status", b: "Deactivate a specific food item that violates guidelines (e.g. mislabelled allergens) without affecting the rest of the restaurant's menu." },
-      { h: "Delete a Food Item", b: "Permanently remove a food listing — used when a dish is found to be fraudulent or permanently discontinued." }
+      { h: "Universal Food Menu Directory", b: "Browse all food items across restaurants, filterable by cuisine, restaurant name, price range, and availability." },
+      { h: "Dish Details & Pricing Audit", b: "Inspect dish names, descriptions, menu categories (Appetizer, Main, Dessert, Beverage), base prices, and promotional discounts." },
+      { h: "Dietary & Allergen Verification", b: "Audit dietary tags (Vegetarian, Non-Vegetarian, Vegan) and allergen disclosures to ensure customer health and safety." },
+      { h: "Dish Moderation & Deactivation", b: "Deactivate mislabelled or prohibited food listings immediately without impacting the rest of the restaurant's menu." },
+      { h: "Permanent Dish Removal", b: "Permanently delete obsolete or fraudulent menu items from the database." }
     ],
-    tip: { type: "amber", text: "<strong>Note:</strong> Individual food item prices and availability are managed by the restaurant seller from their own dashboard. Admin-side changes are for moderation only." }
+    tip: { type: "amber", text: "<strong>Moderation Role:</strong> Routine pricing, daily specials, and stock availability are managed by restaurants; admin controls are dedicated to compliance and moderation." }
   },
-  /* 18 */ {
+  /* 22 */ {
     chapter: "CHAPTER IV · RESTAURANTS",
     icon: "🛵",
     title: "Restaurant Orders",
-    subtitle: "Track all food delivery and dine-in orders placed by customers across all restaurant partners.",
+    subtitle: "Monitor food orders, kitchen preparation times, delivery rider assignments, and customer dispute escalations.",
     acts: [
-      { h: "View All Restaurant Orders", b: "Browse all food orders filterable by status (Placed, Preparing, Out for Delivery, Delivered, Cancelled), date, and restaurant." },
-      { h: "View Order Details", b: "Open any order to inspect: items ordered, quantities, customer address, selected restaurant, delivery rider (if assigned), and total bill." },
-      { h: "Update Order Status", b: "Manually advance an order status (e.g. mark as Delivered) if the restaurant or rider has not updated it and the customer escalates." },
-      { h: "Cancel an Order", b: "Cancel a food order in cases of restaurant non-response, payment disputes, or system errors." },
-      { h: "Filter by Restaurant", b: "Isolate orders from a specific restaurant to audit their fulfilment performance or investigate complaints." }
+      { h: "Live Food Order Ledger", b: "Monitor incoming food orders across Placed, Kitchen Preparing, Ready for Pickup, Out for Delivery, Delivered, and Cancelled states." },
+      { h: "Order Breakdown & Itemization", b: "Inspect ordered dishes, portions, special instructions, customer address, restaurant address, and bill breakdown." },
+      { h: "Delivery Rider Coordination", b: "Review assigned delivery rider details, vehicle type, contact number, and real-time transit status." },
+      { h: "Status Override & Escalation", b: "Manually advance order statuses or cancel delayed orders when restaurants or riders encounter operational bottlenecks." },
+      { h: "Restaurant Performance Filtering", b: "Filter orders by specific restaurant partners to audit fulfillment delays, order rejection rates, and customer complaints." }
     ],
-    tip: { type: "blue", text: "<strong>Tip:</strong> High cancellation rates from a specific restaurant are a strong indicator of operational issues. Use the restaurant filter to generate a quick audit view." }
+    tip: { type: "blue", text: "<strong>Order Health:</strong> Track average preparation and delivery cycle times. Restaurants with frequent cancellations can be audited directly from this view." }
   }
 ];
 

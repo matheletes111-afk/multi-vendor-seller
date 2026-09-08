@@ -26,6 +26,11 @@ TABLE OF CONTENTS
    5.1 Displaying the Completed Delivery Proof Photo
 6. COMPLETE SAMPLE FLUTTER CUSTOMER TRACKING SCREEN
 7. CUSTOMER MOBILE APP DEVELOPER CHECKLIST
+8. MULTI-SELLER MULTI-RIDER DELIVERY TRACKING ARCHITECTURE
+   8.1 Multi-Vendor Checkout Scenario
+   8.2 Multi-Seller JSON Response Structure
+   8.3 Mobile UI Implementation Pattern: Multi-Package Carousel / Tabs
+9. END-TO-END CUSTOMER DELIVERY ORDER LIFECYCLE & HANDOVER TIMELINE
 
 ================================================================================
 1. EXECUTIVE SUMMARY & CUSTOMER EXPERIENCE FLOW
@@ -468,5 +473,43 @@ When `data.activeDeliveryTrackings.length > 1`:
   to that specific delivery.
 - Both riders stream telemetry simultaneously into `order:<orderId>` room. Filter marker animations
   by `data.riderId` to update both rider icons on screen!
+
+================================================================================
+9. END-TO-END CUSTOMER DELIVERY ORDER LIFECYCLE & HANDOVER TIMELINE
+================================================================================
+
+Step 1: Order Placement & Dispatch Confirmation
+- Customer places order (Items + Shipping Fee).
+- Status: CONFIRMED / PROCESSING.
+- The order details screen displays store pickup preparation status.
+
+Step 2: Rider Assigned & En Route to Store
+- Status: ACCEPTED / AT_PICKUP.
+- Customer sees the assigned rider's name, profile photo, phone number, vehicle plate, and live position.
+
+Step 3: Parcel Collected & Dispatched
+- Status: PICKED_UP.
+- Rider collects packages from merchant store. Customer receives push notification.
+
+Step 4: Out for Delivery & OTP Reveal
+- Status: OUT_FOR_DELIVERY.
+- Live Map view actively streams rider GPS movement (<50ms latency over Socket.IO room `order:<orderId>`).
+- The prominent 6-Digit Delivery OTP Card appears on screen:
+  ┌────────────────────────────────────────────────────────────┐
+  │ 🔐 YOUR DELIVERY OTP CODE: [ 5 8 2 9 1 0 ]                 │
+  │ Share this code with the rider when receiving your parcel. │
+  └────────────────────────────────────────────────────────────┘
+- Customer is advised not to share the OTP over phone calls prior to physical arrival.
+
+Step 5: Doorstep Package Handover & Visual Proof Verification
+- Rider arrives at customer's doorstep.
+- Customer inspects the package and gives the 6-digit OTP to the rider.
+- Rider enters the OTP in the Rider App and captures a delivery handover photo proof.
+- Backend verifies OTP and marks order status DELIVERED.
+- Customer's Order Details screen immediately updates with:
+  "Delivered Successfully" status badge and displays the rider's uploaded "Visual Delivery Proof" photo.
+
+================================================================================
+END OF DOCUMENTATION (PART 4)
 ================================================================================
 
