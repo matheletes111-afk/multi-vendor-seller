@@ -33,6 +33,7 @@ frontend:
         - echo "S3_BUCKET=${S3_BUCKET:-$AMPLIFY_AWS_S3_BUCKET_NAME}" >> .env
         - echo "S3_PUBLIC_BASE_URL=$S3_PUBLIC_BASE_URL" >> .env
         - echo "NEXT_PUBLIC_LIVE_SITE_URL=$NEXT_PUBLIC_LIVE_SITE_URL" >> .env
+        - echo "NEXT_PUBLIC_SOCKET_URL=$NEXT_PUBLIC_SOCKET_URL" >> .env
         - echo "ACC_SID_TWILIO=$ACC_SID_TWILIO" >> .env
         - echo "AUTH_TOKEN_TWILIO=$AUTH_TOKEN_TWILIO" >> .env
         - echo "MSG_SERVICESID=$MSG_SERVICESID" >> .env
