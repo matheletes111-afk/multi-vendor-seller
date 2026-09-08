@@ -98,7 +98,8 @@ io.on("connection", (socket) => {
   console.log(`[Socket.IO] Client connected: ${socket.id}`)
 
   // Customer or Seller joins a specific order room to watch live rider GPS
-  socket.on("join_order", ({ orderId }) => {
+  socket.on("join_order", (data) => {
+    const orderId = typeof data === "string" ? data : data?.orderId
     if (orderId) {
       socket.join(`order:${orderId}`)
       console.log(`[Socket.IO] Socket ${socket.id} joined order:${orderId}`)
@@ -107,6 +108,10 @@ io.on("connection", (socket) => {
 
   // Admin joins live fleet monitoring room
   socket.on("join_fleet", () => {
+    socket.join("admin:fleet")
+    console.log(`[Socket.IO] Socket ${socket.id} joined admin:fleet`)
+  })
+  socket.on("join_admin_fleet", () => {
     socket.join("admin:fleet")
     console.log(`[Socket.IO] Socket ${socket.id} joined admin:fleet`)
   })
