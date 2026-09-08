@@ -26,7 +26,8 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get("search")?.trim() || searchParams.get("q")?.trim() || ""
     const statusParam = (searchParams.get("status") || "ALL").toUpperCase()
     const sourceParam = (searchParams.get("source") || searchParams.get("registrationSource") || "ALL").toUpperCase()
-    const zoneFilter = searchParams.get("zone")?.trim() || ""
+    const rawZone = searchParams.get("zone")?.trim() || ""
+    const zoneFilter = rawZone.toUpperCase() === "ALL" ? "" : rawZone
     const locationFilter = searchParams.get("location")?.trim() || ""
     const timeframe = searchParams.get("timeframe")?.trim()
     const startDate = searchParams.get("startDate")?.trim()
@@ -39,10 +40,34 @@ export async function GET(request: NextRequest) {
       endDate,
     })
 
-    // 2. Build where clause
+    // 2. Build rider relation conditions (using Prisma 'is' relation filter syntax)
+    const riderConditions: any = {}
+
+    if (statusParam && statusParam !== "ALL") {
+      if (statusParam === "APPROVED") {
+        riderConditions.status = "APPROVED"
+        riderConditions.isSuspended = false
+      } else if (statusParam === "SUSPENDED") {
+        riderConditions.OR = [{ isSuspended: true }, { status: "SUSPENDED" }]
+      } else if (statusParam === "PENDING") {
+        riderConditions.status = "PENDING"
+        riderConditions.isSuspended = false
+      } else if (statusParam === "REJECTED") {
+        riderConditions.status = "REJECTED"
+      }
+    }
+
+    if (sourceParam && sourceParam !== "ALL") {
+      if (sourceParam === "ADMIN" || sourceParam === "ADMIN_CREATED") {
+        riderConditions.createdByAdmin = true
+      } else if (sourceParam === "SELF" || sourceParam === "SELF_REGISTERED") {
+        riderConditions.createdByAdmin = false
+      }
+    }
+
     const where: any = {
       role: UserRole.RIDER,
-      rider: { isNot: null },
+      rider: Object.keys(riderConditions).length > 0 ? { is: riderConditions } : { isNot: null },
     }
 
     if (dateFilter) {
@@ -54,27 +79,18 @@ export async function GET(request: NextRequest) {
         { name: { contains: search, mode: "insensitive" } },
         { email: { contains: search, mode: "insensitive" } },
         { phone: { contains: search, mode: "insensitive" } },
+        {
+          rider: {
+            is: {
+              OR: [
+                { vehicleNumber: { contains: search, mode: "insensitive" } },
+                { vehicleName: { contains: search, mode: "insensitive" } },
+                { drivingLicenseNo: { contains: search, mode: "insensitive" } },
+              ],
+            },
+          },
+        },
       ]
-    }
-
-    if (statusParam && statusParam !== "ALL") {
-      if (statusParam === "APPROVED") {
-        where.rider = { ...where.rider, status: "APPROVED", isSuspended: false }
-      } else if (statusParam === "SUSPENDED") {
-        where.rider = { ...where.rider, OR: [{ isSuspended: true }, { status: "SUSPENDED" }] }
-      } else if (statusParam === "PENDING") {
-        where.rider = { ...where.rider, status: "PENDING", isSuspended: false }
-      } else if (statusParam === "REJECTED") {
-        where.rider = { ...where.rider, status: "REJECTED" }
-      }
-    }
-
-    if (sourceParam && sourceParam !== "ALL") {
-      if (sourceParam === "ADMIN" || sourceParam === "ADMIN_CREATED") {
-        where.rider = { ...where.rider, createdByAdmin: true }
-      } else if (sourceParam === "SELF" || sourceParam === "SELF_REGISTERED") {
-        where.rider = { ...where.rider, createdByAdmin: false }
-      }
     }
 
     const hasCustomZoneOrLoc = Boolean(zoneFilter || locationFilter)
@@ -105,7 +121,7 @@ export async function GET(request: NextRequest) {
       if (zoneFilter) {
         filtered = filtered.filter((u) => {
           const zones = (u.rider?.selectedZones as string[]) || []
-          return zones.includes(zoneFilter)
+          return zones.some((z) => z.toLowerCase().includes(zoneFilter.toLowerCase()))
         })
       }
       if (locationFilter) {
@@ -144,6 +160,25 @@ export async function GET(request: NextRequest) {
       paginatedRiders = dbUsers
     }
 
+    // Quick stats breakdown across statuses and registration sources
+    const [
+      totalAll,
+      totalApproved,
+      totalPending,
+      totalSuspended,
+      totalRejected,
+      totalAdminCreated,
+      totalSelfRegistered,
+    ] = await Promise.all([
+      prisma.rider.count(),
+      prisma.rider.count({ where: { status: "APPROVED", isSuspended: false } }),
+      prisma.rider.count({ where: { status: "PENDING", isSuspended: false } }),
+      prisma.rider.count({ where: { OR: [{ isSuspended: true }, { status: "SUSPENDED" }] } }),
+      prisma.rider.count({ where: { status: "REJECTED" } }),
+      prisma.rider.count({ where: { createdByAdmin: true } }),
+      prisma.rider.count({ where: { createdByAdmin: false } }),
+    ])
+
     return NextResponse.json({
       riders: paginatedRiders,
       pagination: {
@@ -151,6 +186,15 @@ export async function GET(request: NextRequest) {
         perPage,
         total,
         totalPages: Math.ceil(total / perPage),
+      },
+      stats: {
+        totalAll,
+        totalApproved,
+        totalPending,
+        totalSuspended,
+        totalRejected,
+        totalAdminCreated,
+        totalSelfRegistered,
       },
     })
   } catch (error) {

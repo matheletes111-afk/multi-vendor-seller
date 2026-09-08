@@ -29,6 +29,8 @@ TABLE OF CONTENTS
    5.1 Available Online Riders List (`GET /mobileapi/product-seller/riders/available`)
    5.2 Direct Manual Assignment & Auto-Dispatch (`POST /mobileapi/product-seller/orders/:id/assign-rider`)
    5.3 Dispatch BottomSheet / Modal UI/UX Guidelines (Radio Filter & Safety Notes)
+   5.4 Multi-Vendor & Self-Delivery Lifecycle Rules
+   5.5 Scenario Guide: What Happens When a Zone Has Zero Available Riders
 6. SAMPLE MOBILE CODE IMPLEMENTATIONS
    6.1 Flutter (Dart) Socket.IO & Google Maps Example
    6.2 Flutter (Dart) Dispatch BottomSheet with Radio Filter & Explanatory Note
@@ -40,6 +42,12 @@ TABLE OF CONTENTS
    8.3 Order Details API Schema Updates (`isSelfDelivery`)
    8.4 Mobile UI/UX Guidelines for In-House Delivery Mode
    8.5 Secure OTP & Proof-of-Delivery Verification Flow
+9. FINANCIAL OVERVIEW, NET REVENUE LEDGER & BALANCE TRANSACTIONS
+   9.1 The Multi-Vendor Product Seller Revenue Formula
+   9.2 Overview Dashboard API (`GET /mobileapi/product-seller/overview`)
+   9.3 Order Details & Financial Breakdown API (`GET /mobileapi/product-seller/orders/:id`)
+   9.4 Seller Balance Transactions & Ledger (`GET /mobileapi/product-seller/finances/transactions`)
+   9.5 UI Implementation Guidelines: 4-Column Financial Breakdown Card
 
 ================================================================================
 1. ARCHITECTURAL OVERVIEW
@@ -490,6 +498,19 @@ D. ASCII WIREFRAME OF MOBILE DISPATCH BOTTOM SHEET:
      parcel (PICKED_UP) within 30 minutes of acceptance.
    - If 30 minutes elapse without parcel pickup, the sweeper automatically cancels
      the assignment (CANCELLED_BY_RIDER) and triggers an immediate waterfall re-dispatch.
+
+--------------------------------------------------------------------------------
+5.5 Scenario Guide: What Happens When a Zone Has Zero Available Riders?
+--------------------------------------------------------------------------------
+1. Primary Dual-Filter Match: The auto-dispatch engine first searches for online, approved riders whose `selectedLocations` list includes the customer's delivery location (e.g., "Lakka", "Lumley").
+2. Automatic Fallback Expansion: If NO idle riders are registered in that specific zone (`eligibleRiders.length === 0`), the engine automatically expands to ALL free online riders and ranks them strictly by Haversine GPS distance from the Seller's shop.
+3. If Absolutely Zero Riders Are Free/Online System-Wide:
+   - The engine logs: `"No free candidates for order #..."` and returns `candidatesCount: 0`.
+   - The order remains safely in `CONFIRMED` or `PROCESSING` state without breaking.
+   - On the Seller & Admin panels (Web and Mobile), the Order details show:
+     `Status: No Rider Assigned` along with **"Auto-Dispatch"** and **"Assign Rider"** buttons.
+   - As soon as any rider finishes an ongoing delivery or logs in online, the Seller or Admin can tap **"Auto-Dispatch"** (or select a rider from the available riders list) with 1 click!
+   - Alternative: The seller can toggle "Deliver by Myself / Store Staff" (In-House Delivery Mode) to fulfill the order directly and retain the delivery fee!
 
 ================================================================================
 6. SAMPLE MOBILE CODE IMPLEMENTATIONS
@@ -1005,5 +1026,183 @@ remains identical to the platform rider standard to protect against fraud:
    - Backend validates the OTP and commits the status to `DELIVERED`.
    - Seller's net wallet is automatically credited with:
      `Product Total (incl. GST) + Customer Delivery Fee - Platform Commission`.
+
+================================================================================
+9. FINANCIAL OVERVIEW, NET REVENUE LEDGER & BALANCE TRANSACTIONS
+================================================================================
+
+--------------------------------------------------------------------------------
+9.1 The Multi-Vendor Product Seller Revenue Formula
+--------------------------------------------------------------------------------
+For every physical product order delivered through the MEEEM platform:
+
+  [Net Seller Revenue] = [Item Gross Value (incl. GST)] 
+                       - [Platform Commission Amount] 
+                       - [Delivery Boy Delivery Fee]
+
+Where:
+- [Item Gross Value]: Unit Price × Quantity (+ GST if applicable).
+- [Platform Commission Amount]: (Item Gross Value + Delivery Fee) × (CommissionRate / 100).
+- [Delivery Boy Delivery Fee]: The delivery charge allocated to this line item based
+  on distance/weight/dimensions (deducted if using platform rider, credited to seller if using In-House Self-Delivery).
+- [Delivery Boy Earning]: Equals the allocated Delivery Fee.
+
+Concrete Example Breakdown (NLe 100 Product Item):
+┌──────────────────────────────┬─────────────┬─────────────────────────────────┐
+│ Entity                       │ Amount      │ Note                            │
+├──────────────────────────────┼─────────────┼─────────────────────────────────┤
+│ Customer Payment             │ NLe 120.00  │ NLe 100 (Product) + NLe 20 (Ship)│
+│ Platform Fee (Commission)    │ NLe 10.00   │ Retained by MEEEM platform      │
+│ Delivery Boy (Rider) Earning │ NLe 20.00   │ Credited to Rider delivery fee  │
+│ Product Seller Net Revenue   │ NLe 70.00   │ Credited to Seller Net Balance  │
+└──────────────────────────────┴─────────────┴─────────────────────────────────┘
+
+--------------------------------------------------------------------------------
+9.2 Overview Dashboard API
+--------------------------------------------------------------------------------
+Endpoint: GET /mobileapi/product-seller/overview
+Headers:
+  Authorization: Bearer <sellerAccessToken>
+
+SUCCESS RESPONSE (200 OK):
+{
+  "success": true,
+  "data": {
+    "commissionRate": 10.0,
+    "isGlobalRate": true,
+    "stats": {
+      "commissionRate": 10.0,
+      "isGlobalRate": true,
+      "totalProducts": 42,
+      "totalOrders": 128,
+      "totalRevenue": 15400.00,
+      "totalRevenueFormatted": "NLe 15,400.00",
+      "grossSales": 15400.00,
+      "grossSalesFormatted": "NLe 15,400.00",
+      "platformCommission": 1540.00,
+      "platformCommissionFormatted": "NLe 1,540.00",
+      "deliveryBoyCharges": 3080.00,
+      "deliveryBoyChargesFormatted": "NLe 3,080.00",
+      "netEarnings": 10780.00,
+      "netEarningsFormatted": "NLe 10,780.00",
+      "netBalance": 10780.00,
+      "netBalanceFormatted": "NLe 10,780.00",
+      "balanceCreditsTotal": 10780.00,
+      "balanceCreditsFormatted": "NLe 10,780.00",
+      "balanceDebitsTotal": 0.00,
+      "balanceDebitsFormatted": "NLe 0.00",
+      "totalAdClicks": 350
+    },
+    "subscription": {
+      "id": "cuid_sub_id",
+      "status": "ACTIVE",
+      "plan": { "displayName": "Standard Merchant" }
+    }
+  }
+}
+
+--------------------------------------------------------------------------------
+9.3 Order Details & Financial Breakdown API
+--------------------------------------------------------------------------------
+Endpoint: GET /mobileapi/product-seller/orders/:id
+Headers:
+  Authorization: Bearer <sellerAccessToken>
+
+SUCCESS RESPONSE (200 OK):
+{
+  "id": "cuid_order_id",
+  "orderNumber": "meeem00000125",
+  "status": "DELIVERED",
+  "totalAmount": 120.00,
+  "subtotal": 100.00,
+  "tax": 0.00,
+  "shipping": 20.00,
+  "commission": 10.00,
+  "commissionRate": 10.0,
+  "paymentMethod": "COD",
+  "paymentStatus": "COMPLETED",
+  "items": [
+    {
+      "id": "cuid_item_id",
+      "productId": "cuid_product_id",
+      "productName": "Wireless Bluetooth Headphones",
+      "quantity": 1,
+      "price": 100.00,
+      "subtotal": 100.00,
+      "subtotalInclGst": 100.00,
+      "hasGst": false,
+      "gstAmount": 0.00,
+      "shippingAmount": 20.00,
+      "commissionAmount": 10.00,
+      "commissionRateSnapshot": 10.0,
+      "itemStatus": "DELIVERED",
+      "deliveredAt": "2026-08-28T10:45:00.000Z",
+      "deliveryProofImage": "https://.../delivery-proofs/proof-123.jpg",
+      "sellerNetPayout": 70.00
+    }
+  ],
+  "deliveryAssignments": [
+    {
+      "id": "cuid_assignment_id",
+      "status": "DELIVERED",
+      "dispatchMode": "AUTO_CASCADE",
+      "rider": {
+        "id": "cuid_rider_id",
+        "vehicleNumber": "SL-3829-B",
+        "user": {
+          "name": "Ibrahim Koroma",
+          "phone": "76123456",
+          "image": "https://.../rider-pfp.jpg"
+        }
+      }
+    }
+  ]
+}
+
+--------------------------------------------------------------------------------
+9.4 Seller Balance Transactions & Ledger
+--------------------------------------------------------------------------------
+Endpoint: GET /mobileapi/product-seller/finances/transactions
+Headers:
+  Authorization: Bearer <sellerAccessToken>
+
+SUCCESS RESPONSE (200 OK):
+{
+  "success": true,
+  "transactions": [
+    {
+      "id": "cuid_txn_id",
+      "amount": 70.00,
+      "kind": "CREDIT",
+      "reason": "ORDER_LINE_DELIVERED",
+      "note": "Seller net credit: Item incl. GST (100.00) − platform commission (10.00) − delivery boy charge (20.00)",
+      "orderId": "cuid_order_id",
+      "createdAt": "2026-08-28T10:45:00.000Z"
+    }
+  ],
+  "summary": {
+    "netBalance": 10780.00,
+    "totalCredits": 10780.00,
+    "totalDebits": 0.00
+  }
+}
+
+--------------------------------------------------------------------------------
+9.5 UI Implementation Guidelines: 4-Column Financial Breakdown Card
+--------------------------------------------------------------------------------
+On the Seller Order Details Screen:
+- Display a dedicated "Earnings & Payout Breakdown" Card:
+  ┌────────────────────────────────────────────────────────────────────────┐
+  │ 🧾 SELLER EARNINGS & PAYOUT BREAKDOWN (Commission: 10%)               │
+  ├──────────────────┬──────────────────┬─────────────────┬────────────────┤
+  │ Item Gross Value │ Platform Fee     │ Delivery Charge │ Net Revenue    │
+  │ NLe 100.00       │ -NLe 10.00       │ -NLe 20.00      │ NLe 70.00      │
+  │ (Slate Card)     │ (Rose Badge)     │ (Amber Badge)   │ (Green Bold)   │
+  └──────────────────┴──────────────────┴─────────────────┴────────────────┘
+- If `deliveryProofImage` is present on the order item, render a clickable thumbnail
+  preview titled "Visual Delivery Proof".
+
+================================================================================
+END OF DOCUMENTATION (PART 5)
 ================================================================================
 

@@ -1,6 +1,7 @@
 "use client"
 
-import React, { useState, useEffect, useCallback } from "react"
+import React, { useState, useEffect, useCallback, useMemo } from "react"
+import { useSearchParams, useRouter, usePathname } from "next/navigation"
 import {
   Search,
   Plus,
@@ -25,6 +26,7 @@ import {
   SlidersHorizontal,
   ExternalLink,
   Ban,
+  X,
 } from "lucide-react"
 import { Button } from "@/ui/button"
 import { Input } from "@/ui/input"
@@ -97,19 +99,90 @@ interface RiderItem {
 }
 
 export function RidersClient() {
+  const searchParams = useSearchParams()
+  const router = useRouter()
+  const pathname = usePathname()
+
+  const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10) || 1)
+  const perPage = Math.min(100, Math.max(1, parseInt(searchParams.get("perPage") ?? "10", 10) || 10))
+
+  const urlSearch = searchParams.get("search") ?? searchParams.get("q") ?? ""
+  const urlStatus = (searchParams.get("status") || "ALL").toUpperCase()
+  const urlSource = (searchParams.get("source") || "ALL").toUpperCase()
+  const rawUrlZone = searchParams.get("zone") || "ALL"
+  const urlZone = rawUrlZone.toUpperCase() === "ALL" ? "ALL" : rawUrlZone
+  const urlLocation = searchParams.get("location") || ""
+
   const [riders, setRiders] = useState<RiderItem[]>([])
   const [loading, setLoading] = useState(true)
-  const [page, setPage] = useState(1)
-  const [perPage, setPerPage] = useState(10)
+  const [error, setError] = useState<string | null>(null)
   const [totalPages, setTotalPages] = useState(1)
   const [total, setTotal] = useState(0)
+  const [stats, setStats] = useState({
+    totalAll: 0,
+    totalApproved: 0,
+    totalPending: 0,
+    totalSuspended: 0,
+    totalRejected: 0,
+    totalAdminCreated: 0,
+    totalSelfRegistered: 0,
+  })
 
-  // Filters
-  const [search, setSearch] = useState("")
-  const [statusFilter, setStatusFilter] = useState("ALL")
-  const [sourceFilter, setSourceFilter] = useState("ALL")
-  const [zoneFilter, setZoneFilter] = useState("ALL")
-  const [locationFilter, setLocationFilter] = useState("")
+  // Input states for immediate responsive typing
+  const [search, setSearch] = useState(urlSearch)
+  const [locationFilter, setLocationFilter] = useState(urlLocation)
+
+  // Sync inputs when URL changes externally
+  useEffect(() => {
+    setSearch(urlSearch)
+  }, [urlSearch])
+
+  useEffect(() => {
+    setLocationFilter(urlLocation)
+  }, [urlLocation])
+
+  const updateFilter = useCallback((updates: Record<string, string | null>) => {
+    const params = new URLSearchParams(searchParams.toString())
+    Object.entries(updates).forEach(([key, val]) => {
+      if (val === null || val === "" || val === "ALL") {
+        params.delete(key)
+      } else {
+        params.set(key, val)
+      }
+    })
+    // Reset to page 1 unless page itself was updated
+    if (!("page" in updates)) {
+      params.delete("page")
+    }
+    const qs = params.toString()
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false })
+  }, [searchParams, router, pathname])
+
+  const clearFilters = useCallback(() => {
+    setSearch("")
+    setLocationFilter("")
+    router.replace(pathname, { scroll: false })
+  }, [router, pathname])
+
+  // Debounced search sync to URL
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (search.trim() !== urlSearch) {
+        updateFilter({ search: search.trim() || null })
+      }
+    }, 350)
+    return () => clearTimeout(timer)
+  }, [search, urlSearch, updateFilter])
+
+  // Debounced location sync to URL
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (locationFilter.trim() !== urlLocation) {
+        updateFilter({ location: locationFilter.trim() || null })
+      }
+    }, 350)
+    return () => clearTimeout(timer)
+  }, [locationFilter, urlLocation, updateFilter])
 
   // Modals
   const [createModalOpen, setCreateModalOpen] = useState(false)
@@ -156,29 +229,26 @@ export function RidersClient() {
   const fetchRiders = useCallback(async () => {
     try {
       setLoading(true)
-      const params = new URLSearchParams({
-        page: page.toString(),
-        perPage: perPage.toString(),
-        status: statusFilter,
-      })
-      if (sourceFilter !== "ALL") params.append("source", sourceFilter)
-      if (search.trim()) params.append("search", search.trim())
-      if (zoneFilter !== "ALL") params.append("zone", zoneFilter)
-      if (locationFilter.trim()) params.append("location", locationFilter.trim())
-
-      const res = await fetch(`/api/admin/riders?${params.toString()}`)
+      setError(null)
+      const res = await fetch(`/api/admin/riders?${searchParams.toString()}`)
       const data = await res.json()
       if (res.ok) {
         setRiders(data.riders || [])
         setTotal(data.pagination?.total || 0)
         setTotalPages(data.pagination?.totalPages || 1)
+        if (data.stats) {
+          setStats(data.stats)
+        }
+      } else {
+        setError(data.error || "Failed to load riders directory.")
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to fetch riders:", err)
+      setError(err?.message || "Failed to fetch riders.")
     } finally {
       setLoading(false)
     }
-  }, [page, perPage, statusFilter, sourceFilter, search, zoneFilter, locationFilter])
+  }, [searchParams])
 
   useEffect(() => {
     fetchRiders()
@@ -431,32 +501,39 @@ export function RidersClient() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
               type="text"
-              placeholder="Search by name, email, or phone..."
+              placeholder="Search by name, email, phone, or vehicle..."
               value={search}
-              onChange={(e) => {
-                setSearch(e.target.value)
-                setPage(1)
-              }}
-              className="pl-9 h-10 rounded-xl text-xs"
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9 pr-8 h-10 rounded-xl text-xs"
             />
+            {search && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearch("")
+                  updateFilter({ search: null })
+                }}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-0.5"
+                title="Clear search"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
 
           {/* Registration Source Filter */}
           <div>
             <Select
-              value={sourceFilter}
-              onValueChange={(val) => {
-                setSourceFilter(val)
-                setPage(1)
-              }}
+              value={urlSource}
+              onValueChange={(val) => updateFilter({ source: val })}
             >
               <SelectTrigger className="h-10 rounded-xl text-xs">
                 <SelectValue placeholder="Registration Source" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="ALL">All Sources</SelectItem>
-                <SelectItem value="ADMIN">Created by Admin</SelectItem>
-                <SelectItem value="SELF">Self Registered</SelectItem>
+                <SelectItem value="ALL">All Sources ({stats.totalAll})</SelectItem>
+                <SelectItem value="ADMIN">Created by Admin ({stats.totalAdminCreated})</SelectItem>
+                <SelectItem value="SELF">Self Registered ({stats.totalSelfRegistered})</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -464,21 +541,18 @@ export function RidersClient() {
           {/* Status Filter */}
           <div>
             <Select
-              value={statusFilter}
-              onValueChange={(val) => {
-                setStatusFilter(val)
-                setPage(1)
-              }}
+              value={urlStatus}
+              onValueChange={(val) => updateFilter({ status: val })}
             >
               <SelectTrigger className="h-10 rounded-xl text-xs">
                 <SelectValue placeholder="All Statuses" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="ALL">All Statuses</SelectItem>
-                <SelectItem value="APPROVED">Approved / Active</SelectItem>
-                <SelectItem value="PENDING">Pending Onboarding</SelectItem>
-                <SelectItem value="SUSPENDED">Suspended</SelectItem>
-                <SelectItem value="REJECTED">Rejected</SelectItem>
+                <SelectItem value="ALL">All Statuses ({stats.totalAll})</SelectItem>
+                <SelectItem value="APPROVED">Approved / Active ({stats.totalApproved})</SelectItem>
+                <SelectItem value="PENDING">Pending Onboarding ({stats.totalPending})</SelectItem>
+                <SelectItem value="SUSPENDED">Suspended ({stats.totalSuspended})</SelectItem>
+                <SelectItem value="REJECTED">Rejected ({stats.totalRejected})</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -486,11 +560,8 @@ export function RidersClient() {
           {/* Zone Filter */}
           <div>
             <Select
-              value={zoneFilter}
-              onValueChange={(val) => {
-                setZoneFilter(val)
-                setPage(1)
-              }}
+              value={urlZone}
+              onValueChange={(val) => updateFilter({ zone: val })}
             >
               <SelectTrigger className="h-10 rounded-xl text-xs">
                 <SelectValue placeholder="Filter by Zone" />
@@ -507,66 +578,108 @@ export function RidersClient() {
           </div>
 
           {/* Specific Location Filter */}
-          <div>
+          <div className="relative">
             <Input
               type="text"
               placeholder="Search specific location (e.g. Lakka)..."
               value={locationFilter}
-              onChange={(e) => {
-                setLocationFilter(e.target.value)
-                setPage(1)
-              }}
-              className="h-10 rounded-xl text-xs"
+              onChange={(e) => setLocationFilter(e.target.value)}
+              className="pr-8 h-10 rounded-xl text-xs"
             />
+            {locationFilter && (
+              <button
+                type="button"
+                onClick={() => {
+                  setLocationFilter("")
+                  updateFilter({ location: null })
+                }}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-0.5"
+                title="Clear location filter"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
         </div>
 
         {/* Filter Pills */}
         <div className="flex flex-wrap items-center justify-between gap-2 pt-1 pb-0.5 border-t border-border/40">
-          <div className="flex items-center gap-1.5 overflow-x-auto">
+          <div className="flex flex-wrap items-center gap-1.5">
             <span className="text-[11px] font-semibold text-muted-foreground mr-1">Status:</span>
-            {["ALL", "APPROVED", "PENDING", "SUSPENDED", "REJECTED"].map((s) => (
+            {[
+              { label: "All", value: "ALL", count: stats.totalAll },
+              { label: "Approved", value: "APPROVED", count: stats.totalApproved },
+              { label: "Pending", value: "PENDING", count: stats.totalPending },
+              { label: "Suspended", value: "SUSPENDED", count: stats.totalSuspended },
+              { label: "Rejected", value: "REJECTED", count: stats.totalRejected },
+            ].map((s) => (
               <button
-                key={s}
-                onClick={() => {
-                  setStatusFilter(s)
-                  setPage(1)
-                }}
+                key={s.value}
+                onClick={() => updateFilter({ status: s.value })}
                 className={cn(
-                  "px-3 py-1 text-xs font-semibold rounded-lg transition-colors shrink-0",
-                  statusFilter === s
+                  "px-2.5 py-1 text-xs font-semibold rounded-lg transition-colors shrink-0 flex items-center gap-1.5",
+                  urlStatus === s.value
                     ? "bg-blue-600 text-white shadow-xs"
                     : "bg-muted hover:bg-muted/80 text-muted-foreground"
                 )}
               >
-                {s === "ALL" ? "All Statuses" : s}
+                <span>{s.label}</span>
+                <span
+                  className={cn(
+                    "text-[10px] px-1.5 py-0.2 rounded-full",
+                    urlStatus === s.value
+                      ? "bg-blue-700/90 text-white font-bold"
+                      : "bg-background/80 text-foreground/70"
+                  )}
+                >
+                  {s.count}
+                </span>
               </button>
             ))}
           </div>
 
-          <div className="flex items-center gap-1.5 overflow-x-auto">
+          <div className="flex flex-wrap items-center gap-1.5">
             <span className="text-[11px] font-semibold text-muted-foreground mr-1">Source:</span>
             {[
-              { label: "All Sources", value: "ALL" },
-              { label: "Admin Created", value: "ADMIN" },
-              { label: "Self Registered", value: "SELF" },
+              { label: "All Sources", value: "ALL", count: stats.totalAll },
+              { label: "Admin Created", value: "ADMIN", count: stats.totalAdminCreated },
+              { label: "Self Registered", value: "SELF", count: stats.totalSelfRegistered },
             ].map((src) => (
               <button
                 key={src.value}
-                onClick={() => {
-                  setSourceFilter(src.value)
-                  setPage(1)
-                }}
+                onClick={() => updateFilter({ source: src.value })}
                 className={cn(
-                  "px-3 py-1 text-xs font-semibold rounded-lg transition-colors shrink-0",
-                  sourceFilter === src.value
+                  "px-2.5 py-1 text-xs font-semibold rounded-lg transition-colors shrink-0 flex items-center gap-1.5",
+                  urlSource === src.value
                     ? "bg-purple-600 text-white shadow-xs"
                     : "bg-muted hover:bg-muted/80 text-muted-foreground"
                 )}
               >
-                {src.label}
+                <span>{src.label}</span>
+                <span
+                  className={cn(
+                    "text-[10px] px-1.5 py-0.2 rounded-full",
+                    urlSource === src.value
+                      ? "bg-purple-700/90 text-white font-bold"
+                      : "bg-background/80 text-foreground/70"
+                  )}
+                >
+                  {src.count}
+                </span>
               </button>
             ))}
+
+            {Boolean(urlSearch || (urlStatus && urlStatus !== "ALL") || (urlSource && urlSource !== "ALL") || (urlZone && urlZone !== "ALL") || urlLocation) && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={clearFilters}
+                className="h-7 px-2.5 text-[11px] font-semibold text-rose-600 border-rose-200 hover:bg-rose-50 hover:text-rose-700 dark:border-rose-900/50 dark:hover:bg-rose-950/30 rounded-lg gap-1 ml-1"
+              >
+                <X className="w-3.5 h-3.5" />
+                Reset Filters
+              </Button>
+            )}
           </div>
         </div>
       </div>
@@ -588,7 +701,22 @@ export function RidersClient() {
               </tr>
             </thead>
             <tbody className="divide-y divide-border/60">
-              {loading ? (
+              {error ? (
+                <tr>
+                  <td colSpan={8} className="p-8 text-center text-rose-600 dark:text-rose-400">
+                    <AlertTriangle className="w-6 h-6 mx-auto mb-2 text-rose-500" />
+                    <p className="font-semibold text-sm">{error}</p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => fetchRiders()}
+                      className="mt-3 text-xs rounded-xl"
+                    >
+                      Try Again
+                    </Button>
+                  </td>
+                </tr>
+              ) : loading ? (
                 <tr>
                   <td colSpan={8} className="p-8 text-center text-muted-foreground">
                     <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-blue-600" />
@@ -601,6 +729,17 @@ export function RidersClient() {
                     <Bike className="w-10 h-10 mx-auto mb-3 text-slate-300 dark:text-slate-700" />
                     <p className="font-semibold text-foreground text-sm">No riders found</p>
                     <p className="text-xs mt-1">Try adjusting your search terms or filters.</p>
+                    {Boolean(urlSearch || (urlStatus && urlStatus !== "ALL") || (urlSource && urlSource !== "ALL") || (urlZone && urlZone !== "ALL") || urlLocation) && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={clearFilters}
+                        className="mt-3 text-xs rounded-xl gap-1 text-blue-600 border-blue-200 hover:bg-blue-50 dark:hover:bg-blue-950/30"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                        Clear All Filters
+                      </Button>
+                    )}
                   </td>
                 </tr>
               ) : (
@@ -823,8 +962,7 @@ export function RidersClient() {
             <Select
               value={perPage.toString()}
               onValueChange={(v) => {
-                setPerPage(parseInt(v, 10))
-                setPage(1)
+                updateFilter({ perPage: v, page: "1" })
               }}
             >
               <SelectTrigger className="h-8 w-24 rounded-lg text-xs">
@@ -841,7 +979,7 @@ export function RidersClient() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                onClick={() => updateFilter({ page: Math.max(1, page - 1).toString() })}
                 disabled={page <= 1 || loading}
                 className="h-8 w-8 p-0 rounded-lg"
               >
@@ -855,7 +993,7 @@ export function RidersClient() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                onClick={() => updateFilter({ page: Math.min(totalPages, page + 1).toString() })}
                 disabled={page >= totalPages || loading}
                 className="h-8 w-8 p-0 rounded-lg"
               >

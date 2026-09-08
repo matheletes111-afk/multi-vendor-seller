@@ -1,13 +1,13 @@
 ================================================================================
-MEEEM DELIVERY NETWORK — RIDER & SELLER MOBILE APP API DOCUMENTATION (PART 2)
+MEEEM DELIVERY NETWORK — RIDER MOBILE APP API DOCUMENTATION (PART 2)
 ================================================================================
-Version: 1.1.0
-Base URL (Rider): https://<domain>/mobileapi/rider
-Base URL (Product Seller): https://<domain>/mobileapi/product-seller
+Version: 1.2.0
+Base URL: https://<domain>/mobileapi/rider
 WebSocket Server: https://<domain>:3001 (or https://<domain>/socket.io)
 Authentication Scheme: Bearer Token (JWT)
 Header: Authorization: Bearer <accessToken>
 Target Platforms: Android (Kotlin / Flutter / React Native), iOS (Swift / Flutter / React Native)
+Scope: Rider Mobile App Only (Telemetry, Offers, Orders, Milestones, Handover)
 
 --------------------------------------------------------------------------------
 TABLE OF CONTENTS
@@ -30,12 +30,7 @@ TABLE OF CONTENTS
    5.2 Complete Delivery (Customer OTP Verification & Photo Proof)
 6. EMERGENCY CANCELLATION & AUTO-REASSIGNMENT
    6.1 Cancel Delivery with Reason
-7. PRODUCT SELLER MOBILE APP INTEGRATION (VIEW RIDER & REASSIGNMENT)
-   7.1 View Assigned Rider Details in Order Detail (`GET /mobileapi/product-seller/orders/:id`)
-   7.2 Fetch Available Online Riders List (`GET /mobileapi/product-seller/riders/available`)
-   7.3 Manually Assign / Reassign Rider or Trigger Auto-Dispatch (`POST /mobileapi/product-seller/orders/:id/assign-rider`)
-   7.4 Scenario Guide: What Happens When a Zone Has Zero Available Riders
-8. GLOBAL STATUS DICTIONARY & ERROR CODES
+7. GLOBAL STATUS DICTIONARY & ERROR CODES
 
 ================================================================================
 1. REAL-TIME GPS TELEMETRY & WEBSOCKET STREAMING
@@ -419,153 +414,7 @@ NOTE:
 - Admin and Seller receive immediate notifications of the re-dispatch.
 
 ================================================================================
-7. PRODUCT SELLER MOBILE APP INTEGRATION (VIEW RIDER & REASSIGNMENT)
-================================================================================
-
---------------------------------------------------------------------------------
-7.1 View Assigned Rider Details in Order Detail
---------------------------------------------------------------------------------
-Endpoint: GET /mobileapi/product-seller/orders/:id
-Headers: Authorization: Bearer <sellerAccessToken>
-
-RESPONSE INCLUDES `deliveryAssignments`:
-{
-  "id": "cuid_order_id",
-  "orderNumber": "meeem00000042",
-  "status": "CONFIRMED",
-  "deliveryAssignments": [
-    {
-      "id": "cuid_assignment_id",
-      "status": "ACCEPTED", // or "AT_PICKUP", "PICKED_UP", "OUT_FOR_DELIVERY", "DELIVERED"
-      "dispatchMode": "AUTO_CASCADE", // or "MANUAL_SELLER" / "MANUAL_ADMIN"
-      "distanceKm": 2.4,
-      "offeredAt": "2026-08-26T14:00:00.000Z",
-      "acceptedAt": "2026-08-26T14:00:25.000Z",
-      "rider": {
-        "id": "cuid_rider_id",
-        "vehicleName": "Honda CB Shine 125",
-        "vehicleNumber": "SL-1234-AB",
-        "drivingLicenseNo": "DL-10928374",
-        "vehicleTypes": ["2_WHEELER"],
-        "profileImage": "https://.../rider_photo.png",
-        "currentLatitude": 8.484,
-        "currentLongitude": -13.234,
-        "isOnline": true,
-        "user": {
-          "name": "Ibrahim Koroma",
-          "email": "rider.ibrahim@example.com",
-          "phone": "76112233",
-          "phoneCountryCode": "+232",
-          "image": "https://.../rider_photo.png"
-        }
-      }
-    }
-  ]
-}
-
---------------------------------------------------------------------------------
-7.2 Fetch Available Online Riders with AI Vehicle Matching
---------------------------------------------------------------------------------
-Endpoint: GET /mobileapi/product-seller/riders/available?orderId=<orderId>&zone=Freetown
-Headers: Authorization: Bearer <sellerAccessToken>
-
-QUERY PARAMETERS:
-- `orderId` (optional): If provided, Gemini AI analyzes order items (weights & dimensions)
-  and classifies the package into `"2_WHEELER"` (<=15kg), `"3_WHEELER"` (15-60kg), or `"4_WHEELER"` (>60kg).
-- `zone` (optional): Filters riders registered in that geographic zone.
-
-SUCCESS RESPONSE (200 OK):
-{
-  "success": true,
-  "aiVehicleRecommendation": {
-    "requiredVehicle": "3_WHEELER",
-    "compatibleVehicles": ["3_WHEELER", "4_WHEELER"],
-    "reason": "Medium cargo detected (~25.0kg, 75cm): Requires 3-Wheeler or 4-Wheeler vehicle.",
-    "estimatedWeightKg": 25.0,
-    "confidence": "AI_MODEL"
-  },
-  "data": [
-    {
-      "id": "cuid_rider_id",
-      "userId": "cuid_user_id",
-      "name": "Ibrahim Koroma",
-      "email": "rider.ibrahim@example.com",
-      "phone": "76112233",
-      "phoneCountryCode": "+232",
-      "image": "https://.../rider_photo.png",
-      "vehicleName": "TVS King Tricycle",
-      "vehicleNumber": "SL-1234-AB",
-      "drivingLicenseNo": "DL-10928374",
-      "vehicleTypes": ["3_WHEELER", "4_WHEELER"],
-      "isVehicleMatch": true, // Matches package AI requirement
-      "isOnline": true,
-      "isBusy": false, // false = idle and free for immediate pickup
-      "selectedZones": ["Western Area"],
-      "selectedLocations": ["Lumley", "Lakka", "Wilkinson Road"],
-      "currentLatitude": 8.484,
-      "currentLongitude": -13.234,
-      "lastLocationUpdate": "2026-08-28T10:15:30.000Z"
-    }
-  ]
-}
-
---------------------------------------------------------------------------------
-7.3 Manually Assign / Reassign Rider or Trigger Auto-Dispatch
---------------------------------------------------------------------------------
-Endpoint: POST /mobileapi/product-seller/orders/:id/assign-rider
-Headers:
-  Authorization: Bearer <sellerAccessToken>
-  Content-Type: application/json
-
-DIFFERENCE BETWEEN "AUTO-DISPATCH" AND "ASSIGN RIDER":
-┌──────────────────────┬─────────────────────────────────────────────────────────────┐
-│ ⚡ Auto-Dispatch     │ • System algorithm chooses closest free online rider by GPS.│
-│ (action: "auto_dispatch") • Sends a 60-second offer to rider with acceptance timer. │
-│                      │ • If rejected/timeout, automatically cascades to 2nd rider. │
-├──────────────────────┼─────────────────────────────────────────────────────────────┤
-│ 👤 Manual Assign     │ • Seller/Admin directly chooses a specific rider from list. │
-│ (riderId: "cuid_...")│ • Immediately sets status to ACCEPTED (skips 60s timer).    │
-│                      │ • Sends high-priority push notification to that rider.      │
-└──────────────────────┴─────────────────────────────────────────────────────────────┘
-
-OPTION A: Trigger Automated Proximity Waterfall Dispatch:
-{
-  "action": "auto_dispatch"
-}
-
-OPTION B: Manually Select a Specific Rider:
-{
-  "riderId": "cuid_rider_id",
-  "notes": "Seller requested Ibrahim for express pickup"
-}
-
-SUCCESS RESPONSE (200 OK):
-{
-  "success": true,
-  "message": "Rider assigned successfully",
-  "data": {
-    "id": "cuid_assignment_id",
-    "orderId": "cuid_order_id",
-    "riderId": "cuid_rider_id",
-    "status": "ACCEPTED",
-    "dispatchMode": "MANUAL_SELLER"
-  }
-}
-
---------------------------------------------------------------------------------
-7.4 Scenario Guide: What Happens When a Zone Has Zero Available Riders?
---------------------------------------------------------------------------------
-1. **Primary Dual-Filter Match**: The auto-dispatch engine first searches for online, approved riders whose `selectedLocations` list includes the customer's delivery location (e.g., "Lakka", "Lumley").
-2. **Automatic Fallback Expansion**: If NO idle riders are registered in that specific zone (`eligibleRiders.length === 0`), the engine **automatically expands** to ALL free online riders and ranks them strictly by Haversine GPS distance from the Seller's shop.
-3. **If Absolutely Zero Riders Are Free/Online System-Wide**:
-   - The engine logs: `"No free candidates for order #..."` and returns `candidatesCount: 0`.
-   - The order remains safely in `CONFIRMED` or `PROCESSING` state without breaking.
-   - On the Seller & Admin panels (Web and Mobile), the Order details show:
-     `Status: No Rider Assigned` along with **"Auto-Dispatch"** and **"Assign Rider"** buttons.
-   - As soon as any rider finishes an ongoing delivery or logs in online, the Seller or Admin can tap **"Auto-Dispatch"** (or select a rider from the available riders list) with 1 click!
-
-================================================================================
-8. GLOBAL STATUS DICTIONARY & ERROR CODES
+7. GLOBAL STATUS DICTIONARY & ERROR CODES
 ================================================================================
 
 | Status | Meaning | Next Available Action |

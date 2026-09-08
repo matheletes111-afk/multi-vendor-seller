@@ -1,3 +1,4 @@
+import { Suspense } from "react"
 import { auth } from "@/lib/auth"
 import { isAdmin } from "@/lib/rbac"
 import { redirect } from "next/navigation"
@@ -14,5 +15,9 @@ export default async function AdminRidersPage() {
     redirect("/dashboard")
   }
 
-  return <RidersClient />
+  return (
+    <Suspense fallback={<div className="p-8 text-center text-muted-foreground">Loading riders directory...</div>}>
+      <RidersClient />
+    </Suspense>
+  )
 }

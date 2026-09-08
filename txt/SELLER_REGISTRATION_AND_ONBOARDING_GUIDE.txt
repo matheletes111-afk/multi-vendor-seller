@@ -1,0 +1,631 @@
+================================================================================
+MEEEM MULTI-VENDOR PLATFORM
+SELLER REGISTRATION, ONBOARDING & KYC DOCUMENTATION OPERATIONAL MANUAL
+================================================================================
+Document File: txt/SELLER_REGISTRATION_AND_ONBOARDING_GUIDE.txt
+Last Updated: September 2026
+Applicable For: Product Sellers, Service Providers, Hotel Sellers, Restaurant Partners, Delivery Fleet Riders
+Version: 2.4.0
+
+--------------------------------------------------------------------------------
+TABLE OF CONTENTS
+--------------------------------------------------------------------------------
+1. EXECUTIVE OVERVIEW & ONBOARDING ARCHITECTURE
+2. MASTER CHECKLIST: TYPES OF DOCUMENTS REQUIRED FROM SELLERS
+   2.1. Product Sellers Document Checklist
+   2.2. Service Sellers Document Checklist
+   2.3. Hotel Sellers Document Checklist
+   2.4. Restaurant Sellers Document Checklist
+   2.5. Delivery Fleet Riders Document Checklist (Bonus Reference)
+3. DOCUMENT TECHNICAL SPECIFICATIONS & UPLOAD POLICIES
+4. STEP-BY-STEP SELLER REGISTRATION & ONBOARDING PROCESS
+   4.1. Step 1: Initial Account Registration & OTP Verification
+   4.2. Step 2: Business Information & Corporate Document Upload
+   4.3. Step 3: Identity Verification (KYC) & Specialized Licenses
+   4.4. Step 4: Bank Account & Payout Settlement Configuration
+   4.5. Step 5: Storefront / Property / Culinary Setup & Categories
+   4.6. Step 6: Legal Agreements, Compliance & Referral Source
+   4.7. Step 7: Application Submitted & Pending Admin Verification
+5. ADMIN VERIFICATION STANDARDS & COMMON REJECTION REASONS
+6. SELLER RESUBMISSION & CORRECTION WORKFLOW
+
+
+================================================================================
+1. EXECUTIVE OVERVIEW & ONBOARDING ARCHITECTURE
+================================================================================
+The MEEEM multi-vendor marketplace supports four distinct commercial vendor
+verticals alongside an internal logistics delivery fleet:
+
+1. PRODUCT SELLERS (/product-seller)
+   Retailers, distributors, and manufacturers listing physical goods with
+   inventory, variants, and weight-based shipping.
+
+2. SERVICE PROVIDERS (/service-seller)
+   Professional tradespeople, home maintenance technicians, and freelancers
+   providing on-demand or appointment-based services.
+
+3. HOTEL HOSTS / HOTELIERS (/hotel-seller)
+   Hotels, resorts, guesthouses, and homestays offering room reservations,
+   check-in/check-out management, and seasonal tariffs.
+
+4. RESTAURANT PARTNERS (/restaurant-seller)
+   Dine-in restaurants, cloud kitchens, and cafes offering food menus, live
+   kitchen preparation tracking, and on-demand courier dispatch.
+
+5. DELIVERY FLEET RIDERS (/riderapp)
+   Motorcycle, scooter, bicycle, and van couriers fulfilling hyper-local order
+   pickups and drop-offs.
+
+Each seller operates in an initial "RESTRICTED / PENDING" status upon account
+creation. To unlock storefront publishing, item creation, and payout settlements,
+the seller must complete the multi-step onboarding wizard and submit verified
+KYC (Know Your Customer) documentation for manual administrative review.
+
+
+================================================================================
+2. MASTER CHECKLIST: TYPES OF DOCUMENTS REQUIRED FROM SELLERS
+================================================================================
+
+--------------------------------------------------------------------------------
+2.1. PRODUCT SELLERS DOCUMENT CHECKLIST (/product-seller)
+--------------------------------------------------------------------------------
+[MANDATORY DOCUMENTS]
+1. Business Registration Certificate (BRC / Trade License / Incorporation Certificate)
+   - Proof of legal business existence or commercial trading permit.
+   - Format: PDF, JPG, PNG, WEBP (Max 4.5 MB).
+
+2. National Identity Document (Front & Back)
+   - Government-issued ID: National ID Card, Passport, Driver's License, or Voter ID.
+   - Must show clear photo, full legal name, date of birth, and validity date.
+   - Format: JPG, PNG, WEBP, PDF (Max 4.5 MB).
+
+3. Live Selfie with ID Card (Face Verification)
+   - Live camera capture or clear headshot photo of the business owner holding
+     their government ID next to their face.
+   - Purpose: Proof of physical identity and anti-fraud verification.
+   - Format: JPG, PNG, WEBP (Max 4.5 MB).
+
+4. User Profile Picture
+   - Professional headshot of the registered account manager or owner.
+   - Format: JPG, PNG, WEBP (Max 4.5 MB).
+
+5. Store Logo / Storefront Photo
+   - High-resolution brand logo (1:1 square ratio recommended) or physical shop photo.
+   - Format: JPG, PNG, WEBP (Max 4.5 MB).
+
+6. GST / TIN Registration Certificate (*Mandatory ONLY if seller toggles "Have GST" = Yes)
+   - Official tax identification certificate issued by tax authorities.
+   - Format: PDF, JPG, PNG, WEBP (Max 4.5 MB).
+
+[OPTIONAL / RECOMMENDED DOCUMENTS]
+7. Store Banner Graphic
+   - Horizontal banner image (16:9 or panoramic ratio) for store page header.
+8. City Council / Municipal Certificate
+   - Local government operational certificate or market stall clearance.
+9. Proof of Business Address
+   - Commercial lease agreement, utility bill (water/electricity within 3 months),
+     or deed.
+10. Bank Passbook / Cancelled Cheque / Bank Statement
+    - Proof of bank account ownership matching the registered business/owner name.
+11. Bank Verification Letter
+    - Official signed and stamped letter from the bank confirming account details.
+
+
+--------------------------------------------------------------------------------
+2.2. SERVICE PROVIDERS DOCUMENT CHECKLIST (/service-seller)
+--------------------------------------------------------------------------------
+[MANDATORY DOCUMENTS]
+1. Business Registration Certificate / Professional Trade License
+   - Proof of trade registration or legal business entity.
+2. National Identity Document (Front & Back)
+   - Owner/Operator government ID.
+3. Live Selfie with ID Card (Face Verification)
+   - Anti-fraud live owner photograph holding their identity document.
+4. User Profile Picture
+   - Clear headshot photo of the service provider.
+5. Service Provider Logo / Business Badge
+   - Square (1:1) brand identity icon.
+6. GST / TIN Registration Certificate (*Mandatory if registered for GST/TIN)
+
+[OPTIONAL / RECOMMENDED DOCUMENTS]
+7. Professional Trade Certificates / Accreditation
+   - Relevant vocational certification (e.g. Electrical, Plumbing, HVAC, Carpentry).
+8. Business Proof of Address (Utility bill or premises lease).
+9. Bank Passbook / Cheque Copy / Bank Statement.
+10. Service Brand Banner.
+
+
+--------------------------------------------------------------------------------
+2.3. HOTEL SELLERS DOCUMENT CHECKLIST (/hotel-seller)
+--------------------------------------------------------------------------------
+[MANDATORY DOCUMENTS]
+1. Hotel Business Registration / Commercial Hospitality License
+   - Trade license specifically authorizing commercial lodging/hospitality operations.
+2. Property Ownership Deed OR Commercial Lease Agreement
+   - Proof that the applicant legally owns or leases the hotel premises.
+3. National Identity Document of Hotelier / Authorized Signatory (Front & Back)
+   - Government ID card or passport of property owner or managing director.
+4. Live Selfie with ID Card
+   - Face verification of the authorized hotel representative.
+5. Hotel Logo
+   - Square (1:1) brand identity icon.
+6. Main Hotel Property Photo
+   - Exterior facade or main reception/lobby photo representing the property.
+7. User Profile Picture
+   - Managing hotelier profile headshot.
+
+[OPTIONAL / RECOMMENDED DOCUMENTS]
+8. Hotel Panoramic Header Banner (16:9 landscape).
+9. GST / Tourism Tax Certificate.
+10. Fire Safety Clearance Certificate / Tourism Board Approval.
+11. Bank Account Passbook / Cancelled Cheque / Account Verification Letter.
+
+
+--------------------------------------------------------------------------------
+2.4. RESTAURANT SELLERS DOCUMENT CHECKLIST (/restaurant-seller)
+--------------------------------------------------------------------------------
+[MANDATORY DOCUMENTS]
+1. Food Safety & Hygiene License (FSSAI / Municipal Food Sanitation License)
+   - Official health inspection certificate or food handler license number & doc.
+   - Absolute prerequisite for food safety compliance before food ordering activation.
+2. Restaurant Business Registration Certificate / Trade License
+   - Commercial food establishment permit.
+3. National Identity Document of Restaurant Owner (Front & Back)
+   - Government ID card or passport.
+4. Live Selfie with ID Card
+   - Anti-fraud photo of the owner holding identity document.
+5. Restaurant Logo
+   - Square (1:1) brand logo for mobile food ordering app listings.
+6. Main Restaurant / Culinary Cuisine Photo
+   - High-quality photo of restaurant dining interior, kitchen, or signature dish.
+7. User Profile Picture
+   - Owner or restaurant manager headshot.
+
+[OPTIONAL / RECOMMENDED DOCUMENTS]
+8. Restaurant Hero Banner Graphic (16:9 landscape).
+9. Liquor / Beverage License (if applicable).
+10. GST / Tax Registration Certificate.
+11. Bank Account Passbook / Cancelled Cheque / Bank Statement.
+
+
+--------------------------------------------------------------------------------
+2.5. DELIVERY FLEET RIDERS DOCUMENT CHECKLIST (/riderapp)
+--------------------------------------------------------------------------------
+[MANDATORY DOCUMENTS]
+1. Valid Driving License (Front & Back)
+   - Must cover appropriate vehicle class (Motorcycle, Light Motor Vehicle, etc.).
+2. National Identity Document (Aadhaar, Passport, or National ID Card)
+3. Vehicle Registration Certificate (RC Book / Card)
+   - Proof of vehicle registration and valid roadworthiness.
+4. Active Vehicle Insurance Certificate
+   - Valid third-party or comprehensive vehicle insurance policy.
+5. Live Face Photo / Profile Picture
+   - Clear portrait photograph used for customer delivery identification.
+6. Bank / Mobile Money Payout Details
+   - Account number or mobile money number for daily/weekly delivery earnings payout.
+
+
+================================================================================
+3. DOCUMENT TECHNICAL SPECIFICATIONS & UPLOAD POLICIES
+================================================================================
+To protect platform security and ensure fast page load performance, all uploads
+adhere to strict automated client-side and server-side validation rules:
+
++----------------------+-------------------------------------------------------+
+| PARAMETER            | SPECIFICATION / POLICY                                |
++----------------------+-------------------------------------------------------+
+| Allowed File Types   | PDF (.pdf), JPEG (.jpg, .jpeg), PNG (.png), WebP, GIF |
+| Prohibited Formats   | Word (.doc, .docx), Excel (.xls, .xlsx, .csv), SVG,   |
+|                      | ZIP, RAR, EXE, BAT, scripts                           |
+| Maximum File Size    | 4.5 MB per file upload                                |
+| Image Compression    | Automatic in-browser compression to WebP/JPEG         |
+| Security Safeguard   | SVG explicitly blocked due to script execution risks  |
+| Camera Integration   | Live web camera capture modal with front/rear switch  |
+| Image Cropper        | In-browser crop & rotate (1:1 square, 16:9, free)     |
++----------------------+-------------------------------------------------------+
+
+> TIP: Documents must be photographed on a flat, well-lit surface with all four
+  corners visible. Blurry, cropped, or glare-obscured documents will be rejected
+  during the Admin KYC review stage.
+
+
+================================================================================
+4. STEP-BY-STEP SELLER REGISTRATION & ONBOARDING PROCESS
+================================================================================
+
+--------------------------------------------------------------------------------
+4.1. STEP 1: INITIAL ACCOUNT REGISTRATION & OTP VERIFICATION
+--------------------------------------------------------------------------------
+Route: /[seller-type]/registration -> /[seller-type]/verify-otp
+Target: All seller types (Product, Service, Hotel, Restaurant, Rider)
+
+OBJECTIVE:
+Create a secure authenticated user account with verified email address and
+mobile contact number.
+
+USER ACTIONS & INPUT FIELDS:
+1. First Name & Last Name (Legal name matching identity card)
+2. Email Address (Used for order notifications, payouts, and admin alerts)
+3. Mobile Number with International Country Code selector (e.g. +91, +232, +1)
+4. Password & Confirm Password (Min 8 characters with numbers & symbols)
+5. Click "Create Account"
+6. Two-Factor / OTP Verification:
+   - System dispatches a 6-digit One-Time Password (OTP) to the mobile number
+     via SMS and registered email address.
+   - Seller inputs the 6-digit code and clicks "Verify & Continue".
+
+VALIDATION CHECKS:
+- Email and mobile number must be unique across the platform.
+- OTP expires after 10 minutes. Resend button available after 60-second cooldown.
+
+[SCREENSHOT PLACEHOLDER: Step 1.1 - Seller Account Registration Form]
+--------------------------------------------------------------------------------
+|                                                                              |
+|  [ Insert Screenshot: Sign-up page with Name, Email, Phone, Password inputs ] |
+|                                                                              |
+--------------------------------------------------------------------------------
+
+[SCREENSHOT PLACEHOLDER: Step 1.2 - 6-Digit SMS/Email OTP Verification Screen]
+--------------------------------------------------------------------------------
+|                                                                              |
+|  [ Insert Screenshot: OTP entry boxes with countdown timer and resend link ] |
+|                                                                              |
+--------------------------------------------------------------------------------
+
+
+--------------------------------------------------------------------------------
+4.2. STEP 2: BUSINESS INFORMATION & CORPORATE DOCUMENT UPLOAD
+--------------------------------------------------------------------------------
+Wizard Step: Step 1 of 5 (Step ID: 2)
+Title: "Business Information"
+
+OBJECTIVE:
+Record the official business entity name, registration credentials, business
+address, tax compliance status, and corporate documentation.
+
+USER ACTIONS & INPUT FIELDS:
+1. Legal Business Name (Registered name in company registry)
+2. Business Type (Sole Proprietorship, Partnership, Private Limited, Corporation)
+3. Business Registration / Trade License Number
+4. Store / Trade Name (Customer-facing commercial brand name)
+   * Note: Filtered automatically against the Admin Disallowed Store Name blocklist.
+5. Business Address Line 1 & Line 2
+6. City, State / Province, Postal Code, Country
+7. Business Phone & Customer Support Email
+8. "Do you have GST / TIN?" (Toggle Switch: Yes / No)
+   - If YES: Enter GST / TIN Number (Validated format)
+9. User Profile Picture:
+   - Upload personal headshot of owner/manager via file browser or live camera.
+
+MANDATORY UPLOADS:
+- Profile Picture (Images only, Max 4.5 MB)
+- Business Registration Certificate (PDF or Image, Max 4.5 MB)
+- GST / TIN Certificate (Mandatory IF "Have GST" = Yes)
+
+OPTIONAL UPLOADS:
+- City Council / Municipal Certificate
+- Business Proof of Address (Utility bill, lease agreement)
+
+BUILT-IN TOOLS:
+- Camera Capture Modal: Capture document directly via smartphone or webcam.
+- Crop & Rotate Modal: Crop document edges before saving.
+- Document Viewer: Preview uploaded file or PDF inline.
+
+[SCREENSHOT PLACEHOLDER: Step 2.1 - Business Information Form & Address Fields]
+--------------------------------------------------------------------------------
+|                                                                              |
+|  [ Insert Screenshot: Business details, tax toggle, and address input form ] |
+|                                                                              |
+--------------------------------------------------------------------------------
+
+[SCREENSHOT PLACEHOLDER: Step 2.2 - Business Registration Certificate Upload Box]
+--------------------------------------------------------------------------------
+|                                                                              |
+|  [ Insert Screenshot: Document upload dropzone, camera button, and preview ] |
+|                                                                              |
+--------------------------------------------------------------------------------
+
+
+--------------------------------------------------------------------------------
+4.3. STEP 3: IDENTITY VERIFICATION (KYC) & SPECIALIZED LICENSES
+--------------------------------------------------------------------------------
+Wizard Step: Step 2 of 5 (Step ID: 3)
+Title: "Identity Verification"
+
+OBJECTIVE:
+Collect and authenticate the personal identity credentials of the business owner
+or authorized signatory to ensure complete anti-fraud protection.
+
+USER ACTIONS & INPUT FIELDS:
+1. Identity Document Type (Dropdown):
+   - National Identity Card (NIN / National ID)
+   - Passport
+   - Driver's License
+   - Voter Registration Card
+2. Identity Card / Passport Number
+
+MANDATORY UPLOADS (ALL SELLERS):
+1. ID / Passport Front Side (Clear color photo or scan)
+2. ID / Passport Back Side (Showing address, authority stamp, or barcode)
+3. Selfie with ID Card (Face Verification):
+   - Seller holds their identity card next to their face looking directly into
+     the camera. Both the face and the card text must be clearly legible.
+
+SPECIAL VERTICAL REQUIREMENT (RESTAURANTS ONLY):
+4. Food Hygiene / Sanitation License (FSSAI / Municipal Food Permit)
+   - Upload official certificate and enter registration number.
+   - *Strictly enforced: Restaurant applications cannot proceed without this.*
+
+BUILT-IN TOOLS:
+- Live Selfie Camera Mode: Automatically switches to front-facing camera with
+  an oval face-guide overlay to ensure proper framing.
+
+[SCREENSHOT PLACEHOLDER: Step 3.1 - Identity KYC Document Upload Grid]
+--------------------------------------------------------------------------------
+|                                                                              |
+|  [ Insert Screenshot: ID Front, ID Back, and Selfie Upload Box Layout ]      |
+|                                                                              |
+--------------------------------------------------------------------------------
+
+[SCREENSHOT PLACEHOLDER: Step 3.2 - Live Camera Capture with Oval Face Guide]
+--------------------------------------------------------------------------------
+|                                                                              |
+|  [ Insert Screenshot: Camera modal showing front camera capture with guide ]  |
+|                                                                              |
+--------------------------------------------------------------------------------
+
+[SCREENSHOT PLACEHOLDER: Step 3.3 - Food Sanitation License Upload (Restaurants)]
+--------------------------------------------------------------------------------
+|                                                                              |
+|  [ Insert Screenshot: FSSAI / Health license upload field on Restaurant panel]|
+|                                                                              |
+--------------------------------------------------------------------------------
+
+
+--------------------------------------------------------------------------------
+4.4. STEP 4: BANK ACCOUNT & PAYOUT SETTLEMENT CONFIGURATION
+--------------------------------------------------------------------------------
+Wizard Step: Step 3 of 5 (Step ID: 4)
+Title: "Bank & Payouts"
+
+OBJECTIVE:
+Configure the designated financial account where platform payouts, net order
+revenues, and customer payments will be deposited.
+
+USER ACTIONS & INPUT FIELDS:
+1. Preferred Payout Method (Dropdown):
+   - Bank Transfer (Direct ACH / NEFT / Wire)
+   - Mobile Money (Orange Money, MTN Mobile Money, etc.)
+   - Cheque / Draft
+2. If Bank Transfer:
+   - Bank Name (Select from supported bank directory or custom entry)
+   - Account Holder Legal Name (Must match identity verification credentials)
+   - Bank Account Number / BBAN Number
+   - Bank Branch Name & IFSC / SWIFT / Routing Code
+3. If Mobile Money:
+   - Mobile Money Operator (e.g. Orange, MTN, Airtel)
+   - Registered Mobile Money Account Number & Registered Name
+
+OPTIONAL FINANCIAL VERIFICATION UPLOADS:
+- Bank Passbook Copy OR Cancelled Cheque Leaf OR Bank Statement
+  (Highly recommended to expedite admin approval)
+- Bank Official Verification Letter
+
+VALIDATION RULES:
+- System prevents progression if both bank account and mobile money are blank.
+
+[SCREENSHOT PLACEHOLDER: Step 4.1 - Bank & Payout Configuration Form]
+--------------------------------------------------------------------------------
+|                                                                              |
+|  [ Insert Screenshot: Bank details form, payout method, and passbook upload ] |
+|                                                                              |
+--------------------------------------------------------------------------------
+
+
+--------------------------------------------------------------------------------
+4.5. STEP 5: STOREFRONT / PROPERTY / CULINARY SETUP & CATEGORIES
+--------------------------------------------------------------------------------
+Wizard Step: Step 4 of 5 (Step ID: 5)
+Title: "Store Setup" (or "Service Setup" / "Property Setup" / "Culinary Setup")
+
+OBJECTIVE:
+Configure customer-facing digital storefront assets, geographic location, and
+marketplace taxonomy classification.
+
+USER ACTIONS & INPUT FIELDS BY VERTICAL:
+
+A. PRODUCT SELLERS:
+   - Store Description & Brand Bio
+   - Store Logo (Mandatory, 1:1 square crop available)
+   - Store Header Banner (Optional, 16:9 landscape)
+   - Physical Store Address & GPS Coordinates via Interactive Map Location Picker
+   - Category Selection: Multi-select existing platform product categories
+     (e.g. Electronics, Fashion, Home Goods, Beauty, Health)
+   - Suggest New Category (Optional modal: Category Name, Description, Icon, Image)
+
+B. SERVICE PROVIDERS:
+   - Service Company Bio & Experience Summary
+   - Provider Logo & Banner
+   - Operational Service Coverage Zones (Selected from regional zone directory)
+   - Service Category Selection (e.g. Plumbing, Electrical, Cleaning, Tutoring)
+
+C. HOTEL SELLERS:
+   - Hotel Name & Detailed Property Description
+   - Hotel Star Rating (1 to 5 Stars / Unrated Boutique)
+   - Check-in Time & Check-out Time policies
+   - Amenities Checklist (WiFi, Swimming Pool, Free Breakfast, Gym, Parking, Bar)
+   - Mandatory Upload: Hotel Brand Logo (1:1 square)
+   - Mandatory Upload: Main Hotel Facade / Property Photo
+   - Optional Upload: Panoramic Hotel Banner
+
+D. RESTAURANT SELLERS:
+   - Restaurant Display Name & Description
+   - Cuisine Types Checklist (Italian, Continental, Indian, Fast Food, Bakery, etc.)
+   - Dietary Declarations (Pure Veg, Non-Veg, Halal Certified, Vegan Options)
+   - Average Preparation Time (e.g. 20-30 mins)
+   - Mandatory Upload: Restaurant Logo (1:1 square)
+   - Mandatory Upload: Main Cuisine / Dining Area Photograph
+   - Optional Upload: Restaurant Banner Graphic
+
+[SCREENSHOT PLACEHOLDER: Step 5.1 - Store Profile & Media Upload Screen]
+--------------------------------------------------------------------------------
+|                                                                              |
+|  [ Insert Screenshot: Logo/Banner upload cards with Crop & Preview buttons ] |
+|                                                                              |
+--------------------------------------------------------------------------------
+
+[SCREENSHOT PLACEHOLDER: Step 5.2 - Interactive Map Location Picker]
+--------------------------------------------------------------------------------
+|                                                                              |
+|  [ Insert Screenshot: Google Map widget with draggable pin and GPS cords ]   |
+|                                                                              |
+--------------------------------------------------------------------------------
+
+[SCREENSHOT PLACEHOLDER: Step 5.3 - Category Selection & New Category Modal]
+--------------------------------------------------------------------------------
+|                                                                              |
+|  [ Insert Screenshot: Category checkbox grid and Suggest Category modal ]    |
+|                                                                              |
+--------------------------------------------------------------------------------
+
+
+--------------------------------------------------------------------------------
+4.6. STEP 6: LEGAL AGREEMENTS, COMPLIANCE & REFERRAL SOURCE
+--------------------------------------------------------------------------------
+Wizard Step: Step 5 of 5 (Step ID: 6)
+Title: "Agreement"
+
+OBJECTIVE:
+Execute binding electronic legal agreements covering platform commissions,
+terms of service, customer privacy, and return/refund obligations.
+
+USER ACTIONS & COMPLIANCE CHECKBOXES:
+1. Terms & Conditions Agreement (Mandatory Checkbox):
+   - Button opens the official "Terms of Service" modal with full legal text.
+2. Privacy Policy & Data Processing Agreement (Mandatory Checkbox):
+   - Button opens the "Privacy Policy" modal detailing data handling rights.
+3. Platform Commission & Fee Structure Acknowledgement (Mandatory Checkbox):
+   - Seller acknowledges standard category commission deductions on orders.
+4. Return, Replacement & Cancellation Policy (Mandatory Checkbox):
+   - Seller agrees to fulfill return/replacement commitments for customers.
+5. "How Did You Hear About Us?" (Dropdown):
+   - Options: Social Media (Facebook, Instagram, LinkedIn), Friend / Word of Mouth,
+     Google Search, Billboard / Print, Field Sales Agent, Other (Free text entry).
+6. Click "Submit Application"
+
+VALIDATION RULES:
+- All four compliance checkboxes must be marked true.
+- System validates document completeness across all previous steps before
+  allowing final submission.
+
+[SCREENSHOT PLACEHOLDER: Step 6.1 - Legal Agreements & Checkbox Review]
+--------------------------------------------------------------------------------
+|                                                                              |
+|  [ Insert Screenshot: Legal terms checkboxes, modal triggers, and referral ]  |
+|                                                                              |
+--------------------------------------------------------------------------------
+
+[SCREENSHOT PLACEHOLDER: Step 6.2 - Legal Terms Modal Dialog]
+--------------------------------------------------------------------------------
+|                                                                              |
+|  [ Insert Screenshot: In-app modal displaying full legal policy agreement ]  |
+|                                                                              |
+--------------------------------------------------------------------------------
+
+
+--------------------------------------------------------------------------------
+4.7. STEP 7: APPLICATION SUBMITTED & PENDING ADMIN VERIFICATION
+--------------------------------------------------------------------------------
+Wizard Step: Final Confirmation (Step ID: 7)
+Title: "Application Submitted"
+
+OBJECTIVE:
+Provide the vendor with application tracking details, review turnaround
+expectations, and controlled access to their dashboard.
+
+USER EXPERIENCE:
+1. Success Banner & Application ID displayed.
+2. Status Notification: "Your seller application has been submitted and is
+   currently under review by our compliance team (typically 24 to 48 hours)."
+3. Restricted Portal Access:
+   - Seller can log in and view their Profile & Settings.
+   - Catalog management (Add Product, Add Room, Add Food Dish) is locked with
+     a "Pending KYC Approval" badge.
+4. Email Confirmation:
+   - System dispatches an automated onboarding confirmation email to the seller.
+
+[SCREENSHOT PLACEHOLDER: Step 7.1 - Onboarding Complete / In Review Screen]
+--------------------------------------------------------------------------------
+|                                                                              |
+|  [ Insert Screenshot: Under Review message, application reference, timeline ]|
+|                                                                              |
+--------------------------------------------------------------------------------
+
+
+================================================================================
+5. ADMIN VERIFICATION STANDARDS & COMMON REJECTION REASONS
+================================================================================
+During the verification stage, platform administrators inspect submissions via
+the unified Admin Portal at /admin/all-sellers using the built-in KYC Document
+Viewer.
+
+--------------------------------------------------------------------------------
+CRITERIA REQUIRED FOR ADMIN APPROVAL:
+--------------------------------------------------------------------------------
+1. Identity Consistency:
+   - Name on National ID / Passport must match the registered user name and bank
+     account name.
+2. Legibility & Quality:
+   - Documents must be clear, high-resolution, uncropped, and free of glare.
+   - ID numbers must be fully legible.
+3. Face Verification:
+   - Selfie with ID must match the person shown on the government identity card.
+4. Business Validity:
+   - Business Registration Certificate must have a valid registration number
+     and commercial trade scope matching the chosen vertical.
+5. Food Safety (Restaurants):
+   - FSSAI / Health license must be current and not expired.
+6. Property Proof (Hotels):
+   - Ownership deed or valid lease must correspond to the listed hotel address.
+
+--------------------------------------------------------------------------------
+TOP REASONS FOR APPLICATION REJECTION:
+--------------------------------------------------------------------------------
+- Blurry, dark, or unreadable document photographs.
+- Mismatch between bank account holder name and government identity proof.
+- Expired trade license, passport, or FSSAI certificate.
+- Missing back side of national identity card.
+- Disallowed or infringing store name (e.g. attempting to use trademarked names).
+- Uploading placeholder or test files instead of authentic business documents.
+
+
+================================================================================
+6. SELLER RESUBMISSION & CORRECTION WORKFLOW
+================================================================================
+If an administrator rejects an onboarding application:
+
+1. ADMIN FEEDBACK DISPATCH:
+   - The admin inputs a specific, actionable rejection reason (e.g. "Your National
+     ID Back photo is blurry. Please re-upload a clear copy showing the address.").
+   - System sets seller status to "REJECTED" and sends an instant email notification.
+
+2. SELLER CORRECTION PORTAL:
+   - When the seller logs into their portal, an alert banner displays the exact
+     Admin Feedback in red.
+   - A "Fix & Resubmit Documents" button opens the specific step requiring updates.
+   - The seller uploads the corrected document and clicks "Resubmit for Approval".
+
+3. REAL-TIME ADMIN QUEUE REFRESH:
+   - The seller's status transitions back to "PENDING" and reappears at the top
+     of the Admin verification queue.
+
+[SCREENSHOT PLACEHOLDER: Step 8.1 - Seller Portal Rejection Banner & Feedback]
+--------------------------------------------------------------------------------
+|                                                                              |
+|  [ Insert Screenshot: Alert banner showing admin feedback and resubmit link ]|
+|                                                                              |
+--------------------------------------------------------------------------------
+
+================================================================================
+END OF DOCUMENT
+================================================================================
