@@ -11,7 +11,7 @@ export function getSocketClient(): Socket {
     const socketUrl =
       process.env.NEXT_PUBLIC_SOCKET_URL ||
       (typeof window !== "undefined"
-        ? (isLocalhost ? `${window.location.protocol}//${window.location.hostname}:3001` : window.location.origin)
+        ? (isLocalhost ? `${window.location.protocol}//${window.location.hostname}:3001` : "https://socket.meeemsl.com")
         : "http://localhost:3001")
 
     socketInstance = io(socketUrl, {
