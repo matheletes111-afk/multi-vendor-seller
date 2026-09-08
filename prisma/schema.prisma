@@ -378,6 +378,9 @@ model SellerBankDetails {
   bankLetterUrl        String?
   mobileMoneyOption    String?  // Orange Money, Africell Money
   preferredPayoutMethod String? // Bank Transfer, Mobile Wallet
+  paymentOption        String?  // Bank, Orange Money, AfriMoney
+  mobileNumber         String?
+  agentNumber          String?
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
 
@@ -599,6 +602,9 @@ model HotelBankDetails {
   bankLetterUrl        String?
   mobileMoneyOption    String?
   preferredPayoutMethod String?
+  paymentOption        String?  // Bank, Orange Money, AfriMoney
+  mobileNumber         String?
+  agentNumber          String?
   createdAt            DateTime    @default(now())
   updatedAt            DateTime    @updatedAt
 
@@ -745,6 +751,9 @@ model RestaurantBankDetails {
   bankLetterUrl        String?
   mobileMoneyOption    String?
   preferredPayoutMethod String?
+  paymentOption        String?  // Bank, Orange Money, AfriMoney
+  mobileNumber         String?
+  agentNumber          String?
   createdAt            DateTime         @default(now())
   updatedAt            DateTime         @updatedAt
 

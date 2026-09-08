@@ -82,27 +82,40 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const sellersRaw = await prisma.hotelSeller.findMany({
-      where,
-      include: {
-        user: true,
-        businessInfo: true,
-        kyc: true,
-        bankDetails: true,
-        agreement: true,
-        subscription: {
-          include: { plan: true },
+    // Fetch global setting and all records matching WHERE to perform document evaluation, filter by docStatus and sort accurately
+    const [globalSetting, sellersRaw] = await Promise.all([
+      (prisma as any).globalSetting.findFirst({
+        select: {
+          baseCommission: true,
+          hotelBaseCommission: true,
         },
-        hotels: true,
-      },
-      orderBy: { createdAt: "desc" },
-    })
+      }) as Promise<{ baseCommission?: number; hotelBaseCommission?: number } | null>,
+      prisma.hotelSeller.findMany({
+        where,
+        include: {
+          user: true,
+          businessInfo: true,
+          kyc: true,
+          bankDetails: true,
+          agreement: true,
+          subscription: {
+            include: { plan: true },
+          },
+          hotels: true,
+        },
+        orderBy: { createdAt: "desc" },
+      }),
+    ])
 
-    // Attach document evaluation to each hotel seller
-    let processedSellers = sellersRaw.map((seller) => {
+    const fallbackBaseCommission = globalSetting?.baseCommission ?? 10.0
+    const hotelBaseCommission = globalSetting?.hotelBaseCommission ?? fallbackBaseCommission
+
+    // Attach document evaluation and base commission rate to each hotel seller
+    let processedSellers = sellersRaw.map((seller: any) => {
       const docEval = evaluateSellerDocuments(seller, "HOTEL")
       return {
         ...seller,
+        baseCommissionRate: hotelBaseCommission,
         documentEvaluation: docEval,
       }
     })
@@ -222,6 +235,7 @@ export async function GET(request: NextRequest) {
       totalPages,
       page,
       perPage,
+      baseCommission: hotelBaseCommission,
     })
   } catch (error) {
     console.error("Error fetching hotel sellers:", error)

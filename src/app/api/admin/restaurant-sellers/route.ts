@@ -82,28 +82,41 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const sellersRaw = await prisma.restaurantSeller.findMany({
-      where,
-      include: {
-        user: true,
-        businessInfo: true,
-        kyc: true,
-        bankDetails: true,
-        agreement: true,
-        subscription: {
-          include: { plan: true },
+    // Fetch global setting and all records matching WHERE to perform document evaluation, filter by docStatus and sort accurately
+    const [globalSetting, sellersRaw] = await Promise.all([
+      (prisma as any).globalSetting.findFirst({
+        select: {
+          baseCommission: true,
+          restaurantBaseCommission: true,
         },
-        foods: true,
-        foodOrders: true,
-      },
-      orderBy: { createdAt: "desc" },
-    })
+      }) as Promise<{ baseCommission?: number; restaurantBaseCommission?: number } | null>,
+      prisma.restaurantSeller.findMany({
+        where,
+        include: {
+          user: true,
+          businessInfo: true,
+          kyc: true,
+          bankDetails: true,
+          agreement: true,
+          subscription: {
+            include: { plan: true },
+          },
+          foods: true,
+          foodOrders: true,
+        },
+        orderBy: { createdAt: "desc" },
+      }),
+    ])
 
-    // Attach document evaluation to each restaurant seller
-    let processedSellers = sellersRaw.map((seller) => {
+    const fallbackBaseCommission = globalSetting?.baseCommission ?? 10.0
+    const restaurantBaseCommission = globalSetting?.restaurantBaseCommission ?? fallbackBaseCommission
+
+    // Attach document evaluation and base commission rate to each restaurant seller
+    let processedSellers = sellersRaw.map((seller: any) => {
       const docEval = evaluateSellerDocuments(seller, "RESTAURANT")
       return {
         ...seller,
+        baseCommissionRate: restaurantBaseCommission,
         documentEvaluation: docEval,
       }
     })
@@ -225,6 +238,7 @@ export async function GET(request: NextRequest) {
       totalPages,
       page,
       perPage,
+      baseCommission: restaurantBaseCommission,
     })
   } catch (error) {
     console.error("Restaurant sellers fetch error:", error)

@@ -1,0 +1,252 @@
+====================================================================================================
+MOBILE APP DEVELOPER GUIDE: PAYMENT OPTIONS & SETTLEMENT DETAILS (BANK / ORANGE MONEY / AFRIMONEY)
+FOR ALL 4 SELLER PANELS: PRODUCT SELLER, SERVICE SELLER, HOTEL SELLER, RESTAURANT SELLER
+====================================================================================================
+Target Audience: Flutter / React Native / iOS / Android Mobile Developers
+Scope: Onboarding APIs & Profile Settings APIs across all 4 Seller Modules
+
+----------------------------------------------------------------------------------------------------
+1. OVERVIEW & UI/UX REQUIREMENT
+----------------------------------------------------------------------------------------------------
+In the seller onboarding flow and dashboard settings/profile update flow:
+The payment / payout section has been updated to use a unified "Payment Option" dropdown / picker:
+
+  Dropdown Values:
+    1. "Bank"
+    2. "Orange Money"
+    3. "AfriMoney"
+
+DYNAMIC UI BEHAVIOR:
+A. When "Bank" is selected:
+   - Show standard Bank details fields:
+       * Bank Name (Required)
+       * Account Holder Name (Required)
+       * Account Number (Required)
+       * BBAN Number (Required)
+       * Branch Name / IFSC (Required)
+       * Bank Address (Required)
+       * Bank Passbook / Cheque Copy (Optional File)
+       * Bank Letter with Account No. (Optional File)
+   - Hide Mobile Money fields.
+   - The backend will automatically set "mobileNumber" and "agentNumber" to null in the database.
+
+B. When "Orange Money" or "AfriMoney" is selected:
+   - Hide ALL bank fields completely (no bank name, account number, documents, etc.).
+   - Show 2 REQUIRED mobile money fields:
+       * Mobile Number (Required) - e.g. "076123456" or "+232 76 123456"
+       * Agent Number (Required)  - e.g. "AG-98765" or merchant code
+   - The backend will automatically nullify all bank fields in the database:
+     (bankName, accountHolderName, accountNumber, bbanNumber, branchName, bankAddress, passbookUrl, bankLetterUrl => null).
+   - The backend will automatically map:
+     * preferredPayoutMethod = "Mobile Wallet"
+     * mobileMoneyOption = "Orange Money" or "AfriMoney"
+
+----------------------------------------------------------------------------------------------------
+2. APPLICABLE ENDPOINTS (ALL 4 SELLER PANELS)
+----------------------------------------------------------------------------------------------------
+
+1) PRODUCT SELLER:
+   * Onboarding GET (Pre-fetch):  GET /mobileapi/product-seller/onboarding
+   * Onboarding POST (Step 4):   POST /mobileapi/product-seller/onboarding  (step = "4")
+   * Settings GET (Pre-fetch):    GET /mobileapi/product-seller/settings
+   * Settings PUT (Update):       PUT /mobileapi/product-seller/settings    (section = "bank")
+
+2) SERVICE SELLER:
+   * Onboarding GET (Pre-fetch):  GET /mobileapi/service-seller/onboarding
+   * Onboarding POST (Step 4):   POST /mobileapi/service-seller/onboarding  (step = "4")
+   * Settings GET (Pre-fetch):    GET /mobileapi/service-seller/settings
+   * Settings PUT (Update):       PUT /mobileapi/service-seller/settings    (section = "bank")
+
+3) HOTEL SELLER:
+   * Onboarding GET (Pre-fetch):  GET /mobileapi/hotel-seller/onboarding
+   * Onboarding POST (Step 5):   POST /mobileapi/hotel-seller/onboarding    (step = "5")
+   * Settings GET (Pre-fetch):    GET /mobileapi/hotel-seller/settings
+   * Settings PUT (Update):       PUT /mobileapi/hotel-seller/settings      (section = "bank")
+
+4) RESTAURANT SELLER:
+   * Onboarding GET (Pre-fetch):  GET /mobileapi/restaurant-seller/onboarding
+   * Onboarding POST (Step 5):   POST /mobileapi/restaurant-seller/onboarding (step = "5")
+   * Settings GET (Pre-fetch):    GET /mobileapi/restaurant-seller/settings
+   * Settings PUT (Update):       PUT /mobileapi/restaurant-seller/settings   (section = "bank")
+
+Authentication: Bearer <Seller_JWT_Token> in Authorization header.
+
+----------------------------------------------------------------------------------------------------
+3. REQUEST PARAMETERS SPECIFICATION
+----------------------------------------------------------------------------------------------------
+Both multipart/form-data and application/json formats are supported.
+
++-----------------------+---------+--------------------+---------------------------------------------------+
+| Parameter Name        | Type    | Applicable When    | Description / Rules                               |
++-----------------------+---------+--------------------+---------------------------------------------------+
+| paymentOption         | string  | ALWAYS (REQUIRED)  | "Bank", "Orange Money", or "AfriMoney"            |
++-----------------------+---------+--------------------+---------------------------------------------------+
+| mobileNumber          | string  | Orange / AfriMoney | REQUIRED for mobile money. Registered phone no.   |
+| agentNumber           | string  | Orange / AfriMoney | REQUIRED for mobile money. Merchant / Agent code  |
++-----------------------+---------+--------------------+---------------------------------------------------+
+| bankName              | string  | Bank Only          | REQUIRED when paymentOption == "Bank"             |
+| accountHolderName     | string  | Bank Only          | REQUIRED when paymentOption == "Bank"             |
+| accountNumber         | string  | Bank Only          | REQUIRED when paymentOption == "Bank"             |
+| bbanNumber            | string  | Bank Only          | REQUIRED when paymentOption == "Bank"             |
+| branchName            | string  | Bank Only          | REQUIRED when paymentOption == "Bank"             |
+| bankAddress           | string  | Bank Only          | REQUIRED when paymentOption == "Bank"             |
+| passbook              | File    | Bank Only          | OPTIONAL image/pdf proof of passbook/cheque       |
+| bankLetter            | File    | Bank Only          | OPTIONAL image/pdf bank letter with account no.   |
++-----------------------+---------+--------------------+---------------------------------------------------+
+| step                  | string  | Onboarding Only    | "4" (Product/Service) or "5" (Hotel/Restaurant)   |
+| section               | string  | Settings Only      | "bank"                                            |
++-----------------------+---------+--------------------+---------------------------------------------------+
+
+BACKWARD COMPATIBILITY NOTE:
+If an older mobile build sends "preferredPayoutMethod": "Mobile Wallet" with "mobileMoneyOption": "Orange Money",
+the server will automatically normalize it to paymentOption = "Orange Money" so older versions won't break.
+
+----------------------------------------------------------------------------------------------------
+4. SAMPLE REQUEST PAYLOADS
+----------------------------------------------------------------------------------------------------
+
+CASE A: SELLER CHOOSES "ORANGE MONEY" (JSON Example - Settings or Onboarding)
+-----------------------------------------------------------------------------
+Headers:
+  Authorization: Bearer <TOKEN>
+  Content-Type: application/json
+
+Payload:
+{
+  "section": "bank",
+  "paymentOption": "Orange Money",
+  "mobileNumber": "076123456",
+  "agentNumber": "OM-883491"
+}
+
+(For Onboarding step, replace "section": "bank" with "step": "4" or "step": "5").
+
+CASE B: SELLER CHOOSES "AFRIMONEY" (Multipart/Form-Data Example)
+----------------------------------------------------------------
+Headers:
+  Authorization: Bearer <TOKEN>
+  Content-Type: multipart/form-data
+
+Form-Data Parts:
+  step: 4                                    (or section: bank)
+  paymentOption: AfriMoney
+  mobileNumber: +23277987654
+  agentNumber: AFRI-00921
+
+
+CASE C: SELLER CHOOSES "BANK" (Multipart/Form-Data Example with Files)
+----------------------------------------------------------------------
+Headers:
+  Authorization: Bearer <TOKEN>
+  Content-Type: multipart/form-data
+
+Form-Data Parts:
+  step: 4                                    (or section: bank)
+  paymentOption: Bank
+  bankName: Sierra Leone Commercial Bank
+  accountHolderName: Basak Ventures Ltd
+  accountNumber: 003001234567890
+  bbanNumber: SL001002003004005006
+  branchName: Siaka Stevens Street Branch
+  bankAddress: 29 Siaka Stevens St, Freetown
+  passbook: <Binary File / Image / PDF>       (Optional)
+  bankLetter: <Binary File / Image / PDF>     (Optional)
+
+----------------------------------------------------------------------------------------------------
+5. PRE-FETCH / GET RESPONSE STRUCTURE
+----------------------------------------------------------------------------------------------------
+When fetching existing onboarding state (GET /mobileapi/.../onboarding) or settings (GET /mobileapi/.../settings),
+the "bankDetails" object contains the current values:
+
+Example 1: When Seller is on Orange Money / AfriMoney:
+------------------------------------------------------
+{
+  "success": true,
+  "data": {
+    "bankDetails": {
+      "paymentOption": "Orange Money",
+      "mobileNumber": "076123456",
+      "agentNumber": "OM-883491",
+      "preferredPayoutMethod": "Mobile Wallet",
+      "mobileMoneyOption": "Orange Money",
+      "bankName": null,
+      "accountHolderName": null,
+      "accountNumber": null,
+      "bbanNumber": null,
+      "branchName": null,
+      "bankAddress": null,
+      "passbookUrl": null,
+      "bankLetterUrl": null
+    }
+  }
+}
+
+Example 2: When Seller is on Bank Transfer:
+-------------------------------------------
+{
+  "success": true,
+  "data": {
+    "bankDetails": {
+      "paymentOption": "Bank",
+      "mobileNumber": null,
+      "agentNumber": null,
+      "preferredPayoutMethod": "Bank Transfer",
+      "mobileMoneyOption": null,
+      "bankName": "Rokel Commercial Bank",
+      "accountHolderName": "John Doe Enterprises",
+      "accountNumber": "10029384756",
+      "bbanNumber": "SL0200110029384756",
+      "branchName": "Wilberforce Branch",
+      "bankAddress": "12 Wilberforce St, Freetown",
+      "passbookUrl": "https://s3.amazonaws.com/bucket/passbook.jpg",
+      "bankLetterUrl": "https://s3.amazonaws.com/bucket/letter.pdf"
+    }
+  }
+}
+
+NOTE FOR INITIALIZING MOBILE STATE:
+In your mobile UI state initialization, resolve paymentOption as:
+  const paymentOption = bankDetails?.paymentOption || 
+    (bankDetails?.preferredPayoutMethod === "Mobile Wallet"
+      ? (bankDetails?.mobileMoneyOption?.toLowerCase().includes("afri") ? "AfriMoney" : "Orange Money")
+      : "Bank");
+
+----------------------------------------------------------------------------------------------------
+6. VALIDATION & ERROR RESPONSES
+----------------------------------------------------------------------------------------------------
+
+1) Missing mobileNumber when Orange Money or AfriMoney is selected:
+   Status: 400 Bad Request
+   { "success": false, "error": "Mobile Number is required for Orange Money." }
+   { "success": false, "error": "Mobile Number is required for AfriMoney." }
+
+2) Missing agentNumber when Orange Money or AfriMoney is selected:
+   Status: 400 Bad Request
+   { "success": false, "error": "Agent Number is required for Orange Money." }
+   { "success": false, "error": "Agent Number is required for AfriMoney." }
+
+3) Missing Bank fields when Bank is selected:
+   Status: 400 Bad Request
+   { "success": false, "error": "Bank Name is required." }
+   { "success": false, "error": "Account Holder Name is required." }
+   { "success": false, "error": "Account Number is required." }
+   { "success": false, "error": "BBAN Number is required." }
+   { "success": false, "error": "Branch Name is required." }
+   { "success": false, "error": "Bank Address is required." }
+
+NOTE: Error responses from the API are returned with "success": false and "error" key.
+      These errors are only triggered when SUBMITTING data (onboarding/settings update).
+      GET (pre-fetch) requests do not trigger validation errors.
+
+----------------------------------------------------------------------------------------------------
+7. SUMMARY CHECKLIST FOR MOBILE DEVELOPER
+----------------------------------------------------------------------------------------------------
+[ ] Update UI: Add dropdown / picker for "Payment Option" with values ["Bank", "Orange Money", "AfriMoney"].
+[ ] If "Bank": Display Bank Name, Account Holder, Account No, BBAN, Branch, Address, Passbook, Bank Letter.
+[ ] If "Orange Money" / "AfriMoney": Hide bank fields, display Mobile Number and Agent Number.
+[ ] When submitting payload, send:
+      paymentOption: "Bank" | "Orange Money" | "AfriMoney"
+      mobileNumber: <value or null>
+      agentNumber: <value or null>
+[ ] Test all 4 seller apps: Product Seller, Service Seller, Hotel Seller, Restaurant Seller.
+====================================================================================================

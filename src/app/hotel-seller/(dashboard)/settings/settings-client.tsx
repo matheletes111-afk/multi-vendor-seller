@@ -61,6 +61,7 @@ export default function HotelSettingsClient() {
   const [showCurrentPassword, setShowCurrentPassword] = useState(false)
   const [haveGst, setHaveGst] = useState(false)
   const [selectedCategories, setSelectedCategories] = useState<string[]>([])
+  const [paymentOption, setPaymentOption] = useState<string>("Bank")
   const [previews, setPreviews] = useState<Record<string, { file: File, url: string }>>({})
 
   useEffect(() => {
@@ -76,6 +77,13 @@ export default function HotelSettingsClient() {
                   const c = JSON.parse(s.categories)
                   if (Array.isArray(c)) setSelectedCategories(c)
               } catch { /* ignore */ }
+          }
+          if (s.bankDetails) {
+            const opt = s.bankDetails.paymentOption || 
+              (s.bankDetails.preferredPayoutMethod === "Mobile Wallet" || s.bankDetails.preferredPayoutMethod === "Mobile Money" || s.bankDetails.mobileMoneyOption
+                ? (s.bankDetails.mobileMoneyOption?.toLowerCase().includes("afri") ? "AfriMoney" : "Orange Money")
+                : "Bank")
+            setPaymentOption(opt)
           }
           if (s.isApproved) {
             if (typeof window !== "undefined" && window.location.search.includes("error=AccountPendingApproval")) {
@@ -122,6 +130,20 @@ export default function HotelSettingsClient() {
     
     if (section === "property") {
         selectedCategories.forEach(cat => formData.append("categories", cat))
+    }
+
+    if (section === "bank") {
+      const chosenOption = paymentOption || (formData.get("paymentOption") as string)?.trim() || "Bank"
+      formData.set("paymentOption", chosenOption)
+      if (chosenOption !== "Bank") {
+        const mobile = (formData.get("mobileNumber") as string)?.trim()
+        const agent = (formData.get("agentNumber") as string)?.trim()
+        if (!mobile || !agent) {
+          setError(`Please provide both Mobile Number and Agent Number for ${chosenOption}.`)
+          setSaving(null)
+          return
+        }
+      }
     }
 
     if (section === "user") {
@@ -575,60 +597,94 @@ export default function HotelSettingsClient() {
 
         {/* BANK DETAILS */}
         <Card>
-           <CardHeader><CardTitle>Payout Account</CardTitle></CardHeader>
+           <CardHeader><CardTitle>Payment & Payout Details</CardTitle></CardHeader>
            <CardContent>
              <form onSubmit={(e) => handleSave(e, "bank")} className="space-y-4">
-                <div className="grid md:grid-cols-2 gap-4">
-                   <div className="space-y-2"><Label>Bank Name</Label><Input name="bankName" defaultValue={seller.bankDetails?.bankName || ""} /></div>
-                   <div className="space-y-2"><Label>Bank Address</Label><Input name="bankAddress" defaultValue={seller.bankDetails?.bankAddress || ""} /></div>
+                <div className="space-y-2">
+                  <Label htmlFor="paymentOption">Payment Option *</Label>
+                  <select
+                    id="paymentOption"
+                    name="paymentOption"
+                    value={paymentOption}
+                    onChange={(e) => setPaymentOption(e.target.value)}
+                    className="w-full h-11 sm:h-12 px-3.5 rounded-xl border border-slate-200 bg-white text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  >
+                    <option value="Bank">Bank</option>
+                    <option value="Orange Money">Orange Money</option>
+                    <option value="AfriMoney">AfriMoney</option>
+                  </select>
+                  <p className="text-xs text-muted-foreground">
+                    Select Bank for wire transfers, or Orange Money / AfriMoney for instant mobile wallet payouts.
+                  </p>
                 </div>
-                <div className="grid md:grid-cols-2 gap-4">
-                   <div className="space-y-2"><Label>Account Holder</Label><Input name="accountHolderName" defaultValue={seller.bankDetails?.accountHolderName || ""} /></div>
-                   <div className="space-y-2"><Label>Account Number</Label><Input name="accountNumber" defaultValue={seller.bankDetails?.accountNumber || ""} /></div>
-                </div>
-                <div className="grid md:grid-cols-2 gap-4">
-                   <div className="space-y-2"><Label>BBAN Number</Label><Input name="bbanNumber" defaultValue={seller.bankDetails?.bbanNumber || ""} /></div>
-                   <div className="space-y-2"><Label>Branch / IFSC</Label><Input name="branchName" defaultValue={seller.bankDetails?.branchName || ""} /></div>
-                </div>
-                <div className="grid md:grid-cols-2 gap-4 pt-2">
-                   <div className="space-y-2">
-                      <Label>Mobile Money Option</Label>
-                      <Select name="mobileMoneyOption" defaultValue={seller.bankDetails?.mobileMoneyOption || "Orange Money"}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Orange Money">Orange Money</SelectItem>
-                          <SelectItem value="Africell Money">Africell Money</SelectItem>
-                        </SelectContent>
-                      </Select>
-                   </div>
-                   <div className="space-y-2">
-                      <Label>Preferred Payout Method</Label>
-                      <Select name="preferredPayoutMethod" defaultValue={seller.bankDetails?.preferredPayoutMethod || "Bank Transfer"}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Bank Transfer">Bank Transfer</SelectItem>
-                          <SelectItem value="Mobile Wallet">Mobile Money</SelectItem>
-                        </SelectContent>
-                      </Select>
-                   </div>
-                </div>
-                <div className="grid md:grid-cols-2 gap-4 pt-2">
-                   <div className="space-y-2">
-                      <Label>Bank Passbook / Cheque Copy (Optional)</Label>
-                      <div className="flex items-center gap-3 mt-1">
-                         <Input name="passbook" type="file" onChange={(e) => handleFileChange(e, "passbook")} />
-                         {seller.bankDetails?.passbookUrl && <a href={seller.bankDetails.passbookUrl} target="_blank" className="text-primary hover:underline text-sm flex items-center gap-1"><FileText className="h-4 w-4" /> View Current</a>}
+
+                {paymentOption === "Bank" ? (
+                  <div className="space-y-4 pt-2">
+                    <div className="grid md:grid-cols-2 gap-4">
+                       <div className="space-y-2"><Label>Bank Name</Label><Input name="bankName" defaultValue={seller.bankDetails?.bankName || ""} /></div>
+                       <div className="space-y-2"><Label>Bank Address</Label><Input name="bankAddress" defaultValue={seller.bankDetails?.bankAddress || ""} /></div>
+                    </div>
+                    <div className="grid md:grid-cols-2 gap-4">
+                       <div className="space-y-2"><Label>Account Holder</Label><Input name="accountHolderName" defaultValue={seller.bankDetails?.accountHolderName || ""} /></div>
+                       <div className="space-y-2"><Label>Account Number</Label><Input name="accountNumber" defaultValue={seller.bankDetails?.accountNumber || ""} /></div>
+                    </div>
+                    <div className="grid md:grid-cols-2 gap-4">
+                       <div className="space-y-2"><Label>BBAN Number</Label><Input name="bbanNumber" defaultValue={seller.bankDetails?.bbanNumber || ""} /></div>
+                       <div className="space-y-2"><Label>Branch / IFSC</Label><Input name="branchName" defaultValue={seller.bankDetails?.branchName || ""} /></div>
+                    </div>
+                    <div className="grid md:grid-cols-2 gap-4 pt-2">
+                       <div className="space-y-2">
+                          <Label>Bank Passbook / Cheque Copy (Optional)</Label>
+                          <div className="flex items-center gap-3 mt-1">
+                             <Input name="passbook" type="file" onChange={(e) => handleFileChange(e, "passbook")} />
+                             {seller.bankDetails?.passbookUrl && <a href={seller.bankDetails.passbookUrl} target="_blank" className="text-primary hover:underline text-sm flex items-center gap-1"><FileText className="h-4 w-4" /> View Current</a>}
+                          </div>
+                       </div>
+                       <div className="space-y-2">
+                          <Label>Bank Letter with Account No. (Optional)</Label>
+                          <div className="flex items-center gap-3 mt-1">
+                             <Input name="bankLetter" type="file" onChange={(e) => handleFileChange(e, "bankLetter")} />
+                             {seller.bankDetails?.bankLetterUrl && <a href={seller.bankDetails.bankLetterUrl} target="_blank" className="text-primary hover:underline text-sm flex items-center gap-1"><FileText className="h-4 w-4" /> View Current</a>}
+                          </div>
+                       </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-4 rounded-xl border bg-emerald-50/20 space-y-4 pt-2">
+                    <div className="flex items-center gap-2 pb-2 border-b border-emerald-100">
+                      <div className="w-8 h-8 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold text-xs">
+                        {paymentOption === "Orange Money" ? "OM" : "AM"}
                       </div>
-                   </div>
-                   <div className="space-y-2">
-                      <Label>Bank Letter with Account No. (Optional)</Label>
-                      <div className="flex items-center gap-3 mt-1">
-                         <Input name="bankLetter" type="file" onChange={(e) => handleFileChange(e, "bankLetter")} />
-                         {seller.bankDetails?.bankLetterUrl && <a href={seller.bankDetails.bankLetterUrl} target="_blank" className="text-primary hover:underline text-sm flex items-center gap-1"><FileText className="h-4 w-4" /> View Current</a>}
+                      <span className="font-semibold text-sm">{paymentOption} Account Information</span>
+                    </div>
+                    <div className="grid md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="mobileNumber">Mobile Number *</Label>
+                        <Input
+                          id="mobileNumber"
+                          name="mobileNumber"
+                          defaultValue={seller.bankDetails?.mobileNumber || ""}
+                          placeholder="e.g., 076123456 / +232 76 123456"
+                          required
+                        />
+                        <p className="text-xs text-muted-foreground">Phone number registered with {paymentOption}.</p>
                       </div>
-                   </div>
-                </div>
-                <Button type="submit" disabled={saving === "bank"}>{saving === "bank" ? "Saving..." : "Update Payout Details"}</Button>
+                      <div className="space-y-2">
+                        <Label htmlFor="agentNumber">Agent Number *</Label>
+                        <Input
+                          id="agentNumber"
+                          name="agentNumber"
+                          defaultValue={seller.bankDetails?.agentNumber || ""}
+                          placeholder="e.g., AG-98765"
+                          required
+                        />
+                        <p className="text-xs text-muted-foreground">Your merchant or agent code.</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <Button type="submit" disabled={saving === "bank"}>{saving === "bank" ? "Saving..." : "Update Payment Info"}</Button>
              </form>
            </CardContent>
         </Card>

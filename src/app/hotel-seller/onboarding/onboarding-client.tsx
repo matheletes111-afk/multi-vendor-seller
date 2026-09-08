@@ -60,6 +60,7 @@ export function HotelOnboardingClient() {
   const [hearAboutUsOther, setHearAboutUsOther] = useState("")
   const [haveGst, setHaveGst] = useState(false)
   const [selectedCategories, setSelectedCategories] = useState<string[]>([])
+  const [paymentOption, setPaymentOption] = useState<string>("Bank")
 
   useEffect(() => {
     if (seller) {
@@ -81,6 +82,13 @@ export function HotelOnboardingClient() {
       }
       if (seller.onboardingStep) {
         setCurrentStep(seller.onboardingStep as Step)
+      }
+      if (seller.bankDetails) {
+        const opt = seller.bankDetails.paymentOption || 
+          (seller.bankDetails.preferredPayoutMethod === "Mobile Wallet" || seller.bankDetails.preferredPayoutMethod === "Mobile Money" || seller.bankDetails.mobileMoneyOption
+            ? (seller.bankDetails.mobileMoneyOption?.toLowerCase().includes("afri") ? "AfriMoney" : "Orange Money")
+            : "Bank")
+        setPaymentOption(opt)
       }
     }
   }, [seller])
@@ -181,26 +189,46 @@ export function HotelOnboardingClient() {
       }
 
       if (currentStep === 5) {
-        const preferredPayout = (formData.get("preferredPayoutMethod") as string)?.trim() || "Bank Transfer"
-        formData.set("preferredPayoutMethod", preferredPayout)
+        const chosenOption = paymentOption || (formData.get("paymentOption") as string)?.trim() || "Bank"
+        formData.set("paymentOption", chosenOption)
 
-        const bankName = (formData.get("bankName") as string)?.trim()
-        const accountNumber = (formData.get("accountNumber") as string)?.trim()
-        const bbanNumber = (formData.get("bbanNumber") as string)?.trim()
-        const mobileMoney = (formData.get("mobileMoneyOption") as string)?.trim()
+        if (chosenOption === "Bank") {
+          const bankName = (formData.get("bankName") as string)?.trim()
+          const accountHolder = (formData.get("accountHolderName") as string)?.trim()
+          const accountNumber = (formData.get("accountNumber") as string)?.trim()
+          const bbanNumber = (formData.get("bbanNumber") as string)?.trim()
 
-        if (!bankName && !mobileMoney) {
-          setError("Please provide your Bank Name or Mobile Money option.")
-          setSaving(false)
-          return
+          if (!bankName) {
+            setError("Please provide your Bank Name.")
+            setSaving(false)
+            return
+          }
+          if (!accountHolder) {
+            setError("Please provide the Account Holder Name.")
+            setSaving(false)
+            return
+          }
+          if (!accountNumber && !bbanNumber) {
+            setError("Please provide your Bank Account Number or BBAN Number.")
+            setSaving(false)
+            return
+          }
+        } else {
+          // Orange Money or AfriMoney
+          const mobileNumber = (formData.get("mobileNumber") as string)?.trim()
+          const agentNumber = (formData.get("agentNumber") as string)?.trim()
+
+          if (!mobileNumber) {
+            setError(`Please provide your ${chosenOption} Mobile Number.`)
+            setSaving(false)
+            return
+          }
+          if (!agentNumber) {
+            setError(`Please provide your ${chosenOption} Agent Number.`)
+            setSaving(false)
+            return
+          }
         }
-        if (!accountNumber && !bbanNumber && !mobileMoney) {
-          setError("Please provide your Bank Account Number or BBAN Number.")
-          setSaving(false)
-          return
-        }
-
-
       }
 
       let res: Response
@@ -958,101 +986,144 @@ export function HotelOnboardingClient() {
             )}
 
             {currentStep === 5 && (
-              <form onSubmit={handleNext} className="space-y-6">
+              <form onSubmit={handleNext} className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
                 <div>
-                  <h1 className="text-2xl sm:text-3xl font-bold">Bank Details</h1>
-                  <p className="text-slate-500 mt-2 text-sm">Where you want to receive payments.</p>
+                  <h1 className="text-2xl sm:text-3xl font-bold">Payment & Payout Details</h1>
+                  <p className="text-slate-500 mt-2 text-sm">Where you want to receive booking payouts.</p>
                 </div>
-                <div className="space-y-4">
+
+                <div className="space-y-6">
+                  {/* Payment Option Dropdown */}
                   <div className="space-y-2">
-                    <Label htmlFor="bankName">Bank Name *</Label>
-                    <Input id="bankName" name="bankName" defaultValue={seller.bankDetails?.bankName || ""} required className="h-11 sm:h-12 rounded-xl" />
+                    <Label htmlFor="paymentOption" className="text-base font-semibold text-slate-800">Payment Option *</Label>
+                    <select
+                      id="paymentOption"
+                      name="paymentOption"
+                      value={paymentOption}
+                      onChange={(e) => setPaymentOption(e.target.value)}
+                      className="w-full h-11 sm:h-12 px-3.5 rounded-xl border border-slate-200 bg-white text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    >
+                      <option value="Bank">Bank</option>
+                      <option value="Orange Money">Orange Money</option>
+                      <option value="AfriMoney">AfriMoney</option>
+                    </select>
+                    <p className="text-xs text-slate-500">
+                      Select Bank for wire transfers, or Orange Money / AfriMoney for instant mobile wallet payouts.
+                    </p>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="accountHolderName">Account Holder Name *</Label>
-                    <Input id="accountHolderName" name="accountHolderName" defaultValue={seller.bankDetails?.accountHolderName || ""} required className="h-11 sm:h-12 rounded-xl" />
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="accountNumber">Account Number *</Label>
-                      <Input id="accountNumber" name="accountNumber" defaultValue={seller.bankDetails?.accountNumber || ""} required className="h-11 sm:h-12 rounded-xl" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="bbanNumber">BBAN Number *</Label>
-                      <Input id="bbanNumber" name="bbanNumber" defaultValue={seller.bankDetails?.bbanNumber || ""} required className="h-11 sm:h-12 rounded-xl" />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="branchName">Branch Name / IFSC *</Label>
-                      <Input id="branchName" name="branchName" defaultValue={seller.bankDetails?.branchName || ""} required className="h-11 sm:h-12 rounded-xl" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="bankAddress">Bank Address *</Label>
-                      <Input id="bankAddress" name="bankAddress" defaultValue={seller.bankDetails?.bankAddress || ""} required className="h-11 sm:h-12 rounded-xl" />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-2 pt-4 border-t">
-                      <Label>Bank Passbook / Cheque Copy (Optional)</Label>
-                      <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-                        <Input name="passbook" type="file" accept={ALLOWED_DOC_ACCEPT} onChange={(e) => handleFileChange(e, "passbook")} className="h-11 sm:h-12 cursor-pointer file:cursor-pointer flex-1" />
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setCameraTarget({ key: "passbook", label: "Bank Passbook", facingMode: "environment", guideType: "document" })}
-                          className="h-10 px-3.5 text-xs flex items-center justify-center gap-1.5 shrink-0 rounded-xl w-full sm:w-auto"
-                          title="Take photo with camera"
-                        >
-                          <Camera className="w-4 h-4 text-emerald-600" />
-                          <span>Take Photo</span>
-                        </Button>
+
+                  {paymentOption === "Bank" ? (
+                    <div className="space-y-4 animate-in fade-in duration-300">
+                      <div className="space-y-2">
+                        <Label htmlFor="bankName">Bank Name *</Label>
+                        <Input id="bankName" name="bankName" defaultValue={seller.bankDetails?.bankName || ""} required className="h-11 sm:h-12 rounded-xl" />
                       </div>
-                      {renderFilePreview("passbook", seller.bankDetails?.passbookUrl, "Bank Proof")}
-                    </div>
-                    <div className="space-y-2 pt-4 border-t">
-                      <Label>Bank Letter / Reference (Optional)</Label>
-                      <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-                        <Input name="bankLetter" type="file" accept={ALLOWED_DOC_ACCEPT} onChange={(e) => handleFileChange(e, "bankLetter")} className="h-11 sm:h-12 cursor-pointer file:cursor-pointer flex-1" />
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setCameraTarget({ key: "bankLetter", label: "Bank Letter", facingMode: "environment", guideType: "document" })}
-                          className="h-10 px-3.5 text-xs flex items-center justify-center gap-1.5 shrink-0 rounded-xl w-full sm:w-auto"
-                          title="Take photo with camera"
-                        >
-                          <Camera className="w-4 h-4 text-emerald-600" />
-                          <span>Take Photo</span>
-                        </Button>
+                      <div className="space-y-2">
+                        <Label htmlFor="accountHolderName">Account Holder Name *</Label>
+                        <Input id="accountHolderName" name="accountHolderName" defaultValue={seller.bankDetails?.accountHolderName || ""} required className="h-11 sm:h-12 rounded-xl" />
                       </div>
-                      {renderFilePreview("bankLetter", seller.bankDetails?.bankLetterUrl, "Bank Letter")}
-                    </div>
-                  </div>
-                  <div className="space-y-4 pt-4 border-t">
-                    <div className="space-y-2">
-                      <Label>Mobile Money Option *</Label>
-                      <select name="mobileMoneyOption" defaultValue={seller.bankDetails?.mobileMoneyOption || "Orange Money"} className="w-full h-11 sm:h-12 px-3 border rounded-xl bg-white">
-                        <option value="Orange Money">Orange Money</option>
-                        <option value="Africell Money">Africell Money</option>
-                      </select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="font-semibold block">Preferred Payout Method *</Label>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <label className="flex items-center gap-2.5 p-3 rounded-xl border border-slate-200 cursor-pointer hover:bg-emerald-50/40">
-                          <input type="radio" name="preferredPayoutMethod" value="Bank Transfer" defaultChecked={!seller.bankDetails?.preferredPayoutMethod || seller.bankDetails?.preferredPayoutMethod === "Bank Transfer"} className="accent-emerald-600" />
-                          <span className="text-sm font-medium">Bank Transfer</span>
-                        </label>
-                        <label className="flex items-center gap-2.5 p-3 rounded-xl border border-slate-200 cursor-pointer hover:bg-emerald-50/40">
-                          <input type="radio" name="preferredPayoutMethod" value="Mobile Wallet" defaultChecked={seller.bankDetails?.preferredPayoutMethod === "Mobile Wallet" || seller.bankDetails?.preferredPayoutMethod === "Mobile Money"} className="accent-emerald-600" />
-                          <span className="text-sm font-medium">Mobile Money</span>
-                        </label>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="accountNumber">Account Number *</Label>
+                          <Input id="accountNumber" name="accountNumber" defaultValue={seller.bankDetails?.accountNumber || ""} required className="h-11 sm:h-12 rounded-xl" />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="bbanNumber">BBAN Number *</Label>
+                          <Input id="bbanNumber" name="bbanNumber" defaultValue={seller.bankDetails?.bbanNumber || ""} required className="h-11 sm:h-12 rounded-xl" />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="branchName">Branch Name / IFSC *</Label>
+                          <Input id="branchName" name="branchName" defaultValue={seller.bankDetails?.branchName || ""} required className="h-11 sm:h-12 rounded-xl" />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="bankAddress">Bank Address *</Label>
+                          <Input id="bankAddress" name="bankAddress" defaultValue={seller.bankDetails?.bankAddress || ""} required className="h-11 sm:h-12 rounded-xl" />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="space-y-2 pt-4 border-t">
+                          <Label>Bank Passbook / Cheque Copy (Optional)</Label>
+                          <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                            <Input name="passbook" type="file" accept={ALLOWED_DOC_ACCEPT} onChange={(e) => handleFileChange(e, "passbook")} className="h-11 sm:h-12 cursor-pointer file:cursor-pointer flex-1" />
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setCameraTarget({ key: "passbook", label: "Bank Passbook", facingMode: "environment", guideType: "document" })}
+                              className="h-10 px-3.5 text-xs flex items-center justify-center gap-1.5 shrink-0 rounded-xl w-full sm:w-auto"
+                              title="Take photo with camera"
+                            >
+                              <Camera className="w-4 h-4 text-emerald-600" />
+                              <span>Take Photo</span>
+                            </Button>
+                          </div>
+                          {renderFilePreview("passbook", seller.bankDetails?.passbookUrl, "Bank Proof")}
+                        </div>
+                        <div className="space-y-2 pt-4 border-t">
+                          <Label>Bank Letter / Reference (Optional)</Label>
+                          <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                            <Input name="bankLetter" type="file" accept={ALLOWED_DOC_ACCEPT} onChange={(e) => handleFileChange(e, "bankLetter")} className="h-11 sm:h-12 cursor-pointer file:cursor-pointer flex-1" />
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setCameraTarget({ key: "bankLetter", label: "Bank Letter", facingMode: "environment", guideType: "document" })}
+                              className="h-10 px-3.5 text-xs flex items-center justify-center gap-1.5 shrink-0 rounded-xl w-full sm:w-auto"
+                              title="Take photo with camera"
+                            >
+                              <Camera className="w-4 h-4 text-emerald-600" />
+                              <span>Take Photo</span>
+                            </Button>
+                          </div>
+                          {renderFilePreview("bankLetter", seller.bankDetails?.bankLetterUrl, "Bank Letter")}
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  ) : (
+                    <div className="space-y-6 animate-in fade-in duration-300 p-6 rounded-2xl bg-gradient-to-br from-emerald-50/50 to-teal-50/30 border border-emerald-100">
+                      <div className="flex items-center gap-3 pb-2 border-b border-emerald-100/60">
+                        <div className="w-10 h-10 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold text-sm">
+                          {paymentOption === "Orange Money" ? "OM" : "AM"}
+                        </div>
+                        <div>
+                          <h3 className="font-semibold text-slate-800">{paymentOption} Account Details</h3>
+                          <p className="text-xs text-slate-500">Provide your registered mobile number and verified agent number</p>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="mobileNumber" className="text-sm font-semibold text-slate-800">Mobile Number *</Label>
+                          <Input
+                            id="mobileNumber"
+                            name="mobileNumber"
+                            defaultValue={seller.bankDetails?.mobileNumber || ""}
+                            placeholder="e.g., 076123456 / +232 76 123456"
+                            required
+                            className="h-11 sm:h-12 rounded-xl bg-white border-slate-200"
+                          />
+                          <p className="text-xs text-slate-500">The phone number registered with {paymentOption}.</p>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor="agentNumber" className="text-sm font-semibold text-slate-800">Agent Number *</Label>
+                          <Input
+                            id="agentNumber"
+                            name="agentNumber"
+                            defaultValue={seller.bankDetails?.agentNumber || ""}
+                            placeholder="e.g., AG-98765"
+                            required
+                            className="h-11 sm:h-12 rounded-xl bg-white border-slate-200"
+                          />
+                          <p className="text-xs text-slate-500">Your merchant or agent code.</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
+
                 <div className="mt-8 sm:mt-12 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-6 border-t border-slate-100">
                   <Button type="button" variant="ghost" onClick={handleBack} disabled={saving} className="h-11 sm:h-12 px-6 rounded-full hover:bg-slate-100 w-full sm:w-auto"><ChevronLeft className="mr-2 h-4 w-4" /> Back</Button>
                   <Button type="submit" disabled={saving} className="h-11 sm:h-12 rounded-full px-8 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-lg shadow-emerald-200/50 transition-all hover:scale-[1.02] active:scale-95 w-full sm:w-auto">{saving ? "Saving..." : "Next Step"} <ChevronRight className="ml-2 h-4 w-4" /></Button>
