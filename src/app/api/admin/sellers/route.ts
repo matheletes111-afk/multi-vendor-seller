@@ -87,37 +87,52 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Fetch all records matching WHERE to perform document evaluation, filter by docStatus and sort accurately
-    const sellersRaw = await prisma.seller.findMany({
-      where,
-      include: {
-        user: true,
-        store: true,
-        businessInfo: true,
-        kyc: true,
-        bankDetails: true,
-        selectedCategories: true,
-        selectedServiceCategories: true,
-        agreement: true,
-        subscription: {
-          include: { plan: true },
+    // Fetch global setting and all records matching WHERE to perform document evaluation, filter by docStatus and sort accurately
+    const [globalSetting, sellersRaw] = await Promise.all([
+      (prisma as any).globalSetting.findFirst({
+        select: {
+          baseCommission: true,
+          productBaseCommission: true,
+          serviceBaseCommission: true,
         },
-        _count: {
-          select: {
-            products: true,
-            services: true,
-            orders: true,
+      }) as Promise<{ baseCommission?: number; productBaseCommission?: number; serviceBaseCommission?: number } | null>,
+      prisma.seller.findMany({
+        where,
+        include: {
+          user: true,
+          store: true,
+          businessInfo: true,
+          kyc: true,
+          bankDetails: true,
+          selectedCategories: true,
+          selectedServiceCategories: true,
+          agreement: true,
+          subscription: {
+            include: { plan: true },
           },
-        },
-      } as any,
-      orderBy: { createdAt: "desc" },
-    })
+          _count: {
+            select: {
+              products: true,
+              services: true,
+              orders: true,
+            },
+          },
+        } as any,
+        orderBy: { createdAt: "desc" },
+      }),
+    ])
 
-    // Attach document evaluation to each seller
-    let processedSellers = sellersRaw.map((seller) => {
+    const fallbackBaseCommission = globalSetting?.baseCommission ?? 10.0
+    const productBaseCommission = globalSetting?.productBaseCommission ?? fallbackBaseCommission
+    const serviceBaseCommission = globalSetting?.serviceBaseCommission ?? fallbackBaseCommission
+
+    // Attach document evaluation and base commission rate to each seller
+    let processedSellers = sellersRaw.map((seller: any) => {
       const docEval = evaluateSellerDocuments(seller, seller.type)
+      const baseCommissionRate = seller.type === "SERVICE" ? serviceBaseCommission : productBaseCommission
       return {
         ...seller,
+        baseCommissionRate,
         documentEvaluation: docEval,
       }
     })
@@ -240,6 +255,11 @@ export async function GET(request: NextRequest) {
       totalPages,
       page,
       perPage,
+      baseCommissions: {
+        product: productBaseCommission,
+        service: serviceBaseCommission,
+        base: fallbackBaseCommission,
+      },
     })
   } catch (error) {
     console.error("Error fetching sellers:", error)

@@ -10,6 +10,7 @@ import { sanitizeInput } from "@/lib/html-sanitization"
 import { checkDisallowedName } from "@/lib/name-validation"
 import { validatePhoneAndCountryCode } from "@/lib/phone-validation"
 import { generateSlug } from "@/lib/utils"
+import { validateAndFormatPaymentDetails } from "@/lib/payment-details-helper"
 
 function getImageExtFromContentType(contentType?: string | null) {
   const ct = (contentType || "").toLowerCase()
@@ -251,6 +252,9 @@ export async function PUT(request: NextRequest) {
         })
     }
 
+    const paymentOption = fd.get("paymentOption") as string | null
+    const mobileNumber = fd.get("mobileNumber") as string | null
+    const agentNumber = fd.get("agentNumber") as string | null
     const bankName = fd.get("bankName") as string | null
     const bankAddress = fd.get("bankAddress") as string | null
     const accountHolderName = fd.get("accountHolderName") as string | null
@@ -260,39 +264,54 @@ export async function PUT(request: NextRequest) {
     const mobileMoneyOption = fd.get("mobileMoneyOption") as string | null
     const preferredPayoutMethod = fd.get("preferredPayoutMethod") as string | null
 
-    const bankPassbook = fd.get("bankPassbook") as File | null
-    const bankLetter = fd.get("bankLetter") as File | null
+    const hasBankFields = paymentOption !== null || mobileNumber !== null || agentNumber !== null || bankName !== null || accountNumber !== null || bbanNumber !== null || mobileMoneyOption !== null || preferredPayoutMethod !== null
 
-    const bankData: any = {}
-    if (bankName !== null) bankData.bankName = bankName.trim()
-    if (bankAddress !== null) bankData.bankAddress = bankAddress.trim()
-    if (accountHolderName !== null) bankData.accountHolderName = accountHolderName.trim()
-    if (accountNumber !== null) bankData.accountNumber = accountNumber.trim()
-    if (bbanNumber !== null) bankData.bbanNumber = bbanNumber.trim()
-    if (branchName !== null) bankData.branchName = branchName.trim()
-    if (mobileMoneyOption !== null) bankData.mobileMoneyOption = mobileMoneyOption.trim()
-    if (preferredPayoutMethod !== null) bankData.preferredPayoutMethod = preferredPayoutMethod.trim()
+    if (hasBankFields) {
+        let passbookUrl = seller.bankDetails?.passbookUrl || null
+        let bankLetterUrl = seller.bankDetails?.bankLetterUrl || null
 
-    if (bankPassbook && bankPassbook.size > 0) {
-        bankData.passbookUrl = await uploadPublicFile({
-            folder: "onboarding/bank",
-            ext: path.extname(bankPassbook.name) || ".jpg",
-            contentType: bankPassbook.type || "image/jpeg",
-            buffer: Buffer.from(await bankPassbook.arrayBuffer()),
-            prefix: "bank-passbook",
-        })
-    }
-    if (bankLetter && bankLetter.size > 0) {
-        bankData.bankLetterUrl = await uploadPublicFile({
-            folder: "onboarding/bank",
-            ext: path.extname(bankLetter.name) || ".pdf",
-            contentType: bankLetter.type || "application/pdf",
-            buffer: Buffer.from(await bankLetter.arrayBuffer()),
-            prefix: "bank-letter",
-        })
-    }
+        const bankPassbook = fd.get("bankPassbook") as File | null
+        const bankLetter = fd.get("bankLetter") as File | null
 
-    if (Object.keys(bankData).length > 0) {
+        if (bankPassbook && bankPassbook.size > 0) {
+            passbookUrl = await uploadPublicFile({
+                folder: "onboarding/bank",
+                ext: path.extname(bankPassbook.name) || ".jpg",
+                contentType: bankPassbook.type || "image/jpeg",
+                buffer: Buffer.from(await bankPassbook.arrayBuffer()),
+                prefix: "bank-passbook",
+            })
+        }
+        if (bankLetter && bankLetter.size > 0) {
+            bankLetterUrl = await uploadPublicFile({
+                folder: "onboarding/bank",
+                ext: path.extname(bankLetter.name) || ".pdf",
+                contentType: bankLetter.type || "application/pdf",
+                buffer: Buffer.from(await bankLetter.arrayBuffer()),
+                prefix: "bank-letter",
+            })
+        }
+
+        const { data: bankData, error: valErr } = validateAndFormatPaymentDetails({
+            paymentOption,
+            mobileNumber,
+            agentNumber,
+            bankName,
+            bankAddress,
+            accountHolderName,
+            accountNumber,
+            bbanNumber,
+            branchName,
+            mobileMoneyOption,
+            preferredPayoutMethod,
+            passbookUrl,
+            bankLetterUrl,
+        }, { requireFields: false })
+
+        if (valErr) {
+            return NextResponse.json({ error: valErr }, { status: 400 })
+        }
+
         await (prisma as any).sellerBankDetails.upsert({
             where: { sellerId: seller.id },
             update: bankData,
@@ -562,10 +581,14 @@ export async function PUT(request: NextRequest) {
         })
     }
     if (s.bankDetails) {
+        const { data: bankData, error: valErr } = validateAndFormatPaymentDetails(s.bankDetails, { requireFields: false })
+        if (valErr) {
+            return NextResponse.json({ error: valErr }, { status: 400 })
+        }
         await (prisma as any).sellerBankDetails.upsert({
             where: { sellerId: seller.id },
-            update: s.bankDetails,
-            create: { ...s.bankDetails, sellerId: seller.id }
+            update: bankData,
+            create: { ...bankData, sellerId: seller.id }
         })
     }
     if (s.kyc) {

@@ -260,61 +260,101 @@ export function SellerDetailsView({
         />
 
         {/* PART 4: FINANCIAL ANCHOR */}
-        <Card className="border border-muted/50 shadow-xl bg-background rounded-3xl overflow-hidden flex flex-col border-l-4 border-l-emerald-500/40">
-          <CardHeader className="bg-muted/30 pb-4 border-b border-muted/20">
-            <CardTitle className="text-xs font-bold uppercase tracking-wider flex items-center gap-2 text-emerald-600">
-              <CreditCard className="h-4 w-4" /> Financial Anchor
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pt-6 space-y-4 flex-1">
-            <div className="p-4 bg-emerald-500/5 rounded-2xl border border-emerald-500/10">
-              <div className="space-y-4">
-                <div className="flex flex-col gap-1">
-                  <span className="text-[9px] font-medium text-emerald-600/60 ml-1">Bank Name</span>
-                  <div className="bg-white p-2.5 rounded-xl border border-emerald-500/10 font-medium text-sm text-emerald-700 shadow-sm flex items-center gap-2">
-                    <Building2 className="w-4 h-4" /> {seller.bankDetails?.bankName || "—"}
-                  </div>
-                </div>
+        {(() => {
+          const paymentOption = seller.bankDetails?.paymentOption || 
+            (seller.bankDetails?.preferredPayoutMethod === "Mobile Wallet" || seller.bankDetails?.preferredPayoutMethod === "Mobile Money" || seller.bankDetails?.mobileMoneyOption
+              ? (seller.bankDetails?.mobileMoneyOption?.toLowerCase().includes("afri") ? "AfriMoney" : "Orange Money")
+              : "Bank")
+          const isMobileMoney = paymentOption === "Orange Money" || paymentOption === "AfriMoney" || seller.bankDetails?.preferredPayoutMethod === "Mobile Wallet"
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="flex flex-col">
-                    <span className="text-[9px] font-medium text-muted-foreground/60 mb-1 ml-1">Beneficiary</span>
-                    <span className="text-xs font-medium truncate">{seller.bankDetails?.accountHolderName || "—"}</span>
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="text-[9px] font-medium text-muted-foreground/60 mb-1 ml-1">Branch</span>
-                    <span className="text-xs font-medium truncate">{seller.bankDetails?.branchName || "Main Branch"}</span>
-                  </div>
-                </div>
+          return (
+            <Card className="border border-muted/50 shadow-xl bg-background rounded-3xl overflow-hidden flex flex-col border-l-4 border-l-emerald-500/40">
+              <CardHeader className="bg-muted/30 pb-4 border-b border-muted/20">
+                <CardTitle className="text-xs font-bold uppercase tracking-wider flex items-center gap-2 text-emerald-600">
+                  <CreditCard className="h-4 w-4" /> Financial Anchor
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-6 space-y-4 flex-1">
+                {isMobileMoney ? (
+                  <div className="p-4 bg-emerald-500/5 rounded-2xl border border-emerald-500/10 space-y-4">
+                    <div className="flex items-center justify-between pb-3 border-b border-emerald-500/10">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold text-xs shadow-sm">
+                          {paymentOption === "Orange Money" ? "OM" : "AM"}
+                        </div>
+                        <div>
+                          <span className="text-[9px] font-medium text-emerald-600/60 block">Payment Option</span>
+                          <span className="text-sm font-bold text-emerald-800">{paymentOption}</span>
+                        </div>
+                      </div>
+                      <Badge className="bg-emerald-500/10 text-emerald-700 border-none rounded-full font-medium text-[9px] uppercase tracking-widest">
+                        Mobile Wallet
+                      </Badge>
+                    </div>
 
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="flex flex-col p-3 bg-white rounded-xl border border-emerald-500/10 shadow-inner">
-                    <span className="text-[9px] font-medium text-muted-foreground/60 mb-1">Account Number</span>
-                    <span className="text-xs font-mono font-medium tracking-tight text-emerald-800 truncate">{seller.bankDetails?.accountNumber || "—"}</span>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="flex flex-col p-3 bg-white rounded-xl border border-emerald-500/10 shadow-inner">
+                        <span className="text-[9px] font-medium text-muted-foreground/60 mb-1">Mobile Number</span>
+                        <span className="text-xs font-mono font-bold tracking-tight text-emerald-900 truncate">
+                          {seller.bankDetails?.mobileNumber || "—"}
+                        </span>
+                      </div>
+                      <div className="flex flex-col p-3 bg-white rounded-xl border border-emerald-500/10 shadow-inner">
+                        <span className="text-[9px] font-medium text-muted-foreground/60 mb-1">Agent Number</span>
+                        <span className="text-xs font-mono font-bold tracking-tight text-emerald-900 truncate">
+                          {seller.bankDetails?.agentNumber || "—"}
+                        </span>
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex flex-col p-3 bg-white rounded-xl border border-emerald-500/10 shadow-inner">
-                    <span className="text-[9px] font-medium text-muted-foreground/60 mb-1">BBAN Number</span>
-                    <span className="text-xs font-mono font-medium tracking-tight text-emerald-800 truncate">{seller.bankDetails?.bbanNumber || "—"}</span>
-                  </div>
-                </div>
+                ) : (
+                  <div className="p-4 bg-emerald-500/5 rounded-2xl border border-emerald-500/10">
+                    <div className="space-y-4">
+                      <div className="flex justify-between items-center mb-1">
+                        <span className="text-[9px] font-medium text-emerald-600/60 ml-1">Bank Name</span>
+                        <Badge className="bg-emerald-500/10 text-emerald-700 border-none rounded-full font-medium text-[9px] uppercase tracking-widest">Bank</Badge>
+                      </div>
+                      <div className="bg-white p-2.5 rounded-xl border border-emerald-500/10 font-medium text-sm text-emerald-700 shadow-sm flex items-center gap-2">
+                        <Building2 className="w-4 h-4" /> {seller.bankDetails?.bankName || "—"}
+                      </div>
 
-                {seller.bankDetails?.mobileMoneyOption && (
-                  <div className="flex flex-col p-2.5 bg-white/80 rounded-xl border border-emerald-500/10 text-xs">
-                    <span className="text-[9px] font-medium text-muted-foreground/60">Mobile Money</span>
-                    <span className="font-medium text-emerald-800">{seller.bankDetails.mobileMoneyOption}</span>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="flex flex-col">
+                          <span className="text-[9px] font-medium text-muted-foreground/60 mb-1 ml-1">Beneficiary</span>
+                          <span className="text-xs font-medium truncate">{seller.bankDetails?.accountHolderName || "—"}</span>
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-[9px] font-medium text-muted-foreground/60 mb-1 ml-1">Branch</span>
+                          <span className="text-xs font-medium truncate">{seller.bankDetails?.branchName || "Main Branch"}</span>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="flex flex-col p-3 bg-white rounded-xl border border-emerald-500/10 shadow-inner">
+                          <span className="text-[9px] font-medium text-muted-foreground/60 mb-1">Account Number</span>
+                          <span className="text-xs font-mono font-medium tracking-tight text-emerald-800 truncate">{seller.bankDetails?.accountNumber || "—"}</span>
+                        </div>
+                        <div className="flex flex-col p-3 bg-white rounded-xl border border-emerald-500/10 shadow-inner">
+                          <span className="text-[9px] font-medium text-muted-foreground/60 mb-1">BBAN Number</span>
+                          <span className="text-xs font-mono font-medium tracking-tight text-emerald-800 truncate">{seller.bankDetails?.bbanNumber || "—"}</span>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 )}
-              </div>
-            </div>
 
-            <div className="space-y-3 pt-2">
-              <div className="flex justify-between items-center px-2">
-                <span className="text-[10px] font-medium text-muted-foreground/60">Payout Channel</span>
-                <Badge className="bg-emerald-500/10 text-emerald-700 border-none rounded-full font-medium text-[9px] uppercase tracking-widest">{seller.bankDetails?.preferredPayoutMethod || "Transfer"}</Badge>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+                <div className="space-y-3 pt-2">
+                  <div className="flex justify-between items-center px-2">
+                    <span className="text-[10px] font-medium text-muted-foreground/60">Payout Channel</span>
+                    <Badge className="bg-emerald-500/10 text-emerald-700 border-none rounded-full font-medium text-[9px] uppercase tracking-widest">
+                      {isMobileMoney ? "Mobile Wallet" : (seller.bankDetails?.preferredPayoutMethod || "Transfer")}
+                    </Badge>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )
+        })()}
 
         {/* PART 5: KYC EVIDENCE */}
         <Card className="border border-muted/50 shadow-xl bg-background rounded-3xl overflow-hidden flex flex-col border-l-4 border-l-rose-500/40 md:col-span-2 2xl:col-span-1">
@@ -337,8 +377,12 @@ export function SellerDetailsView({
               <DocumentThumbnail url={seller.businessInfo?.cityCouncilCertUrl} title="City Council Cert" mimeType="application/pdf" />
               <DocumentThumbnail url={seller.businessInfo?.gstTinCertUrl} title="GST TIN Cert" mimeType="application/pdf" />
               <DocumentThumbnail url={seller.businessInfo?.addressProofUrl} title="Proof of Address (Optional)" mimeType="application/pdf" />
-              <DocumentThumbnail url={seller.bankDetails?.passbookUrl} title="Bank Passbook (Optional)" />
-              <DocumentThumbnail url={seller.bankDetails?.bankLetterUrl} title="Bank Letter" mimeType="application/pdf" />
+              {seller.bankDetails?.passbookUrl && (
+                <DocumentThumbnail url={seller.bankDetails.passbookUrl} title="Bank Passbook (Optional)" />
+              )}
+              {seller.bankDetails?.bankLetterUrl && (
+                <DocumentThumbnail url={seller.bankDetails.bankLetterUrl} title="Bank Letter" mimeType="application/pdf" />
+              )}
             </div>
           </CardContent>
         </Card>
@@ -467,13 +511,29 @@ export function SellerDetailsView({
                   )}
             
             <div className="flex items-center gap-3">
-               <Button
-                variant="outline"
-                className="rounded-full font-bold px-6 uppercase tracking-widest text-[10px] h-9 border-amber-200 text-amber-700 hover:bg-amber-50"
-                onClick={() => onOpenCommission?.(seller.id, seller.commissionRate || "")}
-              >
-                Set Commission
-              </Button>
+              <div className="inline-flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  className="rounded-full font-bold px-5 uppercase tracking-widest text-[10px] h-9 border-amber-200 text-amber-700 hover:bg-amber-50"
+                  onClick={() => onOpenCommission?.(seller.id, seller.commissionRate || "")}
+                >
+                  Set Commission
+                </Button>
+                <Badge
+                  variant="secondary"
+                  className={cn(
+                    "text-[10px] font-semibold px-2.5 py-1 rounded-full border",
+                    seller.commissionRate != null
+                      ? "bg-purple-50 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300 border-purple-200/80"
+                      : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300 border-slate-200"
+                  )}
+                  title={seller.commissionRate != null ? "Individual custom commission rate" : "Platform base commission rate set by admin"}
+                >
+                  {seller.commissionRate != null
+                    ? `${seller.commissionRate}% (Custom)`
+                    : `${seller.baseCommissionRate ?? 10}% (Base)`}
+                </Badge>
+              </div>
 
                   {seller.isSuspended ? (
                     <Button

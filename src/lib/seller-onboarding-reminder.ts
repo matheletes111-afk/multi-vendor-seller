@@ -155,7 +155,7 @@ export async function runSellerOnboardingReminderSweep(
     if (!s.store?.name) missingSteps.push("Store Details & Setup")
     if (!s.businessInfo?.businessName) missingSteps.push("Business Details")
     if (!s.kyc?.idNumber && !s.kyc?.idType) missingSteps.push("Identity / KYC Verification")
-    if (!s.bankDetails?.accountNumber && !s.bankDetails?.mobileMoneyOption) missingSteps.push("Bank / Payout Information")
+    if (!s.bankDetails?.accountNumber && !s.bankDetails?.mobileMoneyOption && !s.bankDetails?.mobileNumber) missingSteps.push("Bank / Payout Information")
     if (isProduct && (!s.selectedCategories || s.selectedCategories.length === 0)) {
       missingSteps.push("Product Category Selection")
     }
@@ -195,7 +195,7 @@ export async function runSellerOnboardingReminderSweep(
     if (!h.businessInfo?.businessName) missingSteps.push("Hotel Business Information")
     if (!h.kyc?.idType) missingSteps.push("Identity / KYC Verification")
     if (!h.logo || !h.mainPhoto) missingSteps.push("Hotel Logo & Property Photos")
-    if (!h.bankDetails?.accountNumber && !h.bankDetails?.mobileMoneyOption) missingSteps.push("Bank / Payout Details")
+    if (!h.bankDetails?.accountNumber && !h.bankDetails?.mobileMoneyOption && !h.bankDetails?.mobileNumber) missingSteps.push("Bank / Payout Details")
     if (!h.agreement?.agreedToTerms) missingSteps.push("Legal Agreement Acceptance")
 
     if (!h.onboardingCompleted || !docEval.isComplete || missingSteps.length > 0) {
@@ -229,7 +229,7 @@ export async function runSellerOnboardingReminderSweep(
     if (!r.kyc?.idType) missingSteps.push("Identity / KYC Verification")
     if (!r.kyc?.foodLicenseUrl && !r.kyc?.foodLicenseNumber) missingSteps.push("Food Sanitation / Hygiene License")
     if (!r.logo || !r.mainPhoto) missingSteps.push("Restaurant Logo & Culinary Photos")
-    if (!r.bankDetails?.accountNumber && !r.bankDetails?.mobileMoneyOption) missingSteps.push("Bank / Payout Details")
+    if (!r.bankDetails?.accountNumber && !r.bankDetails?.mobileMoneyOption && !r.bankDetails?.mobileNumber) missingSteps.push("Bank / Payout Details")
     if (!r.agreement?.agreedToTerms) missingSteps.push("Legal Agreement Acceptance")
 
     if (!r.onboardingCompleted || !docEval.isComplete || missingSteps.length > 0) {

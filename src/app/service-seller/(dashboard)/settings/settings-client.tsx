@@ -80,6 +80,7 @@ export function ServiceSettingsClient() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [showCurrentPassword, setShowCurrentPassword] = useState(false)
   const [haveGst, setHaveGst] = useState(false)
+  const [paymentOption, setPaymentOption] = useState<string>("Bank")
   const [previews, setPreviews] = useState<Record<string, { file: File, url: string }>>({})
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, key: string) => {
@@ -139,6 +140,13 @@ export function ServiceSettingsClient() {
           const s = await sellerRes.json()
           setSeller(s)
           if (s.businessInfo) setHaveGst(!!s.businessInfo.haveGst)
+          if (s.bankDetails) {
+            const opt = s.bankDetails.paymentOption || 
+              (s.bankDetails.preferredPayoutMethod === "Mobile Wallet" || s.bankDetails.preferredPayoutMethod === "Mobile Money" || s.bankDetails.mobileMoneyOption
+                ? (s.bankDetails.mobileMoneyOption?.toLowerCase().includes("afri") ? "AfriMoney" : "Orange Money")
+                : "Bank")
+            setPaymentOption(opt)
+          }
 
           // Merge seller's selected categories that might be inactive
           const selected = s.selectedServiceCategories || []
@@ -247,6 +255,17 @@ export function ServiceSettingsClient() {
             } else if (section === "business") {
                 body.seller = { businessInfo: Object.fromEntries(formData.entries()) }
             } else if (section === "bank") {
+                const chosenOption = paymentOption || (formData.get("paymentOption") as string)?.trim() || "Bank"
+                formData.set("paymentOption", chosenOption)
+                if (chosenOption !== "Bank") {
+                    const mobile = (formData.get("mobileNumber") as string)?.trim()
+                    const agent = (formData.get("agentNumber") as string)?.trim()
+                    if (!mobile || !agent) {
+                        setError(`Please provide both Mobile Number and Agent Number for ${chosenOption}.`)
+                        setSaving(null)
+                        return
+                    }
+                }
                 body.seller = { bankDetails: Object.fromEntries(formData.entries()) }
             } else if (section === "kyc") {
                 body.seller = { kyc: Object.fromEntries(formData.entries()) }
@@ -593,59 +612,95 @@ export function ServiceSettingsClient() {
              </form>
            </CardContent>
         </Card>
-
         <Card>
-          <CardHeader><CardTitle>Payment & Bank Info</CardTitle></CardHeader>
+          <CardHeader><CardTitle>Payment & Payout Details</CardTitle></CardHeader>
           <CardContent>
              <form onSubmit={(e) => handleSave(e, "bank")} className="space-y-4">
-                <div className="grid md:grid-cols-2 gap-4">
-                    <div className="space-y-2"><Label>Bank Name</Label><Input name="bankName" defaultValue={seller.bankDetails?.bankName || ""} /></div>
-                    <div className="space-y-2"><Label>Bank Address</Label><Input name="bankAddress" defaultValue={seller.bankDetails?.bankAddress || ""} /></div>
-                 </div>
-                 <div className="grid md:grid-cols-2 gap-4">
-                    <div className="space-y-2"><Label>Account Name</Label><Input name="accountHolderName" defaultValue={seller.bankDetails?.accountHolderName || ""} /></div>
-                    <div className="space-y-2"><Label>Account Number</Label><Input name="accountNumber" defaultValue={seller.bankDetails?.accountNumber || ""} /></div>
-                 </div>
-                 <div className="grid md:grid-cols-2 gap-4">
-                    <div className="space-y-2"><Label>BBAN Number</Label><Input name="bbanNumber" defaultValue={seller.bankDetails?.bbanNumber || ""} /></div>
-                    <div className="space-y-2"><Label>Branch</Label><Input name="branchName" defaultValue={seller.bankDetails?.branchName || ""} /></div>
-                 </div>
-                 <div className="grid md:grid-cols-2 gap-4 pt-2">
-                    <div className="space-y-2">
-                       <Label>Mobile Money</Label>
-                       <Select name="mobileMoneyOption" defaultValue={seller.bankDetails?.mobileMoneyOption || "Orange Money"}>
-                         <SelectTrigger><SelectValue /></SelectTrigger>
-                         <SelectContent><SelectItem value="Orange Money">Orange Money</SelectItem><SelectItem value="Africell Money">Africell Money</SelectItem></SelectContent>
-                       </Select>
+                <div className="space-y-2">
+                  <Label htmlFor="paymentOptionSelect">Payment Option *</Label>
+                  <Select value={paymentOption} onValueChange={(val) => setPaymentOption(val)}>
+                    <SelectTrigger id="paymentOptionSelect">
+                      <SelectValue placeholder="Select Payment Option" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Bank">Bank</SelectItem>
+                      <SelectItem value="Orange Money">Orange Money</SelectItem>
+                      <SelectItem value="AfriMoney">AfriMoney</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <input type="hidden" name="paymentOption" value={paymentOption} />
+                  <p className="text-xs text-muted-foreground">
+                    Select Bank for direct transfers, or Orange Money / AfriMoney for instant mobile wallet payouts.
+                  </p>
+                </div>
+
+                {paymentOption === "Bank" ? (
+                  <div className="space-y-4 pt-2">
+                    <div className="grid md:grid-cols-2 gap-4">
+                      <div className="space-y-2"><Label>Bank Name</Label><Input name="bankName" defaultValue={seller.bankDetails?.bankName || ""} /></div>
+                      <div className="space-y-2"><Label>Bank Address</Label><Input name="bankAddress" defaultValue={seller.bankDetails?.bankAddress || ""} /></div>
                     </div>
-                    <div className="space-y-2">
-                       <Label>Method</Label>
-                       <Select name="preferredPayoutMethod" defaultValue={seller.bankDetails?.preferredPayoutMethod || "Bank Transfer"}>
-                         <SelectTrigger><SelectValue /></SelectTrigger>
-                         <SelectContent>
-                           <SelectItem value="Bank Transfer">Bank Transfer</SelectItem>
-                           <SelectItem value="Mobile Wallet">Mobile Money</SelectItem>
-                         </SelectContent>
-                       </Select>
+                    <div className="grid md:grid-cols-2 gap-4">
+                      <div className="space-y-2"><Label>Account Name</Label><Input name="accountHolderName" defaultValue={seller.bankDetails?.accountHolderName || ""} /></div>
+                      <div className="space-y-2"><Label>Account Number</Label><Input name="accountNumber" defaultValue={seller.bankDetails?.accountNumber || ""} /></div>
                     </div>
-                 </div>
-                 <div className="grid md:grid-cols-2 gap-4 pt-2">
-                    <div className="space-y-2">
-                       <Label>Bank Passbook / Cheque Copy (Optional)</Label>
-                       <div className="flex items-center gap-3">
-                         <Input name="bankPassbook" type="file" onChange={(e) => handleFileChange(e, "bankPassbook")} />
-                         {seller.bankDetails?.passbookUrl && <a href={seller.bankDetails.passbookUrl} target="_blank" className="text-primary hover:underline text-sm flex items-center gap-1"><FileText className="h-4 w-4" /> View Current</a>}
-                       </div>
+                    <div className="grid md:grid-cols-2 gap-4">
+                      <div className="space-y-2"><Label>BBAN Number</Label><Input name="bbanNumber" defaultValue={seller.bankDetails?.bbanNumber || ""} /></div>
+                      <div className="space-y-2"><Label>Branch</Label><Input name="branchName" defaultValue={seller.bankDetails?.branchName || ""} /></div>
                     </div>
-                    <div className="space-y-2">
-                       <Label>Bank Letter with Account No. (Optional)</Label>
-                       <div className="flex items-center gap-3">
-                         <Input name="bankLetter" type="file" onChange={(e) => handleFileChange(e, "bankLetter")} />
-                         {seller.bankDetails?.bankLetterUrl && <a href={seller.bankDetails.bankLetterUrl} target="_blank" className="text-primary hover:underline text-sm flex items-center gap-1"><FileText className="h-4 w-4" /> View Current</a>}
-                       </div>
+                    <div className="grid md:grid-cols-2 gap-4 pt-2">
+                      <div className="space-y-2">
+                        <Label>Bank Passbook / Cheque Copy (Optional)</Label>
+                        <div className="flex items-center gap-3">
+                          <Input name="bankPassbook" type="file" onChange={(e) => handleFileChange(e, "bankPassbook")} />
+                          {seller.bankDetails?.passbookUrl && <a href={seller.bankDetails.passbookUrl} target="_blank" className="text-primary hover:underline text-sm flex items-center gap-1"><FileText className="h-4 w-4" /> View Current</a>}
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Bank Letter with Account No. (Optional)</Label>
+                        <div className="flex items-center gap-3">
+                          <Input name="bankLetter" type="file" onChange={(e) => handleFileChange(e, "bankLetter")} />
+                          {seller.bankDetails?.bankLetterUrl && <a href={seller.bankDetails.bankLetterUrl} target="_blank" className="text-primary hover:underline text-sm flex items-center gap-1"><FileText className="h-4 w-4" /> View Current</a>}
+                        </div>
+                      </div>
                     </div>
-                 </div>
-                 <Button type="submit" disabled={saving === "bank"}>{saving === "bank" ? "Saving..." : "Update Bank Info"}</Button>
+                  </div>
+                ) : (
+                  <div className="p-4 rounded-xl border bg-purple-50/20 space-y-4 pt-2">
+                    <div className="flex items-center gap-2 pb-2 border-b border-purple-100">
+                      <div className="w-8 h-8 rounded-full bg-purple-600 text-white flex items-center justify-center font-bold text-xs">
+                        {paymentOption === "Orange Money" ? "OM" : "AM"}
+                      </div>
+                      <span className="font-semibold text-sm">{paymentOption} Account Information</span>
+                    </div>
+                    <div className="grid md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="mobileNumber">Mobile Number *</Label>
+                        <Input
+                          id="mobileNumber"
+                          name="mobileNumber"
+                          defaultValue={seller.bankDetails?.mobileNumber || ""}
+                          placeholder="e.g., 076123456 / +232 76 123456"
+                          required
+                        />
+                        <p className="text-xs text-muted-foreground">Phone number registered with {paymentOption}.</p>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="agentNumber">Agent Number *</Label>
+                        <Input
+                          id="agentNumber"
+                          name="agentNumber"
+                          defaultValue={seller.bankDetails?.agentNumber || ""}
+                          placeholder="e.g., AG-98765"
+                          required
+                        />
+                        <p className="text-xs text-muted-foreground">Your merchant or agent code.</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <Button type="submit" disabled={saving === "bank"}>{saving === "bank" ? "Saving..." : "Update Payment Info"}</Button>
              </form>
           </CardContent>
         </Card>

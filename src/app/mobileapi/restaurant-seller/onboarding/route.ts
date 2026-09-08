@@ -7,6 +7,7 @@ import path from "path";
 import { activateRestaurantFreePlan } from "@/lib/subscriptions";
 import { HEAR_ABOUT_US_OPTIONS, formatHearAboutUs } from "@/lib/onboarding-constants";
 import { evaluateSellerDocuments } from "@/lib/seller-approval-validation";
+import { validateAndFormatPaymentDetails } from "@/lib/payment-details-helper";
 
 /**
  * GET /mobileapi/restaurant-seller/onboarding
@@ -348,18 +349,7 @@ export async function POST(request: NextRequest) {
         }
 
         else if (step === 5) {
-            // Step 5: Bank Details
-            const bankData = {
-                bankName: (formData?.get("bankName") as string) || jsonBody?.data?.bankName,
-                bankAddress: (formData?.get("bankAddress") as string) || jsonBody?.data?.bankAddress,
-                accountHolderName: (formData?.get("accountHolderName") as string) || jsonBody?.data?.accountHolderName,
-                accountNumber: (formData?.get("accountNumber") as string) || jsonBody?.data?.accountNumber,
-                bbanNumber: (formData?.get("bbanNumber") as string) || jsonBody?.data?.bbanNumber,
-                branchName: (formData?.get("branchName") as string) || jsonBody?.data?.branchName,
-                mobileMoneyOption: (formData?.get("mobileMoneyOption") as string) || jsonBody?.data?.mobileMoneyOption,
-                preferredPayoutMethod: ((formData?.get("preferredPayoutMethod") as string)?.trim()) || jsonBody?.data?.preferredPayoutMethod || "Bank Transfer",
-            };
-
+            // Step 5: Bank / Payout Details
             let passbookUrl = seller.bankDetails?.passbookUrl;
             let bankLetterUrl = seller.bankDetails?.bankLetterUrl;
             if (formData) {
@@ -388,12 +378,35 @@ export async function POST(request: NextRequest) {
                 if (jsonBody.data.bankLetterUrl) bankLetterUrl = jsonBody.data.bankLetterUrl;
             }
 
+            const rawInput = formData ? {
+                paymentOption: formData.get("paymentOption") as string,
+                preferredPayoutMethod: formData.get("preferredPayoutMethod") as string,
+                mobileMoneyOption: formData.get("mobileMoneyOption") as string,
+                mobileNumber: formData.get("mobileNumber") as string,
+                agentNumber: formData.get("agentNumber") as string,
+                bankName: formData.get("bankName") as string,
+                bankAddress: formData.get("bankAddress") as string,
+                accountHolderName: formData.get("accountHolderName") as string,
+                accountNumber: formData.get("accountNumber") as string,
+                bbanNumber: formData.get("bbanNumber") as string,
+                branchName: formData.get("branchName") as string,
+                passbookUrl,
+                bankLetterUrl,
+            } : {
+                ...jsonBody?.data,
+                passbookUrl,
+                bankLetterUrl,
+            };
 
+            const { data: bankData, error: valErr } = validateAndFormatPaymentDetails(rawInput, { requireFields: true });
+            if (valErr) {
+                return NextResponse.json({ success: false, error: valErr }, { status: 400 });
+            }
 
             await prisma.restaurantBankDetails.upsert({
                 where: { restaurantSellerId: seller.id },
-                update: { ...bankData, passbookUrl, bankLetterUrl },
-                create: { ...bankData, passbookUrl, bankLetterUrl, restaurantSellerId: seller.id },
+                update: bankData as any,
+                create: { ...bankData, restaurantSellerId: seller.id } as any,
             });
 
             await prisma.restaurantSeller.update({

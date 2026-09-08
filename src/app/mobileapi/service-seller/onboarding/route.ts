@@ -7,6 +7,7 @@ import path from "path";
 import { generateSlug } from "@/lib/utils";
 import { HEAR_ABOUT_US_OPTIONS, formatHearAboutUs } from "@/lib/onboarding-constants";
 import { evaluateSellerDocuments } from "@/lib/seller-approval-validation";
+import { validateAndFormatPaymentDetails } from "@/lib/payment-details-helper";
 
 /**
  * GET /mobileapi/service-seller/onboarding
@@ -238,30 +239,14 @@ export async function POST(request: NextRequest) {
         }
 
         else if (mobileStep === 3) {
-            // Step 3: Bank
-            const rawMethod = (formData ? (formData.get("preferredPayoutMethod") as string) : jsonBody.data?.preferredPayoutMethod)?.trim()
-            const bankData: any = formData ? {
-                bankName: formData.get("bankName") as string,
-                bankAddress: formData.get("bankAddress") as string,
-                accountHolderName: formData.get("accountHolderName") as string,
-                accountNumber: formData.get("accountNumber") as string,
-                bbanNumber: formData.get("bbanNumber") as string,
-                branchName: formData.get("branchName") as string,
-                preferredPayoutMethod: rawMethod || "Bank Transfer",
-                mobileMoneyOption: formData.get("mobileMoneyOption") as string,
-                passbookUrl: seller.bankDetails?.passbookUrl || null,
-                bankLetterUrl: seller.bankDetails?.bankLetterUrl || null,
-            } : {
-                ...jsonBody.data,
-                preferredPayoutMethod: rawMethod || "Bank Transfer",
-                passbookUrl: jsonBody.data?.passbookUrl || seller.bankDetails?.passbookUrl || null,
-                bankLetterUrl: jsonBody.data?.bankLetterUrl || seller.bankDetails?.bankLetterUrl || null,
-            };
+            // Step 3: Bank Details & Mobile Money
+            let passbookUrl = seller.bankDetails?.passbookUrl || null;
+            let bankLetterUrl = seller.bankDetails?.bankLetterUrl || null;
 
             if (formData) {
                 const passbook = formData.get("bankPassbook") as File | null;
                 if (passbook && passbook.size > 0) {
-                    bankData.passbookUrl = await uploadPublicFile({
+                    passbookUrl = await uploadPublicFile({
                         folder: "onboarding/bank",
                         ext: path.extname(passbook.name) || ".jpg",
                         contentType: passbook.type || "image/jpeg",
@@ -271,7 +256,7 @@ export async function POST(request: NextRequest) {
                 }
                 const bankLetter = formData.get("bankLetter") as File | null;
                 if (bankLetter && bankLetter.size > 0) {
-                    bankData.bankLetterUrl = await uploadPublicFile({
+                    bankLetterUrl = await uploadPublicFile({
                         folder: "onboarding/bank",
                         ext: path.extname(bankLetter.name) || ".pdf",
                         contentType: bankLetter.type || "application/pdf",
@@ -279,21 +264,46 @@ export async function POST(request: NextRequest) {
                         prefix: "bank-letter",
                     });
                 }
+            } else if (jsonBody?.data) {
+                if (jsonBody.data.passbookUrl !== undefined) passbookUrl = jsonBody.data.passbookUrl;
+                if (jsonBody.data.bankLetterUrl !== undefined) bankLetterUrl = jsonBody.data.bankLetterUrl;
             }
 
-            const finalPassbook = bankData.passbookUrl || seller.bankDetails?.passbookUrl || null;
-            const finalBankLetter = bankData.bankLetterUrl || seller.bankDetails?.bankLetterUrl || null;
+            const rawInput = formData ? {
+                paymentOption: formData.get("paymentOption") as string,
+                preferredPayoutMethod: formData.get("preferredPayoutMethod") as string,
+                mobileMoneyOption: formData.get("mobileMoneyOption") as string,
+                mobileNumber: formData.get("mobileNumber") as string,
+                agentNumber: formData.get("agentNumber") as string,
+                bankName: formData.get("bankName") as string,
+                bankAddress: formData.get("bankAddress") as string,
+                accountHolderName: formData.get("accountHolderName") as string,
+                accountNumber: formData.get("accountNumber") as string,
+                bbanNumber: formData.get("bbanNumber") as string,
+                branchName: formData.get("branchName") as string,
+                passbookUrl,
+                bankLetterUrl,
+            } : {
+                ...jsonBody?.data,
+                passbookUrl,
+                bankLetterUrl,
+            };
 
-
-
-            bankData.passbookUrl = finalPassbook;
-            bankData.bankLetterUrl = finalBankLetter;
+            const { data: bankData, error: valErr } = validateAndFormatPaymentDetails(rawInput, { requireFields: true });
+            if (valErr) {
+                return NextResponse.json({ success: false, error: valErr }, { status: 400 });
+            }
 
             await prisma.seller.update({
                 where: { id: seller.id },
                 data: {
                     onboardingStep: Math.max(seller.onboardingStep, 5),
-                    bankDetails: { upsert: { create: { ...bankData }, update: { ...bankData } } },
+                    bankDetails: {
+                        upsert: {
+                            create: bankData as any,
+                            update: bankData as any,
+                        },
+                    },
                 },
             });
         }

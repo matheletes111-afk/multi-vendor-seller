@@ -43,6 +43,7 @@ export interface UnifiedSellerItem {
   logo?: string | null
   banner?: string | null
   commissionRate?: number | null
+  baseCommissionRate?: number
   documentEvaluation?: SellerDocumentEvaluation
   referredBy?: string | null
   hearAboutUs?: string | null
@@ -213,8 +214,23 @@ export async function GET(request: NextRequest) {
       prisma.restaurantSeller.count({ where: { isApproved: true, isSuspended: false } }),
     ])
 
-    // Fetch records to merge, document-evaluate, filter, and sort
-    const [sellersRaw, hotelSellersRaw, restaurantSellersRaw] = (await Promise.all([
+    // Fetch records to merge, document-evaluate, filter, and sort, plus global settings
+    const [globalSetting, sellersRaw, hotelSellersRaw, restaurantSellersRaw] = (await Promise.all([
+      (prisma as any).globalSetting.findFirst({
+        select: {
+          baseCommission: true,
+          productBaseCommission: true,
+          serviceBaseCommission: true,
+          hotelBaseCommission: true,
+          restaurantBaseCommission: true,
+        },
+      }) as Promise<{
+        baseCommission?: number
+        productBaseCommission?: number
+        serviceBaseCommission?: number
+        hotelBaseCommission?: number
+        restaurantBaseCommission?: number
+      } | null>,
       (queryProduct || queryService)
         ? prisma.seller.findMany({
             where: sellerWhere,
@@ -270,7 +286,13 @@ export async function GET(request: NextRequest) {
             orderBy: { createdAt: "desc" },
           })
         : [],
-    ])) as [any[], any[], any[]]
+    ])) as [any, any[], any[], any[]]
+
+    const fallbackBaseCommission = globalSetting?.baseCommission ?? 10.0
+    const productBaseCommission = globalSetting?.productBaseCommission ?? fallbackBaseCommission
+    const serviceBaseCommission = globalSetting?.serviceBaseCommission ?? fallbackBaseCommission
+    const hotelBaseCommission = globalSetting?.hotelBaseCommission ?? fallbackBaseCommission
+    const restaurantBaseCommission = globalSetting?.restaurantBaseCommission ?? fallbackBaseCommission
 
     // ── Normalize to unified items with document evaluations ──
     const unifiedList: UnifiedSellerItem[] = []
@@ -304,6 +326,7 @@ export async function GET(request: NextRequest) {
         logo: s.store?.logo || null,
         banner: s.store?.banner || null,
         commissionRate: s.commissionRate,
+        baseCommissionRate: isProduct ? productBaseCommission : serviceBaseCommission,
         documentEvaluation: docEval,
         referredBy: s.agreement?.hearAboutUs || null,
         hearAboutUs: s.agreement?.hearAboutUs || null,
@@ -338,6 +361,7 @@ export async function GET(request: NextRequest) {
         logo: h.logo || null,
         banner: h.banner || null,
         commissionRate: h.commissionRate,
+        baseCommissionRate: hotelBaseCommission,
         documentEvaluation: docEval,
         referredBy: h.agreement?.hearAboutUs || null,
         hearAboutUs: h.agreement?.hearAboutUs || null,
@@ -373,6 +397,7 @@ export async function GET(request: NextRequest) {
         logo: r.logo || null,
         banner: r.banner || null,
         commissionRate: r.commissionRate,
+        baseCommissionRate: restaurantBaseCommission,
         documentEvaluation: docEval,
         referredBy: r.agreement?.hearAboutUs || null,
         hearAboutUs: r.agreement?.hearAboutUs || null,
@@ -514,6 +539,13 @@ export async function GET(request: NextRequest) {
       page,
       perPage,
       stats,
+      baseCommissions: {
+        product: productBaseCommission,
+        service: serviceBaseCommission,
+        hotel: hotelBaseCommission,
+        restaurant: restaurantBaseCommission,
+        base: fallbackBaseCommission,
+      },
     })
   } catch (error: any) {
     console.error("Error fetching all sellers:", error)

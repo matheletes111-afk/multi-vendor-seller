@@ -396,25 +396,48 @@ export function RestaurantSellersClient() {
                                   setCommissionValue(seller.commissionRate)
                                   setIsCommissionDialogOpen(true)
                                 }}
-                                title="Click to edit commission rate"
+                                title="Click to edit custom commission rate"
                               >
                                 <Badge className="bg-purple-50 text-purple-700 dark:bg-purple-950 dark:text-purple-300 rounded-lg px-2 py-0.5 font-bold text-xs group-hover/comm:bg-purple-600 group-hover/comm:text-white transition-colors">
                                   {seller.commissionRate}%
                                 </Badge>
+                                <span className="text-[10px] font-semibold text-purple-600 dark:text-purple-400">
+                                  Custom
+                                </span>
                               </div>
                             ) : (
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="h-6 px-2.5 text-[11px] font-semibold text-purple-700 bg-purple-50/70 border-purple-200/80 hover:bg-purple-100 hover:text-purple-800 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-800 rounded-lg cursor-pointer transition-colors"
-                                  onClick={() => {
-                                    setSelectedSellerId(seller.id)
-                                    setCommissionValue("")
-                                    setIsCommissionDialogOpen(true)
-                                  }}
-                                >
-                                  Assign
-                                </Button>
+                              (() => {
+                                const baseRate = seller.baseCommissionRate ?? data?.baseCommission ?? 10
+                                return (
+                                  <div className="inline-flex items-center gap-1.5 whitespace-nowrap">
+                                    <Badge
+                                      variant="secondary"
+                                      className="text-[11px] font-medium px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+                                      onClick={() => {
+                                        setSelectedSellerId(seller.id)
+                                        setCommissionValue("")
+                                        setIsCommissionDialogOpen(true)
+                                      }}
+                                      title={`Default restaurant base commission set by admin: ${baseRate}% (Click to assign custom rate)`}
+                                    >
+                                      <span className="font-bold">{baseRate}%</span>
+                                      <span className="text-[9px] text-muted-foreground ml-1 uppercase tracking-tight font-medium">Base</span>
+                                    </Badge>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="h-6 px-2 text-[11px] font-semibold text-purple-700 bg-purple-50/70 border-purple-200/80 hover:bg-purple-100 hover:text-purple-800 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-800 rounded-lg cursor-pointer transition-colors"
+                                      onClick={() => {
+                                        setSelectedSellerId(seller.id)
+                                        setCommissionValue("")
+                                        setIsCommissionDialogOpen(true)
+                                      }}
+                                    >
+                                      Assign
+                                    </Button>
+                                  </div>
+                                )
+                              })()
                             )}
                           </TableCell>
 
@@ -595,36 +618,47 @@ export function RestaurantSellersClient() {
             </div>
           </DialogHeader>
           <div className="py-4 space-y-3">
-            <div className="space-y-1.5">
-              <Label htmlFor="commRate" className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                Commission Percentage (%)
-              </Label>
-              <div className="relative">
-                <Input
-                  id="commRate"
-                  type="number"
-                  min="0"
-                  max="100"
-                  step="0.1"
-                  placeholder="e.g. 12.5"
-                  className="rounded-2xl text-sm pr-9 h-11"
-                  value={commissionValue}
-                  onChange={(e) => setCommissionValue(e.target.value === "" ? "" : parseFloat(e.target.value))}
-                />
-                <div className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none font-semibold text-xs">
-                  %
-                </div>
-              </div>
-            </div>
+            {(() => {
+              const currentEditingSeller = data?.sellers?.find((s: any) => s.id === selectedSellerId)
+              const currentBaseRate = currentEditingSeller?.baseCommissionRate ?? data?.baseCommission ?? 10
+              return (
+                <>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="commRate" className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center justify-between">
+                      <span>Commission Percentage (%)</span>
+                      <span className="text-[11px] font-normal text-muted-foreground">
+                        Admin Base: <strong className="text-purple-600 dark:text-purple-400 font-bold">{currentBaseRate}%</strong>
+                      </span>
+                    </Label>
+                    <div className="relative">
+                      <Input
+                        id="commRate"
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="0.1"
+                        placeholder="e.g. 12.5"
+                        className="rounded-2xl text-sm pr-9 h-11"
+                        value={commissionValue}
+                        onChange={(e) => setCommissionValue(e.target.value === "" ? "" : parseFloat(e.target.value))}
+                      />
+                      <div className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none font-semibold text-xs">
+                        %
+                      </div>
+                    </div>
+                  </div>
 
-            <div className="p-3 bg-slate-50 dark:bg-slate-950/60 rounded-2xl border border-slate-100 dark:border-slate-800/80 space-y-1">
-              <p className="text-[11px] text-muted-foreground">
-                💡 Leave empty to use platform default commission settings.
-              </p>
-              <p className="text-[11px] text-muted-foreground">
-                📌 Custom rates take immediate effect on all new food orders.
-              </p>
-            </div>
+                  <div className="p-3 bg-slate-50 dark:bg-slate-950/60 rounded-2xl border border-slate-100 dark:border-slate-800/80 space-y-1">
+                    <p className="text-[11px] text-muted-foreground">
+                      💡 Leave empty to use admin default restaurant base commission (<strong className="text-foreground">{currentBaseRate}%</strong>).
+                    </p>
+                    <p className="text-[11px] text-muted-foreground">
+                      📌 Custom rates take immediate effect on all new food orders.
+                    </p>
+                  </div>
+                </>
+              )
+            })()}
           </div>
           <DialogFooter className="gap-2 sm:gap-0">
             <Button variant="outline" size="sm" className="rounded-2xl text-xs font-medium" onClick={() => setIsCommissionDialogOpen(false)}>

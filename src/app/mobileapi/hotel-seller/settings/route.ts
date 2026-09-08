@@ -7,6 +7,7 @@ import { getMobileHotelRestaurantSellerAuth } from "../../_helpers/hotel-restaur
 import { uploadPublicFile } from "@/lib/upload-public-file"
 import { validatePassword } from "@/lib/password-validation"
 import { sanitizeInput } from "@/lib/html-sanitization"
+import { validateAndFormatPaymentDetails } from "@/lib/payment-details-helper"
 
 export const dynamic = 'force-dynamic'
 
@@ -291,21 +292,25 @@ export async function PUT(request: NextRequest) {
 
     // 4. Handle Bank
     else if (section === "bank") {
-      const bankName = (fd.get("bankName") as string)?.trim()
-      const bankAddress = (fd.get("bankAddress") as string)?.trim()
-      const accountHolderName = (fd.get("accountHolderName") as string)?.trim()
-      const accountNumber = (fd.get("accountNumber") as string)?.trim()
-      const bbanNumber = (fd.get("bbanNumber") as string)?.trim()
-      const branchName = (fd.get("branchName") as string)?.trim()
-      const mobileMoneyOption = (fd.get("mobileMoneyOption") as string)?.trim()
-      const preferredPayoutMethod = (fd.get("preferredPayoutMethod") as string)?.trim()
-      const passbook = fd.get("passbook") as File | null
+      const paymentOption = fd.get("paymentOption") as string | null
+      const mobileNumber = fd.get("mobileNumber") as string | null
+      const agentNumber = fd.get("agentNumber") as string | null
+      const bankName = fd.get("bankName") as string | null
+      const bankAddress = fd.get("bankAddress") as string | null
+      const accountHolderName = fd.get("accountHolderName") as string | null
+      const accountNumber = fd.get("accountNumber") as string | null
+      const bbanNumber = fd.get("bbanNumber") as string | null
+      const branchName = fd.get("branchName") as string | null
+      const mobileMoneyOption = fd.get("mobileMoneyOption") as string | null
+      const preferredPayoutMethod = fd.get("preferredPayoutMethod") as string | null
+      const passbook = (fd.get("passbook") || fd.get("bankPassbook")) as File | null
       const bankLetter = fd.get("bankLetter") as File | null
 
-      const bankData: any = { bankName, bankAddress, accountHolderName, accountNumber, bbanNumber, branchName, mobileMoneyOption, preferredPayoutMethod }
+      let passbookUrl = seller.bankDetails?.passbookUrl || null
+      let bankLetterUrl = seller.bankDetails?.bankLetterUrl || null
 
       if (passbook && passbook.size > 0) {
-        bankData.passbookUrl = await uploadPublicFile({
+        passbookUrl = await uploadPublicFile({
           folder: "hotel-onboarding/bank",
           ext: path.extname(passbook.name),
           contentType: passbook.type,
@@ -314,7 +319,7 @@ export async function PUT(request: NextRequest) {
         })
       }
       if (bankLetter && bankLetter.size > 0) {
-        bankData.bankLetterUrl = await uploadPublicFile({
+        bankLetterUrl = await uploadPublicFile({
           folder: "hotel-onboarding/bank",
           ext: path.extname(bankLetter.name) || ".pdf",
           contentType: bankLetter.type || "application/pdf",
@@ -323,10 +328,30 @@ export async function PUT(request: NextRequest) {
         })
       }
 
+      const { data: bankData, error: valErr } = validateAndFormatPaymentDetails({
+        paymentOption,
+        mobileNumber,
+        agentNumber,
+        bankName,
+        bankAddress,
+        accountHolderName,
+        accountNumber,
+        bbanNumber,
+        branchName,
+        mobileMoneyOption,
+        preferredPayoutMethod,
+        passbookUrl,
+        bankLetterUrl,
+      }, { requireFields: false })
+
+      if (valErr) {
+        return NextResponse.json({ success: false, error: valErr }, { status: 400 })
+      }
+
       await prisma.hotelBankDetails.upsert({
         where: { hotelSellerId: seller.id },
-        update: bankData,
-        create: { ...bankData, hotelSellerId: seller.id }
+        update: bankData as any,
+        create: { ...bankData, hotelSellerId: seller.id } as any,
       })
     }
 

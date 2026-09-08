@@ -9,6 +9,7 @@ import { sendSellerWelcomeEmail, sendAdminNewSellerAlertEmail } from "@/lib/emai
 import { formatHearAboutUs } from "@/lib/onboarding-constants"
 import { evaluateSellerDocuments } from "@/lib/seller-approval-validation"
 import { validateOnboardingFile } from "@/lib/onboarding-file-validation"
+import { validateAndFormatPaymentDetails } from "@/lib/payment-details-helper"
 
 
 export async function GET() {
@@ -323,24 +324,10 @@ export async function POST(request: NextRequest) {
         create: { ...data, idFrontUrl, idBackUrl, selfieUrl, sellerId: seller.id } as any,
       })
     } else if (step === 4) {
-      // Step 4: Bank Details
-      const rawMethod = (formData ? (formData.get("preferredPayoutMethod") as string) : jsonBody?.data?.preferredPayoutMethod)?.trim()
-      const data = formData ? {
-        bankName: formData.get("bankName") as string,
-        bankAddress: formData.get("bankAddress") as string,
-        accountHolderName: formData.get("accountHolderName") as string,
-        accountNumber: formData.get("accountNumber") as string,
-        bbanNumber: formData.get("bbanNumber") as string,
-        branchName: formData.get("branchName") as string,
-        mobileMoneyOption: formData.get("mobileMoneyOption") as string,
-        preferredPayoutMethod: rawMethod || "Bank Transfer",
-      } : {
-        ...jsonBody.data,
-        preferredPayoutMethod: rawMethod || "Bank Transfer",
-      }
+      // Step 4: Bank Details & Mobile Money
+      let passbookUrl = seller.bankDetails?.passbookUrl || null
+      let bankLetterUrl = seller.bankDetails?.bankLetterUrl || null
 
-      let passbookUrl = seller.bankDetails?.passbookUrl
-      let bankLetterUrl = seller.bankDetails?.bankLetterUrl
       if (formData) {
         const file = formData.get("bankPassbook") as File | null
         const fileBL = formData.get("bankLetter") as File | null
@@ -371,16 +358,39 @@ export async function POST(request: NextRequest) {
           })
         }
       } else if (jsonBody?.data) {
-        if (jsonBody.data.passbookUrl) passbookUrl = jsonBody.data.passbookUrl
-        if (jsonBody.data.bankLetterUrl) bankLetterUrl = jsonBody.data.bankLetterUrl
+        if (jsonBody.data.passbookUrl !== undefined) passbookUrl = jsonBody.data.passbookUrl
+        if (jsonBody.data.bankLetterUrl !== undefined) bankLetterUrl = jsonBody.data.bankLetterUrl
       }
 
+      const rawInput = formData ? {
+        paymentOption: formData.get("paymentOption") as string,
+        preferredPayoutMethod: formData.get("preferredPayoutMethod") as string,
+        mobileMoneyOption: formData.get("mobileMoneyOption") as string,
+        mobileNumber: formData.get("mobileNumber") as string,
+        agentNumber: formData.get("agentNumber") as string,
+        bankName: formData.get("bankName") as string,
+        bankAddress: formData.get("bankAddress") as string,
+        accountHolderName: formData.get("accountHolderName") as string,
+        accountNumber: formData.get("accountNumber") as string,
+        bbanNumber: formData.get("bbanNumber") as string,
+        branchName: formData.get("branchName") as string,
+        passbookUrl,
+        bankLetterUrl,
+      } : {
+        ...jsonBody?.data,
+        passbookUrl,
+        bankLetterUrl,
+      }
 
+      const { data: bankData, error: validationError } = validateAndFormatPaymentDetails(rawInput, { requireFields: true })
+      if (validationError) {
+        return NextResponse.json({ error: validationError }, { status: 400 })
+      }
 
       await (prisma as any).sellerBankDetails.upsert({
         where: { sellerId: seller.id },
-        update: { ...data, passbookUrl, bankLetterUrl } as any,
-        create: { ...data, passbookUrl, bankLetterUrl, sellerId: seller.id } as any,
+        update: bankData as any,
+        create: { ...bankData, sellerId: seller.id } as any,
       })
     } else if (step === 5) {
       // Step 5: Store Setup & Categories

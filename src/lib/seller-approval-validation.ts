@@ -59,9 +59,16 @@ export function validateProductOrServiceSellerApproval(seller: any): ApprovalVal
   if (!seller.bankDetails) {
     missingItems.push("Bank / Payout details are missing");
   } else {
-    const hasAccount = !!seller.bankDetails.accountNumber?.trim() || !!seller.bankDetails.bbanNumber?.trim() || !!seller.bankDetails.mobileMoneyOption?.trim();
-    if (!hasAccount) {
-      missingItems.push("Bank account number, BBAN, or Mobile Money payout number is missing");
+    const isMobileMoney = seller.bankDetails.paymentOption === "Orange Money" || seller.bankDetails.paymentOption === "AfriMoney" || !!seller.bankDetails.mobileMoneyOption?.trim();
+    if (isMobileMoney) {
+      if (!seller.bankDetails.mobileNumber?.trim() && !seller.bankDetails.accountNumber?.trim()) {
+        missingItems.push("Mobile Money phone number is missing");
+      }
+    } else {
+      const hasAccount = !!seller.bankDetails.accountNumber?.trim() || !!seller.bankDetails.bbanNumber?.trim();
+      if (!hasAccount) {
+        missingItems.push("Bank account number or BBAN is missing");
+      }
     }
   }
 
@@ -164,9 +171,16 @@ export function validateHotelSellerApproval(seller: any): ApprovalValidationResu
   if (!seller.bankDetails) {
     missingItems.push("Bank / Payout details are missing");
   } else {
-    const hasAccount = !!seller.bankDetails.accountNumber?.trim() || !!seller.bankDetails.bbanNumber?.trim() || !!seller.bankDetails.mobileMoneyOption?.trim();
-    if (!hasAccount) {
-      missingItems.push("Bank account number, BBAN, or Mobile Money payout number is missing");
+    const isMobileMoney = seller.bankDetails.paymentOption === "Orange Money" || seller.bankDetails.paymentOption === "AfriMoney" || !!seller.bankDetails.mobileMoneyOption?.trim();
+    if (isMobileMoney) {
+      if (!seller.bankDetails.mobileNumber?.trim() && !seller.bankDetails.accountNumber?.trim()) {
+        missingItems.push("Mobile Money phone number is missing");
+      }
+    } else {
+      const hasAccount = !!seller.bankDetails.accountNumber?.trim() || !!seller.bankDetails.bbanNumber?.trim();
+      if (!hasAccount) {
+        missingItems.push("Bank account number or BBAN is missing");
+      }
     }
   }
 
@@ -261,9 +275,16 @@ export function validateRestaurantSellerApproval(seller: any): ApprovalValidatio
   if (!seller.bankDetails) {
     missingItems.push("Bank / Payout details are missing");
   } else {
-    const hasAccount = !!seller.bankDetails.accountNumber?.trim() || !!seller.bankDetails.bbanNumber?.trim() || !!seller.bankDetails.mobileMoneyOption?.trim();
-    if (!hasAccount) {
-      missingItems.push("Bank account number, BBAN, or Mobile Money payout number is missing");
+    const isMobileMoney = seller.bankDetails.paymentOption === "Orange Money" || seller.bankDetails.paymentOption === "AfriMoney" || !!seller.bankDetails.mobileMoneyOption?.trim();
+    if (isMobileMoney) {
+      if (!seller.bankDetails.mobileNumber?.trim() && !seller.bankDetails.accountNumber?.trim()) {
+        missingItems.push("Mobile Money phone number is missing");
+      }
+    } else {
+      const hasAccount = !!seller.bankDetails.accountNumber?.trim() || !!seller.bankDetails.bbanNumber?.trim();
+      if (!hasAccount) {
+        missingItems.push("Bank account number or BBAN is missing");
+      }
     }
   }
 
