@@ -13,7 +13,9 @@
     "db:migrate": "prisma migrate dev",
     "db:generate": "prisma generate",
     "db:seed": "tsx prisma/seed.ts",
-    "cron:onboarding-reminders": "tsx scripts/send-onboarding-reminders.ts"
+    "cron:onboarding-reminders": "tsx scripts/send-onboarding-reminders.ts",
+    "socket": "node socket-server.js",
+    "test:socket": "node scripts/test-socket.js"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.7.0",
