@@ -166,6 +166,24 @@ export async function PATCH(
 
     // Rider updates
     const riderUpdates: any = {}
+
+    // Determine effective onboarding status after this update
+    const willBeOnboarded =
+      onboardingCompleted !== undefined
+        ? Boolean(onboardingCompleted)
+        : Boolean(user.rider.onboardingCompleted)
+
+    // Validation: Admin cannot approve a rider if onboarding is not completed!
+    if ((status === "APPROVED" || isApproved === true) && !willBeOnboarded) {
+      return NextResponse.json(
+        {
+          error:
+            "Cannot approve rider: Onboarding profile, vehicle details, and KYC documents must be fully completed first.",
+        },
+        { status: 400 }
+      )
+    }
+
     if (status !== undefined) {
       riderUpdates.status = status
       if (status === "APPROVED") {
@@ -175,12 +193,23 @@ export async function PATCH(
         riderUpdates.isSuspended = true
       } else if (status === "REJECTED") {
         riderUpdates.isApproved = false
+      } else if (status === "PENDING") {
+        riderUpdates.isApproved = false
       }
     }
 
     if (isSuspended !== undefined) riderUpdates.isSuspended = Boolean(isSuspended)
     if (isApproved !== undefined) riderUpdates.isApproved = Boolean(isApproved)
-    if (onboardingCompleted !== undefined) riderUpdates.onboardingCompleted = Boolean(onboardingCompleted)
+    if (onboardingCompleted !== undefined) {
+      riderUpdates.onboardingCompleted = Boolean(onboardingCompleted)
+      // If onboarding is explicitly marked false/incomplete, they can no longer be approved
+      if (!onboardingCompleted) {
+        riderUpdates.isApproved = false
+        if (riderUpdates.status === "APPROVED" || user.rider.status === "APPROVED") {
+          riderUpdates.status = "PENDING"
+        }
+      }
+    }
     if (isFirstLogin !== undefined) riderUpdates.isFirstLogin = Boolean(isFirstLogin)
     if (adminFeedback !== undefined) riderUpdates.adminFeedback = adminFeedback
     if (adminNotes !== undefined) riderUpdates.adminNotes = adminNotes

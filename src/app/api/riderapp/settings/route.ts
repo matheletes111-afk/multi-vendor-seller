@@ -296,9 +296,9 @@ export async function POST(request: Request) {
       where: { userId },
       create: {
         userId,
-        isApproved: true,
+        isApproved: false,
         isSuspended: false,
-        status: "APPROVED",
+        status: "PENDING",
         onboardingCompleted: true,
         vehicleTypes: vehicleTypes,
         vehicleName: vehicleName?.trim() || null,

@@ -226,6 +226,26 @@ export function LiveTrackClient() {
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [mapType, setMapType] = useState<"roadmap" | "hybrid">("roadmap")
+  const [mobileView, setMobileView] = useState<"split" | "map" | "fleet" | "guide">("split")
+
+  const handleMobileViewChange = (view: "split" | "map" | "fleet" | "guide") => {
+    setMobileView(view)
+    if (view === "split" || view === "map") {
+      setTimeout(() => {
+        if (mapInstanceRef.current && window.google?.maps) {
+          window.google.maps.event.trigger(mapInstanceRef.current, "resize")
+          if (selectedRider?.telemetry.latitude != null && selectedRider?.telemetry.longitude != null) {
+            mapInstanceRef.current.panTo({
+              lat: selectedRider.telemetry.latitude,
+              lng: selectedRider.telemetry.longitude,
+            })
+          } else {
+            recenterFleet()
+          }
+        }
+      }, 150)
+    }
+  }
 
   // ── 1. Fetch Fleet Data ───────────────────────────────────────────────────
   const fetchFleet = useCallback(async (isSilent = false) => {
@@ -581,23 +601,37 @@ export function LiveTrackClient() {
   // ── 6. Map Navigation Actions ─────────────────────────────────────────────
   const focusOnRider = (rider: LiveRiderItem) => {
     setSelectedRider(rider)
-    // On mobile screens, automatically close sidebar so map and rider card are visible
+    // On mobile screens, switch to split view so map and rider card are in focus
     if (typeof window !== "undefined" && window.innerWidth < 768) {
+      if (mobileView === "fleet" || mobileView === "guide") {
+        setMobileView("split")
+      }
       setSidebarOpen(false)
+      setTimeout(() => {
+        const mapEl = document.getElementById("live-track-map-container")
+        if (mapEl) {
+          mapEl.scrollIntoView({ behavior: "smooth", block: "start" })
+        }
+      }, 100)
     }
     const lat = rider.telemetry.latitude
     const lng = rider.telemetry.longitude
     if (lat != null && lng != null && mapInstanceRef.current && window.google?.maps) {
-      const latLng = new window.google.maps.LatLng(lat, lng)
-      mapInstanceRef.current.panTo(latLng)
-      mapInstanceRef.current.setZoom(16)
+      setTimeout(() => {
+        if (mapInstanceRef.current && window.google?.maps) {
+          window.google.maps.event.trigger(mapInstanceRef.current, "resize")
+          const latLng = new window.google.maps.LatLng(lat, lng)
+          mapInstanceRef.current.panTo(latLng)
+          mapInstanceRef.current.setZoom(16)
 
-      const marker = markersRef.current.get(rider.id)
-      if (marker && infoWindowRef.current) {
-        const content = createInfoWindowHtml(rider)
-        infoWindowRef.current.setContent(content)
-        infoWindowRef.current.open(mapInstanceRef.current, marker)
-      }
+          const marker = markersRef.current.get(rider.id)
+          if (marker && infoWindowRef.current) {
+            const content = createInfoWindowHtml(rider)
+            infoWindowRef.current.setContent(content)
+            infoWindowRef.current.open(mapInstanceRef.current, marker)
+          }
+        }
+      }, 150)
     }
   }
 
@@ -653,13 +687,434 @@ export function LiveTrackClient() {
     })
   }, [riders, selectedZone, selectedStatus, searchQuery])
 
+  // ── Sub-components / Render Helpers for Clean Reusability ────────────────
+  const renderComplianceNotice = () => (
+    <div className="p-2.5 bg-blue-50/70 dark:bg-blue-950/30 border-b shrink-0 text-[10.5px] text-blue-900 dark:text-blue-200 flex items-start gap-2">
+      <ShieldCheck className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+      <div className="leading-tight">
+        <span className="font-bold">Onboarded Fleet Only:</span> Only riders who finished full onboarding ({riders.length}) appear on map & receive delivery orders.
+        {pendingOnboardingCount > 0 && (
+          <span className="block mt-0.5 text-muted-foreground text-[9.5px]">
+            ({pendingOnboardingCount} pending onboarding riders are excluded from live map & offers).
+          </span>
+        )}
+      </div>
+    </div>
+  )
+
+  const renderColorGuide = () => (
+    <div className="p-3 bg-muted/40 text-xs space-y-2">
+      <div className="flex items-center justify-between">
+        <span className="font-bold text-[11px] uppercase tracking-wider text-foreground flex items-center gap-1.5">
+          <Info className="w-3.5 h-3.5 text-blue-600" />
+          Color & Status Guide
+        </span>
+        <span className="text-[9px] font-medium text-muted-foreground bg-background px-1.5 py-0.5 rounded border">
+          Status Legend
+        </span>
+      </div>
+
+      {/* 3 Main Operational Status Cards */}
+      <div className="grid grid-cols-3 gap-1.5">
+        {/* Green / Free */}
+        <div className="p-1.5 rounded-xl border bg-emerald-50/70 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-900/50">
+          <div className="flex items-center gap-1 font-bold text-[10px] text-emerald-800 dark:text-emerald-300">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+            Free
+          </div>
+          <p className="text-[8.5px] text-muted-foreground mt-0.5 leading-tight">
+            Online & ready for orders
+          </p>
+        </div>
+
+        {/* Blue / Delivering */}
+        <div className="p-1.5 rounded-xl border bg-blue-50/70 dark:bg-blue-950/30 border-blue-200 dark:border-blue-900/50">
+          <div className="flex items-center gap-1 font-bold text-[10px] text-blue-800 dark:text-blue-300">
+            <span className="w-2 h-2 rounded-full bg-blue-500 shrink-0 animate-pulse" />
+            Delivering
+          </div>
+          <p className="text-[8.5px] text-muted-foreground mt-0.5 leading-tight">
+            Carrying active order
+          </p>
+        </div>
+
+        {/* Gray / Offline */}
+        <div className="p-1.5 rounded-xl border bg-slate-100/70 dark:bg-slate-900/40 border-slate-200 dark:border-slate-800">
+          <div className="flex items-center gap-1 font-bold text-[10px] text-slate-700 dark:text-slate-400">
+            <span className="w-2 h-2 rounded-full bg-slate-400 shrink-0" />
+            Offline
+          </div>
+          <p className="text-[8.5px] text-muted-foreground mt-0.5 leading-tight">
+            App closed / inactive
+          </p>
+        </div>
+      </div>
+
+      {/* Sub-Condition Indicators */}
+      <div className="pt-1.5 border-t border-border/60 flex flex-wrap items-center gap-1 text-[9px]">
+        <span className="inline-flex items-center gap-1 bg-emerald-100/80 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-300 px-1.5 py-0.5 rounded font-medium">
+          <Radio className="w-2.5 h-2.5 text-emerald-600 animate-pulse" />
+          Live GPS
+        </span>
+        <span className="inline-flex items-center gap-1 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 px-1.5 py-0.5 rounded">
+          <MapPin className="w-2.5 h-2.5 text-slate-400" />
+          No GPS
+        </span>
+        <span className="inline-flex items-center gap-1 bg-blue-100/80 dark:bg-blue-950/50 text-blue-800 dark:text-blue-300 px-1.5 py-0.5 rounded font-medium">
+          <CheckCircle2 className="w-2.5 h-2.5 text-blue-600" />
+          Onboarded
+        </span>
+        <span className="inline-flex items-center gap-1 bg-amber-100/80 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 px-1.5 py-0.5 rounded font-medium">
+          <Clock className="w-2.5 h-2.5 text-amber-600" />
+          Pending Form
+        </span>
+        <span className="inline-flex items-center gap-1 bg-purple-100/80 dark:bg-purple-950/50 text-purple-800 dark:text-purple-300 px-1.5 py-0.5 rounded font-medium">
+          <Bell className="w-2.5 h-2.5 text-purple-600" />
+          Push Ready
+        </span>
+      </div>
+    </div>
+  )
+
+  const renderSelectedRiderCard = (rider: LiveRiderItem, onClose?: () => void) => (
+    <div className="bg-card/95 dark:bg-slate-900/95 backdrop-blur-md p-3.5 sm:p-4 rounded-2xl sm:rounded-3xl border shadow-xl">
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+          <Avatar className="h-10 w-10 sm:h-12 sm:w-12 border-2 border-primary/20 shadow-xs shrink-0">
+            <AvatarImage src={rider.profileImage || ""} />
+            <AvatarFallback className="bg-blue-600 text-white font-bold text-xs sm:text-sm">
+              {rider.name.charAt(0)}
+            </AvatarFallback>
+          </Avatar>
+          <div className="min-w-0">
+            <h4 className="text-xs sm:text-sm font-bold text-foreground leading-tight truncate">{rider.name}</h4>
+            <p className="text-[11px] text-muted-foreground flex items-center gap-1 mt-0.5 truncate">
+              <Phone className="w-3 h-3 text-blue-600 shrink-0" />
+              {rider.phone ? `${rider.phoneCountryCode} ${rider.phone}` : "No phone"}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-1.5 shrink-0">
+          <Badge
+            variant="outline"
+            className={cn(
+              "text-[10px] sm:text-[11px] font-bold py-0.5",
+              rider.operationalStatus === "FREE"
+                ? "bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300"
+                : rider.operationalStatus === "ON_DELIVERY"
+                ? "bg-blue-50 text-blue-700 border-blue-300 dark:bg-blue-950/40 dark:text-blue-300"
+                : "bg-slate-100 text-slate-700 border-slate-300 dark:bg-slate-800 dark:text-slate-300"
+            )}
+          >
+            {rider.operationalStatus === "FREE"
+              ? "Free"
+              : rider.operationalStatus === "ON_DELIVERY"
+              ? "Delivering"
+              : "Offline"}
+          </Badge>
+          {onClose && (
+            <button
+              type="button"
+              onClick={onClose}
+              className="p-1 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Rider Telemetry & Vehicle Details */}
+      <div className="grid grid-cols-3 gap-1.5 sm:gap-2 mt-2.5 sm:mt-3 pt-2.5 sm:pt-3 border-t text-xs">
+        <div className="p-1.5 sm:p-2 rounded-xl bg-muted/50">
+          <span className="text-[9px] sm:text-[10px] text-muted-foreground block">Vehicle</span>
+          <span className="font-semibold text-foreground truncate block text-[11px] sm:text-xs">
+            {rider.vehicleName || rider.primaryVehicleType}
+          </span>
+        </div>
+        <div className="p-1.5 sm:p-2 rounded-xl bg-muted/50">
+          <span className="text-[9px] sm:text-[10px] text-muted-foreground block">Plate No.</span>
+          <span className="font-semibold text-foreground truncate block text-[11px] sm:text-xs">
+            {rider.vehicleNumber || "N/A"}
+          </span>
+        </div>
+        <div className="p-1.5 sm:p-2 rounded-xl bg-muted/50">
+          <span className="text-[9px] sm:text-[10px] text-muted-foreground block">Live Speed</span>
+          <span className="font-semibold text-blue-600 block text-[11px] sm:text-xs">
+            {Math.round(rider.telemetry.speed || 0)} km/h
+          </span>
+        </div>
+      </div>
+
+      {/* Active Delivery Order Context */}
+      {rider.operationalStatus === "ON_DELIVERY" && rider.activeDelivery && (
+        <div className="mt-2.5 p-2.5 rounded-2xl bg-blue-50/60 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900/40 text-xs">
+          <div className="flex items-center justify-between font-bold text-blue-950 dark:text-blue-100">
+            <span className="flex items-center gap-1.5 truncate">
+              <Package className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+              Order #{rider.activeDelivery.orderNumber || "Active"}
+            </span>
+            <Badge variant="outline" className="text-[9px] sm:text-[10px] bg-blue-600 text-white border-none shrink-0">
+              {rider.activeDelivery.assignmentStatus}
+            </Badge>
+          </div>
+          <div className="mt-1 text-[11px] text-blue-900/80 dark:text-blue-200/80 line-clamp-2">
+            <span><strong>Store:</strong> {rider.activeDelivery.sellerName}</span> • <span><strong>Dest:</strong> {rider.activeDelivery.customerAddress || rider.activeDelivery.customerCity || "Customer location"}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Profile & Capability Status Badges */}
+      <div className="flex flex-wrap items-center gap-1.5 mt-2.5">
+        {rider.telemetry.latitude != null ? (
+          <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300 flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            GPS Signal Active
+          </Badge>
+        ) : (
+          <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-300 dark:bg-amber-950/40 dark:text-amber-300 flex items-center gap-1">
+            <AlertCircle className="w-3 h-3 text-amber-600" />
+            No GPS Signal Yet
+          </Badge>
+        )}
+
+        {rider.onboardingCompleted ? (
+          <Badge variant="outline" className="text-[10px] bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 flex items-center gap-1">
+            <CheckCircle2 className="w-3 h-3 text-blue-600" />
+            Profile Onboarded
+          </Badge>
+        ) : (
+          <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 flex items-center gap-1">
+            <Clock className="w-3 h-3 text-amber-600" />
+            Pending Profile Form
+          </Badge>
+        )}
+
+        {(rider.deviceTokensCount || 0) > 0 ? (
+          <Badge variant="outline" className="text-[10px] bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/40 dark:text-purple-300 flex items-center gap-1">
+            <Bell className="w-3 h-3 text-purple-600" />
+            Push Ready ({rider.deviceTokensCount})
+          </Badge>
+        ) : (
+          <Badge variant="outline" className="text-[10px] bg-muted text-muted-foreground border-border flex items-center gap-1 opacity-70">
+            <BellOff className="w-3 h-3" />
+            No Push Token
+          </Badge>
+        )}
+      </div>
+
+      {/* No GPS helper note */}
+      {rider.telemetry.latitude == null && (
+        <div className="mt-2 p-2 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/40 text-[11px] text-amber-800 dark:text-amber-300 flex items-start gap-1.5">
+          <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
+          <span>Rider has not sent live GPS coordinates yet. Once the rider opens the Rider App with Location enabled, their live pin will appear on map.</span>
+        </div>
+      )}
+
+      {/* Action Buttons */}
+      <div className="flex items-center gap-2 mt-2.5 pt-2 border-t">
+        {rider.phone && (
+          <a
+            href={`tel:${rider.phoneCountryCode}${rider.phone}`}
+            className="flex-1 inline-flex items-center justify-center gap-1.5 h-8 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-xs"
+          >
+            <Phone className="w-3.5 h-3.5" />
+            Call
+          </a>
+        )}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => focusOnRider(rider)}
+          className="flex-1 rounded-xl text-xs gap-1.5 h-8"
+        >
+          <Navigation className="w-3.5 h-3.5 text-blue-600" />
+          Center on Map
+        </Button>
+      </div>
+    </div>
+  )
+
+  const renderRiderList = () => {
+    if (filteredRiders.length === 0) {
+      return (
+        <div className="p-8 text-center text-xs text-muted-foreground space-y-2">
+          <Bike className="w-8 h-8 mx-auto text-muted-foreground/40 mb-1" />
+          <p className="font-semibold text-foreground">No onboarded riders match filters.</p>
+          {pendingOnboardingCount > 0 && (
+            <p className="text-[10px] text-amber-700 dark:text-amber-300 bg-amber-500/10 p-2 rounded-xl border border-amber-500/20 text-left leading-relaxed">
+              Note: {pendingOnboardingCount} riders are currently pending onboarding and are excluded from the live tracking map until their registration is completed.
+            </p>
+          )}
+        </div>
+      )
+    }
+
+    return filteredRiders.map((rider) => {
+      const isSelected = selectedRider?.id === rider.id
+      const hasCoordinates = rider.telemetry.latitude != null && rider.telemetry.longitude != null
+      const hasPush = (rider.deviceTokensCount || 0) > 0
+      const isOnboarded = rider.onboardingCompleted
+
+      return (
+        <div
+          key={rider.id}
+          onClick={() => focusOnRider(rider)}
+          className={cn(
+            "p-3 rounded-2xl border transition-all cursor-pointer bg-card hover:bg-muted/50 space-y-2",
+            isSelected && "border-blue-600 bg-blue-50/30 dark:bg-blue-950/20 shadow-xs ring-1 ring-blue-500/20"
+          )}
+        >
+          {/* Top Row: Avatar with status dot, Name, Vehicle & Operational Status */}
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="relative shrink-0">
+                <Avatar className="h-9 w-9 border">
+                  <AvatarImage src={rider.profileImage || ""} />
+                  <AvatarFallback className="bg-slate-200 text-slate-700 text-xs font-bold">
+                    {rider.name.charAt(0)}
+                  </AvatarFallback>
+                </Avatar>
+                {/* Status Dot */}
+                <span
+                  className={cn(
+                    "absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-background",
+                    rider.operationalStatus === "FREE"
+                      ? "bg-emerald-500"
+                      : rider.operationalStatus === "ON_DELIVERY"
+                      ? "bg-blue-500 animate-pulse"
+                      : "bg-slate-400"
+                  )}
+                />
+              </div>
+
+              <div className="min-w-0">
+                <div className="text-xs font-bold text-foreground leading-tight truncate">
+                  {rider.name}
+                </div>
+                <div className="text-[11px] text-muted-foreground truncate">
+                  {rider.vehicleName || rider.primaryVehicleType}
+                  {rider.vehicleNumber ? ` • ${rider.vehicleNumber}` : ""}
+                </div>
+              </div>
+            </div>
+
+            {/* Operational Status Badge */}
+            <Badge
+              variant="outline"
+              className={cn(
+                "text-[10px] font-semibold py-0.5 shrink-0",
+                rider.operationalStatus === "FREE"
+                  ? "bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300"
+                  : rider.operationalStatus === "ON_DELIVERY"
+                  ? "bg-blue-50 text-blue-700 border-blue-300 dark:bg-blue-950/40 dark:text-blue-300"
+                  : "bg-slate-100 text-slate-600 border-slate-300 dark:bg-slate-800 dark:text-slate-400"
+              )}
+            >
+              {rider.operationalStatus === "FREE"
+                ? "Free"
+                : rider.operationalStatus === "ON_DELIVERY"
+                ? "Delivering"
+                : "Offline"}
+            </Badge>
+          </div>
+
+          {/* Condition & Capability Badges (GPS, Onboarding, Push) */}
+          <div className="flex flex-wrap items-center gap-1.5 pt-1">
+            {/* GPS Indicator */}
+            {hasCoordinates ? (
+              <span className="inline-flex items-center gap-1 text-[9px] font-medium bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-300/40 px-1.5 py-0.5 rounded-md">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+                Live GPS
+              </span>
+            ) : (
+              <span
+                className="inline-flex items-center gap-1 text-[9px] text-muted-foreground bg-muted border border-dashed border-border px-1.5 py-0.5 rounded-md"
+                title="Rider has not sent GPS telemetry coordinates yet"
+              >
+                <MapPin className="w-2.5 h-2.5 text-slate-400" />
+                No GPS
+              </span>
+            )}
+
+            {/* Onboarding Profile Status */}
+            {isOnboarded ? (
+              <span className="inline-flex items-center gap-1 text-[9px] font-medium bg-blue-500/10 text-blue-700 dark:text-blue-300 border border-blue-300/40 px-1.5 py-0.5 rounded-md">
+                <CheckCircle2 className="w-2.5 h-2.5 text-blue-600" />
+                Onboarded
+              </span>
+            ) : (
+              <span
+                className="inline-flex items-center gap-1 text-[9px] font-medium bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-300/40 px-1.5 py-0.5 rounded-md"
+                title="Rider hasn't completed their documents/onboarding steps"
+              >
+                <Clock className="w-2.5 h-2.5 text-amber-600" />
+                Pending Form
+              </span>
+            )}
+
+            {/* Push Notification Token */}
+            {hasPush ? (
+              <span
+                className="inline-flex items-center gap-1 text-[9px] font-medium bg-purple-500/10 text-purple-700 dark:text-purple-300 border border-purple-300/40 px-1.5 py-0.5 rounded-md"
+                title={`${rider.deviceTokensCount} mobile push token(s) registered`}
+              >
+                <Bell className="w-2.5 h-2.5 text-purple-600" />
+                Push Ready
+              </span>
+            ) : (
+              <span
+                className="inline-flex items-center gap-1 text-[9px] text-muted-foreground bg-muted border border-border px-1.5 py-0.5 rounded-md opacity-80"
+                title="No FCM push token found; rider has not logged into mobile app"
+              >
+                <BellOff className="w-2.5 h-2.5 opacity-60" />
+                No Push
+              </span>
+            )}
+          </div>
+
+          {/* Active Delivery Context (if delivering) */}
+          {rider.operationalStatus === "ON_DELIVERY" && rider.activeDelivery && (
+            <div className="p-2 rounded-xl bg-blue-50/70 dark:bg-blue-950/40 border border-blue-200/80 dark:border-blue-900/60 text-[10px] space-y-1">
+              <div className="flex items-center justify-between font-bold text-blue-950 dark:text-blue-200">
+                <span className="flex items-center gap-1 truncate">
+                  <Package className="w-3 h-3 text-blue-600 shrink-0" />
+                  #{rider.activeDelivery.orderNumber || "Active Order"}
+                </span>
+                <span className="text-[9px] uppercase px-1 py-0.2 bg-blue-600 text-white rounded font-semibold">
+                  {rider.activeDelivery.assignmentStatus.replace(/_/g, " ")}
+                </span>
+              </div>
+              <div className="text-[10px] text-blue-900/80 dark:text-blue-300/80 truncate">
+                Store: {rider.activeDelivery.sellerName}
+              </div>
+            </div>
+          )}
+
+          {/* Telemetry & Zones */}
+          <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-1.5 border-t">
+            <span className="flex items-center gap-1 truncate max-w-[150px]">
+              <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
+              <span className="truncate">{rider.selectedZones[0] || "General Zone"}</span>
+            </span>
+            <span className="font-semibold text-foreground flex items-center gap-1 shrink-0">
+              <Gauge className="w-3 h-3 text-blue-600" />
+              {hasCoordinates ? `${Math.round(rider.telemetry.speed || 0)} km/h` : "No Signal"}
+            </span>
+          </div>
+        </div>
+      )
+    })
+  }
+
   return (
     <div
       className={cn(
         "flex flex-col bg-background transition-all duration-300",
         isFullscreen
           ? "fixed inset-0 z-50 p-2 sm:p-3 bg-slate-950/90 backdrop-blur-md"
-          : "h-[calc(100dvh-70px)] min-h-[520px] p-2 sm:p-4 lg:p-6"
+          : "min-h-[100dvh] md:h-[calc(100dvh-70px)] md:min-h-[520px] p-2.5 sm:p-4 lg:p-6 overflow-y-auto md:overflow-hidden"
       )}
     >
       {/* ── TOP HEADER & METRIC CARDS ────────────────────────────────────────── */}
@@ -695,17 +1150,6 @@ export function LiveTrackClient() {
 
         {/* Action Controls */}
         <div className="flex items-center gap-1.5 sm:gap-2 self-end sm:self-auto">
-          {/* Mobile Fleet List Toggle */}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="md:hidden rounded-xl text-xs gap-1.5 h-8 bg-card"
-          >
-            <Bike className="w-3.5 h-3.5 text-blue-600" />
-            {sidebarOpen ? "Map" : `Fleet (${filteredRiders.length})`}
-          </Button>
-
           <Button
             variant="outline"
             size="sm"
@@ -740,13 +1184,69 @@ export function LiveTrackClient() {
         </div>
       </div>
 
-      {/* ── KPI METRICS RIBBON ───────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 pb-2.5">
+      {/* ── MOBILE VIEW SWITCHER (SEGMENTED CONTROL) ── */}
+      <div className="md:hidden flex items-center p-1 bg-muted/80 dark:bg-muted/40 rounded-2xl border gap-1 shrink-0 mb-2.5 shadow-2xs">
+        <button
+          type="button"
+          onClick={() => handleMobileViewChange("split")}
+          className={cn(
+            "flex-1 py-1.5 px-2 text-[11px] font-bold rounded-xl transition-all flex items-center justify-center gap-1",
+            mobileView === "split"
+              ? "bg-background text-foreground shadow-xs ring-1 ring-border font-extrabold"
+              : "text-muted-foreground hover:text-foreground"
+          )}
+        >
+          <span>📱</span>
+          <span>All (Split)</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => handleMobileViewChange("map")}
+          className={cn(
+            "flex-1 py-1.5 px-2 text-[11px] font-bold rounded-xl transition-all flex items-center justify-center gap-1",
+            mobileView === "map"
+              ? "bg-background text-foreground shadow-xs ring-1 ring-border font-extrabold"
+              : "text-muted-foreground hover:text-foreground"
+          )}
+        >
+          <span>🗺️</span>
+          <span>Map</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => handleMobileViewChange("fleet")}
+          className={cn(
+            "flex-1 py-1.5 px-2 text-[11px] font-bold rounded-xl transition-all flex items-center justify-center gap-1",
+            mobileView === "fleet"
+              ? "bg-background text-foreground shadow-xs ring-1 ring-border font-extrabold"
+              : "text-muted-foreground hover:text-foreground"
+          )}
+        >
+          <span>🚴</span>
+          <span>Fleet ({filteredRiders.length})</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => handleMobileViewChange("guide")}
+          className={cn(
+            "flex-1 py-1.5 px-2 text-[11px] font-bold rounded-xl transition-all flex items-center justify-center gap-1",
+            mobileView === "guide"
+              ? "bg-background text-foreground shadow-xs ring-1 ring-border font-extrabold"
+              : "text-muted-foreground hover:text-foreground"
+          )}
+        >
+          <span>ℹ️</span>
+          <span>Legend</span>
+        </button>
+      </div>
+
+      {/* ── KPI METRICS RIBBON ── */}
+      <div className="flex sm:grid sm:grid-cols-3 lg:grid-cols-5 gap-2 pb-2.5 overflow-x-auto [&::-webkit-scrollbar]:hidden snap-x sm:overflow-visible shrink-0">
         {/* Total Fleet */}
         <div
           onClick={() => setSelectedStatus("ALL")}
           className={cn(
-            "p-2.5 sm:p-3 rounded-2xl border transition-all cursor-pointer bg-card shadow-2xs hover:border-blue-400",
+            "p-2.5 sm:p-3 rounded-2xl border transition-all cursor-pointer bg-card shadow-2xs hover:border-blue-400 shrink-0 snap-start min-w-[130px] sm:min-w-0 flex-1",
             selectedStatus === "ALL" && "border-blue-600 bg-blue-50/40 dark:bg-blue-950/20"
           )}
         >
@@ -761,7 +1261,7 @@ export function LiveTrackClient() {
         <div
           onClick={() => setSelectedStatus("FREE")}
           className={cn(
-            "p-2.5 sm:p-3 rounded-2xl border transition-all cursor-pointer bg-card shadow-2xs hover:border-emerald-400",
+            "p-2.5 sm:p-3 rounded-2xl border transition-all cursor-pointer bg-card shadow-2xs hover:border-emerald-400 shrink-0 snap-start min-w-[130px] sm:min-w-0 flex-1",
             selectedStatus === "FREE" && "border-emerald-600 bg-emerald-50/40 dark:bg-emerald-950/20"
           )}
         >
@@ -776,7 +1276,7 @@ export function LiveTrackClient() {
         <div
           onClick={() => setSelectedStatus("ON_DELIVERY")}
           className={cn(
-            "p-2.5 sm:p-3 rounded-2xl border transition-all cursor-pointer bg-card shadow-2xs hover:border-blue-400",
+            "p-2.5 sm:p-3 rounded-2xl border transition-all cursor-pointer bg-card shadow-2xs hover:border-blue-400 shrink-0 snap-start min-w-[130px] sm:min-w-0 flex-1",
             selectedStatus === "ON_DELIVERY" && "border-blue-600 bg-blue-50/40 dark:bg-blue-950/20"
           )}
         >
@@ -791,7 +1291,7 @@ export function LiveTrackClient() {
         <div
           onClick={() => setSelectedStatus("OFFLINE")}
           className={cn(
-            "p-2.5 sm:p-3 rounded-2xl border transition-all cursor-pointer bg-card shadow-2xs hover:border-slate-400",
+            "p-2.5 sm:p-3 rounded-2xl border transition-all cursor-pointer bg-card shadow-2xs hover:border-slate-400 shrink-0 snap-start min-w-[130px] sm:min-w-0 flex-1",
             selectedStatus === "OFFLINE" && "border-slate-600 bg-slate-100/50 dark:bg-slate-900/40"
           )}
         >
@@ -803,7 +1303,7 @@ export function LiveTrackClient() {
         </div>
 
         {/* GPS Telemetry Live */}
-        <div className="col-span-2 sm:col-span-1 lg:col-span-1 p-2.5 sm:p-3 rounded-2xl border bg-gradient-to-br from-indigo-50/50 to-blue-50/30 dark:from-indigo-950/20 dark:to-blue-950/20 shadow-2xs">
+        <div className="shrink-0 snap-start min-w-[140px] sm:min-w-0 flex-1 col-span-2 sm:col-span-1 lg:col-span-1 p-2.5 sm:p-3 rounded-2xl border bg-gradient-to-br from-indigo-50/50 to-blue-50/30 dark:from-indigo-950/20 dark:to-blue-950/20 shadow-2xs">
           <div className="flex items-center justify-between text-[11px] sm:text-xs text-indigo-600 dark:text-indigo-400 font-medium">
             <span>Active GPS Signals</span>
             <Radio className="w-3.5 h-3.5 text-indigo-600 animate-pulse" />
@@ -814,10 +1314,31 @@ export function LiveTrackClient() {
         </div>
       </div>
 
-      {/* ── MAIN MAP & SIDEBAR CONTAINER ────────────────────────────────────── */}
-      <div className="relative flex-1 flex rounded-2xl sm:rounded-3xl overflow-hidden border bg-card shadow-sm min-h-0">
-        {/* MAP CONTAINER */}
-        <div className="relative flex-1 h-full w-full min-w-0">
+      {/* ── MAIN MAP & FLEET CONTENT CONTAINER (RESPONSIVE) ── */}
+      <div
+        className={cn(
+          "relative flex-1 transition-all",
+          // Desktop: Flex row containing map on left and sidebar on right
+          "md:flex md:flex-row md:rounded-2xl md:sm:rounded-3xl md:overflow-hidden md:border md:bg-card md:shadow-sm md:min-h-0",
+          // Mobile: Vertical stack
+          "max-md:flex max-md:flex-col max-md:space-y-3 max-md:min-h-0"
+        )}
+      >
+        {/* ── GOOGLE MAP CONTAINER (SINGLE DOM INSTANCE) ── */}
+        <div
+          id="live-track-map-container"
+          className={cn(
+            "relative transition-all",
+            // Desktop: fills the left pane
+            "md:flex-1 md:h-full md:w-full md:min-w-0",
+            // Mobile:
+            mobileView === "map"
+              ? "max-md:h-[calc(100dvh-230px)] max-md:min-h-[420px] max-md:w-full max-md:rounded-2xl max-md:overflow-hidden max-md:border max-md:shadow-sm"
+              : mobileView === "split"
+              ? "max-md:h-[330px] max-md:w-full max-md:rounded-2xl max-md:overflow-hidden max-md:border max-md:shadow-sm max-md:shrink-0"
+              : "max-md:hidden"
+          )}
+        >
           {/* FLOATING TOP HUD CONTROLS */}
           <div className="absolute top-2 left-2 right-2 sm:top-4 sm:left-4 sm:right-auto z-10 flex flex-wrap items-center gap-1.5 sm:gap-2 bg-background/95 dark:bg-slate-900/95 backdrop-blur-md p-1.5 sm:p-2 rounded-2xl border shadow-lg max-w-[calc(100%-16px)] sm:max-w-xl">
             {/* Search Input */}
@@ -880,161 +1401,32 @@ export function LiveTrackClient() {
             </div>
           </div>
 
-          {/* FLOATING SELECTED RIDER HUD CARD */}
+          {/* FLOATING SELECTED RIDER HUD CARD (Desktop or mobile 'map' mode) */}
           {selectedRider && (
-            <div className="absolute bottom-2 left-2 right-2 sm:bottom-4 sm:left-4 sm:right-auto z-10 sm:max-w-sm sm:w-96 bg-background/95 dark:bg-slate-900/95 backdrop-blur-md p-3 sm:p-4 rounded-2xl sm:rounded-3xl border shadow-xl animate-in slide-in-from-bottom-4 duration-200">
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex items-center gap-2.5 sm:gap-3">
-                  <Avatar className="h-10 w-10 sm:h-12 sm:w-12 border-2 border-primary/20 shadow-xs shrink-0">
-                    <AvatarImage src={selectedRider.profileImage || ""} />
-                    <AvatarFallback className="bg-blue-600 text-white font-bold text-xs sm:text-sm">
-                      {selectedRider.name.charAt(0)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="min-w-0">
-                    <h4 className="text-xs sm:text-sm font-bold text-foreground leading-tight truncate">{selectedRider.name}</h4>
-                    <p className="text-[11px] text-muted-foreground flex items-center gap-1 mt-0.5 truncate">
-                      <Phone className="w-3 h-3 text-blue-600 shrink-0" />
-                      {selectedRider.phone ? `${selectedRider.phoneCountryCode} ${selectedRider.phone}` : "No phone"}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-1.5 shrink-0">
-                  <Badge
-                    variant="outline"
-                    className={cn(
-                      "text-[10px] sm:text-[11px] font-bold py-0.5",
-                      selectedRider.operationalStatus === "FREE"
-                        ? "bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300"
-                        : selectedRider.operationalStatus === "ON_DELIVERY"
-                        ? "bg-blue-50 text-blue-700 border-blue-300 dark:bg-blue-950/40 dark:text-blue-300"
-                        : "bg-slate-100 text-slate-700 border-slate-300 dark:bg-slate-800 dark:text-slate-300"
-                    )}
-                  >
-                    {selectedRider.operationalStatus === "FREE"
-                      ? "Free"
-                      : selectedRider.operationalStatus === "ON_DELIVERY"
-                      ? "Delivering"
-                      : "Offline"}
-                  </Badge>
-                  <button
-                    onClick={() => setSelectedRider(null)}
-                    className="p-1 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-
-              {/* Rider Telemetry & Vehicle Details */}
-              <div className="grid grid-cols-3 gap-1.5 sm:gap-2 mt-2.5 sm:mt-3 pt-2.5 sm:pt-3 border-t text-xs">
-                <div className="p-1.5 sm:p-2 rounded-xl bg-muted/50">
-                  <span className="text-[9px] sm:text-[10px] text-muted-foreground block">Vehicle</span>
-                  <span className="font-semibold text-foreground truncate block text-[11px] sm:text-xs">
-                    {selectedRider.vehicleName || selectedRider.primaryVehicleType}
-                  </span>
-                </div>
-                <div className="p-1.5 sm:p-2 rounded-xl bg-muted/50">
-                  <span className="text-[9px] sm:text-[10px] text-muted-foreground block">Plate No.</span>
-                  <span className="font-semibold text-foreground truncate block text-[11px] sm:text-xs">
-                    {selectedRider.vehicleNumber || "N/A"}
-                  </span>
-                </div>
-                <div className="p-1.5 sm:p-2 rounded-xl bg-muted/50">
-                  <span className="text-[9px] sm:text-[10px] text-muted-foreground block">Live Speed</span>
-                  <span className="font-semibold text-blue-600 block text-[11px] sm:text-xs">
-                    {Math.round(selectedRider.telemetry.speed || 0)} km/h
-                  </span>
-                </div>
-              </div>
-
-              {/* Active Delivery Order Context */}
-              {selectedRider.operationalStatus === "ON_DELIVERY" && selectedRider.activeDelivery && (
-                <div className="mt-2.5 p-2.5 rounded-2xl bg-blue-50/60 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900/40 text-xs">
-                  <div className="flex items-center justify-between font-bold text-blue-950 dark:text-blue-100">
-                    <span className="flex items-center gap-1.5 truncate">
-                      <Package className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-                      Order #{selectedRider.activeDelivery.orderNumber || "Active"}
-                    </span>
-                    <Badge variant="outline" className="text-[9px] sm:text-[10px] bg-blue-600 text-white border-none shrink-0">
-                      {selectedRider.activeDelivery.assignmentStatus}
-                    </Badge>
-                  </div>
-                  <div className="mt-1 text-[11px] text-blue-900/80 dark:text-blue-200/80 line-clamp-2">
-                    <span><strong>Store:</strong> {selectedRider.activeDelivery.sellerName}</span> • <span><strong>Dest:</strong> {selectedRider.activeDelivery.customerAddress || selectedRider.activeDelivery.customerCity || "Customer location"}</span>
-                  </div>
-                </div>
+            <div
+              className={cn(
+                "absolute z-20 animate-in slide-in-from-bottom-4 duration-200",
+                // Desktop: bottom left of map
+                "md:bottom-4 md:left-4 md:max-w-sm md:w-96",
+                // Mobile: only visible floating if in full 'map' view
+                mobileView === "map" ? "max-md:bottom-3 max-md:left-2 max-md:right-2" : "max-md:hidden"
               )}
+            >
+              {renderSelectedRiderCard(selectedRider, () => setSelectedRider(null))}
+            </div>
+          )}
 
-              {/* Profile & Capability Status Badges */}
-              <div className="flex flex-wrap items-center gap-1.5 mt-2.5">
-                {selectedRider.telemetry.latitude != null ? (
-                  <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300 flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                    GPS Signal Active
-                  </Badge>
-                ) : (
-                  <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-300 dark:bg-amber-950/40 dark:text-amber-300 flex items-center gap-1">
-                    <AlertCircle className="w-3 h-3 text-amber-600" />
-                    No GPS Signal Yet
-                  </Badge>
-                )}
-
-                {selectedRider.onboardingCompleted ? (
-                  <Badge variant="outline" className="text-[10px] bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 flex items-center gap-1">
-                    <CheckCircle2 className="w-3 h-3 text-blue-600" />
-                    Profile Onboarded
-                  </Badge>
-                ) : (
-                  <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 flex items-center gap-1">
-                    <Clock className="w-3 h-3 text-amber-600" />
-                    Pending Profile Form
-                  </Badge>
-                )}
-
-                {(selectedRider.deviceTokensCount || 0) > 0 ? (
-                  <Badge variant="outline" className="text-[10px] bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/40 dark:text-purple-300 flex items-center gap-1">
-                    <Bell className="w-3 h-3 text-purple-600" />
-                    Push Ready ({selectedRider.deviceTokensCount})
-                  </Badge>
-                ) : (
-                  <Badge variant="outline" className="text-[10px] bg-muted text-muted-foreground border-border flex items-center gap-1 opacity-70">
-                    <BellOff className="w-3 h-3" />
-                    No Push Token
-                  </Badge>
-                )}
-              </div>
-
-              {/* No GPS helper note */}
-              {selectedRider.telemetry.latitude == null && (
-                <div className="mt-2 p-2 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/40 text-[11px] text-amber-800 dark:text-amber-300 flex items-start gap-1.5">
-                  <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
-                  <span>Rider has not sent live GPS coordinates yet. Once the rider opens the Rider App with Location enabled, their live pin will appear on map.</span>
-                </div>
-              )}
-
-              {/* Action Buttons */}
-              <div className="flex items-center gap-2 mt-2.5 pt-2">
-                {selectedRider.phone && (
-                  <a
-                    href={`tel:${selectedRider.phoneCountryCode}${selectedRider.phone}`}
-                    className="flex-1 inline-flex items-center justify-center gap-1.5 h-8 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold"
-                  >
-                    <Phone className="w-3.5 h-3.5" />
-                    Call
-                  </a>
-                )}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => focusOnRider(selectedRider)}
-                  className="flex-1 rounded-xl text-xs gap-1.5 h-8"
-                >
-                  <Navigation className="w-3.5 h-3.5 text-blue-600" />
-                  Center
-                </Button>
-              </div>
+          {/* Mobile Bottom Quick Switcher (when in map-only mode) */}
+          {mobileView === "map" && (
+            <div className="md:hidden absolute bottom-2 left-1/2 -translate-x-1/2 z-20">
+              <Button
+                size="sm"
+                onClick={() => handleMobileViewChange("split")}
+                className="rounded-full shadow-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-4 py-2 gap-1.5 border border-white/20 backdrop-blur-xs"
+              >
+                <Bike className="w-3.5 h-3.5" />
+                View All {filteredRiders.length} Fleet & Legend ↓
+              </Button>
             </div>
           )}
 
@@ -1042,7 +1434,7 @@ export function LiveTrackClient() {
           <div ref={mapContainerRef} className="h-full w-full" />
         </div>
 
-        {/* SIDEBAR TOGGLE BUTTON (DESKTOP) */}
+        {/* ── DESKTOP SIDEBAR TOGGLE BUTTON ── */}
         <button
           onClick={() => setSidebarOpen(!sidebarOpen)}
           className="hidden md:flex absolute right-0 top-1/2 -translate-y-1/2 z-20 bg-background border shadow-md p-1.5 rounded-l-xl text-muted-foreground hover:text-foreground"
@@ -1051,23 +1443,11 @@ export function LiveTrackClient() {
           {sidebarOpen ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
         </button>
 
-        {/* MOBILE BACKDROP OVERLAY */}
-        {sidebarOpen && (
-          <div
-            onClick={() => setSidebarOpen(false)}
-            className="md:hidden fixed inset-0 bg-black/50 backdrop-blur-xs z-30 animate-in fade-in duration-200"
-          />
-        )}
-
-        {/* ── FLEET SIDEBAR PANEL (RESPONSIVE DRAWER ON MOBILE, INLINE ON DESKTOP) ── */}
+        {/* ── DESKTOP SIDEBAR (md:flex) ── */}
         <div
           className={cn(
-            "h-full border-l bg-card flex flex-col transition-all duration-300",
-            // Desktop: inline flex child
-            "md:relative md:z-10",
-            // Mobile (< md): slide-over drawer
-            "max-md:fixed max-md:inset-y-0 max-md:right-0 max-md:z-40 max-md:w-full max-md:max-w-xs max-md:shadow-2xl",
-            sidebarOpen ? "w-80 sm:w-[26rem]" : "w-0 overflow-hidden border-l-0 max-md:hidden"
+            "hidden md:flex h-full border-l bg-card flex-col transition-all duration-300 shrink-0",
+            sidebarOpen ? "w-80 sm:w-[26rem]" : "w-0 overflow-hidden border-l-0"
           )}
         >
           <div className="p-3 sm:p-4 border-b flex items-center justify-between shrink-0">
@@ -1080,274 +1460,101 @@ export function LiveTrackClient() {
                 Showing onboarded active fleet eligible for orders.
               </p>
             </div>
-            {/* Mobile Close Button */}
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setSidebarOpen(false)}
-              className="md:hidden h-8 w-8 rounded-xl"
-              title="Close Fleet List"
-            >
-              <X className="w-4 h-4" />
-            </Button>
           </div>
 
-          {/* ── ONBOARDED FLEET COMPLIANCE NOTICE ── */}
-          <div className="p-2.5 bg-blue-50/70 dark:bg-blue-950/30 border-b shrink-0 text-[10.5px] text-blue-900 dark:text-blue-200 flex items-start gap-2">
-            <ShieldCheck className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
-            <div className="leading-tight">
-              <span className="font-bold">Onboarded Fleet Only:</span> Only riders who finished full onboarding ({riders.length}) appear on map & receive delivery orders.
-              {pendingOnboardingCount > 0 && (
-                <span className="block mt-0.5 text-muted-foreground text-[9.5px]">
-                  ({pendingOnboardingCount} pending onboarding riders are excluded from live map & offers).
-                </span>
-              )}
-            </div>
-          </div>
+          {/* Compliance notice */}
+          {renderComplianceNotice()}
 
-          {/* ── COLOR CODE & STATUS GUIDE (LEGEND) ── */}
-          <div className="p-3 bg-muted/40 border-b shrink-0 text-xs space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="font-bold text-[11px] uppercase tracking-wider text-foreground flex items-center gap-1.5">
-                <Info className="w-3.5 h-3.5 text-blue-600" />
-                Color & Status Guide
-              </span>
-              <span className="text-[9px] font-medium text-muted-foreground bg-background px-1.5 py-0.5 rounded border">
-                Status Legend
-              </span>
-            </div>
+          {/* Color Guide */}
+          {renderColorGuide()}
 
-            {/* 3 Main Operational Status Cards */}
-            <div className="grid grid-cols-3 gap-1.5">
-              {/* Green / Free */}
-              <div className="p-1.5 rounded-xl border bg-emerald-50/70 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-900/50">
-                <div className="flex items-center gap-1 font-bold text-[10px] text-emerald-800 dark:text-emerald-300">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
-                  Free
-                </div>
-                <p className="text-[8.5px] text-muted-foreground mt-0.5 leading-tight">
-                  Online & ready for orders
-                </p>
-              </div>
-
-              {/* Blue / Delivering */}
-              <div className="p-1.5 rounded-xl border bg-blue-50/70 dark:bg-blue-950/30 border-blue-200 dark:border-blue-900/50">
-                <div className="flex items-center gap-1 font-bold text-[10px] text-blue-800 dark:text-blue-300">
-                  <span className="w-2 h-2 rounded-full bg-blue-500 shrink-0 animate-pulse" />
-                  Delivering
-                </div>
-                <p className="text-[8.5px] text-muted-foreground mt-0.5 leading-tight">
-                  Carrying active order
-                </p>
-              </div>
-
-              {/* Gray / Offline */}
-              <div className="p-1.5 rounded-xl border bg-slate-100/70 dark:bg-slate-900/40 border-slate-200 dark:border-slate-800">
-                <div className="flex items-center gap-1 font-bold text-[10px] text-slate-700 dark:text-slate-400">
-                  <span className="w-2 h-2 rounded-full bg-slate-400 shrink-0" />
-                  Offline
-                </div>
-                <p className="text-[8.5px] text-muted-foreground mt-0.5 leading-tight">
-                  App closed / inactive
-                </p>
-              </div>
-            </div>
-
-            {/* Sub-Condition Indicators */}
-            <div className="pt-1.5 border-t border-border/60 flex flex-wrap items-center gap-1 text-[9px]">
-              <span className="inline-flex items-center gap-1 bg-emerald-100/80 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-300 px-1.5 py-0.5 rounded font-medium">
-                <Radio className="w-2.5 h-2.5 text-emerald-600 animate-pulse" />
-                Live GPS
-              </span>
-              <span className="inline-flex items-center gap-1 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 px-1.5 py-0.5 rounded">
-                <MapPin className="w-2.5 h-2.5 text-slate-400" />
-                No GPS
-              </span>
-              <span className="inline-flex items-center gap-1 bg-blue-100/80 dark:bg-blue-950/50 text-blue-800 dark:text-blue-300 px-1.5 py-0.5 rounded font-medium">
-                <CheckCircle2 className="w-2.5 h-2.5 text-blue-600" />
-                Onboarded
-              </span>
-              <span className="inline-flex items-center gap-1 bg-amber-100/80 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 px-1.5 py-0.5 rounded font-medium">
-                <Clock className="w-2.5 h-2.5 text-amber-600" />
-                Pending Form
-              </span>
-              <span className="inline-flex items-center gap-1 bg-purple-100/80 dark:bg-purple-950/50 text-purple-800 dark:text-purple-300 px-1.5 py-0.5 rounded font-medium">
-                <Bell className="w-2.5 h-2.5 text-purple-600" />
-                Push Ready
-              </span>
-            </div>
-          </div>
-
-          {/* RIDER LIST */}
+          {/* Rider list */}
           <div className="flex-1 overflow-y-auto p-3 space-y-2">
-            {filteredRiders.length === 0 ? (
-              <div className="p-8 text-center text-xs text-muted-foreground space-y-2">
-                <Bike className="w-8 h-8 mx-auto text-muted-foreground/40 mb-1" />
-                <p className="font-semibold text-foreground">No onboarded riders match filters.</p>
-                {pendingOnboardingCount > 0 && (
-                  <p className="text-[10px] text-amber-700 dark:text-amber-300 bg-amber-500/10 p-2 rounded-xl border border-amber-500/20 text-left leading-relaxed">
-                    Note: {pendingOnboardingCount} riders are currently pending onboarding and are excluded from the live tracking map until their registration is completed.
+            {renderRiderList()}
+          </div>
+        </div>
+
+        {/* ── MOBILE SECTIONS CONTAINER (< md) ── */}
+        <div className="md:hidden flex flex-col space-y-3 pb-8">
+          {/* Selected Rider Details (In Mobile Split View, rendered cleanly below map) */}
+          {mobileView === "split" && selectedRider && (
+            <div className="animate-in fade-in slide-in-from-top-2 duration-200">
+              {renderSelectedRiderCard(selectedRider, () => setSelectedRider(null))}
+            </div>
+          )}
+
+          {/* Color & Status Guide (Legend) */}
+          {(mobileView === "split" || mobileView === "guide") && (
+            <div className="rounded-2xl border bg-card overflow-hidden shadow-2xs">
+              {renderColorGuide()}
+            </div>
+          )}
+
+          {/* Compliance Notice */}
+          {(mobileView === "split" || mobileView === "fleet" || mobileView === "guide") && (
+            <div className="rounded-2xl border overflow-hidden">
+              {renderComplianceNotice()}
+            </div>
+          )}
+
+          {/* Fleet Directory List */}
+          {(mobileView === "split" || mobileView === "fleet") && (
+            <div className="rounded-2xl border bg-card overflow-hidden shadow-2xs">
+              <div className="p-3.5 border-b bg-muted/30 flex items-center justify-between">
+                <div>
+                  <h3 className="font-bold text-xs sm:text-sm text-foreground flex items-center gap-1.5">
+                    <Bike className="w-4 h-4 text-blue-600" />
+                    Fleet Directory ({filteredRiders.length})
+                  </h3>
+                  <p className="text-[10px] text-muted-foreground">
+                    Tap any rider to center on live map.
                   </p>
+                </div>
+                {mobileView === "fleet" && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleMobileViewChange("split")}
+                    className="h-7 text-xs rounded-xl gap-1 text-blue-600 border-blue-200"
+                  >
+                    <MapPin className="w-3 h-3" />
+                    View Map
+                  </Button>
                 )}
               </div>
-            ) : (
-              filteredRiders.map((rider) => {
-                const isSelected = selectedRider?.id === rider.id
-                const hasCoordinates = rider.telemetry.latitude != null && rider.telemetry.longitude != null
-                const hasPush = (rider.deviceTokensCount || 0) > 0
-                const isOnboarded = rider.onboardingCompleted
 
-                return (
-                  <div
-                    key={rider.id}
-                    onClick={() => focusOnRider(rider)}
-                    className={cn(
-                      "p-3 rounded-2xl border transition-all cursor-pointer bg-card hover:bg-muted/50 space-y-2",
-                      isSelected && "border-blue-600 bg-blue-50/30 dark:bg-blue-950/20 shadow-xs ring-1 ring-blue-500/20"
-                    )}
-                  >
-                    {/* Top Row: Avatar with status dot, Name, Vehicle & Operational Status */}
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <div className="relative shrink-0">
-                          <Avatar className="h-9 w-9 border">
-                            <AvatarImage src={rider.profileImage || ""} />
-                            <AvatarFallback className="bg-slate-200 text-slate-700 text-xs font-bold">
-                              {rider.name.charAt(0)}
-                            </AvatarFallback>
-                          </Avatar>
-                          {/* Status Dot */}
-                          <span
-                            className={cn(
-                              "absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-background",
-                              rider.operationalStatus === "FREE"
-                                ? "bg-emerald-500"
-                                : rider.operationalStatus === "ON_DELIVERY"
-                                ? "bg-blue-500 animate-pulse"
-                                : "bg-slate-400"
-                            )}
-                          />
-                        </div>
-
-                        <div className="min-w-0">
-                          <div className="text-xs font-bold text-foreground leading-tight truncate">
-                            {rider.name}
-                          </div>
-                          <div className="text-[11px] text-muted-foreground truncate">
-                            {rider.vehicleName || rider.primaryVehicleType}
-                            {rider.vehicleNumber ? ` • ${rider.vehicleNumber}` : ""}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Operational Status Badge */}
-                      <Badge
-                        variant="outline"
-                        className={cn(
-                          "text-[10px] font-semibold py-0.5 shrink-0",
-                          rider.operationalStatus === "FREE"
-                            ? "bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300"
-                            : rider.operationalStatus === "ON_DELIVERY"
-                            ? "bg-blue-50 text-blue-700 border-blue-300 dark:bg-blue-950/40 dark:text-blue-300"
-                            : "bg-slate-100 text-slate-600 border-slate-300 dark:bg-slate-800 dark:text-slate-400"
-                        )}
-                      >
-                        {rider.operationalStatus === "FREE"
-                          ? "Free"
-                          : rider.operationalStatus === "ON_DELIVERY"
-                          ? "Delivering"
-                          : "Offline"}
-                      </Badge>
-                    </div>
-
-                    {/* Condition & Capability Badges (GPS, Onboarding, Push) */}
-                    <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                      {/* GPS Indicator */}
-                      {hasCoordinates ? (
-                        <span className="inline-flex items-center gap-1 text-[9px] font-medium bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-300/40 px-1.5 py-0.5 rounded-md">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
-                          Live GPS
-                        </span>
-                      ) : (
-                        <span
-                          className="inline-flex items-center gap-1 text-[9px] text-muted-foreground bg-muted border border-dashed border-border px-1.5 py-0.5 rounded-md"
-                          title="Rider has not sent GPS telemetry coordinates yet"
-                        >
-                          <MapPin className="w-2.5 h-2.5 text-slate-400" />
-                          No GPS
-                        </span>
-                      )}
-
-                      {/* Onboarding Profile Status */}
-                      {isOnboarded ? (
-                        <span className="inline-flex items-center gap-1 text-[9px] font-medium bg-blue-500/10 text-blue-700 dark:text-blue-300 border border-blue-300/40 px-1.5 py-0.5 rounded-md">
-                          <CheckCircle2 className="w-2.5 h-2.5 text-blue-600" />
-                          Onboarded
-                        </span>
-                      ) : (
-                        <span
-                          className="inline-flex items-center gap-1 text-[9px] font-medium bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-300/40 px-1.5 py-0.5 rounded-md"
-                          title="Rider hasn't completed their documents/onboarding steps"
-                        >
-                          <Clock className="w-2.5 h-2.5 text-amber-600" />
-                          Pending Form
-                        </span>
-                      )}
-
-                      {/* Push Notification Token */}
-                      {hasPush ? (
-                        <span
-                          className="inline-flex items-center gap-1 text-[9px] font-medium bg-purple-500/10 text-purple-700 dark:text-purple-300 border border-purple-300/40 px-1.5 py-0.5 rounded-md"
-                          title={`${rider.deviceTokensCount} mobile push token(s) registered`}
-                        >
-                          <Bell className="w-2.5 h-2.5 text-purple-600" />
-                          Push Ready
-                        </span>
-                      ) : (
-                        <span
-                          className="inline-flex items-center gap-1 text-[9px] text-muted-foreground bg-muted border border-border px-1.5 py-0.5 rounded-md opacity-80"
-                          title="No FCM push token found; rider has not logged into mobile app"
-                        >
-                          <BellOff className="w-2.5 h-2.5 opacity-60" />
-                          No Push
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Active Delivery Context (if delivering) */}
-                    {rider.operationalStatus === "ON_DELIVERY" && rider.activeDelivery && (
-                      <div className="p-2 rounded-xl bg-blue-50/70 dark:bg-blue-950/40 border border-blue-200/80 dark:border-blue-900/60 text-[10px] space-y-1">
-                        <div className="flex items-center justify-between font-bold text-blue-950 dark:text-blue-200">
-                          <span className="flex items-center gap-1 truncate">
-                            <Package className="w-3 h-3 text-blue-600 shrink-0" />
-                            #{rider.activeDelivery.orderNumber || "Active Order"}
-                          </span>
-                          <span className="text-[9px] uppercase px-1 py-0.2 bg-blue-600 text-white rounded font-semibold">
-                            {rider.activeDelivery.assignmentStatus.replace(/_/g, " ")}
-                          </span>
-                        </div>
-                        <div className="text-[10px] text-blue-900/80 dark:text-blue-300/80 truncate">
-                          Store: {rider.activeDelivery.sellerName}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Telemetry & Zones */}
-                    <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-1.5 border-t">
-                      <span className="flex items-center gap-1 truncate max-w-[150px]">
-                        <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
-                        <span className="truncate">{rider.selectedZones[0] || "General Zone"}</span>
-                      </span>
-                      <span className="font-semibold text-foreground flex items-center gap-1 shrink-0">
-                        <Gauge className="w-3 h-3 text-blue-600" />
-                        {hasCoordinates ? `${Math.round(rider.telemetry.speed || 0)} km/h` : "No Signal"}
-                      </span>
-                    </div>
+              {/* In mobile fleet view, provide search and zone filter */}
+              {mobileView === "fleet" && (
+                <div className="p-2.5 border-b bg-muted/20 flex gap-2">
+                  <div className="relative flex-1">
+                    <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      type="text"
+                      placeholder="Search rider name, phone, plate..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="pl-8 h-8 text-xs rounded-xl bg-background"
+                    />
                   </div>
-                )
-              })
-            )}
-          </div>
+                  <Select value={selectedZone} onValueChange={handleZoneSelect}>
+                    <SelectTrigger className="h-8 text-xs rounded-xl w-32 bg-background">
+                      <SelectValue placeholder="Zone" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ALL">All Zones</SelectItem>
+                      {LOCATION_ZONES.map((z) => (
+                        <SelectItem key={z.zone} value={z.zone}>{z.zone}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              <div className="p-3 space-y-2">
+                {renderRiderList()}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

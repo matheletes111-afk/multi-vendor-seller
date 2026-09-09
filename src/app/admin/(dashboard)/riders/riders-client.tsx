@@ -229,6 +229,8 @@ export function RidersClient() {
   const [resendLoading, setResendLoading] = useState(false)
   // Suspend Action State
   const [suspendLoadingId, setSuspendLoadingId] = useState<string | null>(null)
+  // Quick Approve State
+  const [approveLoadingId, setApproveLoadingId] = useState<string | null>(null)
 
   const fetchRiders = useCallback(async () => {
     try {
@@ -264,7 +266,7 @@ export function RidersClient() {
     setEditName(rider.name || "")
     setEditPhone(rider.phone || "")
     setEditCountryCode(rider.phoneCountryCode || "+232")
-    setEditStatus(rider.rider?.status || "APPROVED")
+    setEditStatus(rider.rider?.status || "PENDING")
     setEditVehicleTypes(rider.rider?.vehicleTypes || [])
     setEditVehicleName(rider.rider?.vehicleName || "")
     setEditVehicleNumber(rider.rider?.vehicleNumber || "")
@@ -328,6 +330,12 @@ export function RidersClient() {
   const handleEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!selectedRider) return
+
+    if (editStatus === "APPROVED" && !editOnboardingCompleted) {
+      setEditError("Cannot approve rider: Onboarding form and KYC documents must be marked as completed first.")
+      return
+    }
+
     setEditLoading(true)
     setEditError(null)
     setEditSuccess(null)
@@ -396,9 +404,15 @@ export function RidersClient() {
   // Handle Quick Suspend / Unsuspend Rider
   const handleToggleSuspend = async (riderItem: RiderItem, suspend: boolean) => {
     const actionLabel = suspend ? "suspend" : "unsuspend"
+    const isOnboarded = Boolean(riderItem.rider?.onboardingCompleted)
+    const restoreStatus = isOnboarded ? "APPROVED" : "PENDING"
     const confirmMessage = suspend
       ? `Are you sure you want to suspend rider "${riderItem.name || riderItem.email}"? The rider will be immediately blocked from logging into the rider portal.`
-      : `Are you sure you want to unsuspend rider "${riderItem.name || riderItem.email}"? Their active access will be restored.`
+      : `Are you sure you want to unsuspend rider "${riderItem.name || riderItem.email}"? ${
+          isOnboarded
+            ? "Their active access will be restored."
+            : "Their account will be set to Pending Review (onboarding pending)."
+        }`
 
     if (!window.confirm(confirmMessage)) return
 
@@ -408,9 +422,9 @@ export function RidersClient() {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          status: suspend ? "SUSPENDED" : "APPROVED",
+          status: suspend ? "SUSPENDED" : restoreStatus,
           isSuspended: suspend,
-          ...(suspend ? {} : { isApproved: true }),
+          ...(suspend ? {} : { isApproved: isOnboarded }),
         }),
       })
 
@@ -428,18 +442,47 @@ export function RidersClient() {
   }
 
 
-  const getStatusBadge = (status?: string, isSuspended?: boolean) => {
+  // Handle Quick Approve Rider (Only possible if onboardingCompleted is true)
+  const handleQuickApprove = async (riderItem: RiderItem) => {
+    if (!riderItem.rider?.onboardingCompleted) {
+      alert("Cannot approve rider: Onboarding form and KYC documents must be fully completed first.")
+      return
+    }
+
+    if (!window.confirm(`Approve rider "${riderItem.name || riderItem.email}" for active delivery operations?`)) {
+      return
+    }
+
+    try {
+      setApproveLoadingId(riderItem.id)
+      const res = await fetch(`/api/admin/riders/${riderItem.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          status: "APPROVED",
+          isApproved: true,
+          isSuspended: false,
+        }),
+      })
+
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to approve rider.")
+      }
+
+      await fetchRiders()
+    } catch (err: any) {
+      alert(err.message || "Failed to approve rider.")
+    } finally {
+      setApproveLoadingId(null)
+    }
+  }
+
+  const getStatusBadge = (status?: string, isSuspended?: boolean, onboardingCompleted?: boolean) => {
     if (isSuspended || status === "SUSPENDED") {
       return (
         <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200 dark:bg-red-950/40 dark:text-red-300">
           Suspended
-        </Badge>
-      )
-    }
-    if (status === "APPROVED") {
-      return (
-        <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300">
-          Approved / Active
         </Badge>
       )
     }
@@ -450,8 +493,34 @@ export function RidersClient() {
         </Badge>
       )
     }
+    if (status === "APPROVED") {
+      if (!onboardingCompleted) {
+        return (
+          <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 gap-1">
+            <Clock className="w-3 h-3 text-amber-600" />
+            Pending Onboarding
+          </Badge>
+        )
+      }
+      return (
+        <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 gap-1">
+          <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+          Approved / Active
+        </Badge>
+      )
+    }
+    // Status is PENDING
+    if (onboardingCompleted) {
+      return (
+        <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 gap-1 font-semibold">
+          <ShieldAlert className="w-3 h-3 text-blue-600" />
+          Pending Approval
+        </Badge>
+      )
+    }
     return (
-      <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300">
+      <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 gap-1">
+        <Clock className="w-3 h-3 text-amber-600" />
         Pending Onboarding
       </Badge>
     )
@@ -897,9 +966,6 @@ export function RidersClient() {
                             <div className="font-bold text-sm text-foreground">
                               {r.name || "Unnamed Rider"}
                             </div>
-                            <div className="text-muted-foreground text-[11px] font-mono">
-                              ID: {r.id.slice(0, 10)}...
-                            </div>
                           </div>
                         </div>
                       </td>
@@ -966,7 +1032,7 @@ export function RidersClient() {
                       </td>
 
                       <td className="p-4">
-                        {getStatusBadge(r.rider?.status, r.rider?.isSuspended)}
+                        {getStatusBadge(r.rider?.status, r.rider?.isSuspended, r.rider?.onboardingCompleted)}
                       </td>
 
                       <td className="p-4">
@@ -1006,6 +1072,27 @@ export function RidersClient() {
                             <Edit className="w-3.5 h-3.5 mr-1" />
                             Manage
                           </Button>
+
+                          {/* Quick Approve Button for Onboarded riders awaiting review */}
+                          {r.rider?.onboardingCompleted && r.rider?.status === "PENDING" && !r.rider?.isSuspended && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              disabled={approveLoadingId === r.id}
+                              onClick={() => handleQuickApprove(r)}
+                              className="h-8 px-2.5 text-xs rounded-lg text-emerald-600 border-emerald-300 bg-emerald-50/50 hover:bg-emerald-100 hover:text-emerald-700 dark:bg-emerald-950/30 dark:border-emerald-800"
+                              title="Approve rider for active deliveries"
+                            >
+                              {approveLoadingId === r.id ? (
+                                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                              ) : (
+                                <>
+                                  <CheckCircle2 className="w-3.5 h-3.5 mr-1 text-emerald-600" />
+                                  Approve
+                                </>
+                              )}
+                            </Button>
+                          )}
 
                           {/* Quick Suspend / Unsuspend Button in Row */}
                           {r.rider?.isSuspended || r.rider?.status === "SUSPENDED" ? (
@@ -1058,6 +1145,16 @@ export function RidersClient() {
                                 <Eye className="w-3.5 h-3.5 mr-2 text-slate-500" />
                                 View Full Profile
                               </DropdownMenuItem>
+                              {r.rider?.onboardingCompleted && r.rider?.status === "PENDING" && (
+                                <DropdownMenuItem
+                                  onClick={() => handleQuickApprove(r)}
+                                  disabled={approveLoadingId === r.id}
+                                  className="text-emerald-600 focus:text-emerald-700 focus:bg-emerald-50 dark:focus:bg-emerald-950/30 cursor-pointer font-medium"
+                                >
+                                  <CheckCircle2 className="w-3.5 h-3.5 mr-2 text-emerald-600" />
+                                  Approve Rider
+                                </DropdownMenuItem>
+                              )}
                               {!r.rider?.onboardingCompleted && (
                                 <DropdownMenuItem
                                   onClick={() => handleResendInvite(r.id)}
@@ -1272,7 +1369,7 @@ export function RidersClient() {
                   </Badge>
                 )}
               </div>
-              {selectedRider && getStatusBadge(editStatus, editStatus === "SUSPENDED")}
+              {selectedRider && getStatusBadge(editStatus, editStatus === "SUSPENDED", editOnboardingCompleted)}
             </DialogTitle>
           </DialogHeader>
 
@@ -1313,18 +1410,36 @@ export function RidersClient() {
                     <Label className="text-xs font-semibold">Account Status</Label>
                     <Select
                       value={editStatus}
-                      onValueChange={(val: any) => setEditStatus(val)}
+                      onValueChange={(val: any) => {
+                        if (val === "APPROVED" && !editOnboardingCompleted) {
+                          setEditError("Cannot approve rider: Onboarding form and KYC documents must be completed first.")
+                          return
+                        }
+                        setEditStatus(val)
+                      }}
                     >
                       <SelectTrigger className="h-10 rounded-xl text-xs">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="APPROVED">Approved / Active</SelectItem>
+                        <SelectItem
+                          value="APPROVED"
+                          disabled={!editOnboardingCompleted}
+                          className={!editOnboardingCompleted ? "opacity-50 cursor-not-allowed" : ""}
+                        >
+                          Approved / Active {!editOnboardingCompleted ? "(Requires Onboarding)" : ""}
+                        </SelectItem>
                         <SelectItem value="PENDING">Pending Review</SelectItem>
                         <SelectItem value="SUSPENDED">Suspended (Blocked from Login)</SelectItem>
                         <SelectItem value="REJECTED">Rejected (Needs Correction)</SelectItem>
                       </SelectContent>
                     </Select>
+                    {!editOnboardingCompleted && (
+                      <p className="text-[11px] text-amber-600 dark:text-amber-400 flex items-center gap-1 mt-1">
+                        <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                        Rider cannot be Approved until onboarding form and KYC documents are completed.
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -1436,7 +1551,15 @@ export function RidersClient() {
                   <button
                     type="button"
                     id="editOnboardingCompleted"
-                    onClick={() => setEditOnboardingCompleted((prev) => !prev)}
+                    onClick={() => {
+                      setEditOnboardingCompleted((prev) => {
+                        const nextVal = !prev
+                        if (!nextVal && editStatus === "APPROVED") {
+                          setEditStatus("PENDING")
+                        }
+                        return nextVal
+                      })
+                    }}
                     className={cn(
                       "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden",
                       editOnboardingCompleted ? "bg-emerald-600" : "bg-gray-200 dark:bg-gray-700"
@@ -1607,7 +1730,7 @@ export function RidersClient() {
                     type="button"
                     variant="outline"
                     size="sm"
-                    onClick={() => setEditStatus("APPROVED")}
+                    onClick={() => setEditStatus(editOnboardingCompleted ? "APPROVED" : "PENDING")}
                     className="text-xs rounded-xl border-emerald-300 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-800 dark:text-emerald-400"
                   >
                     <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
