@@ -1,0 +1,60 @@
+EMAIL / COMMUNICATION TO FLOT TECHNICAL TEAM
+SUBJECT: Technical Requirements & Integration Questions for Flot Payment Gateway
+
+Hi Flot Tech Team,
+
+We are starting the development and sandbox integration for our platform. Below are our core technical requirements, endpoint confirmations needed, and questions regarding payment splitting, payouts, refunds, and webhooks. 
+
+Please review and provide the necessary sandbox credentials and technical clarifications so we can proceed.
+
+--------------------------------------------------------------------
+1. SANDBOX CREDENTIALS & ACCESS NEEDED
+--------------------------------------------------------------------
+Please provide the following test credentials:
+- Sandbox API URL
+- Test Merchant ID
+- Test API Key / Client ID
+- Test Secret / Secret Key
+- Complete API Documentation & SDKs
+
+--------------------------------------------------------------------
+2. PAYMENT & AUTOMATIC SPLITTING QUESTIONS
+--------------------------------------------------------------------
+- Does Flot support automatic payment splitting on a single transaction?
+- Can we provide split amounts/commissions dynamically per transaction via the API?
+- Do you provide a Beneficiary Management API to create/manage sellers and map their bank details (BBAN) programmatically? If yes, what fields/KYC details are required for a seller/beneficiary?
+
+--------------------------------------------------------------------
+3. BANK TRANSFER / PAYOUT API
+--------------------------------------------------------------------
+- Do you provide a bank transfer/payout API to transfer funds to seller bank accounts using BBAN?
+- Is an idempotency key or unique reference ID supported to prevent duplicate transfers?
+- How do we handle transfer status callbacks and error handling for failed payouts?
+
+--------------------------------------------------------------------
+4. REFUND API
+--------------------------------------------------------------------
+- Can we process full and partial refunds using the original Flot transaction/payment ID?
+- For split payments, how are the seller amount and platform commission reversed?
+- What webhook or API events are triggered upon refund completion or failure?
+
+--------------------------------------------------------------------
+5. SUBSCRIPTIONS & ADS PAYMENTS
+--------------------------------------------------------------------
+- Can Flot process recurring subscription payments and ads revenue separately, and settle them directly to a specific designated bank account (Account 3)?
+
+--------------------------------------------------------------------
+6. WEBHOOK CONFIGURATION
+--------------------------------------------------------------------
+- What are the webhook endpoint configuration requirements and authentication methods (Webhook Username/Password or signature verification)?
+- Please confirm support for the following event subscriptions:
+  * Payment Success
+  * Payment Failed
+  * Payment Pending (if applicable)
+  * Refund Completed / Failed
+  * Seller Payout / Settlement Status Event
+
+Looking forward to your response so we can begin testing in the sandbox environment.
+
+Best regards,
+Development Team

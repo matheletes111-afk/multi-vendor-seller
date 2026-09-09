@@ -40,6 +40,7 @@ interface HotelSellerDetailsViewProps {
   onUnsuspend?: (id: string) => void
   onOpenCorrection?: (id: string) => void
   onOpenReject?: (id: string) => void
+  onSendEmail?: (id: string) => void
 }
 
 export function HotelSellerDetailsView({
@@ -49,7 +50,8 @@ export function HotelSellerDetailsView({
   onSuspend,
   onUnsuspend,
   onOpenCorrection,
-  onOpenReject
+  onOpenReject,
+  onSendEmail
 }: HotelSellerDetailsViewProps) {
   if (!seller) return null
 
@@ -417,6 +419,14 @@ export function HotelSellerDetailsView({
                     </Button>
                   </div>
                 )}
+                <Button
+                  variant="outline"
+                  className="rounded-full font-bold px-6 border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950 uppercase tracking-widest text-[10px] h-10 gap-1.5"
+                  onClick={() => onSendEmail?.(seller.id)}
+                >
+                  <Mail className="h-3.5 w-3.5" />
+                  Email Partner
+                </Button>
                 {seller.isSuspended ? (
                   <Button className="rounded-full font-bold px-8 bg-emerald-600 hover:bg-emerald-700 text-white uppercase tracking-widest text-[10px] h-10 shadow-lg shadow-emerald-100" disabled={!!actionLoading} onClick={() => onUnsuspend?.(seller.id)}>Activate Partner</Button>
                 ) : (

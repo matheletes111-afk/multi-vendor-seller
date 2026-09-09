@@ -23,13 +23,18 @@ export async function GET(request: NextRequest) {
       | "HOTEL"
       | "RESTAURANT"
     const limit = Math.min(Math.max(parseInt(searchParams.get("limit") || "100", 10) || 100, 1), 500)
+    const offset = Math.max(parseInt(searchParams.get("offset") || "0", 10) || 0, 0)
     const freeMonths = parseInt(searchParams.get("freeMonths") || "2", 10) || 2
+    const sellerIdsParam = searchParams.get("sellerIds")
+    const sellerIds = sellerIdsParam ? sellerIdsParam.split(",").map((s) => s.trim()).filter(Boolean) : undefined
 
     const result = await runSellerOnboardingReminderSweep({
       dryRun,
       sellerType,
       limit,
+      offset,
       freeMonths,
+      sellerIds,
     })
 
     return NextResponse.json(result)
@@ -44,7 +49,8 @@ export async function GET(request: NextRequest) {
 
 /**
  * POST /api/admin/sellers/send-onboarding-reminders
- * Trigger live or dry-run seller onboarding reminder emails (Admin only)
+ * Trigger live or dry-run seller onboarding reminder emails (Admin only).
+ * Supports chunking via offset/limit or explicit sellerIds array.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -69,13 +75,17 @@ export async function POST(request: NextRequest) {
       | "HOTEL"
       | "RESTAURANT"
     const limit = Math.min(Math.max(parseInt(body.limit || searchParams.get("limit") || "100", 10) || 100, 1), 500)
+    const offset = Math.max(parseInt(body.offset || searchParams.get("offset") || "0", 10) || 0, 0)
     const freeMonths = parseInt(body.freeMonths || searchParams.get("freeMonths") || "2", 10) || 2
+    const sellerIds = Array.isArray(body.sellerIds) && body.sellerIds.length > 0 ? body.sellerIds : undefined
 
     const result = await runSellerOnboardingReminderSweep({
       dryRun,
       sellerType,
       limit,
+      offset,
       freeMonths,
+      sellerIds,
     })
 
     return NextResponse.json(result)
@@ -87,3 +97,4 @@ export async function POST(request: NextRequest) {
     )
   }
 }
+

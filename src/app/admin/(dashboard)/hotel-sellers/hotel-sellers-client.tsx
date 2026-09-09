@@ -35,10 +35,14 @@ import {
   Globe,
   ExternalLink,
   Percent,
+  Megaphone,
 } from "lucide-react"
 import { HotelSellerDetailsView } from "@/components/admin/sellers/hotel-seller-details-view"
 import { SellerFilterToolbar } from "@/components/admin/sellers/seller-filter-toolbar"
 import { SellerDocumentBadge } from "@/components/admin/sellers/seller-document-badge"
+import { SellerEmailModal, type SellerEmailTarget } from "@/components/admin/sellers/seller-email-modal"
+import { OnboardingReminderWizardModal } from "@/components/admin/sellers/onboarding-reminder-wizard-modal"
+import { BulkCustomEmailModal } from "@/components/admin/sellers/bulk-custom-email-modal"
 import Link from "next/link"
 
 export function HotelSellersClient() {
@@ -90,6 +94,11 @@ export function HotelSellersClient() {
   const [isCommissionDialogOpen, setIsCommissionDialogOpen] = useState(false)
   const [commissionValue, setCommissionValue] = useState<number | "">("")
   const [selectedSellerId, setSelectedSellerId] = useState<string | null>(null)
+
+  // Email modal & onboarding reminder states
+  const [emailModalTarget, setEmailModalTarget] = useState<SellerEmailTarget | null>(null)
+  const [isOnboardingReminderOpen, setIsOnboardingReminderOpen] = useState(false)
+  const [isBulkCustomEmailOpen, setIsBulkCustomEmailOpen] = useState(false)
 
   // URL updating helper
   const updateUrlParams = useCallback((newParams: Record<string, string | undefined>) => {
@@ -236,7 +245,27 @@ export function HotelSellersClient() {
             Approve, verify, and monitor your hospitality and accommodation partners.
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsOnboardingReminderOpen(true)}
+            className="rounded-2xl h-9 px-3.5 border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 gap-1.5 font-bold text-xs shadow-sm"
+            title="Bulk remind hotel partners with incomplete onboarding"
+          >
+            <Mail className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
+            <span>Send Reminders</span>
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsBulkCustomEmailOpen(true)}
+            className="rounded-2xl h-9 px-3.5 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-950/50 gap-1.5 font-bold text-xs shadow-sm"
+            title="Broadcast a custom email announcement to hotel partners"
+          >
+            <Megaphone className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
+            <span>Broadcast Email</span>
+          </Button>
           <Badge variant="outline" className="px-3.5 py-1.5 rounded-full border-primary/20 bg-primary/5 text-primary font-bold shadow-sm text-xs">
             {data?.totalCount || 0} Total Partners
           </Badge>
@@ -476,6 +505,25 @@ export function HotelSellersClient() {
                           {/* Actions */}
                           <TableCell className="text-right pr-6">
                             <div className="flex justify-end items-center gap-1.5">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() =>
+                                  setEmailModalTarget({
+                                    id: seller.id,
+                                    name: seller.user?.name,
+                                    businessName: seller.businessInfo?.businessName,
+                                    email: seller.user?.email,
+                                    sellerType: "HOTEL",
+                                  })
+                                }
+                                className="h-8 px-2.5 rounded-xl border border-indigo-200 dark:border-indigo-800 bg-indigo-50/50 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 text-xs font-semibold gap-1 transition-colors"
+                                title="Send Direct Email to Hotel Partner"
+                              >
+                                <Mail className="h-3.5 w-3.5 text-indigo-600" />
+                                <span>Email</span>
+                              </Button>
+
                               <Link
                                 href={`/admin/hotel-sellers/${seller.id}`}
                                 className="inline-flex items-center justify-center h-8 px-2.5 rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50/50 text-blue-700 dark:text-blue-300 hover:bg-blue-100 text-xs font-semibold gap-1 transition-colors"
@@ -509,6 +557,15 @@ export function HotelSellersClient() {
                                   onApprove={id => handleStatusAction(id, "approve")}
                                   onSuspend={id => handleStatusAction(id, "suspend")}
                                   onUnsuspend={id => handleStatusAction(id, "unsuspend")}
+                                  onSendEmail={id =>
+                                    setEmailModalTarget({
+                                      id,
+                                      name: seller.user?.name,
+                                      businessName: seller.businessInfo?.businessName,
+                                      email: seller.user?.email,
+                                      sellerType: "HOTEL",
+                                    })
+                                  }
                                   onOpenCorrection={id => setRejectDialog({ open: true, id, action: "correction" })}
                                   onOpenReject={id => setRejectDialog({ open: true, id, action: "reject" })}
                                 />
@@ -677,6 +734,26 @@ export function HotelSellersClient() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {/* ── Direct Custom Email Modal ── */}
+      <SellerEmailModal
+        open={!!emailModalTarget}
+        onOpenChange={(open) => !open && setEmailModalTarget(null)}
+        seller={emailModalTarget}
+      />
+
+      {/* ── Bulk Onboarding Reminder Wizard Modal ── */}
+      <OnboardingReminderWizardModal
+        open={isOnboardingReminderOpen}
+        onOpenChange={setIsOnboardingReminderOpen}
+        initialSellerType="HOTEL"
+      />
+
+      {/* ── Bulk Custom Email Broadcast Modal ── */}
+      <BulkCustomEmailModal
+        open={isBulkCustomEmailOpen}
+        onOpenChange={setIsBulkCustomEmailOpen}
+        initialSellerType="HOTEL"
+      />
     </div>
   )
 }
