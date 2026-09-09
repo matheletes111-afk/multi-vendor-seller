@@ -1,0 +1,146 @@
+SUBJECT: Technical Requirements & Integration Questions for Flot Payment Gateway
+
+Hi Development Team,
+
+Please find the answers regarding the current Flot merchant payment-gateway integration below.
+
+====================================================================
+1. SANDBOX CREDENTIALS AND ACCESS
+====================================================================
+
+- Staging API URL: https://api.stage.flotme.ai
+- Staging payment-link endpoint:
+  POST https://api.stage.flotme.ai/merchants/private/v1/payment-links
+- Test Merchant ID: This must be provisioned by Flot Staff during merchant onboarding.
+- API Key / Client ID: The documented API does not use an API key or OAuth client ID.
+- Secret Key: There is no Flot-issued shared secret for merchant API requests. The merchant generates an RSA-4096 key pair, gives Flot the Base64-encoded public key, and securely retains the private key.
+- API documentation: The OpenAPI specification is provided as flot-merchant-api.yaml.
+- SDKs: No official SDK is currently documented. Node.js and Go signature-generation examples are provided.
+
+API requests are authenticated using the Merchant ID and an X-Flot-Merchant-Signature generated with RSA-4096, SHA-512, RSA-PSS padding, and Base64 encoding.
+
+====================================================================
+2. PAYMENTS AND AUTOMATIC SPLITTING
+====================================================================
+
+Flot does not currently provide automatic transaction splitting through the documented merchant API.
+
+- Dynamic seller/platform split amounts cannot be submitted in the payment-link request.
+- A Beneficiary Management API is not available.
+- Seller creation, BBAN registration, and beneficiary KYC management are not part of this API.
+- BBAN details are not required for collecting merchant payments.
+
+Flot deducts only the fee agreed with the merchant. The remaining payment settles into the designated Flot account that Flot creates and links to that merchant.
+
+====================================================================
+3. BANK TRANSFERS AND PAYOUTS
+====================================================================
+
+The merchant API does not provide an automated bank-transfer or payout endpoint.
+
+After funds have settled into the merchant's designated Flot destination account, the merchant may manually transfer them through the Flot application to an account at a bank already integrated with Flot.
+
+Because this is an action performed by the merchant in the Flot app:
+
+- No BBAN is submitted through the merchant payment API.
+- No payout idempotency key is required through this API.
+- No seller-payout callback is provided through this API.
+- No payout error-handling workflow is exposed to the merchant's technical system.
+
+====================================================================
+4. REFUNDS
+====================================================================
+
+Refunds are currently handled manually by Flot rather than through the documented merchant API.
+
+The API does not currently expose:
+
+- Full or partial refund endpoints.
+- Refund requests using the original payment ID.
+- Automated reversal of fees or settlement allocations.
+- Refund-completed or refund-failed webhooks.
+
+As transaction splitting is not supported, there is no seller/platform split to reverse. Any applicable refund and fee treatment must be handled through the manual Flot process.
+
+====================================================================
+5. SUBSCRIPTIONS AND ADVERTISING PAYMENTS
+====================================================================
+
+The current API does not provide native recurring billing, automated subscriptions, or separate advertising-revenue settlement.
+
+The merchant's technical team may build its own subscription or advertising-payment workflow around the available API:
+
+1. The merchant system creates an order with its own orderId.
+2. It calls the payment-link endpoint to generate a payment link for that order.
+3. The customer is prompted to complete payment using the generated link.
+4. The merchant stores the relationship between its orderId, customer, and internal invoice or subscription.
+5. Flot returns the same orderId in the payment webhook so the merchant can identify the corresponding payment.
+
+Payments settle into the merchant's designated Flot account. Direct settlement to a separate "Account 3" is not offered by the documented API.
+
+====================================================================
+6. WEBHOOK CONFIGURATION
+====================================================================
+
+The merchant must provide Flot Staff with:
+
+- A webhook URL.
+- A Basic Authentication username.
+- A Basic Authentication password.
+
+The endpoint must:
+
+- Accept POST requests.
+- Authenticate requests using HTTP Basic Authentication.
+- Be highly available.
+- Return a successful 2xx response promptly.
+- Process the notification idempotently.
+
+The documented webhook payload is:
+
+{
+  "orderId": "order-123",
+  "flotRequestId": "123456",
+  "status": "completed"
+}
+
+The webhook supports these statuses:
+
+- completed - the payment was completed.
+- failed - the customer encountered a credit-card payment error.
+
+When failed is received, the merchant should leave the order pending because the customer may retry the payment.
+
+Flot currently sends each webhook only once and does not retry failed deliveries. A signature-verification method is not documented; webhook authentication uses Basic Authentication.
+
+REQUESTED EVENT AVAILABILITY
+
+- Payment Success: Supported as completed.
+- Payment Failed: Supported as failed.
+- Payment Pending: Not provided as a webhook event. The status API can return created.
+- Refund Completed / Failed: Not supported through the documented API.
+- Seller Payout / Settlement Status: Not supported through the documented API.
+
+====================================================================
+ADDITIONAL PAYMENT API INFORMATION
+====================================================================
+
+Supported payment-link types are:
+
+- card
+- in-app
+- momo (mobile money)
+
+A payment link is generated for each order through the documented endpoint. The request requires:
+
+- merchantId
+- type
+- payload.orderId
+- payload.amount
+- payload.currency
+
+Multiple Flot payment attempts may be created for the same merchant orderId.
+
+Best regards,
+
+Flot Product Team

@@ -1,0 +1,176 @@
+openapi: 3.0.3
+info:
+  title: "Payment Gateway REST API available for merchants"
+  version: 0.1.0
+
+tags:
+  - name: Merchant
+paths:
+  /merchants/private/v1/payment-links:
+    post:
+      tags:
+        - Payment link
+      description: |
+        Create payment link        
+
+        **Note**:
+
+        **Link** is a URL that can be used to redirect the user to the payment page. Will be non null in case of *card* or *in-app* payment link type.
+        **Code** is a code that can be used to pay for the order. Will be non null in case of *momo* payment link type.
+
+        **List of possible error codes**:
+
+        | Code                             | Status | Target                  | Description                                                                     |
+        |----------------------------------|--------|-------------------------|---------------------------------------------------------------------------------|
+        | REQUIRED                         | 400    | field(merchantId)       | Field value is required                                                         |
+        | REQUIRED                         | 400    | field(type)             | Field value is required                                                         |
+        | INVALID_FIELD                    | 400    | field(type)             | Field value is invalid                                                          |
+        | REQUIRED                         | 400    | field(payload)          | Field value is required                                                         |
+        | REQUIRED                         | 400    | field(payload.currency) | Field value is required                                                         |
+        | REQUIRED                         | 400    | field(payload.amount)   | Field value is required                                                         |
+        | INVALID_FIELD                    | 400    | field(payload.amount)   | Field value is invalid                                                          |
+        | REQUIRED                         | 400    | field(payload.orderId)  | Field value is required                                                         |
+        | ORDER_ALREADY_COMPLETED          | 400    | common                  | Order is already completed                                                      |
+        | CURRENCY_NOT_AVAILABLE_FOR_ORDER | 400    | field(payload.currency) | Unable to generate payment link because currency is not configured for merchant |
+
+      parameters:
+        - $ref: '#/components/parameters/XFlotMerchantSignature'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MerchantPaymentLinkForm'
+      responses:
+        200:
+          description: Successful request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/MerchantPaymentLink'
+
+  /merchants/private/v1/external-orders/{externalOrderId}/payment-attempts/{internalOrderId}:
+    get:
+      tags:
+        - Orders
+      parameters:
+        - $ref: '#/components/parameters/XFlotMerchantSignature'
+        - $ref: '#/components/parameters/XFlotMerchantId'
+        - in: path
+          name: externalOrderId
+          schema:
+            type: string
+          required: true
+          description: External order ID (ID that was submitted as "orderId" on payment link request)
+        - in: path
+          name: internalOrderId
+          schema:
+            type: string
+          required: true
+          description: Payment attempt ID (also known as internal order ID)
+      responses:
+        200:
+          description: Successful request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/PaymentAttempt'
+
+components:
+  schemas:
+    MerchantPaymentLinkForm:
+      type: object
+      properties:
+        merchantId:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum:
+            - card
+            - in-app
+            - momo
+        payload:
+          type: object
+          properties:
+            orderId:
+              type: string
+            amount:
+              type: string
+              format: decimal
+            currency:
+              type: string
+          required:
+            - orderId
+            - amount
+            - currency
+      required:
+        - merchantId
+        - type
+        - payload
+    MerchantPaymentLink:
+      type: object
+      properties:
+        id: 
+          type: string
+          description: ID of internally created order corresponding to provided "orderId". Multiple internal orders (a.k.a. payment attempts) can be created for a single provided "orderId".
+        link:
+          type: string
+          description: Valid URL. It is non-null only if payment type is card or in-app.
+          nullable: true
+        code:
+          type: string
+          description: USSD code.  It is non-null only if payment type is momo.
+          example: "*175*124325463#"
+          nullable: true
+
+    PaymentAttempt:
+      type: object
+      properties:
+        id:
+          type: string
+        externalId:
+          type: string
+          example: "my-another-order-7342526"
+        amount:
+          type: string
+          example: "1.23"
+        currency:
+          type: string
+          example: "SLE"
+        status:
+          type: string
+          enum:
+            - "created"
+            - "completed"
+            - "failed"
+        createdAt:
+          type: string
+          format: date-time
+          example: "2026-04-30T09:32:25Z"
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2026-04-30T09:32:25Z"
+
+  parameters:
+    XFlotMerchantId:
+      in: header
+      name: X-Flot-Merchant-Id
+      schema:
+        type: string
+      required: true
+      description: Flot Merchant ID.
+    XFlotMerchantSignature:
+      in: header
+      name: X-Flot-Merchant-Signature
+      schema:
+        type: string
+      required: true
+      description: The signature is computed using the specific request-related string and applying RSA-4096 encryption, SHA512 hash, PSS padding, and Base64 encoding to it. For requests with bodies, the request-related string is request body. For body-less requests, it's a canonical request string "{METHOD}\n{PATH}" (example - GET\n/merchants/private/v1/external-orders/{externalOrderId}/payment-attempts/{internalOrderId})

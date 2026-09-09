@@ -63,6 +63,7 @@ import {
   Info,
   DollarSign,
   Percent,
+  Megaphone,
 } from "lucide-react"
 import { SellerDetailsView } from "@/components/admin/sellers/seller-details-view"
 import { HotelSellerDetailsView } from "@/components/admin/sellers/hotel-seller-details-view"
@@ -71,10 +72,18 @@ import { SellerFilterToolbar } from "@/components/admin/sellers/seller-filter-to
 import { SellerDocumentBadge } from "@/components/admin/sellers/seller-document-badge"
 import { buildAdminPageUrl } from "@/lib/admin-pagination"
 import type { UnifiedSellerItem } from "@/app/api/admin/all-sellers/route"
+import { SellerEmailModal, type SellerEmailTarget } from "@/components/admin/sellers/seller-email-modal"
+import { OnboardingReminderWizardModal } from "@/components/admin/sellers/onboarding-reminder-wizard-modal"
+import { BulkCustomEmailModal } from "@/components/admin/sellers/bulk-custom-email-modal"
 
 export function AllSellersClient() {
   const searchParams = useSearchParams()
   const router = useRouter()
+
+  // Email action & onboarding wizard states
+  const [emailModalTarget, setEmailModalTarget] = useState<SellerEmailTarget | null>(null)
+  const [isOnboardingReminderOpen, setIsOnboardingReminderOpen] = useState(false)
+  const [isBulkCustomEmailOpen, setIsBulkCustomEmailOpen] = useState(false)
 
   const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10) || 1)
   const perPage = Math.min(100, Math.max(1, parseInt(searchParams.get("perPage") ?? "10", 10) || 10))
@@ -547,7 +556,29 @@ export function AllSellersClient() {
           </div>
         </div>
 
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsOnboardingReminderOpen(true)}
+            className="rounded-2xl h-9.5 px-3.5 border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 gap-1.5 font-bold text-xs sm:text-sm shadow-sm"
+            title="Bulk remind sellers with incomplete onboarding or missing documents"
+          >
+            <Mail className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+            <span>Send Onboarding Reminders</span>
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsBulkCustomEmailOpen(true)}
+            className="rounded-2xl h-9.5 px-3.5 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-950/50 gap-1.5 font-bold text-xs sm:text-sm shadow-sm"
+            title="Broadcast a custom email announcement to all or filtered sellers"
+          >
+            <Megaphone className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+            <span>Broadcast Email</span>
+          </Button>
+
           <Button
             variant="outline"
             size="sm"
@@ -898,7 +929,7 @@ export function AllSellersClient() {
               <Table>
                 <TableHeader className="bg-slate-50/80 dark:bg-slate-950/50">
                   <TableRow className="border-slate-100 dark:border-slate-800">
-                    <TableHead className="w-12 pl-6">
+                    <TableHead className="w-10 pl-6">
                       <Checkbox
                         checked={!!allOnPageSelected}
                         onChange={handleToggleSelectAll}
@@ -906,14 +937,11 @@ export function AllSellersClient() {
                       />
                     </TableHead>
                     <TableHead className="min-w-[220px]">Seller / Business</TableHead>
-                    <TableHead className="min-w-[130px]">Type</TableHead>
-                    <TableHead className="min-w-[180px]">Contact & Location</TableHead>
-                    <TableHead className="min-w-[110px]">Plan</TableHead>
+                    <TableHead className="min-w-[190px]">Contact & Location</TableHead>
+                    <TableHead className="min-w-[90px]">Plan</TableHead>
                     <TableHead className="min-w-[120px]">Commission</TableHead>
                     <TableHead className="min-w-[140px]">Documents</TableHead>
-                    <TableHead className="min-w-[130px]">Status</TableHead>
-                    <TableHead className="min-w-[150px]">Referred By</TableHead>
-                    <TableHead className="min-w-[120px]">Joined Date</TableHead>
+                    <TableHead className="min-w-[110px]">Status</TableHead>
                     <TableHead className="text-right pr-6 min-w-[130px]">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -943,10 +971,10 @@ export function AllSellersClient() {
                             />
                           </TableCell>
 
-                          {/* Seller / Business */}
-                          <TableCell>
-                            <div className="flex items-center gap-3">
-                              <Avatar className="h-10 w-10 rounded-2xl border border-slate-200 dark:border-slate-800">
+                          {/* Seller / Business (With Type Badge & Joined Date) */}
+                          <TableCell className="min-w-[220px]">
+                            <div className="flex items-start gap-3">
+                              <Avatar className="h-10 w-10 rounded-2xl border border-slate-200 dark:border-slate-800 shrink-0 mt-0.5">
                                 {seller.logo ? (
                                    <AvatarImage src={seller.logo} alt={displayName} className="object-cover" />
                                 ) : null}
@@ -954,31 +982,43 @@ export function AllSellersClient() {
                                   {initials}
                                 </AvatarFallback>
                               </Avatar>
-                              <div className="space-y-0.5 min-w-0">
-                                <Link
-                                  href={getSellerDetailUrl(seller)}
-                                  target="_blank"
-                                  className="font-bold text-sm text-slate-900 dark:text-slate-100 hover:text-blue-600 dark:hover:text-blue-400 hover:underline inline-flex items-center gap-1 leading-tight group truncate max-w-[200px]"
-                                  title="View full seller profile & details"
-                                >
-                                  <span className="truncate">{displayName}</span>
-                                  <ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 shrink-0" />
-                                </Link>
-                                {seller.userName && seller.userName !== seller.businessName && (
-                                  <p className="text-xs text-slate-500 font-medium truncate max-w-[180px]">{seller.userName}</p>
-                                )}
+                              <div className="space-y-1 min-w-0">
+                                <div className="min-w-0">
+                                  <Link
+                                    href={getSellerDetailUrl(seller)}
+                                    target="_blank"
+                                    className="font-bold text-sm text-slate-900 dark:text-slate-100 hover:text-blue-600 dark:hover:text-blue-400 hover:underline inline-flex items-center gap-1 leading-tight group truncate max-w-[200px]"
+                                    title="View full seller profile & details"
+                                  >
+                                    <span className="truncate">{displayName}</span>
+                                    <ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 shrink-0" />
+                                  </Link>
+                                  {seller.userName && seller.userName !== seller.businessName && (
+                                    <p className="text-[11px] text-slate-500 font-medium truncate max-w-[180px]">{seller.userName}</p>
+                                  )}
+                                </div>
+
+                                {/* Type Badge & Joined Date */}
+                                <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+                                  {renderTypeBadge(seller.sellerType)}
+                                  <span className="text-[11px] text-slate-400 dark:text-slate-500 font-medium inline-flex items-center gap-1 whitespace-nowrap">
+                                    <Calendar className="h-3 w-3 text-slate-400" />
+                                    {new Date(seller.createdAt).toLocaleDateString("en-US", {
+                                      month: "short",
+                                      day: "numeric",
+                                      year: "numeric",
+                                    })}
+                                  </span>
+                                </div>
                               </div>
                             </div>
                           </TableCell>
 
-                          {/* Category Type */}
-                          <TableCell>{renderTypeBadge(seller.sellerType)}</TableCell>
-
-                          {/* Contact & Location */}
-                          <TableCell>
+                          {/* Contact & Location (With Referred By) */}
+                          <TableCell className="min-w-[190px]">
                             <div className="space-y-1 text-xs text-slate-600 dark:text-slate-300">
                               {seller.userEmail && (
-                                <div className="flex items-center gap-1.5 truncate max-w-[170px]" title={seller.userEmail}>
+                                <div className="flex items-center gap-1.5 truncate max-w-[180px]" title={seller.userEmail}>
                                   <Mail className="h-3.5 w-3.5 text-slate-400 shrink-0" />
                                   <span className="truncate">{seller.userEmail}</span>
                                 </div>
@@ -992,7 +1032,15 @@ export function AllSellersClient() {
                               {(seller.city || seller.state) && (
                                 <div className="flex items-center gap-1.5 text-slate-500">
                                   <MapPin className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-                                  <span className="truncate max-w-[160px]">{[seller.city, seller.state].filter(Boolean).join(", ")}</span>
+                                  <span className="truncate max-w-[170px]">{[seller.city, seller.state].filter(Boolean).join(", ")}</span>
+                                </div>
+                              )}
+                              {seller.referredBy && (
+                                <div className="flex items-center gap-1.5 text-[11px] text-slate-500 pt-0.5" title={`Referred by: ${seller.referredBy}`}>
+                                  <Users className="h-3.5 w-3.5 text-indigo-500 shrink-0" />
+                                  <span className="truncate max-w-[170px]">
+                                    Ref: <span className="font-semibold text-indigo-600 dark:text-indigo-400">{seller.referredBy}</span>
+                                  </span>
                                 </div>
                               )}
                             </div>
@@ -1075,33 +1123,28 @@ export function AllSellersClient() {
                           {/* Status */}
                           <TableCell>{renderStatusBadge(seller)}</TableCell>
 
-                          {/* Referred By */}
-                          <TableCell>
-                            {seller.referredBy ? (
-                              <Badge
-                                variant="outline"
-                                className="text-xs font-medium px-2 py-0.5 rounded-lg bg-slate-50 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border-slate-200 dark:border-slate-700 max-w-[160px] truncate inline-block"
-                                title={seller.referredBy}
-                              >
-                                {seller.referredBy}
-                              </Badge>
-                            ) : (
-                              <span className="text-xs text-slate-400 italic">—</span>
-                            )}
-                          </TableCell>
-
-                          {/* Registered Date */}
-                          <TableCell className="text-xs text-slate-500 font-medium whitespace-nowrap">
-                            {new Date(seller.createdAt).toLocaleDateString("en-US", {
-                              month: "short",
-                              day: "numeric",
-                              year: "numeric",
-                            })}
-                          </TableCell>
-
                           {/* Actions */}
                           <TableCell className="text-right pr-6">
                             <div className="flex items-center justify-end gap-1.5">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() =>
+                                  setEmailModalTarget({
+                                    id: seller.id,
+                                    name: seller.userName,
+                                    businessName: seller.businessName,
+                                    email: seller.userEmail,
+                                    sellerType: seller.sellerType,
+                                  })
+                                }
+                                className="h-8 px-2.5 rounded-xl text-xs gap-1 font-semibold border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950 shadow-sm"
+                                title="Send Direct Email to Partner"
+                              >
+                                <Mail className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
+                                <span>Email</span>
+                              </Button>
+
                               <Link href={getSellerDetailUrl(seller)} target="_blank">
                                 <Button
                                   variant="outline"
@@ -1135,7 +1178,7 @@ export function AllSellersClient() {
                         {/* ── Expanded Detail View ── */}
                         {isExpanded && (
                           <TableRow className="bg-slate-50/90 dark:bg-slate-900/90 border-b border-slate-200 dark:border-slate-800">
-                            <TableCell colSpan={11} className="p-6">
+                            <TableCell colSpan={8} className="p-6">
                               <div className="rounded-2xl bg-white dark:bg-slate-950 p-6 border border-slate-200 dark:border-slate-800 shadow-sm space-y-6">
                                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-4">
                                   <div className="flex items-center gap-2.5">
@@ -1240,6 +1283,15 @@ export function AllSellersClient() {
                                     onApprove={() => executeSingleStatusAction(seller, "approve")}
                                     onSuspend={() => executeSingleStatusAction(seller, "suspend")}
                                     onUnsuspend={() => executeSingleStatusAction(seller, "unsuspend")}
+                                    onSendEmail={() =>
+                                      setEmailModalTarget({
+                                        id: seller.id,
+                                        name: seller.userName,
+                                        businessName: seller.businessName,
+                                        email: seller.userEmail,
+                                        sellerType: seller.sellerType,
+                                      })
+                                    }
                                     onOpenCorrection={() => {
                                       setCorrectionTarget(seller)
                                       setFeedbackText(seller.adminFeedback || "")
@@ -1256,6 +1308,15 @@ export function AllSellersClient() {
                                     onApprove={() => executeSingleStatusAction(seller, "approve")}
                                     onSuspend={() => executeSingleStatusAction(seller, "suspend")}
                                     onUnsuspend={() => executeSingleStatusAction(seller, "unsuspend")}
+                                    onSendEmail={() =>
+                                      setEmailModalTarget({
+                                        id: seller.id,
+                                        name: seller.userName,
+                                        businessName: seller.businessName,
+                                        email: seller.userEmail,
+                                        sellerType: seller.sellerType,
+                                      })
+                                    }
                                     onOpenCorrection={() => {
                                       setCorrectionTarget(seller)
                                       setFeedbackText(seller.adminFeedback || "")
@@ -1272,6 +1333,15 @@ export function AllSellersClient() {
                                     onApprove={() => executeSingleStatusAction(seller, "approve")}
                                     onSuspend={() => executeSingleStatusAction(seller, "suspend")}
                                     onUnsuspend={() => executeSingleStatusAction(seller, "unsuspend")}
+                                    onSendEmail={() =>
+                                      setEmailModalTarget({
+                                        id: seller.id,
+                                        name: seller.userName,
+                                        businessName: seller.businessName,
+                                        email: seller.userEmail,
+                                        sellerType: seller.sellerType,
+                                      })
+                                    }
                                     onOpenCorrection={() => {
                                       setCorrectionTarget(seller)
                                       setFeedbackText(seller.adminFeedback || "")
@@ -1667,6 +1737,26 @@ export function AllSellersClient() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {/* ── Direct Custom Email Modal ── */}
+      <SellerEmailModal
+        open={!!emailModalTarget}
+        onOpenChange={(open) => !open && setEmailModalTarget(null)}
+        seller={emailModalTarget}
+      />
+
+      {/* ── Bulk Onboarding Reminder Wizard Modal ── */}
+      <OnboardingReminderWizardModal
+        open={isOnboardingReminderOpen}
+        onOpenChange={setIsOnboardingReminderOpen}
+        initialSellerType="ALL"
+      />
+
+      {/* ── Bulk Custom Email Broadcast Modal ── */}
+      <BulkCustomEmailModal
+        open={isBulkCustomEmailOpen}
+        onOpenChange={setIsBulkCustomEmailOpen}
+        initialSellerType="ALL"
+      />
     </div>
   )
 }

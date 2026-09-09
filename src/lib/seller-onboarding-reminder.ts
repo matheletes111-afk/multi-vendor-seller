@@ -7,8 +7,10 @@ export interface OnboardingReminderOptions {
   dryRun?: boolean
   sellerType?: "ALL" | "PRODUCT" | "SERVICE" | "HOTEL" | "RESTAURANT"
   limit?: number
+  offset?: number
   baseUrl?: string
   freeMonths?: number
+  sellerIds?: string[]
 }
 
 export interface SellerReminderItem {
@@ -59,8 +61,10 @@ export async function runSellerOnboardingReminderSweep(
     dryRun = false,
     sellerType = "ALL",
     limit = 100,
+    offset = 0,
     baseUrl,
     freeMonths = 2,
+    sellerIds,
   } = options
 
   const effectiveBaseUrl = (
@@ -76,13 +80,14 @@ export async function runSellerOnboardingReminderSweep(
   const queryRestaurant = normalizedType === "ALL" || normalizedType === "RESTAURANT"
 
   // Base where clause for pending / incomplete sellers
-  const pendingWhere = {
+  const pendingWhere: any = {
     isSuspended: false,
     status: { not: "REJECTED" as const },
     OR: [
       { onboardingCompleted: false },
       { isApproved: false },
     ],
+    ...(sellerIds && sellerIds.length > 0 ? { id: { in: sellerIds } } : {}),
   }
 
   const [sellersRaw, hotelSellersRaw, restaurantSellersRaw] = await Promise.all([
@@ -106,7 +111,7 @@ export async function runSellerOnboardingReminderSweep(
             selectedServiceCategories: true,
             agreement: true,
           },
-          take: limit,
+          take: sellerIds && sellerIds.length > 0 ? undefined : Math.max(limit + offset, 500),
           orderBy: { createdAt: "desc" },
         })
       : [],
@@ -121,7 +126,7 @@ export async function runSellerOnboardingReminderSweep(
             agreement: true,
             hotels: true,
           },
-          take: limit,
+          take: sellerIds && sellerIds.length > 0 ? undefined : Math.max(limit + offset, 500),
           orderBy: { createdAt: "desc" },
         })
       : [],
@@ -136,7 +141,7 @@ export async function runSellerOnboardingReminderSweep(
             agreement: true,
             foods: true,
           },
-          take: limit,
+          take: sellerIds && sellerIds.length > 0 ? undefined : Math.max(limit + offset, 500),
           orderBy: { createdAt: "desc" },
         })
       : [],
@@ -254,8 +259,9 @@ export async function runSellerOnboardingReminderSweep(
     }
   }
 
-  // Apply overall limit
-  const selectedSellers = pendingList.slice(0, limit)
+  // Apply overall limit & offset
+  const selectedSellers = pendingList.slice(offset, offset + limit)
+
 
   let sentTotal = 0
   let failedTotal = 0

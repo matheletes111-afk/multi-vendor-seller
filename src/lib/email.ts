@@ -1285,4 +1285,146 @@ https://meeemsl.com
   return sendEmail({ to, subject, html, text })
 }
 
+// ── ADMIN CUSTOM DIRECT EMAIL TO SELLER ──────────────────────────────────────
+export async function sendAdminCustomSellerEmail({
+  to,
+  sellerName,
+  businessName,
+  subject,
+  message,
+  adminName,
+}: {
+  to: string
+  sellerName?: string | null
+  businessName?: string | null
+  subject: string
+  message: string
+  adminName?: string | null
+}) {
+  const displayName = sellerName?.trim() || businessName?.trim() || "Partner"
+  const senderLabel = adminName ? `${adminName} from MEEEM Administration` : "MEEEM Administration Team"
+
+  // Convert line breaks in plain text message into safe HTML paragraphs
+  const safeMessageHtml = message
+    .split(/\n\s*\n/)
+    .map((para) => {
+      const escaped = para
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/\n/g, "<br />")
+      return `<p style="margin: 0 0 16px 0; font-size: 15px; line-height: 1.65; color: #334155;">${escaped}</p>`
+    })
+    .join("")
+
+  const html = `
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>${subject}</title>
+    </head>
+    <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 0; background-color: #f8fafc; color: #1e293b;">
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color: #f8fafc; padding: 28px 12px;">
+        <tr>
+          <td align="center">
+            <table role="presentation" width="100%" style="max-width: 600px; background-color: #ffffff; border-radius: 16px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);">
+              
+              <!-- BRAND HEADER -->
+              <tr>
+                <td style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); padding: 28px 24px; text-align: left;">
+                  <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                    <tr>
+                      <td>
+                        <h1 style="margin: 0; color: #ffffff; font-size: 20px; font-weight: 800; letter-spacing: -0.5px;">
+                          MEEEM <span style="font-weight: 400; color: #94a3b8; font-size: 14px;">Marketplace</span>
+                        </h1>
+                      </td>
+                      <td align="right">
+                        <span style="display: inline-block; background-color: rgba(255, 255, 255, 0.12); color: #e2e8f0; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; padding: 4px 10px; border-radius: 12px;">
+                          Official Notice
+                        </span>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+
+              <!-- SUBJECT BANNER -->
+              <tr>
+                <td style="padding: 24px 28px 12px 28px; border-bottom: 1px solid #f1f5f9;">
+                  <h2 style="margin: 0; font-size: 18px; font-weight: 700; color: #0f172a; line-height: 1.4;">
+                    ${subject}
+                  </h2>
+                  <p style="margin: 6px 0 0 0; font-size: 12px; color: #64748b;">
+                    Sent by: <strong>${senderLabel}</strong>
+                  </p>
+                </td>
+              </tr>
+
+              <!-- MESSAGE BODY -->
+              <tr>
+                <td style="padding: 24px 28px;">
+                  <p style="margin: 0 0 16px 0; font-size: 15px; font-weight: 600; color: #0f172a;">
+                    Dear ${displayName},
+                  </p>
+
+                  <div style="background-color: #f8fafc; border-left: 4px solid #3b82f6; padding: 18px 20px; border-radius: 0 12px 12px 0; margin-bottom: 24px;">
+                    ${safeMessageHtml}
+                  </div>
+
+                  <p style="margin: 0 0 6px 0; font-size: 14px; color: #64748b;">
+                    If you have questions or need clarification regarding this communication, please respond to this email or reach out to our dedicated vendor support team.
+                  </p>
+                </td>
+              </tr>
+
+              <!-- FOOTER -->
+              <tr>
+                <td style="background-color: #f8fafc; padding: 20px 28px; border-top: 1px solid #e2e8f0; text-align: center; font-size: 12px; color: #64748b;">
+                  <p style="margin: 0 0 4px 0; font-weight: 600; color: #475569;">
+                    MEEEM E-Commerce Limited
+                  </p>
+                  <p style="margin: 0 0 8px 0;">
+                    Connecting buyers and sellers across Sierra Leone
+                  </p>
+                  <p style="margin: 0;">
+                    <a href="https://meeemsl.com" style="color: #3b82f6; text-decoration: none;">meeemsl.com</a> • 
+                    <a href="mailto:support@meeemsl.com" style="color: #3b82f6; text-decoration: none;">support@meeemsl.com</a>
+                  </p>
+                </td>
+              </tr>
+
+            </table>
+          </td>
+        </tr>
+      </table>
+    </body>
+    </html>
+  `
+
+  const text = `
+Dear ${displayName},
+
+${subject}
+From: ${senderLabel}
+
+--------------------------------------------------
+${message}
+--------------------------------------------------
+
+If you have questions or need clarification regarding this communication, please contact support at support@meeemsl.com.
+
+Best regards,
+${senderLabel}
+MEEEM E-Commerce Limited
+https://meeemsl.com
+  `.trim()
+
+  return sendEmail({ to, subject, html, text })
+}
+
+
 

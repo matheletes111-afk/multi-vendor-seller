@@ -38,6 +38,7 @@ interface SellerDetailsViewProps {
   onOpenCommission?: (id: string, rate: number | "") => void
   onOpenCorrection?: (id: string) => void
   onOpenReject?: (id: string) => void
+  onSendEmail?: (id: string) => void
 }
 
 export function SellerDetailsView({
@@ -48,7 +49,8 @@ export function SellerDetailsView({
   onUnsuspend,
   onOpenCommission,
   onOpenCorrection,
-  onOpenReject
+  onOpenReject,
+  onSendEmail
 }: SellerDetailsViewProps) {
   const [mapUrl, setMapUrl] = React.useState<string | null>(null)
 
@@ -535,23 +537,32 @@ export function SellerDetailsView({
                 </Badge>
               </div>
 
-                  {seller.isSuspended ? (
-                    <Button
-                      className="rounded-full font-bold px-8 border-none shadow-lg shadow-indigo-500/20 uppercase tracking-widest text-[10px] bg-indigo-500 hover:bg-indigo-600 h-9"
-                      disabled={actionLoading === seller.id}
-                      onClick={() => onUnsuspend?.(seller.id)}
-                    >
-                      Unsuspend Seller
-                    </Button>
-                  ) : (
-                    <Button
-                      className="rounded-full font-bold px-8 border-none shadow-lg shadow-destructive/20 uppercase tracking-widest text-[10px] bg-destructive hover:bg-destructive/90 h-9"
-                      disabled={actionLoading === seller.id}
-                      onClick={() => onSuspend?.(seller.id)}
-                    >
-                      Suspend Seller
-                    </Button>
-                  )}
+                <Button
+                  variant="outline"
+                  className="rounded-full font-bold px-6 border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950 uppercase tracking-widest text-[10px] h-9 gap-1.5"
+                  onClick={() => onSendEmail?.(seller.id)}
+                >
+                  <Mail className="h-3.5 w-3.5" />
+                  Email Partner
+                </Button>
+
+                {seller.isSuspended ? (
+                  <Button
+                    className="rounded-full font-bold px-8 border-none shadow-lg shadow-indigo-500/20 uppercase tracking-widest text-[10px] bg-indigo-500 hover:bg-indigo-600 h-9"
+                    disabled={actionLoading === seller.id}
+                    onClick={() => onUnsuspend?.(seller.id)}
+                  >
+                    Unsuspend Seller
+                  </Button>
+                ) : (
+                  <Button
+                    className="rounded-full font-bold px-8 border-none shadow-lg shadow-destructive/20 uppercase tracking-widest text-[10px] bg-destructive hover:bg-destructive/90 h-9"
+                    disabled={actionLoading === seller.id}
+                    onClick={() => onSuspend?.(seller.id)}
+                  >
+                    Suspend Seller
+                  </Button>
+                )}
                 </div>
               </div>
             </div>

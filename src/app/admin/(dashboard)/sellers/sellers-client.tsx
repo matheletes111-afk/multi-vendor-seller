@@ -28,6 +28,8 @@ import { Textarea } from "@/ui/textarea"
 import { SellerDetailsView } from "@/components/admin/sellers/seller-details-view"
 import { SellerFilterToolbar } from "@/components/admin/sellers/seller-filter-toolbar"
 import { SellerDocumentBadge } from "@/components/admin/sellers/seller-document-badge"
+import { SellerEmailModal, type SellerEmailTarget } from "@/components/admin/sellers/seller-email-modal"
+import { OnboardingReminderWizardModal } from "@/components/admin/sellers/onboarding-reminder-wizard-modal"
 import {
   Users,
   CheckCircle,
@@ -62,7 +64,9 @@ import {
   Wrench,
   ExternalLink,
   Percent,
+  Megaphone,
 } from "lucide-react"
+import { BulkCustomEmailModal } from "@/components/admin/sellers/bulk-custom-email-modal"
 
 export function SellersClient() {
   const searchParams = useSearchParams()
@@ -124,6 +128,11 @@ export function SellersClient() {
   const [isCorrectionDialogOpen, setIsCorrectionDialogOpen] = useState(false)
   const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false)
   const [feedbackText, setFeedbackText] = useState("")
+
+  // Email modal & onboarding reminder states
+  const [emailModalTarget, setEmailModalTarget] = useState<SellerEmailTarget | null>(null)
+  const [isOnboardingReminderOpen, setIsOnboardingReminderOpen] = useState(false)
+  const [isBulkCustomEmailOpen, setIsBulkCustomEmailOpen] = useState(false)
   const [selectedSellerId, setSelectedSellerId] = useState<string | null>(null)
 
   const successParam = searchParams.get("success")
@@ -342,7 +351,27 @@ export function SellersClient() {
             Review and moderate physical product sellers and on-demand service providers.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsOnboardingReminderOpen(true)}
+            className="rounded-2xl h-8.5 px-3 border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 gap-1.5 font-bold text-xs shadow-sm"
+            title="Bulk remind product & service sellers with incomplete onboarding"
+          >
+            <Mail className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
+            <span>Send Reminders</span>
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsBulkCustomEmailOpen(true)}
+            className="rounded-2xl h-8.5 px-3 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-950/50 gap-1.5 font-bold text-xs shadow-sm"
+            title="Broadcast a custom email announcement to product and service sellers"
+          >
+            <Megaphone className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
+            <span>Broadcast Email</span>
+          </Button>
           {data && (
             <Badge variant="outline" className="px-3 py-1 text-xs font-semibold rounded-full shadow-sm bg-background border-primary/20 text-primary">
               {data.totalCount} Total Sellers
@@ -639,6 +668,25 @@ export function SellersClient() {
                               {/* Actions */}
                               <TableCell className="text-right pr-6">
                                 <div className="flex justify-end items-center gap-1.5">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() =>
+                                      setEmailModalTarget({
+                                        id: seller.id,
+                                        name: seller.user?.name,
+                                        businessName: seller.store?.name || seller.businessInfo?.businessName,
+                                        email: seller.user?.email,
+                                        sellerType: seller.type || "PRODUCT",
+                                      })
+                                    }
+                                    className="h-8 px-2.5 rounded-xl border border-indigo-200 dark:border-indigo-800 bg-indigo-50/50 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 text-xs font-semibold gap-1 transition-colors"
+                                    title="Send Direct Email to Seller"
+                                  >
+                                    <Mail className="h-3.5 w-3.5 text-indigo-600" />
+                                    <span>Email</span>
+                                  </Button>
+
                                   <Link
                                     href={`/admin/sellers/${seller.id}`}
                                     className="inline-flex items-center justify-center h-8 px-2.5 rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50/50 text-blue-700 dark:text-blue-300 hover:bg-blue-100 text-xs font-semibold gap-1 transition-colors"
@@ -673,6 +721,15 @@ export function SellersClient() {
                                       onApprove={handleApprove}
                                       onSuspend={handleSuspend}
                                       onUnsuspend={handleUnsuspend}
+                                      onSendEmail={(id) =>
+                                        setEmailModalTarget({
+                                          id,
+                                          name: seller.user?.name,
+                                          businessName: seller.store?.name || seller.businessInfo?.businessName,
+                                          email: seller.user?.email,
+                                          sellerType: seller.type || "PRODUCT",
+                                        })
+                                      }
                                       onOpenCommission={(id, rate) => {
                                         setSelectedSellerId(id)
                                         setCommissionValue(rate)
@@ -889,6 +946,26 @@ export function SellersClient() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {/* ── Direct Custom Email Modal ── */}
+      <SellerEmailModal
+        open={!!emailModalTarget}
+        onOpenChange={(open) => !open && setEmailModalTarget(null)}
+        seller={emailModalTarget}
+      />
+
+      {/* ── Bulk Onboarding Reminder Wizard Modal ── */}
+      <OnboardingReminderWizardModal
+        open={isOnboardingReminderOpen}
+        onOpenChange={setIsOnboardingReminderOpen}
+        initialSellerType="ALL"
+      />
+
+      {/* ── Bulk Custom Email Broadcast Modal ── */}
+      <BulkCustomEmailModal
+        open={isBulkCustomEmailOpen}
+        onOpenChange={setIsBulkCustomEmailOpen}
+        initialSellerType="PRODUCT"
+      />
     </div>
   )
 }
