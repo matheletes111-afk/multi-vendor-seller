@@ -14,7 +14,6 @@ import { Input } from "@/ui/input"
 import { Label } from "@/ui/label"
 import { Textarea } from "@/ui/textarea"
 import { Badge } from "@/ui/badge"
-import { Switch } from "@/ui/switch"
 import {
   Select,
   SelectContent,
@@ -122,7 +121,6 @@ export function BulkCustomEmailModal({
   const [subject, setSubject] = useState("")
   const [message, setMessage] = useState("")
   const [senderLabel, setSenderLabel] = useState("MEEEM Partner Operations")
-  const [isDryRun, setIsDryRun] = useState(false)
   const [batchSize] = useState(5)
 
   // Preview & Recipient Data
@@ -158,7 +156,6 @@ export function BulkCustomEmailModal({
       setSelectedTemplate("custom")
       setSubject("")
       setMessage("")
-      setIsDryRun(false)
       setIsRunning(false)
       setIsPaused(false)
       setCurrentOffset(0)
@@ -226,8 +223,8 @@ export function BulkCustomEmailModal({
 
   // Start sending queue runner
   const handleStartSending = async () => {
-    if (!isDryRun && (!subject.trim() || !message.trim())) {
-      alert("Please provide both a Subject and Message body before broadcasting.")
+    if (!subject.trim() || !message.trim()) {
+      alert("Please provide both a Subject and Message body before sending.")
       return
     }
 
@@ -262,7 +259,7 @@ export function BulkCustomEmailModal({
             subject: subject.trim(),
             message: message.trim(),
             senderLabel: senderLabel.trim(),
-            dryRun: isDryRun,
+            dryRun: false,
             offset,
             limit: batchSize,
           }),
@@ -352,7 +349,7 @@ export function BulkCustomEmailModal({
   }
 
   const handleCancel = () => {
-    if (confirm("Are you sure you want to stop the broadcast queue? Pending emails in this run will be cancelled.")) {
+    if (confirm("Are you sure you want to stop sending emails? Any remaining emails in the queue will be cancelled.")) {
       isCancelledRef.current = true
       setIsRunning(false)
       setPhase("completed")
@@ -377,14 +374,14 @@ export function BulkCustomEmailModal({
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <DialogTitle className="text-lg sm:text-xl font-bold text-white tracking-tight">
-                  Broadcast Custom Email to Sellers
+                  Send Email to Sellers (Broadcast)
                 </DialogTitle>
                 <Badge className="bg-white/20 text-white border-white/20 text-[10px] font-semibold tracking-wider uppercase">
                   Bulk Dispatch
                 </Badge>
               </div>
               <DialogDescription className="text-blue-100 text-xs sm:text-sm mt-1 leading-relaxed">
-                Compose an announcement, policy update, or promotional notice and broadcast it to multiple vendors in a controlled, chunked batch queue.
+                Send an email notice, update, or campaign invitation to multiple sellers simultaneously with live progress tracking.
               </DialogDescription>
             </div>
           </div>
@@ -409,7 +406,7 @@ export function BulkCustomEmailModal({
                     </span>
                   ) : (
                     <Badge className="bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800 text-xs font-bold px-2.5 py-0.5">
-                      {totalRecipients} Eligible Recipients
+                      {totalRecipients} Recipients Selected
                     </Badge>
                   )}
                 </div>
@@ -417,14 +414,14 @@ export function BulkCustomEmailModal({
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                   <div>
                     <Label className="text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5 block">
-                      Vendor Category
+                      Seller Category
                     </Label>
                     <Select value={sellerType} onValueChange={setSellerType}>
                       <SelectTrigger className="rounded-xl h-9.5 text-xs bg-white dark:bg-slate-900">
                         <SelectValue placeholder="Select Category" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="ALL">All Categories (Product, Service, Hotel, Restaurant)</SelectItem>
+                        <SelectItem value="ALL">All Categories (Products, Services, Hotels, Restaurants)</SelectItem>
                         <SelectItem value="PRODUCT">Product Sellers Only</SelectItem>
                         <SelectItem value="SERVICE">Service Providers Only</SelectItem>
                         <SelectItem value="HOTEL">Hotel Partners Only</SelectItem>
@@ -435,16 +432,16 @@ export function BulkCustomEmailModal({
 
                   <div>
                     <Label className="text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5 block">
-                      Account Status Filter
+                      Account Status
                     </Label>
                     <Select value={statusFilter} onValueChange={setStatusFilter}>
                       <SelectTrigger className="rounded-xl h-9.5 text-xs bg-white dark:bg-slate-900">
                         <SelectValue placeholder="Select Status" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="ALL">All Accounts (Active, Pending, Suspended)</SelectItem>
+                        <SelectItem value="ALL">All Sellers (Active, Pending, Suspended)</SelectItem>
                         <SelectItem value="ACTIVE">Active & Approved Only</SelectItem>
-                        <SelectItem value="PENDING">Pending Onboarding / Unapproved Only</SelectItem>
+                        <SelectItem value="PENDING">Pending Setup / Unapproved Only</SelectItem>
                         <SelectItem value="SUSPENDED">Suspended Sellers Only</SelectItem>
                       </SelectContent>
                     </Select>
@@ -519,7 +516,7 @@ export function BulkCustomEmailModal({
               <div>
                 <Label className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5 mb-1.5">
                   <Sparkles className="h-3.5 w-3.5 text-indigo-500" />
-                  Email Template Presets
+                  Email Template Presets (Optional)
                 </Label>
                 <Select value={selectedTemplate} onValueChange={handleTemplateChange}>
                   <SelectTrigger className="rounded-xl h-9.5 text-xs bg-slate-50/70 dark:bg-slate-900 border-slate-200 dark:border-slate-800">
@@ -552,39 +549,21 @@ export function BulkCustomEmailModal({
                 />
               </div>
 
-              {/* Sender Label Input */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                <div>
-                  <Label htmlFor="broadcast-sender" className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5 block">
-                    Sender Signature Label
-                  </Label>
-                  <Input
-                    id="broadcast-sender"
-                    placeholder="e.g., MEEEM Partner Operations"
-                    value={senderLabel}
-                    onChange={(e) => setSenderLabel(e.target.value)}
-                    className="rounded-xl h-9.5 text-xs"
-                  />
-                </div>
-
-                {/* Dry Run Toggle Switch */}
-                <div className="flex flex-col justify-end">
-                  <div className="flex items-center justify-between p-2.5 bg-amber-50/70 dark:bg-amber-950/20 border border-amber-200/80 dark:border-amber-900/40 rounded-xl">
-                    <div className="space-y-0.5 pr-2">
-                      <Label htmlFor="broadcast-dryrun" className="text-xs font-bold text-amber-900 dark:text-amber-300 cursor-pointer">
-                        Test Run (Dry Run)
-                      </Label>
-                      <p className="text-[10px] text-amber-700 dark:text-amber-400">
-                        Simulates the batch queue without sending real emails.
-                      </p>
-                    </div>
-                    <Switch
-                      id="broadcast-dryrun"
-                      checked={isDryRun}
-                      onCheckedChange={setIsDryRun}
-                    />
-                  </div>
-                </div>
+              {/* Sender Signature Label */}
+              <div>
+                <Label htmlFor="broadcast-sender" className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5 block">
+                  Sender Signature Label
+                </Label>
+                <Input
+                  id="broadcast-sender"
+                  placeholder="e.g., MEEEM Partner Operations"
+                  value={senderLabel}
+                  onChange={(e) => setSenderLabel(e.target.value)}
+                  className="rounded-xl h-10 text-xs sm:text-sm"
+                />
+                <p className="text-[11px] text-slate-400 mt-1">
+                  This signature will appear at the bottom of the email as the official sender signature.
+                </p>
               </div>
 
               {/* Message Body Textarea */}
@@ -626,7 +605,7 @@ export function BulkCustomEmailModal({
                     )}
                     <div>
                       <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100">
-                        {isDryRun ? "Simulating Broadcast..." : isPaused ? "Broadcast Paused" : "Sending Broadcast in Batches..."}
+                        {isPaused ? "Broadcast Paused" : "Sending Broadcast in Batches..."}
                       </h4>
                       <p className="text-xs text-slate-500 dark:text-slate-400">
                         Chunked delivery (5 recipients per batch) to ensure reliable dispatch.
@@ -653,7 +632,9 @@ export function BulkCustomEmailModal({
                     <span className="text-lg font-bold text-slate-800 dark:text-slate-100">{totalRecipients}</span>
                   </div>
                   <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-emerald-100 dark:border-emerald-950/40 text-center shadow-sm">
-                    <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 block uppercase tracking-wider">Sent</span>
+                    <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 block uppercase tracking-wider">
+                      Sent
+                    </span>
                     <span className="text-lg font-bold text-emerald-600 dark:text-emerald-400">{sentCount}</span>
                   </div>
                   <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-red-100 dark:border-red-950/40 text-center shadow-sm">
@@ -745,12 +726,10 @@ export function BulkCustomEmailModal({
               </div>
               <div>
                 <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">
-                  {isDryRun ? "Simulation Completed Successfully" : "Broadcast Dispatched Successfully"}
+                  Broadcast Dispatched Successfully
                 </h3>
                 <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1 max-w-md mx-auto">
-                  {isDryRun
-                    ? "Dry run test finished. No live emails were dispatched."
-                    : "The custom message has been delivered to your selected vendor partners."}
+                  The message has been delivered to your selected seller partners.
                 </p>
               </div>
 
@@ -791,13 +770,11 @@ export function BulkCustomEmailModal({
               <Button
                 type="button"
                 onClick={handleStartSending}
-                disabled={totalRecipients === 0 || (!isDryRun && (!subject.trim() || !message.trim()))}
+                disabled={totalRecipients === 0 || !subject.trim() || !message.trim()}
                 className="rounded-xl h-10 px-5 bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-700 hover:from-blue-700 hover:to-violet-800 text-white gap-2 font-bold text-xs sm:text-sm shadow-md transition-all"
               >
                 <Send className="h-4 w-4" />
-                {isDryRun
-                  ? `Simulate Test Run (${totalRecipients})`
-                  : `Send to ${totalRecipients} ${totalRecipients === 1 ? "Seller" : "Sellers"}`}
+                Send to {totalRecipients} {totalRecipients === 1 ? "Seller" : "Sellers"}
               </Button>
             </>
           )}
