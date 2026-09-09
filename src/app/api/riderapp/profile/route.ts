@@ -121,9 +121,9 @@ export async function PATCH(request: Request) {
       where: { userId },
       create: {
         userId,
-        isApproved: true,
+        isApproved: false,
         isSuspended: false,
-        status: "APPROVED",
+        status: "PENDING",
         onboardingCompleted: true,
         ...riderUpdates,
       },

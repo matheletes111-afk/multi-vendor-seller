@@ -235,9 +235,9 @@ export async function POST(request: NextRequest) {
       where: { userId },
       create: {
         userId,
-        isApproved: true,
+        isApproved: false,
         isSuspended: false,
-        status: "APPROVED",
+        status: "PENDING",
         onboardingCompleted: true,
         isFirstLogin: false,
         vehicleTypes: vehicleTypes,
@@ -254,6 +254,8 @@ export async function POST(request: NextRequest) {
       update: {
         onboardingCompleted: true,
         isFirstLogin: false,
+        status: user.rider?.status === "APPROVED" ? "APPROVED" : "PENDING",
+        isApproved: user.rider?.status === "APPROVED" && Boolean(user.rider?.isApproved),
         vehicleTypes: vehicleTypes,
         vehicleName: vehicleName?.trim() || null,
         vehicleNumber: vehicleNumber?.trim() || null,

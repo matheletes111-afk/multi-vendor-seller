@@ -90,7 +90,7 @@ export async function POST(request: Request) {
         await prisma.rider.create({
           data: {
             userId: existingUser.id,
-            isApproved: true,
+            isApproved: false,
             isSuspended: false,
             status: "PENDING",
             createdByAdmin: false,
@@ -167,7 +167,7 @@ export async function POST(request: Request) {
         emailOtpSentAt: new Date(),
         rider: {
           create: {
-            isApproved: true,
+            isApproved: false,
             isSuspended: false,
             status: "PENDING",
             createdByAdmin: false,

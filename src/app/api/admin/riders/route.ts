@@ -288,9 +288,9 @@ export async function POST(request: NextRequest) {
         isEmailVerified: true, // Admin-created accounts are email pre-verified
         rider: {
           create: {
-            isApproved: true,
+            isApproved: false,
             isSuspended: false,
-            status: "APPROVED",
+            status: "PENDING",
             createdByAdmin: true,
             onboardingCompleted: false,
             isFirstLogin: true,

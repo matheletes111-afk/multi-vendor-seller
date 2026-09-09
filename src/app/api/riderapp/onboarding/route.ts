@@ -251,9 +251,9 @@ export async function POST(request: Request) {
       where: { userId },
       create: {
         userId,
-        isApproved: true,
+        isApproved: false,
         isSuspended: false,
-        status: "APPROVED",
+        status: "PENDING",
         onboardingCompleted: true,
         isFirstLogin: false,
         vehicleTypes: vehicleTypes,
@@ -271,8 +271,9 @@ export async function POST(request: Request) {
       update: {
         onboardingCompleted: true,
         isFirstLogin: false,
-        // If re-submitting after rejection, move to PENDING or keep APPROVED
-        status: user.rider?.status === "REJECTED" ? "PENDING" : user.rider?.status || "APPROVED",
+        // If already approved rider updates info, keep APPROVED. Otherwise (PENDING, REJECTED), set to PENDING for admin review
+        status: user.rider?.status === "APPROVED" ? "APPROVED" : "PENDING",
+        isApproved: user.rider?.status === "APPROVED" && Boolean(user.rider?.isApproved),
         adminFeedback: null, // Clear past feedback on resubmit
         vehicleTypes: vehicleTypes,
         vehicleName: vehicleName?.trim() || null,
