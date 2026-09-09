@@ -132,7 +132,7 @@ export function OnboardingReminderWizardModal({
     setIsScanning(true)
     try {
       const res = await fetch(
-        `/api/admin/sellers/send-onboarding-reminders?dryRun=true&sellerType=${typeToScan}&limit=500`
+        `/api/admin/sellers/send-onboarding-reminders?dryRun=true&sellerType=${typeToScan}&limit=5000`
       )
       const data = await res.json()
       if (res.ok && data.success) {

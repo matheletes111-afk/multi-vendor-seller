@@ -111,7 +111,7 @@ export async function runSellerOnboardingReminderSweep(
             selectedServiceCategories: true,
             agreement: true,
           },
-          take: sellerIds && sellerIds.length > 0 ? undefined : Math.max(limit + offset, 500),
+          take: sellerIds && sellerIds.length > 0 ? undefined : Math.max(limit + offset, 5000),
           orderBy: { createdAt: "desc" },
         })
       : [],
@@ -126,7 +126,7 @@ export async function runSellerOnboardingReminderSweep(
             agreement: true,
             hotels: true,
           },
-          take: sellerIds && sellerIds.length > 0 ? undefined : Math.max(limit + offset, 500),
+          take: sellerIds && sellerIds.length > 0 ? undefined : Math.max(limit + offset, 5000),
           orderBy: { createdAt: "desc" },
         })
       : [],
@@ -141,7 +141,7 @@ export async function runSellerOnboardingReminderSweep(
             agreement: true,
             foods: true,
           },
-          take: sellerIds && sellerIds.length > 0 ? undefined : Math.max(limit + offset, 500),
+          take: sellerIds && sellerIds.length > 0 ? undefined : Math.max(limit + offset, 5000),
           orderBy: { createdAt: "desc" },
         })
       : [],
