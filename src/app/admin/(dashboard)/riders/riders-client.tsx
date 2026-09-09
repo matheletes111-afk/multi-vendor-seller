@@ -27,6 +27,7 @@ import {
   ExternalLink,
   Ban,
   X,
+  Clock,
 } from "lucide-react"
 import { Button } from "@/ui/button"
 import { Input } from "@/ui/input"
@@ -109,6 +110,7 @@ export function RidersClient() {
   const urlSearch = searchParams.get("search") ?? searchParams.get("q") ?? ""
   const urlStatus = (searchParams.get("status") || "ALL").toUpperCase()
   const urlSource = (searchParams.get("source") || "ALL").toUpperCase()
+  const urlOnboarding = (searchParams.get("onboarding") || "ALL").toUpperCase()
   const rawUrlZone = searchParams.get("zone") || "ALL"
   const urlZone = rawUrlZone.toUpperCase() === "ALL" ? "ALL" : rawUrlZone
   const urlLocation = searchParams.get("location") || ""
@@ -126,6 +128,8 @@ export function RidersClient() {
     totalRejected: 0,
     totalAdminCreated: 0,
     totalSelfRegistered: 0,
+    totalOnboarded: 0,
+    totalOnboardingPending: 0,
   })
 
   // Input states for immediate responsive typing
@@ -493,9 +497,82 @@ export function RidersClient() {
         </div>
       </div>
 
+      {/* KPI METRICS RIBBON (ONBOARDING & STATUS BREAKDOWN) */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        <div className="p-3.5 rounded-2xl border bg-card shadow-2xs">
+          <div className="text-[11px] font-semibold text-muted-foreground flex items-center justify-between">
+            <span>Total Fleet</span>
+            <Bike className="w-4 h-4 text-slate-500" />
+          </div>
+          <div className="text-2xl font-bold text-foreground mt-1">{stats.totalAll}</div>
+          <p className="text-[10px] text-muted-foreground mt-0.5">All registered riders</p>
+        </div>
+
+        <div className="p-3.5 rounded-2xl border bg-card shadow-2xs">
+          <div className="text-[11px] font-semibold text-muted-foreground flex items-center justify-between">
+            <span>Approved / Active</span>
+            <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+          </div>
+          <div className="text-2xl font-bold text-emerald-600 mt-1">{stats.totalApproved}</div>
+          <p className="text-[10px] text-muted-foreground mt-0.5">Account approved</p>
+        </div>
+
+        <div
+          onClick={() => updateFilter({ onboarding: urlOnboarding === "COMPLETED" ? null : "COMPLETED" })}
+          className={cn(
+            "p-3.5 rounded-2xl border cursor-pointer transition-all shadow-2xs",
+            urlOnboarding === "COMPLETED"
+              ? "bg-emerald-50 dark:bg-emerald-950/40 border-emerald-500 ring-2 ring-emerald-500/20"
+              : "bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-900/40 hover:border-emerald-400"
+          )}
+        >
+          <div className="text-[11px] font-bold text-emerald-800 dark:text-emerald-300 flex items-center justify-between">
+            <span>Onboarded Done</span>
+            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+          </div>
+          <div className="text-2xl font-bold text-emerald-700 dark:text-emerald-300 mt-1">{stats.totalOnboarded}</div>
+          <p className="text-[10px] text-emerald-700/80 dark:text-emerald-300/80 mt-0.5 font-medium">Eligible for delivery offers</p>
+        </div>
+
+        <div
+          onClick={() => updateFilter({ onboarding: urlOnboarding === "PENDING" ? null : "PENDING" })}
+          className={cn(
+            "p-3.5 rounded-2xl border cursor-pointer transition-all shadow-2xs",
+            urlOnboarding === "PENDING"
+              ? "bg-amber-50 dark:bg-amber-950/40 border-amber-500 ring-2 ring-amber-500/20"
+              : "bg-amber-50/50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-900/40 hover:border-amber-400"
+          )}
+        >
+          <div className="text-[11px] font-bold text-amber-800 dark:text-amber-300 flex items-center justify-between">
+            <span>Onboard Incomplete</span>
+            <Clock className="w-4 h-4 text-amber-600" />
+          </div>
+          <div className="text-2xl font-bold text-amber-700 dark:text-amber-300 mt-1">{stats.totalOnboardingPending}</div>
+          <p className="text-[10px] text-amber-700/80 dark:text-amber-300/80 mt-0.5 font-medium">Blocked from deliveries</p>
+        </div>
+
+        <div className="p-3.5 rounded-2xl border bg-card shadow-2xs">
+          <div className="text-[11px] font-semibold text-muted-foreground flex items-center justify-between">
+            <span>Admin Created</span>
+            <User className="w-4 h-4 text-purple-500" />
+          </div>
+          <div className="text-2xl font-bold text-purple-600 mt-1">{stats.totalAdminCreated}</div>
+          <p className="text-[10px] text-muted-foreground mt-0.5">Created via portal</p>
+        </div>
+
+        <div className="p-3.5 rounded-2xl border bg-card shadow-2xs">
+          <div className="text-[11px] font-semibold text-muted-foreground flex items-center justify-between">
+            <span>Suspended</span>
+            <Ban className="w-4 h-4 text-red-500" />
+          </div>
+          <div className="text-2xl font-bold text-red-600 mt-1">{stats.totalSuspended}</div>
+          <p className="text-[10px] text-muted-foreground mt-0.5">Accounts locked</p>
+        </div>
+      </div>
+
       {/* Filter and Search Bar */}
       <div className="p-4 bg-card rounded-2xl border shadow-xs space-y-3">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
           {/* Search */}
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -534,6 +611,23 @@ export function RidersClient() {
                 <SelectItem value="ALL">All Sources ({stats.totalAll})</SelectItem>
                 <SelectItem value="ADMIN">Created by Admin ({stats.totalAdminCreated})</SelectItem>
                 <SelectItem value="SELF">Self Registered ({stats.totalSelfRegistered})</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Onboarding Filter */}
+          <div>
+            <Select
+              value={urlOnboarding}
+              onValueChange={(val) => updateFilter({ onboarding: val })}
+            >
+              <SelectTrigger className="h-10 rounded-xl text-xs">
+                <SelectValue placeholder="Onboarding Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">All Onboarding ({stats.totalAll})</SelectItem>
+                <SelectItem value="COMPLETED">Onboarded Done ({stats.totalOnboarded})</SelectItem>
+                <SelectItem value="PENDING">Pending Form ({stats.totalOnboardingPending})</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -639,6 +733,38 @@ export function RidersClient() {
           </div>
 
           <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-[11px] font-semibold text-muted-foreground mr-1">Onboarding:</span>
+            {[
+              { label: "All", value: "ALL", count: stats.totalAll },
+              { label: "Onboarded", value: "COMPLETED", count: stats.totalOnboarded },
+              { label: "Pending Form", value: "PENDING", count: stats.totalOnboardingPending },
+            ].map((ob) => (
+              <button
+                key={ob.value}
+                onClick={() => updateFilter({ onboarding: ob.value })}
+                className={cn(
+                  "px-2.5 py-1 text-xs font-semibold rounded-lg transition-colors shrink-0 flex items-center gap-1.5",
+                  urlOnboarding === ob.value
+                    ? "bg-emerald-600 text-white shadow-xs"
+                    : "bg-muted hover:bg-muted/80 text-muted-foreground"
+                )}
+              >
+                <span>{ob.label}</span>
+                <span
+                  className={cn(
+                    "text-[10px] px-1.5 py-0.2 rounded-full",
+                    urlOnboarding === ob.value
+                      ? "bg-emerald-700/90 text-white font-bold"
+                      : "bg-background/80 text-foreground/70"
+                  )}
+                >
+                  {ob.count}
+                </span>
+              </button>
+            ))}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-1.5">
             <span className="text-[11px] font-semibold text-muted-foreground mr-1">Source:</span>
             {[
               { label: "All Sources", value: "ALL", count: stats.totalAll },
@@ -669,7 +795,7 @@ export function RidersClient() {
               </button>
             ))}
 
-            {Boolean(urlSearch || (urlStatus && urlStatus !== "ALL") || (urlSource && urlSource !== "ALL") || (urlZone && urlZone !== "ALL") || urlLocation) && (
+            {Boolean(urlSearch || (urlStatus && urlStatus !== "ALL") || (urlSource && urlSource !== "ALL") || (urlOnboarding && urlOnboarding !== "ALL") || (urlZone && urlZone !== "ALL") || urlLocation) && (
               <Button
                 variant="outline"
                 size="sm"
@@ -696,6 +822,7 @@ export function RidersClient() {
                 <th className="p-4">Vehicles</th>
                 <th className="p-4">Delivery Zones</th>
                 <th className="p-4">Status</th>
+                <th className="p-4">Onboarding</th>
                 <th className="p-4">Devices</th>
                 <th className="p-4 text-right pr-5">Actions</th>
               </tr>
@@ -703,7 +830,7 @@ export function RidersClient() {
             <tbody className="divide-y divide-border/60">
               {error ? (
                 <tr>
-                  <td colSpan={8} className="p-8 text-center text-rose-600 dark:text-rose-400">
+                  <td colSpan={9} className="p-8 text-center text-rose-600 dark:text-rose-400">
                     <AlertTriangle className="w-6 h-6 mx-auto mb-2 text-rose-500" />
                     <p className="font-semibold text-sm">{error}</p>
                     <Button
@@ -718,14 +845,14 @@ export function RidersClient() {
                 </tr>
               ) : loading ? (
                 <tr>
-                  <td colSpan={8} className="p-8 text-center text-muted-foreground">
+                  <td colSpan={9} className="p-8 text-center text-muted-foreground">
                     <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-blue-600" />
                     Loading riders directory...
                   </td>
                 </tr>
               ) : riders.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="p-12 text-center text-muted-foreground">
+                  <td colSpan={9} className="p-12 text-center text-muted-foreground">
                     <Bike className="w-10 h-10 mx-auto mb-3 text-slate-300 dark:text-slate-700" />
                     <p className="font-semibold text-foreground text-sm">No riders found</p>
                     <p className="text-xs mt-1">Try adjusting your search terms or filters.</p>
@@ -840,6 +967,26 @@ export function RidersClient() {
 
                       <td className="p-4">
                         {getStatusBadge(r.rider?.status, r.rider?.isSuspended)}
+                      </td>
+
+                      <td className="p-4">
+                        {r.rider?.onboardingCompleted ? (
+                          <Badge
+                            variant="outline"
+                            className="bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300 gap-1 text-[10px] font-semibold"
+                          >
+                            <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                            Onboarded
+                          </Badge>
+                        ) : (
+                          <Badge
+                            variant="outline"
+                            className="bg-amber-50 text-amber-700 border-amber-300 dark:bg-amber-950/40 dark:text-amber-300 gap-1 text-[10px] font-semibold"
+                          >
+                            <Clock className="w-3 h-3 text-amber-600" />
+                            Pending Form
+                          </Badge>
+                        )}
                       </td>
 
                       <td className="p-4">

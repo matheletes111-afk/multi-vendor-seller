@@ -130,7 +130,7 @@ export async function sendPushNotification({
  * Sends delivery assignment offer notification to a rider.
  */
 export async function sendDeliveryOfferToRider(
-  rider: { id: string; deviceTokens: any },
+  rider: { id: string; deviceTokens: any; onboardingCompleted?: boolean },
   payload: {
     orderId: string
     orderNumber: string
@@ -141,6 +141,11 @@ export async function sendDeliveryOfferToRider(
     timeoutSeconds: number
   }
 ) {
+  if (rider.onboardingCompleted === false) {
+    console.log(`[FCM] Blocked: Rider ${rider.id} has not completed onboarding. Skipping delivery push offer.`)
+    return
+  }
+
   const tokens = extractTokens(rider.deviceTokens)
   if (tokens.length === 0) {
     console.log(`[FCM] Rider ${rider.id} has no registered device tokens.`)

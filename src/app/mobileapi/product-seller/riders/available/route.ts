@@ -53,6 +53,7 @@ export async function GET(request: NextRequest) {
         isApproved: true,
         isSuspended: false,
         status: "APPROVED",
+        onboardingCompleted: true,
         ...(includeOffline ? {} : { isOnline: true }),
       },
       include: {
