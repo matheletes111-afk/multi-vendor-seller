@@ -5,7 +5,7 @@ Title: Product Seller Real-Time Delivery Rider Tracking & Dispatch Integration
 Version: 1.0.0
 Target Audience: Mobile Developers (Flutter / Kotlin / Swift / React Native)
 Base URL: https://<domain>/mobileapi/product-seller
-WebSocket Server: https://<domain>:3001 (or https://<domain>/socket.io)
+WebSocket Server: https://socket.meeemsl.com (Port 443 SSL / WSS — do NOT add :3001)
 Authentication: Authorization: Bearer <sellerAccessToken>
 
 --------------------------------------------------------------------------------
@@ -180,13 +180,13 @@ SUCCESS RESPONSE (200 OK):
 The backend broadcasts rider position updates over WebSockets directly to the
 room subscribed for this order.
 
-- WebSocket Server URL: `https://<domain>:3001` (or `https://<domain>` with Socket.IO path)
+- WebSocket Server URL: `https://socket.meeemsl.com` (Standard HTTPS/WSS port 443 — DO NOT append `:3001`)
 - Protocol: Socket.IO v4+
 - Event Format: JSON
-- Health Check: `GET https://<domain>:3001/health`
+- Health Check: `GET https://socket.meeemsl.com/health`
   Returns: `{"status": "ok", "service": "meeem-socket-server"}`
   (Useful for DevOps, Docker, PM2, and load balancer uptime health monitoring)
-- Internal Location Relay: `POST https://<domain>:3001/internal/location`
+- Internal Location Relay: `POST https://socket.meeemsl.com/internal/location`
   Body: `{"riderId": "...", "orderId": "...", "latitude": 12.34, "longitude": 56.78, "heading": 90, "speed": 25}`
   (Relays REST location updates into `order:<orderId>` and `admin:fleet` socket rooms)
 
@@ -197,8 +197,8 @@ When the seller opens the Order Details page on mobile:
 
 1. Establish Socket.IO connection:
    ```dart
-   final socket = IO.io('https://<domain>:3001', <String, dynamic>{
-     'transports': ['websocket'],
+   final socket = IO.io('https://socket.meeemsl.com', <String, dynamic>{
+     'transports': ['websocket', 'polling'],
      'autoConnect': false,
      'auth': { 'token': 'Bearer <sellerAccessToken>' }
    });
@@ -558,8 +558,8 @@ class _SellerOrderTrackingMapState extends State<SellerOrderTrackingMap> {
   }
 
   void _initSocket() {
-    _socket = IO.io('https://<domain>:3001', <String, dynamic>{
-      'transports': ['websocket'],
+    _socket = IO.io('https://socket.meeemsl.com', <String, dynamic>{
+      'transports': ['websocket', 'polling'],
       'autoConnect': true,
     });
 

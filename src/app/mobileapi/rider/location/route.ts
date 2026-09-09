@@ -4,8 +4,8 @@ import { prisma } from "@/lib/prisma"
 
 const SOCKET_SERVER_URL =
   process.env.SOCKET_SERVER_INTERNAL_URL ||
-  process.env.NEXTJS_INTERNAL_URL?.replace("3000", "3001") ||
-  "http://localhost:3001"
+  process.env.NEXT_PUBLIC_SOCKET_URL ||
+  "https://socket.meeemsl.com"
 
 export async function POST(request: NextRequest) {
   const authResult = await getMobileRiderAuth(request)
