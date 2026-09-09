@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
       | "SERVICE"
       | "HOTEL"
       | "RESTAURANT"
-    const limit = Math.min(Math.max(parseInt(searchParams.get("limit") || "100", 10) || 100, 1), 500)
+    const limit = Math.min(Math.max(parseInt(searchParams.get("limit") || "100", 10) || 100, 1), 5000)
     const offset = Math.max(parseInt(searchParams.get("offset") || "0", 10) || 0, 0)
     const freeMonths = parseInt(searchParams.get("freeMonths") || "2", 10) || 2
     const sellerIdsParam = searchParams.get("sellerIds")
@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
       | "SERVICE"
       | "HOTEL"
       | "RESTAURANT"
-    const limit = Math.min(Math.max(parseInt(body.limit || searchParams.get("limit") || "100", 10) || 100, 1), 500)
+    const limit = Math.min(Math.max(parseInt(body.limit || searchParams.get("limit") || "100", 10) || 100, 1), 5000)
     const offset = Math.max(parseInt(body.offset || searchParams.get("offset") || "0", 10) || 0, 0)
     const freeMonths = parseInt(body.freeMonths || searchParams.get("freeMonths") || "2", 10) || 2
     const sellerIds = Array.isArray(body.sellerIds) && body.sellerIds.length > 0 ? body.sellerIds : undefined
