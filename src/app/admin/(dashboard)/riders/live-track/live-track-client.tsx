@@ -239,6 +239,13 @@ export function LiveTrackClient() {
     }
   }, [])
 
+  // Auto-collapse sidebar on mobile screen on initial load
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.innerWidth < 768) {
+      setSidebarOpen(false)
+    }
+  }, [])
+
   // Initial load
   useEffect(() => {
     fetchFleet()
@@ -269,10 +276,12 @@ export function LiveTrackClient() {
       const { riderId, latitude, longitude, heading = 0, speed = 0 } = payload
       if (!riderId || latitude == null || longitude == null) return
 
+      let matchedRiderObj: LiveRiderItem | null = null
+
       setRiders((prevRiders) => {
         const updated = prevRiders.map((r) => {
           if (r.id === riderId || r.userId === riderId) {
-            return {
+            matchedRiderObj = {
               ...r,
               isOnline: true,
               telemetry: {
@@ -284,17 +293,52 @@ export function LiveTrackClient() {
                 lastLocationUpdate: new Date().toISOString(),
               },
             }
+            return matchedRiderObj
           }
           return r
         })
         return updated
       })
 
-      // Smoothly reposition marker on Google Maps if initialized
-      const marker = markersRef.current.get(riderId)
+      // Real-time update for Selected Rider HUD Card if currently selected
+      setSelectedRider((prev) => {
+        if (prev && (prev.id === riderId || prev.userId === riderId)) {
+          return {
+            ...prev,
+            isOnline: true,
+            telemetry: {
+              ...prev.telemetry,
+              latitude,
+              longitude,
+              heading: heading || prev.telemetry.heading,
+              speed: speed != null ? speed : prev.telemetry.speed,
+              lastLocationUpdate: new Date().toISOString(),
+            },
+          }
+        }
+        return prev
+      })
+
+      // Smoothly reposition marker on Google Maps and rotate heading arrow
+      let marker = markersRef.current.get(riderId)
+      if (!marker && matchedRiderObj) {
+        marker = markersRef.current.get((matchedRiderObj as LiveRiderItem).id)
+      }
       if (marker && window.google?.maps) {
         const newPos = new window.google.maps.LatLng(latitude, longitude)
         marker.setPosition(newPos)
+        if (matchedRiderObj) {
+          const iconUrl = createVehicleSvgIcon(
+            (matchedRiderObj as LiveRiderItem).primaryVehicleType,
+            (matchedRiderObj as LiveRiderItem).operationalStatus,
+            heading
+          )
+          marker.setIcon({
+            url: iconUrl,
+            scaledSize: new window.google.maps.Size(46, 46),
+            anchor: new window.google.maps.Point(23, 23),
+          })
+        }
       }
     }
 
@@ -522,6 +566,10 @@ export function LiveTrackClient() {
   // ── 6. Map Navigation Actions ─────────────────────────────────────────────
   const focusOnRider = (rider: LiveRiderItem) => {
     setSelectedRider(rider)
+    // On mobile screens, automatically close sidebar so map and rider card are visible
+    if (typeof window !== "undefined" && window.innerWidth < 768) {
+      setSidebarOpen(false)
+    }
     const lat = rider.telemetry.latitude
     const lng = rider.telemetry.longitude
     if (lat != null && lng != null && mapInstanceRef.current && window.google?.maps) {
@@ -595,33 +643,35 @@ export function LiveTrackClient() {
       className={cn(
         "flex flex-col bg-background transition-all duration-300",
         isFullscreen
-          ? "fixed inset-0 z-50 p-3 bg-slate-950/90 backdrop-blur-md"
-          : "h-[calc(100vh-80px)] min-h-[650px] p-4 lg:p-6"
+          ? "fixed inset-0 z-50 p-2 sm:p-3 bg-slate-950/90 backdrop-blur-md"
+          : "h-[calc(100dvh-70px)] min-h-[520px] p-2 sm:p-4 lg:p-6"
       )}
     >
       {/* ── TOP HEADER & METRIC CARDS ────────────────────────────────────────── */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-2.5 sm:pb-3">
         <div>
           <div className="flex items-center gap-2">
-            <div className="p-2 rounded-xl bg-blue-600/10 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400">
-              <Radio className="w-5 h-5 animate-pulse" />
+            <div className="p-1.5 sm:p-2 rounded-xl bg-blue-600/10 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400 shrink-0">
+              <Radio className="w-4 h-4 sm:w-5 sm:h-5 animate-pulse" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
-                Live Rider Fleet Tracking
+              <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                <h1 className="text-base sm:text-xl font-bold text-slate-900 dark:text-white tracking-tight">
+                  Live Rider Fleet Tracking
+                </h1>
                 {socketConnected ? (
-                  <Badge variant="outline" className="text-[11px] font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 gap-1.5 py-0.5">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping inline-block" />
-                    Real-time WebSocket Live
+                  <Badge variant="outline" className="text-[10px] sm:text-[11px] font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 gap-1.5 py-0.5">
+                    <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-emerald-500 animate-ping inline-block" />
+                    WebSocket Live
                   </Badge>
                 ) : (
-                  <Badge variant="outline" className="text-[11px] font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30 gap-1.5 py-0.5">
+                  <Badge variant="outline" className="text-[10px] sm:text-[11px] font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30 gap-1.5 py-0.5">
                     <RefreshCw className="w-3 h-3 animate-spin inline-block" />
-                    Polling Mode (12s)
+                    Polling (12s)
                   </Badge>
                 )}
-              </h1>
-              <p className="text-xs text-muted-foreground">
+              </div>
+              <p className="text-[11px] sm:text-xs text-muted-foreground line-clamp-1 sm:line-clamp-none">
                 Real-time GPS telemetry, speed monitoring, and zonal route tracking across delivery operations.
               </p>
             </div>
@@ -629,34 +679,45 @@ export function LiveTrackClient() {
         </div>
 
         {/* Action Controls */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2 self-end sm:self-auto">
+          {/* Mobile Fleet List Toggle */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            className="md:hidden rounded-xl text-xs gap-1.5 h-8 bg-card"
+          >
+            <Bike className="w-3.5 h-3.5 text-blue-600" />
+            {sidebarOpen ? "Map" : `Fleet (${filteredRiders.length})`}
+          </Button>
+
           <Button
             variant="outline"
             size="sm"
             onClick={() => fetchFleet()}
             disabled={loading}
-            className="rounded-xl text-xs gap-1.5 h-9 bg-card"
+            className="rounded-xl text-xs gap-1.5 h-8 sm:h-9 bg-card"
           >
             <RefreshCw className={cn("w-3.5 h-3.5", loading && "animate-spin")} />
-            Sync Now
+            <span className="hidden sm:inline">Sync Now</span>
           </Button>
 
           <Button
             variant="outline"
             size="sm"
             onClick={recenterFleet}
-            className="rounded-xl text-xs gap-1.5 h-9 bg-card"
+            className="rounded-xl text-xs gap-1.5 h-8 sm:h-9 bg-card"
             title="Recenter Map to Fleet"
           >
             <Navigation className="w-3.5 h-3.5 text-blue-600" />
-            Fit Fleet
+            <span className="hidden sm:inline">Fit Fleet</span>
           </Button>
 
           <Button
             variant="outline"
             size="icon"
             onClick={() => setIsFullscreen(!isFullscreen)}
-            className="rounded-xl h-9 w-9 bg-card"
+            className="rounded-xl h-8 w-8 sm:h-9 sm:w-9 bg-card"
             title={isFullscreen ? "Exit Fullscreen" : "Fullscreen View"}
           >
             {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
@@ -665,91 +726,91 @@ export function LiveTrackClient() {
       </div>
 
       {/* ── KPI METRICS RIBBON ───────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 pb-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 pb-2.5">
         {/* Total Fleet */}
         <div
           onClick={() => setSelectedStatus("ALL")}
           className={cn(
-            "p-3 rounded-2xl border transition-all cursor-pointer bg-card shadow-2xs hover:border-blue-400",
+            "p-2.5 sm:p-3 rounded-2xl border transition-all cursor-pointer bg-card shadow-2xs hover:border-blue-400",
             selectedStatus === "ALL" && "border-blue-600 bg-blue-50/40 dark:bg-blue-950/20"
           )}
         >
-          <div className="flex items-center justify-between text-xs text-muted-foreground font-medium">
+          <div className="flex items-center justify-between text-[11px] sm:text-xs text-muted-foreground font-medium">
             <span>Total Fleet</span>
             <Bike className="w-3.5 h-3.5 text-slate-500" />
           </div>
-          <div className="text-xl font-bold text-foreground mt-0.5">{stats.total}</div>
+          <div className="text-lg sm:text-xl font-bold text-foreground mt-0.5">{stats.total}</div>
         </div>
 
         {/* Free / Available */}
         <div
           onClick={() => setSelectedStatus("FREE")}
           className={cn(
-            "p-3 rounded-2xl border transition-all cursor-pointer bg-card shadow-2xs hover:border-emerald-400",
+            "p-2.5 sm:p-3 rounded-2xl border transition-all cursor-pointer bg-card shadow-2xs hover:border-emerald-400",
             selectedStatus === "FREE" && "border-emerald-600 bg-emerald-50/40 dark:bg-emerald-950/20"
           )}
         >
-          <div className="flex items-center justify-between text-xs text-emerald-600 dark:text-emerald-400 font-medium">
+          <div className="flex items-center justify-between text-[11px] sm:text-xs text-emerald-600 dark:text-emerald-400 font-medium">
             <span>Free / Available</span>
             <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
           </div>
-          <div className="text-xl font-bold text-emerald-700 dark:text-emerald-300 mt-0.5">{stats.free}</div>
+          <div className="text-lg sm:text-xl font-bold text-emerald-700 dark:text-emerald-300 mt-0.5">{stats.free}</div>
         </div>
 
         {/* On Delivery */}
         <div
           onClick={() => setSelectedStatus("ON_DELIVERY")}
           className={cn(
-            "p-3 rounded-2xl border transition-all cursor-pointer bg-card shadow-2xs hover:border-blue-400",
+            "p-2.5 sm:p-3 rounded-2xl border transition-all cursor-pointer bg-card shadow-2xs hover:border-blue-400",
             selectedStatus === "ON_DELIVERY" && "border-blue-600 bg-blue-50/40 dark:bg-blue-950/20"
           )}
         >
-          <div className="flex items-center justify-between text-xs text-blue-600 dark:text-blue-400 font-medium">
+          <div className="flex items-center justify-between text-[11px] sm:text-xs text-blue-600 dark:text-blue-400 font-medium">
             <span>On Delivery</span>
             <Package className="w-3.5 h-3.5 text-blue-600" />
           </div>
-          <div className="text-xl font-bold text-blue-700 dark:text-blue-300 mt-0.5">{stats.onDelivery}</div>
+          <div className="text-lg sm:text-xl font-bold text-blue-700 dark:text-blue-300 mt-0.5">{stats.onDelivery}</div>
         </div>
 
         {/* Offline */}
         <div
           onClick={() => setSelectedStatus("OFFLINE")}
           className={cn(
-            "p-3 rounded-2xl border transition-all cursor-pointer bg-card shadow-2xs hover:border-slate-400",
+            "p-2.5 sm:p-3 rounded-2xl border transition-all cursor-pointer bg-card shadow-2xs hover:border-slate-400",
             selectedStatus === "OFFLINE" && "border-slate-600 bg-slate-100/50 dark:bg-slate-900/40"
           )}
         >
-          <div className="flex items-center justify-between text-xs text-slate-500 font-medium">
+          <div className="flex items-center justify-between text-[11px] sm:text-xs text-slate-500 font-medium">
             <span>Offline</span>
             <AlertCircle className="w-3.5 h-3.5 text-slate-400" />
           </div>
-          <div className="text-xl font-bold text-slate-700 dark:text-slate-300 mt-0.5">{stats.offline}</div>
+          <div className="text-lg sm:text-xl font-bold text-slate-700 dark:text-slate-300 mt-0.5">{stats.offline}</div>
         </div>
 
         {/* GPS Telemetry Live */}
-        <div className="p-3 rounded-2xl border bg-gradient-to-br from-indigo-50/50 to-blue-50/30 dark:from-indigo-950/20 dark:to-blue-950/20 shadow-2xs">
-          <div className="flex items-center justify-between text-xs text-indigo-600 dark:text-indigo-400 font-medium">
+        <div className="col-span-2 sm:col-span-1 lg:col-span-1 p-2.5 sm:p-3 rounded-2xl border bg-gradient-to-br from-indigo-50/50 to-blue-50/30 dark:from-indigo-950/20 dark:to-blue-950/20 shadow-2xs">
+          <div className="flex items-center justify-between text-[11px] sm:text-xs text-indigo-600 dark:text-indigo-400 font-medium">
             <span>Active GPS Signals</span>
             <Radio className="w-3.5 h-3.5 text-indigo-600 animate-pulse" />
           </div>
-          <div className="text-xl font-bold text-indigo-700 dark:text-indigo-300 mt-0.5">
+          <div className="text-lg sm:text-xl font-bold text-indigo-700 dark:text-indigo-300 mt-0.5">
             {stats.withGps} <span className="text-xs font-normal text-muted-foreground">/ {stats.total}</span>
           </div>
         </div>
       </div>
 
       {/* ── MAIN MAP & SIDEBAR CONTAINER ────────────────────────────────────── */}
-      <div className="relative flex-1 flex rounded-3xl overflow-hidden border bg-card shadow-sm">
+      <div className="relative flex-1 flex rounded-2xl sm:rounded-3xl overflow-hidden border bg-card shadow-sm min-h-0">
         {/* MAP CONTAINER */}
-        <div className="relative flex-1 h-full w-full">
-          {/* FLOATING TOP-LEFT HUD CONTROLS */}
-          <div className="absolute top-4 left-4 z-10 flex flex-wrap items-center gap-2 bg-background/90 dark:bg-slate-900/90 backdrop-blur-md p-2 rounded-2xl border shadow-lg max-w-[calc(100%-32px)]">
+        <div className="relative flex-1 h-full w-full min-w-0">
+          {/* FLOATING TOP HUD CONTROLS */}
+          <div className="absolute top-2 left-2 right-2 sm:top-4 sm:left-4 sm:right-auto z-10 flex flex-wrap items-center gap-1.5 sm:gap-2 bg-background/95 dark:bg-slate-900/95 backdrop-blur-md p-1.5 sm:p-2 rounded-2xl border shadow-lg max-w-[calc(100%-16px)] sm:max-w-xl">
             {/* Search Input */}
-            <div className="relative w-48 sm:w-60">
-              <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <div className="relative flex-1 min-w-[120px] sm:min-w-[180px] sm:w-56">
+              <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
               <Input
                 type="text"
-                placeholder="Search rider, phone, plate..."
+                placeholder="Search rider..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-8 pr-7 h-8 text-xs rounded-xl bg-background"
@@ -766,14 +827,14 @@ export function LiveTrackClient() {
 
             {/* Zone Filter */}
             <Select value={selectedZone} onValueChange={handleZoneSelect}>
-              <SelectTrigger className="h-8 text-xs rounded-xl w-36 sm:w-44 bg-background">
+              <SelectTrigger className="h-8 text-xs rounded-xl w-28 sm:w-40 bg-background">
                 <SelectValue placeholder="All Zones" />
               </SelectTrigger>
               <SelectContent className="max-h-64">
-                <SelectItem value="ALL">All Delivery Zones</SelectItem>
+                <SelectItem value="ALL">All Zones</SelectItem>
                 {LOCATION_ZONES.map((z) => (
                   <SelectItem key={z.zone} value={z.zone}>
-                    {z.zone} ({z.regions.length} areas)
+                    {z.zone}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -785,17 +846,17 @@ export function LiveTrackClient() {
                 type="button"
                 onClick={() => setMapType("roadmap")}
                 className={cn(
-                  "px-2.5 py-1 text-[11px] font-semibold rounded-lg transition-colors",
+                  "px-2 sm:px-2.5 py-1 text-[10px] sm:text-[11px] font-semibold rounded-lg transition-colors",
                   mapType === "roadmap" ? "bg-background text-foreground shadow-xs" : "text-muted-foreground"
                 )}
               >
-                Roadmap
+                Map
               </button>
               <button
                 type="button"
                 onClick={() => setMapType("hybrid")}
                 className={cn(
-                  "px-2.5 py-1 text-[11px] font-semibold rounded-lg transition-colors",
+                  "px-2 sm:px-2.5 py-1 text-[10px] sm:text-[11px] font-semibold rounded-lg transition-colors",
                   mapType === "hybrid" ? "bg-background text-foreground shadow-xs" : "text-muted-foreground"
                 )}
               >
@@ -806,29 +867,29 @@ export function LiveTrackClient() {
 
           {/* FLOATING SELECTED RIDER HUD CARD */}
           {selectedRider && (
-            <div className="absolute bottom-4 left-4 z-10 max-w-sm w-[calc(100%-32px)] sm:w-96 bg-background/95 dark:bg-slate-900/95 backdrop-blur-md p-4 rounded-3xl border shadow-xl animate-in slide-in-from-bottom-4 duration-200">
+            <div className="absolute bottom-2 left-2 right-2 sm:bottom-4 sm:left-4 sm:right-auto z-10 sm:max-w-sm sm:w-96 bg-background/95 dark:bg-slate-900/95 backdrop-blur-md p-3 sm:p-4 rounded-2xl sm:rounded-3xl border shadow-xl animate-in slide-in-from-bottom-4 duration-200">
               <div className="flex items-start justify-between gap-2">
-                <div className="flex items-center gap-3">
-                  <Avatar className="h-12 w-12 border-2 border-primary/20 shadow-xs">
+                <div className="flex items-center gap-2.5 sm:gap-3">
+                  <Avatar className="h-10 w-10 sm:h-12 sm:w-12 border-2 border-primary/20 shadow-xs shrink-0">
                     <AvatarImage src={selectedRider.profileImage || ""} />
-                    <AvatarFallback className="bg-blue-600 text-white font-bold text-sm">
+                    <AvatarFallback className="bg-blue-600 text-white font-bold text-xs sm:text-sm">
                       {selectedRider.name.charAt(0)}
                     </AvatarFallback>
                   </Avatar>
-                  <div>
-                    <h4 className="text-sm font-bold text-foreground leading-tight">{selectedRider.name}</h4>
-                    <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
-                      <Phone className="w-3 h-3 text-blue-600" />
+                  <div className="min-w-0">
+                    <h4 className="text-xs sm:text-sm font-bold text-foreground leading-tight truncate">{selectedRider.name}</h4>
+                    <p className="text-[11px] text-muted-foreground flex items-center gap-1 mt-0.5 truncate">
+                      <Phone className="w-3 h-3 text-blue-600 shrink-0" />
                       {selectedRider.phone ? `${selectedRider.phoneCountryCode} ${selectedRider.phone}` : "No phone"}
                     </p>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1.5 shrink-0">
                   <Badge
                     variant="outline"
                     className={cn(
-                      "text-[11px] font-bold py-0.5",
+                      "text-[10px] sm:text-[11px] font-bold py-0.5",
                       selectedRider.operationalStatus === "FREE"
                         ? "bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300"
                         : selectedRider.operationalStatus === "ON_DELIVERY"
@@ -852,22 +913,22 @@ export function LiveTrackClient() {
               </div>
 
               {/* Rider Telemetry & Vehicle Details */}
-              <div className="grid grid-cols-3 gap-2 mt-3 pt-3 border-t text-xs">
-                <div className="p-2 rounded-xl bg-muted/50">
-                  <span className="text-[10px] text-muted-foreground block">Vehicle</span>
-                  <span className="font-semibold text-foreground truncate block">
+              <div className="grid grid-cols-3 gap-1.5 sm:gap-2 mt-2.5 sm:mt-3 pt-2.5 sm:pt-3 border-t text-xs">
+                <div className="p-1.5 sm:p-2 rounded-xl bg-muted/50">
+                  <span className="text-[9px] sm:text-[10px] text-muted-foreground block">Vehicle</span>
+                  <span className="font-semibold text-foreground truncate block text-[11px] sm:text-xs">
                     {selectedRider.vehicleName || selectedRider.primaryVehicleType}
                   </span>
                 </div>
-                <div className="p-2 rounded-xl bg-muted/50">
-                  <span className="text-[10px] text-muted-foreground block">Plate No.</span>
-                  <span className="font-semibold text-foreground truncate block">
+                <div className="p-1.5 sm:p-2 rounded-xl bg-muted/50">
+                  <span className="text-[9px] sm:text-[10px] text-muted-foreground block">Plate No.</span>
+                  <span className="font-semibold text-foreground truncate block text-[11px] sm:text-xs">
                     {selectedRider.vehicleNumber || "N/A"}
                   </span>
                 </div>
-                <div className="p-2 rounded-xl bg-muted/50">
-                  <span className="text-[10px] text-muted-foreground block">Live Speed</span>
-                  <span className="font-semibold text-blue-600 block">
+                <div className="p-1.5 sm:p-2 rounded-xl bg-muted/50">
+                  <span className="text-[9px] sm:text-[10px] text-muted-foreground block">Live Speed</span>
+                  <span className="font-semibold text-blue-600 block text-[11px] sm:text-xs">
                     {Math.round(selectedRider.telemetry.speed || 0)} km/h
                   </span>
                 </div>
@@ -875,36 +936,31 @@ export function LiveTrackClient() {
 
               {/* Active Delivery Order Context */}
               {selectedRider.operationalStatus === "ON_DELIVERY" && selectedRider.activeDelivery && (
-                <div className="mt-3 p-3 rounded-2xl bg-blue-50/60 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900/40 text-xs">
+                <div className="mt-2.5 p-2.5 rounded-2xl bg-blue-50/60 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900/40 text-xs">
                   <div className="flex items-center justify-between font-bold text-blue-950 dark:text-blue-100">
-                    <span className="flex items-center gap-1.5">
-                      <Package className="w-3.5 h-3.5 text-blue-600" />
+                    <span className="flex items-center gap-1.5 truncate">
+                      <Package className="w-3.5 h-3.5 text-blue-600 shrink-0" />
                       Order #{selectedRider.activeDelivery.orderNumber || "Active"}
                     </span>
-                    <Badge variant="outline" className="text-[10px] bg-blue-600 text-white border-none">
+                    <Badge variant="outline" className="text-[9px] sm:text-[10px] bg-blue-600 text-white border-none shrink-0">
                       {selectedRider.activeDelivery.assignmentStatus}
                     </Badge>
                   </div>
-                  <div className="mt-1.5 text-[11px] text-blue-900/80 dark:text-blue-200/80">
-                    <div>
-                      <strong>Store:</strong> {selectedRider.activeDelivery.sellerName}
-                    </div>
-                    <div>
-                      <strong>Destination:</strong> {selectedRider.activeDelivery.customerAddress || selectedRider.activeDelivery.customerCity || "Customer location"}
-                    </div>
+                  <div className="mt-1 text-[11px] text-blue-900/80 dark:text-blue-200/80 line-clamp-2">
+                    <span><strong>Store:</strong> {selectedRider.activeDelivery.sellerName}</span> • <span><strong>Dest:</strong> {selectedRider.activeDelivery.customerAddress || selectedRider.activeDelivery.customerCity || "Customer location"}</span>
                   </div>
                 </div>
               )}
 
               {/* Action Buttons */}
-              <div className="flex items-center gap-2 mt-3 pt-2">
+              <div className="flex items-center gap-2 mt-2.5 pt-2">
                 {selectedRider.phone && (
                   <a
                     href={`tel:${selectedRider.phoneCountryCode}${selectedRider.phone}`}
                     className="flex-1 inline-flex items-center justify-center gap-1.5 h-8 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold"
                   >
                     <Phone className="w-3.5 h-3.5" />
-                    Call Rider
+                    Call
                   </a>
                 )}
                 <Button
@@ -914,7 +970,7 @@ export function LiveTrackClient() {
                   className="flex-1 rounded-xl text-xs gap-1.5 h-8"
                 >
                   <Navigation className="w-3.5 h-3.5 text-blue-600" />
-                  Focus on Map
+                  Center
                 </Button>
               </div>
             </div>
@@ -924,32 +980,54 @@ export function LiveTrackClient() {
           <div ref={mapContainerRef} className="h-full w-full" />
         </div>
 
-        {/* SIDEBAR TOGGLE BUTTON */}
+        {/* SIDEBAR TOGGLE BUTTON (DESKTOP) */}
         <button
           onClick={() => setSidebarOpen(!sidebarOpen)}
-          className="absolute right-0 top-1/2 -translate-y-1/2 z-20 bg-background border shadow-md p-1.5 rounded-l-xl text-muted-foreground hover:text-foreground"
+          className="hidden md:flex absolute right-0 top-1/2 -translate-y-1/2 z-20 bg-background border shadow-md p-1.5 rounded-l-xl text-muted-foreground hover:text-foreground"
           title={sidebarOpen ? "Collapse Fleet List" : "Expand Fleet List"}
         >
           {sidebarOpen ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
         </button>
 
-        {/* ── FLEET SIDEBAR PANEL ──────────────────────────────────────────────── */}
+        {/* MOBILE BACKDROP OVERLAY */}
+        {sidebarOpen && (
+          <div
+            onClick={() => setSidebarOpen(false)}
+            className="md:hidden fixed inset-0 bg-black/50 backdrop-blur-xs z-30 animate-in fade-in duration-200"
+          />
+        )}
+
+        {/* ── FLEET SIDEBAR PANEL (RESPONSIVE DRAWER ON MOBILE, INLINE ON DESKTOP) ── */}
         <div
           className={cn(
-            "h-full border-l bg-card flex flex-col transition-all duration-300 z-10",
-            sidebarOpen ? "w-80 sm:w-96" : "w-0 overflow-hidden border-l-0"
+            "h-full border-l bg-card flex flex-col transition-all duration-300",
+            // Desktop: inline flex child
+            "md:relative md:z-10",
+            // Mobile (< md): slide-over drawer
+            "max-md:fixed max-md:inset-y-0 max-md:right-0 max-md:z-40 max-md:w-full max-md:max-w-xs max-md:shadow-2xl",
+            sidebarOpen ? "w-80 sm:w-96" : "w-0 overflow-hidden border-l-0 max-md:hidden"
           )}
         >
-          <div className="p-4 border-b flex items-center justify-between">
+          <div className="p-3 sm:p-4 border-b flex items-center justify-between">
             <div>
-              <h3 className="font-bold text-sm text-foreground flex items-center gap-1.5">
+              <h3 className="font-bold text-xs sm:text-sm text-foreground flex items-center gap-1.5">
                 <Bike className="w-4 h-4 text-blue-600" />
                 Fleet Directory ({filteredRiders.length})
               </h3>
-              <p className="text-[11px] text-muted-foreground">
-                Click any rider to center and inspect telemetry.
+              <p className="text-[10px] sm:text-[11px] text-muted-foreground">
+                Click any rider to center on map.
               </p>
             </div>
+            {/* Mobile Close Button */}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setSidebarOpen(false)}
+              className="md:hidden h-8 w-8 rounded-xl"
+              title="Close Fleet List"
+            >
+              <X className="w-4 h-4" />
+            </Button>
           </div>
 
           {/* RIDER LIST */}
