@@ -16,11 +16,13 @@ export async function GET(req: NextRequest) {
     const search = searchParams.get("search")?.trim()
 
     // Fetch all active/registered riders with their active delivery assignments and user profile
+    // Only fully onboarded riders are eligible for live tracking & delivery dispatches
     const riders = await prisma.rider.findMany({
       where: {
         isApproved: true,
         isSuspended: false,
         status: "APPROVED",
+        onboardingCompleted: true,
         ...(search
           ? {
               OR: [
@@ -116,6 +118,8 @@ export async function GET(req: NextRequest) {
         selectedZones: Array.isArray(r.selectedZones) ? (r.selectedZones as string[]) : [],
         selectedLocations: Array.isArray(r.selectedLocations) ? (r.selectedLocations as string[]) : [],
         isOnline: r.isOnline,
+        onboardingCompleted: Boolean(r.onboardingCompleted),
+        deviceTokensCount: Array.isArray(r.deviceTokens) ? r.deviceTokens.length : 0,
         operationalStatus,
         telemetry: {
           latitude: r.currentLatitude,
@@ -168,9 +172,20 @@ export async function GET(req: NextRequest) {
       withGps: formattedRiders.filter((r) => r.telemetry.latitude != null && r.telemetry.longitude != null).length,
     }
 
+    // Count pending onboarding riders for admin awareness
+    const pendingOnboardingCount = await prisma.rider.count({
+      where: {
+        isApproved: true,
+        isSuspended: false,
+        status: "APPROVED",
+        onboardingCompleted: false,
+      },
+    })
+
     return NextResponse.json({
       success: true,
       stats,
+      pendingOnboardingCount,
       riders: result,
     })
   } catch (error: any) {

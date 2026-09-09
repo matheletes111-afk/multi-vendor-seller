@@ -143,13 +143,14 @@ export async function triggerOrderAutoDispatch(orderId: string, targetSellerId?:
       // Match customer delivery location name or zone
       const customerLocation = (order.shippingCity || order.shippingAddressLine1 || "").trim()
 
-      // 1 Rider = 1 Delivery Rule: Find all online, approved, idle riders
+      // 1 Rider = 1 Delivery Rule: Find all online, approved, idle riders with completed onboarding
       const freeRiders = await prisma.rider.findMany({
         where: {
           isApproved: true,
           isSuspended: false,
           isOnline: true,
           status: "APPROVED",
+          onboardingCompleted: true,
           id: { notIn: previousRiderIds },
           deliveryAssignments: {
             none: {
@@ -347,6 +348,13 @@ export async function handleRiderAcceptAssignment(
         return { success: false, error: "Unauthorized assignment" }
       }
 
+      if (!assignment.rider?.onboardingCompleted) {
+        return {
+          success: false,
+          error: "Rider has not completed onboarding. Delivery orders cannot be accepted until profile onboarding is finished.",
+        }
+      }
+
       if (assignment.status !== DeliveryAssignmentStatus.OFFERED) {
         return {
           success: false,
@@ -540,6 +548,13 @@ export async function handleRiderStatusUpdate(
 
   if (!assignment || assignment.riderId !== riderId) {
     return { success: false, message: "Assignment not found or unauthorized" }
+  }
+
+  if (!assignment.rider?.onboardingCompleted) {
+    return {
+      success: false,
+      message: "Rider has not completed onboarding. Delivery actions are not permitted until onboarding is completed.",
+    }
   }
 
   const currentStatus = assignment.status
@@ -828,6 +843,13 @@ export async function manualAssignRiderToOrder(
 
   if (!rider || !rider.isApproved || rider.isSuspended) {
     return { success: false, message: "Selected rider is not approved or suspended" }
+  }
+
+  if (!rider.onboardingCompleted) {
+    return {
+      success: false,
+      message: "Selected rider has not completed onboarding. Deliveries cannot be assigned until onboarding is completed.",
+    }
   }
 
   // AI Vehicle Requirement Check for Manual Assignment

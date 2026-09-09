@@ -65,6 +65,15 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    const onboardingParam = (searchParams.get("onboarding") || "ALL").toUpperCase()
+    if (onboardingParam && onboardingParam !== "ALL") {
+      if (onboardingParam === "COMPLETED" || onboardingParam === "TRUE") {
+        riderConditions.onboardingCompleted = true
+      } else if (onboardingParam === "PENDING" || onboardingParam === "FALSE") {
+        riderConditions.onboardingCompleted = false
+      }
+    }
+
     const where: any = {
       role: UserRole.RIDER,
       rider: Object.keys(riderConditions).length > 0 ? { is: riderConditions } : { isNot: null },
@@ -160,7 +169,7 @@ export async function GET(request: NextRequest) {
       paginatedRiders = dbUsers
     }
 
-    // Quick stats breakdown across statuses and registration sources
+    // Quick stats breakdown across statuses, registration sources, and onboarding status
     const [
       totalAll,
       totalApproved,
@@ -169,6 +178,8 @@ export async function GET(request: NextRequest) {
       totalRejected,
       totalAdminCreated,
       totalSelfRegistered,
+      totalOnboarded,
+      totalOnboardingPending,
     ] = await Promise.all([
       prisma.rider.count(),
       prisma.rider.count({ where: { status: "APPROVED", isSuspended: false } }),
@@ -177,6 +188,8 @@ export async function GET(request: NextRequest) {
       prisma.rider.count({ where: { status: "REJECTED" } }),
       prisma.rider.count({ where: { createdByAdmin: true } }),
       prisma.rider.count({ where: { createdByAdmin: false } }),
+      prisma.rider.count({ where: { onboardingCompleted: true } }),
+      prisma.rider.count({ where: { onboardingCompleted: false } }),
     ])
 
     return NextResponse.json({
@@ -195,6 +208,8 @@ export async function GET(request: NextRequest) {
         totalRejected,
         totalAdminCreated,
         totalSelfRegistered,
+        totalOnboarded,
+        totalOnboardingPending,
       },
     })
   } catch (error) {
