@@ -1079,7 +1079,7 @@ export async function sendSellerOnboardingReminderEmail({
       ? "Service Provider"
       : "Product Seller"
 
-  const subject = `Action Required: Complete your onboarding for ${freeMonths} Months Free Access on MEEEM!`
+  const subject = `Action Required: Complete Your Seller Onboarding on MEEEM`
 
   // Build missing documents list HTML
   const missingDocsHtml =
@@ -1128,7 +1128,7 @@ export async function sendSellerOnboardingReminderEmail({
                 <td style="background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4338ca 100%); padding: 32px 28px; text-align: center;">
                   <div style="display: inline-block; background-color: rgba(255, 255, 255, 0.15); border-radius: 24px; padding: 6px 16px; margin-bottom: 14px; border: 1px solid rgba(255, 255, 255, 0.25);">
                     <span style="color: #fef08a; font-size: 13px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase;">
-                      🎁 Exclusive Partner Offer • ${freeMonths} Months Free
+                      Action Required • Document Verification
                     </span>
                   </div>
                   <h1 style="color: #ffffff; margin: 0 0 8px 0; font-size: 24px; font-weight: 800; line-height: 1.3;">
@@ -1149,22 +1149,8 @@ export async function sendSellerOnboardingReminderEmail({
                   </p>
                   
                   <p style="font-size: 15px; line-height: 1.65; color: #334155; margin: 0 0 20px 0;">
-                    We noticed that your seller profile setup on <strong>MEEEM</strong> is currently incomplete and some mandatory verification documents are still pending.
+                    We noticed that your seller profile setup on <strong>MEEEM</strong> is currently incomplete and some mandatory verification documents are still pending review.
                   </p>
-
-                  <!-- PROMO CALLOUT BANNER -->
-                  <div style="background: linear-gradient(135deg, #ecfdf5 0%, #f0fdf4 100%); border: 1px solid #86efac; border-radius: 12px; padding: 20px; margin: 20px 0 24px 0;">
-                    <div style="display: flex; align-items: flex-start;">
-                      <div>
-                        <h3 style="margin: 0 0 8px 0; color: #166534; font-size: 17px; font-weight: 700;">
-                          🚀 Unlock ${freeMonths} Months of 100% Free Full Access!
-                        </h3>
-                        <p style="margin: 0; font-size: 14px; line-height: 1.6; color: #15803d;">
-                          Submit your remaining documents today to activate your store and get <strong>${freeMonths} months of zero platform subscription fees</strong>, nationwide catalog visibility, verified partner status, and full access to our promotional tools!
-                        </p>
-                      </div>
-                    </div>
-                  </div>
 
                   <!-- PENDING DOCUMENTS & CHECKLIST BOX -->
                   <div style="background-color: #fffbeb; border: 1px solid #fde68a; border-radius: 12px; padding: 20px; margin: 24px 0;">
@@ -1192,13 +1178,7 @@ export async function sendSellerOnboardingReminderEmail({
                       <tr>
                         <td style="padding: 6px 0; vertical-align: top; width: 24px; color: #4338ca; font-weight: bold;">✓</td>
                         <td style="padding: 6px 0; font-size: 14px; color: #334155; line-height: 1.5;">
-                          <strong>Zero Risk:</strong> Enjoy ${freeMonths} full months of free storefront access and feature-rich seller tools.
-                        </td>
-                      </tr>
-                      <tr>
-                        <td style="padding: 6px 0; vertical-align: top; width: 24px; color: #4338ca; font-weight: bold;">✓</td>
-                        <td style="padding: 6px 0; font-size: 14px; color: #334155; line-height: 1.5;">
-                          <strong>Fast Customer Reach:</strong> Instantly showcase your offerings to thousands of ready-to-buy shoppers.
+                          <strong>Fast Customer Reach:</strong> Instantly showcase your offerings to thousands of ready-to-buy shoppers nationwide.
                         </td>
                       </tr>
                       <tr>
@@ -1220,7 +1200,7 @@ export async function sendSellerOnboardingReminderEmail({
                   <div style="text-align: center; margin: 32px 0 28px 0;">
                     <a href="${onboardingUrl}" 
                        style="background: linear-gradient(135deg, #4338ca 0%, #3730a3 100%); color: #ffffff; padding: 15px 36px; text-decoration: none; border-radius: 10px; display: inline-block; font-weight: 700; font-size: 16px; letter-spacing: 0.3px; box-shadow: 0 4px 14px rgba(67, 56, 202, 0.35);">
-                      Complete Onboarding & Claim ${freeMonths} Months Free →
+                      Complete Your Onboarding Now →
                     </a>
                   </div>
 
@@ -1264,9 +1244,7 @@ export async function sendSellerOnboardingReminderEmail({
   const text = `
 Hi ${displayName},
 
-We noticed that your seller onboarding on MEEEM (${typeLabel}) is still incomplete.
-
-EXCLUSIVE OFFER: Complete your onboarding today to unlock ${freeMonths} MONTHS OF 100% FREE ACCESS with zero platform subscription fees!
+We noticed that your seller onboarding on MEEEM (${typeLabel}) is still incomplete. Please complete your registration and upload the required verification documents to activate your store.
 
 Pending Documents & Requirements to upload:
 ${missingDocuments.length > 0 ? missingDocuments.map((d) => `- ${d}`).join("\n") : "- Business verification documents pending review"}
@@ -1278,7 +1256,7 @@ ${onboardingUrl}
 If you need any help, contact our support team at support@meeemsl.com.
 
 Best regards,
-MEEEM Vendor Support Team
+MEEEM Merchant Compliance & Operations Team
 https://meeemsl.com
   `.trim()
 

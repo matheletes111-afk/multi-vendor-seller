@@ -81,7 +81,6 @@ export function OnboardingReminderWizardModal({
 
   // Options
   const [sellerType, setSellerType] = useState<string>(initialSellerType)
-  const [freeMonths, setFreeMonths] = useState<number>(2)
   const [batchSize] = useState<number>(5)
 
   // Scanned / Preview Data
@@ -109,7 +108,6 @@ export function OnboardingReminderWizardModal({
     if (open) {
       setPhase("preview")
       setSellerType(initialSellerType)
-      setFreeMonths(2)
       setScannedSellers([])
       setScanStats(null)
       setProcessedCount(0)
@@ -118,7 +116,7 @@ export function OnboardingReminderWizardModal({
       setLogs([])
       isPausedRef.current = false
       isCancelledRef.current = false
-      loadPreview(initialSellerType, 2)
+      loadPreview(initialSellerType)
     }
   }, [open, initialSellerType])
 
@@ -130,11 +128,11 @@ export function OnboardingReminderWizardModal({
   }, [logs, phase])
 
   // Load preview sweep
-  const loadPreview = async (typeToScan = sellerType, months = freeMonths) => {
+  const loadPreview = async (typeToScan = sellerType) => {
     setIsScanning(true)
     try {
       const res = await fetch(
-        `/api/admin/sellers/send-onboarding-reminders?dryRun=true&sellerType=${typeToScan}&limit=500&freeMonths=${months}`
+        `/api/admin/sellers/send-onboarding-reminders?dryRun=true&sellerType=${typeToScan}&limit=500`
       )
       const data = await res.json()
       if (res.ok && data.success) {
@@ -194,7 +192,6 @@ export function OnboardingReminderWizardModal({
           body: JSON.stringify({
             sellerIds: chunkIds,
             dryRun: false,
-            freeMonths,
             sellerType,
           }),
         })
@@ -359,10 +356,9 @@ export function OnboardingReminderWizardModal({
         {/* ── PHASE 1: CONFIGURATION & PREVIEW ── */}
         {phase === "preview" && (
           <div className="space-y-4 py-3 overflow-y-auto flex-1 pr-1">
-            {/* Filter & Options Toolbar */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800">
-              {/* Seller Type Filter */}
-              <div className="space-y-1">
+            {/* Filter Toolbar */}
+            <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800">
+              <div className="max-w-md space-y-1.5">
                 <Label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">
                   Target Category
                 </Label>
@@ -370,7 +366,7 @@ export function OnboardingReminderWizardModal({
                   value={sellerType}
                   onValueChange={(val) => {
                     setSellerType(val)
-                    loadPreview(val, freeMonths)
+                    loadPreview(val)
                   }}
                   disabled={isScanning}
                 >
@@ -385,25 +381,6 @@ export function OnboardingReminderWizardModal({
                     <SelectItem value="RESTAURANT">Restaurant Partners Only</SelectItem>
                   </SelectContent>
                 </Select>
-              </div>
-
-              {/* Free Months Incentive */}
-              <div className="space-y-1">
-                <Label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">
-                  Promotional Incentive (Free Months Offer)
-                </Label>
-                <Input
-                  type="number"
-                  min={1}
-                  max={12}
-                  value={freeMonths}
-                  onChange={(e) => {
-                    const val = parseInt(e.target.value, 10) || 2
-                    setFreeMonths(val)
-                  }}
-                  className="rounded-xl text-xs h-9 bg-white dark:bg-slate-950"
-                  disabled={isScanning}
-                />
               </div>
             </div>
 
@@ -606,7 +583,7 @@ export function OnboardingReminderWizardModal({
                 Onboarding Reminder Emails Sent!
               </h3>
               <p className="text-xs text-slate-500 max-w-md mx-auto">
-                All targeted sellers have received personalized reminder emails detailing their exact missing documents with the promotional access incentive.
+                All targeted sellers have received personalized reminder emails detailing their exact missing documents to complete verification.
               </p>
             </div>
 
