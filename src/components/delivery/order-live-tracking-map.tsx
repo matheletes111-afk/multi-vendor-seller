@@ -229,7 +229,13 @@ export function OrderLiveTrackingMap({
       
       // Isolate telemetry: If this map is tracking a specific rider, ignore other riders
       const expectedRiderId = activeAssignment?.riderId || activeAssignment?.rider?.id
-      if (expectedRiderId && data.riderId && data.riderId !== expectedRiderId) {
+      const expectedUserId = activeAssignment?.rider?.userId
+      if (
+        (expectedRiderId || expectedUserId) &&
+        data.riderId &&
+        data.riderId !== expectedRiderId &&
+        data.riderId !== expectedUserId
+      ) {
         return
       }
 
@@ -261,7 +267,7 @@ export function OrderLiveTrackingMap({
       socket.off("disconnect", handleDisconnect)
       socket.off("order:rider_moved", handleRiderMoved)
     }
-  }, [orderId, activeAssignment?.riderId, activeAssignment?.rider?.id])
+  }, [orderId, activeAssignment?.riderId, activeAssignment?.rider?.id, activeAssignment?.rider?.userId])
 
   // ── 4. Geocode Destination Address if needed ──────────────────────────────────
   // Only geocode once - don't include resolvedDestCoords in deps to avoid loop
