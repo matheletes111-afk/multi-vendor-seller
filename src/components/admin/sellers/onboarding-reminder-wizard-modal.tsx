@@ -13,7 +13,6 @@ import { Button } from "@/ui/button"
 import { Input } from "@/ui/input"
 import { Label } from "@/ui/label"
 import { Badge } from "@/ui/badge"
-import { Switch } from "@/ui/switch"
 import {
   Select,
   SelectContent,
@@ -83,7 +82,6 @@ export function OnboardingReminderWizardModal({
   // Options
   const [sellerType, setSellerType] = useState<string>(initialSellerType)
   const [freeMonths, setFreeMonths] = useState<number>(2)
-  const [isDryRun, setIsDryRun] = useState<boolean>(false)
   const [batchSize] = useState<number>(5)
 
   // Scanned / Preview Data
@@ -112,7 +110,6 @@ export function OnboardingReminderWizardModal({
       setPhase("preview")
       setSellerType(initialSellerType)
       setFreeMonths(2)
-      setIsDryRun(false)
       setScannedSellers([])
       setScanStats(null)
       setProcessedCount(0)
@@ -196,7 +193,7 @@ export function OnboardingReminderWizardModal({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             sellerIds: chunkIds,
-            dryRun: isDryRun,
+            dryRun: false,
             freeMonths,
             sellerType,
           }),
@@ -207,7 +204,7 @@ export function OnboardingReminderWizardModal({
         if (res.ok && data.success && Array.isArray(data.sellers)) {
           for (const item of data.sellers) {
             processed++
-            const isSuccess = isDryRun ? true : !!item.emailSent
+            const isSuccess = !!item.emailSent
             if (isSuccess) {
               sent++
             } else {
@@ -224,10 +221,8 @@ export function OnboardingReminderWizardModal({
                 sellerType: item.sellerType,
                 missingCount: (item.missingDocuments || []).length,
                 status: isSuccess ? "success" : "failed",
-                message: isDryRun
-                  ? `[Dry Run] Calculated ${item.missingDocuments.length} missing doc(s)`
-                  : item.emailSent
-                  ? `Email sent successfully (Calculated ${item.missingDocuments.length} missing docs)`
+                message: item.emailSent
+                  ? `Reminder email sent successfully (Calculated ${item.missingDocuments.length} missing docs)`
                   : `Failed to deliver email: ${item.error || "Unknown error"}`,
               },
             ])
@@ -352,10 +347,10 @@ export function OnboardingReminderWizardModal({
               </div>
             </div>
 
-            {/* Dry run indicator */}
-            {isDryRun && (
-              <Badge className="bg-amber-100 text-amber-800 border-amber-300 gap-1 font-semibold text-xs">
-                🧪 Dry Run Mode
+            {/* Active sweep count badge */}
+            {scannedSellers.length > 0 && (
+              <Badge className="bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800 font-semibold text-xs">
+                {scannedSellers.length} Incomplete {scannedSellers.length === 1 ? "Seller" : "Sellers"}
               </Badge>
             )}
           </div>
@@ -365,7 +360,7 @@ export function OnboardingReminderWizardModal({
         {phase === "preview" && (
           <div className="space-y-4 py-3 overflow-y-auto flex-1 pr-1">
             {/* Filter & Options Toolbar */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800">
               {/* Seller Type Filter */}
               <div className="space-y-1">
                 <Label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">
@@ -379,15 +374,15 @@ export function OnboardingReminderWizardModal({
                   }}
                   disabled={isScanning}
                 >
-                  <SelectTrigger className="rounded-xl text-xs h-8.5 bg-white dark:bg-slate-950">
+                  <SelectTrigger className="rounded-xl text-xs h-9 bg-white dark:bg-slate-950">
                     <SelectValue placeholder="All Categories" />
                   </SelectTrigger>
                   <SelectContent className="rounded-xl text-xs">
-                    <SelectItem value="ALL">All 4 Categories</SelectItem>
-                    <SelectItem value="PRODUCT">Product Sellers</SelectItem>
-                    <SelectItem value="SERVICE">Service Providers</SelectItem>
-                    <SelectItem value="HOTEL">Hotel Partners</SelectItem>
-                    <SelectItem value="RESTAURANT">Restaurant Partners</SelectItem>
+                    <SelectItem value="ALL">All Categories (Products, Services, Hotels, Restaurants)</SelectItem>
+                    <SelectItem value="PRODUCT">Product Sellers Only</SelectItem>
+                    <SelectItem value="SERVICE">Service Providers Only</SelectItem>
+                    <SelectItem value="HOTEL">Hotel Partners Only</SelectItem>
+                    <SelectItem value="RESTAURANT">Restaurant Partners Only</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -395,7 +390,7 @@ export function OnboardingReminderWizardModal({
               {/* Free Months Incentive */}
               <div className="space-y-1">
                 <Label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">
-                  Promo Free Months Offer
+                  Promotional Incentive (Free Months Offer)
                 </Label>
                 <Input
                   type="number"
@@ -406,21 +401,9 @@ export function OnboardingReminderWizardModal({
                     const val = parseInt(e.target.value, 10) || 2
                     setFreeMonths(val)
                   }}
-                  className="rounded-xl text-xs h-8.5 bg-white dark:bg-slate-950"
+                  className="rounded-xl text-xs h-9 bg-white dark:bg-slate-950"
                   disabled={isScanning}
                 />
-              </div>
-
-              {/* Dry Run Toggle */}
-              <div className="space-y-1 flex flex-col justify-end">
-                <div className="flex items-center justify-between h-8.5 px-2.5 rounded-xl border bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800">
-                  <div className="flex flex-col">
-                    <span className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">
-                      Dry Run (Preview Only)
-                    </span>
-                  </div>
-                  <Switch checked={isDryRun} onCheckedChange={setIsDryRun} disabled={isScanning} />
-                </div>
               </div>
             </div>
 
@@ -567,7 +550,7 @@ export function OnboardingReminderWizardModal({
                 </div>
                 <div className="p-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 text-xs text-emerald-800 dark:text-emerald-200">
                   <span className="text-[10px] uppercase font-semibold">
-                    {isDryRun ? "Simulated" : "Sent"}
+                    Sent
                   </span>
                   <p className="font-bold">{sentCount}</p>
                 </div>
@@ -620,12 +603,10 @@ export function OnboardingReminderWizardModal({
 
             <div className="space-y-1">
               <h3 className="text-xl font-black text-slate-900 dark:text-slate-100">
-                {isDryRun ? "Dry Run Completed!" : "Onboarding Sweep Finished!"}
+                Onboarding Reminder Emails Sent!
               </h3>
               <p className="text-xs text-slate-500 max-w-md mx-auto">
-                {isDryRun
-                  ? "Test simulation completed. All missing document calculations have been verified with zero actual emails sent."
-                  : "All target sellers have been processed and dispatched personalized missing document reminder emails with the promotional access offer."}
+                All targeted sellers have received personalized reminder emails detailing their exact missing documents with the promotional access incentive.
               </p>
             </div>
 
@@ -637,7 +618,7 @@ export function OnboardingReminderWizardModal({
               </div>
               <div>
                 <p className="text-[10px] text-emerald-600 font-bold uppercase">
-                  {isDryRun ? "Simulated OK" : "Delivered"}
+                  Delivered
                 </p>
                 <p className="text-xl font-black text-emerald-600">{sentCount}</p>
               </div>
@@ -665,17 +646,8 @@ export function OnboardingReminderWizardModal({
                 disabled={isScanning || scannedSellers.length === 0}
                 className="rounded-2xl text-xs h-9 font-bold bg-indigo-600 hover:bg-indigo-700 text-white gap-1.5 shadow-md shadow-indigo-600/20"
               >
-                {isDryRun ? (
-                  <>
-                    <Play className="h-3.5 w-3.5" />
-                    Start Dry Run Simulation ({scannedSellers.length})
-                  </>
-                ) : (
-                  <>
-                    <Send className="h-3.5 w-3.5" />
-                    Start Live Email Queue ({scannedSellers.length})
-                  </>
-                )}
+                <Send className="h-3.5 w-3.5" />
+                Send Reminder Emails ({scannedSellers.length})
               </Button>
             </>
           )}
