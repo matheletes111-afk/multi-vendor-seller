@@ -38,6 +38,24 @@ export async function POST(req: NextRequest) {
       },
     })
 
+    const socketPayload = {
+      riderId: rider.id,
+      orderId: body.orderId || null,
+      latitude: Number(latitude),
+      longitude: Number(longitude),
+      heading: heading != null ? Number(heading) : 0,
+      speed: speed != null ? Number(speed) : 0,
+    }
+    const socketServerUrl =
+      process.env.SOCKET_SERVER_INTERNAL_URL ||
+      process.env.NEXT_PUBLIC_SOCKET_URL ||
+      "https://socket.meeemsl.com"
+    fetch(`${socketServerUrl}/internal/location`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(socketPayload),
+    }).catch(() => {})
+
     return NextResponse.json({ success: true, rider })
   } catch (error: any) {
     console.error("[API] Rider location update error:", error)

@@ -3,7 +3,7 @@ MEEEM DELIVERY NETWORK — RIDER MOBILE APP API DOCUMENTATION (PART 2)
 ================================================================================
 Version: 1.2.0
 Base URL: https://<domain>/mobileapi/rider
-WebSocket Server: https://<domain>:3001 (or https://<domain>/socket.io)
+WebSocket Server: https://socket.meeemsl.com (Port 443 SSL / WSS — do NOT add :3001)
 Authentication Scheme: Bearer Token (JWT)
 Header: Authorization: Bearer <accessToken>
 Target Platforms: Android (Kotlin / Flutter / React Native), iOS (Swift / Flutter / React Native)
@@ -42,7 +42,38 @@ TABLE OF CONTENTS
 When the rider is active or has an ongoing delivery, stream GPS coordinates
 every 3 to 5 seconds over the persistent Socket.IO connection.
 
-Server URL: https://<domain>:3001
+SERVER URL: https://socket.meeemsl.com
+IMPORTANT:
+- Use `https://socket.meeemsl.com` directly (standard HTTPS / WSS port 443).
+- DO NOT append `:3001`! The server handles SSL on port 443 via Nginx reverse proxy.
+- DO NOT use `www.meeemsl.com:3001` (Amplify frontend does not run socket server).
+
+FLUTTER CONNECTION CODE:
+```dart
+import 'package:socket_io_client/socket_io_client.dart' as IO;
+
+final socket = IO.io(
+  'https://socket.meeemsl.com',
+  IO.OptionBuilder()
+    .setTransports(['websocket', 'polling'])
+    .setAuth({
+      'riderId': riderId, // e.g. "cmtl8qc5e0009hoi095of0u0g"
+      'token': 'Bearer $accessToken',
+    })
+    .enableAutoConnect()
+    .enableReconnection()
+    .build(),
+);
+
+socket.onConnect((_) {
+  print('[SocketService] Connected to Socket.IO: \${socket.id}');
+});
+
+socket.onConnectError((data) {
+  print('[SocketService] Connect error: \$data');
+});
+```
+
 Client Library:
 - Flutter: `socket_io_client`
 - React Native / Kotlin / Swift: Standard Socket.IO client

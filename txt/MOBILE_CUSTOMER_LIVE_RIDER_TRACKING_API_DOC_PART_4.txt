@@ -5,7 +5,7 @@ Title: Customer Live Delivery Tracking, Handover OTP & Visual Proof Verification
 Version: 1.0.0
 Target Audience: Customer Mobile App Developers (Flutter / Kotlin / Swift / React Native)
 Base URL: https://<domain>/mobileapi/customer
-WebSocket Server: https://<domain>:3001 (or https://<domain>/socket.io)
+WebSocket Server: https://socket.meeemsl.com (Port 443 SSL / WSS — do NOT add :3001)
 Authentication: Authorization: Bearer <customerAccessToken>
 
 --------------------------------------------------------------------------------
@@ -184,19 +184,19 @@ Render a prominent security card above the map:
 4.1 Socket.IO Setup & Room Joining
 --------------------------------------------------------------------------------
 SOCKET SERVER ENDPOINTS:
-- WebSocket URL: `https://<domain>:3001` (or `wss://<domain>/socket.io`)
-- Health Check: `GET https://<domain>:3001/health` (or `GET http://localhost:3001/health`)
+- WebSocket URL: `https://socket.meeemsl.com` (Standard HTTPS/WSS port 443 — DO NOT append `:3001`)
+- Health Check: `GET https://socket.meeemsl.com/health`
   Returns: `{"status": "ok", "service": "meeem-socket-server"}`
   Use for Docker, PM2, and load balancer uptime monitoring.
-- Internal Location Relay: `POST https://<domain>:3001/internal/location`
+- Internal Location Relay: `POST https://socket.meeemsl.com/internal/location`
   Body: `{"riderId": "...", "orderId": "...", "latitude": 12.34, "longitude": 56.78, "heading": 90, "speed": 25}`
   Returns: `{"success": true}`
   Relays REST GPS updates instantly to `order:<orderId>` and `admin:fleet` socket rooms.
 
 1. Connect to WebSocket:
    ```dart
-   final socket = IO.io('https://<domain>:3001', <String, dynamic>{
-     'transports': ['websocket'],
+   final socket = IO.io('https://socket.meeemsl.com', <String, dynamic>{
+     'transports': ['websocket', 'polling'],
      'autoConnect': true,
    });
    ```
@@ -280,8 +280,8 @@ class _CustomerLiveTrackingViewState extends State<CustomerLiveTrackingView> {
   }
 
   void _initSocket() {
-    _socket = IO.io('https://<domain>:3001', <String, dynamic>{
-      'transports': ['websocket'],
+    _socket = IO.io('https://socket.meeemsl.com', <String, dynamic>{
+      'transports': ['websocket', 'polling'],
       'autoConnect': true,
     });
 
