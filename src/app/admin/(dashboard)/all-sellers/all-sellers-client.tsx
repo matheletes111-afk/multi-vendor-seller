@@ -940,8 +940,7 @@ export function AllSellersClient() {
                     <TableHead className="min-w-[190px]">Contact & Location</TableHead>
                     <TableHead className="min-w-[90px]">Plan</TableHead>
                     <TableHead className="min-w-[120px]">Commission</TableHead>
-                    <TableHead className="min-w-[140px]">Documents</TableHead>
-                    <TableHead className="min-w-[110px]">Status</TableHead>
+                    <TableHead className="min-w-[150px]">Status & Documents</TableHead>
                     <TableHead className="text-right pr-6 min-w-[130px]">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -1115,13 +1114,13 @@ export function AllSellersClient() {
                             )}
                           </TableCell>
 
-                          {/* Document Status */}
-                          <TableCell>
-                            <SellerDocumentBadge evaluation={seller.documentEvaluation} />
+                          {/* Status & Document Compliance */}
+                          <TableCell className="min-w-[150px]">
+                            <div className="space-y-1.5">
+                              <div>{renderStatusBadge(seller)}</div>
+                              <SellerDocumentBadge evaluation={seller.documentEvaluation} />
+                            </div>
                           </TableCell>
-
-                          {/* Status */}
-                          <TableCell>{renderStatusBadge(seller)}</TableCell>
 
                           {/* Actions */}
                           <TableCell className="text-right pr-6">
@@ -1178,7 +1177,7 @@ export function AllSellersClient() {
                         {/* ── Expanded Detail View ── */}
                         {isExpanded && (
                           <TableRow className="bg-slate-50/90 dark:bg-slate-900/90 border-b border-slate-200 dark:border-slate-800">
-                            <TableCell colSpan={8} className="p-6">
+                            <TableCell colSpan={7} className="p-6">
                               <div className="rounded-2xl bg-white dark:bg-slate-950 p-6 border border-slate-200 dark:border-slate-800 shadow-sm space-y-6">
                                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-4">
                                   <div className="flex items-center gap-2.5">
