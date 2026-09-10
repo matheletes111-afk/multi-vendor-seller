@@ -345,7 +345,37 @@ REJECTED / TIMED_OUT| Rider rejected or 60s expired. Next rider being notified.
 REASSIGNED_BY_ADMIN | Cancelled via stop_dispatch or reassigned by admin.
 
 
-Response Highlights (When Trip is Active / IN PROGRESS):
+Response Highlights (When Offer is OFFERED - Notification in Progress):
+{
+  "id": "cmtv4o81a0002ibrgfc87dn0r",
+  "orderNumber": "meeem00000060",
+  "status": "PROCESSING",
+  "isSelfDelivery": false,
+  "activeDeliveryTracking": {
+    "assignmentId": "assign_offer_123",
+    "status": "OFFERED",
+    "dispatchMode": "AUTO_CASCADE",
+    "distanceKm": 2.1,
+    "attemptNumber": 1,
+    "offeredAt": "2026-09-10T09:30:00.000Z",
+    "expiresAt": "2026-09-10T09:31:00.000Z",
+    "secondsRemaining": 48,           // <-- Live seconds remaining in 60s window
+    "isOfferExpired": false,
+    "deliveryOtp": null,              // <-- Hidden until DELIVERED
+    "deliveryProofImage": null,
+    "rider": {
+      "id": "rider_1",
+      "name": "Mohamed Kamara",       // <-- WHO CURRENTLY HAS THE OFFER
+      "phone": "+23276123456",
+      "image": "https://...",
+      "vehicleNumber": "SL-1234",
+      "vehicleTypes": ["TWO_WHEELER"],
+      "isOnline": true
+    }
+  }
+}
+
+Response Highlights (When Trip is Active / IN PROGRESS after Rider Accepts):
 {
   "id": "order_123",
   "orderNumber": "ORD-2026-9876",

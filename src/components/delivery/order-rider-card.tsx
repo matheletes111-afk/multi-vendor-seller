@@ -141,7 +141,16 @@ export function OrderRiderCard({
     }
     calcSeconds()
     const timer = setInterval(calcSeconds, 1000)
-    return () => clearInterval(timer)
+
+    // Polling every 4 seconds to catch early rider Accept or Decline in real time
+    const pollTimer = setInterval(() => {
+      onRefresh?.()
+    }, 4000)
+
+    return () => {
+      clearInterval(timer)
+      clearInterval(pollTimer)
+    }
   }, [isOffered, activeAssignment?.id, activeAssignment?.expiresAt, onRefresh])
 
   const fetchAvailableRiders = async () => {
