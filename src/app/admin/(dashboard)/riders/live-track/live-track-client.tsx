@@ -460,9 +460,83 @@ export function LiveTrackClient() {
       }
     }
 
+    // Real-time rider online/offline status change from socket server
+    // Emitted when a rider calls POST /mobileapi/rider/status (Go Online / Go Offline)
+    // or when a device switch occurs (2-phone scenario)
+    function onRiderStatusChanged(payload: {
+      riderId: string
+      isOnline: boolean
+      switchedDevice?: boolean
+      previousDeviceId?: string
+      activeDeviceId?: string
+      timestamp?: number
+    }) {
+      const { riderId, isOnline: newIsOnline } = payload
+      if (!riderId) return
+
+      setRiders((prevRiders) =>
+        prevRiders.map((r) => {
+          if (r.id === riderId || r.userId === riderId) {
+            const isBusy = r.operationalStatus === "ON_DELIVERY"
+            const nowMs = Date.now()
+            const lastUpdateMs = r.telemetry.lastLocationUpdate
+              ? new Date(r.telemetry.lastLocationUpdate).getTime()
+              : 0
+            const isRecent = lastUpdateMs > 0 && (nowMs - lastUpdateMs) < 10 * 60 * 1000
+
+            let newStatus: "FREE" | "ON_DELIVERY" | "OFFLINE" = "OFFLINE"
+            if (newIsOnline) {
+              if (isBusy) {
+                newStatus = "ON_DELIVERY"
+              } else if (isRecent) {
+                newStatus = "FREE"
+              } else {
+                newStatus = "OFFLINE"
+              }
+            }
+
+            return {
+              ...r,
+              isOnline: newIsOnline && (isRecent || isBusy),
+              operationalStatus: newStatus,
+            }
+          }
+          return r
+        })
+      )
+
+      setSelectedRider((prev) => {
+        if (!prev || (prev.id !== riderId && prev.userId !== riderId)) return prev
+        const isBusy = prev.operationalStatus === "ON_DELIVERY"
+        const nowMs = Date.now()
+        const lastUpdateMs = prev.telemetry.lastLocationUpdate
+          ? new Date(prev.telemetry.lastLocationUpdate).getTime()
+          : 0
+        const isRecent = lastUpdateMs > 0 && (nowMs - lastUpdateMs) < 10 * 60 * 1000
+
+        let newStatus: "FREE" | "ON_DELIVERY" | "OFFLINE" = "OFFLINE"
+        if (newIsOnline) {
+          if (isBusy) {
+            newStatus = "ON_DELIVERY"
+          } else if (isRecent) {
+            newStatus = "FREE"
+          } else {
+            newStatus = "OFFLINE"
+          }
+        }
+
+        return {
+          ...prev,
+          isOnline: newIsOnline && (isRecent || isBusy),
+          operationalStatus: newStatus,
+        }
+      })
+    }
+
     socket.on("connect", onConnect)
     socket.on("disconnect", onDisconnect)
     socket.on("rider:moved", onRiderMoved)
+    socket.on("rider:status_changed", onRiderStatusChanged)
 
     if (socket.connected) {
       onConnect()
@@ -479,6 +553,7 @@ export function LiveTrackClient() {
       socket.off("connect", onConnect)
       socket.off("disconnect", onDisconnect)
       socket.off("rider:moved", onRiderMoved)
+      socket.off("rider:status_changed", onRiderStatusChanged)
       clearInterval(interval)
     }
   }, [fetchFleet])
