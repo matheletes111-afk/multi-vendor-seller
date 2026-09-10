@@ -298,10 +298,15 @@ export async function GET(
         deliveryProofImage: groupAssignment.deliveryProofImage,
         rider: {
           id: r?.id,
+          userId: r?.userId || null,
           name: rUser?.name || "Delivery Rider",
+          email: rUser?.email || null,
           phone: rUser?.phone || null,
+          phoneCountryCode: rUser?.phoneCountryCode || "+232",
           image: rUser?.image || r?.profileImage || null,
+          vehicleName: r?.vehicleName || null,
           vehicleNumber: r?.vehicleNumber || null,
+          drivingLicenseNo: r?.drivingLicenseNo || null,
           vehicleTypes: r?.vehicleTypes || [],
           isOnline: r?.isOnline ?? true,
         },
@@ -357,6 +362,16 @@ export async function GET(
   const activeDeliveryTrackings = sellerGroups
     .map((g) => g.activeDeliveryTracking)
     .filter(Boolean)
+
+  const statusPriority: Record<string, number> = {
+    OUT_FOR_DELIVERY: 10,
+    PICKED_UP: 9,
+    AT_PICKUP: 8,
+    ACCEPTED: 7,
+    OFFERED: 6,
+    DELIVERED: 1,
+  }
+  activeDeliveryTrackings.sort((a: any, b: any) => (statusPriority[b.status] || 0) - (statusPriority[a.status] || 0))
   const activeDeliveryTracking = activeDeliveryTrackings[0] || null
 
   const body: OrderDetailApi = {

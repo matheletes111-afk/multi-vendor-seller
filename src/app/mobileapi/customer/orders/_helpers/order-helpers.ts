@@ -512,10 +512,15 @@ export async function getCustomerOrderDetail({
       deliveryProofImage: assignment.deliveryProofImage,
       rider: {
         id: r?.id,
+        userId: r?.userId || null,
         name: rUser?.name || "Delivery Rider",
+        email: rUser?.email || null,
         phone: rUser?.phone || null,
+        phoneCountryCode: rUser?.phoneCountryCode || "+232",
         image: rUser?.image || r?.profileImage || null,
+        vehicleName: r?.vehicleName || null,
         vehicleNumber: r?.vehicleNumber || null,
+        drivingLicenseNo: r?.drivingLicenseNo || null,
         vehicleTypes: r?.vehicleTypes || [],
         isOnline: r?.isOnline ?? true,
       },
@@ -578,6 +583,16 @@ export async function getCustomerOrderDetail({
   // Collect all active tracking objects across all assigned sellers
   const activeAssignments = assignments.filter((a: any) => ACTIVE_STATUSES.includes(a.status))
   const activeDeliveryTrackings = activeAssignments.map((a: any) => mapAssignmentToTracking(a)).filter(Boolean)
+  // Prioritize OUT_FOR_DELIVERY > PICKED_UP > AT_PICKUP > ACCEPTED > OFFERED > DELIVERED
+  const statusPriority: Record<string, number> = {
+    OUT_FOR_DELIVERY: 10,
+    PICKED_UP: 9,
+    AT_PICKUP: 8,
+    ACCEPTED: 7,
+    OFFERED: 6,
+    DELIVERED: 1,
+  }
+  activeDeliveryTrackings.sort((a: any, b: any) => (statusPriority[b.status] || 0) - (statusPriority[a.status] || 0))
   const activeDeliveryTracking = activeDeliveryTrackings[0] || null
 
   return {
