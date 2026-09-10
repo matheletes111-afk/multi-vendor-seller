@@ -282,7 +282,11 @@ export async function GET(
         image: rUser?.image || r?.profileImage || null,
         vehicleNumber: r?.vehicleNumber || null,
         vehicleTypes: r?.vehicleTypes || [],
-        isOnline: r?.isOnline ?? true,
+        isOnline: Boolean(
+          r?.isOnline &&
+          r?.lastLocationUpdate &&
+          (Date.now() - new Date(r.lastLocationUpdate).getTime()) < 10 * 60 * 1000
+        ),
       },
       currentLocation: {
         latitude: r?.currentLatitude || activeAssignment.riderLatitudeAtOffer || null,
@@ -354,6 +358,16 @@ export async function GET(
     deliveryAssignments: order.deliveryAssignments.map((a) => ({
       ...a,
       deliveryOtp: a.status === "DELIVERED" ? a.deliveryOtp : null,
+      rider: a.rider
+        ? {
+            ...a.rider,
+            isOnline: Boolean(
+              a.rider.isOnline &&
+              a.rider.lastLocationUpdate &&
+              (Date.now() - new Date(a.rider.lastLocationUpdate).getTime()) < 10 * 60 * 1000
+            ),
+          }
+        : null,
     })),
     activeDeliveryTracking,
   }
@@ -681,9 +695,9 @@ export async function PATCH(
     cancelAcceptedRiderAssignment(orderId, seller.id, "SELLER", "Order cancelled by seller").catch(() => null)
   }
 
-  // Auto-dispatch delivery rider when seller processes order (skip if self-delivery)
+  // Auto-dispatch delivery rider ONLY when seller marks package as SHIPPED (skip if self-delivery)
   const isSelfDeliveryOrder = ownItems.some((i) => i.isSelfDelivery)
-  if (!isSelfDeliveryOrder && (status === "PROCESSING" || status === "SHIPPED")) {
+  if (!isSelfDeliveryOrder && status === "SHIPPED") {
     triggerOrderAutoDispatch(orderId, seller.id, {
       forceRedispatch: false,
       allowReofferRejected: true,

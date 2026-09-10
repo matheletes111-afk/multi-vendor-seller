@@ -226,11 +226,14 @@ export async function triggerOrderAutoDispatch(
 
       // 1 Rider = 1 Delivery Rule: Find all online, approved, idle riders with completed onboarding
       // Exclude riders currently engaged in an active delivery
+      // A rider is only truly online if isOnline is true AND has sent a GPS heartbeat within the last 10 minutes (strictly matching /admin/riders/live-track)
+      const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000)
       const allAvailableRiders = await prisma.rider.findMany({
         where: {
           isApproved: true,
           isSuspended: false,
           isOnline: true,
+          lastLocationUpdate: { gte: tenMinutesAgo },
           status: "APPROVED",
           onboardingCompleted: true,
           deliveryAssignments: {

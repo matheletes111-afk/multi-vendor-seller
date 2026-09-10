@@ -319,6 +319,16 @@ export async function GET(
     deliveryAssignments: order.deliveryAssignments.map((a) => ({
       ...a,
       deliveryOtp: a.status === "DELIVERED" ? a.deliveryOtp : null,
+      rider: a.rider
+        ? {
+            ...a.rider,
+            isOnline: Boolean(
+              a.rider.isOnline &&
+              a.rider.lastLocationUpdate &&
+              (Date.now() - new Date(a.rider.lastLocationUpdate).getTime()) < 10 * 60 * 1000
+            ),
+          }
+        : null,
     })),
   }
   return NextResponse.json(body)
@@ -548,8 +558,8 @@ export async function PATCH(
     cancelAcceptedRiderAssignment(orderId, undefined, "ADMIN", "Order cancelled by Admin").catch(() => null)
   }
 
-  // Auto-dispatch delivery rider when admin processes/ships order (skip if self-delivery)
-  if (status === "PROCESSING" || status === "SHIPPED") {
+  // Auto-dispatch delivery rider ONLY when admin ships order (skip if self-delivery)
+  if (status === "SHIPPED") {
     const itemsToDispatch = targetItemIds.length === 0
       ? await prisma.orderItem.findMany({
           where: { orderId, productId: { not: null }, isSelfDelivery: false },

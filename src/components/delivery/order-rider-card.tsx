@@ -110,6 +110,11 @@ export function OrderRiderCard({
 
   const rider = activeAssignment?.rider
   const riderUser = rider?.user
+  const isRiderOnline = Boolean(
+    rider?.isOnline &&
+    rider?.lastLocationUpdate &&
+    (Date.now() - new Date(rider.lastLocationUpdate).getTime()) < 10 * 60 * 1000
+  )
   const isDelivered = activeAssignment?.status === "DELIVERED" || orderStatus === "DELIVERED"
   const isOffered = !isDelivered && activeAssignment?.status === "OFFERED"
   const canCancelRider =
@@ -444,7 +449,7 @@ export function OrderRiderCard({
                     {riderUser?.name || "Delivery Rider"}
                     {isDelivered ? (
                       <Badge className="bg-emerald-600 text-white text-[9px] font-bold px-1.5 py-0">Delivered</Badge>
-                    ) : rider?.isOnline ? (
+                    ) : isRiderOnline ? (
                       <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block shrink-0" title="Online" />
                     ) : (
                       <span className="w-2 h-2 rounded-full bg-slate-400 inline-block shrink-0" title="Offline" />
@@ -844,7 +849,7 @@ export function OrderRiderCard({
                       <div className="min-w-0">
                         <div className="font-bold text-xs text-foreground truncate flex items-center gap-1.5">
                           {riderUser?.name || "Delivery Partner"}
-                          {rider?.isOnline ? (
+                          {isRiderOnline ? (
                             <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block shrink-0" title="Online" />
                           ) : (
                             <span className="w-2 h-2 rounded-full bg-slate-400 inline-block shrink-0" title="Offline" />
