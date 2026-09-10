@@ -108,6 +108,9 @@ export async function GET(request: NextRequest) {
       return {
         ...a,
         earningForThisDelivery,
+        deliveryFee: earningForThisDelivery,
+        deliveryEarning: earningForThisDelivery,
+        earning: earningForThisDelivery,
         order: {
           ...a.order,
           seller: a.seller || a.order.seller,

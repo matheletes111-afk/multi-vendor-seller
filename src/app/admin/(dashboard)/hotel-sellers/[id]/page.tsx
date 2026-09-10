@@ -13,9 +13,30 @@ export default async function HotelSellerDetailPage({ params }: { params: Promis
 
   const { id } = await params
 
-  const [seller, allPlans] = await Promise.all([
-    prisma.hotelSeller.findUnique({
-      where: { id },
+  // Try finding by cuid id first, fallback to userId
+  let seller = await prisma.hotelSeller.findUnique({
+    where: { id },
+    include: {
+      user: true,
+      businessInfo: true,
+      kyc: true,
+      bankDetails: true,
+      agreement: true,
+      subscription: {
+        include: { plan: true }
+      },
+      hotels: {
+        where: { isDeleted: false },
+        include: {
+          _count: { select: { rooms: true } }
+        }
+      }
+    }
+  })
+
+  if (!seller) {
+    seller = await prisma.hotelSeller.findUnique({
+      where: { userId: id },
       include: {
         user: true,
         businessInfo: true,
@@ -32,14 +53,15 @@ export default async function HotelSellerDetailPage({ params }: { params: Promis
           }
         }
       }
-    }),
-    prisma.plan.findMany({
-      where: { type: "HOTEL" },
-      orderBy: { price: "asc" }
     })
-  ])
+  }
 
   if (!seller) notFound()
+
+  const allPlans = await prisma.plan.findMany({
+    where: { type: "HOTEL" },
+    orderBy: { price: "asc" }
+  })
 
   // Pre-sign all private S3 document URLs
   const [logo, banner, mainPhoto] = await Promise.all([
@@ -82,6 +104,10 @@ export default async function HotelSellerDetailPage({ params }: { params: Promis
     ])
     seller.bankDetails.passbookUrl = passbook
     seller.bankDetails.bankLetterUrl = bankLetter
+  }
+
+  if ((seller.agreement as any)?.documentUrl) {
+    (seller.agreement as any).documentUrl = await getPresignedUrlOrOriginal((seller.agreement as any).documentUrl)
   }
 
 

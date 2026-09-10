@@ -25,7 +25,7 @@ import {
 import { applySellerCreditForOrderLineDelivered } from "@/lib/seller-order-line-settlement"
 import { sendDeliveryOtp } from "@/lib/delivery-otp"
 import { calculateShippingBreakup } from "@/lib/shipping-calculator"
-import { triggerOrderAutoDispatch } from "@/lib/delivery-dispatch"
+import { triggerOrderAutoDispatch, cancelAcceptedRiderAssignment } from "@/lib/delivery-dispatch"
 
 function isValidSellerStatus(s: string): s is PatchOrderStatusPayload["status"] {
   return SELLER_ORDER_STATUSES.includes(s as PatchOrderStatusPayload["status"])
@@ -48,15 +48,23 @@ export async function GET(
 
   const { id: orderId } = await params
 
-  // Auto-expire stale OFFERED assignments on the fly so UI doesn't display stuck offers
-  await prisma.riderDeliveryAssignment.updateMany({
+  // Auto-expire stale OFFERED assignments and trigger auto-cascade to next rider
+  const staleOffers = await prisma.riderDeliveryAssignment.findMany({
     where: {
       orderId,
       status: "OFFERED",
       expiresAt: { lt: new Date() },
     },
-    data: { status: "TIMED_OUT" },
-  }).catch(() => null)
+  })
+  if (staleOffers.length > 0) {
+    for (const offer of staleOffers) {
+      await prisma.riderDeliveryAssignment.update({
+        where: { id: offer.id },
+        data: { status: "TIMED_OUT" },
+      })
+      await triggerOrderAutoDispatch(offer.orderId, offer.sellerId || undefined).catch(() => null)
+    }
+  }
 
   const [order, globalSetting] = await Promise.all([
     prisma.order.findFirst({
@@ -565,6 +573,29 @@ export async function PATCH(
         }
       }
 
+      if (status === "PROCESSING" || status === "SHIPPED") {
+        const allItems = await tx.orderItem.findMany({
+          where: { orderId },
+          select: { itemStatus: true },
+        })
+        const allShippedOrBeyond = allItems.every((i) =>
+          ["SHIPPED", "OUT_FOR_DELIVERY", "DELIVERED", "CANCELLED", "REFUNDED"].includes(i.itemStatus)
+        )
+        const anyProcessing = allItems.some((i) =>
+          ["PROCESSING", "READY_FOR_PICKUP", "SHIPPED", "OUT_FOR_DELIVERY"].includes(i.itemStatus)
+        )
+        await tx.order.update({
+          where: { id: orderId },
+          data: {
+            status: allShippedOrBeyond
+              ? "SHIPPED"
+              : anyProcessing
+                ? "PROCESSING"
+                : undefined,
+          },
+        })
+      }
+
       if (status === "CANCELLED") {
         // Cancel any pending rider offers or accepted assignments for this seller package
         await tx.riderDeliveryAssignment.updateMany({
@@ -574,7 +605,7 @@ export async function PATCH(
             status: { in: ["OFFERED", "ACCEPTED", "AT_PICKUP"] },
           },
           data: {
-            status: "CANCELLED_BY_RIDER",
+            status: "REASSIGNED_BY_ADMIN",
             cancellationReason: "Order cancelled by seller",
             cancelledAt: new Date(),
             adminNotes: "Revoked assignment: Order cancelled by seller",
@@ -623,10 +654,18 @@ export async function PATCH(
     console.error("Failed to send status update email:", emailErr)
   }
 
+  // If order was cancelled, notify any assigned riders via push & email
+  if (status === "CANCELLED") {
+    cancelAcceptedRiderAssignment(orderId, seller.id, "SELLER", "Order cancelled by seller").catch(() => null)
+  }
+
   // Auto-dispatch delivery rider when seller processes order (skip if self-delivery)
   const isSelfDeliveryOrder = ownItems.some((i) => i.isSelfDelivery)
   if (!isSelfDeliveryOrder && (status === "PROCESSING" || status === "SHIPPED")) {
-    triggerOrderAutoDispatch(orderId, seller.id).catch((err) =>
+    triggerOrderAutoDispatch(orderId, seller.id, {
+      forceRedispatch: true,
+      allowReofferRejected: true,
+    }).catch((err) =>
       console.error("[AutoDispatch] Trigger failed:", err?.message || err)
     )
   }

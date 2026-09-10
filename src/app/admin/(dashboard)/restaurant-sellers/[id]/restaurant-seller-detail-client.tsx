@@ -28,6 +28,7 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { RestaurantSellerDetailsView } from "@/components/admin/sellers/restaurant-seller-details-view"
+import { SellerEmailModal, type SellerEmailTarget } from "@/components/admin/sellers/seller-email-modal"
 import Link from "next/link"
 
 
@@ -41,6 +42,7 @@ export function RestaurantSellerDetailClient({ seller, plans = [] }: RestaurantS
   const [actionLoading, setActionLoading] = useState<string | null>(null)
   const [rejectDialog, setRejectDialog] = useState({ open: false, id: "", action: "" })
   const [feedback, setFeedback] = useState("")
+  const [emailModalTarget, setEmailModalTarget] = useState<SellerEmailTarget | null>(null)
 
   const handleStatusUpdate = async (id: string, action: string, feedbackText?: string) => {
     try {
@@ -92,7 +94,7 @@ export function RestaurantSellerDetailClient({ seller, plans = [] }: RestaurantS
               )}
             </div>
             <p className="text-slate-500 font-medium flex items-center gap-2">
-              <Mail className="h-4 w-4" /> {seller.user.email?.toLowerCase()} • ID: {seller.id}
+              <Mail className="h-4 w-4" /> {seller.user?.email?.toLowerCase() || "No email"} • ID: {seller.id}
             </p>
           </div>
         </div>
@@ -150,6 +152,15 @@ export function RestaurantSellerDetailClient({ seller, plans = [] }: RestaurantS
             onUnsuspend={(id) => handleStatusUpdate(id, "unsuspend")}
             onOpenCorrection={(id) => openFeedbackDialog(id, "correction")}
             onOpenReject={(id) => openFeedbackDialog(id, "reject")}
+            onSendEmail={(id) =>
+              setEmailModalTarget({
+                id,
+                name: seller.user?.name,
+                businessName: seller.businessInfo?.businessName,
+                email: seller.user?.email,
+                sellerType: "RESTAURANT",
+              })
+            }
           />
         </div>
       </div>
@@ -189,6 +200,13 @@ export function RestaurantSellerDetailClient({ seller, plans = [] }: RestaurantS
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Direct Email Modal */}
+      <SellerEmailModal
+        seller={emailModalTarget}
+        open={!!emailModalTarget}
+        onOpenChange={(val) => !val && setEmailModalTarget(null)}
+      />
     </div>
   )
 }

@@ -21,6 +21,7 @@ import {
   ORDER_ITEM_LOCKED_AFTER_DELIVERED,
 } from "@/lib/order-cancel-guard"
 import { sendDeliveryOtp } from "@/lib/delivery-otp"
+import { triggerOrderAutoDispatch, cancelAcceptedRiderAssignment } from "@/lib/delivery-dispatch"
 
 function isValidAdminStatus(s: string): s is PatchOrderStatusPayload["status"] {
   return ADMIN_ORDER_STATUSES.includes(s as PatchOrderStatusPayload["status"])
@@ -37,15 +38,23 @@ export async function GET(
   }
   const { id: orderId } = await params
 
-  // Auto-expire stale OFFERED assignments on the fly so UI doesn't display stuck offers
-  await prisma.riderDeliveryAssignment.updateMany({
+  // Auto-expire stale OFFERED assignments and trigger auto-cascade to next rider
+  const staleOffers = await prisma.riderDeliveryAssignment.findMany({
     where: {
       orderId,
       status: "OFFERED",
       expiresAt: { lt: new Date() },
     },
-    data: { status: "TIMED_OUT" },
-  }).catch(() => null)
+  })
+  if (staleOffers.length > 0) {
+    for (const offer of staleOffers) {
+      await prisma.riderDeliveryAssignment.update({
+        where: { id: offer.id },
+        data: { status: "TIMED_OUT" },
+      })
+      await triggerOrderAutoDispatch(offer.orderId, offer.sellerId || undefined).catch(() => null)
+    }
+  }
 
   const order = await prisma.order.findUnique({
     where: { id: orderId },
@@ -496,6 +505,32 @@ export async function PATCH(
     }
   } catch (emailErr) {
     console.error("Failed to send status update email:", emailErr)
+  }
+
+  // If order was cancelled by admin, revoke any active assignments and notify riders via push & email
+  if (status === "CANCELLED") {
+    cancelAcceptedRiderAssignment(orderId, undefined, "ADMIN", "Order cancelled by Admin").catch(() => null)
+  }
+
+  // Auto-dispatch delivery rider when admin processes/ships order (skip if self-delivery)
+  if (status === "PROCESSING" || status === "SHIPPED") {
+    const itemsToDispatch = targetItemIds.length === 0
+      ? await prisma.orderItem.findMany({
+          where: { orderId, productId: { not: null }, isSelfDelivery: false },
+          select: { sellerId: true },
+        })
+      : await prisma.orderItem.findMany({
+          where: { orderId, id: { in: targetItemIds }, productId: { not: null }, isSelfDelivery: false },
+          select: { sellerId: true },
+        })
+    const sellerIds = [...new Set(itemsToDispatch.map((i) => i.sellerId))]
+    for (const sId of sellerIds) {
+      if (!sId) continue
+      triggerOrderAutoDispatch(orderId, sId, {
+        forceRedispatch: true,
+        allowReofferRejected: true,
+      }).catch((err) => console.error("[Admin AutoDispatch] Trigger failed:", err?.message || err))
+    }
   }
 
   return NextResponse.json({ success: true, status, updatedItemIds: targetItemIds })

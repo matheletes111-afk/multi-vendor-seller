@@ -13,9 +13,24 @@ export default async function RestaurantSellerDetailPage({ params }: { params: P
 
   const { id } = await params
 
-  const [seller, allPlans] = await Promise.all([
-    prisma.restaurantSeller.findUnique({
-      where: { id },
+  // Try finding by primary cuid id first, fallback to userId
+  let seller = await prisma.restaurantSeller.findUnique({
+    where: { id },
+    include: {
+      user: true,
+      businessInfo: true,
+      kyc: true,
+      bankDetails: true,
+      agreement: true,
+      subscription: {
+        include: { plan: true }
+      },
+    }
+  })
+
+  if (!seller) {
+    seller = await prisma.restaurantSeller.findUnique({
+      where: { userId: id },
       include: {
         user: true,
         businessInfo: true,
@@ -26,14 +41,15 @@ export default async function RestaurantSellerDetailPage({ params }: { params: P
           include: { plan: true }
         },
       }
-    }),
-    prisma.plan.findMany({
-      where: { type: "RESTAURANT" },
-      orderBy: { price: "asc" }
     })
-  ])
+  }
 
   if (!seller) notFound()
+
+  const allPlans = await prisma.plan.findMany({
+    where: { type: "RESTAURANT" },
+    orderBy: { price: "asc" }
+  })
 
   // Pre-sign S3 URLs
   seller.logo = await getPresignedUrlOrOriginal(seller.logo)
@@ -73,6 +89,10 @@ export default async function RestaurantSellerDetailPage({ params }: { params: P
     ])
     seller.bankDetails.passbookUrl = passbook
     seller.bankDetails.bankLetterUrl = bankLetter
+  }
+
+  if ((seller.agreement as any)?.documentUrl) {
+    (seller.agreement as any).documentUrl = await getPresignedUrlOrOriginal((seller.agreement as any).documentUrl)
   }
 
   // Serialize to plain object for client component

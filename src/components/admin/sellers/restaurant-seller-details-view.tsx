@@ -43,6 +43,45 @@ interface RestaurantSellerDetailsViewProps {
   onSendEmail?: (id: string) => void
 }
 
+function parseJsonArray(val: any): string[] {
+  if (!val) return []
+  if (Array.isArray(val)) {
+    return val.flatMap((item) => {
+      if (typeof item === "string" && (item.startsWith("[") || item.startsWith("{"))) {
+        try {
+          const parsed = JSON.parse(item)
+          return Array.isArray(parsed) ? parsed : [String(item)]
+        } catch {
+          return [String(item)]
+        }
+      }
+      return item ? [String(item)] : []
+    })
+  }
+  if (typeof val === "string") {
+    try {
+      const parsed = JSON.parse(val)
+      if (Array.isArray(parsed)) {
+        return parsed.flatMap((item) => {
+          if (typeof item === "string" && (item.startsWith("[") || item.startsWith("{"))) {
+            try {
+              const sub = JSON.parse(item)
+              return Array.isArray(sub) ? sub : [String(item)]
+            } catch {
+              return [String(item)]
+            }
+          }
+          return item ? [String(item)] : []
+        })
+      }
+      return parsed ? [String(parsed)] : []
+    } catch {
+      return val.trim() ? [val.trim()] : []
+    }
+  }
+  return []
+}
+
 export function RestaurantSellerDetailsView({
   seller,
   actionLoading,
@@ -55,8 +94,8 @@ export function RestaurantSellerDetailsView({
 }: RestaurantSellerDetailsViewProps) {
   if (!seller) return null
 
-  const cuisines = seller.primaryCuisine ? JSON.parse(seller.primaryCuisine) : []
-  const services = seller.serviceTypes ? JSON.parse(seller.serviceTypes) : []
+  const cuisines = parseJsonArray(seller.primaryCuisine)
+  const services = parseJsonArray(seller.serviceTypes)
 
   return (
     <div className="space-y-8 animate-in slide-in-from-top-4 duration-500">
@@ -144,7 +183,7 @@ export function RestaurantSellerDetailsView({
                   <div className="p-2 bg-indigo-50 rounded-xl"><UserCheck className="h-4 w-4 text-indigo-600" /></div>
                   <div className="flex flex-col">
                     <span className="text-[10px] font-medium text-muted-foreground/60 uppercase tracking-widest">Manager / POC Name</span>
-                    <span className="text-sm font-bold">{seller.businessInfo?.pocName || seller.user?.name || "—"}</span>
+                    <span className="text-sm font-bold">{seller.businessInfo?.pocName || seller.businessInfo?.managerName || seller.user?.name || "—"}</span>
                   </div>
                </div>
                <div className="flex items-center gap-3">

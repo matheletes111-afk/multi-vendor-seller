@@ -43,6 +43,45 @@ interface HotelSellerDetailsViewProps {
   onSendEmail?: (id: string) => void
 }
 
+function parseJsonArray(val: any): string[] {
+  if (!val) return []
+  if (Array.isArray(val)) {
+    return val.flatMap((item) => {
+      if (typeof item === "string" && (item.startsWith("[") || item.startsWith("{"))) {
+        try {
+          const parsed = JSON.parse(item)
+          return Array.isArray(parsed) ? parsed : [String(item)]
+        } catch {
+          return [String(item)]
+        }
+      }
+      return item ? [String(item)] : []
+    })
+  }
+  if (typeof val === "string") {
+    try {
+      const parsed = JSON.parse(val)
+      if (Array.isArray(parsed)) {
+        return parsed.flatMap((item) => {
+          if (typeof item === "string" && (item.startsWith("[") || item.startsWith("{"))) {
+            try {
+              const sub = JSON.parse(item)
+              return Array.isArray(sub) ? sub : [String(item)]
+            } catch {
+              return [String(item)]
+            }
+          }
+          return item ? [String(item)] : []
+        })
+      }
+      return parsed ? [String(parsed)] : []
+    } catch {
+      return val.trim() ? [val.trim()] : []
+    }
+  }
+  return []
+}
+
 export function HotelSellerDetailsView({
   seller,
   actionLoading,
@@ -55,7 +94,7 @@ export function HotelSellerDetailsView({
 }: HotelSellerDetailsViewProps) {
   if (!seller) return null
 
-  const categories = seller.categories ? JSON.parse(seller.categories) : []
+  const categories = parseJsonArray(seller.categories)
 
   return (
     <div className="space-y-8 animate-in slide-in-from-top-4 duration-500">

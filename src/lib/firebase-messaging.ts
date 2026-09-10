@@ -136,9 +136,16 @@ export async function sendDeliveryOfferToRider(
     orderNumber: string
     assignmentId: string
     shopName: string
+    shopAddress?: string
     shopDistanceKm?: number
+    customerName?: string
+    customerAddress?: string
+    customerPhone?: string
     customerZone?: string
+    deliveryFee?: number | string
     timeoutSeconds: number
+    cycle?: number
+    riderAttempt?: number
   }
 ) {
   if (rider.onboardingCompleted === false) {
@@ -152,19 +159,34 @@ export async function sendDeliveryOfferToRider(
     return
   }
 
+  const feeFormatted = payload.deliveryFee != null ? Number(payload.deliveryFee).toFixed(2) : "0.00"
   const distText = payload.shopDistanceKm ? ` (${payload.shopDistanceKm} km away)` : ""
+  const feeText = Number(feeFormatted) > 0 ? ` • Earning: NLe ${feeFormatted}` : ""
 
   return sendPushNotification({
     tokens,
     riderId: rider.id,
     title: "📦 New Delivery Assignment Offer!",
-    body: `Pickup from ${payload.shopName}${distText}. Tap to accept within ${payload.timeoutSeconds}s!`,
+    body: `Pickup from ${payload.shopName}${distText}${feeText}. Tap to accept within ${payload.timeoutSeconds}s!`,
     data: {
       type: "NEW_OFFER",
       orderId: payload.orderId,
       orderNumber: payload.orderNumber,
       assignmentId: payload.assignmentId,
       timeout: String(payload.timeoutSeconds),
+      deliveryFee: feeFormatted,
+      deliveryEarning: feeFormatted,
+      earning: feeFormatted,
+      amount: feeFormatted,
+      cycle: String(payload.cycle || 1),
+      riderAttempt: String(payload.riderAttempt || 1),
+      shopName: payload.shopName,
+      shopAddress: payload.shopAddress || "",
+      customerName: payload.customerName || "",
+      customerAddress: payload.customerAddress || "",
+      customerPhone: payload.customerPhone || "",
+      distanceKm: payload.shopDistanceKm != null ? String(payload.shopDistanceKm) : "",
+      click_action: "FLUTTER_NOTIFICATION_CLICK",
     },
   })
 }
