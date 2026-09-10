@@ -12,23 +12,29 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const { latitude, longitude, heading, speed, isOnline } = body
 
-    if (latitude == null || longitude == null) {
+    const isOnlineBool = isOnline != null ? Boolean(isOnline) : true
+
+    if (isOnlineBool && (latitude == null || longitude == null)) {
       return NextResponse.json(
-        { error: "latitude and longitude are required" },
+        { error: "latitude and longitude are required when going online" },
         { status: 400 }
       )
     }
 
+    const updateData: any = {
+      isOnline: isOnlineBool,
+      lastLocationUpdate: new Date(),
+    }
+    if (latitude != null && longitude != null) {
+      updateData.currentLatitude = Number(latitude)
+      updateData.currentLongitude = Number(longitude)
+      if (heading != null) updateData.heading = Number(heading)
+      if (speed != null) updateData.speed = Number(speed)
+    }
+
     const rider = await prisma.rider.update({
       where: { userId: session.user.id },
-      data: {
-        currentLatitude: Number(latitude),
-        currentLongitude: Number(longitude),
-        heading: heading != null ? Number(heading) : undefined,
-        speed: speed != null ? Number(speed) : undefined,
-        isOnline: isOnline != null ? Boolean(isOnline) : true,
-        lastLocationUpdate: new Date(),
-      },
+      data: updateData,
       select: {
         id: true,
         currentLatitude: true,

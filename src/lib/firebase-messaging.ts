@@ -196,10 +196,12 @@ export function extractTokens(deviceTokensField: any): string[] {
   if (Array.isArray(deviceTokensField)) {
     return deviceTokensField
       .map((item) => (typeof item === "string" ? item : item?.token))
-      .filter((t): t is string => typeof t === "string" && t.trim().length > 0)
+      .filter((t): t is string => typeof t === "string" && t.trim().length > 20 && !t.startsWith("dev_"))
   }
   if (typeof deviceTokensField === "string") {
-    return [deviceTokensField]
+    return deviceTokensField.trim().length > 20 && !deviceTokensField.startsWith("dev_")
+      ? [deviceTokensField.trim()]
+      : []
   }
   return []
 }

@@ -96,6 +96,7 @@ export interface LiveRiderItem {
     heading: number
     speed: number
     lastLocationUpdate: string | null
+    isRecent?: boolean
   }
   activeDelivery?: {
     assignmentId: string
@@ -1015,10 +1016,17 @@ export function LiveTrackClient() {
       {/* Profile & Capability Status Badges */}
       <div className="flex flex-wrap items-center gap-1.5 mt-2.5">
         {rider.telemetry.latitude != null ? (
-          <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300 flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            GPS Signal Active
-          </Badge>
+          rider.operationalStatus !== "OFFLINE" && rider.telemetry.isRecent !== false ? (
+            <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300 flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              Live GPS Active
+            </Badge>
+          ) : (
+            <Badge variant="outline" className="text-[10px] bg-slate-100 text-slate-700 border-slate-300 dark:bg-slate-800 dark:text-slate-400 flex items-center gap-1" title={rider.telemetry.lastLocationUpdate ? `Last updated: ${new Date(rider.telemetry.lastLocationUpdate).toLocaleString()}` : "Offline"}>
+              <MapPin className="w-3 h-3 text-slate-400" />
+              Offline (Last GPS)
+            </Badge>
+          )
         ) : (
           <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-300 dark:bg-amber-950/40 dark:text-amber-300 flex items-center gap-1">
             <AlertCircle className="w-3 h-3 text-amber-600" />
@@ -1108,6 +1116,7 @@ export function LiveTrackClient() {
     return filteredRiders.map((rider) => {
       const isSelected = selectedRider?.id === rider.id
       const hasCoordinates = rider.telemetry.latitude != null && rider.telemetry.longitude != null
+      const isLiveGps = hasCoordinates && rider.operationalStatus !== "OFFLINE" && rider.telemetry.isRecent !== false
       const hasPush = (rider.deviceTokensCount || 0) > 0
       const isOnboarded = rider.onboardingCompleted
 
@@ -1177,10 +1186,18 @@ export function LiveTrackClient() {
           {/* Condition & Capability Badges (GPS, Onboarding, Push) */}
           <div className="flex flex-wrap items-center gap-1.5 pt-1">
             {/* GPS Indicator */}
-            {hasCoordinates ? (
+            {isLiveGps ? (
               <span className="inline-flex items-center gap-1 text-[9px] font-medium bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-300/40 px-1.5 py-0.5 rounded-md">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
                 Live GPS
+              </span>
+            ) : hasCoordinates ? (
+              <span
+                className="inline-flex items-center gap-1 text-[9px] font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700 px-1.5 py-0.5 rounded-md"
+                title={`Offline / Stale GPS. Last update: ${rider.telemetry.lastLocationUpdate ? new Date(rider.telemetry.lastLocationUpdate).toLocaleString() : "N/A"}`}
+              >
+                <MapPin className="w-2.5 h-2.5 text-slate-400" />
+                Last GPS
               </span>
             ) : (
               <span

@@ -23,26 +23,56 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { latitude, longitude, heading, speed, isOnline, orderId } = body
 
-    if (latitude == null || longitude == null) {
+    const isOnlineBool = isOnline != null ? Boolean(isOnline) : true
+
+    // If online, latitude and longitude are required. If setting offline, they are optional.
+    if (isOnlineBool && (latitude == null || longitude == null)) {
       return NextResponse.json(
-        { success: false, error: "latitude and longitude are required" },
+        { success: false, error: "latitude and longitude are required when going online" },
         { status: 400 }
       )
     }
 
-    const numLat = Number(latitude)
-    const numLng = Number(longitude)
+    const numLat = latitude != null ? Number(latitude) : undefined
+    const numLng = longitude != null ? Number(longitude) : undefined
+
+    const clientDeviceId = body.deviceId ? String(body.deviceId).trim() : null
+    if (clientDeviceId) {
+      const currentRider = await prisma.rider.findUnique({
+        where: { id: authResult.rider.id },
+        select: { deviceTokens: true },
+      })
+      const existingDevices: any[] = Array.isArray(currentRider?.deviceTokens)
+        ? (currentRider!.deviceTokens as any[])
+        : []
+      const activeDevice = existingDevices.find((d) => d.isActiveDriver && d.deviceId)
+
+      if (activeDevice && activeDevice.deviceId !== clientDeviceId) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "DEVICE_SWITCHED",
+            message: `You have switched to another device (${activeDevice.deviceModel || activeDevice.platform || "another phone"}). Tracking stopped on this device.`,
+            activeDeviceId: activeDevice.deviceId,
+            shouldStopTracking: true,
+          },
+          { status: 409 }
+        )
+      }
+    }
+
+    const updateData: any = {
+      isOnline: isOnlineBool,
+      lastLocationUpdate: new Date(),
+    }
+    if (numLat != null && !isNaN(numLat)) updateData.currentLatitude = numLat
+    if (numLng != null && !isNaN(numLng)) updateData.currentLongitude = numLng
+    if (heading != null && !isNaN(Number(heading))) updateData.heading = Number(heading)
+    if (speed != null && !isNaN(Number(speed))) updateData.speed = Number(speed)
 
     const rider = await prisma.rider.update({
       where: { id: authResult.rider.id },
-      data: {
-        currentLatitude: numLat,
-        currentLongitude: numLng,
-        heading: heading != null ? Number(heading) : undefined,
-        speed: speed != null ? Number(speed) : undefined,
-        isOnline: isOnline != null ? Boolean(isOnline) : true,
-        lastLocationUpdate: new Date(),
-      },
+      data: updateData,
       select: {
         id: true,
         currentLatitude: true,

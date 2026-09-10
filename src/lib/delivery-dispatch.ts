@@ -379,8 +379,14 @@ export async function triggerOrderAutoDispatch(
         rankedCandidates = currentFlowCandidates
       }
 
-      // Prioritize riders who have active device tokens registered so that push notifications actually deliver
+      // Prioritize riders who have active device tokens and who have recent GPS updates (within 30m)
       rankedCandidates.sort((a, b) => {
+        const now = Date.now()
+        const aRecent = a.lastLocationUpdate && (now - new Date(a.lastLocationUpdate).getTime()) < 30 * 60 * 1000
+        const bRecent = b.lastLocationUpdate && (now - new Date(b.lastLocationUpdate).getTime()) < 30 * 60 * 1000
+        if (aRecent && !bRecent) return -1
+        if (!aRecent && bRecent) return 1
+
         const aTokens = extractTokens(a.deviceTokens).length
         const bTokens = extractTokens(b.deviceTokens).length
         if (aTokens > 0 && bTokens === 0) return -1

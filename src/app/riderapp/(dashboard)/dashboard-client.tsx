@@ -28,6 +28,30 @@ export function RiderDashboardClient({ user: initialUser }: { user: any }) {
   const [loading, setLoading] = useState(true)
   const [isOnline, setIsOnline] = useState(true)
 
+  const [togglingOnline, setTogglingOnline] = useState(false)
+
+  const handleToggleOnline = async () => {
+    try {
+      setTogglingOnline(true)
+      const nextState = !isOnline
+      const res = await fetch("/api/riderapp/status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isOnline: nextState }),
+      })
+      if (res.ok) {
+        setIsOnline(nextState)
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("rider:status_changed", { detail: { isOnline: nextState } }))
+        }
+      }
+    } catch (err) {
+      console.error("Toggle online error:", err)
+    } finally {
+      setTogglingOnline(false)
+    }
+  }
+
   const loadData = async () => {
     try {
       setLoading(true)
@@ -35,6 +59,9 @@ export function RiderDashboardClient({ user: initialUser }: { user: any }) {
       if (res.ok) {
         const json = await res.json()
         setData(json)
+        if (json.rider?.isOnline !== undefined) {
+          setIsOnline(Boolean(json.rider.isOnline))
+        }
       }
     } catch (err) {
       console.error("Dashboard fetch error:", err)
@@ -96,9 +123,10 @@ export function RiderDashboardClient({ user: initialUser }: { user: any }) {
         <div className="flex items-center gap-3 shrink-0 bg-white/10 backdrop-blur p-2.5 rounded-2xl border border-white/15">
           <button
             type="button"
-            onClick={() => setIsOnline(!isOnline)}
+            disabled={togglingOnline}
+            onClick={handleToggleOnline}
             className={cn(
-              "flex items-center gap-2 px-3.5 py-1.5 rounded-xl font-bold text-xs transition-all shadow-xs",
+              "flex items-center gap-2 px-3.5 py-1.5 rounded-xl font-bold text-xs transition-all shadow-xs disabled:opacity-50",
               isOnline
                 ? "bg-emerald-500 text-white hover:bg-emerald-600"
                 : "bg-slate-700 text-slate-300 hover:bg-slate-600"

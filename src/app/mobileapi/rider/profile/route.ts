@@ -64,6 +64,7 @@ export async function PATCH(request: NextRequest) {
       drivingLicenseNo,
       selectedZones,
       selectedLocations,
+      isOnline,
     } = body
 
     const userUpdates: {
@@ -86,6 +87,10 @@ export async function PATCH(request: NextRequest) {
     }
 
     const riderUpdates: any = {}
+    if (isOnline !== undefined) {
+      riderUpdates.isOnline = Boolean(isOnline)
+      riderUpdates.lastLocationUpdate = new Date()
+    }
     if (vehicleType !== undefined) {
       riderUpdates.vehicleTypes = [String(vehicleType).trim()]
     } else if (vehicleTypes !== undefined) {
