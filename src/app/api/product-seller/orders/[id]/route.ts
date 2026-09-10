@@ -57,12 +57,34 @@ export async function GET(
     },
   })
   if (staleOffers.length > 0) {
+    // Fetch the order status once to guard against re-cascading on terminal orders
+    const orderForCascade = await prisma.order.findUnique({
+      where: { id: orderId },
+      select: { status: true },
+    })
+    const isTerminalOrder =
+      !orderForCascade || ["DELIVERED", "CANCELLED", "REFUNDED"].includes(orderForCascade.status)
+
+    const hasAcceptedRider = await prisma.riderDeliveryAssignment.findFirst({
+      where: {
+        orderId,
+        status: { in: ["ACCEPTED", "AT_PICKUP", "PICKED_UP", "OUT_FOR_DELIVERY", "DELIVERED"] },
+      },
+    })
+
     for (const offer of staleOffers) {
       await prisma.riderDeliveryAssignment.update({
         where: { id: offer.id },
         data: { status: "TIMED_OUT" },
       })
-      await triggerOrderAutoDispatch(offer.orderId, offer.sellerId || undefined).catch(() => null)
+      // Only cascade to next rider if the order is still active and no rider has accepted
+      if (!isTerminalOrder && !hasAcceptedRider) {
+        await triggerOrderAutoDispatch(offer.orderId, offer.sellerId || undefined).catch(() => null)
+      } else {
+        console.log(
+          `[GET] Stale offer ${offer.id} expired for order ${orderId} (Terminal: ${isTerminalOrder}, Accepted: ${!!hasAcceptedRider}). No re-cascade.`
+        )
+      }
     }
   }
 
@@ -663,7 +685,7 @@ export async function PATCH(
   const isSelfDeliveryOrder = ownItems.some((i) => i.isSelfDelivery)
   if (!isSelfDeliveryOrder && (status === "PROCESSING" || status === "SHIPPED")) {
     triggerOrderAutoDispatch(orderId, seller.id, {
-      forceRedispatch: true,
+      forceRedispatch: false,
       allowReofferRejected: true,
     }).catch((err) =>
       console.error("[AutoDispatch] Trigger failed:", err?.message || err)

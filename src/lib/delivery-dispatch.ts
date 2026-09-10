@@ -61,6 +61,14 @@ export async function triggerOrderAutoDispatch(
       return { success: false, message: "Order not found" }
     }
 
+    // ── CRITICAL GUARD: Never dispatch for terminal orders ─────────────────────
+    if (["DELIVERED", "CANCELLED", "REFUNDED"].includes(order.status)) {
+      console.log(
+        `[Dispatch] Order #${order.orderNumber} is already ${order.status}. Skipping auto-dispatch to prevent ghost notifications.`
+      )
+      return { success: false, message: `Order is already ${order.status}. Dispatch skipped.` }
+    }
+
     // Determine all distinct physical sellers for this order
     const sellerIds = targetSellerId
       ? [targetSellerId]
@@ -87,11 +95,12 @@ export async function triggerOrderAutoDispatch(
       },
     })
 
-    // If forceRedispatch requested (e.g. from manual Reassign button), cancel any ongoing OFFERED assignment
+    // If forceRedispatch requested (e.g. from manual Reassign button), cancel any ongoing OFFERED assignment for this seller
     if (options?.forceRedispatch) {
       await prisma.riderDeliveryAssignment.updateMany({
         where: {
           orderId: order.id,
+          ...(targetSellerId ? { sellerId: targetSellerId } : {}),
           status: DeliveryAssignmentStatus.OFFERED,
         },
         data: {
@@ -127,8 +136,8 @@ export async function triggerOrderAutoDispatch(
         continue
       }
 
-      // Check if there is already an active accepted or in-progress assignment for this seller (Live DB query to prevent race conditions)
-      const activeAssignment = await prisma.riderDeliveryAssignment.findFirst({
+      // 1. Check if ANY rider is already accepted, engaged, or completed for this seller package
+      const activeAcceptedAssignment = await prisma.riderDeliveryAssignment.findFirst({
         where: {
           orderId: order.id,
           sellerId: sellerId,
@@ -138,79 +147,63 @@ export async function triggerOrderAutoDispatch(
               DeliveryAssignmentStatus.AT_PICKUP,
               DeliveryAssignmentStatus.PICKED_UP,
               DeliveryAssignmentStatus.OUT_FOR_DELIVERY,
-              DeliveryAssignmentStatus.OFFERED,
+              DeliveryAssignmentStatus.DELIVERED,
             ],
           },
         },
       })
 
-      if (activeAssignment) {
-        // If the assignment is OFFERED and has expired (60s passed), auto-expire it to TIMED_OUT and continue cascading!
-        if (
-          activeAssignment.status === DeliveryAssignmentStatus.OFFERED &&
-          activeAssignment.expiresAt &&
-          activeAssignment.expiresAt < new Date()
-        ) {
+      if (activeAcceptedAssignment) {
+        console.log(
+          `[Dispatch] Seller package already has an active/completed rider assignment: ${activeAcceptedAssignment.id} (${activeAcceptedAssignment.status}). Skipping re-dispatch to protect active rider.`
+        )
+        results.push({
+          sellerId,
+          success: false,
+          message: `Seller package already has an active rider assignment: ${activeAcceptedAssignment.id} (${activeAcceptedAssignment.status}). Skipping re-dispatch to protect active rider.`,
+        })
+        continue
+      }
+
+      // 2. Check if there is an active OFFERED assignment currently waiting for rider response
+      const pendingOffer = await prisma.riderDeliveryAssignment.findFirst({
+        where: {
+          orderId: order.id,
+          sellerId: sellerId,
+          status: DeliveryAssignmentStatus.OFFERED,
+        },
+        orderBy: { attemptNumber: "desc" },
+      })
+
+      if (pendingOffer) {
+        const isOfferExpired = pendingOffer.expiresAt && pendingOffer.expiresAt < new Date()
+        if (isOfferExpired) {
           await prisma.riderDeliveryAssignment.update({
-            where: { id: activeAssignment.id },
+            where: { id: pendingOffer.id },
             data: { status: DeliveryAssignmentStatus.TIMED_OUT },
           })
-          console.log(`[Dispatch] Auto-expired stale offer ${activeAssignment.id} on order ${order.id}. Continuing cascade.`)
-        } else if (
-          options?.forceRedispatch &&
-          (activeAssignment.status === DeliveryAssignmentStatus.OFFERED ||
-           activeAssignment.status === DeliveryAssignmentStatus.ACCEPTED ||
-           activeAssignment.status === DeliveryAssignmentStatus.AT_PICKUP)
-        ) {
-          // If forceRedispatch is requested, revoke the existing pending offer or accepted assignment
+          console.log(`[Dispatch] Auto-expired stale offer ${pendingOffer.id} on order ${order.id}. Continuing cascade.`)
+        } else if (options?.forceRedispatch) {
           await prisma.riderDeliveryAssignment.update({
-            where: { id: activeAssignment.id },
+            where: { id: pendingOffer.id },
             data: {
-              status: DeliveryAssignmentStatus.REASSIGNED_BY_ADMIN,
-              cancellationReason: "Re-dispatch triggered by user",
+              status: DeliveryAssignmentStatus.TIMED_OUT,
+              cancellationReason: "Re-dispatch triggered (offer superseded by manual re-dispatch)",
               cancelledAt: new Date(),
             },
           })
-
-          // If the rider had accepted, notify them via FCM and Email that the assignment was revoked
-          if (
-            activeAssignment.status === DeliveryAssignmentStatus.ACCEPTED ||
-            activeAssignment.status === DeliveryAssignmentStatus.AT_PICKUP
-          ) {
-            const revokedRider = await prisma.rider.findUnique({
-              where: { id: activeAssignment.riderId },
-              include: { user: true },
-            })
-            if (revokedRider) {
-              const tokens = extractTokens(revokedRider.deviceTokens)
-              if (tokens.length > 0) {
-                sendPushNotification({
-                  tokens,
-                  riderId: revokedRider.id,
-                  title: "⚠️ Delivery Assignment Revoked",
-                  body: `Your delivery assignment for Order #${order.orderNumber} has been reassigned to another rider.`,
-                  data: {
-                    type: "ASSIGNMENT_REVOKED",
-                    orderId: order.id,
-                    orderNumber: order.orderNumber,
-                  },
-                }).catch(() => null)
-              }
-              if (revokedRider.user?.email) {
-                sendEmail({
-                  to: revokedRider.user.email,
-                  subject: `⚠️ Delivery Assignment Revoked for Order #${order.orderNumber}`,
-                  text: `Your delivery assignment for Order #${order.orderNumber} has been reassigned by the store/admin. You are now free to accept other deliveries.`,
-                }).catch(() => null)
-              }
-            }
-          }
-          console.log(`[Dispatch] Revoked assignment ${activeAssignment.id} (${activeAssignment.status}) on order ${order.id} due to forceRedispatch.`)
+          console.log(`[Dispatch] Superseded pending OFFERED assignment ${pendingOffer.id} on order ${order.id} due to forceRedispatch.`)
         } else {
+          // Offer is active and still within its 60s countdown! Do NOT send redundant duplicate offers!
+          console.log(
+            `[Dispatch] Order #${order.orderNumber} already has an active pending offer ${pendingOffer.id} (Rider: ${pendingOffer.riderId}). Waiting for rider response.`
+          )
           results.push({
             sellerId,
-            success: false,
-            message: `Seller package already has active assignment: ${activeAssignment.id} (${activeAssignment.status})`,
+            success: true,
+            assignmentId: pendingOffer.id,
+            riderId: pendingOffer.riderId,
+            message: "Active delivery offer is already pending for rider response. Redundant notification skipped.",
           })
           continue
         }
@@ -497,6 +490,42 @@ export async function triggerOrderAutoDispatch(
               where: { id: assignmentIdToWatch },
               data: { status: DeliveryAssignmentStatus.TIMED_OUT },
             })
+
+            // Guard: Check if order is already delivered or cancelled before cascading
+            const currentOrder = await prisma.order.findUnique({
+              where: { id: orderIdToWatch },
+              select: { status: true },
+            })
+            if (!currentOrder || ["DELIVERED", "CANCELLED", "REFUNDED"].includes(currentOrder.status)) {
+              console.log(
+                `[Dispatch] Server timer: Order #${order.orderNumber} is already ${currentOrder?.status || "missing"}. Cascade cancelled.`
+              )
+              return
+            }
+
+            // Guard: Check if another assignment for this seller has already been accepted
+            const activeAccepted = await prisma.riderDeliveryAssignment.findFirst({
+              where: {
+                orderId: orderIdToWatch,
+                sellerId: sellerIdToWatch,
+                status: {
+                  in: [
+                    DeliveryAssignmentStatus.ACCEPTED,
+                    DeliveryAssignmentStatus.AT_PICKUP,
+                    DeliveryAssignmentStatus.PICKED_UP,
+                    DeliveryAssignmentStatus.OUT_FOR_DELIVERY,
+                    DeliveryAssignmentStatus.DELIVERED,
+                  ],
+                },
+              },
+            })
+            if (activeAccepted) {
+              console.log(
+                `[Dispatch] Server timer: Order #${order.orderNumber} already has accepted rider ${activeAccepted.riderId}. Cascade cancelled.`
+              )
+              return
+            }
+
             console.log(
               `[Dispatch] Server timer auto-expired offer ${assignmentIdToWatch} for Order #${order.orderNumber} (Flow #${currentCycleNumber}/5, Attempt #${attemptNumber}). Cascading to next rider...`
             )
@@ -1609,6 +1638,37 @@ export async function processStaleAssignmentsAndNoShows() {
       where: { id: offer.id },
       data: { status: DeliveryAssignmentStatus.TIMED_OUT },
     })
+
+    // Guard: Check if order is terminal or another assignment is already active/accepted
+    const targetOrder = await prisma.order.findUnique({
+      where: { id: offer.orderId },
+      select: { status: true },
+    })
+    if (!targetOrder || ["DELIVERED", "CANCELLED", "REFUNDED"].includes(targetOrder.status)) {
+      console.log(`[Sweeper] Order ${offer.orderId} is ${targetOrder?.status || "missing"}. Expired offer without cascade.`)
+      continue
+    }
+
+    const hasAccepted = await prisma.riderDeliveryAssignment.findFirst({
+      where: {
+        orderId: offer.orderId,
+        sellerId: offer.sellerId,
+        status: {
+          in: [
+            DeliveryAssignmentStatus.ACCEPTED,
+            DeliveryAssignmentStatus.AT_PICKUP,
+            DeliveryAssignmentStatus.PICKED_UP,
+            DeliveryAssignmentStatus.OUT_FOR_DELIVERY,
+            DeliveryAssignmentStatus.DELIVERED,
+          ],
+        },
+      },
+    })
+    if (hasAccepted) {
+      console.log(`[Sweeper] Order ${offer.orderId} already has active rider ${hasAccepted.riderId}. Skipping cascade.`)
+      continue
+    }
+
     console.log(`[Sweeper] Expired offer ${offer.id} for order ${offer.orderId} (Seller: ${offer.sellerId}). Cascading...`)
     await triggerOrderAutoDispatch(offer.orderId, offer.sellerId || undefined)
   }

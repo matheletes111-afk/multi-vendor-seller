@@ -200,8 +200,16 @@ export async function GET(req: NextRequest) {
 
     // Filter by operational status if specified
     if (statusParam && statusParam !== "ALL") {
-      result = result.filter((r) => r.operationalStatus === statusParam)
+      if (statusParam === "ONLINE") {
+        result = result.filter((r) => r.operationalStatus === "FREE" || r.operationalStatus === "ON_DELIVERY")
+      } else {
+        result = result.filter((r) => r.operationalStatus === statusParam)
+      }
     }
+
+    const onlineCount = formattedRiders.filter(
+      (r) => r.operationalStatus === "FREE" || r.operationalStatus === "ON_DELIVERY"
+    ).length
 
     // Aggregated statistics for top dashboard pills
     const stats = {
@@ -209,7 +217,8 @@ export async function GET(req: NextRequest) {
       free: formattedRiders.filter((r) => r.operationalStatus === "FREE").length,
       onDelivery: formattedRiders.filter((r) => r.operationalStatus === "ON_DELIVERY").length,
       offline: formattedRiders.filter((r) => r.operationalStatus === "OFFLINE").length,
-      withGps: formattedRiders.filter((r) => r.telemetry.latitude != null && r.telemetry.longitude != null).length,
+      online: onlineCount,
+      withGps: onlineCount,
     }
 
     // Count pending onboarding riders for admin awareness

@@ -360,6 +360,12 @@ export function ProductSellerOrderDetailClient({ orderId }: { orderId: string })
         const d = (await res.json()) as { error?: string }
         throw new Error(d.error ?? "Failed")
       }
+      // If status triggers rider dispatch (PROCESSING/SHIPPED), wait briefly so the
+      // fire-and-forget triggerOrderAutoDispatch has time to write the OFFERED assignment
+      // before we re-fetch the order — prevents the 1-second "No Rider Assigned" flicker.
+      if (next === "PROCESSING" || next === "SHIPPED") {
+        await new Promise<void>((resolve) => setTimeout(resolve, 2500))
+      }
       await fetchOrder()
       setDeliveryProofFiles((prev) => ({ ...prev, [itemId]: null }))
       setSuccessMessage("Shipment status updated successfully.")
