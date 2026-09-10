@@ -100,8 +100,13 @@ export function OrderRiderCard({
   const [aiVehicleRecommendation, setAiVehicleRecommendation] = useState<any>(null)
   const [vehicleFilterMode, setVehicleFilterMode] = useState<"matched" | "all">("matched")
 
-  const deliveredAssignment = activeAssignments.find((a) => a.status === "DELIVERED")
-  const activeAssignment = deliveredAssignment || activeAssignments[activePackageIdx] || activeAssignments[0] || null
+  const priorityOrder = ["DELIVERED", "OUT_FOR_DELIVERY", "PICKED_UP", "AT_PICKUP", "ACCEPTED", "OFFERED"]
+  const sortedActiveAssignments = [...activeAssignments].sort((a, b) => {
+    const idxA = priorityOrder.indexOf(a.status)
+    const idxB = priorityOrder.indexOf(b.status)
+    return (idxA === -1 ? 99 : idxA) - (idxB === -1 ? 99 : idxB)
+  })
+  const activeAssignment = sortedActiveAssignments[activePackageIdx] || sortedActiveAssignments[0] || null
 
   const rider = activeAssignment?.rider
   const riderUser = rider?.user

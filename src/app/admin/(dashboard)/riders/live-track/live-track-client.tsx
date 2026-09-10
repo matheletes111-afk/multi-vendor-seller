@@ -120,6 +120,7 @@ interface FleetStats {
   free: number
   onDelivery: number
   offline: number
+  online?: number
   withGps: number
 }
 
@@ -270,7 +271,7 @@ export function LiveTrackClient() {
 
   // State
   const [riders, setRiders] = useState<LiveRiderItem[]>([])
-  const [stats, setStats] = useState<FleetStats>({ total: 0, free: 0, onDelivery: 0, offline: 0, withGps: 0 })
+  const [stats, setStats] = useState<FleetStats>({ total: 0, free: 0, onDelivery: 0, offline: 0, online: 0, withGps: 0 })
   const [pendingOnboardingCount, setPendingOnboardingCount] = useState<number>(0)
   const [loading, setLoading] = useState(true)
   const [mapLoaded, setMapLoaded] = useState(false)
@@ -280,7 +281,7 @@ export function LiveTrackClient() {
   // Filters & Selection
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedZone, setSelectedZone] = useState("ALL")
-  const [selectedStatus, setSelectedStatus] = useState<"ALL" | "FREE" | "ON_DELIVERY" | "OFFLINE">("ALL")
+  const [selectedStatus, setSelectedStatus] = useState<"ALL" | "FREE" | "ON_DELIVERY" | "OFFLINE" | "ONLINE">("ALL")
   const [selectedRider, setSelectedRider] = useState<LiveRiderItem | null>(null)
   const [selectedDeviceModalRider, setSelectedDeviceModalRider] = useState<LiveRiderItem | null>(null)
   const [sidebarOpen, setSidebarOpen] = useState(true)
@@ -315,7 +316,7 @@ export function LiveTrackClient() {
       const data = await res.json()
       if (res.ok && data.success) {
         setRiders(data.riders || [])
-        setStats(data.stats || { total: 0, free: 0, onDelivery: 0, offline: 0, withGps: 0 })
+        setStats(data.stats || { total: 0, free: 0, onDelivery: 0, offline: 0, online: 0, withGps: 0 })
         if (typeof data.pendingOnboardingCount === "number") {
           setPendingOnboardingCount(data.pendingOnboardingCount)
         }
@@ -623,7 +624,8 @@ export function LiveTrackClient() {
     // Filter riders according to selected zone & status & search query
     const visibleRiders = riders.filter((r) => {
       if (selectedZone !== "ALL" && !r.selectedZones.includes(selectedZone)) return false
-      if (selectedStatus !== "ALL" && r.operationalStatus !== selectedStatus) return false
+      if (selectedStatus === "ONLINE" && r.operationalStatus === "OFFLINE") return false
+      if (selectedStatus !== "ALL" && selectedStatus !== "ONLINE" && r.operationalStatus !== selectedStatus) return false
       if (searchQuery.trim()) {
         const query = searchQuery.toLowerCase().trim()
         const matchesName = r.name.toLowerCase().includes(query)
@@ -892,11 +894,31 @@ export function LiveTrackClient() {
     }
   }
 
+  // Dynamic computed fleet stats synchronized in real time with riders state
+  const computedStats = useMemo<FleetStats>(() => {
+    const total = riders.length
+    const free = riders.filter((r) => r.operationalStatus === "FREE").length
+    const onDelivery = riders.filter((r) => r.operationalStatus === "ON_DELIVERY").length
+    const offline = riders.filter((r) => r.operationalStatus === "OFFLINE").length
+    const online = free + onDelivery
+    return {
+      total,
+      free,
+      onDelivery,
+      offline,
+      online,
+      withGps: online,
+    }
+  }, [riders])
+
+  const displayStats = riders.length > 0 ? computedStats : stats
+
   // Filtered riders for sidebar
   const filteredRiders = useMemo(() => {
     return riders.filter((r) => {
       if (selectedZone !== "ALL" && !r.selectedZones.includes(selectedZone)) return false
-      if (selectedStatus !== "ALL" && r.operationalStatus !== selectedStatus) return false
+      if (selectedStatus === "ONLINE" && r.operationalStatus === "OFFLINE") return false
+      if (selectedStatus !== "ALL" && selectedStatus !== "ONLINE" && r.operationalStatus !== selectedStatus) return false
       if (searchQuery.trim()) {
         const query = searchQuery.toLowerCase().trim()
         const matchesName = r.name.toLowerCase().includes(query)
@@ -1508,7 +1530,7 @@ export function LiveTrackClient() {
             <span>Onboarded Fleet</span>
             <Bike className="w-3.5 h-3.5 text-slate-500" />
           </div>
-          <div className="text-lg sm:text-xl font-bold text-foreground mt-0.5">{stats.total}</div>
+          <div className="text-lg sm:text-xl font-bold text-foreground mt-0.5">{displayStats.total}</div>
         </div>
 
         {/* Free / Available */}
@@ -1523,7 +1545,7 @@ export function LiveTrackClient() {
             <span>Free / Available</span>
             <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
           </div>
-          <div className="text-lg sm:text-xl font-bold text-emerald-700 dark:text-emerald-300 mt-0.5">{stats.free}</div>
+          <div className="text-lg sm:text-xl font-bold text-emerald-700 dark:text-emerald-300 mt-0.5">{displayStats.free}</div>
         </div>
 
         {/* On Delivery */}
@@ -1538,7 +1560,7 @@ export function LiveTrackClient() {
             <span>On Delivery</span>
             <Package className="w-3.5 h-3.5 text-blue-600" />
           </div>
-          <div className="text-lg sm:text-xl font-bold text-blue-700 dark:text-blue-300 mt-0.5">{stats.onDelivery}</div>
+          <div className="text-lg sm:text-xl font-bold text-blue-700 dark:text-blue-300 mt-0.5">{displayStats.onDelivery}</div>
         </div>
 
         {/* Offline */}
@@ -1553,17 +1575,25 @@ export function LiveTrackClient() {
             <span>Offline</span>
             <AlertCircle className="w-3.5 h-3.5 text-slate-400" />
           </div>
-          <div className="text-lg sm:text-xl font-bold text-slate-700 dark:text-slate-300 mt-0.5">{stats.offline}</div>
+          <div className="text-lg sm:text-xl font-bold text-slate-700 dark:text-slate-300 mt-0.5">{displayStats.offline}</div>
         </div>
 
-        {/* GPS Telemetry Live */}
-        <div className="shrink-0 snap-start min-w-[140px] sm:min-w-0 flex-1 col-span-2 sm:col-span-1 lg:col-span-1 p-2.5 sm:p-3 rounded-2xl border bg-gradient-to-br from-indigo-50/50 to-blue-50/30 dark:from-indigo-950/20 dark:to-blue-950/20 shadow-2xs">
+        {/* Online Riders (replaces Active GPS Signals) */}
+        <div
+          onClick={() => setSelectedStatus(selectedStatus === "ONLINE" ? "ALL" : "ONLINE")}
+          className={cn(
+            "p-2.5 sm:p-3 rounded-2xl border transition-all cursor-pointer shadow-2xs hover:border-indigo-400 shrink-0 snap-start min-w-[140px] sm:min-w-0 flex-1 col-span-2 sm:col-span-1 lg:col-span-1",
+            selectedStatus === "ONLINE"
+              ? "border-indigo-600 bg-indigo-100/60 dark:bg-indigo-900/40"
+              : "bg-gradient-to-br from-indigo-50/50 to-blue-50/30 dark:from-indigo-950/20 dark:to-blue-950/20"
+          )}
+        >
           <div className="flex items-center justify-between text-[11px] sm:text-xs text-indigo-600 dark:text-indigo-400 font-medium">
-            <span>Active GPS Signals</span>
+            <span>Online Riders</span>
             <Radio className="w-3.5 h-3.5 text-indigo-600 animate-pulse" />
           </div>
           <div className="text-lg sm:text-xl font-bold text-indigo-700 dark:text-indigo-300 mt-0.5">
-            {stats.withGps} <span className="text-xs font-normal text-muted-foreground">/ {stats.total}</span>
+            {displayStats.online ?? (displayStats.free + displayStats.onDelivery)} <span className="text-xs font-normal text-muted-foreground">/ {displayStats.total}</span>
           </div>
         </div>
       </div>
