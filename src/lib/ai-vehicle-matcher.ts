@@ -14,6 +14,53 @@ export interface VehicleMatchResult {
   confidence: "AI_MODEL" | "HEURISTIC"
 }
 
+/**
+ * Normalizes any free-text or mobile rider vehicle string (e.g., "BICYCLE", "MOTORCYCLE", "KEKE")
+ * into one of the standard categories: "2_WHEELER", "3_WHEELER", "4_WHEELER".
+ */
+export function normalizeVehicleCategory(rawType: string): VehicleType {
+  const norm = String(rawType || "").trim().toUpperCase()
+  if (
+    norm.includes("2_WHEELER") ||
+    norm.includes("BICYCLE") ||
+    norm.includes("CYCLE") ||
+    norm.includes("BIKE") ||
+    norm.includes("SCOOTER") ||
+    norm.includes("MOTOR")
+  ) {
+    return "2_WHEELER"
+  }
+  if (
+    norm.includes("3_WHEELER") ||
+    norm.includes("KEKE") ||
+    norm.includes("TRICYCLE") ||
+    norm.includes("RICKSHAW")
+  ) {
+    return "3_WHEELER"
+  }
+  if (
+    norm.includes("4_WHEELER") ||
+    norm.includes("CAR") ||
+    norm.includes("VAN") ||
+    norm.includes("TRUCK")
+  ) {
+    return "4_WHEELER"
+  }
+  return "2_WHEELER"
+}
+
+export function isRiderVehicleCompatible(
+  riderTypes: string[] | unknown,
+  compatibleVehicles: VehicleType[]
+): boolean {
+  const types = Array.isArray(riderTypes) ? (riderTypes as string[]) : []
+  if (types.length === 0) return true // Legacy riders without specified vehicle types match standard deliveries
+  return types.some((t) => {
+    const normalized = normalizeVehicleCategory(t)
+    return compatibleVehicles.includes(normalized)
+  })
+}
+
 export interface MatchableItem {
   name?: string | null
   productNameSnapshot?: string | null
