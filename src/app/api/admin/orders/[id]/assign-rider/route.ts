@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
-import { manualAssignRiderToOrder, triggerOrderAutoDispatch, stopOrderAutoDispatch } from "@/lib/delivery-dispatch"
+import { manualAssignRiderToOrder, triggerOrderAutoDispatch, stopOrderAutoDispatch, cancelAcceptedRiderAssignment } from "@/lib/delivery-dispatch"
 
 export async function POST(
   req: NextRequest,
@@ -15,7 +15,7 @@ export async function POST(
 
     const { id } = await params
     const body = await req.json()
-    const { riderId, action, notes, sellerId } = body
+    const { riderId, action, notes, sellerId, reason, cancellationReason } = body
 
     const userRole = session.user.role
 
@@ -63,8 +63,8 @@ export async function POST(
           message:
             result.message ||
             (result.success
-              ? "Auto-dispatch initiated! Nearest free rider contacted."
-              : "Auto-dispatch failed to find an available rider."),
+               ? "Auto-dispatch initiated! Nearest free rider contacted."
+               : "Auto-dispatch failed to find an available rider."),
           data: result,
         },
         { status: result.success ? 200 : 400 }
@@ -75,11 +75,29 @@ export async function POST(
     if (action === "stop_dispatch") {
       const cancelledBy = userRole === "ADMIN" ? "ADMIN" : "SELLER"
       const result = await stopOrderAutoDispatch(order.id, targetSellerId, cancelledBy)
-      return NextResponse.json({
-        success: true,
-        message: result.message,
-        data: result,
-      })
+      return NextResponse.json(
+        {
+          success: result.success,
+          message: result.message,
+          data: result,
+        },
+        { status: result.success ? 200 : 400 }
+      )
+    }
+
+    // If action is "cancel_assignment" / "cancel_rider", revoke active rider (ACCEPTED or AT_PICKUP)
+    if (action === "cancel_assignment" || action === "cancel_rider") {
+      const cancelledBy = userRole === "ADMIN" ? "ADMIN" : "SELLER"
+      const customReason = reason || cancellationReason || "Rider did not show up"
+      const result = await cancelAcceptedRiderAssignment(order.id, targetSellerId, cancelledBy, customReason)
+      return NextResponse.json(
+        {
+          success: result.success,
+          message: result.message,
+          data: result,
+        },
+        { status: result.success ? 200 : 400 }
+      )
     }
 
     if (!riderId) {

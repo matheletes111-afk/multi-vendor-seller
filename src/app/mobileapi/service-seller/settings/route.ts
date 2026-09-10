@@ -43,6 +43,44 @@ export async function GET(request: NextRequest) {
 
     if (!seller) return NextResponse.json({ success: false, error: "Seller not found" }, { status: 404 })
 
+    const { getPresignedUrlOrOriginal } = await import("@/lib/s3-presigned")
+    if (seller.store?.logo) {
+      seller.store.logo = await getPresignedUrlOrOriginal(seller.store.logo)
+    }
+    if (seller.store?.banner) {
+      seller.store.banner = await getPresignedUrlOrOriginal(seller.store.banner)
+    }
+    if (seller.businessInfo) {
+      const [busReg, cityCouncil, gstTin, addrProof] = await Promise.all([
+        getPresignedUrlOrOriginal(seller.businessInfo.busRegCertUrl),
+        getPresignedUrlOrOriginal(seller.businessInfo.cityCouncilCertUrl),
+        getPresignedUrlOrOriginal(seller.businessInfo.gstTinCertUrl),
+        getPresignedUrlOrOriginal(seller.businessInfo.addressProofUrl)
+      ])
+      seller.businessInfo.busRegCertUrl = busReg
+      seller.businessInfo.cityCouncilCertUrl = cityCouncil
+      seller.businessInfo.gstTinCertUrl = gstTin
+      seller.businessInfo.addressProofUrl = addrProof
+    }
+    if (seller.kyc) {
+      const [front, back, selfie] = await Promise.all([
+        getPresignedUrlOrOriginal(seller.kyc.idFrontUrl),
+        getPresignedUrlOrOriginal(seller.kyc.idBackUrl),
+        getPresignedUrlOrOriginal(seller.kyc.selfieUrl)
+      ])
+      seller.kyc.idFrontUrl = front
+      seller.kyc.idBackUrl = back
+      seller.kyc.selfieUrl = selfie
+    }
+    if (seller.bankDetails) {
+      const [passbook, bankLetter] = await Promise.all([
+        getPresignedUrlOrOriginal(seller.bankDetails.passbookUrl),
+        getPresignedUrlOrOriginal(seller.bankDetails.bankLetterUrl)
+      ])
+      seller.bankDetails.passbookUrl = passbook
+      seller.bankDetails.bankLetterUrl = bankLetter
+    }
+
     return NextResponse.json({ success: true, data: seller })
   } catch (error) {
     console.error("Mobile get settings error:", error)
@@ -281,14 +319,17 @@ export async function PUT(request: NextRequest) {
       const branchName = fd.get("branchName") as string | null
       const mobileMoneyOption = fd.get("mobileMoneyOption") as string | null
       const preferredPayoutMethod = fd.get("preferredPayoutMethod") as string | null
+      const bankPassbook = fd.get("bankPassbook") as File | null
+      const bankLetter = fd.get("bankLetter") as File | null
 
-      const hasBankFields = paymentOption !== null || mobileNumber !== null || agentNumber !== null || bankName !== null || accountNumber !== null || bbanNumber !== null || mobileMoneyOption !== null || preferredPayoutMethod !== null
+      const hasBankFields = paymentOption !== null || mobileNumber !== null || agentNumber !== null ||
+        bankName !== null || bankAddress !== null || accountHolderName !== null || accountNumber !== null ||
+        bbanNumber !== null || branchName !== null || mobileMoneyOption !== null || preferredPayoutMethod !== null ||
+        (bankPassbook && bankPassbook.size > 0) || (bankLetter && bankLetter.size > 0)
 
       if (hasBankFields) {
         let passbookUrl = seller.bankDetails?.passbookUrl || null
         let bankLetterUrl = seller.bankDetails?.bankLetterUrl || null
-
-        const bankPassbook = fd.get("bankPassbook") as File | null
         if (bankPassbook && bankPassbook.size > 0) {
           passbookUrl = await uploadPublicFile({
             folder: "onboarding/bank",
@@ -299,7 +340,6 @@ export async function PUT(request: NextRequest) {
           })
         }
 
-        const bankLetter = fd.get("bankLetter") as File | null
         if (bankLetter && bankLetter.size > 0) {
           bankLetterUrl = await uploadPublicFile({
             folder: "onboarding/bank",
@@ -339,7 +379,12 @@ export async function PUT(request: NextRequest) {
       }
 
       // 5. KYC Uploads
-      const kycData: Prisma.SellerKYCUpdateWithoutSellerInput = {}
+      const kycData: any = {}
+      const idType = fd.get("idType") as string | null
+      const idNumber = fd.get("idNumber") as string | null
+      if (idType !== null) kycData.idType = idType.trim() || null
+      if (idNumber !== null) kycData.idNumber = idNumber.trim() || null
+
       const idFront = fd.get("idFront") as File | null
       const idBack = fd.get("idBack") as File | null
       const selfie = fd.get("selfie") as File | null
@@ -382,6 +427,11 @@ export async function PUT(request: NextRequest) {
       }
 
       // Execute Multipart Updates
+      if (userData.name) {
+        const { checkDisallowedName } = await import("@/lib/name-validation")
+        const nameCheck = await checkDisallowedName(userData.name as string)
+        if (!nameCheck.isAllowed) return NextResponse.json({ success: false, error: nameCheck.error! }, { status: 400 })
+      }
       if (userData.phone) {
         const existing = await prisma.user.findFirst({ where: { phone: userData.phone as string, NOT: { id: userId } } })
         if (existing) return NextResponse.json({ success: false, error: "Phone number already in use" }, { status: 400 })
@@ -570,26 +620,44 @@ export async function PUT(request: NextRequest) {
     if (sData) {
       // Handle Business Info including GST logic from Web
       if (sData.businessInfo) {
-        const bInfo = { ...sData.businessInfo }
-        if (bInfo.haveGst !== undefined) {
-            const h = bInfo.haveGst === "true" || bInfo.haveGst === true
-            bInfo.haveGst = h
-            if (!h) {
-                // TIN is always required, do NOT clear it when GST is off
-                bInfo.gstInvNo = null
-                bInfo.gstCustomerName = null
-            }
+        const allowedBusFields = [
+          "businessName", "businessType", "businessRegNumber", "taxIdNumber",
+          "busRegCertUrl", "cityCouncilCertUrl", "gstTinCertUrl", "addressProofUrl",
+          "street", "city", "district", "postalCode", "state", "natureOfBusiness",
+          "haveGst", "gstInvNo", "gstCustomerName", "latitude", "longitude", "yearsInOperation"
+        ]
+        const cleanBusInfo: any = {}
+        for (const key of allowedBusFields) {
+          if (sData.businessInfo[key] !== undefined && (typeof sData.businessInfo[key] !== "object" || sData.businessInfo[key] === null)) {
+            cleanBusInfo[key] = sData.businessInfo[key]
+          }
         }
-        finalSellerUpdate.businessInfo = {
-          upsert: {
-            update: bInfo,
-            create: { ...bInfo }
+        if (sData.businessInfo.haveGst !== undefined) {
+          const h = sData.businessInfo.haveGst === "true" || sData.businessInfo.haveGst === true
+          cleanBusInfo.haveGst = h
+          if (!h) {
+            cleanBusInfo.gstInvNo = null
+            cleanBusInfo.gstCustomerName = null
+          }
+        }
+        if (Object.keys(cleanBusInfo).length > 0) {
+          finalSellerUpdate.businessInfo = {
+            upsert: {
+              update: cleanBusInfo,
+              create: { ...cleanBusInfo }
+            }
           }
         }
       }
 
       if (sData.bankDetails) {
-        const { data: bankData, error: valErr } = validateAndFormatPaymentDetails(sData.bankDetails, { requireFields: false })
+        const existingBank = seller.bankDetails
+        const bankInput = {
+          ...sData.bankDetails,
+          passbookUrl: sData.bankDetails.passbookUrl !== undefined ? sData.bankDetails.passbookUrl : (existingBank?.passbookUrl || null),
+          bankLetterUrl: sData.bankDetails.bankLetterUrl !== undefined ? sData.bankDetails.bankLetterUrl : (existingBank?.bankLetterUrl || null),
+        }
+        const { data: bankData, error: valErr } = validateAndFormatPaymentDetails(bankInput, { requireFields: false })
         if (valErr) {
           return NextResponse.json({ success: false, error: valErr }, { status: 400 })
         }
@@ -602,10 +670,19 @@ export async function PUT(request: NextRequest) {
       }
       
       if (sData.kyc) {
-        finalSellerUpdate.kyc = {
-          upsert: {
-            update: sData.kyc,
-            create: { ...sData.kyc }
+        const allowedKycFields = ["idType", "idNumber", "idFrontUrl", "idBackUrl", "selfieUrl"]
+        const cleanKyc: any = {}
+        for (const key of allowedKycFields) {
+          if (typeof sData.kyc[key] === "string") {
+            cleanKyc[key] = sData.kyc[key].trim() || null
+          }
+        }
+        if (Object.keys(cleanKyc).length > 0) {
+          finalSellerUpdate.kyc = {
+            upsert: {
+              update: cleanKyc,
+              create: { ...cleanKyc }
+            }
           }
         }
       }

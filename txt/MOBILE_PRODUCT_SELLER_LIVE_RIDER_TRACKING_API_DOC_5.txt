@@ -389,6 +389,23 @@ B. Directly Assign a Specific Rider:
   "riderId": "cuid_rider_1"
 }
 
+C. Stop Notifications (Cancel Pending Offer):
+{
+  "action": "stop_dispatch"
+}
+
+D. Cancel Rider Assignment (Rider No-Show / Did Not Arrive):
+{
+  "action": "cancel_assignment",
+  "reason": "Rider did not show up"
+}
+Note: cancel_assignment only works when status is ACCEPTED or AT_PICKUP (before pickup).
+      Once items are PICKED_UP or OUT_FOR_DELIVERY, cancellation is blocked.
+
+📄 For complete stop_dispatch and cancel_assignment documentation, request/error responses,
+   and Flutter code examples — see:
+   MOBILE_SELLER_DISPATCH_NOTIFICATION_STOP_API_DOC_PART_7.txt
+
 SUCCESS RESPONSE (200 OK):
 {
   "success": true,

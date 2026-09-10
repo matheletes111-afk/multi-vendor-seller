@@ -1,0 +1,308 @@
+====================================================================================================
+MOBILE API: ALL SELLERS SETTINGS & ONBOARDING DOCUMENTS UPDATE SPECIFICATION
+====================================================================================================
+Applies to: Product Seller, Service Seller, Restaurant Seller, Hotel Seller
+Supports: Updates before admin approval (Pending / Correction Needed) & after approval (Anytime)
+Updated: September 2026
+====================================================================================================
+
+1. OVERVIEW & OBJECTIVE
+----------------------------------------------------------------------------------------------------
+This document provides the definitive technical specification for Mobile App developers to fetch
+and update ALL onboarding fields, documents, KYC images, and visual assets through the Settings API.
+
+KEY HIGHLIGHTS:
+1. Full Onboarding Parity: Every field and document uploaded during onboarding can be fetched,
+   viewed, and re-uploaded in Settings (Profile Picture, Business Certs, ID Front/Back, Selfie,
+   Hygiene License, Bank Passbook, Bank Letter, Store Logo, Banner, Property Photo, and GPS Map).
+2. Unrestricted Lifecycle:
+   - Before Admin Approval: Pending sellers (isApproved = false) and sellers flagged for
+     corrections (CORRECTION_NEEDED) can update any document or detail directly in Settings.
+   - After Admin Approval: Active approved sellers (isApproved = true) can modify any document or
+     information whenever they want.
+3. Secure Document URLs: The GET endpoints automatically resolve presigned S3 URLs with 5-minute
+   validity for all private KYC, business, and banking documents.
+
+
+2. BASE PATHS & ENDPOINTS
+----------------------------------------------------------------------------------------------------
+| Seller Type        | Method | Endpoint Path                              |
+|--------------------|--------|--------------------------------------------|
+| Product Seller     | GET    | /mobileapi/product-seller/settings         |
+| Product Seller     | PUT    | /mobileapi/product-seller/settings         |
+| Service Seller     | GET    | /mobileapi/service-seller/settings         |
+| Service Seller     | PUT    | /mobileapi/service-seller/settings         |
+| Restaurant Seller  | GET    | /mobileapi/restaurant-seller/settings      |
+| Restaurant Seller  | PUT    | /mobileapi/restaurant-seller/settings      |
+| Hotel Seller       | GET    | /mobileapi/hotel-seller/settings           |
+| Hotel Seller       | PUT    | /mobileapi/hotel-seller/settings           |
+
+AUTHENTICATION HEADER (All requests):
+Authorization: Bearer <MOBILE_ACCESS_TOKEN>
+
+
+3. GET: FETCH COMPLETE SELLER SETTINGS & ONBOARDING DATA
+----------------------------------------------------------------------------------------------------
+Request:
+  GET <Base_Path>
+  Headers:
+    Authorization: Bearer <TOKEN>
+
+Response (200 OK):
+All document URL fields are pre-signed and ready for direct rendering/opening in the mobile app.
+
+{
+  "success": true,
+  "data": {
+    "id": "cly1234567890",
+    "userId": "usr_987654321",
+    "type": "PRODUCT",
+    "isApproved": false,
+    "status": "PENDING",
+    "adminFeedback": "Please re-upload a clearer image of your ID Front.",
+    "isSuspended": false,
+    "nationIdentityNumber": "11223344556",
+    
+    // User Profile
+    "user": {
+      "id": "usr_987654321",
+      "name": "Jane Doe",
+      "email": "jane.doe@example.com",
+      "image": "https://s3.amazonaws.com/.../profile.jpg",
+      "phone": "76123456",
+      "phoneCountryCode": "+232"
+    },
+
+    // Business Details & Uploaded Documents
+    "businessInfo": {
+      "businessName": "Jane General Supplies",
+      "businessType": "Company",
+      "businessRegNumber": "BR-991823",
+      "haveGst": true,
+      "taxIdNumber": "TIN-8827162",
+      "gstCustomerName": "Jane Supplies Ltd",
+      "gstInvNo": "GST-0019283",
+      "street": "14 Regent Road",
+      "city": "Freetown",
+      "district": "Western Area Urban",
+      "postalCode": "00232",
+      "busRegCertUrl": "https://s3.amazonaws.com/.../bus-reg.pdf?X-Amz-Signature=...",
+      "cityCouncilCertUrl": "https://s3.amazonaws.com/.../city-council.pdf?X-Amz-Signature=...",
+      "gstTinCertUrl": "https://s3.amazonaws.com/.../gst-tin.pdf?X-Amz-Signature=...",
+      "addressProofUrl": "https://s3.amazonaws.com/.../address-proof.pdf?X-Amz-Signature=..."
+    },
+
+    // Identity & KYC Documents
+    "kyc": {
+      "idType": "National ID Card",
+      "idNumber": "NID-8827361",
+      "idFrontUrl": "https://s3.amazonaws.com/.../id-front.jpg?X-Amz-Signature=...",
+      "idBackUrl": "https://s3.amazonaws.com/.../id-back.jpg?X-Amz-Signature=...",
+      "selfieUrl": "https://s3.amazonaws.com/.../selfie.jpg?X-Amz-Signature=...",
+      // Present in Restaurant Seller:
+      "foodLicenseNumber": "FL-9921",
+      "foodLicenseUrl": "https://s3.amazonaws.com/.../food-license.pdf?X-Amz-Signature=..."
+    },
+
+    // Banking / Payout Details
+    "bankDetails": {
+      "paymentOption": "Bank", // "Bank", "Orange Money", "AfriMoney"
+      "bankName": "Sierra Leone Commercial Bank",
+      "bankAddress": "Siaka Stevens Street, Freetown",
+      "accountHolderName": "Jane Doe",
+      "accountNumber": "00300123456789",
+      "bbanNumber": "SL001002003004005",
+      "branchName": "Main Branch",
+      "passbookUrl": "https://s3.amazonaws.com/.../bank-passbook.jpg?X-Amz-Signature=...",
+      "bankLetterUrl": "https://s3.amazonaws.com/.../bank-letter.pdf?X-Amz-Signature=...",
+      // If Mobile Money:
+      "mobileNumber": "076123456",
+      "agentNumber": "AG-12345",
+      "mobileMoneyOption": "Orange Money",
+      "preferredPayoutMethod": "Mobile Wallet"
+    },
+
+    // Store / Outlet / Property Visuals & Location
+    "store": {
+      "name": "Jane's Product Hub",
+      "description": "Premium goods and electronics retailer.",
+      "logo": "https://s3.amazonaws.com/.../store-logo.jpg?X-Amz-Signature=...",
+      "banner": "https://s3.amazonaws.com/.../store-banner.jpg?X-Amz-Signature=...",
+      "address": "14 Regent Road, Freetown, Sierra Leone",
+      "lat": 8.4844,
+      "lng": -13.2344
+    },
+
+    // Categories
+    "selectedCategories": [
+      { "id": "cat_1", "name": "Electronics", "isActive": true }
+    ]
+  }
+}
+
+
+4. PUT: UPDATE SETTINGS & ONBOARDING DATA
+----------------------------------------------------------------------------------------------------
+You can call PUT using:
+A) multipart/form-data: Recommended whenever uploading files/images or submitting hybrid forms.
+B) application/json: Suitable for updating text-only fields (passwords, names, addresses).
+
+====================================================================================================
+A) MULTIPART / FORM-DATA SPECIFICATION (BY SECTION)
+====================================================================================================
+
+1. USER PROFILE SECTION:
+----------------------------------------------------------------------------------------------------
+| Form Field Name         | Type   | Description                                                     |
+|-------------------------|--------|-----------------------------------------------------------------|
+| name                    | string | User's full name                                                |
+| phone                   | string | Primary phone number                                            |
+| phoneCountryCode        | string | Country code prefix (e.g. "+232")                               |
+| nationIdentityNumber    | string | 11-digit National Identity Number (NIN)                         |
+| password                | string | (Optional) New password (min 8 chars, mixed case, number, spec) |
+| currentPassword         | string | (Required if changing password) Current account password        |
+| profileImage            | File   | Image file (JPG/PNG/WEBP) for avatar                            |
+
+2. BUSINESS DETAILS & CERTIFICATES SECTION:
+----------------------------------------------------------------------------------------------------
+| Form Field Name         | Type   | Description                                                     |
+|-------------------------|--------|-----------------------------------------------------------------|
+| businessName            | string | Registered business or company name                             |
+| businessType            | string | Individual, Proprietor, Partnership, Company                    |
+| businessRegNumber       | string | Registration / Trade license number                             |
+| haveGst                 | string | "true" or "false"                                               |
+| taxIdNumber             | string | TIN / Tax ID number (Always required)                           |
+| gstCustomerName         | string | Registered GST customer name (if haveGst = "true")              |
+| gstInvNo                | string | GST identification number (if haveGst = "true")                 |
+| street                  | string | Street address                                                  |
+| city                    | string | City name                                                       |
+| district                | string | Area / District name                                            |
+| busRegCert              | File   | Business Registration Certificate (PDF or Image)                |
+| cityCouncilCert         | File   | City Council Certificate (PDF or Image, optional)              |
+| gstTinCert              | File   | GST TIN Certificate (PDF or Image)                              |
+| addressProof            | File   | Proof of Address (EDSA, GUMA bill, PDF or Image, optional)      |
+
+3. IDENTITY & KYC VERIFICATION SECTION:
+----------------------------------------------------------------------------------------------------
+| Form Field Name         | Type   | Description                                                     |
+|-------------------------|--------|-----------------------------------------------------------------|
+| section                 | string | "kyc" (Optional; endpoint auto-detects KYC section by fields)   |
+| idType                  | string | National ID Card, Passport, Driver's License                   |
+| idNumber                | string | Official government ID / Passport number                        |
+| idFront                 | File   | Government ID / Passport Front (JPG/PNG/WEBP)                   |
+| idBack                  | File   | Government ID / Passport Back (JPG/PNG/WEBP)                    |
+| selfie                  | File   | Face Verification / Selfie check (JPG/PNG/WEBP)                 |
+| foodLicenseNumber       | string | (Restaurant Seller only) Hygiene / Food Sanitation License No.  |
+| foodLicense             | File   | (Restaurant Seller only) Hygiene License document (PDF/Image)   |
+
+4. PAYMENT & BANK DETAILS SECTION:
+----------------------------------------------------------------------------------------------------
+| Form Field Name         | Type   | Description                                                     |
+|-------------------------|--------|-----------------------------------------------------------------|
+| section                 | string | "bank" (Optional; endpoint auto-detects bank section by fields) |
+| paymentOption           | string | "Bank", "Orange Money", or "AfriMoney"                          |
+| bankName                | string | (If Bank) Name of the bank                                      |
+| bankAddress             | string | (If Bank) Bank branch address                                   |
+| accountHolderName       | string | (If Bank) Full account holder name                              |
+| accountNumber           | string | (If Bank) Account number                                        |
+| bbanNumber              | string | (If Bank) BBAN number                                           |
+| branchName              | string | (If Bank) Branch name                                           |
+| bankPassbook / passbook | File   | (If Bank) Copy of bank passbook or voided cheque (optional)     |
+| bankLetter              | File   | (If Bank) Bank confirmation letter with account no. (optional)  |
+| mobileNumber            | string | (If Mobile Money) Registered phone number                       |
+| agentNumber             | string | (If Mobile Money) Agent / merchant code                         |
+
+5. STORE / OUTLET / PROPERTY SETUP & VISUALS SECTION:
+----------------------------------------------------------------------------------------------------
+| Form Field Name         | Type   | Description                                                     |
+|-------------------------|--------|-----------------------------------------------------------------|
+| section                 | string | "store" | "outlet" | "property" (Optional; auto-detected)      |
+| name / storeName        | string | Public store, restaurant, or hotel display name                 |
+| description             | string | Store bio or property description                               |
+| storeLogo / logo        | File   | Square store/hotel logo image (JPG/PNG/WEBP)                    |
+| storeBanner / banner    | File   | Wide header banner image (JPG/PNG/WEBP)                         |
+| mainPhoto               | File   | (Restaurant & Hotel only) Main outlet/property photo            |
+| storeAddress / address  | string | Geocoded physical address string                                |
+| storeLat / lat          | string | Latitude float (e.g. "8.4844")                                  |
+| storeLng / lng          | string | Longitude float (e.g. "-13.2344")                               |
+| categoryIds             | array  | Repeatable field with selected category IDs                     |
+
+
+====================================================================================================
+B) APPLICATION/JSON SPECIFICATION (FOR TEXT-ONLY UPDATES)
+====================================================================================================
+Send a standard JSON payload when no file upload is needed:
+
+{
+  "user": {
+    "name": "Jane Doe",
+    "phone": "76123456",
+    "phoneCountryCode": "+232",
+    "password": "NewSecurePassword123!",
+    "currentPassword": "CurrentPassword123!"
+  },
+  "seller": {
+    "nationIdentityNumber": "11223344556",
+    "businessInfo": {
+      "businessName": "Jane Supplies Ltd",
+      "businessType": "Company",
+      "haveGst": true,
+      "taxIdNumber": "TIN-8827162",
+      "gstCustomerName": "Jane Supplies Ltd",
+      "gstInvNo": "GST-0019283",
+      "street": "14 Regent Road",
+      "city": "Freetown",
+      "district": "Western Area Urban"
+    },
+    "kyc": {
+      "idType": "National ID Card",
+      "idNumber": "NID-8827361"
+    },
+    "bankDetails": {
+      "paymentOption": "Orange Money",
+      "mobileNumber": "076123456",
+      "agentNumber": "AG-998822"
+    },
+    "categoryIds": ["cat_id_1", "cat_id_2"]
+  },
+  "store": {
+    "name": "Jane's Hub",
+    "description": "Updated store bio",
+    "address": "14 Regent Road",
+    "lat": 8.4844,
+    "lng": -13.2344
+  }
+}
+
+
+5. ERROR CODES & RESPONSES
+----------------------------------------------------------------------------------------------------
+| HTTP Status | Error String / Reason               | Meaning / Solution                               |
+|-------------|-------------------------------------|--------------------------------------------------|
+| 200 OK      | {"success": true, ...}              | Update saved successfully.                       |
+| 400 Bad Req | "Current password is required..."   | Password change requested without current pass.  |
+| 400 Bad Req | "Incorrect current password"        | Provided current password does not match.        |
+| 400 Bad Req | "Please provide both Mobile..."     | Mobile Money selected but missing numbers.       |
+| 400 Bad Req | "Phone number already in use"       | Another account is already using that number.    |
+| 400 Bad Req | "Invalid phone number or count..."  | Phone format or country code prefix is invalid.  |
+| 400 Bad Req | "Name contains disallowed words..." | Display name violates disallowed words filter.   |
+| 401 Unauth  | "Unauthorized"                      | Missing, expired, or invalid Bearer token.       |
+| 403 Forbid  | "Forbidden"                         | User role does not match seller panel type.      |
+| 404 Not Fnd | "Seller not found"                  | Seller record does not exist for this user.      |
+| 500 Error   | "Failed to update settings"         | Server error or storage failure.                 |
+
+
+6. BEST PRACTICES FOR MOBILE CLIENT DEVELOPERS
+----------------------------------------------------------------------------------------------------
+1. Compression:
+   - Compress photos to a maximum dimension of 1200x1200px at ~80% JPEG quality before attaching
+     to FormData. File sizes should stay below 4.5 MB.
+2. Previewing Existing Files:
+   - Always display the image or PDF from the presigned URL returned in `GET`.
+   - When the user selects a new file locally, replace the thumbnail preview with the local image URI.
+   - Only append the `File` object in FormData if the user actually picked a new replacement.
+3. Checking Approval Status:
+   - The `status` field returns "PENDING", "APPROVED", "CORRECTION_NEEDED", or "REJECTED".
+   - If `status === "CORRECTION_NEEDED"`, inspect `adminFeedback` to show the admin's exact review
+     note at the top of the mobile screen so the seller knows which document to fix and re-submit.
+====================================================================================================
