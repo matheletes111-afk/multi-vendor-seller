@@ -133,9 +133,30 @@ export function OrderRiderCard({
     latestAttempt.expiresAt &&
     (Date.now() - new Date(latestAttempt.expiresAt).getTime()) < 10000
 
+  // Determine candidate pool size from assignment notes (e.g. "(Pool: 5 riders)")
+  // or dynamically from distinct riders in the current cascade cycle
+  const poolNoteAssignment = sellerAssignments.find((a) => a.adminNotes?.includes("Pool:"))
+  const poolMatch = poolNoteAssignment?.adminNotes?.match(/Pool:\s*(\d+)\s*riders?/i)
+  const distinctRidersCount = new Set(
+    currentCycleHistorical.map((a) => a.riderId).filter(Boolean)
+  ).size
+  const poolCount = poolMatch
+    ? Math.max(1, parseInt(poolMatch[1], 10))
+    : Math.max(1, distinctRidersCount)
+  const totalExpectedAttempts = poolCount * 5
+
+  const isCascadeInProgress =
+    !isDelivered &&
+    orderStatus !== "CANCELLED" &&
+    orderStatus !== "REFUNDED" &&
+    !isSelfDelivery &&
+    (orderStatus === "SHIPPED" || orderStatus === "READY_FOR_PICKUP") &&
+    activeAssignments.length === 0 &&
+    currentCycleHistorical.length < totalExpectedAttempts
+
   const maxAttemptsReached =
     activeAssignments.length === 0 &&
-    currentCycleHistorical.length >= 5 &&
+    currentCycleHistorical.length >= totalExpectedAttempts &&
     !isRecentTimeout
 
   const [aiVehicleRecommendation, setAiVehicleRecommendation] = useState<any>(null)
@@ -426,24 +447,26 @@ export function OrderRiderCard({
               {isDelivered ? <CheckCircle2 className="w-5 h-5 text-emerald-600" /> : <Bike className="w-5 h-5" />}
             </div>
             <div className="space-y-1">
-              {isRecentTimeout ? (
+              {isRecentTimeout || isCascadeInProgress ? (
                 <>
                   <p className="text-xs font-bold text-blue-600 dark:text-blue-400 flex items-center justify-center gap-1.5">
                     <RefreshCw className="w-3.5 h-3.5 animate-spin text-blue-600" />
                     Waterfall Dispatch in Progress...
                   </p>
                   <p className="text-[11px] text-muted-foreground max-w-xs mx-auto">
-                    Previous offer timed out. Notifying next available delivery rider in the waterfall flow...
+                    {currentCycleHistorical.length > 0
+                      ? `Wave attempt ${Math.min(currentCycleHistorical.length + 1, totalExpectedAttempts)} of ${totalExpectedAttempts} in progress. Contacting next available delivery rider in pool (${poolCount} ${poolCount === 1 ? "rider" : "riders"} available)...`
+                      : "Searching and notifying nearest available delivery rider..."}
                   </p>
                 </>
               ) : maxAttemptsReached ? (
                 <>
                   <p className="text-xs font-bold text-amber-700 dark:text-amber-400 flex items-center justify-center gap-1.5">
                     <AlertTriangle className="w-4 h-4 text-amber-500" />
-                    5 Dispatch Attempts Completed (No Rider Accepted)
+                    All {totalExpectedAttempts} Dispatch Attempts Completed (No Rider Accepted)
                   </p>
                   <p className="text-[11px] text-muted-foreground max-w-xs mx-auto">
-                    All 5 nearest available riders timed out or declined. Automated cascade is paused. You can restart auto-dispatch or assign a specific rider.
+                    All {poolCount} nearest available {poolCount === 1 ? "rider received 5 offers" : `riders received 5 offers across 5 cascade flows (${totalExpectedAttempts} total attempts)`} and timed out or declined. Automated cascade is paused. You can restart auto-dispatch or assign a specific rider.
                   </p>
                 </>
               ) : (
@@ -739,6 +762,11 @@ export function OrderRiderCard({
                           #{attempt.attemptNumber || idx + 1}
                         </span>
                         <span className="truncate text-muted-foreground">{rName}</span>
+                        {attempt.adminNotes && (
+                          <span className="text-[10px] text-muted-foreground/70 truncate hidden sm:inline">
+                            • {attempt.adminNotes.split("(")[0].trim()}
+                          </span>
+                        )}
                       </div>
                       <Badge variant="outline" className="text-[9px] px-1.5 py-0 shrink-0 font-medium">
                         {statusLabel}

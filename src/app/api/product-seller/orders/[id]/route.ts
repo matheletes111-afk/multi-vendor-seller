@@ -273,6 +273,14 @@ export async function GET(
       status: activeAssignment.status,
       dispatchMode: activeAssignment.dispatchMode,
       distanceKm: activeAssignment.distanceKm,
+      attemptNumber: activeAssignment.attemptNumber,
+      adminNotes: activeAssignment.adminNotes || null,
+      offeredAt: activeAssignment.offeredAt ? activeAssignment.offeredAt.toISOString() : null,
+      expiresAt: activeAssignment.expiresAt ? activeAssignment.expiresAt.toISOString() : null,
+      secondsRemaining:
+        activeAssignment.status === "OFFERED" && activeAssignment.expiresAt
+          ? Math.max(0, Math.floor((activeAssignment.expiresAt.getTime() - Date.now()) / 1000))
+          : null,
       deliveryOtp: activeAssignment.status === "DELIVERED" ? activeAssignment.deliveryOtp : null,
       deliveryProofImage: activeAssignment.deliveryProofImage,
       rider: {
