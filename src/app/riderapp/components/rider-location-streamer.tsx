@@ -9,8 +9,9 @@ export function RiderLocationStreamer() {
   const watchIdRef = useRef<number | null>(null)
   const lastHttpPostRef = useRef<number>(0)
   const [riderId, setRiderId] = useState<string | null>(null)
+  const [isOnline, setIsOnline] = useState<boolean>(true)
 
-  // Fetch actual Rider DB ID
+  // Fetch actual Rider DB ID and initial online status
   useEffect(() => {
     if (session?.user?.id && session.user.role === "RIDER") {
       fetch("/api/riderapp/profile")
@@ -18,16 +19,54 @@ export function RiderLocationStreamer() {
         .then((data) => {
           if (data?.rider?.id) {
             setRiderId(data.rider.id)
+            if (data.rider.isOnline !== undefined) {
+              setIsOnline(Boolean(data.rider.isOnline))
+            }
           } else {
             setRiderId(session.user.id)
           }
         })
         .catch(() => setRiderId(session.user.id))
     }
+
+    const handleStatusEvent = (e: any) => {
+      if (typeof e?.detail?.isOnline === "boolean") {
+        setIsOnline(e.detail.isOnline)
+      }
+    }
+
+    if (typeof window !== "undefined") {
+      window.addEventListener("rider:status_changed", handleStatusEvent)
+    }
+    return () => {
+      if (typeof window !== "undefined") {
+        window.removeEventListener("rider:status_changed", handleStatusEvent)
+      }
+    }
   }, [session])
 
   useEffect(() => {
     if (!session?.user?.id || session.user.role !== "RIDER") {
+      return
+    }
+
+    // If the rider is offline, DO NOT stream GPS coordinates!
+    if (!isOnline) {
+      if (watchIdRef.current !== null) {
+        navigator.geolocation.clearWatch(watchIdRef.current)
+        watchIdRef.current = null
+      }
+      return
+    }
+
+    const isMobile =
+      typeof navigator !== "undefined" &&
+      /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+
+    // Only mobile devices with moving hardware GPS should stream live coordinates.
+    // Laptops and desktop browsers on stationary Wi-Fi/IP should not stream to avoid
+    // overwriting the rider's live mobile GPS location.
+    if (!isMobile) {
       return
     }
 
@@ -54,6 +93,7 @@ export function RiderLocationStreamer() {
           longitude,
           heading: heading || 0,
           speed: speed || 0,
+          isOnline: true,
         })
       }
 
@@ -92,9 +132,10 @@ export function RiderLocationStreamer() {
     return () => {
       if (watchIdRef.current !== null) {
         navigator.geolocation.clearWatch(watchIdRef.current)
+        watchIdRef.current = null
       }
     }
-  }, [session, riderId])
+  }, [session, riderId, isOnline])
 
   return null
 }

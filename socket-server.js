@@ -65,6 +65,37 @@ const server = http.createServer((req, res) => {
     return
   }
 
+  if (req.method === "POST" && req.url === "/internal/rider-status") {
+    let body = ""
+    req.on("data", (chunk) => {
+      body += chunk
+    })
+    req.on("end", () => {
+      try {
+        const data = JSON.parse(body)
+        const { riderId, isOnline } = data || {}
+        if (riderId && isOnline !== undefined) {
+          io.to("admin:fleet").emit("rider:status_changed", {
+            riderId,
+            isOnline: Boolean(isOnline),
+            timestamp: Date.now(),
+          })
+          io.to(`rider:${riderId}`).emit("rider:status_changed", {
+            riderId,
+            isOnline: Boolean(isOnline),
+            timestamp: Date.now(),
+          })
+        }
+        res.writeHead(200, { "Content-Type": "application/json" })
+        res.end(JSON.stringify({ success: true }))
+      } catch (err) {
+        res.writeHead(400, { "Content-Type": "application/json" })
+        res.end(JSON.stringify({ success: false, error: "Invalid JSON" }))
+      }
+    })
+    return
+  }
+
   if (req.method === "GET" && (req.url === "/health" || req.url === "/")) {
     res.writeHead(200, { "Content-Type": "application/json" })
     res.end(JSON.stringify({ status: "ok", service: "meeem-socket-server" }))
@@ -116,9 +147,22 @@ io.on("connection", (socket) => {
     console.log(`[Socket.IO] Socket ${socket.id} joined admin:fleet`)
   })
 
+  // Rider device joins personal room for cross-device status sync
+  if (socket.data?.riderId) {
+    socket.join(`rider:${socket.data.riderId}`)
+    console.log(`[Socket.IO] Socket ${socket.id} joined rider:${socket.data.riderId}`)
+  }
+  socket.on("join_rider", (data) => {
+    const riderId = typeof data === "string" ? data : data?.riderId
+    if (riderId) {
+      socket.join(`rider:${riderId}`)
+      console.log(`[Socket.IO] Socket ${socket.id} joined rider:${riderId}`)
+    }
+  })
+
   // Rider streams GPS coordinates (Web or Mobile)
   socket.on("rider:location_update", async (data) => {
-    const { riderId, orderId, latitude, longitude, heading, speed } = data || {}
+    const { riderId, orderId, latitude, longitude, heading, speed, isOnline } = data || {}
     if (!riderId || latitude == null || longitude == null) return
 
     // Basic Validation: lat [-90, 90], lng [-180, 180]
@@ -148,6 +192,7 @@ io.on("connection", (socket) => {
       longitude: numLng,
       heading: heading || 0,
       speed: speed || 0,
+      isOnline: isOnline !== undefined ? Boolean(isOnline) : true,
       timestamp: Date.now(),
     })
 
@@ -168,12 +213,31 @@ io.on("connection", (socket) => {
             heading: heading != null ? Number(heading) : undefined,
             speed: speed != null ? Number(speed) : undefined,
             lastLocationUpdate: new Date(),
-            isOnline: true,
+            isOnline: isOnline !== undefined ? Boolean(isOnline) : true,
           },
         })
       } catch (err) {
         console.error(`[Socket.IO] DB location update error for rider ${riderId}:`, err.message)
       }
+    }
+  })
+
+  // Rider sets online / offline status explicitly
+  socket.on("rider:status_update", async (data) => {
+    const { riderId, isOnline } = data || {}
+    if (!riderId || isOnline === undefined) return
+    try {
+      await prisma.rider.updateMany({
+        where: { OR: [{ id: riderId }, { userId: riderId }] },
+        data: { isOnline: Boolean(isOnline), lastLocationUpdate: new Date() },
+      })
+      io.to("admin:fleet").emit("rider:status_changed", {
+        riderId,
+        isOnline: Boolean(isOnline),
+        timestamp: Date.now(),
+      })
+    } catch (err) {
+      console.error(`[Socket.IO] DB status update error for rider ${riderId}:`, err.message)
     }
   })
 

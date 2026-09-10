@@ -49,15 +49,15 @@ export async function POST(request: NextRequest) {
       userAgent?: string | null
       lastActiveAt: string
       createdAt?: string
+      isActiveDriver?: boolean
     }> = []
 
     if (Array.isArray(rider.deviceTokens)) {
       existingTokens = rider.deviceTokens as any
     }
 
-    // Filter out existing matching token or matching deviceId
-    const otherTokens = existingTokens.filter(
-      (item) => item.token !== cleanToken && (!deviceId || item.deviceId !== deviceId)
+    const existingEntry = existingTokens.find(
+      (item) => item.token === cleanToken || (deviceId && item.deviceId === deviceId)
     )
 
     const newEntry = {
@@ -66,9 +66,15 @@ export async function POST(request: NextRequest) {
       platform: cleanPlatform,
       deviceModel: deviceModel || null,
       userAgent: userAgent?.slice(0, 200) || null,
+      isActiveDriver: existingEntry?.isActiveDriver || false,
       lastActiveAt: now,
-      createdAt: now,
+      createdAt: existingEntry?.createdAt || now,
     }
+
+    // Filter out existing matching token or matching deviceId
+    const otherTokens = existingTokens.filter(
+      (item) => item.token !== cleanToken && (!deviceId || item.deviceId !== deviceId)
+    )
 
     // Maintain latest 10 devices
     const updatedTokens = [newEntry, ...otherTokens].slice(0, 10)

@@ -80,9 +80,23 @@ export async function GET(req: NextRequest) {
       const isBusy = !!activeAssignment
 
       // Determine operational status
+      // A rider is active on the live fleet map if r.isOnline is true AND:
+      // 1) They have an ongoing active delivery assignment (isBusy -> ON_DELIVERY)
+      // 2) OR their GPS heartbeat was transmitted within the last 10 minutes (-> FREE)
+      // If a rider hasn't reported location for >10 mins without an active order, they are treated as OFFLINE.
+      const nowMs = Date.now()
+      const lastUpdateMs = r.lastLocationUpdate ? new Date(r.lastLocationUpdate).getTime() : 0
+      const isLocationRecent = lastUpdateMs > 0 && (nowMs - lastUpdateMs) < 10 * 60 * 1000 // 10 minutes
+
       let operationalStatus: "FREE" | "ON_DELIVERY" | "OFFLINE" = "OFFLINE"
       if (r.isOnline) {
-        operationalStatus = isBusy ? "ON_DELIVERY" : "FREE"
+        if (isBusy) {
+          operationalStatus = "ON_DELIVERY"
+        } else if (isLocationRecent) {
+          operationalStatus = "FREE"
+        } else {
+          operationalStatus = "OFFLINE"
+        }
       } else {
         operationalStatus = "OFFLINE"
       }
@@ -117,7 +131,8 @@ export async function GET(req: NextRequest) {
         drivingLicenseNo: r.drivingLicenseNo || null,
         selectedZones: Array.isArray(r.selectedZones) ? (r.selectedZones as string[]) : [],
         selectedLocations: Array.isArray(r.selectedLocations) ? (r.selectedLocations as string[]) : [],
-        isOnline: r.isOnline,
+        isOnline: r.isOnline && (isLocationRecent || isBusy),
+        rawIsOnline: r.isOnline,
         onboardingCompleted: Boolean(r.onboardingCompleted),
         deviceTokensCount: Array.isArray(r.deviceTokens) ? r.deviceTokens.length : 0,
         devices: Array.isArray(r.deviceTokens)
@@ -136,10 +151,14 @@ export async function GET(req: NextRequest) {
                 deviceModel: d?.deviceModel || null,
                 userAgent: d?.userAgent || null,
                 deviceId: d?.deviceId || null,
+                isActiveDriver: Boolean(d?.isActiveDriver),
                 lastActiveAt: d?.lastActiveAt || d?.createdAt || null,
               }
             })
           : [],
+        activeDeviceId: (Array.isArray(r.deviceTokens)
+          ? (r.deviceTokens as any[]).find((d) => d?.isActiveDriver)?.deviceId
+          : null) || null,
         operationalStatus,
         telemetry: {
           latitude: r.currentLatitude,
@@ -147,6 +166,7 @@ export async function GET(req: NextRequest) {
           heading: r.heading || 0,
           speed: r.speed || 0,
           lastLocationUpdate: r.lastLocationUpdate,
+          isRecent: isLocationRecent,
         },
         activeDelivery: activeAssignment
           ? {
