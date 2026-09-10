@@ -75,29 +75,34 @@ export function RiderRevenueClient() {
   const deliveries: any[] = data?.deliveries || []
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-6xl mx-auto">
-      {/* Header Banner */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 sm:p-8 bg-linear-to-r from-blue-700 via-indigo-700 to-violet-800 text-white rounded-3xl shadow-sm relative overflow-hidden">
-        <div className="relative z-10 space-y-1 max-w-xl">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 backdrop-blur text-xs font-semibold text-blue-100 mb-1">
-            <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-            Rider Earnings & Settlements
+    <div className="w-full p-4 sm:p-6 lg:p-8 space-y-6">
+      {/* Header Banner - High-contrast guaranteed gradient with fallback */}
+      <div
+        className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 sm:p-8 bg-blue-700 bg-gradient-to-r from-blue-700 via-indigo-700 to-violet-800 text-white rounded-3xl shadow-md relative overflow-hidden"
+        style={{
+          background: "linear-gradient(135deg, #1d4ed8 0%, #4338ca 50%, #6d28d9 100%)",
+        }}
+      >
+        <div className="relative z-10 space-y-2 max-w-2xl">
+          <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-white/20 backdrop-blur-md text-xs font-bold text-white border border-white/30 shadow-xs mb-1">
+            <Sparkles className="w-3.5 h-3.5 text-amber-300 fill-amber-300" />
+            <span>Rider Earnings &amp; Settlements</span>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-black tracking-tight">
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black tracking-tight text-white drop-shadow-xs">
             My Revenue
           </h1>
-          <p className="text-xs sm:text-sm text-blue-100/90 leading-relaxed">
+          <p className="text-xs sm:text-sm text-blue-100 font-medium leading-relaxed max-w-xl">
             Track your delivery charges, order item allocations, and confirmed earnings upon completed deliveries.
           </p>
         </div>
 
-        <div className="relative z-10 flex items-center gap-2 self-start sm:self-center">
+        <div className="relative z-10 flex items-center gap-2.5 self-start sm:self-center">
           <Button
             variant="outline"
             size="sm"
             onClick={() => fetchRevenue()}
             disabled={loading}
-            className="rounded-xl text-xs gap-1.5 bg-white/10 hover:bg-white/20 text-white border-white/20"
+            className="rounded-xl text-xs font-semibold gap-1.5 bg-white/15 hover:bg-white/25 text-white border-white/30 shadow-xs backdrop-blur-sm"
           >
             <RefreshCw className={cn("w-3.5 h-3.5", loading && "animate-spin")} />
             Refresh
@@ -105,22 +110,22 @@ export function RiderRevenueClient() {
           <Link href="/riderapp/orders">
             <Button
               size="sm"
-              className="rounded-xl text-xs gap-1.5 bg-white text-blue-800 hover:bg-white/90 font-bold shadow-sm"
+              className="rounded-xl text-xs gap-1.5 bg-white text-blue-900 hover:bg-blue-50 font-bold shadow-md hover:shadow-lg transition-all"
             >
-              <Truck className="w-3.5 h-3.5" />
+              <Truck className="w-3.5 h-3.5 text-blue-700" />
               Delivery Queue
             </Button>
           </Link>
         </div>
 
-        {/* Decorative ambient background blur */}
-        <div className="absolute -right-8 -bottom-8 w-60 h-60 bg-white/10 rounded-full blur-2xl pointer-events-none" />
+        {/* Ambient decorative blur */}
+        <div className="absolute -right-8 -bottom-8 w-64 h-64 bg-white/10 rounded-full blur-2xl pointer-events-none" />
       </div>
 
-      {/* KPI Stats Cards */}
+      {/* KPI Stats Cards - Full width responsive grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Total Delivered Realized Earnings */}
-        <div className="p-5 rounded-2xl bg-linear-to-br from-emerald-500/10 via-emerald-500/5 to-teal-500/10 border border-emerald-500/25 shadow-xs space-y-2">
+        <div className="p-5 rounded-2xl bg-gradient-to-br from-emerald-500/15 via-emerald-500/5 to-teal-500/10 border border-emerald-500/25 shadow-xs space-y-2">
           <div className="flex items-center justify-between text-emerald-600 dark:text-emerald-400">
             <span className="text-xs font-bold uppercase tracking-wider">Total Delivered Revenue</span>
             <div className="p-2 rounded-xl bg-emerald-500/20 text-emerald-600 dark:text-emerald-400">
@@ -137,7 +142,7 @@ export function RiderRevenueClient() {
         </div>
 
         {/* In-Progress Potential Earnings */}
-        <div className="p-5 rounded-2xl bg-linear-to-br from-blue-500/10 via-blue-500/5 to-indigo-500/10 border border-blue-500/25 shadow-xs space-y-2">
+        <div className="p-5 rounded-2xl bg-gradient-to-br from-blue-500/15 via-blue-500/5 to-indigo-500/10 border border-blue-500/25 shadow-xs space-y-2">
           <div className="flex items-center justify-between text-blue-600 dark:text-blue-400">
             <span className="text-xs font-bold uppercase tracking-wider">In-Progress Delivery Fees</span>
             <div className="p-2 rounded-xl bg-blue-500/20 text-blue-600 dark:text-blue-400">
@@ -241,7 +246,7 @@ export function RiderRevenueClient() {
             </div>
 
             {/* Search Input */}
-            <div className="relative min-w-[200px] flex-1 sm:flex-initial">
+            <div className="relative min-w-[220px] flex-1 sm:flex-initial">
               <Search className="w-3.5 h-3.5 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2" />
               <Input
                 value={searchQuery}
@@ -261,7 +266,7 @@ export function RiderRevenueClient() {
             <DollarSign className="w-4 h-4 text-blue-600" />
             Revenue Breakdown by Order &amp; Package
           </h2>
-          <span className="text-xs text-muted-foreground">
+          <span className="text-xs text-muted-foreground font-medium">
             Showing {deliveries.length} {deliveries.length === 1 ? "record" : "records"}
           </span>
         </div>
@@ -318,8 +323,8 @@ export function RiderRevenueClient() {
                   className={cn(
                     "p-5 rounded-3xl border bg-card transition-all space-y-4 shadow-xs",
                     isDelivered
-                      ? "border-emerald-200 dark:border-emerald-950/60 bg-linear-to-r from-card via-card to-emerald-500/5"
-                      : "border-blue-200 dark:border-blue-950/60 bg-linear-to-r from-card via-card to-blue-500/5"
+                      ? "border-emerald-200 dark:border-emerald-950/60 bg-gradient-to-r from-card via-card to-emerald-500/5"
+                      : "border-blue-200 dark:border-blue-950/60 bg-gradient-to-r from-card via-card to-blue-500/5"
                   )}
                 >
                   {/* Top Row: Order Number, Date & Status */}

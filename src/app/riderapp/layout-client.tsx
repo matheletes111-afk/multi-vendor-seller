@@ -109,9 +109,6 @@ export function RiderLayoutClient({
 
         {/* Navigation Items */}
         <div className="space-y-1">
-          <div className="px-3 mb-2 text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
-            Menu
-          </div>
           <NavItem href="/riderapp" label="Dashboard" icon={<LayoutDashboard className="w-4 h-4" />} />
           <NavItem href="/riderapp/orders" label="Delivery Orders" icon={<Package className="w-4 h-4" />} />
           <NavItem href="/riderapp/revenue" label="My Revenue" icon={<Wallet className="w-4 h-4" />} />
