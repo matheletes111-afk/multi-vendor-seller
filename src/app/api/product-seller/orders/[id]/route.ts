@@ -47,6 +47,17 @@ export async function GET(
   if (!seller) return NextResponse.json({ error: "Seller not found" }, { status: 404 })
 
   const { id: orderId } = await params
+
+  // Auto-expire stale OFFERED assignments on the fly so UI doesn't display stuck offers
+  await prisma.riderDeliveryAssignment.updateMany({
+    where: {
+      orderId,
+      status: "OFFERED",
+      expiresAt: { lt: new Date() },
+    },
+    data: { status: "TIMED_OUT" },
+  }).catch(() => null)
+
   const [order, globalSetting] = await Promise.all([
     prisma.order.findFirst({
       where: { id: orderId, items: { some: { sellerId: seller.id, productId: { not: null } } } },
@@ -160,8 +171,8 @@ export async function GET(
       refundStatus: row.returnRequest?.refundStatus ?? (returnAvailable ? "NOT_REQUESTED" : null),
       deliveryProofImage: row.deliveryProofImage ?? null,
       deliveredAt: (row as any).deliveredAt ? (row as any).deliveredAt.toISOString() : null,
-      deliveryOtp: (row as any).deliveryOtp ?? null,
-      deliveryOtpExpires: (row as any).deliveryOtpExpires ? (row as any).deliveryOtpExpires.toISOString() : null,
+      deliveryOtp: row.itemStatus === "DELIVERED" ? ((row as any).deliveryOtp ?? null) : null,
+      deliveryOtpExpires: row.itemStatus === "DELIVERED" && (row as any).deliveryOtpExpires ? (row as any).deliveryOtpExpires.toISOString() : null,
       isSelfDelivery: Boolean((row as any).isSelfDelivery),
       commissionAmount: row.commissionAmount ?? 0,
       commissionRateSnapshot: row.commissionRateSnapshot ?? 0,
@@ -232,7 +243,7 @@ export async function GET(
       status: activeAssignment.status,
       dispatchMode: activeAssignment.dispatchMode,
       distanceKm: activeAssignment.distanceKm,
-      deliveryOtp: activeAssignment.deliveryOtp,
+      deliveryOtp: activeAssignment.status === "DELIVERED" ? activeAssignment.deliveryOtp : null,
       deliveryProofImage: activeAssignment.deliveryProofImage,
       rider: {
         id: r?.id,
@@ -310,7 +321,10 @@ export async function GET(
     items,
     couponCode: order.couponCode,
     couponDiscount: sellerCouponDiscount,
-    deliveryAssignments: order.deliveryAssignments,
+    deliveryAssignments: order.deliveryAssignments.map((a) => ({
+      ...a,
+      deliveryOtp: a.status === "DELIVERED" ? a.deliveryOtp : null,
+    })),
     activeDeliveryTracking,
   }
   return NextResponse.json(body)
@@ -609,9 +623,9 @@ export async function PATCH(
     console.error("Failed to send status update email:", emailErr)
   }
 
-  // Auto-dispatch delivery rider when seller confirms or processes order (skip if self-delivery)
+  // Auto-dispatch delivery rider when seller processes order (skip if self-delivery)
   const isSelfDeliveryOrder = ownItems.some((i) => i.isSelfDelivery)
-  if (!isSelfDeliveryOrder && (status === "CONFIRMED" || status === "PROCESSING" || status === "SHIPPED")) {
+  if (!isSelfDeliveryOrder && (status === "PROCESSING" || status === "SHIPPED")) {
     triggerOrderAutoDispatch(orderId, seller.id).catch((err) =>
       console.error("[AutoDispatch] Trigger failed:", err?.message || err)
     )

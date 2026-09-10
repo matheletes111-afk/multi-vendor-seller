@@ -169,7 +169,7 @@ export async function sendDeliveryOfferToRider(
   })
 }
 
-function extractTokens(deviceTokensField: any): string[] {
+export function extractTokens(deviceTokensField: any): string[] {
   if (!deviceTokensField) return []
   if (Array.isArray(deviceTokensField)) {
     return deviceTokensField

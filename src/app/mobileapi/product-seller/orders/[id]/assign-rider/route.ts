@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { UserRole } from "@prisma/client"
 import { getMobileSellerAuth } from "../../../../_helpers/seller-auth"
-import { manualAssignRiderToOrder, triggerOrderAutoDispatch } from "@/lib/delivery-dispatch"
+import { manualAssignRiderToOrder, triggerOrderAutoDispatch, stopOrderAutoDispatch } from "@/lib/delivery-dispatch"
 
 export async function POST(
   request: NextRequest,
@@ -43,10 +43,30 @@ export async function POST(
 
     // Auto-dispatch option
     if (action === "auto_dispatch") {
-      const result = await triggerOrderAutoDispatch(order.id, seller.id)
+      const result = await triggerOrderAutoDispatch(order.id, seller.id, {
+        forceRedispatch: true,
+        allowReofferRejected: true,
+      })
+      return NextResponse.json(
+        {
+          success: result.success,
+          message:
+            result.message ||
+            (result.success
+              ? "Auto-dispatch initiated"
+              : "Auto-dispatch failed to find an available rider"),
+          data: result,
+        },
+        { status: result.success ? 200 : 400 }
+      )
+    }
+
+    // Stop auto-dispatch option
+    if (action === "stop_dispatch") {
+      const result = await stopOrderAutoDispatch(order.id, seller.id, "SELLER")
       return NextResponse.json({
-        success: result.success,
-        message: result.message || "Auto-dispatch initiated",
+        success: true,
+        message: result.message,
         data: result,
       })
     }

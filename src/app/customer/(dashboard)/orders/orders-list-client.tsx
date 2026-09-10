@@ -256,9 +256,9 @@ export function OrdersListClient() {
           </CardContent>
         </Card>
       ) : (
-        <Card className="overflow-hidden rounded-xl border border-[#f0f0f0] shadow-sm transition-shadow duration-200 hover:shadow-md">
-          <div className="overflow-x-auto">
-            <Table>
+        <Card className="overflow-hidden rounded-xl border border-[#f0f0f0] shadow-sm transition-shadow duration-200 hover:shadow-md w-full">
+          <div className="overflow-x-auto w-full">
+            <Table className="w-full">
               <TableHeader>
                 <TableRow className="border-b border-[#f0f0f0] bg-gray-50/90 hover:bg-gray-50/90">
                   <TableHead className="text-xs font-semibold uppercase tracking-wide text-gray-500">Order</TableHead>
@@ -268,7 +268,7 @@ export function OrdersListClient() {
                   <TableHead className="hidden text-xs font-semibold uppercase tracking-wide text-gray-500 md:table-cell">
                     Date
                   </TableHead>
-                  <TableHead className="hidden max-w-[220px] text-xs font-semibold uppercase tracking-wide text-gray-500 lg:table-cell">
+                  <TableHead className="hidden text-xs font-semibold uppercase tracking-wide text-gray-500 lg:table-cell">
                     Items
                   </TableHead>
                   <TableHead className="text-right text-xs font-semibold uppercase tracking-wide text-gray-500">Total</TableHead>
@@ -301,7 +301,7 @@ export function OrdersListClient() {
                       <TableCell className="hidden md:table-cell text-muted-foreground text-sm whitespace-nowrap">
                         {formatDate(order.createdAt)}
                       </TableCell>
-                      <TableCell className="hidden lg:table-cell text-sm text-muted-foreground min-w-[320px] max-w-[420px]">
+                      <TableCell className="hidden lg:table-cell text-sm text-muted-foreground max-w-[320px]">
                         {expandedItems[order.id] ? (
                           <div className="space-y-1">
                             {order.items.map((item) => {
@@ -394,13 +394,15 @@ export function OrdersListClient() {
                     </TableRow>
                     {expandedId === order.id && (
                       <TableRow className="border-b border-[#f0f0f0] bg-gray-50/50 hover:bg-gray-50/50">
-                        <TableCell colSpan={7} className="p-4 sm:p-5">
+                        <TableCell colSpan={7} className="p-2 sm:p-4 lg:p-6 w-full max-w-full">
                           {loadingId === order.id ? (
                             <div className="flex justify-center py-10 text-gray-500">
                               <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
                             </div>
                           ) : detail && detail.id === order.id ? (
-                            <OrderDetailInline order={detail} onClose={closeDetail} onReviewSaved={refreshDetail} />
+                            <div className="w-full min-w-0 max-w-full overflow-hidden">
+                              <OrderDetailInline order={detail} onClose={closeDetail} onReviewSaved={refreshDetail} />
+                            </div>
                           ) : null}
                         </TableCell>
                       </TableRow>

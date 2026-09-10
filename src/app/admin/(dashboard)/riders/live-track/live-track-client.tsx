@@ -33,7 +33,16 @@ import {
   Bell,
   BellOff,
   Info,
+  Smartphone,
+  Laptop,
 } from "lucide-react"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/ui/dialog"
 import { Badge } from "@/ui/badge"
 import { Button } from "@/ui/button"
 import { Input } from "@/ui/input"
@@ -51,6 +60,15 @@ import { LOCATION_ZONES } from "@/lib/location-zones"
 import { cn } from "@/lib/utils"
 
 // ── Types ───────────────────────────────────────────────────────────────────
+
+export interface LiveRiderDevice {
+  platform?: string
+  deviceModel?: string | null
+  userAgent?: string | null
+  deviceId?: string | null
+  lastActiveAt?: string | null
+  createdAt?: string | null
+}
 
 export interface LiveRiderItem {
   id: string
@@ -70,6 +88,7 @@ export interface LiveRiderItem {
   isOnline: boolean
   onboardingCompleted?: boolean
   deviceTokensCount?: number
+  devices?: LiveRiderDevice[]
   operationalStatus: "FREE" | "ON_DELIVERY" | "OFFLINE"
   telemetry: {
     latitude: number | null
@@ -122,6 +141,45 @@ const ZONE_CENTER_COORDINATES: Record<string, { lat: number; lng: number; zoom: 
 }
 
 const DEFAULT_CENTER = { lat: 8.484, lng: -13.23, zoom: 12 } // Freetown Center
+
+export function formatDeviceName(dev?: LiveRiderDevice | null): string {
+  if (!dev) return "Registered Device"
+  if (typeof dev === "string") return dev
+
+  let model = dev.deviceModel?.trim()
+
+  if (!model && dev.userAgent && typeof dev.userAgent === "string") {
+    const match = dev.userAgent.match(/\(([^)]+)\)/)
+    if (match && match[1]) {
+      const inner = match[1].trim()
+      if (inner.includes("Windows")) model = "Windows PC"
+      else if (inner.includes("Macintosh") || inner.includes("Mac OS")) model = "Mac"
+      else if (inner.includes("Linux")) model = "Linux PC"
+      else {
+        model = inner.split(";")[0].trim()
+      }
+    }
+  }
+
+  const platformRaw = (dev.platform || "").toLowerCase()
+  let platformLabel = ""
+  if (platformRaw.includes("android")) platformLabel = "Android"
+  else if (platformRaw.includes("ios")) platformLabel = "iOS"
+  else if (platformRaw.includes("web")) platformLabel = "Web"
+  else if (platformRaw) platformLabel = platformRaw.toUpperCase()
+
+  if (model && platformLabel) {
+    if (model.toLowerCase().includes(platformLabel.toLowerCase())) {
+      return model
+    }
+    return `${model} (${platformLabel})`
+  }
+
+  if (model) return model
+  if (platformLabel) return `${platformLabel} Device`
+  if (dev.deviceId) return `Device ${dev.deviceId.slice(0, 8)}`
+  return "Registered Device"
+}
 
 // ── Custom SVG Vehicle Marker Generator ─────────────────────────────────────
 function createVehicleSvgIcon(
@@ -223,6 +281,7 @@ export function LiveTrackClient() {
   const [selectedZone, setSelectedZone] = useState("ALL")
   const [selectedStatus, setSelectedStatus] = useState<"ALL" | "FREE" | "ON_DELIVERY" | "OFFLINE">("ALL")
   const [selectedRider, setSelectedRider] = useState<LiveRiderItem | null>(null)
+  const [selectedDeviceModalRider, setSelectedDeviceModalRider] = useState<LiveRiderItem | null>(null)
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [mapType, setMapType] = useState<"roadmap" | "hybrid">("roadmap")
@@ -274,6 +333,35 @@ export function LiveTrackClient() {
       setSidebarOpen(false)
     }
   }, [])
+
+  // Expose global handlers for InfoWindow clicks
+  useEffect(() => {
+    if (typeof window === "undefined") return
+
+    ;(window as any).__toggleLiveTrackRiderDevices = (riderId: string) => {
+      const el = document.getElementById(`infowindow-devices-${riderId}`)
+      const arrow = document.getElementById(`push-arrow-${riderId}`)
+      if (el) {
+        const isHidden = el.style.display === "none" || !el.style.display
+        el.style.display = isHidden ? "block" : "none"
+        if (arrow) {
+          arrow.innerText = isHidden ? "▲" : "▼"
+        }
+      }
+    }
+
+    ;(window as any).__openDeviceModal = (riderId: string) => {
+      const found = riders.find((r) => r.id === riderId)
+      if (found) {
+        setSelectedDeviceModalRider(found)
+      }
+    }
+
+    return () => {
+      delete (window as any).__toggleLiveTrackRiderDevices
+      delete (window as any).__openDeviceModal
+    }
+  }, [riders])
 
   // Initial load
   useEffect(() => {
@@ -547,6 +635,34 @@ export function LiveTrackClient() {
     const statusLabel = isFree ? "🟢 Free & Available" : isOnDelivery ? "🔵 On Delivery" : "⚪ Offline"
 
     const vehicleTitle = [rider.vehicleName, rider.vehicleNumber].filter(Boolean).join(" • ") || rider.primaryVehicleType
+    const hasDevices = (rider.deviceTokensCount || 0) > 0
+    const devicesList = rider.devices || []
+    const devicesListHtml = devicesList.length > 0
+      ? devicesList
+          .map((d) => {
+            const name = formatDeviceName(d)
+            const isIos = (d.platform || "").toLowerCase().includes("ios")
+            const isAndroid = (d.platform || "").toLowerCase().includes("android")
+            const icon = isIos ? "🍏" : isAndroid ? "🤖" : "💻"
+            const timeStr = d.lastActiveAt
+              ? new Date(d.lastActiveAt).toLocaleString([], {
+                  month: "short",
+                  day: "numeric",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })
+              : "Active"
+            return `
+              <div style="display: flex; align-items: center; justify-content: space-between; padding: 4px 6px; background: #ffffff; border: 1px solid #e9d5ff; border-radius: 6px; font-size: 10px; margin-bottom: 3px;">
+                <span style="font-weight: 600; color: #4c1d95; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 170px;">
+                  ${icon} ${name}
+                </span>
+                <span style="font-size: 9px; color: #7e22ce; margin-left: 6px; flex-shrink: 0;">${timeStr}</span>
+              </div>
+            `
+          })
+          .join("")
+      : `<div style="font-size: 10px; color: #64748b;">${rider.deviceTokensCount || 0} registered notification device(s)</div>`
 
     return `
       <div style="font-family: inherit; max-width: 280px; padding: 4px;">
@@ -571,10 +687,41 @@ export function LiveTrackClient() {
           <span style="display: inline-block; padding: 3px 8px; border-radius: 12px; font-size: 10px; font-weight: 500; background: ${rider.onboardingCompleted ? "#eff6ff" : "#fffbeb"}; color: ${rider.onboardingCompleted ? "#1d4ed8" : "#b45309"}; border: 1px solid ${rider.onboardingCompleted ? "#bfdbfe" : "#fde68a"};">
             ${rider.onboardingCompleted ? "✓ Onboarded" : "⏳ Pending Profile"}
           </span>
-          <span style="display: inline-block; padding: 3px 8px; border-radius: 12px; font-size: 10px; font-weight: 500; background: ${(rider.deviceTokensCount || 0) > 0 ? "#faf5ff" : "#f1f5f9"}; color: ${(rider.deviceTokensCount || 0) > 0 ? "#7e22ce" : "#64748b"}; border: 1px solid ${(rider.deviceTokensCount || 0) > 0 ? "#e9d5ff" : "#e2e8f0"};">
-            ${(rider.deviceTokensCount || 0) > 0 ? `🔔 Push (${rider.deviceTokensCount})` : "🔕 No Push"}
+          <span
+            id="push-badge-${rider.id}"
+            ${hasDevices ? `onclick="window.__toggleLiveTrackRiderDevices && window.__toggleLiveTrackRiderDevices('${rider.id}')"` : ""}
+            style="display: inline-flex; align-items: center; gap: 3px; padding: 3px 8px; border-radius: 12px; font-size: 10px; font-weight: 500; background: ${hasDevices ? "#faf5ff" : "#f1f5f9"}; color: ${hasDevices ? "#7e22ce" : "#64748b"}; border: 1px solid ${hasDevices ? "#e9d5ff" : "#e2e8f0"}; ${hasDevices ? "cursor: pointer;" : ""}"
+            title="${hasDevices ? `Click to view ${devicesList.length || rider.deviceTokensCount} registered device name(s)` : "No notification token registered"}"
+          >
+            ${hasDevices ? `🔔 Notification (${rider.deviceTokensCount})` : "🔕 No Notification"}
+            ${hasDevices ? `<span id="push-arrow-${rider.id}" style="font-size: 8px; opacity: 0.75;">▼</span>` : ""}
           </span>
         </div>
+
+        ${
+          hasDevices
+            ? `
+          <div
+            id="infowindow-devices-${rider.id}"
+            style="display: none; margin-bottom: 8px; padding: 6px 8px; background: #faf5ff; border: 1px solid #d8b4fe; border-radius: 8px; font-size: 10px; color: #581c87;"
+          >
+            <div style="font-weight: 700; margin-bottom: 5px; display: flex; align-items: center; justify-content: space-between; font-size: 10.5px;">
+              <span>📱 Registered Devices (${devicesList.length || rider.deviceTokensCount})</span>
+              <button
+                type="button"
+                onclick="window.__openDeviceModal && window.__openDeviceModal('${rider.id}')"
+                style="background: none; border: none; font-size: 9.5px; color: #7e22ce; text-decoration: underline; cursor: pointer; padding: 0;"
+              >
+                More details ↗
+              </button>
+            </div>
+            <div>
+              ${devicesListHtml}
+            </div>
+          </div>
+          `
+            : ""
+        }
 
         <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px; font-size: 11px; color: #334155; margin-bottom: 6px;">
           <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
@@ -770,7 +917,7 @@ export function LiveTrackClient() {
         </span>
         <span className="inline-flex items-center gap-1 bg-purple-100/80 dark:bg-purple-950/50 text-purple-800 dark:text-purple-300 px-1.5 py-0.5 rounded font-medium">
           <Bell className="w-2.5 h-2.5 text-purple-600" />
-          Push Ready
+          Notification Ready
         </span>
       </div>
     </div>
@@ -892,14 +1039,21 @@ export function LiveTrackClient() {
         )}
 
         {(rider.deviceTokensCount || 0) > 0 ? (
-          <Badge variant="outline" className="text-[10px] bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/40 dark:text-purple-300 flex items-center gap-1">
-            <Bell className="w-3 h-3 text-purple-600" />
-            Push Ready ({rider.deviceTokensCount})
-          </Badge>
+          <button
+            type="button"
+            onClick={() => setSelectedDeviceModalRider(rider)}
+            className="cursor-pointer"
+            title="Click to view registered device names"
+          >
+            <Badge variant="outline" className="text-[10px] bg-purple-50 hover:bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-950/40 dark:text-purple-300 flex items-center gap-1 transition-colors">
+              <Bell className="w-3 h-3 text-purple-600" />
+              Notification Ready ({rider.deviceTokensCount})
+            </Badge>
+          </button>
         ) : (
           <Badge variant="outline" className="text-[10px] bg-muted text-muted-foreground border-border flex items-center gap-1 opacity-70">
             <BellOff className="w-3 h-3" />
-            No Push Token
+            No Notification Token
           </Badge>
         )}
       </div>
@@ -1054,22 +1208,27 @@ export function LiveTrackClient() {
               </span>
             )}
 
-            {/* Push Notification Token */}
+            {/* Notification Token */}
             {hasPush ? (
-              <span
-                className="inline-flex items-center gap-1 text-[9px] font-medium bg-purple-500/10 text-purple-700 dark:text-purple-300 border border-purple-300/40 px-1.5 py-0.5 rounded-md"
-                title={`${rider.deviceTokensCount} mobile push token(s) registered`}
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setSelectedDeviceModalRider(rider)
+                }}
+                className="inline-flex items-center gap-1 text-[9px] font-semibold bg-purple-500/10 hover:bg-purple-500/20 text-purple-700 dark:text-purple-300 border border-purple-300/40 px-1.5 py-0.5 rounded-md transition-colors cursor-pointer"
+                title={`${rider.deviceTokensCount} notification token(s) registered. Click to view device names.`}
               >
                 <Bell className="w-2.5 h-2.5 text-purple-600" />
-                Push Ready
-              </span>
+                <span>Notification Ready ({rider.deviceTokensCount})</span>
+              </button>
             ) : (
               <span
                 className="inline-flex items-center gap-1 text-[9px] text-muted-foreground bg-muted border border-border px-1.5 py-0.5 rounded-md opacity-80"
-                title="No FCM push token found; rider has not logged into mobile app"
+                title="No notification token found; rider has not logged into mobile app"
               >
                 <BellOff className="w-2.5 h-2.5 opacity-60" />
-                No Push
+                No Notification
               </span>
             )}
           </div>
@@ -1094,9 +1253,12 @@ export function LiveTrackClient() {
 
           {/* Telemetry & Zones */}
           <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-1.5 border-t">
-            <span className="flex items-center gap-1 truncate max-w-[150px]">
+            <span className="flex items-center gap-1 truncate max-w-[150px]" title={rider.selectedZones.join(", ")}>
               <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
-              <span className="truncate">{rider.selectedZones[0] || "General Zone"}</span>
+              <span className="truncate">
+                {rider.selectedZones[0] || "General Zone"}
+                {rider.selectedZones.length > 1 ? ` (+${rider.selectedZones.length - 1})` : ""}
+              </span>
             </span>
             <span className="font-semibold text-foreground flex items-center gap-1 shrink-0">
               <Gauge className="w-3 h-3 text-blue-600" />
@@ -1557,6 +1719,103 @@ export function LiveTrackClient() {
           )}
         </div>
       </div>
+
+      {/* ── DEVICE TOKENS MODAL ────────────────────────────────────────── */}
+      <Dialog
+        open={Boolean(selectedDeviceModalRider)}
+        onOpenChange={(open) => {
+          if (!open) setSelectedDeviceModalRider(null)
+        }}
+      >
+        <DialogContent className="sm:max-w-md rounded-3xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base font-bold">
+              <div className="p-2 rounded-xl bg-purple-100 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300">
+                <Bell className="w-4 h-4" />
+              </div>
+              <div>
+                <div>Registered Notification Devices</div>
+                <div className="text-xs font-normal text-muted-foreground mt-0.5">
+                  {selectedDeviceModalRider?.name} ({selectedDeviceModalRider?.phoneCountryCode} {selectedDeviceModalRider?.phone || selectedDeviceModalRider?.email})
+                </div>
+              </div>
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Devices registered to receive real-time order dispatch notifications.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 py-2">
+            {(!selectedDeviceModalRider?.devices || selectedDeviceModalRider.devices.length === 0) ? (
+              <div className="p-6 text-center text-xs text-muted-foreground border rounded-2xl bg-muted/20 space-y-1">
+                <BellOff className="w-6 h-6 mx-auto text-slate-300 mb-2" />
+                <p className="font-semibold text-foreground">No Active Devices</p>
+                <p>This rider has not logged into the mobile application yet.</p>
+              </div>
+            ) : (
+              <div className="space-y-2 max-h-[340px] overflow-y-auto pr-1">
+                {selectedDeviceModalRider.devices.map((dev, idx) => {
+                  const formattedName = formatDeviceName(dev)
+                  const isIos = (dev.platform || "").toLowerCase().includes("ios")
+                  const isAndroid = (dev.platform || "").toLowerCase().includes("android")
+
+                  return (
+                    <div
+                      key={idx}
+                      className="p-3 rounded-2xl border bg-card text-xs flex items-center justify-between gap-3 shadow-2xs hover:border-purple-300 dark:hover:border-purple-800 transition-colors"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-9 h-9 rounded-xl bg-purple-50 dark:bg-purple-950/60 border border-purple-200/70 dark:border-purple-800/60 flex items-center justify-center shrink-0 text-purple-700 dark:text-purple-300 font-bold">
+                          {isIos ? (
+                            <span className="text-sm">🍏</span>
+                          ) : isAndroid ? (
+                            <Smartphone className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                          ) : (
+                            <Laptop className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="font-bold text-foreground truncate text-xs flex items-center gap-1.5">
+                            <span className="truncate">{formattedName}</span>
+                            <Badge
+                              variant="outline"
+                              className="text-[9px] px-1 py-0 uppercase font-semibold text-purple-700 bg-purple-50 border-purple-200 dark:bg-purple-950/40 dark:text-purple-300"
+                            >
+                              {dev.platform || "Device"}
+                            </Badge>
+                          </div>
+                          {dev.userAgent && (
+                            <p className="text-[10px] text-muted-foreground truncate max-w-[240px] font-mono mt-0.5">
+                              {dev.userAgent}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="text-right shrink-0">
+                        <span className="inline-flex items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                          Ready
+                        </span>
+                        {dev.lastActiveAt && (
+                          <p className="text-[9px] text-muted-foreground mt-0.5">
+                            {new Date(dev.lastActiveAt).toLocaleString([], {
+                              month: "short",
+                              day: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

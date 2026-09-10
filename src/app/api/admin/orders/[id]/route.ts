@@ -37,6 +37,16 @@ export async function GET(
   }
   const { id: orderId } = await params
 
+  // Auto-expire stale OFFERED assignments on the fly so UI doesn't display stuck offers
+  await prisma.riderDeliveryAssignment.updateMany({
+    where: {
+      orderId,
+      status: "OFFERED",
+      expiresAt: { lt: new Date() },
+    },
+    data: { status: "TIMED_OUT" },
+  }).catch(() => null)
+
   const order = await prisma.order.findUnique({
     where: { id: orderId },
     include: {
@@ -139,8 +149,8 @@ export async function GET(
       commissionRateSnapshot: row.commissionRateSnapshot,
       deliveryProofImage: row.deliveryProofImage ?? null,
       deliveredAt: row.deliveredAt ? row.deliveredAt.toISOString() : null,
-      deliveryOtp: (row as any).deliveryOtp ?? null,
-      deliveryOtpExpires: (row as any).deliveryOtpExpires ? (row as any).deliveryOtpExpires.toISOString() : null,
+      deliveryOtp: row.itemStatus === "DELIVERED" ? ((row as any).deliveryOtp ?? null) : null,
+      deliveryOtpExpires: row.itemStatus === "DELIVERED" && (row as any).deliveryOtpExpires ? (row as any).deliveryOtpExpires.toISOString() : null,
       isSelfDelivery: Boolean((row as any).isSelfDelivery),
       statusHistory: row.statusHistory.map(
         (h): AdminOrderItemStatusHistoryApi => ({
@@ -277,7 +287,10 @@ export async function GET(
     items,
     couponCode: order.couponCode,
     couponDiscount: order.couponDiscount,
-    deliveryAssignments: order.deliveryAssignments,
+    deliveryAssignments: order.deliveryAssignments.map((a) => ({
+      ...a,
+      deliveryOtp: a.status === "DELIVERED" ? a.deliveryOtp : null,
+    })),
   }
   return NextResponse.json(body)
 }

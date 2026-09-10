@@ -1,6 +1,6 @@
 import { prisma } from "./prisma"
 import { calculateHaversineDistance, sortByProximity } from "./haversine-distance"
-import { sendDeliveryOfferToRider, sendPushNotification } from "./firebase-messaging"
+import { sendDeliveryOfferToRider, sendPushNotification, extractTokens } from "./firebase-messaging"
 import { sendEmail } from "./email"
 import { sendDeliveryOtp } from "./delivery-otp"
 import { applySellerCreditForOrderLineDelivered } from "./seller-order-line-settlement"
@@ -9,12 +9,22 @@ import { DeliveryAssignmentStatus, DispatchMode, OrderStatus } from "@prisma/cli
 
 const OFFER_TIMEOUT_SECONDS = 60
 const NO_SHOW_TIMEOUT_MINUTES = 30
+export const MAX_AUTO_DISPATCH_ATTEMPTS = 5
+
+export interface AutoDispatchOptions {
+  forceRedispatch?: boolean
+  allowReofferRejected?: boolean
+}
 
 /**
  * Initiates the Cascading Waterfall Auto-Dispatch for a Product Order.
  * Supports multi-vendor orders: dispatches separate riders per distinct physical seller.
  */
-export async function triggerOrderAutoDispatch(orderId: string, targetSellerId?: string) {
+export async function triggerOrderAutoDispatch(
+  orderId: string,
+  targetSellerId?: string,
+  options?: AutoDispatchOptions
+) {
   try {
     const order = await prisma.order.findUnique({
       where: { id: orderId },
@@ -62,6 +72,32 @@ export async function triggerOrderAutoDispatch(orderId: string, targetSellerId?:
 
     if (sellerIds.length === 0) {
       return { success: false, message: "Order has no physical product sellers to dispatch" }
+    }
+
+    const now = new Date()
+    // Auto-expire any stale OFFERED assignments across this order
+    await prisma.riderDeliveryAssignment.updateMany({
+      where: {
+        orderId: order.id,
+        status: DeliveryAssignmentStatus.OFFERED,
+        expiresAt: { lt: now },
+      },
+      data: {
+        status: DeliveryAssignmentStatus.TIMED_OUT,
+      },
+    })
+
+    // If forceRedispatch requested (e.g. from manual Reassign button), cancel any ongoing OFFERED assignment
+    if (options?.forceRedispatch) {
+      await prisma.riderDeliveryAssignment.updateMany({
+        where: {
+          orderId: order.id,
+          status: DeliveryAssignmentStatus.OFFERED,
+        },
+        data: {
+          status: DeliveryAssignmentStatus.TIMED_OUT,
+        },
+      })
     }
 
     const results: any[] = []
@@ -117,6 +153,21 @@ export async function triggerOrderAutoDispatch(orderId: string, targetSellerId?:
         continue
       }
 
+      // Check max automated attempts to prevent infinite dispatch loops
+      const previousAttemptsCount = order.deliveryAssignments.filter((a) => a.sellerId === sellerId).length
+      if (!options?.forceRedispatch && previousAttemptsCount >= MAX_AUTO_DISPATCH_ATTEMPTS) {
+        console.log(
+          `[Dispatch] Max auto-dispatch attempts (${MAX_AUTO_DISPATCH_ATTEMPTS}) reached for Order #${order.orderNumber} (Seller: ${sellerId}). Pausing automatic cascade to prevent infinite loop.`
+        )
+        results.push({
+          sellerId,
+          success: false,
+          maxAttemptsReached: true,
+          message: `Maximum automated dispatch attempts (${MAX_AUTO_DISPATCH_ATTEMPTS}) reached. Automatic notifications stopped. You can assign a rider manually or click Reassign to retry.`,
+        })
+        continue
+      }
+
       // Determine Seller coordinates (Shop location)
       const sellerInfo =
         order.items.find((i) => i.sellerId === sellerId)?.seller ||
@@ -143,18 +194,21 @@ export async function triggerOrderAutoDispatch(orderId: string, targetSellerId?:
       // Match customer delivery location name or zone
       const customerLocation = (order.shippingCity || order.shippingAddressLine1 || "").trim()
 
+      const shouldExcludePrevious =
+        !options?.allowReofferRejected && !options?.forceRedispatch
+
       // 1 Rider = 1 Delivery Rule: Find all online, approved, idle riders with completed onboarding
-      const freeRiders = await prisma.rider.findMany({
+      let freeRiders = await prisma.rider.findMany({
         where: {
           isApproved: true,
           isSuspended: false,
           isOnline: true,
           status: "APPROVED",
           onboardingCompleted: true,
-          id: { notIn: previousRiderIds },
+          ...(shouldExcludePrevious ? { id: { notIn: previousRiderIds } } : {}),
           deliveryAssignments: {
             none: {
-              status: { in: ["ACCEPTED", "AT_PICKUP", "PICKED_UP", "OUT_FOR_DELIVERY"] },
+              status: { in: ["ACCEPTED", "AT_PICKUP", "PICKED_UP", "OUT_FOR_DELIVERY", "OFFERED"] },
             },
           },
         },
@@ -162,6 +216,28 @@ export async function triggerOrderAutoDispatch(orderId: string, targetSellerId?:
           user: true,
         },
       })
+
+      // Fallback: If no untried free riders exist, but there are free online riders who previously timed out or rejected, allow re-offering to them!
+      if (freeRiders.length === 0 && previousRiderIds.length > 0) {
+        console.log(`[Dispatch] Untried riders exhausted for order #${order.orderNumber}. Re-attempting available online riders.`)
+        freeRiders = await prisma.rider.findMany({
+          where: {
+            isApproved: true,
+            isSuspended: false,
+            isOnline: true,
+            status: "APPROVED",
+            onboardingCompleted: true,
+            deliveryAssignments: {
+              none: {
+                status: { in: ["ACCEPTED", "AT_PICKUP", "PICKED_UP", "OUT_FOR_DELIVERY", "OFFERED"] },
+              },
+            },
+          },
+          include: {
+            user: true,
+          },
+        })
+      }
 
       if (freeRiders.length === 0) {
         console.log(`[Dispatch] No free candidates for order #${order.orderNumber} (Seller: ${sellerId}).`)
@@ -243,6 +319,15 @@ export async function triggerOrderAutoDispatch(orderId: string, targetSellerId?:
       } else {
         rankedCandidates = finalCandidates
       }
+
+      // Prioritize riders who have active device tokens registered so that push notifications actually deliver
+      rankedCandidates.sort((a, b) => {
+        const aTokens = extractTokens(a.deviceTokens).length
+        const bTokens = extractTokens(b.deviceTokens).length
+        if (aTokens > 0 && bTokens === 0) return -1
+        if (bTokens > 0 && aTokens === 0) return 1
+        return 0
+      })
 
       const selectedRider = rankedCandidates[0]
       if (!selectedRider) {
@@ -562,8 +647,8 @@ export async function handleRiderStatusUpdate(
   const itemFilter = assignment.orderItemId
     ? { id: assignment.orderItemId }
     : assignment.sellerId
-    ? { orderId: assignment.orderId, sellerId: assignment.sellerId, productId: { not: null } }
-    : { orderId: assignment.orderId, productId: { not: null } }
+      ? { orderId: assignment.orderId, sellerId: assignment.sellerId, productId: { not: null } }
+      : { orderId: assignment.orderId, productId: { not: null } }
 
   // Validate state transitions
   switch (newStatus) {
@@ -634,8 +719,8 @@ export async function handleRiderStatusUpdate(
             status: allOutOrBeyond
               ? OrderStatus.OUT_FOR_DELIVERY
               : allShippedOrBeyond
-              ? OrderStatus.SHIPPED
-              : OrderStatus.PROCESSING,
+                ? OrderStatus.SHIPPED
+                : OrderStatus.PROCESSING,
           },
         })
       }
@@ -920,8 +1005,8 @@ export async function manualAssignRiderToOrder(
   const tokens = Array.isArray(rawTokens)
     ? rawTokens.map((t: any) => (typeof t === "string" ? t : t?.token)).filter(Boolean)
     : typeof rawTokens === "string"
-    ? [rawTokens]
-    : []
+      ? [rawTokens]
+      : []
 
   if (tokens.length > 0) {
     const shopName =
@@ -949,6 +1034,51 @@ export async function manualAssignRiderToOrder(
     assignment,
     vehicleWarning,
     vehicleRecommendation: vehicleMatch,
+  }
+}
+
+/**
+ * Stops ongoing automated dispatch / notifications for an order or seller package.
+ * Only cancels assignments that are currently in OFFERED status.
+ * If an offer is already ACCEPTED by a rider, it will NOT be cancelled.
+ */
+export async function stopOrderAutoDispatch(
+  orderId: string,
+  targetSellerId?: string,
+  cancelledBy: "ADMIN" | "SELLER" = "SELLER"
+) {
+  const pendingOffers = await prisma.riderDeliveryAssignment.findMany({
+    where: {
+      orderId,
+      ...(targetSellerId ? { sellerId: targetSellerId } : {}),
+      status: DeliveryAssignmentStatus.OFFERED,
+    },
+  })
+
+  if (pendingOffers.length === 0) {
+    return {
+      success: true,
+      cancelledCount: 0,
+      message: "No active pending offers found to stop.",
+    }
+  }
+
+  await prisma.riderDeliveryAssignment.updateMany({
+    where: {
+      id: { in: pendingOffers.map((p) => p.id) },
+      status: DeliveryAssignmentStatus.OFFERED,
+    },
+    data: {
+      status: DeliveryAssignmentStatus.REASSIGNED_BY_ADMIN,
+      cancellationReason: `Notifications stopped by ${cancelledBy.toLowerCase()}`,
+      cancelledAt: new Date(),
+    },
+  })
+
+  return {
+    success: true,
+    cancelledCount: pendingOffers.length,
+    message: `Notifications stopped. ${pendingOffers.length} pending offer(s) cancelled.`,
   }
 }
 

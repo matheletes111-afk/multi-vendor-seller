@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
-import { manualAssignRiderToOrder, triggerOrderAutoDispatch } from "@/lib/delivery-dispatch"
+import { manualAssignRiderToOrder, triggerOrderAutoDispatch, stopOrderAutoDispatch } from "@/lib/delivery-dispatch"
 
 export async function POST(
   req: NextRequest,
@@ -53,10 +53,31 @@ export async function POST(
 
     // If action is "auto_dispatch", trigger the waterfall engine
     if (action === "auto_dispatch") {
-      const result = await triggerOrderAutoDispatch(order.id, targetSellerId)
+      const result = await triggerOrderAutoDispatch(order.id, targetSellerId, {
+        forceRedispatch: true,
+        allowReofferRejected: true,
+      })
+      return NextResponse.json(
+        {
+          success: result.success,
+          message:
+            result.message ||
+            (result.success
+              ? "Auto-dispatch initiated! Nearest free rider contacted."
+              : "Auto-dispatch failed to find an available rider."),
+          data: result,
+        },
+        { status: result.success ? 200 : 400 }
+      )
+    }
+
+    // If action is "stop_dispatch", cancel pending offers and halt notifications
+    if (action === "stop_dispatch") {
+      const cancelledBy = userRole === "ADMIN" ? "ADMIN" : "SELLER"
+      const result = await stopOrderAutoDispatch(order.id, targetSellerId, cancelledBy)
       return NextResponse.json({
-        success: result.success,
-        message: result.message || "Auto-dispatch initiated",
+        success: true,
+        message: result.message,
         data: result,
       })
     }
