@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
-import { determineRequiredVehicleForItems, VehicleMatchResult } from "@/lib/ai-vehicle-matcher"
+import { determineRequiredVehicleForItems, VehicleMatchResult, isRiderVehicleCompatible } from "@/lib/ai-vehicle-matcher"
 
 export async function GET(req: NextRequest) {
   try {
@@ -72,11 +72,9 @@ export async function GET(req: NextRequest) {
 
     const availableRiders = riders.map((r) => {
       const isBusy = r.deliveryAssignments.length > 0
-      const riderTypes = Array.isArray(r.vehicleTypes) ? (r.vehicleTypes as string[]) : []
       const isVehicleMatch =
         !aiVehicleRecommendation ||
-        riderTypes.length === 0 ||
-        riderTypes.some((t) => aiVehicleRecommendation!.compatibleVehicles.includes(t as any))
+        isRiderVehicleCompatible(r.vehicleTypes, aiVehicleRecommendation.compatibleVehicles)
 
       return {
         id: r.id,

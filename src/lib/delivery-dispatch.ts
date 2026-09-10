@@ -4,7 +4,7 @@ import { sendDeliveryOfferToRider, sendPushNotification, extractTokens } from ".
 import { sendEmail } from "./email"
 import { sendDeliveryOtp } from "./delivery-otp"
 import { applySellerCreditForOrderLineDelivered } from "./seller-order-line-settlement"
-import { determineRequiredVehicleForItems } from "./ai-vehicle-matcher"
+import { determineRequiredVehicleForItems, isRiderVehicleCompatible } from "./ai-vehicle-matcher"
 import { DeliveryAssignmentStatus, DispatchMode, OrderStatus } from "@prisma/client"
 
 const OFFER_TIMEOUT_SECONDS = 60
@@ -286,11 +286,9 @@ export async function triggerOrderAutoDispatch(
         `[Dispatch] Package for Seller ${sellerId} AI Vehicle Match: ${vehicleMatch.requiredVehicle} (${vehicleMatch.reason})`
       )
 
-      // Filter candidates by required vehicle compatibility
+      // Filter candidates by required vehicle compatibility (normalizes 2_WHEELER, BICYCLE, MOTORBIKE, etc.)
       const vehicleMatchedRiders = zoneMatchedRiders.filter((rider) => {
-        const types = Array.isArray(rider.vehicleTypes) ? (rider.vehicleTypes as string[]) : []
-        if (types.length === 0) return true // Legacy riders without specified vehicle types
-        return types.some((t) => vehicleMatch.compatibleVehicles.includes(t as any))
+        return isRiderVehicleCompatible(rider.vehicleTypes, vehicleMatch.compatibleVehicles)
       })
 
       if (vehicleMatchedRiders.length === 0) {
@@ -1229,10 +1227,7 @@ export async function manualAssignRiderToOrder(
   const riderVehicleTypes = Array.isArray(rider.vehicleTypes) ? (rider.vehicleTypes as string[]) : []
   let vehicleWarning: string | null = null
 
-  if (
-    riderVehicleTypes.length > 0 &&
-    !riderVehicleTypes.some((t) => vehicleMatch.compatibleVehicles.includes(t as any))
-  ) {
+  if (!isRiderVehicleCompatible(rider.vehicleTypes, vehicleMatch.compatibleVehicles)) {
     vehicleWarning = `Warning: Rider vehicle (${riderVehicleTypes.join(", ")}) does not match recommended ${vehicleMatch.requiredVehicle} for this package.`
     console.warn(`[Dispatch] Manual assignment vehicle warning: ${vehicleWarning}`)
   }
