@@ -94,6 +94,9 @@ export async function GET(
     const responseData = {
       ...assignment,
       earningForThisDelivery,
+      deliveryFee: earningForThisDelivery,
+      deliveryEarning: earningForThisDelivery,
+      earning: earningForThisDelivery,
       order: {
         ...assignment.order,
         seller: assignment.seller || assignment.order.seller,

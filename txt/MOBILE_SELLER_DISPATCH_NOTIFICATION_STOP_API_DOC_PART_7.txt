@@ -199,7 +199,8 @@ Frees the order so the seller can assign a new rider or trigger auto-dispatch.
 Request:
 {
   "action": "cancel_assignment",
-  "reason": "Rider did not show up"
+  "reason": "Rider did not show up",
+  "autoReassign": true  // Optional (boolean): If true, cancels rider AND immediately dispatches notification to the next available rider!
 }
 
 Success Response (200 OK):
@@ -208,7 +209,8 @@ Success Response (200 OK):
   "message": "Rider assignment cancelled successfully (Cancelled by seller: Rider did not show up). Order is ready for re-dispatch or manual assignment.",
   "data": {
     "success": true,
-    "cancelledCount": 1
+    "cancelledCount": 1,
+    "reDispatch": { ... } // Present if autoReassign was true
   }
 }
 

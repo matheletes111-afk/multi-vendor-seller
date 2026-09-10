@@ -79,6 +79,7 @@ export function OrderRiderCard({
   const [searchRider, setSearchRider] = useState("")
   const [selectedRiderId, setSelectedRiderId] = useState<string>("")
   const [activePackageIdx, setActivePackageIdx] = useState(0)
+  const [showHistory, setShowHistory] = useState(false)
 
   // Find the active assignments (filter by sellerId if specified)
   const activeAssignments = deliveryAssignments.filter(
@@ -87,6 +88,14 @@ export function OrderRiderCard({
         a.status
       ) && (!sellerId || a.sellerId === sellerId)
   )
+
+  const sellerAssignments = deliveryAssignments.filter(
+    (a) => !sellerId || a.sellerId === sellerId
+  )
+  const historicalAttempts = sellerAssignments.filter(
+    (a) => ["TIMED_OUT", "REJECTED", "CANCELLED_BY_RIDER", "REASSIGNED_BY_ADMIN"].includes(a.status)
+  )
+  const maxAttemptsReached = activeAssignments.length === 0 && historicalAttempts.length >= 5
 
   const [aiVehicleRecommendation, setAiVehicleRecommendation] = useState<any>(null)
   const [vehicleFilterMode, setVehicleFilterMode] = useState<"matched" | "all">("matched")
@@ -114,17 +123,26 @@ export function OrderRiderCard({
       return
     }
 
+    let hasTriggeredCascade = false
+
     const calcSeconds = () => {
       const diff = Math.max(
         0,
         Math.floor((new Date(activeAssignment.expiresAt).getTime() - Date.now()) / 1000)
       )
       setSecondsLeft(diff)
+      if (diff === 0 && !hasTriggeredCascade) {
+        hasTriggeredCascade = true
+        // 60-second offer expired! Auto-refresh order to advance cascade to next rider
+        setTimeout(() => {
+          onRefresh?.()
+        }, 1500)
+      }
     }
     calcSeconds()
     const timer = setInterval(calcSeconds, 1000)
     return () => clearInterval(timer)
-  }, [isOffered, activeAssignment?.expiresAt])
+  }, [isOffered, activeAssignment?.id, activeAssignment?.expiresAt, onRefresh])
 
   const fetchAvailableRiders = async () => {
     try {
@@ -213,6 +231,10 @@ export function OrderRiderCard({
     const reason = prompt("Enter reason for cancelling this rider assignment:", "Rider did not show up")
     if (reason === null) return
 
+    const autoReassign = confirm(
+      "Do you want to automatically notify and dispatch the next available rider immediately?"
+    )
+
     try {
       setDispatchLoading(true)
       const res = await fetch(`/api/admin/orders/${orderId}/assign-rider`, {
@@ -222,11 +244,16 @@ export function OrderRiderCard({
           action: "cancel_assignment",
           sellerId: targetSeller,
           reason: reason.trim() || "Rider did not show up",
+          autoReassign,
         }),
       })
       const data = await res.json()
       if (res.ok && data.success !== false) {
-        alert(data.message || "Rider assignment cancelled. You can now reassign or auto-dispatch.")
+        alert(
+          autoReassign
+            ? (data.message || "Rider cancelled. Notification sent to the next available rider!")
+            : (data.message || "Rider assignment cancelled. You can now reassign or auto-dispatch.")
+        )
         setModalOpen(false)
         onRefresh?.()
       } else {
@@ -352,14 +379,28 @@ export function OrderRiderCard({
               {isDelivered ? <CheckCircle2 className="w-5 h-5 text-emerald-600" /> : <Bike className="w-5 h-5" />}
             </div>
             <div className="space-y-1">
-              <p className="text-xs font-bold text-foreground">
-                {isDelivered ? "Order Delivered" : "No Rider Assigned Yet"}
-              </p>
-              <p className="text-[11px] text-muted-foreground max-w-xs mx-auto">
-                {isDelivered
-                  ? "This order has been completed and marked as delivered."
-                  : "Orders ready for pickup can be dispatched automatically or manually assigned."}
-              </p>
+              {maxAttemptsReached ? (
+                <>
+                  <p className="text-xs font-bold text-amber-700 dark:text-amber-400 flex items-center justify-center gap-1.5">
+                    <AlertTriangle className="w-4 h-4 text-amber-500" />
+                    5 Dispatch Attempts Completed (No Rider Accepted)
+                  </p>
+                  <p className="text-[11px] text-muted-foreground max-w-xs mx-auto">
+                    All 5 nearest available riders timed out or declined. Automated cascade is paused. You can restart auto-dispatch or assign a specific rider.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="text-xs font-bold text-foreground">
+                    {isDelivered ? "Order Delivered" : "No Rider Assigned Yet"}
+                  </p>
+                  <p className="text-[11px] text-muted-foreground max-w-xs mx-auto">
+                    {isDelivered
+                      ? "This order has been completed and marked as delivered."
+                      : "Orders ready for pickup can be dispatched automatically or manually assigned."}
+                  </p>
+                </>
+              )}
             </div>
 
             {canManage && !isDelivered && (
@@ -416,13 +457,28 @@ export function OrderRiderCard({
               >
                 {isOffered
                   ? secondsLeft === 0
-                    ? "OFFER EXPIRED"
+                    ? `ATTEMPT #${activeAssignment.attemptNumber || 1} EXPIRED`
                     : `OFFERED (${secondsLeft !== null ? `${secondsLeft}s` : "60s"})`
                   : isDelivered
                   ? "DELIVERED"
                   : activeAssignment.status.replace(/_/g, " ")}
               </Badge>
             </div>
+
+            {/* Live Waterfall Flow Banner */}
+            {isOffered && (
+              <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-xs space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping shrink-0" />
+                  <span className="font-bold text-amber-900 dark:text-amber-200">
+                    ⚡ {activeAssignment.adminNotes || `Waterfall Cascade: Attempt #${activeAssignment.attemptNumber || 1}`}
+                  </span>
+                </div>
+                <p className="text-[11px] text-amber-700 dark:text-amber-300">
+                  Offer sent to {riderUser?.name || "Rider"}. If not accepted within {secondsLeft ?? 60}s, the system automatically notifies the next available rider in the flow.
+                </p>
+              </div>
+            )}
 
             {/* Clear "Delivered by" banner when delivered */}
             {isDelivered && (
@@ -578,6 +634,61 @@ export function OrderRiderCard({
                   destinationLng={destinationLng}
                   height="280px"
                 />
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Dispatch Attempt History (collapsible) */}
+        {historicalAttempts.length > 0 && (
+          <div className="pt-3 border-t border-border/40">
+            <button
+              type="button"
+              onClick={() => setShowHistory(!showHistory)}
+              className="text-[11px] font-semibold text-muted-foreground hover:text-foreground flex items-center justify-between w-full py-1"
+            >
+              <span className="flex items-center gap-1.5">
+                📜 Waterfall History ({historicalAttempts.length}{" "}
+                {historicalAttempts.length === 1 ? "attempt" : "attempts"} logged)
+              </span>
+              <span className="text-[10px] text-blue-600 dark:text-blue-400 font-bold">
+                {showHistory ? "Hide" : "View"}
+              </span>
+            </button>
+
+            {showHistory && (
+              <div className="mt-2 space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                {historicalAttempts.map((attempt: any, idx: number) => {
+                  const rName =
+                    attempt.rider?.user?.name ||
+                    `Rider #${attempt.riderId?.slice(-4) || idx + 1}`
+                  const statusLabel =
+                    attempt.status === "TIMED_OUT"
+                      ? "Timed Out (60s expired)"
+                      : attempt.status === "REJECTED"
+                      ? "Declined by Rider"
+                      : attempt.status === "CANCELLED_BY_RIDER"
+                      ? "Cancelled by Rider"
+                      : attempt.status === "REASSIGNED_BY_ADMIN"
+                      ? "Reassigned"
+                      : attempt.status
+                  return (
+                    <div
+                      key={attempt.id || idx}
+                      className="flex items-center justify-between p-2 rounded-xl bg-muted/40 text-[11px] border border-border/30"
+                    >
+                      <div className="flex items-center gap-2 truncate">
+                        <span className="font-bold text-foreground">
+                          #{attempt.attemptNumber || idx + 1}
+                        </span>
+                        <span className="truncate text-muted-foreground">{rName}</span>
+                      </div>
+                      <Badge variant="outline" className="text-[9px] px-1.5 py-0 shrink-0 font-medium">
+                        {statusLabel}
+                      </Badge>
+                    </div>
+                  )
+                })}
               </div>
             )}
           </div>
@@ -780,6 +891,8 @@ export function OrderRiderCard({
                   ? "Dispatching..."
                   : isOffered
                   ? "Cancel Current Offer & Auto-Dispatch Next Rider"
+                  : activeAssignment
+                  ? "Revoke Current Rider & Auto-Dispatch Next Rider"
                   : "Start Auto-Dispatch Engine"}
               </Button>
               {isOffered && (

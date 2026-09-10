@@ -77,7 +77,8 @@ export async function POST(
     // Cancel accepted/pending rider assignment (e.g. if rider doesn't show up)
     if (action === "cancel_assignment" || action === "cancel_rider") {
       const customReason = reason || cancellationReason || "Rider did not show up"
-      const result = await cancelAcceptedRiderAssignment(order.id, seller.id, "SELLER", customReason)
+      const autoReassign = body.autoReassign === true
+      const result = await cancelAcceptedRiderAssignment(order.id, seller.id, "SELLER", customReason, { autoReassign })
       return NextResponse.json(
         {
           success: result.success,

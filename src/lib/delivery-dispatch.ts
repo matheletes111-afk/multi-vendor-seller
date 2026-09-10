@@ -9,7 +9,7 @@ import { DeliveryAssignmentStatus, DispatchMode, OrderStatus } from "@prisma/cli
 
 const OFFER_TIMEOUT_SECONDS = 60
 const NO_SHOW_TIMEOUT_MINUTES = 30
-export const MAX_AUTO_DISPATCH_ATTEMPTS = 5
+export const MAX_ROUNDS_PER_RIDER = 5
 
 export interface AutoDispatchOptions {
   forceRedispatch?: boolean
@@ -145,27 +145,75 @@ export async function triggerOrderAutoDispatch(
       })
 
       if (activeAssignment) {
-        results.push({
-          sellerId,
-          success: false,
-          message: `Seller package already has active assignment: ${activeAssignment.id} (${activeAssignment.status})`,
-        })
-        continue
-      }
+        // If the assignment is OFFERED and has expired (60s passed), auto-expire it to TIMED_OUT and continue cascading!
+        if (
+          activeAssignment.status === DeliveryAssignmentStatus.OFFERED &&
+          activeAssignment.expiresAt &&
+          activeAssignment.expiresAt < new Date()
+        ) {
+          await prisma.riderDeliveryAssignment.update({
+            where: { id: activeAssignment.id },
+            data: { status: DeliveryAssignmentStatus.TIMED_OUT },
+          })
+          console.log(`[Dispatch] Auto-expired stale offer ${activeAssignment.id} on order ${order.id}. Continuing cascade.`)
+        } else if (
+          options?.forceRedispatch &&
+          (activeAssignment.status === DeliveryAssignmentStatus.OFFERED ||
+           activeAssignment.status === DeliveryAssignmentStatus.ACCEPTED ||
+           activeAssignment.status === DeliveryAssignmentStatus.AT_PICKUP)
+        ) {
+          // If forceRedispatch is requested, revoke the existing pending offer or accepted assignment
+          await prisma.riderDeliveryAssignment.update({
+            where: { id: activeAssignment.id },
+            data: {
+              status: DeliveryAssignmentStatus.REASSIGNED_BY_ADMIN,
+              cancellationReason: "Re-dispatch triggered by user",
+              cancelledAt: new Date(),
+            },
+          })
 
-      // Check max automated attempts to prevent infinite dispatch loops
-      const previousAttemptsCount = order.deliveryAssignments.filter((a) => a.sellerId === sellerId).length
-      if (!options?.forceRedispatch && previousAttemptsCount >= MAX_AUTO_DISPATCH_ATTEMPTS) {
-        console.log(
-          `[Dispatch] Max auto-dispatch attempts (${MAX_AUTO_DISPATCH_ATTEMPTS}) reached for Order #${order.orderNumber} (Seller: ${sellerId}). Pausing automatic cascade to prevent infinite loop.`
-        )
-        results.push({
-          sellerId,
-          success: false,
-          maxAttemptsReached: true,
-          message: `Maximum automated dispatch attempts (${MAX_AUTO_DISPATCH_ATTEMPTS}) reached. Automatic notifications stopped. You can assign a rider manually or click Reassign to retry.`,
-        })
-        continue
+          // If the rider had accepted, notify them via FCM and Email that the assignment was revoked
+          if (
+            activeAssignment.status === DeliveryAssignmentStatus.ACCEPTED ||
+            activeAssignment.status === DeliveryAssignmentStatus.AT_PICKUP
+          ) {
+            const revokedRider = await prisma.rider.findUnique({
+              where: { id: activeAssignment.riderId },
+              include: { user: true },
+            })
+            if (revokedRider) {
+              const tokens = extractTokens(revokedRider.deviceTokens)
+              if (tokens.length > 0) {
+                sendPushNotification({
+                  tokens,
+                  riderId: revokedRider.id,
+                  title: "⚠️ Delivery Assignment Revoked",
+                  body: `Your delivery assignment for Order #${order.orderNumber} has been reassigned to another rider.`,
+                  data: {
+                    type: "ASSIGNMENT_REVOKED",
+                    orderId: order.id,
+                    orderNumber: order.orderNumber,
+                  },
+                }).catch(() => null)
+              }
+              if (revokedRider.user?.email) {
+                sendEmail({
+                  to: revokedRider.user.email,
+                  subject: `⚠️ Delivery Assignment Revoked for Order #${order.orderNumber}`,
+                  text: `Your delivery assignment for Order #${order.orderNumber} has been reassigned by the store/admin. You are now free to accept other deliveries.`,
+                }).catch(() => null)
+              }
+            }
+          }
+          console.log(`[Dispatch] Revoked assignment ${activeAssignment.id} (${activeAssignment.status}) on order ${order.id} due to forceRedispatch.`)
+        } else {
+          results.push({
+            sellerId,
+            success: false,
+            message: `Seller package already has active assignment: ${activeAssignment.id} (${activeAssignment.status})`,
+          })
+          continue
+        }
       }
 
       // Determine Seller coordinates (Shop location)
@@ -180,32 +228,18 @@ export async function triggerOrderAutoDispatch(
       const sellerLat = sellerInfo?.businessInfo?.latitude || null
       const sellerLng = sellerInfo?.businessInfo?.longitude || null
 
-      // List of riders already offered/attempted for this seller on this order (Live DB query — stale cache causes infinite re-dispatch to same rider)
-      const previousAssignments = await prisma.riderDeliveryAssignment.findMany({
-        where: {
-          orderId: order.id,
-          sellerId: sellerId,
-          status: { in: ["REJECTED", "TIMED_OUT", "CANCELLED_BY_RIDER"] },
-        },
-        select: { riderId: true },
-      })
-      const previousRiderIds = previousAssignments.map((a) => a.riderId)
-
       // Match customer delivery location name or zone
       const customerLocation = (order.shippingCity || order.shippingAddressLine1 || "").trim()
 
-      const shouldExcludePrevious =
-        !options?.allowReofferRejected && !options?.forceRedispatch
-
       // 1 Rider = 1 Delivery Rule: Find all online, approved, idle riders with completed onboarding
-      let freeRiders = await prisma.rider.findMany({
+      // Exclude riders currently engaged in an active delivery
+      const allAvailableRiders = await prisma.rider.findMany({
         where: {
           isApproved: true,
           isSuspended: false,
           isOnline: true,
           status: "APPROVED",
           onboardingCompleted: true,
-          ...(shouldExcludePrevious ? { id: { notIn: previousRiderIds } } : {}),
           deliveryAssignments: {
             none: {
               status: { in: ["ACCEPTED", "AT_PICKUP", "PICKED_UP", "OUT_FOR_DELIVERY", "OFFERED"] },
@@ -217,30 +251,8 @@ export async function triggerOrderAutoDispatch(
         },
       })
 
-      // Fallback: If no untried free riders exist, but there are free online riders who previously timed out or rejected, allow re-offering to them!
-      if (freeRiders.length === 0 && previousRiderIds.length > 0) {
-        console.log(`[Dispatch] Untried riders exhausted for order #${order.orderNumber}. Re-attempting available online riders.`)
-        freeRiders = await prisma.rider.findMany({
-          where: {
-            isApproved: true,
-            isSuspended: false,
-            isOnline: true,
-            status: "APPROVED",
-            onboardingCompleted: true,
-            deliveryAssignments: {
-              none: {
-                status: { in: ["ACCEPTED", "AT_PICKUP", "PICKED_UP", "OUT_FOR_DELIVERY", "OFFERED"] },
-              },
-            },
-          },
-          include: {
-            user: true,
-          },
-        })
-      }
-
-      if (freeRiders.length === 0) {
-        console.log(`[Dispatch] No free candidates for order #${order.orderNumber} (Seller: ${sellerId}).`)
+      if (allAvailableRiders.length === 0) {
+        console.log(`[Dispatch] No free riders currently online for order #${order.orderNumber} (Seller: ${sellerId}).`)
         results.push({
           sellerId,
           success: false,
@@ -250,15 +262,8 @@ export async function triggerOrderAutoDispatch(
         continue
       }
 
-      // AI-Driven Vehicle Type Classification for this seller's package
-      const sellerItems = order.items.filter((i) => i.sellerId === sellerId)
-      const vehicleMatch = await determineRequiredVehicleForItems(sellerItems)
-      console.log(
-        `[Dispatch] Package for Seller ${sellerId} AI Vehicle Match: ${vehicleMatch.requiredVehicle} (${vehicleMatch.reason})`
-      )
-
       // Filter by zone/location match if rider specified selectedLocations
-      let eligibleRiders = freeRiders.filter((rider) => {
+      let zoneMatchedRiders = allAvailableRiders.filter((rider) => {
         if (!customerLocation) return true
         if (!rider.selectedLocations) return true
 
@@ -274,12 +279,19 @@ export async function triggerOrderAutoDispatch(
         )
       })
 
-      if (eligibleRiders.length === 0) {
-        eligibleRiders = freeRiders
+      if (zoneMatchedRiders.length === 0) {
+        zoneMatchedRiders = allAvailableRiders
       }
 
+      // AI-Driven Vehicle Type Classification for this seller's package
+      const sellerItems = order.items.filter((i) => i.sellerId === sellerId)
+      const vehicleMatch = await determineRequiredVehicleForItems(sellerItems)
+      console.log(
+        `[Dispatch] Package for Seller ${sellerId} AI Vehicle Match: ${vehicleMatch.requiredVehicle} (${vehicleMatch.reason})`
+      )
+
       // Filter candidates by required vehicle compatibility
-      const vehicleMatchedRiders = eligibleRiders.filter((rider) => {
+      const vehicleMatchedRiders = zoneMatchedRiders.filter((rider) => {
         const types = Array.isArray(rider.vehicleTypes) ? (rider.vehicleTypes as string[]) : []
         if (types.length === 0) return true // Legacy riders without specified vehicle types
         return types.some((t) => vehicleMatch.compatibleVehicles.includes(t as any))
@@ -300,24 +312,71 @@ export async function triggerOrderAutoDispatch(
         continue
       }
 
-      const finalCandidates = vehicleMatchedRiders
+      const poolCandidates = vehicleMatchedRiders
+      const vehicleWarning = null
 
-      // Rank candidates by distance from Seller Shop (if GPS available)
+      // Multi-Flow Wave Dispatch: Count how many times each candidate in the pool has ALREADY been offered this order
+      const riderOfferCounts = await prisma.riderDeliveryAssignment.groupBy({
+        by: ["riderId"],
+        where: {
+          orderId: order.id,
+          sellerId: sellerId,
+          dispatchMode: DispatchMode.AUTO_CASCADE,
+        },
+        _count: { id: true },
+      })
+      const offerCountMap = new Map<string, number>()
+      for (const row of riderOfferCounts) {
+        offerCountMap.set(row.riderId, row._count.id)
+      }
+
+      // Each available rider receives up to MAX_ROUNDS_PER_RIDER (5) notifications across 5 sequential flows
+      const eligibleRiders = poolCandidates.filter((rider) => {
+        if (options?.forceRedispatch) return true
+        const count = offerCountMap.get(rider.id) || 0
+        return count < MAX_ROUNDS_PER_RIDER
+      })
+
+      if (eligibleRiders.length === 0) {
+        console.log(
+          `[Dispatch] All ${poolCandidates.length} available riders have been offered 5 times across 5 complete cascade flows without acceptance for Order #${order.orderNumber} (Seller: ${sellerId}). Pausing auto-dispatch.`
+        )
+        results.push({
+          sellerId,
+          success: false,
+          maxAttemptsReached: true,
+          message: `All ${poolCandidates.length} available riders have received 5 offer notifications without acceptance. Automatic cascade paused. Click Reassign to retry.`,
+        })
+        continue
+      }
+
+      // Sequential Flow / Wave Strategy:
+      // Find the minimum offer count among eligible candidates (e.g. Flow 1 = 0, Flow 2 = 1, Flow 3 = 2, Flow 4 = 3, Flow 5 = 4)
+      // All riders in the current flow must be offered before moving to the next flow!
+      const minOfferCount = Math.min(
+        ...eligibleRiders.map((r) => offerCountMap.get(r.id) || 0)
+      )
+      const currentFlowCandidates = eligibleRiders.filter(
+        (r) => (offerCountMap.get(r.id) || 0) === minOfferCount
+      )
+      const currentCycleNumber = minOfferCount + 1 // Flow 1, Flow 2, Flow 3, Flow 4, Flow 5
+
+      // Rank candidates in current flow by distance from Seller Shop (if GPS available)
       let rankedCandidates: any[] = []
 
       if (sellerLat != null && sellerLng != null) {
         const targetCoord = { latitude: sellerLat, longitude: sellerLng }
-        const withGps = finalCandidates.filter(
+        const withGps = currentFlowCandidates.filter(
           (r) => r.currentLatitude != null && r.currentLongitude != null
         )
-        const withoutGps = finalCandidates.filter(
+        const withoutGps = currentFlowCandidates.filter(
           (r) => r.currentLatitude == null || r.currentLongitude == null
         )
 
         const sortedWithGps = sortByProximity(targetCoord, withGps)
         rankedCandidates = [...sortedWithGps, ...withoutGps]
       } else {
-        rankedCandidates = finalCandidates
+        rankedCandidates = currentFlowCandidates
       }
 
       // Prioritize riders who have active device tokens registered so that push notifications actually deliver
@@ -331,12 +390,15 @@ export async function triggerOrderAutoDispatch(
 
       const selectedRider = rankedCandidates[0]
       if (!selectedRider) {
-        results.push({ sellerId, success: false, message: "No candidate selected" })
+        results.push({ sellerId, success: false, message: "No candidate selected in current flow" })
         continue
       }
 
-      const attemptNumber =
-        order.deliveryAssignments.filter((a) => a.sellerId === sellerId).length + 1
+      const totalAttemptsSoFar = await prisma.riderDeliveryAssignment.count({
+        where: { orderId: order.id, sellerId },
+      })
+      const attemptNumber = totalAttemptsSoFar + 1
+      const riderAttemptCount = (offerCountMap.get(selectedRider.id) || 0) + 1
       const distanceKm = (selectedRider as any).distanceKm || null
 
       // Create the OFFERED assignment
@@ -356,28 +418,88 @@ export async function triggerOrderAutoDispatch(
           riderLongitudeAtOffer: selectedRider.currentLongitude,
           distanceKm,
           expiresAt,
+          adminNotes: `Flow ${currentCycleNumber}/5 • Rider Offer #${riderAttemptCount}/5 (Pool: ${poolCandidates.length} riders)`,
         },
       })
 
-      // Send high-priority Push Notification to selected Rider
+      // Determine accurate Delivery Earning for this seller's package
+      const sellerItemsForDispatch = order.items.filter((i) => i.sellerId === sellerId)
+      const sellerDeliveryFee = sellerItemsForDispatch.reduce(
+        (sum, item) => sum + (Number(item.shippingAmount) || 0),
+        0
+      ) || Number(order.shipping || 0)
+
       const shopName =
         sellerInfo?.store?.name ||
         sellerInfo?.businessInfo?.businessName ||
         "Seller Store"
 
+      const shopAddress =
+        [sellerInfo?.businessInfo?.street, sellerInfo?.businessInfo?.city].filter(Boolean).join(", ") ||
+        sellerInfo?.store?.address ||
+        "Store Address"
+
+      const customerName = order.shippingFullName || "Customer"
+      const customerPhone = order.shippingPhone || ""
+      const customerAddress =
+        [order.shippingAddressLine1, order.shippingAddressLine2, order.shippingCity].filter(Boolean).join(", ") ||
+        "Delivery Address"
+
+      // Send high-priority Push Notification to selected Rider with accurate earning and route
       await sendDeliveryOfferToRider(selectedRider, {
         orderId: order.id,
         orderNumber: order.orderNumber,
         assignmentId: assignment.id,
         shopName,
+        shopAddress,
         shopDistanceKm: distanceKm || undefined,
+        customerName,
+        customerAddress,
+        customerPhone,
         customerZone: customerLocation || undefined,
+        deliveryFee: sellerDeliveryFee,
         timeoutSeconds: OFFER_TIMEOUT_SECONDS,
+        cycle: currentCycleNumber,
+        riderAttempt: riderAttemptCount,
       })
 
+      // Also send Email notification to selected Rider as immediate backup channel
+      if (selectedRider.user?.email) {
+        sendEmail({
+          to: selectedRider.user.email,
+          subject: `📦 New Delivery Offer: NLe ${sellerDeliveryFee.toFixed(2)} for Order #${order.orderNumber} (Flow ${currentCycleNumber}/5)`,
+          text: `Hello ${selectedRider.user.name || "Rider"},\n\nA new delivery offer for Order #${order.orderNumber} is available from ${shopName} (Flow ${currentCycleNumber}/5 • Your Offer #${riderAttemptCount}/5).\n\n💰 Delivery Earning: NLe ${sellerDeliveryFee.toFixed(2)}\n🏪 Store: ${shopName} (${shopAddress})\n📍 Delivery Destination: ${customerAddress} (${customerName})\n\nPlease open your MEEEM Rider App to accept the delivery within ${OFFER_TIMEOUT_SECONDS} seconds!`,
+        }).catch(() => null)
+      }
+
       console.log(
-        `[Dispatch] Offer sent to Rider ${selectedRider.user?.name || selectedRider.id} (Attempt #${attemptNumber}) for Order #${order.orderNumber} (Seller: ${shopName})`
+        `[Dispatch] Offer sent to Rider ${selectedRider.user?.name || selectedRider.id} (Flow #${currentCycleNumber}/5, Rider Offer #${riderAttemptCount}/5, Attempt #${attemptNumber}) for Order #${order.orderNumber} (Seller: ${shopName})`
       )
+
+      // Proactive Server-Side Timer: Automatically cascade to next rider after 62s if ignored
+      const assignmentIdToWatch = assignment.id
+      const orderIdToWatch = order.id
+      const sellerIdToWatch = sellerId
+      setTimeout(async () => {
+        try {
+          const current = await prisma.riderDeliveryAssignment.findUnique({
+            where: { id: assignmentIdToWatch },
+            select: { status: true, orderId: true, sellerId: true },
+          })
+          if (current && current.status === DeliveryAssignmentStatus.OFFERED) {
+            await prisma.riderDeliveryAssignment.update({
+              where: { id: assignmentIdToWatch },
+              data: { status: DeliveryAssignmentStatus.TIMED_OUT },
+            })
+            console.log(
+              `[Dispatch] Server timer auto-expired offer ${assignmentIdToWatch} for Order #${order.orderNumber} (Flow #${currentCycleNumber}/5, Attempt #${attemptNumber}). Cascading to next rider...`
+            )
+            await triggerOrderAutoDispatch(orderIdToWatch, sellerIdToWatch || undefined)
+          }
+        } catch (err) {
+          console.debug("[Dispatch] Proactive cascade timer error:", err)
+        }
+      }, (OFFER_TIMEOUT_SECONDS + 2) * 1000)
 
       results.push({
         sellerId,
@@ -385,6 +507,8 @@ export async function triggerOrderAutoDispatch(
         assignmentId: assignment.id,
         riderId: selectedRider.id,
         attemptNumber,
+        cycle: currentCycleNumber,
+        riderAttempt: riderAttemptCount,
         expiresAt,
       })
     }
@@ -827,6 +951,17 @@ export async function handleRiderStatusUpdate(
       return { success: true, assignment: txResult }
 
     case DeliveryAssignmentStatus.CANCELLED_BY_RIDER:
+      if (
+        currentStatus === DeliveryAssignmentStatus.PICKED_UP ||
+        currentStatus === DeliveryAssignmentStatus.OUT_FOR_DELIVERY ||
+        currentStatus === DeliveryAssignmentStatus.DELIVERED
+      ) {
+        return {
+          success: false,
+          message: `Cannot cancel delivery: Items are already ${currentStatus.replace(/_/g, " ")}. Please contact support.`,
+        }
+      }
+
       // Trigger instant auto-reassignment for this specific seller!
       await prisma.riderDeliveryAssignment.update({
         where: { id: assignmentId },
@@ -851,7 +986,10 @@ export async function handleRiderStatusUpdate(
         }
       }
 
-      const reDispatch = await triggerOrderAutoDispatch(assignment.orderId, assignment.sellerId || undefined)
+      const reDispatch = await triggerOrderAutoDispatch(assignment.orderId, assignment.sellerId || undefined, {
+        forceRedispatch: true,
+        allowReofferRejected: true,
+      })
       return { success: true, cancelled: true, reDispatch }
 
     default:
@@ -951,15 +1089,63 @@ export async function manualAssignRiderToOrder(
     console.warn(`[Dispatch] Manual assignment vehicle warning: ${vehicleWarning}`)
   }
 
-  // Cancel existing pending assignments for this seller
-  await prisma.riderDeliveryAssignment.updateMany({
+  // Cancel existing pending or uncollected assignments for this seller and notify previous riders
+  const prevAssignments = await prisma.riderDeliveryAssignment.findMany({
     where: {
       orderId,
       sellerId,
-      status: { in: [DeliveryAssignmentStatus.OFFERED, DeliveryAssignmentStatus.ACCEPTED] },
+      status: {
+        in: [
+          DeliveryAssignmentStatus.OFFERED,
+          DeliveryAssignmentStatus.ACCEPTED,
+          DeliveryAssignmentStatus.AT_PICKUP,
+        ],
+      },
     },
-    data: { status: DeliveryAssignmentStatus.REASSIGNED_BY_ADMIN },
+    include: {
+      rider: { include: { user: true } },
+    },
   })
+
+  if (prevAssignments.length > 0) {
+    await prisma.riderDeliveryAssignment.updateMany({
+      where: {
+        id: { in: prevAssignments.map((p) => p.id) },
+      },
+      data: {
+        status: DeliveryAssignmentStatus.REASSIGNED_BY_ADMIN,
+        cancellationReason: `Replaced by manual assignment to rider ${rider.user?.name || rider.id}`,
+        cancelledAt: new Date(),
+      },
+    })
+
+    // Notify previously assigned riders that they were reassigned
+    for (const prev of prevAssignments) {
+      if (prev.riderId === rider.id) continue
+      const rawTokens = prev.rider?.deviceTokens
+      const tokens = extractTokens(rawTokens)
+      if (tokens.length > 0) {
+        sendPushNotification({
+          tokens,
+          riderId: prev.riderId,
+          title: "⚠️ Delivery Assignment Revoked",
+          body: `Your delivery assignment for Order #${order.orderNumber} has been reassigned to another rider.`,
+          data: {
+            type: "ASSIGNMENT_REVOKED",
+            orderId: order.id,
+            orderNumber: order.orderNumber,
+          },
+        }).catch(() => null)
+      }
+      if (prev.rider?.user?.email) {
+        sendEmail({
+          to: prev.rider.user.email,
+          subject: `⚠️ Delivery Assignment Revoked for Order #${order.orderNumber}`,
+          text: `Your delivery assignment for Order #${order.orderNumber} has been reassigned by the store/admin. You are now free to accept other deliveries.`,
+        }).catch(() => null)
+      }
+    }
+  }
 
   const sellerLat = sellerInfo?.businessInfo?.latitude || null
   const sellerLng = sellerInfo?.businessInfo?.longitude || null
@@ -1009,24 +1195,85 @@ export async function manualAssignRiderToOrder(
       : []
 
   if (tokens.length > 0) {
+    const sellerItemsForManual = order.items.filter((i) => i.sellerId === sellerId)
+    const sellerDeliveryFee = sellerItemsForManual.reduce(
+      (sum, item) => sum + (Number(item.shippingAmount) || 0),
+      0
+    ) || Number(order.shipping || 0)
+    const feeFormatted = sellerDeliveryFee.toFixed(2)
+
     const shopName =
       sellerInfo?.store?.name ||
       sellerInfo?.businessInfo?.businessName ||
       order.seller?.store?.name ||
       "Seller Store"
 
+    const shopAddress =
+      [sellerInfo?.businessInfo?.street, sellerInfo?.businessInfo?.city].filter(Boolean).join(", ") ||
+      sellerInfo?.store?.address ||
+      "Store Address"
+
+    const customerName = order.shippingFullName || "Customer"
+    const customerPhone = order.shippingPhone || ""
+    const customerAddress =
+      [order.shippingAddressLine1, order.shippingAddressLine2, order.shippingCity].filter(Boolean).join(", ") ||
+      "Delivery Address"
+
     sendPushNotification({
       tokens,
       riderId: rider.id,
       title: "🛵 Direct Delivery Assignment",
-      body: `You have been directly assigned delivery for Order #${order.orderNumber} from ${shopName}.`,
+      body: `You have been directly assigned delivery for Order #${order.orderNumber} from ${shopName} • Earning: NLe ${feeFormatted}.`,
       data: {
         type: "MANUAL_ASSIGN",
         orderId: order.id,
         orderNumber: order.orderNumber,
         assignmentId: assignment.id,
+        deliveryFee: feeFormatted,
+        deliveryEarning: feeFormatted,
+        earning: feeFormatted,
+        amount: feeFormatted,
+        shopName,
+        shopAddress,
+        customerName,
+        customerAddress,
+        customerPhone,
+        distanceKm: distanceKm != null ? String(distanceKm) : "",
+        click_action: "FLUTTER_NOTIFICATION_CLICK",
       },
     }).catch((err) => console.debug("[FCM] Manual assign notification failed:", err))
+  }
+
+  // Also send direct email alert to the assigned rider
+  if (rider.user?.email) {
+    const sellerItemsForManual = order.items.filter((i) => i.sellerId === sellerId)
+    const sellerDeliveryFee = sellerItemsForManual.reduce(
+      (sum, item) => sum + (Number(item.shippingAmount) || 0),
+      0
+    ) || Number(order.shipping || 0)
+    const feeFormatted = sellerDeliveryFee.toFixed(2)
+
+    const shopName =
+      sellerInfo?.store?.name ||
+      sellerInfo?.businessInfo?.businessName ||
+      order.seller?.store?.name ||
+      "Seller Store"
+
+    const shopAddress =
+      [sellerInfo?.businessInfo?.street, sellerInfo?.businessInfo?.city].filter(Boolean).join(", ") ||
+      sellerInfo?.store?.address ||
+      "Store Address"
+
+    const customerName = order.shippingFullName || "Customer"
+    const customerAddress =
+      [order.shippingAddressLine1, order.shippingAddressLine2, order.shippingCity].filter(Boolean).join(", ") ||
+      "Delivery Address"
+
+    sendEmail({
+      to: rider.user.email,
+      subject: `🛵 New Delivery Order Assigned: #${order.orderNumber} (Earning: NLe ${feeFormatted})`,
+      text: `Hello ${rider.user.name || "Rider"},\n\nYou have been directly assigned delivery for Order #${order.orderNumber} from ${shopName}.\n\n💰 Delivery Earning: NLe ${feeFormatted}\n🏪 Store: ${shopName} (${shopAddress})\n📍 Delivery Destination: ${customerAddress} (${customerName})\n\nPlease open your MEEEM Rider App to view pickup details.`,
+    }).catch(() => null)
   }
 
   return {
@@ -1091,7 +1338,8 @@ export async function cancelAcceptedRiderAssignment(
   orderId: string,
   targetSellerId?: string,
   cancelledBy: "ADMIN" | "SELLER" = "SELLER",
-  reason: string = "Rider did not show up"
+  reason: string = "Rider did not show up",
+  options?: { autoReassign?: boolean }
 ) {
   const whereClause: any = {
     orderId,
@@ -1153,6 +1401,7 @@ export async function cancelAcceptedRiderAssignment(
       },
     })
 
+    // Notify rider via Email
     if (assignment.rider?.user?.email) {
       sendEmail({
         to: assignment.rider.user.email,
@@ -1160,12 +1409,38 @@ export async function cancelAcceptedRiderAssignment(
         text: `Your delivery assignment for Order #${assignment.order.orderNumber} has been cancelled by the ${cancelledBy.toLowerCase()} (Reason: ${reason}). You are now available for other orders.`,
       }).catch(() => null)
     }
+
+    // Notify rider via Push Notification
+    const rawTokens = assignment.rider?.deviceTokens
+    const tokens = extractTokens(rawTokens)
+    if (tokens.length > 0) {
+      sendPushNotification({
+        tokens,
+        riderId: assignment.rider.id,
+        title: "⚠️ Delivery Assignment Revoked",
+        body: `Your delivery assignment for Order #${assignment.order.orderNumber} has been revoked by ${cancelledBy.toLowerCase()} (${reason}).`,
+        data: {
+          type: "ASSIGNMENT_REVOKED",
+          orderId: assignment.orderId,
+          orderNumber: assignment.order.orderNumber,
+        },
+      }).catch(() => null)
+    }
+  }
+
+  let reDispatchResult: any = null
+  if (options?.autoReassign) {
+    reDispatchResult = await triggerOrderAutoDispatch(orderId, targetSellerId, {
+      forceRedispatch: true,
+      allowReofferRejected: true,
+    }).catch(() => null)
   }
 
   return {
     success: true,
     cancelledCount: activeAssignments.length,
     message: `Rider assignment cancelled successfully (${fullReason}). Order is ready for re-dispatch or manual assignment.`,
+    reDispatch: reDispatchResult,
   }
 }
 

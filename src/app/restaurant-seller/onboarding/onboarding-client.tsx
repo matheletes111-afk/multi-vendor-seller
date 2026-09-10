@@ -89,16 +89,24 @@ export function RestaurantOnboardingClient() {
         setHaveGst(!!seller.businessInfo.haveGst)
       }
       if (seller.primaryCuisine) {
-        try {
-          const c = JSON.parse(seller.primaryCuisine)
-          if (Array.isArray(c)) setSelectedCuisines(c)
-        } catch { /* ignore */ }
+        if (Array.isArray(seller.primaryCuisine)) {
+          setSelectedCuisines(seller.primaryCuisine)
+        } else if (typeof seller.primaryCuisine === "string") {
+          try {
+            const c = JSON.parse(seller.primaryCuisine)
+            if (Array.isArray(c)) setSelectedCuisines(c)
+          } catch { /* ignore */ }
+        }
       }
       if (seller.serviceTypes) {
-        try {
-          const s = JSON.parse(seller.serviceTypes)
-          if (Array.isArray(s)) setSelectedServices(s)
-        } catch { /* ignore */ }
+        if (Array.isArray(seller.serviceTypes)) {
+          setSelectedServices(seller.serviceTypes)
+        } else if (typeof seller.serviceTypes === "string") {
+          try {
+            const s = JSON.parse(seller.serviceTypes)
+            if (Array.isArray(s)) setSelectedServices(s)
+          } catch { /* ignore */ }
+        }
       }
       if (seller.bankDetails) {
         const opt = seller.bankDetails.paymentOption || 

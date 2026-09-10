@@ -85,16 +85,24 @@ export default function RestaurantSettingsClient() {
             setPaymentOption(opt)
           }
           if (s.primaryCuisine) {
-              try {
-                  const c = JSON.parse(s.primaryCuisine)
-                  if (Array.isArray(c)) setSelectedCuisines(c)
-              } catch { /* ignore */ }
+              if (Array.isArray(s.primaryCuisine)) {
+                  setSelectedCuisines(s.primaryCuisine)
+              } else if (typeof s.primaryCuisine === "string") {
+                  try {
+                      const c = JSON.parse(s.primaryCuisine)
+                      if (Array.isArray(c)) setSelectedCuisines(c)
+                  } catch { /* ignore */ }
+              }
           }
           if (s.serviceTypes) {
-              try {
-                  const sv = JSON.parse(s.serviceTypes)
-                  if (Array.isArray(sv)) setSelectedServices(sv)
-              } catch { /* ignore */ }
+              if (Array.isArray(s.serviceTypes)) {
+                  setSelectedServices(s.serviceTypes)
+              } else if (typeof s.serviceTypes === "string") {
+                  try {
+                      const sv = JSON.parse(s.serviceTypes)
+                      if (Array.isArray(sv)) setSelectedServices(sv)
+                  } catch { /* ignore */ }
+              }
           }
           if (s.isApproved) {
             if (typeof window !== "undefined" && window.location.search.includes("error=AccountPendingApproval")) {

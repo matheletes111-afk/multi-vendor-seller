@@ -149,17 +149,34 @@ NOTIFICATION PAYLOAD RECEIVED ON MOBILE:
 {
   "notification": {
     "title": "📦 New Delivery Assignment Offer!",
-    "body": "Pickup from Electronics Hub (2.1 km away). Tap to accept within 60s!"
+    "body": "Pickup from Electronics Hub (2.1 km away) • Earning: NLe 150.00. Tap to accept within 60s!"
   },
   "data": {
     "type": "NEW_OFFER",
     "orderId": "cuid_order_id",
-    "orderNumber": "meeem00000042",
+    "orderNumber": "meeem00000060",
     "assignmentId": "cuid_assignment_id",
     "timeout": "60",
+    "deliveryFee": "150.00",            // <--- DYNAMIC RIDER EARNING (e.g. 150.00). Do NOT hardcode!
+    "deliveryEarning": "150.00",        // <--- Alias for deliveryFee
+    "earning": "150.00",                // <--- Alias for deliveryFee
+    "amount": "150.00",                 // <--- Alias for deliveryFee
+    "shopName": "Electronics Hub",      // <--- Real Merchant Store Name
+    "shopAddress": "25 Siaka Stevens St, Freetown", // <--- Real Merchant Store Address
+    "customerName": "Jeet Basak",       // <--- Real Customer Name
+    "customerAddress": "Lumley Beach Road, Freetown", // <--- Real Dropoff Destination
+    "customerPhone": "+23299887766",    // <--- Customer Phone
+    "distanceKm": "2.1",                // <--- Distance in KM
     "click_action": "FLUTTER_NOTIFICATION_CLICK"
   }
 }
+
+* CRITICAL MOBILE APP IMPLEMENTATION NOTE:
+  In the Offer Popup Dialog ("NEW WATERFALL OFFER"):
+  - Read `data['deliveryFee'] ?? data['deliveryEarning'] ?? data['earning']` to display `Delivery Earning: NLe <amount>`.
+  - Read `data['shopName']` and `data['shopAddress']` for the Pickup point.
+  - Read `data['customerName']` and `data['customerAddress']` for the Dropoff point.
+  - DO NOT hardcode "NLe 18.50" or mock customer names like "Fatmata Koroma"!
 
 --------------------------------------------------------------------------------
 2.2 Direct Manual Assignment Push Notification Payload (Admin / Seller Assigned)
@@ -170,13 +187,23 @@ NOTIFICATION PAYLOAD RECEIVED ON MOBILE:
 {
   "notification": {
     "title": "🛵 Direct Delivery Assignment",
-    "body": "You have been directly assigned delivery for Order #meeem00000042."
+    "body": "You have been directly assigned delivery for Order #meeem00000060 from Electronics Hub • Earning: NLe 150.00."
   },
   "data": {
     "type": "MANUAL_ASSIGN",
     "orderId": "cuid_order_id",
-    "orderNumber": "meeem00000042",
+    "orderNumber": "meeem00000060",
     "assignmentId": "cuid_assignment_id",
+    "deliveryFee": "150.00",
+    "deliveryEarning": "150.00",
+    "earning": "150.00",
+    "amount": "150.00",
+    "shopName": "Electronics Hub",
+    "shopAddress": "25 Siaka Stevens St, Freetown",
+    "customerName": "Jeet Basak",
+    "customerAddress": "Lumley Beach Road, Freetown",
+    "customerPhone": "+23299887766",
+    "distanceKm": "2.1",
     "click_action": "FLUTTER_NOTIFICATION_CLICK"
   }
 }
