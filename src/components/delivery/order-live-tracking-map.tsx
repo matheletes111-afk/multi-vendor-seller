@@ -93,6 +93,8 @@ export function OrderLiveTrackingMap({
   const [loading, setLoading] = useState(true)
   const [mapError, setMapError] = useState<string | null>(null)
   const [socketConnected, setSocketConnected] = useState(false)
+  const hasFittedInitialBounds = useRef(false)
+
   const [lastTelemetry, setLastTelemetry] = useState<{
     lat: number
     lng: number
@@ -100,17 +102,47 @@ export function OrderLiveTrackingMap({
     speed?: number
     timestamp?: number
   } | null>(() => {
-    if (rider?.currentLatitude && rider?.currentLongitude) {
+    const lat = rider?.currentLatitude ?? activeAssignment?.riderLatitudeAtOffer ?? activeAssignment?.sellerLatitude
+    const lng = rider?.currentLongitude ?? activeAssignment?.riderLongitudeAtOffer ?? activeAssignment?.sellerLongitude
+    if (lat != null && lng != null && !isNaN(Number(lat)) && !isNaN(Number(lng))) {
       return {
-        lat: Number(rider.currentLatitude),
-        lng: Number(rider.currentLongitude),
-        heading: rider.heading != null ? Number(rider.heading) : 0,
-        speed: rider.speed != null ? Number(rider.speed) : 0,
-        timestamp: rider.lastLocationUpdate ? new Date(rider.lastLocationUpdate).getTime() : Date.now(),
+        lat: Number(lat),
+        lng: Number(lng),
+        heading: rider?.heading != null ? Number(rider.heading) : 0,
+        speed: rider?.speed != null ? Number(rider.speed) : 0,
+        timestamp: rider?.lastLocationUpdate ? new Date(rider.lastLocationUpdate).getTime() : Date.now(),
       }
     }
     return null
   })
+
+  // Sync telemetry when parent props update
+  useEffect(() => {
+    const lat = rider?.currentLatitude ?? activeAssignment?.riderLatitudeAtOffer ?? activeAssignment?.sellerLatitude
+    const lng = rider?.currentLongitude ?? activeAssignment?.riderLongitudeAtOffer ?? activeAssignment?.sellerLongitude
+    if (lat != null && lng != null && !isNaN(Number(lat)) && !isNaN(Number(lng))) {
+      setLastTelemetry((prev) => {
+        if (prev && prev.lat === Number(lat) && prev.lng === Number(lng)) return prev
+        return {
+          lat: Number(lat),
+          lng: Number(lng),
+          heading: rider?.heading != null ? Number(rider.heading) : prev?.heading || 0,
+          speed: rider?.speed != null ? Number(rider.speed) : prev?.speed || 0,
+          timestamp: rider?.lastLocationUpdate ? new Date(rider.lastLocationUpdate).getTime() : Date.now(),
+        }
+      })
+    }
+  }, [
+    rider?.currentLatitude,
+    rider?.currentLongitude,
+    rider?.heading,
+    rider?.speed,
+    rider?.lastLocationUpdate,
+    activeAssignment?.riderLatitudeAtOffer,
+    activeAssignment?.riderLongitudeAtOffer,
+    activeAssignment?.sellerLatitude,
+    activeAssignment?.sellerLongitude,
+  ])
 
   const [resolvedDestCoords, setResolvedDestCoords] = useState<{ lat: number; lng: number } | null>(
     destinationLat != null && destinationLng != null
@@ -314,8 +346,18 @@ export function OrderLiveTrackingMap({
         await loadGoogleMapsScript(["places"])
         if (!active || !window.google?.maps || mapInstanceRef.current) return
 
-        const rLat = lastTelemetry?.lat ?? (rider?.currentLatitude ? Number(rider.currentLatitude) : null)
-        const rLng = lastTelemetry?.lng ?? (rider?.currentLongitude ? Number(rider.currentLongitude) : null)
+        const rLat =
+          lastTelemetry?.lat ??
+          (rider?.currentLatitude ? Number(rider.currentLatitude) : null) ??
+          (activeAssignment?.riderLatitudeAtOffer ? Number(activeAssignment.riderLatitudeAtOffer) : null) ??
+          (activeAssignment?.sellerLatitude ? Number(activeAssignment.sellerLatitude) : null)
+
+        const rLng =
+          lastTelemetry?.lng ??
+          (rider?.currentLongitude ? Number(rider.currentLongitude) : null) ??
+          (activeAssignment?.riderLongitudeAtOffer ? Number(activeAssignment.riderLongitudeAtOffer) : null) ??
+          (activeAssignment?.sellerLongitude ? Number(activeAssignment.sellerLongitude) : null)
+
         const dLat = resolvedDestCoords?.lat ?? (destinationLat ? Number(destinationLat) : null)
         const dLng = resolvedDestCoords?.lng ?? (destinationLng ? Number(destinationLng) : null)
 
@@ -358,8 +400,18 @@ export function OrderLiveTrackingMap({
 
     const map = mapInstanceRef.current
 
-    const rLat = lastTelemetry?.lat ?? (rider?.currentLatitude ? Number(rider.currentLatitude) : null)
-    const rLng = lastTelemetry?.lng ?? (rider?.currentLongitude ? Number(rider.currentLongitude) : null)
+    const rLat =
+      lastTelemetry?.lat ??
+      (rider?.currentLatitude ? Number(rider.currentLatitude) : null) ??
+      (activeAssignment?.riderLatitudeAtOffer ? Number(activeAssignment.riderLatitudeAtOffer) : null) ??
+      (activeAssignment?.sellerLatitude ? Number(activeAssignment.sellerLatitude) : null)
+
+    const rLng =
+      lastTelemetry?.lng ??
+      (rider?.currentLongitude ? Number(rider.currentLongitude) : null) ??
+      (activeAssignment?.riderLongitudeAtOffer ? Number(activeAssignment.riderLongitudeAtOffer) : null) ??
+      (activeAssignment?.sellerLongitude ? Number(activeAssignment.sellerLongitude) : null)
+
     const dLat = resolvedDestCoords?.lat ?? (destinationLat ? Number(destinationLat) : null)
     const dLng = resolvedDestCoords?.lng ?? (destinationLng ? Number(destinationLng) : null)
 
@@ -434,9 +486,13 @@ export function OrderLiveTrackingMap({
       }
     }
 
-    // ── D. Fit Bounds only on first mount (when both points appear), not every update ──
-    if (hasPoints && !riderMarkerRef.current) {
+    // ── D. Fit Bounds only on initial render when points appear ──
+    if (hasPoints && !hasFittedInitialBounds.current) {
+      hasFittedInitialBounds.current = true
       map.fitBounds(bounds, { top: 60, bottom: 60, left: 60, right: 60 })
+      if (bounds.getNorthEast().equals(bounds.getSouthWest())) {
+        map.setZoom(15)
+      }
     }
   }, [
     lastTelemetry,

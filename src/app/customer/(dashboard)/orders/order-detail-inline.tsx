@@ -45,6 +45,7 @@ import {
   Store,
 } from "lucide-react"
 import Link from "next/link"
+import { CustomerOrderDeliveryCard } from "@/components/delivery/customer-order-delivery-card"
 
 export function OrderDetailInline({
   order,
@@ -568,6 +569,14 @@ export function OrderDetailInline({
           </CardContent>
         </Card>
       </div>
+
+      {/* Live Rider Delivery & Real-time GPS Tracking Card */}
+      <CustomerOrderDeliveryCard
+        order={order}
+        onRefresh={() => onReviewSaved?.(order.id)}
+        className="w-full"
+        mapHeight="320px"
+      />
 
       <Card className="border-gray-200 bg-white shadow-sm w-full min-w-0 overflow-hidden">
         <CardHeader className="pb-2">
