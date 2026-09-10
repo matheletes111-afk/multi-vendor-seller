@@ -51,6 +51,8 @@ export async function sendPushNotification({
         body,
       },
       data: {
+        title,
+        body,
         ...data,
         click_action: "FLUTTER_NOTIFICATION_CLICK",
       },
@@ -60,6 +62,9 @@ export async function sendPushNotification({
           sound: "default",
           channelId: "delivery_alerts",
           priority: "max",
+          defaultSound: true,
+          defaultVibrateTimings: true,
+          visibility: "public",
         },
       },
       apns: {
