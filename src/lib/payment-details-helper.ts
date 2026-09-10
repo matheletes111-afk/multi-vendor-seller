@@ -81,12 +81,6 @@ export function validateAndFormatPaymentDetails(
           error: `Mobile Number is required for ${paymentOption}.`,
         }
       }
-      if (!agentNumber) {
-        return {
-          data: {} as any,
-          error: `Agent Number is required for ${paymentOption}.`,
-        }
-      }
     }
 
     return {
@@ -95,7 +89,7 @@ export function validateAndFormatPaymentDetails(
         preferredPayoutMethod: "Mobile Wallet",
         mobileMoneyOption: paymentOption,
         mobileNumber,
-        agentNumber,
+        agentNumber: agentNumber || null,
         // All bank data becomes null when mobile money is selected
         bankName: null,
         bankAddress: null,

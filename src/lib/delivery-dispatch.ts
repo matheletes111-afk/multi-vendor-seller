@@ -646,6 +646,40 @@ export async function handleRiderAcceptAssignment(
         })
       }
 
+      const itemFilterForAccept = assignment.orderItemId
+        ? { id: assignment.orderItemId }
+        : assignment.sellerId
+          ? { orderId: assignment.orderId, sellerId: assignment.sellerId, productId: { not: null } }
+          : { orderId: assignment.orderId, productId: { not: null } }
+
+      const unconfirmedItems = await tx.orderItem.findMany({
+        where: {
+          ...itemFilterForAccept,
+          itemStatus: { in: [OrderStatus.PENDING, OrderStatus.CONFIRMED] },
+        },
+        select: { id: true },
+      })
+      if (unconfirmedItems.length > 0) {
+        await tx.orderItem.updateMany({
+          where: { id: { in: unconfirmedItems.map((i) => i.id) } },
+          data: { itemStatus: OrderStatus.PROCESSING },
+        })
+        const riderName = assignment.rider?.user?.name || "Rider"
+        const storeName =
+          assignment.seller?.store?.name ||
+          assignment.seller?.businessInfo?.businessName ||
+          assignment.order.seller?.store?.name ||
+          "Store"
+        await tx.orderItemStatusHistory.createMany({
+          data: unconfirmedItems.map((i) => ({
+            orderItemId: i.id,
+            status: OrderStatus.PROCESSING,
+            location: storeName,
+            note: `Rider ${riderName} accepted delivery assignment. Preparing package for pickup.`,
+          })),
+        })
+      }
+
       return {
         success: true,
         assignment: updatedAssignment,
@@ -780,6 +814,28 @@ export async function handleRiderStatusUpdate(
       if (currentStatus !== DeliveryAssignmentStatus.ACCEPTED) {
         return { success: false, message: `Cannot move to AT_PICKUP from ${currentStatus}` }
       }
+      {
+        const atPickupItems = await prisma.orderItem.findMany({
+          where: itemFilter,
+          select: { id: true },
+        })
+        if (atPickupItems.length > 0) {
+          const storeName =
+            assignment.seller?.store?.name ||
+            assignment.seller?.businessInfo?.businessName ||
+            assignment.order.seller?.store?.name ||
+            "Store"
+          const riderName = assignment.rider?.user?.name || "Rider"
+          await prisma.orderItemStatusHistory.createMany({
+            data: atPickupItems.map((i) => ({
+              orderItemId: i.id,
+              status: OrderStatus.PROCESSING,
+              location: storeName,
+              note: `Rider ${riderName} arrived at pickup location.`,
+            })),
+          })
+        }
+      }
       break
 
     case DeliveryAssignmentStatus.PICKED_UP:
@@ -794,6 +850,29 @@ export async function handleRiderStatusUpdate(
         where: itemFilter,
         data: { itemStatus: "SHIPPED" as any },
       })
+
+      {
+        const pickedItems = await prisma.orderItem.findMany({
+          where: itemFilter,
+          select: { id: true },
+        })
+        if (pickedItems.length > 0) {
+          const storeName =
+            assignment.seller?.store?.name ||
+            assignment.seller?.businessInfo?.businessName ||
+            assignment.order.seller?.store?.name ||
+            "Store"
+          const riderName = assignment.rider?.user?.name || "Rider"
+          await prisma.orderItemStatusHistory.createMany({
+            data: pickedItems.map((i) => ({
+              orderItemId: i.id,
+              status: OrderStatus.SHIPPED,
+              location: storeName,
+              note: `Package picked up by rider ${riderName}. In transit to destination.`,
+            })),
+          })
+        }
+      }
 
       // Multi-seller safe parent order status sync
       {
@@ -824,6 +903,25 @@ export async function handleRiderStatusUpdate(
           deliveryOtpExpires: new Date(Date.now() + 24 * 60 * 60 * 1000),
         } as any,
       })
+
+      {
+        const outItems = await prisma.orderItem.findMany({
+          where: itemFilter,
+          select: { id: true },
+        })
+        if (outItems.length > 0) {
+          const riderName = assignment.rider?.user?.name || "Rider"
+          const customerArea = assignment.order.shippingCity || "Out for delivery"
+          await prisma.orderItemStatusHistory.createMany({
+            data: outItems.map((i) => ({
+              orderItemId: i.id,
+              status: OrderStatus.OUT_FOR_DELIVERY,
+              location: customerArea,
+              note: `Package is out for delivery with rider ${riderName}.${assignment.deliveryOtp ? ` Delivery OTP: ${assignment.deliveryOtp}` : ""}`,
+            })),
+          })
+        }
+      }
 
       // Multi-seller safe parent order status sync
       {
@@ -889,6 +987,22 @@ export async function handleRiderStatusUpdate(
             deliveryProofImage: options?.proofImage || null,
           } as any,
         })
+        const deliveredLineItems = await tx.orderItem.findMany({
+          where: itemFilter,
+          select: { id: true },
+        })
+        if (deliveredLineItems.length > 0) {
+          const riderName = assignment.rider?.user?.name || "Rider"
+          const customerArea = assignment.order.shippingCity || "Delivered to customer"
+          await tx.orderItemStatusHistory.createMany({
+            data: deliveredLineItems.map((i) => ({
+              orderItemId: i.id,
+              status: OrderStatus.DELIVERED,
+              location: customerArea,
+              note: `Delivered successfully by rider ${riderName}. Verified with delivery OTP.`,
+            })),
+          })
+        }
         const updatedAssignment = await tx.riderDeliveryAssignment.update({
           where: { id: assignmentId },
           data: {
@@ -898,10 +1012,6 @@ export async function handleRiderStatusUpdate(
           },
         })
         // Settle seller net earnings credit for this seller's lines only
-        const deliveredLineItems = await tx.orderItem.findMany({
-          where: itemFilter,
-          select: { id: true },
-        })
         for (const line of deliveredLineItems) {
           await applySellerCreditForOrderLineDelivered(tx, line.id)
         }
@@ -1185,6 +1295,36 @@ export async function manualAssignRiderToOrder(
     where: { orderId, sellerId, productId: { not: null }, isSelfDelivery: true },
     data: { isSelfDelivery: false },
   })
+
+  // Advance any PENDING or CONFIRMED items to PROCESSING and log in timeline
+  const unconfirmedItems = await prisma.orderItem.findMany({
+    where: {
+      orderId,
+      sellerId,
+      productId: { not: null },
+      itemStatus: { in: [OrderStatus.PENDING, OrderStatus.CONFIRMED] },
+    },
+    select: { id: true },
+  })
+  if (unconfirmedItems.length > 0) {
+    await prisma.orderItem.updateMany({
+      where: { id: { in: unconfirmedItems.map((i) => i.id) } },
+      data: { itemStatus: OrderStatus.PROCESSING },
+    })
+    const storeName =
+      sellerInfo?.store?.name ||
+      sellerInfo?.businessInfo?.businessName ||
+      order.seller?.store?.name ||
+      "Store"
+    await prisma.orderItemStatusHistory.createMany({
+      data: unconfirmedItems.map((i) => ({
+        orderItemId: i.id,
+        status: OrderStatus.PROCESSING,
+        location: storeName,
+        note: `Rider ${rider.user?.name || "Rider"} assigned for delivery. Preparing package for pickup.`,
+      })),
+    })
+  }
 
   // Send Push Notification to Manually Assigned Rider
   const rawTokens = rider.deviceTokens

@@ -69,7 +69,7 @@ export function CustomerOrderDeliveryCard({
 
   // Check if all items are self-delivery
   const isSelfDeliveryOrder =
-    Boolean(order.isSelfDelivery) ||
+    Boolean((order as any).isSelfDelivery) ||
     (order.items && order.items.length > 0 && order.items.every((i: any) => Boolean(i.isSelfDelivery)))
 
   // In-house relevant items

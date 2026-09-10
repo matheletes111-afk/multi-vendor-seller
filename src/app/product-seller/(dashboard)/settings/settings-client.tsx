@@ -264,9 +264,8 @@ export function SettingsClient() {
           formData.set("paymentOption", chosenOption)
           if (chosenOption !== "Bank") {
             const mobile = (formData.get("mobileNumber") as string)?.trim()
-            const agent = (formData.get("agentNumber") as string)?.trim()
-            if (!mobile || !agent) {
-              setError(`Please provide both Mobile Number and Agent Number for ${chosenOption}.`)
+            if (!mobile) {
+              setError(`Please provide your Mobile Number for ${chosenOption}.`)
               setSaving(null)
               return
             }
@@ -792,15 +791,14 @@ export function SettingsClient() {
                       <p className="text-xs text-muted-foreground">Phone number registered with {paymentOption}.</p>
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="agentNumber">Agent Number *</Label>
+                      <Label htmlFor="agentNumber">Agent Number <span className="text-muted-foreground font-normal">(Optional - for payments)</span></Label>
                       <Input
                         id="agentNumber"
                         name="agentNumber"
                         defaultValue={seller.bankDetails?.agentNumber || ""}
-                        placeholder="e.g., AG-98765"
-                        required
+                        placeholder="e.g., AG-98765 (Optional)"
                       />
-                      <p className="text-xs text-muted-foreground">Your merchant or agent code.</p>
+                      <p className="text-xs text-muted-foreground">Your merchant or agent code (can be added later for payouts).</p>
                     </div>
                   </div>
                 </div>

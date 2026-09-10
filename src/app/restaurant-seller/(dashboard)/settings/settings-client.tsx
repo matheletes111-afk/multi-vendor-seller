@@ -157,9 +157,8 @@ export default function RestaurantSettingsClient() {
       formData.set("paymentOption", chosenOption)
       if (chosenOption !== "Bank") {
         const mobileNumber = (formData.get("mobileNumber") as string)?.trim()
-        const agentNumber = (formData.get("agentNumber") as string)?.trim()
-        if (!mobileNumber || !agentNumber) {
-          setError(`Both Mobile Number and Agent Number are required for ${chosenOption}.`)
+        if (!mobileNumber) {
+          setError(`Mobile Number is required for ${chosenOption}.`)
           setSaving(null)
           return
         }
@@ -722,15 +721,14 @@ export default function RestaurantSettingsClient() {
                         <p className="text-xs text-muted-foreground">Phone number registered with {paymentOption}.</p>
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="agentNumber">Agent Number *</Label>
+                        <Label htmlFor="agentNumber">Agent Number <span className="text-muted-foreground font-normal">(Optional - for payments)</span></Label>
                         <Input
                           id="agentNumber"
                           name="agentNumber"
                           defaultValue={seller.bankDetails?.agentNumber || ""}
-                          placeholder="e.g., AG-98765"
-                          required
+                          placeholder="e.g., AG-98765 (Optional)"
                         />
-                        <p className="text-xs text-muted-foreground">Your merchant or agent code.</p>
+                        <p className="text-xs text-muted-foreground">Your merchant or agent code (can be added later for payouts).</p>
                       </div>
                     </div>
                   </div>

@@ -253,11 +253,6 @@ export function ServiceOnboardingClient() {
             setSaving(false)
             return
           }
-          if (!agentNumber) {
-            setError(`Please provide your ${chosenOption} Agent Number.`)
-            setSaving(false)
-            return
-          }
         }
       }
 
@@ -1163,16 +1158,15 @@ export function ServiceOnboardingClient() {
                         </div>
 
                         <div className="space-y-2">
-                          <Label htmlFor="agentNumber" className="text-sm font-semibold text-slate-800">Agent Number *</Label>
+                          <Label htmlFor="agentNumber" className="text-sm font-semibold text-slate-800">Agent Number <span className="text-slate-400 font-normal">(Optional - for payments)</span></Label>
                           <Input
                             id="agentNumber"
                             name="agentNumber"
                             defaultValue={seller.bankDetails?.agentNumber || ""}
-                            placeholder="e.g., AG-98765"
-                            required
+                            placeholder="e.g., AG-98765 (Optional)"
                             className="h-11 sm:h-12 rounded-xl bg-white border-slate-200"
                           />
-                          <p className="text-xs text-slate-500">Your merchant or agent code.</p>
+                          <p className="text-xs text-slate-500">Your merchant or agent code (can be added later for payouts).</p>
                         </div>
                       </div>
                     </div>
