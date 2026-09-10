@@ -95,16 +95,25 @@ export async function triggerOrderAutoDispatch(
       },
     })
 
-    // If forceRedispatch requested (e.g. from manual Reassign button), cancel any ongoing OFFERED assignment for this seller
+    // If forceRedispatch requested (e.g. from manual Reassign button), archive any previous unaccepted assignments
+    // so the new cascade cycle gets a clean fresh wave of 5 attempts across all candidates
     if (options?.forceRedispatch) {
       await prisma.riderDeliveryAssignment.updateMany({
         where: {
           orderId: order.id,
           ...(targetSellerId ? { sellerId: targetSellerId } : {}),
-          status: DeliveryAssignmentStatus.OFFERED,
+          status: {
+            in: [
+              DeliveryAssignmentStatus.OFFERED,
+              DeliveryAssignmentStatus.TIMED_OUT,
+              DeliveryAssignmentStatus.REJECTED,
+            ],
+          },
         },
         data: {
-          status: DeliveryAssignmentStatus.TIMED_OUT,
+          status: DeliveryAssignmentStatus.REASSIGNED_BY_ADMIN,
+          cancellationReason: "Reset for new auto-dispatch cascade cycle",
+          cancelledAt: new Date(),
         },
       })
     }
@@ -316,6 +325,7 @@ export async function triggerOrderAutoDispatch(
           orderId: order.id,
           sellerId: sellerId,
           dispatchMode: DispatchMode.AUTO_CASCADE,
+          status: { notIn: [DeliveryAssignmentStatus.REASSIGNED_BY_ADMIN] },
         },
         _count: { id: true },
       })

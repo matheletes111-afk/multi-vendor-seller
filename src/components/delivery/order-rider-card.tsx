@@ -89,17 +89,6 @@ export function OrderRiderCard({
       ) && (!sellerId || a.sellerId === sellerId)
   )
 
-  const sellerAssignments = deliveryAssignments.filter(
-    (a) => !sellerId || a.sellerId === sellerId
-  )
-  const historicalAttempts = sellerAssignments.filter(
-    (a) => ["TIMED_OUT", "REJECTED", "CANCELLED_BY_RIDER", "REASSIGNED_BY_ADMIN"].includes(a.status)
-  )
-  const maxAttemptsReached = activeAssignments.length === 0 && historicalAttempts.length >= 5
-
-  const [aiVehicleRecommendation, setAiVehicleRecommendation] = useState<any>(null)
-  const [vehicleFilterMode, setVehicleFilterMode] = useState<"matched" | "all">("matched")
-
   const priorityOrder = ["DELIVERED", "OUT_FOR_DELIVERY", "PICKED_UP", "AT_PICKUP", "ACCEPTED", "OFFERED"]
   const sortedActiveAssignments = [...activeAssignments].sort((a, b) => {
     const idxA = priorityOrder.indexOf(a.status)
@@ -125,8 +114,55 @@ export function OrderRiderCard({
 
   const targetSeller = activeAssignment?.sellerId || sellerId || undefined
 
+  const sellerAssignments = deliveryAssignments.filter(
+    (a) => !sellerId || a.sellerId === sellerId
+  )
+  const historicalAttempts = sellerAssignments.filter(
+    (a) => ["TIMED_OUT", "REJECTED", "CANCELLED_BY_RIDER", "REASSIGNED_BY_ADMIN"].includes(a.status)
+  )
+  // Only count attempts in the current cascade cycle (not historical ones archived by manual reassign)
+  const currentCycleHistorical = sellerAssignments.filter(
+    (a) => ["TIMED_OUT", "REJECTED", "CANCELLED_BY_RIDER"].includes(a.status)
+  )
+  const latestAttempt = sellerAssignments[0]
+  const isRecentTimeout =
+    !isDelivered &&
+    orderStatus !== "CANCELLED" &&
+    latestAttempt &&
+    latestAttempt.status === "TIMED_OUT" &&
+    latestAttempt.expiresAt &&
+    (Date.now() - new Date(latestAttempt.expiresAt).getTime()) < 10000
+
+  const maxAttemptsReached =
+    activeAssignments.length === 0 &&
+    currentCycleHistorical.length >= 5 &&
+    !isRecentTimeout
+
+  const [aiVehicleRecommendation, setAiVehicleRecommendation] = useState<any>(null)
+  const [vehicleFilterMode, setVehicleFilterMode] = useState<"matched" | "all">("matched")
   const [secondsLeft, setSecondsLeft] = useState<number | null>(null)
 
+  // Continuous live delivery polling:
+  // Runs while order is SHIPPED / READY_FOR_PICKUP or has active delivery assignments.
+  // Polls every 3.5s so all 5 waterfall cascades and live rider updates are reflected on screen in real-time.
+  const isOrderDeliveryActive =
+    !isDelivered &&
+    orderStatus !== "CANCELLED" &&
+    orderStatus !== "REFUNDED" &&
+    !isSelfDelivery &&
+    (orderStatus === "SHIPPED" || orderStatus === "READY_FOR_PICKUP" || activeAssignments.length > 0)
+
+  useEffect(() => {
+    if (!isOrderDeliveryActive) return
+
+    const pollInterval = setInterval(() => {
+      onRefresh?.()
+    }, 3500)
+
+    return () => clearInterval(pollInterval)
+  }, [isOrderDeliveryActive, onRefresh])
+
+  // 1-second visual countdown for active OFFERED assignment
   useEffect(() => {
     if (!isOffered || !activeAssignment?.expiresAt) {
       setSecondsLeft(null)
@@ -152,15 +188,7 @@ export function OrderRiderCard({
     calcSeconds()
     const timer = setInterval(calcSeconds, 1000)
 
-    // Polling every 4 seconds to catch early rider Accept or Decline in real time
-    const pollTimer = setInterval(() => {
-      onRefresh?.()
-    }, 4000)
-
-    return () => {
-      clearInterval(timer)
-      clearInterval(pollTimer)
-    }
+    return () => clearInterval(timer)
   }, [isOffered, activeAssignment?.id, activeAssignment?.expiresAt, onRefresh])
 
   const fetchAvailableRiders = async () => {
@@ -398,7 +426,17 @@ export function OrderRiderCard({
               {isDelivered ? <CheckCircle2 className="w-5 h-5 text-emerald-600" /> : <Bike className="w-5 h-5" />}
             </div>
             <div className="space-y-1">
-              {maxAttemptsReached ? (
+              {isRecentTimeout ? (
+                <>
+                  <p className="text-xs font-bold text-blue-600 dark:text-blue-400 flex items-center justify-center gap-1.5">
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin text-blue-600" />
+                    Waterfall Dispatch in Progress...
+                  </p>
+                  <p className="text-[11px] text-muted-foreground max-w-xs mx-auto">
+                    Previous offer timed out. Notifying next available delivery rider in the waterfall flow...
+                  </p>
+                </>
+              ) : maxAttemptsReached ? (
                 <>
                   <p className="text-xs font-bold text-amber-700 dark:text-amber-400 flex items-center justify-center gap-1.5">
                     <AlertTriangle className="w-4 h-4 text-amber-500" />
