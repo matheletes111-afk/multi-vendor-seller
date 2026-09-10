@@ -278,6 +278,7 @@ export async function GET(
       dispatchMode: activeAssignment.dispatchMode,
       distanceKm: activeAssignment.distanceKm,
       attemptNumber: activeAssignment.attemptNumber,
+      adminNotes: activeAssignment.adminNotes || null,
       offeredAt: activeAssignment.offeredAt ? activeAssignment.offeredAt.toISOString() : null,
       expiresAt: activeAssignment.expiresAt ? activeAssignment.expiresAt.toISOString() : null,
       secondsRemaining:
