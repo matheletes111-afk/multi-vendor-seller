@@ -39,6 +39,7 @@ export async function GET(req: NextRequest) {
     }
 
     const includeOffline = searchParams.get("includeOffline") === "true"
+    const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000)
 
     const riders = await prisma.rider.findMany({
       where: {
@@ -46,7 +47,7 @@ export async function GET(req: NextRequest) {
         isSuspended: false,
         status: "APPROVED",
         onboardingCompleted: true,
-        ...(includeOffline ? {} : { isOnline: true }),
+        ...(includeOffline ? {} : { isOnline: true, lastLocationUpdate: { gte: tenMinutesAgo } }),
       },
       include: {
         user: {
@@ -88,9 +89,12 @@ export async function GET(req: NextRequest) {
         vehicleName: r.vehicleName,
         vehicleNumber: r.vehicleNumber,
         drivingLicenseNo: r.drivingLicenseNo,
-        vehicleTypes: riderTypes,
         isVehicleMatch,
-        isOnline: r.isOnline,
+        isOnline: Boolean(
+          r.isOnline &&
+          r.lastLocationUpdate &&
+          (Date.now() - new Date(r.lastLocationUpdate).getTime()) < 10 * 60 * 1000
+        ),
         isBusy,
         selectedZones: r.selectedZones,
         selectedLocations: r.selectedLocations,

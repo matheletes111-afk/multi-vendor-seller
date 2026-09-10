@@ -308,7 +308,11 @@ export async function GET(
           vehicleNumber: r?.vehicleNumber || null,
           drivingLicenseNo: r?.drivingLicenseNo || null,
           vehicleTypes: r?.vehicleTypes || [],
-          isOnline: r?.isOnline ?? true,
+          isOnline: Boolean(
+            r?.isOnline &&
+            r?.lastLocationUpdate &&
+            (Date.now() - new Date(r.lastLocationUpdate).getTime()) < 10 * 60 * 1000
+          ),
         },
         currentLocation: {
           latitude: r?.currentLatitude || groupAssignment.riderLatitudeAtOffer || null,
@@ -407,7 +411,20 @@ export async function GET(
     items,
     couponCode: order.couponCode,
     couponDiscount: order.couponDiscount,
-    deliveryAssignments: order.deliveryAssignments,
+    deliveryAssignments: (order.deliveryAssignments || []).map((a: any) => ({
+      ...a,
+      deliveryOtp: a.status === "DELIVERED" ? a.deliveryOtp : null,
+      rider: a.rider
+        ? {
+            ...a.rider,
+            isOnline: Boolean(
+              a.rider.isOnline &&
+              a.rider.lastLocationUpdate &&
+              (Date.now() - new Date(a.rider.lastLocationUpdate).getTime()) < 10 * 60 * 1000
+            ),
+          }
+        : null,
+    })),
     activeDeliveryTracking,
     activeDeliveryTrackings,
   }

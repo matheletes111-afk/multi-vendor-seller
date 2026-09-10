@@ -120,7 +120,7 @@ export async function PATCH(
   // If turning OFF self-delivery (restoring platform riders) and order is ready/in-progress, trigger auto-dispatch
   if (!isSelfDelivery) {
     const isReadyForDispatch = sellerItems.some((i) =>
-      ["PROCESSING", "READY_FOR_PICKUP", "SHIPPED"].includes(i.itemStatus)
+      ["READY_FOR_PICKUP", "SHIPPED"].includes(i.itemStatus)
     )
     if (isReadyForDispatch) {
       triggerOrderAutoDispatch(orderId, seller.id, {
