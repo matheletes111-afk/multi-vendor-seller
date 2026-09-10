@@ -110,10 +110,43 @@ export async function POST(request: NextRequest) {
 
     if (contentType.includes("multipart/form-data")) {
       formData = await request.formData()
-      step = parseInt(formData.get("step") as string, 10)
+      step = parseInt((formData.get("step") || formData.get("mobileStep")) as string, 10)
     } else {
       jsonBody = await request.json()
-      step = jsonBody?.step || 0
+      step = jsonBody?.step || jsonBody?.mobileStep || 0
+    }
+
+    const getField = (name: string): any => {
+      if (formData) return formData.get(name)
+      return jsonBody?.data?.[name] ?? jsonBody?.[name]
+    }
+    const hasField = (name: string): boolean => {
+      const val = getField(name)
+      return val !== undefined && val !== null && val !== ""
+    }
+    const hasAny = (...names: string[]): boolean => names.some(n => hasField(n))
+
+    const section = (getField("section") || getField("stepName") || "").toString().toLowerCase()
+    if (section === "business" || section === "businessinfo") step = 2
+    else if (section === "kyc" || section === "identity") step = 3
+    else if (section === "property" || section === "hotel" || section === "categories") step = 4
+    else if (section === "bank" || section === "bankdetails" || section === "payment") step = 5
+    else if (section === "agreement" || section === "legal") step = 6
+
+    if (hasAny("paymentOption", "mobileMoneyOption", "bankName", "accountHolderName", "accountNumber", "bbanNumber", "branchName", "bankAddress", "bankPassbook", "passbook", "bankLetter", "preferredPayoutMethod") ||
+        (hasField("mobileNumber") && !hasField("businessName") && !hasField("managerName")) ||
+        (hasField("agentNumber") && !hasField("businessName"))) {
+      step = 5
+    } else if (hasAny("agreedToTerms", "agreedToCommission", "agreedToReturnPolicy", "agreedToPrivacy", "hearAboutUs", "hearAboutUsOther", "otherHearAboutUs")) {
+      step = 6
+    } else if (hasAny("estimateHotelCount", "estimateRoomCount", "mainPhoto", "logo", "banner") || (hasField("categories") && !hasField("businessRegNumber"))) {
+      step = 4
+    } else if (hasAny("idType", "idNumber", "idFront", "idBack", "selfie", "nationIdentityNumber")) {
+      step = 3
+    } else if (hasAny("businessName", "businessType", "businessRegNumber", "busRegCert", "taxIdNumber", "landmark", "managerName", "pocContact", "haveGst", "cityCouncilCert", "addressProof")) {
+      step = 2
+    } else if (step === 1) {
+      step = 2
     }
 
     if (step === 2) {

@@ -361,9 +361,25 @@ export async function PATCH(
     if (await getOrderHasDeliveredLine(prisma, orderId)) {
       return NextResponse.json({ error: ORDER_ITEM_LOCKED_AFTER_DELIVERED }, { status: 400 })
     }
-    await prisma.orderItem.updateMany({
+    const orderItems = await prisma.orderItem.findMany({
       where: { orderId },
-      data: { itemStatus: status } as any,
+      select: { id: true },
+    })
+    await prisma.$transaction(async (tx) => {
+      await tx.orderItem.updateMany({
+        where: { orderId },
+        data: { itemStatus: status } as any,
+      })
+      if (orderItems.length > 0) {
+        await tx.orderItemStatusHistory.createMany({
+          data: orderItems.map((item) => ({
+            orderItemId: item.id,
+            status: status as any,
+            location: location || "Admin Order Management",
+            note: note || `Order status updated to ${status} by Admin`,
+          })),
+        })
+      }
     })
     return NextResponse.json({ success: true, status, updatedAllItems: true })
   }

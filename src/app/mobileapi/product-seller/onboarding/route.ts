@@ -23,6 +23,10 @@ export async function GET(request: NextRequest) {
   // DB Step 1-2 -> Mobile 1, DB Step 3 -> Mobile 2, etc.
   const mobileStep = Math.max(1, seller.onboardingStep - 1);
 
+  const sectionNames = ["business", "kyc", "bank", "store", "agreement"];
+  const activeMobileStep = seller.status === "CORRECTION_NEEDED" ? 1 : mobileStep;
+  const currentSection = sectionNames[activeMobileStep - 1] || "business";
+
   return NextResponse.json({
     success: true,
     data: {
@@ -34,6 +38,10 @@ export async function GET(request: NextRequest) {
       isApproved: seller.isApproved,
       isSuspended: seller.isSuspended,
       mobileStep: seller.status === "CORRECTION_NEEDED" ? 1 : mobileStep,
+      currentStep: seller.status === "CORRECTION_NEEDED" ? 1 : mobileStep,
+      step: seller.onboardingStep,
+      section: currentSection,
+      stepName: currentSection,
       businessInfo: seller.businessInfo,
       kyc: seller.kyc,
       bankDetails: seller.bankDetails,
@@ -57,16 +65,93 @@ export async function POST(request: NextRequest) {
   const { seller, user } = auth;
   const contentType = request.headers.get("content-type") ?? "";
 
-  let mobileStep: number = 0;
   let formData: FormData | null = null;
   let jsonBody: any = null;
 
   if (contentType.includes("multipart/form-data")) {
     formData = await request.formData();
-    mobileStep = parseInt(formData.get("step") as string, 10);
   } else {
     jsonBody = await request.json();
-    mobileStep = jsonBody.step;
+  }
+
+  const explicit1Based = formData ? (formData.get("mobileStep") || formData.get("currentStep")) : (jsonBody?.mobileStep || jsonBody?.currentStep);
+  const rawStepVal = formData ? (formData.get("step") || formData.get("onboardingStep") || explicit1Based) : (jsonBody?.step || jsonBody?.onboardingStep || explicit1Based);
+
+  const getField = (name: string): any => {
+    if (formData) return formData.get(name);
+    return jsonBody?.data?.[name] ?? jsonBody?.[name];
+  };
+  const hasField = (name: string): boolean => {
+    const val = getField(name);
+    return val !== undefined && val !== null && val !== "";
+  };
+  const hasAny = (...names: string[]): boolean => names.some(n => hasField(n));
+
+  // Determine step: signature detection > section > explicit 1-based > fallback number
+  let mobileStep = 0;
+  const section = (getField("section") || getField("stepName") || "").toString().toLowerCase();
+
+  if (section === "business" || section === "businessinfo") mobileStep = 1;
+  else if (section === "kyc" || section === "identity") mobileStep = 2;
+  else if (section === "bank" || section === "bankdetails" || section === "payment") mobileStep = 3;
+  else if (section === "store" || section === "categories") mobileStep = 4;
+  else if (section === "agreement" || section === "legal") mobileStep = 5;
+
+  // 1. Signature detection for Bank / Payment Details (mobileStep = 3, dbStep = 4)
+  if (!mobileStep && (
+    hasAny("paymentOption", "mobileMoneyOption", "bankName", "accountHolderName", "accountNumber", "bbanNumber", "branchName", "bankAddress", "bankPassbook", "passbook", "bankLetter", "preferredPayoutMethod") ||
+    (hasField("mobileNumber") && !hasField("businessName") && !hasField("storeName")) ||
+    (hasField("agentNumber") && !hasField("businessName"))
+  )) {
+    mobileStep = 3;
+  }
+
+  // 2. Signature detection for Agreement (mobileStep = 5, dbStep = 6)
+  if (!mobileStep && hasAny("agreedToTerms", "agreedToCommission", "agreedToReturnPolicy", "agreedToPrivacy", "hearAboutUs", "hearAboutUsOther", "otherHearAboutUs")) {
+    mobileStep = 5;
+  }
+
+  // 3. Signature detection for Store Setup & Categories (mobileStep = 4, dbStep = 5)
+  if (!mobileStep && (hasAny("storeLogo", "storeBanner", "categoryIds", "customCategories", "suggestionCount") || (hasField("storeName") && !hasField("businessRegNumber")))) {
+    mobileStep = 4;
+  }
+
+  // 4. Signature detection for KYC / Identity (mobileStep = 2, dbStep = 3)
+  if (!mobileStep && hasAny("idType", "idNumber", "idFront", "idBack", "selfie", "nationIdentityNumber")) {
+    mobileStep = 2;
+  }
+
+  // 5. Signature detection for Business Information (mobileStep = 1, dbStep = 2)
+  if (!mobileStep && hasAny("businessName", "businessType", "businessRegNumber", "busRegCert", "taxIdNumber", "haveGst", "cityCouncilCert", "addressProof")) {
+    mobileStep = 1;
+  }
+
+  // Fallback 1: Explicit 1-based parameter (mobileStep or currentStep)
+  if (!mobileStep && explicit1Based !== undefined && explicit1Based !== null) {
+    const parsed = parseInt(explicit1Based as string, 10);
+    if (!isNaN(parsed) && parsed >= 1 && parsed <= 5) {
+      mobileStep = parsed;
+    }
+  }
+
+  // Fallback 2: General step / onboardingStep number resolution
+  if (!mobileStep && rawStepVal !== undefined && rawStepVal !== null) {
+    const parsed = parseInt(rawStepVal as string, 10);
+    if (!isNaN(parsed)) {
+      if (parsed === 1) mobileStep = 1;
+      else if (parsed === 6) mobileStep = 5;
+      else if (parsed === seller.onboardingStep) mobileStep = parsed - 1; // 2-based DB step match
+      else if (parsed === seller.onboardingStep - 1) mobileStep = parsed; // 1-based mobile step match
+      else if (parsed >= 1 && parsed <= 5) mobileStep = parsed; // default 1-based step
+      else if (parsed > 5) mobileStep = 5;
+    }
+  }
+
+  if (mobileStep === 0) {
+    return NextResponse.json(
+      { success: false, error: "Invalid onboarding step or missing step data." },
+      { status: 400 }
+    );
   }
 
   // Map mobile step back to database step
@@ -267,7 +352,7 @@ export async function POST(request: NextRequest) {
       let bankLetterUrl = seller.bankDetails?.bankLetterUrl || null;
 
       if (formData) {
-        const passbook = formData.get("bankPassbook") as File | null;
+        const passbook = (formData.get("bankPassbook") || formData.get("passbook")) as File | null;
         if (passbook && passbook.size > 0) {
           passbookUrl = await uploadPublicFile({
             folder: "onboarding/bank",

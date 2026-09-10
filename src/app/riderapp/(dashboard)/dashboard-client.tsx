@@ -56,9 +56,12 @@ export function RiderDashboardClient({ user: initialUser }: { user: any }) {
   const deviceTokens = (rider?.deviceTokens as any[]) || []
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-6xl mx-auto">
+    <div className="w-full p-4 sm:p-6 lg:p-8 space-y-6">
       {/* Welcome & Online Status Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 bg-linear-to-r from-blue-600 to-indigo-700 text-white rounded-3xl shadow-sm">
+      <div
+        className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 bg-blue-600 bg-gradient-to-r from-blue-600 to-indigo-700 text-white rounded-3xl shadow-sm"
+        style={{ background: "linear-gradient(135deg, #2563eb 0%, #4338ca 100%)" }}
+      >
         <div className="flex items-center gap-4">
           <div className="w-14 h-14 rounded-2xl bg-white/10 backdrop-blur border border-white/20 flex items-center justify-center font-bold text-xl overflow-hidden shrink-0">
             {user?.image || rider?.profileImage ? (
@@ -127,7 +130,7 @@ export function RiderDashboardClient({ user: initialUser }: { user: any }) {
 
       {/* KPI Stats Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-        <div className="p-5 rounded-2xl bg-linear-to-br from-emerald-500/10 to-teal-500/10 border border-emerald-500/20 shadow-xs space-y-2">
+        <div className="p-5 rounded-2xl bg-gradient-to-br from-emerald-500/10 to-teal-500/10 border border-emerald-500/20 shadow-xs space-y-2">
           <div className="flex items-center justify-between text-emerald-600 dark:text-emerald-400">
             <span className="text-xs font-bold uppercase tracking-wider">Total Earnings</span>
             <div className="p-2 rounded-xl bg-emerald-500/20 text-emerald-600">

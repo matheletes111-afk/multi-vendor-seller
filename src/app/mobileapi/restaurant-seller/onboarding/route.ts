@@ -18,6 +18,9 @@ export async function GET(request: NextRequest) {
 
     const { seller } = auth;
     const mobileStep = Math.max(2, seller.onboardingStep);
+    const sectionNames = ["business", "kyc", "restaurant", "bank", "agreement"];
+    const currentStep1Based = seller.status === "CORRECTION_NEEDED" ? 1 : Math.max(1, seller.onboardingStep - 1);
+    const currentSection = sectionNames[currentStep1Based - 1] || "business";
 
     return NextResponse.json({
         success: true,
@@ -30,6 +33,10 @@ export async function GET(request: NextRequest) {
             isApproved: seller.isApproved,
             isSuspended: seller.isSuspended,
             mobileStep: seller.status === "CORRECTION_NEEDED" ? 2 : mobileStep,
+            currentStep: seller.status === "CORRECTION_NEEDED" ? 1 : Math.max(1, seller.onboardingStep - 1),
+            step: seller.onboardingStep,
+            section: currentSection,
+            stepName: currentSection,
             businessInfo: seller.businessInfo,
             kyc: seller.kyc,
             bankDetails: seller.bankDetails,
@@ -58,17 +65,93 @@ export async function POST(request: NextRequest) {
     const { seller, user } = auth;
     const contentType = request.headers.get("content-type") ?? "";
 
-    let step: number = 0;
     let formData: FormData | null = null;
     let jsonBody: any = null;
 
     if (contentType.includes("multipart/form-data")) {
         formData = await request.formData();
-        const stepVal = formData.get("step") || formData.get("mobileStep");
-        step = parseInt(stepVal as string, 10);
     } else {
         jsonBody = await request.json();
-        step = jsonBody.step || jsonBody.mobileStep;
+    }
+
+    const explicit1Based = formData ? (formData.get("mobileStep") || formData.get("currentStep")) : (jsonBody?.mobileStep || jsonBody?.currentStep);
+    const rawStepVal = formData ? (formData.get("step") || formData.get("onboardingStep") || explicit1Based) : (jsonBody?.step || jsonBody?.onboardingStep || explicit1Based);
+
+    const getField = (name: string): any => {
+        if (formData) return formData.get(name);
+        return jsonBody?.data?.[name] ?? jsonBody?.[name];
+    };
+    const hasField = (name: string): boolean => {
+        const val = getField(name);
+        return val !== undefined && val !== null && val !== "";
+    };
+    const hasAny = (...names: string[]): boolean => names.some(n => hasField(n));
+
+    // Determine step: signature detection > section > explicit 1-based > fallback number
+    let step = 0;
+    const section = (getField("section") || getField("stepName") || "").toString().toLowerCase();
+
+    if (section === "business" || section === "businessinfo") step = 2;
+    else if (section === "kyc" || section === "identity") step = 3;
+    else if (section === "outlet" || section === "restaurant" || section === "cuisines") step = 4;
+    else if (section === "bank" || section === "bankdetails" || section === "payment") step = 5;
+    else if (section === "agreement" || section === "legal") step = 6;
+
+    // 1. Signature detection for Bank / Payment Details (Step 5)
+    if (!step && (
+        hasAny("paymentOption", "mobileMoneyOption", "bankName", "accountHolderName", "accountNumber", "bbanNumber", "branchName", "bankAddress", "bankPassbook", "passbook", "bankLetter", "preferredPayoutMethod") ||
+        (hasField("mobileNumber") && !hasField("businessName") && !hasField("managerName") && !hasField("restaurantName")) ||
+        (hasField("agentNumber") && !hasField("businessName"))
+    )) {
+        step = 5;
+    }
+
+    // 2. Signature detection for Agreement (Step 6)
+    if (!step && hasAny("agreedToTerms", "agreedToCommission", "agreedToReturnPolicy", "agreedToPrivacy", "hearAboutUs", "hearAboutUsOther", "otherHearAboutUs")) {
+        step = 6;
+    }
+
+    // 3. Signature detection for Outlet Setup (Step 4)
+    if (!step && (hasAny("estimateRestaurantCount", "primaryCuisine", "cuisines", "serviceTypes", "services", "mainPhoto", "logo", "banner"))) {
+        step = 4;
+    }
+
+    // 4. Signature detection for KYC / Identity (Step 3)
+    if (!step && hasAny("idType", "idNumber", "idFront", "idBack", "selfie", "nationIdentityNumber")) {
+        step = 3;
+    }
+
+    // 5. Signature detection for Business Info (Step 2)
+    if (!step && hasAny("businessName", "businessType", "businessRegNumber", "busRegCert", "taxIdNumber", "managerName", "pocContact", "haveGst", "cityCouncilCert", "addressProof", "foodLicense", "foodLicenseUrl")) {
+        step = 2;
+    }
+
+    // Fallback 1: Explicit 1-based parameter (mobileStep or currentStep where 1=Business, 2=KYC, 3=Restaurant, 4=Bank, 5=Agreement)
+    if (!step && explicit1Based !== undefined && explicit1Based !== null) {
+        const parsed = parseInt(explicit1Based as string, 10);
+        if (!isNaN(parsed) && parsed >= 1 && parsed <= 5) {
+            step = parsed + 1; // Map 1..5 to 2..6
+        }
+    }
+
+    // Fallback 2: General step / onboardingStep number resolution
+    if (!step && rawStepVal !== undefined && rawStepVal !== null) {
+        const parsed = parseInt(rawStepVal as string, 10);
+        if (!isNaN(parsed)) {
+            if (parsed === 1) step = 2; // 1-based Business
+            else if (parsed === 6) step = 6; // 2-based Agreement
+            else if (parsed === seller.onboardingStep) step = parsed; // 2-based DB step match
+            else if (parsed === seller.onboardingStep - 1) step = parsed + 1; // 1-based mobile step match
+            else if (parsed >= 2 && parsed <= 6) step = parsed; // default 2-based step
+            else if (parsed > 6) step = 6;
+        }
+    }
+
+    if (step === 0) {
+        return NextResponse.json(
+            { success: false, error: "Invalid onboarding step or missing step data." },
+            { status: 400 }
+        );
     }
 
     try {
@@ -353,7 +436,7 @@ export async function POST(request: NextRequest) {
             let passbookUrl = seller.bankDetails?.passbookUrl;
             let bankLetterUrl = seller.bankDetails?.bankLetterUrl;
             if (formData) {
-                const file = formData.get("passbook") as File | null;
+                const file = (formData.get("passbook") || formData.get("bankPassbook")) as File | null;
                 if (file && file.size > 0) {
                     passbookUrl = await uploadPublicFile({
                         folder: "restaurant-onboarding/bank",

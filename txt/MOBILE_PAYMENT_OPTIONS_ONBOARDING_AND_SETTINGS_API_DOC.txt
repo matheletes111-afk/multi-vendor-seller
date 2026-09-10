@@ -25,16 +25,17 @@ A. When "Bank" is selected:
        * BBAN Number (Required)
        * Branch Name / IFSC (Required)
        * Bank Address (Required)
-       * Bank Passbook / Cheque Copy (Optional File)
-       * Bank Letter with Account No. (Optional File)
+       * Bank Passbook / Cheque Copy (Optional File) - field name "passbook" or "bankPassbook"
+       * Bank Letter with Account No. (Optional File) - field name "bankLetter"
    - Hide Mobile Money fields.
    - The backend will automatically set "mobileNumber" and "agentNumber" to null in the database.
 
 B. When "Orange Money" or "AfriMoney" is selected:
    - Hide ALL bank fields completely (no bank name, account number, documents, etc.).
-   - Show 2 REQUIRED mobile money fields:
-       * Mobile Number (Required) - e.g. "076123456" or "+232 76 123456"
-       * Agent Number (Required)  - e.g. "AG-98765" or merchant code
+   - Mobile Money fields:
+       * Mobile Number (REQUIRED) - e.g. "076123456" or "+232 76 123456"
+       * Agent Number  (OPTIONAL) - e.g. "AG-98765" or merchant code
+         (Sellers can register with phone number only; agent code can be added later in settings for payout processing)
    - The backend will automatically nullify all bank fields in the database:
      (bankName, accountHolderName, accountNumber, bbanNumber, branchName, bankAddress, passbookUrl, bankLetterUrl => null).
    - The backend will automatically map:
@@ -42,34 +43,74 @@ B. When "Orange Money" or "AfriMoney" is selected:
      * mobileMoneyOption = "Orange Money" or "AfriMoney"
 
 ----------------------------------------------------------------------------------------------------
-2. APPLICABLE ENDPOINTS (ALL 4 SELLER PANELS)
+2. COMPLETE ENDPOINT LIST (FULL URLS FOR ALL 4 SELLER PANELS)
 ----------------------------------------------------------------------------------------------------
 
 1) PRODUCT SELLER:
-   * Onboarding GET (Pre-fetch):  GET /mobileapi/product-seller/onboarding
-   * Onboarding POST (Step 4):   POST /mobileapi/product-seller/onboarding  (step = "4")
-   * Settings GET (Pre-fetch):    GET /mobileapi/product-seller/settings
-   * Settings PUT (Update):       PUT /mobileapi/product-seller/settings    (section = "bank")
+   * Onboarding GET (Pre-fetch state):
+     GET /mobileapi/product-seller/onboarding
+
+   * Onboarding POST (Submit step data):
+     POST /mobileapi/product-seller/onboarding
+     (Send section: "bank", or mobileStep: 3, or step: 4)
+
+   * Settings GET (Pre-fetch profile/bank):
+     GET /mobileapi/product-seller/settings
+
+   * Settings PUT (Update profile/bank):
+     PUT /mobileapi/product-seller/settings
+     (Send section: "bank")
 
 2) SERVICE SELLER:
-   * Onboarding GET (Pre-fetch):  GET /mobileapi/service-seller/onboarding
-   * Onboarding POST (Step 4):   POST /mobileapi/service-seller/onboarding  (step = "4")
-   * Settings GET (Pre-fetch):    GET /mobileapi/service-seller/settings
-   * Settings PUT (Update):       PUT /mobileapi/service-seller/settings    (section = "bank")
+   * Onboarding GET (Pre-fetch state):
+     GET /mobileapi/service-seller/onboarding
+
+   * Onboarding POST (Submit step data):
+     POST /mobileapi/service-seller/onboarding
+     (Send section: "bank", or mobileStep: 3, or step: 4)
+
+   * Settings GET (Pre-fetch profile/bank):
+     GET /mobileapi/service-seller/settings
+
+   * Settings PUT (Update profile/bank):
+     PUT /mobileapi/service-seller/settings
+     (Send section: "bank")
 
 3) HOTEL SELLER:
-   * Onboarding GET (Pre-fetch):  GET /mobileapi/hotel-seller/onboarding
-   * Onboarding POST (Step 5):   POST /mobileapi/hotel-seller/onboarding    (step = "5")
-   * Settings GET (Pre-fetch):    GET /mobileapi/hotel-seller/settings
-   * Settings PUT (Update):       PUT /mobileapi/hotel-seller/settings      (section = "bank")
+   * Onboarding GET (Pre-fetch state):
+     GET /mobileapi/hotel-seller/onboarding
+
+   * Onboarding POST (Submit step data):
+     POST /mobileapi/hotel-seller/onboarding
+     (Send section: "bank", or mobileStep: 4, or step: 5)
+
+   * Settings GET (Pre-fetch profile/bank):
+     GET /mobileapi/hotel-seller/settings
+
+   * Settings PUT (Update profile/bank):
+     PUT /mobileapi/hotel-seller/settings
+     (Send section: "bank")
 
 4) RESTAURANT SELLER:
-   * Onboarding GET (Pre-fetch):  GET /mobileapi/restaurant-seller/onboarding
-   * Onboarding POST (Step 5):   POST /mobileapi/restaurant-seller/onboarding (step = "5")
-   * Settings GET (Pre-fetch):    GET /mobileapi/restaurant-seller/settings
-   * Settings PUT (Update):       PUT /mobileapi/restaurant-seller/settings   (section = "bank")
+   * Onboarding GET (Pre-fetch state):
+     GET /mobileapi/restaurant-seller/onboarding
 
-Authentication: Bearer <Seller_JWT_Token> in Authorization header.
+   * Onboarding POST (Submit step data):
+     POST /mobileapi/restaurant-seller/onboarding
+     (Send section: "bank", or mobileStep: 4, or step: 5)
+
+   * Settings GET (Pre-fetch profile/bank):
+     GET /mobileapi/restaurant-seller/settings
+
+   * Settings PUT (Update profile/bank):
+     PUT /mobileapi/restaurant-seller/settings
+     (Send section: "bank")
+
+Authentication: Bearer <Seller_JWT_Token> in Authorization header for all requests.
+
+NOTE: All onboarding endpoints feature smart auto-detection by payload signature. 
+Whenever payment fields (paymentOption, mobileNumber, bankName, etc.) are submitted, 
+the backend automatically routes to the Bank/Payment step, preventing any cross-step validation errors!
 
 ----------------------------------------------------------------------------------------------------
 3. REQUEST PARAMETERS SPECIFICATION
@@ -82,7 +123,7 @@ Both multipart/form-data and application/json formats are supported.
 | paymentOption         | string  | ALWAYS (REQUIRED)  | "Bank", "Orange Money", or "AfriMoney"            |
 +-----------------------+---------+--------------------+---------------------------------------------------+
 | mobileNumber          | string  | Orange / AfriMoney | REQUIRED for mobile money. Registered phone no.   |
-| agentNumber           | string  | Orange / AfriMoney | REQUIRED for mobile money. Merchant / Agent code  |
+| agentNumber           | string  | Orange / AfriMoney | OPTIONAL for mobile money. Merchant / Agent code  |
 +-----------------------+---------+--------------------+---------------------------------------------------+
 | bankName              | string  | Bank Only          | REQUIRED when paymentOption == "Bank"             |
 | accountHolderName     | string  | Bank Only          | REQUIRED when paymentOption == "Bank"             |
@@ -90,11 +131,12 @@ Both multipart/form-data and application/json formats are supported.
 | bbanNumber            | string  | Bank Only          | REQUIRED when paymentOption == "Bank"             |
 | branchName            | string  | Bank Only          | REQUIRED when paymentOption == "Bank"             |
 | bankAddress           | string  | Bank Only          | REQUIRED when paymentOption == "Bank"             |
-| passbook              | File    | Bank Only          | OPTIONAL image/pdf proof of passbook/cheque       |
+| passbook              | File    | Bank Only          | OPTIONAL image/pdf proof (or key: bankPassbook)   |
 | bankLetter            | File    | Bank Only          | OPTIONAL image/pdf bank letter with account no.   |
 +-----------------------+---------+--------------------+---------------------------------------------------+
-| step                  | string  | Onboarding Only    | "4" (Product/Service) or "5" (Hotel/Restaurant)   |
-| section               | string  | Settings Only      | "bank"                                            |
+| section               | string  | Both Onboarding &  | "bank" (or "business", "kyc", "store",            |
+|                       |         | Settings           |  "property", "restaurant", "agreement")           |
+| step / mobileStep     | string  | Onboarding Only    | Auto-detected; accepts 1-based or 2-based numbers |
 +-----------------------+---------+--------------------+---------------------------------------------------+
 
 BACKWARD COMPATIBILITY NOTE:
@@ -102,11 +144,21 @@ If an older mobile build sends "preferredPayoutMethod": "Mobile Wallet" with "mo
 the server will automatically normalize it to paymentOption = "Orange Money" so older versions won't break.
 
 ----------------------------------------------------------------------------------------------------
-4. SAMPLE REQUEST PAYLOADS
+4. SAMPLE REQUEST PAYLOADS (WITH EXACT URLS)
 ----------------------------------------------------------------------------------------------------
 
 CASE A: SELLER CHOOSES "ORANGE MONEY" (JSON Example - Settings or Onboarding)
 -----------------------------------------------------------------------------
+Endpoints:
+  - Product Onboarding:    POST /mobileapi/product-seller/onboarding
+  - Product Settings:      PUT  /mobileapi/product-seller/settings
+  - Service Onboarding:    POST /mobileapi/service-seller/onboarding
+  - Service Settings:      PUT  /mobileapi/service-seller/settings
+  - Hotel Onboarding:      POST /mobileapi/hotel-seller/onboarding
+  - Hotel Settings:        PUT  /mobileapi/hotel-seller/settings
+  - Restaurant Onboarding: POST /mobileapi/restaurant-seller/onboarding
+  - Restaurant Settings:   PUT  /mobileapi/restaurant-seller/settings
+
 Headers:
   Authorization: Bearer <TOKEN>
   Content-Type: application/json
@@ -119,16 +171,27 @@ Payload:
   "agentNumber": "OM-883491"
 }
 
-(For Onboarding step, replace "section": "bank" with "step": "4" or "step": "5").
+(Note: agentNumber is optional. Sending only "mobileNumber": "076123456" is completely valid.)
+
 
 CASE B: SELLER CHOOSES "AFRIMONEY" (Multipart/Form-Data Example)
 ----------------------------------------------------------------
+Endpoints:
+  - Product Onboarding:    POST /mobileapi/product-seller/onboarding
+  - Product Settings:      PUT  /mobileapi/product-seller/settings
+  - Service Onboarding:    POST /mobileapi/service-seller/onboarding
+  - Service Settings:      PUT  /mobileapi/service-seller/settings
+  - Hotel Onboarding:      POST /mobileapi/hotel-seller/onboarding
+  - Hotel Settings:        PUT  /mobileapi/hotel-seller/settings
+  - Restaurant Onboarding: POST /mobileapi/restaurant-seller/onboarding
+  - Restaurant Settings:   PUT  /mobileapi/restaurant-seller/settings
+
 Headers:
   Authorization: Bearer <TOKEN>
   Content-Type: multipart/form-data
 
 Form-Data Parts:
-  step: 4                                    (or section: bank)
+  section: bank
   paymentOption: AfriMoney
   mobileNumber: +23277987654
   agentNumber: AFRI-00921
@@ -136,12 +199,22 @@ Form-Data Parts:
 
 CASE C: SELLER CHOOSES "BANK" (Multipart/Form-Data Example with Files)
 ----------------------------------------------------------------------
+Endpoints:
+  - Product Onboarding:    POST /mobileapi/product-seller/onboarding
+  - Product Settings:      PUT  /mobileapi/product-seller/settings
+  - Service Onboarding:    POST /mobileapi/service-seller/onboarding
+  - Service Settings:      PUT  /mobileapi/service-seller/settings
+  - Hotel Onboarding:      POST /mobileapi/hotel-seller/onboarding
+  - Hotel Settings:        PUT  /mobileapi/hotel-seller/settings
+  - Restaurant Onboarding: POST /mobileapi/restaurant-seller/onboarding
+  - Restaurant Settings:   PUT  /mobileapi/restaurant-seller/settings
+
 Headers:
   Authorization: Bearer <TOKEN>
   Content-Type: multipart/form-data
 
 Form-Data Parts:
-  step: 4                                    (or section: bank)
+  section: bank
   paymentOption: Bank
   bankName: Sierra Leone Commercial Bank
   accountHolderName: Basak Ventures Ltd
@@ -152,11 +225,30 @@ Form-Data Parts:
   passbook: <Binary File / Image / PDF>       (Optional)
   bankLetter: <Binary File / Image / PDF>     (Optional)
 
+
 ----------------------------------------------------------------------------------------------------
-5. PRE-FETCH / GET RESPONSE STRUCTURE
+5. PRE-FETCH / GET RESPONSE STRUCTURE (FULL URLS)
 ----------------------------------------------------------------------------------------------------
-When fetching existing onboarding state (GET /mobileapi/.../onboarding) or settings (GET /mobileapi/.../settings),
-the "bankDetails" object contains the current values:
+When fetching existing onboarding state or settings for any seller:
+
+Endpoints to fetch:
+1) Product Seller:
+   - Onboarding: GET /mobileapi/product-seller/onboarding
+   - Settings:   GET /mobileapi/product-seller/settings
+
+2) Service Seller:
+   - Onboarding: GET /mobileapi/service-seller/onboarding
+   - Settings:   GET /mobileapi/service-seller/settings
+
+3) Hotel Seller:
+   - Onboarding: GET /mobileapi/hotel-seller/onboarding
+   - Settings:   GET /mobileapi/hotel-seller/settings
+
+4) Restaurant Seller:
+   - Onboarding: GET /mobileapi/restaurant-seller/onboarding
+   - Settings:   GET /mobileapi/restaurant-seller/settings
+
+In the returned response, the "bankDetails" object contains the current payout configuration:
 
 Example 1: When Seller is on Orange Money / AfriMoney:
 ------------------------------------------------------
@@ -220,12 +312,10 @@ In your mobile UI state initialization, resolve paymentOption as:
    { "success": false, "error": "Mobile Number is required for Orange Money." }
    { "success": false, "error": "Mobile Number is required for AfriMoney." }
 
-2) Missing agentNumber when Orange Money or AfriMoney is selected:
-   Status: 400 Bad Request
-   { "success": false, "error": "Agent Number is required for Orange Money." }
-   { "success": false, "error": "Agent Number is required for AfriMoney." }
+   NOTE: agentNumber is OPTIONAL. Submissions without agentNumber will succeed.
+   Sellers can register with phone number only and add their agent code later for payouts.
 
-3) Missing Bank fields when Bank is selected:
+2) Missing Bank fields when Bank is selected:
    Status: 400 Bad Request
    { "success": false, "error": "Bank Name is required." }
    { "success": false, "error": "Account Holder Name is required." }
@@ -239,14 +329,48 @@ NOTE: Error responses from the API are returned with "success": false and "error
       GET (pre-fetch) requests do not trigger validation errors.
 
 ----------------------------------------------------------------------------------------------------
-7. SUMMARY CHECKLIST FOR MOBILE DEVELOPER
+7. STEP MAPPING & AVOIDING STEP MISMATCH ERRORS (IMPORTANT FOR MOBILE APPS)
+----------------------------------------------------------------------------------------------------
+In previous versions, discrepancies between 1-based indexing (mobile UI steps 1..5) and 2-based 
+database steps (steps 2..6) could cause validation errors from one step to leak into another.
+
+THE BACKEND HAS BEEN FULLY UPGRADED WITH MULTI-LAYER SAFETY:
+1. Auto-Detection by Payload Signature:
+   Regardless of what step number is sent, if your payload contains payment fields (paymentOption, 
+   mobileNumber, bankName, etc.), the backend ALWAYS routes to the Bank step!
+
+2. Explicit Section Name (RECOMMENDED):
+   You can now include `section` (or `stepName`) in your request:
+   - "business"   -> Business Information (Step 1)
+   - "kyc"        -> Identity Verification / KYC (Step 2)
+   - "store"      -> Store Setup (Product)
+   - "service"    -> Service Setup (Service)
+   - "property"   -> Property Setup (Hotel)
+   - "restaurant" -> Restaurant Setup (Restaurant)
+   - "bank"       -> Bank & Mobile Money Details
+   - "agreement"  -> Legal Agreement (Final Step)
+
+3. Consistent Step Numbers in All GET Responses:
+   - GET /mobileapi/product-seller/onboarding
+   - GET /mobileapi/service-seller/onboarding
+   - GET /mobileapi/hotel-seller/onboarding
+   - GET /mobileapi/restaurant-seller/onboarding
+
+   All 4 GET endpoints return:
+   - `mobileStep`: 1 to 5 (Consistent 1-based step for mobile UI)
+   - `currentStep`: 1 to 5 (Consistent 1-based step for mobile UI)
+   - `step`: 2 to 6 (Database step number)
+   - `section`: "business" | "kyc" | "store" | "property" | "restaurant" | "bank" | "agreement"
+   - `stepName`: Identical to section
+
+----------------------------------------------------------------------------------------------------
+8. SUMMARY CHECKLIST FOR MOBILE DEVELOPER
 ----------------------------------------------------------------------------------------------------
 [ ] Update UI: Add dropdown / picker for "Payment Option" with values ["Bank", "Orange Money", "AfriMoney"].
 [ ] If "Bank": Display Bank Name, Account Holder, Account No, BBAN, Branch, Address, Passbook, Bank Letter.
-[ ] If "Orange Money" / "AfriMoney": Hide bank fields, display Mobile Number and Agent Number.
-[ ] When submitting payload, send:
-      paymentOption: "Bank" | "Orange Money" | "AfriMoney"
-      mobileNumber: <value or null>
-      agentNumber: <value or null>
+[ ] If "Orange Money" / "AfriMoney": Hide bank fields, display Mobile Number (Required) and Agent Number (Optional).
+[ ] When submitting Bank step: Include `paymentOption: "Bank" | "Orange Money" | "AfriMoney"` and `section: "bank"`.
+[ ] Agent Number is strictly OPTIONAL during registration. Phone number is enough.
+[ ] Passbook upload accepts either key: "passbook" or "bankPassbook".
 [ ] Test all 4 seller apps: Product Seller, Service Seller, Hotel Seller, Restaurant Seller.
 ====================================================================================================
