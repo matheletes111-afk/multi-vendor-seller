@@ -1,0 +1,568 @@
+================================================================================
+MEEEM PRODUCT SELLER MOBILE APP — DISPATCH, NOTIFICATIONS, OTP & LIFECYCLE API
+================================================================================
+Title:    Product Seller — Auto-Dispatch / Manual Assignment / Stop Notification /
+          Delivery Lifecycle & Security Rules
+Version:  2.1.0  (Complete — Includes all dispatch, OTP privacy & lifecycle rules)
+Audience: Mobile Developers (Flutter / React Native / Kotlin / Swift)
+Base URL: https://www.meeemsl.com/mobileapi/product-seller
+Auth:     Authorization: Bearer <sellerAccessToken>
+
+--------------------------------------------------------------------------------
+TABLE OF CONTENTS
+--------------------------------------------------------------------------------
+1. KEY BUSINESS LOGIC & FLOW SUMMARY
+2. API SPECIFICATIONS:
+   - 2.1 ASSIGN RIDER / DISPATCH ENDPOINT (auto_dispatch, stop_dispatch, manual)
+   - 2.2 SELF-DELIVERY TOGGLE ENDPOINT (Enable / Disable In-House Delivery)
+   - 2.3 AVAILABLE RIDERS LIST (For Manual Selection)
+   - 2.4 ORDER STATUS UPDATE ENDPOINT (PROCESSING, SHIPPED, CANCELLED, DELIVERED)
+   - 2.5 ORDER DETAILS & ACTIVE DELIVERY TRACKING (GET with OTP Masking)
+3. MOBILE UI BUTTON & DISPLAY RULES (BY LIFECYCLE STATE)
+4. COMPLETE MOBILE CLIENT EXAMPLES (Dart / Flutter)
+
+================================================================================
+1. KEY BUSINESS LOGIC & FLOW SUMMARY
+================================================================================
+
+1. NOTIFICATION TRIGGER POINT:
+   - Notifications to delivery riders start ONLY when the order is marked
+     as "PROCESSING" or "SHIPPED".
+   - It NEVER triggers when order is PENDING or CONFIRMED.
+   - Lifecycle progression:
+     PENDING -> CONFIRMED -> PROCESSING -> [Auto-Dispatch Notifies Nearest Rider]
+
+2. MAXIMUM 5 ATTEMPTS CAP:
+   - Auto-dispatch limits notifications to a maximum of 5 attempts
+     (MAX_AUTO_DISPATCH_ATTEMPTS = 5).
+   - Each rider is given a 60-second response window (OFFERED status).
+   - If a rider rejects or times out, system automatically cascades to the next
+     closest eligible rider.
+   - If 5 riders reject or time out, the system automatically halts.
+   - The seller app should then prompt the seller to manually select a rider.
+
+3. STOP NOTIFICATIONS (CANCEL OFFER):
+   - A dedicated action "stop_dispatch" is provided.
+   - While an offer notification is pending (status == OFFERED), the seller
+     can cancel it at any time using this action.
+   - IMPORTANT: Once a rider ACCEPTS the offer (status == ACCEPTED), the offer
+     is finalized. The cancel/stop notification button must NOT be shown.
+
+4. SELF-DELIVERY PROTECTION & AUTO-REVOKE:
+   - When seller toggles Self-Delivery ("Deliver by Myself") ON:
+     -> Any pending rider offers or active assignments (OFFERED, ACCEPTED, AT_PICKUP)
+        are AUTOMATICALLY REVOKED.
+     -> External platform rider dispatch is blocked.
+     -> No notifications will be sent to delivery riders.
+   - When seller toggles Self-Delivery OFF:
+     -> Platform rider dispatch is restored.
+     -> If the order is already in PROCESSING, READY_FOR_PICKUP, or SHIPPED,
+        the system automatically triggers auto-dispatch to find a platform rider.
+
+5. ORDER CANCELLATION REVOKES RIDER ASSIGNMENTS:
+   - If a seller cancels an order (status -> CANCELLED), any active or pending
+     rider assignments (OFFERED, ACCEPTED, AT_PICKUP) are automatically cancelled.
+
+6. DELIVERED STATE (HIDE ALL ACTIONS, SHOW ONLY WHO DELIVERED IT):
+   - Once an order or assignment is DELIVERED:
+     -> HIDE ALL ACTION BUTTONS: NO Reassign, NO Cancel, NO Stop Notification,
+        and NO Assign Rider buttons.
+     -> The dispatch / rider selection modal must NOT be openable.
+     -> Self-delivery toggle switch must be hidden / disabled.
+     -> ONLY display WHO delivered it:
+        - If platform rider: Rider Photo, Name, Vehicle Number, Phone Call button,
+          and a green "Delivered by [Rider Name]" badge with completion timestamp.
+        - If self-delivery: "Delivered In-House (Self-Delivery by Store)" badge.
+
+7. HANDOVER OTP PRIVACY (ONLY CUSTOMER SEES ACTIVE OTP):
+   - The active 6-digit Delivery Handover OTP is EXCLUSIVELY for the Customer.
+   - The seller app must NEVER display the active OTP before delivery.
+   - The backend API explicitly sets deliveryOtp: null for all states prior
+     to DELIVERED.
+   - In the seller app UI, display an informative note:
+     "Secure OTP sent to customer (Customer shares with rider at doorstep)".
+   - Only AFTER the order is DELIVERED is the verified OTP returned in the API
+     for historical / audit records.
+
+8. TERMINOLOGY:
+   - Everywhere in the UI and user messages, use "Notification" instead of "Push"
+     (e.g., "Notification Sent", "Stop Notification").
+
+================================================================================
+2. API SPECIFICATIONS
+================================================================================
+
+--------------------------------------------------------------------------------
+2.1 ASSIGN RIDER / DISPATCH ENDPOINT
+--------------------------------------------------------------------------------
+Endpoint:  POST /mobileapi/product-seller/orders/:id/assign-rider
+Headers:
+  Authorization: Bearer <sellerAccessToken>
+  Content-Type: application/json
+
+This single endpoint supports 3 actions based on the request body:
+
+────────────────────────────────────────────────────────────────────────────────
+ACTION A: "auto_dispatch"  (Start Cascading Notifications)
+────────────────────────────────────────────────────────────────────────────────
+Finds the closest available rider matching vehicle requirements and sends
+them a 60-second delivery offer notification.
+
+Request:
+{
+  "action": "auto_dispatch"
+}
+
+Success Response (200 OK):
+{
+  "success": true,
+  "message": "Auto-dispatch initiated",
+  "data": {
+    "success": true,
+    "dispatchedTo": "Mohamed Kamara",
+    "attemptNumber": 1,
+    "riderId": "cm8xyz123"
+  }
+}
+
+Error Response (400 Bad Request) - Limit reached or self-delivery active:
+{
+  "success": false,
+  "message": "Auto-dispatch attempt limit (5) reached. Please assign a rider manually."
+}
+
+────────────────────────────────────────────────────────────────────────────────
+ACTION B: "stop_dispatch"  (Stop Notifications / Cancel Pending Offer)
+────────────────────────────────────────────────────────────────────────────────
+Cancels any pending offer notification (OFFERED status) for this order.
+Only works while awaiting rider response. Does not affect already ACCEPTED trips.
+
+Request:
+{
+  "action": "stop_dispatch"
+}
+
+Success Response (200 OK):
+{
+  "success": true,
+  "message": "Notifications stopped. 1 pending offer(s) cancelled.",
+  "data": {
+    "success": true,
+    "cancelledCount": 1,
+    "message": "Notifications stopped. 1 pending offer(s) cancelled."
+  }
+}
+
+Error Response (400 Bad Request) - No active offer to cancel:
+{
+  "success": false,
+  "message": "No pending notification offer found to cancel"
+}
+
+────────────────────────────────────────────────────────────────────────────────
+ACTION C: Manual Assignment  (Directly Pick Rider)
+────────────────────────────────────────────────────────────────────────────────
+Assigns a specific rider selected by the seller from the available riders list.
+
+Request:
+{
+  "riderId": "clxyz123abc",
+  "notes": "Fragile items, please handle with care"
+}
+
+Success Response (200 OK):
+{
+  "success": true,
+  "message": "Rider assigned successfully",
+  "data": {
+    "id": "assignment_id",
+    "orderId": "order_id",
+    "riderId": "clxyz123abc",
+    "status": "ACCEPTED",
+    "assignedAt": "2026-09-10T10:00:00.000Z"
+  }
+}
+
+--------------------------------------------------------------------------------
+2.2 SELF-DELIVERY TOGGLE ENDPOINT
+--------------------------------------------------------------------------------
+Endpoint:  POST /mobileapi/product-seller/orders/:id/self-delivery
+Headers:
+  Authorization: Bearer <sellerAccessToken>
+  Content-Type: application/json
+
+Used when a seller decides to deliver items themselves in-house, or switches
+back to platform delivery riders.
+
+Request (To Enable Self-Delivery):
+{
+  "isSelfDelivery": true
+}
+
+Success Response (200 OK):
+{
+  "success": true,
+  "isSelfDelivery": true,
+  "message": "Self-delivery enabled for this order. No delivery riders will be dispatched."
+}
+*Note: Any pending offers (OFFERED) or active trips (ACCEPTED, AT_PICKUP) are
+automatically revoked/cancelled upon enabling self-delivery.
+
+Request (To Disable Self-Delivery & Restore Platform Riders):
+{
+  "isSelfDelivery": false
+}
+
+Success Response (200 OK):
+{
+  "success": true,
+  "isSelfDelivery": false,
+  "message": "Self-delivery disabled. Auto-dispatch will search for platform riders."
+}
+*Note: If the order is already PROCESSING or SHIPPED, the backend immediately
+initiates auto-dispatch for platform riders.
+
+--------------------------------------------------------------------------------
+2.3 AVAILABLE RIDERS LIST (For Manual Selection)
+--------------------------------------------------------------------------------
+Endpoint:  GET /mobileapi/product-seller/riders/available?orderId=:orderId
+Headers:
+  Authorization: Bearer <sellerAccessToken>
+
+Returns active online riders near the seller store, with distance and
+vehicle compatibility flags.
+
+Success Response (200 OK):
+{
+  "success": true,
+  "riders": [
+    {
+      "id": "rider_id_1",
+      "name": "Mohamed Kamara",
+      "phone": "077123456",
+      "profileImage": "https://...",
+      "vehicleName": "Motorbike",
+      "vehicleNumber": "SL-1234",
+      "isOnline": true,
+      "distanceKm": 1.4,
+      "isVehicleMatch": true
+    }
+  ],
+  "aiVehicleRecommendation": {
+    "requiredVehicle": "TWO_WHEELER",
+    "estimatedWeightKg": 1.2,
+    "reason": "Lightweight items fit on a standard 2-wheeler"
+  }
+}
+
+--------------------------------------------------------------------------------
+2.4 ORDER STATUS UPDATE ENDPOINT (Seller Lifecycle Progression)
+--------------------------------------------------------------------------------
+Endpoint:  PATCH /mobileapi/product-seller/orders/:id
+Headers:
+  Authorization: Bearer <sellerAccessToken>
+  Content-Type: application/json
+
+Request:
+{
+  "status": "PROCESSING",
+  "note": "Items packed and ready for delivery pickup"
+}
+
+Allowed Status Transitions for Seller:
+- "PROCESSING": Automatically triggers delivery auto-dispatch (unless self-delivery).
+- "SHIPPED": Also triggers delivery auto-dispatch if no rider assigned yet.
+- "DELIVERED": Used for self-delivery fulfillment. (Requires deliveryProofImage).
+- "CANCELLED": Automatically revokes any pending/active rider assignments.
+
+Success Response (200 OK):
+{
+  "success": true,
+  "status": "PROCESSING",
+  "updatedItemIds": ["item_1", "item_2"]
+}
+
+--------------------------------------------------------------------------------
+2.5 ORDER DETAILS & ACTIVE DELIVERY TRACKING (With OTP Privacy)
+--------------------------------------------------------------------------------
+Endpoint:  GET /mobileapi/product-seller/orders/:id
+Headers:
+  Authorization: Bearer <sellerAccessToken>
+
+Check the "activeDeliveryTracking" or "deliveryAssignments" in response:
+
+Status Value        | Meaning & Recommended Mobile UI State
+--------------------|-----------------------------------------------------------
+OFFERED             | Notification sent. Show "Stop Notification" button & 60s timer.
+ACCEPTED            | Rider ACCEPTED trip!
+                    | -> HIDE Stop Notification button.
+                    | -> Show Rider Name, Phone ("Call"), Live GPS Map.
+                    | -> Note: Active OTP is hidden from seller (only customer sees OTP).
+                    | -> Only show "Reassign" if needed for emergencies.
+AT_PICKUP           | Rider arrived at seller store. HIDE Cancel/Stop button.
+PICKED_UP           | Rider picked up items. Order status -> SHIPPED.
+OUT_FOR_DELIVERY    | Rider on way to customer. Customer sees doorstep OTP.
+DELIVERED           | Delivery completed with customer OTP.
+                    | -> Verified OTP is now visible for records.
+REJECTED / TIMED_OUT| Rider rejected or 60s expired. Next rider being notified.
+REASSIGNED_BY_ADMIN | Cancelled via stop_dispatch or reassigned by admin.
+
+
+Response Highlights (When Trip is Active / IN PROGRESS):
+{
+  "id": "order_123",
+  "orderNumber": "ORD-2026-9876",
+  "status": "PROCESSING",
+  "isSelfDelivery": false,
+  "activeDeliveryTracking": {
+    "assignmentId": "assign_abc",
+    "status": "ACCEPTED",
+    "dispatchMode": "AUTO_DISPATCH",
+    "distanceKm": 2.1,
+    "attemptNumber": 1,
+    "offeredAt": "2026-09-10T09:30:00.000Z",
+    "expiresAt": null,
+    "secondsRemaining": null,
+    "isOfferExpired": false,
+    "deliveryOtp": null,              // <-- ALWAYS null while trip is active!
+    "deliveryProofImage": null,
+    "rider": {
+      "id": "rider_1",
+      "name": "Mohamed Kamara",
+      "phone": "077123456",
+      "image": "https://...",
+      "vehicleNumber": "SL-1234",
+      "vehicleTypes": ["TWO_WHEELER"],
+      "isOnline": true
+    },
+    "currentLocation": {
+      "latitude": 8.484,
+      "longitude": -13.234,
+      "heading": 120,
+      "speed": 22.5,
+      "lastLocationUpdate": "2026-09-10T09:32:00.000Z"
+    },
+    "pickupLocation": {
+      "latitude": 8.480,
+      "longitude": -13.230
+    },
+    "destinationLocation": {
+      "fullName": "Alice Johnson",
+      "phone": "078987654",
+      "addressLine1": "14 Wilkinson Road",
+      "city": "Freetown"
+    },
+    "socketRoom": "order:order_123"
+  }
+}
+
+Response Highlights (When Order is DELIVERED):
+{
+  "id": "order_123",
+  "orderNumber": "ORD-2026-9876",
+  "status": "DELIVERED",
+  "isSelfDelivery": false,
+  "activeDeliveryTracking": {
+    "assignmentId": "assign_abc",
+    "status": "DELIVERED",
+    "deliveryOtp": "839201",          // <-- Verified OTP now returned for audit records!
+    "deliveryProofImage": "https://.../delivery-proof/proof_123.jpg",
+    "rider": {
+      "id": "rider_1",
+      "name": "Mohamed Kamara",
+      "phone": "077123456",
+      "image": "https://...",
+      "vehicleNumber": "SL-1234"
+    }
+  }
+}
+
+================================================================================
+3. MOBILE UI BUTTON & DISPLAY RULES (BY LIFECYCLE STATE)
+================================================================================
+
+Below is the definitive matrix of what must be visible, hidden, or disabled:
+
+--------------------------------------------------------------------------------
+A. STATE: PENDING or CONFIRMED
+--------------------------------------------------------------------------------
+- Auto-dispatch does NOT run.
+- Rider section displays: "Order must be moved to Processing to notify riders."
+- Buttons:
+  - [Move to Processing] (Advances order status to PROCESSING)
+  - [Assign Rider Manually] (Optional early manual assignment)
+  - Self-delivery toggle switch: VISIBLE & ACTIVE.
+
+--------------------------------------------------------------------------------
+B. STATE: OFFERED (Awaiting Rider Response)
+--------------------------------------------------------------------------------
+- Display: "Notifying Rider: [Rider Name] (Attempt X of 5)"
+- Display: 60-second countdown timer (secondsRemaining)
+- Buttons:
+  - [Stop Notification]  <-- Red outline button calling stop_dispatch.
+  - [Assign Manually]     <-- Opens manual rider list.
+  - Self-delivery toggle: VISIBLE (enabling it cancels the offer).
+- OTP: HIDE (deliveryOtp is null).
+
+--------------------------------------------------------------------------------
+C. STATE: ACCEPTED / AT_PICKUP / PICKED_UP / OUT_FOR_DELIVERY
+--------------------------------------------------------------------------------
+- Trip is active and confirmed by rider!
+- Display: Rider card with Photo, Name, Vehicle Number, and Phone Call button.
+- Display: Live GPS Map with rider marker moving towards store or customer.
+- Buttons:
+  - DO NOT SHOW "Cancel Offer" or "Stop Notification" button!
+  - [Reassign Rider] (Grey outline button, for emergencies before pickup).
+  - Self-delivery toggle: HIDE or DISABLE.
+- OTP: DO NOT SHOW. Display note:
+  "Secure OTP sent to customer (Customer shares with rider at doorstep)".
+
+--------------------------------------------------------------------------------
+D. STATE: DELIVERED (Order Completed)
+--------------------------------------------------------------------------------
+- HIDE ALL ACTION BUTTONS:
+  - NO Reassign button
+  - NO Cancel button
+  - NO Stop Notification button
+  - NO Assign Rider button
+- Modal: Dispatch modal must NOT be openable.
+- Self-delivery toggle: MUST BE HIDDEN.
+- Display ONLY WHO delivered it:
+  - If platform rider:
+    - Green banner: "Delivered by [Rider Name]" with checkmark.
+    - Rider photo, name, vehicle number, phone.
+    - Verified OTP badge: "Verified OTP: [deliveryOtp]" (for audit).
+    - Delivery Proof Image (if available).
+  - If self-delivery:
+    - Green banner: "Delivered In-House (Self-Delivery by Store)".
+    - Delivery timestamp and proof image.
+
+--------------------------------------------------------------------------------
+E. STATE: SELF-DELIVERY ACTIVE (isSelfDelivery == true)
+--------------------------------------------------------------------------------
+- External platform dispatch is blocked.
+- Display: Blue/Grey badge "Self-Delivery Mode Active".
+- Buttons:
+  - NO Auto-dispatch button.
+  - NO Stop Notification button.
+  - Seller completes order directly by submitting delivery proof in PATCH /orders/:id.
+
+================================================================================
+4. COMPLETE MOBILE CLIENT EXAMPLES (Dart / Flutter)
+================================================================================
+
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+
+class SellerDeliveryService {
+  static const String baseUrl = 'https://www.meeemsl.com/mobileapi/product-seller';
+
+  // 1. Auto-Dispatch (Start notifying nearest riders)
+  static Future<Map<String, dynamic>> startAutoDispatch({
+    required String orderId,
+    required String token,
+  }) async {
+    final res = await http.post(
+      Uri.parse('$baseUrl/orders/$orderId/assign-rider'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({'action': 'auto_dispatch'}),
+    );
+    return jsonDecode(res.body);
+  }
+
+  // 2. Stop Notifications (Cancel pending 60s offer)
+  static Future<Map<String, dynamic>> stopNotification({
+    required String orderId,
+    required String token,
+  }) async {
+    final res = await http.post(
+      Uri.parse('$baseUrl/orders/$orderId/assign-rider'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({'action': 'stop_dispatch'}),
+    );
+    return jsonDecode(res.body);
+  }
+
+  // 3. Manual Rider Assignment
+  static Future<Map<String, dynamic>> assignManualRider({
+    required String orderId,
+    required String riderId,
+    String? notes,
+    required String token,
+  }) async {
+    final res = await http.post(
+      Uri.parse('$baseUrl/orders/$orderId/assign-rider'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({
+        'riderId': riderId,
+        if (notes != null) 'notes': notes,
+      }),
+    );
+    return jsonDecode(res.body);
+  }
+
+  // 4. Toggle Self-Delivery (Deliver by myself vs platform riders)
+  static Future<Map<String, dynamic>> toggleSelfDelivery({
+    required String orderId,
+    required bool isSelfDelivery,
+    required String token,
+  }) async {
+    final res = await http.post(
+      Uri.parse('$baseUrl/orders/$orderId/self-delivery'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({'isSelfDelivery': isSelfDelivery}),
+    );
+    return jsonDecode(res.body);
+  }
+
+  // 5. Update Order Status (e.g. advance to PROCESSING to trigger dispatch)
+  static Future<Map<String, dynamic>> updateOrderStatus({
+    required String orderId,
+    required String status,
+    String? note,
+    required String token,
+  }) async {
+    final res = await http.patch(
+      Uri.parse('$baseUrl/orders/$orderId'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({
+        'status': status,
+        if (note != null) 'note': note,
+      }),
+    );
+    return jsonDecode(res.body);
+  }
+
+  // 6. Get Order Details & Rider Tracking Info
+  static Future<Map<String, dynamic>> getOrderDetails({
+    required String orderId,
+    required String token,
+  }) async {
+    final res = await http.get(
+      Uri.parse('$baseUrl/orders/$orderId'),
+      headers: {
+        'Authorization': 'Bearer $token',
+      },
+    );
+    return jsonDecode(res.body);
+  }
+}
+
+================================================================================
+END OF DOCUMENTATION
+================================================================================

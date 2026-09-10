@@ -436,7 +436,7 @@ export function OrderDetailInline({
   const orderedItems = flattenOrderItemsForCustomerDisplay(order.items)
 
   return (
-    <div className="mt-2 space-y-5 rounded-xl border border-gray-200 bg-[#f9fafb] p-5 font-sans shadow-sm animate-in fade-in slide-in-from-top-2 duration-200">
+    <div className="mt-2 space-y-5 rounded-xl border border-gray-200 bg-[#f9fafb] p-3 sm:p-5 font-sans shadow-sm animate-in fade-in slide-in-from-top-2 duration-200 w-full min-w-0 max-w-full overflow-hidden">
       <div className="flex items-center justify-between gap-3 border-b border-gray-200/80 pb-4">
         <div>
           <p className="font-mono text-sm text-gray-500">#{order.orderNumber}</p>
@@ -453,8 +453,8 @@ export function OrderDetailInline({
         </Button>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <Card className="border-gray-200 bg-white shadow-sm transition-shadow duration-200">
+      <div className="grid gap-4 grid-cols-1 md:grid-cols-2 xl:grid-cols-3 w-full min-w-0">
+        <Card className="border-gray-200 bg-white shadow-sm transition-shadow duration-200 min-w-0">
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-sm font-semibold text-gray-900">
               <Receipt className="h-4 w-4 text-blue-600" />
@@ -480,9 +480,14 @@ export function OrderDetailInline({
             </div>
             {/* Delivery Price Breakup */}
             <div className="mt-3 rounded-2xl bg-slate-900 text-white p-3.5 space-y-2 text-xs border border-slate-800">
-              <div className="flex items-center justify-between border-b border-slate-800 pb-1.5">
+              <div className="flex flex-wrap items-center justify-between gap-1.5 border-b border-slate-800 pb-1.5">
                 <span className="text-[10px] font-extrabold uppercase tracking-wider text-amber-400">Delivery Fee Breakup</span>
-                <span className="text-[10px] text-emerald-400 font-bold bg-slate-800 px-2 py-0.5 rounded-full border border-slate-700">
+                <span className="text-[10px] text-emerald-400 font-bold bg-slate-800 px-2 py-0.5 rounded-full border border-slate-700 max-w-full truncate" title={getFormattedDeliveryZone({
+                    addressLine1: order.shippingAddressLine1,
+                    addressLine2: order.shippingAddressLine2,
+                    city: order.shippingCity,
+                    state: order.shippingState,
+                  })}>
                   📍 {getFormattedDeliveryZone({
                     addressLine1: order.shippingAddressLine1,
                     addressLine2: order.shippingAddressLine2,
@@ -525,7 +530,7 @@ export function OrderDetailInline({
           </CardContent>
         </Card>
 
-        <Card className="border-gray-200 bg-white shadow-sm transition-shadow duration-200 sm:col-span-2 lg:col-span-2">
+        <Card className="border-gray-200 bg-white shadow-sm transition-shadow duration-200 md:col-span-1 xl:col-span-2 min-w-0">
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-sm font-semibold text-gray-900">
               <MapPin className="h-4 w-4 text-blue-600" />
@@ -535,10 +540,10 @@ export function OrderDetailInline({
           <CardContent className="rounded-lg border border-gray-200 bg-white p-3 text-sm text-gray-600 shadow-inner">
             {order.shippingFullName ? (
               <>
-                <p className="font-medium text-gray-900">{order.shippingFullName}</p>
+                <p className="font-medium text-gray-900 break-words">{order.shippingFullName}</p>
                 {order.shippingPhone && <p className="mt-0.5">{order.shippingPhone}</p>}
                 {order.shippingAddressLine1 && (
-                  <p className="mt-2 leading-relaxed">
+                  <p className="mt-2 leading-relaxed break-words">
                     {order.shippingAddressLine1}
                     {order.shippingAddressLine2 ? `, ${order.shippingAddressLine2}` : ""}
                     <br />
@@ -548,7 +553,7 @@ export function OrderDetailInline({
                     {order.shippingCountry && `, ${order.shippingCountry}`}
                   </p>
                 )}
-                <p className="text-[11px] font-bold text-emerald-700 pt-1.5">
+                <p className="text-[11px] font-bold text-emerald-700 pt-1.5 break-words">
                   📍 {getFormattedDeliveryZone({
                     addressLine1: order.shippingAddressLine1,
                     addressLine2: order.shippingAddressLine2,
@@ -564,7 +569,7 @@ export function OrderDetailInline({
         </Card>
       </div>
 
-      <Card className="border-gray-200 bg-white shadow-sm">
+      <Card className="border-gray-200 bg-white shadow-sm w-full min-w-0 overflow-hidden">
         <CardHeader className="pb-2">
           <CardTitle className="flex items-center gap-2 text-sm font-semibold text-gray-900">
             <ShoppingBag className="h-4 w-4 text-blue-600" />
@@ -593,7 +598,7 @@ export function OrderDetailInline({
               return (
                 <li
                   key={item.id}
-                  className="flex gap-4 rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition-shadow duration-200 hover:shadow-md"
+                  className="flex flex-col sm:flex-row gap-4 rounded-xl border border-gray-200 bg-white p-3 sm:p-4 shadow-sm transition-shadow duration-200 hover:shadow-md min-w-0 w-full overflow-hidden"
                 >
                   <div className="relative h-[52px] w-[52px] shrink-0 overflow-hidden rounded-lg bg-gray-100 ring-1 ring-gray-100 sm:h-16 sm:w-16">
                     {item.imageUrl ? (
@@ -604,9 +609,9 @@ export function OrderDetailInline({
                       </div>
                     )}
                   </div>
-                  <div className="min-w-0 flex-1 space-y-1.5 text-sm">
+                  <div className="min-w-0 flex-1 space-y-2 text-sm w-full">
                     <div className="flex flex-wrap items-center gap-2">
-                      <p className="font-medium text-gray-900">{itemName(item)}</p>
+                      <p className="font-medium text-gray-900 break-words">{itemName(item)}</p>
                       <Badge
                         variant="outline"
                         className={
@@ -744,7 +749,7 @@ export function OrderDetailInline({
       </Card>
       {returnError && <p className="text-xs font-medium text-red-600">{returnError}</p>}
 
-      <Card className="border-gray-200 bg-white shadow-sm">
+      <Card className="border-gray-200 bg-white shadow-sm w-full min-w-0 overflow-hidden">
         <CardHeader className="pb-2">
           <CardTitle className="flex items-center gap-2 text-sm font-semibold text-gray-900">
             <Banknote className="h-4 w-4 text-blue-600" />
@@ -777,7 +782,7 @@ export function OrderDetailInline({
                   className="grid grid-cols-1 gap-1 border-b border-gray-100 pb-2 text-xs last:border-0 last:pb-0 sm:grid-cols-[1fr_auto]"
                 >
                   <div className="min-w-0 flex flex-wrap items-center gap-2">
-                    <span className="truncate font-medium text-gray-800">
+                    <span className="font-medium text-gray-800 break-words">
                       {item.productNameSnapshot || item.serviceNameSnapshot || "Item"}
                     </span>
                     <Badge variant="outline" className="text-[10px] text-gray-600">
@@ -855,7 +860,7 @@ export function OrderDetailInline({
       </Card>
 
       {order.sellerGroups.length > 0 && (
-        <Card className="border-gray-200 bg-white shadow-sm">
+        <Card className="border-gray-200 bg-white shadow-sm w-full min-w-0 overflow-hidden">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-semibold text-gray-900">Seller-wise breakup</CardTitle>
           </CardHeader>
@@ -866,7 +871,7 @@ export function OrderDetailInline({
               return (
                 <div
                   key={group.sellerId ?? `group-${group.sellerStoreName ?? "unknown"}`}
-                  className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm transition-shadow duration-200 hover:shadow-md space-y-2"
+                  className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm transition-shadow duration-200 hover:shadow-md space-y-2 min-w-0"
                 >
                   <div className="flex items-center justify-between gap-2">
                     <p className="font-medium">{group.sellerStoreName ?? "Store"}</p>
@@ -874,7 +879,7 @@ export function OrderDetailInline({
                       {group.derivedStatus.replace(/_/g, " ")}
                     </Badge>
                   </div>
-                  <div className="mt-1.5 grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-muted-foreground sm:grid-cols-5">
+                  <div className="mt-1.5 grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-muted-foreground sm:grid-cols-3 lg:grid-cols-5">
                     <p>Items: {group.itemCount}</p>
                     <p>
                       Subtotal:{" "}

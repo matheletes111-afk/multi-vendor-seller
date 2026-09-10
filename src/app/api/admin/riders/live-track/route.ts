@@ -120,6 +120,26 @@ export async function GET(req: NextRequest) {
         isOnline: r.isOnline,
         onboardingCompleted: Boolean(r.onboardingCompleted),
         deviceTokensCount: Array.isArray(r.deviceTokens) ? r.deviceTokens.length : 0,
+        devices: Array.isArray(r.deviceTokens)
+          ? (r.deviceTokens as any[]).map((d) => {
+              if (typeof d === "string") {
+                return {
+                  platform: "mobile",
+                  deviceModel: null,
+                  userAgent: null,
+                  deviceId: null,
+                  lastActiveAt: null,
+                }
+              }
+              return {
+                platform: d?.platform || "mobile",
+                deviceModel: d?.deviceModel || null,
+                userAgent: d?.userAgent || null,
+                deviceId: d?.deviceId || null,
+                lastActiveAt: d?.lastActiveAt || d?.createdAt || null,
+              }
+            })
+          : [],
         operationalStatus,
         telemetry: {
           latitude: r.currentLatitude,

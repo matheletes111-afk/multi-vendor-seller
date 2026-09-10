@@ -28,6 +28,8 @@ import {
   Ban,
   X,
   Clock,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react"
 import { Button } from "@/ui/button"
 import { Input } from "@/ui/input"
@@ -58,7 +60,7 @@ import {
 import { Label } from "@/ui/label"
 import { Textarea } from "@/ui/textarea"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/tabs"
-import { LOCATION_ZONES } from "@/lib/location-zones"
+import { LOCATION_ZONES, resolveEffectiveZones } from "@/lib/location-zones"
 import { ZoneLocationPicker } from "@/app/riderapp/components/zone-location-picker"
 import { VehicleTypeSelector } from "@/app/riderapp/components/vehicle-type-selector"
 import { DocUploadPreview } from "@/app/riderapp/components/doc-upload-preview"
@@ -232,6 +234,15 @@ export function RidersClient() {
   // Quick Approve State
   const [approveLoadingId, setApproveLoadingId] = useState<string | null>(null)
 
+  // Track expanded delivery zones per rider row
+  const [expandedZonesRiders, setExpandedZonesRiders] = useState<Record<string, boolean>>({})
+  const toggleExpandZones = (riderId: string) => {
+    setExpandedZonesRiders((prev) => ({
+      ...prev,
+      [riderId]: !prev[riderId],
+    }))
+  }
+
   const fetchRiders = useCallback(async () => {
     try {
       setLoading(true)
@@ -271,7 +282,7 @@ export function RidersClient() {
     setEditVehicleName(rider.rider?.vehicleName || "")
     setEditVehicleNumber(rider.rider?.vehicleNumber || "")
     setEditDrivingLicenseNo(rider.rider?.drivingLicenseNo || "")
-    setEditSelectedZones(rider.rider?.selectedZones || [])
+    setEditSelectedZones(resolveEffectiveZones(rider.rider?.selectedZones, rider.rider?.selectedLocations))
     setEditSelectedLocations(rider.rider?.selectedLocations || [])
     setEditAdminFeedback(rider.rider?.adminFeedback || "")
     setEditAdminNotes(rider.rider?.adminNotes || "")
@@ -940,11 +951,13 @@ export function RidersClient() {
                 </tr>
               ) : (
                 riders.map((r) => {
-                  const zones = (r.rider?.selectedZones as string[]) || []
+                  const rawZones = (r.rider?.selectedZones as string[]) || []
                   const locs = (r.rider?.selectedLocations as string[]) || []
+                  const zones = resolveEffectiveZones(rawZones, locs)
                   const vehicles = (r.rider?.vehicleTypes as string[]) || []
                   const devices = (r.rider?.deviceTokens as any[]) || []
                   const isAdminCreated = Boolean(r.rider?.createdByAdmin)
+                  const isZonesExpanded = Boolean(expandedZonesRiders[r.id])
 
                   return (
                     <tr key={r.id} className="hover:bg-muted/30 transition-colors">
@@ -1013,19 +1026,79 @@ export function RidersClient() {
                         </div>
                       </td>
 
-                      <td className="p-4">
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-1">
-                            <Badge variant="outline" className="text-[11px] font-semibold bg-blue-50 text-blue-700 dark:bg-blue-950/40">
-                              {zones.length} Zones
+                      <td className="p-4 align-top">
+                        <div className="space-y-1.5 min-w-[180px] max-w-[280px]">
+                          <div className="flex items-center gap-1.5">
+                            <Badge variant="outline" className="text-[11px] font-semibold bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-900">
+                              {zones.length} {zones.length === 1 ? "Zone" : "Zones"}
                             </Badge>
-                            <span className="text-muted-foreground text-[11px]">
+                            <span
+                              className="text-muted-foreground text-[11px]"
+                              title={`${locs.length} total delivery locations selected`}
+                            >
                               ({locs.length} locs)
                             </span>
                           </div>
-                          {zones.length > 0 && (
-                            <div className="text-[11px] text-muted-foreground truncate max-w-[180px]" title={zones.join(", ")}>
-                              {zones.slice(0, 2).join(", ")}{zones.length > 2 ? ` +${zones.length - 2} more` : ""}
+
+                          {zones.length === 0 ? (
+                            <span className="text-muted-foreground text-[11px]">No zones set</span>
+                          ) : isZonesExpanded ? (
+                            <div className="space-y-1.5 pt-0.5">
+                              <div className="flex flex-wrap gap-1 max-h-[150px] overflow-y-auto pr-1">
+                                {zones.map((z) => (
+                                  <Badge
+                                    key={z}
+                                    variant="secondary"
+                                    className="text-[10px] px-1.5 py-0 font-medium bg-blue-50/80 text-blue-800 border-blue-200/80 dark:bg-blue-950/50 dark:text-blue-300 dark:border-blue-900/60"
+                                  >
+                                    {z}
+                                  </Badge>
+                                ))}
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => toggleExpandZones(r.id)}
+                                className="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 hover:underline cursor-pointer"
+                              >
+                                <span>See less</span>
+                                <ChevronUp className="w-3 h-3" />
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="space-y-1">
+                              <div className="flex flex-wrap items-center gap-1">
+                                {zones.slice(0, 2).map((z) => (
+                                  <Badge
+                                    key={z}
+                                    variant="secondary"
+                                    className="text-[10px] px-1.5 py-0 font-medium bg-muted/80 text-foreground border border-border/50"
+                                  >
+                                    {z}
+                                  </Badge>
+                                ))}
+                                {zones.length > 2 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => toggleExpandZones(r.id)}
+                                    className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 hover:underline px-1 py-0 rounded"
+                                  >
+                                    <span>+{zones.length - 2} more</span>
+                                    <ChevronDown className="w-2.5 h-2.5" />
+                                  </button>
+                                )}
+                              </div>
+                              {zones.length > 2 && (
+                                <div>
+                                  <button
+                                    type="button"
+                                    onClick={() => toggleExpandZones(r.id)}
+                                    className="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 hover:underline cursor-pointer mt-0.5"
+                                  >
+                                    <span>See more</span>
+                                    <ChevronDown className="w-3 h-3" />
+                                  </button>
+                                </div>
+                              )}
                             </div>
                           )}
                         </div>
@@ -1682,7 +1755,7 @@ export function RidersClient() {
               {/* DEVICES TAB */}
               <TabsContent value="devices" className="space-y-3 pt-3">
                 <div className="p-3 bg-muted/40 rounded-xl text-xs text-muted-foreground">
-                  Registered device tokens for push notifications (Laptops, Phones, Tablets).
+                  Registered device tokens for notifications (Laptops, Phones, Tablets).
                 </div>
 
                 <div className="space-y-2">

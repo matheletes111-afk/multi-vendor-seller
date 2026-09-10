@@ -463,3 +463,49 @@ export function getZoneForRegion(regionName?: string | null): string {
   const clean = regionName.trim().toUpperCase()
   return REGION_TO_ZONE_MAP[clean] || "Other"
 }
+
+/**
+ * Resolves effective zone names from selectedZones and selectedLocations.
+ * Normalizes formats like "zone_1" to "ZONE 1" and maps any selected location
+ * to its corresponding zone from LOCATION_ZONES.
+ */
+export function resolveEffectiveZones(
+  selectedZones?: (string | null | undefined)[] | null,
+  selectedLocations?: (string | null | undefined)[] | null
+): string[] {
+  const zoneSet = new Set<string>()
+
+  // Normalize explicit zones
+  if (Array.isArray(selectedZones)) {
+    selectedZones.forEach((z) => {
+      if (!z) return
+      const trimmed = z.trim()
+      const normalized = trimmed.replace(/^zone_(\d+)$/i, "ZONE $1").toUpperCase()
+      const match = LOCATION_ZONES.find(
+        (lz) => lz.zone.toUpperCase() === normalized || lz.zone.toUpperCase() === trimmed.toUpperCase()
+      )
+      zoneSet.add(match ? match.zone : trimmed)
+    })
+  }
+
+  // Derive zones from selected locations
+  if (Array.isArray(selectedLocations) && selectedLocations.length > 0) {
+    const locSet = new Set(selectedLocations.filter(Boolean).map((l) => l!.trim().toUpperCase()))
+    LOCATION_ZONES.forEach((lz) => {
+      const hasAny = lz.regions.some((r) => locSet.has(r.trim().toUpperCase()))
+      if (hasAny) {
+        zoneSet.add(lz.zone)
+      }
+    })
+  }
+
+  return Array.from(zoneSet).sort((a, b) => {
+    const numA = parseInt(a.replace(/\D/g, ""), 10)
+    const numB = parseInt(b.replace(/\D/g, ""), 10)
+    if (!isNaN(numA) && !isNaN(numB)) return numA - numB
+    if (!isNaN(numA)) return -1
+    if (!isNaN(numB)) return 1
+    return a.localeCompare(b)
+  })
+}
+

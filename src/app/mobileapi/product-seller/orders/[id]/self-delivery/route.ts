@@ -132,10 +132,13 @@ export async function PATCH(
   // If turning OFF self-delivery (restoring platform riders) and order is ready/in-progress, trigger auto-dispatch
   if (!isSelfDelivery) {
     const isReadyForDispatch = sellerItems.some((i) =>
-      ["CONFIRMED", "PROCESSING", "READY_FOR_PICKUP", "SHIPPED"].includes(i.itemStatus)
+      ["PROCESSING", "READY_FOR_PICKUP", "SHIPPED"].includes(i.itemStatus)
     )
     if (isReadyForDispatch) {
-      triggerOrderAutoDispatch(orderId, seller.id).catch((err) =>
+      triggerOrderAutoDispatch(orderId, seller.id, {
+        forceRedispatch: true,
+        allowReofferRejected: true,
+      }).catch((err) =>
         console.error("[AutoDispatch] Mobile self-delivery toggle trigger failed:", err?.message || err)
       )
     }

@@ -105,6 +105,8 @@ export async function GET(request: NextRequest) {
         currentLatitude: r.currentLatitude,
         currentLongitude: r.currentLongitude,
         lastLocationUpdate: r.lastLocationUpdate,
+        hasPushToken: Array.isArray(r.deviceTokens) && r.deviceTokens.length > 0,
+        deviceTokensCount: Array.isArray(r.deviceTokens) ? r.deviceTokens.length : 0,
       }
     })
 

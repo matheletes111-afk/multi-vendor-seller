@@ -15,6 +15,7 @@ import {
   Search,
   Sparkles,
   Truck,
+  BellOff,
 } from "lucide-react"
 import { Button } from "@/ui/button"
 import { Badge } from "@/ui/badge"
@@ -89,14 +90,35 @@ export function OrderRiderCard({
   const [aiVehicleRecommendation, setAiVehicleRecommendation] = useState<any>(null)
   const [vehicleFilterMode, setVehicleFilterMode] = useState<"matched" | "all">("matched")
 
-  const activeAssignment = activeAssignments[activePackageIdx] || activeAssignments[0] || null
+  const deliveredAssignment = activeAssignments.find((a) => a.status === "DELIVERED")
+  const activeAssignment = deliveredAssignment || activeAssignments[activePackageIdx] || activeAssignments[0] || null
 
   const rider = activeAssignment?.rider
   const riderUser = rider?.user
-  const isOffered = activeAssignment?.status === "OFFERED"
-  const isDelivered = activeAssignment?.status === "DELIVERED"
+  const isDelivered = activeAssignment?.status === "DELIVERED" || orderStatus === "DELIVERED"
+  const isOffered = !isDelivered && activeAssignment?.status === "OFFERED"
 
   const targetSeller = activeAssignment?.sellerId || sellerId || undefined
+
+  const [secondsLeft, setSecondsLeft] = useState<number | null>(null)
+
+  useEffect(() => {
+    if (!isOffered || !activeAssignment?.expiresAt) {
+      setSecondsLeft(null)
+      return
+    }
+
+    const calcSeconds = () => {
+      const diff = Math.max(
+        0,
+        Math.floor((new Date(activeAssignment.expiresAt).getTime() - Date.now()) / 1000)
+      )
+      setSecondsLeft(diff)
+    }
+    calcSeconds()
+    const timer = setInterval(calcSeconds, 1000)
+    return () => clearInterval(timer)
+  }, [isOffered, activeAssignment?.expiresAt])
 
   const fetchAvailableRiders = async () => {
     try {
@@ -119,6 +141,7 @@ export function OrderRiderCard({
   }
 
   const handleOpenModal = () => {
+    if (isDelivered) return
     setModalOpen(true)
     fetchAvailableRiders()
   }
@@ -129,15 +152,49 @@ export function OrderRiderCard({
       const res = await fetch(`/api/admin/orders/${orderId}/assign-rider`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "auto_dispatch", sellerId: targetSeller }),
+        body: JSON.stringify({
+          action: "auto_dispatch",
+          sellerId: targetSeller,
+          forceRedispatch: true,
+          allowReofferRejected: true,
+        }),
       })
       const data = await res.json()
-      if (res.ok) {
-        alert("Auto-dispatch initiated! Nearest free rider is being contacted.")
+      if (res.ok && data.success !== false) {
+        alert(data.message || "Auto-dispatch initiated! Nearest free rider is being contacted.")
         setModalOpen(false)
         onRefresh?.()
       } else {
-        alert(data.error || "Failed to trigger dispatch")
+        alert(data.message || data.error || "Failed to trigger auto-dispatch")
+      }
+    } catch (err: any) {
+      alert(err?.message || "Network error")
+    } finally {
+      setDispatchLoading(false)
+    }
+  }
+
+  const handleStopDispatch = async () => {
+    const proceed = confirm("Are you sure you want to stop sending notifications and cancel the current offer?")
+    if (!proceed) return
+
+    try {
+      setDispatchLoading(true)
+      const res = await fetch(`/api/admin/orders/${orderId}/assign-rider`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "stop_dispatch",
+          sellerId: targetSeller,
+        }),
+      })
+      const data = await res.json()
+      if (res.ok && data.success !== false) {
+        alert(data.message || "Notifications stopped and active offer cancelled.")
+        setModalOpen(false)
+        onRefresh?.()
+      } else {
+        alert(data.message || data.error || "Failed to stop dispatch")
       }
     } catch (err: any) {
       alert(err?.message || "Network error")
@@ -200,9 +257,15 @@ export function OrderRiderCard({
           Delivery Rider Assignment
         </h4>
         {activeAssignment && (
-          <span className="flex items-center gap-1.5 text-[10px] font-bold text-emerald-600">
-            <Radio className="w-2.5 h-2.5 animate-pulse" /> Live Telemetry
-          </span>
+          isDelivered ? (
+            <span className="flex items-center gap-1.5 text-[10px] font-bold text-emerald-600">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Delivery Completed
+            </span>
+          ) : (
+            <span className="flex items-center gap-1.5 text-[10px] font-bold text-emerald-600">
+              <Radio className="w-2.5 h-2.5 animate-pulse" /> Live Telemetry
+            </span>
+          )
         )}
       </div>
       <div className="rounded-3xl bg-card p-5 space-y-4 border border-border/80 shadow-sm relative overflow-hidden">
@@ -229,33 +292,41 @@ export function OrderRiderCard({
         {isSelfDelivery ? (
           <div className="text-center py-5 space-y-3">
             <div className="w-12 h-12 rounded-2xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 flex items-center justify-center mx-auto border border-emerald-500/20 shadow-inner">
-              <Truck className="w-6 h-6" />
+              {isDelivered ? <CheckCircle2 className="w-6 h-6" /> : <Truck className="w-6 h-6" />}
             </div>
             <div className="space-y-1 max-w-xs mx-auto">
-              <p className="text-xs font-black text-foreground uppercase tracking-tight">Self-Delivery In-House Active</p>
+              <p className="text-xs font-black text-foreground uppercase tracking-tight">
+                {isDelivered ? "Delivered In-House (Self-Delivery)" : "Self-Delivery In-House Active"}
+              </p>
               <p className="text-[11px] text-muted-foreground leading-relaxed">
-                Platform riders are not dispatched for this order. You or your store staff are fulfilling delivery directly.
+                {isDelivered
+                  ? "This order was fulfilled and delivered directly by you / your store staff."
+                  : "Platform riders are not dispatched for this order. You or your store staff are fulfilling delivery directly."}
               </p>
             </div>
             <div className="pt-1">
               <Badge className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 text-[10px] font-bold py-1 px-3 rounded-full">
-                Delivery Fee Retained by Seller
+                {isDelivered ? "Delivery Completed by Store" : "Delivery Fee Retained by Seller"}
               </Badge>
             </div>
           </div>
         ) : !activeAssignment ? (
           <div className="text-center py-4 space-y-3">
             <div className="w-10 h-10 rounded-2xl bg-blue-50 dark:bg-blue-950/50 text-blue-600 flex items-center justify-center mx-auto">
-              <Bike className="w-5 h-5" />
+              {isDelivered ? <CheckCircle2 className="w-5 h-5 text-emerald-600" /> : <Bike className="w-5 h-5" />}
             </div>
             <div className="space-y-1">
-              <p className="text-xs font-bold text-foreground">No Rider Assigned Yet</p>
+              <p className="text-xs font-bold text-foreground">
+                {isDelivered ? "Order Delivered" : "No Rider Assigned Yet"}
+              </p>
               <p className="text-[11px] text-muted-foreground max-w-xs mx-auto">
-                Orders ready for pickup can be dispatched automatically or manually assigned.
+                {isDelivered
+                  ? "This order has been completed and marked as delivered."
+                  : "Orders ready for pickup can be dispatched automatically or manually assigned."}
               </p>
             </div>
 
-            {canManage && (
+            {canManage && !isDelivered && (
               <Button
                 size="sm"
                 onClick={handleOpenModal}
@@ -280,7 +351,9 @@ export function OrderRiderCard({
                 <div className="min-w-0">
                   <div className="font-bold text-sm text-foreground truncate flex items-center gap-1.5">
                     {riderUser?.name || "Delivery Rider"}
-                    {rider?.isOnline ? (
+                    {isDelivered ? (
+                      <Badge className="bg-emerald-600 text-white text-[9px] font-bold px-1.5 py-0">Delivered</Badge>
+                    ) : rider?.isOnline ? (
                       <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block shrink-0" title="Online" />
                     ) : (
                       <span className="w-2 h-2 rounded-full bg-slate-400 inline-block shrink-0" title="Offline" />
@@ -297,15 +370,40 @@ export function OrderRiderCard({
                 className={cn(
                   "text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wide",
                   isOffered
-                    ? "bg-amber-500 text-white shadow-amber-500/20"
+                    ? secondsLeft === 0
+                      ? "bg-amber-600 text-white shadow-amber-600/20"
+                      : "bg-amber-500 text-white shadow-amber-500/20"
                     : isDelivered
                     ? "bg-emerald-600 text-white shadow-emerald-600/20"
                     : "bg-blue-600 text-white shadow-blue-600/20"
                 )}
               >
-                {activeAssignment.status.replace(/_/g, " ")}
+                {isOffered
+                  ? secondsLeft === 0
+                    ? "OFFER EXPIRED"
+                    : `OFFERED (${secondsLeft !== null ? `${secondsLeft}s` : "60s"})`
+                  : isDelivered
+                  ? "DELIVERED"
+                  : activeAssignment.status.replace(/_/g, " ")}
               </Badge>
             </div>
+
+            {/* Clear "Delivered by" banner when delivered */}
+            {isDelivered && (
+              <div className="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/25 flex items-center justify-between text-xs">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span className="font-bold text-xs text-emerald-800 dark:text-emerald-300">
+                    Delivered by {riderUser?.name || "Delivery Partner"}
+                  </span>
+                </div>
+                {activeAssignment.updatedAt && (
+                  <span className="text-[10px] font-medium text-muted-foreground">
+                    {new Date(activeAssignment.updatedAt).toLocaleDateString()}
+                  </span>
+                )}
+              </div>
+            )}
 
             {/* Comprehensive Rider & Vehicle Specs Grid */}
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-3 border-t border-border/60 text-xs">
@@ -329,32 +427,47 @@ export function OrderRiderCard({
 
               <div className="p-2 rounded-xl bg-muted/40 border border-border/40">
                 <span className="text-[10px] text-muted-foreground uppercase font-bold block">
-                  Proximity
+                  Delivery Status
                 </span>
-                <span className="font-semibold text-blue-600 block">
-                  {activeAssignment.distanceKm ? `${activeAssignment.distanceKm} km away` : "Nearby"}
+                <span className={cn("font-semibold block", isDelivered ? "text-emerald-600" : "text-blue-600")}>
+                  {isDelivered ? "Delivered" : activeAssignment.distanceKm ? `${activeAssignment.distanceKm} km away` : "Nearby"}
                 </span>
               </div>
             </div>
 
-            {/* Handover OTP if applicable */}
-            {activeAssignment.deliveryOtp && !isDelivered && (
-              <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-900 dark:text-amber-200 text-xs flex items-center justify-between">
+            {/* Handover OTP: Hidden from seller & admin before delivery; only customer can see active OTP */}
+            {isDelivered && activeAssignment.deliveryOtp ? (
+              <div className="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-xs flex items-center justify-between">
                 <div>
-                  <span className="text-[10px] font-bold uppercase tracking-wider block text-amber-700 dark:text-amber-400">
-                    Delivery Handover OTP
+                  <span className="text-[10px] font-bold uppercase tracking-wider block text-emerald-700 dark:text-emerald-400">
+                    Verified Handover OTP
                   </span>
-                  <span className="text-base font-mono font-extrabold tracking-widest text-amber-800 dark:text-amber-200">
+                  <span className="text-base font-mono font-extrabold tracking-widest text-emerald-800 dark:text-emerald-200">
                     {activeAssignment.deliveryOtp}
                   </span>
                 </div>
-                <span className="text-[11px] text-muted-foreground text-right">
-                  Give code to customer at doorstep
+                <span className="text-[11px] text-emerald-700 dark:text-emerald-400 font-medium text-right">
+                  Verified with Customer at Doorstep
+                </span>
+              </div>
+            ) : !isDelivered && (
+              <div className="p-3 rounded-2xl bg-muted/40 border border-border/40 text-xs flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <span className="text-[10px] font-bold uppercase tracking-wider block text-muted-foreground">
+                    Customer Handover Verification
+                  </span>
+                  <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                    <span className="inline-block w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
+                    Secure OTP with Customer
+                  </span>
+                </div>
+                <span className="text-[11px] text-muted-foreground text-right max-w-[210px] leading-tight">
+                  Only the customer can see the OTP to share with the rider upon arrival.
                 </span>
               </div>
             )}
 
-            {/* Contact & Reassign Actions */}
+            {/* Contact & Reassign Actions - NO Reassign or Cancel when Delivered */}
             <div className="pt-2 flex flex-wrap items-center gap-2">
               {riderUser?.phone && (
                 <a
@@ -378,6 +491,18 @@ export function OrderRiderCard({
                 >
                   Email Rider
                 </a>
+              )}
+              {canManage && isOffered && !isDelivered && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleStopDispatch}
+                  disabled={dispatchLoading}
+                  className="text-xs rounded-xl text-rose-600 border-rose-200 hover:bg-rose-50 dark:border-rose-900/50 dark:hover:bg-rose-950/30 gap-1.5 font-medium"
+                >
+                  <BellOff className="w-3.5 h-3.5" />
+                  Stop Notification
+                </Button>
               )}
               {canManage && !isDelivered && (
                 <Button
@@ -411,8 +536,9 @@ export function OrderRiderCard({
         )}
       </div>
 
-      {/* Assign / Reassign Modal */}
-      <Dialog open={modalOpen} onOpenChange={setModalOpen}>
+      {/* Assign / Reassign Modal (Disabled if order is delivered) */}
+      {!isDelivered && (
+        <Dialog open={modalOpen} onOpenChange={setModalOpen}>
         <DialogContent className="rounded-3xl max-w-md">
           <DialogHeader>
             <DialogTitle className="text-base font-bold flex items-center gap-2">
@@ -520,7 +646,72 @@ export function OrderRiderCard({
             )}
 
             {/* Auto Dispatch Card */}
-            <div className="p-4 rounded-2xl bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900 space-y-2">
+            <div className="p-4 rounded-2xl bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900 space-y-3">
+              {/* Active Pending Offer Banner in Modal */}
+              {isOffered && activeAssignment && (
+                <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-amber-800 dark:text-amber-200 flex items-center gap-1.5">
+                      <Radio className="w-3.5 h-3.5 text-amber-600 animate-pulse" />
+                      Currently Notified Partner (Attempt #{activeAssignment.attemptNumber || 1})
+                    </span>
+                    <Badge className="bg-amber-500 text-white text-[10px] font-bold px-2 py-0.5">
+                      {secondsLeft === 0 ? "EXPIRED" : "OFFERED"}
+                    </Badge>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <Avatar className="h-9 w-9 border shrink-0">
+                        <AvatarImage src={rider?.profileImage || riderUser?.image || ""} />
+                        <AvatarFallback className="bg-amber-500 text-white font-bold text-xs">
+                          {riderUser?.name?.[0] || "R"}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="min-w-0">
+                        <div className="font-bold text-xs text-foreground truncate flex items-center gap-1.5">
+                          {riderUser?.name || "Delivery Partner"}
+                          {rider?.isOnline ? (
+                            <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block shrink-0" title="Online" />
+                          ) : (
+                            <span className="w-2 h-2 rounded-full bg-slate-400 inline-block shrink-0" title="Offline" />
+                          )}
+                        </div>
+                        <div className="text-[11px] text-muted-foreground truncate flex items-center gap-1">
+                          <Bike className="w-3 h-3 text-amber-600 shrink-0" />
+                          <span>{rider?.vehicleName || "Vehicle"} • {activeAssignment.distanceKm ? `${activeAssignment.distanceKm} km away` : "Nearby"}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="text-right shrink-0">
+                      <div className="text-xs font-mono font-black text-amber-700 dark:text-amber-300">
+                        {secondsLeft === 0 ? "0s (Expired)" : secondsLeft !== null ? `${secondsLeft}s left` : "Pending"}
+                      </div>
+                      <span className="text-[10px] text-muted-foreground font-medium">
+                        {secondsLeft === 0 ? "Ready to re-dispatch" : "Awaiting accept"}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Device Notification Connectivity Status */}
+                  <div className="pt-1.5 border-t border-amber-500/20 flex items-center justify-between text-[10px]">
+                    <span className="text-muted-foreground">Notification Status:</span>
+                    {Array.isArray(rider?.deviceTokens) && rider.deviceTokens.length > 0 ? (
+                      <span className="font-semibold text-emerald-600 flex items-center gap-1">
+                        <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                        {rider.deviceTokens.length} device(s) registered
+                      </span>
+                    ) : (
+                      <span className="font-semibold text-amber-700 dark:text-amber-400 flex items-center gap-1">
+                        <AlertTriangle className="w-3 h-3 text-amber-600" />
+                        No device registered (Notification not received)
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+
               <div className="flex items-center justify-between">
                 <div>
                   <h4 className="text-xs font-bold text-blue-900 dark:text-blue-200">
@@ -537,8 +728,23 @@ export function OrderRiderCard({
                 className="w-full text-xs rounded-xl font-bold bg-blue-600 hover:bg-blue-700 text-white gap-1.5"
               >
                 <RefreshCw className={cn("w-3.5 h-3.5", dispatchLoading && "animate-spin")} />
-                {dispatchLoading ? "Dispatching..." : "Start Auto-Dispatch Engine"}
+                {dispatchLoading
+                  ? "Dispatching..."
+                  : isOffered
+                  ? "Cancel Current Offer & Auto-Dispatch Next Rider"
+                  : "Start Auto-Dispatch Engine"}
               </Button>
+              {isOffered && (
+                <Button
+                  variant="outline"
+                  onClick={handleStopDispatch}
+                  disabled={dispatchLoading}
+                  className="w-full text-xs rounded-xl font-bold text-rose-600 border-rose-200 hover:bg-rose-50 dark:border-rose-900/50 dark:hover:bg-rose-950/30 gap-1.5"
+                >
+                  <BellOff className="w-3.5 h-3.5 text-rose-600" />
+                  Stop Sending Notifications (Cancel Offer)
+                </Button>
+              )}
             </div>
 
             <div className="relative flex items-center justify-center">
@@ -681,6 +887,7 @@ export function OrderRiderCard({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      )}
     </div>
   )
 }

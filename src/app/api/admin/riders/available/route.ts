@@ -97,6 +97,8 @@ export async function GET(req: NextRequest) {
         currentLatitude: r.currentLatitude,
         currentLongitude: r.currentLongitude,
         lastLocationUpdate: r.lastLocationUpdate,
+        deviceTokens: r.deviceTokens,
+        deviceTokensCount: Array.isArray(r.deviceTokens) ? r.deviceTokens.length : 0,
       }
     })
 

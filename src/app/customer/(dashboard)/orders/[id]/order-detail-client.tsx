@@ -541,7 +541,7 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
     (refundDialogItemId ? returnLoadingItemId === refundDialogItemId : false)
 
   return (
-    <div className="container mx-auto max-w-6xl p-4 font-sans sm:p-6">
+    <div className="w-full px-4 sm:px-6 lg:px-8 py-6 font-sans antialiased">
       <nav className="mb-4 flex flex-wrap items-center gap-1 text-sm text-gray-600" aria-label="Breadcrumb">
         <Link href="/customer/orders" className="hover:text-primary">
           My Orders

@@ -465,7 +465,7 @@ export function AdminOrderDetailClient({ orderId }: { orderId: string }) {
                     )}
 
                     {/* Item Management Section (Update Status) */}
-                    {canUpdateLineItems && item.itemStatus !== "DELIVERED" && (
+                    {canUpdateLineItems && item.itemStatus !== "DELIVERED" && order.status !== "DELIVERED" && (
                       <div className="rounded-2xl border-2 border-primary/5 bg-background p-5 shadow-inner">
                         <div className="flex items-center gap-2 mb-4">
                           <RefreshCw className="w-4 h-4 text-primary" />

@@ -52,6 +52,16 @@ export async function GET(
 
   const { id: orderId } = await params
 
+  // Auto-expire stale OFFERED assignments on the fly so Mobile UI doesn't display stuck offers
+  await prisma.riderDeliveryAssignment.updateMany({
+    where: {
+      orderId,
+      status: "OFFERED",
+      expiresAt: { lt: new Date() },
+    },
+    data: { status: "TIMED_OUT" },
+  }).catch(() => null)
+
   const [order, globalSetting] = await Promise.all([
     prisma.order.findFirst({
       where: { 
@@ -172,8 +182,8 @@ export async function GET(
       refundStatus: row.returnRequest?.refundStatus ?? (returnAvailable ? "NOT_REQUESTED" : null),
       deliveryProofImage: row.deliveryProofImage ?? null,
       deliveredAt: (row as any).deliveredAt ? (row as any).deliveredAt.toISOString() : null,
-      deliveryOtp: (row as any).deliveryOtp ?? null,
-      deliveryOtpExpires: (row as any).deliveryOtpExpires ? (row as any).deliveryOtpExpires.toISOString() : null,
+      deliveryOtp: row.itemStatus === "DELIVERED" ? ((row as any).deliveryOtp ?? null) : null,
+      deliveryOtpExpires: row.itemStatus === "DELIVERED" && (row as any).deliveryOtpExpires ? (row as any).deliveryOtpExpires.toISOString() : null,
       isSelfDelivery: Boolean((row as any).isSelfDelivery),
       statusHistory: row.statusHistory.map((h) => ({
         status: h.status,
@@ -239,7 +249,18 @@ export async function GET(
       status: activeAssignment.status,
       dispatchMode: activeAssignment.dispatchMode,
       distanceKm: activeAssignment.distanceKm,
-      deliveryOtp: activeAssignment.deliveryOtp,
+      attemptNumber: activeAssignment.attemptNumber,
+      offeredAt: activeAssignment.offeredAt ? activeAssignment.offeredAt.toISOString() : null,
+      expiresAt: activeAssignment.expiresAt ? activeAssignment.expiresAt.toISOString() : null,
+      secondsRemaining:
+        activeAssignment.status === "OFFERED" && activeAssignment.expiresAt
+          ? Math.max(0, Math.floor((activeAssignment.expiresAt.getTime() - Date.now()) / 1000))
+          : null,
+      isOfferExpired:
+        activeAssignment.status === "OFFERED" && activeAssignment.expiresAt
+          ? activeAssignment.expiresAt < new Date()
+          : false,
+      deliveryOtp: activeAssignment.status === "DELIVERED" ? activeAssignment.deliveryOtp : null,
       deliveryProofImage: activeAssignment.deliveryProofImage,
       rider: {
         id: r?.id,
@@ -249,6 +270,8 @@ export async function GET(
         vehicleNumber: r?.vehicleNumber || null,
         vehicleTypes: r?.vehicleTypes || [],
         isOnline: r?.isOnline ?? true,
+        hasPushToken: Array.isArray(r?.deviceTokens) && r.deviceTokens.length > 0,
+        deviceTokensCount: Array.isArray(r?.deviceTokens) ? r.deviceTokens.length : 0,
       },
       currentLocation: {
         latitude: r?.currentLatitude || activeAssignment.riderLatitudeAtOffer || null,
@@ -318,7 +341,10 @@ export async function GET(
     items,
     couponCode: order.couponCode,
     couponDiscount: sellerCouponDiscount,
-    deliveryAssignments: order.deliveryAssignments,
+    deliveryAssignments: order.deliveryAssignments.map((a) => ({
+      ...a,
+      deliveryOtp: a.status === "DELIVERED" ? a.deliveryOtp : null,
+    })),
     activeDeliveryTracking,
   }
 
@@ -651,9 +677,9 @@ export async function PATCH(
     return NextResponse.json({ error: message }, { status: 500 })
   }
 
-  // Auto-dispatch delivery rider when seller confirms or processes order (skip if self-delivery)
+  // Auto-dispatch delivery rider when seller processes order (skip if self-delivery)
   const isSelfDeliveryOrder = ownItems.some((i) => i.isSelfDelivery)
-  if (!isSelfDeliveryOrder && (status === "CONFIRMED" || status === "PROCESSING" || status === "SHIPPED")) {
+  if (!isSelfDeliveryOrder && (status === "PROCESSING" || status === "SHIPPED")) {
     triggerOrderAutoDispatch(orderId, seller.id).catch((err) =>
       console.error("[AutoDispatch Mobile] Trigger failed:", err?.message || err)
     )

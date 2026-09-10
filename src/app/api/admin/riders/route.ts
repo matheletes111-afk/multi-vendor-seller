@@ -9,6 +9,7 @@ import { validatePhoneAndCountryCode, getEquivalentPhoneVariants } from "@/lib/p
 import { sendRiderWelcomeEmail } from "@/lib/email"
 import { getPaginationFromSearchParams } from "@/lib/admin-pagination"
 import { buildDateRangeFilter } from "@/lib/admin-date-filters"
+import { resolveEffectiveZones } from "@/lib/location-zones"
 
 export async function GET(request: NextRequest) {
   try {
@@ -129,7 +130,10 @@ export async function GET(request: NextRequest) {
       let filtered = allMatchingUsers
       if (zoneFilter) {
         filtered = filtered.filter((u) => {
-          const zones = (u.rider?.selectedZones as string[]) || []
+          const zones = resolveEffectiveZones(
+            u.rider?.selectedZones as string[],
+            u.rider?.selectedLocations as string[]
+          )
           return zones.some((z) => z.toLowerCase().includes(zoneFilter.toLowerCase()))
         })
       }
@@ -192,8 +196,22 @@ export async function GET(request: NextRequest) {
       prisma.rider.count({ where: { onboardingCompleted: false } }),
     ])
 
+    const transformedRiders = paginatedRiders.map((u) => {
+      if (!u.rider) return u
+      return {
+        ...u,
+        rider: {
+          ...u.rider,
+          selectedZones: resolveEffectiveZones(
+            u.rider.selectedZones as string[],
+            u.rider.selectedLocations as string[]
+          ),
+        },
+      }
+    })
+
     return NextResponse.json({
-      riders: paginatedRiders,
+      riders: transformedRiders,
       pagination: {
         page,
         perPage,

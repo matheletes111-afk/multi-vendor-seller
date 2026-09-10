@@ -273,7 +273,7 @@ export function CustomerReturnExchangeStatusDashboard({
       <CardContent className={cn("space-y-4", compact && "px-4 pb-4")}>
         <div
           className={cn(
-            "grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4",
+            "grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-4",
             gridGap,
           )}
         >
@@ -281,7 +281,7 @@ export function CustomerReturnExchangeStatusDashboard({
             type="button"
             title="Return status for this item."
             className={cn(
-              "group rounded-xl border border-gray-200 bg-gray-50/80 text-left shadow-sm transition-all duration-200 hover:border-orange-200 hover:shadow-md",
+              "group rounded-xl border border-gray-200 bg-gray-50/80 text-left shadow-sm transition-all duration-200 hover:border-orange-200 hover:shadow-md w-full min-w-0 max-w-full overflow-hidden",
               pad,
             )}
           >
@@ -294,13 +294,13 @@ export function CustomerReturnExchangeStatusDashboard({
                   Return status
                 </p>
                 <p
-                  className="mt-1 inline-flex max-w-full rounded-full border px-2.5 py-0.5 text-xs font-bold tracking-wide"
+                  className="mt-1 inline-flex max-w-full rounded-full border px-2.5 py-0.5 text-xs font-bold tracking-wide break-words"
                   style={statusPillStyle(ret.color)}
                 >
                   {ret.label}
                 </p>
                 {ret.label === "Eligible" && daysLeft != null && daysLeft >= 0 && returnWindowText && (
-                  <p className="mt-2 text-xs text-gray-600">
+                  <p className="mt-2 text-xs text-gray-600 break-words">
                     Window closes {returnWindowText} ({daysLeft} day{daysLeft === 1 ? "" : "s"} left)
                   </p>
                 )}
@@ -312,7 +312,7 @@ export function CustomerReturnExchangeStatusDashboard({
             type="button"
             title="Exchange status for this item."
             className={cn(
-              "group rounded-xl border border-gray-200 bg-gray-50/80 text-left shadow-sm transition-all duration-200 hover:border-blue-200 hover:shadow-md",
+              "group rounded-xl border border-gray-200 bg-gray-50/80 text-left shadow-sm transition-all duration-200 hover:border-blue-200 hover:shadow-md w-full min-w-0 max-w-full overflow-hidden",
               pad,
             )}
           >
@@ -325,24 +325,24 @@ export function CustomerReturnExchangeStatusDashboard({
                   Exchange status
                 </p>
                 <p
-                  className="mt-1 inline-flex max-w-full rounded-full border px-2.5 py-0.5 text-xs font-bold tracking-wide"
+                  className="mt-1 inline-flex max-w-full rounded-full border px-2.5 py-0.5 text-xs font-bold tracking-wide break-words"
                   style={statusPillStyle(ex.color)}
                 >
                   {ex.label}
                 </p>
                 {item.returnResolutionType === "EXCHANGE" && (item.exchangeTopUpAmount ?? 0) > 0 && (
-                  <p className="mt-2 text-xs text-amber-800">
+                  <p className="mt-2 text-xs text-amber-800 break-words">
                     Extra for upgrade: {formatCurrency(item.exchangeTopUpAmount)} —{" "}
                     {exchangeTopUpCodLabel(item.exchangeTopUpStatus, true)}
                   </p>
                 )}
                 {item.returnResolutionType === "EXCHANGE" && (item.exchangeRefundDifferenceAmount ?? 0) > 0 && (
-                  <p className="mt-1 text-xs text-blue-800">
+                  <p className="mt-1 text-xs text-blue-800 break-words">
                     Wallet credit: {formatCurrency(item.exchangeRefundDifferenceAmount)} (
                     {item.exchangeRefundDifferenceStatus ?? "—"})
                   </p>
                 )}
-                {ex.detail && <p className="mt-1 text-xs text-gray-600">{ex.detail}</p>}
+                {ex.detail && <p className="mt-1 text-xs text-gray-600 break-words">{ex.detail}</p>}
               </div>
             </div>
           </button>
@@ -351,7 +351,7 @@ export function CustomerReturnExchangeStatusDashboard({
             type="button"
             title="Pickup status for this return."
             className={cn(
-              "group rounded-xl border border-gray-200 bg-gray-50/80 text-left shadow-sm transition-all duration-200 hover:border-slate-200 hover:shadow-md",
+              "group rounded-xl border border-gray-200 bg-gray-50/80 text-left shadow-sm transition-all duration-200 hover:border-slate-200 hover:shadow-md w-full min-w-0 max-w-full overflow-hidden",
               pad,
             )}
           >
@@ -364,25 +364,25 @@ export function CustomerReturnExchangeStatusDashboard({
                   {item.returnResolutionType === "EXCHANGE" ? "Original item pickup" : "Pickup status"}
                 </p>
                 <p
-                  className="mt-1 inline-flex max-w-full rounded-full border px-2.5 py-0.5 text-xs font-bold tracking-wide"
+                  className="mt-1 inline-flex max-w-full rounded-full border px-2.5 py-0.5 text-xs font-bold tracking-wide break-words"
                   style={statusPillStyle(pu.color)}
                 >
                   {pu.label}
                 </p>
                 {item.returnResolutionType === "EXCHANGE" && item.pickupStatus === "NOT_REQUESTED" && item.returnRequestStatus === "ACCEPTED" && (
-                  <p className="mt-2 text-xs text-amber-800">
+                  <p className="mt-2 text-xs text-amber-800 break-words">
                     Not picked up yet — your seller will arrange pickup of the old item.
                   </p>
                 )}
                 {item.pickupStatus === "PENDING" && (
-                  <p className="mt-2 text-xs text-gray-600">
+                  <p className="mt-2 text-xs text-gray-600 break-words">
                     {item.returnResolutionType === "EXCHANGE"
                       ? "Pickup scheduled — hand over the original item when your seller or courier visits."
                       : "Pickup has been scheduled with your seller."}
                   </p>
                 )}
                 {item.returnResolutionType === "EXCHANGE" && item.pickupStatus === "COMPLETED" && (
-                  <p className="mt-2 text-xs text-emerald-800">Original item has been picked up.</p>
+                  <p className="mt-2 text-xs text-emerald-800 break-words">Original item has been picked up.</p>
                 )}
               </div>
             </div>
@@ -392,7 +392,7 @@ export function CustomerReturnExchangeStatusDashboard({
             type="button"
             title="Refund status for this item."
             className={cn(
-              "group rounded-xl border border-gray-200 bg-gray-50/80 text-left shadow-sm transition-all duration-200 hover:border-emerald-200 hover:shadow-md",
+              "group rounded-xl border border-gray-200 bg-gray-50/80 text-left shadow-sm transition-all duration-200 hover:border-emerald-200 hover:shadow-md w-full min-w-0 max-w-full overflow-hidden",
               pad,
             )}
           >
@@ -405,29 +405,29 @@ export function CustomerReturnExchangeStatusDashboard({
                   {item.returnResolutionType === "EXCHANGE" ? "Payment refund" : "Refund status"}
                 </p>
                 <p
-                  className="mt-1 inline-flex max-w-full rounded-full border px-2.5 py-0.5 text-xs font-bold tracking-wide"
+                  className="mt-1 inline-flex max-w-full rounded-full border px-2.5 py-0.5 text-xs font-bold tracking-wide break-words"
                   style={statusPillStyle(rf.color)}
                 >
                   {rf.label}
                 </p>
                 {item.refundStatus === "COMPLETED" && (
-                  <p className="mt-2 text-xs font-medium text-emerald-800">
+                  <p className="mt-2 text-xs font-medium text-emerald-800 break-words">
                     Amount: {formatCurrency(lineTotal)}
                   </p>
                 )}
                 {item.returnResolutionType !== "EXCHANGE" && item.refundStatus === "COMPLETED" && (
-                  <p className="mt-2 text-xs text-gray-600">
+                  <p className="mt-2 text-xs text-gray-600 break-words">
                     Credited to your wallet when the seller confirmed pickup.
                   </p>
                 )}
                 {item.returnResolutionType === "EXCHANGE" && (
-                  <p className="mt-2 text-xs text-gray-600">
+                  <p className="mt-2 text-xs text-gray-600 break-words">
                     Exchanges do not refund to your card. Wallet credit for a cheaper replacement appears under Exchange
                     status when applicable.
                   </p>
                 )}
                 {item.returnResolutionType !== "EXCHANGE" && item.refundStatus === "PENDING" && (
-                  <p className="mt-2 text-xs text-gray-600">Refund is being processed.</p>
+                  <p className="mt-2 text-xs text-gray-600 break-words">Refund is being processed.</p>
                 )}
               </div>
             </div>

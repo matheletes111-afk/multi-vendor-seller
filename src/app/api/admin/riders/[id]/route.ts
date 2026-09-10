@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma"
 import { isAdmin } from "@/lib/rbac"
 import { validatePhoneAndCountryCode } from "@/lib/phone-validation"
 import { sendRiderSuspensionEmail } from "@/lib/email"
+import { resolveEffectiveZones } from "@/lib/location-zones"
 
 export async function GET(
   request: NextRequest,
@@ -39,10 +40,22 @@ export async function GET(
       return NextResponse.json({ error: "Rider not found" }, { status: 404 })
     }
 
+    const effectiveZones = resolveEffectiveZones(
+      user.rider.selectedZones as string[],
+      user.rider.selectedLocations as string[]
+    )
+    const riderData = {
+      ...user.rider,
+      selectedZones: effectiveZones,
+    }
+
     return NextResponse.json({
       success: true,
-      user,
-      rider: user.rider,
+      user: {
+        ...user,
+        rider: riderData,
+      },
+      rider: riderData,
     })
   } catch (error) {
     console.error("Admin GET single rider error:", error)
@@ -213,8 +226,12 @@ export async function PATCH(
     if (isFirstLogin !== undefined) riderUpdates.isFirstLogin = Boolean(isFirstLogin)
     if (adminFeedback !== undefined) riderUpdates.adminFeedback = adminFeedback
     if (adminNotes !== undefined) riderUpdates.adminNotes = adminNotes
-    if (selectedZones !== undefined) riderUpdates.selectedZones = selectedZones
     if (selectedLocations !== undefined) riderUpdates.selectedLocations = selectedLocations
+    if (selectedZones !== undefined || selectedLocations !== undefined) {
+      const finalLocs = selectedLocations !== undefined ? selectedLocations : (user.rider.selectedLocations as string[]) || []
+      const finalZones = selectedZones !== undefined ? selectedZones : (user.rider.selectedZones as string[]) || []
+      riderUpdates.selectedZones = resolveEffectiveZones(finalZones, finalLocs)
+    }
     if (vehicleTypes !== undefined) riderUpdates.vehicleTypes = vehicleTypes
     if (vehicleName !== undefined) riderUpdates.vehicleName = vehicleName ? String(vehicleName).trim() : null
     if (vehicleNumber !== undefined) riderUpdates.vehicleNumber = vehicleNumber

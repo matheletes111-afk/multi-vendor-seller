@@ -18,6 +18,16 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const tab = searchParams.get("tab") || "active" // active, offered, completed, all
 
+    // Auto-expire stale OFFERED assignments on the fly
+    await prisma.riderDeliveryAssignment.updateMany({
+      where: {
+        riderId: authResult.rider.id,
+        status: "OFFERED",
+        expiresAt: { lt: new Date() },
+      },
+      data: { status: "TIMED_OUT" },
+    }).catch(() => null)
+
     let statusFilter: any = undefined
     if (tab === "offered") {
       statusFilter = { in: ["OFFERED"] }
