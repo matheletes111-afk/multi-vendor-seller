@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { UserRole } from "@prisma/client"
 import { getMobileSellerAuth } from "../../../../_helpers/seller-auth"
-import { manualAssignRiderToOrder, triggerOrderAutoDispatch, stopOrderAutoDispatch } from "@/lib/delivery-dispatch"
+import { manualAssignRiderToOrder, triggerOrderAutoDispatch, stopOrderAutoDispatch, cancelAcceptedRiderAssignment } from "@/lib/delivery-dispatch"
 
 export async function POST(
   request: NextRequest,
@@ -28,7 +28,7 @@ export async function POST(
   try {
     const { id: orderId } = await params
     const body = await request.json().catch(() => ({}))
-    const { riderId, action, notes } = body
+    const { riderId, action, notes, reason, cancellationReason } = body
 
     const order = await prisma.order.findFirst({
       where: {
@@ -64,11 +64,28 @@ export async function POST(
     // Stop auto-dispatch option
     if (action === "stop_dispatch") {
       const result = await stopOrderAutoDispatch(order.id, seller.id, "SELLER")
-      return NextResponse.json({
-        success: true,
-        message: result.message,
-        data: result,
-      })
+      return NextResponse.json(
+        {
+          success: result.success,
+          message: result.message,
+          data: result,
+        },
+        { status: result.success ? 200 : 400 }
+      )
+    }
+
+    // Cancel accepted/pending rider assignment (e.g. if rider doesn't show up)
+    if (action === "cancel_assignment" || action === "cancel_rider") {
+      const customReason = reason || cancellationReason || "Rider did not show up"
+      const result = await cancelAcceptedRiderAssignment(order.id, seller.id, "SELLER", customReason)
+      return NextResponse.json(
+        {
+          success: result.success,
+          message: result.message,
+          data: result,
+        },
+        { status: result.success ? 200 : 400 }
+      )
     }
 
     if (!riderId) {

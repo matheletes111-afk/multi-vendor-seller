@@ -41,12 +41,18 @@ TABLE OF CONTENTS
    - If 5 riders reject or time out, the system automatically halts.
    - The seller app should then prompt the seller to manually select a rider.
 
-3. STOP NOTIFICATIONS (CANCEL OFFER):
-   - A dedicated action "stop_dispatch" is provided.
-   - While an offer notification is pending (status == OFFERED), the seller
-     can cancel it at any time using this action.
-   - IMPORTANT: Once a rider ACCEPTS the offer (status == ACCEPTED), the offer
-     is finalized. The cancel/stop notification button must NOT be shown.
+3. STOP NOTIFICATIONS (CANCEL OFFER) vs CANCEL RIDER (NO-SHOW / DELAY):
+   - STOP NOTIFICATION ("stop_dispatch"):
+     - Used while an offer notification is pending response (status == OFFERED).
+     - Halts cascading notifications and cancels the 60s offer.
+   - CANCEL RIDER ASSIGNMENT ("cancel_assignment"):
+     - Used when a rider has been assigned manually or accepted (status == ACCEPTED or AT_PICKUP).
+     - If the rider fails to arrive at the store ("rider did not show up") or cancels,
+       the Seller or Admin can revoke the rider assignment using "cancel_assignment".
+     - Once cancelled, the order is freed from the unresponsive rider.
+     - The Seller/Admin can immediately re-dispatch or manually assign a new rider!
+   - Note: Once items are marked PICKED_UP or OUT_FOR_DELIVERY, items are physically
+     with the rider, so one-click cancellation is disabled to safeguard merchandise.
 
 4. SELF-DELIVERY PROTECTION & AUTO-REVOKE:
    - When seller toggles Self-Delivery ("Deliver by Myself") ON:
@@ -181,6 +187,35 @@ Success Response (200 OK):
     "status": "ACCEPTED",
     "assignedAt": "2026-09-10T10:00:00.000Z"
   }
+}
+
+────────────────────────────────────────────────────────────────────────────────
+ACTION D: "cancel_assignment"  (Cancel Accepted Rider / Rider No-Show)
+────────────────────────────────────────────────────────────────────────────────
+Revokes an assigned rider (status ACCEPTED or AT_PICKUP) when the rider fails
+to show up, is delayed, or cannot complete the pickup.
+Frees the order so the seller can assign a new rider or trigger auto-dispatch.
+
+Request:
+{
+  "action": "cancel_assignment",
+  "reason": "Rider did not show up"
+}
+
+Success Response (200 OK):
+{
+  "success": true,
+  "message": "Rider assignment cancelled successfully (Cancelled by seller: Rider did not show up). Order is ready for re-dispatch or manual assignment.",
+  "data": {
+    "success": true,
+    "cancelledCount": 1
+  }
+}
+
+Error Response (400 Bad Request) - Already picked up or no active assignment:
+{
+  "success": false,
+  "message": "Cannot cancel rider: items are already picked up or out for delivery."
 }
 
 --------------------------------------------------------------------------------
@@ -411,8 +446,11 @@ C. STATE: ACCEPTED / AT_PICKUP / PICKED_UP / OUT_FOR_DELIVERY
 - Display: Rider card with Photo, Name, Vehicle Number, and Phone Call button.
 - Display: Live GPS Map with rider marker moving towards store or customer.
 - Buttons:
-  - DO NOT SHOW "Cancel Offer" or "Stop Notification" button!
-  - [Reassign Rider] (Grey outline button, for emergencies before pickup).
+  - [Cancel Rider]  <-- Red outline button calling cancel_assignment with a prompt:
+                        "Enter reason for cancellation (e.g. Rider did not show up)".
+                        Shown when status is ACCEPTED or AT_PICKUP (before pickup).
+  - [Reassign Rider] <-- Grey outline button, opens modal to pick a new rider directly.
+  - [Call Rider]    <-- Direct phone call link.
   - Self-delivery toggle: HIDE or DISABLE.
 - OTP: DO NOT SHOW. Display note:
   "Secure OTP sent to customer (Customer shares with rider at doorstep)".
@@ -561,8 +599,29 @@ class SellerDeliveryService {
     );
     return jsonDecode(res.body);
   }
+
+  // 7. Cancel Rider Assignment (If rider doesn't show up)
+  static Future<Map<String, dynamic>> cancelRiderAssignment({
+    required String orderId,
+    String? reason,
+    required String token,
+  }) async {
+    final res = await http.post(
+      Uri.parse('$baseUrl/orders/$orderId/assign-rider'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({
+        'action': 'cancel_assignment',
+        'reason': reason ?? 'Rider did not show up',
+      }),
+    );
+    return jsonDecode(res.body);
+  }
 }
 
 ================================================================================
 END OF DOCUMENTATION
 ================================================================================
+

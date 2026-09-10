@@ -16,6 +16,7 @@ import {
   Sparkles,
   Truck,
   BellOff,
+  UserX,
 } from "lucide-react"
 import { Button } from "@/ui/button"
 import { Badge } from "@/ui/badge"
@@ -97,6 +98,11 @@ export function OrderRiderCard({
   const riderUser = rider?.user
   const isDelivered = activeAssignment?.status === "DELIVERED" || orderStatus === "DELIVERED"
   const isOffered = !isDelivered && activeAssignment?.status === "OFFERED"
+  const canCancelRider =
+    canManage &&
+    !isDelivered &&
+    activeAssignment &&
+    ["ACCEPTED", "AT_PICKUP"].includes(activeAssignment.status)
 
   const targetSeller = activeAssignment?.sellerId || sellerId || undefined
 
@@ -195,6 +201,36 @@ export function OrderRiderCard({
         onRefresh?.()
       } else {
         alert(data.message || data.error || "Failed to stop dispatch")
+      }
+    } catch (err: any) {
+      alert(err?.message || "Network error")
+    } finally {
+      setDispatchLoading(false)
+    }
+  }
+
+  const handleCancelAssignment = async () => {
+    const reason = prompt("Enter reason for cancelling this rider assignment:", "Rider did not show up")
+    if (reason === null) return
+
+    try {
+      setDispatchLoading(true)
+      const res = await fetch(`/api/admin/orders/${orderId}/assign-rider`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "cancel_assignment",
+          sellerId: targetSeller,
+          reason: reason.trim() || "Rider did not show up",
+        }),
+      })
+      const data = await res.json()
+      if (res.ok && data.success !== false) {
+        alert(data.message || "Rider assignment cancelled. You can now reassign or auto-dispatch.")
+        setModalOpen(false)
+        onRefresh?.()
+      } else {
+        alert(data.message || data.error || "Failed to cancel rider assignment")
       }
     } catch (err: any) {
       alert(err?.message || "Network error")
@@ -502,6 +538,18 @@ export function OrderRiderCard({
                 >
                   <BellOff className="w-3.5 h-3.5" />
                   Stop Notification
+                </Button>
+              )}
+              {canManage && canCancelRider && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleCancelAssignment}
+                  disabled={dispatchLoading}
+                  className="text-xs rounded-xl text-rose-600 border-rose-200 hover:bg-rose-50 dark:border-rose-900/50 dark:hover:bg-rose-950/30 gap-1.5 font-medium"
+                >
+                  <UserX className="w-3.5 h-3.5" />
+                  Cancel Rider
                 </Button>
               )}
               {canManage && !isDelivered && (

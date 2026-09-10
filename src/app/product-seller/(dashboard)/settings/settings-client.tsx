@@ -627,6 +627,96 @@ export function SettingsClient() {
           </CardContent>
         </Card>
 
+        {/* KYC DOCUMENTS */}
+        <Card id="kyc">
+          <CardHeader>
+            <CardTitle>Identity & KYC Verification</CardTitle>
+            <CardDescription>Government identity verification documents and photo ID</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={(e) => handleSave(e, "kyc")} className="space-y-4">
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>ID Type *</Label>
+                  <Select name="idType" defaultValue={seller.kyc?.idType || "National ID Card"}>
+                    <SelectTrigger><SelectValue placeholder="Select ID Type" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="National ID Card">National ID Card</SelectItem>
+                      <SelectItem value="Passport">Passport</SelectItem>
+                      <SelectItem value="Driver's License">Driver's License</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>ID Number *</Label>
+                  <Input name="idNumber" defaultValue={seller.kyc?.idNumber || ""} placeholder="Enter your ID or Passport number" />
+                </div>
+              </div>
+
+              <div className="grid md:grid-cols-3 gap-6 pt-4 border-t">
+                <div className="space-y-2">
+                  <Label className="font-semibold text-xs text-slate-700">ID / Passport Front</Label>
+                  <div className="flex flex-col gap-2">
+                    {(previews.idFront || seller.kyc?.idFrontUrl) ? (
+                      <div className="relative w-full h-32 rounded-lg overflow-hidden border shadow-sm bg-slate-50">
+                        <img src={previews.idFront ? previews.idFront.url : seller.kyc.idFrontUrl} alt="ID Front Preview" className="w-full h-full object-cover" />
+                      </div>
+                    ) : (
+                      <div className="w-full h-32 rounded-lg bg-slate-100 flex items-center justify-center border border-slate-200 text-slate-400 font-medium text-xs">No ID Front Uploaded</div>
+                    )}
+                    {seller.kyc?.idFrontUrl && (
+                      <a href={seller.kyc.idFrontUrl} target="_blank" className="text-primary hover:underline text-xs flex items-center gap-1">
+                        <FileText className="h-3.5 w-3.5" /> View Full Original
+                      </a>
+                    )}
+                    <Input name="idFront" type="file" accept="image/*" onChange={(e) => handleFileChange(e, "idFront")} />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="font-semibold text-xs text-slate-700">ID / Passport Back</Label>
+                  <div className="flex flex-col gap-2">
+                    {(previews.idBack || seller.kyc?.idBackUrl) ? (
+                      <div className="relative w-full h-32 rounded-lg overflow-hidden border shadow-sm bg-slate-50">
+                        <img src={previews.idBack ? previews.idBack.url : seller.kyc.idBackUrl} alt="ID Back Preview" className="w-full h-full object-cover" />
+                      </div>
+                    ) : (
+                      <div className="w-full h-32 rounded-lg bg-slate-100 flex items-center justify-center border border-slate-200 text-slate-400 font-medium text-xs">No ID Back Uploaded</div>
+                    )}
+                    {seller.kyc?.idBackUrl && (
+                      <a href={seller.kyc.idBackUrl} target="_blank" className="text-primary hover:underline text-xs flex items-center gap-1">
+                        <FileText className="h-3.5 w-3.5" /> View Full Original
+                      </a>
+                    )}
+                    <Input name="idBack" type="file" accept="image/*" onChange={(e) => handleFileChange(e, "idBack")} />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="font-semibold text-xs text-slate-700">Face Verification (Selfie)</Label>
+                  <div className="flex flex-col gap-2">
+                    {(previews.selfie || seller.kyc?.selfieUrl) ? (
+                      <div className="relative w-full h-32 rounded-lg overflow-hidden border shadow-sm bg-slate-50">
+                        <img src={previews.selfie ? previews.selfie.url : seller.kyc.selfieUrl} alt="Selfie Preview" className="w-full h-full object-cover" />
+                      </div>
+                    ) : (
+                      <div className="w-full h-32 rounded-lg bg-slate-100 flex items-center justify-center border border-slate-200 text-slate-400 font-medium text-xs">No Selfie Uploaded</div>
+                    )}
+                    {seller.kyc?.selfieUrl && (
+                      <a href={seller.kyc.selfieUrl} target="_blank" className="text-primary hover:underline text-xs flex items-center gap-1">
+                        <FileText className="h-3.5 w-3.5" /> View Full Original
+                      </a>
+                    )}
+                    <Input name="selfie" type="file" accept="image/*" onChange={(e) => handleFileChange(e, "selfie")} />
+                  </div>
+                </div>
+              </div>
+
+              <Button type="submit" disabled={saving === "kyc"}>{saving === "kyc" ? "Saving..." : "Update KYC Documents"}</Button>
+            </form>
+          </CardContent>
+        </Card>
+
         {/* BANK DETAILS */}
         <Card id="bank">
           <CardHeader><CardTitle>Payment & Payout Details</CardTitle></CardHeader>

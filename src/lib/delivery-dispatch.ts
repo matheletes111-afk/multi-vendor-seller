@@ -1083,6 +1083,93 @@ export async function stopOrderAutoDispatch(
 }
 
 /**
+ * Cancels an active or pending rider assignment (OFFERED, ACCEPTED, AT_PICKUP)
+ * when a rider fails to show up or needs to be removed by Seller or Admin.
+ * Does NOT permit cancellation once items are PICKED_UP or OUT_FOR_DELIVERY.
+ */
+export async function cancelAcceptedRiderAssignment(
+  orderId: string,
+  targetSellerId?: string,
+  cancelledBy: "ADMIN" | "SELLER" = "SELLER",
+  reason: string = "Rider did not show up"
+) {
+  const whereClause: any = {
+    orderId,
+    ...(targetSellerId ? { sellerId: targetSellerId } : {}),
+    status: {
+      in: [
+        DeliveryAssignmentStatus.OFFERED,
+        DeliveryAssignmentStatus.ACCEPTED,
+        DeliveryAssignmentStatus.AT_PICKUP,
+      ],
+    },
+  }
+
+  const activeAssignments = await prisma.riderDeliveryAssignment.findMany({
+    where: whereClause,
+    include: {
+      rider: { include: { user: true } },
+      order: true,
+    },
+  })
+
+  if (activeAssignments.length === 0) {
+    const inTransit = await prisma.riderDeliveryAssignment.findFirst({
+      where: {
+        orderId,
+        ...(targetSellerId ? { sellerId: targetSellerId } : {}),
+        status: {
+          in: [
+            DeliveryAssignmentStatus.PICKED_UP,
+            DeliveryAssignmentStatus.OUT_FOR_DELIVERY,
+            DeliveryAssignmentStatus.DELIVERED,
+          ],
+        },
+      },
+    })
+    if (inTransit) {
+      return {
+        success: false,
+        message: "Cannot cancel rider: items are already picked up or out for delivery.",
+      }
+    }
+    return {
+      success: false,
+      message: "No active or pending rider assignment found to cancel.",
+    }
+  }
+
+  const now = new Date()
+  const fullReason = `Cancelled by ${cancelledBy.toLowerCase()}: ${reason}`
+
+  for (const assignment of activeAssignments) {
+    await prisma.riderDeliveryAssignment.update({
+      where: { id: assignment.id },
+      data: {
+        status: DeliveryAssignmentStatus.REASSIGNED_BY_ADMIN,
+        cancellationReason: fullReason,
+        cancelledAt: now,
+        adminNotes: `Assignment revoked by ${cancelledBy}: ${reason}`,
+      },
+    })
+
+    if (assignment.rider?.user?.email) {
+      sendEmail({
+        to: assignment.rider.user.email,
+        subject: `⚠️ Delivery Assignment Revoked for Order #${assignment.order.orderNumber}`,
+        text: `Your delivery assignment for Order #${assignment.order.orderNumber} has been cancelled by the ${cancelledBy.toLowerCase()} (Reason: ${reason}). You are now available for other orders.`,
+      }).catch(() => null)
+    }
+  }
+
+  return {
+    success: true,
+    cancelledCount: activeAssignments.length,
+    message: `Rider assignment cancelled successfully (${fullReason}). Order is ready for re-dispatch or manual assignment.`,
+  }
+}
+
+/**
  * Background Sweeper: Checks for stale OFFERED (> 60s) and ACCEPTED no-shows (> 30 min).
  */
 export async function processStaleAssignmentsAndNoShows() {

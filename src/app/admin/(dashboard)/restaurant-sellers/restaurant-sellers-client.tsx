@@ -10,6 +10,7 @@ import { buildAdminPageUrl } from "@/lib/admin-pagination"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/ui/select"
 import { Badge } from "@/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/ui/table"
+import { Avatar, AvatarFallback, AvatarImage } from "@/ui/avatar"
 import { Card, CardContent, CardHeader, CardTitle } from "@/ui/card"
 import { AdminPagination } from "@/components/admin/admin-pagination"
 import { PageLoader } from "@/components/ui/page-loader"
@@ -34,6 +35,8 @@ import {
   ExternalLink,
   Percent,
   Mail,
+  Phone,
+  MapPin,
   Megaphone,
 } from "lucide-react"
 import { RestaurantSellerDetailsView } from "@/components/admin/sellers/restaurant-seller-details-view"
@@ -343,20 +346,18 @@ export function RestaurantSellersClient() {
             <Table>
               <TableHeader className="bg-slate-50/80 dark:bg-slate-950/50">
                 <TableRow className="border-slate-100 dark:border-slate-800">
-                  <TableHead className="pl-6 py-4 min-w-[200px]">Identity / Owner</TableHead>
-                  <TableHead className="min-w-[170px]">Restaurant / Venture</TableHead>
-                  <TableHead className="min-w-[110px]">Plan</TableHead>
+                  <TableHead className="py-4 pl-6 min-w-[220px]">Restaurant / Business</TableHead>
+                  <TableHead className="min-w-[190px]">Contact & Location</TableHead>
+                  <TableHead className="min-w-[90px]">Plan</TableHead>
                   <TableHead className="min-w-[120px]">Commission</TableHead>
-                  <TableHead className="min-w-[130px]">Documents</TableHead>
-                  <TableHead className="min-w-[130px]">Status</TableHead>
-                  <TableHead className="min-w-[120px]">Joined Date</TableHead>
+                  <TableHead className="min-w-[150px]">Status & Documents</TableHead>
                   <TableHead className="text-right pr-6 min-w-[130px]">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {data?.sellers?.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-24">
+                    <TableCell colSpan={6} className="text-center py-24">
                       <UtensilsCrossed className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3" />
                       <p className="font-semibold text-sm text-muted-foreground">No restaurant partners identified</p>
                       <p className="text-xs text-slate-400 mt-1">Try clearing or adjusting your search filters.</p>
@@ -366,6 +367,9 @@ export function RestaurantSellersClient() {
                   data?.sellers?.map((seller: any) => {
                     const isExpanded = expandedRow === seller.id
                     const displayName = seller.businessInfo?.businessName || seller.user?.name || "Unnamed Restaurant"
+                    const logo = seller.businessInfo?.logo || seller.foods?.[0]?.image
+                    const initials = displayName.slice(0, 2).toUpperCase()
+                    const location = [seller.businessInfo?.city, seller.businessInfo?.state].filter(Boolean).join(", ")
 
                     return (
                       <Fragment key={seller.id}>
@@ -375,38 +379,73 @@ export function RestaurantSellersClient() {
                             isExpanded && "bg-slate-50 dark:bg-slate-800/60"
                           )}
                         >
-                          {/* Identity */}
-                          <TableCell className="pl-6 py-4 font-medium">
-                            <div className="flex flex-col">
-                              <span className="font-semibold text-sm text-slate-900 dark:text-slate-100">{seller.user?.name}</span>
-                              <span className="text-xs text-muted-foreground font-mono truncate max-w-[180px]">{seller.user?.email}</span>
+                          {/* Restaurant / Business */}
+                          <TableCell className="py-4 pl-6 font-medium min-w-[220px]">
+                            <div className="flex items-start gap-3">
+                              <Avatar className="h-10 w-10 rounded-2xl border border-slate-200 dark:border-slate-800 shrink-0 mt-0.5">
+                                {logo ? (
+                                  <AvatarImage src={logo} alt={displayName} className="object-cover" />
+                                ) : null}
+                                <AvatarFallback className="rounded-2xl font-bold bg-rose-50 text-rose-600 dark:bg-rose-950/40 dark:text-rose-400 text-xs">
+                                  {initials}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div className="space-y-1 min-w-0">
+                                <div className="min-w-0">
+                                  <Link
+                                    href={`/admin/restaurant-sellers/${seller.id}`}
+                                    className="font-bold text-sm text-slate-900 dark:text-slate-100 hover:text-rose-600 dark:hover:text-rose-400 hover:underline inline-flex items-center gap-1 leading-tight group truncate max-w-[190px]"
+                                    title="View full restaurant seller profile & details"
+                                  >
+                                    <span className="truncate">{displayName}</span>
+                                    <ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 shrink-0" />
+                                  </Link>
+                                  {seller.user?.name && seller.user?.name !== displayName && (
+                                    <p className="text-[11px] text-slate-500 font-medium truncate max-w-[180px]">{seller.user.name}</p>
+                                  )}
+                                </div>
+
+                                {/* Joined Date */}
+                                <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+                                  <span className="text-[11px] text-slate-400 dark:text-slate-500 font-medium inline-flex items-center gap-1 whitespace-nowrap">
+                                    <Calendar className="h-3 w-3 text-slate-400" />
+                                    {new Date(seller.createdAt).toLocaleDateString("en-US", {
+                                      month: "short",
+                                      day: "numeric",
+                                      year: "numeric",
+                                    })}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          </TableCell>
+
+                          {/* Contact & Location */}
+                          <TableCell className="min-w-[190px]">
+                            <div className="space-y-1 text-xs text-slate-600 dark:text-slate-300">
+                              {seller.user?.email && (
+                                <div className="flex items-center gap-1.5 truncate max-w-[180px]" title={seller.user.email}>
+                                  <Mail className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                                  <span className="truncate">{seller.user.email}</span>
+                                </div>
+                              )}
                               {seller.user?.phone && (
-                                <span className="text-[11px] text-slate-400">{seller.user.phone}</span>
+                                <div className="flex items-center gap-1.5 text-slate-500">
+                                  <Phone className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                                  <span>{seller.user.phone}</span>
+                                </div>
+                              )}
+                              {location && (
+                                <div className="flex items-center gap-1.5 text-slate-500">
+                                  <MapPin className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                                  <span className="truncate max-w-[170px]">{location}</span>
+                                </div>
                               )}
                             </div>
                           </TableCell>
 
-                          {/* Restaurant / Venture */}
-                          <TableCell>
-                            <div className="flex items-center gap-2">
-                              <div className="p-1.5 bg-rose-50 text-rose-600 dark:bg-rose-950/40 dark:text-rose-400 rounded-lg">
-                                <UtensilsCrossed className="h-3.5 w-3.5" />
-                              </div>
-                              <div className="min-w-0">
-                                <p className="font-semibold text-sm text-slate-800 dark:text-slate-200 truncate max-w-[160px]">
-                                  {displayName}
-                                </p>
-                                {seller.businessInfo?.city && (
-                                  <p className="text-[11px] text-muted-foreground truncate max-w-[140px]">
-                                    {[seller.businessInfo?.city, seller.businessInfo?.state].filter(Boolean).join(", ")}
-                                  </p>
-                                )}
-                              </div>
-                            </div>
-                          </TableCell>
-
                           {/* Subscription Plan */}
-                          <TableCell>
+                          <TableCell className="min-w-[90px]">
                             {seller.subscription?.plan?.name ? (
                               <Badge variant="outline" className="text-xs font-semibold px-2 py-0.5 rounded-lg bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 border-blue-200">
                                 {seller.subscription.plan.name}
@@ -417,7 +456,7 @@ export function RestaurantSellersClient() {
                           </TableCell>
 
                           {/* Commission Rate */}
-                          <TableCell>
+                          <TableCell className="min-w-[120px]">
                             {seller.commissionRate != null ? (
                               <div
                                 className="cursor-pointer inline-flex items-center gap-1 group/comm"
@@ -471,41 +510,30 @@ export function RestaurantSellersClient() {
                             )}
                           </TableCell>
 
-                          {/* Documents */}
-                          <TableCell>
-                            <SellerDocumentBadge evaluation={seller.documentEvaluation} />
-                          </TableCell>
-
-                          {/* Status */}
-                          <TableCell>
-                            <div className="flex flex-wrap gap-1">
-                              <Badge
-                                className={cn(
-                                  "rounded-full text-[10px] font-semibold uppercase px-2 py-0.5",
-                                  seller.isApproved ? "bg-emerald-600 text-white" : "bg-amber-500 text-white"
-                                )}
-                              >
-                                {seller.isApproved ? "Approved" : "Pending"}
-                              </Badge>
-                              {seller.isSuspended && (
-                                <Badge className="bg-rose-600 text-white rounded-full text-[10px] font-semibold uppercase px-2 py-0.5">
-                                  Suspended
+                          {/* Status & Documents */}
+                          <TableCell className="min-w-[150px]">
+                            <div className="space-y-1.5">
+                              <div className="flex flex-wrap gap-1">
+                                <Badge
+                                  className={cn(
+                                    "rounded-full text-[10px] font-semibold uppercase px-2 py-0.5",
+                                    seller.isApproved ? "bg-emerald-600 text-white" : "bg-amber-500 text-white"
+                                  )}
+                                >
+                                  {seller.isApproved ? "Approved" : "Pending"}
                                 </Badge>
-                              )}
+                                {seller.isSuspended && (
+                                  <Badge className="bg-rose-600 text-white rounded-full text-[10px] font-semibold uppercase px-2 py-0.5">
+                                    Suspended
+                                  </Badge>
+                                )}
+                              </div>
+                              <SellerDocumentBadge evaluation={seller.documentEvaluation} />
                             </div>
                           </TableCell>
 
-                          {/* Joined Date */}
-                          <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
-                            {new Date(seller.createdAt).toLocaleDateString("en-US", {
-                              month: "short",
-                              day: "numeric",
-                              year: "numeric",
-                            })}
-                          </TableCell>
-
                           {/* Actions */}
-                          <TableCell className="text-right pr-6">
+                          <TableCell className="text-right pr-6 min-w-[130px]">
                             <div className="flex justify-end items-center gap-1.5">
                               <Button
                                 variant="outline"
@@ -552,7 +580,7 @@ export function RestaurantSellersClient() {
                         {/* Accordion Review */}
                         {isExpanded && (
                           <TableRow className="bg-slate-50/90 dark:bg-slate-900/90 border-b border-slate-200 dark:border-slate-800">
-                            <TableCell colSpan={8} className="p-6">
+                            <TableCell colSpan={6} className="p-6">
                               <div className="rounded-2xl bg-white dark:bg-slate-950 p-6 border border-slate-200 dark:border-slate-800 shadow-sm space-y-6">
                                 <RestaurantSellerDetailsView
                                   seller={{ ...seller, plans }}

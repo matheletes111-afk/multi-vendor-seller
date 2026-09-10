@@ -36,13 +36,55 @@ export async function GET() {
     } as any,
   }) as any
   if (!seller) return NextResponse.json({ error: "Seller not found" }, { status: 404 })
+
+  const { getPresignedUrlOrOriginal } = await import("@/lib/s3-presigned")
+  if (seller.store?.logo) {
+    seller.store.logo = await getPresignedUrlOrOriginal(seller.store.logo)
+  }
+  if (seller.store?.banner) {
+    seller.store.banner = await getPresignedUrlOrOriginal(seller.store.banner)
+  }
+  if (seller.businessInfo) {
+    const [busReg, cityCouncil, gstTin, addrProof] = await Promise.all([
+      getPresignedUrlOrOriginal(seller.businessInfo.busRegCertUrl),
+      getPresignedUrlOrOriginal(seller.businessInfo.cityCouncilCertUrl),
+      getPresignedUrlOrOriginal(seller.businessInfo.gstTinCertUrl),
+      getPresignedUrlOrOriginal(seller.businessInfo.addressProofUrl)
+    ])
+    seller.businessInfo.busRegCertUrl = busReg
+    seller.businessInfo.cityCouncilCertUrl = cityCouncil
+    seller.businessInfo.gstTinCertUrl = gstTin
+    seller.businessInfo.addressProofUrl = addrProof
+  }
+  if (seller.kyc) {
+    const [idFront, idBack, selfie] = await Promise.all([
+      getPresignedUrlOrOriginal(seller.kyc.idFrontUrl),
+      getPresignedUrlOrOriginal(seller.kyc.idBackUrl),
+      getPresignedUrlOrOriginal(seller.kyc.selfieUrl)
+    ])
+    seller.kyc.idFrontUrl = idFront
+    seller.kyc.idBackUrl = idBack
+    seller.kyc.selfieUrl = selfie
+  }
+  if (seller.bankDetails) {
+    const [passbook, bankLetter] = await Promise.all([
+      getPresignedUrlOrOriginal(seller.bankDetails.passbookUrl),
+      getPresignedUrlOrOriginal(seller.bankDetails.bankLetterUrl)
+    ])
+    seller.bankDetails.passbookUrl = passbook
+    seller.bankDetails.bankLetterUrl = bankLetter
+  }
+
   return NextResponse.json(seller)
 }
 
 export async function PUT(request: NextRequest) {
   const session = await auth()
   if (!session?.user || !isServiceSeller(session.user)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  const seller = await prisma.seller.findUnique({ where: { userId: session.user.id }, include: { store: true } as any }) as any
+  const seller = await prisma.seller.findUnique({
+    where: { userId: session.user.id },
+    include: { store: true, businessInfo: true, kyc: true, bankDetails: true } as any
+  }) as any
   if (!seller) return NextResponse.json({ error: "Seller not found" }, { status: 404 })
 
   const contentType = request.headers.get("content-type") ?? ""
@@ -154,6 +196,14 @@ export async function PUT(request: NextRequest) {
     const taxIdNumber = fd.get("taxIdNumber") as string | null
     const gstCustomerName = fd.get("gstCustomerName") as string | null
     const gstInvNo = fd.get("gstInvNo") as string | null
+    const street = fd.get("street") as string | null
+    const city = fd.get("city") as string | null
+    const district = fd.get("district") as string | null
+    const state = fd.get("state") as string | null
+    const postalCode = fd.get("postalCode") as string | null
+    const natureOfBusiness = fd.get("natureOfBusiness") as string | null
+    const busLatRaw = fd.get("latitude") as string | null
+    const busLngRaw = fd.get("longitude") as string | null
 
     const busInfoData: any = {}
     if (businessName !== null) busInfoData.businessName = businessName.trim()
@@ -176,6 +226,14 @@ export async function PUT(request: NextRequest) {
     if (gstInvNo !== null && (busInfoData.haveGst ?? seller.businessInfo?.haveGst)) {
         busInfoData.gstInvNo = gstInvNo.trim()
     }
+    if (street !== null) busInfoData.street = street.trim()
+    if (city !== null) busInfoData.city = city.trim()
+    if (district !== null) busInfoData.district = district.trim()
+    if (state !== null) busInfoData.state = state.trim()
+    if (postalCode !== null) busInfoData.postalCode = postalCode.trim()
+    if (natureOfBusiness !== null) busInfoData.natureOfBusiness = natureOfBusiness.trim()
+    if (busLatRaw !== null && !isNaN(Number(busLatRaw))) busInfoData.latitude = Number(busLatRaw)
+    if (busLngRaw !== null && !isNaN(Number(busLngRaw))) busInfoData.longitude = Number(busLngRaw)
 
     const busRegCert = fd.get("busRegCert") as File | null
     if (busRegCert && busRegCert.size > 0) {
@@ -226,6 +284,57 @@ export async function PUT(request: NextRequest) {
         })
     }
 
+    // Handle KYC Details and Documents
+    const idType = fd.get("idType") as string | null
+    const idNumber = fd.get("idNumber") as string | null
+    const idFront = fd.get("idFront") as File | null
+    const idBack = fd.get("idBack") as File | null
+    const selfie = fd.get("selfie") as File | null
+
+    const hasKycFields = idType !== null || idNumber !== null || (idFront && idFront.size > 0) || (idBack && idBack.size > 0) || (selfie && selfie.size > 0)
+
+    if (hasKycFields) {
+        const kycData: any = {}
+        if (idType !== null) kycData.idType = idType.trim()
+        if (idNumber !== null) kycData.idNumber = idNumber.trim()
+
+        if (idFront && idFront.size > 0) {
+            kycData.idFrontUrl = await uploadPublicFile({
+                folder: "onboarding/kyc",
+                ext: path.extname(idFront.name) || ".jpg",
+                contentType: idFront.type || "image/jpeg",
+                buffer: Buffer.from(await idFront.arrayBuffer()),
+                prefix: "id-front",
+            })
+        }
+        if (idBack && idBack.size > 0) {
+            kycData.idBackUrl = await uploadPublicFile({
+                folder: "onboarding/kyc",
+                ext: path.extname(idBack.name) || ".jpg",
+                contentType: idBack.type || "image/jpeg",
+                buffer: Buffer.from(await idBack.arrayBuffer()),
+                prefix: "id-back",
+            })
+        }
+        if (selfie && selfie.size > 0) {
+            kycData.selfieUrl = await uploadPublicFile({
+                folder: "onboarding/kyc",
+                ext: path.extname(selfie.name) || ".jpg",
+                contentType: selfie.type || "image/jpeg",
+                buffer: Buffer.from(await selfie.arrayBuffer()),
+                prefix: "selfie",
+            })
+        }
+
+        if (Object.keys(kycData).length > 0) {
+            await (prisma as any).sellerKYC.upsert({
+                where: { sellerId: seller.id },
+                update: kycData,
+                create: { ...kycData, sellerId: seller.id }
+            })
+        }
+    }
+
     const paymentOption = fd.get("paymentOption") as string | null
     const mobileNumber = fd.get("mobileNumber") as string | null
     const agentNumber = fd.get("agentNumber") as string | null
@@ -237,15 +346,17 @@ export async function PUT(request: NextRequest) {
     const branchName = fd.get("branchName") as string | null
     const mobileMoneyOption = fd.get("mobileMoneyOption") as string | null
     const preferredPayoutMethod = fd.get("preferredPayoutMethod") as string | null
+    const bankPassbook = fd.get("bankPassbook") as File | null
+    const bankLetter = fd.get("bankLetter") as File | null
 
-    const hasBankFields = paymentOption !== null || mobileNumber !== null || agentNumber !== null || bankName !== null || accountNumber !== null || bbanNumber !== null || mobileMoneyOption !== null || preferredPayoutMethod !== null
+    const hasBankFields = paymentOption !== null || mobileNumber !== null || agentNumber !== null ||
+      bankName !== null || bankAddress !== null || accountHolderName !== null || accountNumber !== null ||
+      bbanNumber !== null || branchName !== null || mobileMoneyOption !== null || preferredPayoutMethod !== null ||
+      (bankPassbook && bankPassbook.size > 0) || (bankLetter && bankLetter.size > 0)
 
     if (hasBankFields) {
         let passbookUrl = seller.bankDetails?.passbookUrl || null
         let bankLetterUrl = seller.bankDetails?.bankLetterUrl || null
-
-        const bankPassbook = fd.get("bankPassbook") as File | null
-        const bankLetter = fd.get("bankLetter") as File | null
 
         if (bankPassbook && bankPassbook.size > 0) {
             passbookUrl = await uploadPublicFile({
@@ -317,15 +428,15 @@ export async function PUT(request: NextRequest) {
         })
     }
 
-    const latRaw = (fd.get("storeLat") || fd.get("lat")) as string | null
-    const lngRaw = (fd.get("storeLng") || fd.get("lng")) as string | null
+    const storeLatRaw = (fd.get("storeLat") || fd.get("lat")) as string | null
+    const storeLngRaw = (fd.get("storeLng") || fd.get("lng")) as string | null
     const addressRaw = (fd.get("storeAddress") || fd.get("address")) as string | null
 
     if (addressRaw) storeUpdates.address = addressRaw
 
-    if (latRaw && lngRaw) {
-        const lat = parseFloat(latRaw)
-        const lng = parseFloat(lngRaw)
+    if (storeLatRaw && storeLngRaw) {
+        const lat = parseFloat(storeLatRaw)
+        const lng = parseFloat(storeLngRaw)
         if (!isNaN(lat) && !isNaN(lng)) {
             storeUpdates.lat = lat
             storeUpdates.lng = lng
@@ -513,23 +624,42 @@ export async function PUT(request: NextRequest) {
   if (body.seller && Object.keys(body.seller).length > 0) {
     const s = body.seller as any
     if (s.businessInfo) {
-        if (s.businessInfo.haveGst !== undefined) {
-            const h = s.businessInfo.haveGst === "true" || s.businessInfo.haveGst === true;
-            s.businessInfo.haveGst = h;
-            if (!h) {
-                // TIN is always required, do NOT clear it when GST is off
-                s.businessInfo.gstInvNo = null;
-                s.businessInfo.gstCustomerName = null;
-            }
+      const allowedBusFields = [
+        "businessName", "businessType", "businessRegNumber", "taxIdNumber",
+        "busRegCertUrl", "cityCouncilCertUrl", "gstTinCertUrl", "addressProofUrl",
+        "street", "city", "district", "postalCode", "state", "natureOfBusiness",
+        "haveGst", "gstInvNo", "gstCustomerName", "latitude", "longitude", "yearsInOperation"
+      ]
+      const cleanBusInfo: any = {}
+      for (const key of allowedBusFields) {
+        if (s.businessInfo[key] !== undefined && (typeof s.businessInfo[key] !== "object" || s.businessInfo[key] === null)) {
+          cleanBusInfo[key] = s.businessInfo[key]
         }
+      }
+      if (s.businessInfo.haveGst !== undefined) {
+        const h = s.businessInfo.haveGst === "true" || s.businessInfo.haveGst === true
+        cleanBusInfo.haveGst = h
+        if (!h) {
+          cleanBusInfo.gstInvNo = null
+          cleanBusInfo.gstCustomerName = null
+        }
+      }
+      if (Object.keys(cleanBusInfo).length > 0) {
         await (prisma as any).sellerBusinessInfo.upsert({
-            where: { sellerId: seller.id },
-            update: s.businessInfo,
-            create: { ...s.businessInfo, sellerId: seller.id }
+          where: { sellerId: seller.id },
+          update: cleanBusInfo,
+          create: { ...cleanBusInfo, sellerId: seller.id }
         })
+      }
     }
     if (s.bankDetails) {
-        const { data: bankData, error: valErr } = validateAndFormatPaymentDetails(s.bankDetails, { requireFields: false })
+        const existingBank = seller.bankDetails
+        const bankInput = {
+            ...s.bankDetails,
+            passbookUrl: s.bankDetails.passbookUrl !== undefined ? s.bankDetails.passbookUrl : (existingBank?.passbookUrl || null),
+            bankLetterUrl: s.bankDetails.bankLetterUrl !== undefined ? s.bankDetails.bankLetterUrl : (existingBank?.bankLetterUrl || null),
+        }
+        const { data: bankData, error: valErr } = validateAndFormatPaymentDetails(bankInput, { requireFields: false })
         if (valErr) {
             return NextResponse.json({ error: valErr }, { status: 400 })
         }
@@ -540,11 +670,20 @@ export async function PUT(request: NextRequest) {
         })
     }
     if (s.kyc) {
+      const allowedKycFields = ["idType", "idNumber", "idFrontUrl", "idBackUrl", "selfieUrl"]
+      const cleanKyc: any = {}
+      for (const key of allowedKycFields) {
+        if (typeof s.kyc[key] === "string") {
+          cleanKyc[key] = s.kyc[key].trim() || null
+        }
+      }
+      if (Object.keys(cleanKyc).length > 0) {
         await (prisma as any).sellerKYC.upsert({
-            where: { sellerId: seller.id },
-            update: s.kyc,
-            create: { ...s.kyc, sellerId: seller.id }
+          where: { sellerId: seller.id },
+          update: cleanKyc,
+          create: { ...cleanKyc, sellerId: seller.id }
         })
+      }
     }
 
     const sellerData: any = {}
