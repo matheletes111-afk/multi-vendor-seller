@@ -35,6 +35,11 @@ type Order = {
   status: string
   hasReturnFlag?: boolean
   totalAmount: number
+  itemGross?: number
+  sellerNet?: number
+  subtotal?: number
+  tax?: number
+  shipping?: number
   commissionRate: number
   commission: number
   createdAt: string
@@ -274,67 +279,90 @@ export function OrdersClient() {
                   <TableHead className="hidden md:table-cell">Customer</TableHead>
                   <TableHead className="hidden lg:table-cell">Items</TableHead>
                   <TableHead className="hidden sm:table-cell">Date</TableHead>
-                  <TableHead className="text-right">Total</TableHead>
+                  <TableHead className="text-right">Customer Total</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="hidden xl:table-cell text-right">Commission</TableHead>
+                  <TableHead className="text-right font-bold text-emerald-600">Net Payout</TableHead>
                   <TableHead className="text-right w-[100px]">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {orders.map((order) => (
-                  <TableRow key={order.id}>
-                    <TableCell className="font-medium">
-                      <Link href={`/product-seller/orders/${order.id}`} className="hover:underline">
-                        #{order.orderNumber}
-                      </Link>
-                      {order.hasReturnFlag ? (
-                        <Badge variant="destructive" className="ml-2 text-[10px] uppercase tracking-wide">
-                          Return
+                {orders.map((order) => {
+                  const itemGrossVal = order.itemGross ?? ((order.subtotal ?? 0) + (order.tax ?? 0))
+                  const netPayoutVal = order.sellerNet ?? Math.max(0, itemGrossVal - order.commission)
+
+                  return (
+                    <TableRow key={order.id}>
+                      <TableCell className="font-medium">
+                        <Link href={`/product-seller/orders/${order.id}`} className="hover:underline">
+                          #{order.orderNumber}
+                        </Link>
+                        {order.hasReturnFlag ? (
+                          <Badge variant="destructive" className="ml-2 text-[10px] uppercase tracking-wide">
+                            Return
+                          </Badge>
+                        ) : null}
+                        <p className="text-xs text-muted-foreground md:hidden mt-0.5 flex items-center gap-1">
+                          <User className="h-3 w-3" />
+                          {order.customer.name || order.customer.email}
+                        </p>
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell text-sm text-muted-foreground">
+                        <span className="flex items-center gap-1">
+                          <User className="h-3 w-3 shrink-0" />
+                          {order.customer.name || order.customer.email}
+                        </span>
+                      </TableCell>
+                      <TableCell className="hidden lg:table-cell max-w-[240px]">
+                        <span className="flex items-start gap-1 text-sm text-muted-foreground line-clamp-2">
+                          <Package className="h-3 w-3 shrink-0 mt-0.5" />
+                          {itemSummary(order)}
+                        </span>
+                      </TableCell>
+                      <TableCell className="hidden sm:table-cell text-muted-foreground text-sm whitespace-nowrap">
+                        {formatDate(order.createdAt)}
+                      </TableCell>
+                      <TableCell className="text-right whitespace-nowrap">
+                        <div className="font-bold text-foreground tabular-nums">{formatCurrency(order.totalAmount)}</div>
+                        {itemGrossVal > 0 && (
+                          <div className="text-[10px] text-muted-foreground/80">
+                            Item: {formatCurrency(itemGrossVal)}
+                          </div>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="capitalize whitespace-nowrap">
+                          {order.status.toLowerCase().replace(/_/g, " ")}
                         </Badge>
-                      ) : null}
-                      <p className="text-xs text-muted-foreground md:hidden mt-0.5 flex items-center gap-1">
-                        <User className="h-3 w-3" />
-                        {order.customer.name || order.customer.email}
-                      </p>
-                    </TableCell>
-                    <TableCell className="hidden md:table-cell text-sm text-muted-foreground">
-                      <span className="flex items-center gap-1">
-                        <User className="h-3 w-3 shrink-0" />
-                        {order.customer.name || order.customer.email}
-                      </span>
-                    </TableCell>
-                    <TableCell className="hidden lg:table-cell max-w-[240px]">
-                      <span className="flex items-start gap-1 text-sm text-muted-foreground line-clamp-2">
-                        <Package className="h-3 w-3 shrink-0 mt-0.5" />
-                        {itemSummary(order)}
-                      </span>
-                    </TableCell>
-                    <TableCell className="hidden sm:table-cell text-muted-foreground text-sm whitespace-nowrap">
-                      {formatDate(order.createdAt)}
-                    </TableCell>
-                    <TableCell className="text-right font-medium whitespace-nowrap">{formatCurrency(order.totalAmount)}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="capitalize whitespace-nowrap">
-                        {order.status.toLowerCase().replace(/_/g, " ")}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="hidden xl:table-cell text-right text-sm text-muted-foreground whitespace-nowrap">
-                      -{formatCurrency(order.commission)} ({order.commissionRate}%)
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button variant="outline" size="sm" asChild>
-                          <Link href={`/product-seller/orders/${order.id}`}>View</Link>
-                        </Button>
-                        <Button variant="outline" size="sm" asChild className="border-primary/20 hover:bg-primary/5 text-primary">
-                          <Link href={`/product-seller/orders/${order.id}/invoice`} target="_blank">
-                            Invoice
-                          </Link>
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                      </TableCell>
+                      <TableCell className="hidden xl:table-cell text-right whitespace-nowrap">
+                        <div className="font-semibold text-rose-600 dark:text-rose-400 tabular-nums">
+                          -{formatCurrency(order.commission)}
+                        </div>
+                        <div className="text-[10px] text-muted-foreground">
+                          {order.commissionRate}% of {formatCurrency(itemGrossVal > 0 ? itemGrossVal : order.totalAmount)}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right whitespace-nowrap">
+                        <span className="font-black text-emerald-600 dark:text-emerald-400 tabular-nums text-sm">
+                          {formatCurrency(netPayoutVal)}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-2">
+                          <Button variant="outline" size="sm" asChild>
+                            <Link href={`/product-seller/orders/${order.id}`}>View</Link>
+                          </Button>
+                          <Button variant="outline" size="sm" asChild className="border-primary/20 hover:bg-primary/5 text-primary">
+                            <Link href={`/product-seller/orders/${order.id}/invoice`} target="_blank">
+                              Invoice
+                            </Link>
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
               </TableBody>
             </Table>
           </div>

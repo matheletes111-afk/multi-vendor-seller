@@ -115,7 +115,10 @@ export type SellerOrderDetailApi = {
   deliveryFeeEarned?: number
   customerPaidShipping?: number
   isSelfDelivery?: boolean
+  itemGross?: number
+  itemTotalWithShipping?: number
   sellerNet?: number
+  netRevenue?: number
   netEarnings?: number
   activeDeliveryTracking?: any
 }

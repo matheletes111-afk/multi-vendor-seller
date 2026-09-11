@@ -587,29 +587,35 @@ export function ProductSellerOrderDetailClient({ orderId }: { orderId: string })
 
                           return (
                             <>
-                              <div className="flex flex-wrap items-center justify-between gap-4 p-4 rounded-2xl bg-muted/30 border border-muted/20 mt-4">
-                                <div className="space-y-1 min-w-[90px]">
+                              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 p-4 rounded-2xl bg-muted/30 border border-muted/20 mt-4">
+                                <div className="space-y-1">
                                   <p className="text-[10px] uppercase font-black text-muted-foreground tracking-wider">Quantity</p>
                                   <p className="text-base font-bold tabular-nums text-foreground">{item.quantity} units</p>
                                 </div>
-                                <div className="space-y-1 min-w-[100px]">
+                                <div className="space-y-1">
                                   <p className="text-[10px] uppercase font-black text-muted-foreground tracking-wider">Unit Price</p>
                                   <p className="text-base font-bold tabular-nums text-primary">{formatCurrency(effectiveUnitPrice)}</p>
                                 </div>
-                                <div className="space-y-1 min-w-[90px]">
+                                <div className="space-y-1">
                                   <p className="text-[10px] uppercase font-black text-muted-foreground tracking-wider">Tax (GST)</p>
                                   <p className={cn("text-base font-bold tabular-nums", item.hasGst ? "text-emerald-600" : "text-muted-foreground")}>
                                     {item.hasGst ? formatCurrency(item.gstAmount) : "N/A"}
                                   </p>
                                 </div>
-                                <div className="space-y-1 min-w-[110px]">
-                                  <p className="text-[10px] uppercase font-black text-muted-foreground tracking-wider">{isSelf ? "Self-Delivery Charge" : "Delivery (Customer Paid)"}</p>
-                                  <p className="text-base font-bold tabular-nums text-orange-600">{formatCurrency(deliveryBoyCharge)}</p>
+                                <div className="space-y-1 bg-emerald-500/10 p-2.5 rounded-xl border border-emerald-500/30">
+                                  <p className="text-[10px] uppercase font-black text-emerald-700 dark:text-emerald-300 tracking-wider">Item Gross (Price+GST)</p>
+                                  <p className="text-base font-black tabular-nums text-emerald-600 dark:text-emerald-400">{formatCurrency(grossItemVal)}</p>
+                                  <span className="text-[9px] text-emerald-700 dark:text-emerald-300 font-bold block leading-tight">★ 10% Commission Base</span>
                                 </div>
-                                <div className="space-y-1 min-w-[120px]">
-                                  <p className="text-[10px] uppercase font-black text-muted-foreground tracking-wider">Item Total</p>
+                                <div className="space-y-1">
+                                  <p className="text-[10px] uppercase font-black text-muted-foreground tracking-wider">{isSelf ? "Self-Delivery" : "Delivery Charge"}</p>
+                                  <p className="text-base font-bold tabular-nums text-orange-600">{formatCurrency(deliveryBoyCharge)}</p>
+                                  <span className="text-[9px] text-muted-foreground/70 font-medium block leading-none">{isSelf ? "Earned by Seller" : "Paid by Customer"}</span>
+                                </div>
+                                <div className="space-y-1">
+                                  <p className="text-[10px] uppercase font-black text-muted-foreground tracking-wider">Customer Total</p>
                                   <p className="text-lg font-black tabular-nums text-foreground">{formatCurrency(itemTotalWithDelivery)}</p>
-                                  <span className="text-[9px] text-muted-foreground/70 font-medium block leading-none">Price + Tax + Delivery</span>
+                                  <span className="text-[9px] text-muted-foreground/70 font-medium block leading-none">Item Gross + Delivery</span>
                                 </div>
                               </div>
 
@@ -625,89 +631,123 @@ export function ProductSellerOrderDetailClient({ orderId }: { orderId: string })
                                       Commission Rate: {item.commissionRateSnapshot}%
                                     </Badge>
                                     <Badge variant="outline" className="bg-blue-500/10 text-blue-300 border-blue-500/30 font-semibold text-[10px]">
-                                      Commission on Item Amount Only (Excl. Delivery)
+                                      Calculated on Item Value Only (Excl. Delivery)
                                     </Badge>
                                   </div>
                                 </div>
 
                                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-1">
-                                  <div className="space-y-1.5 bg-slate-800/60 p-3.5 rounded-xl border border-slate-700/50">
-                                    <div className="flex items-center justify-between">
-                                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Item Total (Paid)</span>
-                                      <span className="text-[9px] text-emerald-400 font-semibold">Gross</span>
-                                    </div>
-                                    <p className="text-base font-bold text-slate-100 tabular-nums">
-                                      {formatCurrency(itemTotalWithDelivery)}
-                                    </p>
-                                    <p className="text-[10px] text-slate-400 leading-tight">
-                                      Price + GST + Delivery Fee
-                                    </p>
-                                  </div>
-
-                                  <div className="space-y-1.5 bg-rose-500/10 p-3.5 rounded-xl border border-rose-500/20">
-                                    <div className="flex items-center justify-between">
-                                      <span className="text-[10px] font-bold uppercase tracking-wider text-rose-300">Platform Fee ({item.commissionRateSnapshot}%)</span>
-                                      <span className="text-[9px] text-rose-400 font-semibold">Deduction</span>
-                                    </div>
-                                    <p className="text-base font-bold text-rose-400 tabular-nums">
-                                      -{formatCurrency(platformFee)}
-                                    </p>
-                                    <p className="text-[10px] text-rose-300/80 leading-tight">
-                                      {item.commissionRateSnapshot}% on {formatCurrency(grossItemVal)} (No fee on delivery)
-                                    </p>
-                                  </div>
-
-                                  {isSelf ? (
-                                    <div className="space-y-1.5 bg-emerald-500/10 p-3.5 rounded-xl border border-emerald-500/20">
-                                      <div className="flex items-center justify-between">
-                                        <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-300">In-House Delivery</span>
-                                        <span className="text-[9px] text-emerald-400 font-semibold">+Earned</span>
+                                  {/* Card 1: Item Value (Commission Base) */}
+                                  <div className="flex flex-col justify-between bg-slate-800/60 p-4 rounded-xl border border-slate-700/50 space-y-2">
+                                    <div className="space-y-1">
+                                      <div className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                                        1. Item Gross Value
                                       </div>
-                                      <p className="text-base font-bold text-emerald-400 tabular-nums">
-                                        +{formatCurrency(deliveryBoyCharge)}
+                                      <p className="text-2xl font-black text-slate-100 tabular-nums">
+                                        {formatCurrency(grossItemVal)}
                                       </p>
-                                      <p className="text-[10px] text-emerald-300/80 leading-tight">
-                                        Retained by seller for in-house fulfillment
+                                    </div>
+                                    <div className="space-y-1 pt-1 border-t border-slate-700/40">
+                                      <span className="inline-block px-1.5 py-0.5 rounded text-[9px] font-black uppercase bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                                        10% Commission Base
+                                      </span>
+                                      <p className="text-[10px] text-slate-400 font-medium leading-tight">
+                                        Unit Price ({formatCurrency(effectiveUnitPrice)}) + Tax ({formatCurrency(item.gstAmount)})
                                       </p>
+                                    </div>
+                                  </div>
+
+                                  {/* Card 2: Platform Fee */}
+                                  <div className="flex flex-col justify-between bg-rose-500/10 p-4 rounded-xl border border-rose-500/20 space-y-2">
+                                    <div className="space-y-1">
+                                      <div className="text-[10px] font-black uppercase tracking-wider text-rose-300">
+                                        2. Platform Fee ({item.commissionRateSnapshot}%)
+                                      </div>
+                                      <p className="text-2xl font-black text-rose-400 tabular-nums">
+                                        -{formatCurrency(platformFee)}
+                                      </p>
+                                    </div>
+                                    <div className="space-y-1 pt-1 border-t border-rose-500/20">
+                                      <span className="inline-block px-1.5 py-0.5 rounded text-[9px] font-black uppercase bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                                        Deduction
+                                      </span>
+                                      <p className="text-[10px] text-rose-300/80 font-medium leading-tight">
+                                        {item.commissionRateSnapshot}% of {formatCurrency(grossItemVal)} (No fee on delivery)
+                                      </p>
+                                    </div>
+                                  </div>
+
+                                  {/* Card 3: Delivery Charge */}
+                                  {isSelf ? (
+                                    <div className="flex flex-col justify-between bg-emerald-500/10 p-4 rounded-xl border border-emerald-500/20 space-y-2">
+                                      <div className="space-y-1">
+                                        <div className="text-[10px] font-black uppercase tracking-wider text-emerald-300">
+                                          3. In-House Delivery
+                                        </div>
+                                        <p className="text-2xl font-black text-emerald-400 tabular-nums">
+                                          +{formatCurrency(deliveryBoyCharge)}
+                                        </p>
+                                      </div>
+                                      <div className="space-y-1 pt-1 border-t border-emerald-500/20">
+                                        <span className="inline-block px-1.5 py-0.5 rounded text-[9px] font-black uppercase bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                                          Earned by Seller
+                                        </span>
+                                        <p className="text-[10px] text-emerald-300/80 font-medium leading-tight">
+                                          Added to net payout for shop fulfillment
+                                        </p>
+                                      </div>
                                     </div>
                                   ) : (
-                                    <div className="space-y-1.5 bg-amber-500/10 p-3.5 rounded-xl border border-amber-500/20">
-                                      <div className="flex items-center justify-between">
-                                        <span className="text-[10px] font-bold uppercase tracking-wider text-amber-300">Delivery Charge</span>
-                                        <span className="text-[9px] text-amber-400 font-bold bg-amber-950/60 px-1.5 py-0.5 rounded border border-amber-800/30">Rider Payout</span>
+                                    <div className="flex flex-col justify-between bg-slate-800/60 p-4 rounded-xl border border-slate-700/50 space-y-2">
+                                      <div className="space-y-1">
+                                        <div className="text-[10px] font-black uppercase tracking-wider text-slate-300">
+                                          3. Delivery Fulfillment
+                                        </div>
+                                        <p className="text-2xl font-black text-orange-400 tabular-nums">
+                                          {formatCurrency(deliveryBoyCharge)}
+                                        </p>
                                       </div>
-                                      <p className="text-base font-bold text-amber-400 tabular-nums">
-                                        -{formatCurrency(deliveryBoyCharge)}
-                                      </p>
-                                      <p className="text-[10px] text-amber-300/80 leading-tight">
-                                        Forwarded to platform rider for delivery
-                                      </p>
+                                      <div className="space-y-1 pt-1 border-t border-slate-700/40">
+                                        <span className="inline-block px-1.5 py-0.5 rounded text-[9px] font-black uppercase bg-slate-700 text-slate-300 border border-slate-600">
+                                          Platform Rider
+                                        </span>
+                                        <p className="text-[10px] text-slate-400 font-medium leading-tight">
+                                          Customer paid • NLe 0.00 deducted from seller
+                                        </p>
+                                      </div>
                                     </div>
                                   )}
 
-                                  <div className="space-y-1.5 bg-emerald-500/15 p-3.5 rounded-xl border border-emerald-500/30">
-                                    <div className="flex items-center justify-between">
-                                      <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-300">Net Seller Revenue</span>
-                                      <span className="text-[9px] text-emerald-400 font-bold bg-emerald-500/20 px-1.5 py-0.5 rounded">Settled</span>
+                                  {/* Card 4: Net Revenue */}
+                                  <div className="flex flex-col justify-between bg-emerald-500/15 p-4 rounded-xl border border-emerald-500/30 space-y-2">
+                                    <div className="space-y-1">
+                                      <div className="text-[10px] font-black uppercase tracking-wider text-emerald-300">
+                                        4. Net Seller Revenue
+                                      </div>
+                                      <p className="text-2xl font-black text-emerald-400 tabular-nums">
+                                        {formatCurrency(netPayoutVal)}
+                                      </p>
                                     </div>
-                                    <p className="text-lg font-black text-emerald-400 tabular-nums">
-                                      {formatCurrency(netPayoutVal)}
-                                    </p>
-                                    <p className="text-[10px] text-emerald-300/80 leading-tight">
-                                      Credited to seller wallet balance
-                                    </p>
+                                    <div className="space-y-1 pt-1 border-t border-emerald-500/30">
+                                      <span className="inline-block px-1.5 py-0.5 rounded text-[9px] font-black uppercase bg-emerald-500/25 text-emerald-300 border border-emerald-500/40">
+                                        Wallet Balance
+                                      </span>
+                                      <p className="text-[10px] text-emerald-300/90 font-medium leading-tight">
+                                        Credited directly to your seller account
+                                      </p>
+                                    </div>
                                   </div>
                                 </div>
 
-                                <div className="pt-3 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-300 bg-slate-950/40 p-3 rounded-xl border border-slate-800/50">
+                                <div className="pt-3 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-300 bg-slate-950/40 p-3.5 rounded-xl border border-slate-800/50">
                                   <div className="flex items-start gap-2 flex-1 min-w-[240px]">
-                                    <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-bold shrink-0 mt-0.5">✓</span>
-                                    <p className="leading-relaxed">
-                                      <strong>Commission Policy:</strong> {item.commissionRateSnapshot}% platform fee is calculated <strong>only on the item gross amount ({formatCurrency(grossItemVal)})</strong>. Delivery fee of {formatCurrency(deliveryBoyCharge)} is paid by the customer and forwarded to the delivery rider.
+                                    <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-bold shrink-0 mt-0.5">✓</span>
+                                    <p className="leading-relaxed text-[11px]">
+                                      <strong>Commission Rule:</strong> {item.commissionRateSnapshot}% fee applies <strong>strictly to Item Value ({formatCurrency(grossItemVal)})</strong>. Delivery charge of {formatCurrency(deliveryBoyCharge)} is paid by customer directly for rider dispatch and is <strong>not deducted from seller revenue</strong>.
                                     </p>
                                   </div>
-                                  <div className="font-mono text-[11px] text-emerald-400 bg-emerald-950/60 px-3 py-1.5 rounded-lg border border-emerald-800/40 whitespace-nowrap">
-                                    Formula: {formatCurrency(itemTotalWithDelivery)} − {formatCurrency(platformFee)} {isSelf ? "" : `− ${formatCurrency(deliveryBoyCharge)}`} = {formatCurrency(netPayoutVal)}
+                                  <div className="font-mono text-xs text-emerald-400 bg-emerald-950/60 px-3.5 py-1.5 rounded-lg border border-emerald-800/40 whitespace-nowrap font-bold">
+                                    Net Revenue = {formatCurrency(grossItemVal)} − {formatCurrency(platformFee)} = {formatCurrency(netPayoutVal)}
                                   </div>
                                 </div>
                               </div>
@@ -1526,65 +1566,167 @@ export function ProductSellerOrderDetailClient({ orderId }: { orderId: string })
                       </AlertDescription>
                     </Alert>
                   )}
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center px-1">
-                      <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/40">Subtotal Gross</span>
-                      <span className="font-bold tabular-nums text-foreground/80">
-                         {formatCurrency(priceBreakdown.kind === "exchange" ? priceBreakdown.displaySubtotal : order.subtotal)}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center px-1">
-                      <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/40">Tax Contribution</span>
-                      <span className="font-bold tabular-nums text-emerald-600/80">
-                         {formatCurrency(priceBreakdown.kind === "exchange" ? priceBreakdown.displayTax : order.tax)}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center px-1">
-                      <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/40">Delivery Charge</span>
-                      <span className="font-bold tabular-nums text-foreground/80">
-                        {order.shipping <= 0 ? (
-                          <span className="font-bold text-emerald-600">FREE</span>
-                        ) : (
-                          formatCurrency(order.shipping)
-                        )}
-                      </span>
+                  {/* Financial Breakdown: Customer Paid vs Seller Payout */}
+                  <div className="space-y-4">
+                    {/* A. Customer Invoice Charges */}
+                    <div className="space-y-2.5">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 px-1">
+                        Customer Invoice Breakdown
+                      </p>
+                      <div className="flex justify-between items-center px-1 text-xs">
+                        <span className="text-muted-foreground font-medium">Unit Price Subtotal</span>
+                        <span className="font-bold tabular-nums text-foreground/80">
+                          {formatCurrency(priceBreakdown.kind === "exchange" ? priceBreakdown.displaySubtotal : order.subtotal)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center px-1 text-xs">
+                        <span className="text-muted-foreground font-medium">Tax Contribution (GST)</span>
+                        <span className="font-bold tabular-nums text-emerald-600">
+                          +{formatCurrency(priceBreakdown.kind === "exchange" ? priceBreakdown.displayTax : order.tax)}
+                        </span>
+                      </div>
+
+                      {/* Prominently highlight Item Gross as the Commission Base */}
+                      {(() => {
+                        const orderItemGross = (priceBreakdown.kind === "exchange" ? priceBreakdown.displaySubtotal + priceBreakdown.displayTax : order.subtotal + order.tax)
+                        return (
+                          <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-between">
+                            <div>
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-xs font-bold text-emerald-800 dark:text-emerald-300">Item Gross Value</span>
+                                <Badge variant="outline" className="text-[9px] font-black uppercase px-1.5 py-0 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30">
+                                  {order.commissionRate}% Commission Base
+                                </Badge>
+                              </div>
+                              <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">Unit Price + GST</p>
+                            </div>
+                            <span className="text-base font-black tabular-nums text-emerald-700 dark:text-emerald-300">
+                              {formatCurrency(orderItemGross)}
+                            </span>
+                          </div>
+                        )
+                      })()}
+
+                      <div className="flex justify-between items-center px-1 text-xs">
+                        <div className="space-y-0.5">
+                          <span className="text-muted-foreground font-medium block">Delivery Charge</span>
+                          <span className="text-[10px] text-muted-foreground/60 block">
+                            {isSelfDelivery ? "Fulfilled by Seller" : "Platform Rider (Paid to Rider)"}
+                          </span>
+                        </div>
+                        <span className="font-bold tabular-nums text-orange-600">
+                          {order.shipping <= 0 ? (
+                            <span className="font-bold text-emerald-600">FREE</span>
+                          ) : (
+                            formatCurrency(order.shipping)
+                          )}
+                        </span>
+                      </div>
+
+                      {priceBreakdown.kind === "exchange" && priceBreakdown.topUp > 0.01 && (
+                        <div className="flex justify-between items-center px-1 text-xs">
+                          <span className="text-amber-600 font-medium">Exchange Top-up</span>
+                          <span className="font-bold tabular-nums text-amber-600">{formatCurrency(priceBreakdown.topUp)}</span>
+                        </div>
+                      )}
+
+                      {priceBreakdown.kind === "exchange" && priceBreakdown.walletCredit > 0.01 && (
+                        <div className="flex justify-between items-center px-1 text-xs">
+                          <span className="text-sky-600 font-medium">Wallet Reimbursement</span>
+                          <span className="font-bold tabular-nums text-sky-600">{formatCurrency(priceBreakdown.walletCredit)}</span>
+                        </div>
+                      )}
+
+                      {(order.couponDiscount ?? 0) > 0 && (
+                        <div className="flex justify-between items-center px-1 text-xs text-emerald-600 font-bold">
+                          <span>Coupon Discount ({order.couponCode})</span>
+                          <span className="tabular-nums">-{formatCurrency(order.couponDiscount!)}</span>
+                        </div>
+                      )}
+
+                      <div className="flex justify-between items-center px-1 pt-2 border-t border-muted/20 text-xs">
+                        <span className="font-semibold text-muted-foreground">Total Paid by Customer</span>
+                        <span className="font-black tabular-nums text-foreground">
+                          {formatCurrency(priceBreakdown.kind === "exchange" ? priceBreakdown.effectiveGrandTotal : order.totalAmount)}
+                        </span>
+                      </div>
                     </div>
 
-                    {priceBreakdown.kind === "exchange" && priceBreakdown.topUp > 0.01 && (
-                      <div className="flex justify-between items-center px-1">
-                        <span className="text-[10px] font-black uppercase tracking-widest text-amber-600/60">Exchange Top-up</span>
-                        <span className="font-bold tabular-nums text-amber-600/80">{formatCurrency(priceBreakdown.topUp)}</span>
+                    {/* B. Seller Payout Math Strip */}
+                    <div className="space-y-2 pt-2 border-t border-muted/20">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 px-1">
+                        Seller Net Settlement Calculation
+                      </p>
+                      <div className="flex justify-between items-center px-1 text-xs">
+                        <span className="text-muted-foreground font-medium">Item Gross Value</span>
+                        <span className="font-bold tabular-nums text-foreground">
+                          {formatCurrency(order.subtotal + order.tax)}
+                        </span>
                       </div>
-                    )}
-                    
-                    {priceBreakdown.kind === "exchange" && priceBreakdown.walletCredit > 0.01 && (
-                      <div className="flex justify-between items-center px-1">
-                        <span className="text-[10px] font-black uppercase tracking-widest text-sky-600/60">Wallet Reimbursement</span>
-                        <span className="font-bold tabular-nums text-sky-600/80">{formatCurrency(priceBreakdown.walletCredit)}</span>
+                      <div className="flex justify-between items-center px-1 text-xs">
+                        <div className="space-y-0.5">
+                          <span className="text-rose-600 dark:text-rose-400 font-medium block">
+                            Platform Fee ({order.commissionRate}%)
+                          </span>
+                          <span className="text-[10px] text-muted-foreground/60 block">
+                            {order.commissionRate}% of {formatCurrency(order.subtotal + order.tax)} (No fee on delivery)
+                          </span>
+                        </div>
+                        <span className="font-bold tabular-nums text-rose-600 dark:text-rose-400">
+                          -{formatCurrency(order.commission)}
+                        </span>
                       </div>
-                    )}
-
-                    {(order.couponDiscount ?? 0) > 0 && (
-                      <div className="flex justify-between items-center px-1 text-emerald-600 font-bold">
-                        <span className="text-[10px] font-black uppercase tracking-widest">Coupon Discount ({order.couponCode})</span>
-                        <span className="tabular-nums">-{formatCurrency(order.couponDiscount!)}</span>
-                      </div>
-                    )}
-                  </div>
-                  
-                  <div className="relative p-6 rounded-[2rem] bg-foreground text-background shadow-xl overflow-hidden group hover:scale-[1.02] transition-transform duration-500">
-                    <div className="absolute inset-0 bg-gradient-to-br from-primary/20 via-transparent to-transparent opacity-50"></div>
-                    <div className="relative flex justify-between items-center">
-                       <div className="space-y-1">
-                          <p className="text-[10px] font-bold uppercase tracking-wider text-white/40">Settlement Total</p>
-                          <p className="text-3xl font-bold tabular-nums tracking-tight">
-                             {formatCurrency(priceBreakdown.kind === "exchange" ? priceBreakdown.effectiveGrandTotal : order.totalAmount)}
-                          </p>
-                       </div>
-                       <div className="h-12 w-12 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center">
-                          <Wallet className="w-6 h-6 text-white" />
-                       </div>
+                      {isSelfDelivery && (
+                        <div className="flex justify-between items-center px-1 text-xs">
+                          <span className="text-emerald-600 font-medium">Delivery Charge (Self-Fulfillment)</span>
+                          <span className="font-bold tabular-nums text-emerald-600">
+                            +{formatCurrency(order.shipping)}
+                          </span>
+                        </div>
+                      )}
                     </div>
+
+                    {/* C. Net Seller Payout Banner (Replacing ambiguous Settlement Total) */}
+                    {(() => {
+                      const netSellerAmount = order.sellerNet ?? (
+                        isSelfDelivery
+                          ? Math.max(0, (order.subtotal + order.tax) + order.shipping - order.commission)
+                          : Math.max(0, (order.subtotal + order.tax) - order.commission)
+                      )
+                      const itemGross = order.subtotal + order.tax
+
+                      return (
+                        <div className="relative p-6 rounded-3xl bg-slate-900 text-white shadow-2xl overflow-hidden border border-slate-800">
+                          <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none"></div>
+                          <div className="relative flex justify-between items-start">
+                            <div className="space-y-1">
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400">
+                                Net Seller Payout
+                              </span>
+                              <p className="text-3xl font-black tabular-nums tracking-tight text-emerald-400">
+                                {formatCurrency(netSellerAmount)}
+                              </p>
+                              <p className="text-[11px] text-slate-300 font-medium">
+                                Credited to your seller wallet
+                              </p>
+                            </div>
+                            <div className="h-11 w-11 rounded-2xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+                              <Wallet className="w-5 h-5" />
+                            </div>
+                          </div>
+
+                          <div className="mt-4 pt-3 border-t border-slate-800 space-y-1 text-[11px] text-slate-400">
+                            <div className="flex items-center justify-between font-mono text-[10px] text-slate-300 bg-slate-950/60 px-2.5 py-1 rounded-lg border border-slate-800">
+                              <span>Formula:</span>
+                              <span>{formatCurrency(itemGross)} − {formatCurrency(order.commission)} = {formatCurrency(netSellerAmount)}</span>
+                            </div>
+                            <p className="text-[10px] text-slate-400/80 pt-1 leading-tight">
+                              Customer paid {formatCurrency(order.totalAmount)} total (Includes {formatCurrency(order.shipping)} platform rider delivery fee).
+                            </p>
+                          </div>
+                        </div>
+                      )
+                    })()}
                   </div>
                 </div>
               </div>
