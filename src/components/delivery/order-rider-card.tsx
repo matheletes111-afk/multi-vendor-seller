@@ -415,33 +415,33 @@ export function OrderRiderCard({
   })
 
   return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between px-1">
-        <h4 className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-foreground/70">
-          <Bike className="w-3.5 h-3.5 text-blue-600" />
-          Delivery Rider Assignment
+    <div className="space-y-3 min-w-0">
+      <div className="flex flex-wrap items-center justify-between gap-2 px-1 min-w-0">
+        <h4 className="flex items-center gap-2 text-[10px] font-black uppercase tracking-wider text-foreground/70 min-w-0">
+          <Bike className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+          <span className="truncate">Delivery Rider Assignment</span>
         </h4>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
           {aiVehicleRecommendation && !isSelfDelivery && (
-            <Badge className="bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border border-indigo-500/20 text-[9px] font-black uppercase tracking-wider py-0.5 px-2 rounded-full flex items-center gap-1">
-              <Sparkles className="w-2.5 h-2.5 text-indigo-600" />
-              Vehicle: {formatVehicleFriendly(aiVehicleRecommendation.requiredVehicle)}
+            <Badge className="bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border border-indigo-500/20 text-[9px] font-black uppercase tracking-wider py-0.5 px-2 rounded-full flex items-center gap-1 shrink-0">
+              <Sparkles className="w-2.5 h-2.5 text-indigo-600 shrink-0" />
+              <span>Vehicle: {formatVehicleFriendly(aiVehicleRecommendation.requiredVehicle)}</span>
             </Badge>
           )}
           {activeAssignment && (
             isDelivered ? (
-              <span className="flex items-center gap-1.5 text-[10px] font-bold text-emerald-600">
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Delivery Completed
+              <span className="flex items-center gap-1.5 text-[10px] font-bold text-emerald-600 shrink-0">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" /> Delivery Completed
               </span>
             ) : (
-              <span className="flex items-center gap-1.5 text-[10px] font-bold text-emerald-600">
-                <Radio className="w-2.5 h-2.5 animate-pulse" /> Live Telemetry
+              <span className="flex items-center gap-1.5 text-[10px] font-bold text-emerald-600 shrink-0">
+                <Radio className="w-2.5 h-2.5 animate-pulse shrink-0" /> Live Telemetry
               </span>
             )
           )}
         </div>
       </div>
-      <div className="rounded-3xl bg-card p-5 space-y-4 border border-border/80 shadow-sm relative overflow-hidden">
+      <div className="rounded-3xl bg-card p-4 sm:p-5 space-y-4 border border-border/80 shadow-sm relative overflow-hidden min-w-0">
         {activeAssignments.length > 1 && (
           <div className="flex gap-1.5 overflow-x-auto pb-1 border-b border-border/40">
             {activeAssignments.map((a: any, i: number) => (
@@ -464,26 +464,26 @@ export function OrderRiderCard({
 
         {/* Active AI Vehicle Matching Summary Banner */}
         {aiVehicleRecommendation && !isSelfDelivery && !isDelivered && (
-          <div className="p-3 rounded-2xl bg-indigo-50/70 dark:bg-indigo-950/30 border border-indigo-200/70 dark:border-indigo-800/50 flex items-center justify-between gap-2.5 text-xs shadow-2xs">
-            <div className="flex items-center gap-2.5 min-w-0">
+          <div className="p-3 rounded-2xl bg-indigo-50/70 dark:bg-indigo-950/30 border border-indigo-200/70 dark:border-indigo-800/50 flex flex-wrap sm:flex-nowrap items-center justify-between gap-2.5 text-xs shadow-2xs min-w-0">
+            <div className="flex items-center gap-2.5 min-w-0 flex-1">
               <div className="p-1.5 rounded-xl bg-indigo-600 text-white shrink-0 shadow-xs">
                 <Sparkles className="w-3.5 h-3.5" />
               </div>
-              <div className="min-w-0">
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="text-[11px] font-black text-indigo-950 dark:text-indigo-100">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+                  <span className="text-[11px] font-black text-indigo-950 dark:text-indigo-100 truncate">
                     Vehicle Needed: {formatVehicleFriendly(aiVehicleRecommendation.requiredVehicle)}
                   </span>
-                  <span className="text-[10px] text-indigo-600 dark:text-indigo-400 font-bold">
+                  <span className="text-[10px] text-indigo-600 dark:text-indigo-400 font-bold shrink-0">
                     (~{aiVehicleRecommendation.estimatedWeightKg?.toFixed(1)} kg)
                   </span>
                 </div>
-                <p className="text-[10px] text-indigo-700/90 dark:text-indigo-300/90 truncate">
+                <p className="text-[10px] text-indigo-700/90 dark:text-indigo-300/90 truncate" title={aiVehicleRecommendation.reason}>
                   {aiVehicleRecommendation.reason}
                 </p>
               </div>
             </div>
-            <Badge variant="outline" className="text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-white/90 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 border-indigo-300 dark:border-indigo-700 shrink-0">
+            <Badge variant="outline" className="text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-white/90 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 border-indigo-300 dark:border-indigo-700 shrink-0 self-start sm:self-center">
               Smart Match
             </Badge>
           </div>
@@ -566,19 +566,19 @@ export function OrderRiderCard({
         ) : (
           <div className="space-y-3">
             {/* Rider Identity Header */}
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <Avatar className="h-12 w-12 border-2 border-primary/20 shrink-0 shadow-xs">
+            <div className="flex items-start justify-between gap-3 min-w-0">
+              <div className="flex items-center gap-3 min-w-0 flex-1">
+                <Avatar className="h-11 w-11 sm:h-12 sm:w-12 border-2 border-primary/20 shrink-0 shadow-xs">
                   <AvatarImage src={rider?.profileImage || riderUser?.image || ""} />
                   <AvatarFallback className="bg-blue-600 text-white font-bold text-sm">
                     {riderUser?.name?.[0] || "R"}
                   </AvatarFallback>
                 </Avatar>
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                   <div className="font-bold text-sm text-foreground truncate flex items-center gap-1.5">
-                    {riderUser?.name || "Delivery Rider"}
+                    <span className="truncate">{riderUser?.name || "Delivery Rider"}</span>
                     {isDelivered ? (
-                      <Badge className="bg-emerald-600 text-white text-[9px] font-bold px-1.5 py-0">Delivered</Badge>
+                      <Badge className="bg-emerald-600 text-white text-[9px] font-bold px-1.5 py-0 shrink-0">Delivered</Badge>
                     ) : isRiderOnline ? (
                       <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block shrink-0" title="Online" />
                     ) : (
@@ -587,14 +587,14 @@ export function OrderRiderCard({
                   </div>
                   <div className="text-xs text-muted-foreground truncate flex items-center gap-1 mt-0.5">
                     <Bike className="w-3 h-3 text-blue-600 shrink-0" />
-                    <span>{rider?.vehicleName || (Array.isArray(rider?.vehicleTypes) ? rider.vehicleTypes[0] : null) || "Standard Delivery"}</span>
+                    <span className="truncate">{rider?.vehicleName || (Array.isArray(rider?.vehicleTypes) ? rider.vehicleTypes[0] : null) || "Standard Delivery"}</span>
                   </div>
                 </div>
               </div>
 
               <Badge
                 className={cn(
-                  "text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wide",
+                  "text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wide shrink-0",
                   isOffered
                     ? secondsLeft === 0
                       ? "bg-amber-600 text-white shadow-amber-600/20"
@@ -692,17 +692,17 @@ export function OrderRiderCard({
                 </span>
               </div>
             ) : !isDelivered && (
-              <div className="p-3 rounded-2xl bg-muted/40 border border-border/40 text-xs flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <span className="text-[10px] font-bold uppercase tracking-wider block text-muted-foreground">
+              <div className="p-3 rounded-2xl bg-muted/40 border border-border/40 text-xs flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 min-w-0">
+                <div className="space-y-0.5 min-w-0 flex-1">
+                  <span className="text-[10px] font-bold uppercase tracking-wider block text-muted-foreground truncate">
                     Customer Handover Verification
                   </span>
-                  <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
-                    <span className="inline-block w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
-                    Secure OTP with Customer
+                  <span className="text-xs font-semibold text-foreground flex items-center gap-1.5 truncate">
+                    <span className="inline-block w-2 h-2 rounded-full bg-blue-500 animate-pulse shrink-0" />
+                    <span className="truncate">Secure OTP with Customer</span>
                   </span>
                 </div>
-                <span className="text-[11px] text-muted-foreground text-right max-w-[210px] leading-tight">
+                <span className="text-[11px] text-muted-foreground text-left sm:text-right max-w-full sm:max-w-[200px] leading-tight shrink-0">
                   Only the customer can see the OTP to share with the rider upon arrival.
                 </span>
               </div>
