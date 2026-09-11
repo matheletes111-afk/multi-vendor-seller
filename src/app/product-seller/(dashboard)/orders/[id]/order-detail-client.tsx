@@ -633,14 +633,14 @@ export function ProductSellerOrderDetailClient({ orderId }: { orderId: string })
                                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-1">
                                   <div className="space-y-1.5 bg-slate-800/60 p-3.5 rounded-xl border border-slate-700/50">
                                     <div className="flex items-center justify-between">
-                                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Item Gross Value</span>
-                                      <span className="text-[9px] text-emerald-400 font-semibold">Base</span>
+                                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Item Total (Paid)</span>
+                                      <span className="text-[9px] text-emerald-400 font-semibold">Gross</span>
                                     </div>
                                     <p className="text-base font-bold text-slate-100 tabular-nums">
-                                      {formatCurrency(grossItemVal)}
+                                      {formatCurrency(itemTotalWithDelivery)}
                                     </p>
                                     <p className="text-[10px] text-slate-400 leading-tight">
-                                      Unit Price + GST (Commission base)
+                                      Price + GST + Delivery Fee
                                     </p>
                                   </div>
 
@@ -653,7 +653,7 @@ export function ProductSellerOrderDetailClient({ orderId }: { orderId: string })
                                       -{formatCurrency(platformFee)}
                                     </p>
                                     <p className="text-[10px] text-rose-300/80 leading-tight">
-                                      {item.commissionRateSnapshot}% of {formatCurrency(grossItemVal)} (No fee on delivery)
+                                      {item.commissionRateSnapshot}% on {formatCurrency(grossItemVal)} (No fee on delivery)
                                     </p>
                                   </div>
 
@@ -667,20 +667,20 @@ export function ProductSellerOrderDetailClient({ orderId }: { orderId: string })
                                         +{formatCurrency(deliveryBoyCharge)}
                                       </p>
                                       <p className="text-[10px] text-emerald-300/80 leading-tight">
-                                        Fulfillment done by seller shop
+                                        Retained by seller for in-house fulfillment
                                       </p>
                                     </div>
                                   ) : (
-                                    <div className="space-y-1.5 bg-slate-800/60 p-3.5 rounded-xl border border-slate-700/50">
+                                    <div className="space-y-1.5 bg-amber-500/10 p-3.5 rounded-xl border border-amber-500/20">
                                       <div className="flex items-center justify-between">
-                                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-300">Delivery Fulfillment</span>
-                                        <span className="text-[9px] text-emerald-400 font-bold bg-emerald-950/60 px-1.5 py-0.5 rounded border border-emerald-800/30">NLe 0.00 Deducted</span>
+                                        <span className="text-[10px] font-bold uppercase tracking-wider text-amber-300">Delivery Charge</span>
+                                        <span className="text-[9px] text-amber-400 font-bold bg-amber-950/60 px-1.5 py-0.5 rounded border border-amber-800/30">Rider Payout</span>
                                       </div>
-                                      <p className="text-base font-bold text-slate-200 tabular-nums flex items-center gap-1.5">
-                                        <span>Platform Rider</span>
+                                      <p className="text-base font-bold text-amber-400 tabular-nums">
+                                        -{formatCurrency(deliveryBoyCharge)}
                                       </p>
-                                      <p className="text-[10px] text-slate-400 leading-tight">
-                                        Paid by Customer ({formatCurrency(deliveryBoyCharge)}) to platform for rider
+                                      <p className="text-[10px] text-amber-300/80 leading-tight">
+                                        Forwarded to platform rider for delivery
                                       </p>
                                     </div>
                                   )}
@@ -703,11 +703,11 @@ export function ProductSellerOrderDetailClient({ orderId }: { orderId: string })
                                   <div className="flex items-start gap-2 flex-1 min-w-[240px]">
                                     <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-bold shrink-0 mt-0.5">✓</span>
                                     <p className="leading-relaxed">
-                                      <strong>Commission Policy:</strong> {item.commissionRateSnapshot}% platform fee is calculated <strong>only on the item gross amount ({formatCurrency(grossItemVal)})</strong>. The delivery fee ({formatCurrency(deliveryBoyCharge)}) paid by the customer is for the rider dispatch and is <strong>not deducted from seller revenue</strong>.
+                                      <strong>Commission Policy:</strong> {item.commissionRateSnapshot}% platform fee is calculated <strong>only on the item gross amount ({formatCurrency(grossItemVal)})</strong>. Delivery fee of {formatCurrency(deliveryBoyCharge)} is paid by the customer and forwarded to the delivery rider.
                                     </p>
                                   </div>
                                   <div className="font-mono text-[11px] text-emerald-400 bg-emerald-950/60 px-3 py-1.5 rounded-lg border border-emerald-800/40 whitespace-nowrap">
-                                    Formula: {formatCurrency(grossItemVal)} − {formatCurrency(platformFee)} {isSelf ? `+ ${formatCurrency(deliveryBoyCharge)}` : ""} = {formatCurrency(netPayoutVal)}
+                                    Formula: {formatCurrency(itemTotalWithDelivery)} − {formatCurrency(platformFee)} {isSelf ? "" : `− ${formatCurrency(deliveryBoyCharge)}`} = {formatCurrency(netPayoutVal)}
                                   </div>
                                 </div>
                               </div>
