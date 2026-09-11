@@ -35,6 +35,8 @@ import {
   ShieldCheck,
   Bike,
   Sparkles,
+  PackageCheck,
+  Camera,
 } from "lucide-react"
 import {
   Select,
@@ -833,6 +835,48 @@ export function ProductSellerOrderDetailClient({ orderId }: { orderId: string })
                           </Button>
                         </div>
                       )}
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Package Pickup Proof (Uploaded by delivery rider during store collection) */}
+                {Array.isArray(item.pickupProofPhotos) && item.pickupProofPhotos.length > 0 && (
+                  <Card className="border-none shadow-xl rounded-2xl overflow-hidden bg-white mt-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    <CardHeader className="flex flex-row items-center justify-between border-b bg-amber-50/60 py-4 px-6">
+                      <div className="flex items-center gap-3">
+                        <div className="p-1.5 bg-amber-100 rounded-lg">
+                          <PackageCheck className="h-5 w-5 text-amber-700" />
+                        </div>
+                        <div>
+                          <CardTitle className="text-xs font-bold uppercase tracking-widest text-amber-950">Package Pickup Proof</CardTitle>
+                          <p className="text-[11px] text-amber-800/80 font-medium">Captured by rider during parcel collection from store</p>
+                        </div>
+                      </div>
+                      <Badge variant="outline" className="bg-amber-100/70 border-amber-300 text-amber-900 font-bold text-[11px] px-2.5 py-0.5">
+                        {item.pickupProofPhotos.length} {item.pickupProofPhotos.length === 1 ? "Photo" : "Photos"}
+                      </Badge>
+                    </CardHeader>
+                    <CardContent className="p-6">
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                        {item.pickupProofPhotos.map((photoUrl, pIdx) => (
+                          <a
+                            key={pIdx}
+                            href={photoUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="group relative aspect-square rounded-xl overflow-hidden border-2 border-amber-200/50 hover:border-amber-500 transition-all shadow-sm block bg-slate-50"
+                          >
+                            <img
+                              src={photoUrl}
+                              alt={`Pickup proof ${pIdx + 1}`}
+                              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                            />
+                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-semibold">
+                              <span>View Photo</span>
+                            </div>
+                          </a>
+                        ))}
+                      </div>
                     </CardContent>
                   </Card>
                 )}

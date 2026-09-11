@@ -209,6 +209,18 @@ export async function GET(
       pickupStatus: row.returnRequest?.pickupStatus ?? (returnAvailable ? "NOT_REQUESTED" : null),
       refundStatus: row.returnRequest?.refundStatus ?? (returnAvailable ? "NOT_REQUESTED" : null),
       deliveryProofImage: row.deliveryProofImage ?? null,
+      pickupProofPhotos: Array.isArray((row as any).pickupProofPhotos)
+        ? ((row as any).pickupProofPhotos as string[])
+        : typeof (row as any).pickupProofPhotos === "string"
+        ? (() => {
+            try {
+              const parsed = JSON.parse((row as any).pickupProofPhotos)
+              return Array.isArray(parsed) ? parsed : []
+            } catch {
+              return []
+            }
+          })()
+        : [],
       deliveredAt: (row as any).deliveredAt ? (row as any).deliveredAt.toISOString() : null,
       deliveryOtp: row.itemStatus === "DELIVERED" ? ((row as any).deliveryOtp ?? null) : null,
       deliveryOtpExpires: row.itemStatus === "DELIVERED" && (row as any).deliveryOtpExpires ? (row as any).deliveryOtpExpires.toISOString() : null,
@@ -286,6 +298,15 @@ export async function GET(
   if (activeAssignment) {
     const r = activeAssignment.rider
     const rUser = r?.user
+    const isAssignmentDelivered =
+      activeAssignment.status === "DELIVERED" ||
+      order.status === "DELIVERED" ||
+      (Array.isArray(order.items) && order.items.length > 0 && order.items.every((i: any) => i.itemStatus === "DELIVERED"))
+
+    const isLiveTrackingActive =
+      !isAssignmentDelivered &&
+      ["ACCEPTED", "AT_PICKUP", "PICKED_UP", "OUT_FOR_DELIVERY"].includes(activeAssignment.status)
+
     activeDeliveryTracking = {
       assignmentId: activeAssignment.id,
       status: activeAssignment.status,
@@ -295,6 +316,10 @@ export async function GET(
       adminNotes: activeAssignment.adminNotes || null,
       offeredAt: activeAssignment.offeredAt ? activeAssignment.offeredAt.toISOString() : null,
       expiresAt: activeAssignment.expiresAt ? activeAssignment.expiresAt.toISOString() : null,
+      deliveredAt: activeAssignment.deliveredAt ? activeAssignment.deliveredAt.toISOString() : null,
+      isDelivered: isAssignmentDelivered,
+      isLiveTrackingActive,
+      deliveryStatus: isAssignmentDelivered ? "DELIVERED" : isLiveTrackingActive ? "IN_TRANSIT" : activeAssignment.status,
       secondsRemaining:
         activeAssignment.status === "OFFERED" && activeAssignment.expiresAt
           ? Math.max(0, Math.floor((activeAssignment.expiresAt.getTime() - Date.now()) / 1000))
@@ -314,13 +339,21 @@ export async function GET(
           (Date.now() - new Date(r.lastLocationUpdate).getTime()) < 10 * 60 * 1000
         ),
       },
-      currentLocation: {
-        latitude: r?.currentLatitude || activeAssignment.riderLatitudeAtOffer || null,
-        longitude: r?.currentLongitude || activeAssignment.riderLongitudeAtOffer || null,
-        heading: r?.heading || 0,
-        speed: r?.speed || 0,
-        lastLocationUpdate: r?.lastLocationUpdate ? r.lastLocationUpdate.toISOString() : null,
-      },
+      currentLocation: isAssignmentDelivered
+        ? {
+            latitude: (order.shippingAddress as any)?.latitude || null,
+            longitude: (order.shippingAddress as any)?.longitude || null,
+            heading: 0,
+            speed: 0,
+            lastLocationUpdate: activeAssignment.deliveredAt ? activeAssignment.deliveredAt.toISOString() : null,
+          }
+        : {
+            latitude: r?.currentLatitude || activeAssignment.riderLatitudeAtOffer || null,
+            longitude: r?.currentLongitude || activeAssignment.riderLongitudeAtOffer || null,
+            heading: r?.heading || 0,
+            speed: r?.speed || 0,
+            lastLocationUpdate: r?.lastLocationUpdate ? r.lastLocationUpdate.toISOString() : null,
+          },
       pickupLocation: {
         latitude: activeAssignment.sellerLatitude || null,
         longitude: activeAssignment.sellerLongitude || null,
@@ -334,8 +367,10 @@ export async function GET(
         state: order.shippingState,
         postalCode: order.shippingPostalCode,
         country: order.shippingCountry,
+        latitude: (order.shippingAddress as any)?.latitude || null,
+        longitude: (order.shippingAddress as any)?.longitude || null,
       },
-      socketRoom: `order:${order.id}`,
+      socketRoom: isAssignmentDelivered ? null : `order:${order.id}`,
     }
   }
 

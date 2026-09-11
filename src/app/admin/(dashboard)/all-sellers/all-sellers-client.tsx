@@ -86,7 +86,7 @@ export function AllSellersClient() {
   const [isBulkCustomEmailOpen, setIsBulkCustomEmailOpen] = useState(false)
 
   const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10) || 1)
-  const perPage = Math.min(100, Math.max(1, parseInt(searchParams.get("perPage") ?? "10", 10) || 10))
+  const perPage = Math.min(100, Math.max(1, parseInt(searchParams.get("perPage") ?? "20", 10) || 20))
   const searchQ = searchParams.get("search") ?? ""
   const sellerTypeParam = (searchParams.get("sellerType") || searchParams.get("type") || "ALL").toUpperCase()
   const statusParam = (searchParams.get("status") || "ALL").toUpperCase()
@@ -898,6 +898,7 @@ export function AllSellersClient() {
               </SelectTrigger>
               <SelectContent className="rounded-xl">
                 <SelectItem value="10">10</SelectItem>
+                <SelectItem value="20">20</SelectItem>
                 <SelectItem value="25">25</SelectItem>
                 <SelectItem value="50">50</SelectItem>
                 <SelectItem value="100">100</SelectItem>

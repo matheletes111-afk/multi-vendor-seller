@@ -501,6 +501,15 @@ export async function getCustomerOrderDetail({
       order?.seller?.store?.name ||
       "Seller Store"
 
+    const isAssignmentDelivered =
+      assignment.status === "DELIVERED" ||
+      order?.status === "DELIVERED" ||
+      (Array.isArray(order?.items) && order.items.length > 0 && order.items.every((i: any) => i.itemStatus === "DELIVERED"))
+
+    const isLiveTrackingActive =
+      !isAssignmentDelivered &&
+      ["ACCEPTED", "AT_PICKUP", "PICKED_UP", "OUT_FOR_DELIVERY"].includes(assignment.status)
+
     return {
       assignmentId: assignment.id,
       sellerId: assignment.sellerId,
@@ -510,6 +519,10 @@ export async function getCustomerOrderDetail({
       distanceKm: assignment.distanceKm,
       deliveryOtp: assignment.deliveryOtp,
       deliveryProofImage: assignment.deliveryProofImage,
+      isDelivered: isAssignmentDelivered,
+      isLiveTrackingActive,
+      deliveryStatus: isAssignmentDelivered ? "DELIVERED" : isLiveTrackingActive ? "IN_TRANSIT" : assignment.status,
+      deliveredAt: assignment.deliveredAt ? assignment.deliveredAt.toISOString() : null,
       rider: {
         id: r?.id,
         userId: r?.userId || null,
@@ -528,13 +541,21 @@ export async function getCustomerOrderDetail({
           (Date.now() - new Date(r.lastLocationUpdate).getTime()) < 10 * 60 * 1000
         ),
       },
-      currentLocation: {
-        latitude: r?.currentLatitude || assignment.riderLatitudeAtOffer || null,
-        longitude: r?.currentLongitude || assignment.riderLongitudeAtOffer || null,
-        heading: r?.heading || 0,
-        speed: r?.speed || 0,
-        lastLocationUpdate: r?.lastLocationUpdate ? r.lastLocationUpdate.toISOString() : null,
-      },
+      currentLocation: isAssignmentDelivered
+        ? {
+            latitude: (order?.shippingAddress as any)?.latitude || null,
+            longitude: (order?.shippingAddress as any)?.longitude || null,
+            heading: 0,
+            speed: 0,
+            lastLocationUpdate: assignment.deliveredAt ? assignment.deliveredAt.toISOString() : null,
+          }
+        : {
+            latitude: r?.currentLatitude || assignment.riderLatitudeAtOffer || null,
+            longitude: r?.currentLongitude || assignment.riderLongitudeAtOffer || null,
+            heading: r?.heading || 0,
+            speed: r?.speed || 0,
+            lastLocationUpdate: r?.lastLocationUpdate ? r.lastLocationUpdate.toISOString() : null,
+          },
       pickupLocation: {
         name: pickupStoreName,
         latitude: assignment.sellerLatitude || null,
@@ -549,8 +570,10 @@ export async function getCustomerOrderDetail({
         state: order?.shippingState || null,
         postalCode: order?.shippingPostalCode || null,
         country: order?.shippingCountry || null,
+        latitude: (order?.shippingAddress as any)?.latitude || null,
+        longitude: (order?.shippingAddress as any)?.longitude || null,
       },
-      socketRoom: `order:${order?.id}`,
+      socketRoom: isAssignmentDelivered ? null : `order:${order?.id}`,
     }
   }
 

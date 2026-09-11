@@ -38,6 +38,8 @@ import {
   CheckCircle2,
   AlertCircle,
   ShieldCheck,
+  PackageCheck,
+  Camera,
 } from "lucide-react"
 import {
   Select,
@@ -460,6 +462,42 @@ export function AdminOrderDetailClient({ orderId }: { orderId: string }) {
                         </ul>
                       </div>
                     )}
+                    {Array.isArray(item.pickupProofPhotos) && item.pickupProofPhotos.length > 0 && (
+                      <div className="rounded-2xl border border-amber-200/60 bg-amber-50/20 p-5 shadow-sm mt-4">
+                        <div className="mb-4 flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <PackageCheck className="h-4 w-4 text-amber-600" />
+                            <span className="text-[10px] font-bold uppercase tracking-tight text-amber-950">
+                              Package Pickup Proof ({item.pickupProofPhotos.length})
+                            </span>
+                          </div>
+                          <span className="text-[10px] font-semibold text-amber-800 bg-amber-100/70 border border-amber-200 px-2.5 py-0.5 rounded-full">
+                            Captured by Delivery Rider
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                          {item.pickupProofPhotos.map((url, pIdx) => (
+                            <a
+                              key={pIdx}
+                              href={url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="group relative aspect-square rounded-xl overflow-hidden border border-amber-200/50 hover:border-amber-500 transition-all shadow-sm block bg-slate-50"
+                            >
+                              <img
+                                src={url}
+                                alt={`Pickup proof ${pIdx + 1}`}
+                                className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                              />
+                              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-semibold">
+                                View Photo
+                              </div>
+                            </a>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
                     {item.deliveryProofImage && (
                       <div className="rounded-2xl border border-muted/50 bg-muted/5 p-5 shadow-sm mt-4">
                         <div className="mb-4 flex items-center gap-2">

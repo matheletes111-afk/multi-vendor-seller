@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect } from "react"
+import React, { useState, useEffect, useMemo } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import {
@@ -21,6 +21,9 @@ import {
   Upload,
   Camera,
   ImageIcon,
+  X,
+  Plus,
+  Loader2,
 } from "lucide-react"
 import { Button } from "@/ui/button"
 import { Badge } from "@/ui/badge"
@@ -41,6 +44,25 @@ export function RiderOrderDeliveryClient({ assignmentId }: { assignmentId: strin
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // Pickup Photos Modal State
+  const [pickupModalOpen, setPickupModalOpen] = useState(false)
+  const [pickupPhotosBase64, setPickupPhotosBase64] = useState<string[]>([])
+  const [compressingPickupPhotos, setCompressingPickupPhotos] = useState(false)
+
+  const assignmentPickupPhotos: string[] = useMemo(() => {
+    if (!assignment?.pickupProofPhotos) return []
+    if (Array.isArray(assignment.pickupProofPhotos)) return assignment.pickupProofPhotos as string[]
+    if (typeof assignment.pickupProofPhotos === "string") {
+      try {
+        const parsed = JSON.parse(assignment.pickupProofPhotos)
+        return Array.isArray(parsed) ? parsed : []
+      } catch {
+        return []
+      }
+    }
+    return []
+  }, [assignment?.pickupProofPhotos])
 
   // OTP Modal State
   const [otpModalOpen, setOtpModalOpen] = useState(false)
@@ -74,9 +96,49 @@ export function RiderOrderDeliveryClient({ assignmentId }: { assignmentId: strin
     fetchDetail()
   }, [assignmentId])
 
+  const handlePickupFilesChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (!files || files.length === 0) return
+    setCompressingPickupPhotos(true)
+    try {
+      const fileList = Array.from(files)
+      const newPhotos: string[] = []
+      for (const rawFile of fileList) {
+        let file = rawFile
+        try {
+          const { compressImage } = await import("@/lib/image-compressor")
+          file = await compressImage(rawFile, 1200, 1200, 0.8)
+        } catch (err) {
+          console.error("Compression error:", err)
+        }
+        const dataUrl = await new Promise<string>((resolve) => {
+          const reader = new FileReader()
+          reader.onload = () => resolve(reader.result as string)
+          reader.readAsDataURL(file)
+        })
+        if (dataUrl) newPhotos.push(dataUrl)
+      }
+      setPickupPhotosBase64((prev) => [...prev, ...newPhotos])
+    } catch (err) {
+      console.error("Error processing pickup photos:", err)
+    } finally {
+      setCompressingPickupPhotos(false)
+      e.target.value = ""
+    }
+  }
+
+  const handleRemovePickupPhoto = (index: number) => {
+    setPickupPhotosBase64((prev) => prev.filter((_, i) => i !== index))
+  }
+
   const handleUpdateStatus = async (
     nextStatus: string,
-    extraData?: { otp?: string; cancellationReason?: string; proofImage?: string }
+    extraData?: {
+      otp?: string
+      cancellationReason?: string
+      proofImage?: string
+      pickupPhotos?: string[]
+    }
   ) => {
     try {
       setActionLoading(true)
@@ -87,12 +149,17 @@ export function RiderOrderDeliveryClient({ assignmentId }: { assignmentId: strin
           status: nextStatus,
           otp: extraData?.otp,
           proofImage: extraData?.proofImage ?? proofImageBase64,
+          pickupPhotos: extraData?.pickupPhotos ?? (pickupPhotosBase64.length > 0 ? pickupPhotosBase64 : undefined),
           cancellationReason: extraData?.cancellationReason,
         }),
       })
 
       const data = await res.json()
       if (res.ok) {
+        if (nextStatus === "PICKED_UP") {
+          setPickupModalOpen(false)
+          setPickupPhotosBase64([])
+        }
         if (nextStatus === "DELIVERED") {
           setOtpModalOpen(false)
           setProofImageBase64(null)
@@ -388,6 +455,38 @@ export function RiderOrderDeliveryClient({ assignmentId }: { assignmentId: strin
         </div>
       </div>
 
+      {/* Package Pickup Photos Gallery (Visible once collected) */}
+      {assignmentPickupPhotos.length > 0 && (
+        <div className="p-5 rounded-3xl border border-border/80 bg-card space-y-3 shadow-xs">
+          <div className="flex items-center justify-between">
+            <h3 className="font-bold text-xs text-foreground uppercase tracking-wider flex items-center gap-2">
+              <Camera className="w-4 h-4 text-indigo-600" />
+              Package Pickup Proof ({assignmentPickupPhotos.length} {assignmentPickupPhotos.length === 1 ? "Photo" : "Photos"})
+            </h3>
+            <Badge className="bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border-none text-[9px] font-bold">
+              Store Handover Verified
+            </Badge>
+          </div>
+          <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+            {assignmentPickupPhotos.map((url: string, idx: number) => (
+              <a
+                key={idx}
+                href={url}
+                target="_blank"
+                rel="noreferrer"
+                className="group relative block aspect-square rounded-2xl overflow-hidden border border-border/60 hover:ring-2 hover:ring-indigo-500/50 transition-all bg-muted/30"
+              >
+                <img
+                  src={url}
+                  alt={`Pickup photo ${idx + 1}`}
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                />
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Primary Action Workflow Bar */}
       {!isDelivered && !isCancelled && (
         <div className="p-5 rounded-3xl border border-border/80 bg-card space-y-3 shadow-xs">
@@ -407,11 +506,11 @@ export function RiderOrderDeliveryClient({ assignmentId }: { assignmentId: strin
 
           {assignment.status === "AT_PICKUP" && (
             <Button
-              onClick={() => handleUpdateStatus("PICKED_UP")}
+              onClick={() => setPickupModalOpen(true)}
               disabled={actionLoading}
               className="w-full h-12 rounded-2xl text-sm font-bold bg-indigo-600 hover:bg-indigo-700 text-white gap-2 shadow-md"
             >
-              <Package className="w-4 h-4" /> Packages Collected & Verified
+              <Camera className="w-4 h-4" /> Collect Packages & Take Photos
             </Button>
           )}
 
@@ -463,6 +562,106 @@ export function RiderOrderDeliveryClient({ assignmentId }: { assignmentId: strin
           </p>
         </div>
       )}
+
+      {/* Pickup Proof Photos Dialog */}
+      <Dialog open={pickupModalOpen} onOpenChange={setPickupModalOpen}>
+        <DialogContent className="rounded-3xl max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold flex items-center gap-2 text-foreground">
+              <Camera className="w-5 h-5 text-indigo-600" />
+              Collect & Verify Package
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Take or select photos of the package collected from the store (e.g. package condition, sealed parcel, shipping label).
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="py-3 space-y-4">
+            <input
+              type="file"
+              accept="image/*"
+              multiple
+              capture="environment"
+              id="rider-pickup-photos-upload"
+              className="hidden"
+              onChange={handlePickupFilesChange}
+            />
+
+            {pickupPhotosBase64.length > 0 ? (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-bold text-foreground">
+                    {pickupPhotosBase64.length} {pickupPhotosBase64.length === 1 ? "Photo" : "Photos"} Attached
+                  </span>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => document.getElementById("rider-pickup-photos-upload")?.click()}
+                    disabled={compressingPickupPhotos}
+                    className="h-8 rounded-xl text-xs gap-1.5 font-semibold text-indigo-600 border-indigo-200"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> Add More
+                  </Button>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2.5 max-h-56 overflow-y-auto p-1">
+                  {pickupPhotosBase64.map((b64, idx) => (
+                    <div key={idx} className="relative group rounded-xl overflow-hidden border border-border/80 aspect-square bg-muted/20">
+                      <img src={b64} alt={`Preview ${idx + 1}`} className="w-full h-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => handleRemovePickupPhoto(idx)}
+                        className="absolute top-1 right-1 p-1 rounded-full bg-black/70 text-white hover:bg-red-600 transition-colors"
+                        title="Remove photo"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div
+                onClick={() => document.getElementById("rider-pickup-photos-upload")?.click()}
+                className="cursor-pointer p-6 rounded-2xl border-2 border-dashed border-border/80 hover:border-indigo-500/50 bg-muted/20 hover:bg-muted/40 transition-all text-center space-y-2"
+              >
+                <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 text-indigo-600 flex items-center justify-center mx-auto">
+                  <Camera className="w-6 h-6" />
+                </div>
+                <div className="space-y-0.5">
+                  <p className="text-xs font-bold text-foreground">Tap to Take or Select Photos</p>
+                  <p className="text-[11px] text-muted-foreground">You can capture multiple photos of the package</p>
+                </div>
+              </div>
+            )}
+
+            {compressingPickupPhotos && (
+              <div className="flex items-center justify-center gap-2 text-xs text-indigo-600 font-semibold py-1">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>Processing & compressing photos...</span>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="grid grid-cols-2 gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setPickupModalOpen(false)}
+              className="rounded-xl text-xs"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => handleUpdateStatus("PICKED_UP", { pickupPhotos: pickupPhotosBase64 })}
+              disabled={actionLoading || compressingPickupPhotos}
+              className="rounded-xl text-xs bg-indigo-600 hover:bg-indigo-700 text-white font-bold"
+            >
+              {actionLoading ? "Confirming..." : pickupPhotosBase64.length > 0 ? `Confirm (${pickupPhotosBase64.length} Photos)` : "Confirm Pickup"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Customer OTP Dialog */}
       <Dialog open={otpModalOpen} onOpenChange={setOtpModalOpen}>

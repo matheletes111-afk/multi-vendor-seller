@@ -19,6 +19,7 @@ export async function GET(request: NextRequest) {
     const { skip, take, page, perPage } = getPaginationFromSearchParams({
       page: searchParams.get("page") ?? undefined,
       perPage: searchParams.get("perPage") ?? undefined,
+      defaultPerPage: 20,
     })
 
     const tab = searchParams.get("tab") ?? "all"

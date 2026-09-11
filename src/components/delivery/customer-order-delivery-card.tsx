@@ -167,7 +167,10 @@ export function CustomerOrderDeliveryCard({
   const riderUser = rider?.user
   const isOffered = primaryAssignment.status === "OFFERED"
   const isOutForDelivery = primaryAssignment.status === "OUT_FOR_DELIVERY"
-  const isDelivered = primaryAssignment.status === "DELIVERED"
+  const isDelivered =
+    primaryAssignment.status === "DELIVERED" ||
+    order.status === "DELIVERED" ||
+    (order.items && order.items.length > 0 && order.items.every((i: any) => i.itemStatus === "DELIVERED"))
   const isPickedUp = primaryAssignment.status === "PICKED_UP"
   const isAtPickup = primaryAssignment.status === "AT_PICKUP"
   const isAccepted = primaryAssignment.status === "ACCEPTED"
@@ -336,11 +339,15 @@ export function CustomerOrderDeliveryCard({
           <div className="space-y-1.5">
             <div className="flex items-center justify-between text-xs text-gray-500 px-1">
               <span className="font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
-                <Navigation className="w-3.5 h-3.5 text-blue-600" />
-                Live GPS Route & Telemetry
+                {isDelivered ? (
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                ) : (
+                  <Navigation className="w-3.5 h-3.5 text-blue-600" />
+                )}
+                {isDelivered ? "Delivery Destination Location" : "Live GPS Route & Telemetry"}
               </span>
               <span className="text-[11px] text-gray-400">
-                Updated in real-time
+                {isDelivered ? "Delivered" : "Updated in real-time"}
               </span>
             </div>
 

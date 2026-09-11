@@ -811,6 +811,7 @@ export async function handleRiderStatusUpdate(
   options?: {
     otp?: string
     proofImage?: string
+    pickupPhotos?: string[]
     cancellationReason?: string
   }
 ) {
@@ -891,10 +892,14 @@ export async function handleRiderStatusUpdate(
       ) {
         return { success: false, message: `Cannot move to PICKED_UP from ${currentStatus}` }
       }
-      // Update items for this seller package to SHIPPED
+      // Update items for this seller package to SHIPPED and record pickup proof photos
+      const itemPickupUpdate: any = { itemStatus: "SHIPPED" as any }
+      if (options?.pickupPhotos && Array.isArray(options.pickupPhotos) && options.pickupPhotos.length > 0) {
+        itemPickupUpdate.pickupProofPhotos = options.pickupPhotos
+      }
       await prisma.orderItem.updateMany({
         where: itemFilter,
-        data: { itemStatus: "SHIPPED" as any },
+        data: itemPickupUpdate,
       })
 
       {
@@ -1153,15 +1158,19 @@ export async function handleRiderStatusUpdate(
   }
 
   // For non-DELIVERED status transitions (AT_PICKUP, PICKED_UP, OUT_FOR_DELIVERY)
+  const assignmentUpdateData: any = {
+    status: newStatus,
+    pickedUpAt:
+      newStatus === DeliveryAssignmentStatus.PICKED_UP ? new Date() : assignment.pickedUpAt,
+    deliveredAt: assignment.deliveredAt,
+    deliveryProofImage: options?.proofImage || assignment.deliveryProofImage,
+  }
+  if (options?.pickupPhotos && Array.isArray(options.pickupPhotos) && options.pickupPhotos.length > 0) {
+    assignmentUpdateData.pickupProofPhotos = options.pickupPhotos
+  }
   const updated = await prisma.riderDeliveryAssignment.update({
     where: { id: assignmentId },
-    data: {
-      status: newStatus,
-      pickedUpAt:
-        newStatus === DeliveryAssignmentStatus.PICKED_UP ? new Date() : assignment.pickedUpAt,
-      deliveredAt: assignment.deliveredAt,
-      deliveryProofImage: options?.proofImage || assignment.deliveryProofImage,
-    },
+    data: assignmentUpdateData,
   })
 
   return { success: true, assignment: updated }

@@ -52,7 +52,7 @@ export function RestaurantSellersClient() {
   const router = useRouter()
 
   const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10) || 1)
-  const perPage = Math.min(50, Math.max(1, parseInt(searchParams.get("perPage") ?? "10", 10) || 10))
+  const perPage = Math.min(50, Math.max(1, parseInt(searchParams.get("perPage") ?? "20", 10) || 20))
   const tab = searchParams.get("tab") ?? "all"
   const searchQ = searchParams.get("search") ?? ""
   const statusParam = (searchParams.get("status") || tab).toUpperCase()

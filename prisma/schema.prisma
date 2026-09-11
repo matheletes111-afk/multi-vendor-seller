@@ -1328,6 +1328,7 @@ model OrderItem {
   commissionRateSnapshot Float @default(0)
   deliveredAt         DateTime?
   deliveryProofImage  String?
+  pickupProofPhotos   Json        @default("[]")
   deliveryOtp         String?
   deliveryOtpExpires  DateTime?
   isSelfDelivery      Boolean  @default(false)
@@ -1878,6 +1879,7 @@ model RiderDeliveryAssignment {
   deliveryOtp           String?
   deliveryOtpExpires    DateTime?
   deliveryProofImage    String?
+  pickupProofPhotos     Json                     @default("[]")
   cancellationReason    String?
   adminNotes            String?
 
