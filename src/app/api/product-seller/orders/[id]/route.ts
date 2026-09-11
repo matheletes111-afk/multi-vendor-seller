@@ -271,10 +271,7 @@ export async function GET(
 
   // When self-delivery is enabled, customer-paid delivery fee is earned by seller.
   // For platform delivery, delivery fee is paid by customer to the platform for the rider (not deducted from seller product revenue).
-  const deliveryBoyCharges = 0
-  const deliveryFeeDeducted = 0
-  const deliveryFeeEarned = isPackageSelfDelivery ? sellerShippingTotal : 0
-  const customerPaidShipping = sellerShippingTotal
+  const deliveryBoyCharges = isPackageSelfDelivery ? 0 : sellerShippingTotal
   const sellerNetPayout = isPackageSelfDelivery
     ? Math.max(0, sellerGrossTotal + sellerShippingTotal - sellerCommissionTotal)
     : Math.max(0, sellerGrossTotal - sellerCommissionTotal)
@@ -350,10 +347,7 @@ export async function GET(
     subtotal: sellerSubtotal,
     tax: order.items.reduce((sum, item) => sum + item.gstAmount, 0),
     shipping: sellerShippingTotal,
-    customerPaidShipping,
-    deliveryBoyCharges: 0,
-    deliveryFeeDeducted: 0,
-    deliveryFeeEarned,
+    deliveryBoyCharges,
     isSelfDelivery: isPackageSelfDelivery,
     sellerNet: sellerNetPayout,
     netEarnings: sellerNetPayout,

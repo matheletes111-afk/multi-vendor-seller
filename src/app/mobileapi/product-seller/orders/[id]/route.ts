@@ -273,10 +273,7 @@ export async function GET(
     0
   ) - sellerCouponDiscount
   const isPackageSelfDelivery = order.items.length > 0 && order.items.every((i) => i.isSelfDelivery)
-  const deliveryBoyCharges = 0
-  const deliveryFeeDeducted = 0
-  const deliveryFeeEarned = isPackageSelfDelivery ? sellerShippingTotal : 0
-  const customerPaidShipping = sellerShippingTotal
+  const deliveryBoyCharges = isPackageSelfDelivery ? 0 : sellerShippingTotal
   const sellerNetPayout = isPackageSelfDelivery
     ? Math.max(0, sellerGrossTotal + sellerShippingTotal - sellerCommissionTotal)
     : Math.max(0, sellerGrossTotal - sellerCommissionTotal)
@@ -358,10 +355,7 @@ export async function GET(
     subtotal: sellerSubtotal,
     tax: order.items.reduce((sum, item) => sum + item.gstAmount, 0),
     shipping: sellerShippingTotal,
-    customerPaidShipping,
-    deliveryBoyCharges: 0,
-    deliveryFeeDeducted: 0,
-    deliveryFeeEarned,
+    deliveryBoyCharges,
     isSelfDelivery: isPackageSelfDelivery,
     weightShippingFee: sellerShippingBreakup.weightShippingFee,
     dimensionShippingFee: sellerShippingBreakup.dimensionShippingFee,
