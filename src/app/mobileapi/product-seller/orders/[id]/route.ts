@@ -178,6 +178,14 @@ export async function GET(
       null
 
     const returnAvailable = row.productVariant?.returnType === "RETURNABLE"
+    const itemGross = Number((row.subtotalInclGst ?? row.subtotal + row.gstAmount).toFixed(2))
+    const isSelf = Boolean((row as any).isSelfDelivery)
+    const shippingFee = Number((row.shippingAmount || 0).toFixed(2))
+    const commAmt = Number((row.commissionAmount || 0).toFixed(2))
+    const itemTotalWithShipping = Number((itemGross + shippingFee).toFixed(2))
+    const itemSellerNet = isSelf
+      ? Number(Math.max(0, itemGross + shippingFee - commAmt).toFixed(2))
+      : Number(Math.max(0, itemGross - commAmt).toFixed(2))
 
     return {
       id: row.id,
@@ -194,6 +202,13 @@ export async function GET(
       shippingAmount: row.shippingAmount,
       commissionRateSnapshot: row.commissionRateSnapshot,
       commissionAmount: row.commissionAmount,
+      itemGross,
+      itemTotalWithShipping,
+      sellerNet: itemSellerNet,
+      netRevenue: itemSellerNet,
+      netPayout: itemSellerNet,
+      deliveryFeeDeducted: 0,
+      deliveryFeeEarned: isSelf ? shippingFee : 0,
       returnAvailable,
       replacementAllowed: row.productVariant?.replacementAllowed === true,
       returnResolutionType: row.returnRequest?.resolutionType ?? null,
@@ -212,7 +227,7 @@ export async function GET(
       deliveredAt: (row as any).deliveredAt ? (row as any).deliveredAt.toISOString() : null,
       deliveryOtp: row.itemStatus === "DELIVERED" ? ((row as any).deliveryOtp ?? null) : null,
       deliveryOtpExpires: row.itemStatus === "DELIVERED" && (row as any).deliveryOtpExpires ? (row as any).deliveryOtpExpires.toISOString() : null,
-      isSelfDelivery: Boolean((row as any).isSelfDelivery),
+      isSelfDelivery: isSelf,
       statusHistory: row.statusHistory.map((h) => ({
         status: h.status,
         location: h.location ?? null,
@@ -258,7 +273,10 @@ export async function GET(
     0
   ) - sellerCouponDiscount
   const isPackageSelfDelivery = order.items.length > 0 && order.items.every((i) => i.isSelfDelivery)
-  const deliveryBoyCharges = isPackageSelfDelivery ? 0 : sellerShippingTotal
+  const deliveryBoyCharges = 0
+  const deliveryFeeDeducted = 0
+  const deliveryFeeEarned = isPackageSelfDelivery ? sellerShippingTotal : 0
+  const customerPaidShipping = sellerShippingTotal
   const sellerNetPayout = isPackageSelfDelivery
     ? Math.max(0, sellerGrossTotal + sellerShippingTotal - sellerCommissionTotal)
     : Math.max(0, sellerGrossTotal - sellerCommissionTotal)
@@ -340,7 +358,10 @@ export async function GET(
     subtotal: sellerSubtotal,
     tax: order.items.reduce((sum, item) => sum + item.gstAmount, 0),
     shipping: sellerShippingTotal,
-    deliveryBoyCharges,
+    customerPaidShipping,
+    deliveryBoyCharges: 0,
+    deliveryFeeDeducted: 0,
+    deliveryFeeEarned,
     isSelfDelivery: isPackageSelfDelivery,
     weightShippingFee: sellerShippingBreakup.weightShippingFee,
     dimensionShippingFee: sellerShippingBreakup.dimensionShippingFee,

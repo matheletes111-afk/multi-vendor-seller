@@ -155,9 +155,14 @@ export async function GET(request: NextRequest) {
       commissionRate,
       commissionAmount,
       sellerNet,
+      netEarnings: sellerNet,
       subtotal: sellerSubtotal,
       tax: sellerItems.reduce((sum, item) => sum + item.gstAmount, 0),
-      shipping: sellerItems.reduce((sum, item) => sum + item.shippingAmount, 0),
+      shipping: totalShipping,
+      customerPaidShipping: totalShipping,
+      deliveryBoyCharges: 0,
+      deliveryFeeDeducted: 0,
+      deliveryFeeEarned: selfShipping,
       createdAt: order.createdAt,
       customer: {
         name: order.customer?.name ?? null,
@@ -167,12 +172,33 @@ export async function GET(request: NextRequest) {
       couponDiscount: sellerCouponDiscount,
       items: sellerItems.map(item => {
         const imageUrl = firstImageUrl(item.productVariant?.images) ?? firstImageUrl(item.product?.images) ?? firstImageUrl(item.service?.images) ?? null
+        const lineGross = Number((item.subtotalInclGst ?? item.subtotal + item.gstAmount).toFixed(2))
+        const isSelf = Boolean(item.isSelfDelivery)
+        const ship = Number((item.shippingAmount || 0).toFixed(2))
+        const comm = Number((item.commissionAmount || 0).toFixed(2))
+        const lineNet = isSelf
+          ? Number(Math.max(0, lineGross + ship - comm).toFixed(2))
+          : Number(Math.max(0, lineGross - comm).toFixed(2))
         return {
           id: item.id,
           productNameSnapshot: item.productNameSnapshot,
           quantity: item.quantity,
           price: item.price,
+          subtotal: item.subtotal,
+          hasGst: item.hasGst,
+          gstAmount: item.gstAmount,
+          subtotalInclGst: item.subtotalInclGst,
+          itemGross: lineGross,
+          itemTotalWithShipping: Number((lineGross + ship).toFixed(2)),
           shippingAmount: item.shippingAmount,
+          commissionAmount: comm,
+          commissionRateSnapshot: item.commissionRateSnapshot,
+          deliveryFeeDeducted: 0,
+          deliveryFeeEarned: isSelf ? ship : 0,
+          sellerNet: lineNet,
+          netRevenue: lineNet,
+          netPayout: lineNet,
+          isSelfDelivery: isSelf,
           imageUrl,
           status: item.itemStatus
         }
