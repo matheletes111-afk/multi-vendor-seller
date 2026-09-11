@@ -276,6 +276,7 @@ export async function GET(
     ? Math.max(0, sellerGrossTotal + sellerShippingTotal - sellerCommissionTotal)
     : Math.max(0, sellerGrossTotal - sellerCommissionTotal)
 
+
   const assignments = order.deliveryAssignments || []
   const activeAssignment = assignments.find((a: any) =>
     ["OFFERED", "ACCEPTED", "AT_PICKUP", "PICKED_UP", "OUT_FOR_DELIVERY", "DELIVERED"].includes(a.status)
@@ -390,13 +391,13 @@ export async function GET(
       deliveryOtp: a.status === "DELIVERED" ? a.deliveryOtp : null,
       rider: a.rider
         ? {
-            ...a.rider,
-            isOnline: Boolean(
-              a.rider.isOnline &&
-              a.rider.lastLocationUpdate &&
-              (Date.now() - new Date(a.rider.lastLocationUpdate).getTime()) < 10 * 60 * 1000
-            ),
-          }
+          ...a.rider,
+          isOnline: Boolean(
+            a.rider.isOnline &&
+            a.rider.lastLocationUpdate &&
+            (Date.now() - new Date(a.rider.lastLocationUpdate).getTime()) < 10 * 60 * 1000
+          ),
+        }
         : null,
     })),
     activeDeliveryTracking,
@@ -564,8 +565,8 @@ export async function PATCH(
     if (!fullOrder || !fullOrder.customer) {
       return NextResponse.json({ error: "Customer details not found for OTP" }, { status: 404 })
     }
-    
-    const combinedPhone = 
+
+    const combinedPhone =
       fullOrder.customer.phoneCountryCode && fullOrder.customer.phone
         ? `+${fullOrder.customer.phoneCountryCode.replace(/\D/g, "")}${fullOrder.customer.phone.replace(/\D/g, "")}`
         : fullOrder.customer.phone
@@ -592,8 +593,8 @@ export async function PATCH(
           status === "DELIVERED"
             ? ({ itemStatus: status as any, deliveredAt: new Date(), deliveryProofImage } as any)
             : status === "OUT_FOR_DELIVERY" && otpData
-            ? ({ itemStatus: status as any, deliveryOtp: otpData.otp, deliveryOtpExpires: otpData.expiry } as any)
-            : ({ itemStatus: status as any } as any),
+              ? ({ itemStatus: status as any, deliveryOtp: otpData.otp, deliveryOtpExpires: otpData.expiry } as any)
+              : ({ itemStatus: status as any } as any),
       })
       await tx.orderItemStatusHistory.createMany({
         data: targetItemIds.map((id) => ({
