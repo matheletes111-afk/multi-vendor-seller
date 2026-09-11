@@ -142,14 +142,16 @@ export async function GET(request: NextRequest) {
     if (order.couponDiscount && order.subtotal > 0) {
       sellerCouponDiscount = Number(((order.couponDiscount * sellerSubtotal) / order.subtotal).toFixed(2))
     }
-    const grossAmount = Math.max(0, sellerItems.reduce((sum, item) => sum + (item.subtotalInclGst ?? item.subtotal + item.gstAmount) + item.shippingAmount, 0) - sellerCouponDiscount)
-    const commissionAmount = Math.round(grossAmount * (commissionRate / 100) * 100) / 100
-    const sellerNet = Math.max(0, Math.round((grossAmount - commissionAmount) * 100) / 100)
+    const itemGross = Math.max(0, sellerItems.reduce((sum, item) => sum + (item.subtotalInclGst ?? item.subtotal + item.gstAmount), 0) - sellerCouponDiscount)
+    const selfShipping = sellerItems.filter(i => i.isSelfDelivery).reduce((s, i) => s + (i.shippingAmount || 0), 0)
+    const commissionAmount = Math.round(itemGross * (commissionRate / 100) * 100) / 100
+    const sellerNet = Math.max(0, Math.round((itemGross - commissionAmount + selfShipping) * 100) / 100)
+    const totalShipping = sellerItems.reduce((sum, item) => sum + item.shippingAmount, 0)
     return {
       id: order.id,
       orderNumber: order.orderNumber,
       status: deriveOrderStatus(sellerItems.map((item) => item.itemStatus)),
-      totalAmount: grossAmount,
+      totalAmount: itemGross + totalShipping,
       commissionRate,
       commissionAmount,
       sellerNet,

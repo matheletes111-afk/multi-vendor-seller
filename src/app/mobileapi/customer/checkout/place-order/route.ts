@@ -277,7 +277,7 @@ export async function POST(request: NextRequest) {
     const isService = row.item.serviceId != null
     const fallbackCategoryRate = isService ? defaultServiceRate : defaultProductRate
     const effectiveRate = sellerInfo?.commissionRate ?? fallbackCategoryRate
-    const itemCommissionAmount = (lineTotalInclGst + itemShippingAmount) * (effectiveRate / 100)
+    const itemCommissionAmount = lineTotalInclGst * (effectiveRate / 100)
     totalOrderCommission += itemCommissionAmount
     return { itemShippingAmount, itemCommissionAmount, effectiveRate }
   })

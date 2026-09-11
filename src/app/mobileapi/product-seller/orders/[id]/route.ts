@@ -261,7 +261,7 @@ export async function GET(
   const deliveryBoyCharges = isPackageSelfDelivery ? 0 : sellerShippingTotal
   const sellerNetPayout = isPackageSelfDelivery
     ? Math.max(0, sellerGrossTotal + sellerShippingTotal - sellerCommissionTotal)
-    : Math.max(0, sellerGrossTotal - sellerCommissionTotal - sellerShippingTotal)
+    : Math.max(0, sellerGrossTotal - sellerCommissionTotal)
 
   const assignments = order.deliveryAssignments || []
   const activeAssignment = assignments.find((a: any) =>

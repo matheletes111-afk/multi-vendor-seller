@@ -25,6 +25,7 @@ export async function creditReturnRefundToWalletOnPickup(
       subtotalInclGst: true,
       subtotal: true,
       gstAmount: true,
+      commissionAmount: true,
     },
   })
   if (!orderItem) {
@@ -68,11 +69,12 @@ export async function creditReturnRefundToWalletOnPickup(
     where: { id: params.customerId },
     data: { walletBalance: { increment: amount } },
   })
+  const sellerDebitAmount = Math.max(0, amount - (orderItem.commissionAmount ?? 0))
   await applySellerDebitForCustomerWalletCredit(tx, {
     sellerId: params.sellerId,
     returnRequestId: params.returnRequestId,
     orderId: params.orderId,
-    amount,
+    amount: sellerDebitAmount,
     reason: "RETURN_REFUND",
     note: "Customer wallet credit for return refund (after pickup)",
   })

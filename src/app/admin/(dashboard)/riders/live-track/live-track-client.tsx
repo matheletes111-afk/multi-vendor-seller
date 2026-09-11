@@ -144,8 +144,38 @@ const ZONE_CENTER_COORDINATES: Record<string, { lat: number; lng: number; zoom: 
 
 const DEFAULT_CENTER = { lat: 8.484, lng: -13.23, zoom: 12 } // Freetown Center
 
+export function formatVehicleType(type?: string): string {
+  if (!type) return "Vehicle"
+  const upper = type.toUpperCase()
+  if (upper.includes("TWO_WHEELER") || upper.includes("2_WHEELER") || upper.includes("MOTORCYCLE") || upper.includes("BIKE")) return "Motorcycle"
+  if (upper.includes("THREE_WHEELER") || upper.includes("3_WHEELER") || upper.includes("KEKEH") || upper.includes("AUTO")) return "Kekeh (3-Wheeler)"
+  if (upper.includes("FOUR_WHEELER") || upper.includes("4_WHEELER") || upper.includes("CAR") || upper.includes("VAN")) return "Car / Van"
+  if (upper.includes("BICYCLE") || upper.includes("CYCLE")) return "Bicycle"
+  return type.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())
+}
+
+export function formatOrderStatus(status?: string): string {
+  if (!status) return "Active Order"
+  switch (status.toUpperCase()) {
+    case "ACCEPTED":
+      return "Order Accepted"
+    case "AT_PICKUP":
+      return "At Store"
+    case "PICKED_UP":
+      return "Picked Up"
+    case "OUT_FOR_DELIVERY":
+      return "On the Way"
+    case "DELIVERED":
+      return "Delivered"
+    case "CANCELLED":
+      return "Cancelled"
+    default:
+      return status.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())
+  }
+}
+
 export function formatDeviceName(dev?: LiveRiderDevice | null): string {
-  if (!dev) return "Registered Device"
+  if (!dev) return "Connected Phone"
   if (typeof dev === "string") return dev
 
   let model = dev.deviceModel?.trim()
@@ -166,8 +196,8 @@ export function formatDeviceName(dev?: LiveRiderDevice | null): string {
   const platformRaw = (dev.platform || "").toLowerCase()
   let platformLabel = ""
   if (platformRaw.includes("android")) platformLabel = "Android"
-  else if (platformRaw.includes("ios")) platformLabel = "iOS"
-  else if (platformRaw.includes("web")) platformLabel = "Web"
+  else if (platformRaw.includes("ios")) platformLabel = "iPhone"
+  else if (platformRaw.includes("web")) platformLabel = "Web Browser"
   else if (platformRaw) platformLabel = platformRaw.toUpperCase()
 
   if (model && platformLabel) {
@@ -179,8 +209,8 @@ export function formatDeviceName(dev?: LiveRiderDevice | null): string {
 
   if (model) return model
   if (platformLabel) return `${platformLabel} Device`
-  if (dev.deviceId) return `Device ${dev.deviceId.slice(0, 8)}`
-  return "Registered Device"
+  if (dev.deviceId) return `Phone (${dev.deviceId.slice(0, 8)})`
+  return "Connected Phone"
 }
 
 // ── Custom SVG Vehicle Marker Generator ─────────────────────────────────────
@@ -710,9 +740,9 @@ export function LiveTrackClient() {
     const isOnDelivery = rider.operationalStatus === "ON_DELIVERY"
     const statusBg = isFree ? "#ecfdf5" : isOnDelivery ? "#eff6ff" : "#f1f5f9"
     const statusText = isFree ? "#065f46" : isOnDelivery ? "#1e40af" : "#475569"
-    const statusLabel = isFree ? "🟢 Free & Available" : isOnDelivery ? "🔵 On Delivery" : "⚪ Offline"
+    const statusLabel = isFree ? "🟢 Available" : isOnDelivery ? "🔵 On Delivery" : "⚪ Offline"
 
-    const vehicleTitle = [rider.vehicleName, rider.vehicleNumber].filter(Boolean).join(" • ") || rider.primaryVehicleType
+    const vehicleTitle = [rider.vehicleName, rider.vehicleNumber].filter(Boolean).join(" • ") || formatVehicleType(rider.primaryVehicleType)
     const hasDevices = (rider.deviceTokensCount || 0) > 0
     const devicesList = rider.devices || []
     const devicesListHtml = devicesList.length > 0
@@ -740,7 +770,7 @@ export function LiveTrackClient() {
             `
           })
           .join("")
-      : `<div style="font-size: 10px; color: #64748b;">${rider.deviceTokensCount || 0} registered notification device(s)</div>`
+      : `<div style="font-size: 10px; color: #64748b;">${rider.deviceTokensCount || 0} phone(s) connected for order alerts</div>`
 
     return `
       <div style="font-family: inherit; max-width: 280px; padding: 4px;">
@@ -763,15 +793,15 @@ export function LiveTrackClient() {
             ${statusLabel}
           </span>
           <span style="display: inline-block; padding: 3px 8px; border-radius: 12px; font-size: 10px; font-weight: 500; background: ${rider.onboardingCompleted ? "#eff6ff" : "#fffbeb"}; color: ${rider.onboardingCompleted ? "#1d4ed8" : "#b45309"}; border: 1px solid ${rider.onboardingCompleted ? "#bfdbfe" : "#fde68a"};">
-            ${rider.onboardingCompleted ? "✓ Onboarded" : "⏳ Pending Profile"}
+            ${rider.onboardingCompleted ? "✓ Approved" : "⏳ Incomplete Profile"}
           </span>
           <span
             id="push-badge-${rider.id}"
             ${hasDevices ? `onclick="window.__toggleLiveTrackRiderDevices && window.__toggleLiveTrackRiderDevices('${rider.id}')"` : ""}
             style="display: inline-flex; align-items: center; gap: 3px; padding: 3px 8px; border-radius: 12px; font-size: 10px; font-weight: 500; background: ${hasDevices ? "#faf5ff" : "#f1f5f9"}; color: ${hasDevices ? "#7e22ce" : "#64748b"}; border: 1px solid ${hasDevices ? "#e9d5ff" : "#e2e8f0"}; ${hasDevices ? "cursor: pointer;" : ""}"
-            title="${hasDevices ? `Click to view ${devicesList.length || rider.deviceTokensCount} registered device name(s)` : "No notification token registered"}"
+            title="${hasDevices ? `Click to see connected phones/devices` : "No phone connected for alerts"}"
           >
-            ${hasDevices ? `🔔 Notification (${rider.deviceTokensCount})` : "🔕 No Notification"}
+            ${hasDevices ? `🔔 Phone Connected (${rider.deviceTokensCount})` : "🔕 No Phone Connected"}
             ${hasDevices ? `<span id="push-arrow-${rider.id}" style="font-size: 8px; opacity: 0.75;">▼</span>` : ""}
           </span>
         </div>
@@ -784,13 +814,13 @@ export function LiveTrackClient() {
             style="display: none; margin-bottom: 8px; padding: 6px 8px; background: #faf5ff; border: 1px solid #d8b4fe; border-radius: 8px; font-size: 10px; color: #581c87;"
           >
             <div style="font-weight: 700; margin-bottom: 5px; display: flex; align-items: center; justify-content: space-between; font-size: 10.5px;">
-              <span>📱 Registered Devices (${devicesList.length || rider.deviceTokensCount})</span>
+              <span>📱 Connected Phones (${devicesList.length || rider.deviceTokensCount})</span>
               <button
                 type="button"
                 onclick="window.__openDeviceModal && window.__openDeviceModal('${rider.id}')"
                 style="background: none; border: none; font-size: 9.5px; color: #7e22ce; text-decoration: underline; cursor: pointer; padding: 0;"
               >
-                More details ↗
+                View details ↗
               </button>
             </div>
             <div>
@@ -814,7 +844,7 @@ export function LiveTrackClient() {
             isOnDelivery && rider.activeDelivery
               ? `<div style="margin-top: 6px; padding-top: 6px; border-top: 1px dashed #cbd5e1;">
                   <div style="color: #1e40af; font-weight: 600;">📦 Order #${rider.activeDelivery.orderNumber || "Active"}</div>
-                  <div style="color: #64748b; font-size: 10px;">${rider.activeDelivery.sellerName} ➔ ${rider.activeDelivery.customerCity || "Customer"}</div>
+                  <div style="color: #64748b; font-size: 10px;">Pickup: ${rider.activeDelivery.sellerName} • Drop-off: ${rider.activeDelivery.customerCity || "Customer"}</div>
                 </div>`
               : ""
           }
@@ -937,10 +967,10 @@ export function LiveTrackClient() {
     <div className="p-2.5 bg-blue-50/70 dark:bg-blue-950/30 border-b shrink-0 text-[10.5px] text-blue-900 dark:text-blue-200 flex items-start gap-2">
       <ShieldCheck className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
       <div className="leading-tight">
-        <span className="font-bold">Onboarded Fleet Only:</span> Only riders who finished full onboarding ({riders.length}) appear on map & receive delivery orders.
+        <span className="font-bold">Approved Riders Only:</span> Showing {riders.length} active riders eligible to receive delivery orders.
         {pendingOnboardingCount > 0 && (
           <span className="block mt-0.5 text-muted-foreground text-[9.5px]">
-            ({pendingOnboardingCount} pending onboarding riders are excluded from live map & offers).
+            ({pendingOnboardingCount} riders are still completing registration and cannot receive orders yet).
           </span>
         )}
       </div>
@@ -952,34 +982,34 @@ export function LiveTrackClient() {
       <div className="flex items-center justify-between">
         <span className="font-bold text-[11px] uppercase tracking-wider text-foreground flex items-center gap-1.5">
           <Info className="w-3.5 h-3.5 text-blue-600" />
-          Color & Status Guide
+          Rider Status Guide
         </span>
         <span className="text-[9px] font-medium text-muted-foreground bg-background px-1.5 py-0.5 rounded border">
-          Status Legend
+          Status Guide
         </span>
       </div>
 
       {/* 3 Main Operational Status Cards */}
       <div className="grid grid-cols-3 gap-1.5">
-        {/* Green / Free */}
+        {/* Green / Available */}
         <div className="p-1.5 rounded-xl border bg-emerald-50/70 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-900/50">
           <div className="flex items-center gap-1 font-bold text-[10px] text-emerald-800 dark:text-emerald-300">
             <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
-            Free
+            Available
           </div>
           <p className="text-[8.5px] text-muted-foreground mt-0.5 leading-tight">
             Online & ready for orders
           </p>
         </div>
 
-        {/* Blue / Delivering */}
+        {/* Blue / On Delivery */}
         <div className="p-1.5 rounded-xl border bg-blue-50/70 dark:bg-blue-950/30 border-blue-200 dark:border-blue-900/50">
           <div className="flex items-center gap-1 font-bold text-[10px] text-blue-800 dark:text-blue-300">
             <span className="w-2 h-2 rounded-full bg-blue-500 shrink-0 animate-pulse" />
-            Delivering
+            On Delivery
           </div>
           <p className="text-[8.5px] text-muted-foreground mt-0.5 leading-tight">
-            Carrying active order
+            Currently delivering an order
           </p>
         </div>
 
@@ -990,7 +1020,7 @@ export function LiveTrackClient() {
             Offline
           </div>
           <p className="text-[8.5px] text-muted-foreground mt-0.5 leading-tight">
-            App closed / inactive
+            App closed or offline
           </p>
         </div>
       </div>
@@ -999,23 +1029,23 @@ export function LiveTrackClient() {
       <div className="pt-1.5 border-t border-border/60 flex flex-wrap items-center gap-1 text-[9px]">
         <span className="inline-flex items-center gap-1 bg-emerald-100/80 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-300 px-1.5 py-0.5 rounded font-medium">
           <Radio className="w-2.5 h-2.5 text-emerald-600 animate-pulse" />
-          Live GPS
+          Live Location
         </span>
         <span className="inline-flex items-center gap-1 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 px-1.5 py-0.5 rounded">
           <MapPin className="w-2.5 h-2.5 text-slate-400" />
-          No GPS
+          No Location
         </span>
         <span className="inline-flex items-center gap-1 bg-blue-100/80 dark:bg-blue-950/50 text-blue-800 dark:text-blue-300 px-1.5 py-0.5 rounded font-medium">
           <CheckCircle2 className="w-2.5 h-2.5 text-blue-600" />
-          Onboarded
+          Approved Rider
         </span>
         <span className="inline-flex items-center gap-1 bg-amber-100/80 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 px-1.5 py-0.5 rounded font-medium">
           <Clock className="w-2.5 h-2.5 text-amber-600" />
-          Pending Form
+          Incomplete Profile
         </span>
         <span className="inline-flex items-center gap-1 bg-purple-100/80 dark:bg-purple-950/50 text-purple-800 dark:text-purple-300 px-1.5 py-0.5 rounded font-medium">
           <Bell className="w-2.5 h-2.5 text-purple-600" />
-          Notification Ready
+          Phone Connected
         </span>
       </div>
     </div>
@@ -1053,9 +1083,9 @@ export function LiveTrackClient() {
             )}
           >
             {rider.operationalStatus === "FREE"
-              ? "Free"
+              ? "Available"
               : rider.operationalStatus === "ON_DELIVERY"
-              ? "Delivering"
+              ? "On Delivery"
               : "Offline"}
           </Badge>
           {onClose && (
@@ -1075,17 +1105,17 @@ export function LiveTrackClient() {
         <div className="p-1.5 sm:p-2 rounded-xl bg-muted/50">
           <span className="text-[9px] sm:text-[10px] text-muted-foreground block">Vehicle</span>
           <span className="font-semibold text-foreground truncate block text-[11px] sm:text-xs">
-            {rider.vehicleName || rider.primaryVehicleType}
+            {rider.vehicleName || formatVehicleType(rider.primaryVehicleType)}
           </span>
         </div>
         <div className="p-1.5 sm:p-2 rounded-xl bg-muted/50">
-          <span className="text-[9px] sm:text-[10px] text-muted-foreground block">Plate No.</span>
+          <span className="text-[9px] sm:text-[10px] text-muted-foreground block">License Plate</span>
           <span className="font-semibold text-foreground truncate block text-[11px] sm:text-xs">
-            {rider.vehicleNumber || "N/A"}
+            {rider.vehicleNumber || "None"}
           </span>
         </div>
         <div className="p-1.5 sm:p-2 rounded-xl bg-muted/50">
-          <span className="text-[9px] sm:text-[10px] text-muted-foreground block">Live Speed</span>
+          <span className="text-[9px] sm:text-[10px] text-muted-foreground block">Speed</span>
           <span className="font-semibold text-blue-600 block text-[11px] sm:text-xs">
             {Math.round(rider.telemetry.speed || 0)} km/h
           </span>
@@ -1101,11 +1131,11 @@ export function LiveTrackClient() {
               Order #{rider.activeDelivery.orderNumber || "Active"}
             </span>
             <Badge variant="outline" className="text-[9px] sm:text-[10px] bg-blue-600 text-white border-none shrink-0">
-              {rider.activeDelivery.assignmentStatus}
+              {formatOrderStatus(rider.activeDelivery.assignmentStatus)}
             </Badge>
           </div>
           <div className="mt-1 text-[11px] text-blue-900/80 dark:text-blue-200/80 line-clamp-2">
-            <span><strong>Store:</strong> {rider.activeDelivery.sellerName}</span> • <span><strong>Dest:</strong> {rider.activeDelivery.customerAddress || rider.activeDelivery.customerCity || "Customer location"}</span>
+            <span><strong>Pickup:</strong> {rider.activeDelivery.sellerName}</span> • <span><strong>Drop-off:</strong> {rider.activeDelivery.customerAddress || rider.activeDelivery.customerCity || "Customer location"}</span>
           </div>
         </div>
       )}
@@ -1116,30 +1146,30 @@ export function LiveTrackClient() {
           rider.operationalStatus !== "OFFLINE" && rider.telemetry.isRecent !== false ? (
             <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300 flex items-center gap-1">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              Live GPS Active
+              Live Location
             </Badge>
           ) : (
             <Badge variant="outline" className="text-[10px] bg-slate-100 text-slate-700 border-slate-300 dark:bg-slate-800 dark:text-slate-400 flex items-center gap-1" title={rider.telemetry.lastLocationUpdate ? `Last updated: ${new Date(rider.telemetry.lastLocationUpdate).toLocaleString()}` : "Offline"}>
               <MapPin className="w-3 h-3 text-slate-400" />
-              Offline (Last GPS)
+              Offline (Last Known Location)
             </Badge>
           )
         ) : (
           <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-300 dark:bg-amber-950/40 dark:text-amber-300 flex items-center gap-1">
             <AlertCircle className="w-3 h-3 text-amber-600" />
-            No GPS Signal Yet
+            Location Not Available
           </Badge>
         )}
 
         {rider.onboardingCompleted ? (
           <Badge variant="outline" className="text-[10px] bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 flex items-center gap-1">
             <CheckCircle2 className="w-3 h-3 text-blue-600" />
-            Profile Onboarded
+            Approved Rider
           </Badge>
         ) : (
           <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 flex items-center gap-1">
             <Clock className="w-3 h-3 text-amber-600" />
-            Pending Profile Form
+            Incomplete Profile
           </Badge>
         )}
 
@@ -1148,17 +1178,17 @@ export function LiveTrackClient() {
             type="button"
             onClick={() => setSelectedDeviceModalRider(rider)}
             className="cursor-pointer"
-            title="Click to view registered device names"
+            title="Click to see connected phones/devices"
           >
             <Badge variant="outline" className="text-[10px] bg-purple-50 hover:bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-950/40 dark:text-purple-300 flex items-center gap-1 transition-colors">
               <Bell className="w-3 h-3 text-purple-600" />
-              Notification Ready ({rider.deviceTokensCount})
+              Phone Connected ({rider.deviceTokensCount})
             </Badge>
           </button>
         ) : (
           <Badge variant="outline" className="text-[10px] bg-muted text-muted-foreground border-border flex items-center gap-1 opacity-70">
             <BellOff className="w-3 h-3" />
-            No Notification Token
+            No Phone Connected
           </Badge>
         )}
       </div>
@@ -1167,7 +1197,7 @@ export function LiveTrackClient() {
       {rider.telemetry.latitude == null && (
         <div className="mt-2 p-2 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/40 text-[11px] text-amber-800 dark:text-amber-300 flex items-start gap-1.5">
           <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
-          <span>Rider has not sent live GPS coordinates yet. Once the rider opens the Rider App with Location enabled, their live pin will appear on map.</span>
+          <span>This rider hasn't shared their location yet. Their pin will appear on the map once they open the Rider App with location enabled.</span>
         </div>
       )}
 
@@ -1179,7 +1209,7 @@ export function LiveTrackClient() {
             className="flex-1 inline-flex items-center justify-center gap-1.5 h-8 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-xs"
           >
             <Phone className="w-3.5 h-3.5" />
-            Call
+            Call Rider
           </a>
         )}
         <Button
@@ -1189,7 +1219,7 @@ export function LiveTrackClient() {
           className="flex-1 rounded-xl text-xs gap-1.5 h-8"
         >
           <Navigation className="w-3.5 h-3.5 text-blue-600" />
-          Center on Map
+          Show on Map
         </Button>
       </div>
     </div>
@@ -1200,10 +1230,10 @@ export function LiveTrackClient() {
       return (
         <div className="p-8 text-center text-xs text-muted-foreground space-y-2">
           <Bike className="w-8 h-8 mx-auto text-muted-foreground/40 mb-1" />
-          <p className="font-semibold text-foreground">No onboarded riders match filters.</p>
+          <p className="font-semibold text-foreground">No riders found matching your filters.</p>
           {pendingOnboardingCount > 0 && (
             <p className="text-[10px] text-amber-700 dark:text-amber-300 bg-amber-500/10 p-2 rounded-xl border border-amber-500/20 text-left leading-relaxed">
-              Note: {pendingOnboardingCount} riders are currently pending onboarding and are excluded from the live tracking map until their registration is completed.
+              Note: {pendingOnboardingCount} riders are still completing registration and will appear here once approved.
             </p>
           )}
         </div>
@@ -1254,7 +1284,7 @@ export function LiveTrackClient() {
                   {rider.name}
                 </div>
                 <div className="text-[11px] text-muted-foreground truncate">
-                  {rider.vehicleName || rider.primaryVehicleType}
+                  {rider.vehicleName || formatVehicleType(rider.primaryVehicleType)}
                   {rider.vehicleNumber ? ` • ${rider.vehicleNumber}` : ""}
                 </div>
               </div>
@@ -1273,9 +1303,9 @@ export function LiveTrackClient() {
               )}
             >
               {rider.operationalStatus === "FREE"
-                ? "Free"
+                ? "Available"
                 : rider.operationalStatus === "ON_DELIVERY"
-                ? "Delivering"
+                ? "On Delivery"
                 : "Offline"}
             </Badge>
           </div>
@@ -1286,23 +1316,23 @@ export function LiveTrackClient() {
             {isLiveGps ? (
               <span className="inline-flex items-center gap-1 text-[9px] font-medium bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-300/40 px-1.5 py-0.5 rounded-md">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
-                Live GPS
+                Live Location
               </span>
             ) : hasCoordinates ? (
               <span
                 className="inline-flex items-center gap-1 text-[9px] font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700 px-1.5 py-0.5 rounded-md"
-                title={`Offline / Stale GPS. Last update: ${rider.telemetry.lastLocationUpdate ? new Date(rider.telemetry.lastLocationUpdate).toLocaleString() : "N/A"}`}
+                title={`Offline / Last Known Location: ${rider.telemetry.lastLocationUpdate ? new Date(rider.telemetry.lastLocationUpdate).toLocaleString() : "N/A"}`}
               >
                 <MapPin className="w-2.5 h-2.5 text-slate-400" />
-                Last GPS
+                Last Seen
               </span>
             ) : (
               <span
                 className="inline-flex items-center gap-1 text-[9px] text-muted-foreground bg-muted border border-dashed border-border px-1.5 py-0.5 rounded-md"
-                title="Rider has not sent GPS telemetry coordinates yet"
+                title="Rider has not shared location yet"
               >
                 <MapPin className="w-2.5 h-2.5 text-slate-400" />
-                No GPS
+                No Location
               </span>
             )}
 
@@ -1310,15 +1340,15 @@ export function LiveTrackClient() {
             {isOnboarded ? (
               <span className="inline-flex items-center gap-1 text-[9px] font-medium bg-blue-500/10 text-blue-700 dark:text-blue-300 border border-blue-300/40 px-1.5 py-0.5 rounded-md">
                 <CheckCircle2 className="w-2.5 h-2.5 text-blue-600" />
-                Onboarded
+                Approved
               </span>
             ) : (
               <span
                 className="inline-flex items-center gap-1 text-[9px] font-medium bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-300/40 px-1.5 py-0.5 rounded-md"
-                title="Rider hasn't completed their documents/onboarding steps"
+                title="Rider has not finished registration documents"
               >
                 <Clock className="w-2.5 h-2.5 text-amber-600" />
-                Pending Form
+                Incomplete
               </span>
             )}
 
@@ -1331,18 +1361,18 @@ export function LiveTrackClient() {
                   setSelectedDeviceModalRider(rider)
                 }}
                 className="inline-flex items-center gap-1 text-[9px] font-semibold bg-purple-500/10 hover:bg-purple-500/20 text-purple-700 dark:text-purple-300 border border-purple-300/40 px-1.5 py-0.5 rounded-md transition-colors cursor-pointer"
-                title={`${rider.deviceTokensCount} notification token(s) registered. Click to view device names.`}
+                title={`${rider.deviceTokensCount} connected phone(s). Click to view details.`}
               >
                 <Bell className="w-2.5 h-2.5 text-purple-600" />
-                <span>Notification Ready ({rider.deviceTokensCount})</span>
+                <span>Phone Connected ({rider.deviceTokensCount})</span>
               </button>
             ) : (
               <span
                 className="inline-flex items-center gap-1 text-[9px] text-muted-foreground bg-muted border border-border px-1.5 py-0.5 rounded-md opacity-80"
-                title="No notification token found; rider has not logged into mobile app"
+                title="No phone connected for order alerts"
               >
                 <BellOff className="w-2.5 h-2.5 opacity-60" />
-                No Notification
+                No Phone
               </span>
             )}
           </div>
@@ -1355,12 +1385,12 @@ export function LiveTrackClient() {
                   <Package className="w-3 h-3 text-blue-600 shrink-0" />
                   #{rider.activeDelivery.orderNumber || "Active Order"}
                 </span>
-                <span className="text-[9px] uppercase px-1 py-0.2 bg-blue-600 text-white rounded font-semibold">
-                  {rider.activeDelivery.assignmentStatus.replace(/_/g, " ")}
+                <span className="text-[9px] px-1 py-0.2 bg-blue-600 text-white rounded font-semibold">
+                  {formatOrderStatus(rider.activeDelivery.assignmentStatus)}
                 </span>
               </div>
               <div className="text-[10px] text-blue-900/80 dark:text-blue-300/80 truncate">
-                Store: {rider.activeDelivery.sellerName}
+                Pickup: {rider.activeDelivery.sellerName}
               </div>
             </div>
           )}
@@ -1376,7 +1406,7 @@ export function LiveTrackClient() {
             </span>
             <span className="font-semibold text-foreground flex items-center gap-1 shrink-0">
               <Gauge className="w-3 h-3 text-blue-600" />
-              {hasCoordinates ? `${Math.round(rider.telemetry.speed || 0)} km/h` : "No Signal"}
+              {hasCoordinates ? `${Math.round(rider.telemetry.speed || 0)} km/h` : "No Location"}
             </span>
           </div>
         </div>
@@ -1403,22 +1433,22 @@ export function LiveTrackClient() {
             <div>
               <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
                 <h1 className="text-base sm:text-xl font-bold text-slate-900 dark:text-white tracking-tight">
-                  Live Rider Fleet Tracking
+                  Live Rider Tracking
                 </h1>
                 {socketConnected ? (
                   <Badge variant="outline" className="text-[10px] sm:text-[11px] font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 gap-1.5 py-0.5">
                     <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-emerald-500 animate-ping inline-block" />
-                    WebSocket Live
+                    Live Updates Active
                   </Badge>
                 ) : (
                   <Badge variant="outline" className="text-[10px] sm:text-[11px] font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30 gap-1.5 py-0.5">
                     <RefreshCw className="w-3 h-3 animate-spin inline-block" />
-                    Polling (12s)
+                    Auto-refreshing (12s)
                   </Badge>
                 )}
               </div>
               <p className="text-[11px] sm:text-xs text-muted-foreground line-clamp-1 sm:line-clamp-none">
-                Real-time GPS telemetry, speed monitoring, and zonal route tracking across delivery operations.
+                See where delivery riders are right now, their speed, and active delivery orders.
               </p>
             </div>
           </div>
@@ -1432,9 +1462,10 @@ export function LiveTrackClient() {
             onClick={() => fetchFleet()}
             disabled={loading}
             className="rounded-xl text-xs gap-1.5 h-8 sm:h-9 bg-card"
+            title="Refresh rider locations"
           >
             <RefreshCw className={cn("w-3.5 h-3.5", loading && "animate-spin")} />
-            <span className="hidden sm:inline">Sync Now</span>
+            <span className="hidden sm:inline">Refresh</span>
           </Button>
 
           <Button
@@ -1442,10 +1473,10 @@ export function LiveTrackClient() {
             size="sm"
             onClick={recenterFleet}
             className="rounded-xl text-xs gap-1.5 h-8 sm:h-9 bg-card"
-            title="Recenter Map to Fleet"
+            title="Recenter map to show all riders"
           >
             <Navigation className="w-3.5 h-3.5 text-blue-600" />
-            <span className="hidden sm:inline">Fit Fleet</span>
+            <span className="hidden sm:inline">Show All Riders</span>
           </Button>
 
           <Button
@@ -1453,7 +1484,7 @@ export function LiveTrackClient() {
             size="icon"
             onClick={() => setIsFullscreen(!isFullscreen)}
             className="rounded-xl h-8 w-8 sm:h-9 sm:w-9 bg-card"
-            title={isFullscreen ? "Exit Fullscreen" : "Fullscreen View"}
+            title={isFullscreen ? "Exit Full Screen" : "Full Screen"}
           >
             {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
           </Button>
@@ -1473,7 +1504,7 @@ export function LiveTrackClient() {
           )}
         >
           <span>📱</span>
-          <span>All (Split)</span>
+          <span>Map & List</span>
         </button>
         <button
           type="button"
@@ -1499,7 +1530,7 @@ export function LiveTrackClient() {
           )}
         >
           <span>🚴</span>
-          <span>Fleet ({filteredRiders.length})</span>
+          <span>Riders ({filteredRiders.length})</span>
         </button>
         <button
           type="button"
@@ -1512,7 +1543,7 @@ export function LiveTrackClient() {
           )}
         >
           <span>ℹ️</span>
-          <span>Legend</span>
+          <span>Status Guide</span>
         </button>
       </div>
 
@@ -1527,7 +1558,7 @@ export function LiveTrackClient() {
           )}
         >
           <div className="flex items-center justify-between text-[11px] sm:text-xs text-muted-foreground font-medium">
-            <span>Onboarded Fleet</span>
+            <span>Total Approved Riders</span>
             <Bike className="w-3.5 h-3.5 text-slate-500" />
           </div>
           <div className="text-lg sm:text-xl font-bold text-foreground mt-0.5">{displayStats.total}</div>
@@ -1542,7 +1573,7 @@ export function LiveTrackClient() {
           )}
         >
           <div className="flex items-center justify-between text-[11px] sm:text-xs text-emerald-600 dark:text-emerald-400 font-medium">
-            <span>Free / Available</span>
+            <span>Available Now</span>
             <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
           </div>
           <div className="text-lg sm:text-xl font-bold text-emerald-700 dark:text-emerald-300 mt-0.5">{displayStats.free}</div>
@@ -1578,7 +1609,7 @@ export function LiveTrackClient() {
           <div className="text-lg sm:text-xl font-bold text-slate-700 dark:text-slate-300 mt-0.5">{displayStats.offline}</div>
         </div>
 
-        {/* Online Riders (replaces Active GPS Signals) */}
+        {/* Online Riders */}
         <div
           onClick={() => setSelectedStatus(selectedStatus === "ONLINE" ? "ALL" : "ONLINE")}
           className={cn(
@@ -1589,7 +1620,7 @@ export function LiveTrackClient() {
           )}
         >
           <div className="flex items-center justify-between text-[11px] sm:text-xs text-indigo-600 dark:text-indigo-400 font-medium">
-            <span>Online Riders</span>
+            <span>Online Now</span>
             <Radio className="w-3.5 h-3.5 text-indigo-600 animate-pulse" />
           </div>
           <div className="text-lg sm:text-xl font-bold text-indigo-700 dark:text-indigo-300 mt-0.5">
@@ -1630,7 +1661,7 @@ export function LiveTrackClient() {
               <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
               <Input
                 type="text"
-                placeholder="Search rider..."
+                placeholder="Search rider by name, phone, plate..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-8 pr-7 h-8 text-xs rounded-xl bg-background"
@@ -1709,7 +1740,7 @@ export function LiveTrackClient() {
                 className="rounded-full shadow-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-4 py-2 gap-1.5 border border-white/20 backdrop-blur-xs"
               >
                 <Bike className="w-3.5 h-3.5" />
-                View All {filteredRiders.length} Fleet & Legend ↓
+                View All Riders & Status Guide ↓
               </Button>
             </div>
           )}
@@ -1722,7 +1753,7 @@ export function LiveTrackClient() {
         <button
           onClick={() => setSidebarOpen(!sidebarOpen)}
           className="hidden md:flex absolute right-0 top-1/2 -translate-y-1/2 z-20 bg-background border shadow-md p-1.5 rounded-l-xl text-muted-foreground hover:text-foreground"
-          title={sidebarOpen ? "Collapse Fleet List" : "Expand Fleet List"}
+          title={sidebarOpen ? "Collapse Rider List" : "Expand Rider List"}
         >
           {sidebarOpen ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
         </button>
@@ -1738,10 +1769,10 @@ export function LiveTrackClient() {
             <div>
               <h3 className="font-bold text-xs sm:text-sm text-foreground flex items-center gap-1.5">
                 <Bike className="w-4 h-4 text-blue-600" />
-                Fleet Directory ({filteredRiders.length})
+                Rider Directory ({filteredRiders.length})
               </h3>
               <p className="text-[10px] sm:text-[11px] text-muted-foreground">
-                Showing onboarded active fleet eligible for orders.
+                Showing all active riders approved to deliver orders.
               </p>
             </div>
           </div>
@@ -1788,10 +1819,10 @@ export function LiveTrackClient() {
                 <div>
                   <h3 className="font-bold text-xs sm:text-sm text-foreground flex items-center gap-1.5">
                     <Bike className="w-4 h-4 text-blue-600" />
-                    Fleet Directory ({filteredRiders.length})
+                    Rider Directory ({filteredRiders.length})
                   </h3>
                   <p className="text-[10px] text-muted-foreground">
-                    Tap any rider to center on live map.
+                    Tap any rider to see their location on the map.
                   </p>
                 </div>
                 {mobileView === "fleet" && (
@@ -1814,7 +1845,7 @@ export function LiveTrackClient() {
                     <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
                     <Input
                       type="text"
-                      placeholder="Search rider name, phone, plate..."
+                      placeholder="Search rider by name, phone, plate..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       className="pl-8 h-8 text-xs rounded-xl bg-background"
@@ -1856,14 +1887,14 @@ export function LiveTrackClient() {
                 <Bell className="w-4 h-4" />
               </div>
               <div>
-                <div>Registered Notification Devices</div>
+                <div>Connected Phones & Devices</div>
                 <div className="text-xs font-normal text-muted-foreground mt-0.5">
                   {selectedDeviceModalRider?.name} ({selectedDeviceModalRider?.phoneCountryCode} {selectedDeviceModalRider?.phone || selectedDeviceModalRider?.email})
                 </div>
               </div>
             </DialogTitle>
             <DialogDescription className="text-xs">
-              Devices registered to receive real-time order dispatch notifications.
+              Phones and devices where this rider receives new delivery alerts.
             </DialogDescription>
           </DialogHeader>
 
@@ -1871,8 +1902,8 @@ export function LiveTrackClient() {
             {(!selectedDeviceModalRider?.devices || selectedDeviceModalRider.devices.length === 0) ? (
               <div className="p-6 text-center text-xs text-muted-foreground border rounded-2xl bg-muted/20 space-y-1">
                 <BellOff className="w-6 h-6 mx-auto text-slate-300 mb-2" />
-                <p className="font-semibold text-foreground">No Active Devices</p>
-                <p>This rider has not logged into the mobile application yet.</p>
+                <p className="font-semibold text-foreground">No Connected Devices</p>
+                <p>This rider has not logged into the Rider App yet. Once they log in on their phone, it will appear here.</p>
               </div>
             ) : (
               <div className="space-y-2 max-h-[340px] overflow-y-auto pr-1">
@@ -1917,11 +1948,11 @@ export function LiveTrackClient() {
                       <div className="text-right shrink-0">
                         <span className="inline-flex items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
                           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                          Ready
+                          Active
                         </span>
                         {dev.lastActiveAt && (
                           <p className="text-[9px] text-muted-foreground mt-0.5">
-                            {new Date(dev.lastActiveAt).toLocaleString([], {
+                            Last active: {new Date(dev.lastActiveAt).toLocaleString([], {
                               month: "short",
                               day: "numeric",
                               hour: "2-digit",
