@@ -172,6 +172,15 @@ export async function GET(
       firstImageUrl(variantImages) ?? firstImageUrl(productImages) ?? firstImageUrl(serviceImages) ?? null
     const returnAvailable = row.productVariant?.returnType === "RETURNABLE"
     const replacementAllowed = row.productVariant?.replacementAllowed === true
+    const itemGross = Number((row.subtotalInclGst ?? row.subtotal + row.gstAmount).toFixed(2))
+    const isSelf = Boolean((row as any).isSelfDelivery)
+    const shippingFee = Number((row.shippingAmount || 0).toFixed(2))
+    const commAmt = Number((row.commissionAmount || 0).toFixed(2))
+    const itemTotalWithShipping = Number((itemGross + shippingFee).toFixed(2))
+    const itemSellerNet = isSelf
+      ? Number(Math.max(0, itemGross + shippingFee - commAmt).toFixed(2))
+      : Number(Math.max(0, itemGross - commAmt).toFixed(2))
+
     return {
       id: row.id,
       itemStatus: row.itemStatus,
@@ -203,9 +212,16 @@ export async function GET(
       deliveredAt: (row as any).deliveredAt ? (row as any).deliveredAt.toISOString() : null,
       deliveryOtp: row.itemStatus === "DELIVERED" ? ((row as any).deliveryOtp ?? null) : null,
       deliveryOtpExpires: row.itemStatus === "DELIVERED" && (row as any).deliveryOtpExpires ? (row as any).deliveryOtpExpires.toISOString() : null,
-      isSelfDelivery: Boolean((row as any).isSelfDelivery),
+      isSelfDelivery: isSelf,
       commissionAmount: row.commissionAmount ?? 0,
       commissionRateSnapshot: row.commissionRateSnapshot ?? 0,
+      itemGross,
+      itemTotalWithShipping,
+      sellerNet: itemSellerNet,
+      netRevenue: itemSellerNet,
+      netPayout: itemSellerNet,
+      deliveryFeeDeducted: 0,
+      deliveryFeeEarned: isSelf ? shippingFee : 0,
       statusHistory: row.statusHistory.map((h) => ({
         status: h.status,
         location: h.location ?? null,
@@ -255,7 +271,10 @@ export async function GET(
 
   // When self-delivery is enabled, customer-paid delivery fee is earned by seller.
   // For platform delivery, delivery fee is paid by customer to the platform for the rider (not deducted from seller product revenue).
-  const deliveryBoyCharges = isPackageSelfDelivery ? 0 : sellerShippingTotal
+  const deliveryBoyCharges = 0
+  const deliveryFeeDeducted = 0
+  const deliveryFeeEarned = isPackageSelfDelivery ? sellerShippingTotal : 0
+  const customerPaidShipping = sellerShippingTotal
   const sellerNetPayout = isPackageSelfDelivery
     ? Math.max(0, sellerGrossTotal + sellerShippingTotal - sellerCommissionTotal)
     : Math.max(0, sellerGrossTotal - sellerCommissionTotal)
@@ -331,7 +350,10 @@ export async function GET(
     subtotal: sellerSubtotal,
     tax: order.items.reduce((sum, item) => sum + item.gstAmount, 0),
     shipping: sellerShippingTotal,
-    deliveryBoyCharges,
+    customerPaidShipping,
+    deliveryBoyCharges: 0,
+    deliveryFeeDeducted: 0,
+    deliveryFeeEarned,
     isSelfDelivery: isPackageSelfDelivery,
     sellerNet: sellerNetPayout,
     netEarnings: sellerNetPayout,

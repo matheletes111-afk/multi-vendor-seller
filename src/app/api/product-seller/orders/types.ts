@@ -37,6 +37,13 @@ export type SellerOrderDetailItemApi = {
   isSelfDelivery: boolean
   commissionAmount: number
   commissionRateSnapshot: number
+  itemGross: number
+  itemTotalWithShipping: number
+  sellerNet: number
+  netRevenue: number
+  netPayout: number
+  deliveryFeeDeducted: number
+  deliveryFeeEarned: number
   statusHistory: {
     status: string
     location: string | null
@@ -104,6 +111,9 @@ export type SellerOrderDetailApi = {
   couponDiscount?: number
   deliveryAssignments?: any[]
   deliveryBoyCharges?: number
+  deliveryFeeDeducted?: number
+  deliveryFeeEarned?: number
+  customerPaidShipping?: number
   isSelfDelivery?: boolean
   sellerNet?: number
   netEarnings?: number
