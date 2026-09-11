@@ -4,8 +4,8 @@ import { redirect } from "next/navigation"
 import { LiveTrackClient } from "./live-track-client"
 
 export const metadata = {
-  title: "Live Rider Fleet Tracking | Admin Portal",
-  description: "Real-time GPS tracking and monitoring of delivery riders, active routes, and zonal fleet operations.",
+  title: "Live Rider Tracking | Admin Portal",
+  description: "Live map and location tracking for delivery riders and active orders.",
 }
 
 export default async function AdminLiveTrackPage() {

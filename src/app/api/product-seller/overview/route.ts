@@ -101,7 +101,7 @@ export async function GET() {
   const selfDeliveryShipping = selfShippingAgg._sum.shippingAmount ?? 0
   const pendingSales = pendingRevenueAgg._sum.subtotalInclGst ?? 0
   const platformCommission = revenueAgg._sum.commissionAmount ?? 0
-  const netEarnings = Math.max(0, grossSales - platformCommission - deliveryBoyCharges + selfDeliveryShipping)
+  const netEarnings = Math.max(0, grossSales - platformCommission + selfDeliveryShipping)
   const netBalance = Number(seller.netBalance)
   const balanceCreditsTotal = Number(creditsAgg._sum.amount ?? 0)
   const balanceDebitsTotal = Number(debitsAgg._sum.amount ?? 0)

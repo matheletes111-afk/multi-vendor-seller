@@ -577,9 +577,12 @@ export function ProductSellerOrderDetailClient({ orderId }: { orderId: string })
                         {(() => {
                           const effectiveUnitPrice = item.quantity > 0 && item.subtotal > 0 ? item.subtotal / item.quantity : item.price
                           const grossItemVal = (item.subtotalInclGst ?? item.subtotal + item.gstAmount)
+                          const isSelf = Boolean(item.isSelfDelivery)
                           const deliveryBoyCharge = item.shippingAmount || 0
                           const platformFee = item.commissionAmount || 0
-                          const netPayoutVal = Math.max(0, grossItemVal - platformFee - deliveryBoyCharge)
+                          const netPayoutVal = isSelf
+                            ? Math.max(0, grossItemVal + deliveryBoyCharge - platformFee)
+                            : Math.max(0, grossItemVal - platformFee)
 
                           return (
                             <>
@@ -599,7 +602,7 @@ export function ProductSellerOrderDetailClient({ orderId }: { orderId: string })
                                   </p>
                                 </div>
                                 <div className="space-y-1 min-w-[110px]">
-                                  <p className="text-[10px] uppercase font-black text-muted-foreground tracking-wider">Delivery Boy Charge</p>
+                                  <p className="text-[10px] uppercase font-black text-muted-foreground tracking-wider">{isSelf ? "Self-Delivery Charge" : "Delivery (Customer Paid)"}</p>
                                   <p className="text-base font-bold tabular-nums text-orange-600">{formatCurrency(deliveryBoyCharge)}</p>
                                 </div>
                                 <div className="space-y-1 min-w-[120px]">
@@ -635,12 +638,22 @@ export function ProductSellerOrderDetailClient({ orderId }: { orderId: string })
                                     </p>
                                   </div>
 
-                                  <div className="space-y-1 bg-amber-500/10 p-3 rounded-xl border border-amber-500/20">
-                                    <span className="text-[10px] font-bold uppercase tracking-wider text-amber-300 block">Delivery Boy Fee</span>
-                                    <p className="text-base font-bold text-amber-400 tabular-nums">
-                                      -{formatCurrency(deliveryBoyCharge)}
-                                    </p>
-                                  </div>
+                                  {isSelf ? (
+                                    <div className="space-y-1 bg-emerald-500/10 p-3 rounded-xl border border-emerald-500/20">
+                                      <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-300 block">In-House Delivery Earned</span>
+                                      <p className="text-base font-bold text-emerald-400 tabular-nums">
+                                        +{formatCurrency(deliveryBoyCharge)}
+                                      </p>
+                                    </div>
+                                  ) : (
+                                    <div className="space-y-1 bg-blue-500/10 p-3 rounded-xl border border-blue-500/20">
+                                      <span className="text-[10px] font-bold uppercase tracking-wider text-blue-300 block">Delivery Fulfillment</span>
+                                      <p className="text-base font-bold text-blue-300 tabular-nums flex items-center gap-1.5">
+                                        <span>Platform Rider</span>
+                                      </p>
+                                      <span className="text-[9px] text-slate-400 block">Paid by Customer ({formatCurrency(deliveryBoyCharge)})</span>
+                                    </div>
+                                  )}
 
                                   <div className="space-y-1 bg-emerald-500/15 p-3 rounded-xl border border-emerald-500/30">
                                     <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-300 block">Net Seller Revenue</span>

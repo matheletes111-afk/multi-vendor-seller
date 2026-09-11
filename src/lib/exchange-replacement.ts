@@ -63,7 +63,7 @@ export async function createExchangeReplacementOrderItem(
   const lineTotalInclGst = roundMoney(newTotals.totalPriceInclGst)
   const itemShippingAmount = 0
   const commissionAmount = roundMoney(
-    ((lineTotalInclGst + itemShippingAmount) * EXCHANGE_COMMISSION_RATE) / 100
+    (lineTotalInclGst * EXCHANGE_COMMISSION_RATE) / 100
   )
 
   const created = await tx.orderItem.create({

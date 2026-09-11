@@ -301,7 +301,7 @@ export async function POST(request: NextRequest) {
     const lineTotalInclGst =
       row.item.totalPriceInclGst ?? row.item.totalPrice + row.item.totalGst
     const itemShippingAmount = lineShippingFees[idx]
-    const commAmt = (lineTotalInclGst + itemShippingAmount) * (rate / 100)
+    const commAmt = lineTotalInclGst * (rate / 100)
     totalOrderCommission += commAmt
     return { rate, commAmt, lineTotalInclGst, itemShippingAmount }
   })

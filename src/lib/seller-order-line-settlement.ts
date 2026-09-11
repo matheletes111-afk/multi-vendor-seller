@@ -49,11 +49,11 @@ export async function applySellerCreditForOrderLineDelivered(
   const shippingFee = item.productId ? (item.shippingAmount || 0) : 0
 
   // For Self-Delivery: Seller fulfilled delivery in-house, so customer delivery charge is added to seller wallet.
-  // For Platform Rider: Delivery charge is deducted to compensate platform rider.
+  // For Platform Rider: Platform pays the rider directly from customer shipping payment; seller receives product net (lineIncl - comm).
   const creditAmount = roundMoney(
     isSelf
       ? Math.max(0, lineIncl + shippingFee - comm)
-      : Math.max(0, lineIncl - comm - shippingFee)
+      : Math.max(0, lineIncl - comm)
   )
   if (creditAmount <= EPS) return
 
@@ -72,7 +72,7 @@ export async function applySellerCreditForOrderLineDelivered(
       note: item.productId
         ? isSelf
           ? `Seller net credit: Item incl. GST (${roundMoney(lineIncl)}) + delivery charge credited (${roundMoney(shippingFee)}) − platform commission (${roundMoney(comm)}) [Self-Delivery Fulfilled]`
-          : `Seller net credit: Item incl. GST (${roundMoney(lineIncl)}) − platform commission (${roundMoney(comm)}) − delivery boy charge (${roundMoney(shippingFee)})`
+          : `Seller net credit: Item incl. GST (${roundMoney(lineIncl)}) − platform commission (${roundMoney(comm)})`
         : `Seller net credit: Service line incl. GST (${roundMoney(lineIncl)}) − platform commission (${roundMoney(comm)})`,
     },
   })

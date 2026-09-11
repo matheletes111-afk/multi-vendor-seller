@@ -292,7 +292,7 @@ export async function GET(
         const itemGross = item.subtotalInclGst ?? item.subtotal + item.gstAmount
         const isSelf = Boolean(item.isSelfDelivery)
         const ship = item.productId != null ? item.shippingAmount : 0
-        return sum + (isSelf ? itemGross + ship - item.commissionAmount : itemGross - item.commissionAmount - ship)
+        return sum + (isSelf ? itemGross + ship - item.commissionAmount : itemGross - item.commissionAmount)
       }, 0)
     ),
     commissionRate: order.commissionRate,

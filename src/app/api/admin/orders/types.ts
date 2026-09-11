@@ -142,7 +142,7 @@ export type AdminOrderDetailApi = {
   commission: number
   /** Total delivery boy charges for this order (sum of item-level shippingAmount for product items only). */
   deliveryBoyCharges: number
-  /** Net payout to seller = gross incl. GST − commission − delivery boy charges. */
+  /** Net payout to seller = gross incl. GST − commission (+ shipping fee if self-delivery). */
   sellerNetPayout: number
   commissionRate: number
   paymentMethod: string | null

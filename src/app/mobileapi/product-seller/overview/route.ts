@@ -133,7 +133,7 @@ export async function GET(request: NextRequest) {
     const deliveryBoyCharges = riderShippingAgg._sum.shippingAmount ?? 0
     const selfDeliveryShipping = selfShippingAgg._sum.shippingAmount ?? 0
     const platformCommission = revenueAgg._sum.commissionAmount ?? 0
-    const netEarnings = Math.max(0, grossSales - platformCommission - deliveryBoyCharges + selfDeliveryShipping)
+    const netEarnings = Math.max(0, grossSales - platformCommission + selfDeliveryShipping)
     const netBalance = Number(seller.netBalance)
     const balanceCreditsTotal = Number(creditsAgg._sum.amount ?? 0)
     const balanceDebitsTotal = Number(debitsAgg._sum.amount ?? 0)
