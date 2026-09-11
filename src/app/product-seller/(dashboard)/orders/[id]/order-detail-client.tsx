@@ -498,9 +498,9 @@ export function ProductSellerOrderDetailClient({ orderId }: { orderId: string })
         </div>
       </header>
 
-      <div className="grid gap-6 lg:grid-cols-12 lg:items-start">
-        {/* Left column ~60-65% */}
-        <div className="space-y-6 lg:col-span-7 xl:col-span-8">
+      <div className="grid gap-6 lg:grid-cols-12 lg:items-start min-w-0">
+        {/* Left column ~58% */}
+        <div className="space-y-6 lg:col-span-7 xl:col-span-7 min-w-0">
           {orderedItems.map((item) => {
             const draftStatus = itemStatusDrafts[item.id] ?? item.itemStatus
             const showShipmentForm =
@@ -1426,41 +1426,43 @@ export function ProductSellerOrderDetailClient({ orderId }: { orderId: string })
           })}
         </div>
 
-        {/* Right column ~35-40% redesign */}
-        <div className="space-y-8 lg:col-span-5 xl:col-span-4">
+        {/* Right column ~42% redesign */}
+        <div className="space-y-8 lg:col-span-5 xl:col-span-5 2xl:col-span-5 min-w-0">
           {/* Order Summary Premium Section */}
-          <Card className="border-none shadow-2xl rounded-[2.5rem] overflow-hidden bg-gradient-to-br from-background via-background to-muted/20 lg:sticky lg:top-8 animate-in fade-in slide-in-from-right-4 duration-700">
-            <CardHeader className="bg-primary/5 py-8 border-b border-primary/10">
+          <Card className="border-none shadow-2xl rounded-[2.5rem] bg-gradient-to-br from-background via-background to-muted/20 lg:sticky lg:top-8 animate-in fade-in duration-500 overflow-hidden">
+            <CardHeader className="bg-primary/5 py-6 sm:py-8 px-5 sm:px-8 border-b border-primary/10">
               <CardTitle className="flex items-center gap-4 text-xl font-black uppercase tracking-tight">
-                <div className="p-3 bg-primary/10 rounded-2xl shadow-inner">
+                <div className="p-2.5 bg-primary/10 rounded-2xl shadow-inner">
                   <Receipt className="h-6 w-6 text-primary" aria-hidden />
                 </div>
                 Order Analytics
               </CardTitle>
             </CardHeader>
-            <CardContent className="p-8 space-y-8">
-              <div className="grid gap-6">
-                <div className="flex justify-between items-center p-4 bg-muted/30 rounded-2xl border border-muted-foreground/10 hover:bg-muted/40 transition-colors">
-                  <span className="text-xs font-black uppercase tracking-widest text-muted-foreground/60">Checkout Method</span>
-                  <span className="font-extrabold text-sm uppercase tracking-tighter text-primary/80">{order.paymentMethod ?? "COD"}</span>
+            <CardContent className="p-5 sm:p-6 lg:p-7 space-y-6 min-w-0">
+              <div className="grid gap-6 min-w-0">
+                <div className="flex justify-between items-center p-4 bg-muted/30 rounded-2xl border border-muted-foreground/10 hover:bg-muted/40 transition-colors gap-2">
+                  <span className="text-xs font-black uppercase tracking-widest text-muted-foreground/60 min-w-0">Checkout Method</span>
+                  <span className="font-extrabold text-sm uppercase tracking-tighter text-primary/80 shrink-0">{order.paymentMethod ?? "COD"}</span>
                 </div>
                 
                 {/* Customer Section */}
-                <div className="space-y-4">
+                <div className="space-y-4 min-w-0">
                   <h4 className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-foreground/70 px-1">
                     <User className="w-3.5 h-3.5" /> Client Information
                   </h4>
-                  <div className="rounded-3xl bg-background/50 backdrop-blur-md border border-muted/20 p-6 shadow-sm group hover:shadow-md transition-all">
-                     <p className="text-xl font-bold text-foreground group-hover:text-primary transition-colors">{order.customerName ?? "Guest Client"}</p>
+                  <div className="rounded-3xl bg-background/50 backdrop-blur-md border border-muted/20 p-5 sm:p-6 shadow-sm group hover:shadow-md transition-all min-w-0">
+                     <p className="text-lg sm:text-xl font-bold text-foreground group-hover:text-primary transition-colors truncate">{order.customerName ?? "Guest Client"}</p>
                      <div className="mt-2 space-y-1">
-                        <p className="text-xs font-semibold text-muted-foreground lowercase opacity-70">
+                        <p className="text-xs font-semibold text-muted-foreground lowercase opacity-70 truncate">
                            {order.customerEmail ?? "no email provided"}
                         </p>
                         {order.customerPhone && (
-                          <p className="text-xs font-bold text-primary flex items-center gap-1.5 pt-1 border-t border-primary/5">
-                            <span className="text-[10px] font-medium opacity-50">OTP DEST:</span>
-                            {order.customerPhoneCountryCode ? `(+${order.customerPhoneCountryCode.replace(/\D/g, "")}) ` : ""}
-                            {order.customerPhone}
+                          <p className="text-xs font-bold text-primary flex items-center gap-1.5 pt-1 border-t border-primary/5 truncate">
+                            <span className="text-[10px] font-medium opacity-50 shrink-0">OTP DEST:</span>
+                            <span className="truncate">
+                              {order.customerPhoneCountryCode ? `(+${order.customerPhoneCountryCode.replace(/\D/g, "")}) ` : ""}
+                              {order.customerPhone}
+                            </span>
                           </p>
                         )}
                      </div>
@@ -1476,25 +1478,25 @@ export function ProductSellerOrderDetailClient({ orderId }: { orderId: string })
 
                 {/* Delivery Fulfillment Method Toggle Section (Hidden once delivered) */}
                 {order.status !== "DELIVERED" && (
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between px-1">
-                      <h4 className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-foreground/70">
-                        <Truck className="w-3.5 h-3.5 text-primary" /> Delivery Fulfillment Method
+                  <div className="space-y-3 min-w-0">
+                    <div className="flex flex-wrap items-center justify-between gap-2 px-1">
+                      <h4 className="flex items-center gap-2 text-[10px] font-black uppercase tracking-wider text-foreground/70 min-w-0">
+                        <Truck className="w-3.5 h-3.5 text-primary shrink-0" /> Delivery Fulfillment Method
                       </h4>
                       {isSelfDelivery ? (
-                        <Badge className="bg-emerald-600 text-white font-black text-[9px] uppercase tracking-widest px-2.5 py-0.5 rounded-full shadow-xs">
+                        <Badge className="bg-emerald-600 text-white font-black text-[9px] uppercase tracking-widest px-2.5 py-0.5 rounded-full shadow-xs shrink-0">
                           In-House Active
                         </Badge>
                       ) : (
-                        <Badge variant="outline" className="text-[9px] font-bold uppercase tracking-widest px-2.5 py-0.5 rounded-full border-blue-500/30 text-blue-600 bg-blue-50/50 dark:bg-blue-950/30">
+                        <Badge variant="outline" className="text-[9px] font-bold uppercase tracking-widest px-2.5 py-0.5 rounded-full border-blue-500/30 text-blue-600 bg-blue-50/50 dark:bg-blue-950/30 shrink-0">
                           Platform Riders (Default)
                         </Badge>
                       )}
                     </div>
 
-                    <div className="rounded-3xl bg-background/60 backdrop-blur-md p-5 border border-muted/30 shadow-sm space-y-4">
-                      <div className="flex items-center justify-between gap-4">
-                        <div className="space-y-1">
+                    <div className="rounded-3xl bg-background/60 backdrop-blur-md p-5 border border-muted/30 shadow-sm space-y-4 min-w-0">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="space-y-1 min-w-0 flex-1">
                           <label htmlFor="self-delivery-toggle" className="text-xs font-black uppercase tracking-wider text-foreground flex items-center gap-2 cursor-pointer">
                             Deliver by Myself (In-House)
                           </label>
@@ -1586,47 +1588,50 @@ export function ProductSellerOrderDetailClient({ orderId }: { orderId: string })
                 </div>
 
                 {/* Shipping & Delivery Fee Breakup Card */}
-                <div className="space-y-3">
-                  <h4 className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-foreground/70 px-1">
-                    <Truck className="w-3.5 h-3.5 text-orange-600" /> Delivery Fee Price Breakup
+                <div className="space-y-3 min-w-0">
+                  <h4 className="flex items-center gap-2 text-[10px] font-black uppercase tracking-wider text-foreground/70 px-1 min-w-0">
+                    <Truck className="w-3.5 h-3.5 text-orange-600 shrink-0" /> Delivery Fee Price Breakup
                   </h4>
-                  <div className="rounded-3xl bg-slate-900 text-white p-5 shadow-xl border border-slate-800 space-y-3">
-                    <div className="flex justify-between items-center text-xs">
-                      <span className="text-slate-400 font-medium">Weight Shipping Fee</span>
-                      <span className="font-bold tabular-nums text-slate-200">{formatCurrency(order.weightShippingFee ?? 0)}</span>
+                  <div className="rounded-3xl bg-slate-900 text-white p-4 sm:p-5 shadow-xl border border-slate-800 space-y-3 min-w-0">
+                    <div className="flex justify-between items-center text-xs gap-2 min-w-0">
+                      <span className="text-slate-400 font-medium min-w-0 truncate">Weight Shipping Fee</span>
+                      <span className="font-bold tabular-nums text-slate-200 shrink-0">{formatCurrency(order.weightShippingFee ?? 0)}</span>
                     </div>
-                    <div className="flex justify-between items-center text-xs">
-                      <span className="text-slate-400 font-medium">Dimension Shipping Fee</span>
-                      <span className="font-bold tabular-nums text-slate-200">{formatCurrency(order.dimensionShippingFee ?? 0)}</span>
+                    <div className="flex justify-between items-center text-xs gap-2 min-w-0">
+                      <span className="text-slate-400 font-medium min-w-0 truncate">Dimension Shipping Fee</span>
+                      <span className="font-bold tabular-nums text-slate-200 shrink-0">{formatCurrency(order.dimensionShippingFee ?? 0)}</span>
                     </div>
-                    <div className="flex justify-between items-center text-xs">
-                      <span className="text-slate-400 font-medium">
-                        Regional Surcharge ({getFormattedDeliveryZone({
-                          addressLine1: order.shippingAddressLine1,
-                          addressLine2: order.shippingAddressLine2,
-                          city: order.shippingCity,
-                          state: order.shippingState,
-                        })})
-                      </span>
-                      <span className="font-bold tabular-nums text-slate-200">{formatCurrency(order.regionShippingFee ?? 0)}</span>
+                    <div className="flex justify-between items-start text-xs gap-2 min-w-0">
+                      <div className="min-w-0 flex-1">
+                        <span className="text-slate-400 font-medium block truncate">Regional Surcharge</span>
+                        <span className="text-[10px] text-slate-400/70 block truncate">
+                          {getFormattedDeliveryZone({
+                            addressLine1: order.shippingAddressLine1,
+                            addressLine2: order.shippingAddressLine2,
+                            city: order.shippingCity,
+                            state: order.shippingState,
+                          })}
+                        </span>
+                      </div>
+                      <span className="font-bold tabular-nums text-slate-200 shrink-0 text-right pt-0.5">{formatCurrency(order.regionShippingFee ?? 0)}</span>
                     </div>
-                    <div className="flex justify-between items-center text-xs pt-2.5 border-t border-slate-800 font-black">
-                      <div className="space-y-0.5">
-                        <span className="text-orange-400 uppercase tracking-wider text-[10px] block">Total Delivery Charge</span>
+                    <div className="flex justify-between items-center text-xs pt-2.5 border-t border-slate-800 font-black gap-2 min-w-0">
+                      <div className="space-y-0.5 min-w-0 flex-1">
+                        <span className="text-orange-400 uppercase tracking-wider text-[10px] block truncate">Total Delivery Charge</span>
                         {isSelfDelivery && (
-                          <span className="text-[10px] text-emerald-400 font-bold block">✓ Credited to Seller Account</span>
+                          <span className="text-[10px] text-emerald-400 font-bold block truncate">✓ Credited to Seller Account</span>
                         )}
                       </div>
-                      <span className="text-orange-400 text-sm tabular-nums">{formatCurrency(order.shipping)}</span>
+                      <span className="text-orange-400 text-sm tabular-nums shrink-0">{formatCurrency(order.shipping)}</span>
                     </div>
                   </div>
                 </div>
 
                 {/* Billing Summary Redesign */}
-                <div className="space-y-5 pt-4 border-t border-muted/30">
+                <div className="space-y-5 pt-4 border-t border-muted/30 min-w-0">
                   {priceBreakdown.kind === "exchange" && (
-                    <Alert className="border-amber-200 bg-amber-50/50 text-amber-950 rounded-2xl">
-                      <AlertCircle className="h-4 w-4 text-amber-600" />
+                    <Alert className="border-amber-200 bg-amber-50/50 text-amber-950 rounded-2xl min-w-0">
+                      <AlertCircle className="h-4 w-4 text-amber-600 shrink-0" />
                       <AlertTitle className="text-xs font-bold uppercase tracking-wider">Exchange Settlement</AlertTitle>
                       <AlertDescription className="text-[11px] leading-relaxed opacity-80 font-medium">
                         Modified order values based on exchange delta.
@@ -1642,21 +1647,21 @@ export function ProductSellerOrderDetailClient({ orderId }: { orderId: string })
                     </Alert>
                   )}
                   {/* Financial Breakdown: Customer Paid vs Seller Payout */}
-                  <div className="space-y-4">
+                  <div className="space-y-4 min-w-0">
                     {/* A. Customer Invoice Charges */}
-                    <div className="space-y-2.5">
+                    <div className="space-y-2.5 min-w-0">
                       <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 px-1">
                         Customer Invoice Breakdown
                       </p>
-                      <div className="flex justify-between items-center px-1 text-xs">
-                        <span className="text-muted-foreground font-medium">Unit Price Subtotal</span>
-                        <span className="font-bold tabular-nums text-foreground/80">
+                      <div className="flex justify-between items-center px-1 text-xs gap-2 min-w-0">
+                        <span className="text-muted-foreground font-medium min-w-0 truncate">Unit Price Subtotal</span>
+                        <span className="font-bold tabular-nums text-foreground/80 shrink-0">
                           {formatCurrency(priceBreakdown.kind === "exchange" ? priceBreakdown.displaySubtotal : order.subtotal)}
                         </span>
                       </div>
-                      <div className="flex justify-between items-center px-1 text-xs">
-                        <span className="text-muted-foreground font-medium">Tax Contribution (GST)</span>
-                        <span className="font-bold tabular-nums text-emerald-600">
+                      <div className="flex justify-between items-center px-1 text-xs gap-2 min-w-0">
+                        <span className="text-muted-foreground font-medium min-w-0 truncate">Tax Contribution (GST)</span>
+                        <span className="font-bold tabular-nums text-emerald-600 shrink-0">
                           +{formatCurrency(priceBreakdown.kind === "exchange" ? priceBreakdown.displayTax : order.tax)}
                         </span>
                       </div>
@@ -1665,31 +1670,31 @@ export function ProductSellerOrderDetailClient({ orderId }: { orderId: string })
                       {(() => {
                         const orderItemGross = (priceBreakdown.kind === "exchange" ? priceBreakdown.displaySubtotal + priceBreakdown.displayTax : order.subtotal + order.tax)
                         return (
-                          <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-between">
-                            <div>
-                              <div className="flex items-center gap-1.5">
+                          <div className="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex flex-wrap items-center justify-between gap-2 min-w-0">
+                            <div className="min-w-0 flex-1">
+                              <div className="flex flex-wrap items-center gap-1.5">
                                 <span className="text-xs font-bold text-emerald-800 dark:text-emerald-300">Item Gross Value</span>
-                                <Badge variant="outline" className="text-[9px] font-black uppercase px-1.5 py-0 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30">
+                                <Badge variant="outline" className="text-[9px] font-black uppercase px-1.5 py-0 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 shrink-0">
                                   {order.commissionRate}% Commission Base
                                 </Badge>
                               </div>
                               <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">Unit Price + GST</p>
                             </div>
-                            <span className="text-base font-black tabular-nums text-emerald-700 dark:text-emerald-300">
+                            <span className="text-base font-black tabular-nums text-emerald-700 dark:text-emerald-300 shrink-0">
                               {formatCurrency(orderItemGross)}
                             </span>
                           </div>
                         )
                       })()}
 
-                      <div className="flex justify-between items-center px-1 text-xs">
-                        <div className="space-y-0.5">
-                          <span className="text-muted-foreground font-medium block">Delivery Charge</span>
-                          <span className="text-[10px] text-muted-foreground/60 block">
+                      <div className="flex justify-between items-center px-1 text-xs gap-2 min-w-0">
+                        <div className="space-y-0.5 min-w-0 flex-1">
+                          <span className="text-muted-foreground font-medium block truncate">Delivery Charge</span>
+                          <span className="text-[10px] text-muted-foreground/60 block truncate">
                             {isSelfDelivery ? "Fulfilled by Seller" : "Platform Rider (Paid to Rider)"}
                           </span>
                         </div>
-                        <span className="font-bold tabular-nums text-orange-600">
+                        <span className="font-bold tabular-nums text-orange-600 shrink-0">
                           {order.shipping <= 0 ? (
                             <span className="font-bold text-emerald-600">FREE</span>
                           ) : (
@@ -1699,62 +1704,62 @@ export function ProductSellerOrderDetailClient({ orderId }: { orderId: string })
                       </div>
 
                       {priceBreakdown.kind === "exchange" && priceBreakdown.topUp > 0.01 && (
-                        <div className="flex justify-between items-center px-1 text-xs">
-                          <span className="text-amber-600 font-medium">Exchange Top-up</span>
-                          <span className="font-bold tabular-nums text-amber-600">{formatCurrency(priceBreakdown.topUp)}</span>
+                        <div className="flex justify-between items-center px-1 text-xs gap-2 min-w-0">
+                          <span className="text-amber-600 font-medium min-w-0 truncate">Exchange Top-up</span>
+                          <span className="font-bold tabular-nums text-amber-600 shrink-0">{formatCurrency(priceBreakdown.topUp)}</span>
                         </div>
                       )}
 
                       {priceBreakdown.kind === "exchange" && priceBreakdown.walletCredit > 0.01 && (
-                        <div className="flex justify-between items-center px-1 text-xs">
-                          <span className="text-sky-600 font-medium">Wallet Reimbursement</span>
-                          <span className="font-bold tabular-nums text-sky-600">{formatCurrency(priceBreakdown.walletCredit)}</span>
+                        <div className="flex justify-between items-center px-1 text-xs gap-2 min-w-0">
+                          <span className="text-sky-600 font-medium min-w-0 truncate">Wallet Reimbursement</span>
+                          <span className="font-bold tabular-nums text-sky-600 shrink-0">{formatCurrency(priceBreakdown.walletCredit)}</span>
                         </div>
                       )}
 
                       {(order.couponDiscount ?? 0) > 0 && (
-                        <div className="flex justify-between items-center px-1 text-xs text-emerald-600 font-bold">
-                          <span>Coupon Discount ({order.couponCode})</span>
-                          <span className="tabular-nums">-{formatCurrency(order.couponDiscount!)}</span>
+                        <div className="flex justify-between items-center px-1 text-xs text-emerald-600 font-bold gap-2 min-w-0">
+                          <span className="min-w-0 truncate">Coupon Discount ({order.couponCode})</span>
+                          <span className="tabular-nums shrink-0">-{formatCurrency(order.couponDiscount!)}</span>
                         </div>
                       )}
 
-                      <div className="flex justify-between items-center px-1 pt-2 border-t border-muted/20 text-xs">
-                        <span className="font-semibold text-muted-foreground">Total Paid by Customer</span>
-                        <span className="font-black tabular-nums text-foreground">
+                      <div className="flex justify-between items-center px-1 pt-2 border-t border-muted/20 text-xs gap-2 min-w-0">
+                        <span className="font-semibold text-muted-foreground min-w-0 truncate">Total Paid by Customer</span>
+                        <span className="font-black tabular-nums text-foreground shrink-0">
                           {formatCurrency(priceBreakdown.kind === "exchange" ? priceBreakdown.effectiveGrandTotal : order.totalAmount)}
                         </span>
                       </div>
                     </div>
 
                     {/* B. Seller Payout Math Strip */}
-                    <div className="space-y-2 pt-2 border-t border-muted/20">
+                    <div className="space-y-2 pt-2 border-t border-muted/20 min-w-0">
                       <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 px-1">
                         Seller Net Settlement Calculation
                       </p>
-                      <div className="flex justify-between items-center px-1 text-xs">
-                        <span className="text-muted-foreground font-medium">Item Gross Value</span>
-                        <span className="font-bold tabular-nums text-foreground">
+                      <div className="flex justify-between items-center px-1 text-xs gap-2 min-w-0">
+                        <span className="text-muted-foreground font-medium min-w-0 truncate">Item Gross Value</span>
+                        <span className="font-bold tabular-nums text-foreground shrink-0">
                           {formatCurrency(order.subtotal + order.tax)}
                         </span>
                       </div>
-                      <div className="flex justify-between items-center px-1 text-xs">
-                        <div className="space-y-0.5">
-                          <span className="text-rose-600 dark:text-rose-400 font-medium block">
+                      <div className="flex justify-between items-center px-1 text-xs gap-2 min-w-0">
+                        <div className="space-y-0.5 min-w-0 flex-1">
+                          <span className="text-rose-600 dark:text-rose-400 font-medium block truncate">
                             Platform Fee ({order.commissionRate}%)
                           </span>
-                          <span className="text-[10px] text-muted-foreground/60 block">
+                          <span className="text-[10px] text-muted-foreground/60 block truncate">
                             {order.commissionRate}% of {formatCurrency(order.subtotal + order.tax)} (No fee on delivery)
                           </span>
                         </div>
-                        <span className="font-bold tabular-nums text-rose-600 dark:text-rose-400">
+                        <span className="font-bold tabular-nums text-rose-600 dark:text-rose-400 shrink-0">
                           -{formatCurrency(order.commission)}
                         </span>
                       </div>
                       {isSelfDelivery && (
-                        <div className="flex justify-between items-center px-1 text-xs">
-                          <span className="text-emerald-600 font-medium">Delivery Charge (Self-Fulfillment)</span>
-                          <span className="font-bold tabular-nums text-emerald-600">
+                        <div className="flex justify-between items-center px-1 text-xs gap-2 min-w-0">
+                          <span className="text-emerald-600 font-medium min-w-0 truncate">Delivery Charge (Self-Fulfillment)</span>
+                          <span className="font-bold tabular-nums text-emerald-600 shrink-0">
                             +{formatCurrency(order.shipping)}
                           </span>
                         </div>
@@ -1771,31 +1776,31 @@ export function ProductSellerOrderDetailClient({ orderId }: { orderId: string })
                       const itemGross = order.subtotal + order.tax
 
                       return (
-                        <div className="relative p-6 rounded-3xl bg-slate-900 text-white shadow-2xl overflow-hidden border border-slate-800">
+                        <div className="relative p-5 sm:p-6 rounded-3xl bg-slate-900 text-white shadow-2xl overflow-hidden border border-slate-800 min-w-0">
                           <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none"></div>
-                          <div className="relative flex justify-between items-start">
-                            <div className="space-y-1">
-                              <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400">
+                          <div className="relative flex justify-between items-start gap-2">
+                            <div className="space-y-1 min-w-0 flex-1">
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400 block">
                                 Net Seller Payout
                               </span>
-                              <p className="text-3xl font-black tabular-nums tracking-tight text-emerald-400">
+                              <p className="text-2xl sm:text-3xl font-black tabular-nums tracking-tight text-emerald-400 truncate">
                                 {formatCurrency(netSellerAmount)}
                               </p>
                               <p className="text-[11px] text-slate-300 font-medium">
                                 Credited to your seller wallet
                               </p>
                             </div>
-                            <div className="h-11 w-11 rounded-2xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+                            <div className="h-10 w-10 sm:h-11 sm:w-11 rounded-2xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
                               <Wallet className="w-5 h-5" />
                             </div>
                           </div>
 
-                          <div className="mt-4 pt-3 border-t border-slate-800 space-y-1 text-[11px] text-slate-400">
-                            <div className="flex items-center justify-between font-mono text-[10px] text-slate-300 bg-slate-950/60 px-2.5 py-1 rounded-lg border border-slate-800">
-                              <span>Formula:</span>
-                              <span>{formatCurrency(itemGross)} − {formatCurrency(order.commission)} = {formatCurrency(netSellerAmount)}</span>
+                          <div className="mt-4 pt-3 border-t border-slate-800 space-y-1.5 text-[11px] text-slate-400 min-w-0">
+                            <div className="flex flex-wrap items-center justify-between gap-1 font-mono text-[10px] text-slate-300 bg-slate-950/60 px-2.5 py-1.5 rounded-lg border border-slate-800 min-w-0">
+                              <span className="text-slate-400 font-sans shrink-0">Formula:</span>
+                              <span className="truncate max-w-full">{formatCurrency(itemGross)} − {formatCurrency(order.commission)} = {formatCurrency(netSellerAmount)}</span>
                             </div>
-                            <p className="text-[10px] text-slate-400/80 pt-1 leading-tight">
+                            <p className="text-[10px] text-slate-400/80 pt-0.5 leading-tight">
                               Customer paid {formatCurrency(order.totalAmount)} total (Includes {formatCurrency(order.shipping)} platform rider delivery fee).
                             </p>
                           </div>

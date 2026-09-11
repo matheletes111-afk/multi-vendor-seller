@@ -99,7 +99,7 @@ export function ProductSellerLayoutClient({
           <Button type="button" variant="outline" className="w-full" onClick={() => signOut({ redirect: false }).then(() => { window.location.href = "/" })}>Logout</Button>
         </div>
       </Sidebar>
-      <div className="flex flex-1 flex-col md:pl-64">
+      <div className="flex flex-1 flex-col md:pl-64 min-w-0 max-w-full overflow-x-hidden">
         <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b border-blue-900/20 bg-gradient-to-r from-blue-50 via-blue-200 to-cyan-600 px-6 shadow-md">
           <div className="flex flex-1 items-center gap-4">
             {mounted ? (
@@ -151,7 +151,7 @@ export function ProductSellerLayoutClient({
             )}
           </div>
         </header>
-        <main className="flex-1">{children}</main>
+        <main className="flex-1 min-w-0">{children}</main>
         <DashboardFooter panelName="Product Seller Panel" />
       </div>
     </div>

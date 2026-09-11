@@ -316,8 +316,8 @@ export function AdminOrderDetailClient({ orderId }: { orderId: string }) {
         </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-5 lg:items-start">
-        <div className="space-y-6 lg:col-span-3">
+      <div className="grid gap-6 lg:grid-cols-5 lg:items-start min-w-0">
+        <div className="space-y-6 lg:col-span-3 min-w-0">
           <Card className="border-none shadow-xl rounded-2xl overflow-hidden bg-gradient-to-br from-background via-background to-muted/10">
             <CardHeader className="border-b bg-muted/40 py-6">
               <CardTitle className="text-xl flex items-center gap-3">
@@ -639,69 +639,69 @@ export function AdminOrderDetailClient({ orderId }: { orderId: string }) {
             </Card>
           </div>
 
-        <aside className="space-y-6 lg:col-span-2 lg:sticky lg:top-6 self-start animate-in fade-in slide-in-from-right-10 duration-1000">
-          <Card className="border-none shadow-2xl rounded-[2.5rem] overflow-hidden bg-white/40 backdrop-blur-md">
-            <CardHeader className="bg-foreground py-8 px-8">
+        <aside className="space-y-6 lg:col-span-2 lg:sticky lg:top-6 self-start animate-in fade-in duration-500 min-w-0">
+          <Card className="border-none shadow-2xl rounded-[2.5rem] overflow-hidden bg-white/40 backdrop-blur-md min-w-0">
+            <CardHeader className="bg-foreground py-6 sm:py-8 px-5 sm:px-8">
               <CardTitle className="text-xl flex items-center gap-4 text-background">
-                <div className="p-2.5 bg-background/10 rounded-2xl border border-background/20 backdrop-blur-sm">
+                <div className="p-2.5 bg-background/10 rounded-2xl border border-background/20 backdrop-blur-sm shrink-0">
                   <Receipt className="w-6 h-6 text-background" />
                 </div>
-                <span className="font-bold uppercase tracking-wider text-xs">Order Analytics</span>
+                <span className="font-bold uppercase tracking-wider text-xs truncate">Order Analytics</span>
               </CardTitle>
             </CardHeader>
-            <CardContent className="p-8 space-y-8">
-              <div className="space-y-6">
-                <div className="flex justify-between items-center bg-muted/20 p-5 rounded-3xl border border-muted/10">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Current Phase</span>
-                  <Badge className="bg-foreground text-background border-none font-bold text-[10px] uppercase tracking-wider px-4 py-1.5 rounded-full shadow-sm">
+            <CardContent className="p-5 sm:p-6 lg:p-7 space-y-6 min-w-0">
+              <div className="space-y-6 min-w-0">
+                <div className="flex justify-between items-center bg-muted/20 p-4 sm:p-5 rounded-3xl border border-muted/10 gap-2 min-w-0">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground truncate">Current Phase</span>
+                  <Badge className="bg-foreground text-background border-none font-bold text-[10px] uppercase tracking-wider px-3 sm:px-4 py-1.5 rounded-full shadow-sm shrink-0">
                     {order.status.replace(/_/g, " ")}
                   </Badge>
                 </div>
 
-                <div className="rounded-3xl border border-muted/20 bg-background/50 p-6 space-y-5">
-                   <div className="flex justify-between items-start">
-                      <div className="space-y-1">
-                         <p className="text-[10px] font-bold uppercase tracking-wider text-foreground/70">Client Identity</p>
-                         <p className="font-bold text-base text-foreground">{order.customerName ?? "Anonymous"}</p>
+                <div className="rounded-3xl border border-muted/20 bg-background/50 p-5 sm:p-6 space-y-4 min-w-0">
+                   <div className="flex justify-between items-start gap-2">
+                      <div className="space-y-1 min-w-0 flex-1">
+                         <p className="text-[10px] font-bold uppercase tracking-wider text-foreground/70 truncate">Client Identity</p>
+                         <p className="font-bold text-base text-foreground truncate">{order.customerName ?? "Anonymous"}</p>
                          <p className="text-[11px] font-medium text-muted-foreground break-all">{order.customerEmail ?? ""}</p>
                          {order.customerPhone && (
-                            <p className="text-[11px] font-bold text-primary flex items-center gap-1">
+                            <p className="text-[11px] font-bold text-primary flex items-center gap-1 truncate">
                               {order.customerPhoneCountryCode ? `(+${order.customerPhoneCountryCode.replace(/\D/g, "")}) ` : ""}
                               {order.customerPhone}
                             </p>
                           )}
                       </div>
-                      <div className="p-3 bg-primary/5 rounded-2xl">
+                      <div className="p-2.5 sm:p-3 bg-primary/5 rounded-2xl shrink-0">
                          <User className="w-5 h-5 text-primary/60" />
                       </div>
                    </div>
 
                    <div className="h-px bg-muted/20" />
 
-                   <div className="flex justify-between items-start">
-                      <div className="space-y-1">
-                         <p className="text-[10px] font-bold uppercase tracking-wider text-foreground/70">Origin Merchant</p>
-                         <p className="font-bold text-base text-foreground">{order.sellerStoreName ?? "Private Label"}</p>
+                   <div className="flex justify-between items-start gap-2">
+                      <div className="space-y-1 min-w-0 flex-1">
+                         <p className="text-[10px] font-bold uppercase tracking-wider text-foreground/70 truncate">Origin Merchant</p>
+                         <p className="font-bold text-base text-foreground truncate">{order.sellerStoreName ?? "Private Label"}</p>
                       </div>
-                      <div className="p-3 bg-primary/5 rounded-2xl">
+                      <div className="p-2.5 sm:p-3 bg-primary/5 rounded-2xl shrink-0">
                          <Store className="w-5 h-5 text-primary/60" />
                       </div>
                    </div>
 
                    <div className="h-px bg-muted/20" />
 
-                   <div className="flex justify-between items-start">
-                      <div className="space-y-1">
-                         <p className="text-[10px] font-bold uppercase tracking-wider text-foreground/70">Payment Intelligence</p>
-                         <div className="flex items-center gap-2 mt-1">
-                            <p className="font-bold text-xs uppercase tracking-wider text-foreground">{order.paymentMethod ?? "COD"}</p>
+                   <div className="flex justify-between items-start gap-2">
+                      <div className="space-y-1 min-w-0 flex-1">
+                         <p className="text-[10px] font-bold uppercase tracking-wider text-foreground/70 truncate">Payment Intelligence</p>
+                         <div className="flex flex-wrap items-center gap-2 mt-1">
+                            <p className="font-bold text-xs uppercase tracking-wider text-foreground shrink-0">{order.paymentMethod ?? "COD"}</p>
                             <span className="text-muted-foreground/30">•</span>
-                            <Badge variant="outline" className="text-[9px] h-5 px-3 font-bold uppercase tracking-wider border-primary/20 bg-primary/5 text-primary">
+                            <Badge variant="outline" className="text-[9px] h-5 px-2.5 font-bold uppercase tracking-wider border-primary/20 bg-primary/5 text-primary shrink-0">
                                {order.paymentStatus}
                             </Badge>
                          </div>
                       </div>
-                      <div className="p-3 bg-primary/5 rounded-2xl">
+                      <div className="p-2.5 sm:p-3 bg-primary/5 rounded-2xl shrink-0">
                          <Wallet className="w-5 h-5 text-primary/60" />
                       </div>
                    </div>
@@ -728,24 +728,24 @@ export function AdminOrderDetailClient({ orderId }: { orderId: string }) {
               />
 
               {/* Delivery Address Card Improvement */}
-              <div className="rounded-[2.5rem] bg-foreground/5 border border-foreground/5 p-8 space-y-5 group hover:bg-foreground/[0.08] transition-all">
+              <div className="rounded-3xl bg-foreground/5 border border-foreground/5 p-5 sm:p-6 space-y-4 group hover:bg-foreground/[0.08] transition-all min-w-0">
                 <h4 className="flex items-center gap-3 text-[10px] font-bold uppercase tracking-wider text-foreground/80">
-                  <div className="p-2 bg-foreground/10 rounded-xl">
+                  <div className="p-2 bg-foreground/10 rounded-xl shrink-0">
                     <MapPin className="w-4 h-4" />
                   </div>
-                  Shipping Destination
+                  <span className="truncate">Shipping Destination</span>
                 </h4>
                 {order.shippingFullName ? (
-                  <div className="space-y-2 text-sm leading-relaxed">
-                    <p className="font-bold text-foreground text-lg tracking-tight">{order.shippingFullName}</p>
-                    <p className="font-semibold text-primary tabular-nums text-xs bg-primary/10 w-fit px-3 py-1 rounded-full">{order.shippingPhone ?? ""}</p>
-                    <div className="pt-2 space-y-1 text-muted-foreground font-medium">
-                        <p>{order.shippingAddressLine1}</p>
-                        {order.shippingAddressLine2 && <p>{order.shippingAddressLine2}</p>}
-                        <p className="text-foreground uppercase tracking-wider text-[11px] font-bold pt-1">
+                  <div className="space-y-2 text-sm leading-relaxed min-w-0">
+                    <p className="font-bold text-foreground text-base sm:text-lg tracking-tight truncate">{order.shippingFullName}</p>
+                    <p className="font-semibold text-primary tabular-nums text-xs bg-primary/10 w-fit px-3 py-1 rounded-full truncate">{order.shippingPhone ?? ""}</p>
+                    <div className="pt-2 space-y-1 text-muted-foreground font-medium text-xs sm:text-sm min-w-0">
+                        <p className="truncate">{order.shippingAddressLine1}</p>
+                        {order.shippingAddressLine2 && <p className="truncate">{order.shippingAddressLine2}</p>}
+                        <p className="text-foreground uppercase tracking-wider text-[11px] font-bold pt-1 truncate">
                           {order.shippingCity}, {order.shippingState} {order.shippingPostalCode}
                         </p>
-                        <p className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 pt-0.5">
+                        <p className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 pt-0.5 truncate">
                           📍 {getFormattedDeliveryZone({
                             addressLine1: order.shippingAddressLine1,
                             addressLine2: order.shippingAddressLine2,
@@ -761,34 +761,34 @@ export function AdminOrderDetailClient({ orderId }: { orderId: string }) {
               </div>
 
               {/* Price Breakdown Redesign */}
-              <div className="space-y-4 pt-4 relative">
+              <div className="space-y-4 pt-4 relative min-w-0">
                 <div className="absolute -top-3 left-4 bg-background px-2 text-[10px] font-bold uppercase tracking-wider text-primary/60">
                   Billing Details
                 </div>
-                <div className="space-y-3 rounded-2xl border border-muted/20 bg-muted/10 p-5">
-                  <div className="flex justify-between text-sm font-medium">
-                    <span className="text-muted-foreground">Unit Price Subtotal</span>
-                    <span className="font-semibold tabular-nums">{formatCurrency(order.subtotal)}</span>
+                <div className="space-y-3 rounded-2xl border border-muted/20 bg-muted/10 p-4 sm:p-5 min-w-0">
+                  <div className="flex justify-between items-center text-xs sm:text-sm font-medium gap-2 min-w-0">
+                    <span className="text-muted-foreground truncate">Unit Price Subtotal</span>
+                    <span className="font-semibold tabular-nums shrink-0">{formatCurrency(order.subtotal)}</span>
                   </div>
-                  <div className="flex justify-between text-sm font-medium">
-                    <span className="text-muted-foreground">GST (Included)</span>
-                    <span className="font-semibold text-emerald-600 tabular-nums">+{formatCurrency(order.tax)}</span>
+                  <div className="flex justify-between items-center text-xs sm:text-sm font-medium gap-2 min-w-0">
+                    <span className="text-muted-foreground truncate">GST (Included)</span>
+                    <span className="font-semibold text-emerald-600 tabular-nums shrink-0">+{formatCurrency(order.tax)}</span>
                   </div>
 
                   {/* Item Gross as Commission Base */}
-                  <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-between text-xs">
-                    <div>
-                      <span className="font-bold text-emerald-800 dark:text-emerald-300 block">Item Gross Value</span>
-                      <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">10% Commission Base</span>
+                  <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex flex-wrap items-center justify-between gap-2 text-xs min-w-0">
+                    <div className="min-w-0 flex-1">
+                      <span className="font-bold text-emerald-800 dark:text-emerald-300 block truncate">Item Gross Value</span>
+                      <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium block truncate">10% Commission Base</span>
                     </div>
-                    <span className="font-black text-sm tabular-nums text-emerald-700 dark:text-emerald-300">
+                    <span className="font-black text-sm tabular-nums text-emerald-700 dark:text-emerald-300 shrink-0">
                       {formatCurrency(order.subtotal + order.tax)}
                     </span>
                   </div>
 
-                  <div className="flex justify-between text-sm font-medium">
-                    <span className="text-muted-foreground">Delivery Charge</span>
-                    <span className="font-semibold tabular-nums text-orange-600">
+                  <div className="flex justify-between items-center text-xs sm:text-sm font-medium gap-2 min-w-0">
+                    <span className="text-muted-foreground truncate">Delivery Charge</span>
+                    <span className="font-semibold tabular-nums text-orange-600 shrink-0">
                       {order.shipping <= 0 ? (
                         <span className="text-emerald-600 font-bold">FREE</span>
                       ) : (
@@ -798,10 +798,10 @@ export function AdminOrderDetailClient({ orderId }: { orderId: string }) {
                   </div>
 
                   {/* Delivery Fee Sub-Breakup */}
-                  <div className="rounded-2xl bg-slate-900 text-white p-3.5 space-y-2 text-xs border border-slate-800 my-2">
-                    <div className="flex items-center justify-between border-b border-slate-800 pb-1.5">
-                      <span className="text-[10px] font-extrabold uppercase tracking-wider text-amber-400">Delivery Fee Breakup</span>
-                      <span className="text-[10px] text-emerald-400 font-bold bg-slate-800 px-2 py-0.5 rounded-full border border-slate-700">
+                  <div className="rounded-2xl bg-slate-900 text-white p-3.5 space-y-2 text-xs border border-slate-800 my-2 min-w-0">
+                    <div className="flex flex-wrap items-center justify-between gap-1.5 border-b border-slate-800 pb-1.5 min-w-0">
+                      <span className="text-[10px] font-extrabold uppercase tracking-wider text-amber-400 shrink-0">Delivery Fee Breakup</span>
+                      <span className="text-[10px] text-emerald-400 font-bold bg-slate-800 px-2 py-0.5 rounded-full border border-slate-700 truncate max-w-full">
                         📍 {getFormattedDeliveryZone({
                           addressLine1: order.shippingAddressLine1,
                           addressLine2: order.shippingAddressLine2,
@@ -810,50 +810,52 @@ export function AdminOrderDetailClient({ orderId }: { orderId: string }) {
                         })}
                       </span>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-400">Weight Charge</span>
-                      <span className="font-bold tabular-nums text-slate-200">{formatCurrency(order.weightShippingFee ?? 0)}</span>
+                    <div className="flex justify-between items-center gap-2 min-w-0">
+                      <span className="text-slate-400 truncate">Weight Charge</span>
+                      <span className="font-bold tabular-nums text-slate-200 shrink-0">{formatCurrency(order.weightShippingFee ?? 0)}</span>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-400">Dimension Charge</span>
-                      <span className="font-bold tabular-nums text-slate-200">{formatCurrency(order.dimensionShippingFee ?? 0)}</span>
+                    <div className="flex justify-between items-center gap-2 min-w-0">
+                      <span className="text-slate-400 truncate">Dimension Charge</span>
+                      <span className="font-bold tabular-nums text-slate-200 shrink-0">{formatCurrency(order.dimensionShippingFee ?? 0)}</span>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-400">Regional Surcharge</span>
-                      <span className="font-bold tabular-nums text-slate-200">{formatCurrency(order.regionShippingFee ?? 0)}</span>
+                    <div className="flex justify-between items-start gap-2 min-w-0">
+                      <div className="min-w-0 flex-1">
+                        <span className="text-slate-400 block truncate">Regional Surcharge</span>
+                      </div>
+                      <span className="font-bold tabular-nums text-slate-200 shrink-0 text-right">{formatCurrency(order.regionShippingFee ?? 0)}</span>
                     </div>
                   </div>
                   {order.couponDiscount && order.couponDiscount > 0 && (
-                    <div className="flex justify-between text-sm font-medium text-emerald-600">
-                      <span>Coupon Discount ({order.couponCode})</span>
-                      <span className="font-semibold tabular-nums">-{formatCurrency(order.couponDiscount)}</span>
+                    <div className="flex justify-between items-center text-xs sm:text-sm font-medium text-emerald-600 gap-2 min-w-0">
+                      <span className="truncate">Coupon Discount ({order.couponCode})</span>
+                      <span className="font-semibold tabular-nums shrink-0">-{formatCurrency(order.couponDiscount)}</span>
                     </div>
                   )}
-                  <div className="pt-3 border-t border-dashed border-muted-foreground/20">
-                    <div className="flex justify-between items-center">
-                      <span className="text-base font-bold uppercase tracking-tight text-foreground">Customer Total</span>
-                      <span className="text-xl font-black tabular-nums text-foreground">
+                  <div className="pt-3 border-t border-dashed border-muted-foreground/20 min-w-0">
+                    <div className="flex justify-between items-center gap-2 min-w-0">
+                      <span className="text-sm sm:text-base font-bold uppercase tracking-tight text-foreground truncate">Customer Total</span>
+                      <span className="text-lg sm:text-xl font-black tabular-nums text-foreground shrink-0">
                         {formatCurrency(order.totalAmount)}
                       </span>
                     </div>
                   </div>
 
                   {/* Financial Settlement Breakdown for Platform Admin */}
-                  <div className="mt-3 pt-3 border-t border-muted/30 space-y-2 text-xs">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">
+                  <div className="mt-3 pt-3 border-t border-muted/30 space-y-2 text-xs min-w-0">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 px-0.5">
                       Platform Payout Settlement
                     </p>
-                    <div className="flex justify-between items-center text-emerald-600 font-semibold">
-                      <span>Platform Commission ({order.commissionRate}%)</span>
-                      <span className="tabular-nums font-bold">+{formatCurrency(order.commission)}</span>
+                    <div className="flex justify-between items-center text-emerald-600 font-semibold gap-2 min-w-0">
+                      <span className="truncate">Platform Commission ({order.commissionRate}%)</span>
+                      <span className="tabular-nums font-bold shrink-0">+{formatCurrency(order.commission)}</span>
                     </div>
-                    <div className="flex justify-between items-center text-muted-foreground">
-                      <span>Rider Delivery Charges</span>
-                      <span className="tabular-nums font-medium">{formatCurrency(order.deliveryBoyCharges)}</span>
+                    <div className="flex justify-between items-center text-muted-foreground gap-2 min-w-0">
+                      <span className="truncate">Rider Delivery Charges</span>
+                      <span className="tabular-nums font-medium shrink-0">{formatCurrency(order.deliveryBoyCharges)}</span>
                     </div>
-                    <div className="flex justify-between items-center pt-2 border-t border-muted/20 font-black text-sm text-foreground">
-                      <span className="text-emerald-700 dark:text-emerald-300">Net Seller Payout</span>
-                      <span className="tabular-nums text-emerald-600 dark:text-emerald-400 font-black">
+                    <div className="flex justify-between items-center pt-2 border-t border-muted/20 font-black text-sm text-foreground gap-2 min-w-0">
+                      <span className="text-emerald-700 dark:text-emerald-300 truncate">Net Seller Payout</span>
+                      <span className="tabular-nums text-emerald-600 dark:text-emerald-400 font-black shrink-0">
                         {formatCurrency(order.sellerNetPayout)}
                       </span>
                     </div>
