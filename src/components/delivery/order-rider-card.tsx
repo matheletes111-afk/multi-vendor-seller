@@ -58,6 +58,14 @@ interface OrderRiderCardProps {
   onRefresh?: () => void
 }
 
+function formatVehicleFriendly(type?: string): string {
+  if (!type) return "Bike"
+  if (type.includes("2_WHEELER") || type.includes("BIKE") || type.includes("CYCLE")) return "Bike / Motorbike"
+  if (type.includes("3_WHEELER") || type.includes("KEKE")) return "Tricycle (Keke)"
+  if (type.includes("4_WHEELER") || type.includes("CAR") || type.includes("VAN")) return "Car / Van"
+  return type.replace(/_/g, " ")
+}
+
 export function OrderRiderCard({
   orderId,
   orderNumber,
@@ -211,6 +219,32 @@ export function OrderRiderCard({
 
     return () => clearInterval(timer)
   }, [isOffered, activeAssignment?.id, activeAssignment?.expiresAt, onRefresh])
+
+  // Proactively fetch AI Vehicle Recommendation on mount so it's visible during auto-dispatch on SHIPPED
+  useEffect(() => {
+    if (!orderId || isSelfDelivery) return
+    let isMounted = true
+    const loadAiVehicle = async () => {
+      try {
+        const query = new URLSearchParams()
+        query.set("orderId", orderId)
+        if (targetSeller) query.set("sellerId", targetSeller)
+        const res = await fetch(`/api/admin/riders/available?${query.toString()}`)
+        if (res.ok) {
+          const data = await res.json()
+          if (isMounted && data.aiVehicleRecommendation) {
+            setAiVehicleRecommendation(data.aiVehicleRecommendation)
+          }
+        }
+      } catch {
+        // Non-blocking background fetch
+      }
+    }
+    loadAiVehicle()
+    return () => {
+      isMounted = false
+    }
+  }, [orderId, targetSeller, isSelfDelivery])
 
   const fetchAvailableRiders = async () => {
     try {
@@ -387,17 +421,25 @@ export function OrderRiderCard({
           <Bike className="w-3.5 h-3.5 text-blue-600" />
           Delivery Rider Assignment
         </h4>
-        {activeAssignment && (
-          isDelivered ? (
-            <span className="flex items-center gap-1.5 text-[10px] font-bold text-emerald-600">
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Delivery Completed
-            </span>
-          ) : (
-            <span className="flex items-center gap-1.5 text-[10px] font-bold text-emerald-600">
-              <Radio className="w-2.5 h-2.5 animate-pulse" /> Live Telemetry
-            </span>
-          )
-        )}
+        <div className="flex items-center gap-2">
+          {aiVehicleRecommendation && !isSelfDelivery && (
+            <Badge className="bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border border-indigo-500/20 text-[9px] font-black uppercase tracking-wider py-0.5 px-2 rounded-full flex items-center gap-1">
+              <Sparkles className="w-2.5 h-2.5 text-indigo-600" />
+              Vehicle: {formatVehicleFriendly(aiVehicleRecommendation.requiredVehicle)}
+            </Badge>
+          )}
+          {activeAssignment && (
+            isDelivered ? (
+              <span className="flex items-center gap-1.5 text-[10px] font-bold text-emerald-600">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Delivery Completed
+              </span>
+            ) : (
+              <span className="flex items-center gap-1.5 text-[10px] font-bold text-emerald-600">
+                <Radio className="w-2.5 h-2.5 animate-pulse" /> Live Telemetry
+              </span>
+            )
+          )}
+        </div>
       </div>
       <div className="rounded-3xl bg-card p-5 space-y-4 border border-border/80 shadow-sm relative overflow-hidden">
         {activeAssignments.length > 1 && (
@@ -417,6 +459,33 @@ export function OrderRiderCard({
                 Package {i + 1} {a.seller?.store?.name ? `(${a.seller.store.name})` : ""}
               </button>
             ))}
+          </div>
+        )}
+
+        {/* Active AI Vehicle Matching Summary Banner */}
+        {aiVehicleRecommendation && !isSelfDelivery && !isDelivered && (
+          <div className="p-3 rounded-2xl bg-indigo-50/70 dark:bg-indigo-950/30 border border-indigo-200/70 dark:border-indigo-800/50 flex items-center justify-between gap-2.5 text-xs shadow-2xs">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="p-1.5 rounded-xl bg-indigo-600 text-white shrink-0 shadow-xs">
+                <Sparkles className="w-3.5 h-3.5" />
+              </div>
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-[11px] font-black text-indigo-950 dark:text-indigo-100">
+                    Vehicle Needed: {formatVehicleFriendly(aiVehicleRecommendation.requiredVehicle)}
+                  </span>
+                  <span className="text-[10px] text-indigo-600 dark:text-indigo-400 font-bold">
+                    (~{aiVehicleRecommendation.estimatedWeightKg?.toFixed(1)} kg)
+                  </span>
+                </div>
+                <p className="text-[10px] text-indigo-700/90 dark:text-indigo-300/90 truncate">
+                  {aiVehicleRecommendation.reason}
+                </p>
+              </div>
+            </div>
+            <Badge variant="outline" className="text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-white/90 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 border-indigo-300 dark:border-indigo-700 shrink-0">
+              Smart Match
+            </Badge>
           </div>
         )}
 
