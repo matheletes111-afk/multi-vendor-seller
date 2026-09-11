@@ -33,6 +33,8 @@ import {
   ArrowLeftRight,
   Wallet,
   ShieldCheck,
+  Bike,
+  Sparkles,
 } from "lucide-react"
 import {
   Select,
@@ -1149,6 +1151,79 @@ export function ProductSellerOrderDetailClient({ orderId }: { orderId: string })
                       </div>
                     </CardHeader>
                     <CardContent className="p-10 space-y-10">
+                      {/* Dispatcher Hub Information & Auto-Dispatch Guide Banner */}
+                      {!isSelfDelivery ? (
+                        <div className="rounded-3xl border border-blue-500/20 bg-gradient-to-r from-blue-500/10 via-indigo-500/5 to-transparent p-6 space-y-4 shadow-sm">
+                          <div className="flex flex-wrap items-center justify-between gap-3">
+                            <div className="flex items-center gap-3">
+                              <div className="p-2.5 bg-blue-600 text-white rounded-2xl shadow-sm">
+                                <Bike className="w-5 h-5" />
+                              </div>
+                              <div>
+                                <h4 className="text-xs font-black uppercase tracking-wider text-blue-950 dark:text-blue-100 flex items-center gap-2">
+                                  How Delivery Rider Assignment Works
+                                </h4>
+                                <p className="text-[11px] text-blue-700/80 dark:text-blue-300/80 font-medium">
+                                  A delivery rider is automatically assigned when you set status to Shipped
+                                </p>
+                              </div>
+                            </div>
+                            <Badge className="bg-blue-600 text-white text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-full shrink-0 shadow-xs">
+                              Auto Starts on SHIPPED
+                            </Badge>
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
+                            <div className="p-3.5 rounded-2xl bg-white/80 dark:bg-slate-900/60 border border-blue-200/60 dark:border-blue-900/40 space-y-1 shadow-2xs">
+                              <div className="flex items-center gap-1.5 text-blue-900 dark:text-blue-200 text-xs font-bold">
+                                <Truck className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                                <span>1. Starts on "Shipped"</span>
+                              </div>
+                              <p className="text-[11px] text-muted-foreground leading-relaxed">
+                                When you change status to <strong className="text-blue-700 dark:text-blue-400">SHIPPED</strong>, the system immediately starts looking for a nearby delivery rider.
+                              </p>
+                            </div>
+
+                            <div className="p-3.5 rounded-2xl bg-white/80 dark:bg-slate-900/60 border border-indigo-200/60 dark:border-indigo-900/40 space-y-1 shadow-2xs">
+                              <div className="flex items-center gap-1.5 text-indigo-900 dark:text-indigo-200 text-xs font-bold">
+                                <Sparkles className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                                <span>2. Smart Vehicle Matching</span>
+                              </div>
+                              <p className="text-[11px] text-muted-foreground leading-relaxed">
+                                Our system automatically checks the item size and weight to call the right vehicle (Bike, Tricycle, or Van) so it fits safely.
+                              </p>
+                            </div>
+
+                            <div className="p-3.5 rounded-2xl bg-white/80 dark:bg-slate-900/60 border border-emerald-200/60 dark:border-emerald-900/40 space-y-1 shadow-2xs">
+                              <div className="flex items-center gap-1.5 text-emerald-900 dark:text-emerald-200 text-xs font-bold">
+                                <RefreshCw className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                                <span>3. Reassign Anytime</span>
+                              </div>
+                              <p className="text-[11px] text-muted-foreground leading-relaxed">
+                                If no rider accepts in 60s or none are free nearby, you can click <strong className="text-emerald-700 dark:text-emerald-400">Reassign</strong> below to search again or pick a rider yourself.
+                              </p>
+                            </div>
+                          </div>
+
+                          {draftStatus === "SHIPPED" && item.itemStatus !== "SHIPPED" && (
+                            <div className="p-3 rounded-2xl bg-blue-600/10 border border-blue-500/30 flex items-center gap-2.5 text-xs font-bold text-blue-900 dark:text-blue-200 animate-in fade-in duration-300">
+                              <span className="w-2 h-2 rounded-full bg-blue-600 animate-ping shrink-0" />
+                              <span>⚡ Ready to Ship: Saving this status will immediately start searching for a nearby delivery rider.</span>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="rounded-3xl border border-emerald-500/20 bg-emerald-50/40 dark:bg-emerald-950/20 p-5 space-y-2">
+                          <div className="flex items-center gap-2 text-emerald-900 dark:text-emerald-200 font-bold text-xs">
+                            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                            <span>Self-Delivery (In-House) Mode Active</span>
+                          </div>
+                          <p className="text-[11px] text-muted-foreground leading-relaxed">
+                            You are delivering this order yourself. No delivery rider will be dispatched, and the delivery fee stays in your payout.
+                          </p>
+                        </div>
+                      )}
+
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                         <div className="space-y-3">
                           <label className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/60 px-2 flex items-center gap-2">
