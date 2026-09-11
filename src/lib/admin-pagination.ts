@@ -3,11 +3,13 @@ export const ADMIN_PAGE_SIZE = 10
 export type PaginationParams = {
   page?: string
   perPage?: string
+  defaultPerPage?: number
 }
 
 export function getPaginationFromSearchParams(params: PaginationParams) {
+  const defaultSize = params.defaultPerPage ?? ADMIN_PAGE_SIZE
   const page = Math.max(1, parseInt(params.page ?? "1", 10) || 1)
-  const perPage = Math.min(50, Math.max(1, parseInt(params.perPage ?? String(ADMIN_PAGE_SIZE), 10) || ADMIN_PAGE_SIZE))
+  const perPage = Math.min(100, Math.max(1, parseInt(params.perPage ?? String(defaultSize), 10) || defaultSize))
   const skip = (page - 1) * perPage
   return { page, perPage, skip, take: perPage }
 }

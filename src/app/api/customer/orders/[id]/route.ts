@@ -287,58 +287,81 @@ export async function GET(
         order.seller?.store?.name ||
         "Seller Store"
 
-      activeDeliveryTracking = {
-        assignmentId: groupAssignment.id,
-        sellerId: groupAssignment.sellerId,
-        sellerStoreName: pickupStoreName,
-        status: groupAssignment.status,
-        dispatchMode: groupAssignment.dispatchMode,
-        distanceKm: groupAssignment.distanceKm,
-        deliveryOtp: groupAssignment.deliveryOtp,
-        deliveryProofImage: groupAssignment.deliveryProofImage,
-        rider: {
-          id: r?.id,
-          userId: r?.userId || null,
-          name: rUser?.name || "Delivery Rider",
-          email: rUser?.email || null,
-          phone: rUser?.phone || null,
-          phoneCountryCode: rUser?.phoneCountryCode || "+232",
-          image: rUser?.image || r?.profileImage || null,
-          vehicleName: r?.vehicleName || null,
-          vehicleNumber: r?.vehicleNumber || null,
-          drivingLicenseNo: r?.drivingLicenseNo || null,
-          vehicleTypes: r?.vehicleTypes || [],
-          isOnline: Boolean(
-            r?.isOnline &&
-            r?.lastLocationUpdate &&
-            (Date.now() - new Date(r.lastLocationUpdate).getTime()) < 10 * 60 * 1000
-          ),
-        },
-        currentLocation: {
-          latitude: r?.currentLatitude || groupAssignment.riderLatitudeAtOffer || null,
-          longitude: r?.currentLongitude || groupAssignment.riderLongitudeAtOffer || null,
-          heading: r?.heading || 0,
-          speed: r?.speed || 0,
-          lastLocationUpdate: r?.lastLocationUpdate ? r.lastLocationUpdate.toISOString() : null,
-        },
-        pickupLocation: {
-          name: pickupStoreName,
-          latitude: groupAssignment.sellerLatitude || null,
-          longitude: groupAssignment.sellerLongitude || null,
-        },
-        destinationLocation: {
-          fullName: order.shippingFullName,
-          phone: order.shippingPhone,
-          addressLine1: order.shippingAddressLine1,
-          addressLine2: order.shippingAddressLine2,
-          city: order.shippingCity,
-          state: order.shippingState,
-          postalCode: order.shippingPostalCode,
-          country: order.shippingCountry,
-        },
-        socketRoom: `order:${order.id}`,
+        const isAssignmentDelivered =
+          groupAssignment.status === "DELIVERED" ||
+          order.status === "DELIVERED" ||
+          (Array.isArray(order.items) && order.items.length > 0 && order.items.every((i: any) => i.itemStatus === "DELIVERED"))
+
+        const isLiveTrackingActive =
+          !isAssignmentDelivered &&
+          ["ACCEPTED", "AT_PICKUP", "PICKED_UP", "OUT_FOR_DELIVERY"].includes(groupAssignment.status)
+
+        activeDeliveryTracking = {
+          assignmentId: groupAssignment.id,
+          sellerId: groupAssignment.sellerId,
+          sellerStoreName: pickupStoreName,
+          status: groupAssignment.status,
+          dispatchMode: groupAssignment.dispatchMode,
+          distanceKm: groupAssignment.distanceKm,
+          deliveryOtp: groupAssignment.deliveryOtp,
+          deliveryProofImage: groupAssignment.deliveryProofImage,
+          isDelivered: isAssignmentDelivered,
+          isLiveTrackingActive,
+          deliveryStatus: isAssignmentDelivered ? "DELIVERED" : isLiveTrackingActive ? "IN_TRANSIT" : groupAssignment.status,
+          deliveredAt: groupAssignment.deliveredAt ? groupAssignment.deliveredAt.toISOString() : null,
+          rider: {
+            id: r?.id,
+            userId: r?.userId || null,
+            name: rUser?.name || "Delivery Rider",
+            email: rUser?.email || null,
+            phone: rUser?.phone || null,
+            phoneCountryCode: rUser?.phoneCountryCode || "+232",
+            image: rUser?.image || r?.profileImage || null,
+            vehicleName: r?.vehicleName || null,
+            vehicleNumber: r?.vehicleNumber || null,
+            drivingLicenseNo: r?.drivingLicenseNo || null,
+            vehicleTypes: r?.vehicleTypes || [],
+            isOnline: Boolean(
+              r?.isOnline &&
+              r?.lastLocationUpdate &&
+              (Date.now() - new Date(r.lastLocationUpdate).getTime()) < 10 * 60 * 1000
+            ),
+          },
+          currentLocation: isAssignmentDelivered
+            ? {
+                latitude: (order.shippingAddress as any)?.latitude || null,
+                longitude: (order.shippingAddress as any)?.longitude || null,
+                heading: 0,
+                speed: 0,
+                lastLocationUpdate: groupAssignment.deliveredAt ? groupAssignment.deliveredAt.toISOString() : null,
+              }
+            : {
+                latitude: r?.currentLatitude || groupAssignment.riderLatitudeAtOffer || null,
+                longitude: r?.currentLongitude || groupAssignment.riderLongitudeAtOffer || null,
+                heading: r?.heading || 0,
+                speed: r?.speed || 0,
+                lastLocationUpdate: r?.lastLocationUpdate ? r.lastLocationUpdate.toISOString() : null,
+              },
+          pickupLocation: {
+            name: pickupStoreName,
+            latitude: groupAssignment.sellerLatitude || null,
+            longitude: groupAssignment.sellerLongitude || null,
+          },
+          destinationLocation: {
+            fullName: order.shippingFullName,
+            phone: order.shippingPhone,
+            addressLine1: order.shippingAddressLine1,
+            addressLine2: order.shippingAddressLine2,
+            city: order.shippingCity,
+            state: order.shippingState,
+            postalCode: order.shippingPostalCode,
+            country: order.shippingCountry,
+            latitude: (order.shippingAddress as any)?.latitude || null,
+            longitude: (order.shippingAddress as any)?.longitude || null,
+          },
+          socketRoom: isAssignmentDelivered ? null : `order:${order.id}`,
+        }
       }
-    }
 
     return {
       sellerId: group.sellerId,

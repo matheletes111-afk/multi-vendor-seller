@@ -1,0 +1,236 @@
+================================================================================
+MOBILE API & APP DEVELOPER GUIDE: LIVE TRACKING VS. DELIVERED ORDER MAP BEHAVIOR
+PANELS: CUSTOMER MOBILE APP & SELLER MOBILE APP
+================================================================================
+
+--------------------------------------------------------------------------------
+1. CORE PRINCIPLE & REQUIREMENTS (MUST-FOLLOW)
+--------------------------------------------------------------------------------
+When an order is actively out for delivery ("ACCEPTED", "AT_PICKUP", "PICKED_UP", "OUT_FOR_DELIVERY"):
+- The map must show live GPS tracking: rider's moving marker + customer destination pin + connecting route line.
+- The app connects to WebSocket room `order:{orderId}` to receive live telemetry (`lat`, `lng`, `speed`, `heading`).
+
+WHEN THE ORDER IS DELIVERED ("DELIVERED"):
+- The map is STRICTLY DEDICATED to this specific order's delivery destination.
+- Once delivered, DO NOT follow the rider's phone GPS anymore (the rider may be on another customer's order).
+- The map MUST:
+  1. Freeze/lock onto the customer's doorstep delivery destination pin (Red Pin).
+  2. Hide/remove the moving rider vehicle marker.
+  3. Hide/remove the polyline route.
+  4. Disconnect from WebSocket room (`socketRoom` is returned as `null` by the backend).
+  5. Display Status: "Delivered" and Distance: "0.0 km (Arrived)".
+  6. Show action button: "Center Destination" (focuses on customer destination).
+
+
+================================================================================
+PART A: CUSTOMER MOBILE APP DEVELOPER INSTRUCTIONS
+================================================================================
+
+1. ENDPOINT:
+   GET /mobileapi/customer/orders/products/details/{orderId}
+   Header: Authorization: Bearer <customer_token>
+
+2. BACKEND RESPONSE STRUCTURE (Under `data.sellerGroups[].activeDeliveryTracking`):
+   {
+     "success": true,
+     "data": {
+       "id": "cmtx08v0w0002mk51vful793k",
+       "orderNumber": "ORD-12345",
+       "status": "DELIVERED",
+       "sellerGroups": [
+         {
+           "sellerId": "seller_123",
+           "sellerStoreName": "Tech Hub",
+           "activeDeliveryTracking": {
+             "assignmentId": "clx...",
+             "status": "DELIVERED",
+             "isDelivered": true,                <-- KEY FLAG 1: true when delivered
+             "isLiveTrackingActive": false,      <-- KEY FLAG 2: false when delivered
+             "deliveryStatus": "DELIVERED",      <-- "DELIVERED" or "IN_TRANSIT"
+             "deliveredAt": "2026-09-11T14:30:00.000Z",
+             "deliveryOtp": "482910",
+             "deliveryProofImage": "https://...",
+             "rider": {
+               "id": "rider_123",
+               "name": "John Doe",
+               "phone": "+23276123456",
+               "image": "https://...",
+               "vehicleNumber": "SL-BIKE-44",
+               "vehicleTypes": ["2_WHEELER"]
+             },
+             "currentLocation": {
+               // When isDelivered == true, backend automatically pins this to the destination
+               // coordinates with speed: 0 so your app never receives rider's new location!
+               "latitude": 8.484,
+               "longitude": -13.234,
+               "heading": 0,
+               "speed": 0,
+               "lastLocationUpdate": "2026-09-11T14:30:00.000Z"
+             },
+             "pickupLocation": {
+               "name": "Tech Hub",
+               "latitude": 8.471,
+               "longitude": -13.220
+             },
+             "destinationLocation": {
+               "fullName": "Alice Smith",
+               "phone": "+23278987654",
+               "addressLine1": "14 Lumley Beach Road",
+               "city": "Freetown",
+               "state": "Western Area",
+               "postalCode": "10001",
+               "country": "Sierra Leone",
+               "latitude": 8.484,
+               "longitude": -13.234
+             },
+             "socketRoom": null                  <-- NULL when delivered (Do NOT connect socket)
+           }
+         }
+       ]
+     }
+   }
+
+3. CUSTOMER APP UI LOGIC:
+   ```dart
+   final tracking = order.sellerGroups[0].activeDeliveryTracking;
+   if (tracking == null) {
+     // No rider assigned yet or self delivery
+     return SizedBox.shrink();
+   }
+
+   final bool isDelivered = tracking.isDelivered == true || order.status == "DELIVERED";
+
+   if (isDelivered) {
+     // --- DELIVERED STATE ---
+     // 1. DO NOT connect to socketRoom (it is null). If socket was open, disconnect immediately:
+     //    socket.leave('order:${order.id}');
+     // 2. Clear rider vehicle marker and polyline:
+     //    mapController.removeMarker('rider_marker');
+     //    mapController.removePolyline('route_polyline');
+     // 3. Show only the Customer Delivery Destination marker (Red Pin):
+     //    mapController.addMarker(
+     //      id: 'dest_marker',
+     //      position: LatLng(tracking.destinationLocation.latitude, tracking.destinationLocation.longitude),
+     //      icon: destinationIcon,
+     //    );
+     // 4. Center map on destination:
+     //    mapController.animateCamera(CameraUpdate.newLatLngZoom(destLatLng, 16.0));
+     // 5. HUD Widget:
+     //    - Status Badge: "✓ Delivered" (Green)
+     //    - Speed Card: "Status: Delivered"
+     //    - Distance Card: "0.0 km (Arrived)"
+     //    - Action Button: "Center Destination"
+   } else {
+     // --- LIVE IN-TRANSIT STATE ---
+     // 1. Connect to socket room if socketRoom != null:
+     //    socket.emit('join-room', tracking.socketRoom);
+     //    socket.on('rider-telemetry', (data) => updateRiderPosition(data));
+     // 2. Render both Rider marker (with vehicle angle/heading) and Destination pin.
+     // 3. Draw route polyline between rider & destination.
+     // 4. HUD Widget shows live speed (e.g. 25 km/h) and remaining distance.
+   }
+   ```
+
+
+================================================================================
+PART B: SELLER MOBILE APP DEVELOPER INSTRUCTIONS
+================================================================================
+
+1. ENDPOINT:
+   GET /mobileapi/product-seller/orders/{orderId}
+   Header: Authorization: Bearer <seller_token>
+
+2. BACKEND RESPONSE STRUCTURE (Under `activeDeliveryTracking`):
+   {
+     "id": "cmtx08v0w0002mk51vful793k",
+     "orderNumber": "ORD-12345",
+     "status": "DELIVERED",
+     "activeDeliveryTracking": {
+       "assignmentId": "clx...",
+       "status": "DELIVERED",
+       "isDelivered": true,                  <-- KEY FLAG 1: true when delivered
+       "isLiveTrackingActive": false,        <-- KEY FLAG 2: false when delivered
+       "deliveryStatus": "DELIVERED",        <-- "DELIVERED" or "IN_TRANSIT"
+       "deliveredAt": "2026-09-11T14:30:00.000Z",
+       "deliveryOtp": "482910",
+       "deliveryProofImage": "https://...",
+       "pickupProofPhotos": ["https://..."],
+       "rider": {
+         "id": "rider_123",
+         "name": "John Doe",
+         "phone": "+23276123456",
+         "image": "https://...",
+         "vehicleNumber": "SL-BIKE-44",
+         "vehicleTypes": ["2_WHEELER"]
+       },
+       "currentLocation": {
+         // Locked to destination coordinates upon delivery with speed: 0
+         "latitude": 8.484,
+         "longitude": -13.234,
+         "heading": 0,
+         "speed": 0,
+         "lastLocationUpdate": "2026-09-11T14:30:00.000Z"
+       },
+       "pickupLocation": {
+         "latitude": 8.471,
+         "longitude": -13.220
+       },
+       "destinationLocation": {
+         "fullName": "Alice Smith",
+         "phone": "+23278987654",
+         "addressLine1": "14 Lumley Beach Road",
+         "city": "Freetown",
+         "state": "Western Area",
+         "postalCode": "10001",
+         "country": "Sierra Leone",
+         "latitude": 8.484,
+         "longitude": -13.234
+       },
+       "socketRoom": null                    <-- NULL when delivered
+     }
+   }
+
+3. SELLER APP UI LOGIC:
+   ```dart
+   final tracking = order.activeDeliveryTracking;
+   if (tracking == null) {
+     return SizedBox.shrink();
+   }
+
+   final bool isDelivered = tracking.isDelivered == true || order.status == "DELIVERED";
+
+   if (isDelivered) {
+     // --- DELIVERED STATE ---
+     // 1. DO NOT open WebSocket stream (socketRoom is null).
+     // 2. Remove rider moving vehicle icon from map.
+     // 3. Remove polyline route.
+     // 4. Center map directly on destinationLocation coordinates (Zoom level 16).
+     // 5. Header Card:
+     //    - Icon: CheckCircle (Green)
+     //    - Title: "Delivery Destination Location"
+     //    - Subtitle: "Parcel has been delivered to customer destination"
+     //    - Badge: "Delivered"
+     // 6. HUD Card:
+     //    - Status: "Delivered"
+     //    - Distance: "0.0 km (Arrived)"
+     // 7. Buttons:
+     //    - Show "Center Destination" button instead of "Center Rider".
+   } else {
+     // --- LIVE IN-TRANSIT STATE ---
+     // 1. Listen to WebSocket room: tracking.socketRoom ("order:{id}").
+     // 2. Plot Rider GPS marker (Blue vehicle) & update position dynamically on telemetry events.
+     // 3. Draw route to destination.
+     // 4. Header Badge: "Live Telemetry (Socket.IO)".
+     // 5. HUD: Live speed & km remaining.
+   }
+   ```
+
+
+================================================================================
+SUMMARY CHECKLIST FOR QA & MOBILE DEVS:
+================================================================================
+[x] During Out-For-Delivery: Rider moves in real-time via Socket.IO, polyline connects to destination.
+[x] Once Delivered: WebSocket connection closed, polyline removed, vehicle marker removed.
+[x] Delivered Map: Always centered on customer's delivery destination pin.
+[x] Rider Doing Next Delivery: Never reflected in completed orders; completed order stays frozen at customer doorstep.
+================================================================================

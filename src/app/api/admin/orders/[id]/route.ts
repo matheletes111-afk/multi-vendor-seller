@@ -177,6 +177,18 @@ export async function GET(
       commissionAmount: row.commissionAmount,
       commissionRateSnapshot: row.commissionRateSnapshot,
       deliveryProofImage: row.deliveryProofImage ?? null,
+      pickupProofPhotos: Array.isArray((row as any).pickupProofPhotos)
+        ? ((row as any).pickupProofPhotos as string[])
+        : typeof (row as any).pickupProofPhotos === "string"
+        ? (() => {
+            try {
+              const parsed = JSON.parse((row as any).pickupProofPhotos)
+              return Array.isArray(parsed) ? parsed : []
+            } catch {
+              return []
+            }
+          })()
+        : [],
       deliveredAt: row.deliveredAt ? row.deliveredAt.toISOString() : null,
       deliveryOtp: row.itemStatus === "DELIVERED" ? ((row as any).deliveryOtp ?? null) : null,
       deliveryOtpExpires: row.itemStatus === "DELIVERED" && (row as any).deliveryOtpExpires ? (row as any).deliveryOtpExpires.toISOString() : null,
@@ -316,20 +328,31 @@ export async function GET(
     items,
     couponCode: order.couponCode,
     couponDiscount: order.couponDiscount,
-    deliveryAssignments: order.deliveryAssignments.map((a) => ({
-      ...a,
-      deliveryOtp: a.status === "DELIVERED" ? a.deliveryOtp : null,
-      rider: a.rider
-        ? {
-            ...a.rider,
-            isOnline: Boolean(
-              a.rider.isOnline &&
-              a.rider.lastLocationUpdate &&
-              (Date.now() - new Date(a.rider.lastLocationUpdate).getTime()) < 10 * 60 * 1000
-            ),
-          }
-        : null,
-    })),
+    deliveryAssignments: order.deliveryAssignments.map((a) => {
+      const isAssignmentDelivered =
+        a.status === "DELIVERED" ||
+        order.status === "DELIVERED" ||
+        orderHasDeliveredLine
+      return {
+        ...a,
+        isDelivered: isAssignmentDelivered,
+        deliveryOtp: a.status === "DELIVERED" ? a.deliveryOtp : null,
+        rider: a.rider
+          ? {
+              ...a.rider,
+              currentLatitude: isAssignmentDelivered ? null : a.rider.currentLatitude,
+              currentLongitude: isAssignmentDelivered ? null : a.rider.currentLongitude,
+              speed: isAssignmentDelivered ? 0 : a.rider.speed,
+              heading: isAssignmentDelivered ? 0 : a.rider.heading,
+              isOnline: Boolean(
+                a.rider.isOnline &&
+                a.rider.lastLocationUpdate &&
+                (Date.now() - new Date(a.rider.lastLocationUpdate).getTime()) < 10 * 60 * 1000
+              ),
+            }
+          : null,
+      }
+    }),
   }
   return NextResponse.json(body)
 }

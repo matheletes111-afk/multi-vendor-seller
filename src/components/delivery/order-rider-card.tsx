@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect } from "react"
+import React, { useState, useEffect, useMemo } from "react"
 import {
   Bike,
   Phone,
@@ -17,6 +17,9 @@ import {
   Truck,
   BellOff,
   UserX,
+  Camera,
+  Maximize2,
+  ExternalLink,
 } from "lucide-react"
 import { Button } from "@/ui/button"
 import { Badge } from "@/ui/badge"
@@ -88,6 +91,7 @@ export function OrderRiderCard({
   const [selectedRiderId, setSelectedRiderId] = useState<string>("")
   const [activePackageIdx, setActivePackageIdx] = useState(0)
   const [showHistory, setShowHistory] = useState(false)
+  const [previewPhotoUrl, setPreviewPhotoUrl] = useState<string | null>(null)
 
   // Find the active assignments (filter by sellerId if specified)
   const activeAssignments = deliveryAssignments.filter(
@@ -119,6 +123,20 @@ export function OrderRiderCard({
     !isDelivered &&
     activeAssignment &&
     ["ACCEPTED", "AT_PICKUP"].includes(activeAssignment.status)
+
+  const pickupPhotosList: string[] = useMemo(() => {
+    if (!activeAssignment?.pickupProofPhotos) return []
+    if (Array.isArray(activeAssignment.pickupProofPhotos)) return activeAssignment.pickupProofPhotos as string[]
+    if (typeof activeAssignment.pickupProofPhotos === "string") {
+      try {
+        const parsed = JSON.parse(activeAssignment.pickupProofPhotos)
+        return Array.isArray(parsed) ? parsed : []
+      } catch {
+        return []
+      }
+    }
+    return []
+  }, [activeAssignment?.pickupProofPhotos])
 
   const targetSeller = activeAssignment?.sellerId || sellerId || undefined
 
@@ -708,6 +726,46 @@ export function OrderRiderCard({
               </div>
             )}
 
+            {/* Package Pickup Proof (Uploaded by Rider upon collection) */}
+            {pickupPhotosList.length > 0 && (
+              <div className="p-3.5 rounded-2xl bg-indigo-50/60 dark:bg-indigo-950/30 border border-indigo-200/70 dark:border-indigo-800/40 text-xs space-y-2.5 min-w-0">
+                <div className="flex items-center justify-between gap-2 min-w-0">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Camera className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                    <span className="font-bold text-[11px] uppercase tracking-wider text-indigo-950 dark:text-indigo-200 truncate">
+                      Package Pickup Proof ({pickupPhotosList.length} {pickupPhotosList.length === 1 ? "Photo" : "Photos"})
+                    </span>
+                  </div>
+                  <Badge className="bg-indigo-600 text-white text-[8px] font-black uppercase px-2 py-0.5 rounded-full shrink-0">
+                    Verified at Store
+                  </Badge>
+                </div>
+
+                <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 pt-1">
+                  {pickupPhotosList.map((url: string, idx: number) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => setPreviewPhotoUrl(url)}
+                      className="group relative aspect-square rounded-xl overflow-hidden border border-indigo-200/80 dark:border-indigo-800/60 hover:ring-2 hover:ring-indigo-500 transition-all bg-background/50 shadow-2xs text-left"
+                    >
+                      <img
+                        src={url}
+                        alt={`Package pickup proof ${idx + 1}`}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      />
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                        <Maximize2 className="w-3.5 h-3.5 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                      </div>
+                    </button>
+                  ))}
+                </div>
+                <p className="text-[10px] text-muted-foreground italic">
+                  Photos captured by the rider when collecting the package from the seller. Tap any photo to inspect full size.
+                </p>
+              </div>
+            )}
+
             {/* Contact & Reassign Actions - NO Reassign or Cancel when Delivered */}
             <div className="pt-2 flex flex-wrap items-center gap-2">
               {riderUser?.phone && (
@@ -1203,6 +1261,34 @@ export function OrderRiderCard({
         </DialogContent>
       </Dialog>
       )}
+
+      {/* Package Pickup Photo Preview Lightbox Dialog */}
+      <Dialog open={!!previewPhotoUrl} onOpenChange={(open) => !open && setPreviewPhotoUrl(null)}>
+        <DialogContent className="max-w-2xl p-3 bg-black/95 border border-slate-800 text-white rounded-3xl overflow-hidden">
+          <div className="relative flex flex-col items-center justify-center p-1">
+            {previewPhotoUrl && (
+              <img
+                src={previewPhotoUrl}
+                alt="Package pickup full preview"
+                className="max-h-[75vh] w-auto object-contain rounded-2xl"
+              />
+            )}
+            <div className="w-full flex items-center justify-between pt-3 px-2 text-xs text-slate-300">
+              <span className="font-semibold flex items-center gap-1.5">
+                <Camera className="w-3.5 h-3.5 text-indigo-400" /> Package Pickup Proof
+              </span>
+              <a
+                href={previewPhotoUrl || "#"}
+                target="_blank"
+                rel="noreferrer"
+                className="text-indigo-400 hover:text-indigo-300 flex items-center gap-1 underline"
+              >
+                Open original in new tab <ExternalLink className="w-3 h-3" />
+              </a>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

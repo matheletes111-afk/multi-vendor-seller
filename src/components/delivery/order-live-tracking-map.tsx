@@ -11,6 +11,7 @@ import {
   Compass,
   Gauge,
   Loader2,
+  CheckCircle2,
 } from "lucide-react"
 import { Badge } from "@/ui/badge"
 import { Button } from "@/ui/button"
@@ -89,6 +90,10 @@ export function OrderLiveTrackingMap({
     "2_WHEELER"
   const vehicleType = String(vehicleTypeRaw).toUpperCase()
 
+  const isDelivered =
+    orderStatus?.toUpperCase() === "DELIVERED" ||
+    activeAssignment?.status === "DELIVERED"
+
   // State
   const [loading, setLoading] = useState(true)
   const [mapError, setMapError] = useState<string | null>(null)
@@ -102,6 +107,15 @@ export function OrderLiveTrackingMap({
     speed?: number
     timestamp?: number
   } | null>(() => {
+    if (isDelivered && destinationLat != null && destinationLng != null && !isNaN(Number(destinationLat)) && !isNaN(Number(destinationLng))) {
+      return {
+        lat: Number(destinationLat),
+        lng: Number(destinationLng),
+        heading: 0,
+        speed: 0,
+        timestamp: Date.now(),
+      }
+    }
     const lat = rider?.currentLatitude ?? activeAssignment?.riderLatitudeAtOffer ?? activeAssignment?.sellerLatitude
     const lng = rider?.currentLongitude ?? activeAssignment?.riderLongitudeAtOffer ?? activeAssignment?.sellerLongitude
     if (lat != null && lng != null && !isNaN(Number(lat)) && !isNaN(Number(lng))) {
@@ -116,8 +130,9 @@ export function OrderLiveTrackingMap({
     return null
   })
 
-  // Sync telemetry when parent props update
+  // Sync telemetry when parent props update (Only during active delivery, not after delivered)
   useEffect(() => {
+    if (isDelivered) return
     const lat = rider?.currentLatitude ?? activeAssignment?.riderLatitudeAtOffer ?? activeAssignment?.sellerLatitude
     const lng = rider?.currentLongitude ?? activeAssignment?.riderLongitudeAtOffer ?? activeAssignment?.sellerLongitude
     if (lat != null && lng != null && !isNaN(Number(lat)) && !isNaN(Number(lng))) {
@@ -149,6 +164,19 @@ export function OrderLiveTrackingMap({
       ? { lat: Number(destinationLat), lng: Number(destinationLng) }
       : null
   )
+
+  // If order is delivered, lock rider position to the delivery destination
+  useEffect(() => {
+    if (isDelivered && resolvedDestCoords) {
+      setLastTelemetry({
+        lat: resolvedDestCoords.lat,
+        lng: resolvedDestCoords.lng,
+        heading: 0,
+        speed: 0,
+        timestamp: Date.now(),
+      })
+    }
+  }, [isDelivered, resolvedDestCoords])
 
   // Address string
   const fullAddress = [
@@ -243,7 +271,7 @@ export function OrderLiveTrackingMap({
 
   // ── 3. Initialize Socket.IO GPS Listener ──────────────────────────────────────
   useEffect(() => {
-    if (!orderId) return
+    if (!orderId || isDelivered) return
 
     const socket = getSocketClient()
 
@@ -299,7 +327,7 @@ export function OrderLiveTrackingMap({
       socket.off("disconnect", handleDisconnect)
       socket.off("order:rider_moved", handleRiderMoved)
     }
-  }, [orderId, activeAssignment?.riderId, activeAssignment?.rider?.id, activeAssignment?.rider?.userId])
+  }, [orderId, isDelivered, activeAssignment?.riderId, activeAssignment?.rider?.id, activeAssignment?.rider?.userId])
 
   // ── 4. Geocode Destination Address if needed ──────────────────────────────────
   // Only geocode once - don't include resolvedDestCoords in deps to avoid loop
@@ -443,7 +471,7 @@ export function OrderLiveTrackingMap({
     }
 
     // ── B. Rider Marker ─────────────────────────────────────────────────────────
-    if (rLat != null && rLng != null && !isNaN(rLat) && !isNaN(rLng)) {
+    if (!isDelivered && rLat != null && rLng != null && !isNaN(rLat) && !isNaN(rLng)) {
       const riderPos = { lat: rLat, lng: rLng }
       bounds.extend(riderPos)
       hasPoints = true
@@ -467,10 +495,13 @@ export function OrderLiveTrackingMap({
         riderMarkerRef.current.setPosition(riderPos)
         if (icon) riderMarkerRef.current.setIcon(icon)
       }
+    } else if (isDelivered && riderMarkerRef.current) {
+      riderMarkerRef.current.setMap(null)
+      riderMarkerRef.current = null
     }
 
     // ── C. Polyline Rider → Destination ─────────────────────────────────────────
-    if (rLat != null && rLng != null && dLat != null && dLng != null) {
+    if (!isDelivered && rLat != null && rLng != null && dLat != null && dLng != null) {
       const path = [{ lat: rLat, lng: rLng }, { lat: dLat, lng: dLng }]
       if (!polylineRef.current) {
         polylineRef.current = new window.google.maps.Polyline({
@@ -482,8 +513,12 @@ export function OrderLiveTrackingMap({
           map,
         })
       } else {
+        polylineRef.current.setMap(map)
         polylineRef.current.setPath(path)
       }
+    } else if (isDelivered && polylineRef.current) {
+      polylineRef.current.setMap(null)
+      polylineRef.current = null
     }
 
     // ── D. Fit Bounds only on initial render when points appear ──
@@ -503,21 +538,32 @@ export function OrderLiveTrackingMap({
     fullAddress,
     rider,
     riderUser,
+    isDelivered,
     createVehicleIcon,
     createDestinationIcon,
   ])
 
-  // Center on Rider action
+  // Center on Rider / Destination action
   const handleCenterRider = () => {
-    if (mapInstanceRef.current && lastTelemetry?.lat && lastTelemetry?.lng) {
-      mapInstanceRef.current.panTo({ lat: lastTelemetry.lat, lng: lastTelemetry.lng })
-      mapInstanceRef.current.setZoom(16)
+    if (mapInstanceRef.current) {
+      if (isDelivered && resolvedDestCoords) {
+        mapInstanceRef.current.panTo({ lat: resolvedDestCoords.lat, lng: resolvedDestCoords.lng })
+        mapInstanceRef.current.setZoom(16)
+      } else if (lastTelemetry?.lat && lastTelemetry?.lng) {
+        mapInstanceRef.current.panTo({ lat: lastTelemetry.lat, lng: lastTelemetry.lng })
+        mapInstanceRef.current.setZoom(16)
+      }
     }
   }
 
   // Fit both rider & destination
   const handleFitRoute = () => {
     if (mapInstanceRef.current && window.google?.maps) {
+      if (isDelivered && resolvedDestCoords) {
+        mapInstanceRef.current.panTo({ lat: resolvedDestCoords.lat, lng: resolvedDestCoords.lng })
+        mapInstanceRef.current.setZoom(16)
+        return
+      }
       const bounds = new window.google.maps.LatLngBounds()
       if (lastTelemetry?.lat && lastTelemetry?.lng) {
         bounds.extend({ lat: lastTelemetry.lat, lng: lastTelemetry.lng })
@@ -558,22 +604,31 @@ export function OrderLiveTrackingMap({
       {/* Telemetry Header */}
       <div className="flex flex-wrap items-center justify-between gap-2 px-1">
         <div className="flex items-center gap-2">
-          <div className="p-1.5 rounded-xl bg-blue-600/10 text-blue-600">
-            {renderVehicleIconBadge()}
+          <div className={cn("p-1.5 rounded-xl", isDelivered ? "bg-emerald-600/10 text-emerald-600" : "bg-blue-600/10 text-blue-600")}>
+            {isDelivered ? <CheckCircle2 className="w-4 h-4 text-emerald-600" /> : renderVehicleIconBadge()}
           </div>
           <div>
             <h4 className="text-xs font-black uppercase tracking-wider text-foreground flex items-center gap-1.5">
-              Live Rider GPS Tracking
+              {isDelivered ? "Delivery Destination Location" : "Live Rider GPS Tracking"}
               {orderNumber && <span className="text-muted-foreground font-semibold">({orderNumber})</span>}
             </h4>
             <p className="text-[11px] text-muted-foreground">
-              {riderUser?.name ? `${riderUser.name} is on the way` : "Real-time delivery telemetry active"}
+              {isDelivered
+                ? "Parcel has been delivered to customer destination"
+                : riderUser?.name
+                ? `${riderUser.name} is on the way`
+                : "Real-time delivery telemetry active"}
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
-          {socketConnected ? (
+          {isDelivered ? (
+            <Badge className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 text-[10px] font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1.5 shadow-sm">
+              <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+              Delivered
+            </Badge>
+          ) : socketConnected ? (
             <Badge className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 text-[10px] font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1.5 shadow-sm">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
               Live Telemetry (Socket.IO)
@@ -632,10 +687,14 @@ export function OrderLiveTrackingMap({
             <div className="grid grid-cols-2 gap-2 text-[10px]">
               <div className="bg-slate-800/80 p-2 rounded-xl border border-slate-700/50">
                 <span className="text-slate-400 font-bold block flex items-center gap-1">
-                  <Gauge className="w-3 h-3 text-blue-400" /> Speed
+                  <Gauge className="w-3 h-3 text-blue-400" /> Status
                 </span>
                 <span className="font-extrabold text-xs text-slate-100 tabular-nums">
-                  {lastTelemetry?.speed ? `${Math.round(lastTelemetry.speed)} km/h` : "In Transit"}
+                  {isDelivered
+                    ? "Delivered"
+                    : lastTelemetry?.speed
+                    ? `${Math.round(lastTelemetry.speed)} km/h`
+                    : "In Transit"}
                 </span>
               </div>
 
@@ -644,7 +703,11 @@ export function OrderLiveTrackingMap({
                   <Compass className="w-3 h-3 text-emerald-400" /> Distance
                 </span>
                 <span className="font-extrabold text-xs text-emerald-400 tabular-nums">
-                  {distanceRemainingKm != null ? `${distanceRemainingKm} km` : "Approaching"}
+                  {isDelivered
+                    ? "0.0 km (Arrived)"
+                    : distanceRemainingKm != null
+                    ? `${distanceRemainingKm} km`
+                    : "Approaching"}
                 </span>
               </div>
             </div>
@@ -660,7 +723,8 @@ export function OrderLiveTrackingMap({
               onClick={handleCenterRider}
               className="h-8 text-xs font-bold rounded-xl bg-white/95 text-slate-900 shadow-lg border border-white/40 hover:bg-white gap-1"
             >
-              <Navigation className="w-3 h-3 text-blue-600" /> Center Rider
+              <Navigation className={cn("w-3 h-3", isDelivered ? "text-emerald-600" : "text-blue-600")} />{" "}
+              {isDelivered ? "Center Destination" : "Center Rider"}
             </Button>
             <Button
               size="sm"

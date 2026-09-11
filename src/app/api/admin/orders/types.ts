@@ -55,6 +55,7 @@ export type AdminOrderDetailItemApi = {
   commissionRateSnapshot: number
   /** Proof image URL when delivered */
   deliveryProofImage: string | null
+  pickupProofPhotos?: string[]
   deliveredAt: string | null
   deliveryOtp: string | null
   deliveryOtpExpires: string | null

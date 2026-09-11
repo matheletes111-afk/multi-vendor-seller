@@ -17,7 +17,7 @@ export async function POST(
 
     const { id } = await params
     const body = await req.json()
-    const { status, otp, proofImage, cancellationReason } = body
+    const { status, otp, proofImage, pickupPhotos, cancellationReason } = body
 
     if (!status) {
       return NextResponse.json({ error: "Status is required" }, { status: 400 })
@@ -67,11 +67,46 @@ export async function POST(
       }
     }
 
+    // Process multiple pickup photos
+    const finalPickupPhotos: string[] = []
+    if (Array.isArray(pickupPhotos) && pickupPhotos.length > 0) {
+      for (let i = 0; i < pickupPhotos.length; i++) {
+        const photo = pickupPhotos[i]
+        if (typeof photo === "string" && photo.startsWith("data:image/")) {
+          try {
+            const matches = photo.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/)
+            if (matches && matches.length === 3) {
+              const mimeType = matches[1]
+              const buffer = Buffer.from(matches[2], "base64")
+              const ext = mimeType.includes("png") ? ".png" : mimeType.includes("webp") ? ".webp" : ".jpg"
+              const url = await uploadPublicFile({
+                folder: "pickup-proofs",
+                ext,
+                contentType: mimeType,
+                buffer,
+                prefix: `pickup-${id.slice(0, 8)}-${i + 1}`,
+              })
+              if (url) finalPickupPhotos.push(url)
+            }
+          } catch (err) {
+            console.error(`Error uploading base64 pickup photo #${i}:`, err)
+          }
+        } else if (typeof photo === "string" && (photo.startsWith("http") || photo.startsWith("/"))) {
+          finalPickupPhotos.push(photo)
+        }
+      }
+    }
+
     const result = await handleRiderStatusUpdate(
       assignment.id,
       rider.id,
       status as DeliveryAssignmentStatus,
-      { otp, proofImage: finalProofImage, cancellationReason }
+      {
+        otp,
+        proofImage: finalProofImage,
+        pickupPhotos: finalPickupPhotos.length > 0 ? finalPickupPhotos : undefined,
+        cancellationReason,
+      }
     )
 
     if (!result.success) {
