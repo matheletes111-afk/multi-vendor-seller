@@ -392,16 +392,20 @@ export function AdminOrderDetailClient({ orderId }: { orderId: string }) {
                           </div>
                         )}
 
-                        <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-sm text-foreground/70">
-                          <span className="font-medium">Qty: <span className="text-foreground font-medium">{item.quantity}</span></span>
-                          <span className="font-medium">Price: <span className="text-foreground font-medium">{formatCurrency(item.price)}</span></span>
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-foreground/80 mt-2 p-2.5 rounded-xl bg-muted/20 border border-muted/20">
+                          <span className="font-medium">Qty: <strong className="text-foreground">{item.quantity}</strong></span>
+                          <span className="font-medium">Price: <strong className="text-foreground">{formatCurrency(item.price)}</strong></span>
+                          <span className="font-medium">GST: <strong className="text-emerald-600">+{formatCurrency(item.gstAmount)}</strong></span>
+                          <span className="font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
+                            Item Gross: {formatCurrency(lineTotal(item))} <span className="text-[9px] font-normal opacity-75">(10% Base)</span>
+                          </span>
                           {item.shippingAmount > 0 && (
                             <span className="font-medium text-orange-600 bg-orange-50/50 border border-orange-200/50 px-2 py-0.5 rounded text-[11px]">
                               Shipping: {formatCurrency(item.shippingAmount)}
                             </span>
                           )}
-                          <span className="font-medium text-foreground ml-auto bg-muted/50 px-3 py-1 rounded-lg">
-                            {formatCurrency(lineTotal(item))}
+                          <span className="font-black text-foreground ml-auto tabular-nums">
+                            Total: {formatCurrency(lineTotal(item) + item.shippingAmount)}
                           </span>
                         </div>
                       </div>
@@ -763,16 +767,28 @@ export function AdminOrderDetailClient({ orderId }: { orderId: string }) {
                 </div>
                 <div className="space-y-3 rounded-2xl border border-muted/20 bg-muted/10 p-5">
                   <div className="flex justify-between text-sm font-medium">
-                    <span className="text-muted-foreground">Subtotal</span>
+                    <span className="text-muted-foreground">Unit Price Subtotal</span>
                     <span className="font-semibold tabular-nums">{formatCurrency(order.subtotal)}</span>
                   </div>
                   <div className="flex justify-between text-sm font-medium">
                     <span className="text-muted-foreground">GST (Included)</span>
-                    <span className="font-semibold text-emerald-600 tabular-nums">{formatCurrency(order.tax)}</span>
+                    <span className="font-semibold text-emerald-600 tabular-nums">+{formatCurrency(order.tax)}</span>
                   </div>
+
+                  {/* Item Gross as Commission Base */}
+                  <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-between text-xs">
+                    <div>
+                      <span className="font-bold text-emerald-800 dark:text-emerald-300 block">Item Gross Value</span>
+                      <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">10% Commission Base</span>
+                    </div>
+                    <span className="font-black text-sm tabular-nums text-emerald-700 dark:text-emerald-300">
+                      {formatCurrency(order.subtotal + order.tax)}
+                    </span>
+                  </div>
+
                   <div className="flex justify-between text-sm font-medium">
                     <span className="text-muted-foreground">Delivery Charge</span>
-                    <span className="font-semibold tabular-nums">
+                    <span className="font-semibold tabular-nums text-orange-600">
                       {order.shipping <= 0 ? (
                         <span className="text-emerald-600 font-bold">FREE</span>
                       ) : (
@@ -815,9 +831,30 @@ export function AdminOrderDetailClient({ orderId }: { orderId: string }) {
                   )}
                   <div className="pt-3 border-t border-dashed border-muted-foreground/20">
                     <div className="flex justify-between items-center">
-                      <span className="text-base font-bold uppercase tracking-tight text-primary">Grand Total</span>
-                      <span className="text-xl font-bold tabular-nums text-primary">
+                      <span className="text-base font-bold uppercase tracking-tight text-foreground">Customer Total</span>
+                      <span className="text-xl font-black tabular-nums text-foreground">
                         {formatCurrency(order.totalAmount)}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Financial Settlement Breakdown for Platform Admin */}
+                  <div className="mt-3 pt-3 border-t border-muted/30 space-y-2 text-xs">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">
+                      Platform Payout Settlement
+                    </p>
+                    <div className="flex justify-between items-center text-emerald-600 font-semibold">
+                      <span>Platform Commission ({order.commissionRate}%)</span>
+                      <span className="tabular-nums font-bold">+{formatCurrency(order.commission)}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-muted-foreground">
+                      <span>Rider Delivery Charges</span>
+                      <span className="tabular-nums font-medium">{formatCurrency(order.deliveryBoyCharges)}</span>
+                    </div>
+                    <div className="flex justify-between items-center pt-2 border-t border-muted/20 font-black text-sm text-foreground">
+                      <span className="text-emerald-700 dark:text-emerald-300">Net Seller Payout</span>
+                      <span className="tabular-nums text-emerald-600 dark:text-emerald-400 font-black">
+                        {formatCurrency(order.sellerNetPayout)}
                       </span>
                     </div>
                   </div>
@@ -833,32 +870,41 @@ export function AdminOrderDetailClient({ orderId }: { orderId: string }) {
                 <CardTitle className="text-sm font-medium uppercase tracking-widest">Store Breakup</CardTitle>
               </CardHeader>
               <CardContent className="p-4 space-y-4">
-                {order.sellerGroups.map((group) => (
-                  <div key={group.sellerId ?? `seller-${group.sellerStoreName ?? "unknown"}`} className="rounded-xl bg-muted/10 border border-muted/20 p-4 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <p className="font-medium text-sm">{group.sellerStoreName ?? "Store"}</p>
-                      <Badge variant="outline" className="text-[9px] font-medium uppercase tracking-widest border-primary/20 bg-primary/5 text-primary">
-                        {group.derivedStatus.replace(/_/g, " ").toLowerCase()}
-                      </Badge>
+                {order.sellerGroups.map((group) => {
+                  const groupGross = group.summary.subtotal + group.summary.tax
+                  const groupSellerNet = Math.max(0, groupGross - group.summary.commission + (group.isSelfDelivery ? group.summary.shipping : 0))
+
+                  return (
+                    <div key={group.sellerId ?? `seller-${group.sellerStoreName ?? "unknown"}`} className="rounded-xl bg-muted/10 border border-muted/20 p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <p className="font-bold text-sm text-foreground">{group.sellerStoreName ?? "Store"}</p>
+                        <Badge variant="outline" className="text-[9px] font-medium uppercase tracking-widest border-primary/20 bg-primary/5 text-primary">
+                          {group.derivedStatus.replace(/_/g, " ").toLowerCase()}
+                        </Badge>
+                      </div>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[10px] font-medium text-muted-foreground">
+                        <div className="bg-background/50 p-2 rounded-lg">
+                          <p className="uppercase tracking-widest mb-0.5 opacity-60">Item Gross</p>
+                          <p className="text-foreground text-xs font-bold">{formatCurrency(groupGross)}</p>
+                        </div>
+                        <div className="bg-background/50 p-2 rounded-lg">
+                          <p className="uppercase tracking-widest mb-0.5 opacity-60">Commission</p>
+                          <p className="text-rose-600 text-xs font-bold">-{formatCurrency(group.summary.commission)}</p>
+                        </div>
+                        <div className="bg-background/50 p-2 rounded-lg">
+                          <p className="uppercase tracking-widest mb-0.5 opacity-60">Shipping</p>
+                          <p className="text-foreground text-xs font-medium">
+                            {group.summary.shipping <= 0 ? <span className="text-emerald-600 font-bold">FREE</span> : formatCurrency(group.summary.shipping)}
+                          </p>
+                        </div>
+                        <div className="bg-emerald-500/10 p-2 rounded-lg border border-emerald-500/20">
+                          <p className="uppercase tracking-widest mb-0.5 text-emerald-700 dark:text-emerald-300 font-bold">Seller Net</p>
+                          <p className="text-emerald-700 dark:text-emerald-400 text-xs font-black">{formatCurrency(groupSellerNet)}</p>
+                        </div>
+                      </div>
                     </div>
-                    <div className="grid grid-cols-3 gap-2 text-[10px] font-medium text-muted-foreground">
-                      <div className="bg-background/50 p-2 rounded-lg">
-                        <p className="uppercase tracking-widest mb-1 opacity-60">Subtotal</p>
-                        <p className="text-foreground text-xs">{formatCurrency(group.summary.subtotal)}</p>
-                      </div>
-                      <div className="bg-background/50 p-2 rounded-lg">
-                        <p className="uppercase tracking-widest mb-1 opacity-60">Shipping</p>
-                        <p className="text-foreground text-xs font-medium">
-                          {group.summary.shipping <= 0 ? <span className="text-emerald-600 font-bold">FREE</span> : formatCurrency(group.summary.shipping)}
-                        </p>
-                      </div>
-                      <div className="bg-background/50 p-2 rounded-lg">
-                        <p className="uppercase tracking-widest mb-1 opacity-60">Total</p>
-                        <p className="text-foreground text-xs font-medium">{formatCurrency(group.summary.total)}</p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
+                  )
+                })}
               </CardContent>
             </Card>
           )}

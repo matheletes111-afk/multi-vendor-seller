@@ -120,14 +120,25 @@ export async function GET(request: NextRequest) {
     if (order.couponDiscount && order.subtotal > 0) {
       sellerCouponDiscount = Number(((order.couponDiscount * sellerSubtotal) / order.subtotal).toFixed(2))
     }
+    const itemGross = order.items.reduce((sum, item) => sum + (item.subtotalInclGst ?? item.subtotal + item.gstAmount), 0)
+    const commission = order.items.reduce((sum, item) => sum + item.commissionAmount, 0)
+    const shipping = order.items.reduce((sum, item) => sum + item.shippingAmount, 0)
+    const sellerNet = Math.max(0, order.items.reduce((sum, item) => {
+      const g = item.subtotalInclGst ?? item.subtotal + item.gstAmount
+      return sum + (item.isSelfDelivery ? g + item.shippingAmount - item.commissionAmount : g - item.commissionAmount)
+    }, 0) - sellerCouponDiscount)
+
     return {
       ...order,
       status: deriveOrderStatus(order.items.map((item) => item.itemStatus)),
-      totalAmount: Math.max(0, order.items.reduce((sum, item) => sum + (item.subtotalInclGst ?? item.subtotal + item.gstAmount) + item.shippingAmount, 0) - sellerCouponDiscount),
+      totalAmount: Math.max(0, itemGross + shipping - sellerCouponDiscount),
+      itemGross,
+      sellerNet,
+      netRevenue: sellerNet,
       subtotal: sellerSubtotal,
       tax: order.items.reduce((sum, item) => sum + item.gstAmount, 0),
-      shipping: order.items.reduce((sum, item) => sum + item.shippingAmount, 0),
-      commission: order.items.reduce((sum, item) => sum + item.commissionAmount, 0),
+      shipping,
+      commission,
       couponDiscount: sellerCouponDiscount,
       hasReturnFlag: order.items.some(
         (item) =>

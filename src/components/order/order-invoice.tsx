@@ -126,17 +126,21 @@ export function OrderInvoice({ data, isLast }: OrderInvoiceProps) {
       <div className="flex justify-end mb-12">
         <div className="w-full max-w-[300px] space-y-3 bg-slate-50 p-6 rounded-2xl border">
           <div className="flex justify-between text-xs font-bold text-slate-500 uppercase tracking-widest">
-            <span>Subtotal</span>
+            <span>Item Subtotal</span>
             <span className="text-slate-900">{formatCurrency(data.subtotal)}</span>
           </div>
           <div className="flex justify-between text-xs font-bold text-emerald-600 uppercase tracking-widest">
             <span>Total GST</span>
-            <span>{formatCurrency(data.gstTotal)}</span>
+            <span>+{formatCurrency(data.gstTotal)}</span>
+          </div>
+          <div className="flex justify-between text-xs font-bold text-slate-800 bg-slate-200/60 px-2 py-1.5 rounded-lg">
+            <span>Item Gross (Tax-Incl.)</span>
+            <span>{formatCurrency(data.subtotal + data.gstTotal)}</span>
           </div>
           {data.shippingCharge > 0 && (
             <div className="flex justify-between text-xs font-bold text-orange-600 uppercase tracking-widest">
-              <span>Shipping</span>
-              <span>{formatCurrency(data.shippingCharge)}</span>
+              <span>Delivery / Shipping</span>
+              <span>+{formatCurrency(data.shippingCharge)}</span>
             </div>
           )}
           {data.couponDiscount && data.couponDiscount > 0 ? (
