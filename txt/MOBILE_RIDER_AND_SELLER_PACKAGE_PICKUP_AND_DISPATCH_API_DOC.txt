@@ -1,7 +1,7 @@
 ================================================================================
 MOBILE API GUIDE: RIDER PACKAGE PICKUP PROOFS & SELLER ORDER DISPATCH
 ================================================================================
-Document Version: 1.0
+Document Version: 1.1 (Updated & Verified with Live Backend)
 Date: September 2026
 Applicable To: Rider Mobile App & Product Seller Mobile App
 Platform: REST API (JSON & Multipart Form-Data)
@@ -10,22 +10,24 @@ Platform: REST API (JSON & Multipart Form-Data)
 OVERVIEW OF NEW FEATURES & CHANGES
 ================================================================================
 
-1. RIDER APP: PACKAGE PICKUP PROOF PHOTOS (NEW)
+1. RIDER APP: PACKAGE PICKUP PROOF PHOTOS
    - When a rider arrives at the seller's store and collects the parcel, the rider 
-     must now capture and upload multiple photos (parcel sealed, shipping label, 
-     packaging condition).
+     captures and uploads photos (parcel sealed, shipping label, packaging condition).
    - Supported via POST /mobileapi/rider/orders/{id}/status using either:
      a) multipart/form-data (native binary file uploads)
      b) application/json (base64 data-URL strings or existing URLs)
+   - Images are uploaded to AWS S3 bucket (meeemsl-bucket in us-east-1) and public
+     URLs are stored in the database.
 
-2. SELLER APP: VIEWING PICKUP PHOTOS (NEW)
-   - When calling GET /mobileapi/product-seller/orders/{id}, the backend now returns 
+2. SELLER APP: VIEWING PICKUP PHOTOS
+   - When calling GET /mobileapi/product-seller/orders/{id}, the backend returns 
      the array of pickup proof photo URLs in:
-     a) response.activeAssignment.pickupProofPhotos (array of image URLs)
-     b) response.items[i].pickupProofPhotos (array of image URLs)
+     a) response.activeDeliveryTracking.pickupProofPhotos (array of image URLs)
+     b) response.items[i].pickupProofPhotos (array of image URLs on line items)
+     c) response.deliveryAssignments[i].pickupProofPhotos (in assignments history)
    - The seller can inspect these photos directly on the mobile order details screen.
 
-3. FINANCIAL CALCULATION & NET REVENUE (CRITICAL FIX FOR SELLER APP)
+3. FINANCIAL CALCULATION & NET REVENUE (CRITICAL RULE FOR SELLER APP)
    - For platform deliveries, the customer delivery fee (e.g., NLe 150.00) is paid 
      by the customer to the platform for the rider.
    - IT IS NOT DEDUCTED FROM THE SELLER'S REVENUE.
@@ -45,10 +47,10 @@ PART 1: RIDER MOBILE APP SPECIFICATION
 --------------------------------------------------------------------------------
 1.1 Delivery Lifecycle Milestones
 --------------------------------------------------------------------------------
-1. OFFERED           -> Rider receives delivery request
+1. OFFERED           -> Rider receives delivery request (60-second acceptance timer)
 2. ACCEPTED          -> Rider accepts the trip
 3. AT_PICKUP         -> Rider arrives at the seller store/warehouse
-4. PICKED_UP         -> Rider collects parcel from seller + UPLOADS PICKUP PHOTOS [NEW]
+4. PICKED_UP         -> Rider collects parcel from seller + UPLOADS PICKUP PHOTOS
 5. OUT_FOR_DELIVERY  -> Rider is en route to customer
 6. DELIVERED         -> Rider delivers parcel to customer (Requires Customer OTP)
 
@@ -59,7 +61,7 @@ Endpoint:
   POST /mobileapi/rider/orders/{id}/status
 
 URL Parameter:
-  - id: The Order ID or RiderDeliveryAssignment ID.
+  - id: The Order ID or RiderDeliveryAssignment ID (both supported).
 
 Headers:
   - Authorization: Bearer <rider_token>
@@ -67,13 +69,15 @@ Headers:
 --------------------------------------------------
 OPTION A: multipart/form-data (RECOMMENDED FOR MOBILE)
 --------------------------------------------------
-Use standard multipart form-data. You can attach multiple images under the key "pickupPhotos".
+Use standard multipart form-data. You can attach multiple images under the repeated key "pickupPhotos".
 
 Form Fields:
   - status: "PICKED_UP" (string, required)
   - pickupPhotos: [Binary File 1] (file, image/jpeg, image/png, image/webp)
   - pickupPhotos: [Binary File 2] (file, image/jpeg, image/png, image/webp)
   - pickupPhotos: [Binary File 3] (file, image/jpeg, image/png, image/webp)
+
+IMPORTANT: The field key MUST be exactly "pickupPhotos" without bracket suffixes (do NOT use "pickupPhotos[]").
 
 React Native / Axios Example:
 ```javascript
@@ -103,13 +107,14 @@ const response = await axios.post(
 
 Flutter / Dart (Dio) Example:
 ```dart
+// IMPORTANT: Pass ListFormat.multi so Dio sends repeated 'pickupPhotos' keys without brackets
 FormData formData = FormData.fromMap({
   'status': 'PICKED_UP',
   'pickupPhotos': [
     for (var file in photoFiles)
       await MultipartFile.fromFile(file.path, filename: file.path.split('/').last),
   ],
-});
+}, ListFormat.multi);
 
 var response = await dio.post(
   'https://your-domain.com/mobileapi/rider/orders/$orderId/status',
@@ -142,7 +147,7 @@ Request Body:
 ```json
 {
   "success": true,
-  "message": "Assignment status updated to PICKED_UP",
+  "message": "Delivery status updated to PICKED_UP",
   "data": {
     "id": "cmtwol9oa000h145zhs2aftv9",
     "orderId": "cmtwognce00048grf3xuko4bu",
@@ -150,8 +155,8 @@ Request Body:
     "status": "PICKED_UP",
     "pickedUpAt": "2026-09-11T14:30:00.000Z",
     "pickupProofPhotos": [
-      "https://storage.googleapis.com/.../pickup-proofs/pickup-cmtwol9o-1.jpg",
-      "https://storage.googleapis.com/.../pickup-proofs/pickup-cmtwol9o-2.jpg"
+      "https://meeemsl-bucket.s3.us-east-1.amazonaws.com/uploads/review-images/pickup-proofs/pickup-cmtwol9o-1.jpg",
+      "https://meeemsl-bucket.s3.us-east-1.amazonaws.com/uploads/review-images/pickup-proofs/pickup-cmtwol9o-2.jpg"
     ]
   }
 }
@@ -162,13 +167,20 @@ Request Body:
 --------------------------------------------------------------------------------
 When the rider completes final delivery to the customer:
 - Endpoint: POST /mobileapi/rider/orders/{id}/status
-- Body:
-  {
-    "status": "DELIVERED",
-    "otp": "482910",            // 6-digit OTP obtained from customer (MANDATORY)
-    "proofImage": "data:image/jpeg;base64,..." // Optional single photo proof
-  }
-- This flow remains COMPLETELY UNCHANGED.
+- Request Body (application/json):
+```json
+{
+  "status": "DELIVERED",
+  "otp": "482910",
+  "proofImage": "data:image/jpeg;base64,..."
+}
+```
+Fields:
+- `status`: "DELIVERED" (MANDATORY)
+- `otp`: 6-digit OTP obtained from customer (MANDATORY)
+- `proofImage`: Base64 data URL string (e.g. `data:image/jpeg;base64,...`) or URL of visual delivery proof (OPTIONAL)
+
+*Note: For proofImage, send as Base64 data string in JSON. Multipart binary file upload for proofImage is not supported on this endpoint.*
 
 
 ================================================================================
@@ -185,26 +197,33 @@ Headers:
   - Authorization: Bearer <seller_token>
 
 --------------------------------------------------------------------------------
-2.2 New Fields in Response Payload
+2.2 Response Payload Structure
 --------------------------------------------------------------------------------
-Inside `activeAssignment`:
+The active delivery tracking object is located under `activeDeliveryTracking`:
 ```json
 {
-  "activeAssignment": {
-    "id": "cmtwol9oa000h145zhs2aftv9",
+  "activeDeliveryTracking": {
+    "assignmentId": "cmtwol9oa000h145zhs2aftv9",
     "status": "PICKED_UP",
-    "dispatchMode": "AUTO_BROADCAST",
+    "dispatchMode": "AUTO_CASCADE",
+    "deliveryStatus": "PICKED_UP",
+    "isDelivered": false,
+    "isLiveTrackingActive": true,
+    "offeredAt": "2026-09-11T14:20:00.000Z",
+    "expiresAt": "2026-09-11T14:21:00.000Z",
     "pickedUpAt": "2026-09-11T14:30:00.000Z",
     "rider": {
       "id": "rider_12345",
       "name": "John Kamara",
       "phone": "+23277123456",
-      "vehicleType": "BIKE",
-      "vehicleNumber": "SL-AA-102"
+      "image": "https://meeemsl-bucket.s3.us-east-1.amazonaws.com/uploads/...",
+      "vehicleTypes": ["2_WHEELER"],
+      "vehicleNumber": "SL-AA-102",
+      "isOnline": true
     },
     "pickupProofPhotos": [
-      "https://storage.googleapis.com/.../pickup-proofs/pickup-cmtwol9o-1.jpg",
-      "https://storage.googleapis.com/.../pickup-proofs/pickup-cmtwol9o-2.jpg"
+      "https://meeemsl-bucket.s3.us-east-1.amazonaws.com/uploads/review-images/pickup-proofs/pickup-cmtwol9o-1.jpg",
+      "https://meeemsl-bucket.s3.us-east-1.amazonaws.com/uploads/review-images/pickup-proofs/pickup-cmtwol9o-2.jpg"
     ]
   }
 }
@@ -232,8 +251,8 @@ Inside each item in `items`:
       "netRevenue": 336.37,
       "netPayout": 336.37,
       "pickupProofPhotos": [
-        "https://storage.googleapis.com/.../pickup-proofs/pickup-cmtwol9o-1.jpg",
-        "https://storage.googleapis.com/.../pickup-proofs/pickup-cmtwol9o-2.jpg"
+        "https://meeemsl-bucket.s3.us-east-1.amazonaws.com/uploads/review-images/pickup-proofs/pickup-cmtwol9o-1.jpg",
+        "https://meeemsl-bucket.s3.us-east-1.amazonaws.com/uploads/review-images/pickup-proofs/pickup-cmtwol9o-2.jpg"
       ]
     }
   ]
@@ -243,8 +262,9 @@ Inside each item in `items`:
 --------------------------------------------------------------------------------
 2.3 Mobile UI Implementation: Package Pickup Proof Section
 --------------------------------------------------------------------------------
-Display this section whenever `activeAssignment.pickupProofPhotos.length > 0` or
-`item.pickupProofPhotos.length > 0`:
+Display this section whenever photos exist in either location:
+- `order.activeDeliveryTracking?.pickupProofPhotos?.length > 0` OR
+- `item.pickupProofPhotos?.length > 0`
 
 Card Structure:
   - Header:
@@ -256,10 +276,10 @@ Card Structure:
   - Content:
     - Horizontal scroll view or 3-column grid of thumbnail cards.
     - Each thumbnail has rounded corners and subtle border.
-    - Tapping a thumbnail opens the full-screen photo viewer (Lightbox) with zoom.
+    - Tapping a thumbnail opens the full-screen photo viewer (Lightbox) with pinch-to-zoom.
 
 --------------------------------------------------------------------------------
-2.4 Critical Seller Financial Breakdown Correction
+2.4 Critical Seller Financial Breakdown Rules
 --------------------------------------------------------------------------------
 DO NOT SUBTRACT DELIVERY FEE FROM SELLER REVENUE ON PLATFORM DELIVERIES!
 
@@ -311,11 +331,12 @@ Test Case 1: Rider Photo Upload during Pickup
   2. Rider taps "Collect Package".
   3. App prompts camera/gallery to take 1 to 5 photos.
   4. App posts to /mobileapi/rider/orders/{id}/status with status: "PICKED_UP".
-  5. Verify: Response contains success: true and pickupProofPhotos array.
+     - If using Flutter Dio, verify ListFormat.multi is set.
+  5. Verify: Response contains success: true and pickupProofPhotos array with S3 URLs.
 
 Test Case 2: Seller Views Pickup Photos
   1. Seller opens order details (GET /mobileapi/product-seller/orders/{id}).
-  2. Verify: activeAssignment.pickupProofPhotos contains the photo URLs.
+  2. Verify: activeDeliveryTracking.pickupProofPhotos and item.pickupProofPhotos contain the photo URLs.
   3. Verify: Tapping photos opens high-resolution preview.
 
 Test Case 3: Seller Financial Math Verification
@@ -326,7 +347,7 @@ Test Case 3: Seller Financial Math Verification
 Test Case 4: Final Customer Delivery
   1. Rider reaches customer (status = OUT_FOR_DELIVERY).
   2. Rider enters 6-digit customer OTP.
-  3. App posts status: "DELIVERED" with otp: "xxxxxx".
+  3. App posts status: "DELIVERED" with otp: "xxxxxx" and optional base64 proofImage.
   4. Verify: Delivery completes successfully and rider earnings are credited.
 
 ================================================================================

@@ -436,6 +436,7 @@ export async function GET(
         : null,
     })),
     activeDeliveryTracking,
+    activeAssignment: activeDeliveryTracking,
   }
   return NextResponse.json(body)
 }

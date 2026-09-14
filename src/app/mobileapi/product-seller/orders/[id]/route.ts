@@ -445,6 +445,7 @@ export async function GET(
         : null,
     })),
     activeDeliveryTracking,
+    activeAssignment: activeDeliveryTracking,
   }
 
   return NextResponse.json(body)
@@ -524,7 +525,7 @@ export async function PATCH(
       const ext = path.extname(file.name) || ".jpg"
 
       deliveryProofImage = await uploadPublicFile({
-        folder: "orders/delivery-proof",
+        folder: "review-images/orders/delivery-proof",
         ext,
         contentType: fileContentType,
         buffer,

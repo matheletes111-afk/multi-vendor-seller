@@ -117,6 +117,7 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
   const [exchangeOptionsLoading, setExchangeOptionsLoading] = useState(false)
   const [cancelLoading, setCancelLoading] = useState(false)
   const [cancelError, setCancelError] = useState<string | null>(null)
+  const [previewProofImage, setPreviewProofImage] = useState<string | null>(null)
 
   const isObjectUrl = (url: string) => url.startsWith("blob:")
 
@@ -749,14 +750,13 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
                           </span>
                         </div>
                         {item.deliveryProofImage && (
-                          <a
-                            href={item.deliveryProofImage}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex text-sm font-medium text-blue-600 underline-offset-2 hover:underline"
+                          <button
+                            type="button"
+                            onClick={() => setPreviewProofImage(item.deliveryProofImage)}
+                            className="inline-flex text-sm font-medium text-blue-600 underline-offset-2 hover:underline cursor-pointer"
                           >
                             View delivery proof
-                          </a>
+                          </button>
                         )}
                       </div>
                     </div>
@@ -1355,6 +1355,37 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
                   : "Confirm exchange"}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delivery Proof Preview Modal */}
+      <Dialog open={!!previewProofImage} onOpenChange={(open) => !open && setPreviewProofImage(null)}>
+        <DialogContent className="max-w-3xl p-3 bg-black/95 border border-slate-800 text-white rounded-3xl overflow-hidden">
+          <div className="relative flex flex-col items-center justify-center p-1">
+            {previewProofImage && (
+              <img
+                src={previewProofImage}
+                alt="Delivery proof preview"
+                className="max-h-[75vh] w-auto object-contain rounded-2xl"
+              />
+            )}
+            <div className="w-full flex items-center justify-between pt-3 px-2 text-xs text-slate-300">
+              <span className="font-semibold flex items-center gap-1.5">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                Delivery Proof
+              </span>
+              {previewProofImage && !previewProofImage.startsWith("data:") && (
+                <a
+                  href={previewProofImage}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-blue-400 hover:text-blue-300 flex items-center gap-1 underline"
+                >
+                  Open original in new tab
+                </a>
+              )}
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

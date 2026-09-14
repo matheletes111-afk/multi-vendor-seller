@@ -177,6 +177,7 @@ export function ProductSellerOrderDetailClient({ orderId }: { orderId: string })
     title: string
     description: string
   } | null>(null)
+  const [previewPhotoModal, setPreviewPhotoModal] = useState<{ url: string; title: string } | null>(null)
   const [selfDeliveryLoading, setSelfDeliveryLoading] = useState(false)
 
   const isSelfDelivery = useMemo(() => {
@@ -859,12 +860,11 @@ export function ProductSellerOrderDetailClient({ orderId }: { orderId: string })
                     <CardContent className="p-6">
                       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                         {item.pickupProofPhotos.map((photoUrl, pIdx) => (
-                          <a
+                          <button
                             key={pIdx}
-                            href={photoUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="group relative aspect-square rounded-xl overflow-hidden border-2 border-amber-200/50 hover:border-amber-500 transition-all shadow-sm block bg-slate-50"
+                            type="button"
+                            onClick={() => setPreviewPhotoModal({ url: photoUrl, title: `Package Pickup Proof #${pIdx + 1}` })}
+                            className="group relative aspect-square rounded-xl overflow-hidden border-2 border-amber-200/50 hover:border-amber-500 transition-all shadow-sm block bg-slate-50 text-left cursor-pointer w-full"
                           >
                             <img
                               src={photoUrl}
@@ -874,7 +874,7 @@ export function ProductSellerOrderDetailClient({ orderId }: { orderId: string })
                             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-semibold">
                               <span>View Photo</span>
                             </div>
-                          </a>
+                          </button>
                         ))}
                       </div>
                     </CardContent>
@@ -891,9 +891,16 @@ export function ProductSellerOrderDetailClient({ orderId }: { orderId: string })
                       <CardTitle className="text-xs font-bold uppercase tracking-widest text-emerald-900">Visual Delivery Proof</CardTitle>
                     </CardHeader>
                     <CardContent className="p-6">
-                      <a href={item.deliveryProofImage} target="_blank" rel="noreferrer" className="group relative block w-fit rounded-xl overflow-hidden border-2 border-muted/20 hover:border-emerald-500/50 transition-colors shadow-sm">
+                      <button
+                        type="button"
+                        onClick={() => item.deliveryProofImage && setPreviewPhotoModal({ url: item.deliveryProofImage, title: "Visual Delivery Proof" })}
+                        className="group relative block w-fit rounded-xl overflow-hidden border-2 border-muted/20 hover:border-emerald-500/50 transition-colors shadow-sm cursor-pointer text-left"
+                      >
                         <img src={item.deliveryProofImage} alt="Delivery Proof" className="h-48 w-auto object-cover transition-transform duration-500 group-hover:scale-105" />
-                      </a>
+                        <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-semibold">
+                          <span>View Full Size</span>
+                        </div>
+                      </button>
                     </CardContent>
                   </Card>
                 )}
@@ -936,19 +943,18 @@ export function ProductSellerOrderDetailClient({ orderId }: { orderId: string })
                           )}
                           {(item.returnImages ?? []).length > 0 && (
                             <div className="mt-6 flex flex-wrap gap-4">
-                              {(item.returnImages ?? []).map((url) => (
-                                <a
+                              {(item.returnImages ?? []).map((url, rIdx) => (
+                                <button
                                   key={url}
-                                  href={url}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="group relative block h-24 w-24 overflow-hidden rounded-2xl border-2 border-muted/20 bg-white transition-all hover:scale-105 hover:shadow-xl active:scale-95"
+                                  type="button"
+                                  onClick={() => setPreviewPhotoModal({ url, title: `Customer Return Photo #${rIdx + 1}` })}
+                                  className="group relative block h-24 w-24 overflow-hidden rounded-2xl border-2 border-muted/20 bg-white transition-all hover:scale-105 hover:shadow-xl active:scale-95 cursor-pointer text-left"
                                 >
                                   <img src={url} alt="" className="h-full w-full object-cover" />
                                   <div className="absolute inset-0 bg-primary/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                     <Upload className="w-6 h-6 text-white" />
+                                    <Camera className="w-6 h-6 text-white" />
                                   </div>
-                                </a>
+                                </button>
                               ))}
                             </div>
                           )}
@@ -1881,6 +1887,37 @@ export function ProductSellerOrderDetailClient({ orderId }: { orderId: string })
               )}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Proof Photo Lightbox Modal */}
+      <Dialog open={!!previewPhotoModal} onOpenChange={(open) => !open && setPreviewPhotoModal(null)}>
+        <DialogContent className="max-w-3xl p-3 bg-black/95 border border-slate-800 text-white rounded-3xl overflow-hidden">
+          <div className="relative flex flex-col items-center justify-center p-1">
+            {previewPhotoModal?.url && (
+              <img
+                src={previewPhotoModal.url}
+                alt={previewPhotoModal.title || "Proof preview"}
+                className="max-h-[75vh] w-auto object-contain rounded-2xl"
+              />
+            )}
+            <div className="w-full flex items-center justify-between pt-3 px-2 text-xs text-slate-300">
+              <span className="font-semibold flex items-center gap-1.5">
+                <Camera className="w-3.5 h-3.5 text-amber-400" />
+                {previewPhotoModal?.title || "Proof Photo"}
+              </span>
+              {previewPhotoModal?.url && !previewPhotoModal.url.startsWith("data:") && (
+                <a
+                  href={previewPhotoModal.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-amber-400 hover:text-amber-300 flex items-center gap-1 underline"
+                >
+                  Open original in new tab
+                </a>
+              )}
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
