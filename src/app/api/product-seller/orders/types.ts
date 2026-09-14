@@ -122,4 +122,5 @@ export type SellerOrderDetailApi = {
   netRevenue?: number
   netEarnings?: number
   activeDeliveryTracking?: any
+  activeAssignment?: any
 }

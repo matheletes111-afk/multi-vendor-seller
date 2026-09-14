@@ -79,6 +79,7 @@ export function AdminOrderDetailClient({ orderId }: { orderId: string }) {
     title: string
     description: string
   } | null>(null)
+  const [previewPhotoModal, setPreviewPhotoModal] = useState<{ url: string; title: string } | null>(null)
 
   const uploadDeliveryProofOnSave = async (itemId: string): Promise<string> => {
     const file = deliveryProofFiles[itemId]
@@ -477,12 +478,11 @@ export function AdminOrderDetailClient({ orderId }: { orderId: string }) {
                         </div>
                         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                           {item.pickupProofPhotos.map((url, pIdx) => (
-                            <a
+                            <button
                               key={pIdx}
-                              href={url}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="group relative aspect-square rounded-xl overflow-hidden border border-amber-200/50 hover:border-amber-500 transition-all shadow-sm block bg-slate-50"
+                              type="button"
+                              onClick={() => setPreviewPhotoModal({ url, title: `Package Pickup Proof #${pIdx + 1}` })}
+                              className="group relative aspect-square rounded-xl overflow-hidden border border-amber-200/50 hover:border-amber-500 transition-all shadow-sm block bg-slate-50 text-left cursor-pointer w-full"
                             >
                               <img
                                 src={url}
@@ -492,7 +492,7 @@ export function AdminOrderDetailClient({ orderId }: { orderId: string }) {
                               <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-semibold">
                                 View Photo
                               </div>
-                            </a>
+                            </button>
                           ))}
                         </div>
                       </div>
@@ -506,9 +506,16 @@ export function AdminOrderDetailClient({ orderId }: { orderId: string }) {
                             Visual Delivery Proof
                           </span>
                         </div>
-                        <a href={item.deliveryProofImage} target="_blank" rel="noreferrer" className="block w-fit rounded-xl overflow-hidden border-2 border-muted/20 hover:border-primary/50 transition-colors">
-                          <img src={item.deliveryProofImage} alt="Delivery Proof" className="h-40 w-auto object-cover" />
-                        </a>
+                        <button
+                          type="button"
+                          onClick={() => item.deliveryProofImage && setPreviewPhotoModal({ url: item.deliveryProofImage, title: "Visual Delivery Proof" })}
+                          className="block w-fit rounded-xl overflow-hidden border-2 border-muted/20 hover:border-primary/50 transition-colors cursor-pointer text-left group relative"
+                        >
+                          <img src={item.deliveryProofImage} alt="Delivery Proof" className="h-40 w-auto object-cover transition-transform duration-500 group-hover:scale-105" />
+                          <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-semibold">
+                            View Full Size
+                          </div>
+                        </button>
                       </div>
                     )}
 
@@ -973,6 +980,37 @@ export function AdminOrderDetailClient({ orderId }: { orderId: string }) {
               )}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Proof Photo Lightbox Modal */}
+      <Dialog open={!!previewPhotoModal} onOpenChange={(open) => !open && setPreviewPhotoModal(null)}>
+        <DialogContent className="max-w-3xl p-3 bg-black/95 border border-slate-800 text-white rounded-3xl overflow-hidden">
+          <div className="relative flex flex-col items-center justify-center p-1">
+            {previewPhotoModal?.url && (
+              <img
+                src={previewPhotoModal.url}
+                alt={previewPhotoModal.title || "Proof preview"}
+                className="max-h-[75vh] w-auto object-contain rounded-2xl"
+              />
+            )}
+            <div className="w-full flex items-center justify-between pt-3 px-2 text-xs text-slate-300">
+              <span className="font-semibold flex items-center gap-1.5">
+                <Camera className="w-3.5 h-3.5 text-amber-400" />
+                {previewPhotoModal?.title || "Proof Photo"}
+              </span>
+              {previewPhotoModal?.url && !previewPhotoModal.url.startsWith("data:") && (
+                <a
+                  href={previewPhotoModal.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-amber-400 hover:text-amber-300 flex items-center gap-1 underline"
+                >
+                  Open original in new tab
+                </a>
+              )}
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

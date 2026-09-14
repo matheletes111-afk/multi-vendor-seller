@@ -1277,14 +1277,16 @@ export function OrderRiderCard({
               <span className="font-semibold flex items-center gap-1.5">
                 <Camera className="w-3.5 h-3.5 text-indigo-400" /> Package Pickup Proof
               </span>
-              <a
-                href={previewPhotoUrl || "#"}
-                target="_blank"
-                rel="noreferrer"
-                className="text-indigo-400 hover:text-indigo-300 flex items-center gap-1 underline"
-              >
-                Open original in new tab <ExternalLink className="w-3 h-3" />
-              </a>
+              {previewPhotoUrl && !previewPhotoUrl.startsWith("data:") && (
+                <a
+                  href={previewPhotoUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-indigo-400 hover:text-indigo-300 flex items-center gap-1 underline"
+                >
+                  Open original in new tab <ExternalLink className="w-3 h-3" />
+                </a>
+              )}
             </div>
           </div>
         </DialogContent>

@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
   let folder = "admin/misc"
   let prefix = "admin"
   if (purpose === "delivery-proof") {
-    folder = "orders/delivery-proof"
+    folder = "review-images/orders/delivery-proof"
     prefix = "delivery-proof"
   }
 

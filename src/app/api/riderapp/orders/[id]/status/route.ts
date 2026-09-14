@@ -55,7 +55,7 @@ export async function POST(
           const buffer = Buffer.from(matches[2], "base64")
           const ext = mimeType.includes("png") ? ".png" : mimeType.includes("webp") ? ".webp" : ".jpg"
           finalProofImage = await uploadPublicFile({
-            folder: "delivery-proofs",
+            folder: "review-images/delivery-proofs",
             ext,
             contentType: mimeType,
             buffer,
@@ -80,7 +80,7 @@ export async function POST(
               const buffer = Buffer.from(matches[2], "base64")
               const ext = mimeType.includes("png") ? ".png" : mimeType.includes("webp") ? ".webp" : ".jpg"
               const url = await uploadPublicFile({
-                folder: "pickup-proofs",
+                folder: "review-images/pickup-proofs",
                 ext,
                 contentType: mimeType,
                 buffer,
@@ -90,6 +90,8 @@ export async function POST(
             }
           } catch (err) {
             console.error(`Error uploading base64 pickup photo #${i}:`, err)
+            // Fallback: preserve photo data so it is not lost even if storage upload encounters an issue
+            finalPickupPhotos.push(photo)
           }
         } else if (typeof photo === "string" && (photo.startsWith("http") || photo.startsWith("/"))) {
           finalPickupPhotos.push(photo)
