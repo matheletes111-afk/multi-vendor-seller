@@ -278,14 +278,14 @@ export function ZoneLocationPicker({
           />
         </div>
 
-        <div className="flex items-center gap-1.5 shrink-0">
+        <div className="flex flex-wrap items-center gap-1.5 shrink-0">
           <Button
             type="button"
             variant="outline"
             size="sm"
             onClick={handleSelectAll}
             disabled={disabled || selectedLocations.length === totalAllLocations}
-            className="text-xs h-9 rounded-xl font-medium"
+            className="text-xs h-8 sm:h-9 rounded-xl font-medium flex-1 sm:flex-initial"
           >
             Select All
           </Button>
@@ -295,7 +295,7 @@ export function ZoneLocationPicker({
             size="sm"
             onClick={handleClearAll}
             disabled={disabled || selectedLocations.length === 0}
-            className="text-xs h-9 rounded-xl font-medium text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/20"
+            className="text-xs h-8 sm:h-9 rounded-xl font-medium text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/20 flex-1 sm:flex-initial"
           >
             Clear All
           </Button>
@@ -304,7 +304,7 @@ export function ZoneLocationPicker({
             variant="ghost"
             size="sm"
             onClick={expandAll}
-            className="text-xs h-9 rounded-xl text-muted-foreground"
+            className="text-xs h-8 sm:h-9 rounded-xl text-muted-foreground flex-1 sm:flex-initial"
           >
             Expand
           </Button>
@@ -313,7 +313,7 @@ export function ZoneLocationPicker({
             variant="ghost"
             size="sm"
             onClick={collapseAll}
-            className="text-xs h-9 rounded-xl text-muted-foreground"
+            className="text-xs h-8 sm:h-9 rounded-xl text-muted-foreground flex-1 sm:flex-initial"
           >
             Collapse
           </Button>
