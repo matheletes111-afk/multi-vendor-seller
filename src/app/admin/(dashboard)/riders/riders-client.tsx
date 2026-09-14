@@ -203,6 +203,20 @@ export function RidersClient() {
     return () => clearTimeout(timer)
   }, [locationFilter, urlLocation, updateFilter])
 
+  // Mobile filter toggle
+  const [showMobileFilters, setShowMobileFilters] = useState(false)
+
+  const activeFiltersCount = useMemo(() => {
+    let count = 0
+    if (urlSearch) count++
+    if (urlStatus && urlStatus !== "ALL") count++
+    if (urlSource && urlSource !== "ALL") count++
+    if (urlOnboarding && urlOnboarding !== "ALL") count++
+    if (urlZone && urlZone !== "ALL") count++
+    if (urlLocation) count++
+    return count
+  }, [urlSearch, urlStatus, urlSource, urlOnboarding, urlZone, urlLocation])
+
   // Modals
   const [createModalOpen, setCreateModalOpen] = useState(false)
   const [editModalOpen, setEditModalOpen] = useState(false)
@@ -601,28 +615,28 @@ export function RidersClient() {
   }
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-[1600px] mx-auto">
+    <div className="p-3.5 sm:p-6 lg:p-8 space-y-4 sm:space-y-6 max-w-[1600px] mx-auto">
       {/* Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground flex items-center gap-2.5">
-            <span className="p-2 bg-blue-600/10 text-blue-600 rounded-xl">🚴</span>
+          <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight text-foreground flex items-center gap-2 sm:gap-2.5">
+            <span className="p-1.5 sm:p-2 bg-blue-600/10 text-blue-600 rounded-xl">🚴</span>
             Delivery Riders Management
           </h1>
-          <p className="text-sm text-muted-foreground mt-1">
+          <p className="text-xs sm:text-sm text-muted-foreground mt-0.5 sm:mt-1">
             Create, inspect, and configure delivery riders, vehicle details, and active delivery zones.
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2 w-full sm:w-auto">
           <Button
             variant="outline"
             size="sm"
             onClick={() => fetchRiders()}
             disabled={loading}
-            className="rounded-xl h-10 gap-1.5"
+            className="rounded-xl h-9 sm:h-10 gap-1.5 flex-1 sm:flex-none text-xs sm:text-sm"
           >
-            <RefreshCw className={cn("w-4 h-4", loading && "animate-spin")} />
+            <RefreshCw className={cn("w-3.5 h-3.5 sm:w-4 sm:h-4", loading && "animate-spin")} />
             Refresh
           </Button>
 
@@ -632,96 +646,118 @@ export function RidersClient() {
               setCreateSuccess(null)
               setCreateModalOpen(true)
             }}
-            className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl h-10 gap-1.5 shadow-sm"
+            className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl h-9 sm:h-10 gap-1.5 shadow-xs flex-1 sm:flex-none text-xs sm:text-sm"
           >
-            <Plus className="w-4 h-4" />
+            <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             Add New Rider
           </Button>
         </div>
       </div>
 
       {/* KPI METRICS RIBBON (ONBOARDING & STATUS BREAKDOWN) */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-        <div className="p-3.5 rounded-2xl border bg-card shadow-2xs">
-          <div className="text-[11px] font-semibold text-muted-foreground flex items-center justify-between">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 sm:gap-3">
+        <div className="p-3 sm:p-3.5 rounded-xl sm:rounded-2xl border bg-card shadow-2xs">
+          <div className="text-[10px] sm:text-[11px] font-semibold text-muted-foreground flex items-center justify-between">
             <span>Total Fleet</span>
-            <Bike className="w-4 h-4 text-slate-500" />
+            <Bike className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-500 shrink-0" />
           </div>
-          <div className="text-2xl font-bold text-foreground mt-1">{stats.totalAll}</div>
-          <p className="text-[10px] text-muted-foreground mt-0.5">All registered riders</p>
+          <div className="text-xl sm:text-2xl font-bold text-foreground mt-1">{stats.totalAll}</div>
+          <p className="text-[10px] text-muted-foreground mt-0.5 truncate">All registered riders</p>
         </div>
 
-        <div className="p-3.5 rounded-2xl border bg-card shadow-2xs">
-          <div className="text-[11px] font-semibold text-muted-foreground flex items-center justify-between">
+        <div className="p-3 sm:p-3.5 rounded-xl sm:rounded-2xl border bg-card shadow-2xs">
+          <div className="text-[10px] sm:text-[11px] font-semibold text-muted-foreground flex items-center justify-between">
             <span>Approved / Active</span>
-            <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+            <CheckCircle2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-500 shrink-0" />
           </div>
-          <div className="text-2xl font-bold text-emerald-600 mt-1">{stats.totalApproved}</div>
-          <p className="text-[10px] text-muted-foreground mt-0.5">Account approved</p>
+          <div className="text-xl sm:text-2xl font-bold text-emerald-600 mt-1">{stats.totalApproved}</div>
+          <p className="text-[10px] text-muted-foreground mt-0.5 truncate">Account approved</p>
         </div>
 
         <div
           onClick={() => updateFilter({ onboarding: urlOnboarding === "COMPLETED" ? null : "COMPLETED" })}
           className={cn(
-            "p-3.5 rounded-2xl border cursor-pointer transition-all shadow-2xs",
+            "p-3 sm:p-3.5 rounded-xl sm:rounded-2xl border cursor-pointer transition-all shadow-2xs select-none",
             urlOnboarding === "COMPLETED"
               ? "bg-emerald-50 dark:bg-emerald-950/40 border-emerald-500 ring-2 ring-emerald-500/20"
               : "bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-900/40 hover:border-emerald-400"
           )}
         >
-          <div className="text-[11px] font-bold text-emerald-800 dark:text-emerald-300 flex items-center justify-between">
+          <div className="text-[10px] sm:text-[11px] font-bold text-emerald-800 dark:text-emerald-300 flex items-center justify-between">
             <span>Onboarded Done</span>
-            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+            <CheckCircle2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600 shrink-0" />
           </div>
-          <div className="text-2xl font-bold text-emerald-700 dark:text-emerald-300 mt-1">{stats.totalOnboarded}</div>
-          <p className="text-[10px] text-emerald-700/80 dark:text-emerald-300/80 mt-0.5 font-medium">Eligible for delivery offers</p>
+          <div className="text-xl sm:text-2xl font-bold text-emerald-700 dark:text-emerald-300 mt-1">{stats.totalOnboarded}</div>
+          <p className="text-[10px] text-emerald-700/80 dark:text-emerald-300/80 mt-0.5 font-medium truncate">Eligible for offers</p>
         </div>
 
         <div
           onClick={() => updateFilter({ onboarding: urlOnboarding === "PENDING" ? null : "PENDING" })}
           className={cn(
-            "p-3.5 rounded-2xl border cursor-pointer transition-all shadow-2xs",
+            "p-3 sm:p-3.5 rounded-xl sm:rounded-2xl border cursor-pointer transition-all shadow-2xs select-none",
             urlOnboarding === "PENDING"
               ? "bg-amber-50 dark:bg-amber-950/40 border-amber-500 ring-2 ring-amber-500/20"
               : "bg-amber-50/50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-900/40 hover:border-amber-400"
           )}
         >
-          <div className="text-[11px] font-bold text-amber-800 dark:text-amber-300 flex items-center justify-between">
+          <div className="text-[10px] sm:text-[11px] font-bold text-amber-800 dark:text-amber-300 flex items-center justify-between">
             <span>Onboard Incomplete</span>
-            <Clock className="w-4 h-4 text-amber-600" />
+            <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-600 shrink-0" />
           </div>
-          <div className="text-2xl font-bold text-amber-700 dark:text-amber-300 mt-1">{stats.totalOnboardingPending}</div>
-          <p className="text-[10px] text-amber-700/80 dark:text-amber-300/80 mt-0.5 font-medium">Blocked from deliveries</p>
+          <div className="text-xl sm:text-2xl font-bold text-amber-700 dark:text-amber-300 mt-1">{stats.totalOnboardingPending}</div>
+          <p className="text-[10px] text-amber-700/80 dark:text-amber-300/80 mt-0.5 font-medium truncate">Blocked from delivery</p>
         </div>
 
-        <div className="p-3.5 rounded-2xl border bg-card shadow-2xs">
-          <div className="text-[11px] font-semibold text-muted-foreground flex items-center justify-between">
+        <div className="p-3 sm:p-3.5 rounded-xl sm:rounded-2xl border bg-card shadow-2xs">
+          <div className="text-[10px] sm:text-[11px] font-semibold text-muted-foreground flex items-center justify-between">
             <span>Admin Created</span>
-            <User className="w-4 h-4 text-purple-500" />
+            <User className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-purple-500 shrink-0" />
           </div>
-          <div className="text-2xl font-bold text-purple-600 mt-1">{stats.totalAdminCreated}</div>
-          <p className="text-[10px] text-muted-foreground mt-0.5">Created via portal</p>
+          <div className="text-xl sm:text-2xl font-bold text-purple-600 mt-1">{stats.totalAdminCreated}</div>
+          <p className="text-[10px] text-muted-foreground mt-0.5 truncate">Created via portal</p>
         </div>
 
-        <div className="p-3.5 rounded-2xl border bg-card shadow-2xs">
-          <div className="text-[11px] font-semibold text-muted-foreground flex items-center justify-between">
+        <div className="p-3 sm:p-3.5 rounded-xl sm:rounded-2xl border bg-card shadow-2xs">
+          <div className="text-[10px] sm:text-[11px] font-semibold text-muted-foreground flex items-center justify-between">
             <span>Suspended</span>
-            <Ban className="w-4 h-4 text-red-500" />
+            <Ban className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-red-500 shrink-0" />
           </div>
-          <div className="text-2xl font-bold text-red-600 mt-1">{stats.totalSuspended}</div>
-          <p className="text-[10px] text-muted-foreground mt-0.5">Accounts locked</p>
+          <div className="text-xl sm:text-2xl font-bold text-red-600 mt-1">{stats.totalSuspended}</div>
+          <p className="text-[10px] text-muted-foreground mt-0.5 truncate">Accounts locked</p>
         </div>
       </div>
 
       {/* Filter and Search Bar */}
-      <div className="p-4 bg-card rounded-2xl border shadow-xs space-y-3">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
-          {/* Search */}
+      <div className="p-3.5 sm:p-4 bg-card rounded-2xl border shadow-xs space-y-3">
+        {/* Mobile Filter Header Toggle */}
+        <div className="flex items-center justify-between lg:hidden">
+          <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+            <SlidersHorizontal className="w-3.5 h-3.5 text-blue-600" />
+            Filter Directory
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowMobileFilters((prev) => !prev)}
+            className="h-8 px-2.5 text-xs rounded-xl gap-1.5"
+          >
+            <Filter className="w-3.5 h-3.5 text-blue-600" />
+            <span>{showMobileFilters ? "Fewer Filters" : "More Filters"}</span>
+            {activeFiltersCount > 0 && (
+              <span className="px-1.5 py-0.2 rounded-full bg-blue-600 text-white text-[10px] font-bold">
+                {activeFiltersCount}
+              </span>
+            )}
+          </Button>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-2.5 sm:gap-3">
+          {/* Search (Always visible) */}
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
               type="text"
-              placeholder="Search by name, email, phone, or vehicle..."
+              placeholder="Search name, email, phone, vehicle..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-9 pr-8 h-10 rounded-xl text-xs"
@@ -742,7 +778,7 @@ export function RidersClient() {
           </div>
 
           {/* Registration Source Filter */}
-          <div>
+          <div className={cn(!showMobileFilters && "hidden lg:block")}>
             <Select
               value={urlSource}
               onValueChange={(val) => updateFilter({ source: val })}
@@ -759,7 +795,7 @@ export function RidersClient() {
           </div>
 
           {/* Onboarding Filter */}
-          <div>
+          <div className={cn(!showMobileFilters && "hidden lg:block")}>
             <Select
               value={urlOnboarding}
               onValueChange={(val) => updateFilter({ onboarding: val })}
@@ -776,7 +812,7 @@ export function RidersClient() {
           </div>
 
           {/* Status Filter */}
-          <div>
+          <div className={cn(!showMobileFilters && "hidden lg:block")}>
             <Select
               value={urlStatus}
               onValueChange={(val) => updateFilter({ status: val })}
@@ -795,7 +831,7 @@ export function RidersClient() {
           </div>
 
           {/* Zone Filter */}
-          <div>
+          <div className={cn(!showMobileFilters && "hidden lg:block")}>
             <Select
               value={urlZone}
               onValueChange={(val) => updateFilter({ zone: val })}
@@ -815,10 +851,10 @@ export function RidersClient() {
           </div>
 
           {/* Specific Location Filter */}
-          <div className="relative">
+          <div className={cn("relative", !showMobileFilters && "hidden lg:block")}>
             <Input
               type="text"
-              placeholder="Search specific location (e.g. Lakka)..."
+              placeholder="Search location (e.g. Lakka)..."
               value={locationFilter}
               onChange={(e) => setLocationFilter(e.target.value)}
               className="pr-8 h-10 rounded-xl text-xs"
@@ -839,10 +875,10 @@ export function RidersClient() {
           </div>
         </div>
 
-        {/* Filter Pills */}
-        <div className="flex flex-wrap items-center justify-between gap-2 pt-1 pb-0.5 border-t border-border/40">
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="text-[11px] font-semibold text-muted-foreground mr-1">Status:</span>
+        {/* Horizontally Scrollable Filter Pills on Mobile */}
+        <div className="pt-2 border-t border-border/40">
+          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5 -mx-1 px-1">
+            <span className="text-[11px] font-semibold text-muted-foreground shrink-0">Status:</span>
             {[
               { label: "All", value: "ALL", count: stats.totalAll },
               { label: "Approved", value: "APPROVED", count: stats.totalApproved },
@@ -854,7 +890,7 @@ export function RidersClient() {
                 key={s.value}
                 onClick={() => updateFilter({ status: s.value })}
                 className={cn(
-                  "px-2.5 py-1 text-xs font-semibold rounded-lg transition-colors shrink-0 flex items-center gap-1.5",
+                  "px-2.5 py-1 text-xs font-semibold rounded-lg transition-colors shrink-0 flex items-center gap-1.5 select-none",
                   urlStatus === s.value
                     ? "bg-blue-600 text-white shadow-xs"
                     : "bg-muted hover:bg-muted/80 text-muted-foreground"
@@ -873,10 +909,10 @@ export function RidersClient() {
                 </span>
               </button>
             ))}
-          </div>
 
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="text-[11px] font-semibold text-muted-foreground mr-1">Onboarding:</span>
+            <span className="text-border shrink-0">|</span>
+
+            <span className="text-[11px] font-semibold text-muted-foreground shrink-0">Onboarding:</span>
             {[
               { label: "All", value: "ALL", count: stats.totalAll },
               { label: "Onboarded", value: "COMPLETED", count: stats.totalOnboarded },
@@ -886,7 +922,7 @@ export function RidersClient() {
                 key={ob.value}
                 onClick={() => updateFilter({ onboarding: ob.value })}
                 className={cn(
-                  "px-2.5 py-1 text-xs font-semibold rounded-lg transition-colors shrink-0 flex items-center gap-1.5",
+                  "px-2.5 py-1 text-xs font-semibold rounded-lg transition-colors shrink-0 flex items-center gap-1.5 select-none",
                   urlOnboarding === ob.value
                     ? "bg-emerald-600 text-white shadow-xs"
                     : "bg-muted hover:bg-muted/80 text-muted-foreground"
@@ -905,10 +941,10 @@ export function RidersClient() {
                 </span>
               </button>
             ))}
-          </div>
 
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="text-[11px] font-semibold text-muted-foreground mr-1">Source:</span>
+            <span className="text-border shrink-0">|</span>
+
+            <span className="text-[11px] font-semibold text-muted-foreground shrink-0">Source:</span>
             {[
               { label: "All Sources", value: "ALL", count: stats.totalAll },
               { label: "Admin Created", value: "ADMIN", count: stats.totalAdminCreated },
@@ -918,7 +954,7 @@ export function RidersClient() {
                 key={src.value}
                 onClick={() => updateFilter({ source: src.value })}
                 className={cn(
-                  "px-2.5 py-1 text-xs font-semibold rounded-lg transition-colors shrink-0 flex items-center gap-1.5",
+                  "px-2.5 py-1 text-xs font-semibold rounded-lg transition-colors shrink-0 flex items-center gap-1.5 select-none",
                   urlSource === src.value
                     ? "bg-purple-600 text-white shadow-xs"
                     : "bg-muted hover:bg-muted/80 text-muted-foreground"
@@ -938,12 +974,12 @@ export function RidersClient() {
               </button>
             ))}
 
-            {Boolean(urlSearch || (urlStatus && urlStatus !== "ALL") || (urlSource && urlSource !== "ALL") || (urlOnboarding && urlOnboarding !== "ALL") || (urlZone && urlZone !== "ALL") || urlLocation) && (
+            {activeFiltersCount > 0 && (
               <Button
                 variant="outline"
                 size="sm"
                 onClick={clearFilters}
-                className="h-7 px-2.5 text-[11px] font-semibold text-rose-600 border-rose-200 hover:bg-rose-50 hover:text-rose-700 dark:border-rose-900/50 dark:hover:bg-rose-950/30 rounded-lg gap-1 ml-1"
+                className="h-7 px-2.5 text-[11px] font-semibold text-rose-600 border-rose-200 hover:bg-rose-50 hover:text-rose-700 dark:border-rose-900/50 dark:hover:bg-rose-950/30 rounded-lg gap-1 shrink-0 ml-1"
               >
                 <X className="w-3.5 h-3.5" />
                 Reset Filters
@@ -953,130 +989,156 @@ export function RidersClient() {
         </div>
       </div>
 
-      {/* Riders Table */}
+      {/* Riders Section: Mobile Cards (md:hidden) and Desktop Table (hidden md:block) */}
       <div className="border rounded-2xl bg-card shadow-xs overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-muted/50 border-b text-muted-foreground uppercase text-[11px] font-bold tracking-wider">
-              <tr>
-                <th className="p-4 pl-5">Rider</th>
-                <th className="p-4">Contact</th>
-                <th className="p-4">Registration Source</th>
-                <th className="p-4">Vehicles</th>
-                <th className="p-4">Delivery Zones</th>
-                <th className="p-4">Status</th>
-                <th className="p-4">Onboarding</th>
-                <th className="p-4">Devices</th>
-                <th className="p-4 text-right pr-5">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border/60">
-              {error ? (
-                <tr>
-                  <td colSpan={9} className="p-8 text-center text-rose-600 dark:text-rose-400">
-                    <AlertTriangle className="w-6 h-6 mx-auto mb-2 text-rose-500" />
-                    <p className="font-semibold text-sm">{error}</p>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => fetchRiders()}
-                      className="mt-3 text-xs rounded-xl"
-                    >
-                      Try Again
-                    </Button>
-                  </td>
-                </tr>
-              ) : loading ? (
-                <tr>
-                  <td colSpan={9} className="p-8 text-center text-muted-foreground">
-                    <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-blue-600" />
-                    Loading riders directory...
-                  </td>
-                </tr>
-              ) : riders.length === 0 ? (
-                <tr>
-                  <td colSpan={9} className="p-12 text-center text-muted-foreground">
-                    <Bike className="w-10 h-10 mx-auto mb-3 text-slate-300 dark:text-slate-700" />
-                    <p className="font-semibold text-foreground text-sm">No riders found</p>
-                    <p className="text-xs mt-1">Try adjusting your search terms or filters.</p>
-                    {Boolean(urlSearch || (urlStatus && urlStatus !== "ALL") || (urlSource && urlSource !== "ALL") || (urlZone && urlZone !== "ALL") || urlLocation) && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={clearFilters}
-                        className="mt-3 text-xs rounded-xl gap-1 text-blue-600 border-blue-200 hover:bg-blue-50 dark:hover:bg-blue-950/30"
-                      >
-                        <X className="w-3.5 h-3.5" />
-                        Clear All Filters
-                      </Button>
-                    )}
-                  </td>
-                </tr>
-              ) : (
-                riders.map((r) => {
-                  const rawZones = (r.rider?.selectedZones as string[]) || []
-                  const locs = (r.rider?.selectedLocations as string[]) || []
-                  const zones = resolveEffectiveZones(rawZones, locs)
-                  const vehicles = (r.rider?.vehicleTypes as string[]) || []
-                  const devices = (r.rider?.deviceTokens as any[]) || []
-                  const isAdminCreated = Boolean(r.rider?.createdByAdmin)
-                  const isZonesExpanded = Boolean(expandedZonesRiders[r.id])
+        {error ? (
+          <div className="p-8 text-center text-rose-600 dark:text-rose-400">
+            <AlertTriangle className="w-6 h-6 mx-auto mb-2 text-rose-500" />
+            <p className="font-semibold text-sm">{error}</p>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => fetchRiders()}
+              className="mt-3 text-xs rounded-xl"
+            >
+              Try Again
+            </Button>
+          </div>
+        ) : loading ? (
+          <div className="p-8 text-center text-muted-foreground">
+            <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-blue-600" />
+            Loading riders directory...
+          </div>
+        ) : riders.length === 0 ? (
+          <div className="p-12 text-center text-muted-foreground">
+            <Bike className="w-10 h-10 mx-auto mb-3 text-slate-300 dark:text-slate-700" />
+            <p className="font-semibold text-foreground text-sm">No riders found</p>
+            <p className="text-xs mt-1">Try adjusting your search terms or filters.</p>
+            {activeFiltersCount > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={clearFilters}
+                className="mt-3 text-xs rounded-xl gap-1 text-blue-600 border-blue-200 hover:bg-blue-50 dark:hover:bg-blue-950/30"
+              >
+                <X className="w-3.5 h-3.5" />
+                Clear All Filters
+              </Button>
+            )}
+          </div>
+        ) : (
+          <>
+            {/* MOBILE CARD VIEW (`md:hidden`) */}
+            <div className="block md:hidden divide-y divide-border/60">
+              {riders.map((r) => {
+                const rawZones = (r.rider?.selectedZones as string[]) || []
+                const locs = (r.rider?.selectedLocations as string[]) || []
+                const zones = resolveEffectiveZones(rawZones, locs)
+                const vehicles = (r.rider?.vehicleTypes as string[]) || []
+                const devices = (r.rider?.deviceTokens as any[]) || []
+                const isAdminCreated = Boolean(r.rider?.createdByAdmin)
+                const isZonesExpanded = Boolean(expandedZonesRiders[r.id])
 
-                  return (
-                    <tr key={r.id} className="hover:bg-muted/30 transition-colors">
-                      <td className="p-4 pl-5">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-950 flex items-center justify-center font-bold text-blue-700 dark:text-blue-300 overflow-hidden shrink-0 border">
-                            {r.image || r.rider?.profileImage ? (
-                              /* eslint-disable-next-line @next/next/no-img-element */
-                              <img
-                                src={r.image || r.rider?.profileImage!}
-                                alt={r.name || "Rider"}
-                                className="w-full h-full object-cover"
-                              />
-                            ) : (
-                              (r.name?.[0] || r.email[0]).toUpperCase()
-                            )}
-                          </div>
-                          <div>
-                            <div className="font-bold text-sm text-foreground">
-                              {r.name || "Unnamed Rider"}
-                            </div>
-                          </div>
-                        </div>
-                      </td>
-
-                      <td className="p-4">
-                        <div className="space-y-0.5">
-                          <div className="flex items-center gap-1.5 text-foreground font-medium">
-                            <Mail className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                            <span className="truncate max-w-[180px]">{r.email}</span>
-                          </div>
-                          {r.phone && (
-                            <div className="flex items-center gap-1.5 text-muted-foreground">
-                              <Phone className="w-3.5 h-3.5 shrink-0" />
-                              <span>{r.phoneCountryCode} {r.phone}</span>
-                            </div>
+                return (
+                  <div key={r.id} className="p-4 space-y-3 hover:bg-muted/10 transition-colors">
+                    {/* Header: Avatar, Name, Email, Status Badge */}
+                    <div className="flex items-start justify-between gap-2.5">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-11 h-11 rounded-2xl bg-blue-100 dark:bg-blue-950 flex items-center justify-center font-bold text-blue-700 dark:text-blue-300 overflow-hidden shrink-0 border border-blue-200/60 shadow-2xs">
+                          {r.image || r.rider?.profileImage ? (
+                            /* eslint-disable-next-line @next/next/no-img-element */
+                            <img
+                              src={r.image || r.rider?.profileImage!}
+                              alt={r.name || "Rider"}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            (r.name?.[0] || r.email[0]).toUpperCase()
                           )}
                         </div>
-                      </td>
+                        <div className="min-w-0">
+                          <div className="font-bold text-sm text-foreground truncate">
+                            {r.name || "Unnamed Rider"}
+                          </div>
+                          <div className="flex items-center gap-1.5 text-xs text-muted-foreground truncate mt-0.5">
+                            <Mail className="w-3 h-3 shrink-0" />
+                            <span className="truncate">{r.email}</span>
+                          </div>
+                        </div>
+                      </div>
 
-                      <td className="p-4">
-                        {isAdminCreated ? (
-                          <Badge variant="outline" className="text-[11px] font-semibold bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/40 dark:text-purple-300 gap-1 inline-flex items-center">
-                            <ShieldAlert className="w-3 h-3 text-purple-600" />
-                            Admin Created
-                          </Badge>
+                      <div className="shrink-0">
+                        {getStatusBadge(r.rider?.status, r.rider?.isSuspended, r.rider?.onboardingCompleted)}
+                      </div>
+                    </div>
+
+                    {/* Meta Badges */}
+                    <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                      {isAdminCreated ? (
+                        <Badge variant="outline" className="text-[10px] font-semibold bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/40 dark:text-purple-300 gap-1 inline-flex items-center">
+                          <ShieldAlert className="w-2.5 h-2.5 text-purple-600" />
+                          Admin Created
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-[10px] font-semibold bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 gap-1 inline-flex items-center">
+                          <User className="w-2.5 h-2.5 text-emerald-600" />
+                          Self Registered
+                        </Badge>
+                      )}
+
+                      {r.rider?.onboardingCompleted ? (
+                        <Badge
+                          variant="outline"
+                          className="bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300 gap-1 text-[10px] font-semibold"
+                        >
+                          <CheckCircle2 className="w-2.5 h-2.5 text-emerald-600" />
+                          Onboarded
+                        </Badge>
+                      ) : (
+                        <Badge
+                          variant="outline"
+                          className="bg-amber-50 text-amber-700 border-amber-300 dark:bg-amber-950/40 dark:text-amber-300 gap-1 text-[10px] font-semibold"
+                        >
+                          <Clock className="w-2.5 h-2.5 text-amber-600" />
+                          Pending Form
+                        </Badge>
+                      )}
+
+                      {devices.length > 0 && (
+                        <Badge variant="outline" className="text-[10px]">
+                          {devices.length} {devices.length === 1 ? "device" : "devices"}
+                        </Badge>
+                      )}
+                    </div>
+
+                    {/* Contact & Vehicle Info Panel */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 p-2.5 rounded-xl bg-muted/30 text-xs border border-border/40">
+                      {/* Phone */}
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-muted-foreground text-[11px] font-medium flex items-center gap-1">
+                          <Phone className="w-3 h-3 text-slate-400" />
+                          Phone:
+                        </span>
+                        {r.phone ? (
+                          <a
+                            href={`tel:${r.phoneCountryCode || "+232"}${r.phone}`}
+                            className="font-semibold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+                            title="Call rider"
+                          >
+                            <span>{r.phoneCountryCode} {r.phone}</span>
+                          </a>
                         ) : (
-                          <Badge variant="outline" className="text-[11px] font-semibold bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 gap-1 inline-flex items-center">
-                            <User className="w-3 h-3 text-emerald-600" />
-                            Self Registered
-                          </Badge>
+                          <span className="text-muted-foreground text-[11px]">Not provided</span>
                         )}
-                      </td>
+                      </div>
 
-                      <td className="p-4">
-                        <div className="flex flex-wrap gap-1 max-w-[160px]">
+                      {/* Vehicle Types */}
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-muted-foreground text-[11px] font-medium flex items-center gap-1">
+                          <Bike className="w-3 h-3 text-slate-400" />
+                          Vehicle:
+                        </span>
+                        <div className="flex flex-wrap justify-end gap-1">
                           {vehicles.length > 0 ? (
                             vehicles.map((v) => (
                               <Badge key={v} variant="secondary" className="text-[10px] px-1.5 py-0 font-normal">
@@ -1087,250 +1149,507 @@ export function RidersClient() {
                             <span className="text-muted-foreground text-[11px]">Not set</span>
                           )}
                         </div>
-                      </td>
+                      </div>
+                    </div>
 
-                      <td className="p-4 align-top">
-                        <div className="space-y-1.5 min-w-[180px] max-w-[280px]">
-                          <div className="flex items-center gap-1.5">
-                            <Badge variant="outline" className="text-[11px] font-semibold bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-900">
-                              {zones.length} {zones.length === 1 ? "Zone" : "Zones"}
+                    {/* Delivery Zones Accordion */}
+                    <div className="pt-0.5">
+                      <div className="flex items-center justify-between text-xs">
+                        <div className="flex items-center gap-1.5">
+                          <Badge variant="outline" className="text-[10px] font-semibold bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300">
+                            {zones.length} {zones.length === 1 ? "Zone" : "Zones"}
+                          </Badge>
+                          <span className="text-[11px] text-muted-foreground">({locs.length} locations)</span>
+                        </div>
+
+                        {zones.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => toggleExpandZones(r.id)}
+                            className="text-[11px] font-semibold text-blue-600 hover:text-blue-700 dark:text-blue-400 flex items-center gap-0.5 cursor-pointer"
+                          >
+                            <span>{isZonesExpanded ? "Hide Zones" : "View Zones"}</span>
+                            {isZonesExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                          </button>
+                        )}
+                      </div>
+
+                      {isZonesExpanded && zones.length > 0 && (
+                        <div className="mt-2 p-2.5 rounded-xl bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200/60 dark:border-blue-900/40 flex flex-wrap gap-1 max-h-36 overflow-y-auto">
+                          {zones.map((z) => (
+                            <Badge key={z} variant="secondary" className="text-[10px] px-1.5 py-0.5 font-medium bg-blue-100/80 text-blue-900 border-blue-200 dark:bg-blue-900/40 dark:text-blue-200">
+                              {z}
                             </Badge>
-                            <span
-                              className="text-muted-foreground text-[11px]"
-                              title={`${locs.length} total delivery locations selected`}
-                            >
-                              ({locs.length} locs)
-                            </span>
-                          </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
 
-                          {zones.length === 0 ? (
-                            <span className="text-muted-foreground text-[11px]">No zones set</span>
-                          ) : isZonesExpanded ? (
-                            <div className="space-y-1.5 pt-0.5">
-                              <div className="flex flex-wrap gap-1 max-h-[150px] overflow-y-auto pr-1">
-                                {zones.map((z) => (
-                                  <Badge
-                                    key={z}
-                                    variant="secondary"
-                                    className="text-[10px] px-1.5 py-0 font-medium bg-blue-50/80 text-blue-800 border-blue-200/80 dark:bg-blue-950/50 dark:text-blue-300 dark:border-blue-900/60"
-                                  >
-                                    {z}
-                                  </Badge>
-                                ))}
-                              </div>
-                              <button
-                                type="button"
-                                onClick={() => toggleExpandZones(r.id)}
-                                className="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 hover:underline cursor-pointer"
-                              >
-                                <span>See less</span>
-                                <ChevronUp className="w-3 h-3" />
-                              </button>
-                            </div>
+                    {/* Actions Bar on Mobile */}
+                    <div className="flex items-center justify-between gap-2 pt-2 border-t border-border/60">
+                      <Button
+                        variant="default"
+                        size="sm"
+                        onClick={() => openEditModal(r)}
+                        className="h-8 px-3 text-xs rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-medium flex-1 shadow-2xs"
+                      >
+                        <Edit className="w-3.5 h-3.5 mr-1" />
+                        Manage
+                      </Button>
+
+                      {/* Quick Approve Button if pending onboarding review */}
+                      {r.rider?.onboardingCompleted && r.rider?.status === "PENDING" && !r.rider?.isSuspended && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={approveLoadingId === r.id}
+                          onClick={() => handleQuickApprove(r)}
+                          className="h-8 px-2.5 text-xs rounded-xl text-emerald-600 border-emerald-300 bg-emerald-50/50 hover:bg-emerald-100 hover:text-emerald-700"
+                        >
+                          {approveLoadingId === r.id ? (
+                            <RefreshCw className="w-3.5 h-3.5 animate-spin" />
                           ) : (
-                            <div className="space-y-1">
-                              <div className="flex flex-wrap items-center gap-1">
-                                {zones.slice(0, 2).map((z) => (
-                                  <Badge
-                                    key={z}
-                                    variant="secondary"
-                                    className="text-[10px] px-1.5 py-0 font-medium bg-muted/80 text-foreground border border-border/50"
-                                  >
-                                    {z}
-                                  </Badge>
-                                ))}
+                            <>
+                              <CheckCircle2 className="w-3.5 h-3.5 mr-1 text-emerald-600" />
+                              Approve
+                            </>
+                          )}
+                        </Button>
+                      )}
+
+                      {/* Quick Suspend / Unsuspend */}
+                      {r.rider?.isSuspended || r.rider?.status === "SUSPENDED" ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={suspendLoadingId === r.id}
+                          onClick={() => handleToggleSuspend(r, false)}
+                          className="h-8 px-2.5 text-xs rounded-xl text-emerald-600 border-emerald-200 hover:bg-emerald-50"
+                        >
+                          {suspendLoadingId === r.id ? (
+                            <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                          ) : (
+                            <>
+                              <CheckCircle2 className="w-3.5 h-3.5 mr-1 text-emerald-600" />
+                              Unsuspend
+                            </>
+                          )}
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={suspendLoadingId === r.id}
+                          onClick={() => handleToggleSuspend(r, true)}
+                          className="h-8 px-2.5 text-xs rounded-xl text-red-600 border-red-200 hover:bg-red-50"
+                        >
+                          {suspendLoadingId === r.id ? (
+                            <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                          ) : (
+                            <>
+                              <Ban className="w-3.5 h-3.5 mr-1 text-red-600" />
+                              Suspend
+                            </>
+                          )}
+                        </Button>
+                      )}
+
+                      {/* Dropdown Menu */}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="outline" size="sm" className="h-8 w-8 p-0 rounded-xl">
+                            <MoreVertical className="w-4 h-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-52 rounded-xl">
+                          <DropdownMenuLabel className="text-xs">Rider Actions</DropdownMenuLabel>
+                          <DropdownMenuItem onClick={() => openEditModal(r)}>
+                            <Eye className="w-3.5 h-3.5 mr-2 text-slate-500" />
+                            View Full Profile
+                          </DropdownMenuItem>
+                          {r.rider?.onboardingCompleted && r.rider?.status === "PENDING" && (
+                            <DropdownMenuItem
+                              onClick={() => handleQuickApprove(r)}
+                              disabled={approveLoadingId === r.id}
+                              className="text-emerald-600 focus:text-emerald-700 focus:bg-emerald-50 dark:focus:bg-emerald-950/30 cursor-pointer font-medium"
+                            >
+                              <CheckCircle2 className="w-3.5 h-3.5 mr-2 text-emerald-600" />
+                              Approve Rider
+                            </DropdownMenuItem>
+                          )}
+                          {!r.rider?.onboardingCompleted && (
+                            <DropdownMenuItem
+                              onClick={() => handleResendInvite(r.id)}
+                              disabled={resendLoading}
+                            >
+                              <Send className="w-3.5 h-3.5 mr-2 text-blue-600" />
+                              Resend Credentials
+                            </DropdownMenuItem>
+                          )}
+                          <DropdownMenuSeparator />
+                          {r.rider?.isSuspended || r.rider?.status === "SUSPENDED" ? (
+                            <DropdownMenuItem
+                              onClick={() => handleToggleSuspend(r, false)}
+                              disabled={suspendLoadingId === r.id}
+                              className="text-emerald-600 focus:text-emerald-700 focus:bg-emerald-50 dark:focus:bg-emerald-950/30 cursor-pointer"
+                            >
+                              <CheckCircle2 className="w-3.5 h-3.5 mr-2 text-emerald-600" />
+                              Unsuspend Rider
+                            </DropdownMenuItem>
+                          ) : (
+                            <DropdownMenuItem
+                              onClick={() => handleToggleSuspend(r, true)}
+                              disabled={suspendLoadingId === r.id}
+                              className="text-red-600 focus:text-red-700 focus:bg-red-50 dark:focus:bg-red-950/30 cursor-pointer"
+                            >
+                              <Ban className="w-3.5 h-3.5 mr-2 text-red-600" />
+                              Suspend Rider
+                            </DropdownMenuItem>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+
+            {/* DESKTOP TABLE VIEW (`hidden md:block`) */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-muted/50 border-b text-muted-foreground uppercase text-[11px] font-bold tracking-wider">
+                  <tr>
+                    <th className="p-4 pl-5">Rider</th>
+                    <th className="p-4">Contact</th>
+                    <th className="p-4">Registration Source</th>
+                    <th className="p-4">Vehicles</th>
+                    <th className="p-4">Delivery Zones</th>
+                    <th className="p-4">Status</th>
+                    <th className="p-4">Onboarding</th>
+                    <th className="p-4">Devices</th>
+                    <th className="p-4 text-right pr-5">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border/60">
+                  {riders.map((r) => {
+                    const rawZones = (r.rider?.selectedZones as string[]) || []
+                    const locs = (r.rider?.selectedLocations as string[]) || []
+                    const zones = resolveEffectiveZones(rawZones, locs)
+                    const vehicles = (r.rider?.vehicleTypes as string[]) || []
+                    const devices = (r.rider?.deviceTokens as any[]) || []
+                    const isAdminCreated = Boolean(r.rider?.createdByAdmin)
+                    const isZonesExpanded = Boolean(expandedZonesRiders[r.id])
+
+                    return (
+                      <tr key={r.id} className="hover:bg-muted/30 transition-colors">
+                        <td className="p-4 pl-5">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-950 flex items-center justify-center font-bold text-blue-700 dark:text-blue-300 overflow-hidden shrink-0 border">
+                              {r.image || r.rider?.profileImage ? (
+                                /* eslint-disable-next-line @next/next/no-img-element */
+                                <img
+                                  src={r.image || r.rider?.profileImage!}
+                                  alt={r.name || "Rider"}
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : (
+                                (r.name?.[0] || r.email[0]).toUpperCase()
+                              )}
+                            </div>
+                            <div>
+                              <div className="font-bold text-sm text-foreground">
+                                {r.name || "Unnamed Rider"}
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+
+                        <td className="p-4">
+                          <div className="space-y-0.5">
+                            <div className="flex items-center gap-1.5 text-foreground font-medium">
+                              <Mail className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                              <span className="truncate max-w-[180px]">{r.email}</span>
+                            </div>
+                            {r.phone && (
+                              <div className="flex items-center gap-1.5 text-muted-foreground">
+                                <Phone className="w-3.5 h-3.5 shrink-0" />
+                                <span>{r.phoneCountryCode} {r.phone}</span>
+                              </div>
+                            )}
+                          </div>
+                        </td>
+
+                        <td className="p-4">
+                          {isAdminCreated ? (
+                            <Badge variant="outline" className="text-[11px] font-semibold bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/40 dark:text-purple-300 gap-1 inline-flex items-center">
+                              <ShieldAlert className="w-3 h-3 text-purple-600" />
+                              Admin Created
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-[11px] font-semibold bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 gap-1 inline-flex items-center">
+                              <User className="w-3 h-3 text-emerald-600" />
+                              Self Registered
+                            </Badge>
+                          )}
+                        </td>
+
+                        <td className="p-4">
+                          <div className="flex flex-wrap gap-1 max-w-[160px]">
+                            {vehicles.length > 0 ? (
+                              vehicles.map((v) => (
+                                <Badge key={v} variant="secondary" className="text-[10px] px-1.5 py-0 font-normal">
+                                  {v.replace("_", " ")}
+                                </Badge>
+                              ))
+                            ) : (
+                              <span className="text-muted-foreground text-[11px]">Not set</span>
+                            )}
+                          </div>
+                        </td>
+
+                        <td className="p-4 align-top">
+                          <div className="space-y-1.5 min-w-[180px] max-w-[280px]">
+                            <div className="flex items-center gap-1.5">
+                              <Badge variant="outline" className="text-[11px] font-semibold bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-900">
+                                {zones.length} {zones.length === 1 ? "Zone" : "Zones"}
+                              </Badge>
+                              <span
+                                className="text-muted-foreground text-[11px]"
+                                title={`${locs.length} total delivery locations selected`}
+                              >
+                                ({locs.length} locs)
+                              </span>
+                            </div>
+
+                            {zones.length === 0 ? (
+                              <span className="text-muted-foreground text-[11px]">No zones set</span>
+                            ) : isZonesExpanded ? (
+                              <div className="space-y-1.5 pt-0.5">
+                                <div className="flex flex-wrap gap-1 max-h-[150px] overflow-y-auto pr-1">
+                                  {zones.map((z) => (
+                                    <Badge
+                                      key={z}
+                                      variant="secondary"
+                                      className="text-[10px] px-1.5 py-0 font-medium bg-blue-50/80 text-blue-800 border-blue-200/80 dark:bg-blue-950/50 dark:text-blue-300 dark:border-blue-900/60"
+                                    >
+                                      {z}
+                                    </Badge>
+                                  ))}
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => toggleExpandZones(r.id)}
+                                  className="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 hover:underline cursor-pointer"
+                                >
+                                  <span>See less</span>
+                                  <ChevronUp className="w-3 h-3" />
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="space-y-1">
+                                <div className="flex flex-wrap items-center gap-1">
+                                  {zones.slice(0, 2).map((z) => (
+                                    <Badge
+                                      key={z}
+                                      variant="secondary"
+                                      className="text-[10px] px-1.5 py-0 font-medium bg-muted/80 text-foreground border border-border/50"
+                                    >
+                                      {z}
+                                    </Badge>
+                                  ))}
+                                  {zones.length > 2 && (
+                                    <button
+                                      type="button"
+                                      onClick={() => toggleExpandZones(r.id)}
+                                      className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 hover:underline px-1 py-0 rounded"
+                                    >
+                                      <span>+{zones.length - 2} more</span>
+                                      <ChevronDown className="w-2.5 h-2.5" />
+                                    </button>
+                                  )}
+                                </div>
                                 {zones.length > 2 && (
-                                  <button
-                                    type="button"
-                                    onClick={() => toggleExpandZones(r.id)}
-                                    className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 hover:underline px-1 py-0 rounded"
-                                  >
-                                    <span>+{zones.length - 2} more</span>
-                                    <ChevronDown className="w-2.5 h-2.5" />
-                                  </button>
+                                  <div>
+                                    <button
+                                      type="button"
+                                      onClick={() => toggleExpandZones(r.id)}
+                                      className="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 hover:underline cursor-pointer mt-0.5"
+                                    >
+                                      <span>See more</span>
+                                      <ChevronDown className="w-3 h-3" />
+                                    </button>
+                                  </div>
                                 )}
                               </div>
-                              {zones.length > 2 && (
-                                <div>
-                                  <button
-                                    type="button"
-                                    onClick={() => toggleExpandZones(r.id)}
-                                    className="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 hover:underline cursor-pointer mt-0.5"
-                                  >
-                                    <span>See more</span>
-                                    <ChevronDown className="w-3 h-3" />
-                                  </button>
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      </td>
+                            )}
+                          </div>
+                        </td>
 
-                      <td className="p-4">
-                        {getStatusBadge(r.rider?.status, r.rider?.isSuspended, r.rider?.onboardingCompleted)}
-                      </td>
+                        <td className="p-4">
+                          {getStatusBadge(r.rider?.status, r.rider?.isSuspended, r.rider?.onboardingCompleted)}
+                        </td>
 
-                      <td className="p-4">
-                        {r.rider?.onboardingCompleted ? (
-                          <Badge
-                            variant="outline"
-                            className="bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300 gap-1 text-[10px] font-semibold"
-                          >
-                            <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                            Onboarded
-                          </Badge>
-                        ) : (
-                          <Badge
-                            variant="outline"
-                            className="bg-amber-50 text-amber-700 border-amber-300 dark:bg-amber-950/40 dark:text-amber-300 gap-1 text-[10px] font-semibold"
-                          >
-                            <Clock className="w-3 h-3 text-amber-600" />
-                            Pending Form
-                          </Badge>
-                        )}
-                      </td>
-
-                      <td className="p-4">
-                        <Badge variant="outline" className="text-[11px]">
-                          {devices.length} {devices.length === 1 ? "device" : "devices"}
-                        </Badge>
-                      </td>
-
-                      <td className="p-4 text-right pr-5">
-                        <div className="flex items-center justify-end gap-1.5">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => openEditModal(r)}
-                            className="h-8 px-2 text-xs rounded-lg text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950/30"
-                          >
-                            <Edit className="w-3.5 h-3.5 mr-1" />
-                            Manage
-                          </Button>
-
-                          {/* Quick Approve Button for Onboarded riders awaiting review */}
-                          {r.rider?.onboardingCompleted && r.rider?.status === "PENDING" && !r.rider?.isSuspended && (
-                            <Button
+                        <td className="p-4">
+                          {r.rider?.onboardingCompleted ? (
+                            <Badge
                               variant="outline"
-                              size="sm"
-                              disabled={approveLoadingId === r.id}
-                              onClick={() => handleQuickApprove(r)}
-                              className="h-8 px-2.5 text-xs rounded-lg text-emerald-600 border-emerald-300 bg-emerald-50/50 hover:bg-emerald-100 hover:text-emerald-700 dark:bg-emerald-950/30 dark:border-emerald-800"
-                              title="Approve rider for active deliveries"
+                              className="bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300 gap-1 text-[10px] font-semibold"
                             >
-                              {approveLoadingId === r.id ? (
-                                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                              ) : (
-                                <>
-                                  <CheckCircle2 className="w-3.5 h-3.5 mr-1 text-emerald-600" />
-                                  Approve
-                                </>
-                              )}
-                            </Button>
-                          )}
-
-                          {/* Quick Suspend / Unsuspend Button in Row */}
-                          {r.rider?.isSuspended || r.rider?.status === "SUSPENDED" ? (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              disabled={suspendLoadingId === r.id}
-                              onClick={() => handleToggleSuspend(r, false)}
-                              className="h-8 px-2.5 text-xs rounded-lg text-emerald-600 border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700 dark:border-emerald-900/50 dark:hover:bg-emerald-950/30"
-                              title="Unsuspend / Reactivate Rider"
-                            >
-                              {suspendLoadingId === r.id ? (
-                                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                              ) : (
-                                <>
-                                  <CheckCircle2 className="w-3.5 h-3.5 mr-1 text-emerald-600" />
-                                  Unsuspend
-                                </>
-                              )}
-                            </Button>
+                              <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                              Onboarded
+                            </Badge>
                           ) : (
-                            <Button
+                            <Badge
                               variant="outline"
-                              size="sm"
-                              disabled={suspendLoadingId === r.id}
-                              onClick={() => handleToggleSuspend(r, true)}
-                              className="h-8 px-2.5 text-xs rounded-lg text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 dark:border-red-900/50 dark:hover:bg-red-950/30"
-                              title="Suspend Rider"
+                              className="bg-amber-50 text-amber-700 border-amber-300 dark:bg-amber-950/40 dark:text-amber-300 gap-1 text-[10px] font-semibold"
                             >
-                              {suspendLoadingId === r.id ? (
-                                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                              ) : (
-                                <>
-                                  <Ban className="w-3.5 h-3.5 mr-1 text-red-600" />
-                                  Suspend
-                                </>
-                              )}
-                            </Button>
+                              <Clock className="w-3 h-3 text-amber-600" />
+                              Pending Form
+                            </Badge>
                           )}
+                        </td>
 
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-lg">
-                                <MoreVertical className="w-4 h-4" />
+                        <td className="p-4">
+                          <Badge variant="outline" className="text-[11px]">
+                            {devices.length} {devices.length === 1 ? "device" : "devices"}
+                          </Badge>
+                        </td>
+
+                        <td className="p-4 text-right pr-5">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => openEditModal(r)}
+                              className="h-8 px-2 text-xs rounded-lg text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950/30"
+                            >
+                              <Edit className="w-3.5 h-3.5 mr-1" />
+                              Manage
+                            </Button>
+
+                            {/* Quick Approve Button for Onboarded riders awaiting review */}
+                            {r.rider?.onboardingCompleted && r.rider?.status === "PENDING" && !r.rider?.isSuspended && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                disabled={approveLoadingId === r.id}
+                                onClick={() => handleQuickApprove(r)}
+                                className="h-8 px-2.5 text-xs rounded-lg text-emerald-600 border-emerald-300 bg-emerald-50/50 hover:bg-emerald-100 hover:text-emerald-700 dark:bg-emerald-950/30 dark:border-emerald-800"
+                                title="Approve rider for active deliveries"
+                              >
+                                {approveLoadingId === r.id ? (
+                                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                                ) : (
+                                  <>
+                                    <CheckCircle2 className="w-3.5 h-3.5 mr-1 text-emerald-600" />
+                                    Approve
+                                  </>
+                                )}
                               </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-52 rounded-xl">
-                              <DropdownMenuLabel className="text-xs">Rider Actions</DropdownMenuLabel>
-                              <DropdownMenuItem onClick={() => openEditModal(r)}>
-                                <Eye className="w-3.5 h-3.5 mr-2 text-slate-500" />
-                                View Full Profile
-                              </DropdownMenuItem>
-                              {r.rider?.onboardingCompleted && r.rider?.status === "PENDING" && (
-                                <DropdownMenuItem
-                                  onClick={() => handleQuickApprove(r)}
-                                  disabled={approveLoadingId === r.id}
-                                  className="text-emerald-600 focus:text-emerald-700 focus:bg-emerald-50 dark:focus:bg-emerald-950/30 cursor-pointer font-medium"
-                                >
-                                  <CheckCircle2 className="w-3.5 h-3.5 mr-2 text-emerald-600" />
-                                  Approve Rider
+                            )}
+
+                            {/* Quick Suspend / Unsuspend Button in Row */}
+                            {r.rider?.isSuspended || r.rider?.status === "SUSPENDED" ? (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                disabled={suspendLoadingId === r.id}
+                                onClick={() => handleToggleSuspend(r, false)}
+                                className="h-8 px-2.5 text-xs rounded-lg text-emerald-600 border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700 dark:border-emerald-900/50 dark:hover:bg-emerald-950/30"
+                                title="Unsuspend / Reactivate Rider"
+                              >
+                                {suspendLoadingId === r.id ? (
+                                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                                ) : (
+                                  <>
+                                    <CheckCircle2 className="w-3.5 h-3.5 mr-1 text-emerald-600" />
+                                    Unsuspend
+                                  </>
+                                )}
+                              </Button>
+                            ) : (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                disabled={suspendLoadingId === r.id}
+                                onClick={() => handleToggleSuspend(r, true)}
+                                className="h-8 px-2.5 text-xs rounded-lg text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 dark:border-red-900/50 dark:hover:bg-red-950/30"
+                                title="Suspend Rider"
+                              >
+                                {suspendLoadingId === r.id ? (
+                                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                                ) : (
+                                  <>
+                                    <Ban className="w-3.5 h-3.5 mr-1 text-red-600" />
+                                    Suspend
+                                  </>
+                                )}
+                              </Button>
+                            )}
+
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-lg">
+                                  <MoreVertical className="w-4 h-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="w-52 rounded-xl">
+                                <DropdownMenuLabel className="text-xs">Rider Actions</DropdownMenuLabel>
+                                <DropdownMenuItem onClick={() => openEditModal(r)}>
+                                  <Eye className="w-3.5 h-3.5 mr-2 text-slate-500" />
+                                  View Full Profile
                                 </DropdownMenuItem>
-                              )}
-                              {!r.rider?.onboardingCompleted && (
-                                <DropdownMenuItem
-                                  onClick={() => handleResendInvite(r.id)}
-                                  disabled={resendLoading}
-                                >
-                                  <Send className="w-3.5 h-3.5 mr-2 text-blue-600" />
-                                  Resend Credentials
-                                </DropdownMenuItem>
-                              )}
-                              <DropdownMenuSeparator />
-                              {r.rider?.isSuspended || r.rider?.status === "SUSPENDED" ? (
-                                <DropdownMenuItem
-                                  onClick={() => handleToggleSuspend(r, false)}
-                                  disabled={suspendLoadingId === r.id}
-                                  className="text-emerald-600 focus:text-emerald-700 focus:bg-emerald-50 dark:focus:bg-emerald-950/30 cursor-pointer"
-                                >
-                                  <CheckCircle2 className="w-3.5 h-3.5 mr-2 text-emerald-600" />
-                                  Unsuspend Rider
-                                </DropdownMenuItem>
-                              ) : (
-                                <DropdownMenuItem
-                                  onClick={() => handleToggleSuspend(r, true)}
-                                  disabled={suspendLoadingId === r.id}
-                                  className="text-red-600 focus:text-red-700 focus:bg-red-50 dark:focus:bg-red-950/30 cursor-pointer"
-                                >
-                                  <Ban className="w-3.5 h-3.5 mr-2 text-red-600" />
-                                  Suspend Rider
-                                </DropdownMenuItem>
-                              )}
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </div>
-                      </td>
-                    </tr>
-                  )
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
+                                {r.rider?.onboardingCompleted && r.rider?.status === "PENDING" && (
+                                  <DropdownMenuItem
+                                    onClick={() => handleQuickApprove(r)}
+                                    disabled={approveLoadingId === r.id}
+                                    className="text-emerald-600 focus:text-emerald-700 focus:bg-emerald-50 dark:focus:bg-emerald-950/30 cursor-pointer font-medium"
+                                  >
+                                    <CheckCircle2 className="w-3.5 h-3.5 mr-2 text-emerald-600" />
+                                    Approve Rider
+                                  </DropdownMenuItem>
+                                )}
+                                {!r.rider?.onboardingCompleted && (
+                                  <DropdownMenuItem
+                                    onClick={() => handleResendInvite(r.id)}
+                                    disabled={resendLoading}
+                                  >
+                                    <Send className="w-3.5 h-3.5 mr-2 text-blue-600" />
+                                    Resend Credentials
+                                  </DropdownMenuItem>
+                                )}
+                                <DropdownMenuSeparator />
+                                {r.rider?.isSuspended || r.rider?.status === "SUSPENDED" ? (
+                                  <DropdownMenuItem
+                                    onClick={() => handleToggleSuspend(r, false)}
+                                    disabled={suspendLoadingId === r.id}
+                                    className="text-emerald-600 focus:text-emerald-700 focus:bg-emerald-50 dark:focus:bg-emerald-950/30 cursor-pointer"
+                                  >
+                                    <CheckCircle2 className="w-3.5 h-3.5 mr-2 text-emerald-600" />
+                                    Unsuspend Rider
+                                  </DropdownMenuItem>
+                                ) : (
+                                  <DropdownMenuItem
+                                    onClick={() => handleToggleSuspend(r, true)}
+                                    disabled={suspendLoadingId === r.id}
+                                    className="text-red-600 focus:text-red-700 focus:bg-red-50 dark:focus:bg-red-950/30 cursor-pointer"
+                                  >
+                                    <Ban className="w-3.5 h-3.5 mr-2 text-red-600" />
+                                    Suspend Rider
+                                  </DropdownMenuItem>
+                                )}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
 
         {/* Pagination Bar */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-4 border-t bg-muted/20 text-xs">
@@ -1386,18 +1705,18 @@ export function RidersClient() {
 
       {/* CREATE RIDER MODAL */}
       <Dialog open={createModalOpen} onOpenChange={setCreateModalOpen}>
-        <DialogContent className="max-w-md w-[95vw] rounded-2xl p-6">
-          <DialogHeader>
-            <DialogTitle className="text-lg font-bold flex items-center gap-2">
-              <Plus className="w-5 h-5 text-blue-600" />
+        <DialogContent className="max-w-md w-[95vw] sm:w-full p-4 sm:p-6 rounded-2xl max-h-[90vh] flex flex-col overflow-hidden">
+          <DialogHeader className="pr-8 pb-3 border-b">
+            <DialogTitle className="text-base sm:text-lg font-bold flex items-center gap-2">
+              <Plus className="w-5 h-5 text-blue-600 shrink-0" />
               Create Delivery Rider
             </DialogTitle>
-            <DialogDescription className="text-xs text-muted-foreground">
+            <DialogDescription className="text-xs text-muted-foreground mt-1">
               Admin-created riders receive an automatic welcome email containing auto-generated credentials and portal login link.
             </DialogDescription>
           </DialogHeader>
 
-          <form onSubmit={handleCreateSubmit} className="space-y-4 mt-2">
+          <form onSubmit={handleCreateSubmit} className="flex-1 overflow-y-auto space-y-4 pr-1 pt-2">
             {createError && (
               <div className="p-3 rounded-xl bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 text-xs border border-red-200 flex items-center gap-2">
                 <AlertTriangle className="w-4 h-4 shrink-0" />
@@ -1436,7 +1755,7 @@ export function RidersClient() {
               />
             </div>
 
-            <div className="grid grid-cols-[105px_1fr] gap-2">
+            <div className="grid grid-cols-[105px_1fr] sm:grid-cols-[120px_1fr] gap-2">
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold">Code *</Label>
                 <CountryCodeSelect
@@ -1481,18 +1800,18 @@ export function RidersClient() {
               </div>
 
               {createPaymentOption === "Bank" ? (
-                <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
                   <Input
                     placeholder="Bank Name"
                     value={createBankName}
                     onChange={(e) => setCreateBankName(e.target.value)}
-                    className="h-8 text-xs rounded-lg"
+                    className="h-9 text-xs rounded-xl"
                   />
                   <Input
                     placeholder="Account Number"
                     value={createAccountNumber}
                     onChange={(e) => setCreateAccountNumber(e.target.value)}
-                    className="h-8 text-xs rounded-lg"
+                    className="h-9 text-xs rounded-xl"
                   />
                 </div>
               ) : (
@@ -1502,7 +1821,7 @@ export function RidersClient() {
                     placeholder={`Registered ${createPaymentOption} Mobile Number`}
                     value={createMobileNumber}
                     onChange={(e) => setCreateMobileNumber(e.target.value)}
-                    className="h-8 text-xs rounded-lg"
+                    className="h-9 text-xs rounded-xl"
                   />
                 </div>
               )}
@@ -1512,20 +1831,20 @@ export function RidersClient() {
               💡 <strong>Note:</strong> A temporary password will be auto-generated and emailed to the rider. On first login, they will configure their documents and delivery zones.
             </div>
 
-            <DialogFooter className="pt-2">
+            <DialogFooter className="pt-3 border-t flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => setCreateModalOpen(false)}
                 disabled={createLoading}
-                className="rounded-xl text-xs"
+                className="w-full sm:w-auto rounded-xl text-xs h-9"
               >
                 Cancel
               </Button>
               <Button
                 type="submit"
                 disabled={createLoading}
-                className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs gap-1.5"
+                className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs h-9 gap-1.5 shadow-xs"
               >
                 {createLoading ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
                 Create & Send Invite
@@ -1537,29 +1856,33 @@ export function RidersClient() {
 
       {/* EDIT / MANAGE RIDER MODAL */}
       <Dialog open={editModalOpen} onOpenChange={setEditModalOpen}>
-        <DialogContent className="max-w-4xl w-[95vw] max-h-[90vh] flex flex-col p-6 rounded-2xl overflow-hidden">
-          <DialogHeader className="pb-3 border-b">
-            <DialogTitle className="text-lg font-bold flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-              <div className="flex flex-wrap items-center gap-2">
-                <Bike className="w-5 h-5 text-blue-600" />
-                <span>Manage Rider: {selectedRider?.name || selectedRider?.email}</span>
+        <DialogContent className="max-w-4xl w-[95vw] sm:w-full max-h-[90vh] flex flex-col p-4 sm:p-6 rounded-2xl overflow-hidden">
+          <DialogHeader className="pb-3 border-b pr-8">
+            <DialogTitle className="text-base sm:text-lg font-bold flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                <Bike className="w-5 h-5 text-blue-600 shrink-0" />
+                <span className="truncate max-w-[200px] sm:max-w-[340px]">
+                  Manage: {selectedRider?.name || selectedRider?.email}
+                </span>
                 {selectedRider?.rider?.createdByAdmin ? (
-                  <Badge variant="outline" className="text-[11px] font-semibold bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/40 dark:text-purple-300 gap-1 inline-flex items-center">
-                    <ShieldAlert className="w-3 h-3 text-purple-600" />
-                    Created by Admin
+                  <Badge variant="outline" className="text-[10px] sm:text-[11px] font-semibold bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/40 dark:text-purple-300 gap-1 inline-flex items-center">
+                    <ShieldAlert className="w-2.5 h-2.5 text-purple-600" />
+                    Admin Created
                   </Badge>
                 ) : (
-                  <Badge variant="outline" className="text-[11px] font-semibold bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 gap-1 inline-flex items-center">
-                    <User className="w-3 h-3 text-emerald-600" />
+                  <Badge variant="outline" className="text-[10px] sm:text-[11px] font-semibold bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 gap-1 inline-flex items-center">
+                    <User className="w-2.5 h-2.5 text-emerald-600" />
                     Self Registered
                   </Badge>
                 )}
               </div>
-              {selectedRider && getStatusBadge(editStatus, editStatus === "SUSPENDED", editOnboardingCompleted)}
+              <div className="shrink-0 self-start sm:self-auto">
+                {selectedRider && getStatusBadge(editStatus, editStatus === "SUSPENDED", editOnboardingCompleted)}
+              </div>
             </DialogTitle>
           </DialogHeader>
 
-          <form onSubmit={handleEditSubmit} className="flex-1 overflow-y-auto space-y-4 pr-1">
+          <form onSubmit={handleEditSubmit} className="flex-1 overflow-y-auto space-y-4 pr-1 pt-1">
             {editError && (
               <div className="p-3 rounded-xl bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 text-xs border border-red-200">
                 {editError}
@@ -1572,13 +1895,31 @@ export function RidersClient() {
             )}
 
             <Tabs defaultValue="overview" className="w-full">
-              <TabsList className="grid grid-cols-5 w-full rounded-xl bg-muted/60 p-1">
-                <TabsTrigger value="overview" className="text-xs rounded-lg">Overview</TabsTrigger>
-                <TabsTrigger value="documents" className="text-xs rounded-lg">Documents</TabsTrigger>
-                <TabsTrigger value="payment" className="text-xs rounded-lg">Payout & Bank</TabsTrigger>
-                <TabsTrigger value="zones" className="text-xs rounded-lg">Delivery Zones</TabsTrigger>
-                <TabsTrigger value="devices" className="text-xs rounded-lg">Devices & Logs</TabsTrigger>
-              </TabsList>
+              {/* Horizontally swipeable Tab Bar on Mobile, 5-col grid on Tablet/Desktop */}
+              <div className="overflow-x-auto no-scrollbar -mx-1 px-1">
+                <TabsList className="flex w-max sm:w-full sm:grid sm:grid-cols-5 rounded-xl bg-muted/60 p-1 gap-1">
+                  <TabsTrigger value="overview" className="text-xs rounded-lg flex items-center gap-1.5 px-3 py-1.5 whitespace-nowrap">
+                    <User className="w-3.5 h-3.5 shrink-0" />
+                    <span>Overview</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="documents" className="text-xs rounded-lg flex items-center gap-1.5 px-3 py-1.5 whitespace-nowrap">
+                    <FileText className="w-3.5 h-3.5 shrink-0" />
+                    <span>Documents</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="payment" className="text-xs rounded-lg flex items-center gap-1.5 px-3 py-1.5 whitespace-nowrap">
+                    <Wallet className="w-3.5 h-3.5 shrink-0" />
+                    <span>Payout & Bank</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="zones" className="text-xs rounded-lg flex items-center gap-1.5 px-3 py-1.5 whitespace-nowrap">
+                    <MapPin className="w-3.5 h-3.5 shrink-0" />
+                    <span>Delivery Zones</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="devices" className="text-xs rounded-lg flex items-center gap-1.5 px-3 py-1.5 whitespace-nowrap">
+                    <Bike className="w-3.5 h-3.5 shrink-0" />
+                    <span>Devices & Logs</span>
+                  </TabsTrigger>
+                </TabsList>
+              </div>
 
               {/* OVERVIEW TAB */}
               <TabsContent value="overview" className="space-y-4 pt-3">
@@ -1630,7 +1971,7 @@ export function RidersClient() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-[105px_1fr] gap-2">
+                <div className="grid grid-cols-[105px_1fr] sm:grid-cols-[120px_1fr] gap-2">
                   <div className="space-y-1.5">
                     <Label className="text-xs font-semibold">Country Code</Label>
                     <CountryCodeSelect
@@ -2014,16 +2355,16 @@ export function RidersClient() {
                     </div>
                   ) : (
                     selectedRider?.rider?.deviceTokens?.map((dev, idx) => (
-                      <div key={idx} className="flex items-center justify-between p-3 border rounded-xl bg-card text-xs">
-                        <div>
+                      <div key={idx} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 border rounded-xl bg-card text-xs">
+                        <div className="min-w-0">
                           <span className="font-semibold text-foreground capitalize">
                             {dev.platform.replace("_", " ")}
                           </span>
-                          <p className="text-[11px] text-muted-foreground font-mono truncate max-w-[320px]">
+                          <p className="text-[11px] text-muted-foreground font-mono break-all max-w-[280px] sm:max-w-[420px]">
                             {dev.token}
                           </p>
                         </div>
-                        <Badge variant="outline" className="text-[10px]">
+                        <Badge variant="outline" className="text-[10px] shrink-0 self-start sm:self-auto">
                           Active: {new Date(dev.lastActiveAt).toLocaleString()}
                         </Badge>
                       </div>
@@ -2033,62 +2374,62 @@ export function RidersClient() {
               </TabsContent>
             </Tabs>
 
-            <DialogFooter className="pt-3 border-t flex flex-row items-center justify-between gap-2">
-              {!selectedRider?.rider?.onboardingCompleted && !editOnboardingCompleted ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => selectedRider && handleResendInvite(selectedRider.id)}
-                  disabled={resendLoading}
-                  className="text-xs text-blue-600 hover:text-blue-700"
-                >
-                  <Send className="w-3.5 h-3.5 mr-1" />
-                  Resend Credentials Email
-                </Button>
-              ) : selectedRider ? (
-                editStatus === "SUSPENDED" ? (
+            <DialogFooter className="pt-3 border-t flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
+              <div className="w-full sm:w-auto">
+                {!selectedRider?.rider?.onboardingCompleted && !editOnboardingCompleted ? (
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
-                    onClick={() => setEditStatus(editOnboardingCompleted ? "APPROVED" : "PENDING")}
-                    className="text-xs rounded-xl border-emerald-300 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-800 dark:text-emerald-400"
+                    onClick={() => selectedRider && handleResendInvite(selectedRider.id)}
+                    disabled={resendLoading}
+                    className="w-full sm:w-auto text-xs text-blue-600 hover:text-blue-700 h-9 rounded-xl font-medium"
                   >
-                    <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
-                    Unsuspend Rider
+                    <Send className="w-3.5 h-3.5 mr-1" />
+                    Resend Credentials Email
                   </Button>
-                ) : (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setEditStatus("SUSPENDED")}
-                    className="text-xs rounded-xl border-red-300 text-red-700 hover:bg-red-50 dark:border-red-800 dark:text-red-400"
-                  >
-                    <Ban className="w-3.5 h-3.5 mr-1" />
-                    Suspend Rider
-                  </Button>
-                )
-              ) : (
-                <div />
-              )}
+                ) : selectedRider ? (
+                  editStatus === "SUSPENDED" ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setEditStatus(editOnboardingCompleted ? "APPROVED" : "PENDING")}
+                      className="w-full sm:w-auto text-xs rounded-xl border-emerald-300 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-800 dark:text-emerald-400 h-9 font-medium"
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
+                      Unsuspend Rider
+                    </Button>
+                  ) : (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setEditStatus("SUSPENDED")}
+                      className="w-full sm:w-auto text-xs rounded-xl border-red-300 text-red-700 hover:bg-red-50 dark:border-red-800 dark:text-red-400 h-9 font-medium"
+                    >
+                      <Ban className="w-3.5 h-3.5 mr-1" />
+                      Suspend Rider
+                    </Button>
+                  )
+                ) : null}
+              </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
                   onClick={() => setEditModalOpen(false)}
                   disabled={editLoading}
-                  className="rounded-xl text-xs"
+                  className="flex-1 sm:flex-initial rounded-xl text-xs h-9"
                 >
                   Cancel
                 </Button>
                 <Button
                   type="submit"
                   disabled={editLoading}
-                  className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs"
+                  className="flex-1 sm:flex-initial bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs h-9 shadow-xs"
                 >
                   {editLoading ? "Saving Changes..." : "Save Changes"}
                 </Button>

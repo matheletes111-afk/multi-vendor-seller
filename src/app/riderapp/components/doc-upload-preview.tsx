@@ -215,7 +215,7 @@ export function DocUploadPreview({
           </div>
         </div>
       ) : (
-        <div className="flex items-center justify-between p-3 border rounded-xl bg-card border-border/80 shadow-xs">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-3 border rounded-xl bg-card border-border/80 shadow-xs">
           <div className="flex items-center gap-3 min-w-0">
             <div className={cn(
               "w-10 h-10 rounded-lg flex items-center justify-center shrink-0 overflow-hidden border",
@@ -248,7 +248,7 @@ export function DocUploadPreview({
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5 shrink-0">
+          <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-auto">
             {isImage && (
               <Button
                 type="button"
@@ -336,7 +336,7 @@ export function DocUploadPreview({
       {/* Preview Dialog Modal */}
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
         <DialogContent className="max-w-3xl w-[95vw] max-h-[88vh] flex flex-col p-4 sm:p-6 overflow-hidden rounded-2xl">
-          <DialogHeader className="flex flex-row items-center justify-between pb-3 border-b">
+          <DialogHeader className="flex flex-row items-center justify-between pb-3 border-b pr-8">
             <DialogTitle className="text-base font-bold flex items-center gap-2">
               {isPdf ? <FileText className="w-5 h-5 text-red-600" /> : <ImageIcon className="w-5 h-5 text-blue-600" />}
               {label} Preview
