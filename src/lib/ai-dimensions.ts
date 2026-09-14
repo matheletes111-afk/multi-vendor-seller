@@ -144,7 +144,15 @@ Return ONLY a valid, raw JSON object with no markdown syntax, formatted exactly 
     ? [{ parts: [{ text: promptText }, imagePart] }]
     : [{ parts: [{ text: `${promptText}\nProduct Name: ${fullProductTitle || productName}` }] }]
 
-  const geminiModels = ["gemini-flash-latest", "gemini-3-flash-preview", "gemini-2.0-flash", "gemini-1.5-flash"]
+  const geminiModels = [
+    "gemini-2.5-flash",
+    "gemini-2.0-flash",
+    "gemini-2.0-flash-lite",
+    "gemini-flash-latest",
+    "gemini-1.5-flash",
+    "gemini-1.5-flash-8b",
+    "gemini-3-flash-preview",
+  ]
   let parsed: any = null
 
   for (const model of geminiModels) {

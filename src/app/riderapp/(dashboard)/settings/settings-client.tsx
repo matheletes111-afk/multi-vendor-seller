@@ -18,6 +18,8 @@ import {
   ShieldCheck,
   Eye,
   EyeOff,
+  Wallet,
+  Building2,
 } from "lucide-react"
 import { Input } from "@/ui/input"
 import { Button } from "@/ui/button"
@@ -58,6 +60,17 @@ export function RiderSettingsClient({ user: initialUser }: { user: any }) {
   const [drivingLicenseUrl, setDrivingLicenseUrl] = useState<string | null>(null)
   const [insuranceFile, setInsuranceFile] = useState<File | null>(null)
   const [insuranceUrl, setInsuranceUrl] = useState<string | null>(null)
+
+  // Payment & Payout Details
+  const [paymentOption, setPaymentOption] = useState<string>("Bank")
+  const [bankName, setBankName] = useState("")
+  const [accountHolderName, setAccountHolderName] = useState("")
+  const [accountNumber, setAccountNumber] = useState("")
+  const [bbanNumber, setBbanNumber] = useState("")
+  const [branchName, setBranchName] = useState("")
+  const [bankAddress, setBankAddress] = useState("")
+  const [mobileNumber, setMobileNumber] = useState("")
+  const [agentNumber, setAgentNumber] = useState("")
 
   // Delivery Zones
   const [selectedZones, setSelectedZones] = useState<string[]>([])
@@ -103,6 +116,15 @@ export function RiderSettingsClient({ user: initialUser }: { user: any }) {
             setSelectedZones(json.rider.selectedZones || [])
             setSelectedLocations(json.rider.selectedLocations || [])
             setDeviceTokens(json.rider.deviceTokens || [])
+            if (json.rider.paymentOption) setPaymentOption(json.rider.paymentOption)
+            if (json.rider.bankName) setBankName(json.rider.bankName)
+            if (json.rider.accountHolderName) setAccountHolderName(json.rider.accountHolderName)
+            if (json.rider.accountNumber) setAccountNumber(json.rider.accountNumber)
+            if (json.rider.bbanNumber) setBbanNumber(json.rider.bbanNumber)
+            if (json.rider.branchName) setBranchName(json.rider.branchName)
+            if (json.rider.bankAddress) setBankAddress(json.rider.bankAddress)
+            if (json.rider.mobileNumber) setMobileNumber(json.rider.mobileNumber)
+            if (json.rider.agentNumber) setAgentNumber(json.rider.agentNumber)
           }
         }
       } catch (err) {
@@ -139,6 +161,11 @@ export function RiderSettingsClient({ user: initialUser }: { user: any }) {
       }
     }
 
+    if ((paymentOption === "Orange Money" || paymentOption === "AfriMoney") && !mobileNumber.trim()) {
+      setError(`Please enter your mobile phone number registered with ${paymentOption}.`)
+      return
+    }
+
     setSaving(true)
 
     try {
@@ -154,6 +181,17 @@ export function RiderSettingsClient({ user: initialUser }: { user: any }) {
       formData.append("drivingLicenseNo", drivingLicenseNo.trim())
       formData.append("selectedZones", JSON.stringify(selectedZones))
       formData.append("selectedLocations", JSON.stringify(selectedLocations))
+
+      // Payment & Payout Details
+      formData.append("paymentOption", paymentOption)
+      formData.append("bankName", bankName.trim())
+      formData.append("accountHolderName", accountHolderName.trim())
+      formData.append("accountNumber", accountNumber.trim())
+      formData.append("bbanNumber", bbanNumber.trim())
+      formData.append("branchName", branchName.trim())
+      formData.append("bankAddress", bankAddress.trim())
+      formData.append("mobileNumber", mobileNumber.trim())
+      formData.append("agentNumber", agentNumber.trim())
 
       if (currentPassword && newPassword) {
         formData.append("currentPassword", currentPassword)
@@ -257,10 +295,11 @@ export function RiderSettingsClient({ user: initialUser }: { user: any }) {
 
       <form onSubmit={handleSave} className="space-y-6">
         <Tabs defaultValue="profile" className="w-full">
-          <TabsList className="grid grid-cols-5 w-full rounded-2xl bg-muted/60 p-1.5 h-auto">
+          <TabsList className="grid grid-cols-3 sm:grid-cols-6 w-full rounded-2xl bg-muted/60 p-1.5 h-auto">
             <TabsTrigger value="profile" className="text-xs py-2 rounded-xl">Profile</TabsTrigger>
             <TabsTrigger value="vehicle" className="text-xs py-2 rounded-xl">Vehicle</TabsTrigger>
             <TabsTrigger value="documents" className="text-xs py-2 rounded-xl">Documents</TabsTrigger>
+            <TabsTrigger value="payout" className="text-xs py-2 rounded-xl">Payout & Bank</TabsTrigger>
             <TabsTrigger value="zones" className="text-xs py-2 rounded-xl">Delivery Zones</TabsTrigger>
             <TabsTrigger value="security" className="text-xs py-2 rounded-xl">Security & Devices</TabsTrigger>
           </TabsList>
@@ -428,6 +467,165 @@ export function RiderSettingsClient({ user: initialUser }: { user: any }) {
                   if (preview) setInsuranceUrl(preview)
                 }}
               />
+            </div>
+          </TabsContent>
+
+          {/* PAYOUT & PAYMENT TAB */}
+          <TabsContent value="payout" className="p-6 bg-card rounded-3xl border shadow-xs space-y-5 mt-4">
+            <div>
+              <h3 className="text-base font-bold text-foreground flex items-center gap-2">
+                <Wallet className="w-4 h-4 text-blue-600" />
+                Payout & Bank Details
+              </h3>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Configure where you receive earnings and tips from completed deliveries.
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="settingsPaymentOption" className="text-xs font-semibold">
+                  Payment Option *
+                </Label>
+                <select
+                  id="settingsPaymentOption"
+                  value={paymentOption}
+                  onChange={(e) => setPaymentOption(e.target.value)}
+                  className="w-full h-10 px-3 rounded-xl border border-input bg-background text-foreground text-xs font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="Bank">Bank</option>
+                  <option value="Orange Money">Orange Money</option>
+                  <option value="AfriMoney">AfriMoney</option>
+                </select>
+                <p className="text-[11px] text-muted-foreground">
+                  Choose Bank for direct bank wire transfer, or Orange Money / AfriMoney for instant mobile wallet payouts.
+                </p>
+              </div>
+
+              {paymentOption === "Bank" ? (
+                <div className="space-y-4 p-4 rounded-2xl bg-muted/40 border animate-in fade-in duration-200">
+                  <div className="flex items-center gap-2 pb-1 border-b text-xs font-bold text-foreground">
+                    <Building2 className="w-4 h-4 text-blue-600" />
+                    <span>Commercial Bank Account Information</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-semibold">Bank Name *</Label>
+                      <Input
+                        type="text"
+                        placeholder="e.g. Rokel Commercial Bank"
+                        value={bankName}
+                        onChange={(e) => setBankName(e.target.value)}
+                        className="rounded-xl text-xs h-10 bg-background"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-semibold">Account Holder Name *</Label>
+                      <Input
+                        type="text"
+                        placeholder="Full name on bank account"
+                        value={accountHolderName}
+                        onChange={(e) => setAccountHolderName(e.target.value)}
+                        className="rounded-xl text-xs h-10 bg-background"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-semibold">Account Number *</Label>
+                      <Input
+                        type="text"
+                        placeholder="e.g. 0102938475"
+                        value={accountNumber}
+                        onChange={(e) => setAccountNumber(e.target.value)}
+                        className="rounded-xl text-xs h-10 bg-background"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-semibold">BBAN Number</Label>
+                      <Input
+                        type="text"
+                        placeholder="Basic Bank Account Number (Optional)"
+                        value={bbanNumber}
+                        onChange={(e) => setBbanNumber(e.target.value)}
+                        className="rounded-xl text-xs h-10 bg-background"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-semibold">Branch Name / IFSC</Label>
+                      <Input
+                        type="text"
+                        placeholder="e.g. Siaka Stevens Street Branch"
+                        value={branchName}
+                        onChange={(e) => setBranchName(e.target.value)}
+                        className="rounded-xl text-xs h-10 bg-background"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-semibold">Bank Address</Label>
+                      <Input
+                        type="text"
+                        placeholder="e.g. Freetown, Sierra Leone"
+                        value={bankAddress}
+                        onChange={(e) => setBankAddress(e.target.value)}
+                        className="rounded-xl text-xs h-10 bg-background"
+                      />
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4 p-5 rounded-2xl bg-gradient-to-br from-amber-500/10 to-orange-500/5 border border-amber-500/20 animate-in fade-in duration-200">
+                  <div className="flex items-center gap-3 pb-2 border-b border-amber-500/20">
+                    <div className="w-9 h-9 rounded-full bg-amber-600 text-white flex items-center justify-center font-bold text-xs shadow-xs">
+                      {paymentOption === "Orange Money" ? "OM" : "AM"}
+                    </div>
+                    <div>
+                      <h5 className="font-semibold text-xs text-foreground">
+                        {paymentOption} Mobile Wallet
+                      </h5>
+                      <p className="text-[11px] text-muted-foreground">
+                        Fast automated mobile money payout directly to your mobile wallet.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-semibold">Registered Mobile Number *</Label>
+                      <Input
+                        type="tel"
+                        placeholder="e.g. 076123456 or +232 76 123456"
+                        value={mobileNumber}
+                        onChange={(e) => setMobileNumber(e.target.value)}
+                        className="rounded-xl text-xs h-10 bg-background"
+                      />
+                      <p className="text-[11px] text-muted-foreground">Phone number registered with {paymentOption}.</p>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-semibold">
+                        Agent / Merchant Code <span className="text-muted-foreground font-normal">(Optional)</span>
+                      </Label>
+                      <Input
+                        type="text"
+                        placeholder="e.g. AG-88231 (Optional)"
+                        value={agentNumber}
+                        onChange={(e) => setAgentNumber(e.target.value)}
+                        className="rounded-xl text-xs h-10 bg-background"
+                      />
+                      <p className="text-[11px] text-muted-foreground">If you operate an agent/merchant till code.</p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </TabsContent>
 

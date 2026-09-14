@@ -1,0 +1,356 @@
+================================================================================
+           MEEEM MULTI-VENDOR MARKETPLACE PLATFORM
+    ONLINE PAYMENT FLOW ARCHITECTURE & GATEWAY INTEGRATION REQUIREMENTS
+================================================================================
+Document Title   : Payment Gateway Integration & Financial Flow Specifications
+Target Audience  : Payment Partners / Fintech Companies, Commercial Banks, & Clients
+Model            : 100% Online Prepayment (Escrow Holding & Split on Delivery)
+Platform Scope   : Products (Multi-Vendor), Services, Hotels, Food, Riders,
+                   Merchant Subscriptions & Cost-Per-Click Advertising
+Currency Context : SLE (Sierra Leonean Leones), USD, and Multi-Currency Supported
+Version          : 2.1 (External Partner & Client Specification)
+Date             : September 2026
+================================================================================
+
+
+1. EXECUTIVE OVERVIEW
+--------------------------------------------------------------------------------
+MEEEM is an enterprise multi-vendor marketplace connecting customers with merchants 
+across five core sectors:
+  • Physical E-Commerce Products (Single & multi-seller shopping carts)
+  • Professional & Home Services (Appointments & fixed-price bookings)
+  • Hotel & Hospitality Reservations (Nightly room bookings)
+  • Restaurant & Cloud Kitchen Food Delivery
+  • Merchant Digital Ecosystem (Monthly/annual subscriptions & CPC advertising)
+
+PAYMENT PRINCIPLE:
+  • All customer purchases are 100% PREPAID online via integrated payment gateways.
+  • Customer funds are securely locked in a central ESCROW account until the order 
+    or service is verified as DELIVERED / COMPLETED.
+  • When delivery is confirmed, the platform automatically splits and disburses 
+    funds to the seller, delivery boy (rider), and platform commission account.
+
+
+================================================================================
+2. THE 3-ACCOUNT FINANCIAL ARCHITECTURE
+================================================================================
+To maintain strict escrow compliance, transparent accounting, and clean tax 
+segregation, the platform operates three dedicated corporate bank accounts:
+
+--------------------------------------------------------------------------------
+ACCOUNT 1: ESCROW & ORDER RECONCILIATION ACCOUNT (Holding / Transit)
+--------------------------------------------------------------------------------
+• Purpose:
+  - Receives 100% of customer payments for all product orders, service bookings,
+    hotel stays, and restaurant food orders via online payment gateways.
+• Status:
+  - Funds in Account 1 are strictly in-transit / escrow. They do NOT belong to the
+    platform or the seller until goods or services are fulfilled.
+• Payout Triggers:
+  - Once an item or service is DELIVERED / COMPLETED, funds in Account 1 are released:
+    a) Seller Net Share -> Disbursed to Seller's Bank BBAN or Mobile Money Wallet.
+    b) Delivery Boy (Rider) Fee -> Disbursed to Rider's Mobile Money Wallet.
+    c) Platform Commission -> Transferred to Account 2.
+• Refunds:
+  - If an unfulfilled order or booking is cancelled before delivery, a full refund 
+    is issued directly from Account 1 back to the customer's payment source.
+
+--------------------------------------------------------------------------------
+ACCOUNT 2: PLATFORM COMMISSION & OPERATIONS ACCOUNT (Net Revenue)
+--------------------------------------------------------------------------------
+• Purpose:
+  - Receives the platform's net commission cuts swept from Account 1 after 
+    verified fulfillment.
+• Commission Examples:
+  - Physical Products : 9% – 15% (category or merchant negotiated rate)
+  - Hotel Bookings   : 10% – 19%
+  - Restaurant/Food  : 10% – 20%
+  - Services         : 10% – 15%
+• Status:
+  - Legally recognized gross operational revenue of the business used for operations,
+    corporate tax, salaries, and expansion.
+
+--------------------------------------------------------------------------------
+ACCOUNT 3: MERCHANT ADVERTISING & SUBSCRIPTION ACCOUNT (Direct Revenue)
+--------------------------------------------------------------------------------
+• Purpose:
+  - Receives direct payments from merchants for:
+    a) Seller Subscription Plans (FREE, STANDARD, PREMIUM monthly/annual tiers).
+    b) Sponsored Banner & CPC (Cost-Per-Click) Advertising Wallet Top-ups.
+• Status:
+  - Immediate, 100% platform income. No escrow holds, no seller splits, and no 
+    delivery boy involvement.
+  - Payments route directly from the gateway into Account 3 upon checkout.
+
+
+================================================================================
+3. SYSTEM TRANSACTION & SETTLEMENT FLOWS (STEP-BY-STEP)
+================================================================================
+
+--------------------------------------------------------------------------------
+FLOW A: CUSTOMER CHECKOUT & ESCROW DEPOSIT (ALL VERTICALS)
+--------------------------------------------------------------------------------
+1. Customer adds items/services to cart (Products, Services, Hotels, or Food).
+2. Customer applies a promotional discount coupon (if available).
+3. System calculates total payable amount:
+   `Total = Items Subtotal + Taxes (GST) + Delivery Fee - Coupon Discount`
+4. Customer selects online payment method (Card, Mobile Money, Bank Transfer).
+5. Payment gateway charges customer and settles 100% of funds into ACCOUNT 1.
+6. System receives payment success confirmation via webhook:
+   - Order marked as "PAID" / "PROCESSING".
+   - Funds are locked in Account 1 (Escrow). No payouts released yet.
+
+--------------------------------------------------------------------------------
+FLOW B: PRODUCT ORDER FULFILLMENT & MULTI-VENDOR SPLIT ON DELIVERY
+--------------------------------------------------------------------------------
+SCENARIO: Customer orders from 2 different sellers in one checkout:
+          - Package 1: Seller A items ($50 + $5 delivery fee)
+          - Package 2: Seller B items ($50 + $5 delivery fee)
+          - Total paid into Account 1 = $110.
+
+1. Package Separation:
+   - Seller A and Seller B receive independent order fulfillment lines.
+   - Separate delivery boys (Rider A and Rider B) are dispatched for each package.
+
+2. Milestone Delivery of Package 1 (Seller A):
+   - Rider A delivers Package A to the customer and verifies the Customer Delivery OTP.
+   - System immediately executes the Split Engine for Package 1:
+     • Seller A Net Share: ($50 Item Price - Commission - Seller Coupon Share)
+       -> Released to Seller A's withdrawable balance.
+     • Rider A Delivery Fee: $5 shipping fee released to Rider A's earnings wallet.
+     • Platform Commission: Accrued in Account 1, scheduled for transfer to ACCOUNT 2.
+   - Escrow Status: The remaining $55 for Package 2 stays safely locked in Account 1.
+
+3. Milestone Delivery of Package 2 (Seller B):
+   - Rider B delivers Package B (even hours or days later) and verifies Delivery OTP.
+   - Split Engine executes for Package 2:
+     • Seller B Net Share -> Released to Seller B.
+     • Rider B Delivery Fee -> Released to Rider B.
+     • Platform Commission -> Scheduled for transfer to ACCOUNT 2.
+   - Parent Order Status: All packages delivered -> Order marked "COMPLETED".
+
+--------------------------------------------------------------------------------
+FLOW C: PROFESSIONAL SERVICE BOOKING FLOW
+--------------------------------------------------------------------------------
+1. Customer books a home/professional service (e.g. Electrical Repair $100 + $15 GST).
+2. Customer pays online ($115) -> Deposited into ACCOUNT 1. Booking marked "CONFIRMED".
+3. Service provider attends the scheduled appointment and completes the work.
+4. Customer confirms completion with OTP / digital signature -> Status: "COMPLETED".
+5. Split Engine executes:
+   • Platform Commission (e.g. 10% = $11.50) -> Transferred to ACCOUNT 2.
+   • Service Provider Net ($103.50) -> Released for payout from Account 1.
+
+--------------------------------------------------------------------------------
+FLOW D: HOTEL ROOM RESERVATION FLOW
+--------------------------------------------------------------------------------
+1. Guest reserves a hotel room for 3 nights ($300 total).
+2. Online payment ($300) collected into ACCOUNT 1. Booking marked "CONFIRMED".
+3. Funds remain locked in Account 1 until the guest checks in and completes stay.
+4. Upon verified checkout:
+   • Hotel Seller Net Share (e.g. 85% = $255) -> Released to Hotel Seller balance.
+   • Platform Commission (e.g. 15% = $45) -> Transferred to ACCOUNT 2.
+5. Cancellation Protection: If guest cancels within free cancellation window, 100% 
+   refund is returned from Account 1 back to the guest. Unearned money is never sent 
+   to the hotel seller.
+
+--------------------------------------------------------------------------------
+FLOW E: RESTAURANT FOOD ORDER FLOW
+--------------------------------------------------------------------------------
+1. Customer orders meals from Restaurant ($40 food + $5 delivery fee = $45).
+2. Payment collected into ACCOUNT 1. Restaurant prepares food.
+3. Food delivery rider picks up order and delivers to customer via OTP verification.
+4. Upon delivery confirmation:
+   • Restaurant Net Share ($40 - Commission) -> Released to Restaurant.
+   • Delivery Boy Fee ($5) -> Released to Rider.
+   • Platform Commission -> Transferred to ACCOUNT 2.
+
+--------------------------------------------------------------------------------
+FLOW F: MERCHANT ADVERTISING & SUBSCRIPTION CHECKOUT (DIRECT TO ACCOUNT 3)
+--------------------------------------------------------------------------------
+1. Merchant selects a monthly/annual Subscription Plan or funds a CPC Ad Campaign.
+2. Merchant can apply a promotional coupon (e.g. 20% off).
+3. Merchant completes online checkout via payment gateway.
+4. Payment gateway settles funds directly into OWNER ACCOUNT 3.
+5. Webhook confirms payment:
+   • Subscription is instantly activated for 30/365 days.
+   • Or Ad campaign budget is funded and goes live.
+   • ZERO escrow holds. 100% immediate platform revenue.
+
+
+================================================================================
+4. WHAT WE REQUIRE FROM THE PAYMENT GATEWAY / FINTECH PARTNER
+================================================================================
+To integrate any payment gateway (e.g. Flot, Stripe, Orange Money, AfriMoney, 
+MonCash, Zenith Bank, Paystack, Flutterwave), the partner must support:
+
+1. DUAL SETTLEMENT DESTINATIONS (MULTI-ACCOUNT LINKING):
+   • Gateway must support routing checkout transactions based on payment context:
+     - Customer Marketplace Orders -> Settle directly into OWNER ACCOUNT 1 (Escrow).
+     - Merchant Subscriptions & Ads -> Settle directly into OWNER ACCOUNT 3 (Revenue).
+
+2. MULTI-CHANNEL PAYMENT ACCEPTANCE:
+   • Visa & Mastercard (Local and International debit/credit cards).
+   • Mobile Money Wallets (Orange Money, Africell AfriMoney, etc.).
+   • Bank Direct Debit / Account-to-Account rails.
+   • QR Code and In-App Wallets.
+
+3. WEBHOOK EVENT NOTIFICATIONS:
+   • Real-time server-to-server POST webhooks on payment events:
+     - `PAYMENT.SUCCESS`
+     - `PAYMENT.FAILED`
+     - `REFUND.COMPLETED`
+   • Cryptographic signature verification (HMAC-SHA256 or RSA key pair) to guarantee
+     authenticity and prevent fraud.
+   • Idempotent event processing with unique transaction reference IDs.
+
+4. AUTOMATED OUTBOUND DISBURSEMENT / BULK PAYOUT API:
+   • API capability to trigger payouts from Account 1 to third parties:
+     - Direct transfers to commercial bank BBANs (for seller withdrawals).
+     - Instant transfers to Mobile Money Wallets (for rider earnings).
+     - Internal sweeping transfers to Account 2 (for platform commissions).
+
+5. REVERSIBLE REFUND CAPABILITY:
+   • Secure refund API allowing automated or admin-approved refunds from Account 1
+     directly back to customer cards or mobile money wallets for cancelled orders.
+
+
+================================================================================
+5. TECHNICAL INTEGRATION PAYLOAD SPECIFICATIONS
+================================================================================
+
+--------------------------------------------------------------------------------
+5.1 CHECKOUT PAYMENT INITIALIZATION (PLATFORM -> GATEWAY)
+--------------------------------------------------------------------------------
+Endpoint: POST /v1/checkout/initialize
+Headers:
+  Authorization : Bearer <GATEWAY_SECRET_KEY>
+  Content-Type  : application/json
+  Idempotency-Key: <UNIQUE_UUID>
+
+Payload (Customer Order -> Target: ACCOUNT 1 Escrow):
+{
+  "referenceId"       : "ORD-20260914-9982",
+  "destinationAccount": "ACCOUNT_1_BBAN",
+  "amount"            : 1000.00,
+  "currency"          : "SLE",
+  "customer": {
+    "name"            : "John Kamara",
+    "email"           : "john@example.com",
+    "phone"           : "+23276123456"
+  },
+  "metadata": {
+    "orderType"       : "PRODUCT",
+    "platformOrderId" : "cuid_order_12345"
+  },
+  "returnUrl"         : "https://meeem.com/order-success?orderId=cuid_order_12345",
+  "callbackUrl"       : "https://meeem.com/api/payments/webhooks/gateway-slug"
+}
+
+Payload (Merchant Ad / Subscription -> Target: ACCOUNT 3 Direct Revenue):
+{
+  "referenceId"       : "SUB-20260914-0041",
+  "destinationAccount": "ACCOUNT_3_BBAN",
+  "amount"            : 1500.00,
+  "currency"          : "SLE",
+  "customer": {
+    "name"            : "Freetown Electronics Ltd",
+    "email"           : "seller@freetown.com",
+    "phone"           : "+23288987654"
+  },
+  "metadata": {
+    "orderType"       : "SUBSCRIPTION",
+    "sellerId"        : "cuid_seller_888"
+  },
+  "callbackUrl"       : "https://meeem.com/api/payments/webhooks/gateway-slug"
+}
+
+--------------------------------------------------------------------------------
+5.2 GATEWAY WEBHOOK NOTIFICATION (GATEWAY -> PLATFORM)
+--------------------------------------------------------------------------------
+Endpoint: POST /api/payments/webhooks/<gateway_slug>
+Headers:
+  X-Gateway-Signature : <HMAC_SHA256_OR_RSA_SIGNATURE>
+  X-Gateway-Event-Id  : <UNIQUE_EVENT_ID>
+  Content-Type        : application/json
+
+Payload:
+{
+  "eventId"             : "evt_987654321",
+  "eventType"           : "PAYMENT.SUCCESS",
+  "referenceId"         : "ORD-20260914-9982",
+  "gatewayTransactionId": "gw_tx_44556677",
+  "amount"              : 1000.00,
+  "currency"            : "SLE",
+  "destinationAccount"  : "ACCOUNT_1_BBAN",
+  "paymentChannel"      : "MOBILE_MONEY",
+  "paidAt"              : "2026-09-14T07:20:15Z",
+  "metadata": {
+    "platformOrderId"   : "cuid_order_12345",
+    "orderType"         : "PRODUCT"
+  }
+}
+
+--------------------------------------------------------------------------------
+5.3 OUTBOUND DISBURSEMENT / WITHDRAWAL (ACCOUNT 1 -> SELLER / RIDER)
+--------------------------------------------------------------------------------
+Endpoint: POST /v1/disbursements/single
+Headers:
+  Authorization : Bearer <DISBURSEMENT_KEY>
+Payload:
+{
+  "disbursementReference": "PAYOUT-SEL-20260914-01",
+  "sourceAccount"        : "ACCOUNT_1_BBAN",
+  "recipientType"        : "BANK_ACCOUNT",   // or "MOBILE_MONEY"
+  "recipientBankCode"    : "ZENITH_SL",
+  "recipientBBAN"        : "001002003004005006",
+  "recipientName"        : "Freetown Store",
+  "amount"               : 910.00,
+  "currency"             : "SLE",
+  "narration"            : "MEEEM Settlement for Delivered Items"
+}
+
+
+================================================================================
+6. COMMERCIAL BANK ONBOARDING REQUIREMENTS CHECKLIST
+================================================================================
+Please request the following specific setup from your corporate banking partner 
+(e.g., Zenith Bank, Sky Bank, or Sierra Leone Commercial Bank):
+
+[ ] 1. Open 3 Dedicated Corporate Accounts in SLE (Sierra Leonean Leones):
+       • Account 1: "MEEEM - Escrow & Order Reconciliation Account"
+       • Account 2: "MEEEM - Platform Commission & Operations Account"
+       • Account 3: "MEEEM - Subscriptions & Advertising Revenue Account"
+
+[ ] 2. Provide Full Account Identifiers:
+       • Account Name & Number
+       • 18-Digit BBAN (Basic Bank Account Number) for each account
+       • Swift / BIC Code and Branch Code
+
+[ ] 3. Corporate Internet Banking Facilities:
+       • Maker-Checker dual authorization workflow for bulk disbursements.
+       • Daily automated statement export (CSV / MT940 / Excel) for reconciliation.
+
+[ ] 4. Direct Clearing & Mobile Money Rail Linkage:
+       • ACH / RTGS direct clearing enabled on Account 1 for local bank transfers.
+       • Corporate mobile money disbursement linkage (Orange Money & Africell AfriMoney).
+
+
+================================================================================
+7. SUMMARY FOR CLIENT DECISION & GATEWAY IMPLEMENTATION
+================================================================================
+1. The business is 100% PREPAID ONLINE:
+   - Eliminates cash handling losses, float discrepancies, and theft risk.
+   - Customers pay upfront; money is held in Account 1 until delivery OTP verification.
+
+2. Settlement on Delivery:
+   - When order delivered: Seller gets item money, delivery boy gets delivery fee, 
+     and platform gets commission.
+   - In multi-seller carts, each seller's package is paid out independently as soon
+     as their package is delivered.
+
+3. Ads & Subscriptions:
+   - Merchants pay upfront directly into Account 3 with coupon discount support.
+
+================================================================================
+End of Document
+================================================================================

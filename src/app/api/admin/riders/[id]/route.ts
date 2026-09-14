@@ -5,6 +5,7 @@ import { isAdmin } from "@/lib/rbac"
 import { validatePhoneAndCountryCode } from "@/lib/phone-validation"
 import { sendRiderSuspensionEmail } from "@/lib/email"
 import { resolveEffectiveZones } from "@/lib/location-zones"
+import { validateAndFormatPaymentDetails } from "@/lib/payment-details-helper"
 
 export async function GET(
   request: NextRequest,
@@ -130,6 +131,15 @@ export async function PATCH(
       drivingLicenseDoc,
       vehicleInsuranceDoc,
       profileImage,
+      paymentOption,
+      bankName,
+      accountHolderName,
+      accountNumber,
+      bbanNumber,
+      branchName,
+      bankAddress,
+      mobileNumber,
+      agentNumber,
     } = body
 
     const user = await prisma.user.findFirst({
@@ -251,6 +261,47 @@ export async function PATCH(
     }
     if (vehicleInsuranceDoc !== undefined) {
       riderUpdates.vehicleInsuranceDoc = await resolveDocUrl(vehicleInsuranceDoc, "onboarding/kyc", `ins-${user.id.slice(0, 8)}`)
+    }
+
+    // Payment & Payout details update
+    const hasPaymentField =
+      paymentOption !== undefined ||
+      bankName !== undefined ||
+      accountHolderName !== undefined ||
+      accountNumber !== undefined ||
+      bbanNumber !== undefined ||
+      branchName !== undefined ||
+      bankAddress !== undefined ||
+      mobileNumber !== undefined ||
+      agentNumber !== undefined
+
+    if (hasPaymentField) {
+      const parsedPayment = validateAndFormatPaymentDetails(
+        {
+          paymentOption: paymentOption ?? user.rider.paymentOption ?? "Bank",
+          bankName: bankName !== undefined ? bankName : user.rider.bankName,
+          accountHolderName: accountHolderName !== undefined ? accountHolderName : user.rider.accountHolderName,
+          accountNumber: accountNumber !== undefined ? accountNumber : user.rider.accountNumber,
+          bbanNumber: bbanNumber !== undefined ? bbanNumber : user.rider.bbanNumber,
+          branchName: branchName !== undefined ? branchName : user.rider.branchName,
+          bankAddress: bankAddress !== undefined ? bankAddress : user.rider.bankAddress,
+          mobileNumber: mobileNumber !== undefined ? mobileNumber : user.rider.mobileNumber,
+          agentNumber: agentNumber !== undefined ? agentNumber : user.rider.agentNumber,
+        },
+        { requireFields: false }
+      ).data
+
+      riderUpdates.paymentOption = parsedPayment.paymentOption
+      riderUpdates.preferredPayoutMethod = parsedPayment.preferredPayoutMethod
+      riderUpdates.bankName = parsedPayment.bankName
+      riderUpdates.bankAddress = parsedPayment.bankAddress
+      riderUpdates.accountHolderName = parsedPayment.accountHolderName
+      riderUpdates.accountNumber = parsedPayment.accountNumber
+      riderUpdates.bbanNumber = parsedPayment.bbanNumber
+      riderUpdates.branchName = parsedPayment.branchName
+      riderUpdates.mobileMoneyOption = parsedPayment.mobileMoneyOption
+      riderUpdates.mobileNumber = parsedPayment.mobileNumber
+      riderUpdates.agentNumber = parsedPayment.agentNumber
     }
 
     if (Object.keys(userUpdates).length > 0) {

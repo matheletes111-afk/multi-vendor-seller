@@ -49,9 +49,9 @@ function calculateDistanceKm(lat1: number, lon1: number, lat2: number, lon2: num
   const a =
     Math.sin(dLat / 2) * Math.sin(dLat / 2) +
     Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2)
+    Math.cos((lat2 * Math.PI) / 180) *
+    Math.sin(dLon / 2) *
+    Math.sin(dLon / 2)
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
   return Math.round(R * c * 10) / 10
 }
@@ -286,7 +286,7 @@ export function OrderLiveTrackingMap({
 
     const handleRiderMoved = (data: any) => {
       if (!data || data.latitude == null || data.longitude == null) return
-      
+
       // Isolate telemetry: If this map is tracking a specific rider, ignore other riders
       const expectedRiderId = activeAssignment?.riderId || activeAssignment?.rider?.id
       const expectedUserId = activeAssignment?.rider?.userId
@@ -360,7 +360,7 @@ export function OrderLiveTrackingMap({
     return () => {
       active = false
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fullAddress, destinationLat, destinationLng])
 
   // ── 5. Initialize Google Map on first render ───────────────────────────────────
@@ -418,8 +418,8 @@ export function OrderLiveTrackingMap({
 
     initMap()
     return () => { active = false }
-  // Only run once on mount
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // Only run once on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // ── 6. Update Markers & Polyline on telemetry / destination changes ────────────
@@ -578,15 +578,15 @@ export function OrderLiveTrackingMap({
   // Calculate live straight-line distance
   const distanceRemainingKm =
     lastTelemetry?.lat != null &&
-    lastTelemetry?.lng != null &&
-    resolvedDestCoords?.lat != null &&
-    resolvedDestCoords?.lng != null
+      lastTelemetry?.lng != null &&
+      resolvedDestCoords?.lat != null &&
+      resolvedDestCoords?.lng != null
       ? calculateDistanceKm(
-          lastTelemetry.lat,
-          lastTelemetry.lng,
-          resolvedDestCoords.lat,
-          resolvedDestCoords.lng
-        )
+        lastTelemetry.lat,
+        lastTelemetry.lng,
+        resolvedDestCoords.lat,
+        resolvedDestCoords.lng
+      )
       : null
 
   const renderVehicleIconBadge = () => {
@@ -616,8 +616,8 @@ export function OrderLiveTrackingMap({
               {isDelivered
                 ? "Parcel has been delivered to customer destination"
                 : riderUser?.name
-                ? `${riderUser.name} is on the way`
-                : "Real-time delivery telemetry active"}
+                  ? `${riderUser.name} is on the way`
+                  : "Real-time delivery telemetry active"}
             </p>
           </div>
         </div>
@@ -693,8 +693,8 @@ export function OrderLiveTrackingMap({
                   {isDelivered
                     ? "Delivered"
                     : lastTelemetry?.speed
-                    ? `${Math.round(lastTelemetry.speed)} km/h`
-                    : "In Transit"}
+                      ? `${Math.round(lastTelemetry.speed)} km/h`
+                      : "In Transit"}
                 </span>
               </div>
 
@@ -706,8 +706,8 @@ export function OrderLiveTrackingMap({
                   {isDelivered
                     ? "0.0 km (Arrived)"
                     : distanceRemainingKm != null
-                    ? `${distanceRemainingKm} km`
-                    : "Approaching"}
+                      ? `${distanceRemainingKm} km`
+                      : "Approaching"}
                 </span>
               </div>
             </div>

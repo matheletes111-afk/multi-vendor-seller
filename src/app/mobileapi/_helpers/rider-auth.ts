@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server"
 import { verifyMobileAccessToken } from "@/lib/mobile-jwt"
-import { UserRole, RiderStatus } from "@prisma/client"
+import { UserRole, RiderStatus, Rider } from "@prisma/client"
 import { prisma } from "@/lib/prisma"
 
 export type MobileRiderAuthResult =
@@ -17,24 +17,7 @@ export type MobileRiderAuthResult =
         image: string | null
         isEmailVerified: boolean
       }
-      rider: {
-        id: string
-        isApproved: boolean
-        isSuspended: boolean
-        status: RiderStatus
-        onboardingCompleted: boolean
-        isFirstLogin: boolean
-        vehicleTypes: any
-        vehicleNumber: string | null
-        drivingLicenseNo: string | null
-        profileImage: string | null
-        drivingLicenseDoc: string | null
-        nationalIdDoc: string | null
-        vehicleInsuranceDoc: string | null
-        selectedZones: any
-        selectedLocations: any
-        deviceTokens: any
-      }
+      rider: Rider
     }
   | { ok: false; error: "unauthorized" | "forbidden" | "suspended" }
 

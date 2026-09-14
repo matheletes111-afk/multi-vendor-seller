@@ -22,6 +22,8 @@ import {
   Sparkles,
   Eye,
   EyeOff,
+  Wallet,
+  Building2,
 } from "lucide-react"
 import { Input } from "@/ui/input"
 import { Button } from "@/ui/button"
@@ -62,13 +64,24 @@ export function RiderOnboardingClient({ user: initialUser }: { user: any }) {
   const [vehicleNumber, setVehicleNumber] = useState("")
   const [drivingLicenseNo, setDrivingLicenseNo] = useState("")
 
-  // Step 3: Documents
+  // Step 3: Documents & Payment Details
   const [nationalIdFile, setNationalIdFile] = useState<File | null>(null)
   const [nationalIdUrl, setNationalIdUrl] = useState<string | null>(null)
   const [drivingLicenseFile, setDrivingLicenseFile] = useState<File | null>(null)
   const [drivingLicenseUrl, setDrivingLicenseUrl] = useState<string | null>(null)
   const [insuranceFile, setInsuranceFile] = useState<File | null>(null)
   const [insuranceUrl, setInsuranceUrl] = useState<string | null>(null)
+
+  // Payment Details
+  const [paymentOption, setPaymentOption] = useState<string>("Bank")
+  const [bankName, setBankName] = useState("")
+  const [accountHolderName, setAccountHolderName] = useState("")
+  const [accountNumber, setAccountNumber] = useState("")
+  const [bbanNumber, setBbanNumber] = useState("")
+  const [branchName, setBranchName] = useState("")
+  const [bankAddress, setBankAddress] = useState("")
+  const [mobileNumber, setMobileNumber] = useState("")
+  const [agentNumber, setAgentNumber] = useState("")
 
   // Step 4: Zones & Locations
   const [selectedZones, setSelectedZones] = useState<string[]>([])
@@ -102,6 +115,15 @@ export function RiderOnboardingClient({ user: initialUser }: { user: any }) {
             if (data.rider.vehicleInsuranceDoc) setInsuranceUrl(data.rider.vehicleInsuranceDoc)
             if (data.rider.selectedZones?.length) setSelectedZones(data.rider.selectedZones)
             if (data.rider.selectedLocations?.length) setSelectedLocations(data.rider.selectedLocations)
+            if (data.rider.paymentOption) setPaymentOption(data.rider.paymentOption)
+            if (data.rider.bankName) setBankName(data.rider.bankName)
+            if (data.rider.accountHolderName) setAccountHolderName(data.rider.accountHolderName)
+            if (data.rider.accountNumber) setAccountNumber(data.rider.accountNumber)
+            if (data.rider.bbanNumber) setBbanNumber(data.rider.bbanNumber)
+            if (data.rider.branchName) setBranchName(data.rider.branchName)
+            if (data.rider.bankAddress) setBankAddress(data.rider.bankAddress)
+            if (data.rider.mobileNumber) setMobileNumber(data.rider.mobileNumber)
+            if (data.rider.agentNumber) setAgentNumber(data.rider.agentNumber)
           }
         }
       } catch (err) {
@@ -148,6 +170,12 @@ export function RiderOnboardingClient({ user: initialUser }: { user: any }) {
       }
       setCurrentStep(3)
     } else if (currentStep === 3) {
+      if (paymentOption === "Orange Money" || paymentOption === "AfriMoney") {
+        if (!mobileNumber.trim()) {
+          setError(`Please provide your registered mobile number for ${paymentOption}.`)
+          return
+        }
+      }
       setCurrentStep(4)
     }
   }
@@ -164,6 +192,11 @@ export function RiderOnboardingClient({ user: initialUser }: { user: any }) {
     const pVal = validatePhoneAndCountryCode(phone, phoneCountryCode)
     if (!pVal.isValid) {
       setError(pVal.error || "Please enter a valid mobile number and country code.")
+      return
+    }
+
+    if ((paymentOption === "Orange Money" || paymentOption === "AfriMoney") && !mobileNumber.trim()) {
+      setError(`Please enter your registered mobile number for ${paymentOption} in Step 3.`)
       return
     }
 
@@ -185,6 +218,17 @@ export function RiderOnboardingClient({ user: initialUser }: { user: any }) {
       formData.append("drivingLicenseNo", drivingLicenseNo.trim())
       formData.append("selectedZones", JSON.stringify(selectedZones))
       formData.append("selectedLocations", JSON.stringify(selectedLocations))
+
+      // Payment Details
+      formData.append("paymentOption", paymentOption)
+      formData.append("bankName", bankName.trim())
+      formData.append("accountHolderName", accountHolderName.trim())
+      formData.append("accountNumber", accountNumber.trim())
+      formData.append("bbanNumber", bbanNumber.trim())
+      formData.append("branchName", branchName.trim())
+      formData.append("bankAddress", bankAddress.trim())
+      formData.append("mobileNumber", mobileNumber.trim())
+      formData.append("agentNumber", agentNumber.trim())
 
       if (profileImageFile) {
         formData.append("profileImage", profileImageFile)
@@ -286,7 +330,7 @@ export function RiderOnboardingClient({ user: initialUser }: { user: any }) {
           {[
             { step: 1, label: "Security", icon: Lock },
             { step: 2, label: "Profile & Vehicle", icon: User },
-            { step: 3, label: "Documents", icon: FileCheck },
+            { step: 3, label: "Documents & Payout", icon: FileCheck },
             { step: 4, label: "Delivery Zones", icon: MapPin },
           ].map((s) => {
             const Icon = s.icon
@@ -548,6 +592,168 @@ export function RiderOnboardingClient({ user: initialUser }: { user: any }) {
                       if (preview) setInsuranceUrl(preview)
                     }}
                   />
+                </div>
+
+                {/* PAYMENT & PAYOUT SECTION */}
+                <div className="pt-6 border-t border-slate-200 dark:border-slate-800 space-y-5">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-2 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                      <Wallet className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-slate-900 dark:text-white">
+                        Payout & Payment Account Details
+                      </h4>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        Select your preferred payout method to receive automated delivery earnings.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Payment Option Dropdown */}
+                  <div className="space-y-1.5">
+                    <Label htmlFor="paymentOption" className="text-xs font-semibold">
+                      Payment Option *
+                    </Label>
+                    <select
+                      id="paymentOption"
+                      value={paymentOption}
+                      onChange={(e) => setPaymentOption(e.target.value)}
+                      className="w-full h-11 px-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="Bank">Bank</option>
+                      <option value="Orange Money">Orange Money</option>
+                      <option value="AfriMoney">AfriMoney</option>
+                    </select>
+                    <p className="text-[11px] text-slate-500">
+                      Choose Bank for direct bank wire transfer, or Orange Money / AfriMoney for instant mobile wallet payouts.
+                    </p>
+                  </div>
+
+                  {paymentOption === "Bank" ? (
+                    <div className="space-y-4 p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 animate-in fade-in duration-200">
+                      <div className="flex items-center gap-2 pb-1 border-b border-slate-200/70 dark:border-slate-700/60 text-xs font-bold text-slate-800 dark:text-slate-200">
+                        <Building2 className="w-4 h-4 text-blue-600" />
+                        <span>Commercial Bank Account Information</span>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="space-y-1.5">
+                          <Label className="text-xs font-semibold">Bank Name *</Label>
+                          <Input
+                            type="text"
+                            placeholder="e.g. Rokel Commercial Bank / Sierra Leone Commercial Bank"
+                            value={bankName}
+                            onChange={(e) => setBankName(e.target.value)}
+                            className="rounded-xl text-xs h-10 bg-white dark:bg-slate-900"
+                          />
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <Label className="text-xs font-semibold">Account Holder Name *</Label>
+                          <Input
+                            type="text"
+                            placeholder="Full name as it appears on account"
+                            value={accountHolderName}
+                            onChange={(e) => setAccountHolderName(e.target.value)}
+                            className="rounded-xl text-xs h-10 bg-white dark:bg-slate-900"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="space-y-1.5">
+                          <Label className="text-xs font-semibold">Account Number *</Label>
+                          <Input
+                            type="text"
+                            placeholder="e.g. 0102938475"
+                            value={accountNumber}
+                            onChange={(e) => setAccountNumber(e.target.value)}
+                            className="rounded-xl text-xs h-10 bg-white dark:bg-slate-900"
+                          />
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <Label className="text-xs font-semibold">BBAN Number</Label>
+                          <Input
+                            type="text"
+                            placeholder="Basic Bank Account Number (Optional)"
+                            value={bbanNumber}
+                            onChange={(e) => setBbanNumber(e.target.value)}
+                            className="rounded-xl text-xs h-10 bg-white dark:bg-slate-900"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="space-y-1.5">
+                          <Label className="text-xs font-semibold">Branch Name / IFSC</Label>
+                          <Input
+                            type="text"
+                            placeholder="e.g. Siaka Stevens Street Branch"
+                            value={branchName}
+                            onChange={(e) => setBranchName(e.target.value)}
+                            className="rounded-xl text-xs h-10 bg-white dark:bg-slate-900"
+                          />
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <Label className="text-xs font-semibold">Bank Address</Label>
+                          <Input
+                            type="text"
+                            placeholder="e.g. Freetown, Sierra Leone"
+                            value={bankAddress}
+                            onChange={(e) => setBankAddress(e.target.value)}
+                            className="rounded-xl text-xs h-10 bg-white dark:bg-slate-900"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-4 p-5 rounded-2xl bg-gradient-to-br from-amber-500/10 to-orange-500/5 border border-amber-500/20 animate-in fade-in duration-200">
+                      <div className="flex items-center gap-3 pb-2 border-b border-amber-500/20">
+                        <div className="w-9 h-9 rounded-full bg-amber-600 text-white flex items-center justify-center font-bold text-xs shadow-xs">
+                          {paymentOption === "Orange Money" ? "OM" : "AM"}
+                        </div>
+                        <div>
+                          <h5 className="font-semibold text-xs text-slate-900 dark:text-white">
+                            {paymentOption} Mobile Wallet
+                          </h5>
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                            Fast automated mobile money payout directly to your mobile wallet.
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+                        <div className="space-y-1.5">
+                          <Label className="text-xs font-semibold">Registered Mobile Number *</Label>
+                          <Input
+                            type="tel"
+                            placeholder="e.g. 076123456 or +232 76 123456"
+                            value={mobileNumber}
+                            onChange={(e) => setMobileNumber(e.target.value)}
+                            className="rounded-xl text-xs h-10 bg-white dark:bg-slate-900"
+                          />
+                          <p className="text-[11px] text-slate-500">The subscriber phone number registered with {paymentOption}.</p>
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <Label className="text-xs font-semibold">
+                            Agent / Merchant Code <span className="text-slate-400 font-normal">(Optional)</span>
+                          </Label>
+                          <Input
+                            type="text"
+                            placeholder="e.g. AG-88231 (Optional)"
+                            value={agentNumber}
+                            onChange={(e) => setAgentNumber(e.target.value)}
+                            className="rounded-xl text-xs h-10 bg-white dark:bg-slate-900"
+                          />
+                          <p className="text-[11px] text-slate-500">If you operate an agent/merchant till code.</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
