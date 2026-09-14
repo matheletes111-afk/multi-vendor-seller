@@ -1809,6 +1809,19 @@ model Rider {
   deviceTokens        Json         @default("[]") // [{ token, platform, userAgent, lastActiveAt }]
   adminNotes          String?      @db.Text
 
+  // Payment Option & Payout Details (Same as Seller Onboarding)
+  paymentOption         String?      // "Bank" | "Orange Money" | "AfriMoney"
+  preferredPayoutMethod String?      // "Bank Transfer" | "Mobile Wallet"
+  bankName              String?
+  bankAddress           String?
+  accountHolderName     String?
+  accountNumber         String?
+  bbanNumber            String?
+  branchName            String?
+  mobileMoneyOption     String?      // "Orange Money" | "AfriMoney"
+  mobileNumber          String?
+  agentNumber           String?
+
   // Live GPS Telemetry
   currentLatitude     Float?
   currentLongitude    Float?

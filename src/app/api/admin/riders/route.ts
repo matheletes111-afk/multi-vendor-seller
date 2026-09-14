@@ -10,6 +10,7 @@ import { sendRiderWelcomeEmail } from "@/lib/email"
 import { getPaginationFromSearchParams } from "@/lib/admin-pagination"
 import { buildDateRangeFilter } from "@/lib/admin-date-filters"
 import { resolveEffectiveZones } from "@/lib/location-zones"
+import { validateAndFormatPaymentDetails } from "@/lib/payment-details-helper"
 
 export async function GET(request: NextRequest) {
   try {
@@ -247,7 +248,21 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { name, email, phone, phoneCountryCode } = body
+    const {
+      name,
+      email,
+      phone,
+      phoneCountryCode,
+      paymentOption,
+      bankName,
+      accountHolderName,
+      accountNumber,
+      bbanNumber,
+      branchName,
+      bankAddress,
+      mobileNumber,
+      agentNumber,
+    } = body
 
     if (!name?.trim() || !email?.trim() || !phone?.trim() || !phoneCountryCode?.trim()) {
       return NextResponse.json(
@@ -291,6 +306,22 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Process payment details if provided
+    const parsedPayment = validateAndFormatPaymentDetails(
+      {
+        paymentOption: paymentOption || "Bank",
+        bankName,
+        accountHolderName,
+        accountNumber,
+        bbanNumber,
+        branchName,
+        bankAddress,
+        mobileNumber,
+        agentNumber,
+      },
+      { requireFields: false }
+    ).data
+
     // Generate random 10-character password
     const temporaryPassword = crypto.randomBytes(5).toString("hex") + "!9A"
     const hashedPassword = await bcrypt.hash(temporaryPassword, 10)
@@ -312,6 +343,17 @@ export async function POST(request: NextRequest) {
             createdByAdmin: true,
             onboardingCompleted: false,
             isFirstLogin: true,
+            paymentOption: parsedPayment.paymentOption,
+            preferredPayoutMethod: parsedPayment.preferredPayoutMethod,
+            bankName: parsedPayment.bankName,
+            bankAddress: parsedPayment.bankAddress,
+            accountHolderName: parsedPayment.accountHolderName,
+            accountNumber: parsedPayment.accountNumber,
+            bbanNumber: parsedPayment.bbanNumber,
+            branchName: parsedPayment.branchName,
+            mobileMoneyOption: parsedPayment.mobileMoneyOption,
+            mobileNumber: parsedPayment.mobileNumber,
+            agentNumber: parsedPayment.agentNumber,
           },
         },
       },

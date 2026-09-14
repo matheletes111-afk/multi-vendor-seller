@@ -245,8 +245,8 @@ export function getHeuristicVehicleMatch(items: MatchableItem[]): VehicleMatchRe
   if (requiresHeavy4Wheeler || totalWeight > 60 || maxDimension >= 140) {
     return {
       requiredVehicle: "4_WHEELER",
-      compatibleVehicles: ["3_WHEELER", "4_WHEELER"],
-      reason: `Heavy/Bulky cargo detected (~${totalWeight.toFixed(1)}kg, ${maxDimension}cm): Requires 3-Wheeler or 4-Wheeler vehicle.`,
+      compatibleVehicles: ["4_WHEELER"],
+      reason: `Heavy/Bulky cargo detected (~${totalWeight.toFixed(1)}kg, ${maxDimension}cm): Requires 4-Wheeler freight vehicle (Van/Truck/Car).`,
       estimatedWeightKg: totalWeight,
       confidence: "HEURISTIC",
     }
@@ -336,9 +336,12 @@ Return ONLY a raw, valid JSON object with NO markdown syntax, formatted as:
 }`
 
     const geminiModels = [
-      "gemini-flash-latest",
+      "gemini-2.5-flash",
       "gemini-2.0-flash",
+      "gemini-2.0-flash-lite",
+      "gemini-flash-latest",
       "gemini-1.5-flash",
+      "gemini-1.5-flash-8b",
       "gemini-3-flash-preview",
     ]
 
@@ -365,11 +368,13 @@ Return ONLY a raw, valid JSON object with NO markdown syntax, formatted as:
             parsed.requiredVehicle &&
             ["2_WHEELER", "3_WHEELER", "4_WHEELER"].includes(parsed.requiredVehicle)
           ) {
-            const compatible: VehicleType[] = Array.isArray(parsed.compatibleVehicles)
+            const compatible: VehicleType[] = Array.isArray(parsed.compatibleVehicles) && parsed.compatibleVehicles.length > 0
               ? parsed.compatibleVehicles
               : parsed.requiredVehicle === "2_WHEELER"
               ? ["2_WHEELER"]
-              : ["3_WHEELER", "4_WHEELER"]
+              : parsed.requiredVehicle === "3_WHEELER"
+              ? ["3_WHEELER", "4_WHEELER"]
+              : ["4_WHEELER"]
 
             return {
               requiredVehicle: parsed.requiredVehicle,

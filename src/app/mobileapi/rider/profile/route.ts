@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getMobileRiderAuth } from "@/app/mobileapi/_helpers/rider-auth"
 import { prisma } from "@/lib/prisma"
+import { validateAndFormatPaymentDetails } from "@/lib/payment-details-helper"
 
 // GET /mobileapi/rider/profile — Fetch authenticated rider profile
 export async function GET(request: NextRequest) {
@@ -65,6 +66,15 @@ export async function PATCH(request: NextRequest) {
       selectedZones,
       selectedLocations,
       isOnline,
+      paymentOption,
+      bankName,
+      accountHolderName,
+      accountNumber,
+      bbanNumber,
+      branchName,
+      bankAddress,
+      mobileNumber,
+      agentNumber,
     } = body
 
     const userUpdates: {
@@ -102,6 +112,46 @@ export async function PATCH(request: NextRequest) {
     if (profileImage !== undefined) riderUpdates.profileImage = profileImage || null
     if (selectedZones !== undefined) riderUpdates.selectedZones = selectedZones
     if (selectedLocations !== undefined) riderUpdates.selectedLocations = selectedLocations
+
+    const hasPaymentField =
+      paymentOption !== undefined ||
+      bankName !== undefined ||
+      accountHolderName !== undefined ||
+      accountNumber !== undefined ||
+      bbanNumber !== undefined ||
+      branchName !== undefined ||
+      bankAddress !== undefined ||
+      mobileNumber !== undefined ||
+      agentNumber !== undefined
+
+    if (hasPaymentField) {
+      const parsedPayment = validateAndFormatPaymentDetails(
+        {
+          paymentOption: paymentOption ?? authResult.rider?.paymentOption ?? "Bank",
+          bankName: bankName !== undefined ? bankName : authResult.rider?.bankName,
+          accountHolderName: accountHolderName !== undefined ? accountHolderName : authResult.rider?.accountHolderName,
+          accountNumber: accountNumber !== undefined ? accountNumber : authResult.rider?.accountNumber,
+          bbanNumber: bbanNumber !== undefined ? bbanNumber : authResult.rider?.bbanNumber,
+          branchName: branchName !== undefined ? branchName : authResult.rider?.branchName,
+          bankAddress: bankAddress !== undefined ? bankAddress : authResult.rider?.bankAddress,
+          mobileNumber: mobileNumber !== undefined ? mobileNumber : authResult.rider?.mobileNumber,
+          agentNumber: agentNumber !== undefined ? agentNumber : authResult.rider?.agentNumber,
+        },
+        { requireFields: false }
+      ).data
+
+      riderUpdates.paymentOption = parsedPayment.paymentOption
+      riderUpdates.preferredPayoutMethod = parsedPayment.preferredPayoutMethod
+      riderUpdates.bankName = parsedPayment.bankName
+      riderUpdates.bankAddress = parsedPayment.bankAddress
+      riderUpdates.accountHolderName = parsedPayment.accountHolderName
+      riderUpdates.accountNumber = parsedPayment.accountNumber
+      riderUpdates.bbanNumber = parsedPayment.bbanNumber
+      riderUpdates.branchName = parsedPayment.branchName
+      riderUpdates.mobileMoneyOption = parsedPayment.mobileMoneyOption
+      riderUpdates.mobileNumber = parsedPayment.mobileNumber
+      riderUpdates.agentNumber = parsedPayment.agentNumber
+    }
 
     const updatedRider = await prisma.rider.update({
       where: { userId },

@@ -7,6 +7,7 @@ import path from "path"
 import { uploadPublicFile } from "@/lib/upload-public-file"
 import { validatePhoneAndCountryCode } from "@/lib/phone-validation"
 import { validateOnboardingFile } from "@/lib/onboarding-file-validation"
+import { validateAndFormatPaymentDetails } from "@/lib/payment-details-helper"
 
 function getSafeFileExt(file: File, fallbackExt: string): string {
   const ext = path.extname(file.name || "").toLowerCase()
@@ -54,6 +55,16 @@ export async function POST(request: Request) {
     let selectedZones: string[] = []
     let selectedLocations: string[] = []
 
+    let paymentOption: string | null = null
+    let bankName: string | null = null
+    let accountHolderName: string | null = null
+    let accountNumber: string | null = null
+    let bbanNumber: string | null = null
+    let branchName: string | null = null
+    let bankAddress: string | null = null
+    let mobileNumber: string | null = null
+    let agentNumber: string | null = null
+
     let profileImageUrl: string | null = user.image || user.rider?.profileImage || null
     let drivingLicenseDocUrl: string | null = user.rider?.drivingLicenseDoc || null
     let nationalIdDocUrl: string | null = user.rider?.nationalIdDoc || null
@@ -69,6 +80,16 @@ export async function POST(request: Request) {
       vehicleName = formData.get("vehicleName") as string | null
       vehicleNumber = formData.get("vehicleNumber") as string | null
       drivingLicenseNo = formData.get("drivingLicenseNo") as string | null
+
+      paymentOption = formData.get("paymentOption") as string | null
+      bankName = formData.get("bankName") as string | null
+      accountHolderName = formData.get("accountHolderName") as string | null
+      accountNumber = formData.get("accountNumber") as string | null
+      bbanNumber = formData.get("bbanNumber") as string | null
+      branchName = formData.get("branchName") as string | null
+      bankAddress = formData.get("bankAddress") as string | null
+      mobileNumber = formData.get("mobileNumber") as string | null
+      agentNumber = formData.get("agentNumber") as string | null
 
       const singleVehicle = (formData.get("vehicleType") as string | null)?.trim()
       const rawVehicleTypes = formData.get("vehicleTypes")
@@ -215,7 +236,33 @@ export async function POST(request: Request) {
       if (body.drivingLicenseDocUrl) drivingLicenseDocUrl = body.drivingLicenseDocUrl
       if (body.nationalIdDocUrl) nationalIdDocUrl = body.nationalIdDocUrl
       if (body.vehicleInsuranceDocUrl) vehicleInsuranceDocUrl = body.vehicleInsuranceDocUrl
+
+      paymentOption = body.paymentOption || null
+      bankName = body.bankName || null
+      accountHolderName = body.accountHolderName || null
+      accountNumber = body.accountNumber || null
+      bbanNumber = body.bbanNumber || null
+      branchName = body.branchName || null
+      bankAddress = body.bankAddress || null
+      mobileNumber = body.mobileNumber || null
+      agentNumber = body.agentNumber || null
     }
+
+    // Process and normalize payout & payment details
+    const parsedPayment = validateAndFormatPaymentDetails(
+      {
+        paymentOption: paymentOption || user.rider?.paymentOption || "Bank",
+        bankName: bankName !== null ? bankName : user.rider?.bankName,
+        accountHolderName: accountHolderName !== null ? accountHolderName : user.rider?.accountHolderName,
+        accountNumber: accountNumber !== null ? accountNumber : user.rider?.accountNumber,
+        bbanNumber: bbanNumber !== null ? bbanNumber : user.rider?.bbanNumber,
+        branchName: branchName !== null ? branchName : user.rider?.branchName,
+        bankAddress: bankAddress !== null ? bankAddress : user.rider?.bankAddress,
+        mobileNumber: mobileNumber !== null ? mobileNumber : user.rider?.mobileNumber,
+        agentNumber: agentNumber !== null ? agentNumber : user.rider?.agentNumber,
+      },
+      { requireFields: false }
+    ).data
 
     // 1. Update user password if provided
     const userUpdates: {
@@ -267,6 +314,17 @@ export async function POST(request: Request) {
         selectedZones: selectedZones,
         selectedLocations: selectedLocations,
         adminFeedback: null,
+        paymentOption: parsedPayment.paymentOption,
+        preferredPayoutMethod: parsedPayment.preferredPayoutMethod,
+        bankName: parsedPayment.bankName,
+        bankAddress: parsedPayment.bankAddress,
+        accountHolderName: parsedPayment.accountHolderName,
+        accountNumber: parsedPayment.accountNumber,
+        bbanNumber: parsedPayment.bbanNumber,
+        branchName: parsedPayment.branchName,
+        mobileMoneyOption: parsedPayment.mobileMoneyOption,
+        mobileNumber: parsedPayment.mobileNumber,
+        agentNumber: parsedPayment.agentNumber,
       },
       update: {
         onboardingCompleted: true,
@@ -285,6 +343,17 @@ export async function POST(request: Request) {
         vehicleInsuranceDoc: vehicleInsuranceDocUrl,
         selectedZones: selectedZones,
         selectedLocations: selectedLocations,
+        paymentOption: parsedPayment.paymentOption,
+        preferredPayoutMethod: parsedPayment.preferredPayoutMethod,
+        bankName: parsedPayment.bankName,
+        bankAddress: parsedPayment.bankAddress,
+        accountHolderName: parsedPayment.accountHolderName,
+        accountNumber: parsedPayment.accountNumber,
+        bbanNumber: parsedPayment.bbanNumber,
+        branchName: parsedPayment.branchName,
+        mobileMoneyOption: parsedPayment.mobileMoneyOption,
+        mobileNumber: parsedPayment.mobileNumber,
+        agentNumber: parsedPayment.agentNumber,
       },
     })
 

@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma"
 import bcrypt from "bcryptjs"
 import { uploadPublicFile } from "@/lib/upload-public-file"
 import { generateMobileTokens } from "@/lib/mobile-jwt"
+import { validateAndFormatPaymentDetails } from "@/lib/payment-details-helper"
 
 // GET /mobileapi/rider/settings — Fetch full settings
 export async function GET(request: NextRequest) {
@@ -125,6 +126,16 @@ export async function POST(request: NextRequest) {
     let selectedLocations: string[] = []
     let currentPassword: string | null = null
     let newPassword: string | null = null
+    let hasPaymentField = false
+    let paymentOption: string | undefined = undefined
+    let bankName: string | undefined = undefined
+    let accountHolderName: string | undefined = undefined
+    let accountNumber: string | undefined = undefined
+    let bbanNumber: string | undefined = undefined
+    let branchName: string | undefined = undefined
+    let bankAddress: string | undefined = undefined
+    let mobileNumber: string | undefined = undefined
+    let agentNumber: string | undefined = undefined
 
     let profileImageUrl: string | null = user.image || user.rider?.profileImage || null
     let drivingLicenseDocUrl: string | null = user.rider?.drivingLicenseDoc || null
@@ -142,6 +153,29 @@ export async function POST(request: NextRequest) {
       drivingLicenseNo = formData.get("drivingLicenseNo") as string | null
       currentPassword = formData.get("currentPassword") as string | null
       newPassword = formData.get("newPassword") as string | null
+
+      if (
+        formData.has("paymentOption") ||
+        formData.has("bankName") ||
+        formData.has("accountHolderName") ||
+        formData.has("accountNumber") ||
+        formData.has("bbanNumber") ||
+        formData.has("branchName") ||
+        formData.has("bankAddress") ||
+        formData.has("mobileNumber") ||
+        formData.has("agentNumber")
+      ) {
+        hasPaymentField = true
+        if (formData.has("paymentOption")) paymentOption = (formData.get("paymentOption") as string) || undefined
+        if (formData.has("bankName")) bankName = (formData.get("bankName") as string) || undefined
+        if (formData.has("accountHolderName")) accountHolderName = (formData.get("accountHolderName") as string) || undefined
+        if (formData.has("accountNumber")) accountNumber = (formData.get("accountNumber") as string) || undefined
+        if (formData.has("bbanNumber")) bbanNumber = (formData.get("bbanNumber") as string) || undefined
+        if (formData.has("branchName")) branchName = (formData.get("branchName") as string) || undefined
+        if (formData.has("bankAddress")) bankAddress = (formData.get("bankAddress") as string) || undefined
+        if (formData.has("mobileNumber")) mobileNumber = (formData.get("mobileNumber") as string) || undefined
+        if (formData.has("agentNumber")) agentNumber = (formData.get("agentNumber") as string) || undefined
+      }
 
       const singleVehicle = (formData.get("vehicleType") as string | null)?.trim()
       const rawVehicleTypes = formData.get("vehicleTypes")
@@ -231,16 +265,13 @@ export async function POST(request: NextRequest) {
       phone = body.phone || null
       phoneCountryCode = body.phoneCountryCode || null
       vehicleName = body.vehicleName || null
-      const singleVehicle = (body.vehicleType as string | null)?.trim()
-      if (singleVehicle) {
-        vehicleTypes = [singleVehicle]
-      } else if (body.vehicleTypes) {
-        vehicleTypes = Array.isArray(body.vehicleTypes) ? body.vehicleTypes.slice(0, 1) : [String(body.vehicleTypes)]
-      } else {
-        vehicleTypes = []
-      }
       vehicleNumber = body.vehicleNumber || null
       drivingLicenseNo = body.drivingLicenseNo || null
+      if (body.vehicleType) {
+        vehicleTypes = [String(body.vehicleType).trim()]
+      } else if (body.vehicleTypes) {
+        vehicleTypes = Array.isArray(body.vehicleTypes) ? body.vehicleTypes.slice(0, 1) : [String(body.vehicleTypes)]
+      }
       selectedZones = body.selectedZones || []
       selectedLocations = body.selectedLocations || []
       currentPassword = body.currentPassword || null
@@ -249,6 +280,29 @@ export async function POST(request: NextRequest) {
       if (body.drivingLicenseDocUrl) drivingLicenseDocUrl = body.drivingLicenseDocUrl
       if (body.nationalIdDocUrl) nationalIdDocUrl = body.nationalIdDocUrl
       if (body.vehicleInsuranceDocUrl) vehicleInsuranceDocUrl = body.vehicleInsuranceDocUrl
+
+      if (
+        body.paymentOption !== undefined ||
+        body.bankName !== undefined ||
+        body.accountHolderName !== undefined ||
+        body.accountNumber !== undefined ||
+        body.bbanNumber !== undefined ||
+        body.branchName !== undefined ||
+        body.bankAddress !== undefined ||
+        body.mobileNumber !== undefined ||
+        body.agentNumber !== undefined
+      ) {
+        hasPaymentField = true
+        paymentOption = body.paymentOption
+        bankName = body.bankName
+        accountHolderName = body.accountHolderName
+        accountNumber = body.accountNumber
+        bbanNumber = body.bbanNumber
+        branchName = body.branchName
+        bankAddress = body.bankAddress
+        mobileNumber = body.mobileNumber
+        agentNumber = body.agentNumber
+      }
     }
 
     // Password change check
@@ -285,20 +339,51 @@ export async function POST(request: NextRequest) {
       data: userUpdates,
     })
 
+    const riderUpdates: any = {
+      vehicleTypes: vehicleTypes,
+      vehicleName: vehicleName?.trim() || null,
+      vehicleNumber: vehicleNumber?.trim() || null,
+      drivingLicenseNo: drivingLicenseNo?.trim() || null,
+      profileImage: profileImageUrl,
+      drivingLicenseDoc: drivingLicenseDocUrl,
+      nationalIdDoc: nationalIdDocUrl,
+      vehicleInsuranceDoc: vehicleInsuranceDocUrl,
+      selectedZones: selectedZones,
+      selectedLocations: selectedLocations,
+    }
+
+    if (hasPaymentField) {
+      const parsedPayment = validateAndFormatPaymentDetails(
+        {
+          paymentOption: paymentOption ?? user.rider?.paymentOption ?? "Bank",
+          bankName: bankName !== undefined ? bankName : user.rider?.bankName,
+          accountHolderName: accountHolderName !== undefined ? accountHolderName : user.rider?.accountHolderName,
+          accountNumber: accountNumber !== undefined ? accountNumber : user.rider?.accountNumber,
+          bbanNumber: bbanNumber !== undefined ? bbanNumber : user.rider?.bbanNumber,
+          branchName: branchName !== undefined ? branchName : user.rider?.branchName,
+          bankAddress: bankAddress !== undefined ? bankAddress : user.rider?.bankAddress,
+          mobileNumber: mobileNumber !== undefined ? mobileNumber : user.rider?.mobileNumber,
+          agentNumber: agentNumber !== undefined ? agentNumber : user.rider?.agentNumber,
+        },
+        { requireFields: false }
+      ).data
+
+      riderUpdates.paymentOption = parsedPayment.paymentOption
+      riderUpdates.preferredPayoutMethod = parsedPayment.preferredPayoutMethod
+      riderUpdates.bankName = parsedPayment.bankName
+      riderUpdates.bankAddress = parsedPayment.bankAddress
+      riderUpdates.accountHolderName = parsedPayment.accountHolderName
+      riderUpdates.accountNumber = parsedPayment.accountNumber
+      riderUpdates.bbanNumber = parsedPayment.bbanNumber
+      riderUpdates.branchName = parsedPayment.branchName
+      riderUpdates.mobileMoneyOption = parsedPayment.mobileMoneyOption
+      riderUpdates.mobileNumber = parsedPayment.mobileNumber
+      riderUpdates.agentNumber = parsedPayment.agentNumber
+    }
+
     const updatedRider = await prisma.rider.update({
       where: { userId },
-      data: {
-        vehicleTypes: vehicleTypes,
-        vehicleName: vehicleName?.trim() || null,
-        vehicleNumber: vehicleNumber?.trim() || null,
-        drivingLicenseNo: drivingLicenseNo?.trim() || null,
-        profileImage: profileImageUrl,
-        drivingLicenseDoc: drivingLicenseDocUrl,
-        nationalIdDoc: nationalIdDocUrl,
-        vehicleInsuranceDoc: vehicleInsuranceDocUrl,
-        selectedZones: selectedZones,
-        selectedLocations: selectedLocations,
-      },
+      data: riderUpdates,
     })
 
     const updatedVehicleType = (updatedRider.vehicleTypes as string[])?.[0] || "2_WHEELER"

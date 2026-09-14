@@ -30,6 +30,8 @@ import {
   Clock,
   ChevronDown,
   ChevronUp,
+  Wallet,
+  Building2,
 } from "lucide-react"
 import { Button } from "@/ui/button"
 import { Input } from "@/ui/input"
@@ -98,6 +100,17 @@ interface RiderItem {
     deviceTokens: Array<{ token: string; platform: string; lastActiveAt: string }>
     adminFeedback: string | null
     adminNotes: string | null
+    paymentOption?: string | null
+    preferredPayoutMethod?: string | null
+    bankName?: string | null
+    bankAddress?: string | null
+    accountHolderName?: string | null
+    accountNumber?: string | null
+    bbanNumber?: string | null
+    branchName?: string | null
+    mobileMoneyOption?: string | null
+    mobileNumber?: string | null
+    agentNumber?: string | null
   } | null
 }
 
@@ -200,6 +213,12 @@ export function RidersClient() {
   const [createEmail, setCreateEmail] = useState("")
   const [createPhone, setCreatePhone] = useState("")
   const [createCountryCode, setCreateCountryCode] = useState("+232")
+  const [createPaymentOption, setCreatePaymentOption] = useState("Bank")
+  const [createBankName, setCreateBankName] = useState("")
+  const [createAccountHolderName, setCreateAccountHolderName] = useState("")
+  const [createAccountNumber, setCreateAccountNumber] = useState("")
+  const [createMobileNumber, setCreateMobileNumber] = useState("")
+  const [createAgentNumber, setCreateAgentNumber] = useState("")
   const [createLoading, setCreateLoading] = useState(false)
   const [createError, setCreateError] = useState<string | null>(null)
   const [createSuccess, setCreateSuccess] = useState<string | null>(null)
@@ -223,6 +242,18 @@ export function RidersClient() {
   const [editDrivingLicenseDoc, setEditDrivingLicenseDoc] = useState<string | null>(null)
   const [editVehicleInsuranceDoc, setEditVehicleInsuranceDoc] = useState<string | null>(null)
   const [editProfileImage, setEditProfileImage] = useState<string | null>(null)
+
+  // Edit Payment State
+  const [editPaymentOption, setEditPaymentOption] = useState("Bank")
+  const [editBankName, setEditBankName] = useState("")
+  const [editAccountHolderName, setEditAccountHolderName] = useState("")
+  const [editAccountNumber, setEditAccountNumber] = useState("")
+  const [editBbanNumber, setEditBbanNumber] = useState("")
+  const [editBranchName, setEditBranchName] = useState("")
+  const [editBankAddress, setEditBankAddress] = useState("")
+  const [editMobileNumber, setEditMobileNumber] = useState("")
+  const [editAgentNumber, setEditAgentNumber] = useState("")
+
   const [editLoading, setEditLoading] = useState(false)
   const [editError, setEditError] = useState<string | null>(null)
   const [editSuccess, setEditSuccess] = useState<string | null>(null)
@@ -292,6 +323,18 @@ export function RidersClient() {
     setEditDrivingLicenseDoc(rider.rider?.drivingLicenseDoc || null)
     setEditVehicleInsuranceDoc(rider.rider?.vehicleInsuranceDoc || null)
     setEditProfileImage(rider.image || rider.rider?.profileImage || null)
+
+    // Payment fields
+    setEditPaymentOption(rider.rider?.paymentOption || "Bank")
+    setEditBankName(rider.rider?.bankName || "")
+    setEditAccountHolderName(rider.rider?.accountHolderName || "")
+    setEditAccountNumber(rider.rider?.accountNumber || "")
+    setEditBbanNumber(rider.rider?.bbanNumber || "")
+    setEditBranchName(rider.rider?.branchName || "")
+    setEditBankAddress(rider.rider?.bankAddress || "")
+    setEditMobileNumber(rider.rider?.mobileNumber || "")
+    setEditAgentNumber(rider.rider?.agentNumber || "")
+
     setEditError(null)
     setEditSuccess(null)
     setEditModalOpen(true)
@@ -313,6 +356,12 @@ export function RidersClient() {
           email: createEmail,
           phone: createPhone,
           phoneCountryCode: createCountryCode,
+          paymentOption: createPaymentOption,
+          bankName: createBankName,
+          accountHolderName: createAccountHolderName,
+          accountNumber: createAccountNumber,
+          mobileNumber: createMobileNumber,
+          agentNumber: createAgentNumber,
         }),
       })
 
@@ -325,6 +374,11 @@ export function RidersClient() {
       setCreateName("")
       setCreateEmail("")
       setCreatePhone("")
+      setCreateBankName("")
+      setCreateAccountHolderName("")
+      setCreateAccountNumber("")
+      setCreateMobileNumber("")
+      setCreateAgentNumber("")
       fetchRiders()
       setTimeout(() => {
         setCreateModalOpen(false)
@@ -374,6 +428,15 @@ export function RidersClient() {
           drivingLicenseDoc: editDrivingLicenseDoc,
           vehicleInsuranceDoc: editVehicleInsuranceDoc,
           profileImage: editProfileImage,
+          paymentOption: editPaymentOption,
+          bankName: editBankName,
+          accountHolderName: editAccountHolderName,
+          accountNumber: editAccountNumber,
+          bbanNumber: editBbanNumber,
+          branchName: editBranchName,
+          bankAddress: editBankAddress,
+          mobileNumber: editMobileNumber,
+          agentNumber: editAgentNumber,
         }),
       })
 
@@ -1395,6 +1458,56 @@ export function RidersClient() {
               </div>
             </div>
 
+            {/* Optional Payout Option */}
+            <div className="pt-2 border-t space-y-2">
+              <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+                <Wallet className="w-3.5 h-3.5 text-blue-600" />
+                <span>Payout Option (Optional)</span>
+              </div>
+              <div className="space-y-1">
+                <Select
+                  value={createPaymentOption}
+                  onValueChange={(val) => setCreatePaymentOption(val)}
+                >
+                  <SelectTrigger className="h-9 rounded-xl text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Bank">Bank (Direct Transfer)</SelectItem>
+                    <SelectItem value="Orange Money">Orange Money</SelectItem>
+                    <SelectItem value="AfriMoney">AfriMoney</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {createPaymentOption === "Bank" ? (
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <Input
+                    placeholder="Bank Name"
+                    value={createBankName}
+                    onChange={(e) => setCreateBankName(e.target.value)}
+                    className="h-8 text-xs rounded-lg"
+                  />
+                  <Input
+                    placeholder="Account Number"
+                    value={createAccountNumber}
+                    onChange={(e) => setCreateAccountNumber(e.target.value)}
+                    className="h-8 text-xs rounded-lg"
+                  />
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  <Input
+                    type="tel"
+                    placeholder={`Registered ${createPaymentOption} Mobile Number`}
+                    value={createMobileNumber}
+                    onChange={(e) => setCreateMobileNumber(e.target.value)}
+                    className="h-8 text-xs rounded-lg"
+                  />
+                </div>
+              )}
+            </div>
+
             <div className="p-3 rounded-xl bg-blue-50/60 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/40 text-xs text-blue-900 dark:text-blue-200">
               💡 <strong>Note:</strong> A temporary password will be auto-generated and emailed to the rider. On first login, they will configure their documents and delivery zones.
             </div>
@@ -1459,9 +1572,10 @@ export function RidersClient() {
             )}
 
             <Tabs defaultValue="overview" className="w-full">
-              <TabsList className="grid grid-cols-4 w-full rounded-xl bg-muted/60 p-1">
+              <TabsList className="grid grid-cols-5 w-full rounded-xl bg-muted/60 p-1">
                 <TabsTrigger value="overview" className="text-xs rounded-lg">Overview</TabsTrigger>
                 <TabsTrigger value="documents" className="text-xs rounded-lg">Documents</TabsTrigger>
+                <TabsTrigger value="payment" className="text-xs rounded-lg">Payout & Bank</TabsTrigger>
                 <TabsTrigger value="zones" className="text-xs rounded-lg">Delivery Zones</TabsTrigger>
                 <TabsTrigger value="devices" className="text-xs rounded-lg">Devices & Logs</TabsTrigger>
               </TabsList>
@@ -1739,6 +1853,141 @@ export function RidersClient() {
                     }}
                   />
                 </div>
+              </TabsContent>
+
+              {/* PAYOUT & BANK TAB */}
+              <TabsContent value="payment" className="space-y-4 pt-3">
+                <div className="p-3 bg-muted/40 rounded-xl text-xs text-muted-foreground flex items-center gap-2">
+                  <Wallet className="w-4 h-4 text-blue-600 shrink-0" />
+                  <span>Configure automated payout methods and banking credentials for this delivery rider.</span>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold">Payment Option *</Label>
+                  <Select
+                    value={editPaymentOption}
+                    onValueChange={(val) => setEditPaymentOption(val)}
+                  >
+                    <SelectTrigger className="h-10 rounded-xl text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Bank">Bank (Direct Transfer)</SelectItem>
+                      <SelectItem value="Orange Money">Orange Money (Mobile Wallet)</SelectItem>
+                      <SelectItem value="AfriMoney">AfriMoney (Mobile Wallet)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {editPaymentOption === "Bank" ? (
+                  <div className="space-y-4 p-4 rounded-xl bg-slate-50 dark:bg-slate-800/40 border text-xs">
+                    <div className="font-semibold flex items-center gap-2 text-foreground">
+                      <Building2 className="w-4 h-4 text-blue-600" />
+                      Commercial Bank Details
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <Label className="text-[11px] font-medium">Bank Name</Label>
+                        <Input
+                          type="text"
+                          placeholder="e.g. Sierra Leone Commercial Bank"
+                          value={editBankName}
+                          onChange={(e) => setEditBankName(e.target.value)}
+                          className="h-9 rounded-lg text-xs bg-background"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-[11px] font-medium">Account Holder Name</Label>
+                        <Input
+                          type="text"
+                          placeholder="Full name on bank account"
+                          value={editAccountHolderName}
+                          onChange={(e) => setEditAccountHolderName(e.target.value)}
+                          className="h-9 rounded-lg text-xs bg-background"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <Label className="text-[11px] font-medium">Account Number</Label>
+                        <Input
+                          type="text"
+                          placeholder="e.g. 0102938475"
+                          value={editAccountNumber}
+                          onChange={(e) => setEditAccountNumber(e.target.value)}
+                          className="h-9 rounded-lg text-xs bg-background"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-[11px] font-medium">BBAN Number</Label>
+                        <Input
+                          type="text"
+                          placeholder="Basic Bank Account Number"
+                          value={editBbanNumber}
+                          onChange={(e) => setEditBbanNumber(e.target.value)}
+                          className="h-9 rounded-lg text-xs bg-background"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <Label className="text-[11px] font-medium">Branch Name / IFSC</Label>
+                        <Input
+                          type="text"
+                          placeholder="Branch location or code"
+                          value={editBranchName}
+                          onChange={(e) => setEditBranchName(e.target.value)}
+                          className="h-9 rounded-lg text-xs bg-background"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-[11px] font-medium">Bank Address</Label>
+                        <Input
+                          type="text"
+                          placeholder="e.g. Freetown, Sierra Leone"
+                          value={editBankAddress}
+                          onChange={(e) => setEditBankAddress(e.target.value)}
+                          className="h-9 rounded-lg text-xs bg-background"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-4 p-4 rounded-xl bg-gradient-to-br from-amber-500/10 to-orange-500/5 border border-amber-500/20 text-xs">
+                    <div className="flex items-center gap-2 font-semibold text-foreground">
+                      <div className="w-7 h-7 rounded-full bg-amber-600 text-white flex items-center justify-center font-bold text-[10px]">
+                        {editPaymentOption === "Orange Money" ? "OM" : "AM"}
+                      </div>
+                      {editPaymentOption} Mobile Wallet
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <Label className="text-[11px] font-medium">Registered Mobile Number</Label>
+                        <Input
+                          type="tel"
+                          placeholder="e.g. 076123456"
+                          value={editMobileNumber}
+                          onChange={(e) => setEditMobileNumber(e.target.value)}
+                          className="h-9 rounded-lg text-xs bg-background"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-[11px] font-medium">Agent / Merchant Code (Optional)</Label>
+                        <Input
+                          type="text"
+                          placeholder="e.g. AG-12345"
+                          value={editAgentNumber}
+                          onChange={(e) => setEditAgentNumber(e.target.value)}
+                          className="h-9 rounded-lg text-xs bg-background"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
               </TabsContent>
 
               {/* ZONES TAB */}
