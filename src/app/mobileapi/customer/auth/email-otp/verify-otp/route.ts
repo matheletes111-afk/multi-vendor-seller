@@ -10,7 +10,7 @@ type ApiResponse =
       data: {
         user: {
           id: string
-          email: string
+          email: string | null
           name: string | null
           image: string | null
           role: UserRole
@@ -64,8 +64,6 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
       data: { verifyEmailOtp: null, emailVerificationExpires: null, emailOtpSentAt: null },
     })
 
-    const tokens = generateMobileTokens({ userId: user.id, email: user.email, role: user.role, passwordHash: user.password })
-    
     const UserDetails = await prisma.user.findUniqueOrThrow({
       where: { id: user.id },
       select: {
@@ -82,6 +80,8 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
         updatedAt: true,
       },
     })
+
+    const tokens = generateMobileTokens({ userId: user.id, email: user.email, phone: UserDetails.phone, role: user.role, passwordHash: user.password })
 
     return NextResponse.json({
       success: true,

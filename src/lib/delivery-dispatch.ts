@@ -2,6 +2,7 @@ import { prisma } from "./prisma"
 import { calculateHaversineDistance, sortByProximity } from "./haversine-distance"
 import { sendDeliveryOfferToRider, sendPushNotification, extractTokens } from "./firebase-messaging"
 import { sendEmail } from "./email"
+import { sendNotificationSms } from "./twilio-sms"
 import { sendDeliveryOtp } from "./delivery-otp"
 import { applySellerCreditForOrderLineDelivered } from "./seller-order-line-settlement"
 import { determineRequiredVehicleForItems, isRiderVehicleCompatible } from "./ai-vehicle-matcher"
@@ -473,12 +474,18 @@ export async function triggerOrderAutoDispatch(
         riderAttempt: riderAttemptCount,
       })
 
-      // Also send Email notification to selected Rider as immediate backup channel
+      // Also send Email notification to selected Rider as immediate backup channel, or SMS if no email
       if (selectedRider.user?.email) {
         sendEmail({
           to: selectedRider.user.email,
           subject: `📦 New Delivery Offer: NLe ${sellerDeliveryFee.toFixed(2)} for Order #${order.orderNumber} (Flow ${currentCycleNumber}/5)`,
           text: `Hello ${selectedRider.user.name || "Rider"},\n\nA new delivery offer for Order #${order.orderNumber} is available from ${shopName} (Flow ${currentCycleNumber}/5 • Your Offer #${riderAttemptCount}/5).\n\n💰 Delivery Earning: NLe ${sellerDeliveryFee.toFixed(2)}\n🏪 Store: ${shopName} (${shopAddress})\n📍 Delivery Destination: ${customerAddress} (${customerName})\n\nPlease open your MEEEM Rider App to accept the delivery within ${OFFER_TIMEOUT_SECONDS} seconds!`,
+        }).catch(() => null)
+      } else if (selectedRider.user?.phone) {
+        sendNotificationSms({
+          to: selectedRider.user.phone,
+          countryCode: selectedRider.user.phoneCountryCode,
+          body: `Meeem Delivery Offer: NLe ${sellerDeliveryFee.toFixed(2)} for Order #${order.orderNumber}. Open app to accept within ${OFFER_TIMEOUT_SECONDS}s!`,
         }).catch(() => null)
       }
 
@@ -743,14 +750,20 @@ export async function handleRiderAcceptAssignment(
       return { success: false, message: (txResult as any).error }
     }
 
-    // Notify seller via email that rider has accepted pickup (outside transaction)
+    // Notify seller via email or SMS that rider has accepted pickup (outside transaction)
     const targetSellerUser = txResult.seller?.user || txResult.order?.seller?.user
+    const riderName = txResult.rider?.user?.name || "A delivery rider"
     if (targetSellerUser?.email) {
-      const riderName = txResult.rider?.user?.name || "A delivery rider"
       sendEmail({
         to: targetSellerUser.email,
         subject: `Rider Assigned for Order #${txResult.order?.orderNumber}`,
         text: `Rider ${riderName} has accepted delivery for Order #${txResult.order?.orderNumber} and is heading to your store.`,
+      }).catch(() => null)
+    } else if (targetSellerUser?.phone) {
+      sendNotificationSms({
+        to: targetSellerUser.phone,
+        countryCode: targetSellerUser.phoneCountryCode,
+        body: `Meeem Alert: Rider ${riderName} has accepted delivery for Order #${txResult.order?.orderNumber} and is heading to your store.`,
       }).catch(() => null)
     }
 
@@ -1095,6 +1108,12 @@ export async function handleRiderStatusUpdate(
           subject: `Order #${assignment.order.orderNumber} Delivered`,
           text: `Your items from order #${assignment.order.orderNumber} have been delivered successfully. Thank you for shopping with us!`,
         }).catch(() => null)
+      } else if (assignment.order.customer?.phone) {
+        sendNotificationSms({
+          to: assignment.order.customer.phone,
+          countryCode: assignment.order.customer.phoneCountryCode,
+          body: `Meeem: Your items from Order #${assignment.order.orderNumber} have been delivered successfully. Thank you for shopping with us!`,
+        }).catch(() => null)
       }
 
       // Notify the specific seller whose package was delivered
@@ -1105,6 +1124,12 @@ export async function handleRiderStatusUpdate(
             to: targetSellerUser.email,
             subject: `Order #${assignment.order.orderNumber} Package Delivered`,
             text: `Your package for Order #${assignment.order.orderNumber} has been successfully delivered by rider ${assignment.rider.user?.name || ""}.`,
+          }).catch(() => null)
+        } else if (targetSellerUser?.phone) {
+          sendNotificationSms({
+            to: targetSellerUser.phone,
+            countryCode: targetSellerUser.phoneCountryCode,
+            body: `Meeem: Package for Order #${assignment.order.orderNumber} has been delivered by rider ${assignment.rider.user?.name || ""}.`,
           }).catch(() => null)
         }
       }
@@ -1137,12 +1162,18 @@ export async function handleRiderStatusUpdate(
       // Notify the specific seller of rider cancellation
       {
         const targetSellerUser = assignment.seller?.user || assignment.order.seller?.user
+        const reason = options?.cancellationReason || "Emergency cancellation"
         if (targetSellerUser?.email) {
-          const reason = options?.cancellationReason || "Emergency cancellation"
           sendEmail({
             to: targetSellerUser.email,
             subject: `⚠️ Rider Cancelled Delivery for Order #${assignment.order.orderNumber}`,
             text: `The assigned rider cancelled delivery for your package in Order #${assignment.order.orderNumber} (Reason: ${reason}). The system is automatically re-assigning the next available rider.`,
+          }).catch(() => null)
+        } else if (targetSellerUser?.phone) {
+          sendNotificationSms({
+            to: targetSellerUser.phone,
+            countryCode: targetSellerUser.phoneCountryCode,
+            body: `Meeem Alert: Rider cancelled delivery for Order #${assignment.order.orderNumber} (${reason}). Automatically re-assigning next rider.`,
           }).catch(() => null)
         }
       }
@@ -1305,6 +1336,12 @@ export async function manualAssignRiderToOrder(
           subject: `⚠️ Delivery Assignment Revoked for Order #${order.orderNumber}`,
           text: `Your delivery assignment for Order #${order.orderNumber} has been reassigned by the store/admin. You are now free to accept other deliveries.`,
         }).catch(() => null)
+      } else if (prev.rider?.user?.phone) {
+        sendNotificationSms({
+          to: prev.rider.user.phone,
+          countryCode: prev.rider.user.phoneCountryCode,
+          body: `Meeem Alert: Delivery assignment for Order #${order.orderNumber} was reassigned. You are free to accept other deliveries.`,
+        }).catch(() => null)
       }
     }
   }
@@ -1461,11 +1498,19 @@ export async function manualAssignRiderToOrder(
       [order.shippingAddressLine1, order.shippingAddressLine2, order.shippingCity].filter(Boolean).join(", ") ||
       "Delivery Address"
 
-    sendEmail({
-      to: rider.user.email,
-      subject: `🛵 New Delivery Order Assigned: #${order.orderNumber} (Earning: NLe ${feeFormatted})`,
-      text: `Hello ${rider.user.name || "Rider"},\n\nYou have been directly assigned delivery for Order #${order.orderNumber} from ${shopName}.\n\n💰 Delivery Earning: NLe ${feeFormatted}\n🏪 Store: ${shopName} (${shopAddress})\n📍 Delivery Destination: ${customerAddress} (${customerName})\n\nPlease open your MEEEM Rider App to view pickup details.`,
-    }).catch(() => null)
+    if (rider.user?.email) {
+      sendEmail({
+        to: rider.user.email,
+        subject: `🛵 New Delivery Order Assigned: #${order.orderNumber} (Earning: NLe ${feeFormatted})`,
+        text: `Hello ${rider.user.name || "Rider"},\n\nYou have been directly assigned delivery for Order #${order.orderNumber} from ${shopName}.\n\n💰 Delivery Earning: NLe ${feeFormatted}\n🏪 Store: ${shopName} (${shopAddress})\n📍 Delivery Destination: ${customerAddress} (${customerName})\n\nPlease open your MEEEM Rider App to view pickup details.`,
+      }).catch(() => null)
+    } else if (rider.user?.phone) {
+      sendNotificationSms({
+        to: rider.user.phone,
+        countryCode: rider.user.phoneCountryCode,
+        body: `Meeem: Assigned delivery for Order #${order.orderNumber} from ${shopName} (Earning: NLe ${feeFormatted}). Open rider app for details.`,
+      }).catch(() => null)
+    }
   }
 
   return {
@@ -1593,12 +1638,18 @@ export async function cancelAcceptedRiderAssignment(
       },
     })
 
-    // Notify rider via Email
+    // Notify rider via Email or SMS
     if (assignment.rider?.user?.email) {
       sendEmail({
         to: assignment.rider.user.email,
         subject: `⚠️ Delivery Assignment Revoked for Order #${assignment.order.orderNumber}`,
         text: `Your delivery assignment for Order #${assignment.order.orderNumber} has been cancelled by the ${cancelledBy.toLowerCase()} (Reason: ${reason}). You are now available for other orders.`,
+      }).catch(() => null)
+    } else if (assignment.rider?.user?.phone) {
+      sendNotificationSms({
+        to: assignment.rider.user.phone,
+        countryCode: assignment.rider.user.phoneCountryCode,
+        body: `Meeem: Delivery assignment for Order #${assignment.order.orderNumber} was cancelled by ${cancelledBy.toLowerCase()} (${reason}). You are free for other orders.`,
       }).catch(() => null)
     }
 

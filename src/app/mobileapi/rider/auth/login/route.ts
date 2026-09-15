@@ -3,10 +3,14 @@ import { prisma } from "@/lib/prisma"
 import { UserRole } from "@prisma/client"
 import bcrypt from "bcryptjs"
 import { generateMobileTokens } from "@/lib/mobile-jwt"
+import { getEquivalentPhoneVariants } from "@/lib/phone-validation"
 
 interface RiderLoginRequest {
-  email: string
+  email?: string
+  phone?: string
+  identifier?: string
   password: string
+  phoneCountryCode?: string
   deviceId?: string
   platform?: "android" | "ios" | "web"
   deviceToken?: string // Optional FCM/APNS token passed during login
@@ -15,7 +19,7 @@ interface RiderLoginRequest {
 
 export async function POST(request: Request) {
   try {
-    let body: RiderLoginRequest
+    let body: Partial<RiderLoginRequest>
     try {
       body = await request.json()
     } catch {
@@ -25,36 +29,66 @@ export async function POST(request: Request) {
       )
     }
 
-    const { email, password, deviceId, platform, deviceToken, userAgent } = body
+    const identifier = (body.identifier || body.email || body.phone || "").trim()
+    const password = (body.password || "").trim()
+    const phoneCountryCode = (body.phoneCountryCode || "").trim()
+    const { deviceId, platform, deviceToken, userAgent } = body
 
-    if (!email || !password) {
+    if (!identifier || !password) {
       return NextResponse.json(
-        { success: false, error: "Email and password are required" },
+        { success: false, error: "Email or mobile number, and password are required" },
         { status: 400 }
       )
     }
 
-    const cleanEmail = email.toLowerCase().trim()
-    const user = await prisma.user.findFirst({
-      where: { email: cleanEmail, role: UserRole.RIDER },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        password: true,
-        role: true,
-        phone: true,
-        phoneCountryCode: true,
-        image: true,
-        isEmailVerified: true,
-        createdAt: true,
-        rider: true,
-      },
-    })
+    let user: any = null
+
+    if (identifier.includes("@")) {
+      user = await prisma.user.findFirst({
+        where: { email: identifier.toLowerCase().trim(), role: UserRole.RIDER },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          password: true,
+          role: true,
+          phone: true,
+          phoneCountryCode: true,
+          image: true,
+          isEmailVerified: true,
+          createdAt: true,
+          rider: true,
+        },
+      })
+    } else {
+      const variants = getEquivalentPhoneVariants(identifier, phoneCountryCode)
+      user = await prisma.user.findFirst({
+        where: {
+          role: UserRole.RIDER,
+          OR: [
+            { phone: { in: variants } },
+            { phone: identifier }
+          ]
+        },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          password: true,
+          role: true,
+          phone: true,
+          phoneCountryCode: true,
+          image: true,
+          isEmailVerified: true,
+          createdAt: true,
+          rider: true,
+        },
+      })
+    }
 
     if (!user || !user.password) {
       return NextResponse.json(
-        { success: false, error: "Invalid email or password" },
+        { success: false, error: "Invalid email or mobile number, or password" },
         { status: 401 }
       )
     }
@@ -62,7 +96,7 @@ export async function POST(request: Request) {
     const isPasswordValid = await bcrypt.compare(password, user.password)
     if (!isPasswordValid) {
       return NextResponse.json(
-        { success: false, error: "Invalid email or password" },
+        { success: false, error: "Invalid email or mobile number, or password" },
         { status: 401 }
       )
     }
@@ -71,11 +105,11 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           success: false,
-          error: "Please verify your email address before logging in.",
+          error: "Please verify your account before logging in.",
           needsVerification: true,
           authStatus: "PENDING_VERIFICATION",
-          verifyUrl: "/mobileapi/rider/auth/verify-otp",
-          data: { email: user.email },
+          verifyUrl: user.email ? `/mobileapi/rider/auth/verify-otp?email=${encodeURIComponent(user.email)}` : `/mobileapi/rider/auth/verify-otp?phone=${encodeURIComponent(user.phone || "")}`,
+          data: { email: user.email, phone: user.phone },
         },
         { status: 403 }
       )
@@ -138,20 +172,21 @@ export async function POST(request: Request) {
           createdAt: now,
         }
 
-        const updatedTokens = [newEntry, ...otherTokens].slice(0, 10) // Keep latest 10 devices
-
         await prisma.rider.update({
           where: { id: riderProfile.id },
-          data: { deviceTokens: updatedTokens },
+          data: {
+            deviceTokens: [...otherTokens, newEntry],
+          },
         })
       } catch (tokenErr) {
-        console.error("Failed to auto-register device token during rider login:", tokenErr)
+        console.warn("Failed to auto-register device token during rider login:", tokenErr)
       }
     }
 
     const tokens = generateMobileTokens({
       userId: user.id,
       email: user.email,
+      phone: user.phone,
       role: user.role,
       passwordHash: user.password,
       deviceId,

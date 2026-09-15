@@ -23,6 +23,7 @@ export default async function ProductSellerLayout({
       user={{
         name: session.user.name ?? null,
         email: session.user.email ?? null,
+        phone: session.user.phone ?? null,
         image: session.user.image ?? null,
       }}
     >

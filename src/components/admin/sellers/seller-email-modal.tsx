@@ -28,6 +28,7 @@ export interface SellerEmailTarget {
   name?: string | null
   businessName?: string | null
   email?: string | null
+  phone?: string | null
   sellerType?: "PRODUCT" | "SERVICE" | "HOTEL" | "RESTAURANT" | string
 }
 
@@ -175,8 +176,10 @@ export function SellerEmailModal({
             <span className="font-bold text-slate-900 dark:text-slate-100">{targetDisplayName}</span>
           </div>
           <div className="flex items-center justify-between text-xs">
-            <span className="text-slate-500 font-medium">Email Address:</span>
-            <span className="font-semibold text-blue-600 dark:text-blue-400">{seller?.email || "No email on file"}</span>
+            <span className="text-slate-500 font-medium">Channel / Destination:</span>
+            <span className="font-semibold text-blue-600 dark:text-blue-400">
+              {seller?.email ? `Email: ${seller.email}` : (seller?.phone ? `SMS: ${seller.phone}` : "No contact on file")}
+            </span>
           </div>
         </div>
 

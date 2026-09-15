@@ -58,11 +58,11 @@ export async function PUT(
       return up
     })
 
-    // ── Send Email Notifications ───────────────────────────────────────────────
+    // ── Send Email/SMS Notifications ──────────────────────────────────────────
     try {
       const fullFoodOrder = await prisma.foodOrder.findUnique({
         where: { id },
-        include: { customer: { select: { email: true, name: true } } }
+        include: { customer: { select: { email: true, name: true, phone: true, phoneCountryCode: true } } }
       })
       if (fullFoodOrder && fullFoodOrder.customer) {
         await sendFoodOrderStatusUpdateEmail({
@@ -70,10 +70,12 @@ export async function PUT(
           name: fullFoodOrder.customer.name ?? "Customer",
           orderNumber: fullFoodOrder.orderNumber,
           status,
+          toPhone: fullFoodOrder.customer.phone,
+          phoneCountryCode: fullFoodOrder.customer.phoneCountryCode,
         })
       }
     } catch (emailErr) {
-      console.error("Failed to send food order status email:", emailErr)
+      console.error("Failed to send food order status email/SMS:", emailErr)
     }
 
     return NextResponse.json({

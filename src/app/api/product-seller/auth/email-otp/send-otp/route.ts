@@ -43,7 +43,7 @@ export async function POST(request: Request) {
     })
     const mailResult = await sendLoginOtpEmail({ to: email, otp, name: user.name })
     if (mailResult && mailResult.success === false) {
-      throw mailResult.error || new Error("SendGrid failed to dispatch email.")
+      throw (mailResult as any).error || new Error("SendGrid failed to dispatch email.")
     }
     return NextResponse.json({ message: "OTP sent to your email." }, { status: 200 })
   } catch (error: any) {

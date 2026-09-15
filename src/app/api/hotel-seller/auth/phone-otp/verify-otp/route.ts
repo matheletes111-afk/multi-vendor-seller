@@ -42,7 +42,7 @@ export async function POST(request: Request) {
           })),
         ],
       },
-      select: { id: true, email: true, verifyEmailOtp: true, emailVerificationExpires: true, isEmailVerified: true },
+      select: { id: true, email: true, phone: true, phoneCountryCode: true, verifyEmailOtp: true, emailVerificationExpires: true, isEmailVerified: true },
     })
 
     if (!user || !user.isEmailVerified) {
@@ -65,9 +65,13 @@ export async function POST(request: Request) {
 
     await resetOtpRateLimit(rateLimitKey)
 
-    const otpLoginToken = createOtpLoginToken(user.email, UserRole.SELLER_HOTEL)
+    const otpLoginToken = createOtpLoginToken(user.email || user.phone, UserRole.SELLER_HOTEL, {
+      userId: user.id,
+      phone: user.phone,
+      email: user.email,
+    })
     return NextResponse.json(
-      { message: "OTP verified.", otpLoginToken, email: user.email, loginUrl: "/hotel-seller" },
+      { message: "OTP verified.", otpLoginToken, email: user.email, phone: user.phone, loginUrl: "/hotel-seller" },
       { status: 200 }
     )
   } catch (error) {

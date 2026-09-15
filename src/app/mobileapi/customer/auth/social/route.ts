@@ -18,7 +18,7 @@ interface SuccessResponse {
   data: {
     user: {
       id: string
-      email: string
+      email: string | null
       name: string | null
       role: UserRole
       phone: string | null
@@ -111,6 +111,7 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
         const tokens = generateMobileTokens({
           userId: existingAccount.user.id,
           email: existingAccount.user.email,
+          phone: existingAccount.user.phone,
           role: existingAccount.user.role,
           passwordHash: existingAccount.user.password,
         })
@@ -146,7 +147,7 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
 
     let user: {
       id: string
-      email: string
+      email: string | null
       name: string | null
       role: UserRole
       phone: string | null
@@ -269,9 +270,17 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
       }
     }
 
+    if (!user) {
+      return NextResponse.json<ErrorResponse>(
+        { success: false, error: "Failed to process user" },
+        { status: 500 }
+      )
+    }
+
     const tokens = generateMobileTokens({
       userId: user.id,
       email: user.email,
+      phone: user.phone,
       role: user.role,
       passwordHash,
     })

@@ -8,10 +8,11 @@ import { validatePhoneAndCountryCode, getEquivalentPhoneVariants } from "@/lib/p
 import { validatePassword } from "@/lib/password-validation"
 import { sanitizeInput } from "@/lib/html-sanitization"
 import { getAppBaseUrl, sendEmailVerificationSms } from "@/lib/twilio-sms"
-
 import { checkDisallowedName } from "@/lib/name-validation"
 
 const OTP_EXPIRY_MS = 10 * 60 * 1000 // 10 min
+
+/** POST /api/customer/auth/registration — Customer panel registration. */
 
 /** POST /api/customer/auth/registration — Customer panel registration. */
 export async function POST(request: Request) {
@@ -19,36 +20,58 @@ export async function POST(request: Request) {
     const body = await request.json()
     const { name, email, password, phone, phoneCountryCode } = body
     const sanitizedName = name ? sanitizeInput(name) : null
-    if (!email || !password) {
-      return NextResponse.json({ error: "Email and password are required" }, { status: 400 })
+
+    if (!password) {
+      return NextResponse.json({ error: "Password is required" }, { status: 400 })
     }
+
+    // Phone is REQUIRED
+    if (!phone || typeof phone !== "string" || !phone.trim()) {
+      return NextResponse.json({ error: "Mobile number is required" }, { status: 400 })
+    }
+
+    const code = typeof phoneCountryCode === "string" && phoneCountryCode.trim().length > 0
+      ? phoneCountryCode.trim()
+      : "+232"
+    const validation = validatePhoneAndCountryCode(phone.trim(), code)
+    if (!validation.isValid) {
+      return NextResponse.json({ error: validation.error || "Invalid mobile number or country code" }, { status: 400 })
+    }
+    const normalizedPhone = validation.cleanedPhone!
+    const normalizedPhoneCountryCode = validation.cleanedCountryCode!
+
+    // Email is OPTIONAL
+    const cleanEmail = typeof email === "string" && email.trim() ? email.toLowerCase().trim() : null
+    if (cleanEmail) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+      if (!emailRegex.test(cleanEmail)) {
+        return NextResponse.json({ error: "Invalid email format" }, { status: 400 })
+      }
+    }
+
     const nameCheck = await checkDisallowedName(sanitizedName)
     if (!nameCheck.isAllowed) {
       return NextResponse.json({ error: nameCheck.error }, { status: 400 })
     }
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (!emailRegex.test(email)) {
-      return NextResponse.json({ error: "Invalid email format" }, { status: 400 })
-    }
+
     const passwordValidation = validatePassword(password)
     if (!passwordValidation.isValid) {
       return NextResponse.json({ error: passwordValidation.error }, { status: 400 })
     }
-    const validation = validatePhoneAndCountryCode(phone, phoneCountryCode)
-    if (!validation.isValid) {
-      return NextResponse.json({ error: validation.error }, { status: 400 })
-    }
-    const normalizedPhone = validation.cleanedPhone!
-    const normalizedPhoneCountryCode = validation.cleanedCountryCode!
-    const existingUser = await prisma.user.findUnique({ where: { email } })
-    if (existingUser) {
-      return NextResponse.json({ error: "Email or mobile number is already registered" }, { status: 400 })
-    }
+
     const phoneVariants = getEquivalentPhoneVariants(normalizedPhone, normalizedPhoneCountryCode)
     const existingPhone = await prisma.user.findFirst({ where: { phone: { in: phoneVariants } } })
     if (existingPhone) {
-      return NextResponse.json({ error: "Email or mobile number is already registered" }, { status: 400 })
+      return NextResponse.json({ error: "Mobile number is already registered" }, { status: 400 })
     }
+
+    if (cleanEmail) {
+      const existingUser = await prisma.user.findUnique({ where: { email: cleanEmail } })
+      if (existingUser) {
+        return NextResponse.json({ error: "Email is already registered" }, { status: 400 })
+      }
+    }
+
     const hashedPassword = await bcrypt.hash(password, 10)
     const verifyEmailOtp = randomInt(100000, 999999).toString()
     const emailVerificationExpires = new Date(Date.now() + OTP_EXPIRY_MS)
@@ -56,7 +79,7 @@ export async function POST(request: Request) {
 
     const user = await prisma.user.create({
       data: {
-        email,
+        email: cleanEmail,
         name: sanitizedName,
         password: hashedPassword,
         role: UserRole.CUSTOMER,
@@ -72,13 +95,7 @@ export async function POST(request: Request) {
     const baseUrl = getAppBaseUrl(request)
     const verificationLink = `${baseUrl}/api/verify-email?token=${verifyEmailOtp}`
 
-    await Promise.allSettled([
-      sendVerificationOtpEmail({
-        to: email,
-        otp: verifyEmailOtp,
-        name: sanitizedName,
-        verificationLink,
-      }),
+    const sendPromises: Promise<any>[] = [
       sendEmailVerificationSms({
         to: normalizedPhone,
         countryCode: normalizedPhoneCountryCode,
@@ -86,9 +103,31 @@ export async function POST(request: Request) {
         otp: verifyEmailOtp,
         name: sanitizedName,
       }),
-    ])
+    ]
 
-    return NextResponse.json({ message: "Please verify your email with the OTP sent.", userId: user.id, verifyUrl: "/customer/verify-otp" }, { status: 201 })
+    if (cleanEmail) {
+      sendPromises.push(
+        sendVerificationOtpEmail({
+          to: cleanEmail,
+          otp: verifyEmailOtp,
+          name: sanitizedName,
+          verificationLink,
+        })
+      )
+    }
+
+    await Promise.allSettled(sendPromises)
+
+    const verifyParam = cleanEmail ? `email=${encodeURIComponent(cleanEmail)}` : `phone=${encodeURIComponent(normalizedPhone)}`
+    return NextResponse.json({
+      message: cleanEmail
+        ? "Please verify your account with the OTP sent to your email and mobile SMS."
+        : "Please verify your mobile number with the SMS OTP sent.",
+      userId: user.id,
+      phone: normalizedPhone,
+      email: cleanEmail,
+      verifyUrl: `/customer/verify-otp?${verifyParam}`,
+    }, { status: 201 })
   } catch (error) {
     console.error("Customer registration error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })

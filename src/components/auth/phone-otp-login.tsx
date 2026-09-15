@@ -175,7 +175,7 @@ export function PhoneOtpLoginVerifyForm({ config }: { config: PhoneOtpLoginConfi
         body: JSON.stringify({ phone, otp }),
       })
       const verifyData = await verifyRes.json().catch(() => ({}))
-      if (!verifyRes.ok || !verifyData.otpLoginToken || !verifyData.email) {
+      if (!verifyRes.ok || !verifyData.otpLoginToken) {
         setError(verifyData.error || "Invalid or expired OTP.")
         return
       }
@@ -198,7 +198,9 @@ export function PhoneOtpLoginVerifyForm({ config }: { config: PhoneOtpLoginConfi
             slotEndTime: item.slotEndTime,
             quantity: item.quantity,
           })),
-          email: verifyData.email,
+          email: verifyData.email || verifyData.phone || phone,
+          phone: verifyData.phone || phone,
+          identifier: verifyData.phone || phone,
           otpLoginToken: verifyData.otpLoginToken,
           callbackUrl,
           csrfToken: csrfToken ?? undefined,

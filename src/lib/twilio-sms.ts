@@ -194,6 +194,68 @@ export async function sendEmailVerificationSms({
   }
 }
 
+export async function sendAccountVerificationSms({
+  to,
+  countryCode,
+  otp,
+  name,
+  verificationLink,
+}: {
+  to?: string | null
+  countryCode?: string | null
+  otp?: string
+  name?: string | null
+  verificationLink?: string
+}): Promise<boolean> {
+  const fullPhone = formatFullPhoneNumber(to, countryCode)
+  if (!fullPhone) {
+    return false
+  }
+
+  const greeting = name ? `Hi ${name}, ` : ""
+  let body = ""
+  if (verificationLink && otp) {
+    body = `${greeting}Welcome to Meeem! Your verification code is: ${otp}. Valid for 10 minutes. Or verify here: ${verificationLink}`
+  } else if (verificationLink) {
+    body = `${greeting}Welcome to Meeem! Please verify your account by clicking: ${verificationLink}`
+  } else if (otp) {
+    body = `${greeting}Your Meeem verification code is: ${otp}. Valid for 10 minutes.`
+  } else {
+    return false
+  }
+
+  try {
+    await sendSmsViaTwilio({ to: fullPhone, body })
+    return true
+  } catch (error) {
+    console.warn(`[SMS] Failed to send account verification SMS to ${fullPhone}:`, error)
+    return false
+  }
+}
+
+export async function sendNotificationSms({
+  to,
+  countryCode,
+  body,
+}: {
+  to?: string | null
+  countryCode?: string | null
+  body: string
+}): Promise<boolean> {
+  const fullPhone = formatFullPhoneNumber(to, countryCode)
+  if (!fullPhone) {
+    return false
+  }
+
+  try {
+    await sendSmsViaTwilio({ to: fullPhone, body })
+    return true
+  } catch (error) {
+    console.warn(`[SMS] Failed to send notification SMS to ${fullPhone}:`, error)
+    return false
+  }
+}
+
 export async function sendPasswordResetSms({
   to,
   countryCode,
@@ -224,3 +286,4 @@ export async function sendPasswordResetSms({
     console.warn(`[SMS] Failed to send password reset SMS to ${fullPhone}:`, error)
   }
 }
+

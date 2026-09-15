@@ -8,7 +8,7 @@ export type MobileHotelRestaurantAuthResult =
       success: true; 
       user: { 
         id: string; 
-        email: string; 
+        email: string | null; 
         role: UserRole; 
         name?: string | null; 
         phone?: string | null; 

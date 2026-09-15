@@ -27,7 +27,7 @@ interface SuccessResponse {
   data: {
     user: {
       id: string
-      email: string
+      email: string | null
       name: string | null
       role: UserRole
       sellerType: string
@@ -150,6 +150,7 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
       const tokens = generateMobileTokens({
         userId: u.id,
         email: u.email,
+        phone: u.phone,
         role: u.role,
         passwordHash: u.password,
       })
@@ -243,6 +244,7 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
       const tokens = generateMobileTokens({
         userId: existingUser.id,
         email: existingUser.email,
+        phone: existingUser.phone,
         role: existingUser.role,
         passwordHash: existingUser.password,
       })

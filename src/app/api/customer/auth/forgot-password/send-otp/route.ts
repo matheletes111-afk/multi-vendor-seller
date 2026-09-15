@@ -3,38 +3,58 @@ import { NextResponse } from "next/server"
 import { UserRole } from "@prisma/client"
 import { prisma } from "@/lib/prisma"
 import { sendPasswordResetOtpEmail } from "@/lib/email"
-
 import { getAppBaseUrl, sendPasswordResetSms } from "@/lib/twilio-sms"
+import { getEquivalentPhoneVariants } from "@/lib/phone-validation"
 
 const OTP_EXPIRY_MS = 10 * 60 * 1000
 const COOLDOWN_MS = 60 * 1000
 
-/** POST /api/customer/auth/forgot-password/send-otp — Body: { email } */
+/** POST /api/customer/auth/forgot-password/send-otp — Body: { email, phone, phoneCountryCode } */
 export async function POST(request: Request) {
   try {
     const body = await request.json().catch(() => ({}))
-    const email = typeof body.email === "string" ? body.email.trim() : ""
+    const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : ""
+    const phone = typeof body.phone === "string" ? body.phone.trim() : ""
+    const phoneCountryCode = typeof body.phoneCountryCode === "string" ? body.phoneCountryCode.trim() : ""
 
-    if (!email) {
-      return NextResponse.json({ error: "Email is required." }, { status: 400 })
+    if (!email && !phone) {
+      return NextResponse.json({ error: "Email or mobile number is required." }, { status: 400 })
     }
 
-    const user = await prisma.user.findFirst({
-      where: { email, role: UserRole.CUSTOMER },
-      select: {
-        id: true,
-        name: true,
-        phone: true,
-        phoneCountryCode: true,
-        isEmailVerified: true,
-        emailOtpSentAt: true,
-      },
-    })
+    let user: any = null
+    if (email) {
+      user = await prisma.user.findFirst({
+        where: { email, role: UserRole.CUSTOMER },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          phone: true,
+          phoneCountryCode: true,
+          isEmailVerified: true,
+          emailOtpSentAt: true,
+        },
+      })
+    } else if (phone) {
+      const phoneVariants = getEquivalentPhoneVariants(phone, phoneCountryCode)
+      user = await prisma.user.findFirst({
+        where: { phone: { in: phoneVariants }, role: UserRole.CUSTOMER },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          phone: true,
+          phoneCountryCode: true,
+          isEmailVerified: true,
+          emailOtpSentAt: true,
+        },
+      })
+    }
 
     // Keep response generic to avoid account enumeration.
     if (!user || !user.isEmailVerified) {
       return NextResponse.json(
-        { message: "If an account exists for this email, OTP has been sent." },
+        { message: "If an account exists with this credential, OTP has been sent." },
         { status: 200 }
       )
     }
@@ -59,21 +79,31 @@ export async function POST(request: Request) {
     })
 
     const baseUrl = getAppBaseUrl(request)
-    const resetLink = `${baseUrl}/customer/reset-password?email=${encodeURIComponent(email)}`
+    const identifierParam = user.email ? `email=${encodeURIComponent(user.email)}` : `phone=${encodeURIComponent(user.phone || "")}`
+    const resetLink = `${baseUrl}/customer/reset-password?${identifierParam}`
 
-    await Promise.allSettled([
-      sendPasswordResetOtpEmail({ to: email, otp, name: user.name, resetLink }),
-      sendPasswordResetSms({
-        to: user.phone,
-        countryCode: user.phoneCountryCode,
-        otp,
-        name: user.name,
-        resetLink,
-      }),
-    ])
+    const sendPromises: Promise<any>[] = []
+    if (user.phone) {
+      sendPromises.push(
+        sendPasswordResetSms({
+          to: user.phone,
+          countryCode: user.phoneCountryCode,
+          otp,
+          name: user.name,
+          resetLink,
+        })
+      )
+    }
+    if (user.email) {
+      sendPromises.push(
+        sendPasswordResetOtpEmail({ to: user.email, otp, name: user.name, resetLink })
+      )
+    }
+
+    await Promise.allSettled(sendPromises)
 
     return NextResponse.json(
-      { message: "If an account exists for this email, OTP has been sent." },
+      { message: "If an account exists with this credential, OTP has been sent." },
       { status: 200 }
     )
   } catch (error) {

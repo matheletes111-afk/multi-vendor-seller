@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma"
 import bcrypt from "bcryptjs"
 import { POST as nextAuthPost } from "@/app/api/nextauth/[...nextauth]/route"
 import { getSafeRedirectUrl } from "@/lib/safe-redirect"
+import { getEquivalentPhoneVariants } from "@/lib/phone-validation"
 
 const ROLE_LABELS: Record<string, string> = {
   CUSTOMER: "Customer",
@@ -26,19 +27,29 @@ export async function POST(request: Request) {
       csrfToken?: string
     }
     const hasOtpLoginToken = typeof otpLoginToken === "string" && otpLoginToken.trim().length > 0
+    const rawIdentifier = (email || (body as any).phone || (body as any).identifier || "").trim()
 
-    if (!email || (!password && !hasOtpLoginToken)) {
+    if (!rawIdentifier || (!password && !hasOtpLoginToken)) {
       return NextResponse.json(
-        { error: "Email and password or OTP login token are required" },
+        { error: "Email or mobile number, and password or OTP login token are required" },
         { status: 400 }
       )
     }
 
-    const cleanEmail = email.trim().toLowerCase()
-    const user = await prisma.user.findUnique({
-      where: { email: cleanEmail },
-      select: { id: true, password: true, role: true, isEmailVerified: true },
-    })
+    const isEmail = rawIdentifier.includes("@")
+    let user = null
+    if (isEmail) {
+      user = await prisma.user.findUnique({
+        where: { email: rawIdentifier.toLowerCase() },
+        select: { id: true, email: true, phone: true, password: true, role: true, isEmailVerified: true },
+      })
+    } else {
+      const phoneVariants = getEquivalentPhoneVariants(rawIdentifier)
+      user = await prisma.user.findFirst({
+        where: { phone: { in: phoneVariants } },
+        select: { id: true, email: true, phone: true, password: true, role: true, isEmailVerified: true },
+      })
+    }
 
     // Check credentials / OTP validity BEFORE revealing role mismatch
     if (user) {
@@ -54,16 +65,17 @@ export async function POST(request: Request) {
         if (user.role !== UserRole.SELLER_HOTEL) {
           const label = ROLE_LABELS[user.role] || user.role
           return NextResponse.json(
-            { error: `This email is registered as a ${label}. Please sign in using the ${label} login page.` },
+            { error: `This account is registered as a ${label}. Please sign in using the ${label} login page.` },
             { status: 401 }
           )
         }
 
-        // 2. Unverified email check
+        // 2. Unverified account check
         if (user.isEmailVerified === false) {
-          const verifyUrl = `/hotel-seller/verify-otp?email=${encodeURIComponent(cleanEmail)}`
+          const verifyParam = user.email ? `email=${encodeURIComponent(user.email)}` : `phone=${encodeURIComponent(user.phone || rawIdentifier)}`
+          const verifyUrl = `/hotel-seller/verify-otp?${verifyParam}`
           return NextResponse.json(
-            { error: "Please verify your email first.", needsVerification: true, verifyUrl },
+            { error: "Please verify your account first.", needsVerification: true, verifyUrl },
             { status: 403 }
           )
         }
@@ -86,7 +98,7 @@ export async function POST(request: Request) {
     const host = new URL(request.url).host
     const validatedCallbackUrl = getSafeRedirectUrl(callbackUrl, "/hotel-seller", origin)
     const form = new URLSearchParams({
-      email: cleanEmail,
+      email: rawIdentifier,
       password: hasOtpLoginToken ? "__OTP_LOGIN__" : (password as string),
       role: UserRole.SELLER_HOTEL,
       callbackUrl: validatedCallbackUrl,
@@ -117,16 +129,16 @@ export async function POST(request: Request) {
       } catch { /* ignore */ }
     }
 
-    const isErrorRedirect = nextAuthUrl.includes("error=") || nextAuthUrl.includes("login")
+    const isErrorRedirect = nextAuthUrl.includes("error=") || nextAuthUrl.includes("login") || nextAuthUrl.includes("registration")
 
     if (isErrorRedirect) {
-      let msg = "Invalid email or password."
+      let msg = "Invalid email, mobile number, or password."
       try {
         const err = new URL(nextAuthUrl, origin).searchParams.get("error")
         if (err === "MissingCSRF") {
           msg = "Session expired. Please refresh and try again."
         } else if (err === "CredentialsSignin") {
-          msg = "Invalid email or password."
+          msg = "Invalid email, mobile number, or password."
         } else if (err) {
           msg = err
         }

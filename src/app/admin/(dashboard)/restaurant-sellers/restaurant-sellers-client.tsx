@@ -544,6 +544,7 @@ export function RestaurantSellersClient() {
                                     name: seller.user?.name,
                                     businessName: seller.businessInfo?.businessName,
                                     email: seller.user?.email,
+                                    phone: seller.user?.phone,
                                     sellerType: "RESTAURANT",
                                   })
                                 }
@@ -594,6 +595,7 @@ export function RestaurantSellersClient() {
                                       name: seller.user?.name,
                                       businessName: seller.businessInfo?.businessName,
                                       email: seller.user?.email,
+                                      phone: seller.user?.phone,
                                       sellerType: "RESTAURANT",
                                     })
                                   }

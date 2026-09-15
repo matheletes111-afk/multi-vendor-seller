@@ -88,21 +88,31 @@ export async function POST(request: Request) {
     })
 
     const baseUrl = getAppBaseUrl(request)
-    const resetLink = `${baseUrl}/riderapp/reset-password?email=${encodeURIComponent(email)}`
+    const identifierParam = user.email ? `email=${encodeURIComponent(user.email)}` : `phone=${encodeURIComponent(user.phone || "")}`
+    const resetLink = `${baseUrl}/riderapp/reset-password?${identifierParam}`
 
-    await Promise.allSettled([
-      sendPasswordResetOtpEmail({ to: email, otp, name: user.name, resetLink }),
-      sendPasswordResetSms({
-        to: user.phone,
-        countryCode: user.phoneCountryCode,
-        otp,
-        name: user.name,
-        resetLink,
-      }),
-    ])
+    const sendPromises: Promise<any>[] = []
+    if (user.phone) {
+      sendPromises.push(
+        sendPasswordResetSms({
+          to: user.phone,
+          countryCode: user.phoneCountryCode,
+          otp,
+          name: user.name,
+          resetLink,
+        })
+      )
+    }
+    if (user.email) {
+      sendPromises.push(
+        sendPasswordResetOtpEmail({ to: user.email, otp, name: user.name, resetLink })
+      )
+    }
+
+    await Promise.allSettled(sendPromises)
 
     return NextResponse.json(
-      { message: "If an active rider account exists for this email, a reset OTP has been sent." },
+      { message: "If an active rider account exists, a reset OTP has been sent." },
       { status: 200 }
     )
   } catch (error) {

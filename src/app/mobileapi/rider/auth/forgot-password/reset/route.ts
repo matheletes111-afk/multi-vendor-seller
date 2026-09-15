@@ -9,8 +9,16 @@ import { normalizePhoneNumber } from "@/lib/twilio-sms"
 export async function POST(request: Request) {
   try {
     const body = await request.json().catch(() => ({}))
-    const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : ""
-    const phoneInput = typeof body.phone === "string" ? body.phone.trim() : ""
+    const rawIdentifier = typeof body.identifier === "string" ? body.identifier.trim() : ""
+    let email = typeof body.email === "string" ? body.email.trim().toLowerCase() : ""
+    let phoneInput = typeof body.phone === "string" ? body.phone.trim() : ""
+    if (!email && !phoneInput && rawIdentifier) {
+      if (rawIdentifier.includes("@")) {
+        email = rawIdentifier.toLowerCase()
+      } else {
+        phoneInput = rawIdentifier
+      }
+    }
     const normalizedPhone = phoneInput ? normalizePhoneNumber(phoneInput) : ""
     const otp = typeof body.otp === "string" ? body.otp.trim() : ""
     const newPassword = typeof body.newPassword === "string" ? body.newPassword : ""

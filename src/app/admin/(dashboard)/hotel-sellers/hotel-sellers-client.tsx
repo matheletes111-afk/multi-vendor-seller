@@ -541,6 +541,7 @@ export function HotelSellersClient() {
                                     name: seller.user?.name,
                                     businessName: seller.businessInfo?.businessName,
                                     email: seller.user?.email,
+                                    phone: seller.user?.phone,
                                     sellerType: "HOTEL",
                                   })
                                 }
@@ -590,6 +591,7 @@ export function HotelSellersClient() {
                                       name: seller.user?.name,
                                       businessName: seller.businessInfo?.businessName,
                                       email: seller.user?.email,
+                                      phone: seller.user?.phone,
                                       sellerType: "HOTEL",
                                     })
                                   }

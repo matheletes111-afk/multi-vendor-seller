@@ -121,6 +121,7 @@ export async function PUT(request: NextRequest) {
       // 1. User Profile Update
       const nameRaw = fd.get("name") as string | null
       const name = nameRaw !== null ? sanitizeInput(nameRaw) : null
+      const emailRaw = fd.get("email") as string | null
       const phone = fd.get("phone") as string | null
       const phoneCountryCode = fd.get("phoneCountryCode") as string | null
       const password = fd.get("password") as string | null
@@ -128,6 +129,24 @@ export async function PUT(request: NextRequest) {
       const profileImage = fd.get("profileImage") as File | null
  
       if (name !== null) userData.name = name
+      if (emailRaw !== null) {
+        const trimmedEmail = emailRaw.trim().toLowerCase()
+        if (trimmedEmail) {
+          const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+          if (!emailRegex.test(trimmedEmail)) {
+            return NextResponse.json({ success: false, error: "Please enter a valid email address." }, { status: 400 })
+          }
+          const existingUser = await prisma.user.findFirst({
+            where: { email: trimmedEmail, NOT: { id: userId } },
+          })
+          if (existingUser) {
+            return NextResponse.json({ success: false, error: "This email address is already registered to another account." }, { status: 400 })
+          }
+          userData.email = trimmedEmail
+        } else {
+          userData.email = null
+        }
+      }
       if (phone !== null) userData.phone = phone.trim() || null
       if (phoneCountryCode !== null) userData.phoneCountryCode = phoneCountryCode.trim() || null
       
@@ -560,12 +579,31 @@ export async function PUT(request: NextRequest) {
     
     // JSON Payload Update
     const body = await request.json()
-    const { user, store, seller: sData } = body
+    const { user: userFromBody, store, seller: sData } = body
+    const user = userFromBody || (body.email !== undefined || body.name !== undefined || body.phone !== undefined || body.image !== undefined ? body : null)
 
     if (user) {
       const userData: Prisma.UserUpdateInput = {}
       if (user.name !== undefined) {
         userData.name = typeof user.name === "string" ? sanitizeInput(user.name) : undefined
+      }
+      if (user.email !== undefined) {
+        const trimmedEmail = typeof user.email === "string" ? user.email.trim().toLowerCase() : ""
+        if (trimmedEmail) {
+          const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+          if (!emailRegex.test(trimmedEmail)) {
+            return NextResponse.json({ success: false, error: "Please enter a valid email address." }, { status: 400 })
+          }
+          const existingUser = await prisma.user.findFirst({
+            where: { email: trimmedEmail, NOT: { id: userId } },
+          })
+          if (existingUser) {
+            return NextResponse.json({ success: false, error: "This email address is already registered to another account." }, { status: 400 })
+          }
+          userData.email = trimmedEmail
+        } else {
+          userData.email = null
+        }
       }
       if (user.image !== undefined) userData.image = user.image
       if (user.phone !== undefined) {
@@ -707,3 +745,6 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ success: false, error: error.message || "Failed to update settings" }, { status: 500 })
   }
 }
+
+export const PATCH = PUT
+

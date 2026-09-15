@@ -35,6 +35,8 @@ export async function POST(
     }
 
     let recipientEmail: string | null = null
+    let recipientPhone: string | null = null
+    let recipientPhoneCountryCode: string | null = null
     let recipientName: string | null = null
     let businessName: string | null = null
 
@@ -48,6 +50,8 @@ export async function POST(
       })
       if (restaurant) {
         recipientEmail = restaurant.user?.email || null
+        recipientPhone = restaurant.user?.phone || null
+        recipientPhoneCountryCode = restaurant.user?.phoneCountryCode || null
         recipientName = restaurant.user?.name || null
         businessName = restaurant.businessInfo?.businessName || null
       }
@@ -60,6 +64,8 @@ export async function POST(
       })
       if (hotel) {
         recipientEmail = hotel.user?.email || null
+        recipientPhone = hotel.user?.phone || null
+        recipientPhoneCountryCode = hotel.user?.phoneCountryCode || null
         recipientName = hotel.user?.name || null
         businessName = hotel.businessInfo?.businessName || null
       }
@@ -72,6 +78,8 @@ export async function POST(
       })
       if (seller) {
         recipientEmail = seller.user?.email || null
+        recipientPhone = seller.user?.phone || null
+        recipientPhoneCountryCode = seller.user?.phoneCountryCode || null
         recipientName = seller.user?.name || null
         businessName = seller.store?.name || seller.businessInfo?.businessName || null
       }
@@ -84,6 +92,8 @@ export async function POST(
       })
       if (seller) {
         recipientEmail = seller.user?.email || null
+        recipientPhone = seller.user?.phone || null
+        recipientPhoneCountryCode = seller.user?.phoneCountryCode || null
         recipientName = seller.user?.name || null
         businessName = seller.store?.name || seller.businessInfo?.businessName || null
       } else {
@@ -93,6 +103,8 @@ export async function POST(
         })
         if (hotel) {
           recipientEmail = hotel.user?.email || null
+          recipientPhone = hotel.user?.phone || null
+          recipientPhoneCountryCode = hotel.user?.phoneCountryCode || null
           recipientName = hotel.user?.name || null
           businessName = hotel.businessInfo?.businessName || null
         } else {
@@ -102,6 +114,8 @@ export async function POST(
           })
           if (restaurant) {
             recipientEmail = restaurant.user?.email || null
+            recipientPhone = restaurant.user?.phone || null
+            recipientPhoneCountryCode = restaurant.user?.phoneCountryCode || null
             recipientName = restaurant.user?.name || null
             businessName = restaurant.businessInfo?.businessName || null
           }
@@ -109,15 +123,17 @@ export async function POST(
       }
     }
 
-    if (!recipientEmail) {
+    if (!recipientEmail && !recipientPhone) {
       return NextResponse.json(
-        { error: "Seller or recipient email address not found" },
+        { error: "Seller has neither email nor phone number on file" },
         { status: 404 }
       )
     }
 
     const emailResult = await sendAdminCustomSellerEmail({
       to: recipientEmail,
+      toPhone: recipientPhone,
+      phoneCountryCode: recipientPhoneCountryCode,
       sellerName: recipientName,
       businessName,
       subject: subject.trim(),
@@ -127,16 +143,22 @@ export async function POST(
 
     if (!emailResult.success) {
       return NextResponse.json(
-        { error: emailResult.error?.message || "Failed to send email via mail service" },
+        { error: (emailResult as any).error?.message || "Failed to send notification via mail/SMS service" },
         { status: 500 }
       )
     }
 
+    const channel = recipientEmail ? "email" : "sms"
+
     return NextResponse.json({
       success: true,
-      message: `Email successfully sent to ${recipientEmail}`,
+      channel,
+      message: channel === "email"
+        ? `Email successfully sent to ${recipientEmail}`
+        : `SMS notification successfully sent to ${recipientPhone}`,
       recipient: {
         email: recipientEmail,
+        phone: recipientPhone,
         name: recipientName,
         businessName,
       },

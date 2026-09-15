@@ -13,12 +13,13 @@ export function RiderVerifyEmailClient() {
   const searchParams = useSearchParams()
   const token = searchParams.get("token")
   const emailParam = searchParams.get("email")
+  const phoneParam = searchParams.get("phone")
 
   const [loading, setLoading] = useState(Boolean(token && emailParam))
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const [inputEmail, setInputEmail] = useState(emailParam || "")
+  const [inputEmail, setInputEmail] = useState(emailParam || phoneParam || "")
   const [inputOtp, setInputOtp] = useState("")
   const [submitting, setSubmitting] = useState(false)
 
@@ -65,10 +66,15 @@ export function RiderVerifyEmailClient() {
     setSubmitting(true)
 
     try {
+      const isPhone = !inputEmail.includes("@") && /^[0-9+\s\-()]+$/.test(inputEmail)
+      const payload = isPhone
+        ? { phone: inputEmail.trim(), otp: inputOtp.trim() }
+        : { email: inputEmail.trim().toLowerCase(), otp: inputOtp.trim() }
+
       const res = await fetch("/api/riderapp/auth/verify-email", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: inputEmail.trim().toLowerCase(), otp: inputOtp.trim() }),
+        body: JSON.stringify(payload),
       })
 
       const data = await res.json()
@@ -86,22 +92,27 @@ export function RiderVerifyEmailClient() {
 
   // Resend OTP
   const handleResend = async () => {
-    const targetEmail = inputEmail.trim().toLowerCase()
-    if (!targetEmail || resendCooldown > 0 || resendLoading) return
+    const target = inputEmail.trim()
+    if (!target || resendCooldown > 0 || resendLoading) return
     setResendLoading(true)
     setResendMessage(null)
     setError(null)
 
     try {
+      const isPhone = !target.includes("@") && /^[0-9+\s\-()]+$/.test(target)
+      const payload = isPhone
+        ? { phone: target }
+        : { email: target.toLowerCase() }
+
       const res = await fetch("/api/riderapp/auth/resend-otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: targetEmail }),
+        body: JSON.stringify(payload),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || "Failed to resend code.")
 
-      setResendMessage(data.message || "A new 6-digit code has been sent.")
+      setResendMessage(data.message || "A new verification code has been sent.")
       setResendCooldown(60)
       const timer = setInterval(() => {
         setResendCooldown((prev) => {
@@ -113,7 +124,7 @@ export function RiderVerifyEmailClient() {
         })
       }, 1000)
     } catch (err: any) {
-      setError(err.message || "Failed to resend code.")
+      setResendMessage(err.message || "Failed to resend verification code.")
     } finally {
       setResendLoading(false)
     }
@@ -194,15 +205,15 @@ export function RiderVerifyEmailClient() {
               <form onSubmit={handleManualVerify} className="space-y-3 pt-2">
                 <div className="space-y-1">
                   <Label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                    Email Address
+                    Email or Mobile Number
                   </Label>
                   <div className="relative">
                     <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                     <Input
-                      type="email"
+                      type="text"
                       value={inputEmail}
                       onChange={(e) => setInputEmail(e.target.value)}
-                      placeholder="rider@example.com"
+                      placeholder="rider@example.com or 76 123456"
                       required
                       className="pl-10 h-10 rounded-xl text-xs"
                     />

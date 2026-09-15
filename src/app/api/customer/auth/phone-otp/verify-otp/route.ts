@@ -42,7 +42,7 @@ export async function POST(request: Request) {
           })),
         ],
       },
-      select: { id: true, email: true, verifyEmailOtp: true, emailVerificationExpires: true },
+      select: { id: true, email: true, phone: true, phoneCountryCode: true, verifyEmailOtp: true, emailVerificationExpires: true },
     })
 
     if (!user) {
@@ -65,9 +65,13 @@ export async function POST(request: Request) {
 
     await resetOtpRateLimit(rateLimitKey)
 
-    const otpLoginToken = createOtpLoginToken(user.email, UserRole.CUSTOMER)
+    const otpLoginToken = createOtpLoginToken(user.email || user.phone, UserRole.CUSTOMER, {
+      userId: user.id,
+      phone: user.phone,
+      email: user.email,
+    })
     return NextResponse.json(
-      { message: "OTP verified.", otpLoginToken, email: user.email, loginUrl: "/customer" },
+      { message: "OTP verified.", otpLoginToken, email: user.email, phone: user.phone, loginUrl: "/customer" },
       { status: 200 }
     )
   } catch (error) {

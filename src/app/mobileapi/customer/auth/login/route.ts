@@ -3,17 +3,21 @@ import { prisma } from "@/lib/prisma"
 import { UserRole } from "@prisma/client"
 import bcrypt from "bcryptjs"
 import { generateMobileTokens } from "@/lib/mobile-jwt"
+import { getEquivalentPhoneVariants } from "@/lib/phone-validation"
 
 // Define request body interface
 interface LoginRequest {
-  email: string
+  email?: string
+  phone?: string
+  identifier?: string
   password: string
+  phoneCountryCode?: string
 }
 
 // Define the user type returned from our select query
 interface SelectedUser {
   id: string
-  email: string
+  email: string | null
   name: string | null
   password: string | null
   role: UserRole
@@ -53,9 +57,12 @@ interface ErrorResponse {
   success: false
   error: string
   needsVerification?: boolean
+  isVerified?: boolean
+  authStatus?: string
   verifyUrl?: string
   data?: {
-    email: string
+    email?: string | null
+    phone?: string | null
   }
 }
 
@@ -65,58 +72,85 @@ type ApiResponse = SuccessResponse | ErrorResponse
 export async function POST(request: Request): Promise<NextResponse<ApiResponse>> {
   try {
     // Parse and validate request body
-    const body: LoginRequest = await request.json()
-    const { email, password } = body
+    const body = (await request.json().catch(() => ({}))) as Partial<LoginRequest>
+    const identifier = (body.identifier || body.email || body.phone || "").trim()
+    const password = (body.password || "").trim()
+    const phoneCountryCode = (body.phoneCountryCode || "").trim()
 
     // Validation
-    if (!email || !password) {
+    if (!identifier || !password) {
       return NextResponse.json<ErrorResponse>(
         { 
           success: false,
-          error: "Email and password are required" 
+          error: "Email or mobile number, and password are required" 
         },
         { status: 400 }
       )
     }
 
-    // Validate email format
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (!emailRegex.test(email)) {
-      return NextResponse.json<ErrorResponse>(
-        { 
-          success: false,
-          error: "Invalid email format" 
-        },
-        { status: 400 }
-      )
-    }
+    let user: SelectedUser | null = null
 
-    // Find user with CUSTOMER role
-    const user = await prisma.user.findFirst({
-      where: { 
-        email: email.toLowerCase().trim(),
-        role: UserRole.CUSTOMER
-      },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        password: true,
-        role: true,
-        phone: true,
-        phoneCountryCode: true,
-        isEmailVerified: true,
-        createdAt: true,
-        updatedAt: true
+    if (identifier.includes("@")) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+      if (!emailRegex.test(identifier)) {
+        return NextResponse.json<ErrorResponse>(
+          { 
+            success: false,
+            error: "Invalid email format" 
+          },
+          { status: 400 }
+        )
       }
-    }) as SelectedUser | null
+
+      user = (await prisma.user.findFirst({
+        where: { 
+          email: identifier.toLowerCase().trim(),
+          role: UserRole.CUSTOMER
+        },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          password: true,
+          role: true,
+          phone: true,
+          phoneCountryCode: true,
+          isEmailVerified: true,
+          createdAt: true,
+          updatedAt: true
+        }
+      })) as SelectedUser | null
+    } else {
+      const variants = getEquivalentPhoneVariants(identifier, phoneCountryCode)
+      user = (await prisma.user.findFirst({
+        where: { 
+          role: UserRole.CUSTOMER,
+          OR: [
+            { phone: { in: variants } },
+            { phone: identifier }
+          ]
+        },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          password: true,
+          role: true,
+          phone: true,
+          phoneCountryCode: true,
+          isEmailVerified: true,
+          createdAt: true,
+          updatedAt: true
+        }
+      })) as SelectedUser | null
+    }
 
     // Check if user exists
     if (!user) {
       return NextResponse.json<ErrorResponse>(
         { 
           success: false,
-          error: "Invalid email or password" 
+          error: "Invalid email or mobile number, or password" 
         },
         { status: 401 }
       )
@@ -139,30 +173,39 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
       return NextResponse.json<ErrorResponse>(
         { 
           success: false,
-          error: "Invalid email or password" 
+          error: "Invalid email or mobile number, or password" 
         },
         { status: 401 }
       )
     }
 
-    // Check if email is verified
+    // Check if account is verified
     if (!user.isEmailVerified) {
       return NextResponse.json<ErrorResponse>(
         { 
           success: false,
-          error: "Please verify your email first",
+          error: "Please verify your account first",
           needsVerification: true,
-          verifyUrl: "/mobileapi/customer/verify-otp",
+          isVerified: false,
+          authStatus: "PENDING_VERIFICATION",
+          verifyUrl: user.email ? `/mobileapi/customer/auth/verify-otp?email=${encodeURIComponent(user.email)}` : `/mobileapi/customer/auth/verify-otp?phone=${encodeURIComponent(user.phone || "")}`,
           data: {
-            email: user.email
+            email: user.email,
+            phone: user.phone
           }
         },
         { status: 403 }
       )
     }
 
-    // Generate JWT tokens - removed deviceId and platform
-    const tokens = generateMobileTokens({ userId: user.id, email: user.email, role: user.role, passwordHash: user.password })
+    // Generate JWT tokens including phone
+    const tokens = generateMobileTokens({
+      userId: user.id,
+      email: user.email,
+      phone: user.phone,
+      role: user.role,
+      passwordHash: user.password
+    })
 
     // Remove password from user object
     const { password: _, ...userWithoutPassword } = user

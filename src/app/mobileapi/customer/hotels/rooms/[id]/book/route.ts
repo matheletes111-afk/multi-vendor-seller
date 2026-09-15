@@ -179,13 +179,15 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     try {
       const customerUser = await prisma.user.findUnique({
         where: { id: userId },
-        select: { email: true, name: true }
+        select: { email: true, name: true, phone: true, phoneCountryCode: true }
       })
 
       if (customerUser) {
-        // Send Customer Email
+        // Send Customer Email / SMS fallback
         await sendHotelBookingConfirmationEmail({
           to: customerUser.email,
+          toPhone: customerUser.phone,
+          phoneCountryCode: customerUser.phoneCountryCode,
           name: customerUser.name ?? "Customer",
           hotelName: room.hotel.name,
           roomName: room.name,
@@ -197,16 +199,18 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           totalPrice: finalPrice,
         })
 
-        // Send Hotel Seller Email
+        // Send Hotel Seller Email / SMS fallback
         const hotelSeller = await prisma.hotelSeller.findUnique({
           where: { id: room.hotel.hotelSellerId },
-          include: { user: { select: { email: true, name: true } } }
+          include: { user: { select: { email: true, name: true, phone: true, phoneCountryCode: true } } }
         })
 
-        if (hotelSeller?.user?.email) {
+        if (hotelSeller?.user?.email || hotelSeller?.user?.phone) {
           await sendHotelNewBookingEmail({
-            to: hotelSeller.user.email,
-            hotelSellerName: hotelSeller.user.name ?? "Hotel Partner",
+            to: hotelSeller.user?.email,
+            toPhone: hotelSeller.user?.phone,
+            phoneCountryCode: hotelSeller.user?.phoneCountryCode,
+            hotelSellerName: hotelSeller.user?.name ?? "Hotel Partner",
             hotelName: room.hotel.name,
             roomName: room.name,
             guestName: booking.guestName,
@@ -221,7 +225,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         // Send Admin Emails
         const admins = await prisma.user.findMany({
           where: { role: "ADMIN" },
-          select: { email: true }
+          select: { email: true, phone: true, phoneCountryCode: true }
         })
 
         const adminItems = [{
@@ -234,6 +238,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         for (const admin of admins) {
           await sendAdminNewOrderEmail({
             to: admin.email,
+            toPhone: admin.phone,
+            phoneCountryCode: admin.phoneCountryCode,
             orderNumber: booking.id,
             customerName: customerUser.name ?? "Customer",
             items: adminItems,

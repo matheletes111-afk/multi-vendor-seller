@@ -1,35 +1,56 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { UserRole } from "@prisma/client"
+import { getEquivalentPhoneVariants } from "@/lib/phone-validation"
 
 /**
  * POST /mobileapi/rider/auth/verify-otp
- * Body: { email, otp }
+ * Body: { email, phone, phoneCountryCode, otp }
  */
 export async function POST(request: Request) {
   try {
     const body = await request.json().catch(() => ({}))
     const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : ""
+    const phone = typeof body.phone === "string" ? body.phone.trim() : ""
+    const phoneCountryCode = typeof body.phoneCountryCode === "string" ? body.phoneCountryCode.trim() : ""
     const otp = typeof body.otp === "string" ? body.otp.trim() : ""
 
-    if (!email || !otp) {
+    if (!otp || (!email && !phone)) {
       return NextResponse.json(
-        { success: false, error: "Email and OTP code are required" },
+        { success: false, error: "Mobile number or email and OTP code are required" },
         { status: 400 }
       )
     }
 
-    const user = await prisma.user.findFirst({
-      where: { email, role: UserRole.RIDER },
-      select: {
-        id: true,
-        email: true,
-        isEmailVerified: true,
-        verifyEmailOtp: true,
-        emailVerificationExpires: true,
-        rider: true,
-      },
-    })
+    let user: any = null
+    if (email) {
+      user = await prisma.user.findFirst({
+        where: { email, role: UserRole.RIDER },
+        select: {
+          id: true,
+          email: true,
+          phone: true,
+          isEmailVerified: true,
+          verifyEmailOtp: true,
+          emailVerificationExpires: true,
+          rider: true,
+        },
+      })
+    } else if (phone) {
+      const phoneVariants = getEquivalentPhoneVariants(phone, phoneCountryCode)
+      user = await prisma.user.findFirst({
+        where: { phone: { in: phoneVariants }, role: UserRole.RIDER },
+        select: {
+          id: true,
+          email: true,
+          phone: true,
+          isEmailVerified: true,
+          verifyEmailOtp: true,
+          emailVerificationExpires: true,
+          rider: true,
+        },
+      })
+    }
 
     if (!user) {
       return NextResponse.json(
@@ -41,9 +62,10 @@ export async function POST(request: Request) {
     if (user.isEmailVerified) {
       return NextResponse.json({
         success: true,
-        message: "Email is already verified. You can now log in to the Rider app.",
+        message: "Account is already verified. You can now log in to the Rider app.",
         data: {
           email: user.email,
+          phone: user.phone,
           isEmailVerified: true,
           loginAvailable: true,
         },
@@ -74,9 +96,10 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       success: true,
-      message: "Email verified successfully! You can now log in to complete your rider onboarding.",
+      message: "Account verified successfully! You can now log in to complete your rider onboarding.",
       data: {
         email: user.email,
+        phone: user.phone,
         isEmailVerified: true,
         loginAvailable: true,
         onboardingCompleted: user.rider?.onboardingCompleted ?? false,

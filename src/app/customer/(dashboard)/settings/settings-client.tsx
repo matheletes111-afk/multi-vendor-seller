@@ -225,9 +225,9 @@ export function CustomerSettingsClient() {
               <ProfilePictureInput currentImage={user.image} fileInputName="profileImage" urlInputName="image" />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" defaultValue={user.email} disabled className="bg-muted" />
-              <p className="text-xs text-muted-foreground">Email cannot be changed</p>
+              <Label htmlFor="email">Email (Optional)</Label>
+              <Input id="email" name="email" type="email" defaultValue={user.email || ""} placeholder="customer@example.com" />
+              <p className="text-xs text-muted-foreground">Add your email to receive order updates, delivery tracking, and receipts via email.</p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="name">Name</Label>

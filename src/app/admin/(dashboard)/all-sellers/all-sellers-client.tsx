@@ -1289,6 +1289,7 @@ export function AllSellersClient() {
                                         name: seller.userName,
                                         businessName: seller.businessName,
                                         email: seller.userEmail,
+                                        phone: seller.userPhone,
                                         sellerType: seller.sellerType,
                                       })
                                     }
@@ -1314,6 +1315,7 @@ export function AllSellersClient() {
                                         name: seller.userName,
                                         businessName: seller.businessName,
                                         email: seller.userEmail,
+                                        phone: seller.userPhone,
                                         sellerType: seller.sellerType,
                                       })
                                     }
@@ -1339,6 +1341,7 @@ export function AllSellersClient() {
                                         name: seller.userName,
                                         businessName: seller.businessName,
                                         email: seller.userEmail,
+                                        phone: seller.userPhone,
                                         sellerType: seller.sellerType,
                                       })
                                     }

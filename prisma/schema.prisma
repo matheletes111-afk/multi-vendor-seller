@@ -102,7 +102,7 @@ enum ServiceStatus {
 
 model User {
   id                String    @id @default(cuid())
-  email             String    @unique
+  email             String?   @unique
   emailVerified     DateTime?
   name              String?
   password          String?
@@ -142,6 +142,7 @@ model User {
   categoryInterests UserCategoryInterest[]
   couponUsages      CouponUsage[]
 
+  @@index([phone])
   @@map("users")
 }
 

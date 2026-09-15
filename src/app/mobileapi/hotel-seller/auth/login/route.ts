@@ -3,10 +3,14 @@ import { prisma } from "@/lib/prisma"
 import { UserRole } from "@prisma/client"
 import bcrypt from "bcryptjs"
 import { generateMobileTokens } from "@/lib/mobile-jwt"
+import { getEquivalentPhoneVariants } from "@/lib/phone-validation"
 
 interface HotelSellerLoginRequest {
-  email: string
+  email?: string
+  phone?: string
+  identifier?: string
   password: string
+  phoneCountryCode?: string
   deviceId?: string
   platform?: string
 }
@@ -17,11 +21,12 @@ interface HotelSellerInfo {
   onboardingCompleted: boolean
   onboardingStep: number
   mobileStep: number
+  type?: string
 }
 
 interface UserWithHotelSeller {
   id: string
-  email: string
+  email: string | null
   name: string | null
   password: string
   role: UserRole
@@ -62,7 +67,8 @@ interface ErrorResponse {
   authStatus?: "PENDING_VERIFICATION" | "PENDING_APPROVAL" | "ACTIVE" | "SUSPENDED"
   verifyUrl: string
   data?: {
-    email?: string
+    email?: string | null
+    phone?: string | null
   }
 }
 
@@ -70,7 +76,7 @@ type ApiResponse = SuccessResponse | ErrorResponse
 
 export async function POST(request: Request): Promise<NextResponse<ApiResponse>> {
   try {
-    let body: HotelSellerLoginRequest
+    let body: Partial<HotelSellerLoginRequest>
     try {
       body = await request.json()
     } catch {
@@ -84,25 +90,15 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
       )
     }
 
-    const { email, password } = body
+    const identifier = (body.identifier || body.email || body.phone || "").trim()
+    const password = (body.password || "").trim()
+    const phoneCountryCode = (body.phoneCountryCode || "").trim()
 
-    if (!email || !password) {
+    if (!identifier || !password) {
       return NextResponse.json<ErrorResponse>(
         { 
           success: false,
-          error: "Email and password are required",
-          verifyUrl: "/mobileapi/hotel-seller/auth/verify-otp"
-        },
-        { status: 400 }
-      )
-    }
-
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (!emailRegex.test(email)) {
-      return NextResponse.json<ErrorResponse>(
-        { 
-          success: false,
-          error: "Invalid email format",
+          error: "Email or mobile number, and password are required",
           verifyUrl: "/mobileapi/hotel-seller/auth/verify-otp"
         },
         { status: 400 }
@@ -113,45 +109,92 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
       return NextResponse.json<ErrorResponse>(
         { 
           success: false,
-          error: "Invalid email or password",
+          error: "Invalid email or mobile number, or password",
           verifyUrl: "/mobileapi/hotel-seller/auth/verify-otp"
         },
         { status: 401 }
       )
     }
 
-    const user = await prisma.user.findFirst({
-      where: { 
-        email: email.toLowerCase().trim(),
-        role: UserRole.SELLER_HOTEL
-      },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        password: true,
-        role: true,
-        phone: true,
-        phoneCountryCode: true,
-        isEmailVerified: true,
-        createdAt: true,
-        updatedAt: true,
-        hotelSeller: {
-          select: {
-            isApproved: true,
-            isSuspended: true,
-            onboardingCompleted: true,
-            onboardingStep: true
+    let user: UserWithHotelSeller | null = null
+
+    if (identifier.includes("@")) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+      if (!emailRegex.test(identifier)) {
+        return NextResponse.json<ErrorResponse>(
+          { 
+            success: false,
+            error: "Invalid email format",
+            verifyUrl: "/mobileapi/hotel-seller/auth/verify-otp"
+          },
+          { status: 400 }
+        )
+      }
+
+      user = (await prisma.user.findFirst({
+        where: { 
+          email: identifier.toLowerCase().trim(),
+          role: UserRole.SELLER_HOTEL
+        },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          password: true,
+          role: true,
+          phone: true,
+          phoneCountryCode: true,
+          isEmailVerified: true,
+          createdAt: true,
+          updatedAt: true,
+          hotelSeller: {
+            select: {
+              isApproved: true,
+              isSuspended: true,
+              onboardingCompleted: true,
+              onboardingStep: true,
+            }
           }
         }
-      }
-    }) as UserWithHotelSeller | null
+      })) as UserWithHotelSeller | null
+    } else {
+      const variants = getEquivalentPhoneVariants(identifier, phoneCountryCode)
+      user = (await prisma.user.findFirst({
+        where: { 
+          role: UserRole.SELLER_HOTEL,
+          OR: [
+            { phone: { in: variants } },
+            { phone: identifier }
+          ]
+        },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          password: true,
+          role: true,
+          phone: true,
+          phoneCountryCode: true,
+          isEmailVerified: true,
+          createdAt: true,
+          updatedAt: true,
+          hotelSeller: {
+            select: {
+              isApproved: true,
+              isSuspended: true,
+              onboardingCompleted: true,
+              onboardingStep: true,
+            }
+          }
+        }
+      })) as UserWithHotelSeller | null
+    }
 
     if (!user) {
       return NextResponse.json<ErrorResponse>(
         { 
           success: false,
-          error: "Invalid email or password",
+          error: "Invalid email or mobile number, or password",
           verifyUrl: "/mobileapi/hotel-seller/auth/verify-otp"
         },
         { status: 401 }
@@ -169,12 +212,12 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
       )
     }
 
-    const isValidPassword = await bcrypt.compare(password, user.password)
-    if (!isValidPassword) {
+    const isPasswordValid = await bcrypt.compare(password, user.password)
+    if (!isPasswordValid) {
       return NextResponse.json<ErrorResponse>(
         { 
           success: false,
-          error: "Invalid email or password",
+          error: "Invalid email or mobile number, or password",
           verifyUrl: "/mobileapi/hotel-seller/auth/verify-otp"
         },
         { status: 401 }
@@ -185,12 +228,13 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
       return NextResponse.json<ErrorResponse>(
         { 
           success: false,
-          error: "Please verify your email first.",
+          error: "Please verify your account first.",
           needsVerification: true,
           authStatus: "PENDING_VERIFICATION",
-          verifyUrl: "/mobileapi/hotel-seller/auth/verify-otp",
+          verifyUrl: user.email ? `/mobileapi/hotel-seller/auth/verify-otp?email=${encodeURIComponent(user.email)}` : `/mobileapi/hotel-seller/auth/verify-otp?phone=${encodeURIComponent(user.phone || "")}`,
           data: {
-            email: user.email
+            email: user.email,
+            phone: user.phone
           }
         },
         { status: 403 }
@@ -236,6 +280,7 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
     const tokens = generateMobileTokens({
       userId: user.id,
       email: user.email,
+      phone: user.phone,
       role: user.role,
       passwordHash: user.password,
     })

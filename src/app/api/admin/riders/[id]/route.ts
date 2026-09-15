@@ -319,11 +319,13 @@ export async function PATCH(
     if (
       riderUpdates.isSuspended !== undefined &&
       riderUpdates.isSuspended !== user.rider.isSuspended &&
-      user.email
+      (user.email || user.phone)
     ) {
       try {
         await sendRiderSuspensionEmail({
           to: user.email,
+          toPhone: user.phone,
+          phoneCountryCode: user.phoneCountryCode,
           name: user.name ?? "Delivery Rider",
           isSuspended: riderUpdates.isSuspended,
         })

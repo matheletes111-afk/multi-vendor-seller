@@ -51,7 +51,7 @@ export function RiderRegistrationClient() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: name.trim(),
-          email: email.trim().toLowerCase(),
+          email: email.trim().toLowerCase() || undefined,
           phone: phone.trim(),
           phoneCountryCode: phoneCountryCode.trim(),
           password,
@@ -85,7 +85,11 @@ export function RiderRegistrationClient() {
       const res = await fetch("/api/riderapp/auth/resend-otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim().toLowerCase() }),
+        body: JSON.stringify({
+          email: email.trim().toLowerCase() || undefined,
+          phone: phone.trim() || undefined,
+          phoneCountryCode: phoneCountryCode.trim() || undefined,
+        }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || "Failed to resend code.")
@@ -109,6 +113,9 @@ export function RiderRegistrationClient() {
   }
 
   if (isSubmitted) {
+    const displayTarget = email.trim() || (phoneCountryCode ? `${phoneCountryCode} ${phone.trim()}` : phone.trim())
+    const verifyHref = `/riderapp/verify-email?${email.trim() ? `email=${encodeURIComponent(email.trim().toLowerCase())}` : `phone=${encodeURIComponent(phone.trim())}&phoneCountryCode=${encodeURIComponent(phoneCountryCode.trim())}`}&from=registration`
+
     return (
       <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8">
         <div className="sm:mx-auto sm:w-full sm:max-w-md">
@@ -118,11 +125,11 @@ export function RiderRegistrationClient() {
             </div>
 
             <h3 className="text-xl font-bold text-slate-900 dark:text-white">
-              Verify Your Email Address
+              Verify Your Account
             </h3>
 
             <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-              We have sent a 6-digit verification code and link to <strong>{email}</strong>. Please check your inbox and click the verification button or use the code to activate your rider account.
+              We have sent a 6-digit verification code to <strong>{displayTarget}</strong>. Please use the code to activate your rider account.
             </p>
 
             {resendMessage && (
@@ -136,8 +143,14 @@ export function RiderRegistrationClient() {
             </div>
 
             <div className="space-y-2 pt-2">
-              <Link href="/riderapp/login" className="block">
+              <Link href={verifyHref} className="block">
                 <Button className="w-full h-11 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs">
+                  Enter Verification Code
+                </Button>
+              </Link>
+
+              <Link href="/riderapp/login" className="block">
+                <Button variant="outline" className="w-full h-11 rounded-xl font-semibold text-xs">
                   Proceed to Rider Login
                 </Button>
               </Link>
@@ -152,7 +165,7 @@ export function RiderRegistrationClient() {
                   ? `Resend code available in ${resendCooldown}s`
                   : resendLoading
                   ? "Resending verification..."
-                  : "Didn't receive the email? Resend verification code"}
+                  : "Didn't receive the code? Resend verification code"}
               </button>
             </div>
           </div>
@@ -220,7 +233,7 @@ export function RiderRegistrationClient() {
 
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                Email Address *
+                Email Address <span className="text-slate-400 font-normal">(Optional)</span>
               </Label>
               <div className="relative">
                 <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -229,7 +242,6 @@ export function RiderRegistrationClient() {
                   placeholder="rider@example.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  required
                   disabled={loading}
                   className="pl-10 h-11 rounded-xl text-xs bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700"
                 />

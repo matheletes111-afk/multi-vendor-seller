@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic"
 type CustomerProfileData = {
   id: string
   name: string | null
-  email: string
+  email: string | null
   image: string | null
   phone: string | null
   phoneCountryCode: string | null
@@ -60,6 +60,7 @@ export async function PUT(request: NextRequest) {
   const contentType = request.headers.get("content-type") ?? ""
   const userData: {
     name?: string
+    email?: string | null
     image?: string | null
     phone?: string | null
     phoneCountryCode?: string | null
@@ -86,6 +87,7 @@ export async function PUT(request: NextRequest) {
     // Support both flat keys and nested client keys from mobile forms.
     const nameRaw = getString("name", "user[name]")
     const name = nameRaw !== undefined ? sanitizeInput(nameRaw) : undefined
+    const emailRaw = getString("email", "user[email]")
     const imageUrl = getString("image", "imageUrl", "user[image]")?.trim()
     const phone = getString("phone", "user[phone]")
     const phoneCountryCode = getString("phoneCountryCode", "phone_country_code", "user[phoneCountryCode]")
@@ -94,6 +96,24 @@ export async function PUT(request: NextRequest) {
     const profileImageFile = getFile("profileImage", "profile_image", "image")
  
     if (name !== undefined) userData.name = name
+    if (emailRaw !== undefined) {
+      const trimmedEmail = emailRaw.trim().toLowerCase()
+      if (trimmedEmail) {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+        if (!emailRegex.test(trimmedEmail)) {
+          return NextResponse.json({ success: false, error: "Please enter a valid email address." }, { status: 400 })
+        }
+        const existingUser = await prisma.user.findFirst({
+          where: { email: trimmedEmail, NOT: { id: auth.userId } },
+        })
+        if (existingUser) {
+          return NextResponse.json({ success: false, error: "This email address is already registered to another account." }, { status: 400 })
+        }
+        userData.email = trimmedEmail
+      } else {
+        userData.email = null
+      }
+    }
     if (phone !== undefined) userData.phone = phone || null
     if (phoneCountryCode !== undefined) userData.phoneCountryCode = phoneCountryCode || null
     if (password !== undefined) {
@@ -148,6 +168,7 @@ export async function PUT(request: NextRequest) {
   } else {
     const body = (await request.json().catch(() => ({}))) as {
       name?: string
+      email?: string
       image?: string
       phone?: string
       phoneCountryCode?: string
@@ -156,6 +177,24 @@ export async function PUT(request: NextRequest) {
     }
     if (body.name !== undefined) {
       userData.name = typeof body.name === "string" ? sanitizeInput(body.name) : undefined
+    }
+    if (body.email !== undefined) {
+      const trimmedEmail = typeof body.email === "string" ? body.email.trim().toLowerCase() : ""
+      if (trimmedEmail) {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+        if (!emailRegex.test(trimmedEmail)) {
+          return NextResponse.json({ success: false, error: "Please enter a valid email address." }, { status: 400 })
+        }
+        const existingUser = await prisma.user.findFirst({
+          where: { email: trimmedEmail, NOT: { id: auth.userId } },
+        })
+        if (existingUser) {
+          return NextResponse.json({ success: false, error: "This email address is already registered to another account." }, { status: 400 })
+        }
+        userData.email = trimmedEmail
+      } else {
+        userData.email = null
+      }
     }
     if (body.image !== undefined) userData.image = body.image
     if (body.phone !== undefined) userData.phone = body.phone || null
@@ -200,6 +239,15 @@ export async function PUT(request: NextRequest) {
     }
   }
 
+  if (userData.phone) {
+    const existingPhone = await prisma.user.findFirst({
+      where: { phone: userData.phone, NOT: { id: auth.userId } }
+    })
+    if (existingPhone) {
+      return NextResponse.json({ success: false, error: "This phone number is already registered to another account." }, { status: 400 })
+    }
+  }
+
   await prisma.user.update({
     where: { id: auth.userId },
     data: userData,
@@ -227,4 +275,6 @@ export async function PUT(request: NextRequest) {
     data: updatedUser,
   })
 }
+
+export const PATCH = PUT
 

@@ -39,10 +39,14 @@ export function RiderLoginClient() {
     setResendLoading(true)
     setResendSuccess(null)
     try {
+      const isPhone = !email.includes("@") && /^[0-9+\s\-()]+$/.test(email)
       const res = await fetch("/api/riderapp/auth/resend-otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim().toLowerCase() }),
+        body: JSON.stringify({
+          email: isPhone ? undefined : email.trim().toLowerCase(),
+          phone: isPhone ? email.trim() : undefined,
+        }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || "Failed to resend verification code.")
@@ -72,11 +76,13 @@ export function RiderLoginClient() {
     setLoading(true)
 
     try {
+      const isPhone = !email.includes("@") && /^[0-9+\s\-()]+$/.test(email)
       const res = await fetch("/api/riderapp/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          email: email.trim().toLowerCase(),
+          email: isPhone ? undefined : email.trim().toLowerCase(),
+          phone: isPhone ? email.trim() : undefined,
           password,
           csrfToken: csrfToken ?? undefined,
         }),
@@ -89,17 +95,20 @@ export function RiderLoginClient() {
         if (data.needsVerification) {
           setNeedsVerification(true)
         }
-        throw new Error(data.error || "Failed to sign in. Please check your credentials.")
+        throw new Error(data.error || "Login failed. Check your credentials.")
       }
 
-      // Hard redirect ensures session cookie is immediately sent with subsequent SSR / middleware requests
-      const targetUrl = data.url || (data.isFirstLogin || !data.onboardingCompleted
-        ? "/riderapp/onboarding"
-        : "/riderapp")
+      // Check if temporary password needs to be changed
+      if (data.user?.isFirstLogin) {
+        router.push("/riderapp/change-password?first=true")
+        return
+      }
 
-      window.location.href = targetUrl
+      router.push("/riderapp")
+      router.refresh()
     } catch (err: any) {
       setError(err.message || "An unexpected error occurred.")
+    } finally {
       setLoading(false)
     }
   }
@@ -121,20 +130,19 @@ export function RiderLoginClient() {
 
         <div className="text-center">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 text-xs font-bold uppercase tracking-wider mb-2">
-            <Bike className="w-4 h-4" />
             Delivery Rider Portal
           </div>
           <h2 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
             Sign in to your rider account
           </h2>
           <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">
-            Access your active deliveries, manage delivery zones, and track earnings.
+            Enter your credentials to access your delivery dashboard
           </p>
         </div>
       </div>
 
-      <div className="mt-6 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white dark:bg-slate-900 py-8 px-6 sm:px-10 shadow-sm border border-slate-200 dark:border-slate-800 rounded-3xl space-y-6">
+      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
+        <div className="bg-white dark:bg-slate-900 py-8 px-6 sm:px-10 shadow-sm border border-slate-200 dark:border-slate-800 rounded-3xl space-y-5">
           {searchParams.get("reset") === "1" && (
             <div className="p-3.5 rounded-2xl bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-300 text-xs border border-green-200 dark:border-green-900/50 flex items-start gap-2.5">
               <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0 mt-0.5" />
@@ -145,14 +153,14 @@ export function RiderLoginClient() {
           {searchParams.get("registered") === "true" && !searchParams.get("verified") && (
             <div className="p-3.5 rounded-2xl bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 text-xs border border-blue-200 dark:border-blue-900/50 flex items-start gap-2.5">
               <CheckCircle2 className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
-              <span>Please check your email to verify your rider account before signing in.</span>
+              <span>Please check your email or mobile to verify your rider account before signing in.</span>
             </div>
           )}
 
           {searchParams.get("verified") === "1" && (
             <div className="p-3.5 rounded-2xl bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-300 text-xs border border-green-200 dark:border-green-900/50 flex items-start gap-2.5">
               <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0 mt-0.5" />
-              <span>Email verified successfully. You can sign in now.</span>
+              <span>Account verified successfully. You can sign in now.</span>
             </div>
           )}
 
@@ -180,7 +188,7 @@ export function RiderLoginClient() {
                     ? `Resend code available in ${resendCooldown}s`
                     : resendLoading
                     ? "Resending code..."
-                    : "Resend verification code to your email"}
+                    : "Resend verification code"}
                 </button>
               )}
             </div>
@@ -189,13 +197,13 @@ export function RiderLoginClient() {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                Email Address
+                Email or Mobile Number
               </Label>
               <div className="relative">
                 <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <Input
-                  type="email"
-                  placeholder="rider@example.com"
+                  type="text"
+                  placeholder="rider@example.com or 76 123456"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required

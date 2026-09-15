@@ -69,7 +69,11 @@ export default function RestaurantSellerRegistrationPage() {
 
       const result = await res.json()
       if (res.ok) {
-        router.push(result.verifyUrl + `?email=${encodeURIComponent(data.email as string)}&from=registration`)
+        const rawEmail = typeof data.email === "string" ? data.email.trim() : ""
+        const nextQuery = rawEmail
+          ? `email=${encodeURIComponent(rawEmail)}`
+          : `phone=${encodeURIComponent(phoneValidation.cleanedPhone!)}&phoneCountryCode=${encodeURIComponent(phoneValidation.cleanedCountryCode!)}`
+        router.push(result.verifyUrl + `?${nextQuery}&from=registration`)
       } else {
         setError(result.error || "Registration failed. Please try again.")
       }
@@ -105,8 +109,8 @@ export default function RestaurantSellerRegistrationPage() {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="email">Work Email</Label>
-            <Input id="email" name="email" type="email" placeholder="john@restaurant.com" required className="rounded-xl" />
+            <Label htmlFor="email">Work Email <span className="text-gray-400 font-normal">(Optional)</span></Label>
+            <Input id="email" name="email" type="email" placeholder="john@restaurant.com" className="rounded-xl" />
           </div>
 
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-[110px_1fr]">
@@ -121,7 +125,7 @@ export default function RestaurantSellerRegistrationPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="phone">Phone Number</Label>
+              <Label htmlFor="phone">Phone Number <span className="text-red-500">*</span></Label>
               <Input id="phone" name="phone" type="tel" placeholder="e.g. 088994462 or 9876543210" pattern="^[0-9\s\-()]+$" title="Phone number must contain only numbers." required className="rounded-xl" />
             </div>
           </div>

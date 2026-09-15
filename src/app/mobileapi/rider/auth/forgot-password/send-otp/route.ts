@@ -12,8 +12,16 @@ const COOLDOWN_MS = 60 * 1000
 export async function POST(request: Request) {
   try {
     const body = await request.json().catch(() => ({}))
-    const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : ""
-    const phoneInput = typeof body.phone === "string" ? body.phone.trim() : ""
+    const rawIdentifier = typeof body.identifier === "string" ? body.identifier.trim() : ""
+    let email = typeof body.email === "string" ? body.email.trim().toLowerCase() : ""
+    let phoneInput = typeof body.phone === "string" ? body.phone.trim() : ""
+    if (!email && !phoneInput && rawIdentifier) {
+      if (rawIdentifier.includes("@")) {
+        email = rawIdentifier.toLowerCase()
+      } else {
+        phoneInput = rawIdentifier
+      }
+    }
     const normalizedPhone = phoneInput ? normalizePhoneNumber(phoneInput) : ""
 
     if (!email && !normalizedPhone) {
@@ -65,7 +73,7 @@ export async function POST(request: Request) {
         {
           success: true,
           message: "If an active rider account exists, a reset OTP has been sent.",
-          data: { email: email || user?.email || "", expiresIn: OTP_EXPIRY_MS / 1000 },
+          data: { email: email || user?.email || "", phone: phoneInput || user?.phone || "", expiresIn: OTP_EXPIRY_MS / 1000 },
         },
         { status: 200 }
       )
@@ -91,25 +99,37 @@ export async function POST(request: Request) {
     })
 
     const baseUrl = getAppBaseUrl(request)
-    const resetLink = `${baseUrl}/riderapp/reset-password?email=${encodeURIComponent(email)}`
+    const identifierParam = user.email ? `email=${encodeURIComponent(user.email)}` : `phone=${encodeURIComponent(user.phone || "")}`
+    const resetLink = `${baseUrl}/riderapp/reset-password?${identifierParam}`
 
-    await Promise.allSettled([
-      sendPasswordResetOtpEmail({ to: email, otp, name: user.name, resetLink }),
-      sendPasswordResetSms({
-        to: user.phone,
-        countryCode: user.phoneCountryCode,
-        otp,
-        name: user.name,
-        resetLink,
-      }),
-    ])
+    const sendTasks: Promise<unknown>[] = []
+    if (user.email) {
+      sendTasks.push(sendPasswordResetOtpEmail({ to: user.email, otp, name: user.name, resetLink }))
+    }
+    if (user.phone) {
+      sendTasks.push(
+        sendPasswordResetSms({
+          to: user.phone,
+          countryCode: user.phoneCountryCode,
+          otp,
+          name: user.name,
+          resetLink,
+        })
+      )
+    }
+    await Promise.allSettled(sendTasks)
 
     return NextResponse.json(
       {
         success: true,
-        message: "Password reset OTP has been sent to your email and phone.",
+        message: user.email && user.phone
+          ? "Password reset OTP has been sent to your email and phone."
+          : user.phone
+          ? "Password reset OTP has been sent to your mobile number."
+          : "Password reset OTP has been sent to your email.",
         data: {
-          email,
+          email: user.email || "",
+          phone: user.phone || "",
           expiresIn: OTP_EXPIRY_MS / 1000,
           resendCooldown: 60,
         },

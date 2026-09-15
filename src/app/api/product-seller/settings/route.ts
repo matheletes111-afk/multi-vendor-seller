@@ -120,6 +120,7 @@ export async function PUT(request: NextRequest) {
     const profileImageFile = fd.get("profileImage") as File | null
     const imageUrl = (fd.get("image") as string)?.trim()
     const name = fd.get("name") !== null ? sanitizeInput(fd.get("name") as string) : undefined
+    const emailRaw = fd.get("email") !== null ? (fd.get("email") as string) : null
     const phone = (fd.get("phone") as string) ?? ""
     const phoneCountryCode = (fd.get("phoneCountryCode") as string) ?? ""
     const nationIdentityNumberRaw = fd.get("nationIdentityNumber") as string | null
@@ -127,8 +128,26 @@ export async function PUT(request: NextRequest) {
     const password = ((fd.get("password") as string | null) ?? "").trim()
     const currentPassword = ((fd.get("currentPassword") as string | null) ?? "").trim()
 
-    const userData: { name?: string; image?: string | null; phone?: string | null; phoneCountryCode?: string | null; password?: string } = {}
+    const userData: { name?: string; email?: string | null; image?: string | null; phone?: string | null; phoneCountryCode?: string | null; password?: string } = {}
     if (name !== undefined) userData.name = name
+    if (emailRaw !== null) {
+      const trimmedEmail = emailRaw.trim().toLowerCase()
+      if (trimmedEmail) {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+        if (!emailRegex.test(trimmedEmail)) {
+          return NextResponse.json({ error: "Please enter a valid email address." }, { status: 400 })
+        }
+        const existingUser = await prisma.user.findFirst({
+          where: { email: trimmedEmail, NOT: { id: session.user.id } },
+        })
+        if (existingUser) {
+          return NextResponse.json({ error: "This email address is already registered to another account." }, { status: 400 })
+        }
+        userData.email = trimmedEmail
+      } else {
+        userData.email = null
+      }
+    }
     if (phone || phoneCountryCode) {
       const phoneRes = validatePhoneFields(phone, phoneCountryCode)
       if (phoneRes.error) return NextResponse.json({ error: phoneRes.error }, { status: 400 })
@@ -585,7 +604,7 @@ export async function PUT(request: NextRequest) {
 
   const body = await request.json().catch(() => ({})) as {
     store?: Record<string, unknown>
-    user?: { name?: string; image?: string; phone?: string; phoneCountryCode?: string; password?: string; currentPassword?: string }
+    user?: { name?: string; email?: string; image?: string; phone?: string; phoneCountryCode?: string; password?: string; currentPassword?: string }
     seller?: Record<string, any>
   }
 
@@ -617,9 +636,27 @@ export async function PUT(request: NextRequest) {
   }
 
   if (body.user && Object.keys(body.user).length > 0) {
-    const userData: { name?: string; image?: string; phone?: string | null; phoneCountryCode?: string | null; password?: string } = {}
+    const userData: { name?: string; email?: string | null; image?: string; phone?: string | null; phoneCountryCode?: string | null; password?: string } = {}
     if (body.user.name !== undefined) {
       userData.name = typeof body.user.name === "string" ? sanitizeInput(body.user.name) : undefined
+    }
+    if (body.user.email !== undefined) {
+      const trimmedEmail = typeof body.user.email === "string" ? body.user.email.trim().toLowerCase() : ""
+      if (trimmedEmail) {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+        if (!emailRegex.test(trimmedEmail)) {
+          return NextResponse.json({ error: "Please enter a valid email address." }, { status: 400 })
+        }
+        const existingUser = await prisma.user.findFirst({
+          where: { email: trimmedEmail, NOT: { id: session.user.id } },
+        })
+        if (existingUser) {
+          return NextResponse.json({ error: "This email address is already registered to another account." }, { status: 400 })
+        }
+        userData.email = trimmedEmail
+      } else {
+        userData.email = null
+      }
     }
     if (body.user.image !== undefined) userData.image = body.user.image
     if (body.user.phone !== undefined || body.user.phoneCountryCode !== undefined) {

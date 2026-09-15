@@ -239,6 +239,7 @@ export async function PUT(request: NextRequest) {
 
   const userData: {
     name?: string
+    email?: string | null
     image?: string | null
     phone?: string | null
     phoneCountryCode?: string | null
@@ -268,6 +269,7 @@ export async function PUT(request: NextRequest) {
   if (contentType.includes("multipart/form-data")) {
     const formData = await request.formData()
     const name = formData.get("name") !== null ? sanitizeInput(formData.get("name") as string) : undefined
+    const emailRaw = formData.get("email") !== null ? (formData.get("email") as string) : null
     const imageUrl = (formData.get("image") as string | null)?.trim() || undefined
     const phone = (formData.get("phone") as string | null) ?? ""
     const phoneCountryCode = (formData.get("phoneCountryCode") as string | null) ?? ""
@@ -336,6 +338,24 @@ export async function PUT(request: NextRequest) {
     const profileImageFile = formData.get("profileImage") as File | null
 
     if (name !== undefined) userData.name = name
+    if (emailRaw !== null) {
+      const trimmedEmail = emailRaw.trim().toLowerCase()
+      if (trimmedEmail) {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+        if (!emailRegex.test(trimmedEmail)) {
+          return NextResponse.json({ error: "Please enter a valid email address." }, { status: 400 })
+        }
+        const existingUser = await prisma.user.findFirst({
+          where: { email: trimmedEmail, NOT: { id: session.user.id } },
+        })
+        if (existingUser) {
+          return NextResponse.json({ error: "This email address is already registered to another account." }, { status: 400 })
+        }
+        userData.email = trimmedEmail
+      } else {
+        userData.email = null
+      }
+    }
     if (phone || phoneCountryCode) {
       const phoneRes = validatePhoneFields(phone, phoneCountryCode)
       if (phoneRes.error) return NextResponse.json({ error: phoneRes.error }, { status: 400 })
@@ -391,6 +411,7 @@ export async function PUT(request: NextRequest) {
   } else {
     const body = await request.json().catch(() => ({})) as {
       name?: string
+      email?: string
       image?: string
       phone?: string
       phoneCountryCode?: string
@@ -408,6 +429,24 @@ export async function PUT(request: NextRequest) {
     }
     if (body.name !== undefined) {
       userData.name = typeof body.name === "string" ? sanitizeInput(body.name) : undefined
+    }
+    if (body.email !== undefined) {
+      const trimmedEmail = typeof body.email === "string" ? body.email.trim().toLowerCase() : ""
+      if (trimmedEmail) {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+        if (!emailRegex.test(trimmedEmail)) {
+          return NextResponse.json({ error: "Please enter a valid email address." }, { status: 400 })
+        }
+        const existingUser = await prisma.user.findFirst({
+          where: { email: trimmedEmail, NOT: { id: session.user.id } },
+        })
+        if (existingUser) {
+          return NextResponse.json({ error: "This email address is already registered to another account." }, { status: 400 })
+        }
+        userData.email = trimmedEmail
+      } else {
+        userData.email = null
+      }
     }
     if (body.image !== undefined) userData.image = body.image
     if (body.phone !== undefined) userData.phone = body.phone || null

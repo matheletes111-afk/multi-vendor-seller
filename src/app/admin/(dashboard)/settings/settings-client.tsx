@@ -545,7 +545,7 @@ export function AdminSettingsClient() {
                 <ProfilePictureInput fileInputName="profileImage" currentImage={user.image} size="lg" />
                 <div className="space-y-1 text-center sm:text-left">
                   <h3 className="text-lg font-medium">{user.name || "Administrator"}</h3>
-                  <p className="text-xs text-muted-foreground font-mono">{user.email}</p>
+                  <p className="text-xs text-muted-foreground font-mono">{user.email || user.phone}</p>
                   <Badge variant="outline" className="mt-2 bg-primary/5 text-primary border-primary/20 rounded-full font-medium text-[10px] uppercase tracking-wider px-3 py-0.5">
                     Super Administrator
                   </Badge>
@@ -554,12 +554,12 @@ export function AdminSettingsClient() {
 
               <div className="grid gap-8 md:grid-cols-2">
                 <div className="space-y-3">
-                  <Label htmlFor="email" className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground ml-1">System Handle (Email)</Label>
+                  <Label htmlFor="email" className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground ml-1">Email Address (Optional)</Label>
                   <div className="relative">
                     <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50" />
-                    <Input id="email" value={user.email} disabled className="pl-12 border-muted bg-muted/40 rounded-2xl h-12 text-muted-foreground font-mono text-xs cursor-not-allowed opacity-80" />
+                    <Input id="email" name="email" type="email" defaultValue={user.email || ""} placeholder="admin@example.com" className="pl-12 border-muted bg-muted/20 rounded-2xl h-12 focus-visible:ring-primary font-medium shadow-inner text-xs" />
                   </div>
-                  <p className="text-[9px] text-muted-foreground/60 ml-1 italic">* Primary authentication channel (locked)</p>
+                  <p className="text-[9px] text-muted-foreground/60 ml-1 italic">* Primary authentication & alert channel</p>
                 </div>
                 <div className="space-y-3">
                   <Label htmlFor="name" className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground ml-1">Display Designation</Label>

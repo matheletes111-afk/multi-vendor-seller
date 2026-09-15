@@ -152,8 +152,8 @@ function CustomerLoginForm() {
           )}
           <div className="space-y-5">
             <div>
-              <Label htmlFor="email" className="mb-1.5 block text-sm font-medium text-gray-700">Email</Label>
-              <Input id="email" type="email" placeholder="example@gmail.com" value={email} onChange={(e) => setEmail(e.target.value)} required disabled={loading} className="rounded-xl border-gray-200" />
+              <Label htmlFor="email" className="mb-1.5 block text-sm font-medium text-gray-700">Email or Mobile Number</Label>
+              <Input id="email" type="text" placeholder="example@gmail.com or 088994462" value={email} onChange={(e) => setEmail(e.target.value)} required disabled={loading} className="rounded-xl border-gray-200" />
             </div>
             <div>
               <Label htmlFor="password" className="mb-1.5 block text-sm font-medium text-gray-700">Password</Label>

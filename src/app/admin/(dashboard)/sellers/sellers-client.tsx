@@ -692,6 +692,7 @@ export function SellersClient() {
                                         name: seller.user?.name,
                                         businessName: seller.store?.name || seller.businessInfo?.businessName,
                                         email: seller.user?.email,
+                                        phone: seller.user?.phone,
                                         sellerType: seller.type || "PRODUCT",
                                       })
                                     }
@@ -742,6 +743,7 @@ export function SellersClient() {
                                           name: seller.user?.name,
                                           businessName: seller.store?.name || seller.businessInfo?.businessName,
                                           email: seller.user?.email,
+                                          phone: seller.user?.phone,
                                           sellerType: seller.type || "PRODUCT",
                                         })
                                       }

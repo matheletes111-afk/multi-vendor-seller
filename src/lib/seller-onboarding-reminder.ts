@@ -19,6 +19,9 @@ export interface SellerReminderItem {
   userId: string
   userName: string | null
   userEmail: string | null
+  userPhone?: string | null
+  phoneCountryCode?: string | null
+  channel?: "email" | "sms" | "none"
   businessName: string | null
   onboardingStep: number
   onboardingCompleted: boolean
@@ -40,6 +43,7 @@ export interface OnboardingReminderSweepResult {
     sentTotal: number
     failedTotal: number
     skippedNoEmail: number
+    skippedNoContact: number
     byType: {
       product: number
       service: number
@@ -148,7 +152,7 @@ export async function runSellerOnboardingReminderSweep(
   ])
 
   const pendingList: SellerReminderItem[] = []
-  let skippedNoEmail = 0
+  let skippedNoContact = 0
 
   // 1. Process Product and Service Sellers
   for (const s of sellersRaw) {
@@ -171,8 +175,8 @@ export async function runSellerOnboardingReminderSweep(
 
     // Only include if onboarding is incomplete or documents are missing
     if (!s.onboardingCompleted || !docEval.isComplete || missingSteps.length > 0) {
-      if (!s.user?.email) {
-        skippedNoEmail++
+      if (!s.user?.email && !s.user?.phone) {
+        skippedNoContact++
         continue
       }
       pendingList.push({
@@ -181,6 +185,9 @@ export async function runSellerOnboardingReminderSweep(
         userId: s.userId,
         userName: s.user?.name || null,
         userEmail: s.user?.email || null,
+        userPhone: s.user?.phone || null,
+        phoneCountryCode: s.user?.phoneCountryCode || null,
+        channel: s.user?.email ? "email" : s.user?.phone ? "sms" : "none",
         businessName: s.store?.name || s.businessInfo?.businessName || null,
         onboardingStep: s.onboardingStep || 2,
         onboardingCompleted: s.onboardingCompleted,
@@ -204,8 +211,8 @@ export async function runSellerOnboardingReminderSweep(
     if (!h.agreement?.agreedToTerms) missingSteps.push("Legal Agreement Acceptance")
 
     if (!h.onboardingCompleted || !docEval.isComplete || missingSteps.length > 0) {
-      if (!h.user?.email) {
-        skippedNoEmail++
+      if (!h.user?.email && !h.user?.phone) {
+        skippedNoContact++
         continue
       }
       pendingList.push({
@@ -214,6 +221,9 @@ export async function runSellerOnboardingReminderSweep(
         userId: h.userId,
         userName: h.user?.name || null,
         userEmail: h.user?.email || null,
+        userPhone: h.user?.phone || null,
+        phoneCountryCode: h.user?.phoneCountryCode || null,
+        channel: h.user?.email ? "email" : h.user?.phone ? "sms" : "none",
         businessName: h.businessInfo?.businessName || h.hotels?.[0]?.name || null,
         onboardingStep: h.onboardingStep || 2,
         onboardingCompleted: h.onboardingCompleted,
@@ -238,8 +248,8 @@ export async function runSellerOnboardingReminderSweep(
     if (!r.agreement?.agreedToTerms) missingSteps.push("Legal Agreement Acceptance")
 
     if (!r.onboardingCompleted || !docEval.isComplete || missingSteps.length > 0) {
-      if (!r.user?.email) {
-        skippedNoEmail++
+      if (!r.user?.email && !r.user?.phone) {
+        skippedNoContact++
         continue
       }
       pendingList.push({
@@ -248,6 +258,9 @@ export async function runSellerOnboardingReminderSweep(
         userId: r.userId,
         userName: r.user?.name || null,
         userEmail: r.user?.email || null,
+        userPhone: r.user?.phone || null,
+        phoneCountryCode: r.user?.phoneCountryCode || null,
+        channel: r.user?.email ? "email" : r.user?.phone ? "sms" : "none",
         businessName: r.businessInfo?.businessName || null,
         onboardingStep: r.onboardingStep || 2,
         onboardingCompleted: r.onboardingCompleted,
@@ -262,16 +275,17 @@ export async function runSellerOnboardingReminderSweep(
   // Apply overall limit & offset
   const selectedSellers = pendingList.slice(offset, offset + limit)
 
-
   let sentTotal = 0
   let failedTotal = 0
 
   if (!dryRun) {
     for (const seller of selectedSellers) {
-      if (!seller.userEmail) continue
+      if (!seller.userEmail && !seller.userPhone) continue
       try {
         const result = await sendSellerOnboardingReminderEmail({
           to: seller.userEmail,
+          toPhone: seller.userPhone,
+          phoneCountryCode: seller.phoneCountryCode,
           sellerName: seller.userName,
           businessName: seller.businessName,
           sellerType: seller.sellerType,
@@ -287,7 +301,7 @@ export async function runSellerOnboardingReminderSweep(
           sentTotal++
         } else {
           seller.emailSent = false
-          seller.error = result.error?.message || "Failed to send email"
+          seller.error = ("error" in result && (result.error as any)?.message) || "Failed to send notification"
           failedTotal++
         }
       } catch (err: any) {
@@ -314,7 +328,8 @@ export async function runSellerOnboardingReminderSweep(
       pendingTotal: selectedSellers.length,
       sentTotal,
       failedTotal,
-      skippedNoEmail,
+      skippedNoEmail: skippedNoContact,
+      skippedNoContact,
       byType,
     },
     sellers: selectedSellers,

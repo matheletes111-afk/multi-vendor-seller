@@ -10,7 +10,7 @@ export type MobileRiderAuthResult =
       role: UserRole
       user: {
         id: string
-        email: string
+        email: string | null
         name: string | null
         phone: string | null
         phoneCountryCode: string | null

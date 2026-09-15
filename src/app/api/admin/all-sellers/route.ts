@@ -636,11 +636,13 @@ export async function POST(request: NextRequest) {
               },
             })
 
-            if (seller.user?.email) {
+            if (seller.user?.email || seller.user?.phone) {
               try {
                 await sendSellerApprovalEmail({
-                  to: seller.user.email,
-                  name: seller.user.name ?? sellerName,
+                  to: seller.user?.email,
+                  toPhone: seller.user?.phone,
+                  phoneCountryCode: seller.user?.phoneCountryCode,
+                  name: seller.user?.name ?? sellerName,
                 })
               } catch (e) {
                 console.error("Email send error:", e)
@@ -651,11 +653,13 @@ export async function POST(request: NextRequest) {
               where: { id },
               data: { isSuspended: true, adminFeedback: feedback || null },
             })
-            if (seller.user?.email) {
+            if (seller.user?.email || seller.user?.phone) {
               try {
                 await sendSellerSuspensionEmail({
-                  to: seller.user.email,
-                  name: seller.user.name ?? sellerName,
+                  to: seller.user?.email,
+                  toPhone: seller.user?.phone,
+                  phoneCountryCode: seller.user?.phoneCountryCode,
+                  name: seller.user?.name ?? sellerName,
                   isSuspended: true,
                 })
               } catch (e) {
@@ -667,11 +671,13 @@ export async function POST(request: NextRequest) {
               where: { id },
               data: { isSuspended: false },
             })
-            if (seller.user?.email) {
+            if (seller.user?.email || seller.user?.phone) {
               try {
                 await sendSellerSuspensionEmail({
-                  to: seller.user.email,
-                  name: seller.user.name ?? sellerName,
+                  to: seller.user?.email,
+                  toPhone: seller.user?.phone,
+                  phoneCountryCode: seller.user?.phoneCountryCode,
+                  name: seller.user?.name ?? sellerName,
                   isSuspended: false,
                 })
               } catch (e) {
@@ -734,11 +740,13 @@ export async function POST(request: NextRequest) {
               },
             })
 
-            if (hotelSeller.user?.email) {
+            if (hotelSeller.user?.email || hotelSeller.user?.phone) {
               try {
                 await sendSellerApprovalEmail({
-                  to: hotelSeller.user.email,
-                  name: hotelSeller.user.name ?? sellerName,
+                  to: hotelSeller.user?.email,
+                  toPhone: hotelSeller.user?.phone,
+                  phoneCountryCode: hotelSeller.user?.phoneCountryCode,
+                  name: hotelSeller.user?.name ?? sellerName,
                 })
               } catch (e) {
                 console.error("Email send error:", e)
@@ -749,11 +757,13 @@ export async function POST(request: NextRequest) {
               where: { id },
               data: { isSuspended: true, adminFeedback: feedback || null },
             })
-            if (hotelSeller.user?.email) {
+            if (hotelSeller.user?.email || hotelSeller.user?.phone) {
               try {
                 await sendSellerSuspensionEmail({
-                  to: hotelSeller.user.email,
-                  name: hotelSeller.user.name ?? sellerName,
+                  to: hotelSeller.user?.email,
+                  toPhone: hotelSeller.user?.phone,
+                  phoneCountryCode: hotelSeller.user?.phoneCountryCode,
+                  name: hotelSeller.user?.name ?? sellerName,
                   isSuspended: true,
                 })
               } catch (e) {
@@ -765,11 +775,13 @@ export async function POST(request: NextRequest) {
               where: { id },
               data: { isSuspended: false },
             })
-            if (hotelSeller.user?.email) {
+            if (hotelSeller.user?.email || hotelSeller.user?.phone) {
               try {
                 await sendSellerSuspensionEmail({
-                  to: hotelSeller.user.email,
-                  name: hotelSeller.user.name ?? sellerName,
+                  to: hotelSeller.user?.email,
+                  toPhone: hotelSeller.user?.phone,
+                  phoneCountryCode: hotelSeller.user?.phoneCountryCode,
+                  name: hotelSeller.user?.name ?? sellerName,
                   isSuspended: false,
                 })
               } catch (e) {
@@ -832,11 +844,13 @@ export async function POST(request: NextRequest) {
               },
             })
 
-            if (restaurantSeller.user?.email) {
+            if (restaurantSeller.user?.email || restaurantSeller.user?.phone) {
               try {
                 await sendSellerApprovalEmail({
-                  to: restaurantSeller.user.email,
-                  name: restaurantSeller.user.name ?? sellerName,
+                  to: restaurantSeller.user?.email,
+                  toPhone: restaurantSeller.user?.phone,
+                  phoneCountryCode: restaurantSeller.user?.phoneCountryCode,
+                  name: restaurantSeller.user?.name ?? sellerName,
                 })
               } catch (e) {
                 console.error("Email send error:", e)
@@ -847,11 +861,13 @@ export async function POST(request: NextRequest) {
               where: { id },
               data: { isSuspended: true, adminFeedback: feedback || null },
             })
-            if (restaurantSeller.user?.email) {
+            if (restaurantSeller.user?.email || restaurantSeller.user?.phone) {
               try {
                 await sendSellerSuspensionEmail({
-                  to: restaurantSeller.user.email,
-                  name: restaurantSeller.user.name ?? sellerName,
+                  to: restaurantSeller.user?.email,
+                  toPhone: restaurantSeller.user?.phone,
+                  phoneCountryCode: restaurantSeller.user?.phoneCountryCode,
+                  name: restaurantSeller.user?.name ?? sellerName,
                   isSuspended: true,
                 })
               } catch (e) {
@@ -863,11 +879,13 @@ export async function POST(request: NextRequest) {
               where: { id },
               data: { isSuspended: false },
             })
-            if (restaurantSeller.user?.email) {
+            if (restaurantSeller.user?.email || restaurantSeller.user?.phone) {
               try {
                 await sendSellerSuspensionEmail({
-                  to: restaurantSeller.user.email,
-                  name: restaurantSeller.user.name ?? sellerName,
+                  to: restaurantSeller.user?.email,
+                  toPhone: restaurantSeller.user?.phone,
+                  phoneCountryCode: restaurantSeller.user?.phoneCountryCode,
+                  name: restaurantSeller.user?.name ?? sellerName,
                   isSuspended: false,
                 })
               } catch (e) {

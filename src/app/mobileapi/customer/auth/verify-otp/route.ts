@@ -2,10 +2,13 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { UserRole } from "@prisma/client"
 import { generateMobileTokens } from "@/lib/mobile-jwt"
+import { getEquivalentPhoneVariants } from "@/lib/phone-validation"
 
 // Define request body interface
 interface VerifyOtpRequest {
-  email: string
+  email?: string
+  phone?: string
+  phoneCountryCode?: string
   otp: string
   deviceId?: string
   platform?: string
@@ -14,7 +17,7 @@ interface VerifyOtpRequest {
 // Define user type for response (matches our select shapes)
 type UserWithoutOtp = {
   id: string
-  email: string
+  email: string | null
   name: string | null
   role: UserRole
   phone: string | null
@@ -48,6 +51,7 @@ interface ErrorResponse {
   expired?: boolean
   data?: {
     email?: string
+    phone?: string
   }
 }
 
@@ -71,28 +75,18 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
     }
 
     // Extract and validate fields
-    const email = typeof body.email === "string" ? body.email.trim() : ""
+    const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : ""
+    const phone = typeof body.phone === "string" ? body.phone.trim() : ""
+    const phoneCountryCode = typeof body.phoneCountryCode === "string" ? body.phoneCountryCode.trim() : ""
     const otp = typeof body.otp === "string" ? body.otp.trim() : ""
     const { deviceId, platform } = body
 
     // Validation
-    if (!email || !otp) {
+    if ((!email && !phone) || !otp) {
       return NextResponse.json<ErrorResponse>(
         { 
           success: false,
-          error: "Email and OTP are required" 
-        },
-        { status: 400 }
-      )
-    }
-
-    // Validate email format
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (!emailRegex.test(email)) {
-      return NextResponse.json<ErrorResponse>(
-        { 
-          success: false,
-          error: "Invalid email format" 
+          error: "Mobile number or email and OTP are required" 
         },
         { status: 400 }
       )
@@ -111,33 +105,59 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
     }
 
     // Find user
-    const user = await prisma.user.findFirst({
-      where: { 
-        email: email.toLowerCase(),
-        role: UserRole.CUSTOMER 
-      },
-      select: { 
-        id: true, 
-        email: true,
-        name: true,
-        role: true,
-        phone: true,
-        phoneCountryCode: true,
-        verifyEmailOtp: true, 
-        emailVerificationExpires: true, 
-        emailOtpSentAt: true,
-        isEmailVerified: true,
-        createdAt: true,
-        updatedAt: true,
-        password: true // Include password for token generation
-      },
-    })
+    let user: any = null
+    if (email) {
+      user = await prisma.user.findFirst({
+        where: { 
+          email,
+          role: UserRole.CUSTOMER 
+        },
+        select: { 
+          id: true, 
+          email: true,
+          name: true,
+          role: true,
+          phone: true,
+          phoneCountryCode: true,
+          verifyEmailOtp: true, 
+          emailVerificationExpires: true, 
+          emailOtpSentAt: true,
+          isEmailVerified: true,
+          createdAt: true,
+          updatedAt: true,
+          password: true // Include password for token generation
+        },
+      })
+    } else if (phone) {
+      const phoneVariants = getEquivalentPhoneVariants(phone, phoneCountryCode)
+      user = await prisma.user.findFirst({
+        where: { 
+          phone: { in: phoneVariants },
+          role: UserRole.CUSTOMER 
+        },
+        select: { 
+          id: true, 
+          email: true,
+          name: true,
+          role: true,
+          phone: true,
+          phoneCountryCode: true,
+          verifyEmailOtp: true, 
+          emailVerificationExpires: true, 
+          emailOtpSentAt: true,
+          isEmailVerified: true,
+          createdAt: true,
+          updatedAt: true,
+          password: true
+        },
+      })
+    }
 
     if (!user) {
       return NextResponse.json<ErrorResponse>(
         { 
           success: false,
-          error: "Invalid email or OTP." 
+          error: "Invalid credentials or OTP." 
         },
         { status: 400 }
       )
@@ -149,6 +169,7 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
       const tokens = generateMobileTokens({
         userId: user.id,
         email: user.email,
+        phone: user.phone,
         role: user.role,
         passwordHash: user.password,
       })
@@ -159,7 +180,7 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
       return NextResponse.json<SuccessResponse>(
         { 
           success: true,
-          message: "Email already verified.",
+          message: "Account already verified.",
           data: {
             user: userData,
             tokens
@@ -234,19 +255,21 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
     const tokens = generateMobileTokens({
       userId: updatedUser.id,
       email: updatedUser.email,
+      phone: updatedUser.phone,
       role: updatedUser.role,
       deviceId: deviceId || undefined,
       platform: normalizedPlatform,
       passwordHash: updatedUser.password,
     })
 
-    // Return success with user details and tokens
+    // Return success with user details and tokens (strip password hash)
+    const { password: _password, ...safeUser } = updatedUser
     return NextResponse.json<SuccessResponse>(
       { 
         success: true,
-        message: "Email verified successfully.",
+        message: "Account verified successfully.",
         data: {
-          user: updatedUser,
+          user: safeUser,
           tokens
         }
       },

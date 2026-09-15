@@ -4,39 +4,61 @@ import { UserRole } from "@prisma/client"
 import { prisma } from "@/lib/prisma"
 import { sendPasswordResetOtpEmail } from "@/lib/email"
 import { getAppBaseUrl, sendPasswordResetSms } from "@/lib/twilio-sms"
+import { getEquivalentPhoneVariants } from "@/lib/phone-validation"
 
 const OTP_EXPIRY_MS = 10 * 60 * 1000
 const RESEND_COOLDOWN_MS = 60 * 1000
 
 interface SendOtpRequest {
-  email: string
+  email?: string
+  phone?: string
+  phoneCountryCode?: string
 }
 
 type ApiResponse =
-  | { success: true; message: string; data: { email: string; expiresIn: number; resendCooldown: number } }
+  | { success: true; message: string; data: { email: string | null; phone: string | null; expiresIn: number; resendCooldown: number } }
   | { success: false; error: string; waitTime?: number }
 
 /** POST /mobileapi/customer/auth/forgot-password/send-otp */
 export async function POST(request: Request): Promise<NextResponse<ApiResponse>> {
   try {
-    const body = (await request.json().catch(() => ({}))) as Partial<SendOtpRequest>
-    const email = typeof body.email === "string" ? body.email.toLowerCase().trim() : ""
+    const body = (await request.json().catch(() => ({}))) as Partial<SendOtpRequest> & { identifier?: string }
+    const rawIdentifier = typeof body.identifier === "string" ? body.identifier.trim() : ""
+    let email = typeof body.email === "string" ? body.email.toLowerCase().trim() : ""
+    let phone = typeof body.phone === "string" ? body.phone.trim() : ""
+    if (!email && !phone && rawIdentifier) {
+      if (rawIdentifier.includes("@")) {
+        email = rawIdentifier.toLowerCase()
+      } else {
+        phone = rawIdentifier
+      }
+    }
+    const phoneCountryCode = typeof body.phoneCountryCode === "string" ? body.phoneCountryCode.trim() : ""
 
-    if (!email) {
-      return NextResponse.json({ success: false, error: "Email is required" }, { status: 400 })
+    if (!email && !phone) {
+      return NextResponse.json({ success: false, error: "Email or mobile number is required" }, { status: 400 })
     }
 
-    const user = await prisma.user.findFirst({
-      where: { email, role: UserRole.CUSTOMER },
-      select: { id: true, name: true, phone: true, phoneCountryCode: true, isEmailVerified: true, emailOtpSentAt: true },
-    })
+    let user: any = null
+    if (email) {
+      user = await prisma.user.findFirst({
+        where: { email, role: UserRole.CUSTOMER },
+        select: { id: true, name: true, email: true, phone: true, phoneCountryCode: true, isEmailVerified: true, emailOtpSentAt: true },
+      })
+    } else if (phone) {
+      const phoneVariants = getEquivalentPhoneVariants(phone, phoneCountryCode)
+      user = await prisma.user.findFirst({
+        where: { phone: { in: phoneVariants }, role: UserRole.CUSTOMER },
+        select: { id: true, name: true, email: true, phone: true, phoneCountryCode: true, isEmailVerified: true, emailOtpSentAt: true },
+      })
+    }
 
     if (!user || !user.isEmailVerified) {
       return NextResponse.json(
         {
           success: true,
-          message: "If an account exists for this email, OTP has been sent.",
-          data: { email, expiresIn: OTP_EXPIRY_MS / 1000, resendCooldown: RESEND_COOLDOWN_MS / 1000 },
+          message: "If an account exists with this credential, OTP has been sent.",
+          data: { email: email || null, phone: phone || null, expiresIn: OTP_EXPIRY_MS / 1000, resendCooldown: RESEND_COOLDOWN_MS / 1000 },
         },
         { status: 200 }
       )
@@ -65,24 +87,34 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
     })
 
     const baseUrl = getAppBaseUrl(request)
-    const resetLink = `${baseUrl}/customer/reset-password?email=${encodeURIComponent(email)}`
+    const identifierParam = user.email ? `email=${encodeURIComponent(user.email)}` : `phone=${encodeURIComponent(user.phone || "")}`
+    const resetLink = `${baseUrl}/customer/reset-password?${identifierParam}`
 
-    await Promise.allSettled([
-      sendPasswordResetOtpEmail({ to: email, otp, name: user.name, resetLink }),
-      sendPasswordResetSms({
-        to: user.phone,
-        countryCode: user.phoneCountryCode,
-        otp,
-        name: user.name,
-        resetLink,
-      }),
-    ])
+    const sendPromises: Promise<any>[] = []
+    if (user.phone) {
+      sendPromises.push(
+        sendPasswordResetSms({
+          to: user.phone,
+          countryCode: user.phoneCountryCode,
+          otp,
+          name: user.name,
+          resetLink,
+        })
+      )
+    }
+    if (user.email) {
+      sendPromises.push(
+        sendPasswordResetOtpEmail({ to: user.email, otp, name: user.name, resetLink })
+      )
+    }
+
+    await Promise.allSettled(sendPromises)
 
     return NextResponse.json(
       {
         success: true,
-        message: "If an account exists for this email, OTP has been sent.",
-        data: { email, expiresIn: OTP_EXPIRY_MS / 1000, resendCooldown: RESEND_COOLDOWN_MS / 1000 },
+        message: "If an account exists with this credential, OTP has been sent.",
+        data: { email: user.email, phone: user.phone, expiresIn: OTP_EXPIRY_MS / 1000, resendCooldown: RESEND_COOLDOWN_MS / 1000 },
       },
       { status: 200 }
     )

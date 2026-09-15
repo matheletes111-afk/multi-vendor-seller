@@ -13,7 +13,7 @@ export async function sendDeliveryOtp({
   otp: providedOtp,
   sellerStoreName,
 }: {
-  toEmail: string
+  toEmail?: string | null
   toPhone: string | null
   orderNumber: string
   customerName: string | null
@@ -50,7 +50,9 @@ export async function sendDeliveryOtp({
     </div>
   `
 
-  const emailPromise = sendEmail({ to: toEmail, subject, html, text: message })
+  const emailPromise = toEmail && toEmail.trim()
+    ? sendEmail({ to: toEmail, subject, html, text: message })
+    : Promise.resolve({ success: false, error: new Error("No recipient email provided.") })
   
   let smsPromise = Promise.resolve()
   if (toPhone) {

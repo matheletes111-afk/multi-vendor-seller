@@ -1,17 +1,21 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { UserRole } from "@prisma/client"
+import { getEquivalentPhoneVariants } from "@/lib/phone-validation"
 
 // Define request body interface
 interface VerifyOtpRequest {
-  email: string
+  email?: string
+  phone?: string
+  phoneCountryCode?: string
   otp: string
 }
 
 // Define user select type
 interface UserWithOtpInfo {
   id: string
-  email: string
+  email: string | null
+  phone: string | null
   name: string | null
   verifyEmailOtp: string | null
   emailVerificationExpires: Date | null
@@ -20,7 +24,8 @@ interface UserWithOtpInfo {
 
 // Define base data for verified responses
 interface VerifiedResponseData {
-  email: string
+  email: string | null
+  phone: string | null
   isEmailVerified: true
   approvalStatus: "PENDING"
   loginAvailable: true
@@ -69,27 +74,17 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
       )
     }
 
-    const email = typeof body.email === "string" ? body.email.trim() : ""
+    const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : ""
+    const phone = typeof body.phone === "string" ? body.phone.trim() : ""
+    const phoneCountryCode = typeof body.phoneCountryCode === "string" ? body.phoneCountryCode.trim() : ""
     const otp = typeof body.otp === "string" ? body.otp.trim() : ""
 
     // Validation
-    if (!email || !otp) {
+    if ((!email && !phone) || !otp) {
       return NextResponse.json<ErrorResponse>(
         { 
           success: false,
-          error: "Email and OTP are required" 
-        },
-        { status: 400 }
-      )
-    }
-
-    // Validate email format
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (!emailRegex.test(email)) {
-      return NextResponse.json<ErrorResponse>(
-        { 
-          success: false,
-          error: "Invalid email format" 
+          error: "Email or mobile number, and OTP are required" 
         },
         { status: 400 }
       )
@@ -108,26 +103,47 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
     }
 
     // Find user with SELLER_SERVICE role
-    const user = await prisma.user.findFirst({
-      where: { 
-        email: email.toLowerCase().trim(),
-        role: UserRole.SELLER_SERVICE 
-      },
-      select: { 
-        id: true, 
-        email: true,
-        name: true,
-        verifyEmailOtp: true, 
-        emailVerificationExpires: true, 
-        isEmailVerified: true
-      },
-    }) as UserWithOtpInfo | null
+    let user: UserWithOtpInfo | null = null
+    if (email) {
+      user = await prisma.user.findFirst({
+        where: { 
+          email,
+          role: UserRole.SELLER_SERVICE 
+        },
+        select: { 
+          id: true, 
+          email: true,
+          phone: true,
+          name: true,
+          verifyEmailOtp: true, 
+          emailVerificationExpires: true, 
+          isEmailVerified: true
+        },
+      }) as UserWithOtpInfo | null
+    } else if (phone) {
+      const phoneVariants = getEquivalentPhoneVariants(phone, phoneCountryCode)
+      user = await prisma.user.findFirst({
+        where: { 
+          phone: { in: phoneVariants },
+          role: UserRole.SELLER_SERVICE 
+        },
+        select: { 
+          id: true, 
+          email: true,
+          phone: true,
+          name: true,
+          verifyEmailOtp: true, 
+          emailVerificationExpires: true, 
+          isEmailVerified: true
+        },
+      }) as UserWithOtpInfo | null
+    }
 
     if (!user) {
       return NextResponse.json<ErrorResponse>(
         { 
           success: false,
-          error: "Invalid email or OTP." 
+          error: "Invalid email/mobile number or OTP." 
         },
         { status: 400 }
       )
@@ -137,6 +153,7 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
     if (user.isEmailVerified) {
       const responseData: VerifiedResponseData = {
         email: user.email,
+        phone: user.phone,
         isEmailVerified: true,
         approvalStatus: "PENDING",
         loginAvailable: true,
@@ -146,7 +163,7 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
       return NextResponse.json<AlreadyVerifiedResponse>(
         { 
           success: true,
-          message: "Your email is verified successfully. You can now login to complete your onboarding profile.",
+          message: "Your account is verified successfully. You can now login to complete your onboarding profile.",
           data: responseData
         },
         { status: 200 }
@@ -203,6 +220,7 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
     // Return success message - NO TOKENS, just verification message
     const responseData: NewlyVerifiedResponse["data"] = {
       email: user.email,
+      phone: user.phone,
       isEmailVerified: true,
       approvalStatus: "PENDING",
       loginAvailable: true,
@@ -213,7 +231,7 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
     return NextResponse.json<NewlyVerifiedResponse>(
       { 
         success: true,
-        message: "Your email is verified successfully. You can now login to complete your onboarding profile.",
+        message: "Your account is verified successfully. You can now login to complete your onboarding profile.",
         data: responseData
       },
       { status: 200 }

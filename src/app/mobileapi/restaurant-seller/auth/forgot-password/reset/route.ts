@@ -2,6 +2,15 @@ import { NextResponse } from "next/server"
 import bcrypt from "bcryptjs"
 import { UserRole } from "@prisma/client"
 import { prisma } from "@/lib/prisma"
+import { getEquivalentPhoneVariants } from "@/lib/phone-validation"
+
+interface ResetRequest {
+  email?: string
+  phone?: string
+  phoneCountryCode?: string
+  otp: string
+  newPassword: string
+}
 
 type ApiResponse =
   | { success: true; message: string; data: { loginUrl: string } }
@@ -10,25 +19,49 @@ type ApiResponse =
 /** POST /mobileapi/restaurant-seller/auth/forgot-password/reset */
 export async function POST(request: Request): Promise<NextResponse<ApiResponse>> {
   try {
-    const body = (await request.json().catch(() => ({}))) as { email?: string; otp?: string; newPassword?: string }
-    const email = typeof body.email === "string" ? body.email.toLowerCase().trim() : ""
+    const body = (await request.json().catch(() => ({}))) as Partial<ResetRequest> & { identifier?: string }
+    const rawIdentifier = typeof body.identifier === "string" ? body.identifier.trim() : ""
+    let email = typeof body.email === "string" ? body.email.toLowerCase().trim() : ""
+    let phone = typeof body.phone === "string" ? body.phone.trim() : ""
+    if (!email && !phone && rawIdentifier) {
+      if (rawIdentifier.includes("@")) {
+        email = rawIdentifier.toLowerCase()
+      } else {
+        phone = rawIdentifier
+      }
+    }
+    const phoneCountryCode = typeof body.phoneCountryCode === "string" ? body.phoneCountryCode.trim() : ""
     const otp = typeof body.otp === "string" ? body.otp.trim() : ""
     const newPassword = typeof body.newPassword === "string" ? body.newPassword : ""
 
-    if (!email || !otp || !newPassword) {
-      return NextResponse.json({ success: false, error: "Email, OTP and newPassword are required" }, { status: 400 })
+    if ((!email && !phone) || !otp || !newPassword) {
+      return NextResponse.json({ success: false, error: "Email or mobile number, OTP and new password are required" }, { status: 400 })
     }
     if (!/^\d{6}$/.test(otp)) return NextResponse.json({ success: false, error: "OTP must be 6 digits" }, { status: 400 })
     if (newPassword.length < 6) return NextResponse.json({ success: false, error: "Password must be at least 6 characters long" }, { status: 400 })
 
-    const user = await prisma.user.findFirst({
-      where: { email, role: UserRole.SELLER_RESTAURANT },
-      select: { id: true, isEmailVerified: true, verifyEmailOtp: true, emailVerificationExpires: true },
-    })
-    if (!user || !user.isEmailVerified) return NextResponse.json({ success: false, error: "Invalid email or OTP" }, { status: 400 })
-    if (user.verifyEmailOtp !== otp) return NextResponse.json({ success: false, error: "Invalid OTP" }, { status: 400 })
-    if (!user.emailVerificationExpires || user.emailVerificationExpires < new Date()) {
-      return NextResponse.json({ success: false, error: "OTP has expired. Please request a new one.", expired: true }, { status: 400 })
+    let user: any = null
+    if (email) {
+      user = await prisma.user.findFirst({
+        where: { email, role: UserRole.SELLER_RESTAURANT },
+        select: { id: true, isEmailVerified: true, verifyEmailOtp: true, emailVerificationExpires: true },
+      })
+    } else if (phone) {
+      const phoneVariants = getEquivalentPhoneVariants(phone, phoneCountryCode)
+      user = await prisma.user.findFirst({
+        where: { phone: { in: phoneVariants }, role: UserRole.SELLER_RESTAURANT },
+        select: { id: true, isEmailVerified: true, verifyEmailOtp: true, emailVerificationExpires: true },
+      })
+    }
+
+    if (
+      !user ||
+      !user.isEmailVerified ||
+      user.verifyEmailOtp !== otp ||
+      !user.emailVerificationExpires ||
+      user.emailVerificationExpires < new Date()
+    ) {
+      return NextResponse.json({ success: false, error: "Invalid credentials or OTP" }, { status: 400 })
     }
 
     const hashedPassword = await bcrypt.hash(newPassword, 10)

@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma"
 import { UserRole } from "@prisma/client"
 import { sendRiderVerificationEmail } from "@/lib/email"
 import { getAppBaseUrl, sendEmailVerificationSms } from "@/lib/twilio-sms"
+import { getEquivalentPhoneVariants } from "@/lib/phone-validation"
 
 const OTP_EXPIRY_MS = 10 * 60 * 1000
 const COOLDOWN_MS = 60 * 1000
@@ -12,26 +13,45 @@ export async function POST(request: Request) {
   try {
     const body = await request.json().catch(() => ({}))
     const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : ""
+    const phone = typeof body.phone === "string" ? body.phone.trim() : ""
+    const phoneCountryCode = typeof body.phoneCountryCode === "string" ? body.phoneCountryCode.trim() : ""
 
-    if (!email) {
+    if (!email && !phone) {
       return NextResponse.json(
-        { success: false, error: "Email is required" },
+        { success: false, error: "Mobile number or email is required" },
         { status: 400 }
       )
     }
 
-    const user = await prisma.user.findFirst({
-      where: { email, role: UserRole.RIDER },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        phone: true,
-        phoneCountryCode: true,
-        isEmailVerified: true,
-        emailOtpSentAt: true,
-      },
-    })
+    let user: any = null
+    if (email) {
+      user = await prisma.user.findFirst({
+        where: { email, role: UserRole.RIDER },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          phone: true,
+          phoneCountryCode: true,
+          isEmailVerified: true,
+          emailOtpSentAt: true,
+        },
+      })
+    } else if (phone) {
+      const phoneVariants = getEquivalentPhoneVariants(phone, phoneCountryCode)
+      user = await prisma.user.findFirst({
+        where: { phone: { in: phoneVariants }, role: UserRole.RIDER },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          phone: true,
+          phoneCountryCode: true,
+          isEmailVerified: true,
+          emailOtpSentAt: true,
+        },
+      })
+    }
 
     if (!user) {
       return NextResponse.json(
@@ -43,8 +63,8 @@ export async function POST(request: Request) {
     if (user.isEmailVerified) {
       return NextResponse.json({
         success: true,
-        message: "Email is already verified.",
-        data: { email: user.email, isEmailVerified: true },
+        message: "Account is already verified.",
+        data: { email: user.email, phone: user.phone, isEmailVerified: true },
       })
     }
 
@@ -70,40 +90,45 @@ export async function POST(request: Request) {
     })
 
     const baseUrl = getAppBaseUrl(request)
-    const verificationLink = `${baseUrl}/riderapp/verify-email?token=${verifyEmailOtp}&email=${encodeURIComponent(user.email)}`
+    const verificationLink = `${baseUrl}/riderapp/verify-email?token=${verifyEmailOtp}&phone=${encodeURIComponent(user.phone || "")}`
 
     try {
-      const emailPromise = sendRiderVerificationEmail({
-        to: user.email,
-        name: user.name || "Delivery Rider",
-        verificationLink,
-        otp: verifyEmailOtp,
-      })
-      const smsPromise = user.phone
-        ? sendEmailVerificationSms({
+      const sendPromises: Promise<any>[] = []
+      if (user.phone) {
+        sendPromises.push(
+          sendEmailVerificationSms({
             to: user.phone,
             countryCode: user.phoneCountryCode,
             verificationLink,
             otp: verifyEmailOtp,
             name: user.name,
           })
-        : Promise.resolve()
-
-      const [emailRes] = await Promise.allSettled([emailPromise, smsPromise])
-      if (emailRes.status === "rejected") {
-        console.error("Failed to resend rider verification email (rejected):", emailRes.reason)
-      } else if (emailRes.status === "fulfilled" && !(emailRes.value as any)?.success) {
-        console.error("Failed to resend rider verification email:", (emailRes.value as any)?.error)
+        )
       }
+      if (user.email) {
+        sendPromises.push(
+          sendRiderVerificationEmail({
+            to: user.email,
+            name: user.name || "Delivery Rider",
+            verificationLink,
+            otp: verifyEmailOtp,
+          })
+        )
+      }
+
+      await Promise.allSettled(sendPromises)
     } catch (sendError) {
       console.error("Failed to resend rider verification:", sendError)
     }
 
     return NextResponse.json({
       success: true,
-      message: "New verification code has been sent.",
+      message: user.email
+        ? "A new verification code has been sent to your mobile number and email."
+        : "A new verification code has been sent to your mobile number via SMS.",
       data: {
         email: user.email,
+        phone: user.phone,
         expiresIn: OTP_EXPIRY_MS / 1000,
         resendCooldown: 60,
       },

@@ -48,5 +48,6 @@ export async function GET(request: Request) {
     [UserRole.RIDER]: "/riderapp/login",
   }
   const loginPath = loginPaths[user.role] ?? "/customer/login"
-  return NextResponse.redirect(origin + loginPath + `?verified=1&email=${encodeURIComponent(user.email)}`)
+  const identifier = user.email || user.phone || ""
+  return NextResponse.redirect(origin + loginPath + `?verified=1&identifier=${encodeURIComponent(identifier)}${user.email ? `&email=${encodeURIComponent(user.email)}` : ""}${user.phone ? `&phone=${encodeURIComponent(user.phone)}` : ""}`)
 }

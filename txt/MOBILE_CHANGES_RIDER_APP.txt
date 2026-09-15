@@ -1,0 +1,376 @@
+================================================================================
+MEEEM MULTI-VENDOR PLATFORM - MOBILE DEVELOPER API GUIDE
+PANEL: DELIVERY RIDER MOBILE APP (iOS & ANDROID)
+SUBJECT: MANDATORY PHONE, OPTIONAL EMAIL, DUAL CREDENTIAL LOGIN & SETTINGS SYNC
+DATE: SEPTEMBER 2026
+================================================================================
+
+--------------------------------------------------------------------------------
+1. EXECUTIVE SUMMARY & SCOPE
+--------------------------------------------------------------------------------
+This document details all API contracts and changes for the Delivery Rider App:
+  * Namespace: /mobileapi/rider/...
+  * Rider Registration: Mobile phone is strictly MANDATORY. Email is OPTIONAL.
+  * Primary Verification: 6-digit OTP sent via Twilio SMS directly to the rider's phone.
+  * Dual Credential Login: Riders can log in using either their Mobile Number
+    or their Email Address with their existing password.
+  * JWT Token Claims: Mobile JWT payload includes "phone: user.phone".
+  * Settings & Profile: Riders can add or update their email address in either:
+      1. PUT /mobileapi/rider/settings
+      2. PATCH /mobileapi/rider/profile
+  * Dispatch & Delivery Alerts: Delivery assignments, pickup alerts, and customer
+    delivery OTPs seamlessly fall back to Twilio SMS when email is absent.
+
+--------------------------------------------------------------------------------
+2. RIDER REGISTRATION API
+--------------------------------------------------------------------------------
+Endpoint: POST /mobileapi/rider/auth/register
+Content-Type: application/json
+
+Request Payload:
+{
+  "name": "Alex Rider",
+  "phone": "9876543210",              // MANDATORY: 10 digits or E.164
+  "phoneCountryCode": "+91",          // OPTIONAL: defaults to system default (+91)
+  "email": "alex.rider@example.com",  // OPTIONAL: can be omitted, null, or ""
+  "password": "RiderPassword123!",    // MANDATORY
+  "vehicleType": "BIKE",              // MANDATORY: "BIKE" | "SCOOTER" | "CAR" | "VAN"
+  "vehicleNumber": "DL01AB1234",      // MANDATORY
+  "drivingLicense": "DL-123456789",   // OPTIONAL/MANDATORY depending on onboarding step
+  "deviceId": "optional-device-id",
+  "platform": "android"
+}
+
+Behavior:
+  * Validates phone format and verifies no existing account uses this phone.
+  * If email is provided, validates format and verifies email uniqueness.
+  * Creates user with role "RIDER" and unverified state.
+  * Generates 6-digit OTP and dispatches SMS via Twilio to rider's phone.
+  * If email was provided, also dispatches verification OTP to the email address.
+
+Success Response (201 Created):
+{
+  "success": true,
+  "message": "Registration successful. Please verify your mobile number.",
+  "data": {
+    "userId": "cuid_rider_12345",
+    "email": "alex.rider@example.com", // or null if omitted
+    "phone": "+919876543210",
+    "isEmailVerified": false,
+    "isPhoneVerified": false,
+    "expiresIn": 600,
+    "resendCooldown": 60,
+    "verifyUrl": "/mobileapi/rider/auth/verify-otp?phone=%2B919876543210"
+  }
+}
+
+Error Responses:
+  * 400 Bad Request: { "success": false, "error": "Phone number is required" }
+  * 400 Bad Request: { "success": false, "error": "Please enter a valid email address" }
+  * 409 Conflict:    { "success": false, "error": "An account with this phone number already exists" }
+  * 409 Conflict:    { "success": false, "error": "An account with this email already exists" }
+
+--------------------------------------------------------------------------------
+3. RIDER OTP VERIFICATION & RESEND APIS
+--------------------------------------------------------------------------------
+A. Verify OTP:
+Endpoint: POST /mobileapi/rider/auth/verify-otp
+Content-Type: application/json
+
+Payload (Verify by Phone - Primary):
+{
+  "phone": "+919876543210",
+  "phoneCountryCode": "+91",
+  "otp": "123456"
+}
+
+Payload (Verify by Email - Alternative):
+{
+  "email": "alex.rider@example.com",
+  "otp": "123456"
+}
+
+Success Response (200 OK):
+{
+  "success": true,
+  "message": "Account verified successfully! You can now log in to complete your rider onboarding.",
+  "data": {
+    "email": "alex.rider@example.com",
+    "phone": "+919876543210",
+    "isEmailVerified": true,
+    "loginAvailable": true,
+    "onboardingCompleted": false
+  }
+}
+(Note: Tokens are issued upon login via /mobileapi/rider/auth/login once onboarding and admin approval are completed)
+
+B. Resend OTP:
+Endpoint: POST /mobileapi/rider/auth/resend-otp
+Content-Type: application/json
+
+Request (by Phone):
+{
+  "phone": "+919876543210",
+  "phoneCountryCode": "+91"
+}
+
+Request (by Email):
+{
+  "email": "alex.rider@example.com"
+}
+
+Response (200 OK):
+{
+  "success": true,
+  "message": "Verification OTP sent successfully via SMS",
+  "data": {
+    "phone": "+919876543210",
+    "expiresIn": 600,
+    "resendCooldown": 60
+  }
+}
+
+--------------------------------------------------------------------------------
+4. DUAL CREDENTIAL LOGIN API (EMAIL OR PHONE)
+--------------------------------------------------------------------------------
+Endpoint: POST /mobileapi/rider/auth/login
+Content-Type: application/json
+
+Riders can authenticate using either their Mobile Number or their Email Address.
+
+Format 1 - Unified "identifier" (RECOMMENDED):
+{
+  "identifier": "+919876543210",     // Can be phone "9876543210" or email "alex@example.com"
+  "password": "RiderPassword123!",
+  "phoneCountryCode": "+91",
+  "deviceId": "optional-device-id",
+  "platform": "android"
+}
+
+Format 2 - Explicit "phone":
+{
+  "phone": "9876543210",
+  "phoneCountryCode": "+91",
+  "password": "RiderPassword123!"
+}
+
+Format 3 - Explicit "email" (BACKWARD COMPATIBLE):
+{
+  "email": "alex@example.com",
+  "password": "RiderPassword123!"
+}
+
+Backend Processing:
+  * If identifier contains "@" -> searches by email.
+  * If identifier does not contain "@" -> searches by equivalent phone number variants
+    (handling local 10-digit format and international E.164 format with country code).
+
+Success Response (200 OK):
+{
+  "success": true,
+  "message": "Login successful",
+  "data": {
+    "user": {
+      "id": "cuid_rider_12345",
+      "name": "Alex Rider",
+      "email": null,                 // or "alex@example.com"
+      "phone": "+919876543210",
+      "phoneCountryCode": "+91",
+      "role": "RIDER",
+      "isEmailVerified": true,
+      "riderProfile": {
+        "isApproved": true,
+        "isAvailable": true,
+        "vehicleType": "BIKE",
+        "vehicleNumber": "DL01AB1234"
+      }
+    },
+    "tokens": {
+      "accessToken": "eyJhbGciOi...",
+      "refreshToken": "eyJhbGciOi...",
+      "expiresIn": 2592000
+    },
+    "sessionInfo": {
+      "expiresIn": 2592000,
+      "tokenType": "Bearer"
+    }
+  }
+}
+
+Unverified Account Response (403 Forbidden):
+{
+  "success": false,
+  "error": "Please verify your mobile number before logging in.",
+  "isVerified": false,
+  "email": null,
+  "phone": "+919876543210",
+  "verifyUrl": "/mobileapi/rider/auth/verify-otp?phone=%2B919876543210"
+}
+
+Rider Pending Admin Approval (403 Forbidden):
+{
+  "success": false,
+  "error": "Your rider account is pending admin approval.",
+  "needsApproval": true,
+  "approvalStatus": "PENDING"
+}
+
+--------------------------------------------------------------------------------
+5. RIDER PASSWORDLESS PHONE OTP LOGIN (SMS)
+--------------------------------------------------------------------------------
+For riders logging in directly via mobile phone SMS OTP:
+
+Step 1: Request Login OTP
+Endpoint: POST /mobileapi/rider/auth/phone-otp/send-otp
+Content-Type: application/json
+Request:
+{
+  "phone": "+919876543210"          // Or 10-digit number with country code
+}
+Response (200 OK):
+{
+  "success": true,
+  "message": "Login OTP sent to mobile number",
+  "data": {
+    "phone": "+919876543210",
+    "expiresIn": 600,
+    "resendCooldown": 60
+  }
+}
+
+Step 2: Verify Login OTP
+Endpoint: POST /mobileapi/rider/auth/phone-otp/verify-otp
+Content-Type: application/json
+Request:
+{
+  "phone": "+919876543210",
+  "otp": "123456",
+  "deviceId": "optional-device-id",
+  "platform": "android"
+}
+Response (200 OK):
+Returns { success: true, message: "Login successful", data: { user, rider, tokens, sessionInfo } }
+where tokens payload includes "phone: user.phone".
+
+--------------------------------------------------------------------------------
+6. RIDER FORGOT PASSWORD & RESET APIS
+--------------------------------------------------------------------------------
+Step 1: Send Reset OTP
+Endpoint: POST /mobileapi/rider/auth/forgot-password/send-otp
+Request:
+{
+  "identifier": "+919876543210",     // or "alex@example.com" or "9876543210"
+  "phoneCountryCode": "+91"
+}
+Response:
+{
+  "success": true,
+  "message": "Password reset OTP sent successfully via SMS",
+  "data": {
+    "phone": "+919876543210",
+    "email": null,
+    "expiresIn": 600,
+    "resendCooldown": 60
+  }
+}
+
+Step 2: Reset Password with OTP
+Endpoint: POST /mobileapi/rider/auth/forgot-password/reset
+Request:
+{
+  "identifier": "+919876543210",
+  "phoneCountryCode": "+91",
+  "otp": "123456",
+  "newPassword": "NewRiderPassword123!"
+}
+Response:
+{
+  "success": true,
+  "message": "Password reset successfully. You can now login with your new password."
+}
+
+--------------------------------------------------------------------------------
+7. AFTER-LOGIN: RIDER SETTINGS & PROFILE EMAIL UPDATES
+--------------------------------------------------------------------------------
+Riders can update their email from either the Settings route or the Profile route.
+
+Option A - Rider Settings Route:
+Endpoint: PUT /mobileapi/rider/settings
+Headers:
+  Authorization: Bearer <accessToken>
+  Content-Type: application/json (or multipart/form-data)
+
+Request Payload:
+{
+  "name": "Alex Rider",
+  "email": "alex.new@example.com",   // Set or update email
+  "phone": "+919876543210",
+  "vehicleType": "BIKE"
+}
+
+Option B - Rider Profile Route:
+Endpoint: PATCH /mobileapi/rider/profile
+Headers:
+  Authorization: Bearer <accessToken>
+  Content-Type: application/json
+
+Request Payload:
+{
+  "email": "alex.new@example.com",
+  "name": "Alex Rider"
+}
+
+Validation Rules for Both Routes:
+  1. RFC Email Format Check: Validates regex pattern if email is not empty.
+  2. Uniqueness Constraint: Checks if email is taken by another account:
+     prisma.user.findFirst({ where: { email, NOT: { id: riderUserId } } })
+     If taken -> Returns 400 Bad Request: "This email address is already in use by another account"
+  3. Safe Nullification: Passing "" safely saves null in the database.
+
+Success Response (200 OK):
+{
+  "success": true,
+  "message": "Profile updated successfully",
+  "data": {
+    "id": "cuid_rider_12345",
+    "name": "Alex Rider",
+    "email": "alex.new@example.com",
+    "phone": "+919876543210"
+  }
+}
+
+--------------------------------------------------------------------------------
+8. DISPATCH, DELIVERY LIFECYCLE & SMS FALLBACK
+--------------------------------------------------------------------------------
+When deliveries are assigned or updated:
+  * Assignment Alerts: When an order is assigned to a rider, the rider receives
+    an SMS notification if their email is absent.
+  * Customer Delivery Alerts: When rider marks "Out for Delivery", customer
+    receives SMS alert with live tracking details if customer email is absent.
+  * Delivery OTP Verification: Delivery completion OTP is sent to customer's
+    phone number via Twilio SMS.
+
+--------------------------------------------------------------------------------
+9. MOBILE CLIENT UI/UX CHECKLIST FOR RIDER APP
+--------------------------------------------------------------------------------
+[ ] 1. Registration Screen:
+       - Phone input: Mark with asterisk (*) - required.
+       - Country code selector: Default "+91".
+       - Email input: Mark as "Email Address (Optional)".
+       - Vehicle details: Vehicle Type & Number required.
+
+[ ] 2. Login Screen:
+       - Input placeholder: "Email or Mobile Number".
+       - Field name in API call: "identifier".
+       - Handle 403 unverified: Redirect to OTP screen.
+       - Handle 403 pending approval: Display "Account Pending Verification" banner.
+
+[ ] 3. Drawer / Header Profile Card:
+       - If rider has no email, display rider.user.phone under the rider's name.
+       - Do not show an empty blank string.
+
+[ ] 4. Edit Profile / Settings Screen:
+       - Email input field must be EDITABLE.
+       - Helper note: "Add email to receive weekly earnings summaries and tax invoices".
+       - Handle 400 conflict error: show toast "Email already in use by another account".
+================================================================================

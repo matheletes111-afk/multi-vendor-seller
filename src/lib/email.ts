@@ -1,5 +1,10 @@
 import sgMail from "@sendgrid/mail"
 import { formatCurrency } from "@/lib/utils"
+import {
+  sendNotificationSms,
+  sendAccountVerificationSms,
+  sendPasswordResetSms,
+} from "./twilio-sms"
 
 export async function sendEmail({
   to,
@@ -7,11 +12,15 @@ export async function sendEmail({
   html,
   text,
 }: {
-  to: string
+  to?: string | null
   subject: string
   html?: string
   text?: string
 }) {
+  if (!to || !to.trim()) {
+    return { success: false, error: new Error("No recipient email address provided.") }
+  }
+
   const apiKey =
     process.env.SENDGRID_API_KEY?.trim() ||
     process.env.AMPLIFY_SENDGRID_API_KEY?.trim()
@@ -69,41 +78,59 @@ export async function sendVerificationEmail({
   to,
   verificationLink,
   name,
+  toPhone,
+  phoneCountryCode,
 }: {
-  to: string
+  to?: string | null
   verificationLink: string
   name?: string | null
+  toPhone?: string | null
+  phoneCountryCode?: string | null
 }) {
-  const subject = "Verify Your Email Address"
-  const html = `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-      <div style="background-color: #f8f9fa; padding: 30px; border-radius: 10px;">
-        <h2 style="color: #333; margin-bottom: 20px;">Email Verification Required</h2>
-        <p style="color: #666; line-height: 1.6;">
-          ${name ? `Hi ${name},` : "Hi there,"}
-        </p>
-        <p style="color: #666; line-height: 1.6;">
-          Please verify your email address by clicking the button below:
-        </p>
-        <div style="text-align: center; margin: 30px 0;">
-          <a href="${verificationLink}" 
-             style="background-color: #007bff; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
-            Verify Email Address
-          </a>
+  if (to && to.trim()) {
+    const subject = "Verify Your Email Address"
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="background-color: #f8f9fa; padding: 30px; border-radius: 10px;">
+          <h2 style="color: #333; margin-bottom: 20px;">Email Verification Required</h2>
+          <p style="color: #666; line-height: 1.6;">
+            ${name ? `Hi ${name},` : "Hi there,"}
+          </p>
+          <p style="color: #666; line-height: 1.6;">
+            Please verify your email address by clicking the button below:
+          </p>
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${verificationLink}" 
+               style="background-color: #007bff; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
+              Verify Email Address
+            </a>
+          </div>
+          <p style="color: #666; line-height: 1.6; font-size: 14px;">
+            Or copy and paste this link into your browser:
+          </p>
+          <p style="color: #007bff; word-break: break-all; font-size: 12px;">
+            ${verificationLink}
+          </p>
+          <p style="color: #999; font-size: 12px; margin-top: 30px;">
+            This link will expire in 24 hours.
+          </p>
         </div>
-        <p style="color: #666; line-height: 1.6; font-size: 14px;">
-          Or copy and paste this link into your browser:
-        </p>
-        <p style="color: #007bff; word-break: break-all; font-size: 12px;">
-          ${verificationLink}
-        </p>
-        <p style="color: #999; font-size: 12px; margin-top: 30px;">
-          This link will expire in 24 hours.
-        </p>
       </div>
-    </div>
-  `
-  return sendEmail({ to, subject, html })
+    `
+    return sendEmail({ to, subject, html })
+  }
+
+  if (toPhone) {
+    const success = await sendAccountVerificationSms({
+      to: toPhone,
+      countryCode: phoneCountryCode,
+      verificationLink,
+      name,
+    })
+    return { success }
+  }
+
+  return { success: false, error: new Error("No recipient email or phone provided.") }
 }
 
 export async function sendVerificationOtpEmail({
@@ -111,49 +138,68 @@ export async function sendVerificationOtpEmail({
   otp,
   name,
   verificationLink,
+  toPhone,
+  phoneCountryCode,
 }: {
-  to: string
+  to?: string | null
   otp: string
   name?: string | null
   verificationLink?: string
+  toPhone?: string | null
+  phoneCountryCode?: string | null
 }) {
-  const subject = "Your verification code"
-  const linkSection = verificationLink
-    ? `
-        <div style="text-align: center; margin: 24px 0 16px;">
-          <a href="${verificationLink}" 
-             style="background-color: #007bff; color: white; padding: 12px 28px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold; font-size: 15px;">
-            Verify Email Address
-          </a>
-        </div>
-        <p style="color: #666; font-size: 13px; margin-bottom: 8px;">Or copy and paste this link:</p>
-        <p style="color: #007bff; word-break: break-all; font-size: 12px; margin-bottom: 20px;">
-          ${verificationLink}
-        </p>
-      `
-    : ""
+  if (to && to.trim()) {
+    const subject = "Your verification code"
+    const linkSection = verificationLink
+      ? `
+          <div style="text-align: center; margin: 24px 0 16px;">
+            <a href="${verificationLink}" 
+               style="background-color: #007bff; color: white; padding: 12px 28px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold; font-size: 15px;">
+              Verify Email Address
+            </a>
+          </div>
+          <p style="color: #666; font-size: 13px; margin-bottom: 8px;">Or copy and paste this link:</p>
+          <p style="color: #007bff; word-break: break-all; font-size: 12px; margin-bottom: 20px;">
+            ${verificationLink}
+          </p>
+        `
+      : ""
 
-  const html = `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-      <div style="background-color: #f8f9fa; padding: 30px; border-radius: 10px;">
-        <h2 style="color: #333; margin-bottom: 20px;">Email Verification</h2>
-        <p style="color: #666; line-height: 1.6;">
-          ${name ? `Hi ${name},` : "Hi there,"}
-        </p>
-        <p style="color: #666; line-height: 1.6;">
-          Your 6-digit verification code is:
-        </p>
-        <p style="font-size: 28px; font-weight: bold; letter-spacing: 8px; color: #007bff; margin: 24px 0;">
-          ${otp}
-        </p>
-        ${linkSection}
-        <p style="color: #999; font-size: 12px;">
-          This code will expire in 10 minutes. Do not share it with anyone.
-        </p>
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="background-color: #f8f9fa; padding: 30px; border-radius: 10px;">
+          <h2 style="color: #333; margin-bottom: 20px;">Email Verification</h2>
+          <p style="color: #666; line-height: 1.6;">
+            ${name ? `Hi ${name},` : "Hi there,"}
+          </p>
+          <p style="color: #666; line-height: 1.6;">
+            Your 6-digit verification code is:
+          </p>
+          <p style="font-size: 28px; font-weight: bold; letter-spacing: 8px; color: #007bff; margin: 24px 0;">
+            ${otp}
+          </p>
+          ${linkSection}
+          <p style="color: #999; font-size: 12px;">
+            This code will expire in 10 minutes. Do not share it with anyone.
+          </p>
+        </div>
       </div>
-    </div>
-  `
-  return sendEmail({ to, subject, html })
+    `
+    return sendEmail({ to, subject, html })
+  }
+
+  if (toPhone) {
+    const success = await sendAccountVerificationSms({
+      to: toPhone,
+      countryCode: phoneCountryCode,
+      otp,
+      name,
+      verificationLink,
+    })
+    return { success }
+  }
+
+  return { success: false, error: new Error("No recipient email or phone provided.") }
 }
 
 export async function sendPasswordResetOtpEmail({
@@ -161,81 +207,117 @@ export async function sendPasswordResetOtpEmail({
   otp,
   name,
   resetLink,
+  toPhone,
+  phoneCountryCode,
 }: {
-  to: string
+  to?: string | null
   otp: string
   name?: string | null
   resetLink?: string
+  toPhone?: string | null
+  phoneCountryCode?: string | null
 }) {
-  const subject = "Your password reset code"
-  const linkSection = resetLink
-    ? `
-        <div style="text-align: center; margin: 24px 0 16px;">
-          <a href="${resetLink}" 
-             style="background-color: #007bff; color: white; padding: 12px 28px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold; font-size: 15px;">
-            Reset Password
-          </a>
-        </div>
-        <p style="color: #666; font-size: 13px; margin-bottom: 8px;">Or copy and paste this link:</p>
-        <p style="color: #007bff; word-break: break-all; font-size: 12px; margin-bottom: 20px;">
-          ${resetLink}
-        </p>
-      `
-    : ""
+  if (to && to.trim()) {
+    const subject = "Your password reset code"
+    const linkSection = resetLink
+      ? `
+          <div style="text-align: center; margin: 24px 0 16px;">
+            <a href="${resetLink}" 
+               style="background-color: #007bff; color: white; padding: 12px 28px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold; font-size: 15px;">
+              Reset Password
+            </a>
+          </div>
+          <p style="color: #666; font-size: 13px; margin-bottom: 8px;">Or copy and paste this link:</p>
+          <p style="color: #007bff; word-break: break-all; font-size: 12px; margin-bottom: 20px;">
+            ${resetLink}
+          </p>
+        `
+      : ""
 
-  const html = `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-      <div style="background-color: #f8f9fa; padding: 30px; border-radius: 10px;">
-        <h2 style="color: #333; margin-bottom: 20px;">Reset your password</h2>
-        <p style="color: #666; line-height: 1.6;">
-          ${name ? `Hi ${name},` : "Hi there,"}
-        </p>
-        <p style="color: #666; line-height: 1.6;">
-          Use this 6-digit code to reset your password:
-        </p>
-        <p style="font-size: 28px; font-weight: bold; letter-spacing: 8px; color: #007bff; margin: 24px 0;">
-          ${otp}
-        </p>
-        ${linkSection}
-        <p style="color: #999; font-size: 12px;">
-          This code will expire in 10 minutes. Do not share it with anyone.
-        </p>
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="background-color: #f8f9fa; padding: 30px; border-radius: 10px;">
+          <h2 style="color: #333; margin-bottom: 20px;">Reset your password</h2>
+          <p style="color: #666; line-height: 1.6;">
+            ${name ? `Hi ${name},` : "Hi there,"}
+          </p>
+          <p style="color: #666; line-height: 1.6;">
+            Use this 6-digit code to reset your password:
+          </p>
+          <p style="font-size: 28px; font-weight: bold; letter-spacing: 8px; color: #007bff; margin: 24px 0;">
+            ${otp}
+          </p>
+          ${linkSection}
+          <p style="color: #999; font-size: 12px;">
+            This code will expire in 10 minutes. Do not share it with anyone.
+          </p>
+        </div>
       </div>
-    </div>
-  `
-  return sendEmail({ to, subject, html })
+    `
+    return sendEmail({ to, subject, html })
+  }
+
+  if (toPhone) {
+    await sendPasswordResetSms({
+      to: toPhone,
+      countryCode: phoneCountryCode,
+      otp,
+      name,
+      resetLink,
+    })
+    return { success: true }
+  }
+
+  return { success: false, error: new Error("No recipient email or phone provided.") }
 }
 
 export async function sendLoginOtpEmail({
   to,
   otp,
   name,
+  toPhone,
+  phoneCountryCode,
 }: {
-  to: string
+  to?: string | null
   otp: string
   name?: string | null
+  toPhone?: string | null
+  phoneCountryCode?: string | null
 }) {
-  const subject = "Your login OTP code"
-  const html = `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-      <div style="background-color: #f8f9fa; padding: 30px; border-radius: 10px;">
-        <h2 style="color: #333; margin-bottom: 20px;">Login verification code</h2>
-        <p style="color: #666; line-height: 1.6;">
-          ${name ? `Hi ${name},` : "Hi there,"}
-        </p>
-        <p style="color: #666; line-height: 1.6;">
-          Use this 6-digit OTP to login:
-        </p>
-        <p style="font-size: 28px; font-weight: bold; letter-spacing: 8px; color: #007bff; margin: 24px 0;">
-          ${otp}
-        </p>
-        <p style="color: #999; font-size: 12px;">
-          This code will expire in 10 minutes. Do not share it with anyone.
-        </p>
+  if (to && to.trim()) {
+    const subject = "Your login OTP code"
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="background-color: #f8f9fa; padding: 30px; border-radius: 10px;">
+          <h2 style="color: #333; margin-bottom: 20px;">Login verification code</h2>
+          <p style="color: #666; line-height: 1.6;">
+            ${name ? `Hi ${name},` : "Hi there,"}
+          </p>
+          <p style="color: #666; line-height: 1.6;">
+            Use this 6-digit OTP to login:
+          </p>
+          <p style="font-size: 28px; font-weight: bold; letter-spacing: 8px; color: #007bff; margin: 24px 0;">
+            ${otp}
+          </p>
+          <p style="color: #999; font-size: 12px;">
+            This code will expire in 10 minutes. Do not share it with anyone.
+          </p>
+        </div>
       </div>
-    </div>
-  `
-  return sendEmail({ to, subject, html })
+    `
+    return sendEmail({ to, subject, html })
+  }
+
+  if (toPhone) {
+    const success = await sendNotificationSms({
+      to: toPhone,
+      countryCode: phoneCountryCode,
+      body: `Hi ${name || "there"}, your Meeem login OTP code is: ${otp}. Valid for 10 minutes.`,
+    })
+    return { success }
+  }
+
+  return { success: false, error: new Error("No recipient email or phone provided.") }
 }
 
 // ── CUSTOMER ORDER CONFIRMATION EMAIL ────────────────────────────────────────
@@ -250,8 +332,10 @@ export async function sendOrderConfirmationEmail({
   totalAmount,
   shippingAddress,
   paymentMethod,
+  toPhone,
+  phoneCountryCode,
 }: {
-  to: string
+  to?: string | null
   name: string
   orderNumber: string
   items: Array<{ name: string; quantity: number; price: number; subtotal: number }>
@@ -261,58 +345,73 @@ export async function sendOrderConfirmationEmail({
   totalAmount: number
   shippingAddress: string
   paymentMethod: string
+  toPhone?: string | null
+  phoneCountryCode?: string | null
 }) {
-  const subject = `Order Confirmation - #${orderNumber}`
-  const itemsHtml = items
-    .map(
-      (item) => `
-      <tr>
-        <td style="padding: 10px; border-bottom: 1px solid #eee;">${item.name} (x${item.quantity})</td>
-        <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: right;">${formatCurrency(item.price)}</td>
-        <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: right;">${formatCurrency(item.subtotal)}</td>
-      </tr>
-    `
-    )
-    .join("")
+  if (to && to.trim()) {
+    const subject = `Order Confirmation - #${orderNumber}`
+    const itemsHtml = items
+      .map(
+        (item) => `
+        <tr>
+          <td style="padding: 10px; border-bottom: 1px solid #eee;">${item.name} (x${item.quantity})</td>
+          <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: right;">${formatCurrency(item.price)}</td>
+          <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: right;">${formatCurrency(item.subtotal)}</td>
+        </tr>
+      `
+      )
+      .join("")
 
-  const html = `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-      <div style="background-color: #f8f9fa; padding: 30px; border-radius: 10px; border: 1px solid #e9ecef;">
-        <h2 style="color: #333; margin-bottom: 5px;">Thank you for your order!</h2>
-        <p style="color: #666; font-size: 14px; margin-top: 0; margin-bottom: 20px;">Order #${orderNumber}</p>
-        <p style="color: #666; line-height: 1.6;">Hi ${name},</p>
-        <p style="color: #666; line-height: 1.6;">We have received your order and are processing it. Below are your order details:</p>
-        
-        <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
-          <thead>
-            <tr style="background-color: #e9ecef;">
-              <th style="padding: 10px; text-align: left; font-size: 14px;">Item</th>
-              <th style="padding: 10px; text-align: right; font-size: 14px;">Price</th>
-              <th style="padding: 10px; text-align: right; font-size: 14px;">Total</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${itemsHtml}
-          </tbody>
-        </table>
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="background-color: #f8f9fa; padding: 30px; border-radius: 10px; border: 1px solid #e9ecef;">
+          <h2 style="color: #333; margin-bottom: 5px;">Thank you for your order!</h2>
+          <p style="color: #666; font-size: 14px; margin-top: 0; margin-bottom: 20px;">Order #${orderNumber}</p>
+          <p style="color: #666; line-height: 1.6;">Hi ${name},</p>
+          <p style="color: #666; line-height: 1.6;">We have received your order and are processing it. Below are your order details:</p>
+          
+          <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+            <thead>
+              <tr style="background-color: #e9ecef;">
+                <th style="padding: 10px; text-align: left; font-size: 14px;">Item</th>
+                <th style="padding: 10px; text-align: right; font-size: 14px;">Price</th>
+                <th style="padding: 10px; text-align: right; font-size: 14px;">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${itemsHtml}
+            </tbody>
+          </table>
 
-        <div style="text-align: right; margin-top: 15px; color: #555;">
-          <p style="margin: 5px 0;">Subtotal: <strong>${formatCurrency(subtotal)}</strong></p>
-          <p style="margin: 5px 0;">GST/Tax: <strong>${formatCurrency(tax)}</strong></p>
-          <p style="margin: 5px 0;">Shipping: <strong>${formatCurrency(shipping)}</strong></p>
-          <h3 style="margin: 10px 0; color: #007bff;">Total: ${formatCurrency(totalAmount)}</h3>
-        </div>
+          <div style="text-align: right; margin-top: 15px; color: #555;">
+            <p style="margin: 5px 0;">Subtotal: <strong>${formatCurrency(subtotal)}</strong></p>
+            <p style="margin: 5px 0;">GST/Tax: <strong>${formatCurrency(tax)}</strong></p>
+            <p style="margin: 5px 0;">Shipping: <strong>${formatCurrency(shipping)}</strong></p>
+            <h3 style="margin: 10px 0; color: #007bff;">Total: ${formatCurrency(totalAmount)}</h3>
+          </div>
 
-        <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #dee2e6;">
-          <p style="color: #555; margin-bottom: 5px;"><strong>Shipping Address:</strong></p>
-          <p style="color: #666; font-size: 14px; margin-top: 0; line-height: 1.5;">${shippingAddress}</p>
-          <p style="color: #555; margin-top: 15px; margin-bottom: 5px;"><strong>Payment Method:</strong></p>
-          <p style="color: #666; font-size: 14px; margin-top: 0;">${paymentMethod}</p>
+          <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #dee2e6;">
+            <p style="color: #555; margin-bottom: 5px;"><strong>Shipping Address:</strong></p>
+            <p style="color: #666; font-size: 14px; margin-top: 0; line-height: 1.5;">${shippingAddress}</p>
+            <p style="color: #555; margin-top: 15px; margin-bottom: 5px;"><strong>Payment Method:</strong></p>
+            <p style="color: #666; font-size: 14px; margin-top: 0;">${paymentMethod}</p>
+          </div>
         </div>
       </div>
-    </div>
-  `
-  return sendEmail({ to, subject, html })
+    `
+    return sendEmail({ to, subject, html })
+  }
+
+  if (toPhone) {
+    const success = await sendNotificationSms({
+      to: toPhone,
+      countryCode: phoneCountryCode,
+      body: `Hi ${name}, your Meeem order #${orderNumber} is confirmed! Total: ${formatCurrency(totalAmount)}. Thank you for shopping with us!`,
+    })
+    return { success }
+  }
+
+  return { success: false, error: new Error("No contact channel for order confirmation.") }
 }
 
 // ── SELLER NEW ORDER ITEM NOTIFICATION ────────────────────────────────────────
@@ -324,117 +423,149 @@ export async function sendSellerNewOrderEmail({
   customerName,
   shippingAddress,
   shippingPhone,
+  toPhone,
+  phoneCountryCode,
 }: {
-  to: string
+  to?: string | null
   sellerName: string
   orderNumber: string
   items: Array<{ name: string; quantity: number; subtotal: number }>
   customerName: string
   shippingAddress: string
   shippingPhone: string
+  toPhone?: string | null
+  phoneCountryCode?: string | null
 }) {
-  const subject = `New Order Received - #${orderNumber}`
-  const itemsHtml = items
-    .map(
-      (item) => `
-      <tr>
-        <td style="padding: 10px; border-bottom: 1px solid #eee;">${item.name} (x${item.quantity})</td>
-        <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: right;">${formatCurrency(item.subtotal)}</td>
-      </tr>
-    `
-    )
-    .join("")
+  if (to && to.trim()) {
+    const subject = `New Order Received - #${orderNumber}`
+    const itemsHtml = items
+      .map(
+        (item) => `
+        <tr>
+          <td style="padding: 10px; border-bottom: 1px solid #eee;">${item.name} (x${item.quantity})</td>
+          <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: right;">${formatCurrency(item.subtotal)}</td>
+        </tr>
+      `
+      )
+      .join("")
 
-  const html = `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-      <div style="background-color: #f8f9fa; padding: 30px; border-radius: 10px; border: 1px solid #e9ecef;">
-        <h2 style="color: #007bff; margin-bottom: 5px;">New Order Notification</h2>
-        <p style="color: #666; font-size: 14px; margin-top: 0; margin-bottom: 20px;">Order #${orderNumber}</p>
-        <p style="color: #666; line-height: 1.6;">Hi ${sellerName},</p>
-        <p style="color: #666; line-height: 1.6;">You have received a new order. Please prepare and dispatch the following items:</p>
-        
-        <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
-          <thead>
-            <tr style="background-color: #e9ecef;">
-              <th style="padding: 10px; text-align: left; font-size: 14px;">Item</th>
-              <th style="padding: 10px; text-align: right; font-size: 14px;">Subtotal</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${itemsHtml}
-          </tbody>
-        </table>
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="background-color: #f8f9fa; padding: 30px; border-radius: 10px; border: 1px solid #e9ecef;">
+          <h2 style="color: #007bff; margin-bottom: 5px;">New Order Notification</h2>
+          <p style="color: #666; font-size: 14px; margin-top: 0; margin-bottom: 20px;">Order #${orderNumber}</p>
+          <p style="color: #666; line-height: 1.6;">Hi ${sellerName},</p>
+          <p style="color: #666; line-height: 1.6;">You have received a new order. Please prepare and dispatch the following items:</p>
+          
+          <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+            <thead>
+              <tr style="background-color: #e9ecef;">
+                <th style="padding: 10px; text-align: left; font-size: 14px;">Item</th>
+                <th style="padding: 10px; text-align: right; font-size: 14px;">Subtotal</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${itemsHtml}
+            </tbody>
+          </table>
 
-        <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #dee2e6;">
-          <p style="color: #555; margin-bottom: 5px;"><strong>Customer Delivery Details:</strong></p>
-          <p style="color: #666; font-size: 14px; margin: 0; line-height: 1.5;">Name: ${customerName}</p>
-          <p style="color: #666; font-size: 14px; margin: 5px 0; line-height: 1.5;">Address: ${shippingAddress}</p>
-          <p style="color: #666; font-size: 14px; margin: 0; line-height: 1.5;">Phone: ${shippingPhone}</p>
+          <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #dee2e6;">
+            <p style="color: #555; margin-bottom: 5px;"><strong>Customer Delivery Details:</strong></p>
+            <p style="color: #666; font-size: 14px; margin: 0; line-height: 1.5;">Name: ${customerName}</p>
+            <p style="color: #666; font-size: 14px; margin: 5px 0; line-height: 1.5;">Address: ${shippingAddress}</p>
+            <p style="color: #666; font-size: 14px; margin: 0; line-height: 1.5;">Phone: ${shippingPhone}</p>
+          </div>
         </div>
       </div>
-    </div>
-  `
-  return sendEmail({ to, subject, html })
+    `
+    return sendEmail({ to, subject, html })
+  }
+
+  if (toPhone) {
+    const success = await sendNotificationSms({
+      to: toPhone,
+      countryCode: phoneCountryCode,
+      body: `Hi ${sellerName}, you have received a new order #${orderNumber} on Meeem from ${customerName}. Please check your seller dashboard.`,
+    })
+    return { success }
+  }
+
+  return { success: false, error: new Error("No contact channel for seller new order.") }
 }
 
 // ── ADMIN NEW ORDER NOTIFICATION ───────────────────────────────────────────
 export async function sendAdminNewOrderEmail({
   to,
+  toPhone,
+  phoneCountryCode,
   orderNumber,
   customerName,
   items,
   totalAmount,
   commissionAmount,
 }: {
-  to: string
+  to?: string | null
+  toPhone?: string | null
+  phoneCountryCode?: string | null
   orderNumber: string
   customerName: string
   items: Array<{ name: string; quantity: number; sellerStoreName: string; subtotal: number }>
   totalAmount: number
   commissionAmount: number
 }) {
-  const subject = `New Order Placed - #${orderNumber}`
-  const itemsHtml = items
-    .map(
-      (item) => `
-      <tr>
-        <td style="padding: 10px; border-bottom: 1px solid #eee;">${item.name} (x${item.quantity})</td>
-        <td style="padding: 10px; border-bottom: 1px solid #eee;">${item.sellerStoreName}</td>
-        <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: right;">${formatCurrency(item.subtotal)}</td>
-      </tr>
-    `
-    )
-    .join("")
+  if (to && to.trim()) {
+    const subject = `New Order Placed - #${orderNumber}`
+    const itemsHtml = items
+      .map(
+        (item) => `
+        <tr>
+          <td style="padding: 10px; border-bottom: 1px solid #eee;">${item.name} (x${item.quantity})</td>
+          <td style="padding: 10px; border-bottom: 1px solid #eee;">${item.sellerStoreName}</td>
+          <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: right;">${formatCurrency(item.subtotal)}</td>
+        </tr>
+      `
+      )
+      .join("")
 
-  const html = `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-      <div style="background-color: #f8f9fa; padding: 30px; border-radius: 10px; border: 1px solid #e9ecef;">
-        <h2 style="color: #28a745; margin-bottom: 5px;">Admin Order Alert</h2>
-        <p style="color: #666; font-size: 14px; margin-top: 0; margin-bottom: 20px;">Order #${orderNumber}</p>
-        <p style="color: #666; line-height: 1.6;">Hi Admin,</p>
-        <p style="color: #666; line-height: 1.6;">A new order has been placed by <strong>${customerName}</strong>.</p>
-        
-        <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
-          <thead>
-            <tr style="background-color: #e9ecef;">
-              <th style="padding: 10px; text-align: left; font-size: 14px;">Item</th>
-              <th style="padding: 10px; text-align: left; font-size: 14px;">Seller Store</th>
-              <th style="padding: 10px; text-align: right; font-size: 14px;">Subtotal</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${itemsHtml}
-          </tbody>
-        </table>
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="background-color: #f8f9fa; padding: 30px; border-radius: 10px; border: 1px solid #e9ecef;">
+          <h2 style="color: #007bff; margin-bottom: 20px;">New Order Placed</h2>
+          <p style="color: #666; line-height: 1.6;">A new order <strong>#${orderNumber}</strong> has been placed by <strong>${customerName}</strong>.</p>
+          
+          <table style="width: 100%; border-collapse: collapse; margin-top: 20px;">
+            <thead>
+              <tr style="background-color: #eee;">
+                <th style="padding: 10px; text-align: left;">Item</th>
+                <th style="padding: 10px; text-align: left;">Seller</th>
+                <th style="padding: 10px; text-align: right;">Subtotal</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${itemsHtml}
+            </tbody>
+          </table>
 
-        <div style="text-align: right; margin-top: 15px; color: #555;">
-          <p style="margin: 5px 0;">Total Amount: <strong>${formatCurrency(totalAmount)}</strong></p>
-          <p style="margin: 5px 0; color: #28a745;">Commission Earned: <strong>${formatCurrency(commissionAmount)}</strong></p>
+          <div style="text-align: right; margin-top: 15px; color: #555;">
+            <p style="margin: 5px 0;">Total Amount: <strong>${formatCurrency(totalAmount)}</strong></p>
+            <p style="margin: 5px 0; color: #28a745;">Commission Earned: <strong>${formatCurrency(commissionAmount)}</strong></p>
+          </div>
         </div>
       </div>
-    </div>
-  `
-  return sendEmail({ to, subject, html })
+    `
+    return sendEmail({ to, subject, html })
+  }
+
+  if (toPhone && toPhone.trim()) {
+    const success = await sendNotificationSms({
+      to: toPhone,
+      countryCode: phoneCountryCode,
+      body: `Admin Alert: New order #${orderNumber} placed by ${customerName}. Total: ${totalAmount}.`,
+    })
+    return { success }
+  }
+
+  return { success: false, error: new Error("No contact channel for admin new order.") }
 }
 
 // ── CUSTOMER ORDER ITEM STATUS UPDATE EMAIL ──────────────────────────────────
@@ -444,29 +575,46 @@ export async function sendOrderItemStatusUpdateEmail({
   orderNumber,
   itemName,
   status,
+  toPhone,
+  phoneCountryCode,
 }: {
-  to: string
+  to?: string | null
   name: string
   orderNumber: string
   itemName: string
   status: string
+  toPhone?: string | null
+  phoneCountryCode?: string | null
 }) {
-  const subject = `Update on Order #${orderNumber}`
-  const html = `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-      <div style="background-color: #f8f9fa; padding: 30px; border-radius: 10px; border: 1px solid #e9ecef;">
-        <h2 style="color: #007bff; margin-bottom: 20px;">Item Status Update</h2>
-        <p style="color: #666; line-height: 1.6;">Hi ${name},</p>
-        <p style="color: #666; line-height: 1.6;">
-          The status of your item <strong>${itemName}</strong> in order <strong>#${orderNumber}</strong> has been updated to:
-        </p>
-        <p style="font-size: 20px; font-weight: bold; color: #007bff; margin: 20px 0; text-transform: uppercase;">
-          ${status}
-        </p>
+  if (to && to.trim()) {
+    const subject = `Update on Order #${orderNumber}`
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="background-color: #f8f9fa; padding: 30px; border-radius: 10px; border: 1px solid #e9ecef;">
+          <h2 style="color: #007bff; margin-bottom: 20px;">Item Status Update</h2>
+          <p style="color: #666; line-height: 1.6;">Hi ${name},</p>
+          <p style="color: #666; line-height: 1.6;">
+            The status of your item <strong>${itemName}</strong> in order <strong>#${orderNumber}</strong> has been updated to:
+          </p>
+          <p style="font-size: 20px; font-weight: bold; color: #007bff; margin: 20px 0; text-transform: uppercase;">
+            ${status}
+          </p>
+        </div>
       </div>
-    </div>
-  `
-  return sendEmail({ to, subject, html })
+    `
+    return sendEmail({ to, subject, html })
+  }
+
+  if (toPhone) {
+    const success = await sendNotificationSms({
+      to: toPhone,
+      countryCode: phoneCountryCode,
+      body: `Hi ${name}, update on your Meeem order #${orderNumber}: item "${itemName}" is now ${status}.`,
+    })
+    return { success }
+  }
+
+  return { success: false, error: new Error("No contact channel for order item status update.") }
 }
 
 // ── FOOD ORDER CONFIRMATION EMAIL ───────────────────────────────────────────
@@ -478,63 +626,80 @@ export async function sendFoodOrderConfirmationEmail({
   totalAmount,
   deliveryAddress,
   paymentMethod,
+  toPhone,
+  phoneCountryCode,
 }: {
-  to: string
+  to?: string | null
   name: string
   orderNumber: string
   items: Array<{ name: string; quantity: number; price: number; subtotal: number }>
   totalAmount: number
   deliveryAddress: string
   paymentMethod: string
+  toPhone?: string | null
+  phoneCountryCode?: string | null
 }) {
-  const subject = `Food Order Confirmation - #${orderNumber}`
-  const itemsHtml = items
-    .map(
-      (item) => `
-      <tr>
-        <td style="padding: 10px; border-bottom: 1px solid #eee;">${item.name} (x${item.quantity})</td>
-        <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: right;">${formatCurrency(item.price)}</td>
-        <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: right;">${formatCurrency(item.subtotal)}</td>
-      </tr>
-    `
-    )
-    .join("")
+  if (to && to.trim()) {
+    const subject = `Food Order Confirmation - #${orderNumber}`
+    const itemsHtml = items
+      .map(
+        (item) => `
+        <tr>
+          <td style="padding: 10px; border-bottom: 1px solid #eee;">${item.name} (x${item.quantity})</td>
+          <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: right;">${formatCurrency(item.price)}</td>
+          <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: right;">${formatCurrency(item.subtotal)}</td>
+        </tr>
+      `
+      )
+      .join("")
 
-  const html = `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-      <div style="background-color: #f8f9fa; padding: 30px; border-radius: 10px; border: 1px solid #e9ecef;">
-        <h2 style="color: #333; margin-bottom: 5px;">Food Order Placed!</h2>
-        <p style="color: #666; font-size: 14px; margin-top: 0; margin-bottom: 20px;">Order #${orderNumber}</p>
-        <p style="color: #666; line-height: 1.6;">Hi ${name},</p>
-        <p style="color: #666; line-height: 1.6;">Your order is being sent to the kitchen. Here is a summary of your food items:</p>
-        
-        <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
-          <thead>
-            <tr style="background-color: #e9ecef;">
-              <th style="padding: 10px; text-align: left; font-size: 14px;">Food Item</th>
-              <th style="padding: 10px; text-align: right; font-size: 14px;">Price</th>
-              <th style="padding: 10px; text-align: right; font-size: 14px;">Total</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${itemsHtml}
-          </tbody>
-        </table>
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="background-color: #f8f9fa; padding: 30px; border-radius: 10px; border: 1px solid #e9ecef;">
+          <h2 style="color: #333; margin-bottom: 5px;">Food Order Placed!</h2>
+          <p style="color: #666; font-size: 14px; margin-top: 0; margin-bottom: 20px;">Order #${orderNumber}</p>
+          <p style="color: #666; line-height: 1.6;">Hi ${name},</p>
+          <p style="color: #666; line-height: 1.6;">Your order is being sent to the kitchen. Here is a summary of your food items:</p>
+          
+          <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+            <thead>
+              <tr style="background-color: #e9ecef;">
+                <th style="padding: 10px; text-align: left; font-size: 14px;">Food Item</th>
+                <th style="padding: 10px; text-align: right; font-size: 14px;">Price</th>
+                <th style="padding: 10px; text-align: right; font-size: 14px;">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${itemsHtml}
+            </tbody>
+          </table>
 
-        <div style="text-align: right; margin-top: 15px; color: #555;">
-          <h3 style="margin: 10px 0; color: #007bff;">Total paid: ${formatCurrency(totalAmount)}</h3>
-        </div>
+          <div style="text-align: right; margin-top: 15px; color: #555;">
+            <h3 style="margin: 10px 0; color: #007bff;">Total paid: ${formatCurrency(totalAmount)}</h3>
+          </div>
 
-        <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #dee2e6;">
-          <p style="color: #555; margin-bottom: 5px;"><strong>Delivery Address:</strong></p>
-          <p style="color: #666; font-size: 14px; margin-top: 0; line-height: 1.5;">${deliveryAddress}</p>
-          <p style="color: #555; margin-top: 15px; margin-bottom: 5px;"><strong>Payment Method:</strong></p>
-          <p style="color: #666; font-size: 14px; margin-top: 0;">${paymentMethod}</p>
+          <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #dee2e6;">
+            <p style="color: #555; margin-bottom: 5px;"><strong>Delivery Address:</strong></p>
+            <p style="color: #666; font-size: 14px; margin-top: 0; line-height: 1.5;">${deliveryAddress}</p>
+            <p style="color: #555; margin-top: 15px; margin-bottom: 5px;"><strong>Payment Method:</strong></p>
+            <p style="color: #666; font-size: 14px; margin-top: 0;">${paymentMethod}</p>
+          </div>
         </div>
       </div>
-    </div>
-  `
-  return sendEmail({ to, subject, html })
+    `
+    return sendEmail({ to, subject, html })
+  }
+
+  if (toPhone) {
+    const success = await sendNotificationSms({
+      to: toPhone,
+      countryCode: phoneCountryCode,
+      body: `Hi ${name}, your Meeem food order #${orderNumber} is placed! Total: ${formatCurrency(totalAmount)}. Track your order in the app.`,
+    })
+    return { success }
+  }
+
+  return { success: false, error: new Error("No contact channel for food order confirmation.") }
 }
 
 // ── RESTAURANT SELLER NEW FOOD ORDER NOTIFICATION ─────────────────────────────────
@@ -546,56 +711,73 @@ export async function sendRestaurantNewOrderEmail({
   customerName,
   deliveryAddress,
   deliveryPhone,
+  toPhone,
+  phoneCountryCode,
 }: {
-  to: string
+  to?: string | null
   restaurantName: string
   orderNumber: string
   items: Array<{ name: string; quantity: number }>
   customerName: string
   deliveryAddress: string
   deliveryPhone: string
+  toPhone?: string | null
+  phoneCountryCode?: string | null
 }) {
-  const subject = `New Food Order - #${orderNumber}`
-  const itemsHtml = items
-    .map(
-      (item) => `
-      <tr>
-        <td style="padding: 10px; border-bottom: 1px solid #eee;">${item.name}</td>
-        <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: right;">x${item.quantity}</td>
-      </tr>
-    `
-    )
-    .join("")
+  if (to && to.trim()) {
+    const subject = `New Food Order - #${orderNumber}`
+    const itemsHtml = items
+      .map(
+        (item) => `
+        <tr>
+          <td style="padding: 10px; border-bottom: 1px solid #eee;">${item.name}</td>
+          <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: right;">x${item.quantity}</td>
+        </tr>
+      `
+      )
+      .join("")
 
-  const html = `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-      <div style="background-color: #f8f9fa; padding: 30px; border-radius: 10px; border: 1px solid #e9ecef;">
-        <h2 style="color: #007bff; margin-bottom: 5px;">Incoming Food Order</h2>
-        <p style="color: #666; font-size: 14px; margin-top: 0; margin-bottom: 20px;">Order #${orderNumber}</p>
-        <p style="color: #666; line-height: 1.6;">Hi ${restaurantName},</p>
-        <p style="color: #666; line-height: 1.6;">You have a new food order from <strong>${customerName}</strong>. Please check the items below:</p>
-        
-        <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
-          <thead>
-            <tr style="background-color: #e9ecef;">
-              <th style="padding: 10px; text-align: left; font-size: 14px;">Food Item</th>
-              <th style="padding: 10px; text-align: right; font-size: 14px;">Qty</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${itemsHtml}
-          </tbody>
-        </table>
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="background-color: #f8f9fa; padding: 30px; border-radius: 10px; border: 1px solid #e9ecef;">
+          <h2 style="color: #007bff; margin-bottom: 5px;">Incoming Food Order</h2>
+          <p style="color: #666; font-size: 14px; margin-top: 0; margin-bottom: 20px;">Order #${orderNumber}</p>
+          <p style="color: #666; line-height: 1.6;">Hi ${restaurantName},</p>
+          <p style="color: #666; line-height: 1.6;">You have a new food order from <strong>${customerName}</strong>. Please check the items below:</p>
+          
+          <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+            <thead>
+              <tr style="background-color: #e9ecef;">
+                <th style="padding: 10px; text-align: left; font-size: 14px;">Food Item</th>
+                <th style="padding: 10px; text-align: right; font-size: 14px;">Qty</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${itemsHtml}
+            </tbody>
+          </table>
 
-        <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #dee2e6;">
-          <p style="color: #555; margin-bottom: 5px;"><strong>Delivery Details:</strong></p>
-          <p style="color: #666; font-size: 14px; margin: 0; line-height: 1.5;">Address: ${deliveryAddress}</p>
-          <p style="color: #666; font-size: 14px; margin: 5px 0; line-height: 1.5;">Phone: ${deliveryPhone}</p>
+          <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #dee2e6;">
+            <p style="color: #555; margin-bottom: 5px;"><strong>Delivery Details:</strong></p>
+            <p style="color: #666; font-size: 14px; margin: 0; line-height: 1.5;">Address: ${deliveryAddress}</p>
+            <p style="color: #666; font-size: 14px; margin: 5px 0; line-height: 1.5;">Phone: ${deliveryPhone}</p>
+          </div>
         </div>
       </div>
-    </div>
-  `
-  return sendEmail({ to, subject, html })
+    `
+    return sendEmail({ to, subject, html })
+  }
+
+  if (toPhone) {
+    const success = await sendNotificationSms({
+      to: toPhone,
+      countryCode: phoneCountryCode,
+      body: `Hi ${restaurantName}, you have a new food order #${orderNumber} on Meeem from ${customerName}. Please check your restaurant portal.`,
+    })
+    return { success }
+  }
+
+  return { success: false, error: new Error("No contact channel for restaurant new order.") }
 }
 
 // ── CUSTOMER FOOD ORDER STATUS UPDATE EMAIL ──────────────────────────────────
@@ -604,28 +786,45 @@ export async function sendFoodOrderStatusUpdateEmail({
   name,
   orderNumber,
   status,
+  toPhone,
+  phoneCountryCode,
 }: {
-  to: string
+  to?: string | null
   name: string
   orderNumber: string
   status: string
+  toPhone?: string | null
+  phoneCountryCode?: string | null
 }) {
-  const subject = `Update on Food Order #${orderNumber}`
-  const html = `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-      <div style="background-color: #f8f9fa; padding: 30px; border-radius: 10px; border: 1px solid #e9ecef;">
-        <h2 style="color: #007bff; margin-bottom: 20px;">Food Order Update</h2>
-        <p style="color: #666; line-height: 1.6;">Hi ${name},</p>
-        <p style="color: #666; line-height: 1.6;">
-          The status of your food order <strong>#${orderNumber}</strong> has been updated to:
-        </p>
-        <p style="font-size: 20px; font-weight: bold; color: #007bff; margin: 20px 0; text-transform: uppercase;">
-          ${status}
-        </p>
+  if (to && to.trim()) {
+    const subject = `Update on Food Order #${orderNumber}`
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="background-color: #f8f9fa; padding: 30px; border-radius: 10px; border: 1px solid #e9ecef;">
+          <h2 style="color: #007bff; margin-bottom: 20px;">Food Order Update</h2>
+          <p style="color: #666; line-height: 1.6;">Hi ${name},</p>
+          <p style="color: #666; line-height: 1.6;">
+            The status of your food order <strong>#${orderNumber}</strong> has been updated to:
+          </p>
+          <p style="font-size: 20px; font-weight: bold; color: #007bff; margin: 20px 0; text-transform: uppercase;">
+            ${status}
+          </p>
+        </div>
       </div>
-    </div>
-  `
-  return sendEmail({ to, subject, html })
+    `
+    return sendEmail({ to, subject, html })
+  }
+
+  if (toPhone) {
+    const success = await sendNotificationSms({
+      to: toPhone,
+      countryCode: phoneCountryCode,
+      body: `Hi ${name}, your Meeem food order #${orderNumber} status is now: ${status}.`,
+    })
+    return { success }
+  }
+
+  return { success: false, error: new Error("No contact channel for food order status update.") }
 }
 
 // ── HOTEL BOOKING CONFIRMATION EMAIL ─────────────────────────────────────────
@@ -640,8 +839,10 @@ export async function sendHotelBookingConfirmationEmail({
   checkOutDate,
   numberOfRooms,
   totalPrice,
+  toPhone,
+  phoneCountryCode,
 }: {
-  to: string
+  to?: string | null
   name: string
   hotelName: string
   roomName: string
@@ -651,27 +852,42 @@ export async function sendHotelBookingConfirmationEmail({
   checkOutDate: string
   numberOfRooms: number
   totalPrice: number
+  toPhone?: string | null
+  phoneCountryCode?: string | null
 }) {
-  const subject = `Hotel Booking Confirmation - ${hotelName}`
-  const html = `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-      <div style="background-color: #f8f9fa; padding: 30px; border-radius: 10px; border: 1px solid #e9ecef;">
-        <h2 style="color: #007bff; margin-bottom: 5px;">Hotel Booking Confirmed!</h2>
-        <p style="color: #666; line-height: 1.6;">Hi ${name},</p>
-        <p style="color: #666; line-height: 1.6;">Your booking at <strong>${hotelName}</strong> is verified. Here are the booking details:</p>
-        
-        <div style="background-color: #ffffff; padding: 20px; border-radius: 5px; margin: 20px 0; border: 1px solid #e9ecef;">
-          <p style="margin: 5px 0; color: #555;"><strong>Hotel:</strong> ${hotelName}</p>
-          <p style="margin: 5px 0; color: #555;"><strong>Room:</strong> ${roomName} (x${numberOfRooms})</p>
-          <p style="margin: 5px 0; color: #555;"><strong>Check-in:</strong> ${checkInDate}</p>
-          <p style="margin: 5px 0; color: #555;"><strong>Check-out:</strong> ${checkOutDate}</p>
-          <p style="margin: 5px 0; color: #555;"><strong>Guest:</strong> ${guestName} (${guestPhone})</p>
-          <h3 style="margin: 15px 0 0 0; color: #007bff;">Total Price: ${formatCurrency(totalPrice)}</h3>
+  if (to && to.trim()) {
+    const subject = `Hotel Booking Confirmation - ${hotelName}`
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="background-color: #f8f9fa; padding: 30px; border-radius: 10px; border: 1px solid #e9ecef;">
+          <h2 style="color: #007bff; margin-bottom: 5px;">Hotel Booking Confirmed!</h2>
+          <p style="color: #666; line-height: 1.6;">Hi ${name},</p>
+          <p style="color: #666; line-height: 1.6;">Your booking at <strong>${hotelName}</strong> is verified. Here are the booking details:</p>
+          
+          <div style="background-color: #ffffff; padding: 20px; border-radius: 5px; margin: 20px 0; border: 1px solid #e9ecef;">
+            <p style="margin: 5px 0; color: #555;"><strong>Hotel:</strong> ${hotelName}</p>
+            <p style="margin: 5px 0; color: #555;"><strong>Room:</strong> ${roomName} (x${numberOfRooms})</p>
+            <p style="margin: 5px 0; color: #555;"><strong>Check-in:</strong> ${checkInDate}</p>
+            <p style="margin: 5px 0; color: #555;"><strong>Check-out:</strong> ${checkOutDate}</p>
+            <p style="margin: 5px 0; color: #555;"><strong>Guest:</strong> ${guestName} (${guestPhone})</p>
+            <h3 style="margin: 15px 0 0 0; color: #007bff;">Total Price: ${formatCurrency(totalPrice)}</h3>
+          </div>
         </div>
       </div>
-    </div>
-  `
-  return sendEmail({ to, subject, html })
+    `
+    return sendEmail({ to, subject, html })
+  }
+
+  if (toPhone) {
+    const success = await sendNotificationSms({
+      to: toPhone,
+      countryCode: phoneCountryCode,
+      body: `Hi ${name}, your booking at ${hotelName} (${roomName}) is confirmed! Check-in: ${checkInDate}. Total: ${formatCurrency(totalPrice)}.`,
+    })
+    return { success }
+  }
+
+  return { success: false, error: new Error("No contact channel for hotel booking confirmation.") }
 }
 
 // ── HOTEL SELLER NEW BOOKING NOTIFICATION ──────────────────────────────────────
@@ -686,8 +902,10 @@ export async function sendHotelNewBookingEmail({
   checkOutDate,
   numberOfRooms,
   totalPrice,
+  toPhone,
+  phoneCountryCode,
 }: {
-  to: string
+  to?: string | null
   hotelSellerName: string
   hotelName: string
   roomName: string
@@ -697,26 +915,41 @@ export async function sendHotelNewBookingEmail({
   checkOutDate: string
   numberOfRooms: number
   totalPrice: number
+  toPhone?: string | null
+  phoneCountryCode?: string | null
 }) {
-  const subject = `New Hotel Booking Received - ${hotelName}`
-  const html = `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-      <div style="background-color: #f8f9fa; padding: 30px; border-radius: 10px; border: 1px solid #e9ecef;">
-        <h2 style="color: #007bff; margin-bottom: 5px;">New Booking Notification</h2>
-        <p style="color: #666; line-height: 1.6;">Hi ${hotelSellerName},</p>
-        <p style="color: #666; line-height: 1.6;">You have received a new booking at <strong>${hotelName}</strong>:</p>
-        
-        <div style="background-color: #ffffff; padding: 20px; border-radius: 5px; margin: 20px 0; border: 1px solid #e9ecef;">
-          <p style="margin: 5px 0; color: #555;"><strong>Room:</strong> ${roomName} (x${numberOfRooms})</p>
-          <p style="margin: 5px 0; color: #555;"><strong>Check-in:</strong> ${checkInDate}</p>
-          <p style="margin: 5px 0; color: #555;"><strong>Check-out:</strong> ${checkOutDate}</p>
-          <p style="margin: 5px 0; color: #555;"><strong>Guest:</strong> ${guestName} (${guestPhone})</p>
-          <h3 style="margin: 15px 0 0 0; color: #007bff;">Total Revenue: ${formatCurrency(totalPrice)}</h3>
+  if (to && to.trim()) {
+    const subject = `New Hotel Booking Received - ${hotelName}`
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="background-color: #f8f9fa; padding: 30px; border-radius: 10px; border: 1px solid #e9ecef;">
+          <h2 style="color: #007bff; margin-bottom: 5px;">New Booking Notification</h2>
+          <p style="color: #666; line-height: 1.6;">Hi ${hotelSellerName},</p>
+          <p style="color: #666; line-height: 1.6;">You have received a new booking at <strong>${hotelName}</strong>:</p>
+          
+          <div style="background-color: #ffffff; padding: 20px; border-radius: 5px; margin: 20px 0; border: 1px solid #e9ecef;">
+            <p style="margin: 5px 0; color: #555;"><strong>Room:</strong> ${roomName} (x${numberOfRooms})</p>
+            <p style="margin: 5px 0; color: #555;"><strong>Check-in:</strong> ${checkInDate}</p>
+            <p style="margin: 5px 0; color: #555;"><strong>Check-out:</strong> ${checkOutDate}</p>
+            <p style="margin: 5px 0; color: #555;"><strong>Guest:</strong> ${guestName} (${guestPhone})</p>
+            <h3 style="margin: 15px 0 0 0; color: #007bff;">Total Revenue: ${formatCurrency(totalPrice)}</h3>
+          </div>
         </div>
       </div>
-    </div>
-  `
-  return sendEmail({ to, subject, html })
+    `
+    return sendEmail({ to, subject, html })
+  }
+
+  if (toPhone) {
+    const success = await sendNotificationSms({
+      to: toPhone,
+      countryCode: phoneCountryCode,
+      body: `Hi ${hotelSellerName}, you have a new booking at ${hotelName} for guest ${guestName} (${checkInDate} to ${checkOutDate}). Total: ${formatCurrency(totalPrice)}.`,
+    })
+    return { success }
+  }
+
+  return { success: false, error: new Error("No contact channel for hotel new booking alert.") }
 }
 
 // ── CUSTOMER HOTEL BOOKING STATUS UPDATE EMAIL ──────────────────────────────
@@ -725,160 +958,267 @@ export async function sendHotelBookingStatusUpdateEmail({
   name,
   hotelName,
   status,
+  toPhone,
+  phoneCountryCode,
 }: {
-  to: string
+  to?: string | null
   name: string
   hotelName: string
   status: string
+  toPhone?: string | null
+  phoneCountryCode?: string | null
 }) {
-  const subject = `Booking Update - ${hotelName}`
-  const html = `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-      <div style="background-color: #f8f9fa; padding: 30px; border-radius: 10px; border: 1px solid #e9ecef;">
-        <h2 style="color: #333; margin-bottom: 20px; color: #007bff;">Booking Status Update</h2>
-        <p style="color: #666; line-height: 1.6;">Hi ${name},</p>
-        <p style="color: #666; line-height: 1.6;">
-          Your booking status at <strong>${hotelName}</strong> has been updated to:
-        </p>
-        <p style="font-size: 20px; font-weight: bold; color: #007bff; margin: 20px 0; text-transform: uppercase;">
-          ${status}
-        </p>
+  if (to && to.trim()) {
+    const subject = `Booking Update - ${hotelName}`
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="background-color: #f8f9fa; padding: 30px; border-radius: 10px; border: 1px solid #e9ecef;">
+          <h2 style="color: #333; margin-bottom: 20px; color: #007bff;">Booking Status Update</h2>
+          <p style="color: #666; line-height: 1.6;">Hi ${name},</p>
+          <p style="color: #666; line-height: 1.6;">
+            Your booking status at <strong>${hotelName}</strong> has been updated to:
+          </p>
+          <p style="font-size: 20px; font-weight: bold; color: #007bff; margin: 20px 0; text-transform: uppercase;">
+            ${status}
+          </p>
+        </div>
       </div>
-    </div>
-  `
-  return sendEmail({ to, subject, html })
+    `
+    return sendEmail({ to, subject, html })
+  }
+
+  if (toPhone) {
+    const success = await sendNotificationSms({
+      to: toPhone,
+      countryCode: phoneCountryCode,
+      body: `Hi ${name}, your booking status at ${hotelName} has been updated to: ${status}.`,
+    })
+    return { success }
+  }
+
+  return { success: false, error: new Error("No contact channel for hotel booking status update.") }
 }
 
 // ── SELLER LIFECYCLE & REGISTRATION EMAILS ───────────────────────────────────
 export async function sendSellerWelcomeEmail({
   to,
   name,
+  toPhone,
+  phoneCountryCode,
 }: {
-  to: string
+  to?: string | null
   name: string
+  toPhone?: string | null
+  phoneCountryCode?: string | null
 }) {
-  const subject = "Welcome to Our Platform - Verification Pending"
-  const html = `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-      <div style="background-color: #f8f9fa; padding: 30px; border-radius: 10px; border: 1px solid #e9ecef;">
-        <h2 style="color: #333; margin-bottom: 20px; color: #007bff;">Registration Received</h2>
-        <p style="color: #666; line-height: 1.6;">Hi ${name},</p>
-        <p style="color: #666; line-height: 1.6;">
-          Thank you for registering as a seller on our platform. Your profile is currently under review by our administration team.
-        </p>
-        <p style="color: #666; line-height: 1.6;">
-          We will notify you by email as soon as your account status is updated.
-        </p>
+  if (to && to.trim()) {
+    const subject = "Welcome to Our Platform - Verification Pending"
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="background-color: #f8f9fa; padding: 30px; border-radius: 10px; border: 1px solid #e9ecef;">
+          <h2 style="color: #333; margin-bottom: 20px; color: #007bff;">Registration Received</h2>
+          <p style="color: #666; line-height: 1.6;">Hi ${name},</p>
+          <p style="color: #666; line-height: 1.6;">
+            Thank you for registering as a seller on our platform. Your profile is currently under review by our administration team.
+          </p>
+          <p style="color: #666; line-height: 1.6;">
+            We will notify you by email as soon as your account status is updated.
+          </p>
+        </div>
       </div>
-    </div>
-  `
-  return sendEmail({ to, subject, html })
+    `
+    return sendEmail({ to, subject, html })
+  }
+
+  if (toPhone) {
+    const success = await sendNotificationSms({
+      to: toPhone,
+      countryCode: phoneCountryCode,
+      body: `Hi ${name}, thank you for registering as a seller on Meeem! Your profile is under review by administration. We will notify you once approved.`,
+    })
+    return { success }
+  }
+
+  return { success: false, error: new Error("No contact channel for seller welcome.") }
 }
 
 export async function sendAdminNewSellerAlertEmail({
   to,
+  toPhone,
+  phoneCountryCode,
   sellerName,
   sellerEmail,
+  sellerPhone,
   sellerRole,
 }: {
-  to: string
+  to?: string | null
+  toPhone?: string | null
+  phoneCountryCode?: string | null
   sellerName: string
-  sellerEmail: string
+  sellerEmail?: string | null
+  sellerPhone?: string | null
   sellerRole: string
 }) {
-  const subject = "New Seller Onboarding Action Required"
-  const html = `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-      <div style="background-color: #f8f9fa; padding: 30px; border-radius: 10px; border: 1px solid #e9ecef;">
-        <h2 style="color: #333; margin-bottom: 20px; color: #28a745;">New Seller Registered</h2>
-        <p style="color: #666; line-height: 1.6;">Hi Admin,</p>
-        <p style="color: #666; line-height: 1.6;">
-          A new seller has completed registration and is pending approval:
-        </p>
-        <div style="background-color: #ffffff; padding: 15px; border-radius: 5px; border: 1px solid #eee; margin: 15px 0;">
-          <p style="margin: 5px 0; color: #555;"><strong>Name:</strong> ${sellerName}</p>
-          <p style="margin: 5px 0; color: #555;"><strong>Email:</strong> ${sellerEmail}</p>
-          <p style="margin: 5px 0; color: #555;"><strong>Role:</strong> ${sellerRole}</p>
+  if (to && to.trim()) {
+    const subject = "New Seller Onboarding Action Required"
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="background-color: #f8f9fa; padding: 30px; border-radius: 10px; border: 1px solid #e9ecef;">
+          <h2 style="color: #333; margin-bottom: 20px; color: #28a745;">New Seller Registered</h2>
+          <p style="color: #666; line-height: 1.6;">Hi Admin,</p>
+          <p style="color: #666; line-height: 1.6;">
+            A new seller has completed registration and is pending approval:
+          </p>
+          <div style="background-color: #ffffff; padding: 15px; border-radius: 5px; border: 1px solid #eee; margin: 15px 0;">
+            <p style="margin: 5px 0; color: #555;"><strong>Name:</strong> ${sellerName}</p>
+            ${sellerEmail ? `<p style="margin: 5px 0; color: #555;"><strong>Email:</strong> ${sellerEmail}</p>` : ""}
+            ${sellerPhone ? `<p style="margin: 5px 0; color: #555;"><strong>Phone:</strong> ${sellerPhone}</p>` : ""}
+            <p style="margin: 5px 0; color: #555;"><strong>Role:</strong> ${sellerRole}</p>
+          </div>
+          <p style="color: #666; line-height: 1.6;">Please log in to the admin dashboard to review their credentials.</p>
         </div>
-        <p style="color: #666; line-height: 1.6;">Please log in to the admin dashboard to review their credentials.</p>
       </div>
-    </div>
-  `
-  return sendEmail({ to, subject, html })
+    `
+    return sendEmail({ to, subject, html })
+  }
+
+  if (toPhone && toPhone.trim()) {
+    const success = await sendNotificationSms({
+      to: toPhone,
+      countryCode: phoneCountryCode,
+      body: `Admin Alert: New seller ${sellerName} (${sellerRole}) has registered and is pending approval.`,
+    })
+    return { success }
+  }
+
+  return { success: false, error: new Error("No contact channel for admin new seller alert.") }
 }
 
 export async function sendSellerApprovalEmail({
   to,
   name,
+  toPhone,
+  phoneCountryCode,
 }: {
-  to: string
+  to?: string | null
   name: string
+  toPhone?: string | null
+  phoneCountryCode?: string | null
 }) {
-  const subject = "Your Seller Account Has Been Approved!"
-  const html = `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-      <div style="background-color: #f8f9fa; padding: 30px; border-radius: 10px; border: 1px solid #28a745;">
-        <h2 style="color: #28a745; margin-bottom: 20px;">Account Approved</h2>
-        <p style="color: #666; line-height: 1.6;">Hi ${name},</p>
-        <p style="color: #666; line-height: 1.6;">
-          Great news! Your seller profile has been approved by the admin. You can now log in, list your products/services, and start selling.
-        </p>
+  if (to && to.trim()) {
+    const subject = "Your Seller Account Has Been Approved!"
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="background-color: #f8f9fa; padding: 30px; border-radius: 10px; border: 1px solid #28a745;">
+          <h2 style="color: #28a745; margin-bottom: 20px;">Account Approved</h2>
+          <p style="color: #666; line-height: 1.6;">Hi ${name},</p>
+          <p style="color: #666; line-height: 1.6;">
+            Great news! Your seller profile has been approved by the admin. You can now log in, list your products/services, and start selling.
+          </p>
+        </div>
       </div>
-    </div>
-  `
-  return sendEmail({ to, subject, html })
+    `
+    return sendEmail({ to, subject, html })
+  }
+
+  if (toPhone) {
+    const success = await sendNotificationSms({
+      to: toPhone,
+      countryCode: phoneCountryCode,
+      body: `Hi ${name}, great news! Your Meeem seller account has been approved. You can now log in and start selling.`,
+    })
+    return { success }
+  }
+
+  return { success: false, error: new Error("No contact channel for seller approval.") }
 }
 
 export async function sendSellerSuspensionEmail({
   to,
   name,
   isSuspended,
+  toPhone,
+  phoneCountryCode,
 }: {
-  to: string
+  to?: string | null
   name: string
   isSuspended: boolean
+  toPhone?: string | null
+  phoneCountryCode?: string | null
 }) {
-  const subject = isSuspended ? "Your Seller Account Has Been Suspended" : "Your Seller Account Has Been Reactivated"
-  const html = `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-      <div style="background-color: #f8f9fa; padding: 30px; border-radius: 10px; border: 1px solid ${isSuspended ? "#dc3545" : "#28a745"};">
-        <h2 style="color: ${isSuspended ? "#dc3545" : "#28a745"}; margin-bottom: 20px;">Account Status Update</h2>
-        <p style="color: #666; line-height: 1.6;">Hi ${name},</p>
-        <p style="color: #666; line-height: 1.6;">
-          Your seller account has been <strong>${isSuspended ? "SUSPENDED" : "REACTIVATED"}</strong> by the administration team.
-        </p>
-        ${!isSuspended ? `<p style="color: #666; line-height: 1.6;">You can now log in and resume selling on the platform.</p>` : `<p style="color: #666; line-height: 1.6;">Please contact support if you believe this is a mistake.</p>`}
+  if (to && to.trim()) {
+    const subject = isSuspended ? "Your Seller Account Has Been Suspended" : "Your Seller Account Has Been Reactivated"
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="background-color: #f8f9fa; padding: 30px; border-radius: 10px; border: 1px solid ${isSuspended ? "#dc3545" : "#28a745"};">
+          <h2 style="color: ${isSuspended ? "#dc3545" : "#28a745"}; margin-bottom: 20px;">Account Status Update</h2>
+          <p style="color: #666; line-height: 1.6;">Hi ${name},</p>
+          <p style="color: #666; line-height: 1.6;">
+            Your seller account has been <strong>${isSuspended ? "SUSPENDED" : "REACTIVATED"}</strong> by the administration team.
+          </p>
+          ${!isSuspended ? `<p style="color: #666; line-height: 1.6;">You can now log in and resume selling on the platform.</p>` : `<p style="color: #666; line-height: 1.6;">Please contact support if you believe this is a mistake.</p>`}
+        </div>
       </div>
-    </div>
-  `
-  return sendEmail({ to, subject, html })
+    `
+    return sendEmail({ to, subject, html })
+  }
+
+  if (toPhone) {
+    const statusText = isSuspended ? "suspended. Please contact support if you have questions." : "reactivated. You can now log in and resume selling."
+    const success = await sendNotificationSms({
+      to: toPhone,
+      countryCode: phoneCountryCode,
+      body: `Hi ${name}, your Meeem seller account has been ${statusText}`,
+    })
+    return { success }
+  }
+
+  return { success: false, error: new Error("No contact channel for seller suspension update.") }
 }
 
 export async function sendRiderSuspensionEmail({
   to,
   name,
   isSuspended,
+  toPhone,
+  phoneCountryCode,
 }: {
-  to: string
+  to?: string | null
   name: string
   isSuspended: boolean
+  toPhone?: string | null
+  phoneCountryCode?: string | null
 }) {
-  const subject = isSuspended
-    ? "Your Delivery Rider Account Has Been Suspended"
-    : "Your Delivery Rider Account Has Been Reactivated"
-  const html = `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-      <div style="background-color: #f8f9fa; padding: 30px; border-radius: 10px; border: 1px solid ${isSuspended ? "#dc3545" : "#28a745"};">
-        <h2 style="color: ${isSuspended ? "#dc3545" : "#28a745"}; margin-bottom: 20px;">Rider Account Status Update</h2>
-        <p style="color: #666; line-height: 1.6;">Hi ${name},</p>
-        <p style="color: #666; line-height: 1.6;">
-          Your delivery rider account has been <strong>${isSuspended ? "SUSPENDED" : "REACTIVATED"}</strong> by the administration team.
-        </p>
-        ${!isSuspended ? `<p style="color: #666; line-height: 1.6;">You can now log in and resume accepting delivery requests on the platform.</p>` : `<p style="color: #666; line-height: 1.6;">Please contact support if you believe this is an error or have questions.</p>`}
+  if (to && to.trim()) {
+    const subject = isSuspended
+      ? "Your Delivery Rider Account Has Been Suspended"
+      : "Your Delivery Rider Account Has Been Reactivated"
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="background-color: #f8f9fa; padding: 30px; border-radius: 10px; border: 1px solid ${isSuspended ? "#dc3545" : "#28a745"};">
+          <h2 style="color: ${isSuspended ? "#dc3545" : "#28a745"}; margin-bottom: 20px;">Rider Account Status Update</h2>
+          <p style="color: #666; line-height: 1.6;">Hi ${name},</p>
+          <p style="color: #666; line-height: 1.6;">
+            Your delivery rider account has been <strong>${isSuspended ? "SUSPENDED" : "REACTIVATED"}</strong> by the administration team.
+          </p>
+          ${!isSuspended ? `<p style="color: #666; line-height: 1.6;">You can now log in and resume accepting delivery requests on the platform.</p>` : `<p style="color: #666; line-height: 1.6;">Please contact support if you believe this is an error or have questions.</p>`}
+        </div>
       </div>
-    </div>
-  `
-  return sendEmail({ to, subject, html })
+    `
+    return sendEmail({ to, subject, html })
+  }
+
+  if (toPhone) {
+    const statusText = isSuspended ? "suspended. Please contact support if you have questions." : "reactivated. You can now log in and resume accepting deliveries."
+    const success = await sendNotificationSms({
+      to: toPhone,
+      countryCode: phoneCountryCode,
+      body: `Hi ${name}, your Meeem delivery rider account has been ${statusText}`,
+    })
+    return { success }
+  }
+
+  return { success: false, error: new Error("No contact channel for rider suspension update.") }
 }
 
 export async function sendSupportTicketReplyEmail({
@@ -888,43 +1228,61 @@ export async function sendSupportTicketReplyEmail({
   subject,
   replyMessage,
   isClosed,
+  toPhone,
+  phoneCountryCode,
 }: {
-  to: string
+  to?: string | null
   recipientName: string
   ticketId: string
   subject?: string | null
   replyMessage: string
   isClosed?: boolean
+  toPhone?: string | null
+  phoneCountryCode?: string | null
 }) {
-  const emailSubject = `[${ticketId}] Reply to Your Support Request: ${subject || "Support Inquiry"}`
-  const html = `
-    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 640px; margin: 0 auto; padding: 24px; color: #1e293b; background-color: #f8fafc;">
-      <div style="background-color: #ffffff; border-radius: 16px; border: 1px solid #e2e8f0; padding: 32px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
-        <div style="border-bottom: 1px solid #e2e8f0; padding-bottom: 20px; margin-bottom: 24px;">
-          <h2 style="margin: 0 0 6px 0; font-size: 20px; font-weight: 700; color: #0f172a;">MEEEM Support Desk</h2>
-          <p style="margin: 0; font-size: 13px; color: #64748b; font-family: monospace;">Ticket ID: <strong>${ticketId}</strong></p>
-        </div>
+  if (to && to.trim()) {
+    const emailSubject = `[${ticketId}] Reply to Your Support Request: ${subject || "Support Inquiry"}`
+    const html = `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 640px; margin: 0 auto; padding: 24px; color: #1e293b; background-color: #f8fafc;">
+        <div style="background-color: #ffffff; border-radius: 16px; border: 1px solid #e2e8f0; padding: 32px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
+          <div style="border-bottom: 1px solid #e2e8f0; padding-bottom: 20px; margin-bottom: 24px;">
+            <h2 style="margin: 0 0 6px 0; font-size: 20px; font-weight: 700; color: #0f172a;">MEEEM Support Desk</h2>
+            <p style="margin: 0; font-size: 13px; color: #64748b; font-family: monospace;">Ticket ID: <strong>${ticketId}</strong></p>
+          </div>
 
-        <p style="font-size: 15px; line-height: 1.6; margin-top: 0;">Dear <strong>${recipientName}</strong>,</p>
-        <p style="font-size: 15px; line-height: 1.6; color: #334155;">Our customer and vendor support team has reviewed your inquiry and replied:</p>
+          <p style="font-size: 15px; line-height: 1.6; margin-top: 0;">Dear <strong>${recipientName}</strong>,</p>
+          <p style="font-size: 15px; line-height: 1.6; color: #334155;">Our customer and vendor support team has reviewed your inquiry and replied:</p>
 
-        <div style="background-color: #f1f5f9; border-left: 4px solid #4f46e5; border-radius: 8px; padding: 18px 20px; margin: 20px 0; font-size: 14px; line-height: 1.7; color: #0f172a; white-space: pre-wrap;">
-${replyMessage}
-        </div>
+          <div style="background-color: #f1f5f9; border-left: 4px solid #4f46e5; border-radius: 8px; padding: 18px 20px; margin: 20px 0; font-size: 14px; line-height: 1.7; color: #0f172a; white-space: pre-wrap;">
+  ${replyMessage}
+          </div>
 
-        ${isClosed ? `
-        <div style="background-color: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px; padding: 12px 16px; margin: 20px 0; font-size: 13px; color: #065f46;">
-          <strong>Ticket Status:</strong> This support ticket has been marked as <strong>Resolved / Closed</strong>. If you still have questions, you may reply to this email or submit a new inquiry at our support portal.
-        </div>` : ''}
+          ${isClosed ? `
+          <div style="background-color: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px; padding: 12px 16px; margin: 20px 0; font-size: 13px; color: #065f46;">
+            <strong>Ticket Status:</strong> This support ticket has been marked as <strong>Resolved / Closed</strong>. If you still have questions, you may reply to this email or submit a new inquiry at our support portal.
+          </div>` : ''}
 
-        <div style="border-top: 1px solid #e2e8f0; padding-top: 20px; margin-top: 28px; font-size: 13px; color: #64748b; line-height: 1.5;">
-          <p style="margin: 0 0 4px 0;"><strong>MEEEM E-commerce Ltd.</strong></p>
-          <p style="margin: 0;">Support Email: <a href="mailto:support@meeemsl.com" style="color: #4f46e5; text-decoration: none;">support@meeemsl.com</a> | Website: <a href="https://meeemsl.com" style="color: #4f46e5; text-decoration: none;">meeemsl.com</a></p>
+          <div style="border-top: 1px solid #e2e8f0; padding-top: 20px; margin-top: 28px; font-size: 13px; color: #64748b; line-height: 1.5;">
+            <p style="margin: 0 0 4px 0;"><strong>MEEEM E-commerce Ltd.</strong></p>
+            <p style="margin: 0;">Support Email: <a href="mailto:support@meeemsl.com" style="color: #4f46e5; text-decoration: none;">support@meeemsl.com</a> | Website: <a href="https://meeemsl.com" style="color: #4f46e5; text-decoration: none;">meeemsl.com</a></p>
+          </div>
         </div>
       </div>
-    </div>
-  `
-  return sendEmail({ to, subject: emailSubject, html })
+    `
+    return sendEmail({ to, subject: emailSubject, html })
+  }
+
+  if (toPhone) {
+    const preview = replyMessage.length > 100 ? `${replyMessage.slice(0, 97)}...` : replyMessage
+    const success = await sendNotificationSms({
+      to: toPhone,
+      countryCode: phoneCountryCode,
+      body: `Hi ${recipientName}, Meeem Support replied to ticket [${ticketId}]: ${preview}`,
+    })
+    return { success }
+  }
+
+  return { success: false, error: new Error("No contact channel for support ticket reply.") }
 }
 
 export async function sendRiderWelcomeEmail({
@@ -932,64 +1290,81 @@ export async function sendRiderWelcomeEmail({
   name,
   temporaryPassword,
   loginUrl,
+  toPhone,
+  phoneCountryCode,
 }: {
-  to: string
+  to?: string | null
   name?: string | null
   temporaryPassword: string
   loginUrl: string
+  toPhone?: string | null
+  phoneCountryCode?: string | null
 }) {
-  const subject = "Welcome to MEEEM Delivery Network - Your Rider Account Details"
-  const html = `
-    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; color: #1e293b; background-color: #f8fafc;">
-      <div style="background-color: #ffffff; border-radius: 16px; border: 1px solid #e2e8f0; padding: 32px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
-        <div style="text-align: center; margin-bottom: 24px;">
-          <div style="display: inline-block; background-color: #eff6ff; border-radius: 50%; padding: 12px; margin-bottom: 12px;">
-            <span style="font-size: 28px;">🚴</span>
+  if (to && to.trim()) {
+    const subject = "Welcome to MEEEM Delivery Network - Your Rider Account Details"
+    const html = `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; color: #1e293b; background-color: #f8fafc;">
+        <div style="background-color: #ffffff; border-radius: 16px; border: 1px solid #e2e8f0; padding: 32px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
+          <div style="text-align: center; margin-bottom: 24px;">
+            <div style="display: inline-block; background-color: #eff6ff; border-radius: 50%; padding: 12px; margin-bottom: 12px;">
+              <span style="font-size: 28px;">🚴</span>
+            </div>
+            <h2 style="color: #0f172a; margin: 0 0 8px 0; font-size: 22px; font-weight: 700;">Welcome to MEEEM Delivery!</h2>
+            <p style="color: #64748b; margin: 0; font-size: 14px;">Your rider account has been created by the administrator.</p>
           </div>
-          <h2 style="color: #0f172a; margin: 0 0 8px 0; font-size: 22px; font-weight: 700;">Welcome to MEEEM Delivery!</h2>
-          <p style="color: #64748b; margin: 0; font-size: 14px;">Your rider account has been created by the administrator.</p>
-        </div>
 
-        <p style="font-size: 15px; line-height: 1.6; margin-top: 0;">Hi <strong>${name || "Rider"}</strong>,</p>
-        <p style="font-size: 15px; line-height: 1.6; color: #334155;">
-          You can now log in to the <strong>MEEEM Rider Portal</strong> using your credentials below:
-        </p>
+          <p style="font-size: 15px; line-height: 1.6; margin-top: 0;">Hi <strong>${name || "Rider"}</strong>,</p>
+          <p style="font-size: 15px; line-height: 1.6; color: #334155;">
+            You can now log in to the <strong>MEEEM Rider Portal</strong> using your credentials below:
+          </p>
 
-        <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; margin: 24px 0;">
-          <div style="margin-bottom: 12px;">
-            <span style="font-size: 13px; color: #64748b; display: block; margin-bottom: 4px;">Login Email</span>
-            <strong style="font-size: 16px; color: #0f172a; font-family: monospace;">${to}</strong>
+          <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; margin: 24px 0;">
+            <div style="margin-bottom: 12px;">
+              <span style="font-size: 13px; color: #64748b; display: block; margin-bottom: 4px;">Login Email</span>
+              <strong style="font-size: 16px; color: #0f172a; font-family: monospace;">${to}</strong>
+            </div>
+            <div>
+              <span style="font-size: 13px; color: #64748b; display: block; margin-bottom: 4px;">Auto-generated Password</span>
+              <code style="display: inline-block; background-color: #e0e7ff; color: #3730a3; padding: 6px 14px; border-radius: 6px; font-size: 17px; font-weight: 700; letter-spacing: 1px;">${temporaryPassword}</code>
+            </div>
           </div>
-          <div>
-            <span style="font-size: 13px; color: #64748b; display: block; margin-bottom: 4px;">Auto-generated Password</span>
-            <code style="display: inline-block; background-color: #e0e7ff; color: #3730a3; padding: 6px 14px; border-radius: 6px; font-size: 17px; font-weight: 700; letter-spacing: 1px;">${temporaryPassword}</code>
+
+          <div style="background-color: #fef3c7; border: 1px solid #fde68a; border-radius: 8px; padding: 12px 16px; margin: 20px 0; font-size: 13px; color: #92400e;">
+            ⚠️ <strong>First Login Notice:</strong> When you log in for the first time, you will be prompted to change your password, upload your profile photo & documents, and select your preferred delivery zones.
           </div>
-        </div>
 
-        <div style="background-color: #fef3c7; border: 1px solid #fde68a; border-radius: 8px; padding: 12px 16px; margin: 20px 0; font-size: 13px; color: #92400e;">
-          ⚠️ <strong>First Login Notice:</strong> When you log in for the first time, you will be prompted to change your password, upload your profile photo & documents, and select your preferred delivery zones.
-        </div>
+          <div style="text-align: center; margin: 32px 0;">
+            <a href="${loginUrl}" 
+               style="background-color: #2563eb; color: #ffffff; padding: 14px 36px; text-decoration: none; border-radius: 10px; display: inline-block; font-weight: 700; font-size: 15px; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);">
+              Access Rider Portal
+            </a>
+          </div>
 
-        <div style="text-align: center; margin: 32px 0;">
-          <a href="${loginUrl}" 
-             style="background-color: #2563eb; color: #ffffff; padding: 14px 36px; text-decoration: none; border-radius: 10px; display: inline-block; font-weight: 700; font-size: 15px; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);">
-            Access Rider Portal
-          </a>
-        </div>
+          <p style="color: #64748b; line-height: 1.5; font-size: 13px; text-align: center;">
+            Or open this link in your browser:<br/>
+            <a href="${loginUrl}" style="color: #2563eb; word-break: break-all; font-size: 12px;">${loginUrl}</a>
+          </p>
 
-        <p style="color: #64748b; line-height: 1.5; font-size: 13px; text-align: center;">
-          Or open this link in your browser:<br/>
-          <a href="${loginUrl}" style="color: #2563eb; word-break: break-all; font-size: 12px;">${loginUrl}</a>
-        </p>
-
-        <div style="border-top: 1px solid #e2e8f0; padding-top: 20px; margin-top: 28px; font-size: 12px; color: #94a3b8; text-align: center;">
-          <p style="margin: 0 0 4px 0;"><strong>MEEEM Marketplace & Logistics</strong></p>
-          <p style="margin: 0;">Support: <a href="mailto:support@meeemsl.com" style="color: #2563eb; text-decoration: none;">support@meeemsl.com</a></p>
+          <div style="border-top: 1px solid #e2e8f0; padding-top: 20px; margin-top: 28px; font-size: 12px; color: #94a3b8; text-align: center;">
+            <p style="margin: 0 0 4px 0;"><strong>MEEEM Marketplace & Logistics</strong></p>
+            <p style="margin: 0;">Support: <a href="mailto:support@meeemsl.com" style="color: #2563eb; text-decoration: none;">support@meeemsl.com</a></p>
+          </div>
         </div>
       </div>
-    </div>
-  `
-  return sendEmail({ to, subject, html })
+    `
+    return sendEmail({ to, subject, html })
+  }
+
+  if (toPhone) {
+    const success = await sendNotificationSms({
+      to: toPhone,
+      countryCode: phoneCountryCode,
+      body: `Hi ${name || "Rider"}, welcome to Meeem Delivery! Your password is: ${temporaryPassword}. Log in at ${loginUrl}`,
+    })
+    return { success }
+  }
+
+  return { success: false, error: new Error("No contact channel for rider welcome.") }
 }
 
 export async function sendRiderVerificationEmail({
@@ -997,52 +1372,71 @@ export async function sendRiderVerificationEmail({
   verificationLink,
   name,
   otp,
+  toPhone,
+  phoneCountryCode,
 }: {
-  to: string
+  to?: string | null
   verificationLink: string
   name?: string | null
   otp?: string | null
+  toPhone?: string | null
+  phoneCountryCode?: string | null
 }) {
-  const subject = "Verify Your Email - MEEEM Rider Portal"
-  const html = `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-      <div style="background-color: #f8f9fa; padding: 30px; border-radius: 10px;">
-        <h2 style="color: #333; margin-bottom: 20px;">Welcome to MEEEM Delivery Network</h2>
-        <p style="color: #666; line-height: 1.6;">
-          ${name ? `Hi ${name},` : "Hi there,"}
-        </p>
-        <p style="color: #666; line-height: 1.6;">
-          Thank you for registering as a delivery rider. Please verify your email address by entering the 6-digit code below or clicking the verification button:
-        </p>
-        ${
-          otp
-            ? `
-        <div style="background-color: #eff6ff; border: 1px dashed #3b82f6; border-radius: 8px; padding: 15px; margin: 20px 0; text-align: center;">
-          <p style="margin: 0 0 5px 0; font-size: 13px; color: #1e40af; font-weight: 600;">YOUR 6-DIGIT VERIFICATION CODE</p>
-          <div style="font-size: 32px; font-weight: bold; letter-spacing: 6px; color: #1d4ed8; font-family: monospace;">${otp}</div>
+  if (to && to.trim()) {
+    const subject = "Verify Your Email - MEEEM Rider Portal"
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="background-color: #f8f9fa; padding: 30px; border-radius: 10px;">
+          <h2 style="color: #333; margin-bottom: 20px;">Welcome to MEEEM Delivery Network</h2>
+          <p style="color: #666; line-height: 1.6;">
+            ${name ? `Hi ${name},` : "Hi there,"}
+          </p>
+          <p style="color: #666; line-height: 1.6;">
+            Thank you for registering as a delivery rider. Please verify your email address by entering the 6-digit code below or clicking the verification button:
+          </p>
+          ${
+            otp
+              ? `
+          <div style="background-color: #eff6ff; border: 1px dashed #3b82f6; border-radius: 8px; padding: 15px; margin: 20px 0; text-align: center;">
+            <p style="margin: 0 0 5px 0; font-size: 13px; color: #1e40af; font-weight: 600;">YOUR 6-DIGIT VERIFICATION CODE</p>
+            <div style="font-size: 32px; font-weight: bold; letter-spacing: 6px; color: #1d4ed8; font-family: monospace;">${otp}</div>
+          </div>
+          `
+              : ""
+          }
+          <div style="text-align: center; margin: 25px 0;">
+            <a href="${verificationLink}" 
+               style="background-color: #2563eb; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
+              Verify Email & Login
+            </a>
+          </div>
+          <p style="color: #666; line-height: 1.6; font-size: 14px;">
+            Or copy and paste this link into your browser:
+          </p>
+          <p style="color: #2563eb; word-break: break-all; font-size: 12px;">
+            ${verificationLink}
+          </p>
+          <p style="color: #999; font-size: 12px; margin-top: 30px;">
+            This code and link will expire in 10 minutes.
+          </p>
         </div>
-        `
-            : ""
-        }
-        <div style="text-align: center; margin: 25px 0;">
-          <a href="${verificationLink}" 
-             style="background-color: #2563eb; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
-            Verify Email & Login
-          </a>
-        </div>
-        <p style="color: #666; line-height: 1.6; font-size: 14px;">
-          Or copy and paste this link into your browser:
-        </p>
-        <p style="color: #2563eb; word-break: break-all; font-size: 12px;">
-          ${verificationLink}
-        </p>
-        <p style="color: #999; font-size: 12px; margin-top: 30px;">
-          This code and link will expire in 10 minutes.
-        </p>
       </div>
-    </div>
-  `
-  return sendEmail({ to, subject, html })
+    `
+    return sendEmail({ to, subject, html })
+  }
+
+  if (toPhone) {
+    const success = await sendAccountVerificationSms({
+      to: toPhone,
+      countryCode: phoneCountryCode,
+      otp: otp || undefined,
+      verificationLink,
+      name,
+    })
+    return { success }
+  }
+
+  return { success: false, error: new Error("No contact channel for rider verification.") }
 }
 
 // ── SELLER ONBOARDING & PENDING DOCUMENTS REMINDER EMAIL ──────────────────────
@@ -1057,8 +1451,10 @@ export async function sendSellerOnboardingReminderEmail({
   currentStep = 2,
   totalSteps = 6,
   freeMonths = 2,
+  toPhone,
+  phoneCountryCode,
 }: {
-  to: string
+  to?: string | null
   sellerName?: string | null
   businessName?: string | null
   sellerType?: "PRODUCT" | "SERVICE" | "HOTEL" | "RESTAURANT" | string
@@ -1068,180 +1464,183 @@ export async function sendSellerOnboardingReminderEmail({
   currentStep?: number
   totalSteps?: number
   freeMonths?: number
+  toPhone?: string | null
+  phoneCountryCode?: string | null
 }) {
-  const displayName = sellerName?.trim() || businessName?.trim() || "Valued Partner"
-  const typeLabel =
-    sellerType === "HOTEL"
-      ? "Hotel & Hospitality Partner"
-      : sellerType === "RESTAURANT"
-      ? "Restaurant & Food Partner"
-      : sellerType === "SERVICE"
-      ? "Service Provider"
-      : "Product Seller"
+  if (to && to.trim()) {
+    const displayName = sellerName?.trim() || businessName?.trim() || "Valued Partner"
+    const typeLabel =
+      sellerType === "HOTEL"
+        ? "Hotel & Hospitality Partner"
+        : sellerType === "RESTAURANT"
+        ? "Restaurant & Food Partner"
+        : sellerType === "SERVICE"
+        ? "Service Provider"
+        : "Product Seller"
 
-  const subject = `Action Required: Complete Your Seller Onboarding on MEEEM`
+    const subject = `Action Required: Complete Your Seller Onboarding on MEEEM`
 
-  // Build missing documents list HTML
-  const missingDocsHtml =
-    missingDocuments.length > 0
-      ? missingDocuments
-          .map(
-            (doc) => `
-        <li style="margin-bottom: 8px; color: #b45309; font-size: 14px; line-height: 1.5;">
-          <strong style="color: #92400e;">• ${doc}</strong>
-        </li>`
-          )
-          .join("")
-      : `
-        <li style="margin-bottom: 8px; color: #b45309; font-size: 14px; line-height: 1.5;">
-          <strong style="color: #92400e;">• Business verification documents pending review</strong>
-        </li>`
+    // Build missing documents list HTML
+    const missingDocsHtml =
+      missingDocuments.length > 0
+        ? missingDocuments
+            .map(
+              (doc) => `
+          <li style="margin-bottom: 8px; color: #b45309; font-size: 14px; line-height: 1.5;">
+            <strong style="color: #92400e;">• ${doc}</strong>
+          </li>`
+            )
+            .join("")
+        : `
+          <li style="margin-bottom: 8px; color: #b45309; font-size: 14px; line-height: 1.5;">
+            <strong style="color: #92400e;">• Business verification documents pending review</strong>
+          </li>`
 
-  // Build missing steps HTML if available
-  const missingStepsHtml =
-    missingSteps.length > 0
-      ? `
-      <div style="margin-top: 14px; padding-top: 12px; border-top: 1px dashed #fde68a;">
-        <p style="margin: 0 0 6px 0; font-size: 13px; font-weight: 600; color: #78350f;">Pending Setup Steps:</p>
-        <ul style="margin: 0; padding-left: 18px; color: #92400e; font-size: 13px;">
-          ${missingSteps.map((s) => `<li style="margin-bottom: 4px;">${s}</li>`).join("")}
-        </ul>
-      </div>`
-      : ""
+    // Build missing steps HTML if available
+    const missingStepsHtml =
+      missingSteps.length > 0
+        ? `
+        <div style="margin-top: 14px; padding-top: 12px; border-top: 1px dashed #fde68a;">
+          <p style="margin: 0 0 6px 0; font-size: 13px; font-weight: 600; color: #78350f;">Pending Setup Steps:</p>
+          <ul style="margin: 0; padding-left: 18px; color: #92400e; font-size: 13px;">
+            ${missingSteps.map((s) => `<li style="margin-bottom: 4px;">${s}</li>`).join("")}
+          </ul>
+        </div>`
+        : ""
 
-  const html = `
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-      <meta charset="utf-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>${subject}</title>
-    </head>
-    <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 0; background-color: #f1f5f9; color: #1e293b;">
-      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color: #f1f5f9; padding: 24px 12px;">
-        <tr>
-          <td align="center">
-            <table role="presentation" width="100%" style="max-width: 600px; background-color: #ffffff; border-radius: 16px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.03);">
-              
-              <!-- HEADER -->
-              <tr>
-                <td style="background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4338ca 100%); padding: 32px 28px; text-align: center;">
-                  <div style="display: inline-block; background-color: rgba(255, 255, 255, 0.15); border-radius: 24px; padding: 6px 16px; margin-bottom: 14px; border: 1px solid rgba(255, 255, 255, 0.25);">
-                    <span style="color: #fef08a; font-size: 13px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase;">
-                      Action Required • Document Verification
-                    </span>
-                  </div>
-                  <h1 style="color: #ffffff; margin: 0 0 8px 0; font-size: 24px; font-weight: 800; line-height: 1.3;">
-                    Complete Your Onboarding
-                  </h1>
-                  <p style="color: #c7d2fe; margin: 0; font-size: 15px; font-weight: 500;">
-                    MEEEM Multi-Vendor Marketplace (${typeLabel})
-                  </p>
-                </td>
-              </tr>
-
-              <!-- BODY CONTENT -->
-              <tr>
-                <td style="padding: 32px 28px;">
-                  
-                  <p style="font-size: 16px; line-height: 1.6; margin: 0 0 16px 0; color: #0f172a;">
-                    Dear <strong>${displayName}</strong>,
-                  </p>
-                  
-                  <p style="font-size: 15px; line-height: 1.65; color: #334155; margin: 0 0 20px 0;">
-                    We noticed that your seller profile setup on <strong>MEEEM</strong> is currently incomplete and some mandatory verification documents are still pending review.
-                  </p>
-
-                  <!-- PENDING DOCUMENTS & CHECKLIST BOX -->
-                  <div style="background-color: #fffbeb; border: 1px solid #fde68a; border-radius: 12px; padding: 20px; margin: 24px 0;">
-                    <div style="display: flex; align-items: center; margin-bottom: 12px;">
-                      <span style="font-size: 18px; margin-right: 8px;">⚠️</span>
-                      <h4 style="margin: 0; color: #92400e; font-size: 15px; font-weight: 700;">
-                        Pending Documents & Requirements
-                      </h4>
+    const html = `
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>${subject}</title>
+      </head>
+      <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 0; background-color: #f1f5f9; color: #1e293b;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color: #f1f5f9; padding: 24px 12px;">
+          <tr>
+            <td align="center">
+              <table role="presentation" width="100%" style="max-width: 600px; background-color: #ffffff; border-radius: 16px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.03);">
+                
+                <!-- HEADER -->
+                <tr>
+                  <td style="background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4338ca 100%); padding: 32px 28px; text-align: center;">
+                    <div style="display: inline-block; background-color: rgba(255, 255, 255, 0.15); border-radius: 24px; padding: 6px 16px; margin-bottom: 14px; border: 1px solid rgba(255, 255, 255, 0.25);">
+                      <span style="color: #fef08a; font-size: 13px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase;">
+                        Action Required • Document Verification
+                      </span>
                     </div>
-                    <p style="margin: 0 0 12px 0; font-size: 13px; color: #78350f;">
-                      To get approved by our compliance team, please upload or complete the following items:
+                    <h1 style="color: #ffffff; margin: 0 0 8px 0; font-size: 24px; font-weight: 800; line-height: 1.3;">
+                      Complete Your Onboarding
+                    </h1>
+                    <p style="color: #c7d2fe; margin: 0; font-size: 15px; font-weight: 500;">
+                      MEEEM Multi-Vendor Marketplace (${typeLabel})
                     </p>
-                    <ul style="margin: 0; padding-left: 18px;">
-                      ${missingDocsHtml}
-                    </ul>
-                    ${missingStepsHtml}
-                  </div>
+                  </td>
+                </tr>
 
-                  <!-- BENEFITS LIST -->
-                  <div style="margin: 28px 0 24px 0;">
-                    <h4 style="margin: 0 0 14px 0; font-size: 15px; font-weight: 700; color: #0f172a;">
-                      Why finish your onboarding on MEEEM?
-                    </h4>
-                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
-                      <tr>
-                        <td style="padding: 6px 0; vertical-align: top; width: 24px; color: #4338ca; font-weight: bold;">✓</td>
-                        <td style="padding: 6px 0; font-size: 14px; color: #334155; line-height: 1.5;">
-                          <strong>Fast Customer Reach:</strong> Instantly showcase your offerings to thousands of ready-to-buy shoppers nationwide.
-                        </td>
-                      </tr>
-                      <tr>
-                        <td style="padding: 6px 0; vertical-align: top; width: 24px; color: #4338ca; font-weight: bold;">✓</td>
-                        <td style="padding: 6px 0; font-size: 14px; color: #334155; line-height: 1.5;">
-                          <strong>Direct Payouts:</strong> Automated, transparent disbursements directly to your Bank or Mobile Money wallet.
-                        </td>
-                      </tr>
-                      <tr>
-                        <td style="padding: 6px 0; vertical-align: top; width: 24px; color: #4338ca; font-weight: bold;">✓</td>
-                        <td style="padding: 6px 0; font-size: 14px; color: #334155; line-height: 1.5;">
-                          <strong>Dedicated Partner Support:</strong> Comprehensive assistance from our merchant success team.
-                        </td>
-                      </tr>
-                    </table>
-                  </div>
-
-                  <!-- CTA BUTTON -->
-                  <div style="text-align: center; margin: 32px 0 28px 0;">
-                    <a href="${onboardingUrl}" 
-                       style="background: linear-gradient(135deg, #4338ca 0%, #3730a3 100%); color: #ffffff; padding: 15px 36px; text-decoration: none; border-radius: 10px; display: inline-block; font-weight: 700; font-size: 16px; letter-spacing: 0.3px; box-shadow: 0 4px 14px rgba(67, 56, 202, 0.35);">
-                      Complete Your Onboarding Now →
-                    </a>
-                  </div>
-
-                  <p style="font-size: 13px; color: #64748b; text-align: center; margin: 0 0 24px 0; line-height: 1.5;">
-                    Or paste this URL in your browser:<br/>
-                    <a href="${onboardingUrl}" style="color: #4338ca; word-break: break-all; font-size: 12px;">${onboardingUrl}</a>
-                  </p>
-
-                  <!-- SUPPORT BOX -->
-                  <div style="border-top: 1px solid #e2e8f0; padding-top: 20px; margin-top: 24px; font-size: 13px; color: #64748b; line-height: 1.6;">
-                    <p style="margin: 0 0 6px 0;">
-                      <strong>Need help uploading your documents?</strong>
+                <!-- BODY CONTENT -->
+                <tr>
+                  <td style="padding: 32px 28px;">
+                    
+                    <p style="font-size: 16px; line-height: 1.6; margin: 0 0 16px 0; color: #0f172a;">
+                      Dear <strong>${displayName}</strong>,
                     </p>
+                    
+                    <p style="font-size: 15px; line-height: 1.65; color: #334155; margin: 0 0 20px 0;">
+                      We noticed that your seller profile setup on <strong>MEEEM</strong> is currently incomplete and some mandatory verification documents are still pending review.
+                    </p>
+
+                    <!-- PENDING DOCUMENTS & CHECKLIST BOX -->
+                    <div style="background-color: #fffbeb; border: 1px solid #fde68a; border-radius: 12px; padding: 20px; margin: 24px 0;">
+                      <div style="display: flex; align-items: center; margin-bottom: 12px;">
+                        <span style="font-size: 18px; margin-right: 8px;">⚠️</span>
+                        <h4 style="margin: 0; color: #92400e; font-size: 15px; font-weight: 700;">
+                          Pending Documents & Requirements
+                        </h4>
+                      </div>
+                      <p style="margin: 0 0 12px 0; font-size: 13px; color: #78350f;">
+                        To get approved by our compliance team, please upload or complete the following items:
+                      </p>
+                      <ul style="margin: 0; padding-left: 18px;">
+                        ${missingDocsHtml}
+                      </ul>
+                      ${missingStepsHtml}
+                    </div>
+
+                    <!-- BENEFITS LIST -->
+                    <div style="margin: 28px 0 24px 0;">
+                      <h4 style="margin: 0 0 14px 0; font-size: 15px; font-weight: 700; color: #0f172a;">
+                        Why finish your onboarding on MEEEM?
+                      </h4>
+                      <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                        <tr>
+                          <td style="padding: 6px 0; vertical-align: top; width: 24px; color: #4338ca; font-weight: bold;">✓</td>
+                          <td style="padding: 6px 0; font-size: 14px; color: #334155; line-height: 1.5;">
+                            <strong>Fast Customer Reach:</strong> Instantly showcase your offerings to thousands of ready-to-buy shoppers nationwide.
+                          </td>
+                        </tr>
+                        <tr>
+                          <td style="padding: 6px 0; vertical-align: top; width: 24px; color: #4338ca; font-weight: bold;">✓</td>
+                          <td style="padding: 6px 0; font-size: 14px; color: #334155; line-height: 1.5;">
+                            <strong>Direct Payouts:</strong> Automated, transparent disbursements directly to your Bank or Mobile Money wallet.
+                          </td>
+                        </tr>
+                        <tr>
+                          <td style="padding: 6px 0; vertical-align: top; width: 24px; color: #4338ca; font-weight: bold;">✓</td>
+                          <td style="padding: 6px 0; font-size: 14px; color: #334155; line-height: 1.5;">
+                            <strong>Dedicated Partner Support:</strong> Comprehensive assistance from our merchant success team.
+                          </td>
+                        </tr>
+                      </table>
+                    </div>
+
+                    <!-- CTA BUTTON -->
+                    <div style="text-align: center; margin: 32px 0 28px 0;">
+                      <a href="${onboardingUrl}" 
+                         style="background: linear-gradient(135deg, #4338ca 0%, #3730a3 100%); color: #ffffff; padding: 15px 36px; text-decoration: none; border-radius: 10px; display: inline-block; font-weight: 700; font-size: 16px; letter-spacing: 0.3px; box-shadow: 0 4px 14px rgba(67, 56, 202, 0.35);">
+                        Complete Your Onboarding Now →
+                      </a>
+                    </div>
+
+                    <p style="font-size: 13px; color: #64748b; text-align: center; margin: 0 0 24px 0; line-height: 1.5;">
+                      Or paste this URL in your browser:<br/>
+                      <a href="${onboardingUrl}" style="color: #4338ca; word-break: break-all; font-size: 12px;">${onboardingUrl}</a>
+                    </p>
+
+                    <!-- SUPPORT BOX -->
+                    <div style="border-top: 1px solid #e2e8f0; padding-top: 20px; margin-top: 24px; font-size: 13px; color: #64748b; line-height: 1.6;">
+                      <p style="margin: 0 0 6px 0;">
+                        <strong>Need help uploading your documents?</strong>
+                      </p>
+                      <p style="margin: 0;">
+                        Our vendor support team is here to assist you every step of the way. Simply reply to this email or contact us at <a href="mailto:support@meeemsl.com" style="color: #4338ca; text-decoration: none; font-weight: 600;">support@meeemsl.com</a>.
+                      </p>
+                    </div>
+
+                  </td>
+                </tr>
+
+                <!-- FOOTER -->
+                <tr>
+                  <td style="background-color: #f8fafc; border-top: 1px solid #e2e8f0; padding: 24px 28px; text-align: center; font-size: 12px; color: #94a3b8; line-height: 1.6;">
+                    <p style="margin: 0 0 4px 0; font-weight: 600; color: #64748b;">MEEEM E-commerce & Multi-Vendor Marketplace</p>
+                    <p style="margin: 0 0 8px 0;">Empowering local businesses and merchants nationwide</p>
                     <p style="margin: 0;">
-                      Our vendor support team is here to assist you every step of the way. Simply reply to this email or contact us at <a href="mailto:support@meeemsl.com" style="color: #4338ca; text-decoration: none; font-weight: 600;">support@meeemsl.com</a>.
+                      <a href="https://meeemsl.com" style="color: #64748b; text-decoration: none;">meeemsl.com</a> • <a href="mailto:support@meeemsl.com" style="color: #64748b; text-decoration: none;">support@meeemsl.com</a>
                     </p>
-                  </div>
+                  </td>
+                </tr>
 
-                </td>
-              </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </body>
+      </html>
+    `
 
-              <!-- FOOTER -->
-              <tr>
-                <td style="background-color: #f8fafc; border-top: 1px solid #e2e8f0; padding: 24px 28px; text-align: center; font-size: 12px; color: #94a3b8; line-height: 1.6;">
-                  <p style="margin: 0 0 4px 0; font-weight: 600; color: #64748b;">MEEEM E-commerce & Multi-Vendor Marketplace</p>
-                  <p style="margin: 0 0 8px 0;">Empowering local businesses and merchants nationwide</p>
-                  <p style="margin: 0;">
-                    <a href="https://meeemsl.com" style="color: #64748b; text-decoration: none;">meeemsl.com</a> • <a href="mailto:support@meeemsl.com" style="color: #64748b; text-decoration: none;">support@meeemsl.com</a>
-                  </p>
-                </td>
-              </tr>
-
-            </table>
-          </td>
-        </tr>
-      </table>
-    </body>
-    </html>
-  `
-
-  const text = `
+    const text = `
 Hi ${displayName},
 
 We noticed that your seller onboarding on MEEEM (${typeLabel}) is still incomplete. Please complete your registration and upload the required verification documents to activate your store.
@@ -1258,9 +1657,22 @@ If you need any help, contact our support team at support@meeemsl.com.
 Best regards,
 MEEEM Merchant Compliance & Operations Team
 https://meeemsl.com
-  `.trim()
+    `.trim()
 
-  return sendEmail({ to, subject, html, text })
+    return sendEmail({ to, subject, html, text })
+  }
+
+  if (toPhone) {
+    const displayName = sellerName?.trim() || businessName?.trim() || "Partner"
+    const success = await sendNotificationSms({
+      to: toPhone,
+      countryCode: phoneCountryCode,
+      body: `Hi ${displayName}, please complete your Meeem seller onboarding to activate your store! Finish setup here: ${onboardingUrl}`,
+    })
+    return { success }
+  }
+
+  return { success: false, error: new Error("No contact channel for seller onboarding reminder.") }
 }
 
 // ── ADMIN CUSTOM DIRECT EMAIL TO SELLER ──────────────────────────────────────
@@ -1271,119 +1683,124 @@ export async function sendAdminCustomSellerEmail({
   subject,
   message,
   adminName,
+  toPhone,
+  phoneCountryCode,
 }: {
-  to: string
+  to?: string | null
   sellerName?: string | null
   businessName?: string | null
   subject: string
   message: string
   adminName?: string | null
+  toPhone?: string | null
+  phoneCountryCode?: string | null
 }) {
   const displayName = sellerName?.trim() || businessName?.trim() || "Partner"
   const senderLabel = adminName ? `${adminName} from MEEEM Administration` : "MEEEM Administration Team"
 
-  // Convert line breaks in plain text message into safe HTML paragraphs
-  const safeMessageHtml = message
-    .split(/\n\s*\n/)
-    .map((para) => {
-      const escaped = para
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/\n/g, "<br />")
-      return `<p style="margin: 0 0 16px 0; font-size: 15px; line-height: 1.65; color: #334155;">${escaped}</p>`
-    })
-    .join("")
+  if (to && to.trim()) {
+    // Convert line breaks in plain text message into safe HTML paragraphs
+    const safeMessageHtml = message
+      .split(/\n\s*\n/)
+      .map((para) => {
+        const escaped = para
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/\n/g, "<br />")
+        return `<p style="margin: 0 0 16px 0; font-size: 15px; line-height: 1.65; color: #334155;">${escaped}</p>`
+      })
+      .join("")
 
-  const html = `
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-      <meta charset="utf-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>${subject}</title>
-    </head>
-    <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 0; background-color: #f8fafc; color: #1e293b;">
-      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color: #f8fafc; padding: 28px 12px;">
-        <tr>
-          <td align="center">
-            <table role="presentation" width="100%" style="max-width: 600px; background-color: #ffffff; border-radius: 16px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);">
-              
-              <!-- BRAND HEADER -->
-              <tr>
-                <td style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); padding: 28px 24px; text-align: left;">
-                  <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
-                    <tr>
-                      <td>
-                        <h1 style="margin: 0; color: #ffffff; font-size: 20px; font-weight: 800; letter-spacing: -0.5px;">
-                          MEEEM <span style="font-weight: 400; color: #94a3b8; font-size: 14px;">Marketplace</span>
-                        </h1>
-                      </td>
-                      <td align="right">
-                        <span style="display: inline-block; background-color: rgba(255, 255, 255, 0.12); color: #e2e8f0; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; padding: 4px 10px; border-radius: 12px;">
-                          Official Notice
-                        </span>
-                      </td>
-                    </tr>
-                  </table>
-                </td>
-              </tr>
+    const html = `
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>${subject}</title>
+      </head>
+      <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 0; background-color: #f8fafc; color: #1e293b;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color: #f8fafc; padding: 28px 12px;">
+          <tr>
+            <td align="center">
+              <table role="presentation" width="100%" style="max-width: 600px; background-color: #ffffff; border-radius: 16px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);">
+                
+                <!-- BRAND HEADER -->
+                <tr>
+                  <td style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); padding: 28px 24px; text-align: left;">
+                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                      <tr>
+                        <td>
+                          <h1 style="margin: 0; color: #ffffff; font-size: 20px; font-weight: 800; letter-spacing: -0.5px;">
+                            MEEEM <span style="font-weight: 400; color: #94a3b8; font-size: 14px;">Marketplace</span>
+                          </h1>
+                        </td>
+                        <td align="right">
+                          <span style="display: inline-block; background-color: rgba(255, 255, 255, 0.12); color: #e2e8f0; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; padding: 4px 10px; border-radius: 12px;">
+                            Official Notice
+                          </span>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
 
-              <!-- SUBJECT BANNER -->
-              <tr>
-                <td style="padding: 24px 28px 12px 28px; border-bottom: 1px solid #f1f5f9;">
-                  <h2 style="margin: 0; font-size: 18px; font-weight: 700; color: #0f172a; line-height: 1.4;">
-                    ${subject}
-                  </h2>
-                  <p style="margin: 6px 0 0 0; font-size: 12px; color: #64748b;">
-                    Sent by: <strong>${senderLabel}</strong>
-                  </p>
-                </td>
-              </tr>
+                <!-- SUBJECT BANNER -->
+                <tr>
+                  <td style="padding: 24px 28px 12px 28px; border-bottom: 1px solid #f1f5f9;">
+                    <h2 style="margin: 0; font-size: 18px; font-weight: 700; color: #0f172a; line-height: 1.4;">
+                      ${subject}
+                    </h2>
+                    <p style="margin: 6px 0 0 0; font-size: 12px; color: #64748b;">
+                      Sent by: <strong>${senderLabel}</strong>
+                    </p>
+                  </td>
+                </tr>
 
-              <!-- MESSAGE BODY -->
-              <tr>
-                <td style="padding: 24px 28px;">
-                  <p style="margin: 0 0 16px 0; font-size: 15px; font-weight: 600; color: #0f172a;">
-                    Dear ${displayName},
-                  </p>
+                <!-- MESSAGE BODY -->
+                <tr>
+                  <td style="padding: 24px 28px;">
+                    <p style="margin: 0 0 16px 0; font-size: 15px; font-weight: 600; color: #0f172a;">
+                      Dear ${displayName},
+                    </p>
 
-                  <div style="background-color: #f8fafc; border-left: 4px solid #3b82f6; padding: 18px 20px; border-radius: 0 12px 12px 0; margin-bottom: 24px;">
-                    ${safeMessageHtml}
-                  </div>
+                    <div style="background-color: #f8fafc; border-left: 4px solid #3b82f6; padding: 18px 20px; border-radius: 0 12px 12px 0; margin-bottom: 24px;">
+                      ${safeMessageHtml}
+                    </div>
 
-                  <p style="margin: 0 0 6px 0; font-size: 14px; color: #64748b;">
-                    If you have questions or need clarification regarding this communication, please respond to this email or reach out to our dedicated vendor support team.
-                  </p>
-                </td>
-              </tr>
+                    <p style="margin: 0 0 6px 0; font-size: 14px; color: #64748b;">
+                      If you have questions or need clarification regarding this communication, please respond to this email or reach out to our dedicated vendor support team.
+                    </p>
+                  </td>
+                </tr>
 
-              <!-- FOOTER -->
-              <tr>
-                <td style="background-color: #f8fafc; padding: 20px 28px; border-top: 1px solid #e2e8f0; text-align: center; font-size: 12px; color: #64748b;">
-                  <p style="margin: 0 0 4px 0; font-weight: 600; color: #475569;">
-                    MEEEM E-Commerce Limited
-                  </p>
-                  <p style="margin: 0 0 8px 0;">
-                    Connecting buyers and sellers across Sierra Leone
-                  </p>
-                  <p style="margin: 0;">
-                    <a href="https://meeemsl.com" style="color: #3b82f6; text-decoration: none;">meeemsl.com</a> • 
-                    <a href="mailto:support@meeemsl.com" style="color: #3b82f6; text-decoration: none;">support@meeemsl.com</a>
-                  </p>
-                </td>
-              </tr>
+                <!-- FOOTER -->
+                <tr>
+                  <td style="background-color: #f8fafc; padding: 20px 28px; border-top: 1px solid #e2e8f0; text-align: center; font-size: 12px; color: #64748b;">
+                    <p style="margin: 0 0 4px 0; font-weight: 600; color: #475569;">
+                      MEEEM E-Commerce Limited
+                    </p>
+                    <p style="margin: 0 0 8px 0;">
+                      Connecting buyers and sellers across Sierra Leone
+                    </p>
+                    <p style="margin: 0;">
+                      <a href="https://meeemsl.com" style="color: #3b82f6; text-decoration: none;">meeemsl.com</a> • 
+                      <a href="mailto:support@meeemsl.com" style="color: #3b82f6; text-decoration: none;">support@meeemsl.com</a>
+                    </p>
+                  </td>
+                </tr>
 
-            </table>
-          </td>
-        </tr>
-      </table>
-    </body>
-    </html>
-  `
+              </table>
+            </td>
+          </tr>
+        </table>
+      </body>
+      </html>
+    `
 
-  const text = `
+    const text = `
 Dear ${displayName},
 
 ${subject}
@@ -1399,10 +1816,24 @@ Best regards,
 ${senderLabel}
 MEEEM E-Commerce Limited
 https://meeemsl.com
-  `.trim()
+    `.trim()
 
-  return sendEmail({ to, subject, html, text })
+    return sendEmail({ to, subject, html, text })
+  }
+
+  if (toPhone) {
+    const preview = message.length > 120 ? `${message.slice(0, 117)}...` : message
+    const success = await sendNotificationSms({
+      to: toPhone,
+      countryCode: phoneCountryCode,
+      body: `Hi ${displayName}, Meeem Notice: ${subject} - ${preview}`,
+    })
+    return { success }
+  }
+
+  return { success: false, error: new Error("No contact channel for admin custom seller message.") }
 }
+
 
 
 
