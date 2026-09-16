@@ -158,30 +158,37 @@ export async function compressImage(
   }
 
   return new Promise((resolve) => {
+    let resolved = false
     let objectUrl = ""
-    try {
-      objectUrl = URL.createObjectURL(file)
-    } catch (_) {
-      // If Object URL creation fails, fallback to original file
-      resolve(file)
-      return
+
+    const safeResolve = (result: File) => {
+      if (resolved) return
+      resolved = true
+      if (timer) clearTimeout(timer)
+      if (objectUrl) {
+        try {
+          URL.revokeObjectURL(objectUrl)
+        } catch (_) {}
+      }
+      resolve(result)
     }
 
-    const cleanup = () => {
-      try {
-        if (objectUrl) URL.revokeObjectURL(objectUrl)
-      } catch (_) {}
-    }
+    // Safety timeout: if decoding hangs (common WebKit bug with raw HEIC blobs), release safely
+    const timer = setTimeout(() => {
+      safeResolve(file)
+    }, 6000)
 
-    const img = new Image()
+    const isWebp = file.type === "image/webp" || /\.webp$/i.test(fileName)
+    const outputType = isWebp ? "image/webp" : "image/jpeg"
+    const cleanName = fileName.replace(/\.[^/.]+$/, "") || "photo"
+    const outputName = `${cleanName}.${isWebp ? "webp" : "jpg"}`
 
-    img.onload = () => {
-      let width = img.naturalWidth || img.width
-      let height = img.naturalHeight || img.height
+    const renderToCanvasAndResolve = (source: CanvasImageSource, naturalWidth: number, naturalHeight: number) => {
+      let width = naturalWidth
+      let height = naturalHeight
 
       if (!width || !height) {
-        cleanup()
-        resolve(file)
+        safeResolve(file)
         return
       }
 
@@ -202,29 +209,21 @@ export async function compressImage(
 
       const ctx = canvas.getContext("2d")
       if (!ctx) {
-        cleanup()
-        resolve(file)
+        safeResolve(file)
         return
       }
 
       try {
-        ctx.drawImage(img, 0, 0, width, height)
+        ctx.drawImage(source, 0, 0, width, height)
       } catch (_) {
-        cleanup()
-        resolve(file)
+        safeResolve(file)
         return
       }
-      cleanup()
-
-      const isWebp = file.type === "image/webp" || /\.webp$/i.test(fileName)
-      const outputType = isWebp ? "image/webp" : "image/jpeg"
-      const cleanName = fileName.replace(/\.[^/.]+$/, "") || "photo"
-      const outputName = `${cleanName}.${isWebp ? "webp" : "jpg"}`
 
       canvas.toBlob(
         (blob) => {
           if (!blob) {
-            resolve(file)
+            safeResolve(file)
             return
           }
 
@@ -233,11 +232,11 @@ export async function compressImage(
             lastModified: Date.now(),
           })
 
-          // Use compressed file if smaller, or if converted from an uncompressed/mobile format
+          // Use compressed file if smaller, or if converted from HEIC/raw format
           if (compressedFile.size < file.size || outputType !== file.type) {
-            resolve(compressedFile)
+            safeResolve(compressedFile)
           } else {
-            resolve(file)
+            safeResolve(file)
           }
         },
         outputType,
@@ -245,13 +244,37 @@ export async function compressImage(
       )
     }
 
-    img.onerror = () => {
-      cleanup()
-      // If browser cannot decode image (e.g., proprietary RAW format), return original
-      resolve(file)
+    // Attempt modern createImageBitmap first if available
+    if (typeof createImageBitmap === "function") {
+      createImageBitmap(file)
+        .then((bitmap) => {
+          renderToCanvasAndResolve(bitmap, bitmap.width, bitmap.height)
+        })
+        .catch(() => {
+          // Fallback to Image element
+          loadViaImageElement()
+        })
+    } else {
+      loadViaImageElement()
     }
 
-    img.src = objectUrl
+    function loadViaImageElement() {
+      try {
+        objectUrl = URL.createObjectURL(file)
+      } catch (_) {
+        safeResolve(file)
+        return
+      }
+
+      const img = new Image()
+      img.onload = () => {
+        renderToCanvasAndResolve(img, img.naturalWidth || img.width, img.naturalHeight || img.height)
+      }
+      img.onerror = () => {
+        safeResolve(file)
+      }
+      img.src = objectUrl
+    }
   })
 }
 

@@ -16,6 +16,8 @@ function getSafeFileExt(file: File, fallbackExt: string): string {
     if (t.includes("png")) return ".png"
     if (t.includes("jpeg") || t.includes("jpg")) return ".jpg"
     if (t.includes("webp")) return ".webp"
+    if (t.includes("heic")) return ".heic"
+    if (t.includes("heif")) return ".heif"
     if (t.includes("pdf")) return ".pdf"
   }
   return fallbackExt

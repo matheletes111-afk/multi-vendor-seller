@@ -456,12 +456,13 @@ export default function RestaurantSettingsClient() {
                   </div>
                </div>
                <div className="grid md:grid-cols-2 gap-4 pt-4 border-t">
+                  <div className="space-y-2"><Label>Business Registration Number</Label><Input name="businessRegNumber" defaultValue={seller.businessInfo?.businessRegNumber || ""} placeholder="e.g. BRN-123456" /></div>
                   <div className="space-y-2"><Label>TIN / PAN Number</Label><Input name="taxIdNumber" defaultValue={seller.businessInfo?.taxIdNumber || ""} /></div>
-                  <div className="flex flex-col justify-end pb-1 space-y-2">
-                    <div className="flex items-center gap-2">
-                        <Checkbox id="haveGst" name="haveGst" value="true" checked={haveGst} onChange={(e: any) => setHaveGst(e.target.checked)} />
-                        <Label htmlFor="haveGst" className="cursor-pointer">Business has GST</Label>
-                    </div>
+               </div>
+               <div className="pt-4 border-t">
+                  <div className="flex items-center gap-2">
+                      <Checkbox id="haveGst" name="haveGst" value="true" checked={haveGst} onChange={(e: any) => setHaveGst(e.target.checked)} />
+                      <Label htmlFor="haveGst" className="cursor-pointer">Business has GST</Label>
                   </div>
                </div>
                <div className="grid md:grid-cols-2 gap-4 pt-4 border-t">
@@ -481,11 +482,12 @@ export default function RestaurantSettingsClient() {
                    </div>
                )}
                <div className="grid md:grid-cols-2 gap-4 pt-4 border-t">
+                  <div className="space-y-2"><Label>Street Address</Label><Input name="street" defaultValue={seller.businessInfo?.street || ""} placeholder="Street name / building" /></div>
                   <div className="space-y-2"><Label>Landmark</Label><Input name="landmark" defaultValue={seller.businessInfo?.landmark || ""} /></div>
-                  <div className="space-y-2"><Label>City</Label><Input name="city" defaultValue={seller.businessInfo?.city || ""} /></div>
                </div>
-               <div className="grid md:grid-cols-2 gap-4 pt-4 border-t">
-                  <div className="space-y-2"><Label>Area</Label><Input name="district" defaultValue={seller.businessInfo?.district || ""} /></div>
+               <div className="grid md:grid-cols-3 gap-4 pt-4 border-t">
+                  <div className="space-y-2"><Label>City</Label><Input name="city" defaultValue={seller.businessInfo?.city || ""} /></div>
+                  <div className="space-y-2"><Label>Area / District</Label><Input name="district" defaultValue={seller.businessInfo?.district || ""} /></div>
                   <div className="space-y-2"><Label>State</Label><Input name="state" defaultValue={seller.businessInfo?.state || ""} /></div>
                </div>
                <div className="pt-2">

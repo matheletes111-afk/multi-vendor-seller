@@ -118,7 +118,7 @@ export async function PUT(request: NextRequest) {
   try {
     const seller = await prisma.hotelSeller.findUnique({
       where: { userId },
-      include: { businessInfo: true, kyc: true, bankDetails: true }
+      include: { user: true, businessInfo: true, kyc: true, bankDetails: true }
     })
 
     if (!seller) {
@@ -144,7 +144,7 @@ export async function PUT(request: NextRequest) {
     const section = (getVal("section") as string) || (body?.section as string) || ""
 
     const hasUser = section === "user" || !!body?.user || body?.email !== undefined || body?.name !== undefined || body?.phone !== undefined || (fd !== null && (fd.has("name") || fd.has("email") || fd.has("phone") || fd.has("password") || fd.has("profileImage") || fd.has("phoneCountryCode")))
-    const hasBusiness = section === "business" || !!body?.business || !!body?.businessInfo || (fd !== null && (fd.has("businessName") || fd.has("businessType") || fd.has("taxIdNumber") || fd.has("busRegCert") || fd.has("cityCouncilCert") || fd.has("gstTinCert") || fd.has("addressProof")))
+    const hasBusiness = section === "business" || !!body?.business || !!body?.businessInfo || (fd !== null && (fd.has("businessName") || fd.has("hotelName") || fd.has("businessType") || fd.has("businessRegNumber") || fd.has("regNumber") || fd.has("taxIdNumber") || fd.has("busRegCert") || fd.has("cityCouncilCert") || fd.has("gstTinCert") || fd.has("addressProof") || fd.has("street") || fd.has("landmark") || fd.has("city") || fd.has("district") || fd.has("state") || fd.has("managerName") || fd.has("pocContact")))
     const hasKyc = section === "kyc" || !!body?.kyc || (fd !== null && (fd.has("idType") || fd.has("idNumber") || fd.has("idFront") || fd.has("idBack") || fd.has("selfie")))
     const hasBank = section === "bank" || !!body?.bankDetails || !!body?.bank || (fd !== null && (fd.has("paymentOption") || fd.has("bankName") || fd.has("accountNumber") || fd.has("mobileNumber") || fd.has("bankPassbook") || fd.has("passbook") || fd.has("bankLetter")))
     const hasHotel = section === "property" || section === "hotel" || section === "outlet" || !!body?.hotel || !!body?.property || (fd !== null && (fd.has("logo") || fd.has("banner") || fd.has("mainPhoto") || fd.has("categories") || fd.has("estimateHotelCount") || fd.has("estimateRoomCount")))
@@ -186,7 +186,11 @@ export async function PUT(request: NextRequest) {
         }
       }
       if (phone || phoneCountryCode) {
-        const validation = validatePhoneAndCountryCode(phone || "", phoneCountryCode || "")
+        const currentPhone = seller.user?.phone || ""
+        const currentCountryCode = seller.user?.phoneCountryCode || "+232"
+        const phoneToValidate = phone || currentPhone
+        const codeToValidate = phoneCountryCode || currentCountryCode
+        const validation = validatePhoneAndCountryCode(phoneToValidate, codeToValidate)
         if (!validation.isValid) {
           return NextResponse.json({ success: false, error: validation.error || "Invalid phone number or country code." }, { status: 400 })
         }
@@ -244,8 +248,9 @@ export async function PUT(request: NextRequest) {
       const busObj = body?.businessInfo || body?.business || {}
       const getBus = (k: string) => fd ? (fd.get(k) as string) : (busObj[k] ?? getVal(k))
 
-      const businessName = (getBus("businessName") as string)?.trim()
+      const businessName = ((getBus("businessName") ?? getBus("hotelName")) as string)?.trim()
       const businessType = (getBus("businessType") as string)?.trim()
+      const businessRegNumber = ((getBus("businessRegNumber") ?? getBus("regNumber")) as string)?.trim()
       const taxIdNumber = (getBus("taxIdNumber") as string)?.trim()
       const haveGstRaw = getBus("haveGst")
       const gstInvNo = (getBus("gstInvNo") as string)?.trim()
@@ -261,12 +266,13 @@ export async function PUT(request: NextRequest) {
       const busData: any = {}
       if (businessName) busData.businessName = businessName
       if (businessType) busData.businessType = businessType
-      if (taxIdNumber) busData.taxIdNumber = taxIdNumber
-      if (landmark) busData.landmark = landmark
-      if (street) busData.street = street
-      if (city) busData.city = city
-      if (district) busData.district = district
-      if (state) busData.state = state
+      if (businessRegNumber !== undefined && businessRegNumber !== null) busData.businessRegNumber = businessRegNumber
+      if (taxIdNumber !== undefined && taxIdNumber !== null) busData.taxIdNumber = taxIdNumber
+      if (landmark !== undefined && landmark !== null) busData.landmark = landmark
+      if (street !== undefined && street !== null) busData.street = street
+      if (city !== undefined && city !== null) busData.city = city
+      if (district !== undefined && district !== null) busData.district = district
+      if (state !== undefined && state !== null) busData.state = state
       if (managerName) busData.managerName = managerName
       if (pocContact) busData.pocContact = pocContact
 
@@ -460,7 +466,12 @@ export async function PUT(request: NextRequest) {
       const propData: any = {}
       if (!isNaN(estimateHotelCount)) propData.estimateHotelCount = estimateHotelCount
       if (!isNaN(estimateRoomCount)) propData.estimateRoomCount = estimateRoomCount
-      if (categories.length > 0) propData.categories = JSON.stringify(categories)
+      const categoriesSpecified = fd ? (section === "property" || section === "hotel" || fd.has("categories")) : (propObj.categories !== undefined || getVal("categories") !== undefined)
+      if (categoriesSpecified) {
+        propData.categories = JSON.stringify(categories)
+      } else if (categories.length > 0) {
+        propData.categories = JSON.stringify(categories)
+      }
 
       if (fd) {
         const logo = fd.get("logo") as File | null

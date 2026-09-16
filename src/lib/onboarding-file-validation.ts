@@ -7,8 +7,8 @@
  * to prevent browser freezing, memory spikes, and decoding errors.
  */
 
-export const ALLOWED_DOC_ACCEPT = ".pdf,image/*,.jpg,.jpeg,.png,.webp,.gif"
-export const ALLOWED_IMAGE_ONLY_ACCEPT = "image/*,.jpg,.jpeg,.png,.webp"
+export const ALLOWED_DOC_ACCEPT = ".pdf,image/*,.jpg,.jpeg,.png,.webp,.heic,.heif,.gif"
+export const ALLOWED_IMAGE_ONLY_ACCEPT = "image/*,.jpg,.jpeg,.png,.webp,.heic,.heif"
 
 const ALLOWED_IMAGE_EXTENSIONS = new Set([
   ".jpg",
@@ -67,8 +67,10 @@ export interface FileValidationResult {
 export interface ValidateOnboardingFileOptions {
   /** If true, only images are allowed (no PDFs). Use for profile photos, selfie, store logo, etc. */
   imagesOnly?: boolean
-  /** Maximum file size in MB. Defaults to 4.5MB */
+  /** Maximum file size in MB. Defaults to 2.5MB for PDFs and compressed files */
   maxSizeMb?: number
+  /** If true, allows raw image selection up to 15MB before client-side compression shrinks it */
+  isPreCompression?: boolean
 }
 
 /**
@@ -92,7 +94,7 @@ export function validateOnboardingFile(
     return { isValid: false, error: "No file provided" }
   }
 
-  const { imagesOnly = false, maxSizeMb = 4.5 } = options
+  const { imagesOnly = false, maxSizeMb = 2.5, isPreCompression = false } = options
   const filename = file.name || ""
   const ext = getFileExtension(filename)
   const mimeType = (file.type || "").toLowerCase().trim()
@@ -146,16 +148,21 @@ export function validateOnboardingFile(
     return {
       isValid: false,
       error: imagesOnly
-        ? "Only image files (JPG, PNG, WebP, etc.) are allowed. Rest nothing is accepted."
-        : "Only PDF documents and image files (JPG, PNG, WebP, etc.) are allowed. Rest nothing is accepted.",
+        ? "Only image files (JPG, PNG, WebP, HEIC) are allowed. Rest nothing is accepted."
+        : "Only PDF documents and image files (JPG, PNG, WebP, HEIC) are allowed. Rest nothing is accepted.",
     }
   }
 
-  // 5. File size check
-  if (file.size && file.size > maxSizeMb * 1024 * 1024) {
+  // 5. File size check:
+  // For raw images before compression, allow up to 15MB so clear phone photos aren't rejected upfront.
+  // For PDFs and final uploads, enforce a safe limit (default 2.5MB) to keep total step payload below 4.5MB.
+  const effectiveMaxMb = isImage && isPreCompression ? 15 : maxSizeMb
+  if (file.size && file.size > effectiveMaxMb * 1024 * 1024) {
     return {
       isValid: false,
-      error: `File size exceeds ${maxSizeMb} MB limit. Please select or compress a smaller file.`,
+      error: isPdf
+        ? `PDF size exceeds ${maxSizeMb} MB limit. Please select a smaller PDF.`
+        : `File size exceeds ${effectiveMaxMb} MB limit. Please select a smaller file.`,
     }
   }
 

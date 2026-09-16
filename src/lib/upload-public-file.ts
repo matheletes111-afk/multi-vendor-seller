@@ -119,7 +119,7 @@ function validateFileSignature(buffer: Buffer, ext: string, contentType: string)
   const cleanExt = ext.toLowerCase().trim()
   const cleanType = contentType.toLowerCase().trim()
 
-  const allowedExts = [".jpg", ".jpeg", ".png", ".gif", ".webp", ".mp4", ".webm", ".mov", ".pdf"]
+  const allowedExts = [".jpg", ".jpeg", ".png", ".gif", ".webp", ".mp4", ".webm", ".mov", ".pdf", ".heic", ".heif"]
   const allowedTypes = [
     "image/jpeg",
     "image/jpg",
@@ -131,6 +131,8 @@ function validateFileSignature(buffer: Buffer, ext: string, contentType: string)
     "video/webm",
     "video/quicktime",
     "application/pdf",
+    "image/heic",
+    "image/heif",
   ]
 
   if (!allowedExts.includes(cleanExt)) {
@@ -224,6 +226,14 @@ function validateFileSignature(buffer: Buffer, ext: string, contentType: string)
     const isFree = buffer[4] === 0x66 && buffer[5] === 0x72 && buffer[6] === 0x65 && buffer[7] === 0x65
     if (!isFtyp && !isMoov && !isMdat && !isWide && !isFree) {
       throw new Error("Invalid QuickTime signature")
+    }
+  } else if (cleanExt === ".heic" || cleanExt === ".heif") {
+    if (buffer.length < 12) {
+      throw new Error("Invalid HEIC/HEIF signature")
+    }
+    const isFtyp = buffer[4] === 0x66 && buffer[5] === 0x74 && buffer[6] === 0x79 && buffer[7] === 0x70
+    if (!isFtyp) {
+      throw new Error("Invalid HEIC/HEIF signature")
     }
   }
 
@@ -393,6 +403,15 @@ function detectFileTypeFromBuffer(buffer: Buffer): { ext: string; contentType: s
     buffer[6] === 0x79 &&
     buffer[7] === 0x70
   ) {
+    if (buffer.length >= 12) {
+      const brand = buffer.subarray(8, 12).toString("ascii").toLowerCase()
+      if (["heic", "heix", "hevc", "hevx", "mif1", "msf1"].includes(brand)) {
+        return { ext: ".heic", contentType: "image/heic" }
+      }
+      if (brand === "qt  ") {
+        return { ext: ".mov", contentType: "video/quicktime" }
+      }
+    }
     return { ext: ".mp4", contentType: "video/mp4" }
   }
   if (
@@ -405,12 +424,11 @@ function detectFileTypeFromBuffer(buffer: Buffer): { ext: string; contentType: s
     return { ext: ".webm", contentType: "video/webm" }
   }
   if (buffer.length >= 8) {
-    const isFtyp = buffer[4] === 0x66 && buffer[5] === 0x74 && buffer[6] === 0x79 && buffer[7] === 0x70
     const isMoov = buffer[4] === 0x6d && buffer[5] === 0x6f && buffer[6] === 0x6f && buffer[7] === 0x76
     const isMdat = buffer[4] === 0x6d && buffer[5] === 0x64 && buffer[6] === 0x61 && buffer[7] === 0x74
     const isWide = buffer[4] === 0x77 && buffer[5] === 0x69 && buffer[6] === 0x64 && buffer[7] === 0x76
     const isFree = buffer[4] === 0x66 && buffer[5] === 0x72 && buffer[6] === 0x65 && buffer[7] === 0x65
-    if (isFtyp || isMoov || isMdat || isWide || isFree) {
+    if (isMoov || isMdat || isWide || isFree) {
       return { ext: ".mov", contentType: "video/quicktime" }
     }
   }
@@ -453,6 +471,8 @@ export async function uploadPublicFile(args: UploadArgs): Promise<string> {
         ".png": "image/png",
         ".gif": "image/gif",
         ".webp": "image/webp",
+        ".heic": "image/heic",
+        ".heif": "image/heif",
         ".mp4": "video/mp4",
         ".webm": "video/webm",
         ".mov": "video/quicktime",

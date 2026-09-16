@@ -94,7 +94,7 @@ export async function PUT(request: NextRequest) {
 
   const seller = await prisma.restaurantSeller.findUnique({
     where: { userId: session.user.id },
-    include: { businessInfo: true, kyc: true, bankDetails: true }
+    include: { user: true, businessInfo: true, kyc: true, bankDetails: true }
   })
 
   if (!seller) return NextResponse.json({ error: "Seller not found" }, { status: 404 })
@@ -168,7 +168,11 @@ export async function PUT(request: NextRequest) {
       }
     }
     if (phone || phoneCountryCode) {
-      const validation = validatePhoneAndCountryCode(phone || "", phoneCountryCode || "")
+      const currentPhone = seller.user?.phone || ""
+      const currentCountryCode = seller.user?.phoneCountryCode || "+232"
+      const phoneToValidate = phone || currentPhone
+      const codeToValidate = phoneCountryCode || currentCountryCode
+      const validation = validatePhoneAndCountryCode(phoneToValidate, codeToValidate)
       if (!validation.isValid) {
         return NextResponse.json({ error: validation.error || "Invalid phone number or country code." }, { status: 400 })
       }
@@ -224,8 +228,9 @@ export async function PUT(request: NextRequest) {
     const busObj = body?.businessInfo || body?.business || {}
     const getBus = (k: string) => fd ? (fd.get(k) as string) : (busObj[k] ?? getVal(k))
 
-    const businessName = (getBus("businessName") as string)?.trim()
+    const businessName = ((getBus("businessName") ?? getBus("restaurantName")) as string)?.trim()
     const businessType = (getBus("businessType") as string)?.trim()
+    const businessRegNumber = ((getBus("businessRegNumber") ?? getBus("regNumber")) as string)?.trim()
     const taxIdNumber = (getBus("taxIdNumber") as string)?.trim()
     const haveGstRaw = getBus("haveGst")
     const gstInvNo = (getBus("gstInvNo") as string)?.trim()
@@ -245,12 +250,13 @@ export async function PUT(request: NextRequest) {
     const busData: any = {}
     if (businessName) busData.businessName = businessName
     if (businessType) busData.businessType = businessType
-    if (taxIdNumber) busData.taxIdNumber = taxIdNumber
-    if (landmark) busData.landmark = landmark
-    if (street) busData.street = street
-    if (city) busData.city = city
-    if (district) busData.district = district
-    if (state) busData.state = state
+    if (businessRegNumber !== undefined && businessRegNumber !== null) busData.businessRegNumber = businessRegNumber
+    if (taxIdNumber !== undefined && taxIdNumber !== null) busData.taxIdNumber = taxIdNumber
+    if (landmark !== undefined && landmark !== null) busData.landmark = landmark
+    if (street !== undefined && street !== null) busData.street = street
+    if (city !== undefined && city !== null) busData.city = city
+    if (district !== undefined && district !== null) busData.district = district
+    if (state !== undefined && state !== null) busData.state = state
     if (managerName) busData.managerName = managerName
     if (pocContact) busData.pocContact = pocContact
     if (latitude !== undefined) busData.latitude = latitude
@@ -449,8 +455,19 @@ export async function PUT(request: NextRequest) {
 
     const propData: any = {}
     if (!isNaN(estimateRestaurantCount)) propData.estimateRestaurantCount = estimateRestaurantCount
-    if (cuisines.length > 0) propData.primaryCuisine = JSON.stringify(cuisines)
-    if (services.length > 0) propData.serviceTypes = JSON.stringify(services)
+    const cuisinesSpecified = fd ? (section === "property" || section === "restaurant" || fd.has("cuisines")) : (propObj.cuisines !== undefined || getVal("cuisines") !== undefined)
+    if (cuisinesSpecified) {
+      propData.primaryCuisine = JSON.stringify(cuisines)
+    } else if (cuisines.length > 0) {
+      propData.primaryCuisine = JSON.stringify(cuisines)
+    }
+
+    const servicesSpecified = fd ? (section === "property" || section === "restaurant" || fd.has("services")) : (propObj.services !== undefined || getVal("services") !== undefined)
+    if (servicesSpecified) {
+      propData.serviceTypes = JSON.stringify(services)
+    } else if (services.length > 0) {
+      propData.serviceTypes = JSON.stringify(services)
+    }
 
     if (fd) {
       const logo = fd.get("logo") as File | null

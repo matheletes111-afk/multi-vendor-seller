@@ -436,38 +436,40 @@ export default function HotelSettingsClient() {
                   </div>
                </div>
                <div className="grid md:grid-cols-2 gap-4 pt-4 border-t">
-                  <div className="space-y-2"><Label>TIN / PAN Number</Label><Input name="taxIdNumber" defaultValue={seller.businessInfo?.taxIdNumber || ""} /></div>
-                  <div className="flex flex-col justify-end pb-1 space-y-2">
-                    <div className="flex items-center gap-2">
-                        <Checkbox id="haveGst" name="haveGst" value="true" checked={haveGst} onChange={(e: any) => setHaveGst(e.target.checked)} />
-                        <Label htmlFor="haveGst" className="cursor-pointer">Business has GST</Label>
-                    </div>
-                  </div>
-               </div>
-               <div className="grid md:grid-cols-2 gap-4 pt-4 border-t">
-                  <div className="space-y-2">
-                    <Label htmlFor="managerName">Manager (POC) Name *</Label>
-                    <Input id="managerName" name="managerName" defaultValue={seller.businessInfo?.managerName || ""} required />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="pocContact">POC Contact Number *</Label>
-                    <Input id="pocContact" name="pocContact" defaultValue={seller.businessInfo?.pocContact || ""} required />
-                  </div>
-               </div>
-               {haveGst && (
-                   <div className="grid md:grid-cols-2 gap-4 p-4 bg-slate-50 rounded-xl border animate-in fade-in zoom-in-95 duration-200">
-                      <div className="space-y-2"><Label>GST Number</Label><Input name="gstInvNo" defaultValue={seller.businessInfo?.gstInvNo || ""} /></div>
-                      <div className="space-y-2"><Label>GST Customer Name</Label><Input name="gstCustomerName" defaultValue={seller.businessInfo?.gstCustomerName || ""} /></div>
+                   <div className="space-y-2"><Label>Business Registration Number</Label><Input name="businessRegNumber" defaultValue={seller.businessInfo?.businessRegNumber || ""} placeholder="e.g. BRN-123456" /></div>
+                   <div className="space-y-2"><Label>TIN / PAN Number</Label><Input name="taxIdNumber" defaultValue={seller.businessInfo?.taxIdNumber || ""} /></div>
+                </div>
+                <div className="pt-4 border-t">
+                   <div className="flex items-center gap-2">
+                       <Checkbox id="haveGst" name="haveGst" value="true" checked={haveGst} onChange={(e: any) => setHaveGst(e.target.checked)} />
+                       <Label htmlFor="haveGst" className="cursor-pointer">Business has GST</Label>
                    </div>
-               )}
-               <div className="grid md:grid-cols-2 gap-4 pt-4 border-t">
-                  <div className="space-y-2"><Label>Landmark</Label><Input name="landmark" defaultValue={seller.businessInfo?.landmark || ""} /></div>
-                  <div className="space-y-2"><Label>City</Label><Input name="city" defaultValue={seller.businessInfo?.city || ""} /></div>
-               </div>
-               <div className="grid md:grid-cols-2 gap-4 pt-4 border-t">
-                  <div className="space-y-2"><Label>Area</Label><Input name="district" defaultValue={seller.businessInfo?.district || ""} /></div>
-                  <div className="space-y-2"><Label>State</Label><Input name="state" defaultValue={seller.businessInfo?.state || ""} /></div>
-               </div>
+                </div>
+                <div className="grid md:grid-cols-2 gap-4 pt-4 border-t">
+                   <div className="space-y-2">
+                     <Label htmlFor="managerName">Manager (POC) Name *</Label>
+                     <Input id="managerName" name="managerName" defaultValue={seller.businessInfo?.managerName || ""} required />
+                   </div>
+                   <div className="space-y-2">
+                     <Label htmlFor="pocContact">POC Contact Number *</Label>
+                     <Input id="pocContact" name="pocContact" defaultValue={seller.businessInfo?.pocContact || ""} required />
+                   </div>
+                </div>
+                {haveGst && (
+                    <div className="grid md:grid-cols-2 gap-4 p-4 bg-slate-50 rounded-xl border animate-in fade-in zoom-in-95 duration-200">
+                       <div className="space-y-2"><Label>GST Number</Label><Input name="gstInvNo" defaultValue={seller.businessInfo?.gstInvNo || ""} /></div>
+                       <div className="space-y-2"><Label>GST Customer Name</Label><Input name="gstCustomerName" defaultValue={seller.businessInfo?.gstCustomerName || ""} /></div>
+                    </div>
+                )}
+                <div className="grid md:grid-cols-2 gap-4 pt-4 border-t">
+                   <div className="space-y-2"><Label>Street Address</Label><Input name="street" defaultValue={seller.businessInfo?.street || ""} placeholder="Street name / building" /></div>
+                   <div className="space-y-2"><Label>Landmark</Label><Input name="landmark" defaultValue={seller.businessInfo?.landmark || ""} /></div>
+                </div>
+                <div className="grid md:grid-cols-3 gap-4 pt-4 border-t">
+                   <div className="space-y-2"><Label>City</Label><Input name="city" defaultValue={seller.businessInfo?.city || ""} /></div>
+                   <div className="space-y-2"><Label>Area / District</Label><Input name="district" defaultValue={seller.businessInfo?.district || ""} /></div>
+                   <div className="space-y-2"><Label>State</Label><Input name="state" defaultValue={seller.businessInfo?.state || ""} /></div>
+                </div>
                <div className="pt-2">
                   <Label>Registration Certificate</Label>
                   <div className="flex items-center gap-3 mt-1">
