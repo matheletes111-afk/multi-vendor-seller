@@ -7,26 +7,33 @@ import { getValidSubscription } from "@/lib/subscriptions"
 
 /** GET dashboard overview. */
 export async function GET() {
-  const session = await auth()
-  if (!session?.user || !isProductSeller(session.user)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
+  try {
+    const session = await auth()
+    if (!session?.user || !isProductSeller(session.user)) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
 
-  const [seller, globalSetting] = await Promise.all([
-    prisma.seller.findUnique({
-      where: { userId: session.user.id },
-      select: { id: true, netBalance: true, commissionRate: true },
-    }),
-    prisma.globalSetting.findFirst(),
-  ])
+    const [seller, globalSetting] = await Promise.all([
+      prisma.seller.findUnique({
+        where: { userId: session.user.id },
+        select: { id: true, netBalance: true, commissionRate: true },
+      }),
+      prisma.globalSetting.findFirst(),
+    ])
 
-  if (!seller) {
-    return NextResponse.json({ error: "Seller not found" }, { status: 404 })
-  }
+    if (!seller) {
+      return NextResponse.json({ error: "Seller not found" }, { status: 404 })
+    }
 
-  const [subscription, totalProducts, totalOrders, revenueAgg, pendingRevenueAgg, riderShippingAgg, selfShippingAgg, creditsAgg, debitsAgg, totalAdClicks] = await Promise.all([
-    getValidSubscription(seller.id),
-    prisma.product.count({ where: { sellerId: seller.id, isActive: true, isDeleted: false } }),
+    let subscription: any = null
+    try {
+      subscription = await getValidSubscription(seller.id)
+    } catch (subErr) {
+      console.warn("Error fetching subscription in product seller overview:", subErr)
+    }
+
+    const [totalProducts, totalOrders, revenueAgg, pendingRevenueAgg, riderShippingAgg, selfShippingAgg, creditsAgg, debitsAgg, totalAdClicks] = await Promise.all([
+      prisma.product.count({ where: { sellerId: seller.id, isActive: true, isDeleted: false } }),
     prisma.order.count({
       where: {
         items: {
@@ -106,30 +113,34 @@ export async function GET() {
   const balanceCreditsTotal = Number(creditsAgg._sum.amount ?? 0)
   const balanceDebitsTotal = Number(debitsAgg._sum.amount ?? 0)
 
-  return NextResponse.json({
-    subscription: subscription ? { ...subscription, plan: subscription.plan } : null,
-    commissionRate: seller.commissionRate ?? globalSetting?.productBaseCommission ?? globalSetting?.baseCommission ?? 10.0,
-    isGlobalRate: seller.commissionRate === null || seller.commissionRate === undefined,
-    totalProducts,
-    totalOrders,
-    totalRevenue: grossSales,
-    totalRevenueFormatted: formatCurrency(grossSales),
-    pendingRevenue: pendingSales,
-    pendingRevenueFormatted: formatCurrency(pendingSales),
-    grossSales,
-    grossSalesFormatted: formatCurrency(grossSales),
-    platformCommission,
-    platformCommissionFormatted: formatCurrency(platformCommission),
-    deliveryBoyCharges,
-    deliveryBoyChargesFormatted: formatCurrency(deliveryBoyCharges),
-    netEarnings,
-    netEarningsFormatted: formatCurrency(netEarnings),
-    netBalance,
-    netBalanceFormatted: formatCurrency(netBalance),
-    balanceCreditsTotal,
-    balanceCreditsFormatted: formatCurrency(balanceCreditsTotal),
-    balanceDebitsTotal,
-    balanceDebitsFormatted: formatCurrency(balanceDebitsTotal),
-    totalAdClicks,
-  })
+    return NextResponse.json({
+      subscription: subscription ? { ...subscription, plan: subscription.plan } : null,
+      commissionRate: seller.commissionRate ?? globalSetting?.productBaseCommission ?? globalSetting?.baseCommission ?? 10.0,
+      isGlobalRate: seller.commissionRate === null || seller.commissionRate === undefined,
+      totalProducts,
+      totalOrders,
+      totalRevenue: grossSales,
+      totalRevenueFormatted: formatCurrency(grossSales),
+      pendingRevenue: pendingSales,
+      pendingRevenueFormatted: formatCurrency(pendingSales),
+      grossSales,
+      grossSalesFormatted: formatCurrency(grossSales),
+      platformCommission,
+      platformCommissionFormatted: formatCurrency(platformCommission),
+      deliveryBoyCharges,
+      deliveryBoyChargesFormatted: formatCurrency(deliveryBoyCharges),
+      netEarnings,
+      netEarningsFormatted: formatCurrency(netEarnings),
+      netBalance,
+      netBalanceFormatted: formatCurrency(netBalance),
+      balanceCreditsTotal,
+      balanceCreditsFormatted: formatCurrency(balanceCreditsTotal),
+      balanceDebitsTotal,
+      balanceDebitsFormatted: formatCurrency(balanceDebitsTotal),
+      totalAdClicks,
+    })
+  } catch (error: any) {
+    console.error("Error in product seller overview API:", error)
+    return NextResponse.json({ error: error.message || "Internal Server Error" }, { status: 500 })
+  }
 }
