@@ -118,6 +118,7 @@ export async function POST(request: Request) {
 
     const contentType = request.headers.get("content-type") || ""
     let name: string | null = null
+    let email: string | null = null
     let phone: string | null = null
     let phoneCountryCode: string | null = null
     let vehicleTypes: string[] = []
@@ -148,6 +149,7 @@ export async function POST(request: Request) {
       const formData = await request.formData()
 
       name = formData.get("name") as string | null
+      if (formData.has("email")) email = formData.get("email") as string | null
       phone = formData.get("phone") as string | null
       phoneCountryCode = formData.get("phoneCountryCode") as string | null
       vehicleName = formData.get("vehicleName") as string | null
@@ -268,6 +270,7 @@ export async function POST(request: Request) {
     } else {
       const body = await request.json().catch(() => ({}))
       name = body.name || null
+      if ("email" in body) email = body.email || null
       phone = body.phone || null
       phoneCountryCode = body.phoneCountryCode || null
       vehicleName = body.vehicleName || null
@@ -325,6 +328,7 @@ export async function POST(request: Request) {
 
     const userUpdates: {
       name?: string
+      email?: string | null
       image?: string | null
       phone?: string | null
       phoneCountryCode?: string | null
@@ -332,6 +336,24 @@ export async function POST(request: Request) {
     } = {}
 
     if (name?.trim()) userUpdates.name = name.trim()
+    if (email !== null) {
+      const trimmedEmail = email.trim().toLowerCase()
+      if (trimmedEmail) {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+        if (!emailRegex.test(trimmedEmail)) {
+          return NextResponse.json({ error: "Please enter a valid email address." }, { status: 400 })
+        }
+        const existingUser = await prisma.user.findFirst({
+          where: { email: trimmedEmail, NOT: { id: userId } },
+        })
+        if (existingUser) {
+          return NextResponse.json({ error: "This email address is already registered to another account." }, { status: 400 })
+        }
+        userUpdates.email = trimmedEmail
+      } else {
+        userUpdates.email = null
+      }
+    }
     if (profileImageUrl) userUpdates.image = profileImageUrl
     if (phone?.trim() || phoneCountryCode?.trim()) {
       const pVal = validatePhoneAndCountryCode(phone || "", phoneCountryCode || "")

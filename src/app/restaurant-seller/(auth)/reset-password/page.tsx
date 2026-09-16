@@ -14,6 +14,8 @@ function RestaurantSellerResetPasswordForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const email = (searchParams.get("email") ?? "").trim()
+  const phone = (searchParams.get("phone") ?? "").trim()
+  const identifier = email || phone
   const [otp, setOtp] = useState("")
   const [newPassword, setNewPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
@@ -25,7 +27,7 @@ function RestaurantSellerResetPasswordForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
-    if (!email) return setError("Email is missing. Please start again.")
+    if (!identifier) return setError("Email or mobile number is missing. Please start again.")
     if (otp.length !== 6) return setError("Enter the 6-digit OTP.")
     if (newPassword.length < 6) return setError("Password must be at least 6 characters.")
     if (newPassword !== confirmPassword) return setError("Passwords do not match.")
@@ -35,7 +37,12 @@ function RestaurantSellerResetPasswordForm() {
       const res = await fetch("/api/restaurant-seller/auth/forgot-password/reset", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, otp, newPassword }),
+        body: JSON.stringify({
+          ...(email ? { email } : {}),
+          ...(phone ? { phone } : {}),
+          otp,
+          newPassword,
+        }),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) return setError(data.error || "Failed to reset password.")
@@ -48,14 +55,14 @@ function RestaurantSellerResetPasswordForm() {
   }
 
   const resendOtp = async () => {
-    if (!email || loading) return
+    if (!identifier || loading) return
     setError("")
     setLoading(true)
     try {
       const res = await fetch("/api/restaurant-seller/auth/forgot-password/send-otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify(email ? { email } : { phone }),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) setError(data.error || "Failed to send OTP.")
@@ -66,13 +73,13 @@ function RestaurantSellerResetPasswordForm() {
     }
   }
 
-  if (!email) return <div className="flex min-h-screen items-center justify-center bg-gray-50/90 p-4"><div className="w-full max-w-[440px] rounded-3xl bg-white p-8 shadow-xl text-center"><p className="text-gray-600">Missing email. Please start from forgot password.</p><Link href="/restaurant-seller/forgot-password" className="mt-4 inline-block text-blue-600 hover:underline">Go to forgot password</Link></div></div>
+  if (!identifier) return <div className="flex min-h-screen items-center justify-center bg-gray-50/90 p-4"><div className="w-full max-w-[440px] rounded-3xl bg-white p-8 shadow-xl text-center"><p className="text-gray-600">Missing email or mobile number. Please start from forgot password.</p><Link href="/restaurant-seller/forgot-password" className="mt-4 inline-block text-blue-600 hover:underline">Go to forgot password</Link></div></div>
 
   return (
     <div className="flex min-h-screen min-w-0 items-center justify-center overflow-x-hidden bg-gray-50/90 px-4 py-5 sm:p-4">
       <div className="w-full max-w-[440px] min-w-0 rounded-2xl bg-white p-5 shadow-xl sm:rounded-3xl sm:p-6 md:p-8">
         <div className="mb-5 flex justify-center sm:mb-6"><a href="/"><Image src="/images/logo.png" alt="Logo" width={180} height={48} className="h-12 w-auto object-contain sm:h-14 sm:max-h-[70px]" /></a></div>
-        <div className="mb-6 sm:mb-8"><h1 className="text-left text-xl font-semibold text-gray-900 sm:text-2xl">Restaurant Seller reset password</h1><p className="mt-1 text-left text-sm text-gray-500">Enter OTP sent to {email} and set your new password.</p></div>
+        <div className="mb-6 sm:mb-8"><h1 className="text-left text-xl font-semibold text-gray-900 sm:text-2xl">Restaurant Seller reset password</h1><p className="mt-1 text-left text-sm text-gray-500">Enter OTP sent to {identifier} and set your new password.</p></div>
         <form onSubmit={handleSubmit}>
           {error && <Alert variant="destructive" className="mb-5"><AlertCircle className="h-4 w-4" /><AlertDescription>{error}</AlertDescription></Alert>}
           <div className="space-y-5">

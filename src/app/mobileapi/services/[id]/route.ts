@@ -21,7 +21,7 @@ type ServiceSellerPayload = {
   } | null
   account: {
     name: string | null
-    email: string
+    email: string | null
     phone: string | null
     phoneCountryCode: string | null
     image: string | null
@@ -82,7 +82,7 @@ function mapServiceSeller(seller: {
   } | null
   user: {
     name: string | null
-    email: string
+    email: string | null
     phone: string | null
     phoneCountryCode: string | null
     image: string | null

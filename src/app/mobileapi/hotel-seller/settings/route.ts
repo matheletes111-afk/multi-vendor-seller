@@ -143,7 +143,7 @@ export async function PUT(request: NextRequest) {
 
     const section = (getVal("section") as string) || (body?.section as string) || ""
 
-    const hasUser = section === "user" || !!body?.user || (fd !== null && (fd.has("name") || fd.has("phone") || fd.has("password") || fd.has("profileImage") || fd.has("phoneCountryCode")))
+    const hasUser = section === "user" || !!body?.user || body?.email !== undefined || body?.name !== undefined || body?.phone !== undefined || (fd !== null && (fd.has("name") || fd.has("email") || fd.has("phone") || fd.has("password") || fd.has("profileImage") || fd.has("phoneCountryCode")))
     const hasBusiness = section === "business" || !!body?.business || !!body?.businessInfo || (fd !== null && (fd.has("businessName") || fd.has("businessType") || fd.has("taxIdNumber") || fd.has("busRegCert") || fd.has("cityCouncilCert") || fd.has("gstTinCert") || fd.has("addressProof")))
     const hasKyc = section === "kyc" || !!body?.kyc || (fd !== null && (fd.has("idType") || fd.has("idNumber") || fd.has("idFront") || fd.has("idBack") || fd.has("selfie")))
     const hasBank = section === "bank" || !!body?.bankDetails || !!body?.bank || (fd !== null && (fd.has("paymentOption") || fd.has("bankName") || fd.has("accountNumber") || fd.has("mobileNumber") || fd.has("bankPassbook") || fd.has("passbook") || fd.has("bankLetter")))
@@ -154,6 +154,7 @@ export async function PUT(request: NextRequest) {
       const userObj = body?.user || {}
       const nameRaw = fd ? fd.get("name") : (userObj.name !== undefined ? userObj.name : getVal("name"))
       const name = nameRaw !== null && nameRaw !== undefined ? sanitizeInput(nameRaw as string) : undefined
+      const emailRaw = fd ? (fd.get("email") as string | null) : (userObj.email !== undefined ? userObj.email : getVal("email"))
       const phone = ((fd ? fd.get("phone") : (userObj.phone ?? getVal("phone"))) as string)?.trim()
       const phoneCountryCode = ((fd ? fd.get("phoneCountryCode") : (userObj.phoneCountryCode ?? getVal("phoneCountryCode"))) as string)?.trim()
       const password = ((fd ? fd.get("password") : (userObj.password ?? getVal("password"))) as string)?.trim()
@@ -165,6 +166,24 @@ export async function PUT(request: NextRequest) {
         const nameCheck = await checkDisallowedName(name)
         if (!nameCheck.isAllowed) return NextResponse.json({ success: false, error: nameCheck.error! }, { status: 400 })
         userData.name = name
+      }
+      if (emailRaw !== null && emailRaw !== undefined) {
+        const trimmedEmail = String(emailRaw).trim().toLowerCase()
+        if (trimmedEmail) {
+          const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+          if (!emailRegex.test(trimmedEmail)) {
+            return NextResponse.json({ success: false, error: "Please enter a valid email address." }, { status: 400 })
+          }
+          const existingUser = await prisma.user.findFirst({
+            where: { email: trimmedEmail, NOT: { id: userId } },
+          })
+          if (existingUser) {
+            return NextResponse.json({ success: false, error: "This email address is already registered to another account." }, { status: 400 })
+          }
+          userData.email = trimmedEmail
+        } else {
+          userData.email = null
+        }
       }
       if (phone || phoneCountryCode) {
         const validation = validatePhoneAndCountryCode(phone || "", phoneCountryCode || "")
@@ -476,3 +495,6 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 })
   }
 }
+
+export const PATCH = PUT
+

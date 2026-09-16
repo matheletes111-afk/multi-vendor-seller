@@ -4,7 +4,7 @@ import { prisma } from "./prisma";
 import { UserRole } from "@prisma/client";
 
 export type MobileAuthResult =
-  | { success: true; user: { id: string; email: string; role: UserRole; name?: string | null; phone?: string | null; phoneCountryCode?: string | null; image?: string | null }; seller: any }
+  | { success: true; user: { id: string; email: string | null; role: UserRole; name?: string | null; phone?: string | null; phoneCountryCode?: string | null; image?: string | null }; seller: any }
   | { success: false; errorResponse: NextResponse };
 
 /**

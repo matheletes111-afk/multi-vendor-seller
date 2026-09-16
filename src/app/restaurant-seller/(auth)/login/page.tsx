@@ -136,8 +136,8 @@ function RestaurantSellerLoginForm() {
           )}
 
           <div className="space-y-2">
-            <Label htmlFor="email">Work Email</Label>
-            <Input id="email" name="email" type="email" placeholder="john@restaurant.com" value={email} onChange={(e) => setEmail(e.target.value)} required disabled={loading} className="rounded-xl" />
+            <Label htmlFor="email">Email or Mobile Number</Label>
+            <Input id="email" name="email" type="text" placeholder="john@restaurant.com or 088994462" value={email} onChange={(e) => setEmail(e.target.value)} required disabled={loading} className="rounded-xl" />
           </div>
 
           <div className="space-y-2">

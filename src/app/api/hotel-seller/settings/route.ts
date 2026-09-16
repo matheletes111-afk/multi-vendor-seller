@@ -126,6 +126,7 @@ export async function PUT(request: NextRequest) {
     const userObj = body?.user || {}
     const nameRaw = fd ? fd.get("name") : (userObj.name !== undefined ? userObj.name : getVal("name"))
     const name = nameRaw !== null && nameRaw !== undefined ? sanitizeInput(nameRaw as string) : undefined
+    const emailRaw = fd ? fd.get("email") : (userObj.email !== undefined ? userObj.email : getVal("email"))
     const phone = ((fd ? fd.get("phone") : (userObj.phone ?? getVal("phone"))) as string)?.trim()
     const phoneCountryCode = ((fd ? fd.get("phoneCountryCode") : (userObj.phoneCountryCode ?? getVal("phoneCountryCode"))) as string)?.trim()
     const password = ((fd ? fd.get("password") : (userObj.password ?? getVal("password"))) as string)?.trim()
@@ -137,6 +138,24 @@ export async function PUT(request: NextRequest) {
       const nameCheck = await checkDisallowedName(name)
       if (!nameCheck.isAllowed) return NextResponse.json({ error: nameCheck.error }, { status: 400 })
       userData.name = name
+    }
+    if (emailRaw !== undefined && emailRaw !== null) {
+      const trimmedEmail = typeof emailRaw === "string" ? emailRaw.trim().toLowerCase() : ""
+      if (trimmedEmail) {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+        if (!emailRegex.test(trimmedEmail)) {
+          return NextResponse.json({ error: "Please enter a valid email address." }, { status: 400 })
+        }
+        const existingUser = await prisma.user.findFirst({
+          where: { email: trimmedEmail, NOT: { id: session.user.id } },
+        })
+        if (existingUser) {
+          return NextResponse.json({ error: "This email address is already registered to another account." }, { status: 400 })
+        }
+        userData.email = trimmedEmail
+      } else {
+        userData.email = null
+      }
     }
     if (phone || phoneCountryCode) {
       const validation = validatePhoneAndCountryCode(phone || "", phoneCountryCode || "")

@@ -172,6 +172,7 @@ export function RiderSettingsClient({ user: initialUser }: { user: any }) {
       const selectedVehicle = vehicleTypes[0] || "2_WHEELER"
       const formData = new FormData()
       formData.append("name", name.trim())
+      formData.append("email", email.trim())
       formData.append("phone", phone.trim())
       formData.append("phoneCountryCode", phoneCountryCode.trim())
       formData.append("vehicleType", selectedVehicle)
@@ -328,12 +329,13 @@ export function RiderSettingsClient({ user: initialUser }: { user: any }) {
               </div>
 
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold">Email Address (Read-only)</Label>
+                <Label className="text-xs font-semibold">Email Address (Optional)</Label>
                 <Input
                   type="email"
                   value={email}
-                  disabled
-                  className="rounded-xl text-xs h-10 bg-muted"
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="rider@example.com"
+                  className="rounded-xl text-xs h-10"
                 />
               </div>
             </div>

@@ -55,9 +55,11 @@ export async function POST(
 
     // ── Send Email Notification ───────────────────────────────────────────────
     try {
-      if (seller.user?.email) {
+      if (seller.user?.email || seller.user?.phone) {
         await sendSellerApprovalEmail({
-          to: seller.user.email,
+          to: seller.user?.email,
+          toPhone: seller.user?.phone,
+          phoneCountryCode: seller.user?.phoneCountryCode,
           name: seller.user.name ?? "Seller",
         })
       }

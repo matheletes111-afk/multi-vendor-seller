@@ -368,8 +368,17 @@ export default function RestaurantSettingsClient() {
           <CardContent>
             <form onSubmit={(e) => handleSave(e, "user")} className="space-y-4">
                <div className="grid md:grid-cols-2 gap-4">
-                  <div className="space-y-2"><Label>Email</Label><Input value={seller.user.email} disabled className="bg-muted" /></div>
-                  <div className="space-y-2"><Label>Full Name</Label><Input name="name" defaultValue={seller.user.name || ""} /></div>
+                   <div className="space-y-2">
+                     <Label>Email (Optional)</Label>
+                     <Input
+                       name="email"
+                       type="email"
+                       defaultValue={seller.user.email || ""}
+                       placeholder="restaurant@example.com"
+                     />
+                     <p className="text-[11px] text-muted-foreground">Add your email to receive order alerts, invoices, and password reset codes via email.</p>
+                   </div>
+                   <div className="space-y-2"><Label>Full Name</Label><Input name="name" defaultValue={seller.user.name || ""} /></div>
                </div>
                 <div className="grid md:grid-cols-2 gap-4">
                   <div className="space-y-2">

@@ -32,7 +32,7 @@ export default async function CustomerDashboard() {
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
         <p className="text-muted-foreground mt-2">
-          Welcome back, {session.user.name || session.user.email}
+          Welcome back, {session.user.name || session.user.email || session.user.phone}
         </p>
       </div>
 

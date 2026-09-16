@@ -46,7 +46,10 @@ export default function HotelSellerRegistrationPage() {
       })
       const data = await res.json()
       if (!res.ok) { setError(data.error || "Registration failed"); return }
-      router.push(`/hotel-seller/verify-otp?email=${encodeURIComponent(email)}&from=registration`)
+      const nextQuery = email.trim()
+        ? `email=${encodeURIComponent(email.trim())}`
+        : `phone=${encodeURIComponent(phoneValidation.cleanedPhone || "")}&phoneCountryCode=${encodeURIComponent(phoneValidation.cleanedCountryCode || "")}`
+      router.push(`/hotel-seller/verify-otp?${nextQuery}&from=registration`)
     } catch { setError("An error occurred. Please try again.") } finally { setLoading(false) }
   }
 
@@ -70,8 +73,8 @@ export default function HotelSellerRegistrationPage() {
               <Input id="name" type="text" placeholder="John Doe" value={name} onChange={(e) => setName(e.target.value)} required disabled={loading} className="rounded-xl border-gray-200" />
             </div>
             <div>
-              <Label htmlFor="email" className="mb-1.5 block text-sm font-medium text-gray-700">Email</Label>
-              <Input id="email" type="email" placeholder="example@gmail.com" value={email} onChange={(e) => setEmail(e.target.value)} required disabled={loading} className="rounded-xl border-gray-200" />
+              <Label htmlFor="email" className="mb-1.5 block text-sm font-medium text-gray-700">Email <span className="text-gray-400 font-normal">(Optional)</span></Label>
+              <Input id="email" type="email" placeholder="example@gmail.com" value={email} onChange={(e) => setEmail(e.target.value)} disabled={loading} className="rounded-xl border-gray-200" />
             </div>
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-[110px_1fr]">
               <div>
@@ -85,7 +88,7 @@ export default function HotelSellerRegistrationPage() {
                 />
               </div>
               <div>
-                <Label htmlFor="phone" className="mb-1.5 block text-sm font-medium text-gray-700">Phone</Label>
+                <Label htmlFor="phone" className="mb-1.5 block text-sm font-medium text-gray-700">Phone <span className="text-red-500">*</span></Label>
                 <Input id="phone" type="tel" inputMode="numeric" placeholder="e.g. 088994462 or 88994462" value={phone} onChange={(e) => setPhone(e.target.value.replace(/[^0-9\s\-()]/g, ""))} pattern="^[0-9\s\-()]+$" title="Phone number must contain only numbers." required disabled={loading} className="rounded-xl border-gray-200" />
               </div>
             </div>

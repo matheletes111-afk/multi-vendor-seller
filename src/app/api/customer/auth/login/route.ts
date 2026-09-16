@@ -24,16 +24,18 @@ export async function POST(request: Request) {
     const validatedCallbackUrl = getSafeRedirectUrl(rawCallbackUrl, "/", origin)
     const normalizedCallbackUrl = validatedCallbackUrl === "/customer" ? "/" : validatedCallbackUrl
 
+    const rawIdentifier = (email || (body as any).phone || (body as any).identifier || "").trim()
+    const rawCountryCode = ((body as any).phoneCountryCode || "").trim()
     const hasOtpLoginToken = typeof otpLoginToken === "string" && otpLoginToken.trim().length > 0
-    if (!email || (!password && !hasOtpLoginToken)) {
+    if (!rawIdentifier || (!password && !hasOtpLoginToken)) {
       return NextResponse.json(
-        { error: "Email and password or OTP login token are required" },
+        { error: "Email or mobile number and password or OTP login token are required" },
         { status: 400 }
       )
     }
     const host = new URL(request.url).host
     const form = new URLSearchParams({
-      email,
+      email: rawIdentifier,
       password: hasOtpLoginToken ? "__OTP_LOGIN__" : (password as string),
       role: UserRole.CUSTOMER,
       callbackUrl: normalizedCallbackUrl,
@@ -55,25 +57,38 @@ export async function POST(request: Request) {
     const location = res.headers.get("Location") ?? ""
     const isErrorRedirect = res.status === 302 && location.includes("error=")
     if (isErrorRedirect) {
-      let msg = "Invalid email or password."
+      let msg = "Invalid email, mobile number or password."
       try {
         const err = new URL(location, origin).searchParams.get("error")
         if (err === "MissingCSRF") msg = "Session expired. Please refresh and try again."
-        else if (err === "CredentialsSignin") msg = "Invalid email or password."
+        else if (err === "CredentialsSignin") msg = "Invalid email, mobile number or password."
         else if (err) msg = err
       } catch {
         /* use default msg */
       }
       return NextResponse.json({ error: msg }, { status: 401 })
     }
-    const user = await prisma.user.findFirst({
-      where: { email, role: UserRole.CUSTOMER },
-      select: { id: true, isEmailVerified: true },
-    })
+
+    let user: any = null
+    if (rawIdentifier.includes("@")) {
+      user = await prisma.user.findFirst({
+        where: { email: rawIdentifier.toLowerCase(), role: UserRole.CUSTOMER },
+        select: { id: true, email: true, phone: true, isEmailVerified: true },
+      })
+    } else {
+      const { getEquivalentPhoneVariants } = await import("@/lib/phone-validation")
+      const phoneVariants = getEquivalentPhoneVariants(rawIdentifier, rawCountryCode)
+      user = await prisma.user.findFirst({
+        where: { phone: { in: phoneVariants }, role: UserRole.CUSTOMER },
+        select: { id: true, email: true, phone: true, isEmailVerified: true },
+      })
+    }
+
     if (user && user.isEmailVerified === false) {
-      const verifyUrl = `/customer/verify-otp?email=${encodeURIComponent(email)}`
+      const verifyParam = user.email ? `email=${encodeURIComponent(user.email)}` : `phone=${encodeURIComponent(user.phone || "")}`
+      const verifyUrl = `/customer/verify-otp?${verifyParam}`
       return NextResponse.json(
-        { error: "Please verify your email first.", needsVerification: true, verifyUrl },
+        { error: "Please verify your account first.", needsVerification: true, verifyUrl },
         { status: 403 }
       )
     }

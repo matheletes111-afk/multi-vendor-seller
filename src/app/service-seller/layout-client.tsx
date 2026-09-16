@@ -69,7 +69,7 @@ export function ServiceSellerLayoutClient({
   user,
 }: {
   children: ReactNode
-  user: { name?: string | null; email?: string | null; image?: string | null }
+  user: { name?: string | null; email?: string | null; phone?: string | null; image?: string | null }
 }) {
   const router = useRouter()
   const [mounted, setMounted] = useState(false)
@@ -84,7 +84,7 @@ export function ServiceSellerLayoutClient({
       .catch(() => { })
   }, [mounted, router])
 
-  const userInitials = user?.name?.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2) || user?.email?.[0].toUpperCase() || "U"
+  const userInitials = user?.name?.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2) || user?.email?.[0].toUpperCase() || user?.phone?.slice(-2) || "U"
   return (
     <div className="flex min-h-screen">
       <Sidebar className="hidden md:block">
@@ -133,7 +133,7 @@ export function ServiceSellerLayoutClient({
                   <DropdownMenuLabel className="font-normal">
                     <div className="flex flex-col space-y-1">
                       {user.name && <p className="text-sm font-medium leading-none">{user.name}</p>}
-                      {user.email && <p className="text-xs leading-none text-muted-foreground">{user.email}</p>}
+                      {(user.email || user.phone) && <p className="text-xs leading-none text-muted-foreground">{user.email || user.phone}</p>}
                     </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />

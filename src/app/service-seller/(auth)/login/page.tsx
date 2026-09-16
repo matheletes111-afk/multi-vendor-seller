@@ -121,11 +121,11 @@ function ServiceSellerLoginForm() {
           )}
           <div className="space-y-5">
             <div>
-              <Label htmlFor="email" className="mb-1.5 block text-sm font-medium text-gray-700">Email</Label>
+              <Label htmlFor="email" className="mb-1.5 block text-sm font-medium text-gray-700">Email or Mobile Number</Label>
               <Input
                 id="email"
-                type="email"
-                placeholder="example@gmail.com"
+                type="text"
+                placeholder="example@gmail.com or 088994462"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required

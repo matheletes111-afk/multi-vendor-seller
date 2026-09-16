@@ -48,6 +48,8 @@ export async function POST(request: Request) {
       select: {
         id: true,
         email: true,
+        phone: true,
+        phoneCountryCode: true,
         verifyEmailOtp: true,
         emailVerificationExpires: true,
         isEmailVerified: true,
@@ -95,9 +97,13 @@ export async function POST(request: Request) {
 
     await resetOtpRateLimit(rateLimitKey)
 
-    const otpLoginToken = createOtpLoginToken(user.email, UserRole.RIDER)
+    const otpLoginToken = createOtpLoginToken(user.email || user.phone, UserRole.RIDER, {
+      userId: user.id,
+      phone: user.phone,
+      email: user.email,
+    })
     return NextResponse.json(
-      { message: "OTP verified successfully.", otpLoginToken, email: user.email, loginUrl: "/riderapp" },
+      { message: "OTP verified successfully.", otpLoginToken, email: user.email, phone: user.phone, loginUrl: "/riderapp" },
       { status: 200 }
     )
   } catch (error) {

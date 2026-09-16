@@ -540,22 +540,27 @@ export async function POST(request: NextRequest) {
             try {
                 const fullSeller = await prisma.hotelSeller.findUnique({
                     where: { id: seller.id },
-                    include: { user: { select: { email: true, name: true, role: true } } }
+                    include: { user: { select: { email: true, phone: true, phoneCountryCode: true, name: true, role: true } } }
                 });
-                if (fullSeller && fullSeller.user?.email) {
+                if (fullSeller && (fullSeller.user?.email || fullSeller.user?.phone)) {
                     await sendSellerWelcomeEmail({
                         to: fullSeller.user.email,
+                        toPhone: fullSeller.user.phone,
+                        phoneCountryCode: fullSeller.user.phoneCountryCode,
                         name: fullSeller.user.name ?? "Seller",
                     });
                     const admins = await prisma.user.findMany({
                         where: { role: "ADMIN" },
-                        select: { email: true }
+                        select: { email: true, phone: true, phoneCountryCode: true }
                     });
                     for (const admin of admins) {
                         await sendAdminNewSellerAlertEmail({
                             to: admin.email,
+                            toPhone: admin.phone,
+                            phoneCountryCode: admin.phoneCountryCode,
                             sellerName: fullSeller.user.name ?? "Seller",
                             sellerEmail: fullSeller.user.email,
+                            sellerPhone: fullSeller.user.phone,
                             sellerRole: fullSeller.user.role,
                         });
                     }

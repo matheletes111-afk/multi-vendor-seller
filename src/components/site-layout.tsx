@@ -70,6 +70,7 @@ export function SiteHeader() {
       .toUpperCase()
       .slice(0, 2) ||
     session?.user?.email?.[0]?.toUpperCase() ||
+    session?.user?.phone?.slice(-2) ||
     "U"
 
   const profileHref =
@@ -734,7 +735,9 @@ export function SiteHeader() {
                   <DropdownMenuLabel className="font-normal">
                     <div className="flex flex-col space-y-1">
                       {session?.user?.name && <p className="text-sm font-medium leading-none">{session.user.name}</p>}
-                      {session?.user?.email && <p className="text-xs leading-none text-muted-foreground">{session.user.email}</p>}
+                      {(session?.user?.email || session?.user?.phone) && (
+                        <p className="text-xs leading-none text-muted-foreground">{session.user.email || session.user.phone}</p>
+                      )}
                     </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
@@ -1153,7 +1156,9 @@ export function SiteHeader() {
                   <DropdownMenuLabel className="font-normal">
                     <div className="flex flex-col space-y-1">
                       {session?.user?.name && <p className="text-sm font-medium leading-none">{session.user.name}</p>}
-                      {session?.user?.email && <p className="text-xs leading-none text-muted-foreground">{session.user.email}</p>}
+                      {(session?.user?.email || session?.user?.phone) && (
+                        <p className="text-xs leading-none text-muted-foreground">{session.user.email || session.user.phone}</p>
+                      )}
                     </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />

@@ -55,6 +55,7 @@ export async function PATCH(request: NextRequest) {
     const body = await request.json().catch(() => ({}))
     const {
       name,
+      email,
       phone,
       phoneCountryCode,
       profileImage,
@@ -79,10 +80,30 @@ export async function PATCH(request: NextRequest) {
 
     const userUpdates: {
       name?: string
+      email?: string | null
       phone?: string | null
       phoneCountryCode?: string | null
       image?: string | null
     } = {}
+
+    if (email !== undefined) {
+      const trimmedEmail = typeof email === "string" ? email.trim().toLowerCase() : ""
+      if (trimmedEmail) {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+        if (!emailRegex.test(trimmedEmail)) {
+          return NextResponse.json({ success: false, error: "Please enter a valid email address." }, { status: 400 })
+        }
+        const existingUser = await prisma.user.findFirst({
+          where: { email: trimmedEmail, NOT: { id: userId } },
+        })
+        if (existingUser) {
+          return NextResponse.json({ success: false, error: "This email address is already registered to another account." }, { status: 400 })
+        }
+        userUpdates.email = trimmedEmail
+      } else {
+        userUpdates.email = null
+      }
+    }
 
     if (name !== undefined) userUpdates.name = String(name).trim()
     if (phone !== undefined) userUpdates.phone = phone ? String(phone).trim() : null

@@ -574,19 +574,40 @@ export function SubscriptionsClient() {
                           ? "Product Seller"
                           : subscription.seller?.type === "SERVICE"
                             ? "Service Seller"
-                            : subscription.seller?.type === "HOTEL"
+                            : subscription.seller?.type === "HOTEL" || subscription.plan?.type === "HOTEL"
                               ? "Hotel Seller"
-                              : "Restaurant Seller"}
+                              : subscription.seller?.type === "RESTAURANT" || subscription.plan?.type === "RESTAURANT"
+                                ? "Restaurant Seller"
+                                : "Product Seller"}
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <span className="font-medium text-primary">
-                        {subscription.plan?.displayName}
-                      </span>
+                      <div className="flex flex-col gap-1">
+                        <span className="font-medium text-primary">
+                          {subscription.plan?.displayName}
+                        </span>
+                        {subscription.provider === "apple_iap" ? (
+                          <span className="text-[10px] font-semibold text-slate-800 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 px-1.5 py-0.5 rounded w-fit inline-flex items-center gap-1">
+                             Apple IAP
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-semibold text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 px-1.5 py-0.5 rounded w-fit inline-flex items-center gap-1">
+                            Other
+                          </span>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell>
                       <Badge
-                        className="rounded-full px-3"
+                        className={`rounded-full px-3 ${
+                          subscription.status === "IN_GRACE_PERIOD"
+                            ? "bg-amber-500 hover:bg-amber-600 text-white border-transparent"
+                            : subscription.status === "EXPIRED"
+                              ? "bg-rose-500 hover:bg-rose-600 text-white border-transparent"
+                              : subscription.status === "REVOKED"
+                                ? "bg-red-800 hover:bg-red-900 text-white border-transparent"
+                                : ""
+                        }`}
                         variant={
                           subscription.status === "ACTIVE"
                             ? "default"
@@ -597,7 +618,7 @@ export function SubscriptionsClient() {
                                 : "outline"
                         }
                       >
-                        {subscription.status}
+                        {subscription.status.replace(/_/g, " ")}
                       </Badge>
                     </TableCell>
                     <TableCell>

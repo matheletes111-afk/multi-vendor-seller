@@ -57,6 +57,12 @@ export async function getValidSubscription(sellerId: string) {
 
   if (!subscription) return null
 
+  // Apple IAP Guard: Apple Webhooks and StoreKit 2 manage status lifecycle.
+  // Never auto-renew or overwrite Apple IAP subscription status here.
+  if (subscription.provider === "apple_iap") {
+    return subscription
+  }
+
   const now = new Date()
   
   // 1. Handle Initialization: If no period end is set, initialize with the plan's duration
@@ -134,10 +140,16 @@ async function applyRenewal(id: string, fromDate: Date, durationDays: number) {
   })
 }
 
+/** Check whether subscription grants active operational privileges (Active or in Billing Grace Period) */
+export function isSubscriptionPrivileged(subscription: { status: string } | null | undefined): boolean {
+  if (!subscription) return false
+  return subscription.status === "ACTIVE" || subscription.status === "IN_GRACE_PERIOD"
+}
+
 export async function checkProductLimit(sellerId: string): Promise<{ allowed: boolean; current: number; limit: number | null }> {
   const subscription = await getSellerSubscription(sellerId)
   
-  if (!subscription || subscription.status !== "ACTIVE") {
+  if (!subscription || !isSubscriptionPrivileged(subscription)) {
     return { allowed: false, current: 0, limit: 0 }
   }
 
@@ -161,7 +173,7 @@ export async function checkProductLimit(sellerId: string): Promise<{ allowed: bo
 export async function checkServiceLimit(sellerId: string): Promise<{ allowed: boolean; current: number; limit: number | null }> {
   const subscription = await getSellerSubscription(sellerId)
   
-  if (!subscription || subscription.status !== "ACTIVE") {
+  if (!subscription || !isSubscriptionPrivileged(subscription)) {
     return { allowed: false, current: 0, limit: 0 }
   }
 
@@ -185,7 +197,7 @@ export async function checkServiceLimit(sellerId: string): Promise<{ allowed: bo
 export async function checkOrderLimit(sellerId: string, month?: Date): Promise<{ allowed: boolean; current: number; limit: number | null }> {
   const subscription = await getSellerSubscription(sellerId)
   
-  if (!subscription || subscription.status !== "ACTIVE") {
+  if (!subscription || !isSubscriptionPrivileged(subscription)) {
     return { allowed: false, current: 0, limit: 0 }
   }
 
@@ -315,6 +327,12 @@ export async function getValidHotelSubscription(hotelSellerId: string) {
 
   if (!subscription) return null
 
+  // Apple IAP Guard: Apple Webhooks and StoreKit 2 manage status lifecycle.
+  // Never auto-renew or overwrite Apple IAP subscription status here.
+  if (subscription.provider === "apple_iap") {
+    return subscription
+  }
+
   const now = new Date()
   
   if (!subscription.currentPeriodEnd) {
@@ -391,6 +409,12 @@ export async function getValidRestaurantSubscription(restaurantSellerId: string)
 
   if (!subscription) return null
 
+  // Apple IAP Guard: Apple Webhooks and StoreKit 2 manage status lifecycle.
+  // Never auto-renew or overwrite Apple IAP subscription status here.
+  if (subscription.provider === "apple_iap") {
+    return subscription
+  }
+
   const now = new Date()
   
   if (!subscription.currentPeriodEnd) {
@@ -443,7 +467,7 @@ export async function getValidRestaurantSubscription(restaurantSellerId: string)
 export async function checkHotelLimit(hotelSellerId: string): Promise<{ allowed: boolean; current: number; limit: number | null }> {
   const subscription = await getValidHotelSubscription(hotelSellerId)
   
-  if (!subscription || subscription.status !== "ACTIVE") {
+  if (!subscription || !isSubscriptionPrivileged(subscription)) {
     return { allowed: false, current: 0, limit: 0 }
   }
 
@@ -467,7 +491,7 @@ export async function checkHotelLimit(hotelSellerId: string): Promise<{ allowed:
 export async function checkHotelRoomLimit(hotelSellerId: string): Promise<{ allowed: boolean; current: number; limit: number | null }> {
   const subscription = await getValidHotelSubscription(hotelSellerId)
   
-  if (!subscription || subscription.status !== "ACTIVE") {
+  if (!subscription || !isSubscriptionPrivileged(subscription)) {
     return { allowed: false, current: 0, limit: 0 }
   }
 

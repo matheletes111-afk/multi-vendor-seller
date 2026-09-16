@@ -206,10 +206,10 @@ export async function POST(request: NextRequest) {
       const fullFoodOrder = await prisma.foodOrder.findUnique({
         where: { id: result.id },
         include: {
-          customer: { select: { email: true, name: true } },
+          customer: { select: { email: true, name: true, phone: true, phoneCountryCode: true } },
           restaurantSeller: {
             include: {
-              user: { select: { email: true, name: true } },
+              user: { select: { email: true, name: true, phone: true, phoneCountryCode: true } },
               businessInfo: { select: { businessName: true } }
             }
           },
@@ -240,6 +240,8 @@ export async function POST(request: NextRequest) {
 
         await sendFoodOrderConfirmationEmail({
           to: fullFoodOrder.customer.email,
+          toPhone: fullFoodOrder.customer.phone,
+          phoneCountryCode: fullFoodOrder.customer.phoneCountryCode,
           name: fullFoodOrder.customer.name ?? "Customer",
           orderNumber: fullFoodOrder.orderNumber,
           items: emailItems,
@@ -248,10 +250,12 @@ export async function POST(request: NextRequest) {
           paymentMethod: "COD"
         })
 
-        if (fullFoodOrder.restaurantSeller?.user?.email) {
+        if (fullFoodOrder.restaurantSeller?.user?.email || fullFoodOrder.restaurantSeller?.user?.phone) {
           await sendRestaurantNewOrderEmail({
-            to: fullFoodOrder.restaurantSeller.user.email,
-            restaurantName: fullFoodOrder.restaurantSeller.businessInfo?.businessName ?? fullFoodOrder.restaurantSeller.user.name ?? "Restaurant",
+            to: fullFoodOrder.restaurantSeller.user?.email,
+            toPhone: fullFoodOrder.restaurantSeller.user?.phone,
+            phoneCountryCode: fullFoodOrder.restaurantSeller.user?.phoneCountryCode,
+            restaurantName: fullFoodOrder.restaurantSeller.businessInfo?.businessName ?? fullFoodOrder.restaurantSeller.user?.name ?? "Restaurant",
             orderNumber: fullFoodOrder.orderNumber,
             items: emailItems.map(i => ({ name: i.name, quantity: i.quantity })),
             customerName: fullFoodOrder.customer.name ?? "Customer",
@@ -262,7 +266,7 @@ export async function POST(request: NextRequest) {
 
         const admins = await prisma.user.findMany({
           where: { role: "ADMIN" },
-          select: { email: true }
+          select: { email: true, phone: true, phoneCountryCode: true }
         })
         const adminItems = emailItems.map(i => ({
           name: i.name,
@@ -273,6 +277,8 @@ export async function POST(request: NextRequest) {
         for (const admin of admins) {
           await sendAdminNewOrderEmail({
             to: admin.email,
+            toPhone: admin.phone,
+            phoneCountryCode: admin.phoneCountryCode,
             orderNumber: fullFoodOrder.orderNumber,
             customerName: fullFoodOrder.customer.name ?? "Customer",
             items: adminItems,

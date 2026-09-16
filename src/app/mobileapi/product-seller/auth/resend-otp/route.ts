@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma"
 import { UserRole } from "@prisma/client"
 import { sendVerificationOtpEmail } from "@/lib/email"
 import { getAppBaseUrl, sendEmailVerificationSms } from "@/lib/twilio-sms"
+import { getEquivalentPhoneVariants } from "@/lib/phone-validation"
 
 // Constants
 const OTP_EXPIRY_MS = 10 * 60 * 1000 // 10 minutes
@@ -11,13 +12,17 @@ const RESEND_COOLDOWN_MS = 60 * 1000 // 1 minute cooldown
 
 // Define request body interface
 interface ResendOtpRequest {
-  email: string
+  email?: string
+  phone?: string
+  phoneCountryCode?: string
 }
 
 // Define user select type
 interface UserWithOtpInfo {
   id: string
-  email: string
+  email: string | null
+  phone: string | null
+  phoneCountryCode: string | null
   name: string | null
   isEmailVerified: boolean
   emailOtpSentAt: Date | null
@@ -28,7 +33,8 @@ interface SuccessResponse {
   success: true
   message: string
   data: {
-    email: string
+    email: string | null
+    phone: string | null
     expiresIn: number
     resendCooldown: number
   }
@@ -61,53 +67,63 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
       )
     }
 
-    const email = typeof body.email === "string" ? body.email.trim() : ""
+    const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : ""
+    const phone = typeof body.phone === "string" ? body.phone.trim() : ""
+    const phoneCountryCode = typeof body.phoneCountryCode === "string" ? body.phoneCountryCode.trim() : ""
 
     // Validation
-    if (!email) {
+    if (!email && !phone) {
       return NextResponse.json<ErrorResponse>(
         { 
           success: false,
-          error: "Email is required" 
-        },
-        { status: 400 }
-      )
-    }
-
-    // Validate email format
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (!emailRegex.test(email)) {
-      return NextResponse.json<ErrorResponse>(
-        { 
-          success: false,
-          error: "Invalid email format" 
+          error: "Email or mobile number is required" 
         },
         { status: 400 }
       )
     }
 
     // Find user with SELLER_PRODUCT role
-    const user = await prisma.user.findFirst({
-      where: { 
-        email: email.toLowerCase().trim(),
-        role: UserRole.SELLER_PRODUCT 
-      },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        phone: true,
-        phoneCountryCode: true,
-        isEmailVerified: true,
-        emailOtpSentAt: true,
-      }
-    }) as (UserWithOtpInfo & { phone?: string | null; phoneCountryCode?: string | null }) | null
+    let user: UserWithOtpInfo | null = null
+    if (email) {
+      user = await prisma.user.findFirst({
+        where: { 
+          email,
+          role: UserRole.SELLER_PRODUCT 
+        },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          phone: true,
+          phoneCountryCode: true,
+          isEmailVerified: true,
+          emailOtpSentAt: true,
+        }
+      }) as UserWithOtpInfo | null
+    } else if (phone) {
+      const phoneVariants = getEquivalentPhoneVariants(phone, phoneCountryCode)
+      user = await prisma.user.findFirst({
+        where: { 
+          phone: { in: phoneVariants },
+          role: UserRole.SELLER_PRODUCT 
+        },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          phone: true,
+          phoneCountryCode: true,
+          isEmailVerified: true,
+          emailOtpSentAt: true,
+        }
+      }) as UserWithOtpInfo | null
+    }
 
     if (!user) {
       return NextResponse.json<ErrorResponse>(
         { 
           success: false,
-          error: "Seller not found with this email" 
+          error: "Seller not found with this email or mobile number" 
         },
         { status: 404 }
       )
@@ -118,7 +134,7 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
       return NextResponse.json<ErrorResponse>(
         { 
           success: false,
-          error: "Email already verified. Please login.",
+          error: "Account already verified. Please login.",
           alreadyVerified: true
         },
         { status: 400 }
@@ -160,22 +176,31 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
     const baseUrl = getAppBaseUrl(request)
     const verificationLink = `${baseUrl}/api/verify-email?token=${newOtp}`
 
-    try {
-      await Promise.allSettled([
-        sendVerificationOtpEmail({
-          to: email,
-          otp: newOtp,
-          name: user.name,
-          verificationLink,
-        }),
+    const sendPromises: Promise<any>[] = []
+    if (user.phone) {
+      sendPromises.push(
         sendEmailVerificationSms({
           to: user.phone,
           countryCode: user.phoneCountryCode,
           verificationLink,
           otp: newOtp,
           name: user.name,
-        }),
-      ])
+        })
+      )
+    }
+    if (user.email) {
+      sendPromises.push(
+        sendVerificationOtpEmail({
+          to: user.email,
+          otp: newOtp,
+          name: user.name,
+          verificationLink,
+        })
+      )
+    }
+
+    try {
+      await Promise.allSettled(sendPromises)
     } catch (sendError) {
       console.error("Failed to send OTP email/SMS:", sendError)
     }
@@ -184,9 +209,12 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
     return NextResponse.json<SuccessResponse>(
       { 
         success: true,
-        message: "New OTP sent successfully",
+        message: user.email
+          ? "New OTP sent to your email and mobile number"
+          : "New OTP sent to your mobile number via SMS",
         data: {
           email: user.email,
+          phone: user.phone,
           expiresIn: OTP_EXPIRY_MS / 1000, // in seconds
           resendCooldown: RESEND_COOLDOWN_MS / 1000 // in seconds
         }

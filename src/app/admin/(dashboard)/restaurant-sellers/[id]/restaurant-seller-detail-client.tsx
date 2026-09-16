@@ -158,6 +158,7 @@ export function RestaurantSellerDetailClient({ seller, plans = [] }: RestaurantS
                 name: seller.user?.name,
                 businessName: seller.businessInfo?.businessName,
                 email: seller.user?.email,
+                phone: seller.user?.phone,
                 sellerType: "RESTAURANT",
               })
             }

@@ -738,7 +738,7 @@ export async function PATCH(
     const fullOrder = await prisma.order.findUnique({
       where: { id: orderId },
       include: {
-        customer: { select: { email: true, name: true } },
+        customer: { select: { email: true, name: true, phone: true, phoneCountryCode: true } },
         items: { where: { id: { in: targetItemIds } } },
       },
     })
@@ -746,6 +746,8 @@ export async function PATCH(
       for (const item of fullOrder.items) {
         await sendOrderItemStatusUpdateEmail({
           to: fullOrder.customer.email,
+          toPhone: fullOrder.customer.phone,
+          phoneCountryCode: fullOrder.customer.phoneCountryCode,
           name: fullOrder.customer.name ?? "Customer",
           orderNumber: fullOrder.orderNumber,
           itemName: item.productNameSnapshot ?? item.serviceNameSnapshot ?? "Item",

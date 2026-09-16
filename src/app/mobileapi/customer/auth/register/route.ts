@@ -15,16 +15,17 @@ const OTP_EXPIRY_MS = 10 * 60 * 1000 // 10 minutes
 // Define request body interface
 interface RegisterRequest {
   name?: string
-  email: string
+  email?: string
   password: string
-  phone?: string
+  phone: string
   phoneCountryCode?: string
 }
 
 // Define user response type
 interface UserResponse {
   id: string
-  email: string
+  email: string | null
+  phone: string | null
   name: string | null
 }
 
@@ -34,6 +35,12 @@ interface SuccessResponse {
   message: string
   data: {
     userId: string
+    email?: string | null
+    phone?: string | null
+    isEmailVerified?: boolean
+    isPhoneVerified?: boolean
+    expiresIn?: number
+    resendCooldown?: number
     verifyUrl: string
     user?: UserResponse
   }
@@ -46,6 +53,7 @@ interface ErrorResponse {
   needsVerification?: boolean
   data?: {
     email?: string
+    phone?: string
   }
 }
 
@@ -62,14 +70,55 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
     const sanitizedName = name ? sanitizeInput(name) : null
 
     // Validate required fields
-    if (!email || !password) {
+    if (!password) {
       return NextResponse.json<ErrorResponse>(
         { 
           success: false,
-          error: "Email and password are required" 
+          error: "Password is required" 
         },
         { status: 400 }
       )
+    }
+
+    if (!phone || typeof phone !== "string" || !phone.trim()) {
+      return NextResponse.json<ErrorResponse>(
+        { 
+          success: false,
+          error: "Mobile number is required" 
+        },
+        { status: 400 }
+      )
+    }
+
+    const code = typeof phoneCountryCode === "string" && phoneCountryCode.trim().length > 0
+      ? phoneCountryCode.trim()
+      : "+232"
+    const validation = validatePhoneAndCountryCode(phone.trim(), code)
+    if (!validation.isValid) {
+      return NextResponse.json<ErrorResponse>(
+        {
+          success: false,
+          error: validation.error || "Invalid mobile number or country code"
+        },
+        { status: 400 }
+      )
+    }
+    const normalizedPhone = validation.cleanedPhone!
+    const normalizedPhoneCountryCode = validation.cleanedCountryCode!
+
+    // Email is optional
+    const cleanEmail = typeof email === "string" && email.trim() ? email.toLowerCase().trim() : null
+    if (cleanEmail) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+      if (!emailRegex.test(cleanEmail)) {
+        return NextResponse.json<ErrorResponse>(
+          { 
+            success: false,
+            error: "Invalid email format" 
+          },
+          { status: 400 }
+        )
+      }
     }
 
     const nameCheck = await checkDisallowedName(sanitizedName)
@@ -78,18 +127,6 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
         {
           success: false,
           error: nameCheck.error!
-        },
-        { status: 400 }
-      )
-    }
-
-    // Validate email format
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (!emailRegex.test(email)) {
-      return NextResponse.json<ErrorResponse>(
-        { 
-          success: false,
-          error: "Invalid email format" 
         },
         { status: 400 }
       )
@@ -107,51 +144,34 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
       )
     }
 
-    let normalizedPhone: string | null = null
-    let normalizedPhoneCountryCode: string | null = null
-
-    if (phone || phoneCountryCode) {
-      const validation = validatePhoneAndCountryCode(phone || "", phoneCountryCode || "")
-      if (!validation.isValid) {
-        return NextResponse.json<ErrorResponse>(
-          {
-            success: false,
-            error: validation.error!
-          },
-          { status: 400 }
-        )
-      }
-      normalizedPhone = validation.cleanedPhone!
-      normalizedPhoneCountryCode = validation.cleanedCountryCode!
-
-      const phoneVariants = getEquivalentPhoneVariants(normalizedPhone, normalizedPhoneCountryCode)
-      const existingPhone = await prisma.user.findFirst({
-        where: { phone: { in: phoneVariants } }
-      })
-      if (existingPhone) {
-        return NextResponse.json<ErrorResponse>(
-          {
-            success: false,
-            error: "Email or mobile number is already registered"
-          },
-          { status: 400 }
-        )
-      }
-    }
-
-    // Check if user already exists
-    const existingUser = await prisma.user.findUnique({ 
-      where: { email: email.toLowerCase().trim() } 
+    const phoneVariants = getEquivalentPhoneVariants(normalizedPhone, normalizedPhoneCountryCode)
+    const existingPhone = await prisma.user.findFirst({
+      where: { phone: { in: phoneVariants } }
     })
-
-    if (existingUser) {
+    if (existingPhone) {
       return NextResponse.json<ErrorResponse>(
-        { 
+        {
           success: false,
-          error: "Email or mobile number is already registered"
+          error: "Mobile number is already registered"
         },
         { status: 400 }
       )
+    }
+
+    if (cleanEmail) {
+      const existingUser = await prisma.user.findUnique({ 
+        where: { email: cleanEmail } 
+      })
+
+      if (existingUser) {
+        return NextResponse.json<ErrorResponse>(
+          { 
+            success: false,
+            error: "Email is already registered"
+          },
+          { status: 400 }
+        )
+      }
     }
 
     // Hash password
@@ -165,7 +185,7 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
     // Create user in database
     const user = await prisma.user.create({
       data: {
-        email: email.toLowerCase().trim(),
+        email: cleanEmail,
         name: sanitizedName,
         password: hashedPassword,
         role: UserRole.CUSTOMER,
@@ -179,22 +199,18 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
       select: {
         id: true,
         email: true,
+        phone: true,
         name: true,
+        isEmailVerified: true,
       }
     })
 
-    // Send verification email & SMS
+    // Send verification SMS & email
     const baseUrl = getAppBaseUrl(request)
     const verificationLink = `${baseUrl}/api/verify-email?token=${verifyEmailOtp}`
 
     try {
-      await Promise.allSettled([
-        sendVerificationOtpEmail({
-          to: email,
-          otp: verifyEmailOtp,
-          name: sanitizedName,
-          verificationLink,
-        }),
+      const sendPromises: Promise<any>[] = [
         sendEmailVerificationSms({
           to: normalizedPhone,
           countryCode: normalizedPhoneCountryCode,
@@ -202,7 +218,20 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
           otp: verifyEmailOtp,
           name: sanitizedName,
         }),
-      ])
+      ]
+
+      if (cleanEmail) {
+        sendPromises.push(
+          sendVerificationOtpEmail({
+            to: cleanEmail,
+            otp: verifyEmailOtp,
+            name: sanitizedName,
+            verificationLink,
+          })
+        )
+      }
+
+      await Promise.allSettled(sendPromises)
     } catch (sendError) {
       console.error("Failed to send verification email/SMS:", sendError)
     }
@@ -211,10 +240,18 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
     return NextResponse.json<SuccessResponse>(
       { 
         success: true,
-        message: "Please verify your email with the OTP sent.",
+        message: cleanEmail
+          ? "Please verify your account with the OTP sent to your email and mobile SMS."
+          : "Please verify your mobile number with the SMS OTP sent.",
         data: {
           userId: user.id,
-          verifyUrl: "/mobileapi/customer/verify-otp",
+          email: user.email,
+          phone: user.phone,
+          isEmailVerified: user.isEmailVerified,
+          isPhoneVerified: false,
+          expiresIn: 600,
+          resendCooldown: 60,
+          verifyUrl: "/mobileapi/customer/auth/verify-otp",
           user
         }
       },

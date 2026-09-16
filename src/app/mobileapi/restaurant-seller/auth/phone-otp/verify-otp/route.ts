@@ -12,7 +12,7 @@ type ApiResponse =
       data: {
         user: {
           id: string
-          email: string
+          email: string | null
           name: string | null
           role: UserRole
           sellerType: string
@@ -103,7 +103,7 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
       data: { verifyEmailOtp: null, emailVerificationExpires: null, emailOtpSentAt: null },
     })
 
-    const tokens = generateMobileTokens({ userId: user.id, email: user.email, role: user.role, passwordHash: user.password })
+    const tokens = generateMobileTokens({ userId: user.id, email: user.email, phone: user.phone, role: user.role, passwordHash: user.password })
     return NextResponse.json({
       success: true,
       message: "OTP login successful",

@@ -107,7 +107,17 @@ export async function GET(request: NextRequest) {
       }
 
       const upperStatus = searchQuery.toUpperCase()
-      if (["ACTIVE", "CANCELED", "PAST_DUE", "TRIALING"].includes(upperStatus)) {
+      if (
+        [
+          "ACTIVE",
+          "CANCELED",
+          "PAST_DUE",
+          "TRIALING",
+          "IN_GRACE_PERIOD",
+          "EXPIRED",
+          "REVOKED",
+        ].includes(upperStatus)
+      ) {
         searchWhere.OR.push({ status: upperStatus })
       }
     }

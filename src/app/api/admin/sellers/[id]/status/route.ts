@@ -66,10 +66,12 @@ export async function POST(
             data: updateData
         })
 
-        if (action === "approve" && seller.user?.email) {
+        if (action === "approve" && (seller.user?.email || seller.user?.phone)) {
             try {
                 await sendSellerApprovalEmail({
-                    to: seller.user.email,
+                    to: seller.user?.email,
+                    toPhone: seller.user?.phone,
+                    phoneCountryCode: seller.user?.phoneCountryCode,
                     name: seller.user.name ?? "Seller",
                 })
             } catch (emailErr) {

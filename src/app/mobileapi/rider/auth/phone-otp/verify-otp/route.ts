@@ -135,6 +135,7 @@ export async function POST(request: Request) {
     const tokens = generateMobileTokens({
       userId: user.id,
       email: user.email,
+      phone: user.phone,
       role: user.role,
       passwordHash: user.password || "",
       deviceId,

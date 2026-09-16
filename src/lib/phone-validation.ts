@@ -9,7 +9,7 @@
  */
 export function validatePhoneAndCountryCode(
   phone: any,
-  phoneCountryCode: any
+  phoneCountryCode?: any
 ): {
   isValid: boolean
   error?: string
@@ -20,17 +20,17 @@ export function validatePhoneAndCountryCode(
   if (phone === undefined || phone === null || typeof phone !== "string" || !phone.trim()) {
     return { isValid: false, error: "Phone number is required" }
   }
-  if (
-    phoneCountryCode === undefined ||
-    phoneCountryCode === null ||
-    typeof phoneCountryCode !== "string" ||
-    !phoneCountryCode.trim()
-  ) {
-    return { isValid: false, error: "Phone country code is required" }
-  }
+
+  const effectiveCountryCode =
+    phoneCountryCode !== undefined &&
+    phoneCountryCode !== null &&
+    typeof phoneCountryCode === "string" &&
+    phoneCountryCode.trim().length > 0
+      ? phoneCountryCode.trim()
+      : "+232"
 
   // Sanitize country code
-  const rawCountryCode = phoneCountryCode.trim()
+  const rawCountryCode = effectiveCountryCode
   const ccDigits = rawCountryCode.replace(/\D/g, "")
   if (!ccDigits || ccDigits.length > 4 || ccDigits.startsWith("0")) {
     return {
@@ -91,11 +91,17 @@ export function getEquivalentPhoneVariants(
   countryCode?: string | null
 ): string[] {
   if (!phone) return []
-  const digits = String(phone).replace(/\D/g, "")
-  if (!digits) return []
+  const raw = String(phone).trim()
+  if (!raw) return []
 
   const variants = new Set<string>()
+  variants.add(raw)
+
+  const digits = raw.replace(/\D/g, "")
+  if (!digits) return Array.from(variants)
+
   variants.add(digits)
+  variants.add(`+${digits}`)
 
   const noLeadingZero = digits.replace(/^0+/, "")
   if (noLeadingZero) {
@@ -103,17 +109,40 @@ export function getEquivalentPhoneVariants(
     variants.add(`0${noLeadingZero}`)
   }
 
+  // Known / common country codes to test for embedded country prefix
+  const commonCodes = ["232", "91", "1", "44", "233", "234", "254", "256", "250"]
   if (countryCode) {
-    const ccDigits = String(countryCode).replace(/\D/g, "")
-    if (ccDigits) {
-      if (noLeadingZero) {
-        variants.add(`+${ccDigits}${noLeadingZero}`)
-        variants.add(`${ccDigits}${noLeadingZero}`)
-        variants.add(`+${ccDigits}0${noLeadingZero}`)
-        variants.add(`${ccDigits}0${noLeadingZero}`)
+    const cc = String(countryCode).replace(/\D/g, "")
+    if (cc && !commonCodes.includes(cc)) commonCodes.unshift(cc)
+  }
+
+  for (const cc of commonCodes) {
+    if (digits.startsWith(cc) && digits.length >= cc.length + 6) {
+      const localPart = digits.slice(cc.length)
+      const localNoZero = localPart.replace(/^0+/, "")
+      if (localPart) variants.add(localPart)
+      if (localNoZero) {
+        variants.add(localNoZero)
+        variants.add(`0${localNoZero}`)
+        variants.add(`+${cc}${localNoZero}`)
+        variants.add(`${cc}${localNoZero}`)
+        variants.add(`+${cc}0${localNoZero}`)
+        variants.add(`${cc}0${localNoZero}`)
       }
-      variants.add(`+${ccDigits}${digits}`)
-      variants.add(`${ccDigits}${digits}`)
+    }
+  }
+
+  const targetCCs = countryCode ? [String(countryCode).replace(/\D/g, "")] : ["232"]
+  for (const cc of targetCCs) {
+    if (cc) {
+      if (noLeadingZero) {
+        variants.add(`+${cc}${noLeadingZero}`)
+        variants.add(`${cc}${noLeadingZero}`)
+        variants.add(`+${cc}0${noLeadingZero}`)
+        variants.add(`${cc}0${noLeadingZero}`)
+      }
+      variants.add(`+${cc}${digits}`)
+      variants.add(`${cc}${digits}`)
     }
   }
 

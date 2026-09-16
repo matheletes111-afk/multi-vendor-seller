@@ -18,6 +18,7 @@ export default async function CustomerDashboardLayout({
       user={{
         name: session.user.name ?? null,
         email: session.user.email ?? null,
+        phone: session.user.phone ?? null,
         image: session.user.image ?? null,
       }}
     >

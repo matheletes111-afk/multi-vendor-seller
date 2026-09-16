@@ -40,7 +40,7 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
           error: "Please verify your email first.",
           needsVerification: true,
           authStatus: "PENDING_VERIFICATION",
-          verifyUrl: "/mobileapi/restaurant-seller/verify-otp",
+          verifyUrl: "/mobileapi/restaurant-seller/auth/verify-otp",
           data: { email }
         }, 
         { status: 403 }

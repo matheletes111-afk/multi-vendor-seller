@@ -56,7 +56,7 @@ interface RecipientPreviewItem {
   sellerType: "PRODUCT" | "SERVICE" | "HOTEL" | "RESTAURANT"
   name: string | null
   businessName: string | null
-  email: string
+  email: string | null
   status: string
   isApproved: boolean
   isSuspended: boolean
@@ -65,7 +65,7 @@ interface RecipientPreviewItem {
 interface ActivityLogItem {
   id: string
   timestamp: string
-  email: string
+  email: string | null
   sellerName: string | null
   sellerType: string
   status: "success" | "failed"
@@ -297,7 +297,7 @@ export function BulkCustomEmailModal({
           const newLogs: ActivityLogItem[] = data.results.map((r: any) => ({
             id: `${r.id}-${Date.now()}-${Math.random()}`,
             timestamp: new Date().toLocaleTimeString(),
-            email: r.email,
+            email: r.email || (r.phone ? `SMS: ${r.phone}` : "SMS"),
             sellerName: r.sellerName,
             sellerType: r.sellerType,
             status: r.status,
@@ -670,7 +670,7 @@ export function BulkCustomEmailModal({
                           <span className="text-red-400 shrink-0 font-bold">[FAIL]</span>
                         )}
                         <span className="text-slate-300 font-sans truncate">
-                          {log.sellerName || "Partner"} ({log.email})
+                          {log.sellerName || "Partner"} ({log.email || "SMS"})
                         </span>
                         {log.message && (
                           <span className="text-red-300 text-[11px] font-sans">

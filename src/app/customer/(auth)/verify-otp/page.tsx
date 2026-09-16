@@ -18,6 +18,10 @@ function CustomerVerifyOtpForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const email = searchParams.get("email") ?? ""
+  const phone = searchParams.get("phone") ?? ""
+  const phoneCountryCode = searchParams.get("phoneCountryCode") ?? ""
+  const identifier = email.trim() || phone.trim()
+  const displayTarget = email.trim() || (phoneCountryCode ? `${phoneCountryCode} ${phone.trim()}` : phone.trim())
   const fromRegistration = searchParams.get("from") === "registration"
   const [otp, setOtp] = useState("")
   const [error, setError] = useState("")
@@ -25,11 +29,15 @@ function CustomerVerifyOtpForm() {
   const [cooldown, setCooldown] = useState(fromRegistration ? SEND_OTP_COOLDOWN_SEC : 0)
 
   const sendOtp = useCallback(async () => {
-    if (!email.trim()) return
+    if (!identifier) return
     const res = await fetch(SEND_OTP_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: email.trim() }),
+      body: JSON.stringify({
+        email: email.trim() || undefined,
+        phone: phone.trim() || undefined,
+        phoneCountryCode: phoneCountryCode.trim() || undefined,
+      }),
     })
     const data = await res.json().catch(() => ({}))
     if (res.ok) {
@@ -40,16 +48,16 @@ function CustomerVerifyOtpForm() {
       setError(msg)
       setTimeout(() => setError(""), 5000)
     }
-  }, [email])
+  }, [identifier, email, phone, phoneCountryCode])
 
   useEffect(() => {
-    if (!email.trim()) {
-      setError("Email is required.")
+    if (!identifier) {
+      setError("Email or mobile number is required.")
       return
     }
     if (fromRegistration) return
     sendOtp()
-  }, [email, fromRegistration, sendOtp])
+  }, [identifier, fromRegistration, sendOtp])
 
   useEffect(() => {
     if (cooldown <= 0) return
@@ -69,7 +77,12 @@ function CustomerVerifyOtpForm() {
       const res = await fetch(VERIFY_OTP_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim(), otp }),
+        body: JSON.stringify({
+          email: email.trim() || undefined,
+          phone: phone.trim() || undefined,
+          phoneCountryCode: phoneCountryCode.trim() || undefined,
+          otp,
+        }),
       })
       const data = await res.json().catch(() => ({}))
       if (res.ok && data.loginUrl) {
@@ -84,11 +97,11 @@ function CustomerVerifyOtpForm() {
     }
   }
 
-  if (!email.trim()) {
+  if (!identifier) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50/90 p-4">
         <div className="w-full max-w-[440px] rounded-3xl bg-white p-8 shadow-xl text-center">
-          <p className="text-gray-600">Missing email. Please use the link from your registration or login.</p>
+          <p className="text-gray-600">Missing email or mobile number. Please use the link from your registration or login.</p>
           <Link href="/customer/login" className="mt-4 inline-block text-blue-600 hover:underline">Back to login</Link>
         </div>
       </div>
@@ -103,8 +116,8 @@ function CustomerVerifyOtpForm() {
             <Image src="/images/logo.png" alt="Logo" width={180} height={48} className="h-12 w-auto object-contain" />
           </a>
         </div>
-        <h1 className="text-center text-2xl font-semibold text-gray-900">Verify your email</h1>
-        <p className="mt-1 text-center text-sm text-gray-500">We sent a 6-digit code to {email}</p>
+        <h1 className="text-center text-2xl font-semibold text-gray-900">Verify your account</h1>
+        <p className="mt-1 text-center text-sm text-gray-500">We sent a 6-digit code to {displayTarget}</p>
         <form onSubmit={handleSubmit} className="mt-6">
           {error && (
             <Alert variant="destructive" className="mb-4">

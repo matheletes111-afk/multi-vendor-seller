@@ -12,9 +12,9 @@ export async function POST(request: Request) {
     const body = await request.json()
     const { name, email, phone, phoneCountryCode, password } = body
 
-    if (!name?.trim() || !email?.trim() || !password) {
+    if (!name?.trim() || !password) {
       return NextResponse.json(
-        { error: "Name, email, and password are required" },
+        { error: "Name and password are required" },
         { status: 400 }
       )
     }
@@ -26,44 +26,44 @@ export async function POST(request: Request) {
       )
     }
 
-    const cleanEmail = email.trim().toLowerCase()
+    // Phone is REQUIRED
+    if (!phone || typeof phone !== "string" || !phone.trim()) {
+      return NextResponse.json(
+        { error: "Mobile number is required" },
+        { status: 400 }
+      )
+    }
 
-    // Validate phone & country code if provided
-    let cleanedPhone: string | null = null
-    let cleanedCountryCode: string | null = null
+    const code = typeof phoneCountryCode === "string" && phoneCountryCode.trim().length > 0
+      ? phoneCountryCode.trim()
+      : "+232"
+    const phoneValidation = validatePhoneAndCountryCode(phone.trim(), code)
+    if (!phoneValidation.isValid) {
+      return NextResponse.json(
+        { error: phoneValidation.error || "Invalid mobile number or country code" },
+        { status: 400 }
+      )
+    }
+    const cleanedPhone = phoneValidation.cleanedPhone!
+    const cleanedCountryCode = phoneValidation.cleanedCountryCode!
 
-    const hasPhone = typeof phone === "string" && phone.trim().length > 0
-    if (hasPhone) {
-      const code = typeof phoneCountryCode === "string" && phoneCountryCode.trim().length > 0
-        ? phoneCountryCode.trim()
-        : "+232"
-      const phoneValidation = validatePhoneAndCountryCode(phone.trim(), code)
-      if (!phoneValidation.isValid) {
+    // Email is OPTIONAL
+    const cleanEmail = typeof email === "string" && email.trim() ? email.trim().toLowerCase() : null
+    if (cleanEmail) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+      if (!emailRegex.test(cleanEmail)) {
         return NextResponse.json(
-          { error: phoneValidation.error || "Invalid phone number or country code" },
+          { error: "Invalid email format" },
           { status: 400 }
         )
       }
-      cleanedPhone = phoneValidation.cleanedPhone || null
-      cleanedCountryCode = phoneValidation.cleanedCountryCode || null
-
-      if (cleanedPhone) {
-        const phoneVariants = getEquivalentPhoneVariants(cleanedPhone, cleanedCountryCode)
-        const existingPhone = await prisma.user.findFirst({
-          where: { phone: { in: phoneVariants } },
-        })
-        if (existingPhone) {
-          return NextResponse.json(
-            { error: "An account with this phone number already exists" },
-            { status: 400 }
-          )
-        }
-      }
     }
 
-    // Check if email already exists
-    const existingUser = await prisma.user.findUnique({
-      where: { email: cleanEmail },
+    const phoneVariants = getEquivalentPhoneVariants(cleanedPhone, cleanedCountryCode)
+
+    // Check if user already exists with this phone
+    const existingPhoneUser = await prisma.user.findFirst({
+      where: { phone: { in: phoneVariants } },
       select: {
         id: true,
         email: true,
@@ -75,21 +75,33 @@ export async function POST(request: Request) {
       },
     })
 
-    if (existingUser) {
-      if (existingUser.isEmailVerified) {
+    if (existingPhoneUser) {
+      if (existingPhoneUser.isEmailVerified) {
         return NextResponse.json(
-          { error: "An account with this email already exists. Please log in." },
+          { error: "An account with this mobile number already exists. Please log in." },
           { status: 400 }
         )
       }
 
-      // User exists but is not verified: refresh 6-digit OTP and resend email
-      // Also ensure rider row exists (guard against partial creation)
-      const existingRider = await prisma.rider.findUnique({ where: { userId: existingUser.id } })
+      if (cleanEmail) {
+        const existingEmailUser = await prisma.user.findUnique({
+          where: { email: cleanEmail },
+          select: { id: true },
+        })
+        if (existingEmailUser && existingEmailUser.id !== existingPhoneUser.id) {
+          return NextResponse.json(
+            { error: "An account with this email already exists. Please log in." },
+            { status: 400 }
+          )
+        }
+      }
+
+      // Existing unverified user: refresh OTP and resend
+      const existingRider = await prisma.rider.findUnique({ where: { userId: existingPhoneUser.id } })
       if (!existingRider) {
         await prisma.rider.create({
           data: {
-            userId: existingUser.id,
+            userId: existingPhoneUser.id,
             isApproved: false,
             isSuspended: false,
             status: "PENDING",
@@ -104,49 +116,78 @@ export async function POST(request: Request) {
       const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000)
 
       await prisma.user.update({
-        where: { id: existingUser.id },
+        where: { id: existingPhoneUser.id },
         data: {
           verifyEmailOtp,
           emailVerificationExpires: expiresAt,
           emailOtpSentAt: new Date(),
+          ...(cleanEmail ? { email: cleanEmail } : {}),
         },
       })
 
       const baseUrl = getAppBaseUrl(request)
-      const verificationLink = `${baseUrl}/riderapp/verify-email?token=${verifyEmailOtp}&email=${encodeURIComponent(cleanEmail)}`
+      const verificationLink = `${baseUrl}/riderapp/verify-email?token=${verifyEmailOtp}&phone=${encodeURIComponent(cleanedPhone)}`
+
+      const targetEmail = cleanEmail || existingPhoneUser.email
 
       try {
-        const emailPromise = sendRiderVerificationEmail({
-          to: cleanEmail,
-          name: existingUser.name || name.trim(),
-          verificationLink,
-          otp: verifyEmailOtp,
-        })
-        const smsPromise = existingUser.phone
-          ? sendEmailVerificationSms({
-              to: existingUser.phone,
-              countryCode: existingUser.phoneCountryCode,
+        const sendPromises: Promise<any>[] = [
+          sendEmailVerificationSms({
+            to: existingPhoneUser.phone || cleanedPhone,
+            countryCode: existingPhoneUser.phoneCountryCode || cleanedCountryCode,
+            verificationLink,
+            otp: verifyEmailOtp,
+            name: existingPhoneUser.name,
+          }),
+        ]
+
+        if (targetEmail) {
+          sendPromises.push(
+            sendRiderVerificationEmail({
+              to: targetEmail,
+              name: existingPhoneUser.name || name.trim(),
               verificationLink,
               otp: verifyEmailOtp,
-              name: existingUser.name,
             })
-          : Promise.resolve()
-
-        const [emailRes] = await Promise.allSettled([emailPromise, smsPromise])
-        if (emailRes.status === "rejected") {
-          console.error("Failed to send rider verification email (rejected):", emailRes.reason)
-        } else if (emailRes.status === "fulfilled" && !(emailRes.value as any)?.success) {
-          console.error("Failed to send rider verification email:", (emailRes.value as any)?.error)
+          )
         }
+
+        await Promise.allSettled(sendPromises)
       } catch (sendError) {
-        console.error("Failed to send rider verification email/sms on retry:", sendError)
+        console.error("Failed to resend rider verification email/sms on retry:", sendError)
       }
 
       return NextResponse.json({
         success: true,
-        message: "Registration already in progress. A fresh verification code has been sent to your email.",
-        email: cleanEmail,
+        message: targetEmail
+          ? "Registration already in progress. A fresh verification code has been sent to your mobile number and email."
+          : "Registration already in progress. A fresh verification code has been sent to your mobile number via SMS.",
+        phone: cleanedPhone,
+        email: targetEmail || null,
       })
+    }
+
+    // If email provided, check if email already exists
+    if (cleanEmail) {
+      const existingEmailUser = await prisma.user.findUnique({
+        where: { email: cleanEmail },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          phone: true,
+          phoneCountryCode: true,
+          isEmailVerified: true,
+          role: true,
+        },
+      })
+
+      if (existingEmailUser) {
+        return NextResponse.json(
+          { error: "An account with this email already exists. Please log in." },
+          { status: 400 }
+        )
+      }
     }
 
     const hashedPassword = await bcrypt.hash(password, 10)
@@ -179,39 +220,42 @@ export async function POST(request: Request) {
     })
 
     const baseUrl = getAppBaseUrl(request)
-    const verificationLink = `${baseUrl}/riderapp/verify-email?token=${verifyEmailOtp}&email=${encodeURIComponent(cleanEmail)}`
+    const verificationLink = `${baseUrl}/riderapp/verify-email?token=${verifyEmailOtp}&phone=${encodeURIComponent(cleanedPhone)}`
 
-    // Send verification email & SMS
+    // Send verification SMS & Email (if email provided)
     try {
-      const emailPromise = sendRiderVerificationEmail({
-        to: cleanEmail,
-        name: name.trim(),
-        verificationLink,
-        otp: verifyEmailOtp,
-      })
-      const smsPromise = cleanedPhone
-        ? sendEmailVerificationSms({
-            to: cleanedPhone,
-            countryCode: cleanedCountryCode,
+      const sendPromises: Promise<any>[] = [
+        sendEmailVerificationSms({
+          to: cleanedPhone,
+          countryCode: cleanedCountryCode,
+          verificationLink,
+          otp: verifyEmailOtp,
+          name: name.trim(),
+        }),
+      ]
+
+      if (cleanEmail) {
+        sendPromises.push(
+          sendRiderVerificationEmail({
+            to: cleanEmail,
+            name: name.trim(),
             verificationLink,
             otp: verifyEmailOtp,
-            name: name.trim(),
           })
-        : Promise.resolve()
-
-      const [emailRes] = await Promise.allSettled([emailPromise, smsPromise])
-      if (emailRes.status === "rejected") {
-        console.error("Failed to send rider verification email (rejected):", emailRes.reason)
-      } else if (emailRes.status === "fulfilled" && !(emailRes.value as any)?.success) {
-        console.error("Failed to send rider verification email:", (emailRes.value as any)?.error)
+        )
       }
+
+      await Promise.allSettled(sendPromises)
     } catch (sendError) {
       console.error("Failed to send rider verification email/sms:", sendError)
     }
 
     return NextResponse.json({
       success: true,
-      message: "Registration successful. Please check your email to verify your account.",
+      message: cleanEmail
+        ? "Registration successful. Please check your mobile SMS or email to verify your account."
+        : "Registration successful. Please check your mobile SMS for the verification code.",
+      phone: cleanedPhone,
       email: cleanEmail,
     })
   } catch (error) {

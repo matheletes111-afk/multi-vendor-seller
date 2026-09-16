@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma"
 import { sendAdminCustomSellerEmail } from "@/lib/email"
+import { sendNotificationSms } from "@/lib/twilio-sms"
 
 export type BulkSellerTypeFilter = "ALL" | "PRODUCT" | "SERVICE" | "HOTEL" | "RESTAURANT"
 export type BulkSellerStatusFilter = "ALL" | "ACTIVE" | "PENDING" | "SUSPENDED"
@@ -9,7 +10,10 @@ export interface BulkEmailRecipient {
   sellerType: "PRODUCT" | "SERVICE" | "HOTEL" | "RESTAURANT"
   name: string | null
   businessName: string | null
-  email: string
+  email: string | null
+  phone: string | null
+  phoneCountryCode: string | null
+  channel: "email" | "sms" | "none"
   status: string
   isApproved: boolean
   onboardingCompleted: boolean
@@ -38,6 +42,11 @@ export interface BulkCustomEmailRecipientSummary {
     service: number
     hotel: number
     restaurant: number
+  }
+  byChannel: {
+    email: number
+    sms: number
+    none: number
   }
   recipients: BulkEmailRecipient[]
 }
@@ -69,7 +78,7 @@ function buildStatusWhereClause(statusFilter: BulkSellerStatusFilter = "ALL") {
 }
 
 /**
- * Fetch all eligible recipients for a bulk custom email broadcast
+ * Fetch all eligible recipients for a bulk custom message broadcast
  */
 export async function getBulkCustomEmailRecipients(
   options: BulkCustomEmailFilterOptions = {}
@@ -140,14 +149,17 @@ export async function getBulkCustomEmailRecipients(
   ])
 
   const recipients: BulkEmailRecipient[] = []
-  const seenEmails = new Set<string>()
+  const seenIds = new Set<string>()
 
   // Process standard Product / Service sellers
   for (const s of (sellersRaw as any[])) {
-    const email = s.user?.email?.trim().toLowerCase()
-    if (!email) continue
-    if (seenEmails.has(email)) continue
-    seenEmails.add(email)
+    if (seenIds.has(s.id)) continue
+    seenIds.add(s.id)
+
+    const email = s.user?.email?.trim().toLowerCase() || null
+    const phone = s.user?.phone?.trim() || null
+    const phoneCountryCode = s.user?.phoneCountryCode?.trim() || null
+    const channel: "email" | "sms" | "none" = email ? "email" : phone ? "sms" : "none"
 
     const displayName = s.user?.name || s.store?.name || s.businessInfo?.businessName || null
     const bizName = s.businessInfo?.businessName || s.store?.name || null
@@ -158,6 +170,9 @@ export async function getBulkCustomEmailRecipients(
       name: displayName,
       businessName: bizName,
       email,
+      phone,
+      phoneCountryCode,
+      channel,
       status: s.status,
       isApproved: s.isApproved,
       onboardingCompleted: s.onboardingCompleted,
@@ -167,10 +182,13 @@ export async function getBulkCustomEmailRecipients(
 
   // Process Hotel sellers
   for (const h of (hotelSellersRaw as any[])) {
-    const email = h.user?.email?.trim().toLowerCase()
-    if (!email) continue
-    if (seenEmails.has(email)) continue
-    seenEmails.add(email)
+    if (seenIds.has(h.id)) continue
+    seenIds.add(h.id)
+
+    const email = h.user?.email?.trim().toLowerCase() || null
+    const phone = h.user?.phone?.trim() || null
+    const phoneCountryCode = h.user?.phoneCountryCode?.trim() || null
+    const channel: "email" | "sms" | "none" = email ? "email" : phone ? "sms" : "none"
 
     const displayName = h.user?.name || h.businessInfo?.businessName || null
     const bizName = h.businessInfo?.businessName || null
@@ -181,6 +199,9 @@ export async function getBulkCustomEmailRecipients(
       name: displayName,
       businessName: bizName,
       email,
+      phone,
+      phoneCountryCode,
+      channel,
       status: h.status,
       isApproved: h.isApproved,
       onboardingCompleted: h.onboardingCompleted,
@@ -190,10 +211,13 @@ export async function getBulkCustomEmailRecipients(
 
   // Process Restaurant sellers
   for (const r of (restaurantSellersRaw as any[])) {
-    const email = r.user?.email?.trim().toLowerCase()
-    if (!email) continue
-    if (seenEmails.has(email)) continue
-    seenEmails.add(email)
+    if (seenIds.has(r.id)) continue
+    seenIds.add(r.id)
+
+    const email = r.user?.email?.trim().toLowerCase() || null
+    const phone = r.user?.phone?.trim() || null
+    const phoneCountryCode = r.user?.phoneCountryCode?.trim() || null
+    const channel: "email" | "sms" | "none" = email ? "email" : phone ? "sms" : "none"
 
     const displayName = r.user?.name || r.businessInfo?.businessName || null
     const bizName = r.businessInfo?.businessName || null
@@ -204,6 +228,9 @@ export async function getBulkCustomEmailRecipients(
       name: displayName,
       businessName: bizName,
       email,
+      phone,
+      phoneCountryCode,
+      channel,
       status: r.status,
       isApproved: r.isApproved,
       onboardingCompleted: r.onboardingCompleted,
@@ -211,13 +238,14 @@ export async function getBulkCustomEmailRecipients(
     })
   }
 
-  // Optional search filter across name, business name, or email
+  // Optional search filter across name, business name, email, or phone
   let filteredRecipients = recipients
   if (search && search.trim()) {
     const q = search.trim().toLowerCase()
     filteredRecipients = recipients.filter(
       (r) =>
-        r.email.toLowerCase().includes(q) ||
+        (r.email && r.email.toLowerCase().includes(q)) ||
+        (r.phone && r.phone.toLowerCase().includes(q)) ||
         (r.name && r.name.toLowerCase().includes(q)) ||
         (r.businessName && r.businessName.toLowerCase().includes(q))
     )
@@ -230,15 +258,22 @@ export async function getBulkCustomEmailRecipients(
     restaurant: filteredRecipients.filter((r) => r.sellerType === "RESTAURANT").length,
   }
 
+  const byChannel = {
+    email: filteredRecipients.filter((r) => r.channel === "email").length,
+    sms: filteredRecipients.filter((r) => r.channel === "sms").length,
+    none: filteredRecipients.filter((r) => r.channel === "none").length,
+  }
+
   return {
     total: filteredRecipients.length,
     byType,
+    byChannel,
     recipients: filteredRecipients,
   }
 }
 
 /**
- * Dispatches custom email to a batch of recipients
+ * Dispatches custom message (Email with SMS fallback) to a batch of recipients
  */
 export async function sendBulkCustomEmailChunk(
   options: BulkCustomEmailChunkOptions
@@ -248,7 +283,9 @@ export async function sendBulkCustomEmailChunk(
   failed: number
   results: Array<{
     id: string
-    email: string
+    email: string | null
+    phone?: string | null
+    channel: "email" | "sms" | "none"
     sellerName: string | null
     sellerType: string
     status: "success" | "failed"
@@ -265,7 +302,9 @@ export async function sendBulkCustomEmailChunk(
 
   const results: Array<{
     id: string
-    email: string
+    email: string | null
+    phone?: string | null
+    channel: "email" | "sms" | "none"
     sellerName: string | null
     sellerType: string
     status: "success" | "failed"
@@ -283,6 +322,8 @@ export async function sendBulkCustomEmailChunk(
       results.push({
         id: recipient.id,
         email: recipient.email,
+        phone: recipient.phone,
+        channel: recipient.channel,
         sellerName: sellerDisplayName,
         sellerType: recipient.sellerType,
         status: "success",
@@ -291,41 +332,100 @@ export async function sendBulkCustomEmailChunk(
       continue
     }
 
-    try {
-      const emailResult = await sendAdminCustomSellerEmail({
-        to: recipient.email,
+    if (recipient.channel === "none") {
+      failed++
+      results.push({
+        id: recipient.id,
+        email: recipient.email,
+        phone: recipient.phone,
+        channel: "none",
         sellerName: sellerDisplayName,
-        businessName: recipient.businessName || undefined,
-        subject,
-        message,
-        adminName: senderLabel,
+        sellerType: recipient.sellerType,
+        status: "failed",
+        error: "Seller has no email or phone number on record",
       })
+      continue
+    }
 
-      if (emailResult.success) {
-        sent++
-        results.push({
-          id: recipient.id,
-          email: recipient.email,
+    try {
+      if (recipient.channel === "email" && recipient.email) {
+        const emailResult = await sendAdminCustomSellerEmail({
+          to: recipient.email,
           sellerName: sellerDisplayName,
-          sellerType: recipient.sellerType,
-          status: "success",
+          businessName: recipient.businessName || undefined,
+          subject,
+          message,
+          adminName: senderLabel,
+          toPhone: recipient.phone,
+          phoneCountryCode: recipient.phoneCountryCode,
         })
-      } else {
-        failed++
-        results.push({
-          id: recipient.id,
-          email: recipient.email,
-          sellerName: sellerDisplayName,
-          sellerType: recipient.sellerType,
-          status: "failed",
-          error: emailResult.error?.message || "SendGrid dispatch failed",
+
+        if (emailResult.success) {
+          sent++
+          results.push({
+            id: recipient.id,
+            email: recipient.email,
+            phone: recipient.phone,
+            channel: "email",
+            sellerName: sellerDisplayName,
+            sellerType: recipient.sellerType,
+            status: "success",
+          })
+        } else {
+          failed++
+          results.push({
+            id: recipient.id,
+            email: recipient.email,
+            phone: recipient.phone,
+            channel: "email",
+            sellerName: sellerDisplayName,
+            sellerType: recipient.sellerType,
+            status: "failed",
+            error: ("error" in emailResult && (emailResult.error as any)?.message) || "SendGrid dispatch failed",
+          })
+        }
+      } else if (recipient.phone) {
+        // SMS Fallback
+        const preview = message.length > 120 ? `${message.slice(0, 117)}...` : message
+        const smsBody = `Hi ${sellerDisplayName}, Meeem Notice: ${subject} - ${preview}`
+        const smsSent = await sendNotificationSms({
+          to: recipient.phone,
+          countryCode: recipient.phoneCountryCode,
+          body: smsBody,
         })
+
+        if (smsSent) {
+          sent++
+          results.push({
+            id: recipient.id,
+            email: recipient.email,
+            phone: recipient.phone,
+            channel: "sms",
+            sellerName: sellerDisplayName,
+            sellerType: recipient.sellerType,
+            status: "success",
+          })
+        } else {
+          failed++
+          results.push({
+            id: recipient.id,
+            email: recipient.email,
+            phone: recipient.phone,
+            channel: "sms",
+            sellerName: sellerDisplayName,
+            sellerType: recipient.sellerType,
+            status: "failed",
+            error: "Twilio SMS dispatch failed",
+          })
+        }
       }
     } catch (err: any) {
       failed++
       results.push({
         id: recipient.id,
         email: recipient.email,
+        phone: recipient.phone,
+        channel: recipient.channel,
         sellerName: sellerDisplayName,
         sellerType: recipient.sellerType,
         status: "failed",

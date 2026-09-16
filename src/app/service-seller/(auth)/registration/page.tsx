@@ -60,7 +60,10 @@ export default function ServiceSellerRegistrationPage() {
         setError(data.error || "Registration failed")
         return
       }
-      router.push(`/service-seller/verify-otp?email=${encodeURIComponent(email)}&from=registration`)
+      const nextQuery = email.trim()
+        ? `email=${encodeURIComponent(email.trim())}`
+        : `phone=${encodeURIComponent(phoneValidation.cleanedPhone || "")}&phoneCountryCode=${encodeURIComponent(phoneValidation.cleanedCountryCode || "")}`
+      router.push(`/service-seller/verify-otp?${nextQuery}&from=registration`)
     } catch {
       setError("An error occurred. Please try again.")
     } finally {
@@ -102,14 +105,13 @@ export default function ServiceSellerRegistrationPage() {
               />
             </div>
             <div>
-              <Label htmlFor="email" className="mb-1.5 block text-sm font-medium text-gray-700">Email</Label>
+              <Label htmlFor="email" className="mb-1.5 block text-sm font-medium text-gray-700">Email <span className="text-gray-400 font-normal">(Optional)</span></Label>
               <Input
                 id="email"
                 type="email"
                 placeholder="example@gmail.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                required
                 disabled={loading}
                 className="rounded-xl border-gray-200"
               />
@@ -126,7 +128,7 @@ export default function ServiceSellerRegistrationPage() {
                 />
               </div>
               <div>
-                <Label htmlFor="phone" className="mb-1.5 block text-sm font-medium text-gray-700">Phone</Label>
+                <Label htmlFor="phone" className="mb-1.5 block text-sm font-medium text-gray-700">Phone <span className="text-red-500">*</span></Label>
                 <Input
                   id="phone"
                   type="tel"

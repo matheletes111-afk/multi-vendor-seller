@@ -96,7 +96,7 @@ export function SellerDetailsView({
               </div>
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-muted rounded-xl"><Mail className="h-3.5 w-3.5 text-muted-foreground" /></div>
-                <div className="flex flex-col"><span className="text-[10px] font-medium text-muted-foreground/60">Email</span><span className="text-sm font-medium">{seller.user?.email}</span></div>
+                <div className="flex flex-col"><span className="text-[10px] font-medium text-muted-foreground/60">Email</span><span className="text-sm font-medium">{seller.user?.email || "— (SMS only)"}</span></div>
               </div>
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-muted rounded-xl"><Phone className="h-3.5 w-3.5 text-muted-foreground" /></div>

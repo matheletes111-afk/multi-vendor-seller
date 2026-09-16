@@ -40,3 +40,7 @@ next-env.d.ts
 
 .env.prod
 meeemsl_prod_backup.dump
+
+# Apple IAP Private Keys
+certs/
+*.p8

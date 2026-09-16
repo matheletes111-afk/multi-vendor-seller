@@ -115,28 +115,32 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     try {
       const customerUser = await prisma.user.findUnique({
         where: { id: userId },
-        select: { email: true, name: true }
+        select: { email: true, name: true, phone: true, phoneCountryCode: true }
       })
 
       if (customerUser) {
-        // Send Customer Email
+        // Send Customer Email / SMS fallback
         await sendHotelBookingStatusUpdateEmail({
           to: customerUser.email,
+          toPhone: customerUser.phone,
+          phoneCountryCode: customerUser.phoneCountryCode,
           name: customerUser.name ?? "Customer",
           hotelName: booking.room.hotel.name,
           status: "CANCELLED",
         })
 
-        // Send Hotel Seller Email
+        // Send Hotel Seller Email / SMS fallback
         const hotelSeller = await prisma.hotelSeller.findUnique({
           where: { id: booking.room.hotel.hotelSellerId },
-          include: { user: { select: { email: true, name: true } } }
+          include: { user: { select: { email: true, name: true, phone: true, phoneCountryCode: true } } }
         })
 
-        if (hotelSeller?.user?.email) {
+        if (hotelSeller?.user?.email || hotelSeller?.user?.phone) {
           await sendHotelBookingStatusUpdateEmail({
-            to: hotelSeller.user.email,
-            name: hotelSeller.user.name ?? "Hotel Partner",
+            to: hotelSeller.user?.email,
+            toPhone: hotelSeller.user?.phone,
+            phoneCountryCode: hotelSeller.user?.phoneCountryCode,
+            name: hotelSeller.user?.name ?? "Hotel Partner",
             hotelName: booking.room.hotel.name,
             status: `CANCELLED BY CUSTOMER (Booking ID: ${bookingId})`,
           })

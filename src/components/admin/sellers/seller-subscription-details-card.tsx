@@ -41,9 +41,13 @@ export function SellerSubscriptionDetailsCard({
         return <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200">Active</Badge>
       case "TRIALING":
         return <Badge className="bg-blue-100 text-blue-800 border-blue-200">Trialing</Badge>
+      case "IN_GRACE_PERIOD":
+        return <Badge className="bg-amber-100 text-amber-800 border-amber-200">In Grace Period</Badge>
       case "CANCELED":
       case "EXPIRED":
         return <Badge variant="destructive">Expired / Canceled</Badge>
+      case "REVOKED":
+        return <Badge variant="destructive" className="bg-rose-900 text-white border-rose-900">Revoked</Badge>
       default:
         return <Badge variant="outline" className="bg-slate-100 text-slate-700">No Active Plan</Badge>
     }
@@ -109,6 +113,17 @@ export function SellerSubscriptionDetailsCard({
                 <span className="text-[10px] font-medium text-muted-foreground">Expires / Renews</span>
                 <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">
                   {new Date(subscription.currentPeriodEnd).toLocaleDateString()}
+                </span>
+              </div>
+            )}
+
+            {subscription && (
+              <div className="flex flex-col gap-0.5">
+                <span className="text-[10px] font-medium text-muted-foreground">Payment Platform</span>
+                <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+                  {subscription.provider === "apple_iap"
+                    ? " Apple In-App Purchase"
+                    : "Other"}
                 </span>
               </div>
             )}

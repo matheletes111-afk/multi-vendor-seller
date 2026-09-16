@@ -1,0 +1,413 @@
+================================================================================
+MEEEM MULTI-VENDOR PLATFORM - MOBILE DEVELOPER API GUIDE
+PANEL: ALL 4 SELLER MOBILE APPS (PRODUCT, SERVICE, HOTEL, RESTAURANT)
+SUBJECT: MANDATORY PHONE, OPTIONAL EMAIL, DUAL CREDENTIAL LOGIN & SETTINGS SYNC
+DATE: SEPTEMBER 2026
+================================================================================
+
+--------------------------------------------------------------------------------
+1. EXECUTIVE SUMMARY & SCOPE
+--------------------------------------------------------------------------------
+This document details all API contracts and changes for the 4 Seller Mobile Apps:
+  1. Product Seller App    (/mobileapi/product-seller/...)
+  2. Service Seller App    (/mobileapi/service-seller/...)
+  3. Hotel Seller App      (/mobileapi/hotel-seller/...)
+  4. Restaurant Seller App (/mobileapi/restaurant-seller/...)
+
+Key Upgrades Implemented Across All 4 Seller Types:
+  * Seller Registration: Mobile phone is strictly MANDATORY. Email is OPTIONAL.
+  * Primary Verification: Generates 6-digit OTP dispatched via Twilio SMS.
+  * Dual Credential Login: Sellers can log in using either their Mobile Number
+    or their Email Address with their existing password.
+  * Mobile Tokens: JWT claims include "phone: user.phone".
+  * Settings & Profile: Sellers who signed up without an email can add or update
+    their email address in their Settings / Store Profile screen at any time.
+  * Customer Order Status Updates: When a seller updates an order/booking status,
+    the system automatically falls back to SMS if the customer has no email.
+
+--------------------------------------------------------------------------------
+2. SELLER REGISTRATION APIS (ALL 4 PANELS)
+--------------------------------------------------------------------------------
+Endpoints:
+  * Product Seller:    POST /mobileapi/product-seller/auth/register
+  * Service Seller:    POST /mobileapi/service-seller/auth/register
+  * Hotel Seller:      POST /mobileapi/hotel-seller/auth/register
+  * Restaurant Seller: POST /mobileapi/restaurant-seller/auth/register
+
+Content-Type: application/json
+
+Request Payload Template:
+{
+  "name": "John's Electronics",
+  "phone": "9876543210",              // MANDATORY: 10 digits or E.164
+  "phoneCountryCode": "+91",          // OPTIONAL: defaults to system default (+91)
+  "email": "seller@example.com",      // OPTIONAL: can be omitted, null, or ""
+  "password": "SellerPassword123!",   // MANDATORY
+  "businessName": "John Electronics Store", // (Seller specific field)
+  "acceptTerms": true,                // MANDATORY
+  "deviceId": "optional-device-id",
+  "platform": "android"
+}
+
+Behavior:
+  * Verifies phone number format and checks for existing user with this phone.
+  * If email is provided, validates RFC email regex and ensures email uniqueness.
+  * Generates 6-digit OTP and dispatches SMS via Twilio to the seller's phone.
+  * If email was provided, also dispatches verification OTP to the email address.
+
+Success Response (201 Created):
+{
+  "success": true,
+  "message": "Registration successful. Please verify your mobile number.",
+  "data": {
+    "userId": "cuid_seller_12345",
+    "email": "seller@example.com",    // or null if omitted
+    "phone": "+919876543210",
+    "isEmailVerified": false,
+    "isPhoneVerified": false,
+    "expiresIn": 600,                 // 10 minutes OTP validity
+    "resendCooldown": 60,             // 60 seconds button cooldown
+    "verifyUrl": "/mobileapi/{seller-type}/auth/verify-otp?phone=%2B919876543210"
+  }
+}
+
+Error Responses:
+  * 400 Bad Request: { "success": false, "error": "Phone number is required" }
+  * 400 Bad Request: { "success": false, "error": "Please enter a valid email address" }
+  * 409 Conflict:    { "success": false, "error": "An account with this phone number already exists" }
+  * 409 Conflict:    { "success": false, "error": "An account with this email already exists" }
+
+--------------------------------------------------------------------------------
+3. SELLER OTP VERIFICATION & RESEND APIS
+--------------------------------------------------------------------------------
+Endpoints for each seller type ({seller} = product-seller | service-seller | hotel-seller | restaurant-seller):
+
+A. Unified OTP Verify:
+Endpoint: POST /mobileapi/{seller}/auth/verify-otp
+Payload (Verify by Phone):
+{
+  "phone": "+919876543210",
+  "phoneCountryCode": "+91",
+  "otp": "123456"
+}
+
+Payload (Verify by Email):
+{
+  "email": "seller@example.com",
+  "otp": "123456"
+}
+
+Success Response (200 OK):
+{
+  "success": true,
+  "message": "Your account is verified successfully. You can now login to complete your onboarding profile.",
+  "data": {
+    "email": "seller@example.com",
+    "phone": "+919876543210",
+    "isEmailVerified": true,
+    "approvalStatus": "PENDING",
+    "loginAvailable": true,
+    "nextSteps": "Please login to complete your onboarding process.",
+    "sellerType": "product"
+  }
+}
+(Note: Tokens are issued upon login via /mobileapi/{seller}/auth/login once onboarding and admin approval are completed)
+
+B. Dedicated Channel Endpoints:
+  * Phone OTP: POST /mobileapi/{seller}/auth/phone-otp/verify-otp
+  * Email OTP: POST /mobileapi/{seller}/auth/email-otp/verify-otp
+
+C. Resend OTP:
+Endpoint: POST /mobileapi/{seller}/auth/resend-otp
+Payload:
+{
+  "phone": "+919876543210",
+  "phoneCountryCode": "+91"
+}
+Response:
+{
+  "success": true,
+  "message": "Verification OTP sent successfully via SMS",
+  "data": {
+    "phone": "+919876543210",
+    "expiresIn": 600,
+    "resendCooldown": 60
+  }
+}
+
+--------------------------------------------------------------------------------
+4. DUAL CREDENTIAL LOGIN APIS (ALL 4 SELLER TYPES)
+--------------------------------------------------------------------------------
+Endpoints:
+  * Product Seller:    POST /mobileapi/product-seller/auth/login
+  * Service Seller:    POST /mobileapi/service-seller/auth/login
+  * Hotel Seller:      POST /mobileapi/hotel-seller/auth/login
+  * Restaurant Seller: POST /mobileapi/restaurant-seller/auth/login
+
+Content-Type: application/json
+
+The mobile login UI should provide a single input field: "Email or Mobile Number".
+
+Request Format 1 - Unified "identifier" (RECOMMENDED):
+{
+  "identifier": "+919876543210",     // Can be phone e.g. "9876543210" or email "seller@example.com"
+  "password": "SellerPassword123!",
+  "phoneCountryCode": "+91",
+  "deviceId": "optional-device-id",
+  "platform": "android"
+}
+
+Request Format 2 - Explicit "phone":
+{
+  "phone": "9876543210",
+  "phoneCountryCode": "+91",
+  "password": "SellerPassword123!"
+}
+
+Request Format 3 - Explicit "email" (BACKWARD COMPATIBLE):
+{
+  "email": "seller@example.com",
+  "password": "SellerPassword123!"
+}
+
+Backend Intelligence:
+  * Automatically checks if identifier contains "@".
+  * If "@" is present -> searches by email.
+  * If "@" is NOT present -> resolves phone via getEquivalentPhoneVariants(identifier, phoneCountryCode)
+    to match both raw local formats ("9876543210") and international E.164 ("+919876543210").
+
+Success Response (200 OK):
+{
+  "success": true,
+  "message": "Login successful",
+  "data": {
+    "user": {
+      "id": "cuid_seller_12345",
+      "name": "John's Electronics",
+      "email": null,                 // or "seller@example.com" if set
+      "phone": "+919876543210",
+      "phoneCountryCode": "+91",
+      "role": "SELLER_PRODUCT",      // or SELLER_SERVICE, SELLER_HOTEL, SELLER_RESTAURANT
+      "isEmailVerified": true,
+      "sellerInfo": {
+        "isApproved": true,
+        "isSuspended": false,
+        "onboardingCompleted": true,
+        "onboardingStep": 5,
+        "mobileStep": 4
+      },
+      "sellerType": "product"        // or "service", "hotel", "restaurant"
+    },
+    "tokens": {
+      "accessToken": "eyJhbGciOi...",
+      "refreshToken": "eyJhbGciOi...",
+      "expiresIn": 2592000
+    },
+    "sessionInfo": {
+      "expiresIn": 2592000,
+      "tokenType": "Bearer"
+    }
+  }
+}
+
+Unverified Account Response (403 Forbidden):
+{
+  "success": false,
+  "error": "Please verify your mobile number before logging in.",
+  "isVerified": false,
+  "email": null,
+  "phone": "+919876543210",
+  "verifyUrl": "/mobileapi/{seller}/auth/verify-otp?phone=%2B919876543210"
+}
+* Mobile Client Action: Check if isVerified is false; route to OTP screen prefilling phone.
+
+Account Pending Admin Approval Response (403 Forbidden):
+{
+  "success": false,
+  "error": "Your account is pending admin approval.",
+  "needsApproval": true,
+  "approvalStatus": "PENDING"
+}
+
+--------------------------------------------------------------------------------
+5. SELLER PASSWORDLESS OTP LOGIN (SMS OTP & EMAIL OTP)
+--------------------------------------------------------------------------------
+Endpoints for each seller type ({seller} = product-seller | service-seller | hotel-seller | restaurant-seller):
+
+A. Phone Number OTP Login (SMS):
+Step 1: Request Login OTP via SMS
+Endpoint: POST /mobileapi/{seller}/auth/phone-otp/send-otp
+Content-Type: application/json
+Payload:
+{
+  "phone": "+919876543210",
+  "phoneCountryCode": "+91"
+}
+Response (200 OK):
+{
+  "success": true,
+  "message": "Login OTP sent to mobile number",
+  "data": { "phone": "+919876543210", "expiresIn": 600, "resendCooldown": 60 }
+}
+
+Step 2: Verify Login OTP
+Endpoint: POST /mobileapi/{seller}/auth/phone-otp/verify-otp
+Content-Type: application/json
+Payload:
+{
+  "phone": "+919876543210",
+  "otp": "123456"
+}
+Response (200 OK):
+Returns { success: true, message: "OTP login successful", data: { user, tokens, sessionInfo } }
+where tokens payload includes "phone: user.phone".
+
+B. Email Address OTP Login:
+Step 1: Request Login OTP via Email
+Endpoint: POST /mobileapi/{seller}/auth/email-otp/send-otp
+Payload: { "email": "seller@example.com" }
+
+Step 2: Verify Login OTP
+Endpoint: POST /mobileapi/{seller}/auth/email-otp/verify-otp
+Payload: { "email": "seller@example.com", "otp": "123456" }
+
+--------------------------------------------------------------------------------
+6. SELLER SOCIAL LOGIN (GOOGLE, APPLE, FACEBOOK)
+--------------------------------------------------------------------------------
+Endpoint: POST /mobileapi/{seller}/auth/social
+Content-Type: application/json
+
+Request Payload:
+{
+  "provider": "google",               // "google" | "apple" | "facebook"
+  "idToken": "eyJhbGciOi...",         // OAuth ID token
+  "accessToken": "ya29...",           // OAuth access token
+  "name": "John's Electronics",
+  "email": "seller@gmail.com"
+}
+
+Behavior:
+  * Creates or links the seller user account with verified email.
+  * Tokens issued contain "phone: user.phone" claim.
+  * Sellers can add or update their phone number in Settings to receive SMS alerts.
+
+--------------------------------------------------------------------------------
+7. SELLER FORGOT PASSWORD & RESET APIS
+--------------------------------------------------------------------------------
+Step 1: Send Reset OTP
+Endpoint: POST /mobileapi/{seller}/auth/forgot-password/send-otp
+Request:
+{
+  "identifier": "+919876543210",     // or "seller@example.com" or "9876543210"
+  "phoneCountryCode": "+91"
+}
+Response:
+{
+  "success": true,
+  "message": "Password reset OTP sent successfully via SMS",
+  "data": {
+    "phone": "+919876543210",
+    "email": null,
+    "expiresIn": 600,
+    "resendCooldown": 60
+  }
+}
+
+Step 2: Reset Password with OTP
+Endpoint: POST /mobileapi/{seller}/auth/forgot-password/reset
+Request:
+{
+  "identifier": "+919876543210",
+  "phoneCountryCode": "+91",
+  "otp": "123456",
+  "newPassword": "NewSellerPassword123!"
+}
+Response:
+{
+  "success": true,
+  "message": "Password reset successfully. You can now login with your new password."
+}
+
+--------------------------------------------------------------------------------
+8. AFTER-LOGIN: SELLER SETTINGS & PROFILE EMAIL UPDATES
+--------------------------------------------------------------------------------
+Sellers who registered with only a phone number can add or update their email
+address at any time from their Store Profile / Settings screen.
+
+Endpoints:
+  * Product Seller:    PUT /mobileapi/product-seller/settings   (or PATCH)
+  * Service Seller:    PUT /mobileapi/service-seller/settings   (or PATCH)
+  * Hotel Seller:      PUT /mobileapi/hotel-seller/settings     (or PATCH)
+  * Restaurant Seller: PUT /mobileapi/restaurant-seller/settings (or PATCH)
+
+Headers:
+  Authorization: Bearer <accessToken>
+  Content-Type: application/json (or multipart/form-data)
+
+Request Payload (JSON or Multipart Form):
+{
+  "user": {
+    "name": "John Electronics",
+    "email": "john.seller@example.com", // Add or update email
+    "phone": "+919876543210"
+  },
+  "businessName": "John Electronics Store"
+}
+*(Or flat field "email": "john.seller@example.com" depending on your request builder;
+the backend extracts email from both top-level and nested user object).*
+
+To remove an email:
+{
+  "email": ""                        // Backend safely persists null to User table
+}
+
+Backend Validation Rules:
+  1. RFC Email Regex: Validates email syntax if non-empty.
+  2. Uniqueness Constraint: Checks prisma.user.findFirst({ where: { email, NOT: { id: userId } } }).
+     If already registered by another user -> Returns 400: "This email address is already in use by another account"
+  3. Safe Nullification: "" is saved as null to prevent PostgreSQL unique constraint violations.
+
+Success Response (200 OK):
+{
+  "success": true,
+  "message": "Settings updated successfully",
+  "data": { ... }
+}
+
+--------------------------------------------------------------------------------
+9. ORDER / BOOKING STATUS NOTIFICATIONS & SMS FALLBACK
+--------------------------------------------------------------------------------
+When a seller updates the status of an order/booking:
+  * Restaurant Seller Order Status: PUT /mobileapi/restaurant-seller/orders/[id]/status
+  * Product Seller Order Status:    PUT /api/product-seller/orders/[id]
+  * Service Seller Order Status:    PUT /api/service-seller/orders/[id]
+
+Notification Rules:
+  * If the customer has an email -> Backend sends transactional email update.
+  * If the customer has NO email -> Backend sends Twilio SMS to customer's phone.
+  * No additional action is required by the mobile developer for this fallback.
+
+--------------------------------------------------------------------------------
+10. MOBILE CLIENT UI/UX CHECKLIST FOR SELLER APPS
+--------------------------------------------------------------------------------
+[ ] 1. Registration Screen:
+       - Phone input: Mark with required asterisk (*).
+       - Country code selector: Defaults to "+91".
+       - Email input: Label as "Email Address (Optional)".
+       - Ensure form can be submitted when email is blank.
+
+[ ] 2. Login Screen:
+       - Update input placeholder to "Email or Mobile Number".
+       - In login API request, send field as "identifier".
+       - Handle 403 unverified response: redirect to OTP verification screen.
+       - Handle 403 needsApproval response: show "Account pending admin approval" screen.
+
+[ ] 3. Navigation Drawer & Profile Header:
+       - If seller has no email, display seller.user.phone under the store/seller name.
+       - Do not show an empty gap where email used to be.
+
+[ ] 4. Settings / Store Profile Screen:
+       - Email field must be EDITABLE.
+       - Add note: "Enter email to receive sales notifications and customer inquiries".
+       - Display error toast if email is already taken by another user.
+================================================================================

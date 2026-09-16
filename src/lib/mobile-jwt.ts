@@ -6,7 +6,8 @@ const MOBILE_REFRESH_SECRET = process.env.MOBILE_REFRESH_SECRET_KEY || process.e
 
 export interface MobileTokenPayload {
   userId: string;
-  email: string;
+  email?: string | null;
+  phone?: string | null;
   role: string;
   deviceId?: string;
   platform?: 'ios' | 'android' | 'web';

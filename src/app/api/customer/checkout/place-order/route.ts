@@ -417,7 +417,7 @@ export async function POST(request: NextRequest) {
   try {
     const customerUser = await prisma.user.findUnique({
       where: { id: session.user.id },
-      select: { email: true, name: true },
+      select: { email: true, name: true, phone: true, phoneCountryCode: true },
     })
 
     if (customerUser) {
@@ -442,9 +442,11 @@ export async function POST(request: NextRequest) {
         address.country,
       ].filter(Boolean).join(", ")
 
-      // Send Customer Email
+      // Send Customer Email / SMS fallback
       await sendOrderConfirmationEmail({
         to: customerUser.email,
+        toPhone: customerUser.phone,
+        phoneCountryCode: customerUser.phoneCountryCode,
         name: customerUser.name ?? "Customer",
         orderNumber: order.orderNumber,
         items: emailItems.map(i => ({ name: i.name, quantity: i.quantity, price: i.price, subtotal: i.subtotal })),
@@ -456,21 +458,23 @@ export async function POST(request: NextRequest) {
         paymentMethod: order.paymentMethod ?? "COD",
       })
 
-      // Send Seller Emails
+      // Send Seller Emails / SMS fallback
       const sellers = await prisma.seller.findMany({
         where: { id: { in: uniqueSellerIds } },
         include: {
-          user: { select: { email: true, name: true } },
+          user: { select: { email: true, name: true, phone: true, phoneCountryCode: true } },
           store: { select: { name: true } },
         },
       })
 
       for (const seller of sellers) {
-        if (seller.user?.email) {
+        if (seller.user?.email || seller.user?.phone) {
           const sellerItems = emailItems.filter((i) => i.sellerId === seller.id)
           await sendSellerNewOrderEmail({
-            to: seller.user.email,
-            sellerName: seller.store?.name ?? seller.user.name ?? "Seller",
+            to: seller.user?.email,
+            toPhone: seller.user?.phone,
+            phoneCountryCode: seller.user?.phoneCountryCode,
+            sellerName: seller.store?.name ?? seller.user?.name ?? "Seller",
             orderNumber: order.orderNumber,
             items: sellerItems.map(i => ({ name: i.name, quantity: i.quantity, subtotal: i.subtotal })),
             customerName: customerUser.name ?? "Customer",
@@ -483,7 +487,7 @@ export async function POST(request: NextRequest) {
       // Send Admin Emails
       const admins = await prisma.user.findMany({
         where: { role: UserRole.ADMIN },
-        select: { email: true },
+        select: { email: true, phone: true, phoneCountryCode: true },
       })
 
       const adminItems = emailItems.map((i) => {
@@ -499,6 +503,8 @@ export async function POST(request: NextRequest) {
       for (const admin of admins) {
         await sendAdminNewOrderEmail({
           to: admin.email,
+          toPhone: admin.phone,
+          phoneCountryCode: admin.phoneCountryCode,
           orderNumber: order.orderNumber,
           customerName: customerUser.name ?? "Customer",
           items: adminItems,

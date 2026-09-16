@@ -3,26 +3,40 @@ import { NextResponse } from "next/server"
 import { UserRole } from "@prisma/client"
 import { prisma } from "@/lib/prisma"
 import { sendPasswordResetOtpEmail } from "@/lib/email"
-
 import { getAppBaseUrl, sendPasswordResetSms } from "@/lib/twilio-sms"
+import { getEquivalentPhoneVariants } from "@/lib/phone-validation"
 
 const OTP_EXPIRY_MS = 10 * 60 * 1000
 const COOLDOWN_MS = 60 * 1000
 
-/** POST /api/product-seller/auth/forgot-password/send-otp — Body: { email } */
+/** POST /api/product-seller/auth/forgot-password/send-otp — Body: { email, phone, phoneCountryCode } */
 export async function POST(request: Request) {
   try {
     const body = await request.json().catch(() => ({}))
-    const email = typeof body.email === "string" ? body.email.trim() : ""
-    if (!email) return NextResponse.json({ error: "Email is required." }, { status: 400 })
+    const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : ""
+    const phone = typeof body.phone === "string" ? body.phone.trim() : ""
+    const phoneCountryCode = typeof body.phoneCountryCode === "string" ? body.phoneCountryCode.trim() : ""
 
-    const user = await prisma.user.findFirst({
-      where: { email, role: UserRole.SELLER_PRODUCT },
-      select: { id: true, name: true, phone: true, phoneCountryCode: true, isEmailVerified: true, emailOtpSentAt: true },
-    })
+    if (!email && !phone) {
+      return NextResponse.json({ error: "Email or mobile number is required." }, { status: 400 })
+    }
+
+    let user: any = null
+    if (email) {
+      user = await prisma.user.findFirst({
+        where: { email, role: UserRole.SELLER_PRODUCT },
+        select: { id: true, name: true, email: true, phone: true, phoneCountryCode: true, isEmailVerified: true, emailOtpSentAt: true },
+      })
+    } else if (phone) {
+      const phoneVariants = getEquivalentPhoneVariants(phone, phoneCountryCode)
+      user = await prisma.user.findFirst({
+        where: { phone: { in: phoneVariants }, role: UserRole.SELLER_PRODUCT },
+        select: { id: true, name: true, email: true, phone: true, phoneCountryCode: true, isEmailVerified: true, emailOtpSentAt: true },
+      })
+    }
 
     if (!user || !user.isEmailVerified) {
-      return NextResponse.json({ message: "If an account exists for this email, OTP has been sent." }, { status: 200 })
+      return NextResponse.json({ message: "If an account exists with this credential, OTP has been sent." }, { status: 200 })
     }
 
     const now = new Date()
@@ -38,20 +52,30 @@ export async function POST(request: Request) {
     })
 
     const baseUrl = getAppBaseUrl(request)
-    const resetLink = `${baseUrl}/product-seller/reset-password?email=${encodeURIComponent(email)}`
+    const identifierParam = user.email ? `email=${encodeURIComponent(user.email)}` : `phone=${encodeURIComponent(user.phone || "")}`
+    const resetLink = `${baseUrl}/product-seller/reset-password?${identifierParam}`
 
-    await Promise.allSettled([
-      sendPasswordResetOtpEmail({ to: email, otp, name: user.name, resetLink }),
-      sendPasswordResetSms({
-        to: user.phone,
-        countryCode: user.phoneCountryCode,
-        otp,
-        name: user.name,
-        resetLink,
-      }),
-    ])
+    const sendPromises: Promise<any>[] = []
+    if (user.phone) {
+      sendPromises.push(
+        sendPasswordResetSms({
+          to: user.phone,
+          countryCode: user.phoneCountryCode,
+          otp,
+          name: user.name,
+          resetLink,
+        })
+      )
+    }
+    if (user.email) {
+      sendPromises.push(
+        sendPasswordResetOtpEmail({ to: user.email, otp, name: user.name, resetLink })
+      )
+    }
 
-    return NextResponse.json({ message: "If an account exists for this email, OTP has been sent." }, { status: 200 })
+    await Promise.allSettled(sendPromises)
+
+    return NextResponse.json({ message: "If an account exists with this credential, OTP has been sent." }, { status: 200 })
   } catch (error) {
     console.error("Product seller forgot-password send-otp error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })

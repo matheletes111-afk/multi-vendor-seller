@@ -25,22 +25,36 @@ export async function POST(request: Request) {
       csrfToken?: string
     }
 
-    if (!email || !password) {
+    const rawIdentifier = (email || (body as any).phone || (body as any).identifier || "").trim()
+    const rawCountryCode = ((body as any).phoneCountryCode || "").trim()
+
+    if (!rawIdentifier || !password) {
       return NextResponse.json(
-        { error: "Email and password are required" },
+        { error: "Email or mobile number and password are required" },
         { status: 400 }
       )
     }
 
-    const cleanEmail = email.trim().toLowerCase()
-    const user = await prisma.user.findUnique({
-      where: { email: cleanEmail },
-      select: { id: true, password: true, role: true, isEmailVerified: true },
-    })
+    const isEmailFormat = rawIdentifier.includes("@")
+    let user: any = null
+
+    if (isEmailFormat) {
+      user = await prisma.user.findUnique({
+        where: { email: rawIdentifier.toLowerCase() },
+        select: { id: true, email: true, phone: true, password: true, role: true, isEmailVerified: true },
+      })
+    } else {
+      const { getEquivalentPhoneVariants } = await import("@/lib/phone-validation")
+      const phoneVariants = getEquivalentPhoneVariants(rawIdentifier, rawCountryCode)
+      user = await prisma.user.findFirst({
+        where: { phone: { in: phoneVariants } },
+        select: { id: true, email: true, phone: true, password: true, role: true, isEmailVerified: true },
+      })
+    }
 
     if (!user || !user.password) {
       return NextResponse.json(
-        { error: "Invalid email or password" },
+        { error: "Invalid credentials" },
         { status: 401 }
       )
     }
@@ -48,7 +62,7 @@ export async function POST(request: Request) {
     const isPasswordValid = await bcrypt.compare(password, user.password)
     if (!isPasswordValid) {
       return NextResponse.json(
-        { error: "Invalid email or password" },
+        { error: "Invalid credentials" },
         { status: 401 }
       )
     }
@@ -57,15 +71,20 @@ export async function POST(request: Request) {
     if (user.role !== UserRole.RIDER) {
       const label = ROLE_LABELS[user.role] || user.role
       return NextResponse.json(
-        { error: `This email is registered as a ${label}. Please sign in using the ${label} login portal.` },
+        { error: `This account is registered as a ${label}. Please sign in using the ${label} login portal.` },
         { status: 401 }
       )
     }
 
-    // Email verification check
+    // Verification check
     if (user.isEmailVerified === false) {
       return NextResponse.json(
-        { error: "Please verify your email address before logging in.", needsVerification: true },
+        {
+          error: "Please verify your account before logging in.",
+          needsVerification: true,
+          email: user.email,
+          phone: user.phone,
+        },
         { status: 403 }
       )
     }
@@ -111,7 +130,7 @@ export async function POST(request: Request) {
     }
 
     const form = new URLSearchParams({
-      email: cleanEmail,
+      email: rawIdentifier,
       password: password as string,
       role: UserRole.RIDER,
       callbackUrl: validatedCallbackUrl,

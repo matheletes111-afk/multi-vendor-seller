@@ -37,6 +37,7 @@ export async function GET(request: NextRequest) {
       success: true,
       total: summary.total,
       byType: summary.byType,
+      byChannel: summary.byChannel,
       recipients: summary.recipients.slice(0, 100), // first 100 preview
     })
   } catch (error: any) {

@@ -116,6 +116,8 @@ export async function POST(request: NextRequest) {
 
     const contentType = request.headers.get("content-type") || ""
     let name: string | null = null
+    let email: string | null = null
+    let hasEmailField = false
     let phone: string | null = null
     let phoneCountryCode: string | null = null
     let vehicleTypes: string[] = []
@@ -146,6 +148,10 @@ export async function POST(request: NextRequest) {
       const formData = await request.formData()
 
       name = formData.get("name") as string | null
+      if (formData.has("email")) {
+        hasEmailField = true
+        email = formData.get("email") as string | null
+      }
       phone = formData.get("phone") as string | null
       phoneCountryCode = formData.get("phoneCountryCode") as string | null
       vehicleName = formData.get("vehicleName") as string | null
@@ -262,6 +268,10 @@ export async function POST(request: NextRequest) {
     } else {
       const body = await request.json().catch(() => ({}))
       name = body.name || null
+      if ("email" in body) {
+        hasEmailField = true
+        email = body.email || null
+      }
       phone = body.phone || null
       phoneCountryCode = body.phoneCountryCode || null
       vehicleName = body.vehicleName || null
@@ -320,11 +330,31 @@ export async function POST(request: NextRequest) {
 
     const userUpdates: {
       name?: string
+      email?: string | null
       image?: string | null
       phone?: string | null
       phoneCountryCode?: string | null
       password?: string
     } = {}
+
+    if (hasEmailField) {
+      const trimmedEmail = email?.trim().toLowerCase()
+      if (trimmedEmail) {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+        if (!emailRegex.test(trimmedEmail)) {
+          return NextResponse.json({ success: false, error: "Please enter a valid email address." }, { status: 400 })
+        }
+        const existingUser = await prisma.user.findFirst({
+          where: { email: trimmedEmail, NOT: { id: userId } },
+        })
+        if (existingUser) {
+          return NextResponse.json({ success: false, error: "This email address is already registered to another account." }, { status: 400 })
+        }
+        userUpdates.email = trimmedEmail
+      } else {
+        userUpdates.email = null
+      }
+    }
 
     if (name?.trim()) userUpdates.name = name.trim()
     if (profileImageUrl) userUpdates.image = profileImageUrl
@@ -392,7 +422,8 @@ export async function POST(request: NextRequest) {
     if (userUpdates.password) {
       tokens = generateMobileTokens({
         userId,
-        email: user.email,
+        email: userUpdates.email !== undefined ? userUpdates.email : user.email,
+        phone: userUpdates.phone !== undefined ? userUpdates.phone : user.phone,
         role: user.role,
         passwordHash: finalPasswordHash,
       })
@@ -417,3 +448,7 @@ export async function POST(request: NextRequest) {
     )
   }
 }
+
+export const PUT = POST
+export const PATCH = POST
+

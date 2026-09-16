@@ -3,36 +3,50 @@ import bcrypt from "bcryptjs"
 import { UserRole } from "@prisma/client"
 import { prisma } from "@/lib/prisma"
 import { checkOtpRateLimit, recordOtpFailure, resetOtpRateLimit } from "@/lib/rate-limit"
+import { getEquivalentPhoneVariants } from "@/lib/phone-validation"
 
-/** POST /api/service-seller/auth/forgot-password/reset — Body: { email, otp, newPassword } */
+/** POST /api/service-seller/auth/forgot-password/reset — Body: { email, phone, phoneCountryCode, otp, newPassword } */
 export async function POST(request: Request) {
   try {
     const body = await request.json().catch(() => ({}))
-    const email = typeof body.email === "string" ? body.email.trim() : ""
+    const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : ""
+    const phone = typeof body.phone === "string" ? body.phone.trim() : ""
+    const phoneCountryCode = typeof body.phoneCountryCode === "string" ? body.phoneCountryCode.trim() : ""
     const otp = typeof body.otp === "string" ? body.otp.trim() : ""
     const newPassword = typeof body.newPassword === "string" ? body.newPassword : ""
 
-    if (!email || !otp || !newPassword) {
-      return NextResponse.json({ error: "Email, OTP and new password are required." }, { status: 400 })
+    if ((!email && !phone) || !otp || !newPassword) {
+      return NextResponse.json({ error: "Email or mobile number, OTP and new password are required." }, { status: 400 })
     }
     if (newPassword.length < 6) {
       return NextResponse.json({ error: "Password must be at least 6 characters." }, { status: 400 })
     }
 
-    const rateLimitKey = `${email}:forgot-password-reset`
+    const identifier = email || phone
+    const rateLimitKey = `${identifier}:forgot-password-reset`
     const rateCheck = await checkOtpRateLimit(rateLimitKey)
     if (!rateCheck.allowed) {
       const minutesLeft = Math.ceil(rateCheck.blockTimeLeftMs / 60000)
       return NextResponse.json({ error: `Too many failed attempts. Try again in ${minutesLeft} minute(s).` }, { status: 429 })
     }
 
-    const user = await prisma.user.findFirst({
-      where: { email, role: UserRole.SELLER_SERVICE },
-      select: { id: true, isEmailVerified: true, verifyEmailOtp: true, emailVerificationExpires: true },
-    })
+    let user: any = null
+    if (email) {
+      user = await prisma.user.findFirst({
+        where: { email, role: UserRole.SELLER_SERVICE },
+        select: { id: true, isEmailVerified: true, verifyEmailOtp: true, emailVerificationExpires: true },
+      })
+    } else if (phone) {
+      const phoneVariants = getEquivalentPhoneVariants(phone, phoneCountryCode)
+      user = await prisma.user.findFirst({
+        where: { phone: { in: phoneVariants }, role: UserRole.SELLER_SERVICE },
+        select: { id: true, isEmailVerified: true, verifyEmailOtp: true, emailVerificationExpires: true },
+      })
+    }
+
     if (!user || !user.isEmailVerified) {
       await recordOtpFailure(rateLimitKey)
-      return NextResponse.json({ error: "Invalid email or OTP." }, { status: 400 })
+      return NextResponse.json({ error: "Invalid credentials or OTP." }, { status: 400 })
     }
     const now = new Date()
     if (
@@ -41,7 +55,7 @@ export async function POST(request: Request) {
       user.emailVerificationExpires < now
     ) {
       await recordOtpFailure(rateLimitKey)
-      return NextResponse.json({ error: "Invalid email or OTP." }, { status: 400 })
+      return NextResponse.json({ error: "Invalid credentials or OTP." }, { status: 400 })
     }
 
     const hashedPassword = await bcrypt.hash(newPassword, 10)
