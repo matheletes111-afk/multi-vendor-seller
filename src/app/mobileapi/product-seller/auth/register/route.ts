@@ -124,7 +124,10 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
     }
 
     // Phone is required
-    const validation = validatePhoneAndCountryCode(phone || "", phoneCountryCode || "")
+    const code = typeof phoneCountryCode === "string" && phoneCountryCode.trim().length > 0
+      ? phoneCountryCode.trim()
+      : "+232"
+    const validation = validatePhoneAndCountryCode(phone || "", code)
     if (!validation.isValid) {
       return NextResponse.json<ErrorResponse>(
         {

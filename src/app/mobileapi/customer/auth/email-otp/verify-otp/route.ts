@@ -67,7 +67,6 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
     const UserDetails = await prisma.user.findUniqueOrThrow({
       where: { id: user.id },
       select: {
-        password: true,
         id: true,
         name: true,
         email: true,

@@ -83,6 +83,19 @@ export async function POST(request: Request) {
         )
       }
 
+      if (cleanEmail) {
+        const existingEmailUser = await prisma.user.findUnique({
+          where: { email: cleanEmail },
+          select: { id: true },
+        })
+        if (existingEmailUser && existingEmailUser.id !== existingPhoneUser.id) {
+          return NextResponse.json(
+            { error: "An account with this email already exists. Please log in." },
+            { status: 400 }
+          )
+        }
+      }
+
       // Existing unverified user: refresh OTP and resend
       const existingRider = await prisma.rider.findUnique({ where: { userId: existingPhoneUser.id } })
       if (!existingRider) {
@@ -170,12 +183,10 @@ export async function POST(request: Request) {
       })
 
       if (existingEmailUser) {
-        if (existingEmailUser.isEmailVerified) {
-          return NextResponse.json(
-            { error: "An account with this email already exists. Please log in." },
-            { status: 400 }
-          )
-        }
+        return NextResponse.json(
+          { error: "An account with this email already exists. Please log in." },
+          { status: 400 }
+        )
       }
     }
 

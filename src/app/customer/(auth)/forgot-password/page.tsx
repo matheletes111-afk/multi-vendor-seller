@@ -12,26 +12,33 @@ import { Alert, AlertDescription } from "@/ui/alert"
 
 export default function CustomerForgotPasswordPage() {
   const router = useRouter()
-  const [email, setEmail] = useState("")
+  const [identifier, setIdentifier] = useState("")
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
+    const raw = identifier.trim()
+    if (!raw) return
+    const isEmail = raw.includes("@")
+
     setLoading(true)
     try {
       const res = await fetch("/api/customer/auth/forgot-password/send-otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim() }),
+        body: JSON.stringify(isEmail ? { email: raw.toLowerCase() } : { phone: raw }),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
         setError(data.error || "Failed to send OTP.")
         return
       }
-      router.push(`/customer/reset-password?email=${encodeURIComponent(email.trim())}`)
+      const queryParam = isEmail
+        ? `email=${encodeURIComponent(raw.toLowerCase())}`
+        : `phone=${encodeURIComponent(raw)}`
+      router.push(`/customer/reset-password?${queryParam}`)
     } catch {
       setError("Something went wrong. Please try again.")
     } finally {
@@ -49,7 +56,7 @@ export default function CustomerForgotPasswordPage() {
         </div>
         <div className="mb-6 sm:mb-8">
           <h1 className="text-left text-xl font-semibold text-gray-900 sm:text-2xl">Forgot password</h1>
-          <p className="mt-1 text-left text-sm text-gray-500">Enter your email to receive an OTP.</p>
+          <p className="mt-1 text-left text-sm text-gray-500">Enter your registered email or mobile number to receive an OTP.</p>
         </div>
         <form onSubmit={handleSubmit}>
           {error && (
@@ -60,13 +67,13 @@ export default function CustomerForgotPasswordPage() {
           )}
           <div className="space-y-5">
             <div>
-              <Label htmlFor="email" className="mb-1.5 block text-sm font-medium text-gray-700">Email</Label>
+              <Label htmlFor="identifier" className="mb-1.5 block text-sm font-medium text-gray-700">Email or Mobile Number</Label>
               <Input
-                id="email"
-                type="email"
-                placeholder="example@gmail.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                id="identifier"
+                type="text"
+                placeholder="example@gmail.com or mobile number"
+                value={identifier}
+                onChange={(e) => setIdentifier(e.target.value)}
                 required
                 disabled={loading}
                 className="rounded-xl border-gray-200"

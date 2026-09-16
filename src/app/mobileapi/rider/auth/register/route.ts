@@ -114,6 +114,19 @@ export async function POST(request: Request) {
         )
       }
 
+      if (cleanEmail) {
+        const existingEmail = await prisma.user.findUnique({
+          where: { email: cleanEmail },
+          select: { id: true },
+        })
+        if (existingEmail && existingEmail.id !== existingPhone.id) {
+          return NextResponse.json(
+            { success: false, error: "An account with this email is already registered. Please log in." },
+            { status: 400 }
+          )
+        }
+      }
+
       // Ensure rider profile exists in riders table
       let rider = existingPhone.rider
       if (!rider) {
@@ -212,7 +225,7 @@ export async function POST(request: Request) {
       const existingEmail = await prisma.user.findUnique({
         where: { email: cleanEmail },
       })
-      if (existingEmail && existingEmail.isEmailVerified) {
+      if (existingEmail) {
         return NextResponse.json(
           { success: false, error: "An account with this email is already registered. Please log in." },
           { status: 400 }

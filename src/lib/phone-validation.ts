@@ -9,7 +9,7 @@
  */
 export function validatePhoneAndCountryCode(
   phone: any,
-  phoneCountryCode: any
+  phoneCountryCode?: any
 ): {
   isValid: boolean
   error?: string
@@ -20,17 +20,17 @@ export function validatePhoneAndCountryCode(
   if (phone === undefined || phone === null || typeof phone !== "string" || !phone.trim()) {
     return { isValid: false, error: "Phone number is required" }
   }
-  if (
-    phoneCountryCode === undefined ||
-    phoneCountryCode === null ||
-    typeof phoneCountryCode !== "string" ||
-    !phoneCountryCode.trim()
-  ) {
-    return { isValid: false, error: "Phone country code is required" }
-  }
+
+  const effectiveCountryCode =
+    phoneCountryCode !== undefined &&
+    phoneCountryCode !== null &&
+    typeof phoneCountryCode === "string" &&
+    phoneCountryCode.trim().length > 0
+      ? phoneCountryCode.trim()
+      : "+232"
 
   // Sanitize country code
-  const rawCountryCode = phoneCountryCode.trim()
+  const rawCountryCode = effectiveCountryCode
   const ccDigits = rawCountryCode.replace(/\D/g, "")
   if (!ccDigits || ccDigits.length > 4 || ccDigits.startsWith("0")) {
     return {

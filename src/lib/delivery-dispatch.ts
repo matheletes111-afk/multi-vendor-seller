@@ -1012,7 +1012,7 @@ export async function handleRiderStatusUpdate(
       }
 
       // Send OTP to customer via Email & SMS with seller store name and exact OTP
-      if (assignment.order.customer?.email && assignment.deliveryOtp) {
+      if ((assignment.order.customer?.email || assignment.order.customer?.phone) && assignment.deliveryOtp) {
         const storeName =
           assignment.seller?.store?.name ||
           assignment.seller?.businessInfo?.businessName ||
@@ -1473,8 +1473,8 @@ export async function manualAssignRiderToOrder(
     }).catch((err) => console.debug("[FCM] Manual assign notification failed:", err))
   }
 
-  // Also send direct email alert to the assigned rider
-  if (rider.user?.email) {
+  // Also send direct email/SMS alert to the assigned rider
+  if (rider.user?.email || rider.user?.phone) {
     const sellerItemsForManual = order.items.filter((i) => i.sellerId === sellerId)
     const sellerDeliveryFee = sellerItemsForManual.reduce(
       (sum, item) => sum + (Number(item.shippingAmount) || 0),
@@ -1504,7 +1504,9 @@ export async function manualAssignRiderToOrder(
         subject: `🛵 New Delivery Order Assigned: #${order.orderNumber} (Earning: NLe ${feeFormatted})`,
         text: `Hello ${rider.user.name || "Rider"},\n\nYou have been directly assigned delivery for Order #${order.orderNumber} from ${shopName}.\n\n💰 Delivery Earning: NLe ${feeFormatted}\n🏪 Store: ${shopName} (${shopAddress})\n📍 Delivery Destination: ${customerAddress} (${customerName})\n\nPlease open your MEEEM Rider App to view pickup details.`,
       }).catch(() => null)
-    } else if (rider.user?.phone) {
+    }
+
+    if (rider.user?.phone) {
       sendNotificationSms({
         to: rider.user.phone,
         countryCode: rider.user.phoneCountryCode,

@@ -73,7 +73,7 @@ export default function RestaurantSellerRegistrationPage() {
         const nextQuery = rawEmail
           ? `email=${encodeURIComponent(rawEmail)}`
           : `phone=${encodeURIComponent(phoneValidation.cleanedPhone!)}&phoneCountryCode=${encodeURIComponent(phoneValidation.cleanedCountryCode!)}`
-        router.push(result.verifyUrl + `?${nextQuery}&from=registration`)
+        router.push(`/restaurant-seller/verify-otp?${nextQuery}&from=registration`)
       } else {
         setError(result.error || "Registration failed. Please try again.")
       }

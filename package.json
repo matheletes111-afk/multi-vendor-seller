@@ -13,11 +13,13 @@
     "db:migrate": "prisma migrate dev",
     "db:generate": "prisma generate",
     "db:seed": "tsx prisma/seed.ts",
+    "db:link-apple-plans": "tsx scripts/link-apple-iap-plans.ts",
     "cron:onboarding-reminders": "tsx scripts/send-onboarding-reminders.ts",
     "socket": "node socket-server.js",
     "test:socket": "node scripts/test-socket.js"
   },
   "dependencies": {
+    "@apple/app-store-server-library": "^3.1.0",
     "@auth/prisma-adapter": "^2.7.0",
     "@aws-sdk/client-s3": "^3.890.0",
     "@aws-sdk/s3-request-presigner": "3.890.0",

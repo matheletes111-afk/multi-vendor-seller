@@ -42,6 +42,9 @@ enum SubscriptionStatus {
   CANCELED
   PAST_DUE
   TRIALING
+  IN_GRACE_PERIOD
+  EXPIRED
+  REVOKED
 }
 
 enum ServiceType {
@@ -634,6 +637,12 @@ model HotelSubscription {
   hotelSellerId     String             @unique
   planId            String
   status            SubscriptionStatus @default(TRIALING)
+  provider          String?            @default("stripe")
+  appleProductId    String?
+  originalTransactionId String?        @unique
+  latestTransactionId   String?
+  environment       String?
+  autoRenew         Boolean            @default(true)
   currentPeriodStart DateTime?
   currentPeriodEnd   DateTime?
   paidPrice          Float?
@@ -783,6 +792,12 @@ model RestaurantSubscription {
   restaurantSellerId String           @unique
   planId            String
   status            SubscriptionStatus @default(TRIALING)
+  provider          String?            @default("stripe")
+  appleProductId    String?
+  originalTransactionId String?        @unique
+  latestTransactionId   String?
+  environment       String?
+  autoRenew         Boolean            @default(true)
   currentPeriodStart DateTime?
   currentPeriodEnd   DateTime?
   paidPrice          Float?
@@ -920,6 +935,7 @@ model Plan {
   description String?           @db.Text
   price       Float
   duration    Int               @default(30) // duration in days
+  appleProductId String?        // e.g. "com.meeem.seller.premium.monthly"
   maxProducts Int?              // null = unlimited
   maxOrders   Int?              // null = unlimited
   maxRooms    Int?              // null = unlimited
@@ -940,6 +956,12 @@ model Subscription {
   sellerId          String             @unique
   planId            String
   status            SubscriptionStatus @default(TRIALING)
+  provider          String?            @default("stripe")
+  appleProductId    String?
+  originalTransactionId String?        @unique
+  latestTransactionId   String?
+  environment       String?
+  autoRenew         Boolean            @default(true)
   stripeCustomerId String?            @unique
   stripeSubscriptionId String?         @unique
   stripePriceId     String?
@@ -1907,4 +1929,25 @@ model RiderDeliveryAssignment {
   @@index([sellerId])
   @@index([status])
   @@map("rider_delivery_assignments")
+}
+
+// ==========================================
+// APPLE IN-APP PURCHASE AUDIT & EVENT LOGS
+// ==========================================
+
+model AppleIapEvent {
+  id                    String    @id @default(cuid())
+  notificationUuid      String?   @unique
+  notificationType      String
+  subtype               String?
+  originalTransactionId String
+  transactionId         String?
+  sellerId              String?
+  sellerType            String?
+  environment           String?
+  rawPayload            Json?
+  processedAt           DateTime  @default(now())
+
+  @@index([originalTransactionId])
+  @@map("apple_iap_events")
 }

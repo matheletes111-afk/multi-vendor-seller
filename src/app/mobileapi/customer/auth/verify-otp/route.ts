@@ -165,28 +165,12 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
 
     // Check if already verified
     if (user.isEmailVerified) {
-      // Generate tokens for already verified user
-      const tokens = generateMobileTokens({
-        userId: user.id,
-        email: user.email,
-        phone: user.phone,
-        role: user.role,
-        passwordHash: user.password,
-      })
-
-      // Remove sensitive data
-      const { verifyEmailOtp, emailVerificationExpires, emailOtpSentAt, password, ...userData } = user
-
-      return NextResponse.json<SuccessResponse>(
+      return NextResponse.json<ErrorResponse>(
         { 
-          success: true,
-          message: "Account already verified.",
-          data: {
-            user: userData,
-            tokens
-          }
+          success: false,
+          error: "Account is already verified. Please log in.",
         },
-        { status: 200 }
+        { status: 400 }
       )
     }
 

@@ -14,6 +14,8 @@ function CustomerResetPasswordForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const email = (searchParams.get("email") ?? "").trim()
+  const phone = (searchParams.get("phone") ?? "").trim()
+  const identifier = email || phone
   const [otp, setOtp] = useState("")
   const [newPassword, setNewPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
@@ -26,8 +28,8 @@ function CustomerResetPasswordForm() {
     e.preventDefault()
     setError("")
 
-    if (!email) {
-      setError("Email is missing. Please start again from forgot password.")
+    if (!identifier) {
+      setError("Email or mobile number is missing. Please start again from forgot password.")
       return
     }
     if (otp.length !== 6) {
@@ -49,7 +51,8 @@ function CustomerResetPasswordForm() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          email,
+          ...(email ? { email } : {}),
+          ...(phone ? { phone } : {}),
           otp,
           newPassword,
         }),
@@ -68,14 +71,14 @@ function CustomerResetPasswordForm() {
   }
 
   const resendOtp = async () => {
-    if (!email || loading) return
+    if (!identifier || loading) return
     setError("")
     setLoading(true)
     try {
       const res = await fetch("/api/customer/auth/forgot-password/send-otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify(email ? { email } : { phone }),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
@@ -88,11 +91,11 @@ function CustomerResetPasswordForm() {
     }
   }
 
-  if (!email) {
+  if (!identifier) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50/90 p-4">
         <div className="w-full max-w-[440px] rounded-3xl bg-white p-8 shadow-xl text-center">
-          <p className="text-gray-600">Missing email. Please start from forgot password.</p>
+          <p className="text-gray-600">Missing email or mobile number. Please start from forgot password.</p>
           <Link href="/customer/forgot-password" className="mt-4 inline-block text-blue-600 hover:underline">Go to forgot password</Link>
         </div>
       </div>
@@ -109,7 +112,7 @@ function CustomerResetPasswordForm() {
         </div>
         <div className="mb-6 sm:mb-8">
           <h1 className="text-left text-xl font-semibold text-gray-900 sm:text-2xl">Reset password</h1>
-          <p className="mt-1 text-left text-sm text-gray-500">Enter OTP sent to {email} and set your new password.</p>
+          <p className="mt-1 text-left text-sm text-gray-500">Enter OTP sent to {identifier} and set your new password.</p>
         </div>
         <form onSubmit={handleSubmit}>
           {error && (
