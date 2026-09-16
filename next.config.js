@@ -1,5 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  productionBrowserSourceMaps: false,
   images: {
     domains: ['localhost', 'images.unsplash.com', 'm.media-amazon.com', 'www.shutterstock.com', 'media.istockphoto.com', 'meeemsl-bucket.s3.us-east-1.amazonaws.com', 'img.youtube.com', 'i.ytimg.com', 'content.jdmagicbox.com'],
     remotePatterns: [
