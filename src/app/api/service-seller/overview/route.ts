@@ -7,16 +7,24 @@ import { serviceSellerItemsNet, serviceSellerLineGross } from "@/lib/service-sel
 import { getValidSubscription } from "@/lib/subscriptions"
 
 export async function GET() {
-  const session = await auth()
-  if (!session?.user || !isServiceSeller(session.user)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  const [seller, globalSetting] = await Promise.all([
-    prisma.seller.findUnique({ where: { userId: session.user.id }, select: { id: true, commissionRate: true } }),
-    prisma.globalSetting.findFirst(),
-  ])
-  if (!seller) return NextResponse.json({ error: "Seller not found" }, { status: 404 })
-  const [subscription, totalServices, totalOrders, serviceLines, totalAdClicks] = await Promise.all([
-    getValidSubscription(seller.id),
-    prisma.service.count({ where: { sellerId: seller.id, isActive: true } }),
+  try {
+    const session = await auth()
+    if (!session?.user || !isServiceSeller(session.user)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    const [seller, globalSetting] = await Promise.all([
+      prisma.seller.findUnique({ where: { userId: session.user.id }, select: { id: true, commissionRate: true } }),
+      prisma.globalSetting.findFirst(),
+    ])
+    if (!seller) return NextResponse.json({ error: "Seller not found" }, { status: 404 })
+
+    let subscription: any = null
+    try {
+      subscription = await getValidSubscription(seller.id)
+    } catch (subErr) {
+      console.warn("Error fetching subscription in service seller overview:", subErr)
+    }
+
+    const [totalServices, totalOrders, serviceLines, totalAdClicks] = await Promise.all([
+      prisma.service.count({ where: { sellerId: seller.id, isActive: true } }),
     prisma.order.count({
       where: {
         items: {
@@ -72,19 +80,23 @@ export async function GET() {
     }
   })
 
-  return NextResponse.json({
-    subscription: subscription ? { ...subscription, plan: subscription.plan } : null,
-    commissionRate: seller.commissionRate ?? globalSetting?.serviceBaseCommission ?? globalSetting?.baseCommission ?? 10.0,
-    isGlobalRate: seller.commissionRate === null || seller.commissionRate === undefined,
-    totalServices,
-    totalOrders,
-    sellerGrossTotal,
-    sellerGrossFormatted: formatCurrency(sellerGrossTotal),
-    platformCommissionTotal,
-    platformCommissionFormatted: formatCurrency(platformCommissionTotal),
-    sellerNetTotal,
-    sellerNetFormatted: formatCurrency(sellerNetTotal),
-    creditList,
-    totalAdClicks,
-  })
+    return NextResponse.json({
+      subscription: subscription ? { ...subscription, plan: subscription.plan } : null,
+      commissionRate: seller.commissionRate ?? globalSetting?.serviceBaseCommission ?? globalSetting?.baseCommission ?? 10.0,
+      isGlobalRate: seller.commissionRate === null || seller.commissionRate === undefined,
+      totalServices,
+      totalOrders,
+      sellerGrossTotal,
+      sellerGrossFormatted: formatCurrency(sellerGrossTotal),
+      platformCommissionTotal,
+      platformCommissionFormatted: formatCurrency(platformCommissionTotal),
+      sellerNetTotal,
+      sellerNetFormatted: formatCurrency(sellerNetTotal),
+      creditList,
+      totalAdClicks,
+    })
+  } catch (error: any) {
+    console.error("Error in service seller overview API:", error)
+    return NextResponse.json({ error: error.message || "Internal Server Error" }, { status: 500 })
+  }
 }
