@@ -118,6 +118,14 @@ export function HotelOnboardingClient() {
     loadData()
   }, [router])
 
+const HOTEL_SELLER_STEP_FILES: Record<number, string[]> = {
+  2: ["profileImage", "busRegCert", "cityCouncilCert", "gstTinCert", "addressProof"],
+  3: ["idFront", "idBack", "selfie"],
+  4: ["logo", "banner", "mainPhoto"],
+  5: ["passbook", "bankLetter"],
+  6: [],
+}
+
   const handleNext = async (e: React.FormEvent) => {
     e.preventDefault()
     setSaving(true)
@@ -127,10 +135,11 @@ export function HotelOnboardingClient() {
     const formData = new FormData(form)
     formData.append("step", currentStep.toString())
 
-    // Ensure compressed preview files for inputs in the current form are attached
-    Object.entries(previews).forEach(([key, val]) => {
-      if (val?.file) {
-        formData.set(key, val.file)
+    // Ensure ONLY compressed preview files belonging to the CURRENT step are attached
+    const currentStepFileKeys = HOTEL_SELLER_STEP_FILES[currentStep] || []
+    currentStepFileKeys.forEach((key) => {
+      if (previews[key]?.file) {
+        formData.set(key, previews[key].file)
       }
     })
 
@@ -296,12 +305,32 @@ export function HotelOnboardingClient() {
         console.warn("Could not reload seller data:", reloadErr)
       }
 
+      // Prune successfully uploaded files for this step so subsequent steps don't re-transmit them
+      const completedStepKeys = HOTEL_SELLER_STEP_FILES[currentStep] || []
+      setPreviews((prev) => {
+        const copy = { ...prev }
+        completedStepKeys.forEach((key) => {
+          if (copy[key]?.url) {
+            try { URL.revokeObjectURL(copy[key].url) } catch (_) {}
+          }
+          delete copy[key]
+        })
+        return copy
+      })
+
       if (currentStep < 6) {
         setCurrentStep((currentStep + 1) as Step)
       }
       window.scrollTo(0, 0)
     } catch (err: any) {
-      setError(err.message || "An unexpected error occurred. Please try again.")
+      let msg = err.message || "An unexpected error occurred. Please try again."
+      if (msg.includes("Failed to fetch") || msg.includes("Load failed") || msg.includes("NetworkError")) {
+        msg = "Upload failed (Network/File Size issue). Please ensure each uploaded document or photo is under 2.5 MB and your connection is stable, then try again."
+      }
+      setError(msg)
+      if (typeof window !== "undefined") {
+        window.scrollTo({ top: 0, behavior: "smooth" })
+      }
     } finally {
       setSaving(false)
     }
@@ -321,11 +350,11 @@ export function HotelOnboardingClient() {
       const compressed = await compressImage(rawFile, 1200, 1200, 0.8)
       file = compressed
     } catch (err) {
-      console.error("Compression error:", err)
+      console.error("Image compression error:", err)
     }
 
-    if (file.size > 4.5 * 1024 * 1024) {
-      setError("File size exceeds 4.5 MB limit. Please select or compress a smaller file.")
+    if (file.size > 2.5 * 1024 * 1024) {
+      setError("File size exceeds 2.5 MB limit. Please select or compress a smaller file.")
       return
     }
 
@@ -343,7 +372,7 @@ export function HotelOnboardingClient() {
 
     const imagesOnlyKeys = ["idFront", "idBack", "selfie", "mainPhoto", "profileImage"]
     const isImagesOnly = imagesOnlyKeys.includes(key)
-    const validation = validateOnboardingFile(rawFile, { imagesOnly: isImagesOnly, maxSizeMb: 4.5 })
+    const validation = validateOnboardingFile(rawFile, { imagesOnly: isImagesOnly, maxSizeMb: 2.5, isPreCompression: true })
 
     if (!validation.isValid) {
       setError(validation.error || "Invalid file format. Only PDF and image files are allowed.")
@@ -373,12 +402,12 @@ export function HotelOnboardingClient() {
           console.warn("Could not set e.target.files via DataTransfer:", dtErr)
         }
       } catch (err) {
-        console.error("Compression error:", err)
+        console.error("Image compression error:", err)
       }
     }
 
-    if (file.size > 4.5 * 1024 * 1024) {
-      setError("File size exceeds 4.5 MB limit. Please select or compress a smaller file.")
+    if (file.size > 2.5 * 1024 * 1024) {
+      setError("File size exceeds 2.5 MB limit. Please select or compress a smaller file.")
       e.target.value = ""
       setPreviews(prev => {
         const copy = { ...prev }

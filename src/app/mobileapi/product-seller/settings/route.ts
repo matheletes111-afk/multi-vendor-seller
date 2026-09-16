@@ -190,14 +190,31 @@ export async function PUT(request: NextRequest) {
       const nationIdNumber = fd.get("nationIdentityNumber") as string | null
       if (nationIdNumber !== null) sellerUpdateData.nationIdentityNumber = nationIdNumber.trim() || null
 
-      // 3. Store Visuals & Coordinates (Multipart specific fields to match Web)
+      // 3. Store Visuals, Coordinates & Information (Multipart)
+      const storeName = (fd.get("name") || fd.get("storeName")) as string | null
+      const storeDesc = (fd.get("description") || fd.get("storeDescription")) as string | null
+      const storePhone = (fd.get("storePhone") || fd.get("phone")) as string | null
+      const storeWebsite = (fd.get("storeWebsite") || fd.get("website")) as string | null
+      const storeCity = (fd.get("storeCity") || fd.get("city")) as string | null
+      const storeState = (fd.get("storeState") || fd.get("state")) as string | null
+      const storeZipCode = (fd.get("storeZipCode") || fd.get("zipCode")) as string | null
+      const storeCountry = (fd.get("storeCountry") || fd.get("country")) as string | null
       const storeLat = (fd.get("storeLat") || fd.get("lat")) as string | null
       const storeLng = (fd.get("storeLng") || fd.get("lng")) as string | null
       const storeAddress = (fd.get("storeAddress") || fd.get("address")) as string | null
       const storeLogo = fd.get("storeLogo") as File | null
       const storeBanner = fd.get("storeBanner") as File | null
 
-      if (storeAddress) storeUpdates.address = storeAddress
+      if (storeName !== null && storeName !== undefined) storeUpdates.name = storeName.trim()
+      if (storeDesc !== null && storeDesc !== undefined) storeUpdates.description = storeDesc.trim()
+      if (storePhone !== null && storePhone !== undefined) storeUpdates.phone = storePhone.trim()
+      if (storeWebsite !== null && storeWebsite !== undefined) storeUpdates.website = storeWebsite.trim()
+      if (storeCity !== null && storeCity !== undefined) storeUpdates.city = storeCity.trim()
+      if (storeState !== null && storeState !== undefined) storeUpdates.state = storeState.trim()
+      if (storeZipCode !== null && storeZipCode !== undefined) storeUpdates.zipCode = storeZipCode.trim()
+      if (storeCountry !== null && storeCountry !== undefined) storeUpdates.country = storeCountry.trim()
+      if (storeAddress !== null && storeAddress !== undefined) storeUpdates.address = storeAddress.trim()
+
       if (storeLat && storeLng) {
         const lat = parseFloat(storeLat)
         const lng = parseFloat(storeLng)
@@ -270,6 +287,10 @@ export async function PUT(request: NextRequest) {
       if (state !== null) busInfoData.state = state.trim()
       if (postalCode !== null) busInfoData.postalCode = postalCode.trim()
       if (natureOfBusiness !== null) busInfoData.natureOfBusiness = natureOfBusiness.trim()
+      const yearsInOpRaw = fd.get("yearsInOperation") as string | null
+      if (yearsInOpRaw !== null && yearsInOpRaw !== "" && !isNaN(Number(yearsInOpRaw))) {
+        busInfoData.yearsInOperation = parseInt(yearsInOpRaw)
+      }
       const latRaw = fd.get("latitude")
       const lngRaw = fd.get("longitude")
       if (latRaw !== null && !isNaN(Number(latRaw))) busInfoData.latitude = Number(latRaw)
@@ -464,7 +485,7 @@ export async function PUT(request: NextRequest) {
         sellerUpdateData.store = {
           upsert: {
             update: storeUpdates,
-            create: { ...storeUpdates as any, name: "My Store" }
+            create: { ...storeUpdates as any, name: (storeUpdates.name as string) || "My Store" }
           }
         }
       }
@@ -642,9 +663,23 @@ export async function PUT(request: NextRequest) {
 
     const finalSellerUpdate: Prisma.SellerUpdateInput = {}
 
-    if (store && Object.keys(store).length > 0) {
+    const storeInput = store || body.storeData || (body.storeName !== undefined || body.storeDescription !== undefined ? body : null)
+    if (storeInput && Object.keys(storeInput).length > 0) {
       const allowed = ["name", "description", "phone", "website", "address", "city", "state", "zipCode", "country", "logo", "banner", "lat", "lng"]
-      const data = Object.fromEntries(Object.entries(store).filter(([k]) => allowed.includes(k)))
+      const data: any = {}
+      for (const k of allowed) {
+        if (storeInput[k] !== undefined) data[k] = storeInput[k]
+      }
+      if (storeInput.storeName !== undefined && data.name === undefined) data.name = storeInput.storeName
+      if (storeInput.storeDescription !== undefined && data.description === undefined) data.description = storeInput.storeDescription
+      if (storeInput.storePhone !== undefined && data.phone === undefined) data.phone = storeInput.storePhone
+      if (storeInput.storeWebsite !== undefined && data.website === undefined) data.website = storeInput.storeWebsite
+      if (storeInput.storeAddress !== undefined && data.address === undefined) data.address = storeInput.storeAddress
+      if (storeInput.storeCity !== undefined && data.city === undefined) data.city = storeInput.storeCity
+      if (storeInput.storeState !== undefined && data.state === undefined) data.state = storeInput.storeState
+      if (storeInput.storeZipCode !== undefined && data.zipCode === undefined) data.zipCode = storeInput.storeZipCode
+      if (storeInput.storeCountry !== undefined && data.country === undefined) data.country = storeInput.storeCountry
+
       if (Object.keys(data).length > 0) {
         finalSellerUpdate.store = {
           upsert: {
@@ -678,11 +713,20 @@ export async function PUT(request: NextRequest) {
             cleanBusInfo.gstCustomerName = null
           }
         }
+        if (cleanBusInfo.yearsInOperation !== undefined && cleanBusInfo.yearsInOperation !== null && cleanBusInfo.yearsInOperation !== "") {
+          cleanBusInfo.yearsInOperation = parseInt(cleanBusInfo.yearsInOperation)
+        }
+        if (cleanBusInfo.latitude !== undefined && cleanBusInfo.latitude !== null && cleanBusInfo.latitude !== "") {
+          cleanBusInfo.latitude = Number(cleanBusInfo.latitude)
+        }
+        if (cleanBusInfo.longitude !== undefined && cleanBusInfo.longitude !== null && cleanBusInfo.longitude !== "") {
+          cleanBusInfo.longitude = Number(cleanBusInfo.longitude)
+        }
         if (Object.keys(cleanBusInfo).length > 0) {
           finalSellerUpdate.businessInfo = {
             upsert: {
               update: cleanBusInfo,
-              create: { ...cleanBusInfo }
+              create: cleanBusInfo as any
             }
           }
         }

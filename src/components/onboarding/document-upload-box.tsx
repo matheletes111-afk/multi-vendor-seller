@@ -36,7 +36,7 @@ export function DocumentUploadBox({
   description,
   required = false,
   accept = ALLOWED_DOC_ACCEPT,
-  maxSizeMb = 4.5,
+  maxSizeMb = 2.5,
   currentUrl,
   localFile,
   onChange,
@@ -55,26 +55,24 @@ export function DocumentUploadBox({
   // Modals state
   const [cameraModalOpen, setCameraModalOpen] = useState(false)
   const [cropperModalOpen, setCropperModalOpen] = useState(false)
-  const [fileToCrop, setFileToCrop] = useState<File | null>(null)
   const [viewModalOpen, setViewModalOpen] = useState(false)
+  const [fileToCrop, setFileToCrop] = useState<File | null>(null)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  // Sync with localFile prop if changed from outside
+  // Sync external localFile
   useEffect(() => {
-    if (localFile !== undefined) {
+    if (localFile) {
       setSelectedFile(localFile)
-      if (localFile) {
-        const url = URL.createObjectURL(localFile)
-        setPreviewUrl(url)
-        return () => URL.revokeObjectURL(url)
-      } else {
-        setPreviewUrl(null)
+      const url = URL.createObjectURL(localFile)
+      setPreviewUrl(url)
+      return () => {
+        URL.revokeObjectURL(url)
       }
     }
   }, [localFile])
 
-  // Active display URL: local preview or DB currentUrl
+  // Active preview url
   const activeUrl = previewUrl || currentUrl || null
 
   // Determine if active document is PDF or Image
@@ -91,7 +89,7 @@ export function DocumentUploadBox({
     setError(null)
 
     // Validate
-    const validation = validateOnboardingFile(file, { imagesOnly, maxSizeMb })
+    const validation = validateOnboardingFile(file, { imagesOnly, maxSizeMb, isPreCompression: true })
     if (!validation.isValid) {
       setError(validation.error || "Invalid file format.")
       if (fileInputRef.current) fileInputRef.current.value = ""

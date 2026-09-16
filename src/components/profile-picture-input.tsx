@@ -141,7 +141,7 @@ export function ProfilePictureInput({
             ref={fileInputRef}
             type="file"
             name={fileInputName}
-            accept="image/*"
+            accept="image/*,.heic,.heif"
             onChange={handleFileChange}
             className="hidden"
           />

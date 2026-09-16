@@ -44,21 +44,55 @@ export function ImageCropperModal({
       return
     }
 
-    const objectUrl = URL.createObjectURL(imageFile)
+    let isSubscribed = true
+    let objectUrl = ""
+
+    try {
+      objectUrl = URL.createObjectURL(imageFile)
+    } catch (_) {
+      onCropComplete(imageFile)
+      onOpenChange(false)
+      return
+    }
+
     const img = new Image()
     img.crossOrigin = "anonymous"
+
+    const fallbackTimeout = setTimeout(() => {
+      if (isSubscribed && !imgElement) {
+        onCropComplete(imageFile)
+        onOpenChange(false)
+      }
+    }, 4000)
+
     img.onload = () => {
+      if (!isSubscribed) return
+      clearTimeout(fallbackTimeout)
       setImgElement(img)
       setZoom(1)
       setRotation(0)
       setPan({ x: 0, y: 0 })
     }
+
+    img.onerror = () => {
+      if (!isSubscribed) return
+      clearTimeout(fallbackTimeout)
+      onCropComplete(imageFile)
+      onOpenChange(false)
+    }
+
     img.src = objectUrl
 
     return () => {
-      URL.revokeObjectURL(objectUrl)
+      isSubscribed = false
+      clearTimeout(fallbackTimeout)
+      if (objectUrl) {
+        try {
+          URL.revokeObjectURL(objectUrl)
+        } catch (_) {}
+      }
     }
-  }, [imageFile, open])
+  }, [imageFile, open, onCropComplete, onOpenChange])
 
   // Get crop box dimensions based on container and aspect ratio
   const getCropDimensions = useCallback((containerWidth: number, containerHeight: number) => {

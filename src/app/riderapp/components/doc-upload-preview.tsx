@@ -27,7 +27,7 @@ export function DocUploadPreview({
   description,
   required = false,
   accept = ALLOWED_DOC_ACCEPT,
-  maxSizeMb = 4.5,
+  maxSizeMb = 2.5,
   value = null,
   onChange,
   disabled = false,
@@ -66,7 +66,7 @@ export function DocUploadPreview({
     if (!file) return
 
     const isImageOnly = accept.toLowerCase().includes("image") && !accept.toLowerCase().includes("pdf")
-    const validation = validateOnboardingFile(file, { imagesOnly: isImageOnly, maxSizeMb: 4.5 })
+    const validation = validateOnboardingFile(file, { imagesOnly: isImageOnly, maxSizeMb, isPreCompression: true })
     if (!validation.isValid) {
       setError(validation.error || "Invalid file format. Only PDF and image files are allowed.")
       if (fileInputRef.current) fileInputRef.current.value = ""
@@ -83,8 +83,8 @@ export function DocUploadPreview({
       }
     }
 
-    if (processedFile.size > 4.5 * 1024 * 1024) {
-      setError(`File size exceeds 4.5MB limit. Please upload a smaller document.`)
+    if (processedFile.size > maxSizeMb * 1024 * 1024) {
+      setError(`File size exceeds ${maxSizeMb}MB limit. Please upload a smaller document.`)
       return
     }
 

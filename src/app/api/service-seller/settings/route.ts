@@ -89,10 +89,12 @@ export async function PUT(request: NextRequest) {
 
   const contentType = request.headers.get("content-type") ?? ""
   const validatePhoneFields = (phone: string | null | undefined, countryCode: string | null | undefined) => {
-    if (!phone?.trim() || !countryCode?.trim()) {
+    const finalPhone = phone?.trim() || seller.user?.phone || ""
+    const finalCountryCode = countryCode?.trim() || seller.user?.phoneCountryCode || "+232"
+    if (!finalPhone || !finalCountryCode) {
       return { error: "Phone and country code are required." }
     }
-    const validation = validatePhoneAndCountryCode(phone, countryCode)
+    const validation = validatePhoneAndCountryCode(finalPhone, finalCountryCode)
     if (!validation.isValid) {
       return { error: validation.error || "Invalid phone number or country code." }
     }
@@ -251,6 +253,10 @@ export async function PUT(request: NextRequest) {
     if (state !== null) busInfoData.state = state.trim()
     if (postalCode !== null) busInfoData.postalCode = postalCode.trim()
     if (natureOfBusiness !== null) busInfoData.natureOfBusiness = natureOfBusiness.trim()
+    const yearsInOpRaw = fd.get("yearsInOperation") as string | null
+    if (yearsInOpRaw !== null && yearsInOpRaw !== "" && !isNaN(Number(yearsInOpRaw))) {
+      busInfoData.yearsInOperation = parseInt(yearsInOpRaw)
+    }
     if (busLatRaw !== null && !isNaN(Number(busLatRaw))) busInfoData.latitude = Number(busLatRaw)
     if (busLngRaw !== null && !isNaN(Number(busLngRaw))) busInfoData.longitude = Number(busLngRaw)
 
@@ -423,10 +429,28 @@ export async function PUT(request: NextRequest) {
         })
     }
 
-    // Handle Store Visuals
+    // Handle Store Visuals & Information
     const storeLogo = fd.get("storeLogo") as File | null
     const storeBanner = fd.get("storeBanner") as File | null
     const storeUpdates: any = {}
+
+    const storeNameRaw = (fd.get("name") || fd.get("storeName")) as string | null
+    const storeDescRaw = (fd.get("description") || fd.get("storeDescription")) as string | null
+    const storePhoneRaw = (fd.get("storePhone") || fd.get("phone")) as string | null
+    const storeWebsiteRaw = (fd.get("storeWebsite") || fd.get("website")) as string | null
+    const storeCityRaw = (fd.get("storeCity") || fd.get("city")) as string | null
+    const storeStateRaw = (fd.get("storeState") || fd.get("state")) as string | null
+    const storeZipCodeRaw = (fd.get("storeZipCode") || fd.get("zipCode")) as string | null
+    const storeCountryRaw = (fd.get("storeCountry") || fd.get("country")) as string | null
+
+    if (storeNameRaw !== null && storeNameRaw !== undefined) storeUpdates.name = storeNameRaw.trim()
+    if (storeDescRaw !== null && storeDescRaw !== undefined) storeUpdates.description = storeDescRaw.trim()
+    if (storePhoneRaw !== null && storePhoneRaw !== undefined) storeUpdates.phone = storePhoneRaw.trim()
+    if (storeWebsiteRaw !== null && storeWebsiteRaw !== undefined) storeUpdates.website = storeWebsiteRaw.trim()
+    if (storeCityRaw !== null && storeCityRaw !== undefined) storeUpdates.city = storeCityRaw.trim()
+    if (storeStateRaw !== null && storeStateRaw !== undefined) storeUpdates.state = storeStateRaw.trim()
+    if (storeZipCodeRaw !== null && storeZipCodeRaw !== undefined) storeUpdates.zipCode = storeZipCodeRaw.trim()
+    if (storeCountryRaw !== null && storeCountryRaw !== undefined) storeUpdates.country = storeCountryRaw.trim()
 
     if (storeLogo && storeLogo.size > 0) {
         storeUpdates.logo = await uploadPublicFile({
@@ -451,7 +475,7 @@ export async function PUT(request: NextRequest) {
     const storeLngRaw = (fd.get("storeLng") || fd.get("lng")) as string | null
     const addressRaw = (fd.get("storeAddress") || fd.get("address")) as string | null
 
-    if (addressRaw) storeUpdates.address = addressRaw
+    if (addressRaw !== null && addressRaw !== undefined) storeUpdates.address = addressRaw.trim()
 
     if (storeLatRaw && storeLngRaw) {
         const lat = parseFloat(storeLatRaw)
@@ -470,7 +494,7 @@ export async function PUT(request: NextRequest) {
             })
         } else {
             await prisma.store.create({
-                data: { ...storeUpdates, sellerId: seller.id, name: "My Store" }
+                data: { ...storeUpdates, sellerId: seller.id, name: storeUpdates.name || "My Store" }
             })
         }
     }
@@ -583,10 +607,29 @@ export async function PUT(request: NextRequest) {
     store?: Record<string, unknown>
     user?: { name?: string; email?: string; image?: string; phone?: string; phoneCountryCode?: string; password?: string; currentPassword?: string }
     seller?: Record<string, any>
+    [key: string]: any
   }
-  if (body.store && Object.keys(body.store).length > 0) {
-    const allowed = ["name", "description", "phone", "website", "address", "city", "state", "zipCode", "country", "logo", "banner", "lat", "lng"]
-    const data = Object.fromEntries(Object.entries(body.store as Record<string, string>).filter(([k]) => allowed.includes(k)))
+  const storeInput = body.store || (body.storeName !== undefined || body.storeDescription !== undefined ? body : null)
+  if (storeInput && Object.keys(storeInput).length > 0) {
+    const storeData = storeInput as Record<string, unknown>
+    const allowed = [
+      "name", "description", "phone", "website", "address", "city", "state",
+      "zipCode", "country", "logo", "banner", "lat", "lng"
+    ]
+    const data: any = {}
+    for (const key of allowed) {
+      if (storeData[key] !== undefined) data[key] = storeData[key]
+    }
+    if (storeData.storeName !== undefined && data.name === undefined) data.name = storeData.storeName
+    if (storeData.storeDescription !== undefined && data.description === undefined) data.description = storeData.storeDescription
+    if (storeData.storePhone !== undefined && data.phone === undefined) data.phone = storeData.storePhone
+    if (storeData.storeWebsite !== undefined && data.website === undefined) data.website = storeData.storeWebsite
+    if (storeData.storeAddress !== undefined && data.address === undefined) data.address = storeData.storeAddress
+    if (storeData.storeCity !== undefined && data.city === undefined) data.city = storeData.storeCity
+    if (storeData.storeState !== undefined && data.state === undefined) data.state = storeData.storeState
+    if (storeData.storeZipCode !== undefined && data.zipCode === undefined) data.zipCode = storeData.storeZipCode
+    if (storeData.storeCountry !== undefined && data.country === undefined) data.country = storeData.storeCountry
+
     if (Object.keys(data).length > 0) {
       if (seller.store) await prisma.store.update({ where: { id: seller.store.id }, data })
       else await prisma.store.create({ data: { sellerId: seller.id, name: (data.name as string) || "My Store", ...data } })
@@ -680,6 +723,15 @@ export async function PUT(request: NextRequest) {
           cleanBusInfo.gstInvNo = null
           cleanBusInfo.gstCustomerName = null
         }
+      }
+      if (cleanBusInfo.yearsInOperation !== undefined && cleanBusInfo.yearsInOperation !== null && cleanBusInfo.yearsInOperation !== "") {
+        cleanBusInfo.yearsInOperation = parseInt(cleanBusInfo.yearsInOperation)
+      }
+      if (cleanBusInfo.latitude !== undefined && cleanBusInfo.latitude !== null && cleanBusInfo.latitude !== "") {
+        cleanBusInfo.latitude = Number(cleanBusInfo.latitude)
+      }
+      if (cleanBusInfo.longitude !== undefined && cleanBusInfo.longitude !== null && cleanBusInfo.longitude !== "") {
+        cleanBusInfo.longitude = Number(cleanBusInfo.longitude)
       }
       if (Object.keys(cleanBusInfo).length > 0) {
         await (prisma as any).sellerBusinessInfo.upsert({

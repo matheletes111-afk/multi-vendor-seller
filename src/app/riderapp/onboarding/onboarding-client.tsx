@@ -153,19 +153,23 @@ export function RiderOnboardingClient({ user: initialUser }: { user: any }) {
     } else if (currentStep === 2) {
       if (!name.trim()) {
         setError("Please enter your full name.")
+        if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" })
         return
       }
       if (!phone.trim()) {
         setError("Please enter your mobile phone number.")
+        if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" })
         return
       }
       const pVal = validatePhoneAndCountryCode(phone, phoneCountryCode)
       if (!pVal.isValid) {
         setError(pVal.error || "Please enter a valid mobile number and country code.")
+        if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" })
         return
       }
       if (vehicleTypes.length === 0 || !vehicleTypes[0]) {
         setError("Please select the single vehicle type you operate.")
+        if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" })
         return
       }
       setCurrentStep(3)
@@ -173,6 +177,7 @@ export function RiderOnboardingClient({ user: initialUser }: { user: any }) {
       if (paymentOption === "Orange Money" || paymentOption === "AfriMoney") {
         if (!mobileNumber.trim()) {
           setError(`Please provide your registered mobile number for ${paymentOption}.`)
+          if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" })
           return
         }
       }
@@ -186,17 +191,20 @@ export function RiderOnboardingClient({ user: initialUser }: { user: any }) {
 
     if (selectedLocations.length === 0) {
       setError("Please select at least one delivery location in Step 4.")
+      if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" })
       return
     }
 
     const pVal = validatePhoneAndCountryCode(phone, phoneCountryCode)
     if (!pVal.isValid) {
       setError(pVal.error || "Please enter a valid mobile number and country code.")
+      if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" })
       return
     }
 
     if ((paymentOption === "Orange Money" || paymentOption === "AfriMoney") && !mobileNumber.trim()) {
       setError(`Please enter your registered mobile number for ${paymentOption} in Step 3.`)
+      if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" })
       return
     }
 
@@ -243,10 +251,19 @@ export function RiderOnboardingClient({ user: initialUser }: { user: any }) {
         formData.append("vehicleInsuranceDoc", insuranceFile)
       }
 
-      const res = await fetch("/api/riderapp/onboarding", {
-        method: "POST",
-        body: formData,
-      })
+      let res: Response
+      try {
+        res = await fetch("/api/riderapp/onboarding", {
+          method: "POST",
+          body: formData,
+        })
+      } catch (networkErr: any) {
+        const netMsg = networkErr?.message || ""
+        if (netMsg.includes("Failed to fetch") || netMsg.includes("Load failed") || netMsg.includes("NetworkError")) {
+          throw new Error("Network connection error or document upload payload too large. Please check your internet connection and verify file sizes.")
+        }
+        throw networkErr
+      }
 
       const data = await res.json()
 
@@ -268,7 +285,15 @@ export function RiderOnboardingClient({ user: initialUser }: { user: any }) {
       router.push("/riderapp")
       router.refresh()
     } catch (err: any) {
-      setError(err.message || "An unexpected error occurred.")
+      const msg = err.message || "An unexpected error occurred."
+      setError(
+        msg.includes("Failed to fetch") || msg.includes("Load failed")
+          ? "Network connection error or document upload too large. Please check your connection and retry."
+          : msg
+      )
+      if (typeof window !== "undefined") {
+        window.scrollTo({ top: 0, behavior: "smooth" })
+      }
       setSubmitting(false)
     }
   }

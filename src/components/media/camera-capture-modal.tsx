@@ -111,8 +111,20 @@ export function CameraCaptureModal({
     }, 150)
 
     try {
-      const width = video.videoWidth || 1280
-      const height = video.videoHeight || 720
+      let width = video.videoWidth || 1280
+      let height = video.videoHeight || 720
+
+      // Downscale if video resolution is larger than 1280px
+      const MAX_DIM = 1280
+      if (width > MAX_DIM || height > MAX_DIM) {
+        if (width > height) {
+          height = Math.round((height * MAX_DIM) / width)
+          width = MAX_DIM
+        } else {
+          width = Math.round((width * MAX_DIM) / height)
+          height = MAX_DIM
+        }
+      }
 
       const canvas = document.createElement("canvas")
       canvas.width = width
@@ -147,7 +159,7 @@ export function CameraCaptureModal({
           onPhotoCaptured(file)
         },
         "image/jpeg",
-        0.95
+        0.8
       )
     } catch (err) {
       console.error("Capture failed:", err)
@@ -156,12 +168,19 @@ export function CameraCaptureModal({
   }
 
   // Native camera fallback input change
-  const handleNativeCameraFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleNativeCameraFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
       stopCamera()
       onOpenChange(false)
-      onPhotoCaptured(file)
+      try {
+        const { compressImage } = await import("@/lib/image-compressor")
+        const compressed = await compressImage(file, 1280, 1280, 0.8)
+        onPhotoCaptured(compressed)
+      } catch (err) {
+        console.warn("Could not compress native camera photo:", err)
+        onPhotoCaptured(file)
+      }
     }
   }
 
