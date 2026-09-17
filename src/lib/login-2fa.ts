@@ -314,6 +314,7 @@ export async function verifyLogin2faOtp({
       success: false,
       error: "Too many incorrect attempts. Please sign in again to request a new code.",
       sessionExpired: true,
+      codeExpired: true,
     }
   }
 
@@ -328,9 +329,13 @@ export async function verifyLogin2faOtp({
 
   if (user.loginOtp !== cleanOtp) {
     const newAttempts = user.loginOtpAttempts + 1
+    const isMaxReached = newAttempts >= MAX_ATTEMPTS
     await prisma.user.update({
       where: { id: user.id },
-      data: { loginOtpAttempts: newAttempts },
+      data: {
+        loginOtpAttempts: newAttempts,
+        ...(isMaxReached ? { loginOtp: null, loginOtpExpires: null } : {}),
+      },
     })
     const remaining = MAX_ATTEMPTS - newAttempts
     return {
@@ -338,8 +343,9 @@ export async function verifyLogin2faOtp({
       error:
         remaining > 0
           ? `Invalid verification code. ${remaining} attempt(s) remaining.`
-          : "Too many incorrect attempts. Please sign in again.",
-      sessionExpired: remaining <= 0,
+          : "Too many incorrect attempts. Please sign in again to request a new code.",
+      sessionExpired: isMaxReached,
+      codeExpired: isMaxReached,
     }
   }
 
@@ -494,7 +500,7 @@ export async function completeWebNextAuthLogin({
     try {
       const err = new URL(nextAuthUrl, origin).searchParams.get("error")
       if (err) msg = err
-    } catch {}
+    } catch { }
     return NextResponse.json({ error: msg }, { status: 401 })
   }
 
