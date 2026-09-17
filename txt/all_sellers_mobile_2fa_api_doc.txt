@@ -1,0 +1,212 @@
+================================================================================
+ALL SELLERS MOBILE APP - 2FA OTP LOGIN API INTEGRATION GUIDE
+(Product Seller | Service Seller | Hotel Seller | Restaurant Seller)
+================================================================================
+
+1. FLOW OVERVIEW
+--------------------------------------------------------------------------------
+When a seller (Product, Service, Hotel, or Restaurant) signs in via Email or Phone Number and Password:
+1. The server verifies the password, user role, and seller account status.
+2. If credentials and account status are valid, the server generates a 6-digit OTP code and dispatches it:
+   - To BOTH Phone SMS and Email (if both are present in the user profile).
+   - To Phone SMS only (if email is not present).
+   - To Email only (if phone is not present).
+3. The server responds with HTTP 200, requiresOtp: true, and a temporary preAuthToken.
+4. The Mobile App displays the 6-digit OTP Verification Screen.
+5. The seller enters the 6-digit OTP -> Mobile App calls the verify-2fa endpoint.
+6. The server validates the code -> Returns final Bearer tokens (accessToken, refreshToken) and seller profile data.
+
+
+2. ENDPOINTS MATRIX (PANEL-WISE)
+--------------------------------------------------------------------------------
++--------------------+-----------------------------------------------------+
+| Seller Panel       | Endpoints                                           |
++--------------------+-----------------------------------------------------+
+| PRODUCT SELLER     | Login:      POST /mobileapi/product-seller/auth/login     |
+|                    | Verify OTP: POST /mobileapi/product-seller/auth/verify-2fa |
+|                    | Resend OTP: POST /mobileapi/product-seller/auth/resend-2fa |
++--------------------+-----------------------------------------------------+
+| SERVICE SELLER     | Login:      POST /mobileapi/service-seller/auth/login     |
+|                    | Verify OTP: POST /mobileapi/service-seller/auth/verify-2fa |
+|                    | Resend OTP: POST /mobileapi/service-seller/auth/resend-2fa |
++--------------------+-----------------------------------------------------+
+| HOTEL SELLER       | Login:      POST /mobileapi/hotel-seller/auth/login       |
+|                    | Verify OTP: POST /mobileapi/hotel-seller/auth/verify-2fa   |
+|                    | Resend OTP: POST /mobileapi/hotel-seller/auth/resend-2fa   |
++--------------------+-----------------------------------------------------+
+| RESTAURANT SELLER  | Login:      POST /mobileapi/restaurant-seller/auth/login  |
+|                    | Verify OTP: POST /mobileapi/restaurant-seller/auth/verify-2fa|
+|                    | Resend OTP: POST /mobileapi/restaurant-seller/auth/resend-2fa|
++--------------------+-----------------------------------------------------+
+
+
+3. STEP-BY-STEP API SPECIFICATIONS
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+STEP 1: PASSWORD LOGIN (INITIATES 2FA OTP)
+--------------------------------------------------------------------------------
+URL: 
+  POST /mobileapi/product-seller/auth/login
+  POST /mobileapi/service-seller/auth/login
+  POST /mobileapi/hotel-seller/auth/login
+  POST /mobileapi/restaurant-seller/auth/login
+
+Headers:
+  Content-Type: application/json
+
+Request Payload:
+{
+  "email": "seller@example.com",     // OR "phone": "9876543210" or "identifier"
+  "password": "sellerpassword123"
+}
+
+[SUCCESS RESPONSE - HTTP 200 OK]
+{
+  "success": true,
+  "requiresOtp": true,
+  "message": "Verification code sent to your registered mobile number and email.",
+  "data": {
+    "preAuthToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "maskedPhone": "+91 *******3210",
+    "maskedEmail": "s***@example.com",
+    "channels": ["SMS", "EMAIL"],
+    "expiresIn": 300,
+    "resendCooldown": 60
+  }
+}
+
+Mobile Developer Action:
+- Store "preAuthToken" in screen state or memory.
+- Display message to user: e.g. "OTP sent to +91 *******3210 and s***@example.com".
+- Navigate to 6-digit OTP Verification Screen.
+- Start 60-second timer for Resend button.
+
+[ERROR RESPONSES]
+- Invalid credentials (HTTP 401):
+  { "success": false, "error": "Invalid email/phone or password" }
+
+- Account suspended (HTTP 403):
+  { "success": false, "error": "Your account has been suspended. Please contact support.", "isSuspended": true }
+
+- Unverified account (HTTP 403):
+  { "success": false, "error": "Please verify your account first.", "needsVerification": true, "verifyUrl": "..." }
+
+
+--------------------------------------------------------------------------------
+STEP 2: VERIFY 2FA OTP (COMPLETES LOGIN)
+--------------------------------------------------------------------------------
+URL: 
+  POST /mobileapi/product-seller/auth/verify-2fa
+  POST /mobileapi/service-seller/auth/verify-2fa
+  POST /mobileapi/hotel-seller/auth/verify-2fa
+  POST /mobileapi/restaurant-seller/auth/verify-2fa
+
+Headers:
+  Content-Type: application/json
+
+Request Payload:
+{
+  "preAuthToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "otp": "123456"
+}
+
+[SUCCESS RESPONSE - HTTP 200 OK (Product / Service / Hotel / Restaurant)]
+{
+  "success": true,
+  "message": "Login successful",
+  "data": {
+    "user": {
+      "id": "usr_seller_101",
+      "name": "Store Owner Name",
+      "email": "seller@example.com",
+      "phone": "9876543210",
+      "role": "SELLER_PRODUCT", // or "SELLER_SERVICE" / "SELLER_HOTEL" / "SELLER_RESTAURANT"
+      "sellerType": "product",  // or "service" / "hotel" / "restaurant"
+      "sellerInfo": {
+        "id": "seller_doc_01",
+        "storeName": "Electronics Superstore",
+        "isApproved": true,
+        "isSuspended": false,
+        "mobileStep": 1
+      }
+    },
+    "tokens": {
+      "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+      "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+      "expiresIn": 604800
+    },
+    "sessionInfo": {
+      "expiresIn": 604800,
+      "tokenType": "Bearer"
+    }
+  }
+}
+
+Mobile Developer Action:
+- Save accessToken and refreshToken securely (Keychain / EncryptedSharedPreferences).
+- Clear preAuthToken from memory.
+- Navigate user directly to the Seller Dashboard.
+
+[ERROR RESPONSES]
+- Invalid OTP (HTTP 400):
+  { "success": false, "error": "Invalid verification code. 4 attempts remaining." }
+
+- Max attempts exceeded (HTTP 400):
+  { "success": false, "error": "Too many invalid attempts. This verification code has expired. Please request a new code.", "codeExpired": true }
+
+- Code expired after 5 minutes (HTTP 400):
+  { "success": false, "error": "Verification code has expired. Please request a new one.", "codeExpired": true }
+
+- Pre-auth session expired after 10 minutes (HTTP 400):
+  { "success": false, "error": "Verification session has expired. Please log in again.", "sessionExpired": true }
+  (Action: Navigate user back to Login screen)
+
+
+--------------------------------------------------------------------------------
+STEP 3: RESEND 2FA OTP
+--------------------------------------------------------------------------------
+URL: 
+  POST /mobileapi/product-seller/auth/resend-2fa
+  POST /mobileapi/service-seller/auth/resend-2fa
+  POST /mobileapi/hotel-seller/auth/resend-2fa
+  POST /mobileapi/restaurant-seller/auth/resend-2fa
+
+Headers:
+  Content-Type: application/json
+
+Request Payload:
+{
+  "preAuthToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+}
+
+[SUCCESS RESPONSE - HTTP 200 OK]
+{
+  "success": true,
+  "message": "Verification code resent successfully.",
+  "data": {
+    "preAuthToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "resendCooldown": 60
+  }
+}
+
+Mobile Developer Action:
+- Update stored preAuthToken with data.preAuthToken.
+- Reset the 60-second cooldown timer on the UI.
+
+[ERROR RESPONSES]
+- Cooldown still active (HTTP 400):
+  { "success": false, "error": "Please wait 45 seconds before requesting another code.", "cooldownRemaining": 45 }
+
+
+4. CLIENT CONFIGURATION & UI GUIDELINES
+--------------------------------------------------------------------------------
+- OTP Length: 6 Digits
+- OTP Code Expiry: 5 Minutes (300 seconds)
+- Resend Cooldown: 60 Seconds
+- Pre-Auth Session Expiry: 10 Minutes (600 seconds)
+- Keyboard Type: Numeric / Number Pad
+- iOS AutoFill: textContentType="oneTimeCode"
+- Auto-Submit: Trigger verify-2fa automatically as soon as the 6th digit is typed.
+- Security: Never persist preAuthToken to disk/AsyncStorage; discard it upon exiting the verification screen.
+================================================================================

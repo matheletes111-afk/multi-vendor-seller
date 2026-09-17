@@ -10,6 +10,7 @@ import { Input } from "@/ui/input"
 import { Button } from "@/ui/button"
 import { Label } from "@/ui/label"
 import { cn } from "@/lib/utils"
+import { LoginOtpSection } from "@/components/auth/login-otp-section"
 
 export function RiderLoginClient() {
   const router = useRouter()
@@ -23,6 +24,12 @@ export function RiderLoginClient() {
   const [resendLoading, setResendLoading] = useState(false)
   const [resendSuccess, setResendSuccess] = useState<string | null>(null)
   const [resendCooldown, setResendCooldown] = useState(0)
+  const [otpChallenge, setOtpChallenge] = useState<{
+    preAuthToken: string
+    maskedPhone?: string | null
+    maskedEmail?: string | null
+    channels: Array<"SMS" | "EMAIL">
+  } | null>(null)
   const [error, setError] = useState<string | null>(() => {
     const err = searchParams.get("error")
     if (err === "AccountSuspended") return "Your rider account has been suspended. Please contact support."
@@ -98,6 +105,16 @@ export function RiderLoginClient() {
         throw new Error(data.error || "Login failed. Check your credentials.")
       }
 
+      if (data.requiresOtp && data.preAuthToken) {
+        setOtpChallenge({
+          preAuthToken: data.preAuthToken,
+          maskedPhone: data.maskedPhone,
+          maskedEmail: data.maskedEmail,
+          channels: data.channels || ["SMS"],
+        })
+        return
+      }
+
       // Check if temporary password needs to be changed
       if (data.user?.isFirstLogin) {
         router.push("/riderapp/change-password?first=true")
@@ -143,7 +160,28 @@ export function RiderLoginClient() {
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
         <div className="bg-white dark:bg-slate-900 py-8 px-6 sm:px-10 shadow-sm border border-slate-200 dark:border-slate-800 rounded-3xl space-y-5">
-          {searchParams.get("reset") === "1" && (
+          {otpChallenge ? (
+            <LoginOtpSection
+              preAuthToken={otpChallenge.preAuthToken}
+              maskedPhone={otpChallenge.maskedPhone}
+              maskedEmail={otpChallenge.maskedEmail}
+              channels={otpChallenge.channels}
+              roleTitle="Delivery Rider"
+              verifyEndpoint="/api/riderapp/auth/verify-2fa"
+              resendEndpoint="/api/riderapp/auth/resend-2fa"
+              callbackUrl="/riderapp"
+              csrfToken={csrfToken}
+              onSuccess={(url) => {
+                window.location.href = url
+              }}
+              onBackToLogin={() => {
+                setOtpChallenge(null)
+                setError(null)
+              }}
+            />
+          ) : (
+            <>
+              {searchParams.get("reset") === "1" && (
             <div className="p-3.5 rounded-2xl bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-300 text-xs border border-green-200 dark:border-green-900/50 flex items-start gap-2.5">
               <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0 mt-0.5" />
               <span>Password reset successful. Please sign in with your new password.</span>
@@ -300,6 +338,8 @@ export function RiderLoginClient() {
               </Link>
             </p>
           </div>
+          </>
+          )}
         </div>
       </div>
     </div>

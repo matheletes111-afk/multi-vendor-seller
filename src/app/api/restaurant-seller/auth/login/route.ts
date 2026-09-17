@@ -87,6 +87,29 @@ export async function POST(request: Request) {
             { status: 403 }
           )
         }
+
+        // 4. Require 2FA OTP verification for email/phone + password logins
+        if (!hasOtpLoginToken) {
+          const { generateAndSendLogin2faOtp } = await import("@/lib/login-2fa")
+          const otpResult = await generateAndSendLogin2faOtp(
+            {
+              id: user.id,
+              name: (user as any).name,
+              email: user.email,
+              phone: user.phone,
+            },
+            UserRole.SELLER_RESTAURANT
+          )
+
+          if (!otpResult.success) {
+            return NextResponse.json(
+              { error: otpResult.error || "Failed to send verification code. Please try again." },
+              { status: 500 }
+            )
+          }
+
+          return NextResponse.json(otpResult, { status: 200 })
+        }
       }
     }
 

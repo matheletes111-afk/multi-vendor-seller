@@ -1,4 +1,4 @@
-import type { Metadata } from "next"
+import type { Metadata, Viewport } from "next"
 import { ThemeProvider } from "@/app/theme-provider"
 import { CartProvider } from "@/app/cart/cart-context"
 import { WishlistProvider } from "@/app/wishlist/wishlist-context"
@@ -11,6 +11,13 @@ export const metadata: Metadata = {
   icons: {
     icon: "/images/logo-two.jpeg",
   },
+}
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+  themeColor: "#ffffff",
 }
 
 export default function RootLayout({

@@ -74,7 +74,7 @@ interface ErrorResponse {
 
 type ApiResponse = SuccessResponse | ErrorResponse
 
-export async function POST(request: Request): Promise<NextResponse<ApiResponse>> {
+export async function POST(request: Request): Promise<NextResponse> {
   try {
     let body: Partial<RestaurantSellerLoginRequest>
     try {
@@ -277,35 +277,42 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
       )
     }
 
-    const tokens = generateMobileTokens({
-      userId: user.id,
-      email: user.email,
-      phone: user.phone,
-      role: user.role,
-      passwordHash: user.password,
-    })
+    // Require 2FA OTP verification for email/phone + password login
+    const { generateAndSendLogin2faOtp } = await import("@/lib/login-2fa")
+    const otpResult = await generateAndSendLogin2faOtp(
+      {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        phoneCountryCode: user.phoneCountryCode,
+      },
+      UserRole.SELLER_RESTAURANT
+    )
 
-    const { password: _, restaurantSeller, ...userWithoutPassword } = user
+    if (!otpResult.success) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: otpResult.error || "Failed to send verification code. Please try again.",
+        },
+        { status: 500 }
+      )
+    }
 
-    return NextResponse.json<SuccessResponse>(
-      { 
+    return NextResponse.json(
+      {
         success: true,
-        message: "Login successful",
+        requiresOtp: true,
+        message: otpResult.message,
         data: {
-          user: {
-            ...userWithoutPassword,
-            sellerType: "restaurant",
-            sellerInfo: {
-              ...restaurantSeller,
-              mobileStep: Math.max(1, restaurantSeller.onboardingStep - 1)
-            }
-          },
-          tokens,
-          sessionInfo: {
-            expiresIn: tokens.expiresIn,
-            tokenType: "Bearer"
-          }
-        }
+          preAuthToken: otpResult.preAuthToken,
+          maskedPhone: otpResult.maskedPhone,
+          maskedEmail: otpResult.maskedEmail,
+          channels: otpResult.channels,
+          expiresIn: otpResult.expiresIn,
+          resendCooldown: otpResult.resendCooldown,
+        },
       },
       { status: 200 }
     )

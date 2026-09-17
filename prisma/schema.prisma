@@ -117,6 +117,10 @@ model User {
   verifyEmailOtp          String?
   emailVerificationExpires DateTime?
   emailOtpSentAt          DateTime?
+  loginOtp                String?
+  loginOtpExpires         DateTime?
+  loginOtpSentAt          DateTime?
+  loginOtpAttempts        Int       @default(0)
   /// Set when the customer finishes or skips the category-interest onboarding (web/mobile).
   categoryInterestPromptCompletedAt DateTime?
   createdAt               DateTime  @default(now())

@@ -11,6 +11,7 @@ import { Label } from "@/ui/label"
 import { Alert, AlertDescription } from "@/ui/alert"
 import { AlertCircle, Eye, EyeOff, CheckCircle2 } from "lucide-react"
 import { getSafeRedirectUrl } from "@/lib/safe-redirect"
+import { LoginOtpSection } from "@/components/auth/login-otp-section"
 
 
 function RestaurantSellerLoginForm() {
@@ -24,6 +25,12 @@ function RestaurantSellerLoginForm() {
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
   const [csrfToken, setCsrfToken] = useState<string | null>(null)
+  const [otpChallenge, setOtpChallenge] = useState<{
+    preAuthToken: string
+    maskedPhone?: string | null
+    maskedEmail?: string | null
+    channels: Array<"SMS" | "EMAIL">
+  } | null>(null)
 
   useEffect(() => {
     getCsrfToken().then(setCsrfToken)
@@ -79,6 +86,15 @@ function RestaurantSellerLoginForm() {
       const data = await res.json().catch(() => ({}))
 
       if (res.ok) {
+        if (data.requiresOtp && data.preAuthToken) {
+          setOtpChallenge({
+            preAuthToken: data.preAuthToken,
+            maskedPhone: data.maskedPhone,
+            maskedEmail: data.maskedEmail,
+            channels: data.channels || ["SMS"],
+          })
+          return
+        }
         if (data?.url && data.url.includes("error=")) {
           setError(data.error || "Invalid email or password.")
           return
@@ -115,10 +131,31 @@ function RestaurantSellerLoginForm() {
             <Image src="/images/logo.png" alt="Logo" width={180} height={48} className="h-12 w-auto object-contain" />
           </a>
         </div>
-        <h1 className="text-center text-2xl font-semibold text-gray-900">Restaurant Seller Sign In</h1>
-        <p className="mt-1 text-center text-sm text-gray-500">Log in to your restaurant dashboard</p>
+        {otpChallenge ? (
+          <LoginOtpSection
+            preAuthToken={otpChallenge.preAuthToken}
+            maskedPhone={otpChallenge.maskedPhone}
+            maskedEmail={otpChallenge.maskedEmail}
+            channels={otpChallenge.channels}
+            roleTitle="Restaurant Seller"
+            verifyEndpoint="/api/restaurant-seller/auth/verify-2fa"
+            resendEndpoint="/api/restaurant-seller/auth/resend-2fa"
+            callbackUrl={callbackUrl}
+            csrfToken={csrfToken}
+            onSuccess={(url) => {
+              window.location.href = url
+            }}
+            onBackToLogin={() => {
+              setOtpChallenge(null)
+              setError("")
+            }}
+          />
+        ) : (
+          <>
+            <h1 className="text-center text-2xl font-semibold text-gray-900">Restaurant Seller Sign In</h1>
+            <p className="mt-1 text-center text-sm text-gray-500">Log in to your restaurant dashboard</p>
 
-        <form onSubmit={handleSubmit} className="mt-8 space-y-4">
+            <form onSubmit={handleSubmit} className="mt-8 space-y-4">
           {/* Success banner */}
           {success && (
             <Alert className="border-green-100 bg-green-50 text-green-800 rounded-xl">
@@ -233,6 +270,8 @@ function RestaurantSellerLoginForm() {
           New to Meeem Food?{" "}
           <Link href="/restaurant-seller/registration" className="font-medium text-blue-600 hover:underline">Partner with us</Link>
         </p>
+        </>
+        )}
       </div>
     </div>
   )

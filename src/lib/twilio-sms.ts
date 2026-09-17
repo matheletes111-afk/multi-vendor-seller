@@ -288,3 +288,31 @@ export async function sendPasswordResetSms({
   }
 }
 
+export async function sendLogin2faSms({
+  to,
+  countryCode,
+  otp,
+  name,
+}: {
+  to?: string | null
+  countryCode?: string | null
+  otp: string
+  name?: string | null
+}): Promise<boolean> {
+  const fullPhone = formatFullPhoneNumber(to, countryCode)
+  if (!fullPhone) {
+    return false
+  }
+
+  const greeting = name ? `Hi ${name}, ` : ""
+  const body = `${greeting}Your Meeem login verification code is: ${otp}. Valid for 10 minutes. Do not share this code with anyone.`
+
+  try {
+    await sendSmsViaTwilio({ to: fullPhone, body })
+    return true
+  } catch (error) {
+    console.warn(`[SMS] Failed to send login 2FA SMS to ${fullPhone}:`, error)
+    return false
+  }
+}
+

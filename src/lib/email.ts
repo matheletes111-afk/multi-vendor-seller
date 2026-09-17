@@ -320,6 +320,50 @@ export async function sendLoginOtpEmail({
   return { success: false, error: new Error("No recipient email or phone provided.") }
 }
 
+export async function sendLogin2faEmail({
+  to,
+  otp,
+  name,
+}: {
+  to?: string | null
+  otp: string
+  name?: string | null
+}) {
+  if (!to || !to.trim()) {
+    return { success: false, error: new Error("No recipient email provided.") }
+  }
+
+  const subject = "Your MEEEM Login Verification Code (2FA)"
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 540px; margin: 0 auto; padding: 24px; background-color: #ffffff; border-radius: 12px; border: 1px solid #e2e8f0;">
+      <div style="text-align: center; margin-bottom: 24px;">
+        <h2 style="color: #0f172a; margin: 0; font-size: 22px; font-weight: 700;">MEEEM Account Verification</h2>
+        <p style="color: #64748b; font-size: 14px; margin-top: 6px;">Two-factor authentication code</p>
+      </div>
+      <div style="background-color: #f8fafc; padding: 24px; border-radius: 8px; border: 1px solid #f1f5f9;">
+        <p style="color: #334155; font-size: 15px; margin: 0 0 12px 0;">
+          ${name ? `Hello ${name},` : "Hello,"}
+        </p>
+        <p style="color: #475569; font-size: 14px; line-height: 1.6; margin: 0 0 20px 0;">
+          A login attempt was made for your MEEEM account. Please use the following 6-digit verification code to complete your login:
+        </p>
+        <div style="text-align: center; margin: 24px 0;">
+          <span style="font-size: 32px; font-weight: 800; letter-spacing: 6px; color: #2563eb; background-color: #eff6ff; padding: 12px 24px; border-radius: 8px; display: inline-block; border: 1px dashed #93c5fd;">
+            ${otp}
+          </span>
+        </div>
+        <p style="color: #64748b; font-size: 13px; line-height: 1.5; margin: 16px 0 0 0;">
+          This code is valid for <strong>10 minutes</strong>. If you did not attempt to sign in, please secure your account or contact support immediately.
+        </p>
+      </div>
+      <div style="margin-top: 24px; text-align: center; font-size: 12px; color: #94a3b8;">
+        <p style="margin: 0;">MEEEM E-Commerce Limited &bull; Sierra Leone</p>
+      </div>
+    </div>
+  `
+  return sendEmail({ to, subject, html })
+}
+
 // ── CUSTOMER ORDER CONFIRMATION EMAIL ────────────────────────────────────────
 export async function sendOrderConfirmationEmail({
   to,
