@@ -33,6 +33,7 @@ export const BULK_COLUMN_KEYS = [
   "return_policy",
   "return_limit_days",
   "replacement_allowed",
+  "delivery_days",
 ] as const
 
 export type BulkColumnKey = (typeof BULK_COLUMN_KEYS)[number]
@@ -255,6 +256,7 @@ export function exampleDataRows(categories: string[]): string[][] {
         "Returnable",         // return_policy
         "7",                  // return_limit_days
         "Yes",                // replacement_allowed
+        "7",                  // delivery_days
       ],
       [
         catName,              // category
@@ -280,6 +282,7 @@ export function exampleDataRows(categories: string[]): string[][] {
         "Returnable",         // return_policy
         "7",                  // return_limit_days
         "Yes",                // replacement_allowed
+        "7",                  // delivery_days
       ]
     ]
   })

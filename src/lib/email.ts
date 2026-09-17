@@ -1685,6 +1685,7 @@ export async function sendAdminCustomSellerEmail({
   adminName,
   toPhone,
   phoneCountryCode,
+  channel,
 }: {
   to?: string | null
   sellerName?: string | null
@@ -1694,11 +1695,13 @@ export async function sendAdminCustomSellerEmail({
   adminName?: string | null
   toPhone?: string | null
   phoneCountryCode?: string | null
+  channel?: "email" | "sms" | null
 }) {
   const displayName = sellerName?.trim() || businessName?.trim() || "Partner"
   const senderLabel = adminName ? `${adminName} from MEEEM Administration` : "MEEEM Administration Team"
 
-  if (to && to.trim()) {
+  // If channel is explicitly "email" or if not specified and email exists
+  if (channel !== "sms" && to && to.trim()) {
     // Convert line breaks in plain text message into safe HTML paragraphs
     const safeMessageHtml = message
       .split(/\n\s*\n/)
@@ -1821,14 +1824,19 @@ https://meeemsl.com
     return sendEmail({ to, subject, html, text })
   }
 
+  // Fallback to SMS if toPhone is available
   if (toPhone) {
-    const preview = message.length > 120 ? `${message.slice(0, 117)}...` : message
+    const preview = message.length > 320 ? `${message.slice(0, 317)}...` : message
+    const headline = subject && subject.trim() ? `${subject.trim()} - ` : ""
     const success = await sendNotificationSms({
       to: toPhone,
       countryCode: phoneCountryCode,
-      body: `Hi ${displayName}, Meeem Notice: ${subject} - ${preview}`,
+      body: `Hi ${displayName}, MEEEM Notice: ${headline}${preview}`,
     })
-    return { success }
+    return { 
+      success, 
+      error: success ? undefined : new Error("Failed to deliver SMS notification via SMS service. Please verify the partner's phone number.") 
+    }
   }
 
   return { success: false, error: new Error("No contact channel for admin custom seller message.") }

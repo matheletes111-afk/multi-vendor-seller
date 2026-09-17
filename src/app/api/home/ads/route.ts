@@ -1,7 +1,9 @@
 import { NextResponse, NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { shuffleArray } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 /** GET active seller ads. Supports optional type filter: type=restaurant or type=hotel or type=service */
 export async function GET(request: NextRequest) {
@@ -52,10 +54,8 @@ export async function GET(request: NextRequest) {
     }
 
     const limitParam = searchParams.get("limit");
-    let takeLimit: number | undefined = 50;
-    if (limitParam === "all" || limitParam === "0") {
-      takeLimit = undefined;
-    } else if (limitParam && !isNaN(parseInt(limitParam, 10))) {
+    let takeLimit: number | undefined = undefined;
+    if (limitParam && limitParam !== "all" && limitParam !== "0" && !isNaN(parseInt(limitParam, 10))) {
       takeLimit = parseInt(limitParam, 10);
     }
 
@@ -72,10 +72,16 @@ export async function GET(request: NextRequest) {
         hotelId: true,
         foodItemId: true,
       },
-      ...(takeLimit ? { take: takeLimit } : {}),
     });
-    const shuffled = ads.sort(() => Math.random() - 0.5);
-    return NextResponse.json(shuffled);
+
+    const randomized = shuffleArray(ads);
+    const result = takeLimit ? randomized.slice(0, takeLimit) : randomized;
+
+    return NextResponse.json(result, {
+      headers: {
+        "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+      },
+    });
   } catch (error: any) {
     console.error("Error fetching ads:", error);
     return NextResponse.json(
@@ -84,3 +90,4 @@ export async function GET(request: NextRequest) {
     );
   }
 }
+

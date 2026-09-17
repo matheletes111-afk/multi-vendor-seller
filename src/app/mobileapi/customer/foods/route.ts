@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { shuffleArray } from "@/lib/utils"
 
 export const dynamic = "force-dynamic"
+export const revalidate = 0
 
 // GET: Browse & search foods (Guest Accessible)
 export async function GET(request: NextRequest) {
@@ -126,10 +128,19 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({
-      success: true,
-      data: result
-    })
+    const finalResult = q ? result : shuffleArray(result)
+
+    return NextResponse.json(
+      {
+        success: true,
+        data: finalResult,
+      },
+      {
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+        },
+      }
+    )
   } catch (error: any) {
     console.error("Mobile public list foods error:", error)
     return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 })

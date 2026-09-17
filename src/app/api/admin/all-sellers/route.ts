@@ -25,6 +25,7 @@ export interface UnifiedSellerItem {
   userName: string | null
   userEmail: string | null
   userPhone: string | null
+  userPhoneCountryCode?: string | null
   businessName: string | null
   storeName?: string | null
   isApproved: boolean
@@ -308,7 +309,8 @@ export async function GET(request: NextRequest) {
         userId: s.userId,
         userName: s.user?.name || null,
         userEmail: s.user?.email || null,
-        userPhone: s.user?.phone || null,
+        userPhone: s.user?.phone || s.store?.phone || null,
+        userPhoneCountryCode: s.user?.phoneCountryCode || null,
         businessName: s.businessInfo?.businessName || s.store?.name || null,
         storeName: s.store?.name || null,
         isApproved: s.isApproved,
@@ -344,7 +346,8 @@ export async function GET(request: NextRequest) {
         userId: h.userId,
         userName: h.user?.name || null,
         userEmail: h.user?.email || null,
-        userPhone: h.user?.phone || null,
+        userPhone: h.user?.phone || h.businessInfo?.pocContact || null,
+        userPhoneCountryCode: h.user?.phoneCountryCode || null,
         businessName: h.businessInfo?.businessName || h.hotels?.[0]?.name || null,
         storeName: h.hotels?.[0]?.name || null,
         isApproved: h.isApproved,
@@ -379,7 +382,8 @@ export async function GET(request: NextRequest) {
         userId: r.userId,
         userName: r.user?.name || null,
         userEmail: r.user?.email || null,
-        userPhone: r.user?.phone || null,
+        userPhone: r.user?.phone || r.businessInfo?.pocContact || null,
+        userPhoneCountryCode: r.user?.phoneCountryCode || null,
         businessName: r.businessInfo?.businessName || null,
         storeName: null,
         isApproved: r.isApproved,

@@ -33,6 +33,8 @@ export type HybridProductPayload = {
     returnType?: "NON_RETURNABLE" | "RETURNABLE"
     returnDays?: number
     replacementAllowed?: boolean
+    deliveryDays?: number
+    delivery_days?: number
   }>
 }
 

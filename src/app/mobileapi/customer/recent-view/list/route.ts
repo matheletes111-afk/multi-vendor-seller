@@ -1,12 +1,18 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { verifyMobileAccessToken } from "@/lib/mobile-jwt"
+import { formatTimeAgo } from "@/lib/utils"
 
 export const dynamic = "force-dynamic"
+export const revalidate = 0
 
 const MAX_RECENT_VIEWS = 10
 
 type RecentViewRow = {
+  id: string
+  userId: string
+  productId: string
+  viewedAt: Date
   product: {
     id: string
     isActive: boolean
@@ -44,6 +50,10 @@ interface ProductItem {
   seller: { store: { name: string } | null } | null
   basePrice: number
   discount: number
+  viewedAt?: string
+  viewed_at?: string
+  timeAgo?: string
+  time_ago?: string
 }
 
 interface SuccessResponse {
@@ -78,7 +88,7 @@ export async function GET(
       })
     }
 
-    const views = await recentViewDb.findMany({
+    const views = (await recentViewDb.findMany({
       where: { userId },
       orderBy: { viewedAt: "desc" },
       take: MAX_RECENT_VIEWS,
@@ -100,13 +110,14 @@ export async function GET(
           },
         },
       },
-    }) as RecentViewRow[]
+    })) as RecentViewRow[]
 
     const products: ProductItem[] = views
-      .map((v) => v.product)
-      .filter((p): p is NonNullable<RecentViewRow["product"]> => p != null && p.isActive)
-      .map((p) => {
+      .filter((v) => v.product != null && v.product.isActive)
+      .map((v) => {
+        const p = v.product!
         const first = p.variants[0]
+        const timeAgo = formatTimeAgo(v.viewedAt)
         return {
           id: p.id,
           name: p.name,
@@ -116,14 +127,25 @@ export async function GET(
           seller: p.seller,
           basePrice: first?.price ?? 0,
           discount: first?.discount ?? 0,
+          viewedAt: v.viewedAt ? v.viewedAt.toISOString() : new Date().toISOString(),
+          viewed_at: v.viewedAt ? v.viewedAt.toISOString() : new Date().toISOString(),
+          timeAgo: timeAgo,
+          time_ago: timeAgo,
         }
       })
 
-    return NextResponse.json<SuccessResponse>({
-      success: true,
-      message: "Recent views fetched successfully",
-      data: { products, total: products.length },
-    })
+    return NextResponse.json<SuccessResponse>(
+      {
+        success: true,
+        message: "Recent views fetched successfully",
+        data: { products, total: products.length },
+      },
+      {
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+        },
+      }
+    )
   } catch (error) {
     console.error("Mobile recent-view list error:", error)
     return NextResponse.json<ErrorResponse>(

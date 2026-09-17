@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { shuffleArray } from "@/lib/utils"
+
+export const dynamic = "force-dynamic"
+export const revalidate = 0
 
 export async function GET(request: NextRequest) {
   try {
@@ -13,8 +17,7 @@ export async function GET(request: NextRequest) {
         isApproved: true,
         isSuspended: false,
       },
-      take: limit,
-      orderBy: { createdAt: "desc" },
+      take: Math.max(limit * 3, 30),
       include: {
         user: { select: { name: true, image: true } },
         businessInfo: { select: { businessName: true, city: true, street: true, landmark: true } },
@@ -24,14 +27,15 @@ export async function GET(request: NextRequest) {
             category: true,
             reviews: { select: { rating: true } },
           },
-          take: 10,
+          take: 20,
         },
       },
     })
 
     const formattedRestaurants = restaurants.map((r, index) => {
+      const randomizedFoods = shuffleArray(r.foods)
       const cuisineList = Array.from(
-        new Set(r.foods.map((fi) => fi.category).filter(Boolean))
+        new Set(randomizedFoods.map((fi) => fi.category).filter(Boolean))
       )
       const cuisineType = cuisineList.length > 0 ? cuisineList.join(", ") : "Multi-Cuisine"
 
@@ -41,7 +45,7 @@ export async function GET(request: NextRequest) {
       }
 
       // Collect all food item ratings to calculate restaurant average rating
-      const allRatings = r.foods.flatMap((f) => f.reviews.map((rev) => rev.rating))
+      const allRatings = randomizedFoods.flatMap((f) => f.reviews.map((rev) => rev.rating))
       const totalRating = allRatings.reduce((acc, curr) => acc + curr, 0)
       const rating = allRatings.length > 0 ? parseFloat((totalRating / allRatings.length).toFixed(1)) : 0.0
 
@@ -75,8 +79,10 @@ export async function GET(request: NextRequest) {
       }
     })
 
+    const randomizedRestaurants = shuffleArray(formattedRestaurants).slice(0, limit)
+
     // Fallback preview restaurants if DB has no approved restaurant sellers yet
-    if (formattedRestaurants.length === 0) {
+    if (randomizedRestaurants.length === 0) {
       const fallbacks = [
         {
           restaurant_id: "rest_nearby_1",
@@ -115,16 +121,30 @@ export async function GET(request: NextRequest) {
           offer_tag: "20% OFF",
         },
       ]
-      return NextResponse.json({
-        success: true,
-        data: fallbacks,
-      })
+      return NextResponse.json(
+        {
+          success: true,
+          data: shuffleArray(fallbacks),
+        },
+        {
+          headers: {
+            "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+          },
+        }
+      )
     }
 
-    return NextResponse.json({
-      success: true,
-      data: formattedRestaurants,
-    })
+    return NextResponse.json(
+      {
+        success: true,
+        data: randomizedRestaurants,
+      },
+      {
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+        },
+      }
+    )
   } catch (error) {
     console.error("Nearby restaurants API error:", error)
     return NextResponse.json(

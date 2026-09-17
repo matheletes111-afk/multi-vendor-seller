@@ -1,14 +1,16 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { shuffleArray } from "@/lib/utils"
 
 export const dynamic = "force-dynamic"
+export const revalidate = 0
 
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const limit = Math.min(50, Math.max(1, parseInt(searchParams.get("limit") || "6", 10)))
 
-    const hotels = await prisma.hotel.findMany({
+    const candidateHotels = await prisma.hotel.findMany({
       where: {
         isActive: true,
         isDeleted: false,
@@ -17,8 +19,7 @@ export async function GET(request: NextRequest) {
           isSuspended: false,
         },
       },
-      take: limit,
-      orderBy: [{ starRating: "desc" }, { createdAt: "desc" }],
+      take: Math.max(limit * 4, 40),
       include: {
         rooms: {
           where: { isActive: true, isDeleted: false },
@@ -30,7 +31,7 @@ export async function GET(request: NextRequest) {
       },
     })
 
-    const formattedHotels = hotels.map((h, index) => {
+    const formattedHotels = candidateHotels.map((h, index) => {
       let imageUrl: string | null = h.banner || null
       if (!imageUrl && Array.isArray(h.images) && h.images.length > 0) {
         imageUrl = String(h.images[0])
@@ -87,12 +88,23 @@ export async function GET(request: NextRequest) {
           badgeText: "HOT",
         },
       ]
-      return NextResponse.json(fallbacks)
+      return NextResponse.json(shuffleArray(fallbacks), {
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+        },
+      })
     }
 
-    return NextResponse.json(formattedHotels)
+    const randomizedHotels = shuffleArray(formattedHotels).slice(0, limit)
+
+    return NextResponse.json(randomizedHotels, {
+      headers: {
+        "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+      },
+    })
   } catch (error: any) {
     console.error("Web home hotels error:", error)
     return NextResponse.json([], { status: 500 })
   }
 }
+

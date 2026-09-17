@@ -381,6 +381,9 @@ export async function POST(request: NextRequest) {
         ...(brand ? { brand } : {}),
       }
 
+      const deliveryDaysRaw = parseCleanNumber(c.delivery_days)
+      const deliveryDays = !isNaN(deliveryDaysRaw) && deliveryDaysRaw > 0 ? Math.floor(deliveryDaysRaw) : 7
+
       const vInput: VariantInput = {
         name: vName,
         price,
@@ -399,6 +402,7 @@ export async function POST(request: NextRequest) {
         returnType,
         returnDays,
         replacementAllowed,
+        deliveryDays,
       }
 
       const parsed = parseVariantInput(vInput, variants.length)
@@ -497,6 +501,7 @@ export async function POST(request: NextRequest) {
                 returnType: v.returnType,
                 returnDays: v.returnDays ?? undefined,
                 replacementAllowed: v.replacementAllowed,
+                deliveryDays: v.deliveryDays ?? 7,
               })),
             },
           } as any,

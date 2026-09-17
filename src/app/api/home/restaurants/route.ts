@@ -1,20 +1,21 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { shuffleArray } from "@/lib/utils"
 
 export const dynamic = "force-dynamic"
+export const revalidate = 0
 
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const limit = Math.min(50, Math.max(1, parseInt(searchParams.get("limit") || "6", 10)))
 
-    const restaurants = await prisma.restaurantSeller.findMany({
+    const candidateRestaurants = await prisma.restaurantSeller.findMany({
       where: {
         isApproved: true,
         isSuspended: false,
       },
-      take: limit,
-      orderBy: { createdAt: "desc" },
+      take: Math.max(limit * 4, 40),
       include: {
         user: { select: { name: true, image: true } },
         businessInfo: { select: { city: true, street: true, landmark: true } },
@@ -24,14 +25,15 @@ export async function GET(request: NextRequest) {
             category: true,
             reviews: { select: { rating: true } },
           },
-          take: 10,
+          take: 20,
         },
       },
     })
 
-    const formattedRestaurants = restaurants.map((r, index) => {
+    const formattedRestaurants = candidateRestaurants.map((r, index) => {
+      const randomizedFoods = shuffleArray(r.foods)
       const cuisineList = Array.from(
-        new Set(r.foods.map((fi) => fi.category).filter(Boolean))
+        new Set(randomizedFoods.map((fi) => fi.category).filter(Boolean))
       )
       const cuisineType = cuisineList.length > 0 ? cuisineList.join(", ") : "Multi-Cuisine"
 
@@ -40,7 +42,7 @@ export async function GET(request: NextRequest) {
         imageUrl = r.user.image
       }
 
-      const allRatings = r.foods.flatMap((f) => f.reviews.map((rev) => rev.rating))
+      const allRatings = randomizedFoods.flatMap((f) => f.reviews.map((rev) => rev.rating))
       const totalRating = allRatings.reduce((acc, curr) => acc + curr, 0)
       const rating = allRatings.length > 0 ? parseFloat((totalRating / allRatings.length).toFixed(1)) : 0
 
@@ -89,12 +91,23 @@ export async function GET(request: NextRequest) {
           offerTag: "Top Rated",
         },
       ]
-      return NextResponse.json(fallbacks)
+      return NextResponse.json(shuffleArray(fallbacks), {
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+        },
+      })
     }
 
-    return NextResponse.json(formattedRestaurants)
+    const randomizedRestaurants = shuffleArray(formattedRestaurants).slice(0, limit)
+
+    return NextResponse.json(randomizedRestaurants, {
+      headers: {
+        "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+      },
+    })
   } catch (error: any) {
     console.error("Web home restaurants error:", error)
     return NextResponse.json([], { status: 500 })
   }
 }
+

@@ -1185,6 +1185,8 @@ model ProductVariant {
   returnDays    Int?
   // When true, customer may request exchange (replacement) for this variant; gated by return policy.
   replacementAllowed Boolean @default(false)
+  // Expected delivery time in days for this variant (default: 7)
+  deliveryDays  Int      @default(7)
   // Additional JSON details if needed
   additionalInfo Json?   // e.g. {"Material":"Cotton","Care":"Machine wash"}
   createdAt     DateTime @default(now())

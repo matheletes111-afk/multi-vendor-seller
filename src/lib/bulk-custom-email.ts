@@ -157,7 +157,7 @@ export async function getBulkCustomEmailRecipients(
     seenIds.add(s.id)
 
     const email = s.user?.email?.trim().toLowerCase() || null
-    const phone = s.user?.phone?.trim() || null
+    const phone = s.user?.phone?.trim() || s.store?.phone?.trim() || null
     const phoneCountryCode = s.user?.phoneCountryCode?.trim() || null
     const channel: "email" | "sms" | "none" = email ? "email" : phone ? "sms" : "none"
 
@@ -186,7 +186,7 @@ export async function getBulkCustomEmailRecipients(
     seenIds.add(h.id)
 
     const email = h.user?.email?.trim().toLowerCase() || null
-    const phone = h.user?.phone?.trim() || null
+    const phone = h.user?.phone?.trim() || h.businessInfo?.pocContact?.trim() || null
     const phoneCountryCode = h.user?.phoneCountryCode?.trim() || null
     const channel: "email" | "sms" | "none" = email ? "email" : phone ? "sms" : "none"
 
@@ -215,7 +215,7 @@ export async function getBulkCustomEmailRecipients(
     seenIds.add(r.id)
 
     const email = r.user?.email?.trim().toLowerCase() || null
-    const phone = r.user?.phone?.trim() || null
+    const phone = r.user?.phone?.trim() || r.businessInfo?.pocContact?.trim() || null
     const phoneCountryCode = r.user?.phoneCountryCode?.trim() || null
     const channel: "email" | "sms" | "none" = email ? "email" : phone ? "sms" : "none"
 
@@ -386,8 +386,9 @@ export async function sendBulkCustomEmailChunk(
         }
       } else if (recipient.phone) {
         // SMS Fallback
-        const preview = message.length > 120 ? `${message.slice(0, 117)}...` : message
-        const smsBody = `Hi ${sellerDisplayName}, Meeem Notice: ${subject} - ${preview}`
+        const preview = message.length > 280 ? `${message.slice(0, 277)}...` : message
+        const headline = subject && subject.trim() ? `${subject.trim()} - ` : ""
+        const smsBody = `Hi ${sellerDisplayName}, MEEEM Notice: ${headline}${preview}`
         const smsSent = await sendNotificationSms({
           to: recipient.phone,
           countryCode: recipient.phoneCountryCode,

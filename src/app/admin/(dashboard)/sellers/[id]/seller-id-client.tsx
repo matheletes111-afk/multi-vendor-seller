@@ -2,10 +2,12 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
+import Link from "next/link"
 import { Button } from "@/ui/button"
 import { Badge } from "@/ui/badge"
-import { ChevronLeft, MoreHorizontal, User, ShieldCheck } from "lucide-react"
+import { ChevronLeft, MoreHorizontal, User, ShieldCheck, BarChart3 } from "lucide-react"
 import { SellerDetailsView } from "@/components/admin/sellers/seller-details-view"
+import { SellerEmailModal, type SellerEmailTarget } from "@/components/admin/sellers/seller-email-modal"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/ui/dialog"
 import { Textarea } from "@/ui/textarea"
 import { Input } from "@/ui/input"
@@ -32,6 +34,7 @@ export function SellerIdClient({ id }: SellerIdClientProps) {
   
   const [isCommissionDialogOpen, setIsCommissionDialogOpen] = useState(false)
   const [commissionValue, setCommissionValue] = useState<number | "">("")
+  const [emailModalTarget, setEmailModalTarget] = useState<SellerEmailTarget | null>(null)
 
   // Initial Fetch
   useEffect(() => {
@@ -196,6 +199,14 @@ export function SellerIdClient({ id }: SellerIdClientProps) {
           </div>
         </div>
         <div className="flex items-center gap-3">
+          <Link
+            href={`/admin/sellers/${id}/analytics?sellerType=${seller.type || "PRODUCT"}`}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-2xl border border-violet-200 dark:border-violet-800 bg-violet-50/80 dark:bg-violet-950/50 text-violet-700 dark:text-violet-300 hover:bg-violet-100 dark:hover:bg-violet-900/60 text-xs font-bold transition-all shadow-sm"
+            title="View Dedicated Analytics"
+          >
+            <BarChart3 className="h-4 w-4" />
+            <span>Analytics</span>
+          </Link>
           <div className="bg-background rounded-2xl border px-4 py-2 flex items-center gap-3 shadow-sm">
              <div className="flex flex-col">
               <span className="text-[10px] font-medium text-muted-foreground uppercase opacity-60">Status</span>
@@ -243,6 +254,17 @@ export function SellerIdClient({ id }: SellerIdClientProps) {
         }}
         onOpenCorrection={() => setIsCorrectionDialogOpen(true)}
         onOpenReject={() => setIsRejectDialogOpen(true)}
+        onSendEmail={(id) =>
+          setEmailModalTarget({
+            id,
+            name: seller.user?.name,
+            businessName: seller.store?.name || seller.name,
+            email: seller.user?.email,
+            phone: seller.user?.phone || seller.store?.phone,
+            phoneCountryCode: seller.user?.phoneCountryCode,
+            sellerType: seller.sellerType || "PRODUCT",
+          })
+        }
       />
 
       {/* Dialogs */}
@@ -355,6 +377,13 @@ export function SellerIdClient({ id }: SellerIdClientProps) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Direct Email/SMS Modal */}
+      <SellerEmailModal
+        seller={emailModalTarget}
+        open={!!emailModalTarget}
+        onOpenChange={(val) => !val && setEmailModalTarget(null)}
+      />
     </div>
   )
 }

@@ -319,7 +319,9 @@ Sample Success Response (GET 200 OK):
       "search_id": "rv_1001",
       "product_id": "prod_550",
       "query_text": "Wireless Noise Cancelling Headphones",
-      "searched_time_ago": "Recently viewed",
+      "searched_time_ago": "5m ago", // Dynamic relative time string ("Just now", "5m ago", "2h ago", "Yesterday", "3d ago")
+      "viewed_at": "2026-09-17T08:30:00.000Z", // Raw ISO timestamp for client-side formatting/live ticking
+      "viewed_time_ago": "5m ago",
       "image_url": "https://...",
       "price": 299,
       "original_price": 349,

@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { shuffleArray } from "@/lib/utils"
 
 export const dynamic = "force-dynamic"
+export const revalidate = 0
 
 /** GET /mobileapi/hotels/all — list all hotels (public) with live rating & review counts. */
 export async function GET(request: NextRequest) {
@@ -35,7 +37,7 @@ export async function GET(request: NextRequest) {
     const [hotels, total] = await Promise.all([
       prisma.hotel.findMany({
         where,
-        take: limit,
+        take: q ? limit : Math.max(limit * 2, 40),
         orderBy: [{ starRating: "desc" }, { createdAt: "desc" }],
         include: {
           rooms: {
@@ -84,11 +86,20 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    return NextResponse.json({
-      success: true,
-      message: "Hotels fetched successfully",
-      data: { hotels: formattedHotels, total },
-    })
+    const finalHotels = q ? formattedHotels : shuffleArray(formattedHotels).slice(0, limit)
+
+    return NextResponse.json(
+      {
+        success: true,
+        message: "Hotels fetched successfully",
+        data: { hotels: finalHotels, total },
+      },
+      {
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+        },
+      }
+    )
   } catch (error) {
     console.error("Mobile hotels all API error:", error)
     return NextResponse.json(

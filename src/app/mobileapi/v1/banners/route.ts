@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { shuffleArray } from "@/lib/utils"
+
+export const dynamic = "force-dynamic"
+export const revalidate = 0
 
 export async function GET(request: NextRequest) {
   try {
@@ -39,11 +43,20 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    if (formattedBanners.length > 0) {
-      return NextResponse.json({
-        success: true,
-        data: formattedBanners,
-      })
+    const randomizedBanners = shuffleArray(formattedBanners)
+
+    if (randomizedBanners.length > 0) {
+      return NextResponse.json(
+        {
+          success: true,
+          data: randomizedBanners,
+        },
+        {
+          headers: {
+            "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+          },
+        }
+      )
     }
 
     // Default fallback banners matching requested placement & target type
@@ -74,10 +87,21 @@ export async function GET(request: NextRequest) {
       ? fallbackBanners.filter((fb) => fb.target_type === targetType.toLowerCase())
       : fallbackBanners
 
-    return NextResponse.json({
-      success: true,
-      data: filteredFallbacks.length > 0 ? filteredFallbacks : fallbackBanners,
-    })
+    const randomizedFallbacks = shuffleArray(
+      filteredFallbacks.length > 0 ? filteredFallbacks : fallbackBanners
+    )
+
+    return NextResponse.json(
+      {
+        success: true,
+        data: randomizedFallbacks,
+      },
+      {
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+        },
+      }
+    )
   } catch (error) {
     console.error("Banners API error:", error)
     return NextResponse.json(

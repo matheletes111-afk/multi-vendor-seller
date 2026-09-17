@@ -128,7 +128,7 @@ SECTION BREAKDOWN & DOMAIN MAPPING (18 MICRO APIS + BFF LAYOUT)
 * API Endpoint: GET /mobileapi/v1/user/recent-searches
 * Purpose: User's recent search keywords with product previews & timestamps (returns [] for guest users).
 * Query Params: `limit` (default: 50, returns all recent searches)
-* Response Attributes: `search_id`, `query_text`, `searched_time_ago`, `image_url`, `price`, `discount_tag`
+* Response Attributes: `search_id`, `product_id`, `query_text`, `searched_time_ago` (dynamic relative time e.g. "5m ago"), `viewed_at` (ISO timestamp), `image_url`, `price`, `discount_tag`
 
 [4.2 CLEAR RECENT SEARCHES]
 * [STATUS]: [DONE]

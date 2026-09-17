@@ -133,17 +133,21 @@ export async function GET(
     : null
 
   const cleanVariants = product.variants.map((v) => {
+    const base = {
+      ...v,
+      deliveryDays: v.deliveryDays ?? 7,
+    }
     if (v.attributes && typeof v.attributes === "object" && !Array.isArray(v.attributes)) {
       const attrs = { ...(v.attributes as Record<string, unknown>) }
       delete attrs.brand
       delete attrs.Brand
       delete attrs.BRAND
       return {
-        ...v,
+        ...base,
         attributes: attrs,
       }
     }
-    return v
+    return base
   })
 
   return NextResponse.json({

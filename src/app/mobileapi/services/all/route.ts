@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { getServiceDisplayImageUrls } from "@/lib/service-images"
+import { shuffleArray } from "@/lib/utils"
 
 export const dynamic = "force-dynamic"
+export const revalidate = 0
 
 type ServiceItem = {
   id: string
@@ -63,7 +65,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<SuccessRes
 
     const services = await prisma.service.findMany({
       where,
-      take: limit,
+      take: q ? limit : Math.max(limit * 2, 40),
       orderBy: [{ isFeatured: "desc" }, { createdAt: "desc" }],
       select: {
         id: true,
@@ -132,12 +134,20 @@ export async function GET(request: NextRequest): Promise<NextResponse<SuccessRes
     })
 
     const total = await prisma.service.count({ where })
+    const finalServices = q ? mapped : shuffleArray(mapped).slice(0, limit)
 
-    return NextResponse.json({
-      success: true,
-      message: "Services fetched successfully",
-      data: { services: mapped, total },
-    })
+    return NextResponse.json(
+      {
+        success: true,
+        message: "Services fetched successfully",
+        data: { services: finalServices, total },
+      },
+      {
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+        },
+      }
+    )
   } catch (error) {
     console.error("Mobile services all API error:", error)
     return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 })

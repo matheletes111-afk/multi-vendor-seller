@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { shuffleArray } from "@/lib/utils"
+
+export const dynamic = "force-dynamic"
+export const revalidate = 0
 
 export async function GET(request: NextRequest) {
   try {
@@ -22,8 +26,8 @@ export async function GET(request: NextRequest) {
       prisma.service.findMany({
         where,
         skip,
-        take: limit,
-        orderBy: { createdAt: "desc" },
+        take: page === 1 ? Math.max(limit * 3, 30) : limit,
+
         include: {
           serviceCategory: { select: { name: true } },
           seller: { select: { user: { select: { name: true } } } },
@@ -71,19 +75,27 @@ export async function GET(request: NextRequest) {
     })
 
     const totalPages = Math.ceil(totalItems / limit)
+    const items = page === 1 ? shuffleArray(formattedFeed).slice(0, limit) : formattedFeed
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        items: formattedFeed,
-        pagination: {
-          current_page: page,
-          total_pages: totalPages,
-          total_items: totalItems,
-          has_more: page < totalPages,
+    return NextResponse.json(
+      {
+        success: true,
+        data: {
+          items,
+          pagination: {
+            current_page: page,
+            total_pages: totalPages,
+            total_items: totalItems,
+            has_more: page < totalPages,
+          },
         },
       },
-    })
+      {
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+        },
+      }
+    )
   } catch (error) {
     console.error("Service recommendations feed API error:", error)
     return NextResponse.json(

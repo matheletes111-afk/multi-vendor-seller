@@ -21,7 +21,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/ui/select"
-import { Mail, Send, AlertCircle, CheckCircle2, Loader2, Sparkles } from "lucide-react"
+import {
+  Mail,
+  Send,
+  AlertCircle,
+  CheckCircle2,
+  Loader2,
+  Sparkles,
+  Smartphone,
+  Phone,
+  MessageSquare,
+} from "lucide-react"
 
 export interface SellerEmailTarget {
   id: string
@@ -29,6 +39,7 @@ export interface SellerEmailTarget {
   businessName?: string | null
   email?: string | null
   phone?: string | null
+  phoneCountryCode?: string | null
   sellerType?: "PRODUCT" | "SERVICE" | "HOTEL" | "RESTAURANT" | string
 }
 
@@ -72,6 +83,10 @@ export function SellerEmailModal({
   seller,
   onSuccess,
 }: SellerEmailModalProps) {
+  const hasEmail = Boolean(seller?.email && seller.email.trim())
+  const hasPhone = Boolean(seller?.phone && seller.phone.trim())
+
+  const [selectedChannel, setSelectedChannel] = useState<"email" | "sms">("email")
   const [selectedTemplate, setSelectedTemplate] = useState("custom")
   const [subject, setSubject] = useState("")
   const [message, setMessage] = useState("")
@@ -82,6 +97,8 @@ export function SellerEmailModal({
   // Reset state on modal open
   useEffect(() => {
     if (open && seller) {
+      const emailAvail = Boolean(seller.email && seller.email.trim())
+      setSelectedChannel(emailAvail ? "email" : "sms")
       setSelectedTemplate("custom")
       setSubject("")
       setMessage("")
@@ -99,14 +116,15 @@ export function SellerEmailModal({
     }
   }
 
-  const handleSendEmail = async () => {
+  const handleSendMessage = async () => {
     if (!seller) return
-    if (!subject.trim()) {
+
+    if (selectedChannel === "email" && !subject.trim()) {
       setError("Please provide an email subject.")
       return
     }
     if (!message.trim()) {
-      setError("Please write an email message body.")
+      setError("Please write a message body.")
       return
     }
 
@@ -122,28 +140,35 @@ export function SellerEmailModal({
           subject: subject.trim(),
           message: message.trim(),
           sellerType: seller.sellerType,
+          channel: selectedChannel,
         }),
       })
 
       const data = await res.json()
       if (!res.ok) {
-        throw new Error(data.error || "Failed to send email")
+        throw new Error(data.error || "Failed to send message")
       }
 
-      setSuccessMessage(data.message || `Email sent successfully to ${seller.email}!`)
+      setSuccessMessage(
+        data.message ||
+          (selectedChannel === "email"
+            ? `Email sent successfully to ${seller.email}!`
+            : `SMS notification successfully sent to ${seller.phone}!`)
+      )
       onSuccess?.()
 
       setTimeout(() => {
         onOpenChange(false)
       }, 1500)
     } catch (err: any) {
-      setError(err?.message || "Failed to send email")
+      setError(err?.message || "Failed to send message")
     } finally {
       setLoading(false)
     }
   }
 
   const targetDisplayName = seller?.businessName || seller?.name || "Seller Partner"
+  const isSmsMode = selectedChannel === "sms"
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -151,11 +176,17 @@ export function SellerEmailModal({
         <DialogHeader className="space-y-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className="h-9 w-9 rounded-2xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center">
-                <Mail className="h-5 w-5" />
+              <div
+                className={`h-9 w-9 rounded-2xl flex items-center justify-center ${
+                  isSmsMode
+                    ? "bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400"
+                    : "bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400"
+                }`}
+              >
+                {isSmsMode ? <Smartphone className="h-5 w-5" /> : <Mail className="h-5 w-5" />}
               </div>
               <DialogTitle className="text-lg font-bold text-slate-900 dark:text-slate-100">
-                Send Direct Email
+                {isSmsMode ? "Send Direct SMS" : "Send Direct Email"}
               </DialogTitle>
             </div>
             {seller?.sellerType && (
@@ -165,23 +196,97 @@ export function SellerEmailModal({
             )}
           </div>
           <DialogDescription className="text-xs text-slate-500">
-            Compose and dispatch an official email notice directly to this partner via SendGrid.
+            {isSmsMode
+              ? "Dispatch an official SMS text notice directly to the partner's mobile phone via Twilio."
+              : "Compose and dispatch an official email notice directly to this partner via SendGrid."}
           </DialogDescription>
         </DialogHeader>
 
         {/* Recipient Card */}
-        <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 space-y-1">
+        <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 space-y-2">
           <div className="flex items-center justify-between text-xs">
             <span className="text-slate-500 font-medium">Recipient Partner:</span>
             <span className="font-bold text-slate-900 dark:text-slate-100">{targetDisplayName}</span>
           </div>
+
           <div className="flex items-center justify-between text-xs">
-            <span className="text-slate-500 font-medium">Channel / Destination:</span>
-            <span className="font-semibold text-blue-600 dark:text-blue-400">
-              {seller?.email ? `Email: ${seller.email}` : (seller?.phone ? `SMS: ${seller.phone}` : "No contact on file")}
-            </span>
+            <span className="text-slate-500 font-medium">Contact Destination:</span>
+            <div className="flex items-center gap-2 text-right">
+              {hasEmail ? (
+                <span className="font-semibold text-blue-600 dark:text-blue-400 font-mono text-[11px]">
+                  {seller?.email}
+                </span>
+              ) : null}
+              {hasPhone ? (
+                <span className="font-semibold text-slate-700 dark:text-slate-300 font-mono text-[11px]">
+                  📱 {seller?.phone}
+                </span>
+              ) : null}
+              {!hasEmail && !hasPhone ? (
+                <span className="font-semibold text-rose-500">No contact on file</span>
+              ) : null}
+            </div>
           </div>
+
+          {/* Delivery Channel Switcher / Indicator */}
+          {hasEmail && hasPhone ? (
+            <div className="pt-2 border-t border-slate-200/80 dark:border-slate-800 flex items-center justify-between">
+              <span className="text-xs text-slate-600 dark:text-slate-400 font-semibold">
+                Delivery Channel:
+              </span>
+              <div className="inline-flex rounded-xl p-0.5 bg-slate-200/80 dark:bg-slate-800 text-xs">
+                <button
+                  type="button"
+                  onClick={() => setSelectedChannel("email")}
+                  className={`px-3 py-1 rounded-lg font-bold transition-all flex items-center gap-1.5 ${
+                    selectedChannel === "email"
+                      ? "bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-sm"
+                      : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+                  }`}
+                >
+                  <Mail className="h-3.5 w-3.5" />
+                  Email
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedChannel("sms")}
+                  className={`px-3 py-1 rounded-lg font-bold transition-all flex items-center gap-1.5 ${
+                    selectedChannel === "sms"
+                      ? "bg-white dark:bg-slate-900 text-amber-600 dark:text-amber-400 shadow-sm"
+                      : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+                  }`}
+                >
+                  <Smartphone className="h-3.5 w-3.5" />
+                  SMS
+                </button>
+              </div>
+            </div>
+          ) : !hasEmail && hasPhone ? (
+            <div className="pt-1.5 border-t border-slate-200/80 dark:border-slate-800 flex items-center justify-between text-xs">
+              <span className="text-slate-500 font-medium">Channel:</span>
+              <Badge className="bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border-amber-300 text-[11px] font-semibold gap-1">
+                <Smartphone className="h-3 w-3" />
+                Phone Registration Only (SMS Dispatch)
+              </Badge>
+            </div>
+          ) : hasEmail && !hasPhone ? (
+            <div className="pt-1.5 border-t border-slate-200/80 dark:border-slate-800 flex items-center justify-between text-xs">
+              <span className="text-slate-500 font-medium">Channel:</span>
+              <Badge className="bg-blue-100 dark:bg-blue-950/60 text-blue-800 dark:text-blue-300 border-blue-300 text-[11px] font-semibold gap-1">
+                <Mail className="h-3 w-3" />
+                Email Channel
+              </Badge>
+            </div>
+          ) : null}
         </div>
+
+        {/* Warning if no contact available */}
+        {!hasEmail && !hasPhone && (
+          <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-900 text-xs text-amber-700 dark:text-amber-300 flex items-center gap-2">
+            <AlertCircle className="h-4 w-4 shrink-0" />
+            <span>This seller partner does not have an email address or mobile phone number on file.</span>
+          </div>
+        )}
 
         {/* Template Picker */}
         <div className="space-y-1.5">
@@ -206,12 +311,17 @@ export function SellerEmailModal({
         {/* Subject */}
         <div className="space-y-1.5">
           <Label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-            Email Subject <span className="text-rose-500">*</span>
+            {isSmsMode ? "SMS Header / Subject (Optional)" : "Email Subject"}{" "}
+            {!isSmsMode && <span className="text-rose-500">*</span>}
           </Label>
           <Input
             value={subject}
             onChange={(e) => setSubject(e.target.value)}
-            placeholder="e.g., Action Required: Missing Documents for Your MEEEM Account"
+            placeholder={
+              isSmsMode
+                ? "e.g., Missing Documents Notice (prepended to SMS)"
+                : "e.g., Action Required: Missing Documents for Your MEEEM Account"
+            }
             className="rounded-xl text-xs h-9"
             disabled={loading}
           />
@@ -221,15 +331,27 @@ export function SellerEmailModal({
         <div className="space-y-1.5">
           <div className="flex items-center justify-between">
             <Label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-              Message Body <span className="text-rose-500">*</span>
+              {isSmsMode ? "SMS Message" : "Email Message"} <span className="text-rose-500">*</span>
             </Label>
-            <span className="text-[11px] text-slate-400">{message.length} chars</span>
+            <span className="text-[11px] text-slate-400">
+              {message.length} chars
+              {isSmsMode && (
+                <span className="ml-1 text-slate-500 font-mono">
+                  (~{Math.max(1, Math.ceil(message.length / 153))} SMS segment
+                  {message.length > 153 ? "s" : ""})
+                </span>
+              )}
+            </span>
           </div>
           <Textarea
             value={message}
             onChange={(e) => setMessage(e.target.value)}
-            placeholder="Type your message to the seller partner here. Paragraphs will be cleanly formatted in the branded email..."
-            className="rounded-2xl text-xs min-h-[140px] resize-y"
+            placeholder={
+              isSmsMode
+                ? "Type your SMS notice to the seller partner here. Keep it concise for fast mobile reading..."
+                : "Type your message to the seller partner here. Paragraphs will be cleanly formatted in the branded email..."
+            }
+            className={`rounded-2xl text-xs resize-y ${isSmsMode ? "min-h-[110px]" : "min-h-[140px]"}`}
             disabled={loading}
           />
         </div>
@@ -260,14 +382,27 @@ export function SellerEmailModal({
             Cancel
           </Button>
           <Button
-            onClick={handleSendEmail}
-            disabled={loading || !seller?.email}
-            className="rounded-2xl text-xs h-9 font-semibold bg-blue-600 hover:bg-blue-700 text-white gap-1.5 shadow-md shadow-blue-600/20"
+            onClick={handleSendMessage}
+            disabled={
+              loading ||
+              (!hasEmail && !hasPhone) ||
+              (isSmsMode ? !hasPhone || !message.trim() : !hasEmail || !subject.trim() || !message.trim())
+            }
+            className={`rounded-2xl text-xs h-9 font-semibold text-white gap-1.5 shadow-md ${
+              isSmsMode
+                ? "bg-amber-600 hover:bg-amber-700 shadow-amber-600/20"
+                : "bg-blue-600 hover:bg-blue-700 shadow-blue-600/20"
+            }`}
           >
             {loading ? (
               <>
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
                 Sending...
+              </>
+            ) : isSmsMode ? (
+              <>
+                <Smartphone className="h-3.5 w-3.5" />
+                Send SMS
               </>
             ) : (
               <>

@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { shuffleArray } from "@/lib/utils";
 
-/** GET active categories with subcategories for home page category boxes. Only returns categories that have at least one active product. Public, no auth. */
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+/** GET active categories with subcategories for home page category boxes with dynamic per-refresh randomization. Public, no auth. */
 export async function GET() {
   try {
     const categories = await prisma.category.findMany({
@@ -15,7 +19,6 @@ export async function GET() {
       include: {
         subcategories: {
           where: { isActive: true },
-          orderBy: { name: "asc" },
           select: {
             id: true,
             name: true,
@@ -25,9 +28,20 @@ export async function GET() {
           },
         },
       },
-      orderBy: [{ isFeatured: "desc" }, { createdAt: "desc" }],
     });
-    return NextResponse.json(categories);
+
+    const randomizedCategories = shuffleArray(
+      categories.map((c) => ({
+        ...c,
+        subcategories: shuffleArray(c.subcategories),
+      }))
+    );
+
+    return NextResponse.json(randomizedCategories, {
+      headers: {
+        "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+      },
+    });
   } catch (error) {
     console.error("Error fetching home categories:", error);
     return NextResponse.json(
@@ -36,3 +50,4 @@ export async function GET() {
     );
   }
 }
+

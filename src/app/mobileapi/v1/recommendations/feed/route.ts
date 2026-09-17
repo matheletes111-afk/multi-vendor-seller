@@ -4,6 +4,9 @@ import { GET as getServiceFeed } from "../services/route"
 import { GET as getHotelFeed } from "../hotels/route"
 import { GET as getFoodFeed } from "../food/route"
 
+export const dynamic = "force-dynamic"
+export const revalidate = 0
+
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
   const type = searchParams.get("type") || searchParams.get("vertical")

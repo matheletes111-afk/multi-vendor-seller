@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { shuffleArray } from "@/lib/utils"
 
 export const dynamic = "force-dynamic"
+export const revalidate = 0
 
 /**
  * GET /mobileapi/v1/foods
@@ -43,7 +45,7 @@ export async function GET(request: NextRequest) {
       prisma.foodItem.findMany({
         where,
         skip,
-        take: limit,
+        take: page === 1 ? Math.max(limit * 3, 30) : limit,
         orderBy: { createdAt: "desc" },
         include: {
           restaurantSeller: {
@@ -102,17 +104,25 @@ export async function GET(request: NextRequest) {
     })
 
     const totalPages = Math.ceil(totalItems / limit)
+    const items = page === 1 ? shuffleArray(formattedItems).slice(0, limit) : formattedItems
 
-    return NextResponse.json({
-      success: true,
-      data: formattedItems,
-      pagination: {
-        current_page: page,
-        total_pages: totalPages,
-        total_items: totalItems,
-        has_more: page < totalPages,
+    return NextResponse.json(
+      {
+        success: true,
+        data: items,
+        pagination: {
+          current_page: page,
+          total_pages: totalPages,
+          total_items: totalItems,
+          has_more: page < totalPages,
+        },
       },
-    })
+      {
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+        },
+      }
+    )
   } catch (error) {
     console.error("Foods v1 API error:", error)
     return NextResponse.json(

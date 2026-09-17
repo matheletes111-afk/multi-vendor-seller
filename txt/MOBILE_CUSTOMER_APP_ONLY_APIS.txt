@@ -1,0 +1,123 @@
+================================================================================
+MOBILE CUSTOMER APP ONLY - API SPECIFICATION & INTEGRATION GUIDE
+================================================================================
+Date: 2026-09-17
+Audience: Mobile Customer App Developer
+Purpose: Complete specifications for recent updates in the Customer Mobile App:
+         1. Dynamic "Recently Viewed Products" with Real Relative Timestamps
+         2. Variant-Wise Expected Delivery Days on Product Detail Screen
+================================================================================
+
+
+--------------------------------------------------------------------------------
+1. HOME SCREEN: RECENTLY VIEWED PRODUCTS & RELATIVE TIMESTAMPS
+--------------------------------------------------------------------------------
+
+A. Fetch Recent Searches / Views:
+   - Endpoint: GET /mobileapi/v1/user/recent-searches
+   - Headers:  Authorization: Bearer <user_token> (returns [] for guest users)
+   - Query Params: limit (optional, default: 50)
+
+   Response Schema (200 OK):
+   {
+     "success": true,
+     "data": [
+       {
+         "search_id": "rv_1001",
+         "product_id": "prod_550",
+         "query_text": "Wireless Noise Cancelling Headphones",
+         "searched_time_ago": "5m ago",          // DYNAMIC relative time string ("Just now", "5m ago", "2h ago", "Yesterday", "3d ago")
+         "viewed_at": "2026-09-17T08:30:00.000Z", // Raw ISO 8601 timestamp
+         "viewed_time_ago": "5m ago",            // Alias for convenience
+         "image_url": "https://s3.url/image.jpg",
+         "price": 299,
+         "original_price": 349,
+         "discount_tag": "14% OFF"
+       }
+     ]
+   }
+
+   Mobile Developer Action:
+   * ZERO CODE CHANGES REQUIRED if your app already displays `searched_time_ago`. 
+     The backend now provides live dynamic relative time directly.
+   * OPTIONAL: If you want live local ticking on the client side without re-fetching, 
+     use the raw ISO timestamp in `viewed_at`.
+
+B. Record Product View (When user opens any product page):
+   - Endpoint: POST /mobileapi/v1/user/recent-searches
+   - Headers:  Authorization: Bearer <user_token>
+   - Headers:  Content-Type: application/json
+   - Body:
+     {
+       "productId": "product-uuid-here"
+     }
+     (Note: "product_id" is also supported)
+
+C. Clear Recent Search History (When user taps "Clear All"):
+   - Endpoint: DELETE /mobileapi/v1/user/recent-searches
+   - Headers:  Authorization: Bearer <user_token>
+
+
+--------------------------------------------------------------------------------
+2. PRODUCT DETAIL SCREEN: VARIANT-WISE EXPECTED DELIVERY DAYS
+--------------------------------------------------------------------------------
+
+A. Fetch Product Details:
+   - Endpoint: GET /mobileapi/product/:id
+   - Public API (No authentication required)
+
+   Response Structure (`data.variants`):
+   {
+     "success": true,
+     "data": {
+       "id": "prod-123",
+       "name": "Luxury Bedding Set",
+       "estimatedDeliveryCharge": 50,
+       "variants": [
+         {
+           "id": "variant-1",
+           "name": "Queen Size - Navy Blue",
+           "price": 899,
+           "discount": 100,
+           "stock": 25,
+           "deliveryDays": 5,                 // Expected delivery days (Integer)
+           "delivery_days": 5,                // snake_case alias
+           "estimated_delivery_days": 5,      // descriptive alias
+           "returnType": "RETURNABLE",
+           "returnDays": 7,
+           "images": ["https://s3.url/blue.jpg"]
+         },
+         {
+           "id": "variant-2",
+           "name": "Custom Handcrafted King Size",
+           "price": 1899,
+           "discount": 0,
+           "stock": 3,
+           "deliveryDays": 14,                // 14 days for custom bulky item
+           "delivery_days": 14,
+           "estimated_delivery_days": 14,
+           "returnType": "NON_RETURNABLE",
+           "images": ["https://s3.url/king.jpg"]
+         }
+       ]
+     }
+   }
+
+B. Mobile Developer Action (UI Implementation):
+   1. Initial Load:
+      - Display expected delivery days using the currently selected variant:
+        "Expected Delivery: {selectedVariant.deliveryDays} days"
+        (If 1 day, format as "1 day").
+      - Place this display near the "Estimated Delivery Charge" section.
+
+   2. Dynamic Variant Switching:
+      - When the customer taps or switches to a different variant (e.g., from 
+        Variant 1 to Variant 2), dynamically update the Expected Delivery text 
+        to reflect the newly selected variant's `deliveryDays`.
+
+   3. Safe Fallback in Mobile Code:
+      const days = selectedVariant.deliveryDays ?? selectedVariant.delivery_days ?? 7;
+
+================================================================================
+END OF CUSTOMER APP DOCUMENTATION
+================================================================================

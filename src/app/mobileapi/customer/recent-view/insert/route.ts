@@ -49,7 +49,7 @@ export async function POST(
       )
     }
 
-    let body: { productId?: string }
+    let body: { productId?: string; product_id?: string }
     try {
       body = await request.json()
     } catch {
@@ -59,10 +59,11 @@ export async function POST(
       )
     }
 
-    const productId = typeof body?.productId === "string" ? body.productId.trim() : ""
+    const rawId = body?.productId ?? body?.product_id
+    const productId = typeof rawId === "string" ? rawId.trim() : ""
     if (!productId) {
       return NextResponse.json<ErrorResponse>(
-        { success: false, error: "productId is required" },
+        { success: false, error: "productId or product_id is required" },
         { status: 400 }
       )
     }

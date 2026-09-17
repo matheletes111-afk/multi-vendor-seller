@@ -28,6 +28,7 @@ type VariantRow = {
   returnType: "NON_RETURNABLE" | "RETURNABLE"
   returnDays: string
   replacementAllowed: boolean
+  deliveryDays: string
 }
 type GeneratorOption = { optionName: string; valuesText: string }
 
@@ -63,6 +64,7 @@ export function NewProductClient() {
       returnType: "NON_RETURNABLE",
       returnDays: "",
       replacementAllowed: false,
+      deliveryDays: "7",
     },
   ])
   const [variantUploadingFor, setVariantUploadingFor] = useState<number | null>(null)
@@ -105,6 +107,7 @@ export function NewProductClient() {
         returnType: "NON_RETURNABLE",
         returnDays: "",
         replacementAllowed: false,
+        deliveryDays: "7",
       },
     ])
     setVariantPendingFiles((prev) => [...prev, []])
@@ -304,6 +307,7 @@ export function NewProductClient() {
       returnType: "NON_RETURNABLE",
       returnDays: "",
       replacementAllowed: false,
+      deliveryDays: "7",
     }))
     setVariants(newVariants)
     variantPreviewUrlsRef.current.flat().forEach((u) => URL.revokeObjectURL(u))
@@ -380,6 +384,7 @@ export function NewProductClient() {
       returnType?: "NON_RETURNABLE" | "RETURNABLE"
       returnDays?: number
       replacementAllowed?: boolean
+      deliveryDays?: number
     }[] = []
 
     const selectedCategoryObj = categories.find(c => c.id === selectedCategoryId)
@@ -455,6 +460,7 @@ export function NewProductClient() {
         returnType,
         returnDays: returnType === "RETURNABLE" && !isNaN(daysNum) && daysNum > 0 ? daysNum : undefined,
         replacementAllowed: returnType === "RETURNABLE" && v.replacementAllowed,
+        deliveryDays: !isNaN(parseInt(v.deliveryDays, 10)) && parseInt(v.deliveryDays, 10) >= 1 ? parseInt(v.deliveryDays, 10) : 7,
       })
     }
 
@@ -1008,6 +1014,21 @@ export function NewProductClient() {
                               <span>Allow customer to exchange for replacement variant</span>
                             </label>
                           )}
+                        </div>
+
+                        <div className="space-y-1.5 pt-2 border-t">
+                          <Label className="text-xs font-semibold">Expected Delivery (Days)</Label>
+                          <div className="flex items-center gap-1.5">
+                            <Input
+                              type="number"
+                              min="1"
+                              className="w-24 h-8 text-xs"
+                              placeholder="7"
+                              value={v.deliveryDays}
+                              onChange={(e) => updateVariant(i, "deliveryDays", e.target.value)}
+                            />
+                            <span className="text-xs text-muted-foreground">days (default: 7)</span>
+                          </div>
                         </div>
                       </div>
                     </div>

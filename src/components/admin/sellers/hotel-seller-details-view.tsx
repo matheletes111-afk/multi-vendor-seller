@@ -11,6 +11,7 @@ import {
   User,
   Mail,
   Phone,
+  Smartphone,
   FileText,
   Scale,
   MapPin,
@@ -28,8 +29,10 @@ import {
   Globe,
   Landmark,
   ShieldCheck,
-  UserCheck
+  UserCheck,
+  BarChart3
 } from "lucide-react"
+import Link from "next/link"
 import { evaluateSellerDocuments } from "@/lib/seller-approval-validation"
 
 interface HotelSellerDetailsViewProps {
@@ -458,14 +461,41 @@ export function HotelSellerDetailsView({
                     </Button>
                   </div>
                 )}
-                <Button
-                  variant="outline"
-                  className="rounded-full font-bold px-6 border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950 uppercase tracking-widest text-[10px] h-10 gap-1.5"
-                  onClick={() => onSendEmail?.(seller.id)}
+                <Link
+                  href={`/admin/hotel-sellers/${seller.id}/analytics`}
+                  className="inline-flex items-center rounded-full font-bold px-5 border border-violet-200 dark:border-violet-800 text-violet-700 dark:text-violet-300 hover:bg-violet-50 dark:hover:bg-violet-950 uppercase tracking-widest text-[10px] h-10 gap-1.5 transition-colors"
                 >
-                  <Mail className="h-3.5 w-3.5" />
-                  Email Partner
-                </Button>
+                  <BarChart3 className="h-3.5 w-3.5" />
+                  Analytics
+                </Link>
+                {seller.user?.email ? (
+                  <Button
+                    variant="outline"
+                    className="rounded-full font-bold px-6 border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950 uppercase tracking-widest text-[10px] h-10 gap-1.5"
+                    onClick={() => onSendEmail?.(seller.id)}
+                  >
+                    <Mail className="h-3.5 w-3.5" />
+                    Email Partner
+                  </Button>
+                ) : (seller.user?.phone || seller.businessInfo?.pocContact) ? (
+                  <Button
+                    variant="outline"
+                    className="rounded-full font-bold px-6 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950 uppercase tracking-widest text-[10px] h-10 gap-1.5"
+                    onClick={() => onSendEmail?.(seller.id)}
+                  >
+                    <Smartphone className="h-3.5 w-3.5" />
+                    SMS Partner
+                  </Button>
+                ) : (
+                  <Button
+                    variant="outline"
+                    disabled
+                    className="rounded-full font-bold px-6 border-slate-200 text-slate-400 uppercase tracking-widest text-[10px] h-10 gap-1.5 cursor-not-allowed opacity-50"
+                  >
+                    <Mail className="h-3.5 w-3.5" />
+                    Email Partner
+                  </Button>
+                )}
                 {seller.isSuspended ? (
                   <Button className="rounded-full font-bold px-8 bg-emerald-600 hover:bg-emerald-700 text-white uppercase tracking-widest text-[10px] h-10 shadow-lg shadow-emerald-100" disabled={!!actionLoading} onClick={() => onUnsuspend?.(seller.id)}>Activate Partner</Button>
                 ) : (

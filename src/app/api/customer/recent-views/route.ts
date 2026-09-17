@@ -2,10 +2,18 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { UserRole } from "@prisma/client"
+import { formatTimeAgo } from "@/lib/utils"
+
+export const dynamic = "force-dynamic"
+export const revalidate = 0
 
 const MAX_RECENT_VIEWS = 10
 
 type RecentViewRow = {
+  id: string
+  userId: string
+  productId: string
+  viewedAt: Date
   product: {
     id: string
     isActive: boolean
@@ -28,27 +36,89 @@ const recentViewDb = (prisma as any).recentView as
     }
   | undefined
 
-/** GET recent viewed products for the logged-in customer. Returns at most 10, newest first. */
-export async function GET() {
+/** GET recent viewed products for the logged-in customer (or guestIds param for guests). Returns at most 10, newest first. */
+export async function GET(request: NextRequest) {
   try {
     const session = await auth()
-    if (!session?.user?.id || session.user.role !== UserRole.CUSTOMER) {
-      return NextResponse.json({ products: [] })
+    const { searchParams } = new URL(request.url)
+    const guestIdsParam = searchParams.get("guestIds")
+
+    // 1. Authenticated customer flow
+    if (session?.user?.id && session.user.role === UserRole.CUSTOMER) {
+      if (!recentViewDb) {
+        return NextResponse.json({ products: [] })
+      }
+
+      const views = (await recentViewDb.findMany({
+        where: { userId: session.user.id },
+        orderBy: { viewedAt: "desc" },
+        take: MAX_RECENT_VIEWS,
+        include: {
+          product: {
+            select: {
+              id: true,
+              isActive: true,
+              name: true,
+              slug: true,
+              images: true,
+              category: { select: { id: true, name: true, slug: true } },
+              seller: { select: { store: { select: { name: true } } } },
+              variants: {
+                take: 1,
+                orderBy: { createdAt: "asc" },
+                select: { price: true, discount: true },
+              },
+            },
+          },
+        },
+      })) as RecentViewRow[]
+
+      const products = views
+        .filter((v) => v.product != null && v.product.isActive)
+        .map((v) => {
+          const p = v.product!
+          const first = p.variants[0]
+          return {
+            id: p.id,
+            name: p.name,
+            slug: p.slug,
+            images: (p.images as string[]) ?? [],
+            category: p.category,
+            seller: p.seller,
+            basePrice: first?.price ?? 0,
+            discount: first?.discount ?? 0,
+            viewedAt: v.viewedAt ? v.viewedAt.toISOString() : new Date().toISOString(),
+            timeAgo: formatTimeAgo(v.viewedAt),
+          }
+        })
+
+      return NextResponse.json(
+        { products },
+        {
+          headers: {
+            "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+          },
+        }
+      )
     }
 
-    if (!recentViewDb) {
-      return NextResponse.json({ products: [] })
-    }
+    // 2. Guest user flow (via ?guestIds=id1,id2,...)
+    if (guestIdsParam) {
+      const ids = guestIdsParam
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean)
+        .slice(0, MAX_RECENT_VIEWS)
 
-    const views = await recentViewDb.findMany({
-      where: { userId: session.user.id },
-      orderBy: { viewedAt: "desc" },
-      take: MAX_RECENT_VIEWS,
-      include: {
-        product: {
+      if (ids.length > 0) {
+        const guestProducts = await prisma.product.findMany({
+          where: {
+            id: { in: ids },
+            isActive: true,
+            isDeleted: false,
+          },
           select: {
             id: true,
-            isActive: true,
             name: true,
             slug: true,
             images: true,
@@ -60,28 +130,46 @@ export async function GET() {
               select: { price: true, discount: true },
             },
           },
+        })
+
+        const idIndexMap = new Map(ids.map((id, idx) => [id, idx]))
+        const products = guestProducts
+          .sort((a, b) => (idIndexMap.get(a.id) ?? 0) - (idIndexMap.get(b.id) ?? 0))
+          .map((p) => {
+            const first = p.variants[0]
+            return {
+              id: p.id,
+              name: p.name,
+              slug: p.slug,
+              images: (p.images as string[]) ?? [],
+              category: p.category,
+              seller: p.seller,
+              basePrice: first?.price ?? 0,
+              discount: first?.discount ?? 0,
+              viewedAt: new Date().toISOString(),
+              timeAgo: "Just now",
+            }
+          })
+
+        return NextResponse.json(
+          { products },
+          {
+            headers: {
+              "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+            },
+          }
+        )
+      }
+    }
+
+    return NextResponse.json(
+      { products: [] },
+      {
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
         },
-      },
-    }) as RecentViewRow[]
-
-    const products = views
-      .map((v) => v.product)
-      .filter((p): p is NonNullable<RecentViewRow["product"]> => p != null && p.isActive)
-      .map((p) => {
-        const first = p.variants[0]
-        return {
-          id: p.id,
-          name: p.name,
-          slug: p.slug,
-          images: (p.images as string[]) ?? [],
-          category: p.category,
-          seller: p.seller,
-          basePrice: first?.price ?? 0,
-          discount: first?.discount ?? 0,
-        }
-      })
-
-    return NextResponse.json({ products })
+      }
+    )
   } catch (error) {
     console.error("Recent views GET error:", error)
     return NextResponse.json(

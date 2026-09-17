@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { shuffleArray } from "@/lib/utils";
 
-/** GET active banners for home page carousel. Public, no auth. */
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+/** GET active banners for home page carousel. Dynamic per-refresh randomization. Public, no auth. */
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -43,7 +47,6 @@ export async function GET(request: Request) {
         serviceCategoryId: true,
         targetType: true,
       },
-      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
     });
 
     const formattedBanners = banners.map((b) => ({
@@ -51,7 +54,14 @@ export async function GET(request: Request) {
       mobile_banner: b.mobileBanner || b.bannerImage,
       mobileBanner: b.mobileBanner || b.bannerImage,
     }));
-    return NextResponse.json(formattedBanners);
+
+    const randomizedBanners = shuffleArray(formattedBanners);
+
+    return NextResponse.json(randomizedBanners, {
+      headers: {
+        "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+      },
+    });
   } catch (error) {
     console.error("Error fetching home banners:", error);
     return NextResponse.json(
@@ -60,3 +70,4 @@ export async function GET(request: Request) {
     );
   }
 }
+

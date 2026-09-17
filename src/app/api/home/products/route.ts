@@ -2,8 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { UserRole } from "@prisma/client";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { shuffleArray } from "@/lib/utils";
 
-/** GET products for home: optional categoryId for "Best Sellers in X", else featured + latest. Logged-in customers with category interests get products from those categories (Explore / For you). */
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+/** GET products for home: optional categoryId for "Best Sellers in X", else featured + latest. Dynamic per-refresh randomization across all sellers. */
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -34,10 +38,10 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const products = await prisma.product.findMany({
+    // Fetch an oversampled candidate pool to shuffle across all sellers
+    const candidatePool = await prisma.product.findMany({
       where,
-      take: limit,
-      orderBy: [{ isFeatured: "desc" }, { createdAt: "desc" }],
+      take: Math.max(limit * 4, 60),
       select: {
         id: true,
         name: true,
@@ -53,6 +57,9 @@ export async function GET(request: NextRequest) {
         _count: { select: { reviews: true } },
       },
     });
+
+    // Randomize order on each refresh and slice to requested limit
+    const products = shuffleArray(candidatePool).slice(0, limit);
 
     const productIds = products.map((p) => p.id);
     const ratingRows = productIds.length > 0
@@ -83,7 +90,11 @@ export async function GET(request: NextRequest) {
       };
     });
 
-    return NextResponse.json(serialized);
+    return NextResponse.json(serialized, {
+      headers: {
+        "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+      },
+    });
   } catch (error) {
     console.error("Error fetching home products:", error);
     return NextResponse.json(
@@ -92,3 +103,4 @@ export async function GET(request: NextRequest) {
     );
   }
 }
+
