@@ -146,8 +146,31 @@ export async function generateAndSendLogin2faOtp(
   // Generate 6-digit cryptographically secure OTP
   const otp = randomInt(100000, 999999).toString()
 
-  const hasEmail = Boolean(user.email && user.email.trim().length > 0)
-  const hasPhone = Boolean(user.phone && user.phone.trim().length > 0)
+  // Ensure we have fresh and complete user details (phone, phoneCountryCode, email, name)
+  let effectivePhone = user.phone
+  let effectiveCountryCode = user.phoneCountryCode
+  let effectiveEmail = user.email
+  let effectiveName = user.name
+
+  if (!effectiveCountryCode || !effectiveName || !effectivePhone || !effectiveEmail) {
+    try {
+      const dbUser = await prisma.user.findUnique({
+        where: { id: user.id },
+        select: { phoneCountryCode: true, name: true, phone: true, email: true },
+      })
+      if (dbUser) {
+        effectiveCountryCode = effectiveCountryCode || dbUser.phoneCountryCode
+        effectiveName = effectiveName || dbUser.name
+        effectivePhone = effectivePhone || dbUser.phone
+        effectiveEmail = effectiveEmail || dbUser.email
+      }
+    } catch (fetchErr) {
+      console.warn("[Login 2FA] Failed to fetch additional user details for 2FA:", fetchErr)
+    }
+  }
+
+  const hasEmail = Boolean(effectiveEmail && effectiveEmail.trim().length > 0)
+  const hasPhone = Boolean(effectivePhone && effectivePhone.trim().length > 0)
 
   const channels: Array<"SMS" | "EMAIL"> = []
 
@@ -183,13 +206,13 @@ export async function generateAndSendLogin2faOtp(
   let emailDispatched = false
 
   // Dispatch SMS
-  if (channels.includes("SMS") && user.phone) {
+  if (channels.includes("SMS") && effectivePhone) {
     try {
       const smsSuccess = await sendLogin2faSms({
-        to: user.phone,
-        countryCode: user.phoneCountryCode,
+        to: effectivePhone,
+        countryCode: effectiveCountryCode,
         otp,
-        name: user.name,
+        name: effectiveName,
       })
       if (smsSuccess) {
         smsDispatched = true
@@ -200,12 +223,12 @@ export async function generateAndSendLogin2faOtp(
   }
 
   // Dispatch Email
-  if (channels.includes("EMAIL") && user.email) {
+  if (channels.includes("EMAIL") && effectiveEmail) {
     try {
       const emailResult = await sendLogin2faEmail({
-        to: user.email,
+        to: effectiveEmail,
         otp,
-        name: user.name,
+        name: effectiveName,
       })
       if (emailResult && (emailResult as any).success) {
         emailDispatched = true
@@ -254,8 +277,8 @@ export async function generateAndSendLogin2faOtp(
     requiresOtp: true,
     preAuthToken,
     channels: successfulChannels,
-    maskedPhone: successfulChannels.includes("SMS") ? maskPhoneNumber(user.phone) : null,
-    maskedEmail: successfulChannels.includes("EMAIL") ? maskEmailAddress(user.email) : null,
+    maskedPhone: successfulChannels.includes("SMS") ? maskPhoneNumber(effectivePhone) : null,
+    maskedEmail: successfulChannels.includes("EMAIL") ? maskEmailAddress(effectiveEmail) : null,
     expiresIn: Math.floor(OTP_EXPIRY_MS / 1000),
     resendCooldown: Math.floor(RESEND_COOLDOWN_MS / 1000),
     message,

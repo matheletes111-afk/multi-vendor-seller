@@ -41,13 +41,13 @@ export async function POST(request: Request) {
     if (isEmail) {
       user = await prisma.user.findUnique({
         where: { email: rawIdentifier.toLowerCase() },
-        select: { id: true, email: true, phone: true, password: true, role: true, isEmailVerified: true },
+        select: { id: true, email: true, phone: true, phoneCountryCode: true, name: true, password: true, role: true, isEmailVerified: true },
       })
     } else {
       const phoneVariants = getEquivalentPhoneVariants(rawIdentifier)
       user = await prisma.user.findFirst({
         where: { phone: { in: phoneVariants } },
-        select: { id: true, email: true, phone: true, password: true, role: true, isEmailVerified: true },
+        select: { id: true, email: true, phone: true, phoneCountryCode: true, name: true, password: true, role: true, isEmailVerified: true },
       })
     }
 
@@ -98,9 +98,10 @@ export async function POST(request: Request) {
           const otpResult = await generateAndSendLogin2faOtp(
             {
               id: user.id,
-              name: (user as any).name,
+              name: user.name,
               email: user.email,
               phone: user.phone,
+              phoneCountryCode: user.phoneCountryCode,
             },
             UserRole.SELLER_SERVICE
           )
