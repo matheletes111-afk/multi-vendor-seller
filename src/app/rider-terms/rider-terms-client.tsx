@@ -32,6 +32,7 @@ import {
   FileText,
   Sparkles,
   BookOpen,
+  EyeOff,
 } from "lucide-react"
 import { Badge } from "@/ui/badge"
 import { Button } from "@/ui/button"
@@ -230,6 +231,12 @@ export function RiderTermsClient() {
                 ? MapPin
                 : h.icon === "Lock"
                 ? Lock
+                : h.icon === "EyeOff"
+                ? EyeOff
+                : h.icon === "CheckCircle2"
+                ? CheckCircle2
+                : h.icon === "FileText"
+                ? FileText
                 : h.icon === "PhoneCall"
                 ? PhoneCall
                 : UserCheck
