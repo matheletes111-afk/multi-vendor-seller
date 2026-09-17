@@ -433,6 +433,19 @@ export function ImageCropperModal({
         <DialogFooter className="flex-row justify-end gap-2 pt-4 border-t mt-3">
           <Button
             type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              if (imageFile) onCropComplete(imageFile)
+              onOpenChange(false)
+            }}
+            disabled={saving}
+            className="text-xs text-muted-foreground hover:text-foreground"
+          >
+            Use Original
+          </Button>
+          <Button
+            type="button"
             variant="outline"
             size="sm"
             onClick={() => onOpenChange(false)}

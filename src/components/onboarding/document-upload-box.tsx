@@ -99,7 +99,7 @@ export function DocumentUploadBox({
     let processedFile = file
 
     // Compress image files
-    if (file.type.startsWith("image/") || /\.(jpe?g|png|webp|heic|heif)$/i.test(file.name)) {
+    if (file.type.startsWith("image/") || /\.(jpe?g|png|webp|heic|heif|avif|bmp|tiff?)$/i.test(file.name)) {
       try {
         const { compressImage } = await import("@/lib/image-compressor")
         processedFile = await compressImage(file, 1200, 1200, 0.8)
@@ -125,8 +125,16 @@ export function DocumentUploadBox({
     const file = e.target.files?.[0]
     if (!file) return
 
-    // If it's an image, we can optionally open the cropper right away or set it directly
-    if (file.type.startsWith("image/") || /\.(jpe?g|png|webp|heic|heif)$/i.test(file.name)) {
+    // Pre-validate first
+    const validation = validateOnboardingFile(file, { imagesOnly, maxSizeMb, isPreCompression: true })
+    if (!validation.isValid) {
+      setError(validation.error || "Invalid file format.")
+      if (fileInputRef.current) fileInputRef.current.value = ""
+      return
+    }
+
+    // If it's an image, open cropper modal
+    if (file.type.startsWith("image/") || /\.(jpe?g|png|webp|heic|heif|avif|bmp|tiff?)$/i.test(file.name)) {
       setFileToCrop(file)
       setCropperModalOpen(true)
     } else {
@@ -137,6 +145,11 @@ export function DocumentUploadBox({
 
   // Handle photo captured from camera modal
   const handleCameraPhoto = (file: File) => {
+    const validation = validateOnboardingFile(file, { imagesOnly, maxSizeMb, isPreCompression: true })
+    if (!validation.isValid) {
+      setError(validation.error || "Invalid file format.")
+      return
+    }
     setFileToCrop(file)
     setCropperModalOpen(true)
   }

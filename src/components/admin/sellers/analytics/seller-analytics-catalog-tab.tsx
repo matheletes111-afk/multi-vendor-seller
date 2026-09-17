@@ -62,10 +62,12 @@ export function SellerAnalyticsCatalogTab({
 
   // Filter items
   const filteredItems = useMemo(() => {
+    const q = searchQuery.toLowerCase().trim()
     return items.filter((item) => {
       const matchesSearch =
-        item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        item.category.toLowerCase().includes(searchQuery.toLowerCase())
+        !q ||
+        (item.name || "").toLowerCase().includes(q) ||
+        (item.category || "").toLowerCase().includes(q)
 
       const matchesStatus =
         statusFilter === "ALL"

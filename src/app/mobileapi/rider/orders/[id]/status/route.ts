@@ -2,8 +2,39 @@ import { NextRequest, NextResponse } from "next/server"
 import { getMobileRiderAuth } from "../../../../_helpers/rider-auth"
 import { prisma } from "@/lib/prisma"
 import { handleRiderStatusUpdate } from "@/lib/delivery-dispatch"
+import path from "path"
 import { uploadPublicFile } from "@/lib/upload-public-file"
 import { DeliveryAssignmentStatus } from "@prisma/client"
+
+function getSafeImageExt(file: File): string {
+  const ext = path.extname(file.name || "").toLowerCase()
+  if (ext && [".jpg", ".jpeg", ".png", ".webp", ".heic", ".heif", ".avif", ".bmp", ".tiff", ".tif"].includes(ext)) return ext
+  if (file.type) {
+    const t = file.type.toLowerCase()
+    if (t.includes("png")) return ".png"
+    if (t.includes("jpeg") || t.includes("jpg")) return ".jpg"
+    if (t.includes("webp")) return ".webp"
+    if (t.includes("heic")) return ".heic"
+    if (t.includes("heif")) return ".heif"
+    if (t.includes("avif")) return ".avif"
+    if (t.includes("bmp")) return ".bmp"
+    if (t.includes("tiff") || t.includes("tif")) return ".tiff"
+  }
+  return ".jpg"
+}
+
+function getSafeImageMime(file: File, ext: string): string {
+  if (file.type && file.type.includes("/")) return file.type
+  const clean = ext.toLowerCase()
+  if (clean === ".png") return "image/png"
+  if (clean === ".webp") return "image/webp"
+  if (clean === ".heic") return "image/heic"
+  if (clean === ".heif") return "image/heif"
+  if (clean === ".avif") return "image/avif"
+  if (clean === ".bmp") return "image/bmp"
+  if (clean === ".tiff" || clean === ".tif") return "image/tiff"
+  return "image/jpeg"
+}
 
 export async function POST(
   request: NextRequest,
@@ -42,11 +73,11 @@ export async function POST(
         try {
           const arrayBuffer = await rawProof.arrayBuffer()
           const buffer = Buffer.from(arrayBuffer)
-          const ext = rawProof.name ? `.${rawProof.name.split(".").pop()}` : ".jpg"
+          const ext = getSafeImageExt(rawProof)
           const uploadedUrl = await uploadPublicFile({
             folder: "review-images/delivery-proofs",
             ext,
-            contentType: rawProof.type || "image/jpeg",
+            contentType: getSafeImageMime(rawProof, ext),
             buffer,
             prefix: `proof-${id.slice(0, 8)}`,
           })
@@ -72,11 +103,11 @@ export async function POST(
           try {
             const arrayBuffer = await item.arrayBuffer()
             const buffer = Buffer.from(arrayBuffer)
-            const ext = item.name ? `.${item.name.split(".").pop()}` : ".jpg"
+            const ext = getSafeImageExt(item)
             const url = await uploadPublicFile({
               folder: "review-images/pickup-proofs",
               ext,
-              contentType: item.type || "image/jpeg",
+              contentType: getSafeImageMime(item, ext),
               buffer,
               prefix: `pickup-${id.slice(0, 8)}`,
             })

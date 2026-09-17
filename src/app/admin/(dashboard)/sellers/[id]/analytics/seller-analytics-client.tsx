@@ -59,7 +59,8 @@ export function SellerAnalyticsClient({ id, initialSellerType }: SellerAnalytics
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch(`/api/admin/sellers/${id}/analytics?timeframe=${timeframe}`)
+      const sellerTypeQuery = initialSellerType ? `&sellerType=${encodeURIComponent(initialSellerType)}` : ""
+      const res = await fetch(`/api/admin/sellers/${id}/analytics?timeframe=${timeframe}${sellerTypeQuery}`)
       const json = await res.json()
       if (!res.ok) {
         throw new Error(json.error || "Failed to load seller analytics")

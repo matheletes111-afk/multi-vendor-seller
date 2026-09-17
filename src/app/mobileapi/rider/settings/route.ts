@@ -6,6 +6,42 @@ import bcrypt from "bcryptjs"
 import { uploadPublicFile } from "@/lib/upload-public-file"
 import { generateMobileTokens } from "@/lib/mobile-jwt"
 import { validateAndFormatPaymentDetails } from "@/lib/payment-details-helper"
+import { validateOnboardingFile } from "@/lib/onboarding-file-validation"
+
+function getSafeFileExt(file: File, fallbackExt: string): string {
+  const ext = path.extname(file.name || "").toLowerCase()
+  if (ext && ext.length >= 2 && ext.length <= 6) return ext
+  if (file.type) {
+    const t = file.type.toLowerCase()
+    if (t.includes("png")) return ".png"
+    if (t.includes("jpeg") || t.includes("jpg")) return ".jpg"
+    if (t.includes("webp")) return ".webp"
+    if (t.includes("heic")) return ".heic"
+    if (t.includes("heif")) return ".heif"
+    if (t.includes("avif")) return ".avif"
+    if (t.includes("bmp")) return ".bmp"
+    if (t.includes("tiff") || t.includes("tif")) return ".tiff"
+    if (t.includes("gif")) return ".gif"
+    if (t.includes("pdf")) return ".pdf"
+  }
+  return fallbackExt
+}
+
+function getSafeFileMime(file: File, ext: string, fallbackMime: string): string {
+  if (file.type && file.type.includes("/")) return file.type
+  const clean = ext.toLowerCase()
+  if (clean === ".jpg" || clean === ".jpeg") return "image/jpeg"
+  if (clean === ".png") return "image/png"
+  if (clean === ".webp") return "image/webp"
+  if (clean === ".heic") return "image/heic"
+  if (clean === ".heif") return "image/heif"
+  if (clean === ".avif") return "image/avif"
+  if (clean === ".bmp") return "image/bmp"
+  if (clean === ".tiff" || clean === ".tif") return "image/tiff"
+  if (clean === ".gif") return "image/gif"
+  if (clean === ".pdf") return "application/pdf"
+  return fallbackMime
+}
 
 // GET /mobileapi/rider/settings — Fetch full settings
 export async function GET(request: NextRequest) {
@@ -214,14 +250,36 @@ export async function POST(request: NextRequest) {
         }
       }
 
+      // Support pre-existing URLs passed from mobile app client state
+      if (formData.has("profileImageUrl")) {
+        const pVal = formData.get("profileImageUrl") as string | null
+        if (pVal) profileImageUrl = pVal.trim()
+      }
+      if (formData.has("drivingLicenseDocUrl")) {
+        const dVal = formData.get("drivingLicenseDocUrl") as string | null
+        if (dVal) drivingLicenseDocUrl = dVal.trim()
+      }
+      if (formData.has("nationalIdDocUrl")) {
+        const nVal = formData.get("nationalIdDocUrl") as string | null
+        if (nVal) nationalIdDocUrl = nVal.trim()
+      }
+      if (formData.has("vehicleInsuranceDocUrl")) {
+        const iVal = formData.get("vehicleInsuranceDocUrl") as string | null
+        if (iVal) vehicleInsuranceDocUrl = iVal.trim()
+      }
+
       const profileImageFile = formData.get("profileImage") as File | null
       if (profileImageFile && typeof profileImageFile === "object" && profileImageFile.size > 0) {
+        const val = validateOnboardingFile(profileImageFile, { imagesOnly: true, maxSizeMb: 4.5 })
+        if (!val.isValid) {
+          return NextResponse.json({ success: false, error: `Profile Picture: ${val.error}` }, { status: 400 })
+        }
         const buffer = Buffer.from(await profileImageFile.arrayBuffer())
-        const ext = profileImageFile.name.substring(profileImageFile.name.lastIndexOf(".")) || ".jpg"
+        const ext = getSafeFileExt(profileImageFile, ".jpg")
         profileImageUrl = await uploadPublicFile({
           folder: "profile",
           ext,
-          contentType: profileImageFile.type || "image/jpeg",
+          contentType: getSafeFileMime(profileImageFile, ext, "image/jpeg"),
           buffer,
           prefix: `rider-pfp-${userId.slice(0, 8)}`,
         })
@@ -229,12 +287,16 @@ export async function POST(request: NextRequest) {
 
       const dlFile = formData.get("drivingLicenseDoc") as File | null
       if (dlFile && typeof dlFile === "object" && dlFile.size > 0) {
+        const val = validateOnboardingFile(dlFile, { maxSizeMb: 4.5 })
+        if (!val.isValid) {
+          return NextResponse.json({ success: false, error: `Driving License: ${val.error}` }, { status: 400 })
+        }
         const buffer = Buffer.from(await dlFile.arrayBuffer())
-        const ext = dlFile.name.substring(dlFile.name.lastIndexOf(".")) || ".pdf"
+        const ext = getSafeFileExt(dlFile, ".pdf")
         drivingLicenseDocUrl = await uploadPublicFile({
           folder: "onboarding/kyc",
           ext,
-          contentType: dlFile.type || "application/pdf",
+          contentType: getSafeFileMime(dlFile, ext, "application/pdf"),
           buffer,
           prefix: `rider-dl-${userId.slice(0, 8)}`,
         })
@@ -242,12 +304,16 @@ export async function POST(request: NextRequest) {
 
       const nidFile = formData.get("nationalIdDoc") as File | null
       if (nidFile && typeof nidFile === "object" && nidFile.size > 0) {
+        const val = validateOnboardingFile(nidFile, { maxSizeMb: 4.5 })
+        if (!val.isValid) {
+          return NextResponse.json({ success: false, error: `National ID: ${val.error}` }, { status: 400 })
+        }
         const buffer = Buffer.from(await nidFile.arrayBuffer())
-        const ext = nidFile.name.substring(nidFile.name.lastIndexOf(".")) || ".pdf"
+        const ext = getSafeFileExt(nidFile, ".pdf")
         nationalIdDocUrl = await uploadPublicFile({
           folder: "onboarding/kyc",
           ext,
-          contentType: nidFile.type || "application/pdf",
+          contentType: getSafeFileMime(nidFile, ext, "application/pdf"),
           buffer,
           prefix: `rider-nid-${userId.slice(0, 8)}`,
         })
@@ -255,12 +321,16 @@ export async function POST(request: NextRequest) {
 
       const insFile = formData.get("vehicleInsuranceDoc") as File | null
       if (insFile && typeof insFile === "object" && insFile.size > 0) {
+        const val = validateOnboardingFile(insFile, { maxSizeMb: 4.5 })
+        if (!val.isValid) {
+          return NextResponse.json({ success: false, error: `Vehicle Insurance: ${val.error}` }, { status: 400 })
+        }
         const buffer = Buffer.from(await insFile.arrayBuffer())
-        const ext = insFile.name.substring(insFile.name.lastIndexOf(".")) || ".pdf"
+        const ext = getSafeFileExt(insFile, ".pdf")
         vehicleInsuranceDocUrl = await uploadPublicFile({
           folder: "onboarding/kyc",
           ext,
-          contentType: insFile.type || "application/pdf",
+          contentType: getSafeFileMime(insFile, ext, "application/pdf"),
           buffer,
           prefix: `rider-ins-${userId.slice(0, 8)}`,
         })

@@ -119,7 +119,23 @@ function validateFileSignature(buffer: Buffer, ext: string, contentType: string)
   const cleanExt = ext.toLowerCase().trim()
   const cleanType = contentType.toLowerCase().trim()
 
-  const allowedExts = [".jpg", ".jpeg", ".png", ".gif", ".webp", ".mp4", ".webm", ".mov", ".pdf", ".heic", ".heif"]
+  const allowedExts = [
+    ".jpg",
+    ".jpeg",
+    ".png",
+    ".gif",
+    ".webp",
+    ".mp4",
+    ".webm",
+    ".mov",
+    ".pdf",
+    ".heic",
+    ".heif",
+    ".avif",
+    ".bmp",
+    ".tiff",
+    ".tif",
+  ]
   const allowedTypes = [
     "image/jpeg",
     "image/jpg",
@@ -133,6 +149,10 @@ function validateFileSignature(buffer: Buffer, ext: string, contentType: string)
     "application/pdf",
     "image/heic",
     "image/heif",
+    "image/avif",
+    "image/bmp",
+    "image/x-ms-bmp",
+    "image/tiff",
   ]
 
   if (!allowedExts.includes(cleanExt)) {
@@ -235,6 +255,26 @@ function validateFileSignature(buffer: Buffer, ext: string, contentType: string)
     if (!isFtyp) {
       throw new Error("Invalid HEIC/HEIF signature")
     }
+  } else if (cleanExt === ".avif") {
+    if (buffer.length < 12) {
+      throw new Error("Invalid AVIF signature")
+    }
+    const isFtyp = buffer[4] === 0x66 && buffer[5] === 0x74 && buffer[6] === 0x79 && buffer[7] === 0x70
+    if (!isFtyp) {
+      throw new Error("Invalid AVIF signature")
+    }
+  } else if (cleanExt === ".bmp") {
+    if (buffer.length < 2 || buffer[0] !== 0x42 || buffer[1] !== 0x4d) {
+      throw new Error("Invalid BMP signature")
+    }
+  } else if (cleanExt === ".tiff" || cleanExt === ".tif") {
+    if (
+      buffer.length < 4 ||
+      !((buffer[0] === 0x49 && buffer[1] === 0x49 && buffer[2] === 0x2a && buffer[3] === 0x00) ||
+        (buffer[0] === 0x4d && buffer[1] === 0x4d && buffer[2] === 0x00 && buffer[3] === 0x2a))
+    ) {
+      throw new Error("Invalid TIFF signature")
+    }
   }
 
   // Validate image dimensions to prevent Pixel Flood DoS on the server
@@ -242,7 +282,7 @@ function validateFileSignature(buffer: Buffer, ext: string, contentType: string)
   if (imageExts.includes(cleanExt)) {
     const dims = getImageDimensions(buffer)
     if (dims) {
-      const MAX_DIMENSION = 8000
+      const MAX_DIMENSION = 24000
       if (dims.width > MAX_DIMENSION || dims.height > MAX_DIMENSION) {
         throw new Error(
           `Image dimensions exceed the maximum allowed limit of ${MAX_DIMENSION}x${MAX_DIMENSION} pixels (detected ${dims.width}x${dims.height}). Upload blocked to prevent denial of service.`

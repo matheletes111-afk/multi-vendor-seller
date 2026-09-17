@@ -128,7 +128,7 @@ export async function compressImage(
   maxHeight = 1200,
   quality = 0.8
 ): Promise<File> {
-  const MAX_DIMENSION = 8000 // Max 8000x8000 pixels to prevent Pixel Flood DoS
+  const MAX_DIMENSION = 24000 // Max 24000x24000 pixels (supports modern 48MP, 108MP, 200MP phone cameras while preventing multi-gigabyte pixel flood bombs)
 
   // Check dimensions from headers first to prevent loading pixel floods into browser memory
   try {
@@ -147,7 +147,7 @@ export async function compressImage(
   }
 
   const fileName = file.name || ""
-  const isImageByExt = /\.(jpe?g|png|webp|heic|heif|bmp|tiff?)$/i.test(fileName)
+  const isImageByExt = /\.(jpe?g|png|webp|heic|heif|bmp|tiff?|avif)$/i.test(fileName)
   const isImageByType = (file.type || "").startsWith("image/")
   const isGif = file.type === "image/gif" || /\.gif$/i.test(fileName)
   const isSvg = file.type === "image/svg+xml" || /\.svg$/i.test(fileName)
@@ -188,6 +188,9 @@ export async function compressImage(
       let height = naturalHeight
 
       if (!width || !height) {
+        if (typeof (source as any).close === "function") {
+          try { (source as any).close() } catch (_) {}
+        }
         safeResolve(file)
         return
       }
@@ -209,15 +212,31 @@ export async function compressImage(
 
       const ctx = canvas.getContext("2d")
       if (!ctx) {
+        if (typeof (source as any).close === "function") {
+          try { (source as any).close() } catch (_) {}
+        }
         safeResolve(file)
         return
+      }
+
+      // If output is JPEG, pre-fill with white so transparent PNGs/WebPs don't get ugly black backgrounds
+      if (outputType === "image/jpeg") {
+        ctx.fillStyle = "#ffffff"
+        ctx.fillRect(0, 0, width, height)
       }
 
       try {
         ctx.drawImage(source, 0, 0, width, height)
       } catch (_) {
+        if (typeof (source as any).close === "function") {
+          try { (source as any).close() } catch (_) {}
+        }
         safeResolve(file)
         return
+      }
+
+      if (typeof (source as any).close === "function") {
+        try { (source as any).close() } catch (_) {}
       }
 
       canvas.toBlob(

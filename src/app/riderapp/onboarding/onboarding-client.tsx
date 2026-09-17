@@ -240,15 +240,26 @@ export function RiderOnboardingClient({ user: initialUser }: { user: any }) {
 
       if (profileImageFile) {
         formData.append("profileImage", profileImageFile)
+      } else if (profileImageUrl) {
+        formData.append("profileImageUrl", profileImageUrl)
       }
+
       if (nationalIdFile) {
         formData.append("nationalIdDoc", nationalIdFile)
+      } else if (nationalIdUrl) {
+        formData.append("nationalIdDocUrl", nationalIdUrl)
       }
+
       if (drivingLicenseFile) {
         formData.append("drivingLicenseDoc", drivingLicenseFile)
+      } else if (drivingLicenseUrl) {
+        formData.append("drivingLicenseDocUrl", drivingLicenseUrl)
       }
+
       if (insuranceFile) {
         formData.append("vehicleInsuranceDoc", insuranceFile)
+      } else if (insuranceUrl) {
+        formData.append("vehicleInsuranceDocUrl", insuranceUrl)
       }
 
       let res: Response
@@ -259,8 +270,8 @@ export function RiderOnboardingClient({ user: initialUser }: { user: any }) {
         })
       } catch (networkErr: any) {
         const netMsg = networkErr?.message || ""
-        if (netMsg.includes("Failed to fetch") || netMsg.includes("Load failed") || netMsg.includes("NetworkError")) {
-          throw new Error("Network connection error or document upload payload too large. Please check your internet connection and verify file sizes.")
+        if (netMsg.includes("Failed to fetch") || netMsg.includes("Load failed") || netMsg.includes("NetworkError") || netMsg.includes("too large")) {
+          throw new Error("Upload failed (Network/File Size issue). Please ensure each uploaded document or photo is under 2.5 MB and your connection is stable, then try again.")
         }
         throw networkErr
       }
@@ -285,12 +296,17 @@ export function RiderOnboardingClient({ user: initialUser }: { user: any }) {
       router.push("/riderapp")
       router.refresh()
     } catch (err: any) {
-      const msg = err.message || "An unexpected error occurred."
-      setError(
-        msg.includes("Failed to fetch") || msg.includes("Load failed")
-          ? "Network connection error or document upload too large. Please check your connection and retry."
-          : msg
-      )
+      let msg = err.message || "An unexpected error occurred."
+      if (
+        msg.includes("Failed to fetch") ||
+        msg.includes("Load failed") ||
+        msg.includes("NetworkError") ||
+        msg.includes("too large")
+      ) {
+        msg =
+          "Upload failed (Network/File Size issue). Please ensure each uploaded document or photo is under 2.5 MB and your connection is stable, then try again."
+      }
+      setError(msg)
       if (typeof window !== "undefined") {
         window.scrollTo({ top: 0, behavior: "smooth" })
       }
@@ -515,10 +531,13 @@ export function RiderOnboardingClient({ user: initialUser }: { user: any }) {
                     label="Rider Profile Photo"
                     description="Clear headshot/portrait photo for customer and merchant identification."
                     accept={ALLOWED_IMAGE_ONLY_ACCEPT}
+                    cameraFacingMode="user"
+                    cameraGuideType="circle"
+                    cropAspectRatio="1:1"
                     value={profileImageUrl}
                     onChange={(file, preview) => {
                       setProfileImageFile(file)
-                      if (preview) setProfileImageUrl(preview)
+                      setProfileImageUrl(preview || null)
                     }}
                   />
                 </div>
@@ -591,30 +610,39 @@ export function RiderOnboardingClient({ user: initialUser }: { user: any }) {
                   <DocUploadPreview
                     label="National ID / Passport / Voter Card"
                     description="Front side or full page scan (PDF or Image)."
+                    cameraFacingMode="environment"
+                    cameraGuideType="document"
+                    cropAspectRatio="free"
                     value={nationalIdUrl}
                     onChange={(file, preview) => {
                       setNationalIdFile(file)
-                      if (preview) setNationalIdUrl(preview)
+                      setNationalIdUrl(preview || null)
                     }}
                   />
 
                   <DocUploadPreview
                     label="Driving License Document"
                     description="Valid rider/driver license (PDF or Image)."
+                    cameraFacingMode="environment"
+                    cameraGuideType="document"
+                    cropAspectRatio="free"
                     value={drivingLicenseUrl}
                     onChange={(file, preview) => {
                       setDrivingLicenseFile(file)
-                      if (preview) setDrivingLicenseUrl(preview)
+                      setDrivingLicenseUrl(preview || null)
                     }}
                   />
 
                   <DocUploadPreview
                     label="Vehicle Insurance / Registration"
                     description="Proof of insurance or vehicle registration (PDF or Image)."
+                    cameraFacingMode="environment"
+                    cameraGuideType="document"
+                    cropAspectRatio="free"
                     value={insuranceUrl}
                     onChange={(file, preview) => {
                       setInsuranceFile(file)
-                      if (preview) setInsuranceUrl(preview)
+                      setInsuranceUrl(preview || null)
                     }}
                   />
                 </div>

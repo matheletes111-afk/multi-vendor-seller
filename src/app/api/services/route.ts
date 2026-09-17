@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { shuffleArray } from "@/lib/utils"
 
 export const dynamic = "force-dynamic"
+export const revalidate = 0
 
 export async function GET(request: NextRequest) {
   try {
@@ -47,6 +49,11 @@ export async function GET(request: NextRequest) {
       if (maxPrice !== undefined && !isNaN(maxPrice)) whereCondition.basePrice.lte = maxPrice
     }
 
+    // When no search + default sort on page 1, we randomize — oversample for genuine variety
+    const isDefaultView = !search && sortBy === "newest" && page === 1
+    const fetchLimit = isDefaultView ? Math.max(limit * 3, 60) : limit
+    const fetchSkip = isDefaultView ? 0 : skip
+
     let orderByClause: any = { createdAt: "desc" }
     if (sortBy === "price_asc") {
       orderByClause = { basePrice: "asc" }
@@ -58,8 +65,8 @@ export async function GET(request: NextRequest) {
       prisma.service.count({ where: whereCondition }),
       prisma.service.findMany({
         where: whereCondition,
-        skip,
-        take: limit,
+        skip: fetchSkip,
+        take: fetchLimit,
         orderBy: orderByClause,
         select: {
           id: true,
@@ -148,27 +155,40 @@ export async function GET(request: NextRequest) {
       services.sort((a, b) => b.bookingsCount - a.bookingsCount)
     }
 
+    // Randomize on default view (no search, no explicit sort) — skip/take handled via oversample+slice
+    const finalServices = isDefaultView
+      ? shuffleArray(services).slice(0, limit)
+      : services
+
     // Fetch active service banners for the header carousel
-    const banners = await prisma.banner.findMany({
+    const rawBanners = await prisma.banner.findMany({
       where: {
         isActive: true,
         OR: [{ targetType: "service" }, { serviceCategoryId: { not: null } }],
       },
-      take: 6,
+      take: 12,
       orderBy: { createdAt: "desc" },
     })
+    const banners = shuffleArray(rawBanners)
 
-    return NextResponse.json({
-      success: true,
-      services,
-      banners,
-      pagination: {
-        total: totalCount,
-        page,
-        limit,
-        totalPages: Math.ceil(totalCount / limit),
+    return NextResponse.json(
+      {
+        success: true,
+        services: finalServices,
+        banners,
+        pagination: {
+          total: totalCount,
+          page,
+          limit,
+          totalPages: Math.ceil(totalCount / limit),
+        },
       },
-    })
+      {
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+        },
+      }
+    )
   } catch (error: any) {
     console.error("Public services API error:", error)
     return NextResponse.json({ error: "Failed to fetch services" }, { status: 500 })

@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { shuffleArray } from "@/lib/utils"
+
+export const dynamic = "force-dynamic"
+export const revalidate = 0
 
 export async function GET(request: NextRequest) {
   try {
@@ -30,7 +34,7 @@ export async function GET(request: NextRequest) {
       },
     })
 
-    const deals = services
+    const deals = shuffleArray(services)
       .map((s, index) => {
         const basePrice = s.basePrice || 0
         const discountAmount = s.discount || 0
@@ -108,16 +112,27 @@ export async function GET(request: NextRequest) {
           review_count: 52,
         },
       ]
-      return NextResponse.json({
-        success: true,
-        data: fallbacks,
-      })
+      return NextResponse.json(
+        {
+          success: true,
+          data: fallbacks,
+        },
+        {
+          headers: {
+            "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+          },
+        }
+      )
     }
 
-    return NextResponse.json({
-      success: true,
-      data: deals,
-    })
+    return NextResponse.json(
+      { success: true, data: deals },
+      {
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+        },
+      }
+    )
   } catch (error) {
     console.error("Service deals of the day API error:", error)
     return NextResponse.json(

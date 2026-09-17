@@ -36,14 +36,15 @@ export function SellerAnalyticsOrdersTab({
 
   const filteredOrders = useMemo(() => {
     return orders.filter((order) => {
-      const q = searchQuery.toLowerCase()
+      const q = searchQuery.toLowerCase().trim()
       const matchesSearch =
-        order.orderNumber.toLowerCase().includes(q) ||
-        order.customerName.toLowerCase().includes(q) ||
+        !q ||
+        (order.orderNumber || "").toLowerCase().includes(q) ||
+        (order.customerName || "").toLowerCase().includes(q) ||
         (order.customerContact && order.customerContact.toLowerCase().includes(q)) ||
-        order.itemsSummary.toLowerCase().includes(q)
+        (order.itemsSummary || "").toLowerCase().includes(q)
 
-      const statusUpper = order.status.toUpperCase()
+      const statusUpper = (order.status || "").toUpperCase()
       const matchesStatus =
         statusFilter === "ALL"
           ? true

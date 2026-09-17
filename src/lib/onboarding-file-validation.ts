@@ -7,8 +7,8 @@
  * to prevent browser freezing, memory spikes, and decoding errors.
  */
 
-export const ALLOWED_DOC_ACCEPT = ".pdf,image/*,.jpg,.jpeg,.png,.webp,.heic,.heif,.gif"
-export const ALLOWED_IMAGE_ONLY_ACCEPT = "image/*,.jpg,.jpeg,.png,.webp,.heic,.heif"
+export const ALLOWED_DOC_ACCEPT = ".pdf,image/*,.jpg,.jpeg,.png,.webp,.heic,.heif,.gif,.avif,.bmp,.tiff"
+export const ALLOWED_IMAGE_ONLY_ACCEPT = "image/*,.jpg,.jpeg,.png,.webp,.heic,.heif,.avif,.bmp"
 
 const ALLOWED_IMAGE_EXTENSIONS = new Set([
   ".jpg",
@@ -154,9 +154,9 @@ export function validateOnboardingFile(
   }
 
   // 5. File size check:
-  // For raw images before compression, allow up to 15MB so clear phone photos aren't rejected upfront.
+  // For raw images before compression, allow up to 50MB so high-res phone photos (48MP, 108MP, ProRAW) aren't rejected upfront.
   // For PDFs and final uploads, enforce a safe limit (default 2.5MB) to keep total step payload below 4.5MB.
-  const effectiveMaxMb = isImage && isPreCompression ? 15 : maxSizeMb
+  const effectiveMaxMb = isImage && isPreCompression ? 50 : maxSizeMb
   if (file.size && file.size > effectiveMaxMb * 1024 * 1024) {
     return {
       isValid: false,
@@ -167,6 +167,20 @@ export function validateOnboardingFile(
   }
 
   return { isValid: true }
+}
+
+/**
+ * Checks if a file is an image based on extension or MIME type.
+ */
+export function isImageFile(file?: { name: string; type?: string } | null): boolean {
+  if (!file) return false
+  const ext = getFileExtension(file.name || "")
+  const mime = (file.type || "").toLowerCase().trim()
+  return (
+    ALLOWED_IMAGE_EXTENSIONS.has(ext) ||
+    (mime.startsWith("image/") && mime !== "image/svg+xml") ||
+    /\.(jpe?g|png|webp|gif|bmp|tiff?|heic|heif|avif)$/i.test(file.name || "")
+  )
 }
 
 /**
@@ -186,3 +200,4 @@ export function isImageUrl(url?: string | null): boolean {
   if (!url) return false
   return /\.(jpe?g|png|webp|gif|bmp|heic|heif|avif|tif|tiff)($|\?|#)/i.test(url)
 }
+
