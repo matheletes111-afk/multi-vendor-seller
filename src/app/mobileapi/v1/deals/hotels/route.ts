@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { shuffleArray } from "@/lib/utils"
 
 export const dynamic = "force-dynamic"
+export const revalidate = 0
 
 export async function GET(request: NextRequest) {
   try {
@@ -34,7 +36,9 @@ export async function GET(request: NextRequest) {
       },
     })
 
-    const deals = hotels
+    const shuffledHotels = shuffleArray(hotels)
+
+    const deals = shuffledHotels
       .map((h, index) => {
         const room = h.rooms[0]
         const basePrice = room ? room.price : 499
@@ -80,10 +84,14 @@ export async function GET(request: NextRequest) {
       })
       .slice(0, limit)
 
-    return NextResponse.json({
-      success: true,
-      data: deals,
-    })
+    return NextResponse.json(
+      { success: true, data: deals },
+      {
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+        },
+      }
+    )
   } catch (error) {
     console.error("Hotel deals API error:", error)
     return NextResponse.json(

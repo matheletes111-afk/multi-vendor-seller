@@ -342,11 +342,11 @@ export function RiderRegistrationClient() {
               />
               <span>
                 I agree to the{" "}
-                <Link href="/terms-and-conditions" className="text-blue-600 underline">
+                <Link href="/rider-terms?tab=terms" target="_blank" className="text-blue-600 underline">
                   Terms & Conditions
                 </Link>{" "}
                 and{" "}
-                <Link href="/privacy-policy" className="text-blue-600 underline">
+                <Link href="/rider-terms?tab=privacy" target="_blank" className="text-blue-600 underline">
                   Privacy Policy
                 </Link>
                 .

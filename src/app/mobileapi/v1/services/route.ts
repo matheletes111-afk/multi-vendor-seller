@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { shuffleArray } from "@/lib/utils"
+
+export const dynamic = "force-dynamic"
+export const revalidate = 0
 
 export async function GET(request: NextRequest) {
   try {
@@ -26,12 +30,14 @@ export async function GET(request: NextRequest) {
       ]
     }
 
+    const isDefaultView = !categoryParam && page === 1
+
     const [totalItems, services] = await Promise.all([
       prisma.service.count({ where }),
       prisma.service.findMany({
         where,
-        skip,
-        take: limit,
+        skip: isDefaultView ? 0 : skip,
+        take: isDefaultView ? Math.max(limit * 3, 30) : limit,
         orderBy: { createdAt: "desc" },
         include: {
           serviceCategory: { select: { id: true, name: true, slug: true } },
@@ -85,20 +91,31 @@ export async function GET(request: NextRequest) {
       }
     })
 
+    const finalServices = isDefaultView
+      ? shuffleArray(formattedServices).slice(0, limit)
+      : formattedServices
+
     const totalPages = Math.ceil(totalItems / limit)
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        services: formattedServices,
-        pagination: {
-          current_page: page,
-          total_pages: totalPages,
-          total_items: totalItems,
-          has_more: page < totalPages,
+    return NextResponse.json(
+      {
+        success: true,
+        data: {
+          services: finalServices,
+          pagination: {
+            current_page: page,
+            total_pages: totalPages,
+            total_items: totalItems,
+            has_more: page < totalPages,
+          },
         },
       },
-    })
+      {
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+        },
+      }
+    )
   } catch (error) {
     console.error("Services by category API error:", error)
     return NextResponse.json(

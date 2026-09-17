@@ -90,7 +90,7 @@ export function ServiceSettingsClient() {
 
     let file: File = rawFile
 
-    if (rawFile.type.startsWith("image/") || /\.(jpe?g|png|webp|heic|heif)$/i.test(rawFile.name)) {
+    if (rawFile.type.startsWith("image/") || /\.(jpe?g|png|webp|heic|heif|avif|bmp|tiff?)$/i.test(rawFile.name)) {
       try {
         const { compressImage } = await import("@/lib/image-compressor")
         const compressed = await compressImage(rawFile, 1200, 1200, 0.8)
@@ -883,14 +883,14 @@ export function ServiceSettingsClient() {
                                    onChange={async (e) => {
                                      const rawFile = e.target.files?.[0]
                                      if (rawFile) {
-                                       const validation = validateOnboardingFile(rawFile, { imagesOnly: true, maxSizeMb: 4.5 })
+                                       const validation = validateOnboardingFile(rawFile, { imagesOnly: true, maxSizeMb: 4.5, isPreCompression: true })
                                        if (!validation.isValid) {
                                          setError(validation.error || "Only image files are allowed.")
                                          e.target.value = ""
                                          return
                                        }
                                        let file: File = rawFile
-                                       if (rawFile.type.startsWith("image/") || /\.(jpe?g|png|webp|heic|heif)$/i.test(rawFile.name)) {
+                                       if (rawFile.type.startsWith("image/") || /\.(jpe?g|png|webp|heic|heif|avif|bmp|tiff?)$/i.test(rawFile.name)) {
                                          try {
                                            const { compressImage } = await import("@/lib/image-compressor")
                                            file = await compressImage(rawFile, 500, 500, 0.8)
@@ -927,14 +927,14 @@ export function ServiceSettingsClient() {
                                    onChange={async (e) => {
                                      const rawFile = e.target.files?.[0]
                                      if (rawFile) {
-                                       const validation = validateOnboardingFile(rawFile, { imagesOnly: true, maxSizeMb: 4.5 })
+                                       const validation = validateOnboardingFile(rawFile, { imagesOnly: true, maxSizeMb: 4.5, isPreCompression: true })
                                        if (!validation.isValid) {
                                          setError(validation.error || "Only image files are allowed.")
                                          e.target.value = ""
                                          return
                                        }
                                        let file: File = rawFile
-                                       if (rawFile.type.startsWith("image/") || /\.(jpe?g|png|webp|heic|heif)$/i.test(rawFile.name)) {
+                                       if (rawFile.type.startsWith("image/") || /\.(jpe?g|png|webp|heic|heif|avif|bmp|tiff?)$/i.test(rawFile.name)) {
                                          try {
                                            const { compressImage } = await import("@/lib/image-compressor")
                                            file = await compressImage(rawFile, 200, 200, 0.85)

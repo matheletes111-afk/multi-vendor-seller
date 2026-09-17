@@ -63,6 +63,15 @@ export function DashboardFooter({ className, panelName }: DashboardFooterProps) 
           <span className="text-slate-300">•</span>
 
           <Link
+            href="/rider-terms"
+            className="inline-flex items-center gap-1 text-slate-600 hover:text-indigo-600 font-medium transition-colors"
+          >
+            <span>Rider Terms</span>
+          </Link>
+
+          <span className="text-slate-300">•</span>
+
+          <Link
             href="/support"
             className="inline-flex items-center gap-1 text-slate-600 hover:text-indigo-600 font-medium transition-colors"
           >

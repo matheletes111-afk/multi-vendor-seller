@@ -19,9 +19,29 @@ function getSafeFileExt(file: File, fallbackExt: string): string {
     if (t.includes("webp")) return ".webp"
     if (t.includes("heic")) return ".heic"
     if (t.includes("heif")) return ".heif"
+    if (t.includes("avif")) return ".avif"
+    if (t.includes("bmp")) return ".bmp"
+    if (t.includes("tiff") || t.includes("tif")) return ".tiff"
+    if (t.includes("gif")) return ".gif"
     if (t.includes("pdf")) return ".pdf"
   }
   return fallbackExt
+}
+
+function getSafeFileMime(file: File, ext: string, fallbackMime: string): string {
+  if (file.type && file.type.includes("/")) return file.type
+  const clean = ext.toLowerCase()
+  if (clean === ".jpg" || clean === ".jpeg") return "image/jpeg"
+  if (clean === ".png") return "image/png"
+  if (clean === ".webp") return "image/webp"
+  if (clean === ".heic") return "image/heic"
+  if (clean === ".heif") return "image/heif"
+  if (clean === ".avif") return "image/avif"
+  if (clean === ".bmp") return "image/bmp"
+  if (clean === ".tiff" || clean === ".tif") return "image/tiff"
+  if (clean === ".gif") return "image/gif"
+  if (clean === ".pdf") return "application/pdf"
+  return fallbackMime
 }
 
 export async function POST(request: Request) {
@@ -124,6 +144,24 @@ export async function POST(request: Request) {
         }
       }
 
+      // Support pre-existing URLs passed from drafts / client state
+      if (formData.has("profileImageUrl")) {
+        const pVal = formData.get("profileImageUrl") as string | null
+        if (pVal) profileImageUrl = pVal.trim()
+      }
+      if (formData.has("drivingLicenseDocUrl")) {
+        const dVal = formData.get("drivingLicenseDocUrl") as string | null
+        if (dVal) drivingLicenseDocUrl = dVal.trim()
+      }
+      if (formData.has("nationalIdDocUrl")) {
+        const nVal = formData.get("nationalIdDocUrl") as string | null
+        if (nVal) nationalIdDocUrl = nVal.trim()
+      }
+      if (formData.has("vehicleInsuranceDocUrl")) {
+        const iVal = formData.get("vehicleInsuranceDocUrl") as string | null
+        if (iVal) vehicleInsuranceDocUrl = iVal.trim()
+      }
+
       // Handle profile image upload
       const profileImageFile = formData.get("profileImage") as File | null
       if (profileImageFile && typeof profileImageFile === "object" && profileImageFile.size > 0) {
@@ -137,7 +175,7 @@ export async function POST(request: Request) {
           profileImageUrl = await uploadPublicFile({
             folder: "profile",
             ext,
-            contentType: profileImageFile.type || "image/jpeg",
+            contentType: getSafeFileMime(profileImageFile, ext, "image/jpeg"),
             buffer,
             prefix: `rider-pfp-${userId.slice(0, 8)}`,
           })
@@ -160,7 +198,7 @@ export async function POST(request: Request) {
           drivingLicenseDocUrl = await uploadPublicFile({
             folder: "onboarding/kyc",
             ext,
-            contentType: drivingLicenseFile.type || "application/pdf",
+            contentType: getSafeFileMime(drivingLicenseFile, ext, "application/pdf"),
             buffer,
             prefix: `rider-dl-${userId.slice(0, 8)}`,
           })
@@ -183,7 +221,7 @@ export async function POST(request: Request) {
           nationalIdDocUrl = await uploadPublicFile({
             folder: "onboarding/kyc",
             ext,
-            contentType: nationalIdFile.type || "application/pdf",
+            contentType: getSafeFileMime(nationalIdFile, ext, "application/pdf"),
             buffer,
             prefix: `rider-nid-${userId.slice(0, 8)}`,
           })
@@ -206,7 +244,7 @@ export async function POST(request: Request) {
           vehicleInsuranceDocUrl = await uploadPublicFile({
             folder: "onboarding/kyc",
             ext,
-            contentType: vehicleInsuranceFile.type || "application/pdf",
+            contentType: getSafeFileMime(vehicleInsuranceFile, ext, "application/pdf"),
             buffer,
             prefix: `rider-ins-${userId.slice(0, 8)}`,
           })

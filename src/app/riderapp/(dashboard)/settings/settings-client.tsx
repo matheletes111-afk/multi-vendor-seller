@@ -31,6 +31,7 @@ import { VehicleTypeSelector } from "@/app/riderapp/components/vehicle-type-sele
 import { ZoneLocationPicker } from "@/app/riderapp/components/zone-location-picker"
 import { validatePhoneAndCountryCode } from "@/lib/phone-validation"
 import { CountryCodeSelect } from "@/ui/country-code-select"
+import { ALLOWED_IMAGE_ONLY_ACCEPT, ALLOWED_DOC_ACCEPT } from "@/lib/onboarding-file-validation"
 
 export function RiderSettingsClient({ user: initialUser }: { user: any }) {
   const { update } = useSession()
@@ -201,21 +202,48 @@ export function RiderSettingsClient({ user: initialUser }: { user: any }) {
 
       if (profileImageFile) {
         formData.append("profileImage", profileImageFile)
-      }
-      if (nationalIdFile) {
-        formData.append("nationalIdDoc", nationalIdFile)
-      }
-      if (drivingLicenseFile) {
-        formData.append("drivingLicenseDoc", drivingLicenseFile)
-      }
-      if (insuranceFile) {
-        formData.append("vehicleInsuranceDoc", insuranceFile)
+      } else if (profileImageUrl) {
+        formData.append("profileImageUrl", profileImageUrl)
       }
 
-      const res = await fetch("/api/riderapp/settings", {
-        method: "POST",
-        body: formData,
-      })
+      if (nationalIdFile) {
+        formData.append("nationalIdDoc", nationalIdFile)
+      } else if (nationalIdUrl) {
+        formData.append("nationalIdDocUrl", nationalIdUrl)
+      }
+
+      if (drivingLicenseFile) {
+        formData.append("drivingLicenseDoc", drivingLicenseFile)
+      } else if (drivingLicenseUrl) {
+        formData.append("drivingLicenseDocUrl", drivingLicenseUrl)
+      }
+
+      if (insuranceFile) {
+        formData.append("vehicleInsuranceDoc", insuranceFile)
+      } else if (insuranceUrl) {
+        formData.append("vehicleInsuranceDocUrl", insuranceUrl)
+      }
+
+      let res: Response
+      try {
+        res = await fetch("/api/riderapp/settings", {
+          method: "POST",
+          body: formData,
+        })
+      } catch (networkErr: any) {
+        const netMsg = networkErr?.message || ""
+        if (
+          netMsg.includes("Failed to fetch") ||
+          netMsg.includes("Load failed") ||
+          netMsg.includes("NetworkError") ||
+          netMsg.includes("too large")
+        ) {
+          throw new Error(
+            "Upload failed (Network/File Size issue). Please ensure each uploaded document or photo is under 2.5 MB and your connection is stable, then try again."
+          )
+        }
+        throw networkErr
+      }
 
       const data = await res.json()
 
@@ -241,7 +269,17 @@ export function RiderSettingsClient({ user: initialUser }: { user: any }) {
         })
       }
     } catch (err: any) {
-      setError(err.message || "An unexpected error occurred.")
+      let msg = err.message || "An unexpected error occurred."
+      if (
+        msg.includes("Failed to fetch") ||
+        msg.includes("Load failed") ||
+        msg.includes("NetworkError") ||
+        msg.includes("too large")
+      ) {
+        msg =
+          "Upload failed (Network/File Size issue). Please ensure each uploaded document or photo is under 2.5 MB and your connection is stable, then try again."
+      }
+      setError(msg)
     } finally {
       setSaving(false)
     }
@@ -363,12 +401,15 @@ export function RiderSettingsClient({ user: initialUser }: { user: any }) {
             <div className="pt-2">
               <DocUploadPreview
                 label="Profile Photo"
-                description="Upload a new profile picture (JPG, PNG, WEBP)."
-                accept="image/jpeg,image/png,image/webp"
+                description="Upload a clear portrait picture (JPG, PNG, WebP, HEIC)."
+                accept={ALLOWED_IMAGE_ONLY_ACCEPT}
+                cameraFacingMode="user"
+                cameraGuideType="circle"
+                cropAspectRatio="1:1"
                 value={profileImageUrl}
                 onChange={(file, preview) => {
                   setProfileImageFile(file)
-                  if (preview) setProfileImageUrl(preview)
+                  setProfileImageUrl(preview || null)
                 }}
               />
             </div>
@@ -445,28 +486,40 @@ export function RiderSettingsClient({ user: initialUser }: { user: any }) {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 pt-2">
               <DocUploadPreview
                 label="National ID / Passport / Voter Card"
+                accept={ALLOWED_DOC_ACCEPT}
+                cameraFacingMode="environment"
+                cameraGuideType="document"
+                cropAspectRatio="free"
                 value={nationalIdUrl}
                 onChange={(file, preview) => {
                   setNationalIdFile(file)
-                  if (preview) setNationalIdUrl(preview)
+                  setNationalIdUrl(preview || null)
                 }}
               />
 
               <DocUploadPreview
                 label="Driving License Document"
+                accept={ALLOWED_DOC_ACCEPT}
+                cameraFacingMode="environment"
+                cameraGuideType="document"
+                cropAspectRatio="free"
                 value={drivingLicenseUrl}
                 onChange={(file, preview) => {
                   setDrivingLicenseFile(file)
-                  if (preview) setDrivingLicenseUrl(preview)
+                  setDrivingLicenseUrl(preview || null)
                 }}
               />
 
               <DocUploadPreview
                 label="Vehicle Insurance / Registration"
+                accept={ALLOWED_DOC_ACCEPT}
+                cameraFacingMode="environment"
+                cameraGuideType="document"
+                cropAspectRatio="free"
                 value={insuranceUrl}
                 onChange={(file, preview) => {
                   setInsuranceFile(file)
-                  if (preview) setInsuranceUrl(preview)
+                  setInsuranceUrl(preview || null)
                 }}
               />
             </div>

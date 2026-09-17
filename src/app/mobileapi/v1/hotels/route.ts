@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 
+export const dynamic = "force-dynamic"
+export const revalidate = 0
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
@@ -86,18 +89,25 @@ export async function GET(request: NextRequest) {
 
     const totalPages = Math.ceil(totalItems / limit)
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        hotels: formattedHotels,
-        pagination: {
-          current_page: page,
-          total_pages: totalPages,
-          total_items: totalItems,
-          has_more: page < totalPages,
+    return NextResponse.json(
+      {
+        success: true,
+        data: {
+          hotels: formattedHotels,
+          pagination: {
+            current_page: page,
+            total_pages: totalPages,
+            total_items: totalItems,
+            has_more: page < totalPages,
+          },
         },
       },
-    })
+      {
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+        },
+      }
+    )
   } catch (error) {
     console.error("Hotels by city category API error:", error)
     return NextResponse.json(

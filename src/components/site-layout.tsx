@@ -1447,6 +1447,9 @@ export function SiteFooter() {
                 <Link href="/privacy-policy" className={linkClass}>Privacy Policy</Link>
               </li>
               <li>
+                <Link href="/rider-terms" className={linkClass}>Rider Terms & Conditions</Link>
+              </li>
+              <li>
                 <Link href="/support" className={linkClass}>Support & Help Desk</Link>
               </li>
               <li>

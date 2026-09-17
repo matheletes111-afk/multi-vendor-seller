@@ -1,14 +1,26 @@
 "use client"
 
 import React, { useState, useRef, useEffect } from "react"
-import { UploadCloud, FileText, Image as ImageIcon, Eye, X, CheckCircle2, AlertCircle, Download, Camera, Crop } from "lucide-react"
+import {
+  UploadCloud,
+  FileText,
+  Image as ImageIcon,
+  Eye,
+  X,
+  CheckCircle2,
+  AlertCircle,
+  Download,
+  Camera,
+  Crop,
+  RefreshCw,
+} from "lucide-react"
 import { Button } from "@/ui/button"
 import { Badge } from "@/ui/badge"
 import { cn } from "@/lib/utils"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/ui/dialog"
 import { validateOnboardingFile, ALLOWED_DOC_ACCEPT, isPdfUrl, isImageUrl } from "@/lib/onboarding-file-validation"
 import { ImageCropperModal, CropAspectRatio } from "@/components/media/image-cropper-modal"
-import { CameraCaptureModal } from "@/components/media/camera-capture-modal"
+import { CameraCaptureModal, CameraGuideType } from "@/components/media/camera-capture-modal"
 
 interface DocUploadPreviewProps {
   label: string
@@ -20,6 +32,9 @@ interface DocUploadPreviewProps {
   onChange: (file: File | null, previewUrl?: string | null) => void
   disabled?: boolean
   className?: string
+  cameraFacingMode?: "user" | "environment"
+  cameraGuideType?: CameraGuideType
+  cropAspectRatio?: CropAspectRatio
 }
 
 export function DocUploadPreview({
@@ -32,6 +47,9 @@ export function DocUploadPreview({
   onChange,
   disabled = false,
   className,
+  cameraFacingMode = "environment",
+  cameraGuideType = "card",
+  cropAspectRatio = "free",
 }: DocUploadPreviewProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(value || null)
@@ -46,10 +64,20 @@ export function DocUploadPreview({
   const [cameraModalOpen, setCameraModalOpen] = useState(false)
   const [cropperModalOpen, setCropperModalOpen] = useState(false)
   const [fileToCrop, setFileToCrop] = useState<File | null>(null)
+  const [isCompressing, setIsCompressing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isDragging, setIsDragging] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  const revokeBlobUrl = (url: string | null) => {
+    if (url && url.startsWith("blob:")) {
+      try {
+        URL.revokeObjectURL(url)
+      } catch (_) {}
+    }
+  }
+
+  // Sync external value
   useEffect(() => {
     if (value && !selectedFile) {
       setPreviewUrl(value)
@@ -60,6 +88,13 @@ export function DocUploadPreview({
       }
     }
   }, [value, selectedFile])
+
+  // Cleanup blob URL on unmount
+  useEffect(() => {
+    return () => {
+      revokeBlobUrl(previewUrl)
+    }
+  }, [previewUrl])
 
   const handleFile = async (file: File | null) => {
     setError(null)
@@ -74,24 +109,35 @@ export function DocUploadPreview({
     }
 
     let processedFile = file
-    if (file.type.startsWith("image/") || /\.(jpe?g|png|webp|heic|heif)$/i.test(file.name)) {
+    const isImageFile =
+      file.type.startsWith("image/") ||
+      /\.(jpe?g|png|webp|heic|heif|avif|bmp|tiff?)$/i.test(file.name)
+
+    if (isImageFile) {
+      setIsCompressing(true)
       try {
         const { compressImage } = await import("@/lib/image-compressor")
         processedFile = await compressImage(file, 1200, 1200, 0.8)
       } catch (err) {
-        console.error("Compression error:", err)
+        console.error("Image compression error:", err)
+      } finally {
+        setIsCompressing(false)
       }
     }
 
     if (processedFile.size > maxSizeMb * 1024 * 1024) {
       setError(`File size exceeds ${maxSizeMb}MB limit. Please upload a smaller document.`)
+      if (fileInputRef.current) fileInputRef.current.value = ""
       return
     }
 
-    const type = processedFile.type || (processedFile.name.toLowerCase().endsWith(".pdf") ? "application/pdf" : "image/jpeg")
+    const type =
+      processedFile.type ||
+      (processedFile.name.toLowerCase().endsWith(".pdf") ? "application/pdf" : "image/jpeg")
     setMimeType(type)
     setSelectedFile(processedFile)
 
+    revokeBlobUrl(previewUrl)
     const objectUrl = URL.createObjectURL(processedFile)
     setPreviewUrl(objectUrl)
     onChange(processedFile, objectUrl)
@@ -100,6 +146,7 @@ export function DocUploadPreview({
   const handleRemove = (e: React.MouseEvent) => {
     e.stopPropagation()
     if (disabled) return
+    revokeBlobUrl(previewUrl)
     setSelectedFile(null)
     setPreviewUrl(null)
     setMimeType(null)
@@ -119,7 +166,10 @@ export function DocUploadPreview({
           {required && <span className="text-red-500">*</span>}
         </label>
         {previewUrl && (
-          <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30 border-emerald-300">
+          <Badge
+            variant="outline"
+            className="text-[10px] px-1.5 py-0 text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30 border-emerald-300"
+          >
             <CheckCircle2 className="w-3 h-3 mr-1" />
             Uploaded
           </Badge>
@@ -132,38 +182,34 @@ export function DocUploadPreview({
         ref={fileInputRef}
         type="file"
         accept={accept}
-        disabled={disabled}
+        disabled={disabled || isCompressing}
         onChange={(e) => {
           const f = e.target.files?.[0] || null
-          if (f && (f.type.startsWith("image/") || /\.(jpe?g|png|webp|heic|heif)$/i.test(f.name))) {
-            setFileToCrop(f)
-            setCropperModalOpen(true)
-          } else {
-            handleFile(f)
-          }
+          handleFile(f)
         }}
         className="hidden"
       />
+
+      {isCompressing && (
+        <div className="flex items-center gap-2 p-3 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 text-xs border border-blue-200 dark:border-blue-900/50">
+          <RefreshCw className="w-4 h-4 animate-spin text-blue-600 shrink-0" />
+          <span>Optimizing and compressing image...</span>
+        </div>
+      )}
 
       {/* Upload Box / Preview Card */}
       {!previewUrl ? (
         <div
           onDragOver={(e) => {
             e.preventDefault()
-            if (!disabled) setIsDragging(true)
+            if (!disabled && !isCompressing) setIsDragging(true)
           }}
           onDragLeave={() => setIsDragging(false)}
           onDrop={(e) => {
             e.preventDefault()
             setIsDragging(false)
-            if (!disabled && e.dataTransfer.files?.[0]) {
-              const f = e.dataTransfer.files[0]
-              if (f.type.startsWith("image/") || /\.(jpe?g|png|webp|heic|heif)$/i.test(f.name)) {
-                setFileToCrop(f)
-                setCropperModalOpen(true)
-              } else {
-                handleFile(f)
-              }
+            if (!disabled && !isCompressing && e.dataTransfer.files?.[0]) {
+              handleFile(e.dataTransfer.files[0])
             }
           }}
           className={cn(
@@ -171,7 +217,7 @@ export function DocUploadPreview({
             isDragging
               ? "border-blue-500 bg-blue-50/50 dark:bg-blue-950/30"
               : "border-border hover:border-blue-400 bg-card hover:bg-muted/30",
-            disabled && "opacity-50 cursor-not-allowed"
+            (disabled || isCompressing) && "opacity-50 cursor-not-allowed"
           )}
         >
           <div className="flex items-center gap-2 mb-2">
@@ -186,7 +232,7 @@ export function DocUploadPreview({
             Upload from device or take a photo
           </p>
           <p className="text-[11px] text-muted-foreground mt-0.5 mb-3">
-            PDF or Image files (Max {maxSizeMb}MB)
+            PDF or Image files (JPG, PNG, WebP, HEIC - Max {maxSizeMb}MB)
           </p>
 
           <div className="flex items-center gap-2">
@@ -194,7 +240,7 @@ export function DocUploadPreview({
               type="button"
               variant="outline"
               size="sm"
-              disabled={disabled}
+              disabled={disabled || isCompressing}
               onClick={() => fileInputRef.current?.click()}
               className="h-8 px-3 text-xs rounded-lg flex items-center gap-1.5"
             >
@@ -205,7 +251,7 @@ export function DocUploadPreview({
               type="button"
               variant="outline"
               size="sm"
-              disabled={disabled}
+              disabled={disabled || isCompressing}
               onClick={() => setCameraModalOpen(true)}
               className="h-8 px-3 text-xs rounded-lg flex items-center gap-1.5 text-purple-600 border-purple-200 hover:bg-purple-50 dark:hover:bg-purple-950/20"
             >
@@ -217,10 +263,16 @@ export function DocUploadPreview({
       ) : (
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-3 border rounded-xl bg-card border-border/80 shadow-xs">
           <div className="flex items-center gap-3 min-w-0">
-            <div className={cn(
-              "w-10 h-10 rounded-lg flex items-center justify-center shrink-0 overflow-hidden border",
-              isPdf ? "bg-red-50 text-red-600 border-red-200" : isImage ? "bg-blue-50 text-blue-600 border-blue-200" : "bg-slate-50 text-slate-600 border-slate-200"
-            )}>
+            <div
+              className={cn(
+                "w-10 h-10 rounded-lg flex items-center justify-center shrink-0 overflow-hidden border",
+                isPdf
+                  ? "bg-red-50 text-red-600 border-red-200"
+                  : isImage
+                  ? "bg-blue-50 text-blue-600 border-blue-200"
+                  : "bg-slate-50 text-slate-600 border-slate-200"
+              )}
+            >
               {isPdf ? (
                 <FileText className="w-5 h-5" />
               ) : isImage ? (
@@ -262,7 +314,9 @@ export function DocUploadPreview({
                     fetch(previewUrl)
                       .then((res) => res.blob())
                       .then((blob) => {
-                        const file = new File([blob], `${label}.jpg`, { type: blob.type || "image/jpeg" })
+                        const file = new File([blob], `${label}.jpg`, {
+                          type: blob.type || "image/jpeg",
+                        })
                         setFileToCrop(file)
                         setCropperModalOpen(true)
                       })
@@ -315,10 +369,10 @@ export function DocUploadPreview({
         open={cameraModalOpen}
         onOpenChange={setCameraModalOpen}
         onPhotoCaptured={(file) => {
-          setFileToCrop(file)
-          setCropperModalOpen(true)
+          handleFile(file)
         }}
-        facingMode={accept.includes("user") ? "user" : "environment"}
+        facingMode={cameraFacingMode}
+        guideType={cameraGuideType}
         title={`Take Photo - ${label}`}
       />
 
@@ -327,10 +381,11 @@ export function DocUploadPreview({
         open={cropperModalOpen}
         onOpenChange={setCropperModalOpen}
         imageFile={fileToCrop}
+        aspectRatio={cropAspectRatio}
         onCropComplete={(cropped) => {
           handleFile(cropped)
         }}
-        title={`Crop - ${label}`}
+        title={`Crop & Adjust - ${label}`}
       />
 
       {/* Preview Dialog Modal */}
@@ -338,7 +393,11 @@ export function DocUploadPreview({
         <DialogContent className="max-w-3xl w-[95vw] max-h-[88vh] flex flex-col p-4 sm:p-6 overflow-hidden rounded-2xl">
           <DialogHeader className="flex flex-row items-center justify-between pb-3 border-b pr-8">
             <DialogTitle className="text-base font-bold flex items-center gap-2">
-              {isPdf ? <FileText className="w-5 h-5 text-red-600" /> : <ImageIcon className="w-5 h-5 text-blue-600" />}
+              {isPdf ? (
+                <FileText className="w-5 h-5 text-red-600" />
+              ) : (
+                <ImageIcon className="w-5 h-5 text-blue-600" />
+              )}
               {label} Preview
             </DialogTitle>
             {previewUrl && (
@@ -356,8 +415,8 @@ export function DocUploadPreview({
           </DialogHeader>
 
           <div className="flex-1 overflow-auto flex items-center justify-center p-2 min-h-[300px] max-h-[65vh]">
-            {previewUrl && (
-              isPdf ? (
+            {previewUrl &&
+              (isPdf ? (
                 <iframe
                   src={`${previewUrl}#toolbar=0`}
                   title={label}
@@ -375,8 +434,7 @@ export function DocUploadPreview({
                   <FileText className="w-12 h-12 mb-2 text-slate-400" />
                   <p className="text-sm">Document preview is not available for this format.</p>
                 </div>
-              )
-            )}
+              ))}
           </div>
         </DialogContent>
       </Dialog>

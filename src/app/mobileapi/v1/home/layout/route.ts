@@ -163,12 +163,19 @@ export async function GET(request: NextRequest) {
       },
     ]
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        sections: layoutSections,
+    return NextResponse.json(
+      {
+        success: true,
+        data: {
+          sections: layoutSections,
+        },
       },
-    })
+      {
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+        },
+      }
+    )
   } catch (error) {
     console.error("Home layout API error:", error)
     return NextResponse.json(

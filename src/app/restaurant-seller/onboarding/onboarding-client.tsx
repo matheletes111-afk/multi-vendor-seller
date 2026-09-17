@@ -412,7 +412,7 @@ const RESTAURANT_SELLER_STEP_FILES: Record<number, string[]> = {
     }
 
     let file: File = rawFile
-    if (rawFile.type.startsWith("image/") || /\.(jpe?g|png|webp|heic|heif)$/i.test(rawFile.name)) {
+    if (rawFile.type.startsWith("image/") || /\.(jpe?g|png|webp|heic|heif|avif|bmp|tiff?)$/i.test(rawFile.name)) {
       try {
         const { compressImage } = await import("@/lib/image-compressor")
         const compressed = await compressImage(rawFile, 1200, 1200, 0.8)
