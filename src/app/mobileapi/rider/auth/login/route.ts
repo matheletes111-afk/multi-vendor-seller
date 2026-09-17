@@ -152,74 +152,41 @@ export async function POST(request: Request) {
       )
     }
 
-    // Auto-register device token if provided during login
-    if (deviceToken || deviceId) {
-      try {
-        const tokenToStore = deviceToken || deviceId!
-        const existingTokens: any[] = Array.isArray(riderProfile.deviceTokens)
-          ? (riderProfile.deviceTokens as any[])
-          : []
+    // Require 2FA OTP verification for email/phone + password login
+    const { generateAndSendLogin2faOtp } = await import("@/lib/login-2fa")
+    const otpResult = await generateAndSendLogin2faOtp(
+      {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        phoneCountryCode: user.phoneCountryCode,
+      },
+      UserRole.RIDER
+    )
 
-        const now = new Date().toISOString()
-        const otherTokens = existingTokens.filter((t) => t && t.token !== tokenToStore && t.deviceId !== deviceId)
-
-        const newEntry = {
-          token: tokenToStore,
-          deviceId: deviceId || null,
-          platform: platform || "android",
-          userAgent: userAgent || null,
-          lastActiveAt: now,
-          createdAt: now,
-        }
-
-        await prisma.rider.update({
-          where: { id: riderProfile.id },
-          data: {
-            deviceTokens: [...otherTokens, newEntry],
-          },
-        })
-      } catch (tokenErr) {
-        console.warn("Failed to auto-register device token during rider login:", tokenErr)
-      }
+    if (!otpResult.success) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: otpResult.error || "Failed to send verification code. Please try again.",
+        },
+        { status: 500 }
+      )
     }
-
-    const tokens = generateMobileTokens({
-      userId: user.id,
-      email: user.email,
-      phone: user.phone,
-      role: user.role,
-      passwordHash: user.password,
-      deviceId,
-      platform,
-    })
-
-    const { password: _, rider: _rider, ...userWithoutPassword } = user
 
     return NextResponse.json(
       {
         success: true,
-        message: "Login successful",
+        requiresOtp: true,
+        message: otpResult.message,
         data: {
-          user: userWithoutPassword,
-          rider: {
-            id: riderProfile.id,
-            isApproved: riderProfile.isApproved,
-            isSuspended: riderProfile.isSuspended,
-            status: riderProfile.status,
-            onboardingCompleted: riderProfile.onboardingCompleted,
-            isFirstLogin: riderProfile.isFirstLogin,
-            vehicleTypes: riderProfile.vehicleTypes,
-            vehicleNumber: riderProfile.vehicleNumber,
-            drivingLicenseNo: riderProfile.drivingLicenseNo,
-            profileImage: riderProfile.profileImage,
-            selectedZones: riderProfile.selectedZones,
-            selectedLocations: riderProfile.selectedLocations,
-          },
-          tokens,
-          sessionInfo: {
-            expiresIn: tokens.expiresIn,
-            tokenType: "Bearer",
-          },
+          preAuthToken: otpResult.preAuthToken,
+          maskedPhone: otpResult.maskedPhone,
+          maskedEmail: otpResult.maskedEmail,
+          channels: otpResult.channels,
+          expiresIn: otpResult.expiresIn,
+          resendCooldown: otpResult.resendCooldown,
         },
       },
       { status: 200 }

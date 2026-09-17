@@ -85,7 +85,7 @@ export function CartClient() {
           ) : (
             <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
               {/* Items List */}
-              <div className="min-w-0 flex-1 space-y-4">
+              <div className="min-w-0 flex-1 space-y-3 sm:space-y-4">
                 {productItems.map((item) => {
                   const itemId = getCartItemId(item)
                   const itemHref = `/product/${item.productId}`
@@ -97,59 +97,64 @@ export function CartClient() {
                   return (
                     <div
                       key={itemId}
-                      className="group relative flex flex-col gap-4 rounded-2xl border border-slate-200/90 bg-white p-4 shadow-sm transition-all hover:border-slate-300 hover:shadow-md sm:flex-row sm:items-center sm:gap-5"
+                      className="group relative rounded-2xl border border-slate-200/90 bg-white p-3.5 sm:p-5 shadow-xs transition-all hover:border-slate-300 hover:shadow-sm"
                     >
-                      {/* Product Image */}
-                      <Link
-                        href={itemHref}
-                        className="relative mx-auto h-24 w-24 shrink-0 overflow-hidden rounded-xl bg-slate-50 border border-slate-100 sm:mx-0 sm:h-28 sm:w-28"
-                      >
-                        {item.image ? (
-                          <Image
-                            src={item.image}
-                            alt={item.name}
-                            fill
-                            className="object-contain p-1.5 transition-transform duration-300 group-hover:scale-105"
-                            unoptimized
-                            sizes="(max-width: 640px) 96px, 112px"
-                          />
-                        ) : (
-                          <div className="flex h-full w-full items-center justify-center text-xs text-slate-400">
-                            No image
-                          </div>
-                        )}
-                      </Link>
-
-                      {/* Product Info & Controls */}
-                      <div className="min-w-0 flex-1 space-y-2 text-center sm:text-left">
+                      {/* Top section: Image + Details */}
+                      <div className="flex items-start gap-3 sm:gap-4 min-w-0">
+                        {/* Product Thumbnail */}
                         <Link
                           href={itemHref}
-                          className="font-bold text-slate-900 hover:text-blue-600 transition-colors line-clamp-2 text-sm sm:text-base leading-snug"
+                          className="relative h-20 w-20 shrink-0 overflow-hidden rounded-xl bg-slate-50 border border-slate-100 sm:h-24 sm:w-24"
                         >
-                          {item.name}
+                          {item.image ? (
+                            <Image
+                              src={item.image}
+                              alt={item.name}
+                              fill
+                              className="object-contain p-1 transition-transform duration-300 group-hover:scale-105"
+                              unoptimized
+                              sizes="(max-width: 640px) 80px, 96px"
+                            />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center text-[10px] text-slate-400">
+                              No image
+                            </div>
+                          )}
                         </Link>
 
-                        <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
-                          <p className="text-base font-extrabold text-slate-900">
-                            {formatCurrency(item.price)}
-                          </p>
+                        {/* Product Info */}
+                        <div className="min-w-0 flex-1 space-y-1">
+                          <Link
+                            href={itemHref}
+                            className="font-bold text-slate-900 hover:text-blue-600 transition-colors line-clamp-2 text-xs sm:text-base leading-snug break-words"
+                          >
+                            {item.name}
+                          </Link>
 
-                          {/* Stock Status Badge */}
-                          {knownStock <= 5 && knownStock > 0 ? (
-                            <Badge variant="outline" className="border-amber-200 bg-amber-50 text-[11px] font-semibold text-amber-800">
-                              Only {knownStock} left
-                            </Badge>
-                          ) : knownStock > 5 && knownStock < 999 ? (
-                            <Badge variant="outline" className="border-emerald-200 bg-emerald-50 text-[11px] font-semibold text-emerald-800">
-                              In Stock
-                            </Badge>
-                          ) : null}
+                          <div className="flex flex-wrap items-center gap-2 pt-0.5">
+                            <span className="text-xs sm:text-sm font-bold text-slate-800">
+                              {formatCurrency(item.price)}
+                            </span>
+
+                            {/* Stock Status Badge */}
+                            {knownStock <= 5 && knownStock > 0 ? (
+                              <Badge variant="outline" className="border-amber-200 bg-amber-50 text-[10px] sm:text-[11px] font-semibold text-amber-800 px-1.5 py-0">
+                                Only {knownStock} left
+                              </Badge>
+                            ) : knownStock > 5 && knownStock < 999 ? (
+                              <Badge variant="outline" className="border-emerald-200 bg-emerald-50 text-[10px] sm:text-[11px] font-semibold text-emerald-800 px-1.5 py-0">
+                                In Stock
+                              </Badge>
+                            ) : null}
+                          </div>
                         </div>
+                      </div>
 
-                        {/* Quantity Stepper & Actions */}
-                        <div className="pt-1 flex flex-wrap items-center justify-center gap-3 sm:justify-start">
-                          {/* Plus/Minus Stepper Button */}
-                          <div className="flex items-center rounded-xl border border-slate-200 bg-slate-50/80 p-0.5 shadow-inner">
+                      {/* Bottom section: Stepper + Remove + Line Total */}
+                      <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
+                        {/* Stepper and Remove button */}
+                        <div className="flex items-center gap-2 sm:gap-3">
+                          <div className="flex items-center rounded-xl border border-slate-200 bg-slate-50/90 p-0.5 shadow-2xs">
                             <button
                               type="button"
                               onClick={() => {
@@ -161,13 +166,13 @@ export function CartClient() {
                                   }
                                 }
                               }}
-                              className="flex h-8 w-8 items-center justify-center rounded-lg bg-white text-slate-700 shadow-sm transition-all hover:bg-slate-100 hover:text-slate-900 active:scale-95 touch-manipulation disabled:opacity-40 disabled:cursor-not-allowed"
+                              className="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-lg bg-white text-slate-700 shadow-xs transition-all hover:bg-slate-100 hover:text-slate-900 active:scale-95 touch-manipulation disabled:opacity-40 disabled:cursor-not-allowed"
                               aria-label="Decrease quantity"
                             >
-                              <Minus className="h-3.5 w-3.5" />
+                              <Minus className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                             </button>
 
-                            <span className="w-10 text-center text-sm font-extrabold text-slate-900">
+                            <span className="w-8 sm:w-10 text-center text-xs sm:text-sm font-extrabold text-slate-900">
                               {item.quantity}
                             </span>
 
@@ -180,10 +185,10 @@ export function CartClient() {
                               }}
                               disabled={isMaxStockReached}
                               title={isMaxStockReached ? `Maximum available stock is ${knownStock}` : undefined}
-                              className="flex h-8 w-8 items-center justify-center rounded-lg bg-white text-slate-700 shadow-sm transition-all hover:bg-slate-100 hover:text-slate-900 active:scale-95 touch-manipulation disabled:opacity-40 disabled:cursor-not-allowed"
+                              className="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-lg bg-white text-slate-700 shadow-xs transition-all hover:bg-slate-100 hover:text-slate-900 active:scale-95 touch-manipulation disabled:opacity-40 disabled:cursor-not-allowed"
                               aria-label="Increase quantity"
                             >
-                              <Plus className="h-3.5 w-3.5" />
+                              <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                             </button>
                           </div>
 
@@ -194,29 +199,30 @@ export function CartClient() {
                                 removeItem(itemId)
                               }
                             }}
-                            className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-500 hover:bg-red-50 hover:text-red-600 transition-colors"
+                            className="inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-semibold text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-colors"
+                            aria-label="Remove item"
                           >
                             <Trash2 className="h-3.5 w-3.5" />
-                            Remove
+                            <span className="hidden xs:inline sm:inline text-[11px]">Remove</span>
                           </button>
                         </div>
 
-                        {/* Helper warning if max stock reached */}
-                        {isMaxStockReached && knownStock < 999 && (
-                          <p className="flex items-center justify-center sm:justify-start gap-1 text-[11px] font-medium text-amber-700 pt-0.5">
-                            <AlertCircle className="h-3 w-3 shrink-0" />
-                            Maximum available stock ({knownStock}) reached
+                        {/* Line Total */}
+                        <div className="text-right shrink-0">
+                          <p className="text-[10px] text-slate-400 font-medium sm:hidden">Total</p>
+                          <p className="text-sm font-extrabold text-slate-900 sm:text-base">
+                            {formatCurrency(item.price * item.quantity)}
                           </p>
-                        )}
+                        </div>
                       </div>
 
-                      {/* Line Total */}
-                      <div className="shrink-0 text-center sm:text-right sm:self-center border-t sm:border-t-0 pt-2 sm:pt-0 border-slate-100">
-                        <p className="text-xs text-slate-400 font-medium sm:hidden">Total:</p>
-                        <p className="text-base font-extrabold text-slate-900 sm:text-lg">
-                          {formatCurrency(item.price * item.quantity)}
+                      {/* Helper warning if max stock reached */}
+                      {isMaxStockReached && knownStock < 999 && (
+                        <p className="flex items-center gap-1 text-[11px] font-medium text-amber-700 pt-2">
+                          <AlertCircle className="h-3 w-3 shrink-0" />
+                          Maximum available stock ({knownStock}) reached
                         </p>
-                      </div>
+                      )}
                     </div>
                   )
                 })}
@@ -224,7 +230,7 @@ export function CartClient() {
 
               {/* Subtotal Summary Box */}
               <div className="w-full shrink-0 lg:w-80 space-y-4">
-                <div className="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-sm sm:p-6 space-y-4">
+                <div className="rounded-2xl border border-slate-200/90 bg-white p-4 sm:p-6 shadow-sm space-y-4">
                   <h2 className="text-base font-bold text-slate-900 border-b border-slate-100 pb-3">
                     Order Summary
                   </h2>
@@ -242,10 +248,10 @@ export function CartClient() {
                   </div>
 
                   {/* Oversized Item Notice */}
-                  <div className="rounded-xl border border-amber-200/90 bg-amber-50/80 p-3 text-xs text-amber-900 shadow-xs">
+                  <div className="rounded-xl border border-amber-200/90 bg-amber-50/80 p-3 text-xs text-amber-900 shadow-2xs">
                     <div className="flex items-start gap-2.5">
                       <Truck className="h-4 w-4 text-amber-700 shrink-0 mt-0.5" />
-                      <p className="leading-relaxed">
+                      <p className="leading-relaxed text-[11px] sm:text-xs">
                         <strong className="font-semibold text-amber-950">Oversized Item Notice:</strong> Final shipping costs for heavy or bulky items (furniture, gym gear, etc.) will be communicated separately before dispatch and may differ from the standard cart estimate.
                       </p>
                     </div>
@@ -254,7 +260,7 @@ export function CartClient() {
                   <div className="pt-2 space-y-2">
                     <Button
                       asChild
-                      className="w-full h-12 rounded-xl bg-amber-400 text-slate-900 font-bold hover:bg-amber-500 shadow-sm transition-all text-base"
+                      className="w-full h-12 rounded-xl bg-amber-400 text-slate-950 font-extrabold hover:bg-amber-500 shadow-sm transition-all text-base"
                     >
                       <Link href={checkoutHref} className="flex items-center justify-center gap-2">
                         Proceed to Checkout
@@ -273,9 +279,9 @@ export function CartClient() {
                 </div>
 
                 {/* Trust Badge */}
-                <div className="rounded-2xl border border-slate-200/60 bg-white p-4 text-center shadow-xs">
+                <div className="rounded-2xl border border-slate-200/60 bg-white p-3.5 text-center shadow-2xs">
                   <div className="flex items-center justify-center gap-2 text-xs font-semibold text-slate-600">
-                    <ShieldCheck className="h-4 w-4 text-blue-600" />
+                    <ShieldCheck className="h-4 w-4 text-emerald-600" />
                     <span>100% Safe & Secure Checkout</span>
                   </div>
                 </div>

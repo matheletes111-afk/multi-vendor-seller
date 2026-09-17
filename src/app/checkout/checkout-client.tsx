@@ -368,33 +368,31 @@ export function CheckoutClient() {
 
   return (
     <PublicLayout>
-      <div className="min-h-screen bg-slate-50/70 py-6 sm:py-10">
-        <div className="container mx-auto max-w-6xl px-3 sm:px-4 md:px-6">
+      <div className="min-h-screen bg-slate-50/70 py-4 sm:py-8 md:py-10">
+        <div className="container mx-auto max-w-6xl px-3 sm:px-4 md:px-6 w-full max-w-full overflow-hidden">
           {/* Header */}
-          <div className="mb-6 flex flex-wrap items-center justify-between gap-3 border-b border-slate-200/80 pb-4">
+          <div className="mb-4 sm:mb-6 flex flex-wrap items-center justify-between gap-2 border-b border-slate-200/80 pb-3 sm:pb-4">
             <div>
-              <h1 className="text-2xl font-black tracking-tight text-slate-900 sm:text-3xl">
+              <h1 className="text-xl sm:text-2xl md:text-3xl font-black tracking-tight text-slate-900">
                 Checkout
               </h1>
-              <p className="mt-1 text-xs text-slate-500 sm:text-sm">
+              <p className="mt-0.5 text-xs text-slate-500 sm:text-sm">
                 Select your delivery address and review your order details
               </p>
             </div>
-
-
           </div>
 
-          <div className="grid gap-6 lg:grid-cols-12 lg:items-start">
+          <div className="grid gap-6 lg:grid-cols-12 lg:items-start w-full min-w-0">
             {/* Left Column: Address Selection & Payment Method */}
-            <div className="space-y-6 lg:col-span-7">
+            <div className="space-y-6 lg:col-span-7 min-w-0 w-full">
               {/* 1. Delivery Address Section */}
-              <div className="rounded-2xl border border-slate-200/90 bg-white p-4 sm:p-6 shadow-sm">
-                <div className="flex items-center justify-between border-b border-slate-100 pb-3.5">
-                  <div className="flex items-center gap-2.5">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-100 text-amber-800 font-bold">
+              <div className="rounded-2xl border border-slate-200/90 bg-white p-3.5 sm:p-6 shadow-xs sm:shadow-sm">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-3 sm:pb-3.5">
+                  <div className="flex items-center gap-2 sm:gap-2.5">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-100 text-amber-800 font-bold shrink-0">
                       <MapPin className="h-4 w-4" />
                     </div>
-                    <h2 className="text-base font-bold text-slate-900 sm:text-lg">
+                    <h2 className="text-sm sm:text-base md:text-lg font-bold text-slate-900">
                       Delivery Address
                     </h2>
                   </div>
@@ -404,7 +402,7 @@ export function CheckoutClient() {
                       variant="outline"
                       size="sm"
                       onClick={openAddForm}
-                      className="h-8 rounded-xl text-xs font-bold border-amber-300 bg-amber-50/50 text-amber-950 hover:bg-amber-100 transition-all"
+                      className="h-8 rounded-xl text-xs font-bold border-amber-300 bg-amber-50/50 text-amber-950 hover:bg-amber-100 transition-all shrink-0"
                     >
                       <Plus className="mr-1 h-3.5 w-3.5" />
                       Add Address
@@ -417,7 +415,7 @@ export function CheckoutClient() {
                 ) : null}
 
                 {!addressesLoading && addresses.length > 0 && !showAddressForm && (
-                  <div className="mt-4 space-y-3">
+                  <div className="mt-3 sm:mt-4 space-y-3">
                     {addresses.map((addr) => {
                       const isSelected = selectedAddressId === addr.id
                       return (
@@ -425,13 +423,13 @@ export function CheckoutClient() {
                           key={addr.id}
                           onClick={() => setSelectedAddressId(addr.id)}
                           className={[
-                            "relative flex cursor-pointer items-start justify-between gap-3 rounded-xl border p-4 transition-all",
+                            "relative flex cursor-pointer items-start justify-between gap-2.5 sm:gap-3 rounded-xl border p-3.5 sm:p-4 transition-all min-w-0",
                             isSelected
                               ? "border-amber-400 bg-gradient-to-r from-amber-50/60 to-orange-50/30 shadow-xs ring-1 ring-amber-400/40"
                               : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/50",
                           ].join(" ")}
                         >
-                          <div className="flex items-start gap-3 min-w-0">
+                          <div className="flex items-start gap-2.5 sm:gap-3 min-w-0 flex-1">
                             <div className="mt-0.5 shrink-0">
                               {isSelected ? (
                                 <div className="flex h-5 w-5 items-center justify-center rounded-full bg-amber-400 text-amber-950 shadow-xs">
@@ -441,45 +439,45 @@ export function CheckoutClient() {
                                 <div className="h-5 w-5 rounded-full border border-slate-300 bg-white" />
                               )}
                             </div>
-                            <div className="space-y-1 text-xs sm:text-sm min-w-0">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <span className="font-bold text-slate-900 text-sm sm:text-base">
+                            <div className="space-y-1 text-xs sm:text-sm min-w-0 flex-1">
+                              <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                                <span className="font-bold text-slate-900 text-xs sm:text-base break-words">
                                   {addr.fullName}
                                 </span>
-                                <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[10px] font-bold text-slate-600 uppercase tracking-wider">
+                                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[9px] sm:text-[10px] font-bold text-slate-600 uppercase tracking-wider">
                                   {addr.addressType}
                                 </span>
                                 {addr.isDefault && (
-                                  <span className="rounded-full bg-emerald-100 text-emerald-800 px-2 py-0.5 text-[10px] font-extrabold">
+                                  <span className="rounded-full bg-emerald-100 text-emerald-800 px-1.5 py-0.5 text-[9px] sm:text-[10px] font-extrabold">
                                     Default
                                   </span>
                                 )}
                               </div>
                               <p className="text-slate-600 font-semibold">{addr.phone}</p>
-                              <p className="text-slate-700 leading-relaxed break-words">
+                              <p className="text-slate-700 leading-relaxed break-words text-xs sm:text-sm">
                                 {addr.addressLine1}
                                 {addr.addressLine2 ? `, ${addr.addressLine2}` : ""}, {addr.city},{" "}
                                 {addr.state} {addr.postalCode}, {addr.country}
                               </p>
 
                               {isSelected && (
-                                <div className="mt-2.5">
+                                <div className="mt-2 min-w-0">
                                   {aiMatchingLoading ? (
                                     <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-teal-50 border border-teal-200 text-xs font-semibold text-teal-800 animate-pulse">
                                       <Sparkles className="h-3.5 w-3.5 text-teal-600 animate-spin" />
                                       <span>Determining delivery zone…</span>
                                     </div>
                                   ) : aiRegionResult ? (
-                                    <div className="inline-flex flex-wrap items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-50 border border-emerald-200 text-xs font-semibold text-emerald-950">
+                                    <div className="inline-flex flex-wrap items-center gap-1 px-2 py-1 rounded-md bg-emerald-50 border border-emerald-200 text-xs font-semibold text-emerald-950 max-w-full">
                                       <Sparkles className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
-                                      <span className="text-[11px] text-slate-600 font-medium">Delivery Zone:</span>
-                                      <span className="font-bold text-emerald-900 bg-white px-2 py-0.5 rounded border border-emerald-200 shadow-2xs">
+                                      <span className="text-[11px] text-slate-600 font-medium shrink-0">Zone:</span>
+                                      <span className="font-bold text-emerald-900 bg-white px-1.5 py-0.5 rounded border border-emerald-200 shadow-2xs break-words max-w-full">
                                         📍 {aiRegionResult.zone === "Administrative Provinces" || aiRegionResult.matchedRegion === "Other" || aiRegionResult.matchedRegion === aiRegionResult.zone
                                           ? aiRegionResult.matchedRegion
                                           : `${aiRegionResult.matchedRegion} (${aiRegionResult.zone})`}
                                       </span>
                                       {aiRegionResult.charge > 0 ? (
-                                        <span className="text-[11px] font-bold text-emerald-700 bg-white px-1.5 py-0.5 rounded border border-emerald-200">
+                                        <span className="text-[11px] font-bold text-emerald-700 bg-white px-1.5 py-0.5 rounded border border-emerald-200 shrink-0">
                                           +{formatCurrency(aiRegionResult.charge)}
                                         </span>
                                       ) : null}
@@ -511,7 +509,7 @@ export function CheckoutClient() {
 
                 {/* Add / Edit Address Form */}
                 {!addressesLoading && (addresses.length === 0 || showAddressForm) && (
-                  <form onSubmit={handleSaveAddress} className="mt-4 space-y-4 rounded-xl border border-slate-200 bg-slate-50/80 p-4 sm:p-5">
+                  <form onSubmit={handleSaveAddress} className="mt-4 space-y-4 rounded-xl border border-slate-200 bg-slate-50/80 p-3.5 sm:p-5">
                     <div className="flex items-center justify-between border-b border-slate-200/60 pb-2.5">
                       <h3 className="text-sm font-bold text-slate-900">
                         {editingAddressId ? "Edit Delivery Address" : "Add New Delivery Address"}
@@ -521,6 +519,7 @@ export function CheckoutClient() {
                           type="button"
                           onClick={closeAddressForm}
                           className="text-slate-400 hover:text-slate-600 p-1"
+                          aria-label="Close address form"
                         >
                           <X className="h-4 w-4" />
                         </button>
@@ -528,7 +527,7 @@ export function CheckoutClient() {
                     </div>
 
                     {/* Google Autocomplete & Map Locator */}
-                    <div>
+                    <div className="w-full min-w-0">
                       <Label className="text-xs font-bold text-amber-900 mb-1.5 flex items-center gap-1">
                         <MapPin className="h-3.5 w-3.5 text-amber-600" />
                         Search Location with Google Maps
@@ -552,13 +551,13 @@ export function CheckoutClient() {
                       />
 
                       {(addressForm.latitude != null || addressForm.addressLine1) && (
-                        <div className="mt-3 overflow-hidden rounded-xl border border-slate-200 shadow-xs">
+                        <div className="mt-3 overflow-hidden rounded-xl border border-slate-200 shadow-2xs w-full max-w-full">
                           <GoogleMapView
                             lat={addressForm.latitude}
                             lng={addressForm.longitude}
                             address={[addressForm.addressLine1, addressForm.city, addressForm.state, addressForm.postalCode].filter(Boolean).join(", ")}
                             title={addressForm.fullName || "Pin Location"}
-                            height="180px"
+                            height="190px"
                             draggable
                             onLocationChange={(loc) => {
                               setAddressForm((f) => ({
@@ -577,14 +576,14 @@ export function CheckoutClient() {
                       )}
                     </div>
 
-                    <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
                       <div>
                         <Label htmlFor="addressType" className="text-xs font-semibold text-slate-700">Address Type</Label>
                         <select
                           id="addressType"
                           value={addressForm.addressType}
                           onChange={(e) => setAddressForm((f) => ({ ...f, addressType: e.target.value as AddressApi["addressType"] }))}
-                          className="mt-1 h-9 w-full rounded-lg border border-slate-300 bg-white px-3 text-xs sm:text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                          className="mt-1 h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-base sm:text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
                         >
                           <option value="HOME">Home</option>
                           <option value="OFFICE">Office</option>
@@ -600,12 +599,12 @@ export function CheckoutClient() {
                           onChange={(e) => setAddressForm((f) => ({ ...f, fullName: e.target.value }))}
                           placeholder="John Doe"
                           required
-                          className="mt-1 h-9 text-xs sm:text-sm rounded-lg"
+                          className="mt-1 h-10 text-base sm:text-sm rounded-xl"
                         />
                       </div>
                     </div>
 
-                    <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
                       <div>
                         <Label htmlFor="phone" className="text-xs font-semibold text-slate-700">Phone Number *</Label>
                         <Input
@@ -621,7 +620,7 @@ export function CheckoutClient() {
                           required
                           pattern="^\+?[0-9]{6,15}$"
                           title="Phone number must contain only numbers (6 to 15 digits)."
-                          className="mt-1 h-9 text-xs sm:text-sm rounded-lg"
+                          className="mt-1 h-10 text-base sm:text-sm rounded-xl"
                         />
                       </div>
 
@@ -633,12 +632,12 @@ export function CheckoutClient() {
                           onChange={(e) => setAddressForm((f) => ({ ...f, addressLine1: e.target.value }))}
                           placeholder="Street address"
                           required
-                          className="mt-1 h-9 text-xs sm:text-sm rounded-lg"
+                          className="mt-1 h-10 text-base sm:text-sm rounded-xl"
                         />
                       </div>
                     </div>
 
-                    <div className="grid gap-3 sm:grid-cols-3">
+                    <div className="grid gap-3 grid-cols-1 sm:grid-cols-3">
                       <div>
                         <Label htmlFor="addressLine2" className="text-xs font-semibold text-slate-700">Address Line 2</Label>
                         <Input
@@ -646,7 +645,7 @@ export function CheckoutClient() {
                           value={addressForm.addressLine2}
                           onChange={(e) => setAddressForm((f) => ({ ...f, addressLine2: e.target.value }))}
                           placeholder="Apt, Suite, Floor"
-                          className="mt-1 h-9 text-xs sm:text-sm rounded-lg"
+                          className="mt-1 h-10 text-base sm:text-sm rounded-xl"
                         />
                       </div>
 
@@ -658,24 +657,24 @@ export function CheckoutClient() {
                           onChange={(e) => setAddressForm((f) => ({ ...f, city: e.target.value }))}
                           placeholder="City"
                           required
-                          className="mt-1 h-9 text-xs sm:text-sm rounded-lg"
+                          className="mt-1 h-10 text-base sm:text-sm rounded-xl"
                         />
                       </div>
 
                       <div>
-                        <Label htmlFor="state" className="text-xs font-semibold text-slate-700">State *</Label>
+                        <Label htmlFor="state" className="text-xs font-semibold text-slate-700">State / Region *</Label>
                         <Input
                           id="state"
                           value={addressForm.state}
                           onChange={(e) => setAddressForm((f) => ({ ...f, state: e.target.value }))}
                           placeholder="State"
                           required
-                          className="mt-1 h-9 text-xs sm:text-sm rounded-lg"
+                          className="mt-1 h-10 text-base sm:text-sm rounded-xl"
                         />
                       </div>
                     </div>
 
-                    <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
                       <div>
                         <Label htmlFor="postalCode" className="text-xs font-semibold text-slate-700">Postal Code *</Label>
                         <Input
@@ -684,7 +683,7 @@ export function CheckoutClient() {
                           onChange={(e) => setAddressForm((f) => ({ ...f, postalCode: e.target.value }))}
                           placeholder="Postal Code"
                           required
-                          className="mt-1 h-9 text-xs sm:text-sm rounded-lg"
+                          className="mt-1 h-10 text-base sm:text-sm rounded-xl"
                         />
                       </div>
 
@@ -696,17 +695,17 @@ export function CheckoutClient() {
                           onChange={(e) => setAddressForm((f) => ({ ...f, country: e.target.value }))}
                           placeholder="Country"
                           required
-                          className="mt-1 h-9 text-xs sm:text-sm rounded-lg"
+                          className="mt-1 h-10 text-base sm:text-sm rounded-xl"
                         />
                       </div>
                     </div>
 
-                    <div className="flex flex-wrap gap-2 pt-2">
-                      <Button type="submit" disabled={formSubmitting} className="h-9 bg-amber-400 hover:bg-amber-500 text-slate-900 font-bold text-xs px-5 rounded-lg shadow-xs">
+                    <div className="flex flex-col sm:flex-row gap-2 pt-2">
+                      <Button type="submit" disabled={formSubmitting} className="h-10 bg-amber-400 hover:bg-amber-500 text-slate-900 font-bold text-xs sm:text-sm px-5 rounded-xl shadow-xs w-full sm:w-auto">
                         {formSubmitting ? "Saving Address…" : editingAddressId ? "Update Address" : "Save Address"}
                       </Button>
                       {addresses.length >= 1 && (
-                        <Button type="button" variant="outline" onClick={closeAddressForm} disabled={formSubmitting} className="h-9 text-xs rounded-lg">
+                        <Button type="button" variant="outline" onClick={closeAddressForm} disabled={formSubmitting} className="h-10 text-xs sm:text-sm rounded-xl w-full sm:w-auto">
                           Cancel
                         </Button>
                       )}
@@ -716,29 +715,29 @@ export function CheckoutClient() {
               </div>
 
               {/* 2. Payment Method Section */}
-              <div className="rounded-2xl border border-slate-200/90 bg-white p-4 sm:p-6 shadow-sm">
-                <div className="flex items-center gap-2.5 border-b border-slate-100 pb-3.5">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-100 text-amber-800 font-bold">
+              <div className="rounded-2xl border border-slate-200/90 bg-white p-3.5 sm:p-6 shadow-xs sm:shadow-sm">
+                <div className="flex items-center gap-2 sm:gap-2.5 border-b border-slate-100 pb-3 sm:pb-3.5">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-100 text-amber-800 font-bold shrink-0">
                     <Banknote className="h-4 w-4" />
                   </div>
-                  <h2 className="text-base font-bold text-slate-900 sm:text-lg">
+                  <h2 className="text-sm sm:text-base md:text-lg font-bold text-slate-900">
                     Payment Method
                   </h2>
                 </div>
 
-                <div className="mt-4 rounded-xl border border-amber-400 bg-gradient-to-r from-amber-50/60 to-orange-50/30 p-4 ring-1 ring-amber-400/30 shadow-xs">
-                  <div className="flex items-start gap-3">
+                <div className="mt-3 sm:mt-4 rounded-xl border border-amber-400 bg-gradient-to-r from-amber-50/60 to-orange-50/30 p-3.5 sm:p-4 ring-1 ring-amber-400/30 shadow-xs">
+                  <div className="flex items-start gap-2.5 sm:gap-3">
                     <div className="mt-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-amber-400 text-amber-950 shadow-xs shrink-0">
                       <Check className="h-3 w-3 stroke-[3]" />
                     </div>
-                    <div className="space-y-1">
-                      <p className="font-bold text-slate-900 text-sm sm:text-base flex items-center gap-2">
+                    <div className="space-y-1 min-w-0 flex-1">
+                      <p className="font-bold text-slate-900 text-xs sm:text-base flex flex-wrap items-center gap-2">
                         <span>Cash on Delivery (COD)</span>
                         <span className="rounded-md bg-amber-200/80 px-2 py-0.5 text-[10px] font-black text-amber-950 uppercase tracking-wide">
                           Pay on Delivery
                         </span>
                       </p>
-                      <p className="text-xs text-slate-600 leading-relaxed">
+                      <p className="text-xs text-slate-600 leading-relaxed break-words">
                         Pay with cash directly to the delivery provider when your items arrive at your doorstep.
                       </p>
                     </div>
@@ -747,18 +746,18 @@ export function CheckoutClient() {
               </div>
             </div>
 
-            {/* Right Column: Sticky Order Summary */}
-            <div className="lg:col-span-5">
-              <div className="rounded-2xl border border-slate-200/90 bg-white p-4 sm:p-6 shadow-sm sticky top-6 space-y-4">
-                <div className="flex items-center justify-between border-b border-slate-100 pb-3.5">
-                  <h2 className="text-base font-bold text-slate-900 sm:text-lg">Order Summary</h2>
+            {/* Right Column: Order Summary */}
+            <div className="lg:col-span-5 min-w-0 w-full">
+              <div className="rounded-2xl border border-slate-200/90 bg-white p-3.5 sm:p-6 shadow-xs sm:shadow-sm lg:sticky lg:top-6 space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-3 sm:pb-3.5">
+                  <h2 className="text-sm sm:text-base md:text-lg font-bold text-slate-900">Order Summary</h2>
                   <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-bold text-amber-900">
                     {productItems.length} {productItems.length === 1 ? "Item" : "Items"}
                   </span>
                 </div>
 
                 {/* Items Scrollable List */}
-                <ul className="max-h-60 space-y-3 overflow-y-auto pr-1">
+                <ul className="max-h-64 space-y-2.5 overflow-y-auto pr-1">
                   {productItems.map((item) => {
                     const itemId = getCartItemId(item)
                     const subtotal = item.price * item.quantity
@@ -770,7 +769,7 @@ export function CheckoutClient() {
                       (item.productId ? itemStoreNames[item.productId] : undefined)
 
                     return (
-                      <li key={itemId} className="flex gap-3 rounded-xl border border-slate-100 bg-slate-50/60 p-2.5 transition-all hover:bg-slate-50">
+                      <li key={itemId} className="flex gap-2.5 sm:gap-3 rounded-xl border border-slate-100 bg-slate-50/60 p-2.5 transition-all hover:bg-slate-50">
                         <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg border border-slate-200 bg-white">
                           {item.image ? (
                             <Image
@@ -789,13 +788,13 @@ export function CheckoutClient() {
                         </div>
 
                         <div className="min-w-0 flex-1 space-y-0.5">
-                          <p className="font-bold text-slate-900 text-xs sm:text-sm truncate">{item.name}</p>
+                          <p className="font-bold text-slate-900 text-xs sm:text-sm line-clamp-2 break-words leading-tight">{item.name}</p>
                           {storeName && (
-                            <p className="text-[11px] font-semibold text-amber-900 flex items-center gap-1">
+                            <p className="text-[11px] font-semibold text-amber-900 flex items-center gap-1 truncate">
                               <span>🏪</span> {storeName}
                             </p>
                           )}
-                          <div className="flex flex-wrap items-end justify-between gap-1 text-[11px] text-slate-600">
+                          <div className="flex flex-wrap items-baseline justify-between gap-1 text-[11px] text-slate-600">
                             <div>
                               <span>Qty: {item.quantity} × {formatCurrency(item.price)}</span>
                               {gstAmount > 0 && (
@@ -804,7 +803,7 @@ export function CheckoutClient() {
                                 </span>
                               )}
                             </div>
-                            <span className="font-extrabold text-slate-900">{formatCurrency(lineTotal)}</span>
+                            <span className="font-extrabold text-slate-900 shrink-0">{formatCurrency(lineTotal)}</span>
                           </div>
                         </div>
                       </li>
@@ -823,14 +822,14 @@ export function CheckoutClient() {
                       value={couponCode}
                       onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
                       disabled={couponLoading || !!appliedCoupon}
-                      className="h-9 text-xs rounded-xl bg-slate-50"
+                      className="h-10 text-base sm:text-sm rounded-xl bg-slate-50 min-w-0 flex-1"
                     />
                     {appliedCoupon ? (
                       <Button
                         type="button"
                         variant="outline"
                         onClick={handleRemoveCoupon}
-                        className="h-9 text-xs rounded-xl text-rose-600 border-rose-200 hover:bg-rose-50 font-bold"
+                        className="h-10 text-xs rounded-xl text-rose-600 border-rose-200 hover:bg-rose-50 font-bold shrink-0 px-3"
                       >
                         Remove
                       </Button>
@@ -839,7 +838,7 @@ export function CheckoutClient() {
                         type="button"
                         disabled={couponLoading || !couponCode.trim()}
                         onClick={() => handleApplyCoupon()}
-                        className="h-9 text-xs rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold px-4"
+                        className="h-10 text-xs rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold px-4 shrink-0"
                       >
                         {couponLoading ? "..." : "Apply"}
                       </Button>
@@ -876,15 +875,15 @@ export function CheckoutClient() {
                   {sellerGroups.length > 1 ? (
                     <div className="rounded-xl border border-amber-200/80 bg-amber-50/60 p-3 text-xs space-y-2.5 my-2">
                       <p className="font-bold text-amber-900 flex items-center gap-1.5 text-xs">
-                        <Truck className="h-3.5 w-3.5 text-amber-700" /> Multi-Vendor Delivery ({sellerGroups.length} Sellers)
+                        <Truck className="h-3.5 w-3.5 text-amber-700 shrink-0" /> Multi-Vendor Delivery ({sellerGroups.length} Sellers)
                       </p>
                       {sellerGroups.map((group, idx) => {
                         const sb = (group as any).shippingBreakup
                         return (
                           <div key={group.sellerId || idx} className="bg-white/80 p-2.5 rounded-lg border border-amber-200/50 space-y-1">
-                            <div className="flex justify-between items-center text-amber-950 font-bold text-xs">
-                              <span>🏪 {group.sellerName}</span>
-                              <span className="font-extrabold text-slate-900">
+                            <div className="flex justify-between items-center text-amber-950 font-bold text-xs gap-2">
+                              <span className="truncate min-w-0 flex-1">🏪 {group.sellerName}</span>
+                              <span className="font-extrabold text-slate-900 shrink-0">
                                 {group.sellerDeliveryFee <= 0 ? (
                                   <span className="text-emerald-700">FREE</span>
                                 ) : (
@@ -893,22 +892,22 @@ export function CheckoutClient() {
                               </span>
                             </div>
                             {sb && (sb.weightShippingFee > 0 || sb.dimensionShippingFee > 0 || sb.regionShippingFee > 0) && (
-                              <div className="text-[10px] text-slate-500 pl-4 space-y-0.5 border-l-2 border-amber-300/60 mt-1">
+                              <div className="text-[10px] text-slate-500 pl-3 space-y-0.5 border-l-2 border-amber-300/60 mt-1">
                                 {sb.weightShippingFee > 0 && (
-                                  <div className="flex justify-between">
+                                  <div className="flex justify-between gap-2">
                                     <span>Weight charge</span>
-                                    <span className="font-medium text-slate-700">{formatCurrency(sb.weightShippingFee)}</span>
+                                    <span className="font-medium text-slate-700 shrink-0">{formatCurrency(sb.weightShippingFee)}</span>
                                   </div>
                                 )}
                                 {sb.dimensionShippingFee > 0 && (
-                                  <div className="flex justify-between">
+                                  <div className="flex justify-between gap-2">
                                     <span>Dimension charge</span>
-                                    <span className="font-medium text-slate-700">{formatCurrency(sb.dimensionShippingFee)}</span>
+                                    <span className="font-medium text-slate-700 shrink-0">{formatCurrency(sb.dimensionShippingFee)}</span>
                                   </div>
                                 )}
                                 {sb.regionShippingFee > 0 && (
-                                  <div className="flex justify-between">
-                                    <span>
+                                  <div className="flex justify-between items-start gap-2">
+                                    <span className="min-w-0 flex-1 break-words">
                                       Regional Surcharge (
                                       {aiRegionResult
                                         ? aiRegionResult.zone === "Administrative Provinces" || aiRegionResult.matchedRegion === "Other" || aiRegionResult.matchedRegion === aiRegionResult.zone
@@ -917,7 +916,7 @@ export function CheckoutClient() {
                                         : activeRegionName || "Other"}
                                       )
                                     </span>
-                                    <span className="font-medium text-slate-700">{formatCurrency(sb.regionShippingFee)}</span>
+                                    <span className="font-medium text-slate-700 shrink-0">{formatCurrency(sb.regionShippingFee)}</span>
                                   </div>
                                 )}
                               </div>
@@ -946,28 +945,28 @@ export function CheckoutClient() {
                   {/* Shipping Breakup — shown when there are delivery fees */}
                   {shippingBreakup && deliveryCharge > 0 && (
                     <div className="rounded-xl border border-slate-200/90 bg-slate-50/80 p-3 text-[11px] text-slate-600 space-y-1.5 shadow-2xs">
-                      <div className="flex items-center justify-between border-b border-slate-200/70 pb-1.5">
-                        <p className="font-black text-slate-800 text-[11px] uppercase tracking-wide">Delivery Breakdown</p>
-                        <span className="text-[10px] text-emerald-900 font-extrabold bg-emerald-100/90 px-2 py-0.5 rounded-full border border-emerald-200/80">
+                      <div className="flex items-center justify-between border-b border-slate-200/70 pb-1.5 gap-2">
+                        <p className="font-black text-slate-800 text-[11px] uppercase tracking-wide shrink-0">Delivery Breakdown</p>
+                        <span className="text-[10px] text-emerald-900 font-extrabold bg-emerald-100/90 px-2 py-0.5 rounded-full border border-emerald-200/80 truncate max-w-[60%] text-right">
                           📍 {activeZoneName && activeZoneName !== "Administrative Provinces" && activeZoneName !== "Other" && activeRegionName !== activeZoneName
                             ? `${activeRegionName} (${activeZoneName})`
                             : activeRegionName || "Other"}
                         </span>
                       </div>
                       {shippingBreakup.weightShippingFee > 0 && (
-                        <div className="flex justify-between">
+                        <div className="flex justify-between gap-2">
                           <span>Weight-based Fee</span>
-                          <span className="font-semibold text-slate-700">{formatCurrency(shippingBreakup.weightShippingFee)}</span>
+                          <span className="font-semibold text-slate-700 shrink-0">{formatCurrency(shippingBreakup.weightShippingFee)}</span>
                         </div>
                       )}
                       {shippingBreakup.dimensionShippingFee > 0 && (
-                        <div className="flex justify-between">
+                        <div className="flex justify-between gap-2">
                           <span>Dimension-based Fee</span>
-                          <span className="font-semibold text-slate-700">{formatCurrency(shippingBreakup.dimensionShippingFee)}</span>
+                          <span className="font-semibold text-slate-700 shrink-0">{formatCurrency(shippingBreakup.dimensionShippingFee)}</span>
                         </div>
                       )}
-                      <div className="flex justify-between text-slate-800 font-bold pt-1 border-t border-slate-200/60">
-                        <span>
+                      <div className="flex justify-between text-slate-800 font-bold pt-1 border-t border-slate-200/60 items-start gap-2">
+                        <span className="min-w-0 flex-1 break-words">
                           Regional Surcharge
                           {activeRegionName
                             ? ` (${activeZoneName && activeZoneName !== "Administrative Provinces" && activeZoneName !== "Other" && activeRegionName !== activeZoneName
@@ -975,7 +974,7 @@ export function CheckoutClient() {
                                 : activeRegionName})`
                             : ""}
                         </span>
-                        <span className="font-black text-emerald-800">
+                        <span className="font-black text-emerald-800 shrink-0">
                           {formatCurrency(aiRegionResult?.charge ?? shippingBreakup.regionShippingFee ?? 0)}
                         </span>
                       </div>
@@ -1001,7 +1000,7 @@ export function CheckoutClient() {
                     type="button"
                     onClick={handlePlaceOrder}
                     disabled={placing || !selectedAddressId || productItems.length === 0}
-                    className="w-full h-12 rounded-xl bg-amber-400 text-slate-950 font-extrabold text-base hover:bg-amber-500 shadow-sm transition-all disabled:opacity-50"
+                    className="w-full h-12 sm:h-13 rounded-xl bg-amber-400 text-slate-950 font-black text-base hover:bg-amber-500 shadow-sm transition-all disabled:opacity-50"
                   >
                     {placing ? (
                       <>
@@ -1009,14 +1008,14 @@ export function CheckoutClient() {
                         Placing Order…
                       </>
                     ) : (
-                      "Place Order"
+                      `Place Order • ${formatCurrency(cartGrandTotal)}`
                     )}
                   </Button>
 
                   {error && (
-                    <p className="text-center text-xs font-semibold text-rose-600" role="alert">
+                    <div className="rounded-xl border border-rose-200 bg-rose-50 p-2.5 text-center text-xs font-semibold text-rose-700" role="alert">
                       {error}
-                    </p>
+                    </div>
                   )}
 
                   <div className="flex items-center justify-center gap-1.5 text-xs text-slate-400 font-medium pt-1">

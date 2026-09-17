@@ -1,9 +1,7 @@
-import { NextResponse, NextRequest } from "next/server"
+import { NextResponse } from "next/server"
 import { UserRole } from "@prisma/client"
 import { prisma } from "@/lib/prisma"
 import bcrypt from "bcryptjs"
-import { POST as nextAuthPost, GET as nextAuthGet } from "@/app/api/nextauth/[...nextauth]/route"
-import { getSafeRedirectUrl } from "@/lib/safe-redirect"
 
 const ROLE_LABELS: Record<string, string> = {
   CUSTOMER: "Customer",
@@ -102,104 +100,26 @@ export async function POST(request: Request) {
       )
     }
 
-    const origin = new URL(request.url).origin
-    const host = request.headers.get("host") ?? new URL(request.url).host
-    const validatedCallbackUrl = getSafeRedirectUrl(callbackUrl, "/riderapp", origin)
-
-    let effectiveCsrfToken = csrfToken
-    let cookie = request.headers.get("cookie") ?? ""
-
-    if (!effectiveCsrfToken || !cookie.includes("authjs.csrf-token")) {
-      try {
-        const csrfReq = new NextRequest(`${origin}/api/nextauth/csrf`, {
-          headers: { Host: host, ...(cookie ? { Cookie: cookie } : {}) },
-        })
-        const csrfRes = await nextAuthGet(csrfReq as any)
-        const csrfData = await csrfRes.json().catch(() => ({}))
-        if (csrfData?.csrfToken) {
-          effectiveCsrfToken = csrfData.csrfToken
-        }
-        const setCookies = csrfRes.headers.getSetCookie?.() || []
-        if (setCookies.length > 0) {
-          const cookiePairs = setCookies.map((c) => c.split(";")[0].trim())
-          cookie = cookie ? `${cookie}; ${cookiePairs.join("; ")}` : cookiePairs.join("; ")
-        }
-      } catch (err) {
-        console.warn("Failed to auto-fetch CSRF token for rider login:", err)
-      }
-    }
-
-    const form = new URLSearchParams({
-      email: rawIdentifier,
-      password: password as string,
-      role: UserRole.RIDER,
-      callbackUrl: validatedCallbackUrl,
-      ...(effectiveCsrfToken && { csrfToken: effectiveCsrfToken }),
-    })
-
-    const nextauthRequest = new NextRequest(`${origin}/api/nextauth/callback/credentials`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-        "X-Auth-Return-Redirect": "1",
-        Host: host,
-        ...(cookie && { Cookie: cookie }),
-      },
-      body: form.toString(),
-    })
-
-    const nextauthResponse = await nextAuthPost(nextauthRequest as any)
-
-    const location = nextauthResponse.headers.get("Location") ?? ""
-    let nextAuthUrl = location
-    if (!nextAuthUrl) {
-      try {
-        const resBody = await nextauthResponse.clone().json().catch(() => ({}))
-        nextAuthUrl = typeof resBody?.url === "string" ? resBody.url : ""
-      } catch {
-        /* ignore */
-      }
-    }
-
-    const isErrorRedirect =
-      nextAuthUrl.includes("error=") ||
-      nextAuthUrl.includes("login") ||
-      nextAuthUrl.includes("registration")
-
-    if (isErrorRedirect) {
-      let msg = "Invalid email or password."
-      try {
-        const err = new URL(nextAuthUrl, origin).searchParams.get("error")
-        if (err === "MissingCSRF") {
-          msg = "Session expired. Please refresh and try again."
-        } else if (err === "CredentialsSignin") {
-          msg = "Invalid email or password."
-        } else if (err) {
-          msg = err
-        }
-      } catch {
-        /* use default */
-      }
-      return NextResponse.json({ error: msg }, { status: 401 })
-    }
-
-    const targetUrl =
-      rider?.isFirstLogin || !rider?.onboardingCompleted
-        ? "/riderapp/onboarding"
-        : getSafeRedirectUrl(nextAuthUrl || callbackUrl, "/riderapp", origin)
-
-    const headers = new Headers()
-    nextauthResponse.headers.getSetCookie?.().forEach((c: string) => headers.append("Set-Cookie", c))
-
-    return NextResponse.json(
+    // Require 2FA OTP verification for email/phone + password logins
+    const { generateAndSendLogin2faOtp } = await import("@/lib/login-2fa")
+    const otpResult = await generateAndSendLogin2faOtp(
       {
-        success: true,
-        url: targetUrl,
-        isFirstLogin: rider?.isFirstLogin ?? true,
-        onboardingCompleted: rider?.onboardingCompleted ?? false,
+        id: user.id,
+        name: (user as any).name,
+        email: user.email,
+        phone: user.phone,
       },
-      { status: 200, headers }
+      UserRole.RIDER
     )
+
+    if (!otpResult.success) {
+      return NextResponse.json(
+        { error: otpResult.error || "Failed to send verification code. Please try again." },
+        { status: 500 }
+      )
+    }
+
+    return NextResponse.json(otpResult, { status: 200 })
   } catch (error) {
     console.error("Rider login API error:", error)
     return NextResponse.json(

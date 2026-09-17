@@ -124,9 +124,9 @@ export function AvailableCoupons({
                     </span>
                   </div>
 
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-slate-600">
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-slate-600 min-w-0">
                     {coupon.minOrderValue > 0 ? (
-                      <span className={meetsMinOrder ? "text-slate-700 font-medium" : "text-amber-800 font-medium"}>
+                      <span className={meetsMinOrder ? "text-slate-700 font-medium break-words" : "text-amber-800 font-medium break-words"}>
                         Min. order: {formatCurrency(coupon.minOrderValue)}
                         {!meetsMinOrder && (
                           <span className="ml-1 text-[10px] text-amber-700 font-normal">
@@ -138,18 +138,18 @@ export function AvailableCoupons({
                       <span className="text-slate-600">No minimum order required</span>
                     )}
 
-                    <span className="text-slate-400">•</span>
+                    <span className="text-slate-400 hidden xs:inline">•</span>
                     <span className="text-slate-500">Expires {expiryFormatted}</span>
                   </div>
                 </div>
 
-                <div className="shrink-0 pt-1 sm:pt-0">
+                <div className="shrink-0 pt-1 sm:pt-0 w-full sm:w-auto flex justify-end">
                   {isApplied ? (
                     <Button
                       type="button"
                       size="sm"
                       disabled
-                      className="h-8 bg-emerald-600 text-white text-xs font-bold gap-1 cursor-default opacity-100"
+                      className="h-8 w-full sm:w-auto bg-emerald-600 text-white text-xs font-bold gap-1 cursor-default opacity-100"
                     >
                       <Check className="h-3.5 w-3.5" />
                       Applied
@@ -161,7 +161,7 @@ export function AvailableCoupons({
                       disabled={loading || !meetsMinOrder}
                       onClick={() => onApplyCoupon(coupon.code)}
                       className={[
-                        "h-8 text-xs font-bold transition-all",
+                        "h-8 w-full sm:w-auto text-xs font-bold transition-all",
                         meetsMinOrder
                           ? "bg-amber-400 hover:bg-amber-500 text-amber-950 shadow-xs"
                           : "bg-slate-200 text-slate-500 cursor-not-allowed",

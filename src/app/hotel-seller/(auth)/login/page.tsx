@@ -11,6 +11,7 @@ import { Label } from "@/ui/label"
 import { Alert, AlertDescription } from "@/ui/alert"
 import { AlertCircle, Eye, EyeOff, CheckCircle2 } from "lucide-react"
 import { getSafeRedirectUrl } from "@/lib/safe-redirect"
+import { LoginOtpSection } from "@/components/auth/login-otp-section"
 
 
 function HotelSellerLoginForm() {
@@ -24,6 +25,12 @@ function HotelSellerLoginForm() {
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [csrfToken, setCsrfToken] = useState<string | null>(null)
+  const [otpChallenge, setOtpChallenge] = useState<{
+    preAuthToken: string
+    maskedPhone?: string | null
+    maskedEmail?: string | null
+    channels: Array<"SMS" | "EMAIL">
+  } | null>(null)
 
   useEffect(() => {
     getCsrfToken().then(setCsrfToken)
@@ -72,6 +79,15 @@ function HotelSellerLoginForm() {
       const data = await res.json().catch(() => ({}))
 
       if (res.ok) {
+        if (data.requiresOtp && data.preAuthToken) {
+          setOtpChallenge({
+            preAuthToken: data.preAuthToken,
+            maskedPhone: data.maskedPhone,
+            maskedEmail: data.maskedEmail,
+            channels: data.channels || ["SMS"],
+          })
+          return
+        }
         if (data?.url && data.url.includes("error=")) {
           setError(data.error || "Invalid email or password.")
           return
@@ -108,11 +124,32 @@ function HotelSellerLoginForm() {
             <Image src="/images/logo.png" alt="Logo" width={180} height={48} className="h-12 w-auto object-contain sm:h-14 sm:max-h-[70px]" />
           </a>
         </div>
-        <div className="mb-6 sm:mb-8">
-          <h1 className="text-left text-xl font-semibold text-gray-900 sm:text-2xl">Hotel Seller Sign In</h1>
-          <p className="mt-1 text-left text-sm text-gray-500">Sign in to manage your hotels</p>
-        </div>
-        <form onSubmit={handleSubmit}>
+        {otpChallenge ? (
+          <LoginOtpSection
+            preAuthToken={otpChallenge.preAuthToken}
+            maskedPhone={otpChallenge.maskedPhone}
+            maskedEmail={otpChallenge.maskedEmail}
+            channels={otpChallenge.channels}
+            roleTitle="Hotel Seller"
+            verifyEndpoint="/api/hotel-seller/auth/verify-2fa"
+            resendEndpoint="/api/hotel-seller/auth/resend-2fa"
+            callbackUrl={callbackUrl}
+            csrfToken={csrfToken}
+            onSuccess={(url) => {
+              window.location.href = url
+            }}
+            onBackToLogin={() => {
+              setOtpChallenge(null)
+              setError("")
+            }}
+          />
+        ) : (
+          <>
+            <div className="mb-6 sm:mb-8">
+              <h1 className="text-left text-xl font-semibold text-gray-900 sm:text-2xl">Hotel Seller Sign In</h1>
+              <p className="mt-1 text-left text-sm text-gray-500">Sign in to manage your hotels</p>
+            </div>
+            <form onSubmit={handleSubmit}>
           {/* Success banner */}
           {success && (
             <Alert className="mb-5 border-green-200 bg-green-50 text-green-800 rounded-xl">
@@ -209,6 +246,8 @@ function HotelSellerLoginForm() {
             Don&apos;t have an account? <Link href="/hotel-seller/registration" className="font-medium text-blue-600 hover:underline">Register as Hotel Seller</Link>
           </p>
         </form>
+        </>
+        )}
       </div>
     </div>
   )
