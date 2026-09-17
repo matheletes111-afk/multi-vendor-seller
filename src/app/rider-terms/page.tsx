@@ -4,15 +4,15 @@ import { RiderTermsClient } from "./rider-terms-client"
 import { PageLoader } from "@/components/ui/page-loader"
 
 export const metadata: Metadata = {
-  title: "Delivery Partner & Rider Terms & Privacy Policy | MEEEM Marketplace",
-  description: "Official Delivery Partner Terms & Conditions and Privacy Policy for MEEEM Marketplace couriers in Sierra Leone. Learn about independent contractor rights, weekly payouts, 100% tip policy, safety guidelines, and GPS tracking disclosures.",
+  title: "MEEEM Rider & Driver Employment Terms & Delivery App Privacy Policy | MEEEM",
+  description: "Official MEEEM Rider and Driver Employment Terms and Conditions and Delivery App Privacy Policy for employed couriers under the laws of Sierra Leone and Employment Act 2023.",
   keywords: [
-    "Rider Terms and Conditions",
-    "MEEEM Delivery Partner",
+    "MEEEM Rider Terms and Conditions",
+    "MEEEM Delivery App Privacy Policy",
+    "Rider and Driver Employment Terms",
     "Courier Privacy Policy",
-    "Rider GPS Tracking Policy",
-    "Sierra Leone Courier Agreement",
-    "MEEEM Rider Portal",
+    "Sierra Leone Delivery Partner",
+    "Employment Act 2023",
   ],
 }
 
