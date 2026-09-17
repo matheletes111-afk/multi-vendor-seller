@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { shuffleArray } from "@/lib/utils"
+
+export const dynamic = "force-dynamic"
+export const revalidate = 0
 
 export async function GET(request: NextRequest) {
   try {
@@ -25,8 +29,8 @@ export async function GET(request: NextRequest) {
           },
         },
       },
-      take: limit * 2,
-      orderBy: { updatedAt: "desc" },
+      take: Math.max(limit * 4, 40),
+
       include: {
         category: { select: { id: true, name: true, slug: true } },
         variants: {
@@ -89,11 +93,12 @@ export async function GET(request: NextRequest) {
         }
       })
       .filter((item): item is NonNullable<typeof item> => item !== null)
-      .sort((a, b) => b.discount_percentage - a.discount_percentage)
-      .slice(0, limit)
+
+    const randomizedDeals = shuffleArray(deals).slice(0, limit)
+
 
     // Fallback preview daily deals if DB has no discounted products yet
-    if (deals.length === 0) {
+    if (randomizedDeals.length === 0) {
       const fallbacks = [
         {
           deal_id: "deal_prod_fallback_1",
@@ -128,16 +133,30 @@ export async function GET(request: NextRequest) {
           review_count: 64,
         },
       ]
-      return NextResponse.json({
-        success: true,
-        data: fallbacks,
-      })
+      return NextResponse.json(
+        {
+          success: true,
+          data: shuffleArray(fallbacks),
+        },
+        {
+          headers: {
+            "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+          },
+        }
+      )
     }
 
-    return NextResponse.json({
-      success: true,
-      data: deals,
-    })
+    return NextResponse.json(
+      {
+        success: true,
+        data: randomizedDeals,
+      },
+      {
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+        },
+      }
+    )
   } catch (error) {
     console.error("Product deals of the day API error:", error)
     return NextResponse.json(

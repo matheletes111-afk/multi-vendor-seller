@@ -154,7 +154,8 @@ export function formatFullPhoneNumber(phone?: string | null, countryCode?: strin
     return `${cleanCode}${phoneNoLeadingZero}`
   }
 
-  return `+${cleanDigits.replace(/^0+/, "")}`
+  // If no countryCode was supplied, default to Sierra Leone (+232)
+  return normalizePhoneNumber(cleanDigits, "+232")
 }
 
 export async function sendEmailVerificationSms({

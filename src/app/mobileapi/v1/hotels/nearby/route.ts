@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { shuffleArray } from "@/lib/utils"
+
+export const dynamic = "force-dynamic"
+export const revalidate = 0
 
 export async function GET(request: NextRequest) {
   try {
@@ -22,10 +26,10 @@ export async function GET(request: NextRequest) {
       where.city = { equals: cityParam.trim(), mode: "insensitive" }
     }
 
-    const hotels = await prisma.hotel.findMany({
+    const candidateHotels = await prisma.hotel.findMany({
       where,
-      take: limit,
-      orderBy: [{ starRating: "desc" }, { createdAt: "desc" }],
+      take: Math.max(limit * 3, 30),
+
       include: {
         rooms: {
           where: { isActive: true, isDeleted: false },
@@ -37,7 +41,7 @@ export async function GET(request: NextRequest) {
       },
     })
 
-    const formattedHotels = hotels.map((h, index) => {
+    const formattedHotels = candidateHotels.map((h, index) => {
       let imageUrl: string | null = h.banner || null
       if (!imageUrl && Array.isArray(h.images) && h.images.length > 0) {
         imageUrl = String(h.images[0])
@@ -74,8 +78,10 @@ export async function GET(request: NextRequest) {
       }
     })
 
+    const randomizedHotels = shuffleArray(formattedHotels).slice(0, limit)
+
     // Fallback preview hotels if DB has no active hotels yet
-    if (formattedHotels.length === 0) {
+    if (randomizedHotels.length === 0) {
       const fallbacks = [
         {
           hotel_id: "hotel_nearby_1",
@@ -114,16 +120,30 @@ export async function GET(request: NextRequest) {
           booking_cta: "View Rooms",
         },
       ]
-      return NextResponse.json({
-        success: true,
-        data: fallbacks,
-      })
+      return NextResponse.json(
+        {
+          success: true,
+          data: shuffleArray(fallbacks),
+        },
+        {
+          headers: {
+            "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+          },
+        }
+      )
     }
 
-    return NextResponse.json({
-      success: true,
-      data: formattedHotels,
-    })
+    return NextResponse.json(
+      {
+        success: true,
+        data: randomizedHotels,
+      },
+      {
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+        },
+      }
+    )
   } catch (error) {
     console.error("Nearby hotels API error:", error)
     return NextResponse.json(

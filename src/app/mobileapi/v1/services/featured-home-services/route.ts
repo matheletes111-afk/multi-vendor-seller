@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { shuffleArray } from "@/lib/utils"
+
+export const dynamic = "force-dynamic"
+export const revalidate = 0
 
 export async function GET(request: NextRequest) {
   try {
@@ -8,8 +12,8 @@ export async function GET(request: NextRequest) {
 
     const categories = await prisma.serviceCategory.findMany({
       where: { isActive: true },
-      take: limit,
-      orderBy: { name: "asc" },
+      take: Math.max(limit * 3, 20),
+
       include: {
         services: {
           where: { isActive: true, isDeleted: false },
@@ -44,8 +48,10 @@ export async function GET(request: NextRequest) {
       }
     })
 
+    const randomizedGrid = shuffleArray(featuredGrid).slice(0, limit)
+
     // Fallback preview items if DB has no service categories yet
-    if (featuredGrid.length === 0) {
+    if (randomizedGrid.length === 0) {
       const fallbacks = [
         {
           service_id: "scat_feat_1",
@@ -88,16 +94,30 @@ export async function GET(request: NextRequest) {
           deep_link: "/services?category=electrical",
         },
       ]
-      return NextResponse.json({
-        success: true,
-        data: fallbacks,
-      })
+      return NextResponse.json(
+        {
+          success: true,
+          data: shuffleArray(fallbacks),
+        },
+        {
+          headers: {
+            "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+          },
+        }
+      )
     }
 
-    return NextResponse.json({
-      success: true,
-      data: featuredGrid,
-    })
+    return NextResponse.json(
+      {
+        success: true,
+        data: randomizedGrid,
+      },
+      {
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+        },
+      }
+    )
   } catch (error) {
     console.error("Featured home services API error:", error)
     return NextResponse.json(

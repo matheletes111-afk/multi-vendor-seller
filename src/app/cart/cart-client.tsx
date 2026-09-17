@@ -10,7 +10,7 @@ import { PublicLayout } from "@/components/site-layout"
 import { Button } from "@/ui/button"
 import { Badge } from "@/ui/badge"
 import { formatCurrency } from "@/lib/utils"
-import { ShoppingCart, Trash2, Plus, Minus, ArrowRight, ShieldCheck, AlertCircle } from "lucide-react"
+import { ShoppingCart, Trash2, Plus, Minus, ArrowRight, ShieldCheck, AlertCircle, Truck } from "lucide-react"
 import { UserRole } from "@prisma/client"
 
 export function CartClient() {
@@ -238,6 +238,16 @@ export function CartClient() {
                     <div className="flex justify-between text-xs text-slate-500 pt-1">
                       <span>Shipping & Taxes</span>
                       <span>Calculated at checkout</span>
+                    </div>
+                  </div>
+
+                  {/* Oversized Item Notice */}
+                  <div className="rounded-xl border border-amber-200/90 bg-amber-50/80 p-3 text-xs text-amber-900 shadow-xs">
+                    <div className="flex items-start gap-2.5">
+                      <Truck className="h-4 w-4 text-amber-700 shrink-0 mt-0.5" />
+                      <p className="leading-relaxed">
+                        <strong className="font-semibold text-amber-950">Oversized Item Notice:</strong> Final shipping costs for heavy or bulky items (furniture, gym gear, etc.) will be communicated separately before dispatch and may differ from the standard cart estimate.
+                      </p>
                     </div>
                   </div>
 

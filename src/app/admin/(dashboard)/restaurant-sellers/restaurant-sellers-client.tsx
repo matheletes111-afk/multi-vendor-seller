@@ -23,6 +23,7 @@ import {
   AlertCircle, 
   Ban, 
   Eye, 
+  BarChart3,
   Briefcase, 
   Search, 
   X, 
@@ -36,6 +37,7 @@ import {
   Percent,
   Mail,
   Phone,
+  Smartphone,
   MapPin,
   Megaphone,
 } from "lucide-react"
@@ -370,6 +372,9 @@ export function RestaurantSellersClient() {
                     const logo = seller.businessInfo?.logo || seller.foods?.[0]?.image
                     const initials = displayName.slice(0, 2).toUpperCase()
                     const location = [seller.businessInfo?.city, seller.businessInfo?.state].filter(Boolean).join(", ")
+                    const sellerPhone = seller.user?.phone || seller.businessInfo?.pocContact
+                    const hasEmail = Boolean(seller.user?.email)
+                    const hasPhone = Boolean(sellerPhone)
 
                     return (
                       <Fragment key={seller.id}>
@@ -535,25 +540,60 @@ export function RestaurantSellersClient() {
                           {/* Actions */}
                           <TableCell className="text-right pr-6 min-w-[130px]">
                             <div className="flex justify-end items-center gap-1.5">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() =>
-                                  setEmailModalTarget({
-                                    id: seller.id,
-                                    name: seller.user?.name,
-                                    businessName: seller.businessInfo?.businessName,
-                                    email: seller.user?.email,
-                                    phone: seller.user?.phone,
-                                    sellerType: "RESTAURANT",
-                                  })
-                                }
-                                className="h-8 px-2.5 rounded-xl border border-indigo-200 dark:border-indigo-800 bg-indigo-50/50 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 text-xs font-semibold gap-1 transition-colors"
-                                title="Send Direct Email to Restaurant Partner"
-                              >
-                                <Mail className="h-3.5 w-3.5 text-indigo-600" />
-                                <span>Email</span>
-                              </Button>
+                              {hasEmail ? (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() =>
+                                    setEmailModalTarget({
+                                      id: seller.id,
+                                      name: seller.user?.name,
+                                      businessName: seller.businessInfo?.businessName,
+                                      email: seller.user?.email,
+                                      phone: sellerPhone,
+                                      phoneCountryCode: seller.user?.phoneCountryCode,
+                                      sellerType: "RESTAURANT",
+                                    })
+                                  }
+                                  className="h-8 px-2.5 rounded-xl border border-indigo-200 dark:border-indigo-800 bg-indigo-50/50 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 text-xs font-semibold gap-1 transition-colors"
+                                  title="Send Direct Email to Restaurant Partner"
+                                >
+                                  <Mail className="h-3.5 w-3.5 text-indigo-600" />
+                                  <span>Email</span>
+                                </Button>
+                              ) : hasPhone ? (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() =>
+                                    setEmailModalTarget({
+                                      id: seller.id,
+                                      name: seller.user?.name,
+                                      businessName: seller.businessInfo?.businessName,
+                                      email: seller.user?.email,
+                                      phone: sellerPhone,
+                                      phoneCountryCode: seller.user?.phoneCountryCode,
+                                      sellerType: "RESTAURANT",
+                                    })
+                                  }
+                                  className="h-8 px-2.5 rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50/50 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 text-xs font-semibold gap-1 transition-colors"
+                                  title="Send Direct SMS to Restaurant Partner"
+                                >
+                                  <Smartphone className="h-3.5 w-3.5 text-emerald-600" />
+                                  <span>SMS</span>
+                                </Button>
+                              ) : (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  disabled
+                                  className="h-8 px-2.5 rounded-xl border border-slate-200 text-slate-400 text-xs font-semibold gap-1 cursor-not-allowed opacity-50"
+                                  title="No email or mobile phone available"
+                                >
+                                  <Mail className="h-3.5 w-3.5" />
+                                  <span>Email</span>
+                                </Button>
+                              )}
 
                               <Link
                                 href={`/admin/restaurant-sellers/${seller.id}`}
@@ -562,6 +602,15 @@ export function RestaurantSellersClient() {
                               >
                                 <Eye className="h-3.5 w-3.5" />
                                 <span>View</span>
+                              </Link>
+
+                              <Link
+                                href={`/admin/restaurant-sellers/${seller.id}/analytics`}
+                                className="inline-flex items-center justify-center h-8 px-2.5 rounded-xl border border-violet-200 dark:border-violet-800 bg-violet-50/60 dark:bg-violet-950/40 text-violet-700 dark:text-violet-300 hover:bg-violet-100 dark:hover:bg-violet-900/50 text-xs font-semibold gap-1 transition-colors"
+                                title="View Dedicated Analytics"
+                              >
+                                <BarChart3 className="h-3.5 w-3.5" />
+                                <span>Analytics</span>
                               </Link>
 
                               <Button
@@ -595,7 +644,8 @@ export function RestaurantSellersClient() {
                                       name: seller.user?.name,
                                       businessName: seller.businessInfo?.businessName,
                                       email: seller.user?.email,
-                                      phone: seller.user?.phone,
+                                      phone: sellerPhone,
+                                      phoneCountryCode: seller.user?.phoneCountryCode,
                                       sellerType: "RESTAURANT",
                                     })
                                   }

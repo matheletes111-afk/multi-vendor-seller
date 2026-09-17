@@ -37,9 +37,11 @@ import {
   AlertCircle,
   Ban,
   Eye,
+  BarChart3,
   Store,
   Mail,
   Phone,
+  Smartphone,
   CreditCard,
   Building2,
   FileText,
@@ -683,25 +685,60 @@ export function SellersClient() {
                               {/* Actions */}
                               <TableCell className="text-right pr-6 min-w-[130px]">
                                 <div className="flex justify-end items-center gap-1.5">
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() =>
-                                      setEmailModalTarget({
-                                        id: seller.id,
-                                        name: seller.user?.name,
-                                        businessName: seller.store?.name || seller.businessInfo?.businessName,
-                                        email: seller.user?.email,
-                                        phone: seller.user?.phone,
-                                        sellerType: seller.type || "PRODUCT",
-                                      })
-                                    }
-                                    className="h-8 px-2.5 rounded-xl border border-indigo-200 dark:border-indigo-800 bg-indigo-50/50 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 text-xs font-semibold gap-1 transition-colors"
-                                    title="Send Direct Email to Seller"
-                                  >
-                                    <Mail className="h-3.5 w-3.5 text-indigo-600" />
-                                    <span>Email</span>
-                                  </Button>
+                                  {seller.user?.email ? (
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() =>
+                                        setEmailModalTarget({
+                                          id: seller.id,
+                                          name: seller.user?.name,
+                                          businessName: seller.store?.name || seller.businessInfo?.businessName,
+                                          email: seller.user?.email,
+                                          phone: seller.user?.phone || seller.store?.phone,
+                                          phoneCountryCode: seller.user?.phoneCountryCode,
+                                          sellerType: seller.type || "PRODUCT",
+                                        })
+                                      }
+                                      className="h-8 px-2.5 rounded-xl border border-indigo-200 dark:border-indigo-800 bg-indigo-50/50 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 text-xs font-semibold gap-1 transition-colors"
+                                      title="Send Direct Email to Seller"
+                                    >
+                                      <Mail className="h-3.5 w-3.5 text-indigo-600" />
+                                      <span>Email</span>
+                                    </Button>
+                                  ) : (seller.user?.phone || seller.store?.phone) ? (
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() =>
+                                        setEmailModalTarget({
+                                          id: seller.id,
+                                          name: seller.user?.name,
+                                          businessName: seller.store?.name || seller.businessInfo?.businessName,
+                                          email: null,
+                                          phone: seller.user?.phone || seller.store?.phone,
+                                          phoneCountryCode: seller.user?.phoneCountryCode,
+                                          sellerType: seller.type || "PRODUCT",
+                                        })
+                                      }
+                                      className="h-8 px-2.5 rounded-xl border border-amber-300 dark:border-amber-800 bg-amber-50/60 dark:bg-amber-950/30 text-amber-800 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/50 text-xs font-semibold gap-1 transition-colors shadow-sm"
+                                      title="Send Direct SMS (Registered via phone only)"
+                                    >
+                                      <Smartphone className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+                                      <span>SMS</span>
+                                    </Button>
+                                  ) : (
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      disabled
+                                      className="h-8 px-2 rounded-xl text-xs gap-1 opacity-50 cursor-not-allowed text-slate-400"
+                                      title="No contact on file"
+                                    >
+                                      <Mail className="h-3.5 w-3.5" />
+                                      <span>No Contact</span>
+                                    </Button>
+                                  )}
 
                                   <Link
                                     href={`/admin/sellers/${seller.id}`}
@@ -710,6 +747,15 @@ export function SellersClient() {
                                   >
                                     <Eye className="h-3.5 w-3.5" />
                                     <span>View</span>
+                                  </Link>
+
+                                  <Link
+                                    href={`/admin/sellers/${seller.id}/analytics?sellerType=${seller.type || "PRODUCT"}`}
+                                    className="inline-flex items-center justify-center h-8 px-2.5 rounded-xl border border-violet-200 dark:border-violet-800 bg-violet-50/60 dark:bg-violet-950/40 text-violet-700 dark:text-violet-300 hover:bg-violet-100 dark:hover:bg-violet-900/50 text-xs font-semibold gap-1 transition-colors"
+                                    title="View Dedicated Analytics"
+                                  >
+                                    <BarChart3 className="h-3.5 w-3.5" />
+                                    <span>Analytics</span>
                                   </Link>
 
                                   <Button
@@ -743,7 +789,8 @@ export function SellersClient() {
                                           name: seller.user?.name,
                                           businessName: seller.store?.name || seller.businessInfo?.businessName,
                                           email: seller.user?.email,
-                                          phone: seller.user?.phone,
+                                          phone: seller.user?.phone || seller.store?.phone,
+                                          phoneCountryCode: seller.user?.phoneCountryCode,
                                           sellerType: seller.type || "PRODUCT",
                                         })
                                       }

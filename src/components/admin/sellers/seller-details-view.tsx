@@ -8,10 +8,12 @@ import { Badge } from "@/ui/badge"
 import { Button } from "@/ui/button"
 import { DocumentThumbnail } from "@/components/admin/document-viewer"
 import { SellerSubscriptionDetailsCard } from "@/components/admin/sellers/seller-subscription-details-card"
+import Link from "next/link"
 import {
   User,
   Mail,
   Phone,
+  Smartphone,
   FileText,
   Scale,
   MapPin,
@@ -26,6 +28,7 @@ import {
   AlertCircle,
   CheckCircle,
   Globe,
+  BarChart3,
 } from "lucide-react"
 import { evaluateSellerDocuments } from "@/lib/seller-approval-validation"
 
@@ -537,14 +540,42 @@ export function SellerDetailsView({
                 </Badge>
               </div>
 
-                <Button
-                  variant="outline"
-                  className="rounded-full font-bold px-6 border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950 uppercase tracking-widest text-[10px] h-9 gap-1.5"
-                  onClick={() => onSendEmail?.(seller.id)}
-                >
-                  <Mail className="h-3.5 w-3.5" />
-                  Email Partner
-                </Button>
+              <Link
+                href={`/admin/sellers/${seller.id}/analytics?sellerType=${seller.type || "PRODUCT"}`}
+                className="inline-flex items-center rounded-full font-bold px-5 border border-violet-200 dark:border-violet-800 text-violet-700 dark:text-violet-300 hover:bg-violet-50 dark:hover:bg-violet-950 uppercase tracking-widest text-[10px] h-9 gap-1.5 transition-colors"
+              >
+                <BarChart3 className="h-3.5 w-3.5" />
+                Analytics
+              </Link>
+
+                {seller.user?.email ? (
+                  <Button
+                    variant="outline"
+                    className="rounded-full font-bold px-6 border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950 uppercase tracking-widest text-[10px] h-9 gap-1.5"
+                    onClick={() => onSendEmail?.(seller.id)}
+                  >
+                    <Mail className="h-3.5 w-3.5" />
+                    Email Partner
+                  </Button>
+                ) : (seller.user?.phone || seller.store?.phone) ? (
+                  <Button
+                    variant="outline"
+                    className="rounded-full font-bold px-6 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950 uppercase tracking-widest text-[10px] h-9 gap-1.5"
+                    onClick={() => onSendEmail?.(seller.id)}
+                  >
+                    <Smartphone className="h-3.5 w-3.5" />
+                    SMS Partner
+                  </Button>
+                ) : (
+                  <Button
+                    variant="outline"
+                    disabled
+                    className="rounded-full font-bold px-6 border-slate-200 text-slate-400 uppercase tracking-widest text-[10px] h-9 gap-1.5 cursor-not-allowed opacity-50"
+                  >
+                    <Mail className="h-3.5 w-3.5" />
+                    Email Partner
+                  </Button>
+                )}
 
                 {seller.isSuspended ? (
                   <Button

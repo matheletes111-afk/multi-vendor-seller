@@ -1,0 +1,155 @@
+================================================================================
+MOBILE PRODUCT SELLER APP ONLY - API SPECIFICATION & INTEGRATION GUIDE
+================================================================================
+Date: 2026-09-17
+Audience: Mobile Product Seller App Developer
+Purpose: Complete specifications for recent updates in the Seller Mobile App:
+         Expected Delivery Days (`deliveryDays`) per product variant in CRUD.
+================================================================================
+
+
+--------------------------------------------------------------------------------
+1. OVERVIEW & FIELD SPECIFICATION
+--------------------------------------------------------------------------------
+Each product variant now supports an "Expected Delivery Days" setting (`deliveryDays`).
+
+Key Properties:
+  - Database Field: `deliveryDays` (Integer)
+  - Supported Payload Keys: `deliveryDays` or `delivery_days`
+  - Valid Values: Any positive integer >= 1 (e.g. 3, 5, 7, 10, 14)
+  - Default Value: 7
+  - Backward Compatibility: Existing products in the database are already set to 7.
+    If a seller leaves this field blank or omits it when creating or editing a 
+    product, the backend automatically assigns 7. Zero crashes or bugs.
+
+
+--------------------------------------------------------------------------------
+2. CREATE PRODUCT (POST)
+--------------------------------------------------------------------------------
+Endpoint: POST /mobileapi/product-seller/product
+Headers:  Authorization: Bearer <seller_token>
+          Content-Type: application/json (or multipart/form-data for file uploads)
+
+A. Mobile UI Form Addition:
+   - In the Product Variant creation card/form, add a numeric input field:
+     "Expected Delivery (Days)"
+   - Placeholder / Default value: 7
+
+B. JSON Payload Example:
+{
+  "name": "Organic Cotton Bedsheet",
+  "categoryId": "cat-uuid-123",
+  "subcategoryId": "subcat-uuid-456",
+  "description": "Premium pure cotton bedsheet set.",
+  "condition": "NEW",
+  "deliveryChargePerKm": 5,
+  "variants": [
+    {
+      "name": "Standard Size",
+      "price": 899,
+      "discount": 50,
+      "stock": 25,
+      "weight": 1.2,
+      "deliveryDays": 5,             // <--- [NEW] Set expected delivery days (e.g., 5)
+      "returnType": "RETURNABLE",
+      "returnDays": 7,
+      "replacementAllowed": true,
+      "images": ["https://s3.url/image1.jpg"]
+    },
+    {
+      "name": "King Size",
+      "price": 1199,
+      "discount": 100,
+      "stock": 10,
+      "weight": 1.8,
+      "deliveryDays": 7,             // <--- [NEW] Defaults to 7 if omitted
+      "returnType": "NON_RETURNABLE",
+      "images": ["https://s3.url/image2.jpg"]
+    }
+  ]
+}
+
+C. FormData Payload Example (File Uploads):
+   name: "Organic Cotton Bedsheet"
+   categoryId: "cat-uuid-123"
+   variants[0][name]: "Standard Size"
+   variants[0][price]: 899
+   variants[0][stock]: 25
+   variants[0][deliveryDays]: 5      // <--- Also accepts variants[0][delivery_days]
+   variants[0][images]: (file)
+
+
+--------------------------------------------------------------------------------
+3. EDIT PRODUCT (PUT)
+--------------------------------------------------------------------------------
+Endpoint: PUT /mobileapi/product-seller/product/:id
+Headers:  Authorization: Bearer <seller_token>
+          Content-Type: application/json (or multipart/form-data)
+
+A. Mobile UI Form Action:
+   - When editing an existing product, pre-populate the "Expected Delivery (Days)"
+     input field with the existing `deliveryDays` value from the variant data
+     (fallback to 7 if null or undefined).
+
+B. JSON Payload Example:
+{
+  "name": "Organic Cotton Bedsheet (Updated)",
+  "categoryId": "cat-uuid-123",
+  "variants": [
+    {
+      "name": "Standard Size",
+      "price": 849,
+      "discount": 50,
+      "stock": 30,
+      "deliveryDays": 4,             // <--- [NEW] Updated delivery days
+      "returnType": "RETURNABLE",
+      "returnDays": 7,
+      "replacementAllowed": true,
+      "images": ["https://s3.url/image1.jpg"]
+    }
+  ]
+}
+
+
+--------------------------------------------------------------------------------
+4. GET SELLER PRODUCT(S) (LIST & DETAILS)
+--------------------------------------------------------------------------------
+Endpoints:
+  - GET /mobileapi/product-seller/product
+  - GET /mobileapi/product-seller/product/:id
+Headers: Authorization: Bearer <seller_token>
+
+Response:
+Each variant inside `data.products[].variants` or `data.variants` returns:
+{
+  "id": "variant-uuid-789",
+  "productId": "product-uuid-123",
+  "name": "Standard Size",
+  "price": 849,
+  "discount": 50,
+  "stock": 30,
+  "weight": 1.2,
+  "deliveryDays": 4,                 // <--- [NEW] Expected delivery days
+  "returnType": "RETURNABLE",
+  "returnDays": 7,
+  "replacementAllowed": true,
+  "images": ["https://s3.url/image1.jpg"],
+  "createdAt": "2026-09-17T10:00:00.000Z",
+  "updatedAt": "2026-09-17T10:00:00.000Z"
+}
+
+
+--------------------------------------------------------------------------------
+5. BULK IMPORT (EXCEL / CSV)
+--------------------------------------------------------------------------------
+Endpoint: POST /api/product-seller/products/bulk-import
+Template: GET /api/product-seller/products/bulk-template?format=xlsx
+
+New Column Header:
+  `delivery_days`
+  - Value: Any integer >= 1 (e.g. 3, 5, 7, 10, 14)
+  - If left blank or omitted: Defaults to 7.
+
+================================================================================
+END OF PRODUCT SELLER APP DOCUMENTATION
+================================================================================

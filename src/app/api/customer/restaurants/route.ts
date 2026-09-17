@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { shuffleArray } from "@/lib/utils"
+
+export const dynamic = "force-dynamic"
+export const revalidate = 0
 
 function parseCuisines(primaryCuisine: any): string[] {
   if (!primaryCuisine) return []
@@ -137,8 +141,8 @@ export async function GET(request: NextRequest) {
         ? parseFloat((totalRatingsSum / totalReviewsCount).toFixed(1))
         : 0
 
-      // Format preview foods (max 4 for listing card)
-      const previewFoods = r.foods.slice(0, 4).map(f => {
+      // Format randomized preview foods (max 4 for listing card)
+      const previewFoods = shuffleArray(r.foods).slice(0, 4).map(f => {
         let firstImage: string | null = null
         if (Array.isArray(f.images) && f.images.length > 0) {
           firstImage = f.images[0] as string
@@ -184,11 +188,20 @@ export async function GET(request: NextRequest) {
       cuisines.forEach(c => allCuisinesSet.add(c))
     })
 
-    return NextResponse.json({
-      success: true,
-      data: formatted,
-      cuisines: Array.from(allCuisinesSet)
-    })
+    const randomizedRestaurants = shuffleArray(formatted)
+
+    return NextResponse.json(
+      {
+        success: true,
+        data: randomizedRestaurants,
+        cuisines: Array.from(allCuisinesSet),
+      },
+      {
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+        },
+      }
+    )
   } catch (error) {
     console.error("Error fetching restaurants:", error)
     return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 })

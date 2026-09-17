@@ -88,3 +88,44 @@ export function extractFoodImages(raw: unknown): string[] {
 
   return []
 }
+
+/**
+ * Pure, unbiased Fisher-Yates (Knuth) shuffle algorithm.
+ * Returns a new shallow-copied array with elements permuted randomly.
+ */
+export function shuffleArray<T>(array: T[]): T[] {
+  const arr = [...array]
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[arr[i], arr[j]] = [arr[j], arr[i]]
+  }
+  return arr
+}
+
+/**
+ * Formats a given timestamp into a dynamic human-friendly relative time string.
+ * Examples: "Just now", "5m ago", "2h ago", "Yesterday", "3d ago", "2w ago", "1mo ago", "1y ago"
+ */
+export function formatTimeAgo(timestamp?: string | Date | number | null): string {
+  if (!timestamp) return "Recently"
+  const date = new Date(timestamp)
+  if (isNaN(date.getTime())) return "Recently"
+
+  const now = Date.now()
+  const diffSec = Math.max(0, Math.floor((now - date.getTime()) / 1000))
+
+  if (diffSec < 60) return "Just now"
+  const diffMin = Math.floor(diffSec / 60)
+  if (diffMin < 60) return `${diffMin}m ago`
+  const diffHr = Math.floor(diffMin / 60)
+  if (diffHr < 24) return `${diffHr}h ago`
+  const diffDays = Math.floor(diffHr / 24)
+  if (diffDays === 1) return "Yesterday"
+  if (diffDays < 7) return `${diffDays}d ago`
+  const diffWeeks = Math.floor(diffDays / 7)
+  if (diffWeeks < 4) return `${diffWeeks}w ago`
+  const diffMonths = Math.floor(diffDays / 30)
+  if (diffMonths < 12) return `${diffMonths}mo ago`
+  return `${Math.floor(diffDays / 365)}y ago`
+}
+

@@ -221,6 +221,7 @@ export async function POST(request: NextRequest) {
             returnType: v.returnType,
             returnDays: v.returnDays ?? undefined,
             replacementAllowed: v.replacementAllowed,
+            deliveryDays: v.deliveryDays ?? 7,
           })),
         },
       } as any,

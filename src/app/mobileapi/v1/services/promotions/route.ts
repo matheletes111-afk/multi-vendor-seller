@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { shuffleArray } from "@/lib/utils"
+
+export const dynamic = "force-dynamic"
+export const revalidate = 0
 
 export async function GET(request: NextRequest) {
   try {
@@ -24,8 +28,8 @@ export async function GET(request: NextRequest) {
 
     const services = await prisma.service.findMany({
       where,
-      take: limit * 2,
-      orderBy: { createdAt: "desc" },
+      take: Math.max(limit * 4, 40),
+
       include: {
         serviceCategory: { select: { id: true, name: true, slug: true } },
         seller: { select: { user: { select: { name: true } } } },
@@ -79,10 +83,12 @@ export async function GET(request: NextRequest) {
         }
       })
       .filter((item): item is NonNullable<typeof item> => item !== null)
-      .slice(0, limit)
+
+    const randomizedPromoServices = shuffleArray(promoServices).slice(0, limit)
+
 
     // Fallback preview items if DB has no discounted services yet
-    if (promoServices.length === 0) {
+    if (randomizedPromoServices.length === 0) {
       const fallbacks = [
         {
           service_id: "srv_promo_1",
@@ -121,16 +127,30 @@ export async function GET(request: NextRequest) {
           reviewsCount: 0,
         },
       ]
-      return NextResponse.json({
-        success: true,
-        data: fallbacks,
-      })
+      return NextResponse.json(
+        {
+          success: true,
+          data: shuffleArray(fallbacks),
+        },
+        {
+          headers: {
+            "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+          },
+        }
+      )
     }
 
-    return NextResponse.json({
-      success: true,
-      data: promoServices,
-    })
+    return NextResponse.json(
+      {
+        success: true,
+        data: randomizedPromoServices,
+      },
+      {
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+        },
+      }
+    )
   } catch (error) {
     console.error("Service promotions API error:", error)
     return NextResponse.json(

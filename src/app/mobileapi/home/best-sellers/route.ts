@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { shuffleArray } from "@/lib/utils"
+
+export const dynamic = "force-dynamic"
+export const revalidate = 0
 
 interface ProductItem {
   id: string
@@ -39,7 +43,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<SuccessRes
     const limitSellers = Math.min(Math.max(Number(params.get("limitSellers")) || 2, 1), 10)
     const productsPerSeller = Math.min(Math.max(Number(params.get("productsPerSeller")) || 10, 1), 20)
 
-    const grouped = await prisma.product.groupBy({
+    const candidateGrouped = await prisma.product.groupBy({
       by: ["sellerId"],
       where: {
         isActive: true,
@@ -51,8 +55,11 @@ export async function GET(request: NextRequest): Promise<NextResponse<SuccessRes
       },
       _count: { _all: true },
       orderBy: { _count: { sellerId: "desc" } },
-      take: limitSellers,
+      take: 20,
     })
+
+    const grouped = shuffleArray(candidateGrouped).slice(0, limitSellers)
+
 
     if (grouped.length === 0) {
       return NextResponse.json(
@@ -72,10 +79,9 @@ export async function GET(request: NextRequest): Promise<NextResponse<SuccessRes
           select: { id: true, store: { select: { name: true } } },
         })
 
-        const products = await prisma.product.findMany({
+        const candidateProducts = await prisma.product.findMany({
           where: { isActive: true, isDeleted: false, sellerId: g.sellerId },
-          take: productsPerSeller,
-          orderBy: [{ isFeatured: "desc" }, { createdAt: "desc" }],
+          take: Math.max(productsPerSeller * 3, 20),
           select: {
             id: true,
             name: true,
@@ -89,6 +95,9 @@ export async function GET(request: NextRequest): Promise<NextResponse<SuccessRes
             },
           },
         })
+
+        const products = shuffleArray(candidateProducts).slice(0, productsPerSeller)
+
 
         const serializedProducts: ProductItem[] = products.map((p) => ({
           id: p.id,
@@ -115,7 +124,12 @@ export async function GET(request: NextRequest): Promise<NextResponse<SuccessRes
         message: "Best sellers fetched successfully",
         data: { count: sellers.length, sellers },
       },
-      { status: 200 }
+      {
+        status: 200,
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+        },
+      }
     )
   } catch (error) {
     console.error("Mobile home best-sellers API error:", error)

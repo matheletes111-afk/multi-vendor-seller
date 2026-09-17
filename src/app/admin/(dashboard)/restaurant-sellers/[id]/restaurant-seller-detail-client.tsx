@@ -24,7 +24,8 @@ import {
   ExternalLink,
   ShieldCheck,
   Globe,
-  Utensils
+  Utensils,
+  BarChart3
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { RestaurantSellerDetailsView } from "@/components/admin/sellers/restaurant-seller-details-view"
@@ -100,6 +101,14 @@ export function RestaurantSellerDetailClient({ seller, plans = [] }: RestaurantS
         </div>
 
         <div className="flex items-center gap-3">
+          <Link
+            href={`/admin/restaurant-sellers/${seller.id}/analytics`}
+            className="inline-flex items-center gap-1.5 px-4 h-12 rounded-full border border-violet-200 dark:border-violet-800 bg-violet-50/80 dark:bg-violet-950/50 text-violet-700 dark:text-violet-300 hover:bg-violet-100 dark:hover:bg-violet-900/60 text-xs font-bold transition-all shadow-sm"
+            title="View Dedicated Analytics"
+          >
+            <BarChart3 className="h-4 w-4" />
+            <span>Analytics</span>
+          </Link>
           {!seller.isApproved && (
             <>
               <Button 
@@ -158,7 +167,8 @@ export function RestaurantSellerDetailClient({ seller, plans = [] }: RestaurantS
                 name: seller.user?.name,
                 businessName: seller.businessInfo?.businessName,
                 email: seller.user?.email,
-                phone: seller.user?.phone,
+                phone: seller.user?.phone || seller.businessInfo?.pocContact,
+                phoneCountryCode: seller.user?.phoneCountryCode,
                 sellerType: "RESTAURANT",
               })
             }

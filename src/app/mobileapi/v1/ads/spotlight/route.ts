@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { shuffleArray } from "@/lib/utils"
+
+export const dynamic = "force-dynamic"
+export const revalidate = 0
 
 export async function GET(request: NextRequest) {
   try {
@@ -16,11 +20,13 @@ export async function GET(request: NextRequest) {
     else if (type === "food") where.OR = [{ foodItemId: { not: null } }, { restaurantSellerId: { not: null } }]
     else if (type === "hotel") where.OR = [{ hotelId: { not: null } }, { hotelSellerId: { not: null } }]
 
-    const ads = await prisma.sellerAd.findMany({
+    const candidateAds = await prisma.sellerAd.findMany({
       where,
-      take: 1,
-      orderBy: { createdAt: "desc" },
+      take: 20,
     })
+
+    const ads = shuffleArray(candidateAds)
+
 
     if (ads.length > 0) {
       const ad = ads[0]
@@ -43,6 +49,10 @@ export async function GET(request: NextRequest) {
             : ad.hotelId
             ? `/hotels/${ad.hotelId}`
             : "/promotions",
+        },
+      }, {
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
         },
       })
     }
@@ -71,10 +81,17 @@ export async function GET(request: NextRequest) {
       click_url: "/browse",
     }
 
-    return NextResponse.json({
-      success: true,
-      data: fallbackAd,
-    })
+    return NextResponse.json(
+      {
+        success: true,
+        data: fallbackAd,
+      },
+      {
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+        },
+      }
+    )
   } catch (error) {
     console.error("Spotlight ad API error:", error)
     return NextResponse.json(

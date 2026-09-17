@@ -24,11 +24,7 @@ export async function POST(
     }
 
     const body = await request.json()
-    const { subject, message, sellerType } = body
-
-    if (!subject || typeof subject !== "string" || !subject.trim()) {
-      return NextResponse.json({ error: "Subject is required" }, { status: 400 })
-    }
+    const { subject, message, sellerType, channel } = body
 
     if (!message || typeof message !== "string" || !message.trim()) {
       return NextResponse.json({ error: "Message body is required" }, { status: 400 })
@@ -49,9 +45,9 @@ export async function POST(
         include: { user: true, businessInfo: true },
       })
       if (restaurant) {
-        recipientEmail = restaurant.user?.email || null
-        recipientPhone = restaurant.user?.phone || null
-        recipientPhoneCountryCode = restaurant.user?.phoneCountryCode || null
+        recipientEmail = restaurant.user?.email?.trim().toLowerCase() || null
+        recipientPhone = restaurant.user?.phone?.trim() || restaurant.businessInfo?.pocContact?.trim() || null
+        recipientPhoneCountryCode = restaurant.user?.phoneCountryCode?.trim() || null
         recipientName = restaurant.user?.name || null
         businessName = restaurant.businessInfo?.businessName || null
       }
@@ -63,9 +59,9 @@ export async function POST(
         include: { user: true, businessInfo: true },
       })
       if (hotel) {
-        recipientEmail = hotel.user?.email || null
-        recipientPhone = hotel.user?.phone || null
-        recipientPhoneCountryCode = hotel.user?.phoneCountryCode || null
+        recipientEmail = hotel.user?.email?.trim().toLowerCase() || null
+        recipientPhone = hotel.user?.phone?.trim() || hotel.businessInfo?.pocContact?.trim() || null
+        recipientPhoneCountryCode = hotel.user?.phoneCountryCode?.trim() || null
         recipientName = hotel.user?.name || null
         businessName = hotel.businessInfo?.businessName || null
       }
@@ -77,9 +73,9 @@ export async function POST(
         include: { user: true, store: true, businessInfo: true },
       })
       if (seller) {
-        recipientEmail = seller.user?.email || null
-        recipientPhone = seller.user?.phone || null
-        recipientPhoneCountryCode = seller.user?.phoneCountryCode || null
+        recipientEmail = seller.user?.email?.trim().toLowerCase() || null
+        recipientPhone = seller.user?.phone?.trim() || seller.store?.phone?.trim() || null
+        recipientPhoneCountryCode = seller.user?.phoneCountryCode?.trim() || null
         recipientName = seller.user?.name || null
         businessName = seller.store?.name || seller.businessInfo?.businessName || null
       }
@@ -91,9 +87,9 @@ export async function POST(
         include: { user: true, store: true, businessInfo: true },
       })
       if (seller) {
-        recipientEmail = seller.user?.email || null
-        recipientPhone = seller.user?.phone || null
-        recipientPhoneCountryCode = seller.user?.phoneCountryCode || null
+        recipientEmail = seller.user?.email?.trim().toLowerCase() || null
+        recipientPhone = seller.user?.phone?.trim() || seller.store?.phone?.trim() || null
+        recipientPhoneCountryCode = seller.user?.phoneCountryCode?.trim() || null
         recipientName = seller.user?.name || null
         businessName = seller.store?.name || seller.businessInfo?.businessName || null
       } else {
@@ -102,9 +98,9 @@ export async function POST(
           include: { user: true, businessInfo: true },
         })
         if (hotel) {
-          recipientEmail = hotel.user?.email || null
-          recipientPhone = hotel.user?.phone || null
-          recipientPhoneCountryCode = hotel.user?.phoneCountryCode || null
+          recipientEmail = hotel.user?.email?.trim().toLowerCase() || null
+          recipientPhone = hotel.user?.phone?.trim() || hotel.businessInfo?.pocContact?.trim() || null
+          recipientPhoneCountryCode = hotel.user?.phoneCountryCode?.trim() || null
           recipientName = hotel.user?.name || null
           businessName = hotel.businessInfo?.businessName || null
         } else {
@@ -113,9 +109,9 @@ export async function POST(
             include: { user: true, businessInfo: true },
           })
           if (restaurant) {
-            recipientEmail = restaurant.user?.email || null
-            recipientPhone = restaurant.user?.phone || null
-            recipientPhoneCountryCode = restaurant.user?.phoneCountryCode || null
+            recipientEmail = restaurant.user?.email?.trim().toLowerCase() || null
+            recipientPhone = restaurant.user?.phone?.trim() || restaurant.businessInfo?.pocContact?.trim() || null
+            recipientPhoneCountryCode = restaurant.user?.phoneCountryCode?.trim() || null
             recipientName = restaurant.user?.name || null
             businessName = restaurant.businessInfo?.businessName || null
           }
@@ -130,15 +126,28 @@ export async function POST(
       )
     }
 
+    // Determine target delivery channel
+    const targetChannel = (channel === "sms" || !recipientEmail) ? "sms" : "email"
+
+    // Subject validation: required for email, optional for SMS
+    const effectiveSubject = (typeof subject === "string" && subject.trim())
+      ? subject.trim()
+      : (targetChannel === "sms" ? "MEEEM Partner Notice" : "")
+
+    if (targetChannel === "email" && !effectiveSubject) {
+      return NextResponse.json({ error: "Email subject is required" }, { status: 400 })
+    }
+
     const emailResult = await sendAdminCustomSellerEmail({
-      to: recipientEmail,
+      to: targetChannel === "email" ? recipientEmail : null,
       toPhone: recipientPhone,
       phoneCountryCode: recipientPhoneCountryCode,
       sellerName: recipientName,
       businessName,
-      subject: subject.trim(),
+      subject: effectiveSubject,
       message: message.trim(),
       adminName: session.user.name || "Administrator",
+      channel: targetChannel,
     })
 
     if (!emailResult.success) {
@@ -148,12 +157,10 @@ export async function POST(
       )
     }
 
-    const channel = recipientEmail ? "email" : "sms"
-
     return NextResponse.json({
       success: true,
-      channel,
-      message: channel === "email"
+      channel: targetChannel,
+      message: targetChannel === "email"
         ? `Email successfully sent to ${recipientEmail}`
         : `SMS notification successfully sent to ${recipientPhone}`,
       recipient: {

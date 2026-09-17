@@ -2,6 +2,10 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { JsonValue } from "@prisma/client/runtime/library"
 import { getServiceDisplayImageUrls } from "@/lib/service-images"
+import { shuffleArray } from "@/lib/utils"
+
+export const dynamic = "force-dynamic"
+export const revalidate = 0
 
 // Define types for the response data
 interface Banner {
@@ -230,8 +234,7 @@ export async function GET(): Promise<NextResponse<SuccessResponse | ErrorRespons
           }
         }
       },
-      orderBy: { createdAt: "desc" },
-      take: 10,
+      take: 30,
     })
 
     // Execute all promises in parallel
@@ -305,14 +308,17 @@ export async function GET(): Promise<NextResponse<SuccessResponse | ErrorRespons
       servicesCount: c._count.services,
     }))
 
-    // Compile homepage data
+    // Compile randomized homepage data
     const homepageData: HomepageData = {
-      banners,
-      categories: transformedCategories,
-      featuredCategories,
-      serviceCategories,
-      ads,
-      services: transformedServices,
+      banners: shuffleArray(banners),
+      categories: shuffleArray(transformedCategories).map(cat => ({
+        ...cat,
+        subcategories: shuffleArray(cat.subcategories),
+      })),
+      featuredCategories: shuffleArray(featuredCategories),
+      serviceCategories: shuffleArray(serviceCategories),
+      ads: shuffleArray(ads),
+      services: shuffleArray(transformedServices).slice(0, 10),
     }
 
     return NextResponse.json<SuccessResponse>(
@@ -321,7 +327,12 @@ export async function GET(): Promise<NextResponse<SuccessResponse | ErrorRespons
         message: "Homepage data fetched successfully",
         data: homepageData,
       },
-      { status: 200 }
+      {
+        status: 200,
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+        },
+      }
     )
 
   } catch (error) {
@@ -351,6 +362,4 @@ export async function GET(): Promise<NextResponse<SuccessResponse | ErrorRespons
     )
   }
 }
-
-// Optional: Add revalidation for ISR or caching
-export const revalidate = 60 // Revalidate every 60 seconds
+

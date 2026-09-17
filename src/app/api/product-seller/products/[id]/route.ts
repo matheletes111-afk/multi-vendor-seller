@@ -131,7 +131,7 @@ export async function PUT(
       updateData.images = firstVarImages.length > 0 ? [firstVarImages[0]] : []
 
       await prisma.productVariant.deleteMany({ where: { productId: id } })
-      type V = (typeof body.variants)[number] & { weight?: number; height?: number; width?: number; depth?: number }
+      type V = (typeof body.variants)[number] & { weight?: number; height?: number; width?: number; depth?: number; deliveryDays?: number; delivery_days?: number }
       for (const v of body.variants as V[]) {
         const vName = typeof v?.name === "string" ? sanitizeInput(v.name) : "Variant"
         const vPrice = Number(v?.price ?? 0)
@@ -141,6 +141,8 @@ export async function PUT(
         const vHeight = v?.height !== undefined && v?.height !== null ? Number(v.height) : 0
         const vWidth = v?.width !== undefined && v?.width !== null ? Number(v.width) : 0
         const vDepth = v?.depth !== undefined && v?.depth !== null ? Number(v.depth) : 0
+        const vDeliveryDaysRaw = Number(v?.deliveryDays ?? v?.delivery_days ?? 7)
+        const deliveryDays = !isNaN(vDeliveryDaysRaw) && vDeliveryDaysRaw >= 1 ? Math.floor(vDeliveryDaysRaw) : 7
         if (isNaN(vPrice) || vPrice <= 0 || isNaN(vStock) || vStock < 0) {
           return NextResponse.json({ error: "Each variant must have valid price and stock" }, { status: 400 })
         }
@@ -167,6 +169,7 @@ export async function PUT(
             height: !isNaN(vHeight) && vHeight >= 0 ? vHeight : 0,
             width: !isNaN(vWidth) && vWidth >= 0 ? vWidth : 0,
             depth: !isNaN(vDepth) && vDepth >= 0 ? vDepth : 0,
+            deliveryDays,
             images: Array.isArray(v?.images) ? (v.images as object) : [],
             attributes: (v?.attributes && typeof v.attributes === "object" && !Array.isArray(v.attributes)) ? v.attributes as object : {},
             specification: typeof v?.specification === "string" ? v.specification : null,

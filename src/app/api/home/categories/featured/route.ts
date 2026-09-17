@@ -1,12 +1,16 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { shuffleArray } from "@/lib/utils";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 const MAX_FEATURED = 4;
 
-/** GET up to 4 featured categories for mobile home. Public, no auth. */
+/** GET up to 4 featured categories with dynamic per-refresh randomization. Public, no auth. */
 export async function GET() {
   try {
-    let categories = await prisma.category.findMany({
+    const featuredPool = await prisma.category.findMany({
       where: {
         isActive: true,
         isFeatured: true,
@@ -14,7 +18,6 @@ export async function GET() {
       include: {
         subcategories: {
           where: { isActive: true },
-          orderBy: { name: "asc" },
           select: {
             id: true,
             name: true,
@@ -24,9 +27,10 @@ export async function GET() {
           },
         },
       },
-      orderBy: { createdAt: "desc" },
-      take: MAX_FEATURED,
+      take: 20,
     });
+
+    let categories = shuffleArray(featuredPool).slice(0, MAX_FEATURED);
 
     // If fewer than 4 featured categories, backfill with active categories that have subcategories or products
     if (categories.length < MAX_FEATURED) {
@@ -43,7 +47,6 @@ export async function GET() {
         include: {
           subcategories: {
             where: { isActive: true },
-            orderBy: { name: "asc" },
             select: {
               id: true,
               name: true,
@@ -53,13 +56,22 @@ export async function GET() {
             },
           },
         },
-        orderBy: { createdAt: "desc" },
-        take: MAX_FEATURED - categories.length,
+        take: 20,
       });
-      categories = [...categories, ...backfills];
+      const shuffledBackfills = shuffleArray(backfills).slice(0, MAX_FEATURED - categories.length);
+      categories = [...categories, ...shuffledBackfills];
     }
 
-    return NextResponse.json(categories);
+    const randomizedCategories = categories.map((c) => ({
+      ...c,
+      subcategories: shuffleArray(c.subcategories),
+    }));
+
+    return NextResponse.json(randomizedCategories, {
+      headers: {
+        "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+      },
+    });
   } catch (error) {
     console.error("Error fetching featured categories:", error);
     return NextResponse.json(
@@ -68,3 +80,4 @@ export async function GET() {
     );
   }
 }
+

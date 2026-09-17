@@ -19,6 +19,9 @@ export type VariantInput = {
   returnType?: "NON_RETURNABLE" | "RETURNABLE"
   returnDays?: number
   replacementAllowed?: boolean
+  deliveryDays?: number
+  delivery_days?: number
+  deliveryDaysExpected?: number
 }
 
 export type NormalizedVariant = {
@@ -39,6 +42,7 @@ export type NormalizedVariant = {
   returnType: "NON_RETURNABLE" | "RETURNABLE"
   returnDays: number | null
   replacementAllowed: boolean
+  deliveryDays: number
 }
 
 export function slugFromName(name: string): string {
@@ -77,6 +81,13 @@ export function parseVariantInput(
 
   const replacementAllowed = v?.replacementAllowed === true
 
+  const vDeliveryDaysRaw = v?.deliveryDays ?? v?.delivery_days ?? v?.deliveryDaysExpected
+  const vDeliveryDaysNum = Number(vDeliveryDaysRaw)
+  const deliveryDays =
+    typeof vDeliveryDaysRaw !== "undefined" && !isNaN(vDeliveryDaysNum) && vDeliveryDaysNum > 0
+      ? Math.floor(vDeliveryDaysNum)
+      : 7
+
   return {
     ok: true,
     variant: {
@@ -100,6 +111,7 @@ export function parseVariantInput(
       returnType: vReturnType,
       returnDays: vReturnDays,
       replacementAllowed,
+      deliveryDays,
     },
   }
 }

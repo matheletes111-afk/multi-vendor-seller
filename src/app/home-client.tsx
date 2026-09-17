@@ -31,7 +31,7 @@ import {
   History,
   Star,
 } from "lucide-react";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatTimeAgo } from "@/lib/utils";
 import { getYoutubeEmbedUrl, getYoutubeThumbnailUrl } from "@/lib/youtube";
 import { PageLoader } from "@/components/ui/page-loader";
 import { AddToCartButton } from "@/components/product/AddToCartButton";
@@ -57,25 +57,8 @@ const getProductImg = (img?: string | null, idx: number = 0) => {
   return PRODUCT_FALLBACK_IMAGES[idx % PRODUCT_FALLBACK_IMAGES.length];
 };
 
-const formatDynamicTimeAgo = (timestamp?: string | Date | number | null, indexFallback: number = 0): string => {
-  if (timestamp) {
-    const date = new Date(timestamp);
-    if (!isNaN(date.getTime())) {
-      const diffSec = Math.floor((Date.now() - date.getTime()) / 1000);
-      if (diffSec < 60) return "Just now";
-      const diffMin = Math.floor(diffSec / 60);
-      if (diffMin < 60) return `${diffMin}m ago`;
-      const diffHr = Math.floor(diffMin / 60);
-      if (diffHr < 24) return `${diffHr}h ago`;
-      const diffDays = Math.floor(diffHr / 24);
-      if (diffDays < 30) return `${diffDays}d ago`;
-    }
-  }
-  const relativeMinutes = (indexFallback + 1) * 7 + 3;
-  if (relativeMinutes < 60) return `${relativeMinutes}m ago`;
-  const relativeHours = Math.floor(relativeMinutes / 60) + 1;
-  if (relativeHours < 24) return `${relativeHours}h ago`;
-  return `${Math.floor(relativeHours / 24)}d ago`;
+const formatDynamicTimeAgo = (timestamp?: string | Date | number | null): string => {
+  return formatTimeAgo(timestamp);
 };
 
 const getAmazonHeadline = (catName: string, idx: number): string => {
@@ -132,6 +115,8 @@ type Product = {
   seller: { store: { name: string } | null };
   _count?: { reviews: number };
   averageRating?: number;
+  viewedAt?: string | Date | null;
+  timeAgo?: string | null;
 };
 
 type Service = {
@@ -259,7 +244,7 @@ export function HomeClient() {
   }, []);
 
   useEffect(() => {
-    fetch("/api/home/banners?targetType=product")
+    fetch("/api/home/banners?targetType=product", { cache: "no-store" })
       .then((r) => r.json())
       .then((data: any) => {
         // API already filters by targetType=product (active, non-restaurant/hotel/service)
@@ -276,8 +261,8 @@ export function HomeClient() {
   useEffect(() => {
     setCategoriesLoading(true);
     Promise.all([
-      fetch("/api/home/categories").then((r) => r.json()),
-      fetch("/api/home/categories/featured").then((r) => r.json()),
+      fetch("/api/home/categories", { cache: "no-store" }).then((r) => r.json()),
+      fetch("/api/home/categories/featured", { cache: "no-store" }).then((r) => r.json()),
     ])
       .then(([all, featured]) => {
         setCategories(Array.isArray(all) ? all : []);
@@ -292,7 +277,7 @@ export function HomeClient() {
   }, []);
 
   const refreshHomeProducts = useCallback(() => {
-    fetch("/api/home/products", { credentials: "include" })
+    fetch("/api/home/products", { credentials: "include", cache: "no-store" })
       .then((r) => r.json())
       .then((data: unknown) => {
         setRandomProducts(Array.isArray(data) ? (data as Product[]) : []);
@@ -336,28 +321,75 @@ export function HomeClient() {
   }, [status, session?.user?.role, session?.user?.id]);
 
   useEffect(() => {
-    fetch("/api/home/services?limit=12")
+    fetch("/api/home/services?limit=12", { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : []))
       .then((data: Service[]) => setHomeServices(Array.isArray(data) ? data : []))
       .catch(() => setHomeServices([]));
   }, []);
 
   useEffect(() => {
-    if (status !== "authenticated" || session?.user?.role !== UserRole.CUSTOMER) {
-      setRecentViewProducts([]);
+    if (status === "loading") return;
+
+    // 1. If authenticated customer, fetch from server API
+    if (status === "authenticated" && session?.user?.role === UserRole.CUSTOMER) {
+      fetch("/api/customer/recent-views", { credentials: "include", cache: "no-store" })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((data: { products?: Product[] } | null) => {
+          const prods = Array.isArray(data?.products) ? data.products : [];
+          if (prods.length > 0) {
+            setRecentViewProducts(prods);
+          } else {
+            // Fall back to guest storage if user has local history from before login
+            loadGuestRecentViews();
+          }
+        })
+        .catch(() => loadGuestRecentViews());
       return;
     }
-    fetch("/api/customer/recent-searches", { credentials: "include" })
-      .then((r) => (r.ok ? r.json() : []))
-      .then((data: Product[]) => setRecentViewProducts(Array.isArray(data) ? data : []))
-      .catch(() => setRecentViewProducts([]));
+
+    // 2. Unauthenticated / Guest flow
+    loadGuestRecentViews();
+
+    function loadGuestRecentViews() {
+      try {
+        const STORAGE_KEY = "marketplace_recent_views_v1";
+        const stored = typeof window !== "undefined" ? localStorage.getItem(STORAGE_KEY) : null;
+        if (stored) {
+          const items: { productId: string; viewedAt: string }[] = JSON.parse(stored);
+          if (Array.isArray(items) && items.length > 0) {
+            const guestIds = items.map((i) => i.productId).slice(0, 10).join(",");
+            fetch(`/api/customer/recent-views?guestIds=${encodeURIComponent(guestIds)}`, { cache: "no-store" })
+              .then((r) => (r.ok ? r.json() : null))
+              .then((data: { products?: Product[] } | null) => {
+                if (data && Array.isArray(data.products) && data.products.length > 0) {
+                  const timeMap = new Map(items.map((i) => [i.productId, i.viewedAt]));
+                  const merged = data.products.map((p) => {
+                    const vAt = timeMap.get(p.id) || p.viewedAt || new Date().toISOString();
+                    return {
+                      ...p,
+                      viewedAt: vAt,
+                      timeAgo: formatTimeAgo(vAt),
+                    };
+                  });
+                  setRecentViewProducts(merged);
+                  return;
+                }
+                setRecentViewProducts([]);
+              })
+              .catch(() => setRecentViewProducts([]));
+            return;
+          }
+        }
+      } catch (_) {}
+      setRecentViewProducts([]);
+    }
   }, [status, session?.user?.role]);
 
   useEffect(() => {
     const forProducts = featuredCategories.length > 0 ? featuredCategories : categories.slice(0, 4);
     if (forProducts.length === 0) return;
     forProducts.forEach((cat) => {
-      fetch(`/api/home/products?categoryId=${cat.id}&limit=10`)
+      fetch(`/api/home/products?categoryId=${cat.id}&limit=10`, { cache: "no-store" })
         .then((r) => r.json())
         .then((list: unknown) => {
           const rows = Array.isArray(list) ? (list as Product[]) : [];
@@ -376,7 +408,7 @@ export function HomeClient() {
   }, [banners.length, bannerCarouselPaused]);
 
   useEffect(() => {
-    fetch("/api/home/ads?type=product&limit=all")
+    fetch("/api/home/ads?type=product&limit=all", { cache: "no-store" })
       .then((r) => r.json())
       .then((data) => {
         if (Array.isArray(data)) {
@@ -654,10 +686,10 @@ export function HomeClient() {
               ) : null}
             </section>
 
-            {/* 1. Recently Viewed Products (Showing ALL recently viewed products with clean UI) */}
+            {/* 1. Recently Viewed Products (Showing genuinely viewed products with dynamic time) */}
             {(() => {
-              const recentList = recentViewProducts.length > 0 ? recentViewProducts : randomProducts;
-              if (recentList.length === 0) return null;
+              if (recentViewProducts.length === 0) return null;
+              const recentList = recentViewProducts;
 
               return (
                 <section className="border-t border-slate-100 bg-gradient-to-b from-slate-50/80 to-white py-6 sm:py-8">
@@ -713,7 +745,7 @@ export function HomeClient() {
                       {recentList.map((p, idx) => {
                         const finalPrice = Math.max(0, (p.basePrice ?? 0) - (p.discount ?? 0));
                         const imgSrc = getProductImg(p.images?.[0], idx);
-                        const timeLabel = formatDynamicTimeAgo((p as any).viewedAt || (p as any).createdAt, idx);
+                        const timeLabel = formatDynamicTimeAgo(p.viewedAt || (p as any).createdAt);
                         return (
                           <div
                             key={`recent_${p.id}_${idx}`}

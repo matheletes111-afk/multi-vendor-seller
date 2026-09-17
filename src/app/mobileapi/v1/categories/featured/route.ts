@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { shuffleArray } from "@/lib/utils"
+
+export const dynamic = "force-dynamic"
+export const revalidate = 0
 
 export async function GET(request: NextRequest) {
   try {
@@ -45,10 +49,17 @@ export async function GET(request: NextRequest) {
 
     // If only product vertical requested, return product categories directly
     if (vertical === "product") {
-      return NextResponse.json({
-        success: true,
-        data: formattedProductCats,
-      })
+      return NextResponse.json(
+        {
+          success: true,
+          data: shuffleArray(formattedProductCats),
+        },
+        {
+          headers: {
+            "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+          },
+        }
+      )
     }
 
     // 2. Service Categories (Featured)
@@ -80,10 +91,17 @@ export async function GET(request: NextRequest) {
     }))
 
     if (vertical === "service") {
-      return NextResponse.json({
-        success: true,
-        data: formattedServiceCats,
-      })
+      return NextResponse.json(
+        {
+          success: true,
+          data: shuffleArray(formattedServiceCats),
+        },
+        {
+          headers: {
+            "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+          },
+        }
+      )
     }
 
     // 3. Hotel Featured Cities
@@ -113,10 +131,17 @@ export async function GET(request: NextRequest) {
     ]
 
     if (vertical === "hotel") {
-      return NextResponse.json({
-        success: true,
-        data: defaultHotelCities,
-      })
+      return NextResponse.json(
+        {
+          success: true,
+          data: shuffleArray(defaultHotelCities),
+        },
+        {
+          headers: {
+            "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+          },
+        }
+      )
     }
 
     // 4. Food Featured Categories
@@ -146,10 +171,17 @@ export async function GET(request: NextRequest) {
     ]
 
     if (vertical === "food") {
-      return NextResponse.json({
-        success: true,
-        data: defaultFoodCats,
-      })
+      return NextResponse.json(
+        {
+          success: true,
+          data: shuffleArray(defaultFoodCats),
+        },
+        {
+          headers: {
+            "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+          },
+        }
+      )
     }
 
     // Default "all": Return combined featured categories grid
@@ -160,10 +192,17 @@ export async function GET(request: NextRequest) {
       ...defaultFoodCats,
     ]
 
-    return NextResponse.json({
-      success: true,
-      data: combinedFeatured,
-    })
+    return NextResponse.json(
+      {
+        success: true,
+        data: shuffleArray(combinedFeatured),
+      },
+      {
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+        },
+      }
+    )
   } catch (error) {
     console.error("Featured categories API error:", error)
     return NextResponse.json(

@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { shuffleArray } from "@/lib/utils"
 
-/** GET /api/home/services — public list of active services for home carousel */
+export const dynamic = "force-dynamic"
+export const revalidate = 0
+
+/** GET /api/home/services — public list of active services for home carousel with dynamic per-refresh randomization */
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
@@ -9,7 +13,7 @@ export async function GET(request: Request) {
     const limit = Number.isFinite(limitRaw) ? Math.min(Math.max(limitRaw, 1), 30) : 12
     const serviceCategoryId = searchParams.get("serviceCategoryId") ?? undefined
 
-    const services = await prisma.service.findMany({
+    const candidatePool = await prisma.service.findMany({
       where: {
         isActive: true,
         isDeleted: false,
@@ -19,8 +23,7 @@ export async function GET(request: Request) {
         },
         ...(serviceCategoryId ? { serviceCategoryId } : {}),
       },
-      take: limit,
-      orderBy: { createdAt: "desc" },
+      take: Math.max(limit * 4, 50),
       select: {
         id: true,
         name: true,
@@ -32,6 +35,8 @@ export async function GET(request: Request) {
         _count: { select: { reviews: true } },
       },
     })
+
+    const services = shuffleArray(candidatePool).slice(0, limit)
 
     const serviceIds = services.map((s) => s.id)
     const ratingRows = serviceIds.length > 0
@@ -51,9 +56,14 @@ export async function GET(request: Request) {
       averageRating: ratingByService[s.id] ?? 0,
     }))
 
-    return NextResponse.json(serialized)
+    return NextResponse.json(serialized, {
+      headers: {
+        "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+      },
+    })
   } catch (error) {
     console.error("Home services API error:", error)
     return NextResponse.json([], { status: 500 })
   }
 }
+

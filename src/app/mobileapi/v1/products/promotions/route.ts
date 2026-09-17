@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { shuffleArray } from "@/lib/utils"
+
+export const dynamic = "force-dynamic"
+export const revalidate = 0
 
 export async function GET(request: NextRequest) {
   try {
@@ -23,8 +27,8 @@ export async function GET(request: NextRequest) {
           },
         },
       },
-      take: limit * 2, // Fetch double for in-memory sorting by discount %
-      orderBy: { updatedAt: "desc" },
+      take: Math.max(limit * 4, 40),
+
       include: {
         category: { select: { id: true, name: true, slug: true } },
         variants: {
@@ -82,11 +86,12 @@ export async function GET(request: NextRequest) {
         }
       })
       .filter((item): item is NonNullable<typeof item> => item !== null)
-      .sort((a, b) => b.discount_percentage - a.discount_percentage)
-      .slice(0, limit)
+
+    const randomizedPromoProducts = shuffleArray(promoProducts).slice(0, limit)
+
 
     // Fallback preview items if database has no active product discounts yet
-    if (promoProducts.length === 0) {
+    if (randomizedPromoProducts.length === 0) {
       const fallbacks = [
         {
           product_id: "prod_promo_1",
@@ -117,16 +122,30 @@ export async function GET(request: NextRequest) {
           stock_status: "IN_STOCK",
         },
       ]
-      return NextResponse.json({
-        success: true,
-        data: fallbacks,
-      })
+      return NextResponse.json(
+        {
+          success: true,
+          data: shuffleArray(fallbacks),
+        },
+        {
+          headers: {
+            "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+          },
+        }
+      )
     }
 
-    return NextResponse.json({
-      success: true,
-      data: promoProducts,
-    })
+    return NextResponse.json(
+      {
+        success: true,
+        data: randomizedPromoProducts,
+      },
+      {
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+        },
+      }
+    )
   } catch (error) {
     console.error("Product promotions API error:", error)
     return NextResponse.json(

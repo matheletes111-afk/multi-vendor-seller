@@ -24,10 +24,12 @@ import {
   Bed,
   ExternalLink,
   ShieldCheck,
-  Globe
+  Globe,
+  BarChart3
 } from "lucide-react"
 import { cn, formatCurrency } from "@/lib/utils"
 import { HotelSellerDetailsView } from "@/components/admin/sellers/hotel-seller-details-view"
+import { SellerEmailModal, type SellerEmailTarget } from "@/components/admin/sellers/seller-email-modal"
 import Link from "next/link"
 
 interface Hotel {
@@ -68,6 +70,7 @@ export function HotelSellerDetailClient({ seller, plans = [] }: { seller: any; p
   const [actionLoading, setActionLoading] = useState<string | null>(null)
   const [rejectDialog, setRejectDialog] = useState<{ open: boolean; id: string; action: string }>({ open: false, id: "", action: "" })
   const [feedback, setFeedback] = useState("")
+  const [emailModalTarget, setEmailModalTarget] = useState<SellerEmailTarget | null>(null)
 
   const handleStatusAction = async (id: string, action: string, fb?: string) => {
     setActionLoading(id)
@@ -108,6 +111,14 @@ export function HotelSellerDetailClient({ seller, plans = [] }: { seller: any; p
           </div>
         </div>
         <div className="flex items-center gap-3">
+          <Link
+            href={`/admin/hotel-sellers/${seller.id}/analytics`}
+            className="inline-flex items-center gap-1.5 px-4 h-9 rounded-full border border-violet-200 dark:border-violet-800 bg-violet-50/80 dark:bg-violet-950/50 text-violet-700 dark:text-violet-300 hover:bg-violet-100 dark:hover:bg-violet-900/60 text-xs font-bold transition-all shadow-sm"
+            title="View Dedicated Analytics"
+          >
+            <BarChart3 className="h-4 w-4" />
+            <span>Analytics</span>
+          </Link>
           <Badge className={cn(
             "rounded-full px-4 py-1 uppercase tracking-widest text-[10px] font-black",
             seller.isApproved ? "bg-green-500 text-white" : "bg-blue-500 text-white"
@@ -129,6 +140,17 @@ export function HotelSellerDetailClient({ seller, plans = [] }: { seller: any; p
             onUnsuspend={() => handleStatusAction(seller.id, "unsuspend")}
             onOpenCorrection={(id) => setRejectDialog({ open: true, id, action: "correction" })}
             onOpenReject={(id) => setRejectDialog({ open: true, id, action: "reject" })}
+            onSendEmail={(id) =>
+              setEmailModalTarget({
+                id,
+                name: seller.user?.name,
+                businessName: seller.businessInfo?.businessName,
+                email: seller.user?.email,
+                phone: seller.user?.phone || seller.businessInfo?.pocContact,
+                phoneCountryCode: seller.user?.phoneCountryCode,
+                sellerType: "HOTEL",
+              })
+            }
           />
 
           <Card className="rounded-[2.5rem] border-none shadow-2xl overflow-hidden bg-gradient-to-br from-background to-blue-50/30">
@@ -251,6 +273,13 @@ export function HotelSellerDetailClient({ seller, plans = [] }: { seller: any; p
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Direct Email/SMS Modal */}
+      <SellerEmailModal
+        seller={emailModalTarget}
+        open={!!emailModalTarget}
+        onOpenChange={val => !val && setEmailModalTarget(null)}
+      />
     </div>
   )
 }

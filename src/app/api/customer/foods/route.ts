@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { extractFoodImages } from "@/lib/utils"
+import { extractFoodImages, shuffleArray } from "@/lib/utils"
+
+export const dynamic = "force-dynamic"
+export const revalidate = 0
 
 export async function GET(request: NextRequest) {
   try {
@@ -128,7 +131,16 @@ export async function GET(request: NextRequest) {
     })
     const uniqueCategories = Array.from(new Set(allActiveCategories.map(c => c.category)))
 
-    return NextResponse.json({ success: true, data: result, categories: uniqueCategories })
+    const randomizedResult = shuffleArray(result)
+
+    return NextResponse.json(
+      { success: true, data: randomizedResult, categories: uniqueCategories },
+      {
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+        },
+      }
+    )
   } catch (error) {
     console.error("Web get customer foods error:", error)
     return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 })

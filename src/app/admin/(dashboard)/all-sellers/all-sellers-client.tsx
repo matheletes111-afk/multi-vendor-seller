@@ -54,9 +54,11 @@ import {
   Store,
   Mail,
   Phone,
+  Smartphone,
   MapPin,
   RefreshCw,
   Eye,
+  BarChart3,
   Check,
   Sparkles,
   AlertTriangle,
@@ -1126,24 +1128,60 @@ export function AllSellersClient() {
                           {/* Actions */}
                           <TableCell className="text-right pr-6">
                             <div className="flex items-center justify-end gap-1.5">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() =>
-                                  setEmailModalTarget({
-                                    id: seller.id,
-                                    name: seller.userName,
-                                    businessName: seller.businessName,
-                                    email: seller.userEmail,
-                                    sellerType: seller.sellerType,
-                                  })
-                                }
-                                className="h-8 px-2.5 rounded-xl text-xs gap-1 font-semibold border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950 shadow-sm"
-                                title="Send Direct Email to Partner"
-                              >
-                                <Mail className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
-                                <span>Email</span>
-                              </Button>
+                              {seller.userEmail ? (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() =>
+                                    setEmailModalTarget({
+                                      id: seller.id,
+                                      name: seller.userName,
+                                      businessName: seller.businessName,
+                                      email: seller.userEmail,
+                                      phone: seller.userPhone,
+                                      phoneCountryCode: seller.userPhoneCountryCode,
+                                      sellerType: seller.sellerType,
+                                    })
+                                  }
+                                  className="h-8 px-2.5 rounded-xl text-xs gap-1 font-semibold border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950 shadow-sm"
+                                  title="Send Direct Email to Partner"
+                                >
+                                  <Mail className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
+                                  <span>Email</span>
+                                </Button>
+                              ) : seller.userPhone ? (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() =>
+                                    setEmailModalTarget({
+                                      id: seller.id,
+                                      name: seller.userName,
+                                      businessName: seller.businessName,
+                                      email: null,
+                                      phone: seller.userPhone,
+                                      phoneCountryCode: seller.userPhoneCountryCode,
+                                      sellerType: seller.sellerType,
+                                    })
+                                  }
+                                  className="h-8 px-2.5 rounded-xl text-xs gap-1 font-semibold border-amber-300 dark:border-amber-800 bg-amber-50/60 dark:bg-amber-950/30 text-amber-800 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/50 shadow-sm"
+                                  title="Send Direct SMS (Registered via phone only)"
+                                >
+                                  <Smartphone className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+                                  <span>SMS</span>
+                                </Button>
+                              ) : (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  disabled
+                                  className="h-8 px-2 rounded-xl text-xs gap-1 opacity-50 cursor-not-allowed text-slate-400"
+                                  title="No contact details on file"
+                                >
+                                  <Mail className="h-3.5 w-3.5" />
+                                  <span>No Contact</span>
+                                </Button>
+                              )}
 
                               <Link href={getSellerDetailUrl(seller)} target="_blank">
                                 <Button
@@ -1155,6 +1193,18 @@ export function AllSellersClient() {
                                   <Eye className="h-3.5 w-3.5" />
                                   <span>Details</span>
                                   <ExternalLink className="h-3 w-3 opacity-70" />
+                                </Button>
+                              </Link>
+
+                              <Link href={`/admin/sellers/${seller.id}/analytics?sellerType=${seller.sellerType}`}>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-8 px-2.5 rounded-xl text-xs gap-1 font-semibold border-violet-200 dark:border-violet-800 bg-violet-50/50 text-violet-700 dark:text-violet-300 hover:bg-violet-100 dark:hover:bg-violet-900/40 shadow-sm transition-colors"
+                                  title="View Dedicated Analytics & Records Dashboard"
+                                >
+                                  <BarChart3 className="h-3.5 w-3.5 text-violet-600 dark:text-violet-400" />
+                                  <span>Analytics</span>
                                 </Button>
                               </Link>
 
@@ -1203,6 +1253,16 @@ export function AllSellersClient() {
                                         className="h-8 px-3 rounded-xl text-xs gap-1.5 font-semibold border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950 shadow-sm"
                                       >
                                         <ExternalLink className="h-3.5 w-3.5" /> Open Full Details Page
+                                      </Button>
+                                    </Link>
+
+                                    <Link href={`/admin/sellers/${seller.id}/analytics?sellerType=${seller.sellerType}`}>
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-8 px-3 rounded-xl text-xs gap-1.5 font-semibold border-violet-200 dark:border-violet-800 bg-violet-50/50 text-violet-700 dark:text-violet-300 hover:bg-violet-100 shadow-sm"
+                                      >
+                                        <BarChart3 className="h-3.5 w-3.5 text-violet-600 dark:text-violet-400" /> Analytics Dashboard
                                       </Button>
                                     </Link>
 
@@ -1290,6 +1350,7 @@ export function AllSellersClient() {
                                         businessName: seller.businessName,
                                         email: seller.userEmail,
                                         phone: seller.userPhone,
+                                        phoneCountryCode: seller.userPhoneCountryCode,
                                         sellerType: seller.sellerType,
                                       })
                                     }
@@ -1316,6 +1377,7 @@ export function AllSellersClient() {
                                         businessName: seller.businessName,
                                         email: seller.userEmail,
                                         phone: seller.userPhone,
+                                        phoneCountryCode: seller.userPhoneCountryCode,
                                         sellerType: seller.sellerType,
                                       })
                                     }
@@ -1342,6 +1404,7 @@ export function AllSellersClient() {
                                         businessName: seller.businessName,
                                         email: seller.userEmail,
                                         phone: seller.userPhone,
+                                        phoneCountryCode: seller.userPhoneCountryCode,
                                         sellerType: seller.sellerType,
                                       })
                                     }

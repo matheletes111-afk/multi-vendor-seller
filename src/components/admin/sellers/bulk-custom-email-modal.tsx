@@ -42,6 +42,7 @@ import {
   FileText,
   Clock,
   ShieldAlert,
+  Smartphone,
 } from "lucide-react"
 
 export interface BulkCustomEmailModalProps {
@@ -57,6 +58,8 @@ interface RecipientPreviewItem {
   name: string | null
   businessName: string | null
   email: string | null
+  phone: string | null
+  channel?: "email" | "sms" | "none"
   status: string
   isApproved: boolean
   isSuspended: boolean
@@ -66,6 +69,8 @@ interface ActivityLogItem {
   id: string
   timestamp: string
   email: string | null
+  phone?: string | null
+  channel?: "email" | "sms" | "none"
   sellerName: string | null
   sellerType: string
   status: "success" | "failed"
@@ -132,6 +137,11 @@ export function BulkCustomEmailModal({
     hotel: 0,
     restaurant: 0,
   })
+  const [byChannelCount, setByChannelCount] = useState({
+    email: 0,
+    sms: 0,
+    none: 0,
+  })
   const [previewRecipients, setPreviewRecipients] = useState<RecipientPreviewItem[]>([])
   const [showRecipientList, setShowRecipientList] = useState(false)
 
@@ -187,6 +197,9 @@ export function BulkCustomEmailModal({
           setByTypeCount(
             data.byType || { product: 0, service: 0, hotel: 0, restaurant: 0 }
           )
+          if (data.byChannel) {
+            setByChannelCount(data.byChannel)
+          }
           setPreviewRecipients(data.recipients || [])
         }
       })
@@ -297,7 +310,9 @@ export function BulkCustomEmailModal({
           const newLogs: ActivityLogItem[] = data.results.map((r: any) => ({
             id: `${r.id}-${Date.now()}-${Math.random()}`,
             timestamp: new Date().toLocaleTimeString(),
-            email: r.email || (r.phone ? `SMS: ${r.phone}` : "SMS"),
+            email: r.email,
+            phone: r.phone,
+            channel: r.channel || (r.email ? "email" : r.phone ? "sms" : "none"),
             sellerName: r.sellerName,
             sellerType: r.sellerType,
             status: r.status,
@@ -374,14 +389,14 @@ export function BulkCustomEmailModal({
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <DialogTitle className="text-lg sm:text-xl font-bold text-white tracking-tight">
-                  Send Email to Sellers (Broadcast)
+                  Broadcast Message to Sellers (Email & SMS Fallback)
                 </DialogTitle>
                 <Badge className="bg-white/20 text-white border-white/20 text-[10px] font-semibold tracking-wider uppercase">
-                  Bulk Dispatch
+                  Multi-Channel Dispatch
                 </Badge>
               </div>
               <DialogDescription className="text-blue-100 text-xs sm:text-sm mt-1 leading-relaxed">
-                Send an email notice, update, or campaign invitation to multiple sellers simultaneously with live progress tracking.
+                Broadcast an official announcement or operational update across sellers. Partners with email receive branded email; partners registered via phone only automatically receive SMS.
               </DialogDescription>
             </div>
           </div>
@@ -450,7 +465,7 @@ export function BulkCustomEmailModal({
 
                 {/* Category Count Breakdown */}
                 <div className="flex items-center gap-2 pt-1 flex-wrap text-xs text-slate-600 dark:text-slate-400">
-                  <span className="font-semibold text-slate-500">Breakdown:</span>
+                  <span className="font-semibold text-slate-500">Categories:</span>
                   <span className="inline-flex items-center gap-1 bg-white dark:bg-slate-800 px-2 py-0.5 rounded-md border border-slate-200 dark:border-slate-700">
                     <Package className="h-3 w-3 text-blue-500" /> Products: <b>{byTypeCount.product}</b>
                   </span>
@@ -463,6 +478,22 @@ export function BulkCustomEmailModal({
                   <span className="inline-flex items-center gap-1 bg-white dark:bg-slate-800 px-2 py-0.5 rounded-md border border-slate-200 dark:border-slate-700">
                     <UtensilsCrossed className="h-3 w-3 text-orange-500" /> Restaurants: <b>{byTypeCount.restaurant}</b>
                   </span>
+                </div>
+
+                {/* Multi-Channel Breakdown */}
+                <div className="flex items-center gap-2 pt-1 flex-wrap text-xs text-slate-600 dark:text-slate-400 border-t border-slate-100 dark:border-slate-800/80">
+                  <span className="font-semibold text-slate-500">Dispatch Channels:</span>
+                  <span className="inline-flex items-center gap-1 bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded-md border border-blue-200 dark:border-blue-800 font-medium">
+                    <Mail className="h-3 w-3" /> Email: <b>{byChannelCount.email}</b>
+                  </span>
+                  <span className="inline-flex items-center gap-1 bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 px-2 py-0.5 rounded-md border border-amber-200 dark:border-amber-800 font-medium">
+                    <Smartphone className="h-3 w-3" /> SMS Fallback: <b>{byChannelCount.sms}</b>
+                  </span>
+                  {byChannelCount.none > 0 && (
+                    <span className="inline-flex items-center gap-1 bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 px-2 py-0.5 rounded-md border border-rose-200 dark:border-rose-800 font-medium">
+                      No Contact: <b>{byChannelCount.none}</b>
+                    </span>
+                  )}
 
                   <button
                     type="button"
@@ -481,6 +512,14 @@ export function BulkCustomEmailModal({
                   </button>
                 </div>
 
+                {/* Smart Multi-Channel Informative Banner */}
+                <div className="p-3 bg-indigo-50/70 dark:bg-indigo-950/40 rounded-xl border border-indigo-200/80 dark:border-indigo-900/60 text-xs text-indigo-800 dark:text-indigo-300 flex items-start gap-2">
+                  <Megaphone className="h-4 w-4 text-indigo-600 dark:text-indigo-400 shrink-0 mt-0.5" />
+                  <div className="leading-relaxed">
+                    <span className="font-bold">Smart Fallback Active:</span> Partners with email addresses will receive an official branded email. Partners registered via phone only (without email) will automatically receive an SMS notification directly on their mobile phones.
+                  </div>
+                </div>
+
                 {/* Expandable Recipient Preview List */}
                 {showRecipientList && (
                   <div className="mt-3 max-h-48 overflow-y-auto border border-slate-200 dark:border-slate-800 rounded-lg p-2.5 bg-white dark:bg-slate-900 divide-y divide-slate-100 dark:divide-slate-800">
@@ -493,11 +532,30 @@ export function BulkCustomEmailModal({
                             <span className="font-semibold text-slate-800 dark:text-slate-200 truncate block">
                               {rec.name || rec.businessName || "Partner"}
                             </span>
-                            <span className="text-slate-400 text-[11px] font-mono truncate block">
-                              {rec.email}
-                            </span>
+                            {rec.email ? (
+                              <span className="text-slate-400 text-[11px] font-mono truncate flex items-center gap-1">
+                                <Mail className="h-3 w-3 text-blue-500 shrink-0" />
+                                {rec.email}
+                              </span>
+                            ) : rec.phone ? (
+                              <span className="text-amber-700 dark:text-amber-400 text-[11px] font-mono truncate flex items-center gap-1">
+                                <Smartphone className="h-3 w-3 text-amber-500 shrink-0" />
+                                SMS: {rec.phone} (Phone only)
+                              </span>
+                            ) : (
+                              <span className="text-rose-500 text-[11px] italic">No contact details</span>
+                            )}
                           </div>
                           <div className="flex items-center gap-1.5 shrink-0">
+                            {rec.email ? (
+                              <Badge className="bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800 text-[10px] px-1.5 py-0">
+                                Email
+                              </Badge>
+                            ) : rec.phone ? (
+                              <Badge className="bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-800 text-[10px] px-1.5 py-0">
+                                SMS Fallback
+                              </Badge>
+                            ) : null}
                             <Badge variant="outline" className="text-[10px] px-1.5 py-0 uppercase">
                               {rec.sellerType}
                             </Badge>
@@ -665,12 +723,19 @@ export function BulkCustomEmailModal({
                       <div key={log.id} className="flex items-start gap-2 leading-relaxed">
                         <span className="text-slate-500 shrink-0">[{log.timestamp}]</span>
                         {log.status === "success" ? (
-                          <span className="text-emerald-400 shrink-0 font-bold">[SENT]</span>
+                          log.channel === "sms" ? (
+                            <span className="text-amber-400 shrink-0 font-bold">[SMS SENT]</span>
+                          ) : (
+                            <span className="text-emerald-400 shrink-0 font-bold">[EMAIL SENT]</span>
+                          )
                         ) : (
                           <span className="text-red-400 shrink-0 font-bold">[FAIL]</span>
                         )}
                         <span className="text-slate-300 font-sans truncate">
-                          {log.sellerName || "Partner"} ({log.email || "SMS"})
+                          {log.sellerName || "Partner"}{" "}
+                          <span className="text-slate-400 text-[11px] font-mono">
+                            ({log.channel === "sms" ? `📱 ${log.phone || log.email || "SMS"}` : `✉️ ${log.email || "Email"}`})
+                          </span>
                         </span>
                         {log.message && (
                           <span className="text-red-300 text-[11px] font-sans">

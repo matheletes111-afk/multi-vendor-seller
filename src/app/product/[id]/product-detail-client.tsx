@@ -16,7 +16,7 @@ import { UserRole } from "@prisma/client"
 import { PageLoader } from "@/components/ui/page-loader"
 import { AddToCartButton } from "@/components/product/AddToCartButton"
 import { Card, CardContent } from "@/ui/card"
-import { ChevronRight, ShoppingCart, ShoppingBag, Store, Truck } from "lucide-react"
+import { ChevronRight, ShoppingCart, ShoppingBag, Store, Truck, Clock } from "lucide-react"
 
 type Variant = {
   id: string
@@ -33,6 +33,7 @@ type Variant = {
   details?: string | null
   returnType: "NON_RETURNABLE" | "RETURNABLE"
   returnDays?: number | null
+  deliveryDays?: number | null
 }
 type RelatedProduct = {
   id: string
@@ -136,15 +137,33 @@ export function ProductDetailClient({ productId }: { productId: string }) {
       .catch(() => setProductAd(null))
   }, [productId])
 
-  // Record recent view for logged-in customers (max 10 per user, oldest dropped)
+  // Record recent view in localStorage (for guests/all) and on server (for logged-in customers)
   useEffect(() => {
-    if (status !== "authenticated" || session?.user?.role !== UserRole.CUSTOMER || !productId) return
-    fetch("/api/customer/recent-views", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ productId }),
-    }).catch(() => {})
+    if (!productId) return
+
+    // 1. Always record locally in localStorage so guest users also have dynamic recent views
+    try {
+      const STORAGE_KEY = "marketplace_recent_views_v1"
+      const existingRaw = localStorage.getItem(STORAGE_KEY)
+      let items: { productId: string; viewedAt: string }[] = existingRaw ? JSON.parse(existingRaw) : []
+      if (!Array.isArray(items)) items = []
+      // Remove previous entry of this product if present, prepend newest
+      items = items.filter((it) => it.productId !== productId)
+      items.unshift({ productId, viewedAt: new Date().toISOString() })
+      if (items.length > 10) items = items.slice(0, 10)
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(items))
+    } catch (_) {}
+
+    // 2. If customer is authenticated, persist to database
+    if (status === "authenticated" && session?.user?.role === UserRole.CUSTOMER) {
+      fetch("/api/customer/recent-views", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ productId }),
+      }).catch(() => {})
+    }
   }, [productId, status, session?.user?.role])
+
 
   if (loading) {
     return (
@@ -471,6 +490,10 @@ export function ProductDetailClient({ productId }: { productId: string }) {
                 <div className="flex items-center gap-2 font-medium text-slate-700">
                   <Truck className="h-4 w-4 text-amber-600 shrink-0" />
                   <span>Estimated Delivery Charge: <strong className="text-slate-900">{formatCurrency(product.estimatedDeliveryCharge ?? 50)}</strong></span>
+                </div>
+                <div className="flex items-center gap-2 font-medium text-slate-700">
+                  <Clock className="h-4 w-4 text-emerald-600 shrink-0" />
+                  <span>Expected Delivery: <strong className="text-slate-900">{targetVariant?.deliveryDays ?? 7} {(targetVariant?.deliveryDays ?? 7) === 1 ? "day" : "days"}</strong></span>
                 </div>
                 {selectedVariant && returnPolicy && (
                   <div className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-700 ring-1 ring-slate-200">
