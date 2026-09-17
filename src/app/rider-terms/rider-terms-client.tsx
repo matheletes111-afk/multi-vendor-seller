@@ -32,6 +32,7 @@ import {
   FileText,
   Sparkles,
   BookOpen,
+  EyeOff,
 } from "lucide-react"
 import { Badge } from "@/ui/badge"
 import { Button } from "@/ui/button"
@@ -141,7 +142,7 @@ export function RiderTermsClient() {
               </h1>
 
               <p className="text-sm sm:text-base text-slate-600 leading-relaxed">
-                Clear, transparent guidelines for our courier network. Review independent contractor terms, 100% tip guarantees, weekly settlements, road safety compliance, and background location tracking disclosures.
+                Official operational responsibilities, conduct, road safety, loss accountability, and Delivery App privacy policies for MEEEM employed riders and drivers under the laws of Sierra Leone and Employment Act 2023.
               </p>
 
               <div className="flex flex-wrap items-center gap-3 pt-2">
@@ -230,6 +231,12 @@ export function RiderTermsClient() {
                 ? MapPin
                 : h.icon === "Lock"
                 ? Lock
+                : h.icon === "EyeOff"
+                ? EyeOff
+                : h.icon === "CheckCircle2"
+                ? CheckCircle2
+                : h.icon === "FileText"
+                ? FileText
                 : h.icon === "PhoneCall"
                 ? PhoneCall
                 : UserCheck
