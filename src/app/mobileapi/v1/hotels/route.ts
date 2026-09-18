@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 
+import { shuffleArray } from "@/lib/utils"
+
 export const dynamic = "force-dynamic"
 export const revalidate = 0
 
@@ -33,12 +35,14 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    const isDefaultView = !cityParam && !starRatingParam && page === 1
+
     const [totalItems, hotels] = await Promise.all([
       prisma.hotel.count({ where }),
       prisma.hotel.findMany({
         where,
-        skip,
-        take: limit,
+        skip: isDefaultView ? 0 : skip,
+        take: isDefaultView ? Math.max(limit * 3, 30) : limit,
         orderBy: { starRating: "desc" },
         include: {
           rooms: {
@@ -88,12 +92,15 @@ export async function GET(request: NextRequest) {
     })
 
     const totalPages = Math.ceil(totalItems / limit)
+    const finalHotels = isDefaultView
+      ? shuffleArray(formattedHotels).slice(0, limit)
+      : formattedHotels
 
     return NextResponse.json(
       {
         success: true,
         data: {
-          hotels: formattedHotels,
+          hotels: finalHotels,
           pagination: {
             current_page: page,
             total_pages: totalPages,

@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const categoryId = searchParams.get("categoryId");
-    const limit = Math.min(Number(searchParams.get("limit")) || 12, 24);
+    const limit = Math.min(Number(searchParams.get("limit")) || 48, 60);
 
     const where: any = {
       isActive: true,
@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
     // Fetch an oversampled candidate pool to shuffle across all sellers
     const candidatePool = await prisma.product.findMany({
       where,
-      take: Math.max(limit * 4, 60),
+      take: Math.max(limit * 3, 100),
       select: {
         id: true,
         name: true,

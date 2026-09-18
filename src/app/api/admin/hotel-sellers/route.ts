@@ -146,14 +146,22 @@ export async function GET(request: NextRequest) {
         case "storename":
         case "hotelname":
         case "businessname": {
-          const valA = (a.hotels?.[0]?.name || a.businessInfo?.businessName || "").toLowerCase()
-          const valB = (b.hotels?.[0]?.name || b.businessInfo?.businessName || "").toLowerCase()
+          const valA = (a.businessInfo?.businessName || a.hotels?.[0]?.name || a.user?.name || "").toLowerCase()
+          const valB = (b.businessInfo?.businessName || b.hotels?.[0]?.name || b.user?.name || "").toLowerCase()
           return valA.localeCompare(valB) * modifier
         }
         case "status": {
-          const valA = a.isSuspended ? "SUSPENDED" : a.isApproved ? "APPROVED" : a.status || "PENDING"
-          const valB = b.isSuspended ? "SUSPENDED" : b.isApproved ? "APPROVED" : b.status || "PENDING"
-          return valA.localeCompare(valB) * modifier
+          const getStatusRank = (item: any) => {
+            if (item.isApproved) return 1
+            if (item.status === "PENDING" || !item.status) return 2
+            if (item.status === "CORRECTION" || item.status === "CORRECTION_NEEDED") return 3
+            if (item.status === "REJECTED") return 4
+            if (item.isSuspended) return 5
+            return 6
+          }
+          const rankDiff = (getStatusRank(a) - getStatusRank(b)) * modifier
+          if (rankDiff !== 0) return rankDiff
+          return (new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
         }
         case "plan":
         case "subscription":
@@ -164,16 +172,20 @@ export async function GET(request: NextRequest) {
         }
         case "commission":
         case "commissionrate": {
-          const valA = a.commissionRate ?? -1
-          const valB = b.commissionRate ?? -1
+          const valA = a.commissionRate ?? a.baseCommissionRate ?? 10
+          const valB = b.commissionRate ?? b.baseCommissionRate ?? 10
           return (valA - valB) * modifier
         }
         case "documents":
         case "docstatus": {
           const valA = a.documentEvaluation?.isComplete ? 1 : 0
           const valB = b.documentEvaluation?.isComplete ? 1 : 0
-          if (valA !== valB) return (valA - valB) * modifier
-          return ((b.documentEvaluation?.missingCount ?? 0) - (a.documentEvaluation?.missingCount ?? 0)) * modifier
+          if (valA !== valB) {
+            return sortOrder === "desc" ? (valB - valA) : (valA - valB)
+          }
+          const missingA = a.documentEvaluation?.missingCount ?? 0
+          const missingB = b.documentEvaluation?.missingCount ?? 0
+          return sortOrder === "desc" ? (missingA - missingB) : (missingB - missingA)
         }
         case "date":
         case "createdat":

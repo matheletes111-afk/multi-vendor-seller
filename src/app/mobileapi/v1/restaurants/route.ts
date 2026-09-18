@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 
+import { shuffleArray } from "@/lib/utils"
+
 export const dynamic = "force-dynamic"
 export const revalidate = 0
 
@@ -25,12 +27,14 @@ export async function GET(request: NextRequest) {
       where.category = { equals: categoryParam.trim(), mode: "insensitive" }
     }
 
+    const isDefaultView = !categoryParam && page === 1
+
     const [totalItems, foodItems] = await Promise.all([
       prisma.foodItem.count({ where }),
       prisma.foodItem.findMany({
         where,
-        skip,
-        take: limit,
+        skip: isDefaultView ? 0 : skip,
+        take: isDefaultView ? Math.max(limit * 3, 30) : limit,
         orderBy: { createdAt: "desc" },
         include: {
           restaurantSeller: {
@@ -79,12 +83,15 @@ export async function GET(request: NextRequest) {
     })
 
     const totalPages = Math.ceil(totalItems / limit)
+    const finalItems = isDefaultView
+      ? shuffleArray(formattedItems).slice(0, limit)
+      : formattedItems
 
     return NextResponse.json(
       {
         success: true,
         data: {
-          food_items: formattedItems,
+          food_items: finalItems,
           pagination: {
             current_page: page,
             total_pages: totalPages,

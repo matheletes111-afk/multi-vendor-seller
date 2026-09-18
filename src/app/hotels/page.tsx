@@ -138,32 +138,45 @@ function HotelsBrowsePageContent() {
     return [...matching, ...others].slice(0, 4)
   }, [allHotels, spotlightCity1])
 
-  // Card 2: 4 Hotels from Spotlight City 2
+  // Card 2: 4 Hotels from Spotlight City 2 (distinct from Card 1)
   const city2Hotels = useMemo(() => {
-    if (!spotlightCity2) return allHotels.slice(4, 8)
-    const matching = allHotels.filter((h) => h.city?.toLowerCase() === spotlightCity2.toLowerCase())
+    const card1Ids = new Set(city1Hotels.map((h) => h.id))
+    const available = allHotels.filter((h) => !card1Ids.has(h.id))
+    if (!spotlightCity2) return available.slice(0, 4).length > 0 ? available.slice(0, 4) : allHotels.slice(4, 8)
+    const matching = available.filter((h) => h.city?.toLowerCase() === spotlightCity2.toLowerCase())
     if (matching.length >= 4) return matching.slice(0, 4)
-    const others = allHotels.filter((h) => h.city?.toLowerCase() !== spotlightCity2.toLowerCase())
-    return [...matching, ...others].slice(0, 4)
-  }, [allHotels, spotlightCity2])
+    const others = available.filter((h) => h.city?.toLowerCase() !== spotlightCity2.toLowerCase())
+    const combined = [...matching, ...others].slice(0, 4)
+    return combined.length > 0 ? combined : allHotels.slice(4, 8)
+  }, [allHotels, spotlightCity2, city1Hotels])
 
-  // Card 3: Top Rated > 3-Star Hotels
+  // Card 3: Top Rated > 3-Star Hotels (distinct from Cards 1 & 2)
   const luxury3StarPlusHotels = useMemo(() => {
-    const matching = allHotels.filter((h) => h.starRating > 3)
+    const usedIds = new Set([...city1Hotels.map((h) => h.id), ...city2Hotels.map((h) => h.id)])
+    const available = allHotels.filter((h) => !usedIds.has(h.id))
+    const matching = available.filter((h) => h.starRating > 3)
     if (matching.length >= 4) return matching.slice(0, 4)
-    return [...allHotels].sort((a, b) => b.starRating - a.starRating).slice(0, 4)
-  }, [allHotels])
+    const sorted = [...available].sort((a, b) => b.starRating - a.starRating).slice(0, 4)
+    return sorted.length > 0 ? sorted : allHotels.slice(8, 12)
+  }, [allHotels, city1Hotels, city2Hotels])
 
-  // Card 4: Featured Resorts & Heritage Havelis
+  // Card 4: Featured Resorts & Heritage Havelis (distinct from Cards 1, 2, 3)
   const resortHeritageHotels = useMemo(() => {
+    const usedIds = new Set([
+      ...city1Hotels.map((h) => h.id),
+      ...city2Hotels.map((h) => h.id),
+      ...luxury3StarPlusHotels.map((h) => h.id),
+    ])
+    const available = allHotels.filter((h) => !usedIds.has(h.id))
     const keywords = ["resort", "villa", "haveli", "palace", "spa", "haven", "beach"]
-    const matching = allHotels.filter((h) => {
+    const matching = available.filter((h) => {
       const text = (h.name + " " + (h.description || "")).toLowerCase()
       return keywords.some((k) => text.includes(k))
     })
     if (matching.length >= 4) return matching.slice(0, 4)
-    return allHotels.slice(0, 4)
-  }, [allHotels])
+    if (available.length > 0) return available.slice(0, 4)
+    return allHotels.slice(12, 16).length > 0 ? allHotels.slice(12, 16) : allHotels.slice(0, 4)
+  }, [allHotels, city1Hotels, city2Hotels, luxury3StarPlusHotels])
 
   const cityScrollRef = useRef<HTMLDivElement>(null)
 

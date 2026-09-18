@@ -32,7 +32,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/ui/select"
-import { cn, formatCurrency } from "@/lib/utils"
+import { cn, formatCurrency, shuffleArray } from "@/lib/utils"
 import { PageLoader } from "@/components/ui/page-loader"
 import { WishlistButton } from "@/components/product/WishlistButton"
 
@@ -674,7 +674,7 @@ function ServiceHomeContent() {
 
       {/* 5. 🔥 SPECIAL SERVICE DEALS & DISCOUNT SECTION — Strictly Dynamic */}
       {(() => {
-        const discountedServices = spotlightServices.filter((s) => typeof s.discount === "number" && s.discount > 0)
+        const discountedServices = shuffleArray(spotlightServices.filter((s) => typeof s.discount === "number" && s.discount > 0))
         if (discountedServices.length === 0) return null
 
         return (
