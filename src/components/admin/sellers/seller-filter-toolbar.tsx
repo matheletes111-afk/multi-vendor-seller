@@ -100,7 +100,8 @@ export function SellerFilterToolbar({
   }
 
   // Combined sort value e.g. "createdAt_desc"
-  const currentSortComposite = `${sortBy}_${sortOrder}`
+  const normalizedSortBy = sortBy === "storeName" || sortBy === "store" ? "businessName" : sortBy
+  const currentSortComposite = `${normalizedSortBy}_${sortOrder}`
 
   const handleCompositeSortChange = (compositeVal: string) => {
     const [field, order] = compositeVal.split("_") as [string, "asc" | "desc"]
@@ -315,22 +316,15 @@ export function SellerFilterToolbar({
                 <SelectValue placeholder="Sort order..." />
               </SelectTrigger>
               <SelectContent className="rounded-2xl max-h-80">
-                <SelectItem value="createdAt_desc">📅 Registration Date (Newest First)</SelectItem>
-                <SelectItem value="createdAt_asc">📅 Registration Date (Oldest First)</SelectItem>
-                <SelectItem value="name_asc">👤 Name / Email (A → Z)</SelectItem>
-                <SelectItem value="name_desc">👤 Name / Email (Z → A)</SelectItem>
-                <SelectItem value="storeName_asc">🏪 Store / Business Name (A → Z)</SelectItem>
-                <SelectItem value="storeName_desc">🏪 Store / Business Name (Z → A)</SelectItem>
-                {sellerTypeOptions && (
-                  <SelectItem value="sellerType_asc">🏷️ Seller Category Type (A → Z)</SelectItem>
-                )}
-                <SelectItem value="status_asc">✅ Status (Approved First)</SelectItem>
-                <SelectItem value="status_desc">⏳ Status (Pending First)</SelectItem>
-                <SelectItem value="subscriptionPlan_asc">💳 Subscription Plan (A → Z)</SelectItem>
-                <SelectItem value="commissionRate_desc">💰 Commission Rate (Highest First)</SelectItem>
-                <SelectItem value="commissionRate_asc">💰 Commission Rate (Lowest First)</SelectItem>
-                <SelectItem value="docStatus_asc">📄 Documents (Complete First)</SelectItem>
-                <SelectItem value="docStatus_desc">⚠️ Documents (Incomplete First)</SelectItem>
+                <SelectItem value="createdAt_desc">📅 Registration Date (Newest)</SelectItem>
+                <SelectItem value="createdAt_asc">📅 Registration Date (Oldest)</SelectItem>
+                <SelectItem value="businessName_asc">🏪 Business Name (A -Z)</SelectItem>
+                <SelectItem value="email_asc">✉️ Email</SelectItem>
+                <SelectItem value="status_asc">✅ Document Status (Approved)</SelectItem>
+                <SelectItem value="docStatus_desc">📄 Document Status (Complete)</SelectItem>
+                <SelectItem value="docStatus_asc">⚠️ Document Status (Incomplete)</SelectItem>
+                <SelectItem value="commissionRate_desc">💰 Commission (Highest)</SelectItem>
+                <SelectItem value="commissionRate_asc">💰 Commission (Lowest)</SelectItem>
               </SelectContent>
             </Select>
           </div>

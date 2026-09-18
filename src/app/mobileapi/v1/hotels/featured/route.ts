@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { shuffleArray } from "@/lib/utils"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
@@ -25,7 +26,7 @@ export async function GET(request: NextRequest) {
 
     const hotels = await prisma.hotel.findMany({
       where,
-      take: limit,
+      take: Math.max(limit * 3, 30),
       orderBy: [{ starRating: "desc" }, { createdAt: "desc" }],
       include: {
         rooms: {
@@ -78,10 +79,12 @@ export async function GET(request: NextRequest) {
       }
     })
 
+    const randomizedHotels = shuffleArray(formattedHotels).slice(0, limit)
+
     return NextResponse.json(
       {
         success: true,
-        data: formattedHotels,
+        data: randomizedHotels,
       },
       {
         headers: {

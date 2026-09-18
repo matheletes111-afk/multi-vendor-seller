@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo, useCallback } from "react"
+import { useState, useEffect, useMemo, useCallback, useRef } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { useSession } from "next-auth/react"
@@ -39,6 +39,7 @@ type FilterMeta = {
 
 const INITIAL_LIST = 5
 const SORT_OPTIONS: { value: string; label: string }[] = [
+  { value: "random", label: "Recommended (Random)" },
   { value: "featured", label: "Featured" },
   { value: "price_asc", label: "Price: Low to High" },
   { value: "price_desc", label: "Price: High to Low" },
@@ -112,9 +113,10 @@ export function BrowseClient() {
       sortParam === "newest" ||
       sortParam === "featured" ||
       sortParam === "bestseller" ||
-      sortParam === "rating"
+      sortParam === "rating" ||
+      sortParam === "random"
       ? sortParam
-      : "newest"
+      : "random"
 
   const minPrice = Number(searchParams.get("minPrice") ?? "0")
   const maxPrice = Number(searchParams.get("maxPrice") ?? "100000")
@@ -154,6 +156,7 @@ export function BrowseClient() {
   const [priceMaxDraft, setPriceMaxDraft] = useState("")
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
   const [scrollTopVisible, setScrollTopVisible] = useState(false)
+  const browseSeedRef = useRef(Date.now().toString())
 
   const buildQuery = useCallback(() => {
     const params = new URLSearchParams()
@@ -162,7 +165,8 @@ export function BrowseClient() {
     if (subcategoryId) params.set("subcategoryId", subcategoryId)
     if (serviceCategoryId) params.set("serviceCategoryId", serviceCategoryId)
     if (q) params.set("q", q)
-    if (sort && sort !== "newest") params.set("sort", sort)
+    if (sort && sort !== "random") params.set("sort", sort)
+    if (!sort || sort === "random") params.set("seed", browseSeedRef.current)
     if (Number.isFinite(minPrice) && minPrice > 0) params.set("minPrice", String(minPrice))
     if (Number.isFinite(maxPrice) && maxPrice < 100000) params.set("maxPrice", String(maxPrice))
     if (brandsParam) params.set("brands", brandsParam)
@@ -757,7 +761,10 @@ export function BrowseClient() {
           </div>
 
           <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
-            <aside className="sticky top-28 z-20 hidden w-72 shrink-0 self-start rounded-xl border border-slate-200 bg-white shadow-sm lg:block max-h-[calc(100vh-7.5rem)] overflow-y-auto overscroll-contain [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-300 hover:[&::-webkit-scrollbar-thumb]:bg-slate-400">
+            <aside
+              style={{ position: "sticky", top: "5rem" }}
+              className="sticky top-20 z-20 hidden w-72 shrink-0 self-start rounded-xl border border-slate-200 bg-white shadow-sm lg:block max-h-[calc(100vh-6rem)] overflow-y-auto overscroll-contain [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-300 hover:[&::-webkit-scrollbar-thumb]:bg-slate-400"
+            >
               <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-100 bg-white px-4 py-3 shadow-[0_1px_2px_rgba(0,0,0,0.03)]">
                 <div className="flex items-center gap-2">
                   <Filter className="h-4 w-4 text-slate-500" />
@@ -834,7 +841,7 @@ export function BrowseClient() {
                     <select
                       id="sortBy"
                       value={sort}
-                      onChange={(e) => updateFilters({ sort: e.target.value === "newest" ? null : e.target.value })}
+                      onChange={(e) => updateFilters({ sort: e.target.value === "random" ? null : e.target.value })}
                       className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500"
                     >
                       {SORT_OPTIONS.map((o) => (

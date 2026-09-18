@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { Prisma, ReturnPolicyType, SubscriptionPlan, ProductCondition } from "@prisma/client"
+import { shuffleArray, seededShuffle } from "@/lib/utils"
 
 const DEFAULT_PAGE_SIZE = 12
 const MAX_PAGE_SIZE = 100
@@ -103,6 +104,7 @@ export async function GET(request: NextRequest) {
     const subcategoryId = searchParams.get("subcategoryId") ?? undefined
     const serviceCategoryId = searchParams.get("serviceCategoryId") ?? undefined
 
+    const seed = searchParams.get("seed") || null
     const sortParam = searchParams.get("sort")
     const sort =
       sortParam === "price_desc" ||
@@ -110,9 +112,10 @@ export async function GET(request: NextRequest) {
       sortParam === "newest" ||
       sortParam === "featured" ||
       sortParam === "bestseller" ||
-      sortParam === "rating"
+      sortParam === "rating" ||
+      sortParam === "random"
         ? sortParam
-        : "newest"
+        : "random"
 
     const minPriceParam = searchParams.get("minPrice")
     const maxPriceParam = searchParams.get("maxPrice")
@@ -414,14 +417,22 @@ export async function GET(request: NextRequest) {
       return true
     })
 
-    const sorted = [...filtered].sort((a, b) => {
-      if (sort === "price_asc") return a.finalPrice - b.finalPrice
-      if (sort === "price_desc") return b.finalPrice - a.finalPrice
-      if (sort === "featured") return Number(b.isFeatured) - Number(a.isFeatured) || b.createdAt.getTime() - a.createdAt.getTime()
-      if (sort === "bestseller") return b.soldCount - a.soldCount || b.createdAt.getTime() - a.createdAt.getTime()
-      if (sort === "rating") return b.avgRating - a.avgRating || b._count.reviews - a._count.reviews
-      return b.createdAt.getTime() - a.createdAt.getTime()
-    })
+    let sorted: EnrichedProduct[] = []
+    if (!sortParam || sort === "random") {
+      sorted = seed ? seededShuffle(filtered, seed) : shuffleArray(filtered)
+    } else if (sort === "price_asc") {
+      sorted = [...filtered].sort((a, b) => a.finalPrice - b.finalPrice)
+    } else if (sort === "price_desc") {
+      sorted = [...filtered].sort((a, b) => b.finalPrice - a.finalPrice)
+    } else if (sort === "featured") {
+      sorted = [...filtered].sort((a, b) => Number(b.isFeatured) - Number(a.isFeatured) || b.createdAt.getTime() - a.createdAt.getTime())
+    } else if (sort === "bestseller") {
+      sorted = [...filtered].sort((a, b) => b.soldCount - a.soldCount || b.createdAt.getTime() - a.createdAt.getTime())
+    } else if (sort === "rating") {
+      sorted = [...filtered].sort((a, b) => b.avgRating - a.avgRating || b._count.reviews - a._count.reviews)
+    } else {
+      sorted = [...filtered].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+    }
 
     const totalProducts = sorted.length
     const totalPages = Math.max(1, Math.ceil(totalProducts / pageSize))
@@ -477,10 +488,13 @@ export async function GET(request: NextRequest) {
       serviceRatingRows.map((r) => [r.serviceId, Number(r._avg.rating ?? 0)])
     ) as Record<string, number>
 
-    const services = servicesRaw.map((s) => ({
+    const rawMappedServices = servicesRaw.map((s) => ({
       ...s,
       averageRating: ratingByService[s.id] ?? 0,
     }))
+    const services = (!sortParam || sort === "random")
+      ? (seed ? seededShuffle(rawMappedServices, seed) : shuffleArray(rawMappedServices))
+      : rawMappedServices
 
     const serviceCategoryName = serviceCategoryWithName?.name ?? null
 

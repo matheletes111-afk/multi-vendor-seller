@@ -103,6 +103,27 @@ export function shuffleArray<T>(array: T[]): T[] {
 }
 
 /**
+ * Seeded Fisher-Yates shuffle algorithm.
+ * Given the same array and seed string, produces the exact same permutation.
+ */
+export function seededShuffle<T>(array: T[], seedStr: string): T[] {
+  const arr = [...array]
+  let seed = 0
+  for (let i = 0; i < seedStr.length; i++) {
+    seed = (seed * 31 + seedStr.charCodeAt(i)) & 0xffffffff
+  }
+  const random = () => {
+    seed = (seed * 1664525 + 1013904223) & 0xffffffff
+    return (seed >>> 0) / 4294967296
+  }
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(random() * (i + 1))
+    ;[arr[i], arr[j]] = [arr[j], arr[i]]
+  }
+  return arr
+}
+
+/**
  * Formats a given timestamp into a dynamic human-friendly relative time string.
  * Examples: "Just now", "5m ago", "2h ago", "Yesterday", "3d ago", "2w ago", "1mo ago", "1y ago"
  */

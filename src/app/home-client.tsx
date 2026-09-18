@@ -162,8 +162,27 @@ export function HomeClient() {
   const categoryScrollRef = useRef<HTMLDivElement>(null);
   const recentScrollRef = useRef<HTMLDivElement>(null);
 
-  // Recommended for You section products (from randomProducts prop)
+  // Dedicated partitioned non-overlapping slices for each home section (Zero duplicates across sections)
+  const shopDiscountProducts = useMemo<Product[]>(() => {
+    if (randomProducts.length >= 24) return randomProducts.slice(0, 6);
+    return randomProducts.slice(0, Math.min(6, randomProducts.length));
+  }, [randomProducts]);
+
+  const megaSaleProducts = useMemo<Product[]>(() => {
+    if (randomProducts.length >= 24) return randomProducts.slice(6, 10);
+    if (randomProducts.length > 6) return randomProducts.slice(6, 10);
+    return randomProducts.slice(0, 4);
+  }, [randomProducts]);
+
+  const dealsOfTheDayProducts = useMemo<Product[]>(() => {
+    if (randomProducts.length >= 24) return randomProducts.slice(10, 18);
+    if (randomProducts.length > 10) return randomProducts.slice(10, 18);
+    return randomProducts.slice(0, 8);
+  }, [randomProducts]);
+
+  // Recommended for You section products (remaining pool, completely distinct from above sections)
   const displayRecommendedProducts = useMemo<Product[]>(() => {
+    if (randomProducts.length >= 24) return randomProducts.slice(18);
     return randomProducts || [];
   }, [randomProducts]);
 
@@ -277,7 +296,7 @@ export function HomeClient() {
   }, []);
 
   const refreshHomeProducts = useCallback(() => {
-    fetch("/api/home/products", { credentials: "include", cache: "no-store" })
+    fetch("/api/home/products?limit=48", { credentials: "include", cache: "no-store" })
       .then((r) => r.json())
       .then((data: unknown) => {
         setRandomProducts(Array.isArray(data) ? (data as Product[]) : []);
@@ -508,7 +527,7 @@ export function HomeClient() {
     return null;
   };
 
-  const exploreProductsPreview = randomProducts.slice(0, 8);
+  const exploreProductsPreview = randomProducts.length >= 24 ? randomProducts.slice(18, 26) : randomProducts.slice(0, 8);
 
   const onInterestModalCompleted = useCallback(() => {
     setInterestModalOpen(false);
@@ -931,7 +950,7 @@ export function HomeClient() {
                 </Link>
               </div>
               <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
-                {randomProducts.slice(0, 6).map((p, idx) => {
+                {shopDiscountProducts.map((p, idx) => {
                   const finalPrice = Math.max(0, (p.basePrice ?? 0) - (p.discount ?? 0));
                   const originalPrice = p.basePrice > finalPrice ? p.basePrice : finalPrice * 1.5;
                   const imgSrc = getProductImg(p.images?.[0], idx);
@@ -1141,7 +1160,7 @@ export function HomeClient() {
 
               {/* Embedded Dynamic Mega Sale Product Showcase Grid (Spacious 4-column card grid with large square images) */}
               <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-2 md:grid-cols-4">
-                {randomProducts.slice(0, 4).map((p, idx) => {
+                {megaSaleProducts.map((p, idx) => {
                   const finalPrice = Math.max(0, (p.basePrice ?? 0) - (p.discount ?? 0));
                   const savings = p.discount > 0 ? p.discount : Math.round((p.basePrice || finalPrice * 2) * 0.5);
                   const originalPrice = (p.basePrice > finalPrice ? p.basePrice : finalPrice + savings);
@@ -1321,7 +1340,7 @@ export function HomeClient() {
               </div>
 
               <div className="grid grid-cols-2 gap-3.5 sm:gap-4 md:grid-cols-4">
-                {randomProducts.slice(0, 8).map((p, idx) => {
+                {dealsOfTheDayProducts.map((p, idx) => {
                   const finalPrice = Math.max(0, (p.basePrice ?? 0) - (p.discount ?? 0));
                   const savings = p.discount > 0 ? p.discount : Math.round((p.basePrice || finalPrice * 1.5) * 0.35);
                   const originalPrice = (p.basePrice > finalPrice ? p.basePrice : finalPrice + savings);
