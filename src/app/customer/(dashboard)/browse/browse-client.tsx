@@ -705,7 +705,7 @@ export function BrowseClient() {
   )
 
   return (
-    <div className="min-w-0 overflow-x-hidden bg-slate-50/80">
+    <div className="min-w-0 bg-slate-50/80">
       <div className="mx-auto max-w-[1400px] px-4 md:px-6">
         <div className="py-5 md:py-8">
           {(categoryName || subcategoryName || serviceCategoryName || isServiceFilter) && (
@@ -757,9 +757,25 @@ export function BrowseClient() {
           </div>
 
           <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
-            <aside className="sticky top-4 hidden w-72 shrink-0 self-start rounded-lg border border-slate-200 bg-white p-4 shadow-sm lg:block">
-              <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-slate-500">Filters</h2>
-              {filterSidebar}
+            <aside className="sticky top-28 z-20 hidden w-72 shrink-0 self-start rounded-xl border border-slate-200 bg-white shadow-sm lg:block max-h-[calc(100vh-7.5rem)] overflow-y-auto overscroll-contain [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-300 hover:[&::-webkit-scrollbar-thumb]:bg-slate-400">
+              <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-100 bg-white px-4 py-3 shadow-[0_1px_2px_rgba(0,0,0,0.03)]">
+                <div className="flex items-center gap-2">
+                  <Filter className="h-4 w-4 text-slate-500" />
+                  <h2 className="text-xs font-bold uppercase tracking-wider text-slate-700">Filters</h2>
+                </div>
+                {activeChips.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={clearAllFilters}
+                    className="text-xs font-semibold text-amber-600 hover:text-amber-700 hover:underline"
+                  >
+                    Clear all
+                  </button>
+                )}
+              </div>
+              <div className="p-4 pt-1">
+                {filterSidebar}
+              </div>
             </aside>
 
             <main className="min-w-0 flex-1 space-y-4">
