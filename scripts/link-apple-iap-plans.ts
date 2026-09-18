@@ -1,89 +1,133 @@
-import { PrismaClient, SubscriptionPlan, PlanType } from "@prisma/client"
+import { PrismaClient } from "@prisma/client"
 
 const prisma = new PrismaClient()
 
 /**
- * One-time utility script to link Apple In-App Purchase Product IDs to database plans.
- * Run via: pnpm exec tsx scripts/link-apple-iap-plans.ts
+ * Utility script to link Apple In-App Purchase Product IDs to database subscription plans.
+ * Free plans are excluded from Apple IAP (Apple Store requires paid products only).
+ * 
+ * To run this script:
+ *   npx tsx scripts/link-apple-iap-plans.ts
  */
 async function main() {
-  console.log("Linking Apple IAP Product IDs to subscription plans...")
+  console.log("🔗 Linking Apple IAP Product IDs to subscription plans in database...\n")
 
-  const mappings = [
-    // 1. Product & Service Plans
+  /**
+   * Configure your Apple Product IDs here.
+   * Edit the `appleProductId` strings to match the exact Product IDs created in App Store Connect.
+   */
+  const paidPlanMappings = [
+    // ════════════════════════════════════════════════════════════════════════
+    // 1. PRODUCT & SERVICE SELLER PLANS (Paid only)
+    // ════════════════════════════════════════════════════════════════════════
     {
-      name: SubscriptionPlan.STANDARD,
-      type: PlanType.PRODUCT_SERVICE,
-      duration: 30,
-      appleProductId: "com.meeem.seller.standard.monthly",
+      id: "cmjmscjxs000113d1asvtbc1k",
+      displayName: "Basic Plan",
+      type: "PRODUCT_SERVICE",
+      price: "Le 200",
+      duration: "30 days (1 Month)",
+      // 👉 Put your Apple Product ID for Basic Monthly below:
+      appleProductId: "com.meeem.seller.basic",
     },
     {
-      name: SubscriptionPlan.PREMIUM,
-      type: PlanType.PRODUCT_SERVICE,
-      duration: 30,
-      appleProductId: "com.meeem.seller.premium.monthly",
+      id: "cmjmsclc8000213d1s7wuymga",
+      displayName: "Standard Plan",
+      type: "PRODUCT_SERVICE",
+      price: "Le 300",
+      duration: "30 days (1 Month)",
+      // 👉 Put your Apple Product ID for Standard Monthly below:
+      appleProductId: "com.meeem.seller.standard",
     },
     {
-      name: SubscriptionPlan.STANDARD,
-      type: PlanType.PRODUCT_SERVICE,
-      duration: 90,
-      appleProductId: "com.meeem.seller.standard.quarterly",
+      id: "cmpwa4si300008nfwutt5g2fd",
+      displayName: "Premium Plan",
+      type: "PRODUCT_SERVICE",
+      price: "Le 1,500",
+      duration: "90 days (Quarterly)",
+      // 👉 Put your Apple Product ID for Premium / Quarterly below:
+      appleProductId: "com.meeem.seller.premium",
     },
 
-    // 2. Hotel Plans
+    // ════════════════════════════════════════════════════════════════════════
+    // 2. HOTEL SELLER PLANS (Paid only)
+    // ════════════════════════════════════════════════════════════════════════
     {
-      name: SubscriptionPlan.STANDARD,
-      type: PlanType.HOTEL,
-      duration: 30,
-      appleProductId: "com.meeem.seller.hotel.standard.monthly",
+      id: "cmpmbi2hm0004vwrt5fy3sjp6",
+      displayName: "Standard Hotel",
+      type: "HOTEL",
+      price: "Le 200",
+      duration: "30 days (1 Month)",
+      // 👉 Apple Product ID for Hotel Standard:
+      appleProductId: "com.meeem.seller.hotel.standard",
     },
     {
-      name: SubscriptionPlan.PREMIUM,
-      type: PlanType.HOTEL,
-      duration: 30,
-      appleProductId: "com.meeem.seller.hotel.premium.monthly",
+      id: "cmpmbi3k80005vwrtpq99vgow",
+      displayName: "Premium Hotel",
+      type: "HOTEL",
+      price: "Le 500",
+      duration: "30 days (1 Month)",
+      // 👉 Apple Product ID for Hotel Premium:
+      appleProductId: "com.meeem.seller.hotel.premium",
     },
 
-    // 3. Restaurant Plans
+    // ════════════════════════════════════════════════════════════════════════
+    // 3. RESTAURANT SELLER PLANS (Paid only)
+    // ════════════════════════════════════════════════════════════════════════
     {
-      name: SubscriptionPlan.STANDARD,
-      type: PlanType.RESTAURANT,
-      duration: 30,
-      appleProductId: "com.meeem.seller.restaurant.standard.monthly",
+      id: "cmpmbi5fm0007vwrtacl1p761",
+      displayName: "Standard Restaurant",
+      type: "RESTAURANT",
+      price: "Le 200",
+      duration: "30 days (1 Month)",
+      // 👉 Apple Product ID for Restaurant Standard:
+      appleProductId: "com.meeem.seller.restaurant.standard",
     },
     {
-      name: SubscriptionPlan.PREMIUM,
-      type: PlanType.RESTAURANT,
-      duration: 30,
-      appleProductId: "com.meeem.seller.restaurant.premium.monthly",
+      id: "cmpmbi6do0008vwrtjrq7jh80",
+      displayName: "Premium Restaurant",
+      type: "RESTAURANT",
+      price: "Le 500",
+      duration: "30 days (1 Month)",
+      // 👉 Apple Product ID for Restaurant Premium:
+      appleProductId: "com.meeem.seller.restaurant.premium",
     },
   ]
 
   let updatedCount = 0
 
-  for (const m of mappings) {
-    const res = await prisma.plan.updateMany({
-      where: {
-        name: m.name,
-        type: m.type,
-        duration: m.duration,
-      },
-      data: {
-        appleProductId: m.appleProductId,
-      },
+  // 1. Update each paid plan with its assigned Apple Product ID
+  for (const plan of paidPlanMappings) {
+    const updated = await prisma.plan.update({
+      where: { id: plan.id },
+      data: { appleProductId: plan.appleProductId },
     })
+
     console.log(
-      `✓ [${m.type}] ${m.name} (${m.duration}d) -> ${m.appleProductId} (${res.count} updated)`
+      `✓ [${plan.type}] "${plan.displayName}" (${plan.price}, ${plan.duration})`
     )
-    updatedCount += res.count
+    console.log(`    ↳ Plan ID:         ${plan.id}`)
+    console.log(`    ↳ AppleProduct ID: ${updated.appleProductId}\n`)
+
+    updatedCount++
   }
 
-  console.log(`\nSuccessfully linked Apple Product IDs across ${updatedCount} plan(s).`)
+  // 2. Ensure all Free plans have appleProductId explicitly set to null
+  const freePlans = await prisma.plan.updateMany({
+    where: {
+      name: "FREE",
+    },
+    data: {
+      appleProductId: null,
+    },
+  })
+  console.log(`ℹ️  Verified ${freePlans.count} Free plan(s) have appleProductId = null (Free plans do not use Apple IAP).`)
+
+  console.log(`\n🎉 Successfully linked Apple Product IDs across ${updatedCount} paid plan(s).`)
 }
 
 main()
   .catch((e) => {
-    console.error("Error linking Apple IAP plans:", e)
+    console.error("❌ Error linking Apple IAP plans:", e)
     process.exit(1)
   })
   .finally(async () => {

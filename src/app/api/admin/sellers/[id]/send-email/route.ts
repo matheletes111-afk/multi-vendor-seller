@@ -132,7 +132,7 @@ export async function POST(
     // Subject validation: required for email, optional for SMS
     const effectiveSubject = (typeof subject === "string" && subject.trim())
       ? subject.trim()
-      : (targetChannel === "sms" ? "MEEEM Partner Notice" : "")
+      : ""
 
     if (targetChannel === "email" && !effectiveSubject) {
       return NextResponse.json({ error: "Email subject is required" }, { status: 400 })

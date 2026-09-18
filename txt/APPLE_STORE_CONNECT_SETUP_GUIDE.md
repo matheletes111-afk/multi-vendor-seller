@@ -105,15 +105,15 @@
 
 | ক্র. | সেলার টাইপ | Reference Name (অভ্যন্তরীণ নাম) | Product ID (হুবহু এটি লিখবেন) | Duration |
 | :---: | :--- | :--- | :--- | :---: |
-| **১** | Product / Service | Standard Monthly | `com.meeem.seller.standard.monthly` | 1 Month |
-| **২** | Product / Service | Premium Monthly | `com.meeem.seller.premium.monthly` | 1 Month |
-| **৩** | Hotel | Hotel Standard Monthly | `com.meeem.seller.hotel.standard.monthly` | 1 Month |
-| **৪** | Hotel | Hotel Premium Monthly | `com.meeem.seller.hotel.premium.monthly` | 1 Month |
-| **৫** | Restaurant | Restaurant Standard Monthly | `com.meeem.seller.restaurant.standard.monthly` | 1 Month |
-| **৬** | Restaurant | Restaurant Premium Monthly | `com.meeem.seller.restaurant.premium.monthly` | 1 Month |
-| *৭ (ঐচ্ছিক)* | Product / Service | Standard Quarterly (90 Days) | `com.meeem.seller.standard.quarterly` | 3 Months |
+| **১** | Product / Service | Basic Plan (Le 200) | `com.meeem.seller.basic` | 1 Month |
+| **২** | Product / Service | Standard Plan (Le 300) | `com.meeem.seller.standard` | 1 Month |
+| **৩** | Product / Service | Premium Plan (Le 1,500) | `com.meeem.seller.premium` | 3 Months |
+| **৪** | Hotel | Hotel Standard (Le 200) | `com.meeem.seller.hotel.standard` | 1 Month |
+| **৫** | Hotel | Hotel Premium (Le 500) | `com.meeem.seller.hotel.premium` | 1 Month |
+| **৬** | Restaurant | Restaurant Standard (Le 200) | `com.meeem.seller.restaurant.standard` | 1 Month |
+| **৭** | Restaurant | Restaurant Premium (Le 500) | `com.meeem.seller.restaurant.premium` | 1 Month |
 
-> ⚠️ **সতর্কতা:** `Product ID` একবার তৈরি করলে আর পরিবর্তন বা এডিট করা যায় না। বানানে যেন কোনো ভুল না হয়। মোবাইল অ্যাপে যদি কেবল মাসিক প্ল্যান রাখেন তবে ১ থেকে ৬ নম্বর প্রোডাক্টগুলোই যথেষ্ট।
+> ⚠️ **সতর্কতা:** `Product ID` একবার তৈরি করলে আর পরিবর্তন বা এডিট করা যায় না। বানানে যেন কোনো ভুল না হয়। হুবহু ওপরের আইডিগুলোই ব্যবহার করুন।
 
 ---
 
@@ -124,7 +124,7 @@
 1. **Subscription Duration:** ড্রপডাউন থেকে সিলেক্ট করুন **1 Month**।
 2. **Subscription Pricing:**
    * **Add Pricing** (অথবা Create Subscription Price)-এ ক্লিক করুন।
-   * আপনার মূল কারেন্সি ও বেস প্রাইস নির্বাচন করুন (যেমন USD $29.99 বা $99.99 অথবা আপনার নির্ধারিত মূল্য)।
+   * আপনার মূল কারেন্সি ও বেস প্রাইস নির্বাচন করুন (যেমন Sierra Leone Leone (SLL/SLE) বা Le 200, Le 300, Le 500 অথবা আপনার নির্ধারিত মূল্য)।
    * অ্যাপল স্বয়ংক্রিয়ভাবে বিশ্বের বাকি ১৭৫+ দেশের কারেন্সিতে সমমূল্য রূপান্তর করে নেবে। Next করে Confirm করুন।
 3. **App Store Localization:**
    * **(+)** বাটনে ক্লিক করে ভাষা সিলেক্ট করুন: `English (U.S.)`
@@ -236,7 +236,7 @@
    * App Store Connect-এর অ্যাপ ইনফরমেশনে অথবা আপনার ওয়েবসাইটে ব্যবহারের শর্তাবলী থাকতে হবে।
    * URL: `https://www.meeemsl.com/terms` (অথবা অ্যাপলের স্ট্যান্ডার্ড EULA: `https://www.apple.com/legal/internet-services/itunes/dev/stdeula/`)।
 2. **Privacy Policy URL:**
-   * App Information পেজে Privacy Policy URL ফিল্ডে লিংক দিন: `https://www.meeemsl.com/privacy`।
+   * App Information পেজে Privacy Policy URL ফিল্ডে লিংক দিন: `https://www.meeemsl.com/privacy-policy` (অথবা `https://www.meeemsl.com/privacy` — দুটি লিঙ্কই এখন লাইভ কাজ করে)।
 3. **Restore Purchases বাটন (মোবাইল অ্যাপে):**
    * মোবাইল অ্যাপের সাবস্ক্রিপশন পে-ওয়ালে অবশ্যই একটি **"Restore Purchases"** বাটন থাকতে হবে। 
    * আমরা ইতোমধ্যে এর জন্য ব্যাকএন্ড API তৈরি করে রেখেছি: `POST /mobileapi/seller/iap/restore`।

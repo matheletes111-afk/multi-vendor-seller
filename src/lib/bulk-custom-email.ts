@@ -386,9 +386,14 @@ export async function sendBulkCustomEmailChunk(
         }
       } else if (recipient.phone) {
         // SMS Fallback
-        const preview = message.length > 280 ? `${message.slice(0, 277)}...` : message
-        const headline = subject && subject.trim() ? `${subject.trim()} - ` : ""
-        const smsBody = `Hi ${sellerDisplayName}, MEEEM Notice: ${headline}${preview}`
+        const cleanSubject = subject?.trim() || ""
+        const headline = cleanSubject && !cleanSubject.toLowerCase().includes("meeem notice")
+          ? `${cleanSubject} - `
+          : ""
+        const prefix = `Hi ${sellerDisplayName}, MEEEM Notice: ${headline}`
+        const rawBody = `${prefix}${message.trim()}`
+        // Twilio max SMS size across multi-part concatenated segments is 1,600 characters
+        const smsBody = rawBody.length > 1600 ? `${rawBody.slice(0, 1597)}...` : rawBody
         const smsSent = await sendNotificationSms({
           to: recipient.phone,
           countryCode: recipient.phoneCountryCode,
