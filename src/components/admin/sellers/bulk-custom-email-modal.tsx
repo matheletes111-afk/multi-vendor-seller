@@ -630,7 +630,14 @@ export function BulkCustomEmailModal({
                   <Label htmlFor="broadcast-message" className="text-xs font-semibold text-slate-700 dark:text-slate-300">
                     Message Body <span className="text-red-500">*</span>
                   </Label>
-                  <span className="text-[11px] text-slate-400">{message.length} characters</span>
+                  <div className="flex items-center gap-2 text-[11px] text-slate-400">
+                    <span>{message.length} characters</span>
+                    {byChannelCount.sms > 0 && (
+                      <span className="text-amber-600 dark:text-amber-400 font-medium">
+                        (~{Math.max(1, Math.ceil(message.length / 153))} SMS segment{message.length > 153 ? "s" : ""} for {byChannelCount.sms} SMS recipient{byChannelCount.sms > 1 ? "s" : ""})
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <Textarea
                   id="broadcast-message"
@@ -640,9 +647,16 @@ export function BulkCustomEmailModal({
                   onChange={(e) => setMessage(e.target.value)}
                   className="rounded-xl text-xs sm:text-sm resize-y leading-relaxed font-sans"
                 />
-                <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1.5">
-                  Note: The email will automatically include official MEEEM branding, personalized greeting (partner name), and support contact information.
-                </p>
+                <div className="flex flex-col gap-1 mt-1.5 text-[11px] text-slate-400 dark:text-slate-500">
+                  <p>
+                    Note: Email messages include full branded layout, personalized greeting, and official signature.
+                  </p>
+                  {byChannelCount.sms > 0 && (
+                    <p className="text-amber-600 dark:text-amber-400">
+                      📱 Phone-only recipients ({byChannelCount.sms}) will receive this notice via Twilio SMS (supports up to 1,600 characters without cut-off).
+                    </p>
+                  )}
+                </div>
               </div>
             </div>
           )}

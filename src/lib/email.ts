@@ -1870,12 +1870,19 @@ https://meeemsl.com
 
   // Fallback to SMS if toPhone is available
   if (toPhone) {
-    const preview = message.length > 320 ? `${message.slice(0, 317)}...` : message
-    const headline = subject && subject.trim() ? `${subject.trim()} - ` : ""
+    const cleanSubject = subject?.trim() || ""
+    // Avoid repeating "MEEEM Notice" if subject already contains it
+    const headline = cleanSubject && !cleanSubject.toLowerCase().includes("meeem notice")
+      ? `${cleanSubject} - `
+      : ""
+    const prefix = `Hi ${displayName}, MEEEM Notice: ${headline}`
+    const rawBody = `${prefix}${message.trim()}`
+    // Twilio max SMS size across multi-part concatenated segments is 1,600 characters
+    const smsBody = rawBody.length > 1600 ? `${rawBody.slice(0, 1597)}...` : rawBody
     const success = await sendNotificationSms({
       to: toPhone,
       countryCode: phoneCountryCode,
-      body: `Hi ${displayName}, MEEEM Notice: ${headline}${preview}`,
+      body: smsBody,
     })
     return { 
       success, 
