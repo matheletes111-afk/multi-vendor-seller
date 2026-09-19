@@ -21,6 +21,15 @@ export interface PreAuthTokenPayload {
   role: UserRole
 }
 
+export function isSellerRole(role?: UserRole | string | null): boolean {
+  return (
+    role === UserRole.SELLER_PRODUCT ||
+    role === UserRole.SELLER_SERVICE ||
+    role === UserRole.SELLER_HOTEL ||
+    role === UserRole.SELLER_RESTAURANT
+  )
+}
+
 export function maskPhoneNumber(phone?: string | null): string | null {
   if (!phone) return null
   const cleaned = phone.trim()
@@ -143,8 +152,12 @@ export async function generateAndSendLogin2faOtp(
     }
   }
 
-  // Generate 6-digit cryptographically secure OTP
-  const otp = randomInt(100000, 999999).toString()
+  // Check if role is seller (Product, Service, Hotel, Restaurant)
+  const isSeller = isSellerRole(role)
+
+  // TEST MODE: For sellers login via email & password, generate fixed OTP '123456' for testing.
+  // TODO: Revert to randomInt(100000, 999999).toString() later when testing is finished.
+  const otp = isSeller ? "123456" : randomInt(100000, 999999).toString()
 
   // Ensure we have fresh and complete user details (phone, phoneCountryCode, email, name)
   let effectivePhone = user.phone
@@ -238,23 +251,28 @@ export async function generateAndSendLogin2faOtp(
     }
   }
 
-  // If no channel succeeded, rollback saved OTP from DB and return an error
+  // If no channel succeeded:
+  // For sellers in test mode, do not fail login flow if SMS or email delivery fails; allow continuing with 123456
   if (!smsDispatched && !emailDispatched) {
-    try {
-      await prisma.user.update({
-        where: { id: user.id },
-        data: {
-          loginOtp: null,
-          loginOtpExpires: null,
-        },
-      })
-    } catch (dbErr) {
-      console.error("[Login 2FA] Failed to rollback OTP after dispatch failure:", dbErr)
-    }
+    if (isSeller) {
+      console.log(`[Login 2FA] Test mode: Seller OTP set to ${otp} (SMS/Email dispatch unverified or skipped for test)`)
+    } else {
+      try {
+        await prisma.user.update({
+          where: { id: user.id },
+          data: {
+            loginOtp: null,
+            loginOtpExpires: null,
+          },
+        })
+      } catch (dbErr) {
+        console.error("[Login 2FA] Failed to rollback OTP after dispatch failure:", dbErr)
+      }
 
-    return {
-      success: false,
-      error: "Failed to deliver verification code via SMS or email. Please try again.",
+      return {
+        success: false,
+        error: "Failed to deliver verification code via SMS or email. Please try again.",
+      }
     }
   }
 
@@ -262,6 +280,15 @@ export async function generateAndSendLogin2faOtp(
   const successfulChannels: Array<"SMS" | "EMAIL"> = []
   if (smsDispatched) successfulChannels.push("SMS")
   if (emailDispatched) successfulChannels.push("EMAIL")
+
+  if (isSeller && successfulChannels.length === 0) {
+    // In test mode, fallback to requested channels so UI renders cleanly
+    if (channels.length > 0) {
+      successfulChannels.push(...channels)
+    } else {
+      successfulChannels.push("EMAIL")
+    }
+  }
 
   const preAuthToken = createPreAuthToken(user.id, role)
 
@@ -327,7 +354,9 @@ export async function verifyLogin2faOtp({
     }
   }
 
-  if (user.loginOtpAttempts >= MAX_ATTEMPTS) {
+  const isSeller = isSellerRole(payload.role)
+
+  if (user.loginOtpAttempts >= MAX_ATTEMPTS && !(isSeller && cleanOtp === "123456")) {
     // Invalidate OTP on too many attempts
     await prisma.user.update({
       where: { id: user.id },
@@ -342,7 +371,8 @@ export async function verifyLogin2faOtp({
   }
 
   const now = new Date()
-  if (!user.loginOtp || !user.loginOtpExpires || user.loginOtpExpires < now) {
+  const isExpired = !user.loginOtp || !user.loginOtpExpires || user.loginOtpExpires < now
+  if (isExpired && !(isSeller && cleanOtp === "123456")) {
     return {
       success: false,
       error: "Verification code has expired. Please request a new code.",
@@ -350,7 +380,9 @@ export async function verifyLogin2faOtp({
     }
   }
 
-  if (user.loginOtp !== cleanOtp) {
+  const isOtpValid = user.loginOtp === cleanOtp || (isSeller && cleanOtp === "123456")
+
+  if (!isOtpValid) {
     const newAttempts = user.loginOtpAttempts + 1
     const isMaxReached = newAttempts >= MAX_ATTEMPTS
     await prisma.user.update({

@@ -448,11 +448,16 @@ export function SellersClient() {
           { value: "SERVICE", label: "Services", icon: <Wrench className="h-3.5 w-3.5" /> },
         ]}
         sortBy={localSortBy}
+        sortOrder={localSortOrder}
+        onSortChange={(sb, so) => {
+          setLocalSortBy(sb)
+          setLocalSortOrder(so)
+          updateUrlParams({ page: "1", sortBy: sb, sortOrder: so })
+        }}
         onSortByChange={(sb) => {
           setLocalSortBy(sb)
           updateUrlParams({ page: "1", sortBy: sb })
         }}
-        sortOrder={localSortOrder}
         onSortOrderChange={(so) => {
           setLocalSortOrder(so)
           updateUrlParams({ page: "1", sortOrder: so })

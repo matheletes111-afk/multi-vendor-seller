@@ -49,10 +49,12 @@ export interface SellerFilterToolbarProps {
   sellerTypeOptions?: Array<{ value: string; label: string; icon?: React.ReactNode }>
 
   sortBy: string
-  onSortByChange: (val: string) => void
+  onSortByChange?: (val: string) => void
 
   sortOrder: "asc" | "desc"
-  onSortOrderChange: (val: "asc" | "desc") => void
+  onSortOrderChange?: (val: "asc" | "desc") => void
+
+  onSortChange?: (field: string, order: "asc" | "desc") => void
 
   onReset: () => void
   totalCount?: number
@@ -82,6 +84,7 @@ export function SellerFilterToolbar({
   onSortByChange,
   sortOrder,
   onSortOrderChange,
+  onSortChange,
   onReset,
   totalCount,
   loading,
@@ -99,15 +102,35 @@ export function SellerFilterToolbar({
     }
   }
 
-  // Combined sort value e.g. "createdAt_desc"
-  const normalizedSortBy = sortBy === "storeName" || sortBy === "store" ? "businessName" : sortBy
-  const currentSortComposite = `${normalizedSortBy}_${sortOrder}`
+  // Normalize sort field so camelCase and lowerCase match SelectItem values perfectly
+  const normalizeSortField = (field?: string | null): string => {
+    const lower = (field || "").trim().toLowerCase()
+    if (lower === "businessname" || lower === "store" || lower === "storename") return "businessName"
+    if (lower === "commissionrate" || lower === "commission") return "commissionRate"
+    if (lower === "docstatus" || lower === "documents") return "docStatus"
+    if (lower === "createdat" || lower === "date") return "createdAt"
+    if (lower === "status") return "status"
+    if (lower === "email") return "email"
+    return field || "createdAt"
+  }
+
+  const normalizedSortBy = normalizeSortField(sortBy)
+  const normalizedSortOrder = (sortOrder || "desc").toLowerCase() as "asc" | "desc"
+  const currentSortComposite = `${normalizedSortBy}_${normalizedSortOrder}`
 
   const handleCompositeSortChange = (compositeVal: string) => {
-    const [field, order] = compositeVal.split("_") as [string, "asc" | "desc"]
+    const lastUnderscore = compositeVal.lastIndexOf("_")
+    if (lastUnderscore === -1) return
+    const field = compositeVal.slice(0, lastUnderscore)
+    const order = compositeVal.slice(lastUnderscore + 1) as "asc" | "desc"
+
     if (field && (order === "asc" || order === "desc")) {
-      onSortByChange(field)
-      onSortOrderChange(order)
+      if (onSortChange) {
+        onSortChange(field, order)
+      } else {
+        onSortByChange?.(field)
+        onSortOrderChange?.(order)
+      }
     }
   }
 
@@ -318,9 +341,12 @@ export function SellerFilterToolbar({
               <SelectContent className="rounded-2xl max-h-80">
                 <SelectItem value="createdAt_desc">📅 Registration Date (Newest)</SelectItem>
                 <SelectItem value="createdAt_asc">📅 Registration Date (Oldest)</SelectItem>
-                <SelectItem value="businessName_asc">🏪 Business Name (A -Z)</SelectItem>
-                <SelectItem value="email_asc">✉️ Email</SelectItem>
-                <SelectItem value="status_asc">✅ Document Status (Approved)</SelectItem>
+                <SelectItem value="businessName_asc">🏪 Business Name (A - Z)</SelectItem>
+                <SelectItem value="businessName_desc">🏪 Business Name (Z - A)</SelectItem>
+                <SelectItem value="email_asc">✉️ Email (A - Z)</SelectItem>
+                <SelectItem value="email_desc">✉️ Email (Z - A)</SelectItem>
+                <SelectItem value="status_asc">✅ Seller Status (Approved)</SelectItem>
+                <SelectItem value="status_desc">⏳ Seller Status (Pending / Suspended)</SelectItem>
                 <SelectItem value="docStatus_desc">📄 Document Status (Complete)</SelectItem>
                 <SelectItem value="docStatus_asc">⚠️ Document Status (Incomplete)</SelectItem>
                 <SelectItem value="commissionRate_desc">💰 Commission (Highest)</SelectItem>
