@@ -421,69 +421,116 @@ export async function GET(request: NextRequest) {
     // ── Multi-Column Sorting ──
     const modifier = sortOrder === "asc" ? 1 : -1
     filteredList.sort((a, b) => {
+      const dateA = new Date(a.createdAt).getTime() || 0
+      const dateB = new Date(b.createdAt).getTime() || 0
+      const newestFirst = dateB - dateA // Newer registration always comes first for tie-breakers
+
       switch (sortBy) {
         case "name": {
-          const valA = (a.userName || a.userEmail || "").toLowerCase()
-          const valB = (b.userName || b.userEmail || "").toLowerCase()
-          return valA.localeCompare(valB) * modifier
+          const valA = (a.userName || a.userEmail || "").trim().toLowerCase()
+          const valB = (b.userName || b.userEmail || "").trim().toLowerCase()
+          if (!valA && valB) return 1
+          if (valA && !valB) return -1
+          const diff = valA.localeCompare(valB) * modifier
+          if (diff !== 0) return diff
+          return newestFirst
         }
         case "email": {
-          const valA = (a.userEmail || "").toLowerCase()
-          const valB = (b.userEmail || "").toLowerCase()
-          return valA.localeCompare(valB) * modifier
+          const valA = (a.userEmail || "").trim().toLowerCase()
+          const valB = (b.userEmail || "").trim().toLowerCase()
+          if (!valA && valB) return 1
+          if (valA && !valB) return -1
+          const diff = valA.localeCompare(valB) * modifier
+          if (diff !== 0) return diff
+          return newestFirst
         }
         case "store":
         case "storename":
         case "businessname": {
-          const valA = (a.businessName || a.storeName || a.userName || "").toLowerCase()
-          const valB = (b.businessName || b.storeName || b.userName || "").toLowerCase()
-          return valA.localeCompare(valB) * modifier
+          const valA = (a.businessName || a.storeName || a.userName || "").trim().toLowerCase()
+          const valB = (b.businessName || b.storeName || b.userName || "").trim().toLowerCase()
+          if (!valA && valB) return 1
+          if (valA && !valB) return -1
+          const diff = valA.localeCompare(valB) * modifier
+          if (diff !== 0) return diff
+          return newestFirst
         }
         case "sellertype":
         case "type": {
-          return a.sellerType.localeCompare(b.sellerType) * modifier
+          const diff = a.sellerType.localeCompare(b.sellerType) * modifier
+          if (diff !== 0) return diff
+          return newestFirst
         }
         case "status": {
+          // Exactly mirrors renderStatusBadge in UI:
+          // 1. Approved (isApproved && !isSuspended)
+          // 2. Pending Review (pending && onboardingCompleted)
+          // 3. Onboarding (incomplete onboarding steps)
+          // 4. Correction Needed
+          // 5. Rejected
+          // 6. Suspended (isSuspended)
           const getStatusRank = (item: UnifiedSellerItem) => {
+            if (item.isSuspended) return 6
+            if (item.status === "REJECTED") return 5
+            if (item.status === "CORRECTION" || item.status === "CORRECTION_NEEDED") return 4
             if (item.isApproved) return 1
-            if (item.status === "PENDING" || !item.status) return 2
-            if (item.status === "CORRECTION" || item.status === "CORRECTION_NEEDED") return 3
-            if (item.status === "REJECTED") return 4
-            if (item.isSuspended) return 5
-            return 6
+            if (!item.onboardingCompleted) return 3
+            return 2 // Pending Review
           }
-          const rankDiff = (getStatusRank(a) - getStatusRank(b)) * modifier
+          const rankA = getStatusRank(a)
+          const rankB = getStatusRank(b)
+          const rankDiff = (rankA - rankB) * modifier
           if (rankDiff !== 0) return rankDiff
-          return (new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+          return newestFirst
         }
         case "plan":
         case "subscription":
         case "subscriptionplan": {
           const valA = (a.subscriptionPlan || "Free").toLowerCase()
           const valB = (b.subscriptionPlan || "Free").toLowerCase()
-          return valA.localeCompare(valB) * modifier
+          const diff = valA.localeCompare(valB) * modifier
+          if (diff !== 0) return diff
+          return newestFirst
         }
         case "commission":
         case "commissionrate": {
           const valA = a.commissionRate ?? a.baseCommissionRate ?? 10
           const valB = b.commissionRate ?? b.baseCommissionRate ?? 10
-          return (valA - valB) * modifier
+          const diff = (valA - valB) * modifier
+          if (diff !== 0) return diff
+          return newestFirst
         }
         case "documents":
         case "docstatus": {
-          const valA = a.documentEvaluation?.isComplete ? 1 : 0
-          const valB = b.documentEvaluation?.isComplete ? 1 : 0
-          if (valA !== valB) {
-            return sortOrder === "desc" ? (valB - valA) : (valA - valB)
+          // Document Status:
+          // desc = Complete First (complete sellers first, then higher completion ratio, then newest)
+          // asc = Incomplete First (incomplete sellers first, then lower completion ratio, then newest)
+          const completeA = a.documentEvaluation?.isComplete ? 1 : 0
+          const completeB = b.documentEvaluation?.isComplete ? 1 : 0
+
+          if (completeA !== completeB) {
+            return sortOrder === "desc" ? (completeB - completeA) : (completeA - completeB)
           }
-          const missingA = a.documentEvaluation?.missingCount ?? 0
-          const missingB = b.documentEvaluation?.missingCount ?? 0
-          return sortOrder === "desc" ? (missingA - missingB) : (missingB - missingA)
+
+          const ratioA = a.documentEvaluation?.totalRequired
+            ? (a.documentEvaluation.uploadedCount / a.documentEvaluation.totalRequired)
+            : (completeA ? 1 : 0)
+          const ratioB = b.documentEvaluation?.totalRequired
+            ? (b.documentEvaluation.uploadedCount / b.documentEvaluation.totalRequired)
+            : (completeB ? 1 : 0)
+
+          if (ratioA !== ratioB) {
+            return sortOrder === "desc" ? (ratioB - ratioA) : (ratioA - ratioB)
+          }
+
+          return newestFirst
         }
         case "date":
         case "createdat":
         default: {
-          return (new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()) * modifier
+          // For Registration Date Oldest: older dates first (dateA - dateB)
+          // For Registration Date Newest: newer dates first (dateB - dateA)
+          return sortOrder === "asc" ? (dateA - dateB) : (dateB - dateA)
         }
       }
     })

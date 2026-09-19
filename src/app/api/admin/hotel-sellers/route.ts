@@ -131,66 +131,99 @@ export async function GET(request: NextRequest) {
     // Multi-column sorting
     const modifier = sortOrder === "asc" ? 1 : -1
     processedSellers.sort((a: any, b: any) => {
+      const dateA = new Date(a.createdAt).getTime() || 0
+      const dateB = new Date(b.createdAt).getTime() || 0
+      const newestFirst = dateB - dateA // Newer registration always comes first for tie-breakers
+
       switch (sortBy) {
         case "name": {
-          const valA = (a.user?.name || a.user?.email || "").toLowerCase()
-          const valB = (b.user?.name || b.user?.email || "").toLowerCase()
-          return valA.localeCompare(valB) * modifier
+          const valA = (a.user?.name || a.user?.email || "").trim().toLowerCase()
+          const valB = (b.user?.name || b.user?.email || "").trim().toLowerCase()
+          if (!valA && valB) return 1
+          if (valA && !valB) return -1
+          const diff = valA.localeCompare(valB) * modifier
+          if (diff !== 0) return diff
+          return newestFirst
         }
         case "email": {
-          const valA = (a.user?.email || "").toLowerCase()
-          const valB = (b.user?.email || "").toLowerCase()
-          return valA.localeCompare(valB) * modifier
+          const valA = (a.user?.email || "").trim().toLowerCase()
+          const valB = (b.user?.email || "").trim().toLowerCase()
+          if (!valA && valB) return 1
+          if (valA && !valB) return -1
+          const diff = valA.localeCompare(valB) * modifier
+          if (diff !== 0) return diff
+          return newestFirst
         }
         case "store":
         case "storename":
         case "hotelname":
         case "businessname": {
-          const valA = (a.businessInfo?.businessName || a.hotels?.[0]?.name || a.user?.name || "").toLowerCase()
-          const valB = (b.businessInfo?.businessName || b.hotels?.[0]?.name || b.user?.name || "").toLowerCase()
-          return valA.localeCompare(valB) * modifier
+          const valA = (a.businessInfo?.businessName || a.hotels?.[0]?.name || a.user?.name || "").trim().toLowerCase()
+          const valB = (b.businessInfo?.businessName || b.hotels?.[0]?.name || b.user?.name || "").trim().toLowerCase()
+          if (!valA && valB) return 1
+          if (valA && !valB) return -1
+          const diff = valA.localeCompare(valB) * modifier
+          if (diff !== 0) return diff
+          return newestFirst
         }
         case "status": {
           const getStatusRank = (item: any) => {
+            if (item.isSuspended) return 6
+            if (item.status === "REJECTED") return 5
+            if (item.status === "CORRECTION" || item.status === "CORRECTION_NEEDED") return 4
             if (item.isApproved) return 1
-            if (item.status === "PENDING" || !item.status) return 2
-            if (item.status === "CORRECTION" || item.status === "CORRECTION_NEEDED") return 3
-            if (item.status === "REJECTED") return 4
-            if (item.isSuspended) return 5
-            return 6
+            if (!item.onboardingCompleted) return 3
+            return 2
           }
-          const rankDiff = (getStatusRank(a) - getStatusRank(b)) * modifier
+          const rankA = getStatusRank(a)
+          const rankB = getStatusRank(b)
+          const rankDiff = (rankA - rankB) * modifier
           if (rankDiff !== 0) return rankDiff
-          return (new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+          return newestFirst
         }
         case "plan":
         case "subscription":
         case "subscriptionplan": {
           const valA = (a.subscription?.plan?.displayName || a.subscription?.plan?.name || "Free").toLowerCase()
           const valB = (b.subscription?.plan?.displayName || b.subscription?.plan?.name || "Free").toLowerCase()
-          return valA.localeCompare(valB) * modifier
+          const diff = valA.localeCompare(valB) * modifier
+          if (diff !== 0) return diff
+          return newestFirst
         }
         case "commission":
         case "commissionrate": {
           const valA = a.commissionRate ?? a.baseCommissionRate ?? 10
           const valB = b.commissionRate ?? b.baseCommissionRate ?? 10
-          return (valA - valB) * modifier
+          const diff = (valA - valB) * modifier
+          if (diff !== 0) return diff
+          return newestFirst
         }
         case "documents":
         case "docstatus": {
-          const valA = a.documentEvaluation?.isComplete ? 1 : 0
-          const valB = b.documentEvaluation?.isComplete ? 1 : 0
-          if (valA !== valB) {
-            return sortOrder === "desc" ? (valB - valA) : (valA - valB)
+          const completeA = a.documentEvaluation?.isComplete ? 1 : 0
+          const completeB = b.documentEvaluation?.isComplete ? 1 : 0
+
+          if (completeA !== completeB) {
+            return sortOrder === "desc" ? (completeB - completeA) : (completeA - completeB)
           }
-          const missingA = a.documentEvaluation?.missingCount ?? 0
-          const missingB = b.documentEvaluation?.missingCount ?? 0
-          return sortOrder === "desc" ? (missingA - missingB) : (missingB - missingA)
+
+          const ratioA = a.documentEvaluation?.totalRequired
+            ? (a.documentEvaluation.uploadedCount / a.documentEvaluation.totalRequired)
+            : (completeA ? 1 : 0)
+          const ratioB = b.documentEvaluation?.totalRequired
+            ? (b.documentEvaluation.uploadedCount / b.documentEvaluation.totalRequired)
+            : (completeB ? 1 : 0)
+
+          if (ratioA !== ratioB) {
+            return sortOrder === "desc" ? (ratioB - ratioA) : (ratioA - ratioB)
+          }
+
+          return newestFirst
         }
         case "date":
         case "createdat":
         default: {
-          return (new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()) * modifier
+          return sortOrder === "asc" ? (dateA - dateB) : (dateB - dateA)
         }
       }
     })
