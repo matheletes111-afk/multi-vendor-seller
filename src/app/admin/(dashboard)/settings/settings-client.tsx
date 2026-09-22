@@ -12,6 +12,7 @@ import { Alert, AlertDescription } from "@/ui/alert"
 import { PageLoader } from "@/components/ui/page-loader"
 import { ProfilePictureInput } from "@/components/profile-picture-input"
 import { LegalPolicyTabContent } from "@/components/legal/legal-policy-tab-content"
+import { AppUpdateSettingsTab } from "@/components/admin/app-update-settings-tab"
 import { CountryCodeSelect } from "@/ui/country-code-select"
 import { cn } from "@/lib/utils"
 
@@ -53,8 +54,11 @@ type AdminProfile = {
 
 export function AdminSettingsClient() {
   const searchParams = useSearchParams()
-  const [activeTab, setActiveTab] = useState<"general" | "legal">(() => {
-    return searchParams.get("tab") === "legal" ? "legal" : "general"
+  const [activeTab, setActiveTab] = useState<"general" | "legal" | "app_updates">(() => {
+    const tabParam = searchParams.get("tab")
+    if (tabParam === "legal") return "legal"
+    if (tabParam === "app_updates" || tabParam === "apps" || tabParam === "updates") return "app_updates"
+    return "general"
   })
   const [user, setUser] = useState<AdminProfile | null>(null)
   const [loading, setLoading] = useState(true)
@@ -481,7 +485,7 @@ export function AdminSettingsClient() {
       </div>
 
       {/* Settings Tab Navigation */}
-      <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 mb-8 pb-2">
+      <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 dark:border-slate-800 mb-8 pb-2">
         <button
           type="button"
           onClick={() => setActiveTab("general")}
@@ -495,6 +499,21 @@ export function AdminSettingsClient() {
           <SettingsIcon className="w-4 h-4" />
           <span>System & Economics</span>
         </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab("app_updates")}
+          className={cn(
+            "flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-2xl transition-all",
+            activeTab === "app_updates"
+              ? "bg-slate-900 text-white shadow-md dark:bg-white dark:text-slate-900"
+              : "text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
+          )}
+        >
+          <Smartphone className="w-4 h-4 text-amber-500" />
+          <span>App Updates & Versions</span>
+        </button>
+
         <button
           type="button"
           onClick={() => setActiveTab("legal")}
@@ -512,6 +531,8 @@ export function AdminSettingsClient() {
 
       {activeTab === "legal" ? (
         <LegalPolicyTabContent role="ADMIN" />
+      ) : activeTab === "app_updates" ? (
+        <AppUpdateSettingsTab />
       ) : (
         <>
           {error && (
